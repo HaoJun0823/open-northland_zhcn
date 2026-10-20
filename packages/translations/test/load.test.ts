@@ -107,6 +107,44 @@ describe('loadTranslationOverlays', () => {
     );
   });
 
+  it('attaches an edit to the overlay of its name, and refuses one without that overlay or of another map', async () => {
+    await put(`chs/maps/${FILE_A}.json`, mapOverlay({ '0': '北行', '1': '说明' }));
+    await put(`chs/maps/${FILE_A}.edit.json`, mapOverlay({ '1': '新说明' }));
+    await put('chs/objects/goods.json', {
+      version: OVERLAY_VERSION,
+      basis: BASIS,
+      names: { '1': '木头', '2': '石头' },
+    });
+    await put('chs/objects/goods.edit.json', {
+      version: OVERLAY_VERSION,
+      basis: BASIS,
+      names: { '2': '石料' },
+    });
+
+    const overlays = await loadTranslationOverlays(root);
+
+    const [filed] = overlays.maps.get(KEY_A)?.get('chs') ?? [];
+    expect(filed?.strings).toEqual({ '0': '北行', '1': '说明' });
+    expect(filed?.edit).toMatchObject({ strings: { '1': '新说明' } });
+    expect(overlays.objects.get('chs')?.get('goods')?.edit).toMatchObject({ names: { '2': '石料' } });
+
+    await put(`chs/maps/${FILE_A}.edit.json`, { ...mapOverlay({ '1': '新说明' }), map: 'inna' });
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      /the edit's map inna is not the overlay's map wyprawa/,
+    );
+    await rm(join(root, `chs/maps/${FILE_A}.json`));
+    await rm(join(root, `chs/maps/${FILE_A}.edit.json`));
+    await put(`chs/maps/${FILE_B}.edit.json`, mapOverlay({ '1': '新说明' }));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      new RegExp(`${FILE_B}\\.edit\\.json: an edit needs the overlay it edits beside it, ${FILE_B}\\.json`),
+    );
+    await rm(join(root, `chs/maps/${FILE_B}.edit.json`));
+    await rm(join(root, 'chs/objects/goods.json'));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      /goods\.edit\.json: an edit needs the overlay it edits beside it, goods\.json/,
+    );
+  });
+
   it('reads only known languages, kinds and JSON files', async () => {
     await put(`xyz/maps/${DIGEST_A}.json`, mapOverlay({}));
     await put('chs/notes/readme.json', { anything: true });

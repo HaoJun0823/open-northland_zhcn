@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { jsonFingerprint } from '../../json-fingerprint.js';
 import { LANGUAGES, SOURCE_LANGUAGES } from '../../languages.js';
 
 /**
@@ -70,6 +71,25 @@ export function mapOverlayFileId(map: string, datDigest: string, basisDigest?: s
 }
 
 /**
+ * The suffix of a project edit over an imported overlay: `<name>.edit.json` beside `<name>.json` holds
+ * the project's text for the keys the project's corrections or source-language edits changed, since the
+ * import translates the text as the pack shipped it. The loader attaches it to the overlay of `<name>`.
+ */
+export const OVERLAY_EDIT_SUFFIX = '.edit';
+
+/** File id `id` (without `.json`) split into the overlay it names and whether it is that overlay's edit. */
+export function splitOverlayEdit(id: string): { readonly name: string; readonly edit: boolean } {
+  return id.endsWith(OVERLAY_EDIT_SUFFIX)
+    ? { name: id.slice(0, -OVERLAY_EDIT_SUFFIX.length), edit: true }
+    : { name: id, edit: false };
+}
+
+/** A filed map overlay with the project's edit over it, when `<name>.edit.json` exists. */
+export interface FiledMapOverlay extends MapOverlay {
+  readonly edit?: MapOverlay;
+}
+
+/**
  * `translations/<lang>/maps/<map>.<map.dat prefix>.json`: one map's strings by id and briefing blocks by
  * label. `<map>` is the overlay's `map` alias and `<map.dat prefix>` the first hex digits of the raw
  * `map.dat` SHA-256, which identify the file. A further overlay of the same `map.dat` and language, for a
@@ -98,8 +118,27 @@ export const ObjectTableOverlay = z.strictObject({
   basis: OverlayBasis,
   names: z.record(IdKey, z.string()),
   plurals: z.record(IdKey, z.string()).default({}),
+  /** As on `MapOverlay`: set on a file a tool converted from the named language's file of the same name. */
+  derived: z.enum(LANGUAGES).optional(),
 });
 export type ObjectTableOverlay = z.infer<typeof ObjectTableOverlay>;
+
+/** A filed object table overlay with the project's edit over it, when `<table>.edit.json` exists. */
+export interface FiledObjectTableOverlay extends ObjectTableOverlay {
+  readonly edit?: ObjectTableOverlay;
+}
+
+/** An object table overlay's `basis.digest`: the decoded source names and plurals by type id, as the pack
+ *  shipped them, not normalised. */
+export function objectTableSourceDigest({
+  names,
+  plurals,
+}: {
+  readonly names: Readonly<Record<number, string>>;
+  readonly plurals: Readonly<Record<number, string>>;
+}): string {
+  return jsonFingerprint({ names: { ...names }, plurals: { ...plurals } });
+}
 
 /**
  * `translations/<lang>/books/<book>.json`: a hypertext book's block bodies, by block file then label

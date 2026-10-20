@@ -28,8 +28,10 @@ Imported:
 - `<lang>/objects/`: the `goods`, `houses`, `jobs`, `experiences` and `tribes` name tables. House 22
   and tribe 18 are left out: the localization's German names another object under those ids.
 - Some entries translate German that `tools/asset-pipeline/corrections/` or our `ger/maps/` overlays
-  fix (the tutorials' control instructions, a few goals and object names); the import lists them, and
-  they still follow the original until fixed upstream.
+  fix (the tutorials' control instructions, a few goals and object names); the import lists them. The
+  project's Chinese for those keys lives in the `<name>.edit.json` files beside the imported files
+  ([contract](AGENTS.md)); they are the project's own, written from the project's Polish with the
+  imported Chinese as the base, their `cht` twins derived.
 - `<lang>/books/history.json`: the blocks of `hypertext/history/mythology.txt`.
 - `glossary.csv`: `language_union.csv` with its `ger`, `eng`, `pol`, `l10` (as `chs`) and `l11` (as
   `cht`) columns and the term type, description and references. The import rewrites the whole file.

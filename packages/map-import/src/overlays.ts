@@ -1,4 +1,5 @@
 import {
+  type FiledMapOverlay,
   isSourceLanguage,
   jsonFingerprint,
   type Language,
@@ -25,7 +26,7 @@ import type { MapTree } from './tree.js';
 export interface MapOverlaySource {
   /** The overlays filed under one `map.dat` SHA-256 hex digest, by language, one per basis text; empty
    *  for none. */
-  readonly mapOverlays: (datDigest: string) => ReadonlyMap<Language, readonly MapOverlay[]>;
+  readonly mapOverlays: (datDigest: string) => ReadonlyMap<Language, readonly FiledMapOverlay[]>;
   /** Whether an overlay in a source language may apply: a community map's, never a campaign map's. */
   readonly allowSourceLanguages: boolean;
 }
@@ -146,11 +147,11 @@ export async function readMapSourceText(tree: MapTree, key: string): Promise<Map
  * and for an edit (an overlay in its basis language) whose basis changed: applied as the fallback, it
  * would give a copy that ships no `lang` text a fragment of that language.
  */
-export function selectMapOverlay(
+export function selectMapOverlay<T extends MapOverlay>(
   lang: Language,
-  candidates: readonly MapOverlay[],
+  candidates: readonly T[],
   sourceDigest: (lang: SourceLanguage) => string,
-): { readonly overlay: MapOverlay; readonly stale: boolean } | undefined {
+): { readonly overlay: T; readonly stale: boolean } | undefined {
   const matching = candidates.find((overlay) => sourceDigest(overlay.basis.lang) === overlay.basis.digest);
   if (matching !== undefined) return { overlay: matching, stale: false };
   const [only, ...others] = candidates;
@@ -218,17 +219,30 @@ export function planMapOverlays(
       outcomes.push({ lang, status: 'ambiguous', candidates: candidates.map((overlay) => overlay.basis) });
       continue;
     }
-    const { overlay, stale } = selected;
-    if (lang !== overlay.basis.lang && shipsLanguage(folder, tables, lang)) {
+    const { overlay: filed, stale } = selected;
+    if (lang !== filed.basis.lang && shipsLanguage(folder, tables, lang)) {
       folder.warn(`translation overlay ${lang} redundant: the map ships ${lang} text itself`);
       outcomes.push({ lang, status: 'redundant' });
       continue;
     }
-    if (stale) folder.warn(`translation overlay ${lang} stale: its ${overlay.basis.lang} basis text changed`);
-    applied.set(lang, overlay);
+    if (stale) folder.warn(`translation overlay ${lang} stale: its ${filed.basis.lang} basis text changed`);
+    const { edit, ...overlay } = filed;
+    const editApplies = edit !== undefined && digestOf(edit.basis.lang) === edit.basis.digest;
+    if (edit !== undefined && !editApplies)
+      folder.warn(`translation overlay ${lang} edit left out: its ${edit.basis.lang} basis text changed`);
+    applied.set(lang, edit !== undefined && editApplies ? withEdit(overlay, edit) : overlay);
     outcomes.push({ lang, status: 'applied', stale });
   }
   return { applied, outcomes };
+}
+
+/** `overlay` with `edit`'s entries over its own: the project's text for the keys its corrections changed. */
+function withEdit(overlay: MapOverlay, edit: MapOverlay): MapOverlay {
+  return {
+    ...overlay,
+    strings: { ...overlay.strings, ...edit.strings },
+    briefings: { ...overlay.briefings, ...edit.briefings },
+  };
 }
 
 /**

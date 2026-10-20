@@ -1,4 +1,10 @@
-import { isSourceLanguage, type Language, type ObjectTableOverlay } from '@open-northland/data';
+import {
+  type FiledObjectTableOverlay,
+  isSourceLanguage,
+  type Language,
+  type ObjectTableOverlay,
+  objectTableSourceDigest,
+} from '@open-northland/data';
 import {
   cifBytesToSections,
   decodeCifStringTable,
@@ -169,10 +175,37 @@ export async function convertGuiStrings(
     done.push({ lang, path, tables: tableCount, strings: stringCount });
   }
   for (const [lang, overlays] of roots.overlays?.objects ?? []) {
-    const written = await writeObjectOverlays(outDir, lang, overlays);
+    const written = await writeObjectOverlays(roots, outDir, lang, overlays);
     if (written !== undefined) done.push(written);
   }
   return done;
+}
+
+/** `overlay` with `edit`'s names over its own when the edit's basis is still the shipped table of its
+ *  language; otherwise the edit is left out with a warning. */
+async function withObjectEdit(
+  roots: SourceRoots,
+  lang: Language,
+  table: GameObjectTable,
+  overlay: ObjectTableOverlay,
+  edit: ObjectTableOverlay,
+): Promise<ObjectTableOverlay> {
+  let shipped: GameObjectNames;
+  try {
+    shipped = await readGameObjectNames({ data: roots.data }, edit.basis.lang, table);
+  } catch (err) {
+    console.warn(`[pipeline] gui: ${lang} ${table} edit left out: ${errorMessage(err)}`);
+    return overlay;
+  }
+  if (objectTableSourceDigest(shipped) !== edit.basis.digest) {
+    console.warn(`[pipeline] gui: ${lang} ${table} edit left out: its ${edit.basis.lang} basis text changed`);
+    return overlay;
+  }
+  return {
+    ...overlay,
+    names: { ...overlay.names, ...edit.names },
+    plurals: { ...overlay.plurals, ...edit.plurals },
+  };
 }
 
 export const isGameObjectTable = (name: string): name is GameObjectTable =>
@@ -181,9 +214,10 @@ export const isGameObjectTable = (name: string): name is GameObjectTable =>
 /** Writes an overlay language's `gui/strings/<lang>.json` from its object-table overlays, normalised like
  *  the source tables. A source language's object tables keep the corrections, so its overlay is refused. */
 async function writeObjectOverlays(
+  roots: SourceRoots,
   outDir: string,
   lang: Language,
-  overlays: ReadonlyMap<string, ObjectTableOverlay>,
+  overlays: ReadonlyMap<string, FiledObjectTableOverlay>,
 ): Promise<GuiStringsResult | undefined> {
   if (isSourceLanguage(lang)) {
     console.warn(
@@ -193,12 +227,14 @@ async function writeObjectOverlays(
   }
   const tables: DecodedTables = {};
   let stringCount = 0;
-  for (const [table, overlay] of overlays) {
+  for (const [table, filed] of overlays) {
     if (!isGameObjectTable(table)) {
       console.warn(`[pipeline] gui: ignored ${lang} object-table overlay ${table}: no such table`);
       continue;
     }
-    for (const [key, byId] of Object.entries(exportedNames(table, overlay))) {
+    const { edit, ...overlay } = filed;
+    const names = edit === undefined ? overlay : await withObjectEdit(roots, lang, table, overlay, edit);
+    for (const [key, byId] of Object.entries(exportedNames(table, names))) {
       tables[key] = byId;
       stringCount += Object.keys(byId).length;
     }

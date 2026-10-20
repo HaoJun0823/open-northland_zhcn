@@ -14,6 +14,9 @@ import {
   takesSourceLanguageOverlays,
 } from '@open-northland/asset-pipeline/sources';
 import { jsonFingerprint, mapOverlayDatKey, type SourceLanguage } from '@open-northland/data';
+
+export { objectTableSourceDigest } from '@open-northland/data';
+
 import { textEncoding } from '@open-northland/formats/text-encoding';
 import {
   findMapFolders,
@@ -56,11 +59,6 @@ export interface PackText {
   objectNames(lang: SourceLanguage, table: GameObjectTable): Promise<GameObjectNames>;
   /** One language's history book, or undefined when the pack lacks it. */
   historyBlocks(lang: SourceLanguage): Promise<BookBlocks | undefined>;
-}
-
-/** An object table overlay's `basis.digest`: the decoded source names and plurals by type id, not normalised. */
-export function objectTableSourceDigest({ names, plurals }: GameObjectNames): string {
-  return jsonFingerprint({ names: { ...names }, plurals: { ...plurals } });
 }
 
 /** A book overlay's `basis.digest`: the basis language's blocks by lower-cased block file, then label. */

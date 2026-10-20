@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Writes the Traditional Chinese twin of every Simplified Chinese map overlay the project wrote: an
- * OpenCC `cn` to `twp` conversion (Taiwan script and vocabulary), marked `derived: "chs"`, and deletes a
- * marked twin whose `chs` file is gone. A `cht` file without that mark (an imported or hand-written one)
+ * Writes the Traditional Chinese twin of every Simplified Chinese map overlay and object table file the
+ * project wrote: an OpenCC `cn` to `twp` conversion (Taiwan script and vocabulary), marked
+ * `derived: "chs"`, and deletes a marked twin whose `chs` file is gone. A `cht` file without that mark (an imported or hand-written one)
  * is left alone. Usage: `translations/AGENTS.md`.
  */
 
@@ -11,13 +11,15 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { MapOverlay } from '@open-northland/data';
+import { MapOverlay, ObjectTableOverlay } from '@open-northland/data';
 import { listDirectory, readOverlayFile, TRANSLATIONS_ROOT } from '@open-northland/translations';
 import { Converter } from 'opencc-js';
 
 const SOURCE_LANGUAGE = 'chs';
 const TARGET_LANGUAGE = 'cht';
-const MAPS_DIR = 'maps';
+/** The folders whose project-written files get a derived twin: map overlays and object table edits. */
+const DERIVED_KINDS = ['maps', 'objects'] as const;
+type DerivedKind = (typeof DERIVED_KINDS)[number];
 const OVERLAY_EXTENSION = '.json';
 const JSON_INDENT = 2;
 
@@ -33,30 +35,46 @@ function traditionalPunctuation(text: string): string {
   return QUOTATION_MARKS.reduce((out, [from, to]) => out.replaceAll(from, to), text);
 }
 
-/** Converts the prose of each value; hypertext tags and markers carry no Chinese, so converting the
- *  whole value is safe. */
-export function deriveTraditional(source: MapOverlay, convert: (text: string) => string): MapOverlay {
-  const mapValues = (record: Readonly<Record<string, string>>): Record<string, string> =>
-    Object.fromEntries(
-      Object.entries(record).map(([key, value]) => [key, traditionalPunctuation(convert(value))]),
-    );
+type Convert = (text: string) => string;
+
+/** Each value of `record` converted; hypertext tags and markers carry no Chinese, so converting the whole
+ *  value is safe. */
+function convertedValues(record: Readonly<Record<string, string>>, convert: Convert): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, traditionalPunctuation(convert(value))]),
+  );
+}
+
+/** The Traditional twin of a map overlay. */
+export function deriveTraditional(source: MapOverlay, convert: Convert): MapOverlay {
   return MapOverlay.parse({
     version: source.version,
     map: source.map,
     basis: source.basis,
-    strings: mapValues(source.strings),
-    briefings: mapValues(source.briefings),
+    strings: convertedValues(source.strings, convert),
+    briefings: convertedValues(source.briefings, convert),
     derived: SOURCE_LANGUAGE,
   });
 }
 
-/** A file of either folder that does not read as a map overlay, which the command leaves as it is. */
+/** The Traditional twin of an object table overlay or edit. */
+export function deriveTraditionalTable(source: ObjectTableOverlay, convert: Convert): ObjectTableOverlay {
+  return ObjectTableOverlay.parse({
+    version: source.version,
+    basis: source.basis,
+    names: convertedValues(source.names, convert),
+    plurals: convertedValues(source.plurals, convert),
+    derived: SOURCE_LANGUAGE,
+  });
+}
+
+/** A file of either folder that does not read as an overlay, which the command leaves as it is. */
 export interface UnreadableOverlay {
   readonly file: string;
   readonly message: string;
 }
 
-/** What the command did, by file name under `<lang>/maps/`. */
+/** What the command did, by `<kind>/<file>` under each language. */
 export interface DeriveResult {
   readonly written: string[];
   /** `cht` files without the mark at a `chs` file's name. */
@@ -72,53 +90,77 @@ async function overlayFileNames(dir: string): Promise<string[]> {
     .map((entry) => entry.name);
 }
 
+/** How one kind's files are read and derived. */
+interface Derivation<T extends { readonly derived?: string | undefined }> {
+  readonly read: (path: string) => Promise<T>;
+  readonly derive: (source: T, convert: Convert) => T;
+}
+
+const DERIVATIONS: { readonly [K in DerivedKind]: Derivation<MapOverlay | ObjectTableOverlay> } = {
+  maps: {
+    read: (path) => readOverlayFile('maps', path),
+    derive: (source, convert) => deriveTraditional(MapOverlay.parse(source), convert),
+  },
+  objects: {
+    read: (path) => readOverlayFile('objects', path),
+    derive: (source, convert) => deriveTraditionalTable(ObjectTableOverlay.parse(source), convert),
+  },
+};
+
 /**
- * Derives `cht/maps/<file>` from each `chs/maps/<file>` that is not itself derived, unless the `cht`
+ * Derives `cht/<kind>/<file>` from each `chs/<kind>/<file>` that is not itself derived, unless the `cht`
  * file lacks the mark, and deletes each marked `cht` file without its `chs` file. A file that does not
  * read as an overlay is reported, never overwritten or deleted.
  */
-export async function deriveTraditionalMaps(
-  root: string,
-  convert: (text: string) => string,
-): Promise<DeriveResult> {
-  const sourceDir = join(root, SOURCE_LANGUAGE, MAPS_DIR);
-  const targetDir = join(root, TARGET_LANGUAGE, MAPS_DIR);
+export async function deriveTraditionalOverlays(root: string, convert: Convert): Promise<DeriveResult> {
   const result: DeriveResult = { written: [], kept: [], deleted: [], unreadable: [] };
-  const read = async (lang: string, dir: string, file: string): Promise<MapOverlay | undefined> => {
+  for (const kind of DERIVED_KINDS) await deriveKind(root, kind, convert, result);
+  return result;
+}
+
+async function deriveKind(
+  root: string,
+  kind: DerivedKind,
+  convert: Convert,
+  result: DeriveResult,
+): Promise<void> {
+  const { read, derive } = DERIVATIONS[kind];
+  const sourceDir = join(root, SOURCE_LANGUAGE, kind);
+  const targetDir = join(root, TARGET_LANGUAGE, kind);
+  const tryRead = async (lang: string, dir: string, file: string) => {
     const path = join(dir, file);
     try {
-      return await readOverlayFile('maps', path);
+      return await read(path);
     } catch (err) {
       const message = (err instanceof Error ? err.message : String(err)).replace(`${path}: `, '');
-      result.unreadable.push({ file: `${lang}/${MAPS_DIR}/${file}`, message });
+      result.unreadable.push({ file: `${lang}/${kind}/${file}`, message });
       return undefined;
     }
   };
   const sources = await overlayFileNames(sourceDir);
   const targets = await overlayFileNames(targetDir);
-  await mkdir(targetDir, { recursive: true });
+  if (sources.length > 0) await mkdir(targetDir, { recursive: true });
   for (const file of sources) {
-    const source = await read(SOURCE_LANGUAGE, sourceDir, file);
+    const source = await tryRead(SOURCE_LANGUAGE, sourceDir, file);
     if (source === undefined || source.derived !== undefined) continue;
     if (targets.includes(file)) {
-      const existing = await read(TARGET_LANGUAGE, targetDir, file);
+      const existing = await tryRead(TARGET_LANGUAGE, targetDir, file);
       if (existing === undefined) continue;
       if (existing.derived === undefined) {
-        result.kept.push(file);
+        result.kept.push(`${kind}/${file}`);
         continue;
       }
     }
-    const derived = deriveTraditional(source, convert);
+    const derived = derive(source, convert);
     await writeFile(join(targetDir, file), `${JSON.stringify(derived, null, JSON_INDENT)}\n`);
-    result.written.push(file);
+    result.written.push(`${kind}/${file}`);
   }
   for (const file of targets.filter((name) => !sources.includes(name))) {
-    const orphan = await read(TARGET_LANGUAGE, targetDir, file);
+    const orphan = await tryRead(TARGET_LANGUAGE, targetDir, file);
     if (orphan?.derived !== SOURCE_LANGUAGE) continue;
     await rm(join(targetDir, file));
-    result.deleted.push(file);
+    result.deleted.push(`${kind}/${file}`);
   }
-  return result;
 }
 
 async function main(): Promise<void> {
@@ -126,12 +168,12 @@ async function main(): Promise<void> {
   const baseDir = process.env.INIT_CWD ?? process.cwd();
   const root = values.root === undefined ? TRANSLATIONS_ROOT : resolve(baseDir, values.root);
   const convert = Converter({ from: 'cn', to: 'twp' });
-  const { written, kept, deleted, unreadable } = await deriveTraditionalMaps(root, convert);
+  const { written, kept, deleted, unreadable } = await deriveTraditionalOverlays(root, convert);
   for (const file of deleted)
-    console.log(`deleted ${TARGET_LANGUAGE}/${MAPS_DIR}/${file}: its ${SOURCE_LANGUAGE} file is gone`);
+    console.log(`deleted ${TARGET_LANGUAGE}/${file}: its ${SOURCE_LANGUAGE} file is gone`);
   for (const { file, message } of unreadable) console.error(`error   ${file}: ${message}; left as it is`);
   console.log(
-    `derive-cht: ${written.length} ${TARGET_LANGUAGE} map overlay(s) derived from ${SOURCE_LANGUAGE}, ` +
+    `derive-cht: ${written.length} ${TARGET_LANGUAGE} overlay file(s) derived from ${SOURCE_LANGUAGE}, ` +
       `${kept.length} kept as not derived, ${deleted.length} deleted, ${unreadable.length} unreadable`,
   );
   if (unreadable.length > 0) process.exitCode = 1;

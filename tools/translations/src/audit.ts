@@ -19,6 +19,7 @@ import {
   type ObjectTableOverlay,
   parseMapOverlayFileId,
   type SourceLanguage,
+  splitOverlayEdit,
 } from '@open-northland/data';
 import { type MapLanguageText, mapSourceTextDigest, selectMapOverlay } from '@open-northland/map-import';
 import {
@@ -70,13 +71,17 @@ const OVERLAY_EXTENSION = '.json';
 /** The campaign id spelling the campaign index accepts. */
 const CAMPAIGN_FILE = /^[a-z0-9][a-z0-9_-]*$/;
 
-/** Why a file of one kind is misnamed, or undefined when its id is valid. */
+/** Why a file of one kind is misnamed, or undefined when its id is valid; a map or object table edit
+ *  (`<name>.edit`) is named by the overlay it edits. */
 function misnamed(kind: OverlayKind, id: string): string | undefined {
+  const { name } = splitOverlayEdit(id);
   switch (kind) {
     case 'maps':
-      return parseMapOverlayFileId(id) === undefined ? MAP_OVERLAY_NAMING : undefined;
+      return parseMapOverlayFileId(name) === undefined ? MAP_OVERLAY_NAMING : undefined;
     case 'objects':
-      return isGameObjectTable(id) ? undefined : `an object table is one of ${GAME_OBJECT_TABLES.join(', ')}`;
+      return isGameObjectTable(name)
+        ? undefined
+        : `an object table is one of ${GAME_OBJECT_TABLES.join(', ')}`;
     case 'books':
       return id === HISTORY_BOOK ? undefined : `the only book is ${HISTORY_BOOK}`;
     case 'campaigns':
@@ -98,22 +103,43 @@ interface MapOverlayFile {
   readonly overlay: MapOverlay;
 }
 
-/** Every overlay file that passed its schema and layout, by kind. */
+/** One object table overlay file that passed its schema and layout. */
+interface ObjectTableOverlayFile {
+  readonly file: string;
+  readonly lang: Language;
+  readonly table: GameObjectTable;
+  readonly overlay: ObjectTableOverlay;
+}
+
+/** Every overlay file that passed its schema and layout, by kind; the project's edits over imported
+ *  overlays apart from the overlays they edit. */
 interface ValidOverlays {
   readonly maps: MapOverlayFile[];
-  readonly objects: {
-    readonly file: string;
-    readonly table: GameObjectTable;
-    readonly overlay: ObjectTableOverlay;
-  }[];
+  readonly mapEdits: MapOverlayFile[];
+  readonly objects: ObjectTableOverlayFile[];
+  readonly objectEdits: ObjectTableOverlayFile[];
   readonly books: { readonly file: string; readonly overlay: BookOverlay }[];
   readonly campaigns: { readonly file: string; readonly id: string }[];
 }
 
 /** Walks `root`, reporting layout and schema violations and collecting the valid overlays. */
 async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOverlays> {
-  const valid: ValidOverlays = { maps: [], objects: [], books: [], campaigns: [] };
+  const valid: ValidOverlays = {
+    maps: [],
+    mapEdits: [],
+    objects: [],
+    objectEdits: [],
+    books: [],
+    campaigns: [],
+  };
   const filing = new MapOverlayFiling();
+  /** Map edits attach after every overlay is filed, since `.edit.json` sorts before `.json`. */
+  const mapEdits: {
+    readonly file: string;
+    readonly lang: Language;
+    readonly name: string;
+    readonly overlay: MapOverlay;
+  }[] = [];
   for (const top of await listDirectory(root)) {
     if (isHidden(top.name)) continue;
     if (!top.isDirectory()) {
@@ -161,16 +187,25 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
           switch (kind) {
             case 'maps': {
               const overlay = await readOverlayFile('maps', path);
-              const refusal = filing.file(lang, id, overlay);
-              const datKey = parseMapOverlayFileId(id)?.datKey;
+              const { name, edit } = splitOverlayEdit(id);
+              if (edit) {
+                mapEdits.push({ file, lang, name, overlay });
+                break;
+              }
+              const refusal = filing.file(lang, name, overlay);
+              const datKey = parseMapOverlayFileId(name)?.datKey;
               if (refusal !== undefined) errors.push({ file, message: refusal });
               else if (datKey !== undefined) valid.maps.push({ file, lang, datKey, overlay });
               break;
             }
-            case 'objects':
-              if (isGameObjectTable(id))
-                valid.objects.push({ file, table: id, overlay: await readOverlayFile('objects', path) });
+            case 'objects': {
+              const { name, edit } = splitOverlayEdit(id);
+              if (isGameObjectTable(name)) {
+                const overlay = await readOverlayFile('objects', path);
+                (edit ? valid.objectEdits : valid.objects).push({ file, lang, table: name, overlay });
+              }
               break;
+            }
             case 'books':
               valid.books.push({ file, overlay: await readOverlayFile('books', path) });
               break;
@@ -187,6 +222,20 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
         }
       }
     }
+  }
+  for (const { file, lang, name, overlay } of mapEdits) {
+    const refusal = filing.edit(lang, name, overlay);
+    const datKey = parseMapOverlayFileId(name)?.datKey;
+    if (refusal !== undefined) errors.push({ file, message: refusal });
+    else if (datKey !== undefined) valid.mapEdits.push({ file, lang, datKey, overlay });
+  }
+  for (const edit of valid.objectEdits) {
+    const edited = valid.objects.some((table) => table.lang === edit.lang && table.table === edit.table);
+    if (!edited)
+      errors.push({
+        file: edit.file,
+        message: `an edit needs the overlay it edits beside it, ${edit.table}.json`,
+      });
   }
   return valid;
 }
@@ -363,6 +412,41 @@ function auditMapOverlays(
   return files.filter(({ overlay }) => !taken(overlay)).length;
 }
 
+/**
+ * The warnings of one project edit over an imported overlay: it applies to each copy of its `map.dat`
+ * whose text in its basis language it was written against, and should cover every key of the project's
+ * edit of that text (`overlays`, same `map.dat` and basis). Returns 1 when no copy of the pack takes it.
+ */
+function auditMapEdit(
+  edit: MapOverlayFile,
+  overlays: readonly MapOverlayFile[],
+  maps: ReadonlyMap<string, readonly PackMap[]>,
+  warn: (file: string, message: string) => void,
+): number {
+  const { file, overlay } = edit;
+  const copies = maps.get(edit.datKey);
+  if (copies === undefined) return 1;
+  const matching = copies.filter((map) => textDigest(map, overlay.basis.lang) === overlay.basis.digest);
+  if (matching.length === 0) {
+    warn(file, `the ${overlay.basis.lang} basis text changed; the edit is left out`);
+    return 1;
+  }
+  for (const map of matching) auditAppliedOverlay(edit, map, copies, false, warn);
+  const source = overlays.find(
+    (other) =>
+      other.lang === overlay.basis.lang &&
+      other.datKey === edit.datKey &&
+      other.overlay.basis.digest === overlay.basis.digest,
+  );
+  if (source !== undefined) {
+    const ids = missingKeys(source.overlay.strings, (id) => overlay.strings[id] !== undefined);
+    const labels = missingKeys(source.overlay.briefings, (label) => overlay.briefings[label] !== undefined);
+    if (ids !== undefined) warn(file, `does not cover string ids ${source.file} edits: ${ids}`);
+    if (labels !== undefined) warn(file, `does not cover briefing labels ${source.file} edits: ${labels}`);
+  }
+  return 0;
+}
+
 /** The valid map overlays by `map.dat` key, then language, in file order. */
 function mapOverlaysByDatKey(maps: readonly MapOverlayFile[]): Map<string, Map<Language, MapOverlayFile[]>> {
   const byKey = new Map<string, Map<Language, MapOverlayFile[]>>();
@@ -385,7 +469,13 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
     warnings.push({ file, message });
   };
   const valid = await readLayout(root, errors);
-  const files = valid.maps.length + valid.objects.length + valid.books.length + valid.campaigns.length;
+  const files =
+    valid.maps.length +
+    valid.mapEdits.length +
+    valid.objects.length +
+    valid.objectEdits.length +
+    valid.books.length +
+    valid.campaigns.length;
   let unmatchedMaps = 0;
   if (pack !== undefined) {
     const maps = valid.maps.length === 0 ? new Map<string, readonly PackMap[]>() : await pack.maps();
@@ -394,7 +484,8 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
       for (const files of byLanguage.values())
         unmatchedMaps += copies === undefined ? files.length : auditMapOverlays(files, copies, warn);
     }
-    for (const { file, table, overlay } of valid.objects) {
+    for (const edit of valid.mapEdits) unmatchedMaps += auditMapEdit(edit, valid.maps, maps, warn);
+    for (const { file, table, overlay } of [...valid.objects, ...valid.objectEdits]) {
       let source: GameObjectNames;
       try {
         source = await pack.objectNames(overlay.basis.lang, table);

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   type BookOverlay,
   type CampaignOverlay,
+  type FiledObjectTableOverlay,
   type Language,
   MapBriefing,
   type MapOverlay,
@@ -11,6 +12,7 @@ import {
   mapOverlayDatKey,
   type ObjectTableOverlay,
   OVERLAY_VERSION,
+  objectTableSourceDigest,
 } from '@open-northland/data';
 import { parseBriefingBlocks } from '@open-northland/formats/hypertext';
 import { mapSourceTextDigest } from '@open-northland/map-import';
@@ -24,6 +26,7 @@ import { writeFileWithParents } from '../src/files.js';
 import type { SourceRoots } from '../src/roots.js';
 import { campaignMapId, convertCampaignStage } from '../src/stages/campaigns.js';
 import { convertGuiHistory, convertGuiStrings } from '../src/stages/gui/index.js';
+import { readGameObjectNames } from '../src/stages/gui/strings.js';
 import { convertMapDatTree, summarizeMapOverlays } from '../src/stages/maps/index.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
@@ -221,6 +224,52 @@ describe('gui strings stage', () => {
     expect(warnings()).toEqual([
       expect.stringContaining('ignored chs object-table overlay weather'),
       expect.stringContaining('refused pol object-table overlays'),
+    ]);
+  });
+
+  it('applies an object table edit whose basis is the shipped table, and leaves out one whose basis changed', async () => {
+    await temp.write(
+      'Data/text/pol/strings/gameobjects/goods.ini',
+      utf8('[text]\nstringn 1 "Drewno"\nstringn 2 "Kamien"\n'),
+    );
+    await temp.write('Data/text/pol/strings/gameobjects/jobs.ini', utf8('[text]\nstringn 2 "Drwal"\n'));
+    const shipped = await readGameObjectNames({ data: temp.game }, 'pol', 'goods');
+    const edit = (names: Record<string, string>, digest: string): ObjectTableOverlay => ({
+      version: OVERLAY_VERSION,
+      basis: { lang: 'pol', digest },
+      names,
+      plurals: {},
+    });
+    const roots: SourceRoots = {
+      data: temp.game,
+      overlays: overlays({
+        objects: new Map<Language, ReadonlyMap<string, FiledObjectTableOverlay>>([
+          [
+            'chs',
+            new Map([
+              [
+                'goods',
+                {
+                  ...table({ '1': '木头', '2': '石头' }),
+                  edit: edit({ '2': '石料' }, objectTableSourceDigest(shipped)),
+                },
+              ],
+              ['jobs', { ...table({ '2': '樵夫' }), edit: edit({ '2': '伐木工' }, '1'.repeat(64)) }],
+            ]),
+          ],
+        ]),
+      }),
+    };
+
+    await convertGuiStrings(roots, temp.out, []);
+
+    expect(await readJson(join(temp.out, 'gui', 'strings', 'chs.json'))).toEqual({
+      goods: { '1': '木头', '2': '石料' },
+      jobs: { '2': '樵夫' },
+      jobsPlural: {},
+    });
+    expect(warnings()).toEqual([
+      expect.stringContaining('chs jobs edit left out: its pol basis text changed'),
     ]);
   });
 });

@@ -5,10 +5,13 @@ import { fileURLToPath } from 'node:url';
 import {
   BookOverlay,
   CampaignOverlay,
+  type FiledObjectTableOverlay,
   LANGUAGES,
   type Language,
   MapOverlay,
   ObjectTableOverlay,
+  OVERLAY_EDIT_SUFFIX,
+  splitOverlayEdit,
 } from '@open-northland/data';
 import { MapOverlayFiling, type MapOverlaysByDatKey } from './map-filing.js';
 
@@ -51,8 +54,9 @@ const SCHEMAS: { readonly [K in OverlayKind]: Schema<OverlayByKind[K]> } = {
 export interface TranslationOverlays {
   /** Map overlays by the raw `map.dat` SHA-256 hex digest, then language. */
   readonly maps: MapOverlaysByDatKey;
-  /** Game-object name tables by language, then table (`goods`, `houses`, `jobs`, ...). */
-  readonly objects: ReadonlyMap<Language, ReadonlyMap<string, ObjectTableOverlay>>;
+  /** Game-object name tables by language, then table (`goods`, `houses`, `jobs`, ...), each with its
+   *  project edit when one is filed. */
+  readonly objects: ReadonlyMap<Language, ReadonlyMap<string, FiledObjectTableOverlay>>;
   /** Hypertext books by language, then book (`history`). */
   readonly books: ReadonlyMap<Language, ReadonlyMap<string, BookOverlay>>;
   /** Campaign titles by language, then campaign id. */
@@ -106,12 +110,47 @@ async function readKind<K extends OverlayKind>(
   return files;
 }
 
-/** Files one language's map overlays; a misnamed file or a second one of the same basis throws. */
+/** Files one language's map overlays, then their edits; a misnamed file, a second one of the same basis
+ *  or an edit without its overlay throws. */
 async function readMaps(root: string, lang: Language, filing: MapOverlayFiling): Promise<void> {
-  for (const [name, overlay] of await readKind(root, lang, 'maps')) {
+  const files = await readKind(root, lang, 'maps');
+  const refuse = (id: string, refusal: string): never => {
+    throw new Error(`${join(root, lang, 'maps', id)}.json: ${refusal}`);
+  };
+  for (const [id, overlay] of files) {
+    const { name, edit } = splitOverlayEdit(id);
+    if (edit) continue;
     const refusal = filing.file(lang, name, overlay);
-    if (refusal !== undefined) throw new Error(`${join(root, lang, 'maps', name)}.json: ${refusal}`);
+    if (refusal !== undefined) refuse(id, refusal);
   }
+  for (const [id, overlay] of files) {
+    const { name, edit } = splitOverlayEdit(id);
+    if (!edit) continue;
+    const refusal = filing.edit(lang, name, overlay);
+    if (refusal !== undefined) refuse(id, refusal);
+  }
+}
+
+/** One language's object tables with their edits attached; an edit without its table throws. */
+async function readObjects(root: string, lang: Language): Promise<Map<string, FiledObjectTableOverlay>> {
+  const files = await readKind(root, lang, 'objects');
+  const tables = new Map<string, { edit?: ObjectTableOverlay } & ObjectTableOverlay>();
+  for (const [id, overlay] of files) if (!splitOverlayEdit(id).edit) tables.set(id, { ...overlay });
+  for (const [id, overlay] of files) {
+    const { name, edit } = splitOverlayEdit(id);
+    if (!edit) continue;
+    const table = tables.get(name);
+    if (table === undefined)
+      throw new Error(
+        `${join(root, lang, 'objects', id)}.json: an edit needs the overlay it edits beside it, ${name}.json`,
+      );
+    if (table.edit !== undefined)
+      throw new Error(
+        `${join(root, lang, 'objects', id)}.json: ${name}${OVERLAY_EDIT_SUFFIX}.json is filed already`,
+      );
+    table.edit = overlay;
+  }
+  return tables;
 }
 
 /**
@@ -122,7 +161,7 @@ export async function loadTranslationOverlays(
   root: string = TRANSLATIONS_ROOT,
 ): Promise<TranslationOverlays> {
   const maps = new MapOverlayFiling();
-  const objects = new Map<Language, ReadonlyMap<string, ObjectTableOverlay>>();
+  const objects = new Map<Language, ReadonlyMap<string, FiledObjectTableOverlay>>();
   const books = new Map<Language, ReadonlyMap<string, BookOverlay>>();
   const campaigns = new Map<Language, ReadonlyMap<string, CampaignOverlay>>();
   const present = new Set((await listDirectory(root)).filter((e) => e.isDirectory()).map((e) => e.name));
@@ -132,7 +171,7 @@ export async function loadTranslationOverlays(
     const put = <T>(into: Map<Language, ReadonlyMap<string, T>>, files: ReadonlyMap<string, T>): void => {
       if (files.size > 0) into.set(lang, files);
     };
-    put(objects, await readKind(root, lang, 'objects'));
+    put(objects, await readObjects(root, lang));
     put(books, await readKind(root, lang, 'books'));
     put(campaigns, await readKind(root, lang, 'campaigns'));
   }

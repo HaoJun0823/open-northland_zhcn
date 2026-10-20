@@ -21,7 +21,10 @@ translations/
                                  strings by id, briefing blocks by label  (MapOverlay)
     maps/<map>.<map.dat prefix>.<basis prefix>.json
                                  a further overlay of that map.dat and alias, for a copy with other text
+    maps/<name>.edit.json        the project's edit over the imported maps/<name>.json: the keys the
+                                 project's corrections changed, in the overlay's language  (MapOverlay)
     objects/<table>.json         goods, houses, jobs, experiences, tribes by type id  (ObjectTableOverlay)
+    objects/<table>.edit.json    the project's edit over the imported objects/<table>.json
     books/<book>.json            hypertext books: history  (BookOverlay)
     campaigns/<campaign>.json    campaign title  (CampaignOverlay)
 ```
@@ -56,6 +59,14 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
   of one language and `map.dat` with the same basis digest fail the load.
 - Imported overlays are never edited by hand: fix them upstream and re-import. `SOURCES.md` names the
   upstream commit. The project's own overlays are edited in place.
+- An import translates the text as the pack shipped it, so where the project's corrections or
+  source-language edits changed that text, the imported overlay still follows the author's version. The
+  project's text for those keys goes in `<name>.edit.json` beside the imported `<name>.json`: the same
+  schema, only the changed keys, `map` and the file name as the overlay it edits, `basis` the shipped
+  text in the language it was translated from. The loader attaches it to the imported overlay and the
+  pipeline applies its entries over the overlay's when its basis matches the map's text, else leaves
+  it out with a warning. The audit warns when a map edit does not cover every key of the project's
+  source-language edit of the same text. A re-import rewrites `<name>.json` and leaves the edit alone.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
 - Every string an overlay changes keeps the source's markup: `@` goal prefixes, `<picture:…>` and
   other tags inside a briefing block, `%s`-style placeholders.
@@ -74,10 +85,11 @@ plain file holds an overlay of other text, the skeleton takes the variant name, 
 this map and a copy sharing its alias look alike; `--force` replaces only a file of the same basis
 text. Copies with the same text share one file.
 
-`npm run translations:derive-cht` writes the `cht/maps/` twin of every project-written `chs/maps/`
-overlay as an OpenCC conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`.
-It rewrites only files carrying that mark, and deletes one whose `chs` file is gone; an imported or
-hand-written `cht` file is kept. Edit the `chs` file and rerun the command, never the derived file.
+`npm run translations:derive-cht` writes the `cht/maps/` and `cht/objects/` twin of every
+project-written `chs` file of those folders (map overlays and edits, object table edits) as an OpenCC
+conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`. It rewrites only files
+carrying that mark, and deletes one whose `chs` file is gone; an imported or hand-written `cht` file
+is kept. Edit the `chs` file and rerun the command, never the derived file.
 
 The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
 maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image

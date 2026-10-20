@@ -190,6 +190,21 @@ describe('convertMapFolder with translation overlays', () => {
     expect(warnings).toEqual([expect.stringContaining('translation overlay chs stale')]);
   });
 
+  it('applies an edit over the overlay it is filed with, and leaves out an edit whose basis changed', async () => {
+    const chs = await overlay({ strings: { '0': '北行', '1': '说明' } });
+    const edit = await overlay({ strings: { '1': '新说明' } });
+    const { map, warnings } = await convert(briefedMap(), new Map([['chs', [{ ...chs, edit }]]]));
+    expect(map.strings?.chs).toEqual({ '0': '北行', '1': '新说明' });
+    expect(warnings).toEqual([]);
+
+    const stale = { ...edit, basis: { lang: 'pol', digest: '0'.repeat(64) } } as const;
+    const leftOut = await convert(briefedMap(), new Map([['chs', [{ ...chs, edit: stale }]]]));
+    expect(leftOut.map.strings?.chs).toEqual({ '0': '北行', '1': '说明' });
+    expect(leftOut.warnings).toEqual([
+      expect.stringContaining('translation overlay chs edit left out: its pol basis text changed'),
+    ]);
+  });
+
   it('hashes the basis as the pack shipped it, while the corrected text still renders', async () => {
     const briefings = 'text/pol/briefings/briefings.txt';
     const shipped = briefedMap().files.get(briefings);

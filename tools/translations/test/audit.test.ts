@@ -144,6 +144,25 @@ describe('auditTranslations: map overlays of one map.dat', () => {
   });
 });
 
+describe('auditTranslations: edits over imported overlays', () => {
+  it('refuses an object table edit without the table it edits', async () => {
+    await put('chs/objects/goods.edit.json', {
+      version: OVERLAY_VERSION,
+      basis: basis(),
+      names: { '1': '木头' },
+    });
+
+    const { errors } = await auditTranslations(dir);
+
+    expect(errors).toEqual([
+      {
+        file: 'chs/objects/goods.edit.json',
+        message: 'an edit needs the overlay it edits beside it, goods.json',
+      },
+    ]);
+  });
+});
+
 describe('auditTranslations: against the pack', () => {
   const strings = { 0: 'Fjord', 1: 'Opis' };
   const briefings = new Map([['title', 'Na polnoc']]);
@@ -226,6 +245,41 @@ describe('auditTranslations: against the pack', () => {
         file: `eng/maps/${FILE}.json`,
         message: 'maps/community/fjord ships eng text itself, which wins; the overlay is redundant',
       },
+    ]);
+  });
+
+  it('audits an edit against its basis text and the source-language edit it translates', async () => {
+    const older = basis('f'.repeat(64));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾', '1': '描述' }, {}, older));
+    await put(
+      `pol/maps/${FILE}.json`,
+      mapOverlay({ '0': 'Fjord polnocny', '1': 'Nowy opis' }, { title: 'Na polnoc, hen' }, basis(polDigest)),
+    );
+    await put(`chs/maps/${FILE}.edit.json`, mapOverlay({ '0': '北峡湾', '7': '多余' }, {}, basis(polDigest)));
+    await put(`cht/maps/${FILE}.json`, mapOverlay({ '0': '峽灣' }, {}, older));
+    await put(`cht/maps/${FILE}.edit.json`, mapOverlay({ '0': '北峽灣' }, {}, basis('e'.repeat(64))));
+
+    const report = await auditTranslations(dir, pack([packMap({ folder: 'maps/community/fjord' })]));
+
+    expect(report.errors).toEqual([]);
+    expect(report.files).toBe(5);
+    expect(report.unmatchedMaps).toBe(1);
+    expect(report.warnings).toEqual([
+      {
+        file: `chs/maps/${FILE}.edit.json`,
+        message: 'maps/community/fjord: string ids the pol source lacks: 7',
+      },
+      {
+        file: `chs/maps/${FILE}.edit.json`,
+        message: `does not cover string ids pol/maps/${FILE}.json edits: 1`,
+      },
+      {
+        file: `chs/maps/${FILE}.edit.json`,
+        message: `does not cover briefing labels pol/maps/${FILE}.json edits: title`,
+      },
+      { file: `chs/maps/${FILE}.json`, message: 'maps/community/fjord: the pol basis text changed' },
+      { file: `cht/maps/${FILE}.edit.json`, message: 'the pol basis text changed; the edit is left out' },
+      { file: `cht/maps/${FILE}.json`, message: 'maps/community/fjord: the pol basis text changed' },
     ]);
   });
 

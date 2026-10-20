@@ -418,6 +418,11 @@ export const enContent = {
       summary:
         'A carpenter keeps building ox cart frameworks with wood from the warehouse. One cow walks over from a cattle farm and is harnessed to the first one. Each cattle farm keeps two cows, so further frameworks wait for animals while the carpenter continues working.',
     },
+    'vehicle-building-clearance': {
+      title: 'Building beside vehicles',
+      summary:
+        'A handcart, ox cart and catapult stand on three future house plots. After four seconds the foundations appear and push each vehicle onto free ground. Reload to repeat.',
+    },
     'vehicle-ox': {
       title: 'Ox cart framework',
       summary:

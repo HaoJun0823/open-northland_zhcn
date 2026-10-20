@@ -38,6 +38,7 @@ import { cancelRoadSitesUnder } from '../roads/sites.js';
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
 import { displaceSignpostsFromFootprint } from '../signposts/index.js';
 import { upgradeTierOf } from '../stores/index.js';
+import { evictVehiclesFromFootprint } from '../vehicles/evict.js';
 
 /**
  * Release every settler bound to `building` before it is destroyed, so no {@link JobAssignment} dangles on
@@ -192,6 +193,7 @@ export function assembleBuilding(
   // and the placer's own signposts, and a forced placement ignores every post, so a house may legally land
   // on any of them; each is displaced outward rather than walled in.
   evictSettlersFromFootprint(world, ctx, e);
+  evictVehiclesFromFootprint(world, ctx, e);
   evictWorkFlagsFromFootprint(world, ctx, e);
   displaceSignpostsFromFootprint(world, ctx, e);
   evictLooseGoodsFromFootprint(world, ctx, e);
@@ -255,6 +257,7 @@ export function upgradeBuilding(
   world.remove(command.building, DefenceMode);
   clearUpgradeGround(world, ctx, command.building, target.typeId);
   evictSettlersFromFootprint(world, ctx, command.building);
+  evictVehiclesFromFootprint(world, ctx, command.building);
 }
 
 /**

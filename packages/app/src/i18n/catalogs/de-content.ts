@@ -420,6 +420,11 @@ export const deContent = {
       summary:
         'Ein Schreiner baut fortlaufend Ochsenkarrengerüste aus Holz vom Lagerhaus. Eine Kuh kommt von einer Viehzüchterei herüber und wird vor das erste Gerüst gespannt. Jede Viehzüchterei behält zwei Kühe, daher warten weitere Gerüste auf Tiere, während der Schreiner weiterarbeitet.',
     },
+    'vehicle-building-clearance': {
+      title: 'Bauen neben Fahrzeugen',
+      summary:
+        'Ein Handkarren, ein Ochsenkarren und ein Katapult stehen auf drei künftigen Bauplätzen. Nach vier Sekunden erscheinen die Fundamente und die Fahrzeuge weichen auf freien Boden aus. Zum Wiederholen neu laden.',
+    },
     'vehicle-ox': {
       title: 'Ochsenkarrengerüst',
       summary:

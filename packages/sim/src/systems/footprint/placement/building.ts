@@ -40,19 +40,23 @@ function canPlaceAnchor(
   x: number,
   y: number,
 ): boolean {
-  const { terrain, obstacle, exclusion, palisadeBody, buildingZone } = grid;
+  const { terrain, obstacle, vehicleBody, exclusion, palisadeBody, buildingZone } = grid;
   const w = terrain.width;
   const h = terrain.height;
   // 1. Reserved zone - the max-level body plus the source's margin ring: on the map, on buildable ground,
   //    clear of OBSTACLE nodes and other buildings' reserved zones, so two buildings' reserved rings never
-  //    overlap. The placer's own signposts are discounted: placing the building pushes them aside.
+  //    overlap. Vehicles and the placer's own signposts are discounted: placement pushes them aside.
   for (const c of footprint.reserved) {
     const cx = x + footprintCellDx(y, c);
     const cy = y + c.dy;
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     if (!terrain.isBuildable(terrain.nodeAt(cx, cy))) return false; // blocking terrain too close
     const slot = cy * w + cx;
-    if ((obstacle[slot] ?? 0) > (ownSignposts.get(slot) ?? 0) || (buildingZone[slot] ?? 0) > 0) return false;
+    if (
+      (obstacle[slot] ?? 0) > (vehicleBody[slot] ?? 0) + (ownSignposts.get(slot) ?? 0) ||
+      (buildingZone[slot] ?? 0) > 0
+    )
+      return false;
   }
   // 2. Family body, the largest body the level chain reaches: clear of resource EXCLUSION zones and wall
   //    bodies, so placing level 0 already reserves the top level's space. familyBody ⊆ reserved, so loop 1
@@ -103,8 +107,8 @@ export function canPlacePalisadeAnchor(
 /**
  * Whether `tribe`'s building of `buildingType` may be placed with its anchor at integer tile `(x, y)`,
  * per the rule on {@link canPlaceAnchor}. A type without a footprint has no collision model; a bio-pattern
- * type still checks its anchor ground. Settlers never block placement: the foundation appears under them
- * and they walk off.
+ * type still checks its anchor ground. Settlers and vehicles never block placement: placing the
+ * foundation displaces them from its body.
  */
 export function canPlaceBuilding(
   world: World,

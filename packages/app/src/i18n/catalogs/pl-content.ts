@@ -416,6 +416,11 @@ export const plContent = {
       summary:
         'Cieśla stale buduje kolejne puste wozy, korzystając z drewna w magazynie. Krowa podchodzi z fermy bydła i wchodzi do pierwszego wozu. Na każdej fermie bydła zostają dwie krowy, więc następne wozy czekają na zwierzęta, a cieśla pracuje dalej.',
     },
+    'vehicle-building-clearance': {
+      title: 'Budowanie przy pojazdach',
+      summary:
+        'Wózek, wóz i katapulta stoją na trzech przyszłych placach budowy. Po czterech sekundach pojawiają się fundamenty, a pojazdy odsuwają się na wolne miejsce. Odśwież stronę, aby powtórzyć.',
+    },
     'vehicle-ox': {
       title: 'Wóz bez wołu',
       summary:

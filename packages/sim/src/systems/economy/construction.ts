@@ -39,6 +39,7 @@ import {
   upgradeTierOf,
 } from '../stores/index.js';
 import { createVehicle } from '../vehicles/create.js';
+import { evictVehiclesFromFootprint } from '../vehicles/evict.js';
 import { awakeSitesOf } from './awake-sites.js';
 import { destroyBerryBushesInReserved } from './berries.js';
 import { evictCarcassesFromFootprint } from './carcasses.js';
@@ -288,6 +289,7 @@ function launchVehicle(world: World, ctx: SystemContext, site: Entity): void {
  */
 export function settleFootprint(world: World, ctx: SystemContext, e: Entity): void {
   evictSettlersFromFootprint(world, ctx, e);
+  evictVehiclesFromFootprint(world, ctx, e);
   evictLooseGoodsFromFootprint(world, ctx, e);
   evictCarcassesFromFootprint(world, ctx, e);
   destroyBerryBushesInReserved(world, ctx, e);

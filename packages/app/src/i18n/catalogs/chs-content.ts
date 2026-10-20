@@ -400,6 +400,11 @@ export const chsContent = {
       summary:
         '一名木匠用仓库里的木材不断建造牛车框架。一头牛从畜牧场走来，套上第一个框架。每座畜牧场都要留下两头牛，因此后面的框架只能等待牲畜，而木匠继续工作。',
     },
+    'vehicle-building-clearance': {
+      title: '建筑与载具让位',
+      summary:
+        '手推车、牛车与投石车各停在一处预定屋址。四秒后地基出现，载具会移到旁边的空地。重新载入即可再看一次。',
+    },
     'vehicle-ox': {
       title: '牛车框架',
       summary:

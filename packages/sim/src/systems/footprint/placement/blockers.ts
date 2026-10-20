@@ -51,6 +51,8 @@ const BUILDING_ZONE = 4;
  *  another wall's body and a building's FAMILY BODY; a wall keeps no margin of its own. */
 const PALISADE_BODY = 5;
 const UPGRADE_RESERVE = 6;
+/** The movable part of OBSTACLE, waived by houses that push vehicles aside. */
+const VEHICLE_BODY = 7;
 type BlockerChannel =
   | typeof OBSTACLE
   | typeof EXCLUSION
@@ -58,7 +60,8 @@ type BlockerChannel =
   | typeof MARKER
   | typeof BUILDING_ZONE
   | typeof PALISADE_BODY
-  | typeof UPGRADE_RESERVE;
+  | typeof UPGRADE_RESERVE
+  | typeof VEHICLE_BODY;
 
 export {
   type BlockerChannel,
@@ -69,6 +72,7 @@ export {
   PALISADE_BODY,
   RESOURCE_ANCHOR,
   UPGRADE_RESERVE,
+  VEHICLE_BODY,
 };
 
 /** Opt-in for the {@link MARKER} channel. Only the work-flag rule consumes markers, so a scan that
@@ -168,16 +172,18 @@ function signpostBlockerCells(world: World, e: Entity, visit: BlockerVisit): voi
   visit(hx, hy, OBSTACLE);
 }
 
-/** One parked vehicle's contribution: its `logicSize` hex disc as OBSTACLE cells, so no house rises over
- *  it (the original refuses a vehicle site with a parked vehicle inside; a house site is the named
- *  approximation, owner's choice, so a house never swallows a vehicle). */
+/** A vehicle's disc blocks flags, roads and walls. Houses waive its OBSTACLE contribution and
+ *  displace it from their body instead (project rule). */
 export function vehicleBlockerCells(world: World, content: ContentSet, e: Entity, visit: BlockerVisit): void {
   const vehicle = world.tryGet(e, Vehicle);
   const anchor = vehicleAnchor(world, e);
   if (vehicle === undefined || anchor === null) return;
   const type = contentIndex(content).vehicles.get(vehicle.vehicleType);
   if (type === undefined) return;
-  for (const { hx, hy } of hexDisc(anchor, type.logicSize)) visit(hx, hy, OBSTACLE);
+  for (const { hx, hy } of hexDisc(anchor, type.logicSize)) {
+    visit(hx, hy, OBSTACLE);
+    visit(hx, hy, VEHICLE_BODY);
+  }
 }
 
 /** One delivery flag's contribution: its cell on the MARKER channel. */

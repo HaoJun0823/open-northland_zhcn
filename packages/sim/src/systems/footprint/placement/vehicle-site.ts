@@ -132,8 +132,7 @@ interface SiteHouse {
 /**
  * Why a land house may not go at `(hx, hy)`: a parked vehicle on the body, else the placement rule, the
  * free-size class of every body node against the vehicle's `logicSize`, or the work point off the
- * worker's continent. The parked test comes first because a standing vehicle is also a placement
- * obstacle (`./blockers.ts`), which would otherwise read as no spot rather than an occupied one.
+ * worker's continent. Unlike a regular house, a vehicle yard refuses occupied ground instead of pushing the vehicle aside.
  */
 function landObjection(
   world: World,

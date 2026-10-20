@@ -94,6 +94,7 @@ import type { SceneDefinition } from './types.js';
 import { upgradeScene } from './upgrade.js';
 import { upgradeTribesScene } from './upgrade-tribes.js';
 import { vehicleAttackMoveScene } from './vehicle-attack-move.js';
+import { vehicleBuildingClearanceScene } from './vehicle-building-clearance.js';
 import { vehicleCargoScene } from './vehicle-cargo.js';
 import { vehicleCatapultScene } from './vehicle-catapult.js';
 import { vehicleCatapultSpreadScene } from './vehicle-catapult-spread.js';
@@ -228,6 +229,7 @@ export const SCENES: readonly SceneDefinition[] = [
   gathererGoodsScene,
   flagYardLayoutScene,
   vehiclesScene,
+  vehicleBuildingClearanceScene,
   cartDriversScene,
   vehicleYardScene,
   vehicleOxScene,

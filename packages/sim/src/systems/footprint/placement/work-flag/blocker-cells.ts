@@ -15,6 +15,7 @@ import {
   PALISADE_BODY,
   RESOURCE_ANCHOR,
   UPGRADE_RESERVE,
+  VEHICLE_BODY,
 } from '../blockers.js';
 
 // Which nodes a blocker denies a work flag - ../blockers.ts channels projected onto this one rule.
@@ -32,6 +33,7 @@ const BLOCKS_WORK_FLAG: Record<BlockerChannel, boolean> = {
   [BUILDING_ZONE]: false,
   [PALISADE_BODY]: true,
   [UPGRADE_RESERVE]: false,
+  [VEHICLE_BODY]: false, // already counted through OBSTACLE
 };
 
 /** The nodes one capture collects before they are copied into its own array. */

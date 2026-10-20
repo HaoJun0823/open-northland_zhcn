@@ -80,8 +80,9 @@ never serve a vehicle site. Approximations: which product a worker "currently" m
 cursor (the original's scheduling is not decoded); the work point is the house door for both hammering
 and the ship site's shore test, so "a water continent bordering the worker's continent" reduces to the
 door lying on the worker's land component; a ship site needs the water side of the shared free-size field to admit
-`logicsize` at every body node, all on one water body; a parked vehicle counts as reason 9 only when it stands on the house body, since a
-vehicle is also a placement obstacle for the reserved margin; a failed search skips the turn, so the rotation moves on to the
+`logicsize` at every body node, all on one water body; a parked vehicle counts as reason 9 only when its disc overlaps the vehicle-site body;
+regular houses instead push vehicles off their body and out of newly sealed nooks, leaving vehicles in
+open reserved margins in place (project rule); a failed search skips the turn, so the rotation moves on to the
 workshop's other products, and the worker searches again only after the failed-goal memo's span; past its own workshop the fetch takes the nearest store
 the settler may reach, with no radius-40 cap; the finished site leaves without a collapse event and
 heaps any surplus delivered past the bill. The chest catapult takes the opener's tribe.

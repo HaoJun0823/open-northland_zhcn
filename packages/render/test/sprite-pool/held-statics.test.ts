@@ -177,6 +177,22 @@ describe('SpritePool - what releases a held tree', () => {
     expect(later().filter((ref) => ref === TREE).length).toBe(refs().filter((ref) => ref === TREE).length);
   });
 
+  it('presents it while a target flash plays, then once more to clear it, and holds it again after', () => {
+    const { mirror, pool } = held();
+    const flashing = { flashes: new Map([[TREE, { tone: 'assign' as const, progress: 0.5 }]]) };
+    const lit = presentedRefs();
+    pool.reconcile(frameOf(nextTick(mirror), flashing));
+    expect(lit()).toContain(TREE);
+    const clearing = presentedRefs();
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 4, walker)])));
+    expect(clearing()).toContain(TREE);
+    const later = presentedRefs();
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 5, walker)])));
+    expect(later().filter((ref) => ref === TREE).length).toBe(
+      clearing().filter((ref) => ref === TREE).length,
+    );
+  });
+
   it('detaches it once a delta removes it', () => {
     const { mirror, layer, pool } = held();
     pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 3, walker)], [TREE])));
@@ -230,6 +246,17 @@ describe('SpritePool - a still frame', () => {
     expect(outlined()).toBe(true);
     pool.reconcile(frameOf(snapshot, { alpha: 0.5 }));
     expect(outlined()).toBe(false);
+  });
+  it('clears the flash of an entity whose flash ends between two still frames', () => {
+    const flashing = { flashes: new Map([[TREE, { tone: 'attack' as const, progress: 0.5 }]]) };
+    const { pool, snapshot } = settled(flashing);
+    const pooled = (
+      pool as unknown as { pool: Map<number, { sprites: { selectionEffect?: number }[] }> }
+    ).pool.get(TREE);
+    const lift = () => Math.max(...(pooled?.sprites ?? []).map((sprite) => sprite.selectionEffect ?? 0));
+    expect(lift()).toBeGreaterThan(0);
+    pool.reconcile(frameOf(snapshot, { alpha: 0.5 }));
+    expect(lift()).toBe(0);
   });
 });
 

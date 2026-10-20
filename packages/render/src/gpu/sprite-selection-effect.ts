@@ -2,7 +2,8 @@ import { Graphics, Texture } from 'pixi.js';
 import { BloodSurfaceSprite } from './blood-surface.js';
 import { SELECTION_OUTLINE } from './world-batch-shader.js';
 
-/** One world-batch value: negative draws a tinted silhouette; positive lifts colours towards white. */
+/** One world-batch value: negative draws a tinted silhouette; non-negative packs a colour lift (see
+ *  `SELECTION_TONE_BAND`). */
 export class SelectionSprite extends BloodSurfaceSprite {
   private effect = 0;
   private blood = 0;

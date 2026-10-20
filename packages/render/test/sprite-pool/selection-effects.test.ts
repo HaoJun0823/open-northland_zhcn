@@ -1,10 +1,12 @@
 import { Texture, TextureSource } from 'pixi.js';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { PalettedSprite } from '../../src/gpu/paletted-sprite/index.js';
+import { LIFT_TONE_CODE, targetFlashLight } from '../../src/gpu/selection-style.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import { SelectionEffects } from '../../src/gpu/sprite-pool/selection-effects.js';
 import { OutlineSprite, SelectionSprite } from '../../src/gpu/sprite-selection-effect.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { SELECTION_TONE_BAND } from '../../src/gpu/world-batch-shader.js';
 import { syntheticHumanLut } from '../support/human-palettes.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 
@@ -64,7 +66,49 @@ it('outlines the visible body, excludes shadows, and releases the outline when t
   textures.clear();
 });
 
+/** A flash at its midpoint, where it lifts the most. */
+const PEAK = 0.5;
+
+it("packs a target flash's tone into the batch value, over the selection pulse, until it has played out", () => {
+  const effects = new SelectionEffects(new TextureCache());
+  const pe = createPooled('building', undefined);
+  if (pe.paletted) throw new Error('Expected a plain building');
+  const body = new SelectionSprite(Texture.WHITE);
+  pe.sprites.push(body);
+  pe.pickExempt.push(false);
+  pe.container.addChild(body);
+  const peak = targetFlashLight(PEAK);
+  for (const tone of ['order', 'attack', 'assign'] as const) {
+    effects.update(pe, 'pulse', 1, 0, undefined, { tone, progress: PEAK });
+    expect(body.selectionEffect).toBeCloseTo(LIFT_TONE_CODE[tone] * SELECTION_TONE_BAND + peak);
+  }
+  // Played out, the selected body falls back to its white pulse; unselected, it goes unlit.
+  effects.update(pe, 'pulse', 1, 0);
+  expect(body.selectionEffect).toBeCloseTo(0.07);
+  effects.update(pe, undefined, 1, 0, undefined, { tone: 'attack', progress: PEAK });
+  effects.update(pe, undefined, 1, 0);
+  expect(body.selectionEffect).toBe(0);
+  pe.container.destroy({ children: true });
+});
+
 useHeadlessShaderContext();
+
+it("hands a paletted body a flash's amount and tone apart", () => {
+  const effects = new SelectionEffects(new TextureCache());
+  const lut = syntheticHumanLut();
+  const pe = createPooled('vehicle', lut);
+  if (!pe.paletted) throw new Error('Expected an indexed vehicle');
+  const body = new PalettedSprite(lut.source, lut.colours);
+  const light = vi.spyOn(body, 'setSelectionLight');
+  pe.sprites.push(body);
+  pe.container.addChild(body);
+  effects.update(pe, undefined, 1, 0, undefined, { tone: 'attack', progress: PEAK });
+  expect(light).toHaveBeenLastCalledWith(expect.closeTo(targetFlashLight(PEAK)), LIFT_TONE_CODE.attack);
+  effects.update(pe, undefined, 1, 0);
+  expect(light).toHaveBeenLastCalledWith(0, 0);
+  pe.container.destroy({ children: true });
+  lut.source.destroy();
+});
 
 it('fades the old building tier outline with its body and resets opacity when quads are reused', () => {
   const textures = new TextureCache();

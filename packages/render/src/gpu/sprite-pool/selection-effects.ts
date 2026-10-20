@@ -14,13 +14,12 @@ import { OUTLINE_DIRECTIONS, SELECTION_STAMP, SELECTION_TONE_BAND } from '../wor
 import { worldBatched } from '../world-batcher.js';
 import type { PooledEntity } from './pooled-entity.js';
 
-/** How far an entity's colours lift, and towards which tone's colour ({@link LIFT_TONE_CODE}). */
-interface Light {
-  readonly amount: number;
-  readonly tone: number;
-}
 const WHITE = LIFT_TONE_CODE.order;
-const UNLIT: Light = { amount: 0, tone: WHITE };
+
+/** A colour lift packed as the world batch reads it: the tone code times the band plus the amount, 0..1. */
+function packLift(amount: number, tone: number): number {
+  return amount > 0 ? tone * SELECTION_TONE_BAND + amount : 0;
+}
 
 // Artistic choice: a narrow ivory core and a dark outer keyline for changing terrain contrast.
 // Draw each pass over the whole body before the next; individual layers must not border one another.
@@ -34,7 +33,8 @@ const OUTLINE_PASSES = [
 export class SelectionEffects {
   private readonly outlines = new Map<PooledEntity, Container<OutlineSprite | SelectionGraphics>>();
   private readonly transform = new Matrix();
-  private readonly lit = new Map<PooledEntity, Light>();
+  /** Each lit entity's lift, packed by {@link packLift}. */
+  private readonly lit = new Map<PooledEntity, number>();
 
   constructor(private readonly textures: TextureCache) {}
 
@@ -52,13 +52,13 @@ export class SelectionEffects {
     if (style === 'pulse' || flash !== undefined || this.lit.has(pe)) {
       // A flash outshines the selection pulse while it plays.
       const flashed = flash === undefined ? 0 : targetFlashLight(flash.progress);
-      const light: Light =
-        flashed > 0
-          ? { amount: flashed, tone: flash === undefined ? WHITE : LIFT_TONE_CODE[flash.tone] }
-          : { amount: style === 'pulse' ? selectionLight(seconds) : 0, tone: WHITE };
-      this.light(pe, light);
-      if (light.amount === 0) this.lit.delete(pe);
-      else this.lit.set(pe, light);
+      const lift =
+        flash !== undefined && flashed > 0
+          ? packLift(flashed, LIFT_TONE_CODE[flash.tone])
+          : packLift(style === 'pulse' ? selectionLight(seconds) : 0, WHITE);
+      this.light(pe, lift);
+      if (lift === 0) this.lit.delete(pe);
+      else this.lit.set(pe, lift);
     }
     if (style !== 'outline') {
       this.clearOutline(pe);
@@ -160,19 +160,21 @@ export class SelectionEffects {
   setVisible(visible: boolean): void {
     const alpha = visible ? 1 : 0;
     for (const outline of this.outlines.values()) outline.alpha = alpha;
-    for (const [pe, light] of this.lit) this.light(pe, visible ? light : UNLIT);
+    for (const [pe, lift] of this.lit) this.light(pe, visible ? lift : 0);
   }
 
-  private light(pe: PooledEntity, { amount, tone }: Light): void {
-    const effect = amount > 0 ? tone * SELECTION_TONE_BAND + amount : 0;
+  private light(pe: PooledEntity, lift: number): void {
+    // The paletted shader takes the amount and the tone apart.
+    const tone = Math.floor(lift / SELECTION_TONE_BAND);
+    const amount = lift - tone * SELECTION_TONE_BAND;
     for (let i = 0; i < pe.sprites.length; i++) {
       const sprite = pe.sprites[i];
       if (sprite === undefined) continue;
       const excluded = (!pe.paletted && pe.pickExempt[i]) || ('glow' in sprite && sprite.glow === true);
       if (sprite instanceof PalettedSprite) sprite.setSelectionLight(excluded ? 0 : amount, tone);
-      else sprite.selectionEffect = excluded ? 0 : effect;
+      else sprite.selectionEffect = excluded ? 0 : lift;
     }
-    if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = effect;
+    if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = lift;
   }
 
   clear(pe: PooledEntity): void {

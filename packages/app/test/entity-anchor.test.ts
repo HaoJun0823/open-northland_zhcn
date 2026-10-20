@@ -57,6 +57,22 @@ describe('entityAnchor', () => {
     expect(entityAnchor(ship, 3)).toEqual(tileToScreen(TILE_X + 0.5, TILE_Y));
   });
 
+  it('anchors a rider aboard its cart, and the cart aboard its ship, where the outermost one stands', () => {
+    const fleet = snapshotOf([
+      {
+        id: 4,
+        components: {
+          Vehicle: { carrier: null },
+          Position: { x: fx.fromInt(TILE_X), y: fx.fromInt(TILE_Y) },
+        },
+      },
+      { id: 5, components: { Vehicle: { carrier: 4 } } },
+      { id: 6, components: { Settler: {}, Rider: { vehicle: 5 } } },
+    ]);
+    expect(entityAnchor(fleet, 6)).toEqual(tileToScreen(TILE_X, TILE_Y));
+    expect(entityAnchor(fleet, 5)).toEqual(tileToScreen(TILE_X, TILE_Y));
+  });
+
   it('reports nothing for an unknown id or an entity with no position', () => {
     expect(entityAnchor(world, 99)).toBeNull();
     expect(entityAnchor(world, 2)).toBeNull();

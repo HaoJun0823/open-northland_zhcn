@@ -45,6 +45,28 @@ export function positionOf(e: SnapshotEntity): { x: Fixed; y: Fixed } | undefine
   return x !== undefined && y !== undefined ? { x: x as Fixed, y: y as Fixed } : undefined;
 }
 
+/** Rider in vehicle, vehicle on ship, or settler resting in a house: the longest chain to a placed entity. */
+const STANDING_CHAIN_DEPTH = 3;
+
+/**
+ * The entity that stands on the map for `id`: the entity itself while it has a position, else the
+ * vehicle, ship or house it is inside. Undefined for an unknown id or a broken chain.
+ */
+export function standingEntity(snapshot: WorldSnapshot, id: number): SnapshotEntity | undefined {
+  let next: unknown = id;
+  for (let depth = 0; depth <= STANDING_CHAIN_DEPTH && typeof next === 'number'; depth++) {
+    const entity = entityById(snapshot, next);
+    if (entity === undefined) return undefined;
+    if (positionOf(entity) !== undefined) return entity;
+    const c = entity.components;
+    next =
+      (c.Rider as { vehicle?: unknown } | undefined)?.vehicle ??
+      (c.Vehicle as { carrier?: unknown } | undefined)?.carrier ??
+      (c.Resting as { at?: unknown } | undefined)?.at;
+  }
+  return undefined;
+}
+
 export function healthOf(e: SnapshotEntity): { hitpoints: number; max: number } | undefined {
   const health = e.components.Health as { hitpoints?: unknown; max?: unknown } | undefined;
   const hitpoints = num(health?.hitpoints);

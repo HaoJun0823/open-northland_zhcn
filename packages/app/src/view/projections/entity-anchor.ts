@@ -1,16 +1,17 @@
 import { type ElevationField, projectNode, projectTile, vehicleDrawTile } from '@open-northland/render';
-import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { positionOf } from '../../game/snapshot.js';
+import type { WorldSnapshot } from '@open-northland/sim';
+import { positionOf, standingEntity } from '../../game/snapshot.js';
 import type { MessageTarget } from '../../hud/tool-panel/messages/index.js';
 
 /** The world-px ground anchor an entity is drawn on: {@link projectTile} of its snapshot position, or
- *  for a driving vehicle of its place part-way along the leg. Null when the id names no positioned entity. */
+ *  for a driving vehicle of its place part-way along the leg. One inside a vehicle, ship or house takes
+ *  that one's anchor. Null when the id names nothing placed. */
 export function entityAnchor(
   snapshot: WorldSnapshot,
   id: number,
   elevation?: ElevationField,
 ): { x: number; y: number } | null {
-  const entity = entityById(snapshot, id);
+  const entity = standingEntity(snapshot, id);
   const pos = entity === undefined ? undefined : positionOf(entity);
   if (entity === undefined || pos === undefined) return null;
   const tile = vehicleDrawTile(entity.components, pos);

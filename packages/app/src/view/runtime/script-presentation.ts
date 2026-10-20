@@ -1,13 +1,7 @@
 import type { Camera, ElevationField } from '@open-northland/render';
 import { halfCellToScreen } from '@open-northland/render';
-import type {
-  Entity,
-  HalfCellNode,
-  MissionPresentationView,
-  SimEvent,
-  WorldSnapshot,
-} from '@open-northland/sim';
-import { entityById, TICKS_PER_SECOND } from '@open-northland/sim';
+import type { HalfCellNode, MissionPresentationView, SimEvent, WorldSnapshot } from '@open-northland/sim';
+import { TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
 import { goalProgressRows, infoLineRows, type MissionInfoRow } from '../../game/info-lines.js';
 import { messages } from '../../i18n/index.js';
@@ -115,26 +109,6 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
     scriptCamera.glideTo(world.x, world.y - lift, deps.now());
   };
 
-  const humanAnchor = (snapshot: WorldSnapshot, human: Entity): { x: number; y: number } | null => {
-    let id: number = human;
-    // A human may be indoors or aboard a vehicle carried by a ship. This attachment chain has at
-    // most three objects; a malformed or missing attachment never walks the whole snapshot.
-    for (let depth = 0; depth < 3; depth++) {
-      const anchor = entityAnchor(snapshot, id, deps.elevation);
-      if (anchor !== null) return anchor;
-      const entity = entityById(snapshot, id);
-      if (entity === undefined) return null;
-      const c = entity.components;
-      const next =
-        (c.Rider as { vehicle?: unknown } | undefined)?.vehicle ??
-        (c.Vehicle as { carrier?: unknown } | undefined)?.carrier ??
-        (c.Resting as { at?: unknown } | undefined)?.at;
-      if (typeof next !== 'number') return null;
-      id = next;
-    }
-    return null;
-  };
-
   return {
     onEvents(events) {
       for (const event of events) {
@@ -148,9 +122,14 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
           case 'missionSelectHuman': {
             if (event.select) controls.select([event.entity]);
             const human = event.entity;
-            const anchor = humanAnchor(host.snapshot(), human);
+            const anchor = entityAnchor(host.snapshot(), human, deps.elevation);
             if (anchor === null) scriptCamera.unfollow();
-            else scriptCamera.follow((snapshot) => humanAnchor(snapshot, human), anchor, deps.now());
+            else
+              scriptCamera.follow(
+                (snapshot) => entityAnchor(snapshot, human, deps.elevation),
+                anchor,
+                deps.now(),
+              );
             break;
           }
           case 'missionGuiMarker':

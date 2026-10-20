@@ -1,6 +1,6 @@
 import { tileToScreen } from '@open-northland/render';
 import { entityById, ONE, type WorldSnapshot } from '@open-northland/sim';
-import { isSettler, positionOf } from '../../../game/snapshot.js';
+import { isSettler, positionOf, standingEntity } from '../../../game/snapshot.js';
 
 /** A centroid in world px, with the selected ids. */
 export interface SelectionCentre {
@@ -22,7 +22,9 @@ export const selectionCentre = (
   for (const id of [...selection].sort((a, b) => a - b)) {
     const e = entityById(snapshot, id);
     if (e === undefined || !isSettler(e)) continue;
-    const pos = positionOf(e);
+    // A rider aboard its cart stands where the cart does.
+    const standing = standingEntity(snapshot, id);
+    const pos = standing === undefined ? undefined : positionOf(standing);
     if (pos === undefined) continue;
     const s = tileToScreen(pos.x / ONE, pos.y / ONE); // the drawn feet anchor, in world px
     wx += s.x;

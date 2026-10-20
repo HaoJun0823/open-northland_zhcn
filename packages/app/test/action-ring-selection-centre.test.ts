@@ -28,6 +28,17 @@ describe('selectionCentre', () => {
     expect(two.x).toBeGreaterThan(one.x);
   });
 
+  it('places a rider aboard its cart at the cart, so the ring opens for it', () => {
+    const riding = snapshotOf([
+      { id: 1, components: { Vehicle: {}, Position: { x: fx.fromInt(6), y: fx.fromInt(2) } } },
+      { id: 2, components: { Settler: { tribe: TRIBE, jobType: JOB_COLLECTOR }, Rider: { vehicle: 1 } } },
+    ]);
+    expect(selectionCentre(riding, new Set([2]))).toEqual({
+      ...selectionCentre(world, new Set([2])),
+      ids: [2],
+    });
+  });
+
   it('reports nothing for an empty selection', () => {
     expect(selectionCentre(world, new Set())).toBeNull();
     expect(selectionCentre(world, new Set([99]))).toBeNull();

@@ -1,4 +1,8 @@
-import { BLOOD_LIFETIME_TICKS } from '../data/effects/blood.js';
+import {
+  BLOOD_CLOCK_DRYING_STEP,
+  BLOOD_CLOCK_FRESH_TICKS,
+  BLOOD_LIFETIME_TICKS,
+} from '../data/effects/blood.js';
 
 /** Local splats share the sprite's coverage, lighting and painter order. No additional texture taps. */
 export const BLOOD_SURFACE_GLSL = /* glsl */ `
@@ -8,7 +12,9 @@ vec3 surfaceSpot(vec3 colour, vec2 px, vec2 size, float packed, float clock, flo
   if (radius < 1.0 || clock < 1.0) return colour;
   float palette = floor(clock / 64.0);
   clock = mod(clock, 64.0);
-  float age = clock <= 9.0 ? clock - 1.0 : 8.0 + (clock - 9.0) * 23.0;
+  float age = clock <= ${BLOOD_CLOCK_FRESH_TICKS + 1}.0
+    ? clock - 1.0
+    : ${BLOOD_CLOCK_FRESH_TICKS}.0 + (clock - ${BLOOD_CLOCK_FRESH_TICKS + 1}.0) * ${BLOOD_CLOCK_DRYING_STEP}.0;
   float dry = smoothstep(48.0, 480.0, age);
   float opacity = 0.9 * (1.0 - smoothstep(${BLOOD_LIFETIME_TICKS * 0.6}.0, ${BLOOD_LIFETIME_TICKS}.0, age));
   vec2 centre = vec2(mod(packed, 256.0), mod(floor(packed / 256.0), 256.0)) / 255.0 * size;

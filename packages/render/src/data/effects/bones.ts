@@ -17,9 +17,9 @@ export interface BonePileMark {
   readonly tick: number;
 }
 
-const BONES_LIFETIME_SECONDS = 300;
+const BONES_LIFETIME_SECONDS = 900;
 /**
- * How long a bone pile lies before it has faded out, in sim ticks, when bones fade: five minutes of game
+ * How long a bone pile lies before it has faded out, in sim ticks, when bones fade: fifteen minutes of game
  * time, three times a blood stain's. Approximation: the original's `cadaver_skeleton` decays after a
  * readable param of 100 (`landscapetypes.ini` transition 13) in an unreadable unit.
  */

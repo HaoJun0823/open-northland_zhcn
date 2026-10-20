@@ -1,5 +1,7 @@
 import { type Container, Matrix, Point, Sprite } from 'pixi.js';
 import {
+  BLOOD_CLOCK_DRYING_STEP,
+  BLOOD_CLOCK_FRESH_TICKS,
   BLOOD_LIFETIME_TICKS,
   type BloodDrop,
   type BloodDropPose,
@@ -430,7 +432,12 @@ export class BloodSurfaces {
       if (spot !== undefined) {
         const age = Math.max(0, tick - spot.tick);
         // Six age bits preserve fresh growth, then quantize drying; two retain each spot's pigment.
-        const clock = age <= 8 ? 1 + Math.floor(age) : 9 + Math.floor((age - 8) / 23);
+        const clock =
+          age <= BLOOD_CLOCK_FRESH_TICKS
+            ? 1 + Math.floor(age)
+            : BLOOD_CLOCK_FRESH_TICKS +
+              1 +
+              Math.floor((age - BLOOD_CLOCK_FRESH_TICKS) / BLOOD_CLOCK_DRYING_STEP);
         const byte = clock + spot.palette * 64;
         ages += byte * 256 ** i;
       }

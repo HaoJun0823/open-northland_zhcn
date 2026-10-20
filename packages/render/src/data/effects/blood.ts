@@ -5,7 +5,15 @@ import { type BloodHit, bloodLoss, isBloodHit } from './blood-damage.js';
 import { frac } from './random.js';
 
 /** Authored presentation, not original behavior. Durations use the 12 Hz simulation clock. */
-export const BLOOD_LIFETIME_TICKS = 1200;
+export const BLOOD_LIFETIME_TICKS = 3600;
+/** A surface spot's six-bit age clock: one value per tick while fresh, then drying steps sized so the last
+ *  of the 64 values outlives the stain. */
+export const BLOOD_CLOCK_FRESH_TICKS = 8;
+const BLOOD_CLOCK_VALUES = 64;
+const BLOOD_CLOCK_DRYING_VALUES = BLOOD_CLOCK_VALUES - BLOOD_CLOCK_FRESH_TICKS - 1;
+export const BLOOD_CLOCK_DRYING_STEP = Math.ceil(
+  (BLOOD_LIFETIME_TICKS - BLOOD_CLOCK_FRESH_TICKS) / BLOOD_CLOCK_DRYING_VALUES,
+);
 export const BLOOD_AIR_TICKS = 11;
 export const MAX_BLOOD_MARKS = 4096;
 export const MAX_BLOOD_PER_NODE = 4;

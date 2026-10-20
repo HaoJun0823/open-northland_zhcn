@@ -206,7 +206,7 @@ describe('blood meeting scenery', () => {
     surfaces.stamp({ surface, x: 0.7, y: 0.5, radius: 4, angle: 0, age: 1 }, 10);
     expect(s._didViewChangeTick).toBeGreaterThan(viewTick);
     surfaces.draw(490);
-    expect(Math.floor((surface.packed[3] ?? 0) / 65536)).toBe(29);
+    expect(Math.floor((surface.packed[3] ?? 0) / 65536)).toBe(16);
     s.destroy();
     const next = sprite(root);
     surfaces.restore(next, 42, 0);
@@ -366,7 +366,7 @@ describe('blood meeting scenery', () => {
     surfaces.stamp({ ...base, x: 0.1 }, 0);
     surfaces.stamp({ ...base, x: 0.9 }, 600);
     const ages = Math.abs(surface.packed[3] ?? 0);
-    expect(ages % 256).toBe(34);
+    expect(ages % 256).toBe(17);
     expect(Math.floor(ages / 256)).toBe(1);
     surfaces.draw(BLOOD_LIFETIME_TICKS);
     expect((surface.packed[0] ?? 0) % 256).toBe(Math.round(0.9 * 255));
@@ -449,7 +449,7 @@ describe('blood meeting scenery', () => {
     expect(surface.packed[0]).toBe(newerShape);
     expect(surface.packed.slice(1, 3).every((value) => value === 0)).toBe(true);
     const ages = Math.abs(surface.packed[3] ?? 0);
-    expect(ages).toBe(34);
+    expect(ages).toBe(54);
     surfaces.draw(605 + BLOOD_LIFETIME_TICKS);
     expect([...surface.packed]).toEqual(new Array(4).fill(0));
     root.destroy({ children: true });

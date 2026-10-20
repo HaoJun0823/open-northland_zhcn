@@ -63,8 +63,9 @@ export interface SpriteSceneOptions {
   /** Entities the retained static map-object layer draws instead (a decoded map's virgin resource nodes) -
    *  skipped entirely: no draw item, excluded from {@link SpriteScene.liveRefs}. */
   readonly staticRefs?: ReadonlySet<number> | undefined;
-  /** Entities whose sprites wait for a presentation over them to end (a felled tree's trunk pile and
-   *  stump under its falling clip): skipped like {@link staticRefs}. */
+  /** Entities not drawn for now: those waiting for a presentation over them to end (a felled tree's
+   *  trunk pile and stump under its falling clip) or hidden from the viewer. Skipped like
+   *  {@link staticRefs}. */
   readonly withheldRefs?: ReadonlySet<number> | undefined;
   /** The fog-of-war cull; absent = no fog. An entity whose tile it rejects is treated like a
    *  viewport-culled one: no draw item, but kept live so its pooled sprite survives until the fog

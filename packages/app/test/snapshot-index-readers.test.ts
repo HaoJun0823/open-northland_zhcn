@@ -44,6 +44,7 @@ import { DEFAULT_MINIMAP_FILTERS, withAllMinimapLayers } from '../src/hud/minima
 import { restingBuildingsOf } from '../src/hud/tool-panel/messages/workshop-stalls.js';
 import { createSceneSim, getScene } from '../src/scenes/index.js';
 import { gearTalliesOf } from '../src/view/assistant-shortages.js';
+import { flagHoldingsOf } from '../src/view/foreign-flags.js';
 import { computeConstructionSigns } from '../src/view/projections/construction-signs.js';
 import { computeDoorBadges, type DoorBadgeCache } from '../src/view/projections/door-badges.js';
 import { computeLifeHearts, type LifeHeartInputs } from '../src/view/projections/life-hearts.js';
@@ -105,6 +106,7 @@ function expectReadersMatchWalk(live: WorldSnapshot): void {
   expect(actorsOf(live).every((e, i) => e === actorsOf(walked)[i])).toBe(true);
   expect(needsRuleEnabled(live)).toBe(needsRuleEnabled(walked));
   expect(gearTalliesOf(live)).toEqual(gearTalliesOf(walked));
+  expect(flagHoldingsOf(live).byHolder).toEqual(flagHoldingsOf(walked).byHolder);
   for (const seat of SEATS) {
     expect(ids(settlersOwnedBy(live, seat))).toEqual(ids(settlersOwnedBy(walked, seat)));
     expect(ids(builderSitesOf(live, seat))).toEqual(ids(builderSitesOf(walked, seat)));

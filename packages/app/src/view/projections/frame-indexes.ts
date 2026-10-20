@@ -32,6 +32,7 @@ import { standingNodesRevision } from '../../hud/minimap/live-objects.js';
 import { restingBuildingsOf } from '../../hud/tool-panel/messages/workshop-stalls.js';
 import { assistantBookingsOf } from '../assistant-bookings.js';
 import { gearTalliesOf } from '../assistant-shortages.js';
+import { flagHoldingsOf } from '../foreign-flags.js';
 import { ownRoadSiteAt } from '../runtime/own-road-sites.js';
 import { builderSitesOf } from '../unit-controls/highlights/own-building-picks.js';
 import { SEASONED_FIGHTERS } from './experience-stars.js';
@@ -96,6 +97,8 @@ export const FRAME_INDEX_READERS: readonly AppFrameIndexReader[] = [
   { name: 'builder sites by owner', read: (snapshot) => builderSitesOf(snapshot, NO_ENTITY) },
   // The selection cursor's hover reads it whenever the pointer, the camera or the snapshot moves.
   { name: 'flag holders', read: (snapshot) => flagHolderOf(snapshot, NO_ENTITY, NO_SEAT) },
+  // The sprite pool hides other seats' work flags, read every frame.
+  { name: 'flag holdings', read: (snapshot) => flagHoldingsOf(snapshot) },
   // The assistant window reads it per frame while it is open.
   { name: 'assistant bookings', read: (snapshot) => assistantBookingsOf(snapshot, NO_SEAT) },
   {

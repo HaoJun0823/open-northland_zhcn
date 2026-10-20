@@ -115,8 +115,8 @@ export interface PoolFrame {
   /** Entities the retained static map-object layer draws instead; the scene build skips them, so the
    *  pool never touches them. */
   readonly staticRefs?: ReadonlySet<number>;
-  /** Entities whose sprites wait for a presentation over them to end; skipped like
-   *  {@link staticRefs}. A change hands a new set, which keys the cached scene build. */
+  /** Entities not drawn for now (waiting for a presentation to end, or hidden from the viewer); skipped
+   *  like {@link staticRefs}. A change hands a new set, which keys the cached scene build. */
   readonly withheldRefs?: ReadonlySet<number>;
   /** The fog-of-war cull: entities on tiles it rejects stay pooled but undrawn. Absent = no fog. */
   readonly fogVisible?: (tileX: number, tileY: number) => boolean;

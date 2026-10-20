@@ -405,8 +405,9 @@ export class WorldRenderer {
     this.fog.setStaticallyDrawnRefs(refs);
   }
 
-  /** Entities the sprite pool holds back until a presentation over them ends (a felled tree's trunk pile
-   *  and stump under its falling clip). Pass a new set on every change; an empty one holds nothing. */
+  /** Entities the sprite pool does not draw: those waiting for a presentation over them to end (a felled
+   *  tree's trunk pile and stump under its falling clip) and those hidden from the viewer (another seat's
+   *  work flags). Pass a new set on every change; an empty one holds nothing. */
   setWithheldRefs(refs: ReadonlySet<number>): void {
     this.withheldRefs = refs.size > 0 ? refs : undefined;
   }

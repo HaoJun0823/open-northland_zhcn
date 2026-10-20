@@ -22,6 +22,7 @@ import { type BuildingPick, probeOwner, techWaived } from '../../hud/tool-panel/
 import { setCanvasCursor } from '../cursors/element.js';
 import { placementPointer, wallDemolishPointer } from '../cursors/placement.js';
 import { createFellingPresenter } from '../felling-presenter.js';
+import { createForeignFlags } from '../foreign-flags.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import type { SignpostMapOverlay } from '../map-overlays/signposts.js';
 import type {
@@ -209,10 +210,33 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     );
   const signpostOverlay = () => signpostOverlayFrame(cameraCtl.camera(), app.screen.width, app.screen.height);
   const visiblePlots = createVisiblePlots(() => host.constructionPlots(), fogGates.seesNode);
+  // The sprite pool withholds both the felling presenter's refs and the flags other seats' settlers hold.
+  const foreignFlags = createForeignFlags(loop.viewer);
+  let fellingRefs: ReadonlySet<number> = new Set();
+  let hiddenFlags: ReadonlySet<number> = new Set();
+  const withhold = (): void => {
+    renderer.setWithheldRefs(
+      fellingRefs.size === 0
+        ? hiddenFlags
+        : hiddenFlags.size === 0
+          ? fellingRefs
+          : new Set([...fellingRefs, ...hiddenFlags]),
+    );
+  };
   const presentFellings =
     deps.fellingClips === undefined
       ? null
-      : createFellingPresenter(renderer, deps.fellingClips, deps.elevation);
+      : createFellingPresenter(
+          {
+            addMapObjects: (objects) => renderer.addMapObjects(objects),
+            setWithheldRefs: (refs) => {
+              fellingRefs = refs;
+              withhold();
+            },
+          },
+          deps.fellingClips,
+          deps.elevation,
+        );
   // The wall and road tools light where a line starts, then the started line's reach; the gate tool the
   // spans it can cut into.
   const palisadeWash = () => {
@@ -356,6 +380,11 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     presentCombatEffects(combatTicks, snap, renderer, fogView === null ? undefined : fogGates.seesNode);
     // Every frame, stepped or not: a playing clip ends on the tick, and its trunk shows with that frame.
     presentFellings?.(presentEvents, snap.tick);
+    const flags = foreignFlags(snap);
+    if (flags !== hiddenFlags) {
+      hiddenFlags = flags;
+      withhold();
+    }
     // A script's earthquake shakes the drawn world alone; picking and the HUD keep the steady frame.
     presentation?.steerCamera(snap, renderAlpha, nowMs);
     const jitter = presentation?.jitter(nowMs) ?? null;

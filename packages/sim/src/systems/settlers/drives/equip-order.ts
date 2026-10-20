@@ -3,6 +3,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { DeepReadonly, Entity, World } from '../../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
+import { dynamicBlockOverlay } from '../../footprint/index.js';
 import { atomicDuration } from '../../readviews/animations.js';
 import { canEquipCategory, weaponKeepsLockedJob } from '../../readviews/equip-pick.js';
 import { isHeroJob } from '../../readviews/jobs.js';
@@ -209,7 +210,13 @@ function planReturn(errand: EquipErrand): boolean {
     }
   }
   const { returnTo } = order;
-  if (returnTo === null || avoid?.(returnTo) === true) return finishEquipOrder(errand);
+  if (
+    returnTo === null ||
+    avoid?.(returnTo) === true ||
+    !terrain.isWalkable(returnTo) ||
+    dynamicBlockOverlay(world, ctx, terrain).has(returnTo)
+  )
+    return finishEquipOrder(errand);
   // A fighter stood in beside a return node another fighter holds has arrived: out of its own town's calm
   // zone a standing fighter is a post, and re-aiming at the occupied node would never end the errand.
   let arrived = false;

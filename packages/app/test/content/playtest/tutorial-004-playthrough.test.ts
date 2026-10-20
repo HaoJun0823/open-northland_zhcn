@@ -28,8 +28,9 @@ const TRIBE = 1;
 const HQ = { hx: 147, hy: 122 };
 /** The three collectors the opening page names, by script id: Snorri, Hedin and Orm. */
 const COLLECTORS = [1, 2, 3];
-/** Page 18 follows the closing page 14: both missions finish on the tailor's upgrade in one pass. */
-const PAGES = [0, 1, 12, 4, 6, 5, 2, 15, 19, 16, 13, 7, 3, 17, 8, 9, 14, 18];
+/** Independent workshops interleave by completion time. Page 18 follows the closing page 14:
+ * both missions finish on the tailor's upgrade in one pass. */
+const PAGES = [0, 1, 12, 4, 6, 5, 2, 15, 19, 13, 16, 7, 17, 3, 8, 9, 14, 18];
 const TIMEOUT_MS = 900_000;
 
 function site(sim: Simulation, log: PlaytestLog, slug: string, at: { hx: number; hy: number }): void {

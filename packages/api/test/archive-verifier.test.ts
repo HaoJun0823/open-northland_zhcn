@@ -83,29 +83,33 @@ describe('retained archive verification', () => {
     expect(passes).toBe(3);
   });
 
-  it("never returns replacement bytes under the verified inode's hash", async () => {
-    const replacement = join(dir, 'replacement');
-    await writeFile(replacement, Buffer.alloc(ARCHIVE.length, 9));
-    let replace: Promise<void> | undefined;
-    vi.spyOn(prototype, 'createReadStream').mockImplementationOnce(function (this: FileHandle, options) {
-      const stream = original.call(this, options);
-      stream.once('data', () => {
-        replace = rename(replacement, path);
+  // Windows refuses to rename over a file another handle holds open.
+  it.skipIf(process.platform === 'win32')(
+    "never returns replacement bytes under the verified inode's hash",
+    async () => {
+      const replacement = join(dir, 'replacement');
+      await writeFile(replacement, Buffer.alloc(ARCHIVE.length, 9));
+      let replace: Promise<void> | undefined;
+      vi.spyOn(prototype, 'createReadStream').mockImplementationOnce(function (this: FileHandle, options) {
+        const stream = original.call(this, options);
+        stream.once('data', () => {
+          replace = rename(replacement, path);
+        });
+        return stream;
       });
-      return stream;
-    });
-    const handle = await verifier.open(path, HASH);
-    await replace;
-    // Unlinking can update the old inode's ctime; refusal is also safe in that case.
-    if (handle !== null) {
-      try {
-        expectArchiveBytes(await handle.readFile());
-      } finally {
-        await handle.close();
+      const handle = await verifier.open(path, HASH);
+      await replace;
+      // Unlinking can update the old inode's ctime; refusal is also safe in that case.
+      if (handle !== null) {
+        try {
+          expectArchiveBytes(await handle.readFile());
+        } finally {
+          await handle.close();
+        }
       }
-    }
-    expect(await verifier.open(path, HASH)).toBeNull();
-  });
+      expect(await verifier.open(path, HASH)).toBeNull();
+    },
+  );
 
   it('caps hashing concurrency and rejects excess admission before opening more files', async () => {
     const paths = Array.from({ length: 40 }, (_, index) => join(dir, `${index}.bin`));

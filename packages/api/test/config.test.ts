@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   apiConfigFromEnvironment,
@@ -14,7 +15,7 @@ describe('apiConfigFromEnvironment', () => {
     expect(apiConfigFromEnvironment({}, '/checkout')).toEqual({
       port: DEFAULT_PORT,
       host: null,
-      dataDir: '/checkout/.api-data',
+      dataDir: resolve('/checkout', '.api-data'),
       upstream: DEFAULT_UPSTREAM,
       syncIntervalMs: SIX_HOURS * MS_PER_HOUR,
       convertConcurrency: 1,
@@ -39,7 +40,7 @@ describe('apiConfigFromEnvironment', () => {
     expect(config).toMatchObject({
       port: 9001,
       host: '127.0.0.1',
-      dataDir: '/data',
+      dataDir: resolve('/data'),
       upstream: 'http://localhost:1337',
       build: 'abc',
       convertConcurrency: 3,

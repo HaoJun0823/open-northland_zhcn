@@ -38,6 +38,11 @@ function mapOverlay(strings: Record<string, string>, basis: { lang: string; dige
 const OTHER_BASIS = { lang: 'pol', digest: 'd'.repeat(64) } as const;
 const VARIANT = mapOverlayFileId('wyprawa', DIGEST_A, OTHER_BASIS.digest);
 
+/** `rel` as a pattern of the path the loader names, whose separators are the platform's. */
+function pathPattern(rel: string): string {
+  return rel.replaceAll('.', '\\.').split('/').join('[\\\\/]');
+}
+
 describe('loadTranslationOverlays', () => {
   it('keys map overlays by digest across languages, and the rest by language then file id', async () => {
     await put(`chs/maps/${FILE_A}.json`, mapOverlay({ '0': '北行' }));
@@ -81,7 +86,9 @@ describe('loadTranslationOverlays', () => {
   it('refuses a map overlay name of neither form, of another alias, or with a basis prefix its basis does not begin with', async () => {
     await put('chs/maps/fjord.json', mapOverlay({}));
     await expect(loadTranslationOverlays(root)).rejects.toThrow(
-      /chs\/maps\/fjord\.json: a map overlay is named <map>\.<map\.dat prefix>\.json/,
+      new RegExp(
+        `${pathPattern('chs/maps/fjord.json')}: a map overlay is named <map>\\.<map\\.dat prefix>\\.json`,
+      ),
     );
     await rm(join(root, 'chs/maps/fjord.json'));
     await put(`chs/maps/${DIGEST_A}.json`, mapOverlay({}));
@@ -103,7 +110,9 @@ describe('loadTranslationOverlays', () => {
     await put(`chs/maps/${FILE_A}.json`, mapOverlay({ '0': '北行' }, OTHER_BASIS));
     await put(`chs/maps/${VARIANT}.json`, mapOverlay({ '0': '第二次北行' }, OTHER_BASIS));
     await expect(loadTranslationOverlays(root)).rejects.toThrow(
-      new RegExp(`chs/maps/${FILE_A}\\.json: ${VARIANT}\\.json has the same map\\.dat and basis\\.digest`),
+      new RegExp(
+        `${pathPattern(`chs/maps/${FILE_A}.json`)}: ${VARIANT}\\.json has the same map\\.dat and basis\\.digest`,
+      ),
     );
   });
 
@@ -160,7 +169,7 @@ describe('loadTranslationOverlays', () => {
       basis: { lang: 'chs', digest: BASIS.digest },
     });
     await expect(loadTranslationOverlays(root)).rejects.toThrow(
-      new RegExp(`chs/maps/${FILE_A}\\.json: invalid maps overlay at basis\\.lang`),
+      new RegExp(`${pathPattern(`chs/maps/${FILE_A}.json`)}: invalid maps overlay at basis\\.lang`),
     );
   });
 
@@ -171,7 +180,9 @@ describe('loadTranslationOverlays', () => {
 
   it('fails on a file that is not JSON, naming its path', async () => {
     await put('chs/objects/goods.json', '{ not json');
-    await expect(loadTranslationOverlays(root)).rejects.toThrow(/chs\/objects\/goods\.json: /);
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      new RegExp(`${pathPattern('chs/objects/goods.json')}: `),
+    );
   });
 
   it('holds no overlays for a missing root, and resolves the repository folder by default', async () => {

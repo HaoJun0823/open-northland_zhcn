@@ -26,7 +26,7 @@ export const chtGame = {
       maximumZoom: '已達小地圖最大縮放（4×）。',
       size: '變更大小',
       sizeState: '小地圖大小：{size}。變更大小',
-      sizes: { s: '小', m: '中', l: '大', xl: '特大' },
+      sizes: { s: '小', m: '中', l: '大', xl: '特大', xxl: '超大' },
       filters: '小地圖圖層',
       showAll: '全部顯示',
       hideAll: '全部隱藏',
@@ -1385,7 +1385,6 @@ export const chtGame = {
       wholeMap: '整張地圖',
     },
     stats: {
-      seatTick: '{seat} · 邏輯幀 {tick}',
       playerTick: '玩家 {player} · 邏輯幀 {tick}',
       tick: '邏輯幀 {tick}',
       population: '人口：{population}',
@@ -1394,6 +1393,14 @@ export const chtGame = {
       idle: '閒置',
       job: '職業 {jobType}',
       good: '貨物 {goodType}',
+    },
+    statisticsWindow: {
+      population: '人口',
+      professions: '職業',
+      stocks: '庫存',
+      idle: '無業',
+      other: '其他',
+      none: '無',
     },
   },
   // Project-authored labels for a checkout without the optional game text tables.

@@ -26,7 +26,7 @@ export const chsGame = {
       maximumZoom: '已达到小地图最大缩放（4×）。',
       size: '更改大小',
       sizeState: '小地图大小：{size}。更改大小',
-      sizes: { s: '小', m: '中', l: '大', xl: '特大' },
+      sizes: { s: '小', m: '中', l: '大', xl: '特大', xxl: '超大' },
       filters: '小地图图层',
       showAll: '全部显示',
       hideAll: '全部隐藏',
@@ -1385,7 +1385,6 @@ export const chsGame = {
       wholeMap: '整张地图',
     },
     stats: {
-      seatTick: '{seat} · 逻辑帧 {tick}',
       playerTick: '玩家 {player} · 逻辑帧 {tick}',
       tick: '逻辑帧 {tick}',
       population: '人口：{population}',
@@ -1394,6 +1393,14 @@ export const chsGame = {
       idle: '闲置',
       job: '职业 {jobType}',
       good: '物资 {goodType}',
+    },
+    statisticsWindow: {
+      population: '人口',
+      professions: '职业',
+      stocks: '库存',
+      idle: '无业',
+      other: '其他',
+      none: '无',
     },
   },
   // Project-authored labels for a checkout without the optional game text tables.

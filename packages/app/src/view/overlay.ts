@@ -10,7 +10,7 @@ export const PANEL_STYLE = [
   'padding:12px 14px',
   'background:rgba(20,16,12,0.92)',
   'color:#e8dcc8',
-  'font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
+  'font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,"Noto Sans SC",monospace',
   'border:1px solid #5a4a36',
   'border-radius:8px',
   'box-shadow:0 6px 24px rgba(0,0,0,0.45)',
@@ -25,7 +25,7 @@ export const BUTTON_STYLE = [
   'border:1px solid #6b5840',
   'border-radius:5px',
   'padding:4px 8px',
-  'font:12px ui-monospace,monospace',
+  'font:12px ui-monospace,"Noto Sans SC",monospace',
 ].join(';');
 
 export function el<K extends keyof HTMLElementTagNameMap>(

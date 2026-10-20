@@ -4,14 +4,14 @@ import { type ElevationField, projectNode } from '../../data/terrain/index.js';
 import { retireUndrawn } from './retained-pool.js';
 
 /**
- * The order markers - the acknowledgement of a walk, march or claim order: four darts slide into the named spot
+ * The order markers - the acknowledgement of a walk or march order: four darts slide into the named spot
  * and a ring lands there. A lost settler's refused goal holds the same mark, its darts stopped short of
  * the ring and breathing in place. A presentation addition, not taken from the original. The app owns
  * the clock and hands each marker's progress and the shared pulse in.
  */
 
-/** A walk is green; an attack-move is red; a scout's claim on an animal is amber. */
-export type OrderMarkerKind = 'move' | 'attack' | 'claim';
+/** A walk is green; an attack-move is red. */
+export type OrderMarkerKind = 'move' | 'attack';
 /** A refused goal is a cool pale blue, apart from every order, selection and flag colour. */
 type MarkerTint = OrderMarkerKind | 'lost';
 
@@ -100,7 +100,6 @@ const LOST_ALPHA_HIGH = 0.9;
 const COLOURS: Readonly<Record<MarkerTint, { readonly fill: number; readonly outline: number }>> = {
   move: { fill: 0xa8e890, outline: 0x1c3a14 },
   attack: { fill: 0xe8604a, outline: 0x3a0e08 },
-  claim: { fill: 0xf0c050, outline: 0x3a2808 },
   lost: { fill: LOST_GOAL_COLOUR, outline: LOST_GOAL_OUTLINE },
 };
 

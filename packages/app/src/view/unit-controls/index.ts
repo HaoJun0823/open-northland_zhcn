@@ -38,6 +38,7 @@ import { issueRingCommand } from './ring-commands.js';
 import { createUnitSelection } from './selection.js';
 import { createSelectionCursor } from './selection-cursor.js';
 import { createSelectionVoice } from './selection-voice.js';
+import { createTargetFlashes } from './target-flashes.js';
 import type { UnitControls, UnitControlsOptions } from './types.js';
 import { createUnitTargets } from './unit-targets.js';
 import { createVehicleOrderController } from './vehicle-orders.js';
@@ -112,6 +113,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     () => workArea.version() + selection.version(),
   );
   const orderMarkers = createOrderMarkers(() => performance.now());
+  const targetFlashes = createTargetFlashes(() => performance.now());
   const lostGoals = createLostGoals(nodeBounds(opts.mapSize).width);
   /** A gatherer's or a fisher's workplace pick also plants its flag, so the panel's one button serves
    *  both ways the trade works. */
@@ -323,6 +325,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
         : (movers) => opts.voices?.refuse({ members: movers, fallback: 'fail' }),
     askAttachTradeHouse: opts.askAttachTradeHouse,
     markOrder: orderMarkers.place,
+    flashTarget: targetFlashes.flash,
   });
 
   const vehicleOrders = createVehicleOrderController({
@@ -341,6 +344,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     answered,
     pendingGroundOrders,
     markOrder: orderMarkers.place,
+    flashTarget: targetFlashes.flash,
   });
 
   const overviewPress = createOverviewOrders({
@@ -577,6 +581,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     controlGroupMembers: controlGroups.members,
     rangeRings: () => rangeRings(opts.snapshot()),
     orderMarkers: orderMarkers.live,
+    targetFlashes: targetFlashes.live,
     lostGoals: () => lostGoals(opts.snapshot(), selection.ids(), pickableSeat(opts.viewer)),
     assignHighlight: pickMode.highlight,
     ownWallsAt: (points) => {

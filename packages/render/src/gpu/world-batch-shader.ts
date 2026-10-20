@@ -4,6 +4,7 @@ import { PIXEL_ART_MAGNIFY_CORE_GLSL, XBR_NEIGHBOURS } from './pixel-art-magnify
 import { WORLD_MAGNIFY_MODES, worldMagnifyModeName } from './pixel-art-registry.js';
 import { PRESCALE_FACTOR } from './prescale/prescale-pass.js';
 import type { GlslProgramSource } from './program-source.js';
+import { ALERT_LIFT_GLSL } from './selection-style.js';
 import { type ShadowStyle, shadowTintChannels } from './shadow-style.js';
 
 /** `aFlags` bits: what the fragment shader must know about the element's texture. They share one float
@@ -28,6 +29,9 @@ export const GLOW_PALETTE_INDEX = 170;
  *  {@link OUTLINE_DIRECTIONS} offset. */
 export const SELECTION_STAMP = -1;
 export const SELECTION_OUTLINE = -2;
+/** `aSelection` values from here up lift the colours towards {@link ALERT_LIFT_GLSL} by their excess over
+ *  it; values from 0 to 1 lift towards white. */
+export const SELECTION_ALERT = 2;
 const DIAGONAL = Math.SQRT1_2;
 /** The unit offsets an outline spreads the body's coverage along, scaled by the outline's reach. */
 export const OUTLINE_DIRECTIONS = [
@@ -187,6 +191,8 @@ const float SINGLE_TAP_FOOTPRINT = 0.000001;
 const float MINIFY_TAP_OFFSET = 0.25;
 const float MINIFY_TAP_WEIGHT = 0.25;
 const float SELECTION_OUTLINE = ${SELECTION_OUTLINE}.0;
+const float SELECTION_ALERT = ${SELECTION_ALERT}.0;
+const vec3 ALERT_LIFT = ${ALERT_LIFT_GLSL};
 // An outline quad reads the body's coverage where each offset copy would draw this fragment;
 // vSplashes carries the uv step per unit offset in x and y.
 const int OUTLINE_TAPS = ${OUTLINE_DIRECTIONS.length};
@@ -387,6 +393,8 @@ ${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTa
     }
   }
   ${shading.output}
-  finalColor.rgb = mix(finalColor.rgb, vec3(finalColor.a), max(0.0, vSelection));
+  bool alert = vSelection >= SELECTION_ALERT;
+  vec3 lift = (alert ? ALERT_LIFT : vec3(1.0)) * finalColor.a;
+  finalColor.rgb = mix(finalColor.rgb, lift, alert ? vSelection - SELECTION_ALERT : max(0.0, vSelection));
 }`;
 }

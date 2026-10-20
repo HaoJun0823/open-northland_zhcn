@@ -17,6 +17,7 @@ import type {
 import { DEFAULT_PIXEL_ART_SCALER, type PixelArtScaler } from '../pixel-art-registry.js';
 import type { PlanRoadTextures } from '../plan-road.js';
 import type { PlanStakeTextures } from '../plan-stake.js';
+import type { TargetFlash } from '../selection-style.js';
 import type { SpriteSheet } from '../sprite-sheet.js';
 
 /** One candidate building's workplace-assignment verdict: `ok` = the selected settler can take a slot there. */
@@ -132,6 +133,8 @@ export interface WorldFrame {
   readonly rangeRings?: readonly RangeRing[] | undefined;
   /** The ground acknowledgements of the player's latest walk and march orders (default none). */
   readonly orderMarkers?: readonly OrderMarker[] | undefined;
+  /** The targets of the player's latest claim and attack orders, playing their one-time flash (default none). */
+  readonly targetFlashes?: ReadonlyMap<number, TargetFlash> | undefined;
   /** The refused goals of the selected lost settlers, held while they stay lost (default none). */
   readonly lostGoals?: readonly LostGoalMarker[] | undefined;
   /** The refused goals' shared breathing phase, 0..1 and wrapping, off the app's wall clock (default 0). */

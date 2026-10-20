@@ -11,6 +11,7 @@ import type {
   OrderMarker,
   RangeRing,
   SpriteSheet,
+  TargetFlash,
 } from '@open-northland/render';
 import type {
   Entity,
@@ -198,6 +199,8 @@ export interface UnitControls {
   readonly rangeRings: () => readonly RangeRing[];
   /** The ground acknowledgements of the latest walk and march orders still playing. */
   readonly orderMarkers: () => readonly OrderMarker[];
+  /** The order targets still playing their one-time flash. */
+  readonly targetFlashes: () => ReadonlyMap<number, TargetFlash>;
   /** The refused goals of the selected lost settlers; the same list while they stand still. */
   readonly lostGoals: () => readonly LostGoalMarker[];
   /** The green/red assignment wash for the render building-highlight layer, or null when no assign mode

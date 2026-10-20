@@ -1,12 +1,24 @@
 import { Container, Matrix, type ObservablePoint, type Texture } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
-import { type SelectionStyle, selectionLight } from '../selection-style.js';
+import {
+  type SelectionStyle,
+  selectionLight,
+  type TargetFlash,
+  targetFlashLight,
+} from '../selection-style.js';
 import { OutlineSprite, SelectionGraphics } from '../sprite-selection-effect.js';
 import type { TextureCache } from '../texture-cache.js';
-import { OUTLINE_DIRECTIONS, SELECTION_STAMP } from '../world-batch-shader.js';
+import { OUTLINE_DIRECTIONS, SELECTION_ALERT, SELECTION_STAMP } from '../world-batch-shader.js';
 import { worldBatched } from '../world-batcher.js';
 import type { PooledEntity } from './pooled-entity.js';
+
+/** How far an entity's colours lift, towards white or, `alert`, towards red. */
+interface Light {
+  readonly amount: number;
+  readonly alert: boolean;
+}
+const UNLIT: Light = { amount: 0, alert: false };
 
 // Artistic choice: a narrow ivory core and a dark outer keyline for changing terrain contrast.
 // Draw each pass over the whole body before the next; individual layers must not border one another.
@@ -20,7 +32,7 @@ const OUTLINE_PASSES = [
 export class SelectionEffects {
   private readonly outlines = new Map<PooledEntity, Container<OutlineSprite | SelectionGraphics>>();
   private readonly transform = new Matrix();
-  private readonly lit = new Map<PooledEntity, number>();
+  private readonly lit = new Map<PooledEntity, Light>();
 
   constructor(private readonly textures: TextureCache) {}
 
@@ -30,14 +42,20 @@ export class SelectionEffects {
     zoom: number,
     seconds: number,
     outlineColour = 0xf2e8c9,
+    flash?: TargetFlash,
   ): void {
     // Nothing selected and nothing left to clear: every drawn entity asks each frame, so skip the
     // two map lookups below.
-    if (style === undefined && this.lit.size === 0 && this.outlines.size === 0) return;
-    if (style === 'pulse' || this.lit.has(pe)) {
-      const light = style === 'pulse' ? selectionLight(seconds) : 0;
+    if (style === undefined && flash === undefined && this.lit.size === 0 && this.outlines.size === 0) return;
+    if (style === 'pulse' || flash !== undefined || this.lit.has(pe)) {
+      // A flash outshines the selection pulse while it plays.
+      const flashed = flash === undefined ? 0 : targetFlashLight(flash.progress);
+      const light: Light =
+        flashed > 0
+          ? { amount: flashed, alert: flash?.tone === 'attack' }
+          : { amount: style === 'pulse' ? selectionLight(seconds) : 0, alert: false };
       this.light(pe, light);
-      if (light === 0) this.lit.delete(pe);
+      if (light.amount === 0) this.lit.delete(pe);
       else this.lit.set(pe, light);
     }
     if (style !== 'outline') {
@@ -140,19 +158,19 @@ export class SelectionEffects {
   setVisible(visible: boolean): void {
     const alpha = visible ? 1 : 0;
     for (const outline of this.outlines.values()) outline.alpha = alpha;
-    for (const [pe, light] of this.lit) this.light(pe, visible ? light : 0);
+    for (const [pe, light] of this.lit) this.light(pe, visible ? light : UNLIT);
   }
 
-  private light(pe: PooledEntity, amount: number): void {
+  private light(pe: PooledEntity, { amount, alert }: Light): void {
+    const effect = alert && amount > 0 ? SELECTION_ALERT + amount : amount;
     for (let i = 0; i < pe.sprites.length; i++) {
       const sprite = pe.sprites[i];
       if (sprite === undefined) continue;
       const excluded = (!pe.paletted && pe.pickExempt[i]) || ('glow' in sprite && sprite.glow === true);
-      const light = excluded ? 0 : amount;
-      if (sprite instanceof PalettedSprite) sprite.selectionLight = light;
-      else sprite.selectionEffect = light;
+      if (sprite instanceof PalettedSprite) sprite.setSelectionLight(excluded ? 0 : amount, alert);
+      else sprite.selectionEffect = excluded ? 0 : effect;
     }
-    if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = amount;
+    if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = effect;
   }
 
   clear(pe: PooledEntity): void {

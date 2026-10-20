@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { ElevationField, OrderMarkerKind } from '@open-northland/render';
+import type { ElevationField, OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
 import {
   type Entity,
   entityById,
@@ -56,6 +56,8 @@ export interface VehicleOrderDeps {
   /** Acknowledges a drive, mooring or bombardment on the ground where it was aimed; absent, nothing is
    *  drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
+  /** Flashes the target of a claim or an attack once; absent, nothing is drawn. */
+  readonly flashTarget?: ((entity: number, tone: TargetFlashTone) => void) | undefined;
 }
 
 /**
@@ -311,6 +313,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
       vehicle: vehicle as Entity,
       target: { kind: 'entity', entity: enemy as Entity },
     });
+    deps.flashTarget?.(enemy, 'attack');
     return true;
   };
 
@@ -421,7 +424,9 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     if (pickTopAt(deps.targets.owned('settler'), world.x, world.y) !== null) return false;
     const enemy = event.shiftKey ? null : pickTopAt(deps.targets.enemies(), world.x, world.y);
     const striking = enemy === null ? [] : group.filter(isSiege);
-    if (enemy !== null && striking.length > 0)
+    if (
+      enemy !== null &&
+      striking.length > 0 &&
       enqueueArmyOrder(
         {
           kind: 'attackWithVehicleGroup',
@@ -430,7 +435,9 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
         },
         deps.enqueue,
         deps.onOrderLimit,
-      );
+      )
+    )
+      deps.flashTarget?.(enemy, 'attack');
     const driving = group.filter((e) => !striking.includes(e)).map((e) => e.id);
     driveInFormation(driving, worldToTile(world.x, world.y, deps.elevation), false, event.shiftKey);
     return true;

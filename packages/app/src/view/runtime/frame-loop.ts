@@ -421,6 +421,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       groupNumbers: controls.groupNumbers(),
       rangeRings: controls.rangeRings(),
       orderMarkers: controls.orderMarkers(),
+      targetFlashes: controls.targetFlashes(),
       lostGoals,
       lostGoalPulse: lostGoalPulse(nowMs),
       gpuTimer: perfReadout.gpuTimer(),

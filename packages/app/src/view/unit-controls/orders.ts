@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { type ContentSet, type EquipCategory, lastByTypeId } from '@open-northland/data';
-import type { ElevationField, OrderMarkerKind } from '@open-northland/render';
+import type { ElevationField, OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
 import {
   type Command,
   type Entity,
@@ -94,6 +94,8 @@ export interface UnitOrderDeps {
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
   /** Acknowledges a walk or march on the ground where it was aimed; absent, nothing is drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
+  /** Flashes the target of a claim or an attack once; absent, nothing is drawn. */
+  readonly flashTarget?: ((entity: number, tone: TargetFlashTone) => void) | undefined;
 }
 
 /**
@@ -702,9 +704,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     return enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
   };
 
-  /** Send every commanded scout after `animal`, queued behind its current order when `queued`, and mark
-   *  the animal where it stands; returns the units that are not scouts. The sim judges the animal when
-   *  each order starts. */
+  /** Send every commanded scout after `animal`, queued behind its current order when `queued`, and flash
+   *  the animal; returns the units that are not scouts. The sim judges the animal when each order starts. */
   const claimAnimal = (
     commanded: readonly FormationUnit[],
     animal: number,
@@ -726,14 +727,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         ...(queued ? { queued } : {}),
       });
     }
-    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) {
-      const target = entityById(snapshot, animal);
-      const position = target === undefined ? undefined : positionOf(target);
-      if (position !== undefined) {
-        const node = nodeOfPosition(position.x, position.y);
-        deps.markOrder?.({ col: node.hx, row: node.hy }, 'claim');
-      }
-    }
+    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(animal, 'claim');
     return others;
   };
 
@@ -803,7 +797,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   };
 
   const strike = (commanded: readonly FormationUnit[], enemy: number): boolean => {
-    return enqueueArmyOrder(
+    const accepted = enqueueArmyOrder(
       {
         kind: 'attackUnitGroup',
         members: commanded.map((unit) => ({ entity: unit.ref as Entity })),
@@ -812,6 +806,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       deps.enqueue,
       onOrderLimit,
     );
+    if (accepted) deps.flashTarget?.(enemy, 'attack');
+    return accepted;
   };
 
   const issueAttackTarget = (

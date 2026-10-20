@@ -30,7 +30,7 @@ import { DepthSortedLayer, drawLayerOf } from '../depth-sorted-layer.js';
 import { PalettedQuad } from '../paletted-sprite/index.js';
 import { PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
 import type { PlanStakeTextures } from '../plan-stake.js';
-import type { SelectionStyle } from '../selection-style.js';
+import type { SelectionStyle, TargetFlash } from '../selection-style.js';
 import type { ShadowStyle } from '../shadow-style.js';
 import type { SpriteSheet } from '../sprite-sheet.js';
 import type { TextureCache } from '../texture-cache.js';
@@ -86,6 +86,8 @@ export interface PoolFrame {
   readonly flagged?: ReadonlySet<number>;
   readonly selectionStyle?: SelectionStyle;
   readonly selectionTime?: number;
+  /** Order targets playing their one-time flash, by entity. */
+  readonly flashes?: ReadonlyMap<number, TargetFlash>;
   readonly enhancedSampling?: boolean;
   readonly environmentMotion?: boolean;
   /** The weather's wind, bending swaying vegetation and filling sails while `environmentMotion` is on;
@@ -344,8 +346,8 @@ export class SpritePool {
       const pe = (repeated ? this.lastPooled[i] : undefined) ?? this.pooledFor(item);
       this.visit(pe, item, i, frame);
     }
-    // A held entity a selection or flag now names draws its emphasis, which only a visit applies.
-    for (const refs of [frame.selection, frame.flagged]) {
+    // A held entity a selection, flag or flash now names draws its emphasis, which only a visit applies.
+    for (const refs of [frame.selection, frame.flagged, frame.flashes?.keys()]) {
       for (const ref of refs ?? NO_REFS) {
         const pe = this.pool.get(ref);
         const item = pe?.bound.item;
@@ -457,6 +459,8 @@ export class SpritePool {
 
   private applySelection(pe: PooledEntity, item: DrawItem, frame: PoolFrame): boolean {
     const flagged = frame.flagged?.has(item.ref) === true;
+    const flash =
+      item.ghost === true || item.portraitOnly === true ? undefined : frame.flashes?.get(item.ref);
     const style =
       item.ghost === true || item.portraitOnly === true
         ? undefined
@@ -471,8 +475,9 @@ export class SpritePool {
       frame.camera.scale ?? 1,
       frame.selectionTime ?? 0,
       flagged ? 0xffc020 : undefined,
+      flash,
     );
-    return style !== undefined;
+    return style !== undefined || flash !== undefined;
   }
 
   /** Whether `container` is a pooled entity the sprite layer may draw from its retained mesh
@@ -511,6 +516,7 @@ export class SpritePool {
       return false;
     for (const ref of frame.selection ?? NO_REFS) if (!this.movingRefs.has(ref)) return false;
     for (const ref of frame.flagged ?? NO_REFS) if (!this.movingRefs.has(ref)) return false;
+    for (const ref of frame.flashes?.keys() ?? NO_REFS) if (!this.movingRefs.has(ref)) return false;
     return true;
   }
 

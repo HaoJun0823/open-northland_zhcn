@@ -241,6 +241,8 @@ export {
   parseSelectionStyle,
   SELECTION_STYLES,
   type SelectionStyle,
+  type TargetFlash,
+  type TargetFlashTone,
 } from './gpu/selection-style.js';
 export {
   type ShaderWarmup,

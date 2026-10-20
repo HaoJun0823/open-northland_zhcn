@@ -11,9 +11,11 @@ import {
   ATLAS_WIDTHS,
   FOG_UNEXPLORED_TINT,
   fillFogMask,
+  type MinimapSize,
   minimapLayout,
   minimapPanelWidth,
   minimapToWorld,
+  nextMinimapSize,
   pointOverMinimap,
   pointOverMinimapHole,
   refillChangedFogCells,
@@ -33,7 +35,7 @@ describe('minimapLayout', () => {
   const bounds = terrainWorldBounds(256, 256);
 
   it('limits frame trimming and preserves anchors across sizes, UI scales and constrained viewports', () => {
-    for (const size of ['s', 'm', 'l', 'xl'] as const) {
+    for (const size of ['s', 'm', 'l', 'xl', 'xxl'] as const) {
       for (const scale of [0.75, 1, 1.4, 1.875]) {
         for (const screen of [
           { w: 1366, h: 768 },
@@ -63,7 +65,7 @@ describe('minimapLayout', () => {
   });
 
   it('uses the selected longest side with fixed frame thickness on every edge', () => {
-    for (const size of ['s', 'm', 'l', 'xl'] as const) {
+    for (const size of ['s', 'm', 'l', 'xl', 'xxl'] as const) {
       const layout = minimapLayout(bounds, 900, 1, size, 1600);
       expect(layout.panel.w).toBe(ATLAS_WIDTHS[size]);
       expect(layout.panel.h).toBeLessThan(ATLAS_WIDTHS[size]);
@@ -75,6 +77,28 @@ describe('minimapLayout', () => {
       });
       expect(minimapPanelWidth(1, size)).toBe(layout.panel.w);
     }
+  });
+
+  it('cycles only through sizes that grow, so the bottom navigation caps the largest', () => {
+    const cycle = (screenW: number, screenH: number, scale: number): MinimapSize[] => {
+      const seen: MinimapSize[] = ['s'];
+      let size = nextMinimapSize('s', bounds, screenH, scale, screenW);
+      while (size !== 's') {
+        seen.push(size);
+        size = nextMinimapSize(size, bounds, screenH, scale, screenW);
+      }
+      return seen;
+    };
+    expect(cycle(2560, 1440, 1)).toEqual(['s', 'm', 'l', 'xl', 'xxl']);
+    // 1366 px at 1.4: the beam starts 389 px in, so M already fills the room beside it.
+    expect(cycle(1366, 768, 1.4)).toEqual(['s', 'm']);
+    // 1920 px at 1.4: XXL grows past XL but stops at the beam's gap.
+    const screen = { width: 1920, height: 1080 };
+    const xl = minimapLayout(bounds, screen.height, 1.4, 'xl', screen.width);
+    const xxl = minimapLayout(bounds, screen.height, 1.4, 'xxl', screen.width);
+    expect(xxl.panel.w).toBeGreaterThan(xl.panel.w);
+    expect(xxl.panel.w).toBeLessThan(ATLAS_WIDTHS.xxl * 1.4);
+    expect(xxl.panel.w + 6 * 1.4).toBeCloseTo(navBeamRect(screen, 1.4).x);
   });
 
   it('preserves world-view proportions without stretching either axis', () => {
@@ -120,7 +144,7 @@ describe('minimapLayout', () => {
   });
 
   it('trims only the short axis for extreme maps and keeps square maps square', () => {
-    for (const size of ['s', 'm', 'l', 'xl'] as const) {
+    for (const size of ['s', 'm', 'l', 'xl', 'xxl'] as const) {
       const side = ATLAS_WIDTHS[size];
       const wide = minimapLayout({ ...bounds, width: 10000, height: 100 }, 900, 1, size, 1600);
       const tall = minimapLayout({ ...bounds, width: 100, height: 10000 }, 900, 1, size, 1600);
@@ -171,7 +195,7 @@ describe('parchment opening', () => {
   it('meets the terrain edges for wide and tall maps at every size and zoom', () => {
     const bounds = terrainWorldBounds(240, 190);
     for (const shape of [bounds, { ...bounds, width: bounds.height, height: bounds.width }]) {
-      for (const size of ['s', 'm', 'l', 'xl'] as const) {
+      for (const size of ['s', 'm', 'l', 'xl', 'xxl'] as const) {
         const base = minimapLayout(shape, 900, 1.25, size, 1600);
         const center = { x: shape.minX + shape.width / 2, y: shape.minY + shape.height / 2 };
         let previousArea = 0;

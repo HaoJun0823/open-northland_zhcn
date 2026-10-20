@@ -27,6 +27,7 @@ import { createMinimapInput } from './input.js';
 import {
   type MinimapSize,
   minimapLayout,
+  nextMinimapSize,
   pointOverMinimap,
   viewportRectOnMinimap,
   visibleMinimapRect,
@@ -191,7 +192,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
         refreshLayout();
       },
       onSize: () => {
-        size = size === 's' ? 'm' : size === 'm' ? 'l' : size === 'l' ? 'xl' : 's';
+        size = nextMinimapSize(size, bounds, app.screen.height, uiScale, app.screen.width);
         dirtyDots = true;
         refreshLayout();
       },

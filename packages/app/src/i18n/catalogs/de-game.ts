@@ -34,6 +34,7 @@ export const deGame = {
         m: 'Mittel',
         l: 'Groß',
         xl: 'Sehr groß',
+        xxl: 'Riesig',
       },
       filters: 'Minikartenebenen',
       showAll: 'Alles anzeigen',

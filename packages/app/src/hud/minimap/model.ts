@@ -16,8 +16,9 @@ import { MIN_UI_SCALE } from '../ui-scale.js';
  * transform. Terrain, dots and the camera rectangle use the same uniform scale as the world view.
  */
 
-export const ATLAS_WIDTHS = { s: 224, m: 280, l: 344, xl: 416 } as const;
+export const ATLAS_WIDTHS = { s: 224, m: 280, l: 344, xl: 416, xxl: 496 } as const;
 export type MinimapSize = keyof typeof ATLAS_WIDTHS;
+const SIZES = Object.keys(ATLAS_WIDTHS) as readonly MinimapSize[];
 
 const BORDER = 20;
 const MIN_PANEL_SIDE = 124;
@@ -55,6 +56,22 @@ function atlasPanel(
 /** Panel width in screen px before a narrow screen limits it. */
 export function minimapPanelWidth(uiscale: number, size: MinimapSize = 'm'): number {
   return ATLAS_WIDTHS[size] * Math.max(MIN_UI_SCALE, uiscale);
+}
+
+/**
+ * The next size that is larger on this screen. The bottom navigation and the selection panel cap the
+ * width, so a size that would clamp to the current one is skipped and the cycle wraps to the smallest.
+ */
+export function nextMinimapSize(
+  current: MinimapSize,
+  bounds: WorldBounds,
+  screenH: number,
+  uiscale: number,
+  screenW: number,
+): MinimapSize {
+  const width = (size: MinimapSize): number => minimapLayout(bounds, screenH, uiscale, size, screenW).panel.w;
+  const now = width(current);
+  return SIZES.slice(SIZES.indexOf(current) + 1).find((size) => width(size) > now) ?? 's';
 }
 
 /** Screen-px geometry. At zoom > 1, `map` may extend outside the clipped `inner` region. */

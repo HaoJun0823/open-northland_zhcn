@@ -29,7 +29,7 @@ export const plGame = {
       maximumZoom: 'Osiągnięto maksymalne powiększenie minimapy (4×).',
       size: 'Zmień rozmiar',
       sizeState: 'Rozmiar minimapy: {size}. Zmień rozmiar',
-      sizes: { s: 'Mała', m: 'Średnia', l: 'Duża', xl: 'Bardzo duża' },
+      sizes: { s: 'Mała', m: 'Średnia', l: 'Duża', xl: 'Bardzo duża', xxl: 'Ogromna' },
       filters: 'Warstwy minimapy',
       showAll: 'Pokaż wszystko',
       hideAll: 'Ukryj wszystko',

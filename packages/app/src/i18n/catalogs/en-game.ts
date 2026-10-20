@@ -28,7 +28,7 @@ export const enGame = {
       maximumZoom: 'Maximum minimap zoom reached (4×).',
       size: 'Change size',
       sizeState: 'Minimap size: {size}. Change size',
-      sizes: { s: 'Small', m: 'Medium', l: 'Large', xl: 'Extra large' },
+      sizes: { s: 'Small', m: 'Medium', l: 'Large', xl: 'Extra large', xxl: 'Huge' },
       filters: 'Minimap layers',
       showAll: 'Show all',
       hideAll: 'Hide all',

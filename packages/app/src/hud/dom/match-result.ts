@@ -9,8 +9,8 @@ import { createHudWindow } from './window.js';
 export interface MatchResultDeps {
   readonly localPlayer: number;
   readonly sharedClock?: boolean;
-  /** False where the map's script ends a won mission itself, so no panel pauses it before its unlocks. */
-  readonly announcesVictory?: boolean;
+  /** Defer victory until `finish`, after the script's unlocks; its ending offers only the menu. */
+  readonly scriptedEnding?: boolean;
   /** A goal table's verdicts in the order they landed, read when the window opens; empty shows no list. */
   readonly ranking?: () => readonly MatchRank[];
   /** The roster's authored seat name; absent, the list numbers the seat. */
@@ -73,6 +73,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     deps.onOpen();
     const scope = new AbortController();
     const actions = matchResultActions(deps.sharedClock === true, terminal);
+    const canContinue = !terminal || deps.scriptedEnding !== true;
     const copy = messages().hud;
     const won = verdict === 'victory';
     const watching = deps.sharedClock === true;
@@ -156,11 +157,12 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       el.addEventListener('click', click, { signal: scope.signal });
       return el;
     };
-    const stay = (): void => {
-      deps.onContinue();
+    const dismiss = (): void => {
+      if (canContinue) deps.onContinue();
       hide();
+      if (!canContinue) deps.onQuit();
     };
-    const resume = button(watching ? copy.matchWatch : copy.matchContinue, GLYPH.next, stay);
+    const resume = button(watching ? copy.matchWatch : copy.matchContinue, GLYPH.next, dismiss);
     resume.classList.add('on-result__continue');
     const quit = button(copy.returnToMenu, GLYPH.exit, () => {
       if (!actions.confirmQuit) {
@@ -182,7 +184,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
         });
     });
     const row = line('div', 'on-result__actions', '');
-    row.append(resume);
+    if (canContinue) row.append(resume);
     const onLoad = deps.onLoad;
     if (onLoad !== undefined && verdict === 'defeat') {
       row.append(
@@ -228,7 +230,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
         if (event.key === 'Escape') {
           event.preventDefault();
           if (confirm.isOpen()) confirm.cancel();
-          else stay();
+          else dismiss();
         } else if (event.key === 'Tab') {
           const panel =
             plane.element.querySelector('.on-system-confirm [role="alertdialog"]') ?? frame.element;
@@ -253,12 +255,12 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       { signal: scope.signal },
     );
     frame.open();
-    resume.focus();
+    (canContinue ? resume : quit).focus();
   };
 
   const announce = (outcome: MatchOutcome, scripted = false): void => {
     if (deps.sharedClock && outcome === 'victory' && !scripted) return;
-    if (deps.announcesVictory === false && outcome === 'victory') return;
+    if (deps.scriptedEnding === true && outcome === 'victory') return;
     if (state.announce(outcome)) show(outcome);
   };
   return {

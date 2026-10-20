@@ -20,7 +20,7 @@ function setup(
   sharedClock: boolean,
   ranking: () => readonly MatchRank[] = () => [],
   onLoad?: (back: () => void) => void,
-  announcesVictory?: boolean,
+  scriptedEnding?: boolean,
 ) {
   vi.stubGlobal(
     'ResizeObserver',
@@ -39,7 +39,7 @@ function setup(
     localPlayer: 0,
     sharedClock,
     ranking,
-    ...(announcesVictory === undefined ? {} : { announcesVictory }),
+    ...(scriptedEnding === undefined ? {} : { scriptedEnding }),
     seatNameOf: (player) => (player === 1 ? 'Ragnar' : undefined),
     pause,
     resume,
@@ -79,16 +79,43 @@ it('lets a defeated player watch without pausing and inspect the map after the m
   expect(h.body.children).toHaveLength(0);
 });
 
-it('leaves a won mission to a script that ends it, and still reports a lost one', () => {
-  const won = setup(false, () => [], undefined, false);
+it('defers campaign victory until the script finishes, and still reports a defeat immediately', () => {
+  const won = setup(false, () => [], undefined, true);
   won.overlay.onEvents([{ kind: 'playerWon', player: 0 }]);
   won.overlay.announce('victory');
   expect(won.body.children).toHaveLength(0);
   expect(won.pause).not.toHaveBeenCalled();
-  const lost = setup(false, () => [], undefined, false);
+  won.overlay.setSuspended('missionBook', true);
+  won.overlay.finish('victory');
+  expect(won.overlay.isOpen()).toBe(false);
+  won.overlay.setSuspended('missionBook', false);
+  expect(document.querySelector('.on-result__title')?.textContent).toBe(messages().hud.matchWonTitle);
+  expect(won.pause).toHaveBeenCalledOnce();
+  expect(won.body.buttons().map((button) => button.textContent)).toEqual([messages().hud.returnToMenu]);
+  expect(document.activeElement).toBe(won.body.buttons()[0]);
+  won.body.buttons()[0]?.click();
+  expect(won.onQuit).toHaveBeenCalledOnce();
+  expect(won.onContinue).not.toHaveBeenCalled();
+  expect(won.resume).toHaveBeenCalledOnce();
+  won.overlay.finish('victory');
+  expect(won.overlay.isOpen()).toBe(false);
+  const lost = setup(false, () => [], undefined, true);
   lost.overlay.onEvents([{ kind: 'playerDefeated', player: 0 }]);
   expect(lost.body.children).toHaveLength(1);
   expect(lost.pause).toHaveBeenCalledOnce();
+  expect(lost.body.buttons()).toHaveLength(2);
+  lost.body.buttons()[0]?.click();
+  expect(lost.onContinue).toHaveBeenCalledOnce();
+  expect(lost.onQuit).not.toHaveBeenCalled();
+});
+
+it('returns to the campaign menu with Escape after a scripted ending', () => {
+  const h = setup(false, () => [], undefined, true);
+  h.overlay.finish('victory');
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(h.onQuit).toHaveBeenCalledOnce();
+  expect(h.onContinue).not.toHaveBeenCalled();
+  expect(h.overlay.isOpen()).toBe(false);
 });
 
 it('lets a script that ends won missions exit after a victory, but not after a defeat the player watches', () => {

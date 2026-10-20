@@ -800,8 +800,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     });
     cleanup.push(() => perfReadout.dispose());
 
-    // A campaign script ends a won mission itself: won page, unlocks some seconds later, then Exit. A
-    // victory panel would pause it before the unlocks and offer a quit that drops them.
+    // A campaign win waits for the script handover: its closing page and delayed unlocks must
+    // finish before the result window pauses the world or offers a return to the menu.
     const scriptEndsVictory = deps.campaign !== undefined && !sharedClock;
     // The verdict panel rides the same event stream the entry's own hook does; a spectator seat has no
     // verdict to hear.
@@ -809,7 +809,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       verdict = createMatchResultOverlay({
         localPlayer,
         sharedClock,
-        announcesVictory: !scriptEndsVictory,
+        scriptedEnding: scriptEndsVictory,
         ranking: () => host.matchRanking(),
         ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
         hud: hudDom,
@@ -859,6 +859,12 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       presentation: (events) => presentation?.onEvents(events),
     });
 
+    const finishScript = (): void => {
+      if (scriptEndsVictory && host.matchOutcome(localPlayer) === 'victory' && verdict !== null) {
+        verdict.finish('victory');
+      } else queueMicrotask(quitToMenu);
+    };
+
     const campaign = !sharedClock
       ? createCampaignRuntime({
           ...(deps.campaign === undefined ? {} : { campaign: deps.campaign }),
@@ -883,7 +889,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
               soundDriver === null ? undefined : () => soundDriver.silenceMusic(),
             );
           },
-          exit: quitToMenu,
+          exit: finishScript,
           failed: (recovery) => campaignFailureDialog(hudDom.element, recovery, lifetime.signal),
           signal: lifetime.signal,
         })
@@ -1102,7 +1108,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       now: () => performance.now(),
       keepPlayingAfterResult: () =>
         keepsPlayingAfterResult(host.matchOutcome(localPlayer), sharedClock, scriptEndsVictory),
-      exit: () => queueMicrotask(quitToMenu),
+      exit: finishScript,
     });
 
     const mountedPresentation = presentation;

@@ -1,10 +1,11 @@
+import type { OrderMarkerKind } from '@open-northland/render';
 import type { Command, Entity, WorldSnapshot } from '@open-northland/sim';
 import { components, fx, ONE, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { JOB_SCOUT, JOB_SOLDIER } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
-import type { Pickable } from '../src/view/picking.js';
+import type { Pickable, Tile } from '../src/view/picking.js';
 import { createAnsweredOrders } from '../src/view/unit-controls/answered-orders.js';
 import { createUnitOrderController } from '../src/view/unit-controls/orders.js';
 import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
@@ -20,6 +21,9 @@ const { addPerson, Owner, Position } = components;
 const WOODCUTTER = 1;
 /** Any entity id stands in for the animal: the order controller only passes it on. */
 const ANIMAL = 999 as Entity;
+/** An even row keeps the cell's half-cell node unshifted: `(2c, 2r)`. */
+const ANIMAL_COL = 5;
+const ANIMAL_ROW = 6;
 
 function settlerAt(sim: Simulation, jobType: number): Entity {
   const e = sim.world.create();
@@ -39,11 +43,21 @@ function settlerAt(sim: Simulation, jobType: number): Entity {
 function rightClick(
   sim: Simulation,
   settlers: readonly Entity[],
-  { shiftKey = false, claimable = true }: { readonly shiftKey?: boolean; readonly claimable?: boolean } = {},
+  {
+    shiftKey = false,
+    claimable = true,
+    animalRef = ANIMAL,
+    marked = [],
+  }: {
+    readonly shiftKey?: boolean;
+    readonly claimable?: boolean;
+    readonly animalRef?: Entity;
+    readonly marked?: [Tile, OrderMarkerKind][];
+  } = {},
 ): Command[] {
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
-  const animal: Pickable = { ref: ANIMAL, x: 0, y: 0, kind: 'settler' };
+  const animal: Pickable = { ref: animalRef, x: 0, y: 0, kind: 'settler' };
   const targets: UnitTargets = {
     owned: () => [],
     buildings: () => [],
@@ -68,6 +82,7 @@ function rightClick(
     enqueue: (command) => issued.push(command),
     selectOwnSettler: () => {},
     openActions: () => {},
+    markOrder: (node, kind) => marked.push([node, kind]),
   }).issueRightClick({ clientX: 0, clientY: 0, shiftKey } as MouseEvent);
   return issued;
 }
@@ -84,6 +99,24 @@ describe('right-clicking a claimable animal', () => {
       action: { kind: 'claimAnimal', animal: ANIMAL },
     });
     expect(issued.slice(1).map((c) => c.kind)).toEqual(['moveUnit']);
+  });
+
+  it('marks the animal where it stands', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const scout = settlerAt(sim, JOB_SCOUT);
+    const animalRef = sim.world.create();
+    sim.world.add(animalRef, Position, { x: fx.fromInt(ANIMAL_COL), y: fx.fromInt(ANIMAL_ROW) });
+    const marked: [Tile, OrderMarkerKind][] = [];
+    rightClick(sim, [scout], { animalRef, marked });
+    expect(marked).toEqual([[{ col: 2 * ANIMAL_COL, row: 2 * ANIMAL_ROW }, 'claim']]);
+  });
+
+  it('marks nothing when no scout takes the claim', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const cutter = settlerAt(sim, WOODCUTTER);
+    const marked: [Tile, OrderMarkerKind][] = [];
+    rightClick(sim, [cutter], { marked });
+    expect(marked.map(([, kind]) => kind)).not.toContain('claim');
   });
 
   it("with Shift queues the claim behind the scout's current order, and a walk for the rest", () => {

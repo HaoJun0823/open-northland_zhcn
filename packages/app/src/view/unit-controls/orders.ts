@@ -702,8 +702,9 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     return enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
   };
 
-  /** Send every commanded scout after `animal`, queued behind its current order when `queued`; returns
-   *  the units that are not scouts. The sim judges the animal when each order starts. */
+  /** Send every commanded scout after `animal`, queued behind its current order when `queued`, and mark
+   *  the animal where it stands; returns the units that are not scouts. The sim judges the animal when
+   *  each order starts. */
   const claimAnimal = (
     commanded: readonly FormationUnit[],
     animal: number,
@@ -725,7 +726,14 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         ...(queued ? { queued } : {}),
       });
     }
-    enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
+    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) {
+      const target = entityById(snapshot, animal);
+      const position = target === undefined ? undefined : positionOf(target);
+      if (position !== undefined) {
+        const node = nodeOfPosition(position.x, position.y);
+        deps.markOrder?.({ col: node.hx, row: node.hy }, 'claim');
+      }
+    }
     return others;
   };
 

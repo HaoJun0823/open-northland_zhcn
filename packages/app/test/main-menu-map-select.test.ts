@@ -12,8 +12,8 @@ import {
   mapPreviewUrl,
   mapPreviewViews,
   ROOM_TABS,
-  SINGLE_PLAYER_TABS,
   sceneItem,
+  singlePlayerTabs,
 } from '../src/entries/main-menu/map-select-model.js';
 import { pluralForm } from '../src/i18n/index.js';
 import { parseStoredSettings } from '../src/view/settings-store.js';
@@ -35,13 +35,19 @@ function slot(player: number, hidden = false): MapsIndexPlayerSlot {
 
 describe('map filter tabs', () => {
   it('keeps every live filter clickable and places the Campaign content tab next to "all"', () => {
-    const filters = SINGLE_PLAYER_TABS.flatMap((tab) => (tab.kind === 'filter' ? [tab.filter] : []));
+    const tabs = singlePlayerTabs(true);
+    const filters = tabs.flatMap((tab) => (tab.kind === 'filter' ? [tab.filter] : []));
     expect(filters).toEqual(['all', 'tutorial', 'free', 'multiplayer', 'scenes']);
-    const content = SINGLE_PLAYER_TABS.flatMap((tab) => (tab.kind === 'content' ? [tab.id] : []));
+    const content = tabs.flatMap((tab) => (tab.kind === 'content' ? [tab.id] : []));
     expect(content).toEqual(['campaign']);
-    expect(SINGLE_PLAYER_TABS[1]).toEqual({ kind: 'content', id: 'campaign' });
-    expect(SINGLE_PLAYER_TABS[0]).toEqual({ kind: 'filter', filter: 'all' });
+    expect(tabs[1]).toEqual({ kind: 'content', id: 'campaign' });
+    expect(tabs[0]).toEqual({ kind: 'filter', filter: 'all' });
     expect(ROOM_TABS).toEqual([]);
+  });
+
+  it('lists test scenes only on a dev server', () => {
+    const filters = singlePlayerTabs(false).flatMap((tab) => (tab.kind === 'filter' ? [tab.filter] : []));
+    expect(filters).toEqual(['all', 'tutorial', 'free', 'multiplayer']);
   });
 
   it('opens New Game on the map list until a content tab is chosen', () => {

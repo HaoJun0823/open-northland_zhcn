@@ -78,7 +78,7 @@ export const chsSurfaces = {
         cht: '繁体中文',
       },
       loading: '正在载入地图…',
-      empty: '没有已解码的地图。请生成 content/，或浏览测试场景。',
+      empty: '没有已解码的地图。请生成 content/。',
       noMatch: '没有符合此搜索或筛选条件的内容。',
       noPreview: '测试场景 · 无地图预览',
       previewSwitch: '地图预览',

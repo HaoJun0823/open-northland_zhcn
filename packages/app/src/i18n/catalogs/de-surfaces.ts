@@ -96,7 +96,7 @@ export const deSurfaces = {
         cht: 'Chinesisch (traditionell)',
       },
       loading: 'Karten werden geladen…',
-      empty: 'Keine dekodierten Karten. Erzeuge content/ oder sieh dir die Testszenen an.',
+      empty: 'Keine dekodierten Karten. Erzeuge content/.',
       noMatch: 'Keine Treffer für diese Suche oder diesen Filter.',
       noPreview: 'Testszene · keine Kartenvorschau',
       previewSwitch: 'Kartenvorschau',

@@ -77,7 +77,7 @@ export const plSurfaces = {
         cht: 'chiński (tradycyjny)',
       },
       loading: 'Wczytywanie map…',
-      empty: 'Brak zdekodowanych map. Wygeneruj content/ albo przejrzyj sceny testowe.',
+      empty: 'Brak zdekodowanych map. Wygeneruj content/.',
       noMatch: 'Nic nie pasuje do tego wyszukiwania ani filtra.',
       noPreview: 'scena testowa · bez podglądu mapy',
       previewSwitch: 'Podgląd mapy',

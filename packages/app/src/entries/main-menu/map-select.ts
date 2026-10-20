@@ -11,7 +11,7 @@ import {
   type MapContentTab,
   type MapSelectItem,
   type MapSelectMemory,
-  SINGLE_PLAYER_TABS,
+  singlePlayerTabs,
 } from './map-select-model.js';
 import type { MenuScreen, MountedScreen } from './model.js';
 import { screenHead } from './screen-head.js';
@@ -35,7 +35,7 @@ export function mapSelectScreen(
     memory,
     onContent: (tab) => showContent(tab),
     listing: 'single',
-    tabs: SINGLE_PLAYER_TABS,
+    tabs: singlePlayerTabs(),
     primaryLabel: (item) =>
       item.kind === 'scene' ? select.run : item.tutorialStep !== undefined ? select.startLesson : select.next,
     onPrimary: (item) => {

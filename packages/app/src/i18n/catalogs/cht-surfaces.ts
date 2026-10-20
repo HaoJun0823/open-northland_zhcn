@@ -78,7 +78,7 @@ export const chtSurfaces = {
         cht: '繁體中文',
       },
       loading: '正在載入地圖…',
-      empty: '沒有已解碼的地圖。請產生 content/ 或瀏覽測試場景。',
+      empty: '沒有已解碼的地圖。請產生 content/。',
       noMatch: '沒有符合此搜尋或篩選條件的項目。',
       noPreview: '測試場景 · 無地圖預覽',
       previewSwitch: '地圖預覽',

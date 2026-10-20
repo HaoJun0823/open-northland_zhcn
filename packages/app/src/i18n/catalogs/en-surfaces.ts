@@ -78,7 +78,7 @@ export const enSurfaces = {
         cht: 'Chinese (Traditional)',
       },
       loading: 'Loading maps…',
-      empty: 'No decoded maps. Generate content/ or browse the test scenes.',
+      empty: 'No decoded maps. Generate content/.',
       noMatch: 'Nothing matches this search or filter.',
       noPreview: 'test scene · no map preview',
       previewSwitch: 'Map preview',

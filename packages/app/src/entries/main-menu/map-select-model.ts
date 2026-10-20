@@ -25,15 +25,18 @@ export type MapFilterTab =
   | { readonly kind: 'filter'; readonly filter: MapFilter }
   | { readonly kind: 'content'; readonly id: MapContentTab };
 
+/** Test scenes are a developer tool: only a dev server lists them; web and desktop builds do not. */
+export function singlePlayerTabs(devServer: boolean = import.meta.env.DEV): readonly MapFilterTab[] {
+  return [
+    { kind: 'filter', filter: 'all' },
+    { kind: 'content', id: 'campaign' },
+    { kind: 'filter', filter: 'tutorial' },
+    { kind: 'filter', filter: 'free' },
+    { kind: 'filter', filter: 'multiplayer' },
+    ...(devServer ? [{ kind: 'filter', filter: 'scenes' } as const] : []),
+  ];
+}
 /** A room lists multiplayer maps only, so it shows no filter bar. */
-export const SINGLE_PLAYER_TABS: readonly MapFilterTab[] = [
-  { kind: 'filter', filter: 'all' },
-  { kind: 'content', id: 'campaign' },
-  { kind: 'filter', filter: 'tutorial' },
-  { kind: 'filter', filter: 'free' },
-  { kind: 'filter', filter: 'multiplayer' },
-  { kind: 'filter', filter: 'scenes' },
-];
 export const ROOM_TABS: readonly MapFilterTab[] = [];
 
 export interface MapSeat {

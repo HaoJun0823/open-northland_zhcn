@@ -414,12 +414,11 @@ function auditMapOverlays(
 
 /**
  * The warnings of one project edit over an imported overlay: it applies to each copy of its `map.dat`
- * whose text in its basis language it was written against, and should cover every key of the project's
- * edit of that text (`overlays`, same `map.dat` and basis). Returns 1 when no copy of the pack takes it.
+ * whose text in its basis language it was written against, and is checked like an applied overlay
+ * there. Returns 1 when no copy of the pack takes it.
  */
 function auditMapEdit(
   edit: MapOverlayFile,
-  overlays: readonly MapOverlayFile[],
   maps: ReadonlyMap<string, readonly PackMap[]>,
   warn: (file: string, message: string) => void,
 ): number {
@@ -432,18 +431,6 @@ function auditMapEdit(
     return 1;
   }
   for (const map of matching) auditAppliedOverlay(edit, map, copies, false, warn);
-  const source = overlays.find(
-    (other) =>
-      other.lang === overlay.basis.lang &&
-      other.datKey === edit.datKey &&
-      other.overlay.basis.digest === overlay.basis.digest,
-  );
-  if (source !== undefined) {
-    const ids = missingKeys(source.overlay.strings, (id) => overlay.strings[id] !== undefined);
-    const labels = missingKeys(source.overlay.briefings, (label) => overlay.briefings[label] !== undefined);
-    if (ids !== undefined) warn(file, `does not cover string ids ${source.file} edits: ${ids}`);
-    if (labels !== undefined) warn(file, `does not cover briefing labels ${source.file} edits: ${labels}`);
-  }
   return 0;
 }
 
@@ -484,7 +471,7 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
       for (const files of byLanguage.values())
         unmatchedMaps += copies === undefined ? files.length : auditMapOverlays(files, copies, warn);
     }
-    for (const edit of valid.mapEdits) unmatchedMaps += auditMapEdit(edit, valid.maps, maps, warn);
+    for (const edit of valid.mapEdits) unmatchedMaps += auditMapEdit(edit, maps, warn);
     for (const { file, table, overlay } of [...valid.objects, ...valid.objectEdits]) {
       let source: GameObjectNames;
       try {

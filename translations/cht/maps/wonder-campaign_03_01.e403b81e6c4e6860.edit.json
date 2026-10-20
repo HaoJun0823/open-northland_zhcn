@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_01",
+  "basis": {
+    "lang": "pol",
+    "digest": "82377ea45541362748d120b05c89cb56999554da238dafb1b33affe7c7d99f49"
+  },
+  "strings": {
+    "1": "建立一座小型聚落：農場、磨坊、烘焙坊、水井和製陶坊。"
+  },
+  "briefings": {},
+  "derived": "chs"
+}

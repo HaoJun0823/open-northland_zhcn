@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "map": "saga-campaign_04_02",
+  "basis": {
+    "lang": "pol",
+    "digest": "9ac9f0533351402da02970b0d89174c9867eb02ab08d18caff8c0a2523b07673"
+  },
+  "strings": {},
+  "briefings": {
+    "14": "老者\n\n<usericon:1,295,314>\n\n「一場可怕地震令山石遊走。自那事後，林中所有走獸都奔向此處以南某處。那裡不斷傳來低低的哀鳴，聲聲不絕於林。莫非是誰遭了不測？」"
+  },
+  "derived": "chs"
+}

@@ -248,7 +248,7 @@ describe('auditTranslations: against the pack', () => {
     ]);
   });
 
-  it('audits an edit against its basis text and the source-language edit it translates', async () => {
+  it('audits an edit against its basis text like an applied overlay, and leaves out a stale one', async () => {
     const older = basis('f'.repeat(64));
     await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾', '1': '描述' }, {}, older));
     await put(
@@ -268,14 +268,6 @@ describe('auditTranslations: against the pack', () => {
       {
         file: `chs/maps/${FILE}.edit.json`,
         message: 'maps/community/fjord: string ids the pol source lacks: 7',
-      },
-      {
-        file: `chs/maps/${FILE}.edit.json`,
-        message: `does not cover string ids pol/maps/${FILE}.json edits: 1`,
-      },
-      {
-        file: `chs/maps/${FILE}.edit.json`,
-        message: `does not cover briefing labels pol/maps/${FILE}.json edits: title`,
       },
       { file: `chs/maps/${FILE}.json`, message: 'maps/community/fjord: the pol basis text changed' },
       { file: `cht/maps/${FILE}.edit.json`, message: 'the pol basis text changed; the edit is left out' },

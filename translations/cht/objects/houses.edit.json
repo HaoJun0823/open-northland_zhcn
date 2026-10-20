@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "basis": {
+    "lang": "pol",
+    "digest": "6810d2558ea7b6e4d8a03b3b36cd7e8a20267f8f40709f613907dd1a63e38b87"
+  },
+  "names": {
+    "45": "大船"
+  },
+  "plurals": {
+    "45": "大船"
+  },
+  "derived": "chs"
+}

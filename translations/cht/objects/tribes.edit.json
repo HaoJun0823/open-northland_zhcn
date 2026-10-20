@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "basis": {
+    "lang": "pol",
+    "digest": "da943515e9457cad59fe847356c0af75116db5a2e6eb2b5c5af1d03fc7486164"
+  },
+  "names": {
+    "15": "野山羊",
+    "26": "母獅"
+  },
+  "plurals": {
+    "15": "野山羊",
+    "26": "母獅"
+  },
+  "derived": "chs"
+}

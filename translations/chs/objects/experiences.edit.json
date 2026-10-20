@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "basis": {
+    "lang": "pol",
+    "digest": "7cbd9bdb2ff4871920aeb4007cfaa07f800eebafd868c7f4ee99195c7b701ab7"
+  },
+  "names": {
+    "12": "武器制造 - 木矛",
+    "16": "木工 - 大船",
+    "20": "木工 - 投石机",
+    "29": "木工 - 铁质工具"
+  },
+  "plurals": {}
+}

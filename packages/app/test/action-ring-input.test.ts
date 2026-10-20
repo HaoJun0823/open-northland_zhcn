@@ -24,8 +24,8 @@ function harness(mode: MenuMode, ringVisible = true, accepts = true) {
     isRingVisible: () => ringVisible,
     getLayout: () => ({ buttons: [], bounds: { x: 0, y: 0, w: 0, h: 0 } }),
     getTargets: () => targets,
-    onCommand: (id, to) => {
-      calls.push(`command ${id} ${to.join(',')}`);
+    onCommand: (id, to, queued) => {
+      calls.push(`command ${id} ${to.join(',')}${queued ? ' queued' : ''}`);
       return accepts;
     },
     cue: (cue) => calls.push(`cue ${cue}`),
@@ -38,6 +38,7 @@ function harness(mode: MenuMode, ringVisible = true, accepts = true) {
   });
   const event = {
     stopped: false,
+    shiftKey: false,
     preventDefault(): void {},
     stopPropagation(): void {
       this.stopped = true;
@@ -56,6 +57,12 @@ describe('action ring button presses', () => {
     expect(event.stopped).toBe(true);
   });
 
+  it('passes a Shift press on as a queued order', () => {
+    const { input, calls, event } = harness('menu');
+    input.press(command('eat'), { ...event, shiftKey: true });
+    expect(calls).toContain(`command eat ${TARGETS.join(',')} queued`);
+  });
+
   it('gives failure feedback when the whole army order is refused', () => {
     const { input, calls, event } = harness('menu', true, false);
     input.press(command('defenceMode'), event);
@@ -65,7 +72,7 @@ describe('action ring button presses', () => {
   it('opens the profession list for the trade order, leaving the session open', () => {
     const { input, calls } = harness('menu');
 
-    input.press(command('changeProfession'), { preventDefault() {}, stopPropagation() {} });
+    input.press(command('changeProfession'), { shiftKey: false, preventDefault() {}, stopPropagation() {} });
 
     expect(calls).toEqual(['cue confirm', 'openJobWindow']);
   });

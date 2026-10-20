@@ -146,11 +146,11 @@ export const exploreOrderSystem: System = (world, ctx) => {
       continue;
     }
     const c = terrain.coordsOf(pick.node);
-    const queued = world.tryGet(e, OrderQueue)?.orders;
+    const queued = world.tryGet(e, OrderQueue);
     moveUnit(world, ctx, { kind: 'moveUnit', entity: e, x: c.x, y: c.y });
     // moveUnit drops the order it supersedes and the orders queued behind it; this sweep issued the walk,
     // so both outlive it, the queue waiting for the sweep's end.
-    if (queued !== undefined) world.add(e, OrderQueue, { orders: [...queued] });
+    if (queued !== undefined) world.add(e, OrderQueue, { orders: [...queued.orders], owner: queued.owner });
     world.add(e, ExploreOrder, {
       origin: order.origin,
       frontierRing: pick.ring,

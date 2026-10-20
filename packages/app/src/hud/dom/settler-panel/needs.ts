@@ -65,7 +65,7 @@ export function createNeedsSection(deps: SettlerPanelDeps, entity: () => number)
           const need = bar.need;
           return createMeterRow({
             ...(orders && need !== undefined
-              ? { onPress: () => deps.actions.orderNeed(entity(), need) }
+              ? { onPress: (event) => deps.actions.orderNeed(entity(), need, event.shiftKey) }
               : {}),
             onHover: (event) => hover(index, event),
           });

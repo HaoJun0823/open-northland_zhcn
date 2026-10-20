@@ -1,6 +1,6 @@
 import type { VehicleType } from '@open-northland/data';
 import type { AiOrderOrigin } from '../../components/ai-order.js';
-import { Vehicle, vehicleCommander } from '../../components/index.js';
+import { dropVehicleOrderQueue, Vehicle, vehicleCommander } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -145,6 +145,7 @@ export function dockVehicle(
   if (state === undefined || anchor === null || state.carrier !== null) return false;
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
   if (type === undefined || !isShipVehicle(type)) return false;
+  dropVehicleOrderQueue(world, e);
   if (vehicleCommander(state) === null) {
     refuseMove(world, ctx, e, 'noCommander');
     return false;

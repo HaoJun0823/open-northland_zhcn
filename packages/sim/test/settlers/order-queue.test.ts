@@ -22,6 +22,7 @@ import {
   Signpost,
   Stockpile,
   setMissionBehaviour,
+  stampOwner,
 } from '../../src/components/index.js';
 import type { Command } from '../../src/core/commands/index.js';
 import { fx } from '../../src/core/fixed.js';
@@ -48,6 +49,7 @@ const HUMAN_PLAYER = 0;
 const EAT_ATOMIC = 10;
 const EAT_TICKS = 5; // fixture `viking_eat` length
 const WALK_BUDGET = 400;
+const SLEEP_BUDGET = 4000;
 const CARPENTER = 2;
 const SAWMILL = 2; // fixture building type with one carpenter seat
 const MEAD = 13; // fixture misc goods
@@ -216,7 +218,7 @@ describe('order queue', () => {
     expect(standsAt(sim, e, 8, 5)).toBe(true);
   });
 
-  it("does not wait for the settler's own doings: work, a breach of its own, a standing need order", () => {
+  it("does not wait for the settler's own doings: work or a breach of its own", () => {
     const sim = freshSim();
     const busy = ownedSettler(sim, 2, 2, WOODCUTTER);
     eat(sim, busy); // a non-interruptible clip with no order behind it
@@ -225,14 +227,82 @@ describe('order queue', () => {
       target: busy,
       breach: { resume: null, stand: null, enemy: busy },
     });
-    const hungry = ownedSettler(sim, 2, 6, WOODCUTTER);
-    sim.world.add(hungry, NeedOrder, { need: 'piety' });
-    for (const e of [busy, breaker, hungry]) sim.enqueueSetup(walk(e, 12, 3, true));
+    for (const e of [busy, breaker]) sim.enqueueSetup(walk(e, 12, 3, true));
     sim.step();
-    for (const e of [busy, breaker, hungry]) expect(sim.world.has(e, OrderQueue)).toBe(false);
+    for (const e of [busy, breaker]) expect(sim.world.has(e, OrderQueue)).toBe(false);
     expect(sim.world.get(busy, DeferredOrder).command.kind).toBe('moveUnit'); // parked as a plain click is
     expect(sim.world.has(breaker, PlayerOrder)).toBe(true);
-    expect(sim.world.has(hungry, PlayerOrder)).toBe(true);
+  });
+
+  it('a queued sleep waits for the walk ahead, and the next walk waits for the sleep', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, WOODCUTTER);
+    sim.enqueueSetup(walk(e, 8, 2));
+    sim.enqueueSetup({ kind: 'orderNeed', entity: e, need: 'fatigue', queued: true });
+    sim.enqueueSetup(walk(e, 14, 2, true));
+    sim.step();
+    expect(sim.world.get(e, OrderQueue).orders.map((order) => order.kind)).toEqual(['orderNeed', 'moveUnit']);
+    stepUntil(sim, () => sim.world.has(e, NeedOrder));
+    expect(fx.toInt(sim.world.get(e, Position).x)).toBe(8);
+    expect(sim.world.get(e, OrderQueue).orders.map((order) => order.kind)).toEqual(['moveUnit']);
+    let slept = false;
+    stepUntil(
+      sim,
+      () => {
+        slept ||= sim.world.tryGet(e, CurrentAtomic)?.effect.kind === 'sleep';
+        return sim.world.has(e, PlayerOrder);
+      },
+      SLEEP_BUDGET,
+    );
+    expect(slept).toBe(true);
+    expect(sim.world.has(e, NeedOrder)).toBe(false);
+    stepUntil(sim, () => standsAt(sim, e, 14, 2));
+    expect(standsAt(sim, e, 14, 2)).toBe(true);
+  });
+
+  it('refuses a need order for a jobless settler, which nothing would answer, so its Shift walk goes', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, null);
+    sim.enqueueSetup({ kind: 'orderNeed', entity: e, need: 'hunger' });
+    sim.enqueueSetup(walk(e, 12, 3, true));
+    sim.step();
+    expect(sim.world.has(e, NeedOrder)).toBe(false);
+    expect(sim.world.has(e, PlayerOrder)).toBe(true);
+  });
+
+  it('a queued need order starts at once on a settler standing idle, not on its next re-plan beat', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, WOODCUTTER);
+    sim.world.add(e, NeedOrder, { need: 'hunger' }); // no food anywhere on the map
+    sim.enqueueSetup({ kind: 'orderNeed', entity: e, need: 'fatigue', queued: true });
+    stepUntil(sim, () => sim.world.tryGet(e, NeedOrder)?.need === 'fatigue');
+    sim.step();
+    const answering = sim.world.has(e, CurrentAtomic) || sim.world.has(e, MoveGoal);
+    expect(answering).toBe(true);
+  });
+
+  it('a settler handed to another player drops the orders its old owner queued', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, WOODCUTTER);
+    sim.enqueueSetup(walk(e, 20, 2));
+    sim.enqueueSetup(walk(e, 20, 5, true));
+    sim.step();
+    stampOwner(sim.world, e, HUMAN_PLAYER + 1);
+    sim.step();
+    expect(sim.world.has(e, OrderQueue)).toBe(false);
+  });
+
+  it('a waiting need order nothing answers gives way to the next queued order', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, WOODCUTTER);
+    sim.world.add(e, NeedOrder, { need: 'hunger' }); // no food anywhere on the map
+    sim.enqueueSetup(walk(e, 12, 3, true));
+    sim.step();
+    expect(sim.world.has(e, NeedOrder)).toBe(false);
+    expect(sim.world.has(e, OrderQueue)).toBe(true);
+    sim.step();
+    expect(sim.world.has(e, PlayerOrder)).toBe(true);
+    expect(sim.world.has(e, OrderQueue)).toBe(false);
   });
 
   it('drops the queue on a work flag, a script walk and a script taking the unit', () => {

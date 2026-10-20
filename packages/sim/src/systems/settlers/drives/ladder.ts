@@ -63,7 +63,7 @@ import { planGraduateWait } from './graduate-wait.js';
 import { isServedAtHome } from './home-errands.js';
 import { planBreeder } from './husbandry/index.js';
 import { guideLostSettler } from './lost-guide.js';
-import { answerNeedInPlace, orderedNeed, planMealBreak, planNeeds } from './needs.js';
+import { answerNeedInPlace, dropUnservedNeedOrder, orderedNeed, planMealBreak, planNeeds } from './needs.js';
 import { planShelter } from './shelter.js';
 import { deStackIdle, stepOffHomeDoor } from './spacing.js';
 import { holdsPostThroughNeed, planTowerPost } from './tower-post.js';
@@ -122,6 +122,8 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   // The alarm outranks every other drive: hunger, the ownership gate, and a live equip errand alike.
   if (planShelter(world, ctx, terrain, e, settler, here, hx, hy, limit, pass.shelters)) {
     standIfInside(pass, e, world.get(e, Sheltering).shelter);
+    // The need rungs wait out the alarm, so orders queued behind a need order do not.
+    dropUnservedNeedOrder(world, e);
     return;
   }
 
@@ -215,6 +217,7 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
     leaveForNeed(world, e);
     return;
   }
+  dropUnservedNeedOrder(world, e);
 
   // Ownership gate, below the needs drives on purpose: hunger, fatigue and piety are soft overrides that
   // still pull the unit away, so a marrying or child-making settler still eats. Engagement is the one

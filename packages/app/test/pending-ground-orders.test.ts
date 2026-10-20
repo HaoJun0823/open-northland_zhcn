@@ -208,6 +208,22 @@ describe('pending ground order intent', () => {
     ]);
   });
 
+  it('a Shift-pressed need and a Shift drive wait behind the pending walk of their own actors', () => {
+    const { pending, commands, submit } = fixture();
+    const ticket = pending.begin([1, 70], false);
+    const sleep = {
+      kind: 'unitActionGroup',
+      members: [{ entity: entity(1) }],
+      action: { kind: 'orderNeed', need: 'fatigue', queued: true },
+    } as const;
+    const drive = { kind: 'moveVehicle', vehicle: entity(70), x: 4, y: 6, queued: true } as const;
+    submit(sleep);
+    submit(drive);
+    expect(commands).toEqual([]);
+    pending.settle(ticket, () => submit(move([1], 30)));
+    expect(commands).toEqual([move([1], 30), sleep, drive]);
+  });
+
   it('a new normal click discards unanswered earlier clicks and their already answered Shift tail', () => {
     const { pending, commands, submit } = fixture();
     const old = pending.begin([1], false);

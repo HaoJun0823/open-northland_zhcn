@@ -1,5 +1,6 @@
 import {
   carriedVehicles,
+  dropVehicleOrderQueue,
   PathRequest,
   Position,
   Rider,
@@ -263,6 +264,7 @@ export function loadIntoVehicle(
   const state = world.tryGet(vehicle, Vehicle);
   const carrierState = world.tryGet(carrier, Vehicle);
   if (state === undefined || carrierState === undefined || vehicle === carrier) return false;
+  dropVehicleOrderQueue(world, vehicle);
   if (state.carrier === carrier) return true;
   if (state.carrier !== null && !leaveCarrier(world, ctx, { kind: 'leaveCarrier', vehicle })) return false;
   const types = contentIndex(ctx.content).vehicles;

@@ -1,10 +1,12 @@
 import { jobCanPray } from '@open-northland/data';
 import {
   Carrying,
+  Chat,
   isMachinePlayer,
   type NeedKind,
   NeedOrder,
   NoRegeneration,
+  OrderQueue,
   ownerOf,
   Settler,
   type SettlerIdentity,
@@ -67,6 +69,16 @@ export function anyNeedPressing(world: World, ctx: SystemContext, e: Entity): bo
 /** The need the player ordered this settler to answer now, or undefined. */
 export function orderedNeed(world: World, e: Entity): NeedKind | undefined {
   return world.tryGet(e, NeedOrder)?.need;
+}
+
+/**
+ * Drop a need order nothing answered this pass (no food or temple in reach, or the alarm outranking the
+ * need) while orders wait behind it (`OrderQueue`), so the queue moves on instead of holding for what may
+ * never come. Without a queue the order stands until something answers it. A chat already under way
+ * answers a talk order on its own.
+ */
+export function dropUnservedNeedOrder(world: World, e: Entity): void {
+  if (world.has(e, NeedOrder) && world.has(e, OrderQueue) && !world.has(e, Chat)) world.remove(e, NeedOrder);
 }
 
 /**

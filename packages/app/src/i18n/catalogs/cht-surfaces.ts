@@ -503,7 +503,8 @@ export const chtSurfaces = {
   loadingTips: {
     heading: '提示',
     tips: {
-      queueOrders: '{shift} + 點擊可將行走、攻擊移動、豎立路標、打開箱子與從地上穿戴裝備的命令排入佇列。',
+      queueOrders:
+        '{shift} + 點擊可將行走、攻擊移動、豎立路標、打開箱子、從地上穿戴裝備，以及進食、睡覺、交談與禱告的命令排入佇列，載具的行駛也可以。',
       buildMany: '放置建築時按住 {shift}，即可每點擊一次就放置一座，連續放置多座。',
       attackMove: '{key} 是攻擊移動：單位會走向目標，並攻擊沿途遇到的一切。',
       postGraduates: '在助手視窗（{key}）中，「{graduatesOption}」會把學校剛結業的居民派往工坊。',

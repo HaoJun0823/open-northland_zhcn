@@ -34,11 +34,13 @@ const NEED_OF: Readonly<Record<'eat' | 'sleep' | 'talk' | 'pray', NeedKind>> = {
  * Turn one action-ring click into simulation orders for `targets`, the selected settlers that allow the
  * order: an order that needs a world click arms the matching pick mode, the rest issue at once. A
  * single-settler order arrives with one target, because the ring hides it from a larger selection.
+ * `queued` (a Shift press) lines a need order up behind each settler's current order.
  */
 export function issueRingCommand(
   id: ActionOrderId,
   targets: readonly number[],
   deps: RingCommandDeps,
+  queued = false,
 ): boolean {
   if (targets.length === 0) return false; // the order's gate shut on every settler since the ring opened
   const single = targets.length === 1 ? targets[0] : undefined;
@@ -60,7 +62,7 @@ export function issueRingCommand(
     case 'sleep':
     case 'talk':
     case 'pray':
-      return action({ kind: 'orderNeed', need: NEED_OF[id] });
+      return action({ kind: 'orderNeed', need: NEED_OF[id], ...(queued ? { queued } : {}) });
     case 'changeEquipment':
       if (targets.length > MAX_UNIT_ORDER_MEMBERS) {
         deps.onOrderLimit?.();

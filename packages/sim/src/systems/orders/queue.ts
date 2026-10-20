@@ -10,8 +10,8 @@ import {
   hasMissionBehaviour,
   MealBreak,
   MISSION_BEHAVIOUR,
+  NeedOrder,
   OpenChestOrder,
-  ORDER_QUEUE_LIMIT,
   OrderQueue,
   PlayerOrder,
   QUEUEABLE_ORDER_KINDS,
@@ -23,16 +23,17 @@ import {
 import type { QueuedUnitOrder } from '../../components/settler.js';
 import { assertNever } from '../../core/brand.js';
 import type { Command } from '../../core/commands/index.js';
-import { aiCommand } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { authorizedCommand } from '../command/authority.js';
 import type { System, SystemContext } from '../context.js';
+import { wakeIdle } from '../settlers/planner/idle-replan.js';
 import { orderOpenChest } from './chests.js';
 import { equipGood } from './equipment.js';
 import { dropOrderQueue, isOrderableSettler } from './guards.js';
 import { orderClaimAnimal } from './livestock.js';
 import { breaksForMeal, startMealBreak } from './meal-break.js';
 import { attackMoveUnit, moveUnit } from './movement.js';
+import { orderNeed } from './needs.js';
+import { pushQueuedOrder, queueChangedHands, queuedOrderAuthorized, startQueuedOrders } from './queued.js';
 import { placeSignpost } from './signposts.js';
 
 const QUEUEABLE_KINDS: ReadonlySet<Command['kind']> = new Set(QUEUEABLE_ORDER_KINDS);
@@ -48,10 +49,10 @@ export function isQueuedOrder(command: Command): command is QueueableOrderComman
 
 /**
  * Whether `e` is carrying out an order the player gave that ends on its own: a walk or march, an errand
- * with its closing swing, a strike, a drill or course, a sweep, or an order parked behind an atomic; or
- * hunger has taken it off its orders for a meal. The settler's other doings are not waited for: a fight
- * it picked, a breach of its own, an assistant's errand, or a need order, which stands unanswered while
- * the settler works when nothing answers the need.
+ * with its closing swing, a strike, a drill or course, a sweep, a need order being answered, or an order
+ * parked behind an atomic; or hunger has taken it off its orders for a meal. The settler's other doings
+ * are not waited for: a fight it picked, a breach of its own, or an assistant's errand. A need order
+ * nothing answers is dropped by the drive ladder while orders wait (`dropUnservedNeedOrder`).
  */
 function holdsCurrentOrder(world: World, e: Entity): boolean {
   if (
@@ -62,7 +63,8 @@ function holdsCurrentOrder(world: World, e: Entity): boolean {
     world.has(e, TrainingOrder) ||
     world.has(e, ExploreOrder) ||
     world.has(e, DeferredOrder) ||
-    world.has(e, MealBreak)
+    world.has(e, MealBreak) ||
+    world.has(e, NeedOrder)
   ) {
     return true;
   }
@@ -75,8 +77,8 @@ function holdsCurrentOrder(world: World, e: Entity): boolean {
 
 /**
  * Line a queued order up behind the settler's current one. True when it was queued (or dropped past
- * {@link ORDER_QUEUE_LIMIT}); false when the settler has nothing to wait for, or rides a vehicle whose
- * walk orders drive or leave it, so the command applies at once like an unqueued one.
+ * `ORDER_QUEUE_LIMIT`); false when the settler has nothing to wait for, or rides a vehicle whose walk
+ * orders drive or leave it, so the command applies at once like an unqueued one.
  */
 export function queueBehindCurrentOrder(
   world: World,
@@ -85,14 +87,7 @@ export function queueBehindCurrentOrder(
 ): boolean {
   const e = command.entity;
   if (!isOrderableSettler(world, e) || world.has(e, Rider)) return false;
-  const queue = world.tryMut(e, OrderQueue);
-  if (queue === undefined) {
-    if (!holdsCurrentOrder(world, e)) return false;
-    world.add(e, OrderQueue, { orders: [unqueued(command, origin)] });
-  } else if (queue.orders.length < ORDER_QUEUE_LIMIT) {
-    queue.orders.push(unqueued(command, origin));
-  }
-  return true;
+  return pushQueuedOrder(world, OrderQueue, e, unqueued(command, origin), () => holdsCurrentOrder(world, e));
 }
 
 /** A fresh copy without the queue flag: the stored command is component state, the caller's sits in the
@@ -107,15 +102,17 @@ function unqueued(command: QueueableOrderCommand, origin?: AiOrderOrigin): Queue
  * that retire an arrived walk or turn it into its errand, and before the planner, so an arrival walks on
  * the same tick instead of being re-tasked. The needs drive gets no tick between two legs, except a meal
  * break that holds the queue until the settler has eaten (`meal-break.ts`). An order refused at its start
- * is skipped for the next one. A settler aboard a vehicle, or one a script took out of the player's hands,
- * drops its queue.
- *
- * A started order supersedes the queue as any order does, so the rest is taken off first and put back.
+ * is skipped for the next one. A settler aboard a vehicle, one a script took out of the player's hands, or
+ * one handed to another player drops its queue.
  */
 export const orderQueueSystem: System = (world, ctx) => {
   // Collected first: putting the rest back re-adds the component under the query.
   for (const e of [...world.query(Settler, OrderQueue)]) {
-    if (world.has(e, Rider) || hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.NOT_CONTROLLABLE)) {
+    if (
+      world.has(e, Rider) ||
+      hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.NOT_CONTROLLABLE) ||
+      queueChangedHands(world, OrderQueue, e)
+    ) {
       dropOrderQueue(world, e);
       continue;
     }
@@ -124,25 +121,22 @@ export const orderQueueSystem: System = (world, ctx) => {
       startMealBreak(world, e);
       continue;
     }
-    const pending = [...world.get(e, OrderQueue).orders];
-    world.remove(e, OrderQueue);
-    let next = pending.shift();
-    while (next !== undefined) {
-      startQueuedOrder(world, ctx, next);
-      if (holdsCurrentOrder(world, e)) break;
-      next = pending.shift();
-    }
-    if (pending.length > 0) world.add(e, OrderQueue, { orders: pending });
+    startQueuedOrders(
+      world,
+      OrderQueue,
+      e,
+      () => holdsCurrentOrder(world, e),
+      (order) => startQueuedOrder(world, ctx, order),
+    );
   }
 };
 
+/** A started order wakes an idle settler the way an order applied by the command pass does, so a need
+ *  order is planned this tick rather than on the settler's next re-plan beat. */
 function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOrder): void {
   const { aiOrder: origin, ...command } = queued;
-  if (
-    origin !== undefined &&
-    authorizedCommand(world, aiCommand(origin.player, command, origin.source), ctx.terrain) === undefined
-  )
-    return;
+  if (!queuedOrderAuthorized(world, ctx, command, origin)) return;
+  wakeIdle(world, command.entity);
   switch (command.kind) {
     case 'moveUnit':
       moveUnit(world, ctx, command, origin);
@@ -161,6 +155,9 @@ function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOr
       return;
     case 'equipGood':
       equipGood(world, ctx, command);
+      return;
+    case 'orderNeed':
+      orderNeed(world, ctx, command);
       return;
     default:
       assertNever(command);

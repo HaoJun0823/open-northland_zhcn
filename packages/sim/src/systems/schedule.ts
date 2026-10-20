@@ -58,6 +58,7 @@ import {
   riderSystem,
   vehicleBoardingSystem,
   vehicleMovementSystem,
+  vehicleOrderQueueSystem,
 } from './vehicles/index.js';
 import { shipboardNeedsSystem } from './vehicles/shipboard-needs.js';
 import { visionSystem } from './vision/index.js';
@@ -138,6 +139,9 @@ export const SYSTEM_ORDER: readonly ScheduledSystem[] = [
   // After the settlers' step, so a shoved settler's goal routes on the next pathfinding pass with the
   // vehicle's footprint already standing where it landed.
   { name: 'vehicleMovement', system: vehicleMovementSystem },
+  // After the drives advance and before combat, so a queued drive starts the tick the one ahead arrives and
+  // no stance scan sees the vehicle standing idle between two legs.
+  { name: 'vehicleOrderQueue', system: vehicleOrderQueueSystem },
   { name: 'separation', system: separationSystem },
   // After the walk settles, so a scout's claim uses this tick's final nodes; the herd then re-anchors
   // before the summon walks a slaughter candidate to the door, and a calf grows up before the breeder

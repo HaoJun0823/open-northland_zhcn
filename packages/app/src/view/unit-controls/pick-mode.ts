@@ -182,14 +182,17 @@ const SPOT_MODES: ReadonlySet<PickMode['kind']> = new Set<
 
 const isSpotMode = (mode: PickMode): mode is SpotMode => SPOT_MODES.has(mode.kind);
 
-/** The spot orders a Shift press queues behind each settler's current order (the sim's
- *  `QUEUEABLE_ORDER_KINDS`), keeping the mode armed while Shift is held. */
-type QueueableSpotKind = 'destination' | 'attack-move' | 'signpost';
+/** The spot orders a Shift press queues behind each settler's or vehicle's current order (the sim's
+ *  `QUEUEABLE_ORDER_KINDS` and `QUEUEABLE_VEHICLE_ORDER_KINDS`), keeping the mode armed while Shift is
+ *  held. */
+type QueueableSpotKind = 'destination' | 'attack-move' | 'signpost' | 'vehicle-destination' | 'vehicle-dock';
 
 const QUEUEABLE_MODES: ReadonlySet<PickMode['kind']> = new Set<QueueableSpotKind>([
   'destination',
   'attack-move',
   'signpost',
+  'vehicle-destination',
+  'vehicle-dock',
 ]);
 
 export interface PickModeDeps {
@@ -384,8 +387,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return true;
   };
 
-  /** `queued` applies to the {@link QUEUEABLE_MODES}. Vehicles have no queue, so they sit a queued march
-   *  out instead of driving ahead of the settlers to each pressed spot. */
+  /** `queued` applies to the {@link QUEUEABLE_MODES}. */
   const resolveSpot = (
     mode: Exclude<SpotMode, { readonly kind: 'signpost' }>,
     named: Tile,
@@ -399,19 +401,20 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       case 'work-area':
         return deps.orders().issueSetWorkFlag(target, mode.units);
       case 'attack-move': {
-        if (mode.units.length + (queued ? 0 : mode.vehicles.length) > MAX_UNIT_ORDER_MEMBERS) {
+        if (mode.units.length + mode.vehicles.length > MAX_UNIT_ORDER_MEMBERS) {
           deps.onOrderLimit?.();
           return false;
         }
-        const marched = mode.units.length > 0 && deps.orders().issueAttackMove(target, mode.units, queued);
+        const marched =
+          mode.units.length > 0 && deps.orders().issueAttackMove(target, mode.units, queued, mode.vehicles);
         const marchedVehicles =
-          !queued && mode.vehicles.length > 0 && deps.vehicleOrders().issueAttackMove(mode.vehicles, target);
+          mode.vehicles.length > 0 && deps.vehicleOrders().issueAttackMove(mode.vehicles, target, queued);
         return marched || marchedVehicles;
       }
       case 'vehicle-destination':
-        return deps.vehicleOrders().issueMoveTo(mode.vehicle, target);
+        return deps.vehicleOrders().issueMoveTo(mode.vehicle, target, queued);
       case 'vehicle-dock':
-        return deps.vehicleOrders().issueDock(mode.vehicle, target);
+        return deps.vehicleOrders().issueDock(mode.vehicle, target, queued);
       case 'vehicle-attack-position':
         return deps.vehicleOrders().issueAttackPosition(mode.vehicle, target);
       default: {
@@ -552,11 +555,10 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return pressOutcome(resolvePicked(mode, event));
   };
 
-  /** A Shift press queues a queueable order for the settlers it names and keeps the mode armed while
-   *  Shift is held, so a chain of presses lays a route or a signpost line. */
+  /** A Shift press queues a queueable order for the units it names and keeps the mode armed while Shift
+   *  is held, so a chain of presses lays a route or a signpost line. */
   const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean): PickPress => {
-    const forSettlers = !('units' in mode) || mode.units.length > 0;
-    const queued = shift && forSettlers && QUEUEABLE_MODES.has(mode.kind);
+    const queued = shift && QUEUEABLE_MODES.has(mode.kind);
     if (mode.kind === 'signpost') return resolveSignpostPress(mode, target, queued);
     const ordered = resolveSpot(mode, target, queued);
     if (ordered && queued) {

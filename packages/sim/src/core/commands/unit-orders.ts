@@ -31,7 +31,7 @@ export interface GroupDestination extends GroupMember {
 
 /** Immediate per-settler actions sharing no target outside the selected group. */
 export type UnitSelfAction =
-  | { readonly kind: 'orderNeed'; readonly need: NeedKind }
+  | { readonly kind: 'orderNeed'; readonly need: NeedKind; readonly queued?: boolean }
   | { readonly kind: 'cancelTraining' }
   | { readonly kind: 'detachFromVehicle' }
   | { readonly kind: 'unassignBuilder' }
@@ -90,6 +90,8 @@ export type UnitOrderCommand =
       readonly kind: 'moveVehicleGroup';
       readonly members: readonly GroupDestination[];
       readonly attackMove?: boolean;
+      /** Shift lines each drive up behind its vehicle's current order (`VehicleOrderQueue`). */
+      readonly queued?: boolean;
     }
   | {
       readonly kind: 'attackWithVehicleGroup';
@@ -270,6 +272,9 @@ export type UnitOrderCommand =
       readonly kind: 'orderNeed';
       readonly entity: Entity;
       readonly need: NeedKind;
+      /** As `moveUnit`'s; the queue moves on once the need is answered, or at once when nothing answers
+       *  it. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -312,6 +317,8 @@ export type UnitOrderCommand =
       readonly x: number;
       readonly y: number;
       readonly attackMove?: boolean;
+      /** Wait behind the vehicle's current order instead of replacing it (`VehicleOrderQueue`). */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -325,6 +332,8 @@ export type UnitOrderCommand =
       readonly vehicle: Entity;
       readonly x: number;
       readonly y: number;
+      /** As `moveVehicle`'s; the shore point is judged when the order starts. */
+      readonly queued?: boolean;
     }
   | {
       /** Stop one owned vehicle's drive on the node it is crossing, the original's `p` order; its task

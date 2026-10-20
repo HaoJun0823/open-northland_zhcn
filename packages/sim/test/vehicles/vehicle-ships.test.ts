@@ -9,6 +9,7 @@ import {
   seatPassenger,
   Vehicle,
   VehicleDrive,
+  VehicleOrderQueue,
   VehicleStock,
   vehicleCommander,
   vehiclePassengers,
@@ -307,6 +308,23 @@ describe('dockVehicle', () => {
     ).toBeGreaterThanOrEqual(SHIP_SIZE);
     expect(vehicleDoorNode(s.world, ctxOf(s), ship)).toEqual(point);
     expect(docked(s)).toEqual([point]);
+  });
+
+  it('a Shift-queued dock waits for the sail ahead, then moors at its shore point', () => {
+    const s = sim();
+    const { ship } = crewedShip(s, 20, MID_ROW);
+    const point = { hx: EAST_SHORE_X + 1, hy: MID_ROW };
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: ship, x: OPEN_WATER_X, y: MID_ROW }));
+    s.enqueue(
+      playerCommand(P0, { kind: 'dockVehicle', vehicle: ship, x: point.hx, y: point.hy, queued: true }),
+    );
+    s.step();
+    expect(s.world.get(ship, VehicleOrderQueue).orders).toHaveLength(1); // still sailing
+    // The dock starts the tick the sail arrives, so one drive runs on into the other.
+    sailOut(s, ship, 2 * SAIL_TICKS);
+    expect(refusals(s)).toEqual([]);
+    expect(s.world.get(ship, Vehicle).moored).toBe(true);
+    expect(distanceTo(anchorOf(s, ship), point)).toBe(DOOR_DISTANCE);
   });
 
   it('sails on and moors on the shore when its last rider is removed at sea', () => {

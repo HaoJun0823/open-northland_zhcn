@@ -1,5 +1,7 @@
+import type { Command } from '../core/commands/index.js';
 import { type DeepReadonly, defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { HalfCellNode } from '../nav/halfcell.js';
+import type { AiOrderOrigin } from './ai-order.js';
 import { Position, type WalkDirection } from './movement.js';
 
 /** The tasks the original's vehicle window shows, in its numbering 0..6. */
@@ -89,6 +91,33 @@ export const Vehicle = defineComponent<{
   attack: VehicleAttack | null;
   march: VehicleMarch | null;
 }>('Vehicle', 'movement');
+
+/** The vehicle order kinds a Shift-click may line up behind a vehicle's current order; each carries
+ *  `queued`. */
+export const QUEUEABLE_VEHICLE_ORDER_KINDS = ['moveVehicle', 'dockVehicle'] as const;
+
+export type QueueableVehicleOrderCommand = Extract<
+  Command,
+  { kind: (typeof QUEUEABLE_VEHICLE_ORDER_KINDS)[number] }
+>;
+
+export type QueuedVehicleOrder = QueueableVehicleOrderCommand & { readonly aiOrder?: AiOrderOrigin };
+
+/**
+ * The drives a vehicle carries out one after another once its current order is done, oldest first;
+ * `vehicleOrderQueueSystem` starts the next, at most `ORDER_QUEUE_LIMIT` waiting. Any other order to the
+ * vehicle drops them, and so does a hand-over (`owner` as a settler's `OrderQueue` keeps it). Named
+ * addition, the vehicle twin of a settler's `OrderQueue`.
+ */
+export const VehicleOrderQueue = defineComponent<{ orders: QueuedVehicleOrder[]; owner: number }>(
+  'VehicleOrderQueue',
+  'movement',
+);
+
+/** Drop the drives `e` queued behind its current order: every vehicle order that takes it at once does. */
+export function dropVehicleOrderQueue(world: World, e: Entity): void {
+  world.remove(e, VehicleOrderQueue);
+}
 
 /** A script's detach taken while the rider's ship lay at sea, carried out the moment the ship moors;
  *  `to` is the point a walk line of the same pass then sends the rider to, or null for none. */

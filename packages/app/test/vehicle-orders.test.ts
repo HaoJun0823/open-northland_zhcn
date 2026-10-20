@@ -11,6 +11,7 @@ import {
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import { type Pickable, type Tile, worldToTile } from '../src/view/picking.js';
 import { createAnsweredOrders } from '../src/view/unit-controls/answered-orders.js';
+import { createPendingGroundOrders } from '../src/view/unit-controls/pending-ground-orders.js';
 import { createPickModeController } from '../src/view/unit-controls/pick-mode.js';
 import { issueRingCommand } from '../src/view/unit-controls/ring-commands.js';
 import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
@@ -250,6 +251,70 @@ describe('vehicle right-click defaults', () => {
     expect(cart.issued).toEqual([{ kind: 'moveVehicle', vehicle: HANDCART, x: spot.col, y: spot.row }]);
   });
 
+  it('queues a Shift drive to the ground under an enemy or a ship, alone or in a group', () => {
+    const queuedClick = { ...rightClick, shiftKey: true } as MouseEvent;
+    const spot = worldToTile(CLICK.x, CLICK.y);
+    const single = harness([CATAPULT], ALL_UNDER);
+    expect(single.controller.issueRightClick(queuedClick)).toBe(true);
+    expect(single.issued).toEqual([
+      { kind: 'moveVehicle', vehicle: CATAPULT, x: spot.col, y: spot.row, queued: true },
+    ]);
+    const group = harness([CATAPULT, HANDCART], { enemies: ENEMIES_UNDER });
+    expect(group.controller.issueRightClick(queuedClick)).toBe(true);
+    expect(group.issued).toMatchObject([{ kind: 'moveVehicleGroup', queued: true }]);
+  });
+
+  /** A ship controller whose first mooring answer is held back until `release`, the rest answering at once. */
+  function heldShip() {
+    const late: ((moors: boolean) => void)[] = [];
+    let asked = 0;
+    const issued: Command[] = [];
+    const pending = createPendingGroundOrders();
+    const controller = createVehicleOrderController({
+      answered: createAnsweredOrders(),
+      selected: () => new Set([SHIP]),
+      targets: targetsOf({}),
+      snapshot: () => WORLD,
+      content: sandboxContent(),
+      mapSize: MAP_SIZE,
+      viewer: fixedViewerSeat(HUMAN_PLAYER),
+      toWorld: (x, y) => ({ x, y }),
+      enqueue: (command) => pending.submit(command, (sent) => issued.push(sent)),
+      pendingGroundOrders: pending,
+      askMoorAt: () =>
+        asked++ === 0 ? new Promise<boolean>((resolve) => late.push(resolve)) : Promise.resolve(false),
+    });
+    return { controller, issued, release: (moors: boolean) => late[0]?.(moors) };
+  }
+
+  it('keeps a Shift chain of ship orders in click order whichever answer lands first', async () => {
+    const spot = worldToTile(CLICK.x, CLICK.y);
+    const { controller, issued, release } = heldShip();
+    const queuedClick = { ...rightClick, shiftKey: true } as MouseEvent;
+    controller.issueRightClick(queuedClick);
+    controller.issueRightClick(queuedClick);
+    // The Goto pick's press needs no answer, and still waits for the clicks before it.
+    controller.issueMoveTo(SHIP, { col: 3, row: 3 }, true);
+    await landed();
+    expect(issued).toEqual([]);
+    release(true);
+    await landed();
+    expect(issued).toEqual([
+      { kind: 'dockVehicle', vehicle: SHIP, x: spot.col, y: spot.row, queued: true },
+      { kind: 'moveVehicle', vehicle: SHIP, x: spot.col, y: spot.row, queued: true },
+      { kind: 'moveVehicle', vehicle: SHIP, x: 3, y: 3, queued: true },
+    ]);
+  });
+
+  it('a plain order given before a ship click is answered calls that click off', async () => {
+    const { controller, issued, release } = heldShip();
+    controller.issueRightClick({ ...rightClick, shiftKey: true } as MouseEvent);
+    controller.issueMoveTo(SHIP, { col: 3, row: 3 });
+    release(true);
+    await landed();
+    expect(issued).toEqual([{ kind: 'moveVehicle', vehicle: SHIP, x: 3, y: 3 }]);
+  });
+
   it('takes no click for a selected enemy vehicle, nor for a group over an own settler, which selects it', () => {
     expect(harness([ENEMY_CART], ALL_UNDER).controller.issueRightClick(rightClick)).toBe(false);
     const overSettler = harness([CATAPULT, HANDCART], { settlersUnder: [under(OWN_SETTLER, 'settler')] });
@@ -340,6 +405,21 @@ describe('right-click attach', () => {
 });
 
 describe('vehicle picks', () => {
+  it('keeps a Shift-pressed drive pick armed for the next waypoint, each press queued', () => {
+    const { issued, pickMode } = harness([HANDCART], {});
+    pickMode.arm({ kind: 'vehicle-destination', vehicle: HANDCART });
+    const shiftClick = { ...leftClick, shiftKey: true } as MouseEvent;
+    expect(pickMode.handleMouseDown(shiftClick)).toBe('ordered');
+    expect(pickMode.handleMouseDown(shiftClick)).toBe('ordered');
+    expect(pickMode.handleMouseDown(leftClick)).toBe('ordered');
+    expect(pickMode.isArmed()).toBe(false);
+    expect(issued).toEqual([
+      { kind: 'moveVehicle', vehicle: HANDCART, x: 3, y: 3, queued: true },
+      { kind: 'moveVehicle', vehicle: HANDCART, x: 3, y: 3, queued: true },
+      { kind: 'moveVehicle', vehicle: HANDCART, x: 3, y: 3 },
+    ]);
+  });
+
   it('resolves the window picks against the spot or the drawn target', () => {
     const { issued, pickMode } = harness([SHIP], ALL_UNDER);
     pickMode.arm({ kind: 'vehicle-dock', vehicle: SHIP });

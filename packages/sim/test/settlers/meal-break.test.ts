@@ -117,7 +117,10 @@ describe('meal break', () => {
     const sim = freshSim();
     larderAt(sim, 30, 6);
     const e = ownedSettler(sim, 2, 2, WOODCUTTER, { hunger: NEED_CRITICAL_THRESHOLD });
-    sim.world.add(e, OrderQueue, { orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>] });
+    sim.world.add(e, OrderQueue, {
+      orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>],
+      owner: HUMAN_PLAYER,
+    });
     sim.step();
     expect(sim.world.has(e, MealBreak)).toBe(true);
     expect(sim.world.get(e, OrderQueue).orders).toHaveLength(1);
@@ -185,7 +188,10 @@ describe('meal break', () => {
     const sim = freshSim();
     larderAt(sim, 30, 6);
     const e = ownedSettler(sim, 2, 2, WOODCUTTER, { hunger: NEED_CRITICAL_THRESHOLD });
-    sim.world.add(e, OrderQueue, { orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>] });
+    sim.world.add(e, OrderQueue, {
+      orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>],
+      owner: HUMAN_PLAYER,
+    });
     sim.step();
     expect(sim.world.has(e, MealBreak)).toBe(true);
     sim.enqueueSetup(walk(e, 2, 6));
@@ -253,7 +259,10 @@ describe('meal break', () => {
     const sim = freshSim();
     const larder = larderAt(sim, 30, 6);
     const e = ownedSettler(sim, 2, 2, WOODCUTTER, { hunger: NEED_CRITICAL_THRESHOLD });
-    sim.world.add(e, OrderQueue, { orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>] });
+    sim.world.add(e, OrderQueue, {
+      orders: [walk(e, 40, 2) as Extract<Command, { kind: 'moveUnit' }>],
+      owner: HUMAN_PLAYER,
+    });
     sim.step();
     expect(sim.world.has(e, MealBreak)).toBe(true);
     sim.enqueueSetup({ kind: 'openChest', entity: e, chest: larder }); // not a chest

@@ -2,6 +2,7 @@ import type { VehicleType } from '@open-northland/data';
 import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   Chat,
+  dropVehicleOrderQueue,
   NODE_PROGRESS_FULL,
   Owner,
   Position,
@@ -748,6 +749,7 @@ export function moveVehicle(
   const state = world.tryGet(e, Vehicle);
   const anchor = vehicleAnchor(world, e);
   if (state === undefined || anchor === null || state.carrier !== null) return false;
+  dropVehicleOrderQueue(world, e);
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
   if (type !== undefined && awaitsDraughtAnimal(type, state)) {
     refuseMove(world, ctx, e, 'noAnimal'); // before the commander gate: nobody can attach to such a cart
@@ -865,6 +867,7 @@ export function stopVehicle(world: World, command: Extract<Command, { kind: 'sto
   const state = world.tryGet(e, Vehicle);
   if (state === undefined) return;
   recordAiOrder(world, e);
+  dropVehicleOrderQueue(world, e);
   const held = state.heldGoal !== null || state.task === 'waitsForHuman';
   dropAttack(world, e);
   const drive = world.tryGet(e, VehicleDrive);

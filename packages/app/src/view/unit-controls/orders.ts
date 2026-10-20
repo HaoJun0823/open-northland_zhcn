@@ -60,6 +60,8 @@ export interface UnitOrderDeps {
       ) => Promise<readonly FormationSlotGroup[] | null>)
     | undefined;
   readonly pendingGroundOrders?: PendingGroundOrders | undefined;
+  /** The selected vehicles the vehicle controller drives on the same right click. */
+  readonly drivenVehicles?: (() => readonly number[]) | undefined;
   /** Defer this press's normal acknowledgement until its queried formation is accepted. */
   readonly deferGroundConfirmation?: (() => () => void) | undefined;
   readonly technologyStatus?: TechnologyStatusRead | undefined;
@@ -121,7 +123,13 @@ export interface UnitOrderController {
    *  behind each settler's current order (shift-click). */
   issueSetWorkFlag(target: Tile, units?: readonly number[], unassignFirst?: boolean): boolean;
   issueMoveTo(target: Tile, units?: readonly number[], queued?: boolean): boolean;
-  issueAttackMove(target: Tile, units?: readonly number[], queued?: boolean): boolean;
+  /** `vehicles` are the ones the same press marches itself. */
+  issueAttackMove(
+    target: Tile,
+    units?: readonly number[],
+    queued?: boolean,
+    vehicles?: readonly number[],
+  ): boolean;
   /** Strike one enemy of an accepted kind under the cursor; a click that hits none orders nothing. */
   issueAttackTarget(
     event: MouseEvent,
@@ -196,11 +204,15 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   // there is no client-side filtering.
   const issueWalkOrder = (
     target: Tile,
-    movers: readonly FormationUnit[],
+    allMovers: readonly FormationUnit[],
     kind: WalkOrderKind,
     queued = false,
+    drivenVehicles: ReadonlySet<number> = new Set(),
   ): boolean => {
-    if (movers.length === 0) return false;
+    // A commander's queued walk would queue a drive of its vehicle beside the one the same press gives
+    // the vehicle itself, so it stays out; an unqueued one only replaces that drive.
+    const movers = queued ? withoutDrivenCommanders(allMovers, drivenVehicles) : allMovers;
+    if (movers.length === 0) return allMovers.length > 0;
     if (movers.length > MAX_UNIT_ORDER_MEMBERS) {
       onOrderLimit();
       return false;
@@ -352,7 +364,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       if (walkers.length === 0) return true;
       const tile = worldToTile(world.x, world.y, deps.elevation);
       const walk = (unworn: readonly FormationUnit[]): boolean =>
-        issueWalkOrder(tile, unworn, 'moveUnit', true);
+        issueWalkOrder(tile, unworn, 'moveUnit', true, new Set(deps.drivenVehicles?.()));
       if (pileGood !== undefined && wearFromGround(walkers, pileGood, walk, true)) return true;
       return walk(walkers);
     }
@@ -761,6 +773,19 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     return true;
   };
 
+  const withoutDrivenCommanders = (
+    movers: readonly FormationUnit[],
+    vehicles: ReadonlySet<number>,
+  ): readonly FormationUnit[] => {
+    if (vehicles.size === 0) return movers;
+    const snapshot = deps.snapshot();
+    return movers.filter(({ ref }) => {
+      const self = entityById(snapshot, ref);
+      const vehicle = self === undefined ? undefined : commandedVehicleOf(snapshot, self);
+      return vehicle === undefined || !vehicles.has(vehicle);
+    });
+  };
+
   /** The selected settlers an order goes to: all of them, or only `units` among them. */
   const commandedAmong = (units?: readonly number[]): FormationUnit[] => {
     const commanded = deps.targets.ownedSettlersIn(deps.selected());
@@ -812,8 +837,12 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   const issueMoveTo = (target: Tile, units?: readonly number[], queued?: boolean): boolean =>
     issueWalkOrder(target, commandedAmong(units), 'moveUnit', queued);
 
-  const issueAttackMove = (target: Tile, units?: readonly number[], queued?: boolean): boolean =>
-    issueWalkOrder(target, commandedAmong(units), 'attackMoveUnit', queued);
+  const issueAttackMove = (
+    target: Tile,
+    units?: readonly number[],
+    queued?: boolean,
+    vehicles: readonly number[] = [],
+  ): boolean => issueWalkOrder(target, commandedAmong(units), 'attackMoveUnit', queued, new Set(vehicles));
 
   const setWorkFlags = (
     movers: readonly FormationUnit[],

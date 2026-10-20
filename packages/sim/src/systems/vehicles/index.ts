@@ -47,6 +47,7 @@ export {
   vehicleMovePeriod,
   vehicleProgressPerTick,
 } from './movement.js';
+export { isQueuedVehicleOrder, queueVehicleOrder, vehicleOrderQueueSystem } from './order-queue.js';
 export { attackWithVehicle, setVehicleStance } from './orders.js';
 export { type VehicleIndex, vehicleIndex } from './registry.js';
 export {

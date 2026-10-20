@@ -8,6 +8,7 @@ import {
   systems,
   type WorldSnapshot,
 } from '@open-northland/sim';
+import { diag } from '../../diag/index.js';
 import {
   commandedVehicleOf,
   isVehicle,
@@ -21,6 +22,7 @@ import { clampTile, nodeBounds, pickTopAt, type Tile, worldToTile } from '../pic
 import type { AnsweredOrders } from './answered-orders.js';
 import { formationTiles } from './formation.js';
 import { enqueueArmyOrder, enqueueUnitSelection } from './group-orders.js';
+import type { PendingGroundOrders } from './pending-ground-orders.js';
 import type { UnitTargetKind, UnitTargets } from './unit-targets.js';
 
 /** How far apart a group's goals lie: past a catapult's footprint disc (`logicsize 1`) and a lane
@@ -47,6 +49,10 @@ export interface VehicleOrderDeps {
   readonly askMoorAt?: ((vehicle: number, x: number, y: number) => Promise<boolean>) | undefined;
   /** Where the orders a host answer decides wait for it. */
   readonly answered: AnsweredOrders;
+  /** Puts a mooring answer's order in click order among the vehicle's other orders: a Shift click waits
+   *  for the earlier clicks of the same ship, and a newer plain order calls an unanswered one off. Absent,
+   *  the order applies as its answer lands. */
+  readonly pendingGroundOrders?: PendingGroundOrders | undefined;
   /** Acknowledges a drive, mooring or bombardment on the ground where it was aimed; absent, nothing is
    *  drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
@@ -63,6 +69,8 @@ export interface VehicleOrderController {
   selectedVehicle(): number | null;
   /** The owned siege vehicles selected themselves, the ones an attack-move marches. */
   selectedSiegeVehicles(): number[];
+  /** The owned vehicles selected themselves, the ones a right click drives. */
+  selectedOwnVehicles(): number[];
   /**
    * The original's default right-click for a vehicle: an enemy human, vehicle or house is attacked, an
    * own moored ship is boarded by a land vehicle, anything else is driven to. Named approximations: the
@@ -73,15 +81,19 @@ export interface VehicleOrderController {
    * A marquee's group of vehicles, or vehicles selected beside settlers, is an addition: the armed ones
    * attack the enemy under the cursor and the rest drive to their own slots of a spaced formation
    * there. A group neither boards nor docks.
+   *
+   * Shift queues the drive or dock behind each vehicle's current order. No other order is queueable, so
+   * the ground under an enemy or a ship is driven to instead, as a settler's Shift click walks there.
    */
   issueRightClick(event: MouseEvent): boolean;
-  issueMoveTo(vehicle: number, target: Tile): boolean;
+  /** A `queued` order waits behind the vehicle's current one (`VehicleOrderQueue`). */
+  issueMoveTo(vehicle: number, target: Tile, queued?: boolean): boolean;
   /** March `vehicles` to `target`, each to its own slot of a spaced formation around it, fighting
    *  whatever they meet on the way. */
-  issueAttackMove(vehicles: readonly number[], target: Tile): boolean;
+  issueAttackMove(vehicles: readonly number[], target: Tile, queued?: boolean): boolean;
   /** Moor `vehicle` at `target` once the mooring rule accepts the spot; a spot it rejects orders
    *  nothing. */
-  issueDock(vehicle: number, target: Tile): boolean;
+  issueDock(vehicle: number, target: Tile, queued?: boolean): boolean;
   issueAttackPosition(vehicle: number, target: Tile): boolean;
   /** Aim `vehicle` at the enemy of `kind` under the cursor; a click that hits none orders nothing. */
   issueAttackTarget(event: MouseEvent, vehicle: number, kind: UnitTargetKind): boolean;
@@ -155,6 +167,8 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     return type !== undefined && systems.isSiegeVehicle(type);
   };
 
+  const selectedOwnVehicles = (): number[] => selectedVehicles().map((e) => e.id);
+
   const selectedSiegeVehicles = (): number[] =>
     selectedVehicles()
       .filter(isSiege)
@@ -165,11 +179,46 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     return clampTile(target, width, height);
   };
 
-  const issueMoveTo = (vehicle: number, target: Tile): boolean => {
+  const issueMoveTo = (vehicle: number, target: Tile, queued = false): boolean => {
     const node = clampNode(target);
-    deps.enqueue({ kind: 'moveVehicle', vehicle: vehicle as Entity, x: node.col, y: node.row });
+    deps.enqueue({
+      kind: 'moveVehicle',
+      vehicle: vehicle as Entity,
+      x: node.col,
+      y: node.row,
+      ...(queued ? { queued } : {}),
+    });
     deps.markOrder?.(node, 'move');
     return true;
+  };
+
+  /** Ask the mooring rule about `node` as the click lands and run `then` on its answer in click order. */
+  const afterMooring = (
+    ask: NonNullable<VehicleOrderDeps['askMoorAt']>,
+    vehicle: number,
+    node: Tile,
+    queued: boolean,
+    then: (moors: boolean) => void,
+  ): void => {
+    const pending = deps.pendingGroundOrders;
+    if (pending === undefined) {
+      deps.answered.after(ask(vehicle, node.col, node.row), then);
+      return;
+    }
+    const ticket = pending.begin([vehicle], queued);
+    // An unanswered click still settles its ticket, so the clicks queued behind it go on.
+    const answer = ask(vehicle, node.col, node.row).then(
+      (moors) => moors,
+      (error: unknown) => {
+        diag.warn('orders', 'a click went unanswered by the host', { error: String(error) });
+        return null;
+      },
+    );
+    deps.answered.after(answer, (moors) =>
+      pending.settle(ticket, () => {
+        if (moors !== null && pending.current(ticket, vehicle)) then(moors);
+      }),
+    );
   };
 
   /** One goal per vehicle around `target`, formation slots on a lattice as wide as the group, each
@@ -191,7 +240,12 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     });
   };
 
-  const driveInFormation = (vehicles: readonly number[], target: Tile, attackMove: boolean): boolean => {
+  const driveInFormation = (
+    vehicles: readonly number[],
+    target: Tile,
+    attackMove: boolean,
+    queued: boolean,
+  ): boolean => {
     if (vehicles.length === 0) return false;
     if (vehicles.length > MAX_UNIT_ORDER_MEMBERS) {
       deps.onOrderLimit?.();
@@ -206,6 +260,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
           return { entity: vehicle as Entity, x: node.col, y: node.row };
         }),
         ...(attackMove ? { attackMove: true } : {}),
+        ...(queued ? { queued: true } : {}),
       },
       deps.enqueue,
       deps.onOrderLimit,
@@ -214,21 +269,27 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     return accepted;
   };
 
-  const issueAttackMove = (vehicles: readonly number[], target: Tile): boolean =>
-    driveInFormation(vehicles, target, true);
+  const issueAttackMove = (vehicles: readonly number[], target: Tile, queued = false): boolean =>
+    driveInFormation(vehicles, target, true, queued);
 
-  const dock = (vehicle: number, node: Tile): void => {
-    deps.enqueue({ kind: 'dockVehicle', vehicle: vehicle as Entity, x: node.col, y: node.row });
+  const dock = (vehicle: number, node: Tile, queued: boolean): void => {
+    deps.enqueue({
+      kind: 'dockVehicle',
+      vehicle: vehicle as Entity,
+      x: node.col,
+      y: node.row,
+      ...(queued ? { queued } : {}),
+    });
     deps.markOrder?.(node, 'move');
   };
 
-  const issueDock = (vehicle: number, target: Tile): boolean => {
+  const issueDock = (vehicle: number, target: Tile, queued = false): boolean => {
     const node = clampNode(target);
     const ask = deps.askMoorAt;
-    if (ask === undefined) dock(vehicle, node);
+    if (ask === undefined) dock(vehicle, node, queued);
     else
-      deps.answered.after(ask(vehicle, node.col, node.row), (moors) => {
-        if (moors) dock(vehicle, node);
+      afterMooring(ask, vehicle, node, queued, (moors) => {
+        if (moors) dock(vehicle, node, queued);
       });
     return true;
   };
@@ -358,7 +419,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     }
     const world = deps.toWorld(event.clientX, event.clientY);
     if (pickTopAt(deps.targets.owned('settler'), world.x, world.y) !== null) return false;
-    const enemy = pickTopAt(deps.targets.enemies(), world.x, world.y);
+    const enemy = event.shiftKey ? null : pickTopAt(deps.targets.enemies(), world.x, world.y);
     const striking = enemy === null ? [] : group.filter(isSiege);
     if (enemy !== null && striking.length > 0)
       enqueueArmyOrder(
@@ -371,7 +432,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
         deps.onOrderLimit,
       );
     const driving = group.filter((e) => !striking.includes(e)).map((e) => e.id);
-    driveInFormation(driving, worldToTile(world.x, world.y, deps.elevation), false);
+    driveInFormation(driving, worldToTile(world.x, world.y, deps.elevation), false, event.shiftKey);
     return true;
   };
 
@@ -380,7 +441,8 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     if (vehicle === null) return issueGroupRightClick(event);
     const self = entityById(deps.snapshot(), vehicle);
     const type = self === undefined ? undefined : vehicleTypeOf(self);
-    const armed = type !== undefined && systems.isSiegeVehicle(type);
+    const queued = event.shiftKey;
+    const armed = type !== undefined && systems.isSiegeVehicle(type) && !queued;
     const land = type !== undefined && !systems.isShipVehicle(type);
     const world = deps.toWorld(event.clientX, event.clientY);
     const enemies = deps.targets.enemies();
@@ -392,7 +454,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
       );
       if (human !== null) return strike(vehicle, human);
     }
-    if (land) {
+    if (land && !queued) {
       const carrier = pickTopAt(deps.targets.owned('vehicle'), world.x, world.y);
       if (carrier !== null && loadInto(vehicle, carrier)) return true;
     }
@@ -402,13 +464,13 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     }
     const target = worldToTile(world.x, world.y, deps.elevation);
     const ask = deps.askMoorAt;
-    if (land || ask === undefined) return issueMoveTo(vehicle, target);
+    if (land || ask === undefined) return issueMoveTo(vehicle, target, queued);
     // A ship docks where its mooring rule, asked as the click lands, accepts the shore, and sails there
     // otherwise.
     const node = clampNode(target);
-    deps.answered.after(ask(vehicle, node.col, node.row), (moors) => {
-      if (moors) dock(vehicle, node);
-      else issueMoveTo(vehicle, target);
+    afterMooring(ask, vehicle, node, queued, (moors) => {
+      if (moors) dock(vehicle, node, queued);
+      else issueMoveTo(vehicle, target, queued);
     });
     return true;
   };
@@ -416,6 +478,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
   return {
     selectedVehicle,
     selectedSiegeVehicles,
+    selectedOwnVehicles,
     issueRightClick,
     issueMoveTo,
     issueAttackMove,

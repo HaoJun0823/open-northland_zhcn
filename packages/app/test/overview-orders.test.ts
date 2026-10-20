@@ -296,14 +296,6 @@ describe('a world press on an armed pick mode', () => {
     expect(issued).toEqual([{ kind: 'moveUnit', entity: SCOUT.id, x: 0, y: 0, queued: true }]);
   });
 
-  it('leaves the vehicles out of a queued attack-move, which have no queue', () => {
-    const CATAPULT = 30;
-    const { pickMode, issued } = harness(); // its vehicle controller throws if asked
-    pickMode.arm({ kind: 'attack-move', units: [SCOUT.id], vehicles: [CATAPULT] });
-    expect(pickMode.handleMouseDown({ ...click(0), shiftKey: true } as MouseEvent)).toBe('ordered');
-    expect(issued).toEqual([{ kind: 'attackMoveUnit', entity: SCOUT.id, x: 0, y: 0, queued: true }]);
-  });
-
   it('marches a Shift-pressed attack-move to the spot of a wild animal instead of striking it', () => {
     const DEER = 40;
     const { pickMode, issued } = harness(DEFAULT_KEY_BINDINGS.workFlagOrder, () => [

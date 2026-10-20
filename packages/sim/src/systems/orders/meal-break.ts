@@ -100,8 +100,9 @@ export function suspendWalkForMeal(world: World, terrain: TerrainGraph, e: Entit
     const origin = world.tryGet(e, AiOrder);
     const pending = { ...resume, ...(origin === undefined ? {} : { aiOrder: { ...origin } }) };
     const queue = world.tryMut(e, OrderQueue);
-    if (queue === undefined) world.add(e, OrderQueue, { orders: [pending] });
-    else queue.orders.unshift(pending);
+    const owner = ownerOf(world, e);
+    if (queue !== undefined) queue.orders.unshift(pending);
+    else if (owner !== undefined) world.add(e, OrderQueue, { orders: [pending], owner });
   }
   world.remove(e, AiOrder);
   world.remove(e, PlayerOrder);

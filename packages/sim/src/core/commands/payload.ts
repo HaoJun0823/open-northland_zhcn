@@ -51,7 +51,7 @@ interface FieldSpec {
 /** A half-cell node address, the `(x, y)` pair most placement and order payloads carry. */
 const NODE = { x: 'integer', y: 'integer' } as const satisfies Record<string, FieldCheck>;
 
-/** The Shift-click flag of a queueable order (`QUEUEABLE_ORDER_KINDS`). */
+/** The Shift-click flag of a queueable order (`QUEUEABLE_ORDER_KINDS`, `QUEUEABLE_VEHICLE_ORDER_KINDS`). */
 const QUEUED = { queued: 'boolean' } as const satisfies Record<string, FieldCheck>;
 
 const UNIT_GROUP: FieldCheck = {
@@ -132,6 +132,7 @@ const UNIT_SELECTION_ACTION_PAYLOAD: {
 } = {
   orderNeed: {
     required: { need: { oneOf: ['hunger', 'fatigue', 'piety', 'enjoyment'] satisfies readonly NeedKind[] } },
+    optional: QUEUED,
   },
   makeChild: { required: { child: { oneOf: CHILD_SEXES } } },
   openChest: { required: { chest: 'integer' }, optional: QUEUED },
@@ -201,6 +202,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
       entity: 'integer',
       need: { oneOf: ['hunger', 'fatigue', 'piety', 'enjoyment'] satisfies readonly NeedKind[] },
     },
+    optional: QUEUED,
   },
   setRegeneration: { required: { entity: 'integer', enabled: 'boolean' } },
   unassignBuilder: { required: { entity: 'integer' } },
@@ -223,7 +225,10 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   attachToVehicle: { required: { entity: 'integer', vehicle: 'integer' } },
   attackMoveUnit: { required: { entity: 'integer', ...NODE }, optional: QUEUED },
   setVehicleStanceGroup: { required: { members: UNIT_GROUP, stance: { oneOf: VEHICLE_STANCES } } },
-  moveVehicleGroup: { required: { members: DESTINATION_GROUP }, optional: { attackMove: 'boolean' } },
+  moveVehicleGroup: {
+    required: { members: DESTINATION_GROUP },
+    optional: { attackMove: 'boolean', ...QUEUED },
+  },
   attackWithVehicleGroup: { required: { members: UNIT_GROUP, target: VEHICLE_ATTACK_TARGET } },
   moveUnitGroup: { required: { members: DESTINATION_GROUP }, optional: QUEUED },
   attackMoveUnitGroup: { required: { members: DESTINATION_GROUP }, optional: QUEUED },
@@ -291,8 +296,8 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   makeChild: { required: { entity: 'integer', child: { oneOf: CHILD_SEXES } } },
   marry: { required: { entity: 'integer' } },
   moveUnit: { required: { entity: 'integer', ...NODE }, optional: QUEUED },
-  moveVehicle: { required: { vehicle: 'integer', ...NODE }, optional: { attackMove: 'boolean' } },
-  dockVehicle: { required: { vehicle: 'integer', ...NODE } },
+  moveVehicle: { required: { vehicle: 'integer', ...NODE }, optional: { attackMove: 'boolean', ...QUEUED } },
+  dockVehicle: { required: { vehicle: 'integer', ...NODE }, optional: QUEUED },
   renameSettler: { required: { entity: 'integer', name: { string: SETTLER_NAME_MAX_CHARS } } },
   openChest: { required: { entity: 'integer', chest: 'integer' }, optional: QUEUED },
   claimAnimal: { required: { entity: 'integer', animal: 'integer' }, optional: QUEUED },

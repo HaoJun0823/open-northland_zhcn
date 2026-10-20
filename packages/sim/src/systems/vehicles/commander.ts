@@ -19,6 +19,7 @@ import { clearNavState } from '../movement/nav-state.js';
 import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { moveVehicle } from './movement.js';
+import { queueVehicleOrder } from './order-queue.js';
 import type { VehicleOrderRoutes } from './order-routes.js';
 
 // A vehicle's commander drives it: a walk order given to the commander goes to the vehicle, whether the
@@ -63,6 +64,8 @@ export function driveCommandedVehicle(
   if (vehicle === null) return false;
   const attackMove = command.kind === 'attackMoveUnit';
   const goto = { kind: 'moveVehicle', vehicle, x: command.x, y: command.y, attackMove } as const;
+  // A Shift-clicked walk waits behind the vehicle's current order, the commander's own doings untouched.
+  if (command.queued === true && queueVehicleOrder(world, { ...goto, queued: true }, origin)) return true;
   if (!moveVehicle(world, ctx, goto, orders, origin)) {
     return true;
   }

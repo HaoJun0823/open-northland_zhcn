@@ -167,10 +167,10 @@ function orderActors(command: PlayerCommand): OrderActor[] {
       );
     case 'moveUnitGroup':
     case 'attackMoveUnitGroup':
+    case 'moveVehicleGroup':
       return command.members.map(({ entity }) => ({ id: entity, queued: command.queued === true }));
     case 'attackUnitGroup':
     case 'assignWorkerGroup':
-    case 'moveVehicleGroup':
     case 'attackWithVehicleGroup':
       return command.members.map(({ entity }) => ({ id: entity, queued: false }));
     case 'moveUnit':
@@ -178,9 +178,9 @@ function orderActors(command: PlayerCommand): OrderActor[] {
     case 'openChest':
     case 'claimAnimal':
     case 'placeSignpost':
+    case 'orderNeed':
       return [{ id: command.entity, queued: command.queued === true }];
     case 'attackUnit':
-    case 'orderNeed':
     case 'equipGood':
     case 'unequipGood':
     case 'setJob':
@@ -200,9 +200,10 @@ function orderActors(command: PlayerCommand): OrderActor[] {
     case 'detachFromVehicle':
       return [{ id: command.entity, queued: false }];
     case 'moveVehicle':
+    case 'dockVehicle':
+      return [{ id: command.vehicle, queued: command.queued === true }];
     case 'attackWithVehicle':
     case 'stopVehicle':
-    case 'dockVehicle':
     case 'loadIntoVehicle':
     case 'unloadPeople':
       return [{ id: command.vehicle, queued: false }];
@@ -211,15 +212,19 @@ function orderActors(command: PlayerCommand): OrderActor[] {
   }
 }
 
-/** Only queued movement/chest envelopes reach this seam; preserve their atomic envelope while dropping
- * actors whose newer order superseded that click before its predecessor's answer arrived. */
+/** Only queued movement, chest and need envelopes reach this seam; preserve their atomic envelope while
+ * dropping actors whose newer order superseded that click before its predecessor's answer arrived. */
 function currentActors(command: PlayerCommand, current: (id: number) => boolean): PlayerCommand | undefined {
   switch (command.kind) {
     case 'moveUnitGroup':
-    case 'attackMoveUnitGroup': {
+    case 'attackMoveUnitGroup':
+    case 'moveVehicleGroup': {
       const members = command.members.filter(({ entity }) => current(entity));
       return members.length === 0 ? undefined : { ...command, members };
     }
+    case 'moveVehicle':
+    case 'dockVehicle':
+      return current(command.vehicle) ? command : undefined;
     case 'unitActionGroup': {
       const members = command.members.filter(({ entity }) => current(entity));
       return members.length === 0 ? undefined : { ...command, members };

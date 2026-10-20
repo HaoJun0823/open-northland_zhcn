@@ -1,6 +1,7 @@
 import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   Building,
+  dropVehicleOrderQueue,
   Health,
   Palisade,
   Position,
@@ -57,6 +58,7 @@ export function attackWithVehicle(
   const e = command.vehicle;
   const state = world.tryGet(e, Vehicle);
   if (state === undefined || state.carrier !== null || vehicleWeapon(ctx, state) === null) return;
+  dropVehicleOrderQueue(world, e);
   if (vehicleCommander(state) === null) {
     refuseMove(world, ctx, e, 'noCommander');
     return;

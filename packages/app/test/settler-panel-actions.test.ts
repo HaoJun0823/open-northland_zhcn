@@ -36,7 +36,7 @@ function harness(
 ) {
   const sent: PlayerCommand[] = [];
   const cues: UiCue[] = [];
-  const rings: [ActionOrderId, readonly number[]][] = [];
+  const rings: [ActionOrderId, readonly number[], boolean?][] = [];
   const renamed: [number, string][] = [];
   const actions = settlerPanelActions(
     { snapshot: () => SNAPSHOT, viewer, enqueue: (command) => sent.push(command) },
@@ -50,7 +50,8 @@ function harness(
       assignWorkplace: () => undefined,
       assignHome: () => undefined,
       attachTradeHouse: () => undefined,
-      ringCommand: ringCommand ?? ((id, targets) => rings.push([id, targets])),
+      ringCommand:
+        ringCommand ?? ((id, targets, queued) => rings.push(queued ? [id, targets, queued] : [id, targets])),
       cue: (cue) => cues.push(cue),
     },
     { rename: (id, name) => renamed.push([id, name]), setProductionCount: () => undefined },
@@ -90,8 +91,12 @@ describe('the settler panel’s orders', () => {
 
   it('gives a need row the ring’s order, so the ring’s gate decides', () => {
     const { actions, rings } = harness();
-    actions.orderNeed(OWN, 'piety');
-    expect(rings).toEqual([['pray', [OWN]]]);
+    actions.orderNeed(OWN, 'piety', false);
+    actions.orderNeed(OWN, 'fatigue', true);
+    expect(rings).toEqual([
+      ['pray', [OWN]],
+      ['sleep', [OWN], true],
+    ]);
   });
 });
 

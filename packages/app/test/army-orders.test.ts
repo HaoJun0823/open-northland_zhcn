@@ -19,7 +19,8 @@ const TARGET = { col: 150, row: 80 };
 const POINT = halfCellToScreen(TARGET.col, TARGET.row);
 const ENEMY = 5000;
 
-function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0) {
+/** `commanded`: the first settler commands the first vehicle, standing beside it. */
+function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0, commanded = false) {
   const units = Array.from({ length: count }, (_, i) => ({
     ref: i + 1,
     ...halfCellToScreen(2 + 2 * (i % 40), 2 + 2 * Math.floor(i / 40)),
@@ -27,7 +28,12 @@ function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0)
   const vehicles = Array.from({ length: vehicleCount }, (_, i) => ({
     id: 100000 + i,
     components: {
-      Vehicle: { vehicleType: VEHICLE_CATAPULT, tribe: 1 },
+      Vehicle: {
+        vehicleType: VEHICLE_CATAPULT,
+        tribe: 1,
+        carrier: null,
+        passengers: commanded && i === 0 ? [{ entity: 1, inside: false }] : [],
+      },
       Owner: { player: 0 },
       Position: { x: fx.fromInt(1), y: fx.fromInt(1) },
     },
@@ -37,6 +43,8 @@ function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0)
       id: unit.ref,
       components: {
         Settler: { jobType: posted ? 1 : 31 },
+        Owner: { player: 0 },
+        ...(commanded && i === 0 ? { Rider: { vehicle: 100000, boarding: true, leaving: null } } : {}),
         ...(posted ? { JobAssignment: { workplace: 9000 } } : {}),
         Position: { x: fx.fromInt(1 + (i % 40)), y: fx.fromInt(1 + Math.floor(i / 40)) },
       },
@@ -83,6 +91,7 @@ function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0)
     selected: () => selected,
     selectOwnSettler: () => {},
     openActions: () => {},
+    drivenVehicles: () => vehicleOrders.selectedOwnVehicles(),
   });
   const vehicleOrders = createVehicleOrderController({
     ...shared,
@@ -147,7 +156,7 @@ describe('army selection input', () => {
     },
   );
 
-  it('marches the whole mixed selection in two envelopes, preserving queued settlers without driving vehicles ahead', () => {
+  it('marches the whole mixed selection in two envelopes, a Shift press queuing both', () => {
     const h = harness(false, COUNT, false, 25);
     h.ring('attackPosition');
     expect(h.pickMode.handleMouseDown(click(0))).toBe('ordered');
@@ -156,8 +165,20 @@ describe('army selection input', () => {
     h.issued.length = 0;
     h.ring('attackPosition');
     expect(h.pickMode.handleMouseDown(click(0, true))).toBe('ordered');
-    expect(h.issued).toHaveLength(1);
-    expect(h.issued[0]).toMatchObject({ kind: 'attackMoveUnitGroup', queued: true });
+    expect(h.issued).toMatchObject([
+      { kind: 'attackMoveUnitGroup', queued: true },
+      { kind: 'moveVehicleGroup', attackMove: true, queued: true },
+    ]);
+  });
+
+  it('leaves a commander out of a Shift walk its selected vehicle takes itself', () => {
+    const h = harness(false, 2, false, 1, true);
+    expect(h.orders.issueRightClick(click(2, true))).toBe(true);
+    expect(h.vehicleOrders.issueRightClick(click(2, true))).toBe(true);
+    const walk = h.issued[0];
+    if (walk?.kind !== 'moveUnit') throw new Error('expected one walk');
+    expect(walk).toMatchObject({ entity: 2, queued: true });
+    expect(h.issued[1]).toMatchObject({ kind: 'moveVehicle', vehicle: 100000, queued: true });
   });
 
   it('refuses an oversized mixed march before either group emits', () => {

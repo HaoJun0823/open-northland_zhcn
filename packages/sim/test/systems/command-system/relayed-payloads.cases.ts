@@ -164,7 +164,10 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
     setTradeAgreementLimits: [{ entity: t.carrier, giveKeep: 2, takeUpTo: 10 }],
     cancelTraining: [{ entity: t.worker }],
     explore: [{ entity: t.scout }],
-    orderNeed: [{ entity: t.worker, need: 'hunger' }],
+    orderNeed: [
+      { entity: t.worker, need: 'hunger' },
+      { entity: t.worker, need: 'fatigue', queued: true },
+    ],
     setRegeneration: [{ entity: t.soldier, enabled: false }],
     moveUnitGroup: [
       {
@@ -187,6 +190,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
         ],
         attackMove: true,
       },
+      { members: [{ entity: t.cart, ...node }], queued: true },
     ],
     attackWithVehicleGroup: [
       { members: [{ entity: t.catapult }], target: { kind: 'entity', entity: t.rival } },
@@ -202,6 +206,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
     ],
     unitActionGroup: [
       { kind: 'orderNeed', need: 'hunger' },
+      { kind: 'orderNeed', need: 'fatigue', queued: true },
       { kind: 'makeChild', child: 'male' },
       { kind: 'cancelTraining' },
       { kind: 'detachFromVehicle' },
@@ -261,8 +266,14 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
       { entity: t.worker, ...node },
       { entity: t.worker, ...node, queued: true },
     ],
-    moveVehicle: [{ vehicle: t.cart, ...node }],
-    dockVehicle: [{ vehicle: t.ship, ...node }],
+    moveVehicle: [
+      { vehicle: t.cart, ...node },
+      { vehicle: t.catapult, ...node, attackMove: true, queued: true },
+    ],
+    dockVehicle: [
+      { vehicle: t.ship, ...node },
+      { vehicle: t.ship, ...node, queued: true },
+    ],
     renameSettler: [{ entity: t.worker, name: 'Ragna' }],
     openChest: [
       { entity: t.worker, chest: t.hq },

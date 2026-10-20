@@ -25,7 +25,7 @@ export interface SettlerPanelHost {
   readonly assignWorkplace: (id: number) => void;
   readonly assignHome: (id: number) => void;
   readonly attachTradeHouse: (id: number) => void;
-  readonly ringCommand: (id: ActionOrderId, targets: readonly number[]) => void;
+  readonly ringCommand: (id: ActionOrderId, targets: readonly number[], queued?: boolean) => void;
   readonly cue: (cue: UiCue) => void;
 }
 
@@ -63,7 +63,9 @@ export function settlerPanelActions(
     closeOrders: host.closeOrders,
     rename: order(contract.rename),
     // The ring's own order, so a press obeys the same gate the ring button does.
-    orderNeed: order((id, need: NeedKind) => host.ringCommand(NEED_ORDER[need], [id])),
+    orderNeed: order((id, need: NeedKind, queued: boolean) =>
+      host.ringCommand(NEED_ORDER[need], [id], queued),
+    ),
     assignWorkplace: order(host.assignWorkplace),
     unassignWorkplace: order((id) => enqueue({ kind: 'unassignWorker', entity: id as Entity })),
     assignWorkArea: order((id) => host.ringCommand('assignWorkArea', [id])),

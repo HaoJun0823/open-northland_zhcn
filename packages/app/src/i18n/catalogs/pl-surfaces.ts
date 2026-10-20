@@ -511,7 +511,7 @@ export const plSurfaces = {
     heading: 'Wskazówka',
     tips: {
       queueOrders:
-        '{shift} + klik dodaje do kolejki polecenia ruchu, ataku w ruchu, stawiania drogowskazów, otwierania skrzyń i zakładania przedmiotów z ziemi.',
+        '{shift} + klik dodaje do kolejki polecenia ruchu, ataku w ruchu, stawiania drogowskazów, otwierania skrzyń, zakładania przedmiotów z ziemi, jedzenia, snu, rozmowy i modlitwy oraz jazdy pojazdów.',
       buildMany: 'Przytrzymaj {shift} przy stawianiu budynku, a postawisz kilka takich, po jednym na klik.',
       attackMove: '{key} to atak w ruchu: jednostki idą do celu i atakują wszystko po drodze.',
       postGraduates:

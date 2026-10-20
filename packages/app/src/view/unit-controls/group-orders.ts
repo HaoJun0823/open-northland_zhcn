@@ -62,6 +62,7 @@ export function enqueueArmyOrder(
         x: destination.x,
         y: destination.y,
         ...(command.attackMove ? { attackMove: true } : {}),
+        ...(command.queued ? { queued: true } : {}),
       });
       break;
     }

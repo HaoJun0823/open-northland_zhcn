@@ -92,9 +92,11 @@ import {
   driveCommandedVehicle,
   forcesDetach,
   isCommanderWalkOrder,
+  isQueuedVehicleOrder,
   leaveCarrier,
   loadIntoVehicle,
   moveVehicle,
+  queueVehicleOrder,
   setVehicleStance,
   setVehicleWantedOrder,
   stopVehicle,
@@ -157,9 +159,10 @@ function applyCommand(
     !jobCanPray(ctx.content.jobs, world.tryGet(command.entity, Settler)?.jobType ?? null)
   )
     return;
-  // A Shift-clicked order waits behind the current one; an order that takes the settler at once drops
-  // every order still waiting in its handler.
+  // A Shift-clicked order waits behind the settler's or vehicle's current one; an order that takes it at
+  // once drops every order still waiting in its handler.
   if (isQueuedOrder(command) && queueBehindCurrentOrder(world, command, origin)) return;
+  if (isQueuedVehicleOrder(command) && queueVehicleOrder(world, command, origin)) return;
   // A vehicle's commander hands a walk order to the vehicle. Any other settler crewing a vehicle is
   // taken off it before an order sends it elsewhere; one that may not leave (aboard a ship at sea)
   // keeps its seat and the order is dropped.
@@ -177,7 +180,14 @@ function applyCommand(
         applyCommand(
           world,
           ctx,
-          { kind: 'moveVehicle', vehicle, x, y, ...(command.attackMove ? { attackMove: true } : {}) },
+          {
+            kind: 'moveVehicle',
+            vehicle,
+            x,
+            y,
+            ...(command.attackMove ? { attackMove: true } : {}),
+            ...(command.queued ? { queued: true } : {}),
+          },
           orders,
           origin,
         );

@@ -552,7 +552,7 @@ export const deSurfaces = {
     heading: 'Tipp',
     tips: {
       queueOrders:
-        '{shift} + Klick reiht Gehaufträge, Angriffsbewegungen, das Setzen von Wegweisern, das Öffnen von Kisten und das Anlegen von Gütern vom Boden ein.',
+        '{shift} + Klick reiht Gehaufträge, Angriffsbewegungen, das Setzen von Wegweisern, das Öffnen von Kisten, das Anlegen von Gütern vom Boden, Essen, Schlafen, Reden und Beten sowie Fahrten von Fahrzeugen ein.',
       buildMany:
         'Halte beim Platzieren eines Gebäudes {shift} gedrückt, um mehrere davon zu setzen, eines pro Klick.',
       attackMove:

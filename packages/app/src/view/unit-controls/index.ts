@@ -121,15 +121,20 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     return job !== undefined && systems.jobUsesWorkFlag({ content: opts.content }, job);
   };
   // `pickMode` is built below; the arrows defer the reads to click time.
-  const ringCommand = (id: ActionOrderId, targets: readonly number[]): boolean =>
-    issueRingCommand(id, orderRecipients(opts.content, opts.snapshot(), targets, id), {
-      enqueue: opts.enqueue,
-      onOrderLimit: orderLimitNotice.show,
-      pickMode,
-      openEquipment: (settlers) => equipPicker?.openAll(settlers),
-      toggleWorkArea: workArea.toggle,
-      siegeVehicles: () => vehicleOrders.selectedSiegeVehicles(),
-    });
+  const ringCommand = (id: ActionOrderId, targets: readonly number[], queued?: boolean): boolean =>
+    issueRingCommand(
+      id,
+      orderRecipients(opts.content, opts.snapshot(), targets, id),
+      {
+        enqueue: opts.enqueue,
+        onOrderLimit: orderLimitNotice.show,
+        pickMode,
+        openEquipment: (settlers) => equipPicker?.openAll(settlers),
+        toggleWorkArea: workArea.toggle,
+        siegeVehicles: () => vehicleOrders.selectedSiegeVehicles(),
+      },
+      queued,
+    );
   const chrome = await createUnitChrome(opts, selection, equipPicker, {
     assignWorkplace: (id) =>
       pickMode.arm({ kind: worksFromFlag(id) ? 'workplace-or-flag' : 'workplace', units: [id] }),
@@ -298,6 +303,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     requestEquipPicks: opts.requestEquipPicks,
     requestFormationSlots: opts.requestFormationSlots,
     pendingGroundOrders,
+    drivenVehicles: () => vehicleOrders.selectedOwnVehicles(),
     deferGroundConfirmation,
     answered,
     selected: orderSelection,
@@ -333,6 +339,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     askAttachToVehicle: opts.askAttachToVehicle,
     askMoorAt: opts.askMoorAt,
     answered,
+    pendingGroundOrders,
     markOrder: orderMarkers.place,
   });
 
@@ -398,9 +405,6 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
    *  the selection first, which leaves no vehicle selected to drive. */
   const rightClickOrders = (e: MouseEvent, onBuilding: number | null, press: RightClickPress): boolean => {
     const settlersTook = orders.issueRightClick(e, onBuilding);
-    // Vehicles have no queue: beside settlers walking a Shift-queued route they would drive ahead to each
-    // pressed spot, so they sit it out; a selection of vehicles alone still drives.
-    if (e.shiftKey && settlersTook) return true;
     // A trader riding its cart takes a house onto its route instead of driving the cart there.
     const vehiclesTook =
       orders.issueRiderTradeHouse(

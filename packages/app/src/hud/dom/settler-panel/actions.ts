@@ -38,7 +38,8 @@ export interface SettlerPanelActions {
   /** Close the action ring or its profession list, if either is up. */
   readonly closeOrders: () => void;
   readonly rename: (id: number, name: string) => void;
-  readonly orderNeed: (id: number, need: NeedKind) => void;
+  /** `queued` is a Shift press, which lines the order up behind the settler's current one. */
+  readonly orderNeed: (id: number, need: NeedKind, queued: boolean) => void;
   readonly assignWorkplace: (id: number) => void;
   readonly unassignWorkplace: (id: number) => void;
   /** Arm the pick of a carrier's pickup flag, as the ring's "Assign Work Area" does. */

@@ -369,20 +369,26 @@ export const QUEUEABLE_ORDER_KINDS = [
   'openChest',
   'claimAnimal',
   'equipGood',
+  'orderNeed',
 ] as const;
 
 export type QueueableOrderCommand = Extract<Command, { kind: (typeof QUEUEABLE_ORDER_KINDS)[number] }>;
 
-/** How many orders may wait behind a settler's current one; a queued order past it is dropped. */
+/** How many orders may wait behind a settler's or vehicle's current one; a queued order past it is
+ *  dropped. */
 export const ORDER_QUEUE_LIMIT = 16;
 
 /**
  * The orders a settler carries out one after another once its current order is done, oldest first;
  * `orderQueueSystem` starts the next. Any order that takes the settler without queueing drops them
- * (`dropOrderQueue`). Named addition: the original has no order queue.
+ * (`dropOrderQueue`), and so does a hand-over: `owner` is the settler's player when the first was queued.
+ * Named addition: the original has no order queue.
  */
 export type QueuedUnitOrder = QueueableOrderCommand & { readonly aiOrder?: AiOrderOrigin };
-export const OrderQueue = defineComponent<{ orders: QueuedUnitOrder[] }>('OrderQueue', 'settlers');
+export const OrderQueue = defineComponent<{ orders: QueuedUnitOrder[]; owner: number }>(
+  'OrderQueue',
+  'settlers',
+);
 
 /**
  * Hunger took this settler off its player orders: the needs drive feeds it while its {@link OrderQueue},

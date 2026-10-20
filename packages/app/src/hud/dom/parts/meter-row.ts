@@ -33,7 +33,7 @@ export interface MeterRow {
 }
 
 export interface MeterRowOptions {
-  readonly onPress?: () => void;
+  readonly onPress?: (event: MouseEvent) => void;
   /** The cursor entered or moved over the row (an event) or left it (null). With this the row's
    *  tooltip is the owner's chip, not the browser's, which a value ticking under the cursor hides. */
   readonly onHover?: (event: MouseEvent | null) => void;

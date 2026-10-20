@@ -12,6 +12,7 @@ import {
   PlayerOrder,
   removeCurrentAtomic,
   Settler,
+  VehicleOrderQueue,
   WaveMarch,
 } from '../../components/index.js';
 import type { AiDecisionSource } from '../../core/commands/index.js';
@@ -21,6 +22,7 @@ import { stopAtNextNode } from '../movement/nav-state.js';
 import { MILITARY_MODE } from '../readviews/index.js';
 import { stopVehicle } from '../vehicles/movement.js';
 import { anchorAtFeet, setStance } from './combat.js';
+import { withdrawQueuedAiOrders } from './queued.js';
 
 /** Stamp an accepted replacement; a direct human or mission order releases AI ownership. */
 export function recordAiOrder(world: World, entity: Entity, origin?: AiOrderOrigin): void {
@@ -35,15 +37,8 @@ export function withdrawAiOrders(
   player: number,
   stopped: (source: AiDecisionSource) => boolean,
 ): void {
-  for (const entity of world.query(OrderQueue)) {
-    const orders = world.get(entity, OrderQueue).orders;
-    const retained = orders.filter(
-      (order) => order.aiOrder?.player !== player || !stopped(order.aiOrder.source),
-    );
-    if (retained.length === orders.length) continue;
-    if (retained.length === 0) world.remove(entity, OrderQueue);
-    else world.mut(entity, OrderQueue).orders = retained;
-  }
+  withdrawQueuedAiOrders(world, OrderQueue, player, stopped);
+  withdrawQueuedAiOrders(world, VehicleOrderQueue, player, stopped);
 
   for (const entity of world.query(AiOrder)) {
     const order = world.get(entity, AiOrder);

@@ -171,7 +171,7 @@ export function palisadeBarring(
   };
   const path = findPath(terrain, route.start, route.goal, breachable);
   if (path === null) return null;
-  const hit = firstWallOn(terrain, blocked, wallAt, path);
+  const hit = firstWallOn(terrain, wallAt, path);
   if (hit === null) return null;
   // Only a breaker that strikes from beside the wall needs a node of its own; a shooter keeps its range.
   // One standing on a post has no near side to be dealt.
@@ -257,7 +257,6 @@ function joinedWalls(
 /** Where `path` first meets a wall: the wall and the node it arrives from. */
 function firstWallOn(
   terrain: TerrainGraph,
-  blocked: BlockOverlay,
   wallAt: ReadonlyMap<NodeId, Entity>,
   path: readonly NodeId[],
 ): { readonly wall: Entity; readonly approach: NodeId } | null {
@@ -268,8 +267,8 @@ function firstWallOn(
     if (wall !== undefined) return { wall, approach: path[at - 1] ?? node };
     const next = path[at + 1];
     if (next === undefined) continue;
-    const squeezed = postSqueezedPast(terrain, blocked, wallAt, node, next);
-    if (squeezed !== null) return { wall: squeezed, approach: node };
+    const middleWall = postOnDiagonal(terrain, wallAt, node, next);
+    if (middleWall !== null) return { wall: middleWall, approach: node };
   }
   return null;
 }
@@ -393,14 +392,9 @@ function walkStrip(
   return seen;
 }
 
-/**
- * A diagonal step passes between its two midpoint flanks and may cross a wall line without standing on it:
- * with both flanks closed it is a joint the walls-open route slipped through, and the lower-id wall of the
- * two is the one in the way.
- */
-function postSqueezedPast(
+/** A walls-open path can cross a post at a diagonal's midpoint without listing that node as a stop. */
+function postOnDiagonal(
   terrain: TerrainGraph,
-  blocked: BlockOverlay,
   wallAt: ReadonlyMap<NodeId, Entity>,
   from: NodeId,
   to: NodeId,
@@ -409,12 +403,6 @@ function postSqueezedPast(
   const c = terrain.coordsOf(to);
   if (Math.abs(c.y - a.y) !== 2) return null;
   const row = (a.y + c.y) / 2;
-  const flanks = [terrain.nodeAt(a.x, row), terrain.nodeAt(c.x, row)];
-  if (!flanks.every((flank) => blocked.has(flank) || !terrain.isWalkable(flank))) return null;
-  let post: Entity | null = null;
-  for (const flank of flanks) {
-    const wall = wallAt.get(flank);
-    if (wall !== undefined && (post === null || wall < post)) post = wall;
-  }
-  return post;
+  const column = Math.min(a.x, c.x) + (a.y & 1);
+  return wallAt.get(terrain.nodeAt(column, row)) ?? null;
 }

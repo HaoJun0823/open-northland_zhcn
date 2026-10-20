@@ -182,9 +182,8 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(odd).toEqual(even);
   });
 
-  it('drops a diagonal when BOTH midpoint flank nodes are unwalkable (a wall seam is not a gap)', () => {
-    // From (1,1), SE lands on (2,3); the edge midpoint sits between (1,2) and (2,2). Both water:
-    // the seam is a wall joint - the destination itself stays grass, so only the flank rule drops it.
+  it('drops a diagonal with an unwalkable midpoint and opposite flank', () => {
+    // From (1,1), SE lands on (2,3) through (2,2); the grass destination cannot bypass that water.
     const g = buildTerrainGraph(
       testContent(),
       rawGrid(4, 5, [
@@ -199,7 +198,7 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(se).toEqual([]);
   });
 
-  it('keeps a diagonal when ONE flank node is walkable (sliding the seam past a blocked flank)', () => {
+  it('keeps a diagonal with a walkable midpoint beside an unwalkable opposite flank', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(4, 5, [[1, 2]]));
     const se = g
       .steps(g.nodeAt(1, 1))
@@ -208,7 +207,7 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(se).toEqual([{ x: 2, y: 3 }]);
   });
 
-  it('gates the diagonal flanks on the dynamic blocked overlay too', () => {
+  it('gates the diagonal midpoint on the dynamic blocked overlay too', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(4, 5));
     const blocked = new Set<NodeId>([g.nodeAt(1, 2), g.nodeAt(2, 2)]); // both flanks of (1,1)→(2,3)
     const se = g

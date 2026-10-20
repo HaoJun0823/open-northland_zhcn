@@ -169,10 +169,8 @@ describe('findPath - routes around obstacles', () => {
     expect(cells[cells.length - 1]).toEqual({ x: 5, y: 2 });
   });
 
-  it('a diagonal squeezes past a blocked flank while both-blocked flanks seal the seam', () => {
-    // From (1,1) the SE edge to (2,3) passes between (1,2) and (2,2). One water flank leaves the
-    // seam open; both water flanks seal it, forcing the longer way round (or no route at all here,
-    // since the second row is otherwise water too).
+  it('a diagonal needs its actual midpoint even when the opposite flank is blocked', () => {
+    // The SE edge (1,1) -> (2,3) crosses (2,2). Water beside it at (1,2) does not block that step.
     const oneFlank = grid(
       4,
       4,
@@ -182,7 +180,7 @@ describe('findPath - routes around obstacles', () => {
         return t;
       })(),
     );
-    expect(findPath(oneFlank, oneFlank.nodeAt(1, 1), oneFlank.nodeAt(2, 3))?.length).toBe(2); // the single SE edge - one flank is enough
+    expect(findPath(oneFlank, oneFlank.nodeAt(1, 1), oneFlank.nodeAt(2, 3))?.length).toBe(2); // the single SE edge through (2,2)
 
     const sealed = grid(
       4,

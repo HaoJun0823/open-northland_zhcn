@@ -6,7 +6,7 @@ import { testContent } from '../fixtures/content.js';
 
 it('keeps a redirected soldier eligible for formation slots while crossing a legal bank diagonal', () => {
   const typeIds = new Array<number>(16).fill(0);
-  typeIds[5] = 1; // one flank of the legal (1,0) -> (2,2) diagonal
+  typeIds[6] = 1; // opposite flank of the legal (1,0) -> (2,2) diagonal; midpoint (1,1) stays open
   const sim = new Simulation({
     seed: 7,
     content: testContent(),

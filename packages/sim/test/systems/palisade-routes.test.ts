@@ -532,6 +532,57 @@ describe('walls as targets', () => {
     expect(barring(sim, raider, SOUTH)).toBeNull();
   });
 
+  it.each(
+    [4, 5].flatMap((hy) =>
+      [-1, 1].flatMap((dx) =>
+        [-2, 2].flatMap((dy) => [false, true].map((otherWall) => ({ hy, dx, dy, otherWall }))),
+      ),
+    ),
+  )(
+    'recognizes the diagonal midpoint wall from row $hy toward ($dx,$dy), opposite wall: $otherWall',
+    ({ hy, dx, dy, otherWall }) => {
+      const start = { hx: 3, hy };
+      const goal = { hx: start.hx + dx, hy: hy + dy };
+      const middle = { hx: Math.min(start.hx, goal.hx) + (hy & 1), hy: hy + dy / 2 };
+      const other = { hx: start.hx + goal.hx - middle.hx, hy: middle.hy };
+      const typeIds = new Array<number>(80).fill(1);
+      for (const point of [start, middle, other, goal]) typeIds[point.hy * 8 + point.hx] = 0;
+      const sim = new Simulation({
+        seed: 1,
+        content: wallBreakingContent(),
+        map: {
+          ...grassNodeMap(8, 10),
+          typeIds,
+          landscapes: { types: [WALL], placements: [] },
+        },
+      });
+      // The opposite post has the lower ID, but removing it cannot open this diagonal.
+      if (otherWall)
+        sim.enqueueSetup({
+          kind: 'placePalisade',
+          gfxIndex: WALL.typeId,
+          x: other.hx,
+          y: other.hy,
+          tribe: VIKING,
+          owner: P1,
+        });
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL.typeId,
+        x: middle.hx,
+        y: middle.hy,
+        tribe: VIKING,
+        owner: P1,
+      });
+      sim.step();
+      const raider = fighter(sim, start, P0);
+      const wall = [...sim.world.query(Palisade)].find((e) => nodeRow(sim, e).hx === middle.hx);
+      expect(wall).toBeDefined();
+      expect(sealed(sim, start, goal)).toBe(true);
+      expect(barring(sim, raider, goal)).toBe(wall);
+    },
+  );
+
   it('bar a way that crosses their line diagonally between two posts', () => {
     const sim = fresh();
     postRow(sim, 11, P1);

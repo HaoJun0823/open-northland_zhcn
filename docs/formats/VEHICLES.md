@@ -259,7 +259,7 @@ The free-size class is the largest hex-disc radius of open same-continent nodes 
 capped at 7, one field for land and water (`nav/clearance.ts`). Deviation (owner's choice): a land
 vehicle whose class falls short still passes an open node when the rest of its disc holds at most two
 resource cells (any resource's walk cells: trees, stones, carcasses) and at most two building cells,
-none on or beside a wall; walls, landscapes and water stay hard, so the catapult squeezes between trees
+none overlapping a wall cell; walls, landscapes and water stay hard, so the catapult squeezes between trees
 and houses but never through a narrower wall gap (`landVehicleFits`); ships keep the plain class test.
 The tolerance is for transit only: a goto's snapped goal and a firing spot need the plain class
 (`vehicleStandable`, `vehicleRestBlocks`), and a land vehicle whose drive ends in such a gap anyway,

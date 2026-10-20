@@ -9,8 +9,7 @@ import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import { mappedSim, terrainOf, VIKING } from './building-placement/support.js';
 
-// A slanted wall joint is closed by a seal on a corner beside the wall cells, which no wall body lists:
-// the clearance memo must still re-derive the classes around it.
+// A wall placement or a nearby building passage must refresh the local clearance classes.
 
 const WALL_GFX = 691;
 const WALL: ScriptLandscapeType = {
@@ -21,17 +20,17 @@ const WALL: ScriptLandscapeType = {
   wall: { maxHitpoints: 100, repairPerStrike: 1, construction: [{ goodType: 1, amount: 1 }] },
 };
 const MAP_NODES = 48;
-/** Two single-node walls one half-row apart on the slant, so they meet in a joint the seal closes. */
+/** Two single-node walls one half-row apart on the slant. */
 const JOINT: readonly (readonly [number, number])[] = [
   [20, 20],
   [19, 21],
 ];
 
-describe('vehicleClearance - wall joint seals', () => {
+describe('vehicleClearance - adjacent walls', () => {
   it.each([
     ['first', JOINT],
     ['second', [...JOINT].reverse()],
-  ])('re-derives the classes around a seal a wall placed %s makes', (_name, order) => {
+  ])('re-derives the classes when either wall is placed %s', (_name, order) => {
     const map: TerrainMap = {
       ...grassNodeMap(MAP_NODES, MAP_NODES),
       landscapes: { types: [WALL], placements: [] },
@@ -68,13 +67,13 @@ const DEEP_HALL_BODY = Array.from({ length: 2 * DEEP_HALL_HALF_SPAN + 1 }, (_, r
     dy: row - DEEP_HALL_HALF_SPAN,
   })),
 ).flat();
-/** Its anchor: the passage leaves through the joint's corner, more than the seal reach from the door. */
+/** Its anchor: the passage extends several nodes beyond the door. */
 const DEEP_HALL_ANCHOR = { x: 20, y: 24 };
 /** Wide enough that a change this size takes the local recompute rather than a whole-map pass. */
 const LOCAL_RECOMPUTE_MAP_NODES = 160;
 
 describe('vehicleClearance - a door passage beside a wall joint', () => {
-  it('re-derives the classes around the seal the passage pushes onto the other corner', () => {
+  it('re-derives the classes around a new passage beside the walls', () => {
     const base = testContent();
     const content = parseContentSet({
       ...base,

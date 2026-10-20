@@ -148,7 +148,7 @@ describe('landVehicleFits', () => {
     expect(fitsAt(s, CATAPULT_SIZE)).toBe(false);
   });
 
-  it('keeps a wall hard: one wall neighbour refuses the catapult, as does a house touching a wall', () => {
+  it('keeps wall cells hard without extending them into neighbouring houses', () => {
     const s = sim();
     wall(s, neighbour(0).hx, neighbour(0).hy);
     s.step();
@@ -160,7 +160,7 @@ describe('landVehicleFits', () => {
     house(t, inner.hx, inner.hy);
     wall(t, inner.hx + 1, inner.hy);
     t.step();
-    expect(fitsAt(t, CATAPULT_SIZE)).toBe(false);
+    expect(fitsAt(t, CATAPULT_SIZE)).toBe(true);
   });
 
   it('keeps water hard for a land vehicle', () => {

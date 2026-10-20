@@ -52,7 +52,7 @@ does not reach them.
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `northland-campaign_02_01` | PLAGA | 1h/7ai | ok | ok | played in Polish; win, unlock of stage 2, hero and village defeats, defence and large-attack routes, save/restore; Miguel's gold goal and Polish defeat page corrected; without orders the village kills 57 of the 92 snakes and holds, so the main goal needs the player |
-| `northland-campaign_02_02_sub` | TRZY ŻYCZENIA - WIELKA KLĘSKA GŁODU | 1h/1ai | ok | ok | sub-mission played in Polish; doors, genie, three answers, wrong answer, hero death, return to the parent; cave crossing forced; Polish "step off the switches" page corrected; open: [idle heroes opening the snake chamber](tickets/sim/three-wishes-wall-gaps.md) |
+| `northland-campaign_02_02_sub` | TRZY ŻYCZENIA - WIELKA KLĘSKA GŁODU | 1h/1ai | ok | ok | sub-mission played in Polish; doors, genie, three answers, wrong answer, hero death, return to the parent; cave crossing forced; Polish "step off the switches" page corrected; open: [idle heroes opening the snake chamber](tickets/sim/idle-heroes-open-dungeon-doors.md) |
 | `northland-campaign_02_02` | WIELKA KLĘSKA GŁODU | 1h/6ai | ok | ok | played in Polish; both routes to the catacombs (own heroes, bribed Saracens and Ykol), win, unlock of stage 3, hero and village defeats, refugees after 30 min, save/restore; goal 0 restored by reading a missing description as string 0; buildings past the technology gate and the tributes' goods forced |
 | `northland-campaign_02_03` | STARZY PRZYJACIELE | 1h/4ai | – | – |  |
 | `northland-campaign_02_04_sub1` | MIECZE KRÓLI - ŁAŃCUCH FENRISA | 1h/2ai | – | – | sub-mission |

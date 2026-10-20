@@ -22,7 +22,9 @@ run once on Ubuntu.
 
 `npm test`, `test:vitest`, `test:slow` and `test:content` run through `scripts/run-gated.mjs`: across
 all worktrees of the checkout at most two such runs proceed at once (`ON_GATE_SLOTS` changes it), the
-rest wait for a slot, and each runs at lowered priority. CI runs them directly.
+rest wait for a slot, and each runs at lowered priority. CI runs them directly. The gate starts the
+command itself, so a Windows run passes it through `cmd.exe` with the line quoted by the gate; an
+argument containing a space stays one argument.
 
 No project isolates modules: the files a worker runs share one module registry, so a test must not
 depend on being the first to import one. Name module-level fixtures uniquely and restore whatever the
@@ -96,6 +98,33 @@ correctness from a headless test.
 - Compare large buffers and pixel arrays with `Buffer.equals` or a hash, not `toEqual`: Vitest's deep
   equality walks every element (an 8 MiB buffer takes about 15 s).
 - Do not wait out a real timeout. Use fake timers or inject a short limit.
+
+## Cross-platform tests
+
+CI gates the suite on Ubuntu, so a test that passes there can still fail on Windows or macOS. Write
+the assertion so it holds on every host, and keep the host's differences inside the code under test
+rather than in the expectation.
+
+- **Paths.** Never compare a path against a literal written with `/`. `resolve`, `join` and
+  `relative` spell a path the host's way, so build the expected value with the same function, or
+  compare segments. A message that crosses a module boundary renders its path through
+  `diagnosticPath` (`@open-northland/translations`), which separates with `/` everywhere; a consumer
+  that strips such a prefix must strip it the same way.
+- **Open files.** Windows refuses to rename or delete a file another handle holds, returning `EPERM`
+  where POSIX succeeds. A test that swaps bytes under an open handle must overwrite in place there
+  rather than skip the case; see `swapDuringHash` in `packages/api/test/archive-verifier.test.ts`.
+- **Volumes.** Windows refuses `rename` across drives with `EXDEV`, and a checkout may keep `.cache/`
+  and `%TEMP%` on different volumes. Stage beside the tree a rename replaces.
+- **Processes.** `npm`, `npx` and `vitest` are `.cmd` shims a direct `spawn` cannot execute, and
+  `shell: true` concatenates arguments without quoting. Run heavy commands through
+  `scripts/run-gated.mjs`, which quotes them itself.
+- **Names.** Case-insensitive matching, reserved names and trailing dots or spaces differ; do not
+  assert a listing order the host does not guarantee.
+
+A platform-specific test is skipped through an explicit condition that states the reason, as
+`describe.skipIf(!existsSync(chromium.executablePath()))` does for the GPU test, never through a
+silent early return that reports a pass. Prove a Windows path with `npm test` on Windows; reasoning
+about it is not evidence.
 
 ## Scenario harness
 

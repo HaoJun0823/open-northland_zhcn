@@ -1,4 +1,5 @@
 export {
+  diagnosticPath,
   listDirectory,
   loadTranslationOverlays,
   OVERLAY_KINDS,

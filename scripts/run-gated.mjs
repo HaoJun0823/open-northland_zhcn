@@ -31,11 +31,9 @@ const gated = !process.env.CI && process.env[HELD_ENV] !== '1';
 const slot = gated ? await acquireSlot(slotRoot(), slotCount()) : undefined;
 if (gated) lowerPriority();
 
-const child = spawn(command[0], command.slice(1), {
+const child = spawnGated(command[0], command.slice(1), {
   stdio: 'inherit',
   env: { ...process.env, [HELD_ENV]: '1' },
-  // npm and vitest are .cmd shims on Windows.
-  shell: process.platform === 'win32',
 });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(signal, () => child.kill(signal));
@@ -49,6 +47,27 @@ child.on('error', (error) => {
   console.error(`run-gated: ${error.message}`);
   process.exit(1);
 });
+
+/**
+ * Starts the gated command. Windows cannot execute `npm`, `npx` or `vitest` directly: they are `.cmd`
+ * shims. `shell: true` runs them, but it concatenates the arguments unquoted, so an argument holding a
+ * space — a test filter naming a path in a directory whose name has one — reached the command split in
+ * two. Build the line here and hand it to `cmd.exe` verbatim instead.
+ */
+function spawnGated(file, args, options) {
+  if (process.platform !== 'win32') return spawn(file, args, options);
+  const line = [file, ...args].map(quoteForCmd).join(' ');
+  // `/s` makes cmd strip the surrounding quotes and keep the rest literal.
+  return spawn('cmd.exe', ['/d', '/s', '/c', `"${line}"`], {
+    ...options,
+    windowsVerbatimArguments: true,
+  });
+}
+
+/** `cmd.exe` quoting: wrap what cmd would split or read as an operator, doubling the quotes inside. */
+function quoteForCmd(argument) {
+  return argument === '' || /[\s"&|<>^()%!]/.test(argument) ? `"${argument.replace(/"/g, '""')}"` : argument;
+}
 
 function slotCount() {
   const raw = process.env.ON_GATE_SLOTS;

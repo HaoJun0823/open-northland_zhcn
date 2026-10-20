@@ -1,4 +1,4 @@
-import { type FileHandle, mkdtemp, open, rename, rm, writeFile } from 'node:fs/promises';
+import { type FileHandle, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +12,18 @@ const HASH = sha256Hex(ARCHIVE);
 const expectArchiveBytes = (bytes: Buffer | undefined): void => {
   expect(bytes?.equals(ARCHIVE), 'handle reads the verified archive bytes').toBe(true);
 };
+
+/**
+ * Puts other bytes under the open name while its hash runs. POSIX answers a rename over the open
+ * name; Windows refuses to rename onto a file another handle holds, so it overwrites in place there.
+ * Either way the verifier reads bytes other than the ones it verified.
+ */
+async function swapDuringHash(path: string, replacement: string): Promise<void> {
+  if (process.platform !== 'win32') return rename(replacement, path);
+  const bytes = await readFile(replacement);
+  await writeFile(path, bytes);
+  await rm(replacement, { force: true });
+}
 
 describe('retained archive verification', () => {
   let dir: string;
@@ -83,33 +95,29 @@ describe('retained archive verification', () => {
     expect(passes).toBe(3);
   });
 
-  // Windows refuses to rename over a file another handle holds open.
-  it.skipIf(process.platform === 'win32')(
-    "never returns replacement bytes under the verified inode's hash",
-    async () => {
-      const replacement = join(dir, 'replacement');
-      await writeFile(replacement, Buffer.alloc(ARCHIVE.length, 9));
-      let replace: Promise<void> | undefined;
-      vi.spyOn(prototype, 'createReadStream').mockImplementationOnce(function (this: FileHandle, options) {
-        const stream = original.call(this, options);
-        stream.once('data', () => {
-          replace = rename(replacement, path);
-        });
-        return stream;
+  it("never returns replacement bytes under the verified inode's hash", async () => {
+    const replacement = join(dir, 'replacement');
+    await writeFile(replacement, Buffer.alloc(ARCHIVE.length, 9));
+    let replace: Promise<void> | undefined;
+    vi.spyOn(prototype, 'createReadStream').mockImplementationOnce(function (this: FileHandle, options) {
+      const stream = original.call(this, options);
+      stream.once('data', () => {
+        replace = swapDuringHash(path, replacement);
       });
-      const handle = await verifier.open(path, HASH);
-      await replace;
-      // Unlinking can update the old inode's ctime; refusal is also safe in that case.
-      if (handle !== null) {
-        try {
-          expectArchiveBytes(await handle.readFile());
-        } finally {
-          await handle.close();
-        }
+      return stream;
+    });
+    const handle = await verifier.open(path, HASH);
+    await replace;
+    // Unlinking can update the old inode's ctime; refusal is also safe in that case.
+    if (handle !== null) {
+      try {
+        expectArchiveBytes(await handle.readFile());
+      } finally {
+        await handle.close();
       }
-      expect(await verifier.open(path, HASH)).toBeNull();
-    },
-  );
+    }
+    expect(await verifier.open(path, HASH)).toBeNull();
+  });
 
   it('caps hashing concurrency and rejects excess admission before opening more files', async () => {
     const paths = Array.from({ length: 40 }, (_, index) => join(dir, `${index}.bin`));

@@ -1,8 +1,8 @@
-import { type FootprintCell, footprintCellDx } from '@open-northland/data';
+import { type FootprintCell, footprintCellDx, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { Position, Signpost, stampOwner } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { halfCellMapFromCells, type Simulation } from '../../src/index.js';
+import { halfCellMapFromCells, Simulation } from '../../src/index.js';
 import { nodeOfPosition } from '../../src/nav/halfcell.js';
 import { canPlaceBuilding, createSignpost, signpostNetwork } from '../../src/systems/index.js';
 import {
@@ -13,6 +13,7 @@ import {
   HUT,
   HUT_FOOTPRINT,
   mappedSim,
+  placementContent,
   terrainOf,
   VIKING,
   WATER,
@@ -170,15 +171,51 @@ describe('building over signposts', () => {
     expectCachesExact(sim);
   });
 
-  it('stands the pushed post in front of the building, where it draws over the art', () => {
+  it('stands the pushed post south of the entire family body', () => {
     const sim = mappedSim();
     const covered = post(sim, ANCHOR.x, ANCHOR.y, P0);
 
     placeHut(sim, P0);
 
     const moved = nodeOf(sim, covered);
-    expect(moved.y).toBeGreaterThan(ANCHOR.y);
+    expect(moved.y).toBeGreaterThan(ANCHOR.y + Math.max(...HUT_FOOTPRINT.familyBody.map((c) => c.dy)));
     expect(inHutCells(HUT_WALLS_AND_DOOR, moved)).toBe(false);
+  });
+
+  it('clears a projecting wing of the placed tribe instead of stopping just south of its anchor', () => {
+    const base = placementContent();
+    const tribe = 2;
+    const body = [
+      { dx: 0, dy: 0 },
+      { dx: -1, dy: 2 },
+      { dx: -1, dy: 3 },
+    ];
+    const footprint = {
+      blocked: body,
+      familyBody: body,
+      reserved: [-1, 0, 1, 2, 3, 4].flatMap((dy) => [-2, -1, 0, 1].map((dx) => ({ dx, dy }))),
+      door: { dx: 1, dy: 0 },
+    };
+    const content = parseContentSet({
+      ...base,
+      tribes: [...base.tribes, { typeId: tribe, id: 'winged' }],
+      buildings: base.buildings.map((b) =>
+        b.typeId === HUT ? { ...b, tribeVariants: [{ tribe, footprint }] } : b,
+      ),
+    });
+    const displace = () => {
+      const sim = new Simulation({ seed: 1, content, map: grassMap(16, 16) });
+      const covered = post(sim, ANCHOR.x, ANCHOR.y, P0);
+      sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, tribe, owner: P0, ...ANCHOR });
+      sim.step();
+      expect(buildingsPlaced(sim)).toBe(1);
+      const moved = nodeOf(sim, covered);
+      expect(moved.y).toBeGreaterThan(ANCHOR.y + 3);
+      expect(inHutCells([...body, footprint.door], moved)).toBe(false);
+      expectCachesExact(sim);
+      return moved;
+    };
+    expect(displace()).toEqual(displace());
   });
 
   it('keeps a far neighbour in link range before standing the post in front', () => {

@@ -142,11 +142,11 @@ export function razeSignpost(world: World, post: Entity): void {
  * Push every signpost under a just-placed `building`'s walls or on its door to the nearest node the erect
  * rule's ground test accepts, off every door and on the same static ground, and re-link it there. It
  * prefers, in turn, a node that keeps every link in range, so the push does not split the network, and a
- * row south of the anchor, which the renderer draws over the building rather than behind its art. The
- * post may stay in the building's reserved margin: no later building's zone may overlap that one, so
- * nothing covers the post again. Spacing to the other posts is not re-checked, since the post moves and
- * nobody erects it. A post with no such node within {@link SIGNPOST_DISPLACE_RADIUS_NODES} falls. Project
- * rule, as the original never builds on a post.
+ * row south of the whole family body. A row merely south of the anchor can still sit behind a projecting
+ * wing while the renderer paints the post over it. The post may stay in the building's reserved margin:
+ * no later building's zone may overlap that one, so nothing covers the post again. Spacing to the other
+ * posts is not re-checked, since the post moves and nobody erects it. A post with no such node within
+ * {@link SIGNPOST_DISPLACE_RADIUS_NODES} falls. Project rule, as the original never builds on a post.
  */
 export function displaceSignpostsFromFootprint(world: World, ctx: SystemContext, building: Entity): void {
   const terrain = ctx.terrain;
@@ -163,6 +163,10 @@ export function displaceSignpostsFromFootprint(world: World, ctx: SystemContext,
     covered.has(entityNode(world, terrain, e)),
   );
   if (enclosed.length === 0) return;
+  let frontRow = anchor.hy;
+  for (const cell of footprint?.familyBody ?? []) {
+    frontRow = Math.max(frontRow, anchor.hy + cell.dy);
+  }
   const doors = buildingDoorNodes(world, ctx, terrain);
   // Canonical order, and each relocation lands before the next search, so two posts never share a node.
   for (const post of canonicalById(enclosed)) {
@@ -181,7 +185,7 @@ export function displaceSignpostsFromFootprint(world: World, ctx: SystemContext,
         accept,
         withinRadius: SIGNPOST_DISPLACE_RADIUS_NODES,
       });
-    const inFront = (n: NodeId): boolean => terrain.yOf(n) > anchor.hy;
+    const inFront = (n: NodeId): boolean => terrain.yOf(n) > frontRow;
     const to =
       search((n) => standable(n) && keepsLinks(n) && inFront(n)) ??
       search((n) => standable(n) && keepsLinks(n)) ??

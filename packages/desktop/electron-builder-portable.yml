@@ -1,0 +1,8 @@
+# The portable exe takes the app icon, which electron-builder cannot set per target, so the portable
+# build is its own pass whose app icon carries the portable badge.
+extends: ./electron-builder.yml
+win:
+  icon: icon-portable.ico
+  target:
+    - target: portable
+      arch: [x64]

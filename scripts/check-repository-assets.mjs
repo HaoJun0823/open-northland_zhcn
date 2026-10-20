@@ -74,6 +74,9 @@ const reviewedBinaryAssets = new Set([
   // in tools/brand/source; `npm run brand` derives the rest, including the README logo above. The
   // Open Graph image and the manifest screenshot also use docs/images/settlement.webp, a capture of
   // Open Northland's own renderer.
+  'tools/brand/source/badge-installer.png',
+  'tools/brand/source/badge-portable.png',
+  'tools/brand/source/badge-uninstaller.png',
   'tools/brand/source/emblem.png',
   'tools/brand/source/lockup-horizontal.png',
   'tools/brand/source/lockup-stacked.png',
@@ -89,6 +92,10 @@ const reviewedBinaryAssets = new Set([
   // The CulturesNation logo, identifying the about screen's link to that community site; the mark is
   // CulturesNation's. Source: https://culturesnation.pl/culturesnation-logo.png
   'packages/app/src/assets/community/culturesnation.webp',
+  'packages/desktop/resources/icon-installer.icns',
+  'packages/desktop/resources/icon-installer.ico',
+  'packages/desktop/resources/icon-portable.ico',
+  'packages/desktop/resources/icon-uninstaller.ico',
   'packages/desktop/resources/icon.icns',
   'packages/desktop/resources/icon.ico',
   'packages/desktop/resources/icon.png',

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Portable</title>
+  <circle cx="16" cy="16" r="16" fill="#3a3530"/>
+  <circle cx="16" cy="16" r="13" fill="#d4a640"/>
+  <path d="M12.2 12V9a1.8 1.8 0 0 1 1.8-1.8h4a1.8 1.8 0 0 1 1.8 1.8v3" fill="none" stroke="#2a1d15" stroke-width="2.8"/>
+  <rect x="6" y="11.5" width="20" height="13.5" rx="2.4" fill="#2a1d15"/>
+  <rect x="14" y="15" width="4" height="5" rx="0.8" fill="#d4a640"/>
+</svg>

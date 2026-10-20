@@ -26,10 +26,9 @@ extraResources:
       - '!.data-unpacked.sha256'
 win:
   artifactName: ${productName}-${version}-win-${arch}.${ext}
+  # The portable exe is packaged by electron-builder-portable.yml.
   target:
     - target: nsis
-      arch: [x64]
-    - target: portable
       arch: [x64]
 # Space-free artifact names, so they work as download URLs.
 nsis:
@@ -37,6 +36,9 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   artifactName: ${productName}-${version}-setup.exe
+  installerIcon: icon-installer.ico
+  uninstallerIcon: icon-uninstaller.ico
+  include: installer.nsh
 portable:
   artifactName: ${productName}-${version}-portable.exe
   splashImage: resources/portable-splash.bmp
@@ -48,6 +50,9 @@ mac:
       arch: [arm64]
   identity: null
   artifactName: ${productName}-${version}-${arch}.dmg
+dmg:
+  # The mounted volume's icon.
+  icon: icon-installer.icns
 linux:
   # Without this the executable defaults to the scoped package name (@open-northland/desktop),
   # whose "@" electron-builder rejects as unsafe in file paths.

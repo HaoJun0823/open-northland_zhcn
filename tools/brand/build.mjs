@@ -62,6 +62,13 @@ const ICON_PADDING = 0.04;
  * corner radius); a free-standing round shield gets shrunk into a grey frame instead.
  */
 const MAC_TILE = { grid: 1024, body: 824, radius: 185, top: '#27313f', bottom: '#111822', motif: 0.84 };
+/**
+ * The installer, uninstaller and portable icons are the app icon with a badge in the bottom-right
+ * corner, its edge a fraction of the icon (or of the macOS tile body). Small sizes use the flat badge
+ * drawing and a larger share so the symbol survives.
+ */
+const BADGE_VARIANTS = ['installer', 'uninstaller', 'portable'];
+const BADGE_SHARE = { painted: 0.46, small: 0.56, macTile: 0.42 };
 /** The emblem stays whole in a centre square crop, which chat apps use for compact link previews. */
 const OG_IMAGE = {
   width: 1200,
@@ -82,6 +89,17 @@ const emblemRaster = await trimmedMaster('emblem.png');
 const lockupStacked = await trimmedMaster('lockup-stacked.png');
 const smallEmblemSvg = await readFile(join(SOURCE, 'emblem-small.svg'));
 const pixelEmblemSvg = await readFile(join(SOURCE, 'emblem-16.svg'));
+const badges = Object.fromEntries(
+  await Promise.all(
+    BADGE_VARIANTS.map(async (variant) => [
+      variant,
+      {
+        painted: await trimmedMaster(`badge-${variant}.png`),
+        small: await readFile(join(SOURCE, `badge-${variant}-small.svg`)),
+      },
+    ]),
+  ),
+);
 /** Open Northland's own renderer, never the original game (docs/LEGAL.md); the menu shows it too. */
 const SETTLEMENT = join(ROOT, 'docs/images/settlement.webp');
 
@@ -150,6 +168,37 @@ async function macTile(size) {
     .composite([{ input: motif, gravity: 'centre' }])
     .png()
     .toBuffer();
+}
+
+async function badge(variant, size) {
+  if (size <= SMALL_EMBLEM_MAX_SIZE) {
+    const density = (72 * size) / SMALL_EMBLEM_SVG_VIEWBOX;
+    return sharp(badges[variant].small, { density }).resize(size, size).png().toBuffer();
+  }
+  return sharp(badges[variant].painted)
+    .resize(size, size, { fit: 'contain', background: TRANSPARENT })
+    .png()
+    .toBuffer();
+}
+
+/** `icon` with the variant's badge drawn over its bottom-right corner, `inset` px from the edges. */
+async function badged(icon, size, variant, badgeSize, inset = 0) {
+  const at = size - inset - badgeSize;
+  return sharp(icon)
+    .composite([{ input: await badge(variant, badgeSize), left: at, top: at }])
+    .png()
+    .toBuffer();
+}
+
+async function badgedIconPng(variant, size) {
+  const share = size <= SMALL_EMBLEM_MAX_SIZE ? BADGE_SHARE.small : BADGE_SHARE.painted;
+  return badged(await iconPng(size), size, variant, Math.round(size * share));
+}
+
+async function badgedMacTile(variant, size) {
+  const body = Math.round(MAC_TILE.body * (size / MAC_TILE.grid));
+  const inset = Math.round((size - body) / 2);
+  return badged(await macTile(size), size, variant, Math.round(body * BADGE_SHARE.macTile), inset);
 }
 
 /** ICO container with PNG-encoded entries; a 256 px entry is written as size 0 per the format. */
@@ -295,12 +344,13 @@ async function emit(dir, name, data) {
 
 const pwaIcons = await Promise.all(PWA_ICON_SIZES.map(async (size) => [size, await iconPng(size)]));
 const icoEntries = await Promise.all(ICO_SIZES.map(async (size) => ({ size, png: await iconPng(size) })));
-const icnsSlots = await Promise.all(
-  ICNS_SLOTS.map(async ([type, size, encoding]) => {
-    const png = await macTile(size);
-    return [type, encoding === 'argb' ? await icnsArgb(png) : png];
-  }),
-);
+const icnsSlotsOf = (tile) =>
+  Promise.all(
+    ICNS_SLOTS.map(async ([type, size, encoding]) => {
+      const png = await tile(size);
+      return [type, encoding === 'argb' ? await icnsArgb(png) : png];
+    }),
+  );
 
 await emit(APP_PUBLIC, 'favicon.ico', ico(icoEntries.filter((e) => e.size <= 48)));
 await emit(APP_PUBLIC, 'favicon.svg', smallEmblemSvg);
@@ -328,7 +378,19 @@ execFileSync(
 
 await emit(DESKTOP_RESOURCES, 'icon.png', await paintedEmblem(DESKTOP_ICON_SIZE, ICON_PADDING));
 await emit(DESKTOP_RESOURCES, 'icon.ico', ico(icoEntries));
-await emit(DESKTOP_RESOURCES, 'icon.icns', icns(icnsSlots));
+await emit(DESKTOP_RESOURCES, 'icon.icns', icns(await icnsSlotsOf(macTile)));
+for (const variant of BADGE_VARIANTS) {
+  const entries = await Promise.all(
+    ICO_SIZES.map(async (size) => ({ size, png: await badgedIconPng(variant, size) })),
+  );
+  await emit(DESKTOP_RESOURCES, `icon-${variant}.ico`, ico(entries));
+}
+// The dmg's volume icon, shown while the disk image is mounted.
+await emit(
+  DESKTOP_RESOURCES,
+  'icon-installer.icns',
+  icns(await icnsSlotsOf((size) => badgedMacTile('installer', size))),
+);
 await emit(DESKTOP_RESOURCES, 'portable-splash.bmp', await portableSplash(lockupStacked));
 
 await emit(

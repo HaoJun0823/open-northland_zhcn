@@ -69,6 +69,8 @@ The command builds web icons, social images, desktop icons, the README logo and 
 - `emblem-small.svg`: icons up to 32 px; `emblem-16.svg`: 16 px icons.
 - `emblem-mono.svg`: single-color badges and print.
 - macOS gets a rounded-square icon; Windows/Linux get the bare shield.
+- The Windows setup, uninstaller and portable exe and the mounted dmg add a corner badge:
+  `badge-<variant>.png`, or `badge-<variant>-small.svg` up to 32 px.
 - The horizontal lockup and wordmark are for web/press use.
 - A master touching its canvas edge fails validation because it may be cropped.
 

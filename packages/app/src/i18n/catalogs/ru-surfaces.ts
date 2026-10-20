@@ -24,7 +24,7 @@ export const ruSurfaces = {
     fullscreenPrompt: 'Для удобства играйте в полноэкранном режиме',
     originalGame: {
       message: 'Для игры должна быть установлена одна из этих игр:',
-      games: ['Cultures 2: Врата Асгарда', 'Cultures: Northland', 'Cultures - 8th Wonder of the World'],
+      games: ['Cultures 2: Врата Асгарда', 'Cultures: Northland', 'Cultures: Восьмое чудо света'],
       pick: 'Указать папку игры',
       checking: 'Проверяем папку…',
       notRecognized: 'В этой папке нет данных игры Cultures',

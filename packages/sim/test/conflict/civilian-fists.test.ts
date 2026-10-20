@@ -13,7 +13,7 @@ it('inherits tribe-local fists through civilian jobs while preserving explicit e
     jobs: [
       { typeId: 60, id: 'civilist' },
       { typeId: 31, id: 'soldier_unarmed', baseJob: 60 },
-      { typeId: 38, id: 'soldier_axe', baseJob: 60 },
+      { typeId: 38, id: 'soldier_unlisted', baseJob: 60 },
       { typeId: 42, id: 'hero_unarmed', baseJob: 60 },
       { typeId: 70, id: 'builder', baseJob: 60 },
       { typeId: 80, id: 'hunter', baseJob: 60 },

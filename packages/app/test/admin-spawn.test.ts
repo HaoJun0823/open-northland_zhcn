@@ -14,9 +14,7 @@ import {
   JOB_HERO_SWORD,
   JOB_HERO_UNARMED,
   JOB_HEROINE_BOW,
-  JOB_SOLDIER_AXE_BIG,
   JOB_SOLDIER_BROADSWORD,
-  JOB_SOLDIER_SABER_LONG,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
@@ -325,18 +323,13 @@ describe('weaponEquipmentFor - the one job→equipment-weapon map every spawn pa
     expect(weaponEquipmentFor(JOB_SOLDIER_SWORD, realGoods)).toBeUndefined();
   });
 
-  it('sabers/heroes carry the good matching the warrior body they borrow; axes stay unarmed', () => {
+  it('heroes carry the good matching the warrior body they borrow', () => {
     const eq = (jobType: number) => weaponEquipmentFor(jobType, sandboxGoods);
-    // No saber goods exist in goodtypes.ini - a saber carries the sword good whose body it borrows.
-    expect(eq(JOB_SOLDIER_SABER_LONG)).toEqual({ weapon: { goodType: GOOD_SWORD_LONG } });
     // Heroes borrow per their baseatomics soldier class (jobtypes.ini): 44→34 (short sword), 45→35.
     expect(eq(JOB_HERO_SWORD)).toEqual({ weapon: { goodType: GOOD_SWORD_SHORT } });
     expect(eq(JOB_HERO_SABER)).toEqual({ weapon: { goodType: GOOD_SWORD_LONG } });
     expect(eq(JOB_HEROINE_BOW)).toEqual({ weapon: { goodType: GOOD_BOW_LONG } });
     expect(eq(JOB_HERO_UNARMED)).toBeUndefined();
-    // The axe jobs have no weapons.ini record (the sim can't arm them) - an equipment sword would
-    // claim a weapon the unit doesn't swing, so they get none.
-    expect(eq(JOB_SOLDIER_AXE_BIG)).toBeUndefined();
   });
 
   it('the bare-handed warrior and a civilian get no equipment weapon (empty slot → their own body)', () => {

@@ -13,16 +13,15 @@ import {
 import { nextTickCtxOf } from '../../../fixtures/context.js';
 import {
   ARMOR_BLOCKING,
-  AXE_MAIN_TYPE,
   CHAIN_CLASS,
   combatCadenceContent,
   ctxOf,
   fighterAt,
   grass,
   HERO,
+  HERO_AXE_MAIN_TYPE,
   IRON_SPEAR_DAMAGE,
   OTHER,
-  SABER_MAIN_TYPE,
   SOLDIER_SPEAR,
   SOLDIER_UNARMED,
   startSwing,
@@ -64,7 +63,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     check(WEAPON_MAIN_TYPE.UNARMED, FIGHT_EXPERIENCE_TYPE.FIST);
   });
 
-  it('trains nothing on a 0-damage swing; a saber or axe hit trains only the band track (no bucket)', () => {
+  it('trains nothing on a 0-damage swing; a hit of a class without a bucket trains only the band track', () => {
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
     const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
     const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
@@ -78,14 +77,20 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     atomicSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(attacker, SettlerProgress).experience.size).toBe(0);
 
-    // The data's saber and axe classes have no fight bucket, but a soldier-band hit still feeds the
-    // class-gate track (69).
-    for (const mainType of [SABER_MAIN_TYPE, AXE_MAIN_TYPE]) {
-      startSwing(sim, attacker, { target, damage: 400, hitFrames: [0], weaponMainType: mainType }, 2);
+    // The hero axe's class has no fight bucket, but a soldier-band hit still feeds the class-gate
+    // track (69).
+    const hits = 2;
+    for (let hit = 0; hit < hits; hit++) {
+      startSwing(
+        sim,
+        attacker,
+        { target, damage: 400, hitFrames: [0], weaponMainType: HERO_AXE_MAIN_TYPE },
+        2,
+      );
       atomicSystem(sim.world, nextTickCtxOf(sim));
     }
     const xp = sim.world.get(attacker, SettlerProgress).experience;
-    expect(xp.get(SOLDIER_GENERAL_EXPERIENCE_TYPE)).toBe(2);
+    expect(xp.get(SOLDIER_GENERAL_EXPERIENCE_TYPE)).toBe(hits);
     expect(xp.size).toBe(1); // no weapon bucket alongside it
   });
 

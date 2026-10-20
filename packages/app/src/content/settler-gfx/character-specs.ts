@@ -37,6 +37,7 @@ import {
   JOB_CIVILIST,
   JOB_DRUID,
   JOB_FISHER,
+  JOB_GFX_AXE_WARRIOR,
   JOB_HERO_AXE,
   JOB_HERO_SABER,
   JOB_HERO_SPEAR,
@@ -45,11 +46,7 @@ import {
   JOB_HEROINE_BOW,
   JOB_HUNTER,
   JOB_SCOUT,
-  JOB_SOLDIER_AXE_BIG,
-  JOB_SOLDIER_AXE_SMALL,
   JOB_SOLDIER_BROADSWORD,
-  JOB_SOLDIER_SABER_LONG,
-  JOB_SOLDIER_SABER_SHORT,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
@@ -541,7 +538,7 @@ export const CHARACTER_SPECS = {
     logicJob: JOB_HERO_SABER,
   },
   'hero-axe': {
-    gfxJobs: [JOB_HERO_AXE, JOB_SOLDIER_AXE_BIG, JOB_SOLDIER_UNARMED],
+    gfxJobs: [JOB_HERO_AXE, JOB_GFX_AXE_WARRIOR, JOB_SOLDIER_UNARMED],
     logicJob: JOB_HERO_AXE,
   },
   'hero-bow': {
@@ -561,9 +558,8 @@ export const CHARACTER_SPEC_ENTRIES = Object.entries(CHARACTER_SPECS) as readonl
 
 /**
  * Adult `jobType` → character spec id, the viking `[jobbasegraphics]` join transcribed from the mod's
- * `types/humanstype/jobgraphics.ini` (`logictribe 1`) plus the `jobtypes` soldier family. Soldier axe jobs
- * borrow the broadsword because the body authors no axe set; heroes resolve through their own
- * `(tribe, job)` graphics rows. An unmapped job falls to the `civilian` default.
+ * `types/humanstype/jobgraphics.ini` (`logictribe 1`) plus the `jobtypes` soldier family. Heroes resolve
+ * through their own `(tribe, job)` graphics rows. An unmapped job falls to the `civilian` default.
  */
 export const ADULT_CHARACTER_BY_JOB: Readonly<Record<number, CharacterSpecId>> = {
   [JOB_WOMAN]: 'woman',
@@ -577,10 +573,6 @@ export const ADULT_CHARACTER_BY_JOB: Readonly<Record<number, CharacterSpecId>> =
   [JOB_SOLDIER_SPEAR]: 'warrior-spear-iron',
   [JOB_SOLDIER_SWORD]: 'warrior-sword',
   [JOB_SOLDIER_BROADSWORD]: 'warrior-broadsword',
-  [JOB_SOLDIER_SABER_SHORT]: 'warrior-sword',
-  [JOB_SOLDIER_SABER_LONG]: 'warrior-broadsword',
-  [JOB_SOLDIER_AXE_SMALL]: 'warrior-broadsword',
-  [JOB_SOLDIER_AXE_BIG]: 'warrior-broadsword',
   [JOB_ARCHER]: 'warrior-shortbow',
   [JOB_ARCHER_LONG]: 'warrior-longbow',
   [JOB_HERO_UNARMED]: 'hero-unarmed',
@@ -620,8 +612,7 @@ export const WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG: Readonly<Record<string, Character
 export const UNARMED_WARRIOR_SPEC: CharacterSpecId = 'warrior';
 
 /** The jobs a disarm strips to {@link UNARMED_WARRIOR_SPEC}: the jobs the spawn seam can arm with a weapon
- *  good. A job that can never re-arm keeps its body, so the axe soldiers (no axe good exists) never lose
- *  their drawn axe to an unrelated equip. */
+ *  good. */
 export const WARRIOR_JOBS: readonly number[] = Object.keys(WEAPON_GOOD_SLUG_BY_JOB)
   .map(Number)
   .filter((job) => !HERO_JOBS.includes(job));

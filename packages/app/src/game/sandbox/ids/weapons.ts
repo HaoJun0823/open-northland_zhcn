@@ -7,8 +7,6 @@ import {
   JOB_HERO_SWORD,
   JOB_HEROINE_BOW,
   JOB_SOLDIER_BROADSWORD,
-  JOB_SOLDIER_SABER_LONG,
-  JOB_SOLDIER_SABER_SHORT,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
@@ -29,17 +27,14 @@ export const WEAPON_CATAPULT = 21;
 /**
  * Soldier/hero `jobType` → the good id-slug carried in its `Equipment.weapon` slot. Slugs, not numeric
  * ids: the sandbox catalog carries the weapon goods at 137-142 while real content keeps the
- * `goodtypes.ini` 37-42. `sword_shord` is that file's slug verbatim, typo included. Sabers and heroes
- * carry the good whose drawn body they borrow, a named approximation; the axe jobs get none, since no
- * `weapons.ini` record arms them.
+ * `goodtypes.ini` 37-42. `sword_shord` is that file's slug verbatim, typo included. Heroes carry the
+ * good whose drawn body they borrow, a named approximation.
  */
 export const WEAPON_GOOD_SLUG_BY_JOB: Readonly<Record<number, string>> = {
   [JOB_SOLDIER_SPEAR_WOODEN]: 'spear_wooden',
   [JOB_SOLDIER_SPEAR]: 'spear_iron',
   [JOB_SOLDIER_SWORD]: 'sword_shord',
   [JOB_SOLDIER_BROADSWORD]: 'sword_long',
-  [JOB_SOLDIER_SABER_SHORT]: 'sword_shord',
-  [JOB_SOLDIER_SABER_LONG]: 'sword_long',
   [JOB_ARCHER]: 'bow_short',
   [JOB_ARCHER_LONG]: 'bow_long',
   [JOB_HERO_SPEAR]: 'spear_iron',

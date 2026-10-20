@@ -54,10 +54,9 @@ export const JOB_SOLDIER_SPEAR_WOODEN = 32; // soldier_spear_wooden
 export const JOB_SOLDIER_SPEAR = 33; // soldier_spear_iron
 export const JOB_SOLDIER_SWORD = 34; // soldier_sword_short
 export const JOB_SOLDIER_BROADSWORD = 35; // soldier_sword_long
-export const JOB_SOLDIER_SABER_SHORT = 36; // soldier_saber_short
-export const JOB_SOLDIER_SABER_LONG = 37; // soldier_saber_long
-export const JOB_SOLDIER_AXE_SMALL = 38; // soldier_axe_small
-export const JOB_SOLDIER_AXE_BIG = 39; // soldier_axe_big
+// Jobs 36..39 (sabre and axe soldiers) are decoded but unreachable: no sabre or axe good exists.
+/** `soldier_axe_big`, kept only as the graphics row the axe hero borrows its drawn axe from. */
+export const JOB_GFX_AXE_WARRIOR = 39;
 export const JOB_ARCHER = 40; // soldier_bow_short
 export const JOB_ARCHER_LONG = 41; // soldier_bow_long
 // The named heroes, placed by decoded mission-map `sethuman` records.

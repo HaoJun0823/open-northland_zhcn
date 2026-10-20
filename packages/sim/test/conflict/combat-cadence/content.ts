@@ -24,14 +24,13 @@ export const SOLDIER_UNARMED = 31;
 export const SOLDIER_SPEAR = 33;
 export const SOLDIER_SWORD_SHORT = 34;
 export const SOLDIER_SWORD_LONG = 35;
-export const SOLDIER_SABER = 36;
+/** A soldier whose swing clip carries no ATTACK event, so the clip itself lands no blow. */
+export const SOLDIER_SILENT = 36;
 /** A short-bow soldier: a ranged weapon with a dead zone, `minimumrange 3`. */
 export const SOLDIER_BOW = 37;
 export const BOW_MIN_RANGE = 3;
-/** The saber's and the axe's `mainType` in `weapons.ini`, classes the sim does not know: no fight bucket
- *  reads them. */
-export const SABER_MAIN_TYPE = 4;
-export const AXE_MAIN_TYPE = 5;
+/** The hero axe's `mainType` in `weapons.ini`, a class no fight bucket reads. */
+export const HERO_AXE_MAIN_TYPE = 5;
 export const HERO = 42; // hero band - its swings feed the `hero general` track (70), not soldier's (69)
 
 export const CHAIN_CLASS = 3; // armor typeId/material 3
@@ -76,7 +75,7 @@ export function combatCadenceContent(): ContentSet {
     SOLDIER_SPEAR,
     SOLDIER_SWORD_SHORT,
     SOLDIER_SWORD_LONG,
-    SOLDIER_SABER,
+    SOLDIER_SILENT,
     SOLDIER_BOW,
   ];
   // Both tribes bind the same (job → attack animation) rows - the animation names are tribe-agnostic join
@@ -88,8 +87,7 @@ export function combatCadenceContent(): ContentSet {
     { jobType: SOLDIER_SPEAR, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_spear_iron' },
     { jobType: SOLDIER_SWORD_SHORT, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_sword_short' },
     { jobType: SOLDIER_SWORD_LONG, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_sword_long' },
-    // The saber attack animation carries no ATTACK event, so its clip lands no blow.
-    { jobType: SOLDIER_SABER, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_saber' },
+    { jobType: SOLDIER_SILENT, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_silent' },
     { jobType: SOLDIER_BOW, atomicId: ATTACK_ATOMIC, animation: 'soldier_attack_spear_iron' },
   ];
   const weaponsFor = (tribe: number) => [
@@ -157,10 +155,10 @@ export function combatCadenceContent(): ContentSet {
     },
     {
       typeId: 10,
-      id: 'saber',
+      id: 'silent_blade',
       tribeType: tribe,
-      jobType: SOLDIER_SABER,
-      mainType: SABER_MAIN_TYPE,
+      jobType: SOLDIER_SILENT,
+      mainType: HERO_AXE_MAIN_TYPE,
       minRange: 1,
       maxRange: 1,
       damage: SHORT_SWORD_DAMAGE,
@@ -246,10 +244,10 @@ export function combatCadenceContent(): ContentSet {
         length: 29,
         events: [...drainEvents(SOLDIER_DRAIN), { at: 16, type: 25 }],
       },
-      // The saber swing has need drains but no ATTACK event (type 25).
+      // The silent swing has need drains but no ATTACK event (type 25).
       {
-        id: 'soldier_attack_saber',
-        name: 'soldier_attack_saber',
+        id: 'soldier_attack_silent',
+        name: 'soldier_attack_silent',
         length: 12,
         events: [...drainEvents(SOLDIER_DRAIN)],
       },

@@ -802,30 +802,6 @@
   {
     "lang": "rus",
     "table": "jobs",
-    "id": 36,
-    "from": "Короткая сабля",
-    "to": "Воин с короткой саблей",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Shortsabre Fighter\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobs",
-    "id": 37,
-    "from": "Длинная сабля",
-    "to": "Воин с длинной саблей",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Longsabre Fighter\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobs",
-    "id": 39,
-    "from": "Большой Топор",
-    "to": "Воин с большим топором",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Big Axe Fighter\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobs",
     "id": 41,
     "from": "Длинный Лук",
     "to": "Стрелок с длинным луком",
@@ -846,30 +822,6 @@
     "from": "Длинные мечи",
     "to": "Воины с длинными мечами",
     "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Longsword Fighters\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobsPlural",
-    "id": 36,
-    "from": "Короткие сабли",
-    "to": "Воины с короткими саблями",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Shortsabre Fighters\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobsPlural",
-    "id": 37,
-    "from": "Длинные сабли",
-    "to": "Воины с длинными саблями",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Longsabre Fighters\"."
-  },
-  {
-    "lang": "rus",
-    "table": "jobsPlural",
-    "id": 39,
-    "from": "Большие Топоры",
-    "to": "Воины с большими топорами",
-    "reason": "Klasa żołnierza nazwana samą bronią; oryginał nazywa wojowników od broni (\"Воин с мечом\", \"Стрелок с Луком\"), eng \"Big Axe Fighters\"."
   },
   {
     "lang": "rus",

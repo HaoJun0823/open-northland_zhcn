@@ -14,6 +14,7 @@ import {
   WHEAT_HARVEST_ATOMIC,
 } from '../src/catalog/atomics.js';
 import { JOB_CIVILIST, JOB_DRUID, JOB_SCOUT, JOB_SOLDIER_UNARMED } from '../src/catalog/jobs.js';
+import { SOLDIER_CLASS_OF_JOB } from '../src/catalog/soldier-classes.js';
 import {
   ADULT_CHARACTER_BY_JOB,
   buildHumanBindings,
@@ -699,8 +700,8 @@ describe('characterBinding', () => {
 });
 
 describe('the job → character tables (the [jobbasegraphics] transcription)', () => {
-  it('maps the soldier family (31..41) onto the armoured warrior looks, per weapon class', () => {
-    for (let job = 31; job <= 41; job++) {
+  it('maps every soldier class onto the armoured warrior looks, per weapon class', () => {
+    for (const job of SOLDIER_CLASS_OF_JOB.keys()) {
       const specId = ADULT_CHARACTER_BY_JOB[job];
       expect(specId, `job ${job}`).toBeDefined();
       expect(specId?.startsWith('warrior'), `job ${job} → ${specId}`).toBe(true);

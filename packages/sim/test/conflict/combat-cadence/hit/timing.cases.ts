@@ -42,11 +42,11 @@ import {
   fighterAt,
   fighterAtNode,
   grass,
+  HERO_AXE_MAIN_TYPE,
   IRON_SPEAR_DAMAGE,
   OTHER,
   QUIET_FORM_JOB,
-  SABER_MAIN_TYPE,
-  SOLDIER_SABER,
+  SOLDIER_SILENT,
   SOLDIER_SPEAR,
   SOLDIER_UNARMED,
   startSwing,
@@ -285,12 +285,12 @@ describe('combatSystem - the swing carries the ATTACK-event hit-frame + the weap
 
   it('keeps an empty hit list when a bound attack animation has no attack event', () => {
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
-    const saberer = fighterAt(sim, 0, 0, VIKING, SOLDIER_SABER); // saber animation has no `event <f> 25`
-    fighterAtNode(sim, 1, 0, OTHER, null); // 1 node away - the saber's whole reach band is [1, 1]
+    const swinger = fighterAt(sim, 0, 0, VIKING, SOLDIER_SILENT); // its animation has no `event <f> 25`
+    fighterAtNode(sim, 1, 0, OTHER, null); // 1 node away - the blade's whole reach band is [1, 1]
     combatSystem(sim.world, ctxOf(sim));
-    const effect = sim.world.get(saberer, CurrentAtomic).effect;
+    const effect = sim.world.get(swinger, CurrentAtomic).effect;
     expect(effect).toMatchObject({ hitFrames: [] }); // no ATTACK event -> the clip lands no blow
-    expect(effect).toMatchObject({ weaponMainType: SABER_MAIN_TYPE });
+    expect(effect).toMatchObject({ weaponMainType: HERO_AXE_MAIN_TYPE });
   });
 });
 
@@ -317,7 +317,7 @@ describe('atomicSystem - the blow lands at the ATTACK-event frame, not at comple
 
   it('falls back to the completion frame when the swing carries no hit frames', () => {
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
-    const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SABER);
+    const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SILENT);
     const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
     startSwing(sim, attacker, { target, damage: 400 }, 4); // no attack event -> resolve at completion
 

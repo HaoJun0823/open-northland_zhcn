@@ -2,6 +2,7 @@ import type { ContentSet } from '@open-northland/data';
 import { systems } from '@open-northland/sim';
 import { JOB_ARCHER, JOB_ARCHER_LONG, JOB_CIVILIST, JOB_WOMAN } from '../catalog/jobs.js';
 import { isSoldierJob, PROFESSIONS } from '../catalog/professions.js';
+import { SOLDIER_CLASS_OF_JOB } from '../catalog/soldier-classes.js';
 import { WEAPON_XP_KEY_BY_TYPE } from '../catalog/weapon-experience.js';
 import { installNameOverlay, type Locale, type Messages, messages, type NameOverlay } from '../i18n/index.js';
 import { type GuiStrings, loadGuiStrings } from './gui-gfx.js';
@@ -99,7 +100,8 @@ export function originalNameOverlay(strings: GuiStrings, content: NameContent): 
   const jobOfKey = professionJobs(content);
   const rosterJobs = new Set(PROFESSIONS.map((p) => p.jobType));
   const heroJobs = content.jobs.filter((row) => systems.isHeroJobRow(row));
-  const soldierJobs = content.jobs.filter((row) => isSoldierJob(row.typeId));
+  // Only the classes a soldier can hold: the sabre and axe rows stay decoded but unnamed.
+  const soldierJobs = content.jobs.filter((row) => SOLDIER_CLASS_OF_JOB.has(row.typeId));
   const roleJobs = content.jobs.filter(
     (row) => !rosterJobs.has(row.typeId) && !isSoldierJob(row.typeId) && !systems.isHeroJobRow(row),
   );

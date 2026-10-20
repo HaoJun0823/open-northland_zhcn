@@ -386,8 +386,7 @@ export function tribeCharacters(
     const char = bySpec.get(specId);
     if (char !== undefined) byWeaponGood[good.typeId] = char;
   }
-  // The disarmed look, keyed by the re-armable jobs only, so an axe soldier - no axe good exists to
-  // re-arm with - never loses its drawn axe this way.
+  // The disarmed look, keyed by the re-armable jobs only.
   const unarmedByJob: Record<number, SettlerCharacter> = { ...base?.unarmedByJob };
   const bareWarrior = bySpec.get(UNARMED_WARRIOR_SPEC);
   if (bareWarrior !== undefined) for (const job of WARRIOR_JOBS) unarmedByJob[job] = bareWarrior;

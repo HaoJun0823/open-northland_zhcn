@@ -206,11 +206,12 @@ function characterForItem(characters: SettlerCharacterSet, item: DrawItem): Sett
     item.young === true,
     item.weaponGood,
     item.ref,
-    item.scenario,
+    item.humanForm,
   );
 }
 
-/** The human look of `tribe`'s `jobType`, its variant picked by the stable entity id `ref`. */
+/** The look of `tribe`'s `jobType` in its native or human form, its variant picked by the stable entity
+ *  id `ref`. */
 export function humanCharacter(
   characters: SettlerCharacterSet,
   tribe: number | undefined,
@@ -218,11 +219,11 @@ export function humanCharacter(
   young: boolean,
   weaponGood: number | null | undefined,
   ref: number,
-  scenario = false,
+  humanForm = false,
 ): SettlerCharacter {
   const table = (tribe !== undefined ? characters.byTribe?.[tribe] : undefined) ?? characters;
   return characterVariant(
-    pickByJob(scenario ? table : (table.playable ?? table), jobType, young, weaponGood),
+    pickByJob(humanForm ? (table.human ?? table) : table, jobType, young, weaponGood),
     ref,
   );
 }
@@ -245,7 +246,7 @@ export function settlerPalette(sheet: SpriteSheet | undefined, item: DrawItem): 
     item.young === true,
     item.weaponGood,
     item.ref,
-    item.scenario,
+    item.humanForm,
   );
   return character.indexed === false ? undefined : sheet?.palette;
 }

@@ -24,7 +24,6 @@ import type { AuthoredFamilyLink, AuthoredPlacement } from './authored-placement
 
 /** Decoded map setup and resolved mission definitions. */
 export interface MapScriptWorld {
-  readonly scenarioPlayers?: readonly number[];
   readonly victory?: MatchVictory;
   /** A multiplayer map's goal table, which `goals` victory plays by. */
   readonly goals?: readonly MatchGoal[];
@@ -94,7 +93,6 @@ export function newWorldSim(
   if (map.fishSwarms !== undefined && sim.terrain !== undefined) {
     systems.addFishSwarms(sim.world, sim.terrain, map.fishSwarms);
   }
-  components.seedScenarioPlayers(sim.world, script.scenarioPlayers ?? []);
   for (const row of script.permissions ?? []) components.setMapPermission(sim.world, row);
   components.seedMapWeather(sim.world, script.weather ?? []);
   for (const row of script.relationFlags ?? []) {
@@ -191,6 +189,7 @@ export function enqueuePlacements(sim: Simulation, placements: readonly Authored
         ...(equipment !== undefined ? { equipment } : {}),
         ...(experience.length > 0 ? { experience } : {}),
         ...(p.gatherGood !== undefined ? { gatherGood: p.gatherGood } : {}),
+        ...(p.humanForm === true ? { humanForm: true } : {}),
         ...(p.nameStringId !== undefined ? { nameStringId: p.nameStringId } : {}),
         ...(p.paletteRecipes !== undefined ? { paletteRecipes: p.paletteRecipes } : {}),
         ...(p.home !== undefined ? { home: p.home } : {}),

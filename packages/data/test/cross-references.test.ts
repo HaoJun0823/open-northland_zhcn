@@ -54,7 +54,7 @@ function parseWith(overrides: Record<string, unknown>): void {
 
 describe('validateCrossReferences', () => {
   it('validates unit variant jobs, scoped weapons and unique slot roles', () => {
-    const rule = { jobType: 1, scenario: false, hitpoints: 5000 };
+    const rule = { jobType: 1, form: 'human', hitpoints: 5000 };
     const tribe = { typeId: 1, id: 'test', unitVariants: [rule] };
     expect(() => parseWith({ tribes: [tribe] })).not.toThrow();
     for (const field of ['jobType', 'animationJobType', 'graphicsJobType']) {

@@ -1733,6 +1733,7 @@ export const ruGame = {
       weresnakeLion: 'Змея-оборотень · облик льва',
       weresnakeWolf: 'Змея-оборотень · облик волка',
       weresnakeBear: 'Змея-оборотень · облик медведя',
+      dragon: 'Дракон',
     },
     wildlifeCatalog: {
       '8': 'Медведи',

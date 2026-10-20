@@ -7,7 +7,7 @@ export function checkUnitVariants(content: ContentSet): string[] {
   for (const tribe of content.tribes) {
     const seen = new Set<string>();
     for (const rule of tribe.unitVariants ?? []) {
-      const key = `${rule.jobType}:${rule.scenario}`;
+      const key = `${rule.jobType}:${rule.form}`;
       if (seen.has(key)) errors.push(`tribe ${tribe.typeId} repeats unit variant ${key}`);
       seen.add(key);
       for (const job of [rule.jobType, rule.animationJobType, rule.graphicsJobType]) {

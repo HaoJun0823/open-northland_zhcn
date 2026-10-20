@@ -69,10 +69,10 @@ export function attackerWeapon(
   tribe: number,
   jobType: number | null,
   wornWeaponTypeId?: number,
-  scenario = false,
+  humanForm = false,
 ): WeaponReach | null {
-  const key = armingKey(tribe, jobType, wornWeaponTypeId, scenario);
-  if (key === null) return resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, scenario);
+  const key = armingKey(tribe, jobType, wornWeaponTypeId, humanForm);
+  if (key === null) return resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, humanForm);
   let resolved = armings.get(ctx.content);
   if (resolved === undefined) {
     resolved = new Map();
@@ -80,7 +80,7 @@ export function attackerWeapon(
   }
   const held = resolved.get(key);
   if (held !== undefined) return held;
-  const weapon = resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, scenario);
+  const weapon = resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, humanForm);
   resolved.set(key, weapon);
   return weapon;
 }
@@ -90,13 +90,13 @@ export function attackerWeapon(
 const armings = new WeakMap<ContentSet, Map<number, WeaponReach | null>>();
 
 /** The values each part of an {@link armingKey} packs into, absent as 0 and id `n` as `n + 1`. The tribe,
- *  job and worn weapon spans and the scenario bit multiply to {@link SMALL_INTEGER_SPAN}, so the map stores
+ *  job and worn weapon spans and the form bit multiply to {@link SMALL_INTEGER_SPAN}, so the map stores
  *  every key unboxed. Content ids sit far below each span; a larger one resolves uncached. */
 const ARMING_TRIBE_SPAN = 2 ** 9;
 const ARMING_JOB_SPAN = 2 ** 10;
 const ARMING_WORN_SPAN = 2 ** 10;
-const ARMING_SCENARIO_SPAN = 2;
-if (ARMING_TRIBE_SPAN * ARMING_JOB_SPAN * ARMING_WORN_SPAN * ARMING_SCENARIO_SPAN !== SMALL_INTEGER_SPAN) {
+const ARMING_FORM_SPAN = 2;
+if (ARMING_TRIBE_SPAN * ARMING_JOB_SPAN * ARMING_WORN_SPAN * ARMING_FORM_SPAN !== SMALL_INTEGER_SPAN) {
   throw new Error('the arming key spans must multiply to the small-integer range');
 }
 
@@ -105,15 +105,15 @@ function armingKey(
   tribe: number,
   jobType: number | null,
   wornWeaponTypeId: number | undefined,
-  scenario: boolean,
+  humanForm: boolean,
 ): number | null {
   const tribePart = armingPart(tribe, ARMING_TRIBE_SPAN);
   const jobPart = jobType === null ? 0 : armingPart(jobType, ARMING_JOB_SPAN);
   const wornPart = wornWeaponTypeId === undefined ? 0 : armingPart(wornWeaponTypeId, ARMING_WORN_SPAN);
   if (tribePart === null || jobPart === null || wornPart === null) return null;
   return (
-    ((tribePart * ARMING_JOB_SPAN + jobPart) * ARMING_WORN_SPAN + wornPart) * ARMING_SCENARIO_SPAN +
-    (scenario ? 1 : 0)
+    ((tribePart * ARMING_JOB_SPAN + jobPart) * ARMING_WORN_SPAN + wornPart) * ARMING_FORM_SPAN +
+    (humanForm ? 1 : 0)
   );
 }
 
@@ -126,10 +126,10 @@ function resolveWeapon(
   tribe: number,
   jobType: number | null,
   wornWeaponTypeId: number | undefined,
-  scenario: boolean,
+  humanForm: boolean,
 ): WeaponReach | null {
   const index = contentIndex(ctx.content);
-  const variant = unitVariantFor(ctx.content, { tribe, jobType, scenario });
+  const variant = unitVariantFor(ctx.content, { tribe, jobType, humanForm });
   const classType =
     jobType === null ? undefined : index.weaponsByTribeAndJob.get(tribe)?.get(jobType)?.typeId;
   if (variant?.weapon !== undefined && (wornWeaponTypeId === undefined || wornWeaponTypeId === classType)) {

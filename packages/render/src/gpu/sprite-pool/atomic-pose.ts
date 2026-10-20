@@ -60,7 +60,7 @@ export function atomicPose(item: DrawItem, tick: number, track: AtomicPoseTrack)
     item.y === last.y &&
     item.jobType === last.jobType &&
     item.tribe === last.tribe &&
-    item.scenario === last.scenario &&
+    item.humanForm === last.humanForm &&
     item.carrying === last.carrying &&
     item.carryGood === last.carryGood &&
     item.engaged === last.engaged &&

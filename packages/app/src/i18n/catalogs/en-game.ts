@@ -1602,6 +1602,7 @@ export const enGame = {
       weresnakeLion: 'Weresnake · lion form',
       weresnakeWolf: 'Weresnake · wolf form',
       weresnakeBear: 'Weresnake · bear form',
+      dragon: 'Dragon',
     },
     wildlifeCatalog: {
       8: 'Bears',

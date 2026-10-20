@@ -10,20 +10,20 @@ import {
   Owner,
   Settler,
   Stockpile,
-  seedScenarioPlayers,
   setMissionBehaviour,
   Weapon,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { exportSaveGame, fx, restoreSimulation, Simulation } from '../../src/index.js';
 import { attackerWeapon, startAttack } from '../../src/systems/conflict/weapons.js';
+import { changeUnitTribe } from '../../src/systems/lifecycle/unit-form.js';
 import type { MissionPass } from '../../src/systems/missions/pass.js';
 import { handHumansToPlayer, handPlayerToPlayer } from '../../src/systems/missions/results/ownership.js';
 import { spawnScriptedHumans } from '../../src/systems/missions/results/spawn.js';
 import { walkStepModifiersOf } from '../../src/systems/movement/walk-cost.js';
 import { equipFromStore, unequipWornGood } from '../../src/systems/settlers/atomics/effects/goods/equip.js';
 import { takeUpWeaponGood } from '../../src/systems/settlers/atomics/effects/goods/weapon-class.js';
-import { createSettler } from '../../src/systems/spawn/index.js';
+import { createSettler, type SettlerSpec, spawnSettler } from '../../src/systems/spawn/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 
@@ -32,7 +32,9 @@ const IRON = 33;
 const WOOD_GOOD = 901;
 const IRON_GOOD = 902;
 const TRIBE = 3;
-const SCENARIO = 2;
+const OTHER_TRIBE = 1;
+const HUMAN = 0;
+const MACHINE = 1;
 
 function variantContent() {
   const base = testContent();
@@ -61,14 +63,14 @@ function variantContent() {
         unitVariants: [
           {
             jobType: WOOD,
-            scenario: false,
+            form: 'human',
             hitpoints: 5000,
-            weapon: { tribeType: 1, typeId: 4 },
+            weapon: { tribeType: OTHER_TRIBE, typeId: 4 },
             animationJobType: IRON,
             graphicsJobType: IRON,
             walkStepReduction: 0,
           },
-          { jobType: WOOD, scenario: true, hitpoints: 20000 },
+          { jobType: WOOD, form: 'native', hitpoints: 20000 },
         ],
       },
     ],
@@ -77,7 +79,7 @@ function variantContent() {
       {
         typeId: 4,
         id: 'ordinary_spear',
-        tribeType: 1,
+        tribeType: OTHER_TRIBE,
         jobType: WOOD,
         goodType: WOOD_GOOD,
         minRange: 1,
@@ -86,7 +88,7 @@ function variantContent() {
       },
       {
         typeId: 4,
-        id: 'scenario_spear',
+        id: 'dragon_spear',
         tribeType: TRIBE,
         jobType: WOOD,
         goodType: WOOD_GOOD,
@@ -118,18 +120,24 @@ function variantContent() {
   });
 }
 
-function fresh() {
-  const sim = new Simulation({ seed: 17, content: variantContent() });
-  seedScenarioPlayers(sim.world, [SCENARIO]);
+/** A world where seat {@link MACHINE} is a computer player and seat {@link HUMAN} a human one. */
+function fresh(authoredForm?: 'human') {
+  const sim = new Simulation({
+    seed: 17,
+    content: variantContent(),
+    ...(authoredForm === undefined ? {} : { missions: { missions: [], authoredForm } }),
+  });
+  sim.enqueueSetup({ kind: 'setAiControl', player: MACHINE, enabled: true, mapAiEnabled: false });
+  sim.step();
   return sim;
 }
 
-function spawn(sim: Simulation, owner: number, jobType = WOOD): Entity {
+function spawn(sim: Simulation, owner: number, spec: Partial<SettlerSpec> = {}): Entity {
   const e = createSettler(
     sim.world,
     sim.content,
     sim.rng,
-    { tribe: TRIBE, jobType, owner, x: owner * 10, y: 0, missionId: 77 },
+    { tribe: TRIBE, jobType: WOOD, owner, x: owner * 10, y: 0, missionId: 77, ...spec },
     sim.names,
   );
   if (e === null) throw new Error('unit did not spawn');
@@ -143,10 +151,28 @@ function arms(sim: Simulation, e: Entity) {
     s.tribe,
     s.jobType,
     sim.world.tryGet(e, Weapon)?.weaponTypeId,
-    s.scenario,
+    s.humanForm,
   );
   if (held === null) throw new Error('unit has no weapon');
   return held;
+}
+
+/** The dragon: the native form's pool, reach, damage, gait and five-strike swing. */
+function expectDragon(sim: Simulation, e: Entity): void {
+  expect(sim.world.get(e, Settler).humanForm).toBeUndefined();
+  expect(sim.world.get(e, Health).max).toBe(20000);
+  expect(arms(sim, e).maxRange).toBe(3);
+  expect(arms(sim, e).weapon.damage['0']).toBe(500);
+  expect(walkStepModifiersOf(sim.world, e, sim.content, sim.tick).tribeReduction).toBe(2);
+}
+
+/** The spearman: the human form's pool, the borrowed ordinary spear and the iron spearman's gait. */
+function expectSpearman(sim: Simulation, e: Entity): void {
+  expect(sim.world.get(e, Settler).humanForm).toBe(true);
+  expect(sim.world.get(e, Health).max).toBe(5000);
+  expect(arms(sim, e).maxRange).toBe(2);
+  expect(arms(sim, e).weapon.damage['0']).toBe(2400);
+  expect(walkStepModifiersOf(sim.world, e, sim.content, sim.tick).tribeReduction).toBe(0);
 }
 
 function passOf(sim: Simulation): MissionPass {
@@ -163,22 +189,16 @@ function passOf(sim: Simulation): MissionPass {
   };
 }
 
-describe('unit variants by map slot', () => {
-  it('keeps a human, replacement AI and scenario AI distinct in one world, including strike events', () => {
+describe('unit forms', () => {
+  it('spawns the native form for every seat and the human form only when asked, strike events included', () => {
     const sim = fresh();
-    sim.enqueueSetup({ kind: 'setAiControl', player: 1, enabled: true, mapAiEnabled: false });
-    sim.enqueueSetup({ kind: 'setAiControl', player: SCENARIO, enabled: true, mapAiEnabled: false });
-    sim.step();
-    const units = [spawn(sim, 0), spawn(sim, 1), spawn(sim, SCENARIO)];
-    const target = units[0];
-    if (target === undefined) throw new Error('target missing');
-    for (const [i, e] of units.entries()) {
-      const scenario = i === SCENARIO;
-      expect(sim.world.get(e, Health).max).toBe(scenario ? 20000 : 5000);
+    const dragons = [spawn(sim, HUMAN), spawn(sim, MACHINE)];
+    const spearman = spawn(sim, HUMAN, { humanForm: true });
+    for (const e of dragons) expectDragon(sim, e);
+    expectSpearman(sim, spearman);
+    const target = spawn(sim, HUMAN, { jobType: IRON });
+    for (const e of [...dragons, spearman]) {
       const weapon = arms(sim, e);
-      expect(weapon.maxRange).toBe(scenario ? 3 : 2);
-      expect(weapon.weapon.damage['0']).toBe(scenario ? 500 : 2400);
-      expect(walkStepModifiersOf(sim.world, e, sim.content, sim.tick).tribeReduction).toBe(scenario ? 2 : 0);
       startAttack(
         sim.world,
         ctxOf(sim),
@@ -188,16 +208,89 @@ describe('unit variants by map slot', () => {
         { damage: weapon.weapon.damage['0'] ?? 0, hitSoundType: undefined },
         weapon.weapon,
       );
+      const dragon = e !== spearman;
       expect(sim.world.get(e, CurrentAtomic)).toMatchObject({
-        duration: scenario ? 59 : 27,
-        effect: { hitFrames: scenario ? [30, 35, 40, 45, 50] : [12] },
+        duration: dragon ? 59 : 27,
+        effect: { hitFrames: dragon ? [30, 35, 40, 45, 50] : [12] },
       });
     }
   });
 
-  it('resizes a wounded scenario unit when it exchanges weapons, without a free heal', () => {
+  it('gives the human form to a trained unit, under a human and a computer player alike', () => {
     const sim = fresh();
-    const dragon = spawn(sim, SCENARIO);
+    // Bare hands: a held weapon good would pull a profession order back to its own class.
+    const units = [HUMAN, MACHINE].map((owner) => spawn(sim, owner, { equipment: { weapon: null } }));
+    for (const e of units) sim.enqueueSetup({ kind: 'setJob', entity: e, jobType: IRON });
+    sim.step();
+    for (const e of units) {
+      expect(sim.world.get(e, Settler).jobType).toBe(IRON);
+      expect(sim.world.get(e, Settler).humanForm).toBeUndefined(); // iron has one form, so no flag
+      expect(sim.world.get(e, Health).max).toBe(5000);
+    }
+    for (const e of units) sim.enqueueSetup({ kind: 'setJob', entity: e, jobType: WOOD });
+    sim.step();
+    for (const e of units) expectSpearman(sim, e);
+  });
+
+  it("keeps the form through mission handovers, so a script's dragons stay dragons in the player's hands", () => {
+    const sim = fresh();
+    spawnScriptedHumans(
+      passOf(sim),
+      {
+        opcode: 'SetHuman',
+        job: WOOD,
+        tribe: TRIBE,
+        player: MACHINE,
+        point: { hx: 0, hy: 0 },
+        humanId: 77,
+        behaviour: 0,
+      },
+      1,
+    );
+    const dragon = [...sim.world.query(Settler)][0];
+    if (dragon === undefined) throw new Error('mission unit missing');
+    sim.world.mut(dragon, Health).hitpoints = 10000;
+    handHumansToPlayer(passOf(sim), 77, HUMAN);
+    expect(sim.world.get(dragon, Owner).player).toBe(HUMAN);
+    expectDragon(sim, dragon);
+    expect(sim.world.get(dragon, Health).hitpoints).toBe(10000);
+    const spearman = spawn(sim, HUMAN, { humanForm: true, missionId: 78 });
+    handPlayerToPlayer(passOf(sim), HUMAN, MACHINE);
+    expect(sim.world.get(spearman, Owner).player).toBe(MACHINE);
+    expectSpearman(sim, spearman);
+    expectDragon(sim, dragon);
+  });
+
+  it('spawns a re-tribed spawn line in the human form and moves a converted soldier into it', () => {
+    const sim = fresh();
+    spawnScriptedHumans(
+      passOf(sim),
+      {
+        opcode: 'SetHuman',
+        job: WOOD,
+        tribe: TRIBE,
+        player: HUMAN,
+        point: { hx: 0, hy: 0 },
+        humanId: 77,
+        behaviour: 0,
+        humanForm: true,
+      },
+      1,
+    );
+    const scripted = [...sim.world.query(Settler)][0];
+    if (scripted === undefined) throw new Error('mission unit missing');
+    expectSpearman(sim, scripted);
+    const converted = spawn(sim, HUMAN, { tribe: OTHER_TRIBE });
+    sim.world.mut(converted, Health).hitpoints = 2500;
+    changeUnitTribe(sim.world, sim.content, converted, TRIBE);
+    expect(sim.world.get(converted, Settler).tribe).toBe(TRIBE);
+    expectSpearman(sim, converted);
+    expect(sim.world.get(converted, Health).hitpoints).toBe(2500);
+  });
+
+  it('resizes a wounded dragon when it exchanges weapons, without a free heal; retrained, it is a man', () => {
+    const sim = fresh();
+    const dragon = spawn(sim, MACHINE);
     sim.world.mut(dragon, Health).hitpoints = 10000;
     const equip = (goodType: number) => {
       const equipment = sim.world.mut(dragon, Equipment);
@@ -208,16 +301,16 @@ describe('unit variants by map slot', () => {
     expect(sim.world.get(dragon, Health)).toEqual({ hitpoints: 2500, max: 5000 });
     expect(arms(sim, dragon).weapon.damage['0']).toBe(3800);
     equip(WOOD_GOOD);
-    expect(sim.world.get(dragon, Health)).toEqual({ hitpoints: 10000, max: 20000 });
-    expect(arms(sim, dragon).maxRange).toBe(3);
-    const humanIron = spawn(sim, 0, IRON);
+    expect(sim.world.get(dragon, Health)).toEqual({ hitpoints: 2500, max: 5000 });
+    expectSpearman(sim, dragon);
+    const humanIron = spawn(sim, HUMAN, { jobType: IRON });
     expect(sim.world.get(humanIron, Health).max).toBe(5000);
     expect(arms(sim, humanIron).weapon.damage['0']).toBe(3800);
   });
 
   it('refuses class-changing equipment before consuming stock when a mission locks the job', () => {
     const sim = fresh();
-    const dragon = spawn(sim, SCENARIO);
+    const dragon = spawn(sim, HUMAN);
     const store = sim.world.create();
     sim.world.add(store, Stockpile, { amounts: new Map([[IRON_GOOD, 2]]) });
     const originalGear = structuredClone(sim.world.get(dragon, Equipment));
@@ -240,13 +333,13 @@ describe('unit variants by map slot', () => {
     expect(sim.world.get(dragon, Equipment)).toEqual(originalGear);
     expect(sim.world.has(dragon, Carrying)).toBe(false);
     expect(sim.world.get(dragon, Settler).jobType).toBe(WOOD);
-    expect(sim.world.get(dragon, Health)).toEqual({ hitpoints: 20000, max: 20000 });
-    expect(arms(sim, dragon).weapon.damage['0']).toBe(500);
+    expectDragon(sim, dragon);
+    expect(sim.world.get(dragon, Health).hitpoints).toBe(20000);
   });
 
   it('keeps an equipped iron soldier human when a profession command requests the dragon class', () => {
     const sim = fresh();
-    const soldier = spawn(sim, SCENARIO);
+    const soldier = spawn(sim, MACHINE);
     sim.world.mut(soldier, Equipment).weapon = { goodType: IRON_GOOD, degreeOfUse: fx.fromInt(0) };
     takeUpWeaponGood(sim.world, ctxOf(sim), soldier, IRON_GOOD);
     sim.world.mut(soldier, Health).hitpoints = 2500;
@@ -266,7 +359,7 @@ describe('unit variants by map slot', () => {
       ctxOf(sim),
       sim.world.get(soldier, Settler),
       soldier,
-      spawn(sim, 0),
+      spawn(sim, HUMAN),
       { damage: 3800, hitSoundType: undefined },
       weapon.weapon,
     );
@@ -276,46 +369,63 @@ describe('unit variants by map slot', () => {
     });
   });
 
-  it('uses the same variants for mission spawns and individual or whole-player handovers', () => {
-    const sim = fresh();
+  it('spawns the human form on a map whose script says its authored units are men', () => {
+    const sim = fresh('human');
+    const placed = spawnSettler(sim.world, ctxOf(sim), {
+      kind: 'spawnSettler',
+      tribe: TRIBE,
+      jobType: WOOD,
+      owner: MACHINE,
+      x: 10,
+      y: 0,
+    });
+    if (placed === null) throw new Error('placement missing');
+    expectSpearman(sim, placed);
     spawnScriptedHumans(
       passOf(sim),
       {
         opcode: 'SetHuman',
         job: WOOD,
         tribe: TRIBE,
-        player: SCENARIO,
+        player: MACHINE,
         point: { hx: 0, hy: 0 },
         humanId: 77,
         behaviour: 0,
       },
       1,
     );
-    const e = [...sim.world.query(Settler)][0];
-    if (e === undefined) throw new Error('mission unit missing');
-    sim.world.mut(e, Health).hitpoints = 10000;
-    handHumansToPlayer(passOf(sim), 77, 0);
-    expect(sim.world.get(e, Owner).player).toBe(0);
-    expect(sim.world.get(e, Health)).toEqual({ hitpoints: 2500, max: 5000 });
-    expect(arms(sim, e).maxRange).toBe(2);
-    handPlayerToPlayer(passOf(sim), 0, SCENARIO);
-    expect(sim.world.get(e, Health)).toEqual({ hitpoints: 10000, max: 20000 });
-    expect(arms(sim, e).maxRange).toBe(3);
+    const scripted = [...sim.world.query(Settler)].at(-1);
+    if (scripted === undefined) throw new Error('mission unit missing');
+    expectSpearman(sim, scripted);
+    const restored = restoreSimulation(exportSaveGame(sim), {
+      content: sim.content,
+      ...(sim.missions === undefined ? {} : { missions: sim.missions }),
+    });
+    expect(restored.hashState()).toBe(sim.hashState());
+    const later = spawnSettler(restored.world, ctxOf(restored), {
+      kind: 'spawnSettler',
+      tribe: TRIBE,
+      jobType: WOOD,
+      owner: HUMAN,
+      x: 20,
+      y: 0,
+    });
+    if (later === null) throw new Error('later spawn missing');
+    expectSpearman(restored, later);
   });
 
-  it('retains the map classification in a save and across AI controller changes', () => {
+  it('retains each form in a save and across controller changes; a later spawn is still native', () => {
     const sim = fresh();
-    const dragon = spawn(sim, SCENARIO);
-    const human = spawn(sim, 0);
+    const dragon = spawn(sim, MACHINE);
+    const spearman = spawn(sim, HUMAN, { humanForm: true });
     const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content });
     expect(restored.hashState()).toBe(sim.hashState());
-    restored.enqueueSetup({ kind: 'setAiControl', player: SCENARIO, enabled: false });
-    restored.enqueueSetup({ kind: 'setAiControl', player: 0, enabled: true, mapAiEnabled: false });
+    restored.enqueueSetup({ kind: 'setAiControl', player: MACHINE, enabled: false });
+    restored.enqueueSetup({ kind: 'setAiControl', player: HUMAN, enabled: true, mapAiEnabled: false });
     restored.step();
-    expect(restored.world.get(dragon, Health).max).toBe(20000);
-    expect(restored.world.get(human, Health).max).toBe(5000);
-    const later = spawn(restored, SCENARIO);
-    expect(restored.world.get(later, Health).max).toBe(20000);
+    expectDragon(restored, dragon);
+    expectSpearman(restored, spearman);
+    expectDragon(restored, spawn(restored, MACHINE));
     expect(restored.checkInvariants()).toEqual([]);
   });
 });

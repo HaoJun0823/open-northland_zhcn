@@ -16,6 +16,7 @@ import {
   JOB_SOLDIER_UNARMED,
   JOB_WOMAN,
 } from '../../catalog/jobs.js';
+import { BYZANTINE } from '../../catalog/unit-variants.js';
 import {
   GATHERERS,
   WEAPON_BROADSWORD,
@@ -134,7 +135,8 @@ export interface SoldierSpawnOptions extends PersonSpawnOptions {
 
 /**
  * A soldier spawn: the weapon's class and wielded weapon, the armor's class, and both goods in their
- * equipment slots, so the settler panel shows what it fights with.
+ * equipment slots, so the settler panel shows what it fights with. A soldier preset is a human soldier,
+ * so a class with a creature form spawns its human form; the creature presets spawn the creatures.
  */
 export function soldierSpawnCommand(opts: SoldierSpawnOptions): Command {
   // Shared with the scene and map spawns; bare hands leave the slot empty.
@@ -151,6 +153,7 @@ export function soldierSpawnCommand(opts: SoldierSpawnOptions): Command {
     y: opts.y,
     tribe: opts.tribe,
     owner: opts.player,
+    humanForm: true,
     ...(opts.hitpoints > 0 ? { hitpoints: opts.hitpoints } : {}),
     weaponTypeId: opts.weapon.weaponTypeId,
     ...(armor !== null ? { armorClass: armor.armorClass } : {}),
@@ -197,6 +200,7 @@ export const CREATURE_PRESETS: readonly CreaturePreset[] = [
   { id: 'weresnakeLion', tribe: MONSTER_TRIBE_WERESNAKE, jobType: JOB_SOLDIER_SPEAR_WOODEN },
   { id: 'weresnakeWolf', tribe: MONSTER_TRIBE_WERESNAKE, jobType: JOB_SOLDIER_SPEAR },
   { id: 'weresnakeBear', tribe: MONSTER_TRIBE_WERESNAKE, jobType: JOB_SOLDIER_BROADSWORD },
+  { id: 'dragon', tribe: BYZANTINE, jobType: JOB_SOLDIER_SPEAR_WOODEN },
 ];
 
 export function creatureSpawnCommand(

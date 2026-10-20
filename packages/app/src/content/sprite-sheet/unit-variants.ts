@@ -1,12 +1,12 @@
 import type { UnitVariant } from '@open-northland/data';
 import type { ByJobTable, SettlerCharacter } from '@open-northland/render';
 
-/** Preserve the source table for scenario units while composing the playable seat's complete looks. */
-export function withPlayableCharacters(
+/** Keep the source table as the native looks and compose the complete looks of the human forms beside it. */
+export function withHumanFormCharacters(
   table: ByJobTable<SettlerCharacter>,
   variants: readonly UnitVariant[],
 ): ByJobTable<SettlerCharacter> {
-  const rules = variants.filter((rule) => !rule.scenario && rule.graphicsJobType !== undefined);
+  const rules = variants.filter((rule) => rule.form === 'human' && rule.graphicsJobType !== undefined);
   if (rules.length === 0) return table;
   const byJob = { ...table.byJob };
   const byWeaponGood = { ...table.byWeaponGood };
@@ -31,5 +31,5 @@ export function withPlayableCharacters(
       if (character === source) byWeaponGood[Number(good)] = look;
     }
   }
-  return { ...table, playable: { ...table, byJob, byWeaponGood } };
+  return { ...table, human: { ...table, byJob, byWeaponGood } };
 }

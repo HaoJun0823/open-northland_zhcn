@@ -1,4 +1,4 @@
-import type { ContentSet } from '@open-northland/data';
+import { type ContentSet, hasHumanForm } from '@open-northland/data';
 import {
   Age,
   Armor,
@@ -7,7 +7,6 @@ import {
   type EquipmentSlot,
   Female,
   Health,
-  isScenarioPlayer,
   MISC_EQUIP_SLOTS,
   MISSION_BEHAVIOUR,
   MoveSpeed,
@@ -15,6 +14,7 @@ import {
   Owner,
   Position,
   ScriptedLook,
+  Settler,
   stampMissionBehaviour,
   stampMissionId,
   stampOwner,
@@ -92,6 +92,11 @@ export function createSettler(
   // and a `Person` on one is the exact state the personhood invariant rejects.
   if (isAnimalTribe(content, spec.tribe)) return null;
 
+  // A spawn is the map's, a script's or a tool's act, so the unit takes its class's native form unless the
+  // spawner asks for the human one (`lifecycle/unit-form.ts`).
+  const spawnsHumanForm =
+    spec.humanForm === true &&
+    hasHumanForm(content, spec.tribe, spec.jobType === IDLE_JOB_TYPE ? null : spec.jobType);
   const e = world.create();
   world.add(e, Position, positionOfNode(spec.x, spec.y));
   addPerson(
@@ -99,7 +104,7 @@ export function createSettler(
     e,
     {
       tribe: spec.tribe,
-      ...(isScenarioPlayer(world, spec.owner) ? { scenario: true } : {}),
+      ...(spawnsHumanForm ? { humanForm: true } : {}),
       jobType: spec.jobType === IDLE_JOB_TYPE ? null : spec.jobType,
       hunger: rollInitialNeed(rng),
       fatigue: rollInitialNeed(rng),
@@ -130,11 +135,7 @@ export function createSettler(
   const hitpoints =
     spec.hitpoints !== undefined && spec.hitpoints > 0
       ? spec.hitpoints
-      : unitHitpoints(content, {
-          tribe: spec.tribe,
-          jobType: spec.jobType,
-          scenario: isScenarioPlayer(world, spec.owner),
-        });
+      : unitHitpoints(content, world.get(e, Settler));
   world.add(e, Health, { hitpoints, max: hitpoints });
   const heroJob = isHeroJob(content, spec.jobType);
   const fixedHeroArmor = heroJob ? contentIndex(content).jobs.get(spec.jobType)?.fixedArmorType : undefined;
@@ -197,7 +198,12 @@ export function spawnSettler(
   ctx: SystemContext,
   command: Extract<Command, { kind: 'spawnSettler' }>,
 ): Entity | null {
-  const e = createSettler(world, ctx.content, ctx.rng, command, ctx.names);
+  // A map whose script says its authored units are men (`authoredForm`) spawns the human form.
+  const spec =
+    ctx.missions?.authoredForm === 'human' && command.humanForm !== true
+      ? { ...command, humanForm: true }
+      : command;
+  const e = createSettler(world, ctx.content, ctx.rng, spec, ctx.names);
   if (e === null) return null;
   // A commanded spawn takes its (x,y) on trust and authored maps routinely name a cell inside a house body,
   // so the eviction must run before anything reads the position, including the work flag planted below.

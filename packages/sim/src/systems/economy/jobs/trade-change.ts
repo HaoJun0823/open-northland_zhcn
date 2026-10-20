@@ -1,3 +1,4 @@
+import { hasHumanForm } from '@open-northland/data';
 import {
   Armor,
   AssistantRecruit,
@@ -28,6 +29,7 @@ import {
   SiteAssignment,
   Stance,
   SupplyRun,
+  setSettlerForm,
   setSettlerJob,
   TrainingOrder,
   Weapon,
@@ -77,6 +79,8 @@ export function applyTradeChange(world: World, ctx: SystemContext, e: Entity, jo
   const tradeChanged = world.get(e, Settler).jobType !== jobType;
   rememberCurrentJob(world, e, jobType);
   setSettlerJob(world, e, jobType);
+  // A trained unit takes its class's human form; only the map and a script field the native one.
+  setSettlerForm(world, e, hasHumanForm(ctx.content, world.get(e, Settler).tribe, jobType));
   resizeUnitHealth(world, e, previousHitpoints, unitHitpoints(ctx.content, world.get(e, Settler)));
   world.remove(e, TrainingOrder); // a trade change calls off a drill errand
   world.remove(e, GraduateWait); // and a school wait: the trade it was trained for is gone

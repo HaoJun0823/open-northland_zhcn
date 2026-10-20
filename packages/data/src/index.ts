@@ -53,4 +53,4 @@ export function parseTerrainMap(raw: unknown): TerrainMapFile {
   return TerrainMapFile.parse(raw);
 }
 
-export { type UnitIdentity, unitVariantFor } from './unit-variants.js';
+export { hasHumanForm, type UnitIdentity, unitVariantFor } from './unit-variants.js';

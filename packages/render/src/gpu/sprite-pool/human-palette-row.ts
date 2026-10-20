@@ -66,7 +66,7 @@ export function humanPaletteIdentity(
     young,
     item.weaponGood,
     item.ref,
-    item.scenario,
+    item.humanForm,
   );
   if (character.indexed === false) return false;
   const table = (item.tribe !== undefined ? characters.byTribe?.[item.tribe] : undefined) ?? characters;

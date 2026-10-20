@@ -170,7 +170,7 @@ export function engageCombatant(
     attacker.tribe,
     attacker.jobType,
     world.tryGet(e, Weapon)?.weaponTypeId,
-    attacker.scenario,
+    attacker.humanForm,
   );
   if (held === null) {
     disengage(world, e);

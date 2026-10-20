@@ -5,17 +5,21 @@ import { type DeepReadonly, defineComponent, type Entity, type World } from '../
 import type { NodeId } from '../nav/terrain/index.js';
 import type { AiOrderOrigin } from './ai-order.js';
 
-/** The `(tribe, job)` pair that keys a settler's content lookups. */
+/** The `(tribe, job)` pair that keys a settler's content lookups, with the form it took (`UnitForm`). */
 export interface SettlerIdentity {
-  readonly scenario?: boolean | undefined;
+  readonly humanForm?: boolean | undefined;
   readonly tribe: number;
   readonly jobType: number | null;
 }
 
 /** An autonomous individual; `jobType` constrains which atomics it may run (`jobtypes.allowatomic`). */
 export const Settler = defineComponent<{
-  /** The owner occupies a map-only scenario slot, independent of its current controller. */
-  scenario?: boolean | undefined;
+  /**
+   * The settler is in the human form of a class that has one (`lifecycle/unit-form.ts`): stamped when
+   * training or the people choice gives it the trade, kept through every change of owner, and absent on
+   * a class with one form. Written only through {@link setSettlerForm}.
+   */
+  readonly humanForm?: true | undefined;
   readonly tribe: number;
   /** Written only through {@link setSettlerJob}. */
   readonly jobType: number | null;
@@ -101,7 +105,7 @@ export function addSettler(world: World, entity: Entity, state: SettlerInitialSt
   world.add(entity, Settler, {
     tribe: state.tribe,
     jobType: state.jobType,
-    ...(state.scenario === true ? { scenario: true } : {}),
+    ...(state.humanForm === true ? { humanForm: true } : {}),
   });
   world.add(entity, SettlerNeeds, {
     hunger: state.hunger,
@@ -145,6 +149,7 @@ export function isWildlife(world: World, entity: Entity): boolean {
 
 type SettlerTradeWrite = { jobType: number | null };
 type SettlerTribeWrite = { tribe: number };
+type SettlerFormWrite = { humanForm?: true | undefined };
 
 /**
  * The one write path for `Settler.jobType` (`null` = idle): the in-place write is invisible to the
@@ -164,6 +169,14 @@ export function setSettlerTribe(world: World, entity: Entity, tribe: number): vo
   (s as SettlerTribeWrite).tribe = tribe;
   noteSettlerProgress(world, entity);
   for (const log of tradeLogs.get(world)?.values() ?? []) log.add(entity);
+}
+
+/** The write path for a settler's form: present for the human form, deleted for the native one, so
+ *  the native form serializes as no field at all. */
+export function setSettlerForm(world: World, entity: Entity, humanForm: boolean): void {
+  const s = world.mut(entity, Settler) as SettlerFormWrite;
+  if (humanForm) s.humanForm = true;
+  else delete s.humanForm;
 }
 
 /**

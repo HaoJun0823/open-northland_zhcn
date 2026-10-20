@@ -1579,6 +1579,7 @@ export const plGame = {
       weresnakeLion: 'Wężołak · postać lwa',
       weresnakeWolf: 'Wężołak · postać wilka',
       weresnakeBear: 'Wężołak · postać niedźwiedzia',
+      dragon: 'Smok',
     },
     wildlifeCatalog: {
       8: 'Niedźwiedzie',

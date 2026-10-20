@@ -1,4 +1,4 @@
-import type { MissionGoal, MissionNameRef, MissionResult } from '@open-northland/data';
+import type { MissionGoal, MissionNameRef, MissionResult, UnitForm } from '@open-northland/data';
 
 /**
  * The house-instance name kind, the one content name a line writes as plain text instead of a name
@@ -37,7 +37,12 @@ type Resolved<T> = {
 export type ResolvedOp<U> = U extends object ? Resolved<U> : never;
 
 export type MissionGoalOp = ResolvedOp<MissionGoal>;
-export type MissionResultOp = ResolvedOp<MissionResult>;
+
+/** A spawn line the seat's people choice re-tribed spawns the human form (`lifecycle/unit-form.ts`). */
+type WithSpawnForm<R> = R extends { opcode: 'SetHuman' | 'SetHumanX' }
+  ? R & { readonly humanForm?: true }
+  : R;
+export type MissionResultOp = WithSpawnForm<ResolvedOp<MissionResult>>;
 
 /** How many of a mission's goals must hold for its results to fire (`successfullif`). */
 export const SUCCESSFUL_IF = {
@@ -71,6 +76,9 @@ export interface MissionScript {
   /** The seats the session plays as another people than the map authored for them; absent when every
    *  seat plays the map's own. */
   readonly seatTribes?: readonly MissionSeatTribe[];
+  /** The map's `authoredForm`: its authored units take the human form of a class with two
+   *  (`lifecycle/unit-form.ts`). */
+  readonly authoredForm?: UnitForm;
 }
 
 /**

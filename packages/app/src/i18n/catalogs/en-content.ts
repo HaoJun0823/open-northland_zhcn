@@ -235,7 +235,7 @@ export const enContent = {
     'byzantine-spears': {
       title: 'Byzantine spears',
       summary:
-        'Columns: human, replacement AI, scenario AI. Wooden spears above, iron below; only the scenario wooden spear is a dragon.',
+        "Columns: a trained wooden spearman, the map's man on a machine seat, the map's gift to the human player. Wooden spears above, iron below; only the trained wooden spear is a man, the other two are dragons.",
     },
     'combat-gestures': {
       title: 'Strikes and gestures',

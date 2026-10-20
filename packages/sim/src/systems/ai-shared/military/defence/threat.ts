@@ -407,7 +407,7 @@ function heldWeapon(world: World, ctx: SystemContext, e: Entity): ReturnType<typ
     settler.tribe,
     settler.jobType,
     world.tryGet(e, Weapon)?.weaponTypeId,
-    settler.scenario,
+    settler.humanForm,
   );
 }
 

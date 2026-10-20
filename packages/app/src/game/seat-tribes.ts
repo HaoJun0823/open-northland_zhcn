@@ -154,14 +154,14 @@ function spawned(player: number, missionId: number, at: FlowingThing['at']): Flo
   return { owner: player, missionId, at };
 }
 
-/** A resolved spawn line takes the tribe its thing will end with; any other line naming a player and a
- *  tribe or a house follows its seat. */
+/** A resolved spawn line takes the tribe its thing will end with, and a moved human the human form of its
+ *  class (`UnitForm`); any other line naming a player and a tribe or a house follows its seat. */
 function seatedResult(op: MissionResultOp, remap: SeatTribeRemap): MissionResultOp {
   switch (op.opcode) {
     case 'SetHuman':
     case 'SetHumanX': {
       const tribe = remap.human(spawned(op.player, op.humanId, op.point), op.job, op.tribe);
-      return tribe === op.tribe ? op : { ...op, tribe };
+      return tribe === op.tribe ? op : { ...op, tribe, humanForm: true };
     }
     case 'SetVehicle': {
       const tribe = remap.vehicle(spawned(op.player, op.vehicleId, op.point), op.tribe);
@@ -207,6 +207,7 @@ function isHouseRef(value: unknown): value is MissionHouseRef {
 export function seatedMissions(script: MissionScript, remap: SeatTribeRemap): MissionScript {
   if (!remap.changed) return script;
   return {
+    ...script,
     missions: script.missions.map((mission) => ({
       ...mission,
       goals: mission.goals.map((op: MissionGoalOp) => seatedLine(op, remap)),
@@ -253,7 +254,10 @@ export function seatedPlacements(
     if (p.kind !== 'building' && p.kind !== 'human' && p.kind !== 'vehicle') return p;
     const thing = { owner: p.owner, missionId: p.missionId, at: { hx: p.x, hy: p.y } };
     if (p.kind === 'building') return { ...p, tribe: remap.building(thing, p.typeId, p.tribe) };
-    if (p.kind === 'human') return { ...p, tribe: remap.human(thing, p.jobType, p.tribe) };
+    if (p.kind === 'human') {
+      const tribe = remap.human(thing, p.jobType, p.tribe);
+      return tribe === p.tribe ? p : { ...p, tribe, humanForm: true };
+    }
     return { ...p, tribe: remap.vehicle(thing, p.tribe) };
   });
 }

@@ -28,39 +28,11 @@ const AUTHORED: readonly MapDiplomacy[] = [
 ];
 
 describe('session world options', () => {
-  it('marks only map-only AI slots as scenario seats even with the mission script disabled', () => {
-    const script = MapScript.parse({
-      players: [
-        { player: 0, type: 'human', tribeId: 3, colorId: 0 },
-        { player: 1, type: 'ai', tribeId: 3, colorId: 1 },
-        { player: 2, type: 'ai', tribeId: 3, colorId: 2 },
-      ],
-      multiplayer: {
-        slotOptions: [
-          { player: 0, allowed: ['human', 'ai'] },
-          { player: 1, allowed: ['human', 'ai'] },
-          { player: 2, allowed: ['ai'] },
-        ],
-      },
-    });
-    const world = mapScriptWorld(script, null);
-    expect(world.scenarioPlayers).toEqual([2]);
-    const { sim } = buildMapWorld({
-      map: { width: 2, height: 2, typeIds: [0, 0, 0, 0] },
-      ir: null,
-      seed: 7,
-      content: {},
-      machineSeats: [1, 2],
-      assistantSeats: [],
-      script: world,
-      ...SESSION.rules,
-      missions: false,
-    });
-    expect([0, 1, 2].map((player) => components.isScenarioPlayer(sim.world, player))).toEqual([
-      false,
-      false,
-      true,
-    ]);
+  it("carries the map's authored unit form to the world build", () => {
+    expect(mapScriptWorld(MapScript.parse({ authoredForm: 'human' }), null).missions?.authoredForm).toBe(
+      'human',
+    );
+    expect(mapScriptWorld(MapScript.parse({}), null).missions).toBeUndefined();
   });
   it('counts every roster seat the lobby left on the map, idle ones included, whatever decides', () => {
     const absent: GameSession = {

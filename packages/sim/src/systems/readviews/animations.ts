@@ -179,8 +179,8 @@ const UNBOUND: ClipBinding = { name: undefined, clip: undefined };
 const CLIP_KEY_TRIBE_SPAN = 1 << 8;
 const CLIP_KEY_JOB_SPAN = 1 << 10;
 const CLIP_KEY_ATOMIC_SPAN = 1 << 11;
-/** The scenario flag's two values, the unit variant it picks. */
-const CLIP_KEY_SCENARIO_SPAN = 2;
+/** The form's two values, the unit variant it picks. */
+const CLIP_KEY_FORM_SPAN = 2;
 
 /** The flat memo key of a settler's clip join, or -1 when a field falls outside its span. */
 function clipBindingKey(settler: SettlerIdentity, atomicId: number): number {
@@ -196,10 +196,8 @@ function clipBindingKey(settler: SettlerIdentity, atomicId: number): number {
     !Number.isInteger(atomicId)
   )
     return -1;
-  const scenario = settler.scenario === true ? 1 : 0;
-  return (
-    ((atomicId * CLIP_KEY_JOB_SPAN + job) * CLIP_KEY_TRIBE_SPAN + tribe) * CLIP_KEY_SCENARIO_SPAN + scenario
-  );
+  const form = settler.humanForm === true ? 1 : 0;
+  return ((atomicId * CLIP_KEY_JOB_SPAN + job) * CLIP_KEY_TRIBE_SPAN + tribe) * CLIP_KEY_FORM_SPAN + form;
 }
 
 function clipBindingFor(content: ContentSet, settler: SettlerIdentity, atomicId: number): ClipBinding {

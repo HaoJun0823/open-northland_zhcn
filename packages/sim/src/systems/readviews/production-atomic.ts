@@ -3,12 +3,12 @@ import type { SettlerIdentity } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import { atomicClipName } from './animations.js';
 
-/** Answers by good, per scenario flag, tribe and trade: nested so a lookup builds no key. */
+/** Answers by good, per form, tribe and trade: nested so a lookup builds no key. */
 type ByGood = Map<number, number | undefined>;
 type ByTrade = Map<number | null, ByGood>;
 type ByTribe = Map<number, ByTrade>;
 
-const cache = new WeakMap<ContentSet, { readonly scenario: ByTribe; readonly regular: ByTribe }>();
+const cache = new WeakMap<ContentSet, { readonly human: ByTribe; readonly native: ByTribe }>();
 
 /** Prefer the good's declared atomic when bound. If the trade cannot bind it, use its unique allowed
  * `setatomic` clip ending in `_produce_<good id>`. This naming-based repair is an approximation of the
@@ -20,10 +20,10 @@ export function productionAtomic(
 ): number | undefined {
   let byFlag = cache.get(content);
   if (byFlag === undefined) {
-    byFlag = { scenario: new Map(), regular: new Map() };
+    byFlag = { human: new Map(), native: new Map() };
     cache.set(content, byFlag);
   }
-  const byTribe = settler.scenario === true ? byFlag.scenario : byFlag.regular;
+  const byTribe = settler.humanForm === true ? byFlag.human : byFlag.native;
   let byTrade = byTribe.get(settler.tribe);
   if (byTrade === undefined) {
     byTrade = new Map();

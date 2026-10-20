@@ -61,7 +61,7 @@ export function assignSettlerFields(
     item.carrying = true;
     if (carrying.goodType !== undefined) item.carryGood = carrying.goodType;
   }
-  if ((components.Settler as { scenario?: unknown } | undefined)?.scenario === true) item.scenario = true;
+  if ((components.Settler as { humanForm?: unknown } | undefined)?.humanForm === true) item.humanForm = true;
   const jobType = readJobType(components);
   if (jobType !== undefined) item.jobType = jobType;
   const tribe = readSettlerTribe(components);

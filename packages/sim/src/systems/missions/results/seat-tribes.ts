@@ -2,7 +2,8 @@ import { buildingHitpointsFor, sameBuildingFootprintCells } from '@open-northlan
 import { Building, ownerOf, Person, Settler, Vehicle } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { changeUnitTribe, resizeUnitHealth } from '../../lifecycle/unit-health.js';
+import { changeUnitTribe } from '../../lifecycle/unit-form.js';
+import { resizeUnitHealth } from '../../lifecycle/unit-health.js';
 import { isHeroJob } from '../../readviews/jobs.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionSeatTribe } from '../script.js';

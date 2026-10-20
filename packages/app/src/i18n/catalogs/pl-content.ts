@@ -232,7 +232,7 @@ export const plContent = {
     'byzantine-spears': {
       title: 'Bizantyjscy włócznicy',
       summary:
-        'Kolumny: człowiek, AI na grywalnym slocie, scenariuszowe AI. Drewniane włócznie u góry, żelazne u dołu; smok jest tylko na slocie scenariuszowym.',
+        'Kolumny: wyszkolony włócznik, jednostka mapy na miejscu komputera, dar mapy dla gracza. Drewniane włócznie u góry, żelazne u dołu; tylko wyszkolony drewniany włócznik jest człowiekiem, dwa pozostałe to smoki.',
     },
     'combat-gestures': {
       title: 'Ciosy i gesty',

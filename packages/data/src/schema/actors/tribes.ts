@@ -51,10 +51,16 @@ export const JobRequirement = z.strictObject({
 });
 export type JobRequirement = z.infer<typeof JobRequirement>;
 
-/** Authored unit rules for a playable seat or a map-only scenario seat. Unset fields keep source data. */
+/** The two forms a class can take. `native` is the class as the source data describes it, the form the
+ *  map places and a script spawns; `human` is the form a trained unit takes. Unset fields keep source
+ *  data. */
+export const UnitForm = z.enum(['native', 'human']);
+export type UnitForm = z.infer<typeof UnitForm>;
+
+/** Authored unit rules for one form of a tribe's class (`unit-variants.ts`). */
 export const UnitVariant = z.strictObject({
   jobType: TypeId,
-  scenario: z.boolean(),
+  form: UnitForm,
   hitpoints: z.number().int().positive(),
   animationJobType: TypeId.optional(),
   graphicsJobType: TypeId.optional(),

@@ -187,7 +187,7 @@ function fightingWeapon(
     settler.tribe,
     settler.jobType,
     world.tryGet(e, Weapon)?.weaponTypeId,
-    settler.scenario,
+    settler.humanForm,
   );
   if (armed === null) return null;
   const weaponClass = weaponClassOf(armed.weapon);

@@ -46,18 +46,19 @@ function fresh(): MotionTrack {
 }
 
 describe('measured walk travel', () => {
-  it('draws scenario and playable forms of the same equipped profession together', () => {
+  it('draws the native and human forms of the same equipped profession together', () => {
     const dragon = { body, binding: { idle: 11, moving: 12 } };
     const human = { body, binding: { idle: 21, moving: 22 } };
     const table: SettlerCharacterSet = {
       default: human,
       byJob: { 32: dragon },
       byWeaponGood: { 39: dragon },
-      playable: { default: human, byJob: { 32: human }, byWeaponGood: { 39: human } },
+      human: { default: human, byJob: { 32: human }, byWeaponGood: { 39: human } },
     };
-    expect(humanCharacter(table, 3, 32, false, 39, 1, true)).toBe(dragon);
-    expect(humanCharacter(table, 3, 32, false, 39, 2, false)).toBe(human);
-    expect(humanCharacter(table, 3, 32, false, undefined, 3)).toBe(human);
+    expect(humanCharacter(table, 3, 32, false, 39, 1, false)).toBe(dragon);
+    expect(humanCharacter(table, 3, 32, false, 39, 2, true)).toBe(human);
+    expect(humanCharacter(table, 3, 32, false, undefined, 3)).toBe(dragon);
+    expect(humanCharacter(table, 3, 32, false, undefined, 3, true)).toBe(human);
   });
   it('keeps phase tied to distance across speed changes, turns and catch-up ticks', () => {
     const track = fresh();

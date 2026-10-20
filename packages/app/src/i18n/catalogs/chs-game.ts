@@ -1577,6 +1577,7 @@ export const chsGame = {
       weresnakeLion: '蛇人 · 狮子形态',
       weresnakeWolf: '蛇人 · 狼形态',
       weresnakeBear: '蛇人 · 熊形态',
+      dragon: '龙',
     },
     wildlifeCatalog: {
       8: '熊',

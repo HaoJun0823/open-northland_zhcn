@@ -7,13 +7,11 @@ import {
   type MissionGoal,
   type MissionNameRef,
   type MissionResult,
-  mapLobbySlots,
 } from '@open-northland/data';
 import type { MissionHouseRef, MissionScript, ResolvedOp } from '@open-northland/sim';
 import { MISSION_HOUSE_NAME_FIELD, MISSION_LANDSCAPE_NAME_FIELD } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
 import { multiplayerMatchGoals, neverDiesSeats, scriptMatchParticipants } from '../match-participants.js';
-import { isReservedMapAiSeat } from '../session-url.js';
 import type { MapScriptWorld } from './build.js';
 import type { AuthoredJoinRows, ContentJoins } from './content-joins.js';
 import { contentJoins } from './content-joins.js';
@@ -161,12 +159,6 @@ function resolveRef(field: string, ref: MissionNameRef, joins: ContentJoins, dro
 
 /** Script roster and diplomacy survive missing catalog data; mission names require the served IR. */
 export function mapScriptWorld(script: MapScript | null, rows: AuthoredJoinRows | null): MapScriptWorld {
-  const scenarioPlayers =
-    script === null
-      ? []
-      : mapLobbySlots(script)
-          .filter(isReservedMapAiSeat)
-          .map((slot) => slot.player);
   const permissions = script?.permissions;
   const permissionRows = permissions !== undefined ? { permissions } : {};
   const diplomacy = script?.diplomacy ?? [];
@@ -179,7 +171,6 @@ export function mapScriptWorld(script: MapScript | null, rows: AuthoredJoinRows 
   const roster =
     script !== null && script.players.length > 0 ? { participants: scriptMatchParticipants(script) } : {};
   const setup = {
-    scenarioPlayers,
     ...permissionRows,
     diplomacy,
     relationFlags,
@@ -191,7 +182,13 @@ export function mapScriptWorld(script: MapScript | null, rows: AuthoredJoinRows 
     ...roster,
   };
   if (script === null || rows === null || script.missions.length === 0) {
-    return { ...setup, ...multiplayerVictory(script, NO_VERDICTS) };
+    // A scriptless or unresolvable script still carries the map's authored unit form to the sim.
+    const authoredForm = script?.authoredForm;
+    return {
+      ...setup,
+      ...(authoredForm === undefined ? {} : { missions: { missions: [], authoredForm } }),
+      ...multiplayerVictory(script, NO_VERDICTS),
+    };
   }
   const join = resolveMissionScript(script.missions, rows);
   if (join.unknownOpcodes > 0 || join.tokenMismatches > 0 || join.unresolvedNames.length > 0) {
@@ -206,7 +203,10 @@ export function mapScriptWorld(script: MapScript | null, rows: AuthoredJoinRows 
   const verdicts = { won: names('MissionWon'), failed: names('MissionFailed') };
   return {
     ...setup,
-    missions: join.script,
+    missions: {
+      ...join.script,
+      ...(script.authoredForm === undefined ? {} : { authoredForm: script.authoredForm }),
+    },
     ...(multiplayerVictory(script, verdicts) ?? { victory: 'script' }),
   };
 }

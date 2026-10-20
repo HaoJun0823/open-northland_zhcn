@@ -235,7 +235,7 @@ export const deContent = {
     'byzantine-spears': {
       title: 'Byzantinische Speerträger',
       summary:
-        'Spalten: Mensch, KI im spielbaren Platz, Szenario-KI. Holzspeere oben, Eisenspeere unten; nur der Szenario-Holzspeer ist ein Drache.',
+        'Spalten: ein ausgebildeter Speerträger, der Mann der Karte auf einem Computerplatz, das Geschenk der Karte an den Spieler. Holzspeere oben, Eisenspeere unten; nur der ausgebildete Holzspeer ist ein Mensch, die anderen beiden sind Drachen.',
     },
     'combat-gestures': {
       title: 'Schläge und Gesten',

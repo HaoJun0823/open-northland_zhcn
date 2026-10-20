@@ -41,7 +41,7 @@ import { BYZANTINE_SPEAR_VARIANTS } from '../../src/catalog/unit-variants.js';
 import { humanSequences } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { FACING } from '../../src/content/settler-gfx/index.js';
-import { withPlayableCharacters } from '../../src/content/sprite-sheet/unit-variants.js';
+import { withHumanFormCharacters } from '../../src/content/sprite-sheet/unit-variants.js';
 import type { WorldTribes } from '../../src/game/world-tribes.js';
 import { byzantineSpearsScene } from '../../src/scenes/byzantine-spears.js';
 import { combatGesturesScene } from '../../src/scenes/combat-gestures.js';
@@ -182,11 +182,11 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     }
   });
 
-  it('gives the playable wooden spear the complete human look while retaining scenario dragons', () => {
+  it("gives the wooden spear's human form the complete human look while keeping the native dragon", () => {
     const raw = tables.get(BYZANTINE);
     if (raw === undefined) throw new Error('missing Byzantine table');
-    const table = withPlayableCharacters(raw, BYZANTINE_SPEAR_VARIANTS);
-    const playable = table.playable?.byJob[JOB_SOLDIER_SPEAR_WOODEN];
+    const table = withHumanFormCharacters(raw, BYZANTINE_SPEAR_VARIANTS);
+    const playable = table.human?.byJob[JOB_SOLDIER_SPEAR_WOODEN];
     const iron = raw.byJob[JOB_SOLDIER_SPEAR];
     expect(playable?.body).toBe(iron?.body);
     expect(playable?.binding).toBe(iron?.binding);
@@ -195,7 +195,7 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     expect(table.byJob[JOB_SOLDIER_SPEAR_WOODEN]?.heads ?? []).toHaveLength(0);
     const good = (rawIrUnderTest() as ContentIr).goods?.find((row) => row.id === 'spear_wooden');
     if (good === undefined) throw new Error('missing wooden spear');
-    expect(table.playable?.byWeaponGood?.[good.typeId]).toBe(playable);
+    expect(table.human?.byWeaponGood?.[good.typeId]).toBe(playable);
   });
 
   it('spawns both spear forms together using the generated catalog and authored slot roles', async () => {
@@ -204,10 +204,12 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     sim.step();
     const units = [...sim.world.query(components.Settler, components.Owner, components.Health)];
     expect(units).toHaveLength(6);
+    const humanForms = units.filter((e) => sim.world.get(e, components.Settler).humanForm === true);
+    expect(humanForms).toHaveLength(1);
     for (const e of units) {
       const identity = sim.world.get(e, components.Settler);
       const owner = sim.world.get(e, components.Owner).player;
-      const dragon = owner === 2 && identity.jobType === JOB_SOLDIER_SPEAR_WOODEN;
+      const dragon = identity.jobType === JOB_SOLDIER_SPEAR_WOODEN && identity.humanForm !== true;
       expect(sim.world.get(e, components.Health).max, `owner ${owner}, job ${identity.jobType}`).toBe(
         dragon ? 20000 : 5000,
       );

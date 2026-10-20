@@ -22,6 +22,7 @@ export function spawnScriptedHumans(pass: MissionPass, op: HumanSpawn, count: nu
       owner: op.player,
       missionId: op.humanId,
       behaviourFlags: op.behaviour,
+      ...(op.humanForm === true ? { humanForm: true } : {}),
     });
   }
 }

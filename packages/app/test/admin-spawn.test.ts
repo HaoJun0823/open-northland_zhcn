@@ -122,6 +122,7 @@ describe('admin spawn command mapping', () => {
       [5, 32],
       [5, 33],
       [5, 35],
+      [3, 32],
     ]);
     for (const preset of CREATURE_PRESETS) {
       expect(creatureSpawnCommand(preset, { player: 1, hitpoints: 0, x: 7, y: 9 })).toEqual({
@@ -159,6 +160,7 @@ describe('admin spawn command mapping', () => {
       y: 9,
       tribe: PRIMARY_TRIBE,
       owner: 1,
+      humanForm: true,
       hitpoints: 250,
       weaponTypeId: WEAPON_SWORD,
       armorClass: 3,
@@ -181,6 +183,7 @@ describe('admin spawn command mapping', () => {
       y: 3,
       tribe: PRIMARY_TRIBE,
       owner: 1,
+      humanForm: true,
       weaponTypeId: WEAPON_FISTS,
     });
   });

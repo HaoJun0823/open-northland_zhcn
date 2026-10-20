@@ -140,7 +140,7 @@ export function palisadeBarring(
     settler.tribe,
     settler.jobType,
     world.tryGet(e, Weapon)?.weaponTypeId,
-    settler.scenario,
+    settler.humanForm,
   );
   if (arms === null || wallBlowDamage(weaponDamageVsMaterial(arms.weapon, ARMOR_MATERIAL.HOUSE)) === 0) {
     return null;

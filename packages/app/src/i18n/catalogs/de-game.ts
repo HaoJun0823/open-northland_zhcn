@@ -1740,6 +1740,7 @@ export const deGame = {
       weresnakeLion: 'Schlangenmensch · Löwengestalt',
       weresnakeWolf: 'Schlangenmensch · Wolfsgestalt',
       weresnakeBear: 'Schlangenmensch · Bärengestalt',
+      dragon: 'Drache',
     },
     wildlifeCatalog: {
       '8': 'Bären',

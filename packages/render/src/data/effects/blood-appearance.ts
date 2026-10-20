@@ -7,11 +7,11 @@ export interface BloodAppearance {
 }
 
 /** Authored presentation: red humans, dark red werewolves, slate-blue weresnakes and burgundy dragons.
- * Scenario identity distinguishes the dragon from the playable Byzantine wooden spearman. */
+ * The form tells the dragon from the Byzantine wooden spearman in his human form. */
 const CREATURE_BLOOD: readonly (BloodAppearance & Partial<components.SettlerIdentity>)[] = [
   { tribe: 5, palette: 2, volume: 1 },
   { tribe: 6, palette: 1, volume: 1.5 },
-  { tribe: 3, jobType: 32, scenario: true, palette: 3, volume: 2.5 },
+  { tribe: 3, jobType: 32, humanForm: false, palette: 3, volume: 2.5 },
 ];
 const HUMAN_BLOOD: BloodAppearance = { palette: 0, volume: 1 };
 
@@ -22,7 +22,7 @@ export function bloodAppearance(identity: components.SettlerIdentity | undefined
       (rule) =>
         rule.tribe === identity.tribe &&
         (rule.jobType === undefined || rule.jobType === identity.jobType) &&
-        (rule.scenario === undefined || rule.scenario === (identity.scenario === true)),
+        (rule.humanForm === undefined || rule.humanForm === (identity.humanForm === true)),
     ) ?? HUMAN_BLOOD
   );
 }

@@ -11,7 +11,6 @@ import {
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
 import { releaseEmployment } from '../../economy/jobs/binding.js';
-import { syncScenarioIdentity } from '../../lifecycle/unit-health.js';
 import { relinkSignpost } from '../../signposts/index.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionResultOp } from '../script.js';
@@ -22,14 +21,14 @@ import { type Handed, withOwners } from './seat-tribes.js';
 const ANIMAL_HANDOVER_CAP = 50;
 
 /** Hand every human stamped with the id to `player`, detaching each from the job and home it held
- *  under its old owner (reading). Returns the humans handed. */
+ *  under its old owner (reading). A unit keeps its form (`lifecycle/unit-form.ts`): a script's dragons
+ *  stay dragons in the receiver's hands. Returns the humans handed. */
 export function handHumansToPlayer(pass: MissionPass, id: number, player: number): readonly Handed[] {
   if (!isValidPlayer(player)) return [];
   const handed = withOwners(pass.world, scriptedHumans(pass.world, id));
   for (const { entity: e } of handed) {
     detachFromHouses(pass.world, pass.ctx, e);
     stampOwner(pass.world, e, player);
-    syncScenarioIdentity(pass.world, pass.ctx.content, e);
   }
   return handed;
 }
@@ -50,10 +49,7 @@ export function handPlayerToPlayer(pass: MissionPass, from: number, to: number):
     world,
     world.canonicalQuery(Owner).filter((e) => world.get(e, Owner).player === from),
   );
-  for (const { entity } of handed) {
-    stampOwner(world, entity, to);
-    syncScenarioIdentity(world, pass.ctx.content, entity);
-  }
+  for (const { entity } of handed) stampOwner(world, entity, to);
   relinkHandedSignposts(pass, handed);
   return handed;
 }
@@ -69,7 +65,6 @@ export function handAreaToPlayer(
   for (const { entity: e } of handed) {
     if (pass.world.has(e, Person)) detachFromHouses(pass.world, pass.ctx, e);
     stampOwner(pass.world, e, op.otherPlayer);
-    syncScenarioIdentity(pass.world, pass.ctx.content, e);
   }
   relinkHandedSignposts(pass, handed);
   return handed;

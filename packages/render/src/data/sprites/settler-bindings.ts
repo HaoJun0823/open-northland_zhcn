@@ -124,8 +124,8 @@ export interface CarryingBinding {
  * only a born-young settler carries one.
  */
 export interface ByJobTable<T> {
-  /** Complete alternate looks for units owned by claimable player slots. */
-  readonly playable?: ByJobTable<T>;
+  /** Complete looks of the classes' human forms (`UnitForm`); a class without one draws its native look. */
+  readonly human?: ByJobTable<T>;
   readonly byJob: Readonly<Record<number, T>>;
   /** Looks for an `Age`-carrying (born-young) settler, keyed by its age-class `jobType` (1..4). */
   readonly youngByJob?: Readonly<Record<number, T>>;

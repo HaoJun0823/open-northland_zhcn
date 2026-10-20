@@ -1,14 +1,5 @@
 import { type ContentSet, unitVariantFor } from '@open-northland/data';
-import {
-  Health,
-  isScenarioPlayer,
-  ownerOf,
-  Person,
-  removeCurrentAtomic,
-  Settler,
-  type SettlerIdentity,
-  setSettlerTribe,
-} from '../../components/index.js';
+import { Health, type SettlerIdentity } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 
 /** Original default; class exceptions are content, and an authored spawn may override its initial pool. */
@@ -26,28 +17,4 @@ export function resizeUnitHealth(world: World, e: Entity, previous: number, next
   changed.hitpoints =
     health.hitpoints <= 0 ? 0 : Math.max(1, Math.floor((health.hitpoints * next) / health.max));
   changed.max = next;
-}
-
-/** A mission handover changes the form with its owner; an old form's pending strike cannot survive it. */
-export function syncScenarioIdentity(world: World, content: ContentSet, e: Entity): void {
-  if (!world.has(e, Person)) return;
-  const identity = world.get(e, Settler);
-  const scenario = isScenarioPlayer(world, ownerOf(world, e));
-  if ((identity.scenario === true) === scenario) return;
-  const previous = unitHitpoints(content, identity);
-  const previousVariant = unitVariantFor(content, identity);
-  world.mut(e, Settler).scenario = scenario ? true : undefined;
-  resizeUnitHealth(world, e, previous, unitHitpoints(content, world.get(e, Settler)));
-  if (previousVariant !== unitVariantFor(content, world.get(e, Settler))) removeCurrentAtomic(world, e);
-}
-
-/** A settler moved to another people changes form as under {@link syncScenarioIdentity}. */
-export function changeUnitTribe(world: World, content: ContentSet, e: Entity, tribe: number): void {
-  const identity = world.get(e, Settler);
-  const previous = unitHitpoints(content, identity);
-  const previousVariant = unitVariantFor(content, identity);
-  setSettlerTribe(world, e, tribe);
-  const next = world.get(e, Settler);
-  resizeUnitHealth(world, e, previous, unitHitpoints(content, next));
-  if (previousVariant !== unitVariantFor(content, next)) removeCurrentAtomic(world, e);
 }

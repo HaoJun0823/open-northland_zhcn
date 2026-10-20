@@ -1,7 +1,7 @@
 import { cellAnchorNode, components, type Simulation, systems } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_SOLDIER_SPEAR_WOODEN, JOB_SOLDIER_SWORD, JOB_SOLDIER_UNARMED } from '../catalog/jobs.js';
-import { BYZANTINE_SPEAR_VARIANTS } from '../catalog/unit-variants.js';
+import { BYZANTINE, BYZANTINE_SPEAR_VARIANTS } from '../catalog/unit-variants.js';
 import { spawnSettlerAtNode } from '../game/sandbox/index.js';
 import type { SceneDefinition } from './types.js';
 
@@ -10,11 +10,10 @@ const SUBJECTS = [
   { tribe: 1, jobType: JOB_SOLDIER_UNARMED },
   { tribe: 6, jobType: JOB_SOLDIER_UNARMED },
   { tribe: 5, jobType: JOB_SOLDIER_UNARMED },
-  { tribe: 3, jobType: JOB_SOLDIER_SPEAR_WOODEN },
+  { tribe: BYZANTINE, jobType: JOB_SOLDIER_SPEAR_WOODEN },
 ];
 
 function build(sim: Simulation): void {
-  components.seedScenarioPlayers(sim.world, [2]);
   for (const [column, subject] of SUBJECTS.entries()) {
     const node = cellAnchorNode(4 + column * 5, 9);
     const target = systems.createSettler(
@@ -27,9 +26,9 @@ function build(sim: Simulation): void {
     if (target === null) throw new Error('Missing creature blood subject');
     // The fallback catalog has generic human HP; exercise the same dragon pool in both entries.
     const variant = BYZANTINE_SPEAR_VARIANTS.find(
-      (rule) => rule.scenario && rule.jobType === subject.jobType,
+      (rule) => rule.form === 'native' && rule.jobType === subject.jobType,
     );
-    if (subject.tribe === 3 && variant?.hitpoints !== undefined)
+    if (subject.tribe === BYZANTINE && variant?.hitpoints !== undefined)
       sim.world.mut(target, components.Health).max = variant.hitpoints;
     const attacker = spawnSettlerAtNode(sim, JOB_SOLDIER_SWORD, node, 0);
     for (const entity of [attacker, target]) {
@@ -65,7 +64,7 @@ export const creatureBloodScene: SceneDefinition = {
             return (
               hp.hitpoints > 0 &&
               hp.hitpoints < ENDURANCE &&
-              (identity.tribe !== 3 || (identity.scenario === true && hp.max === 20000))
+              (identity.tribe !== BYZANTINE || (identity.humanForm !== true && hp.max === 20000))
             );
           })
         );

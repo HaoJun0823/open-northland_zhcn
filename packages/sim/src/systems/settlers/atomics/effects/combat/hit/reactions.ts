@@ -164,7 +164,7 @@ function withinOwnBand(
     settler.tribe,
     settler.jobType,
     world.tryGet(victim, Weapon)?.weaponTypeId,
-    settler.scenario,
+    settler.humanForm,
   );
   return weapon !== null && withinBand(weapon, dist);
 }

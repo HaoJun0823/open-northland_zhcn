@@ -496,6 +496,11 @@ export const plContent = {
       summary:
         'Piekarnia i dom stoją 52 kafle od obozu, bez drogowskazów pomiędzy. Olaf ma przydział do piekarni, ale stoi zgubiony. Przypisz PPM innych osadników do piekarni, domu albo kwatery, a zwiadowcą postaw drogowskazy do piekarni: Olaf sam ruszy do pracy.',
     },
+    'storage-full': {
+      title: 'Pełne magazyny',
+      summary:
+        'Pełna kwatera główna i pełny dom stoją obok piekarni z pełną półką chleba. Piekarz nie ma gdzie oddać chleba i staje; po 15 sekundach notatka o pełnych magazynach podaje jedzenie, jako które przechowuje się chleb. Gdy w domu zwolni się miejsce, piekarz zanosi tam bochenki, a notatka znika.',
+    },
     'store-reach': {
       title: 'Magazyn poza zasięgiem drogowskazów',
       summary:

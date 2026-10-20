@@ -16,6 +16,7 @@ const LIFECYCLE: Readonly<Record<UserMessageTypeName, NoticeLifecycle>> = {
   vehicleSiteNotFound: 'state',
   vehicleSiteOccupied: 'state',
   nothingToDo: 'state',
+  storageFull: 'state',
   noVehicleForWork: 'state',
   experienceUnlocks: 'event',
   canProduceNewGood: 'event',
@@ -99,6 +100,7 @@ const POLLED: ReadonlySet<UserMessageType> = new Set<UserMessageType>([
   USER_MESSAGE_TYPE.familyBlocked,
   USER_MESSAGE_TYPE.productionStalled,
   USER_MESSAGE_TYPE.constructionStarved,
+  USER_MESSAGE_TYPE.storageFull,
 ]);
 
 export function isPolledNote(type: UserMessageType): boolean {

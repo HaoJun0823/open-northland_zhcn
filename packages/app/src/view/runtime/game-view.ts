@@ -85,6 +85,7 @@ import { minimapFeatureOfGoodTypes } from '../../hud/minimap/live-objects.js';
 import type { NetPanelSource } from '../../hud/network/model.js';
 import { type MetSeat, NOTICE_GALLERY_DEBUG_FLAG } from '../../hud/tool-panel/messages/index.js';
 import { soundShownNote } from '../../hud/tool-panel/messages/sounds.js';
+import { storageLayoutOf } from '../../hud/tool-panel/messages/storage-full.js';
 import {
   MEAD_GOOD_ID,
   type ResidentsProjectionContext,
@@ -776,6 +777,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       workshops: {
         types: host.content.buildings.filter((b) => b.recipes.length > 0).map((b) => b.typeId),
         workStatus: answers.noticeWorkStatus,
+        storage: storageLayoutOf(host.content),
       },
       sites: { supply: answers.noticeConstructionSupply },
       isVehicleSite: (typeId) => vehicleSiteTypes.has(typeId),

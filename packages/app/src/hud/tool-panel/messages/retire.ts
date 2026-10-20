@@ -120,6 +120,14 @@ function isStallOver(m: UserMessage, workshop: SnapshotEntity, stalls: StallRead
   return verdict === null || verdict.reason !== m.stall?.reason;
 }
 
+/** A storage-full note ends once a storehouse has room for its good, or no producer of the good stands
+ *  on a full shelf any more. */
+function isStorageFullOver(m: UserMessage, tick: number, stalls: StallReader | null): boolean {
+  if (stalls === null || m.goodType === null) return true;
+  const stands = stalls.storageFull(m.goodType, tick);
+  return stands === undefined ? false : !stands;
+}
+
 /** A shortage note ends when its site is no longer going up, or once the sweep finds the site short of
  *  nothing; another good only rewords it. */
 function isShortageOver(site: SnapshotEntity, shortages: ShortageReader | null): boolean {
@@ -169,6 +177,7 @@ export class NoteRetirement {
 
   isOver(m: UserMessage, snapshot: WorldSnapshot): boolean {
     if (isFightNote(m)) return !this.fights.isActive(m.about, snapshot.tick);
+    if (m.type === USER_MESSAGE_TYPE.storageFull) return isStorageFullOver(m, snapshot.tick, this.stalls);
     if (m.subject === null) return false;
     const e = entityById(snapshot, m.subject.entity);
     if (e === undefined) return true;

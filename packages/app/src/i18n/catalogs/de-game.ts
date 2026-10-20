@@ -1778,6 +1778,7 @@ export const deGame = {
       vehicleSiteOccupied: 'Bauplatz blockiert',
       nothingToDo: 'Nichts zu tun',
       constructionStarved: 'Baustelle: {good} fehlt',
+      storageFull: 'Lager voll: {good}',
       noVehicleForWork: 'Kein Karren',
       experienceUnlocks: 'Neue Fähigkeiten',
       experienceBuilding: 'Neues Gebäude',
@@ -1835,6 +1836,8 @@ export const deGame = {
       nothingToDo: '{name} hat nichts zu tun.',
       constructionStarved:
         '{building}: der Bau steht, es fehlt: {good}. Kein Lager in Wegweiserreichweite der Baustelle hat es. Stelle es her, beschaffe es oder verbinde ein Lager, das es hat, mit Wegweisern.',
+      storageFull:
+        'Deine Lager sind voll: {good}. {building} kann seine Waren nirgends abgeben und nicht arbeiten. Baue ein weiteres Lager oder verbrauche die Vorräte.',
       noVehicleForWork: {
         he: '{name} hat eine Handelsroute, aber keinen Karren. Weise ihm einen Karren zu, um die Route zu beginnen.',
         she: '{name} hat eine Handelsroute, aber keinen Karren. Weise ihr einen Karren zu, um die Route zu beginnen.',

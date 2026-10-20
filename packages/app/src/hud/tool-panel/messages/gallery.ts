@@ -16,6 +16,7 @@ import { type BuildingTrades, raiseFight, raiseUnlocks } from './from-events.js'
 import { type MessageNaming, MessageRaiser, nodeOf, type RaisedMessage } from './raise.js';
 import { settingsRestartNote } from './settings-restart.js';
 import { raiseShortage } from './site-shortages.js';
+import { raiseStorageFull } from './storage-full.js';
 import {
   type MessageTechnology,
   type ProductionStall,
@@ -200,6 +201,12 @@ export function galleryMessages(
     if (name === 'constructionStarved') {
       if (house !== undefined && gallery.goodType !== null)
         raiseShortage(raiser, naming, house, gallery.goodType);
+      continue;
+    }
+    if (name === 'storageFull') {
+      if (house !== undefined && gallery.goodType !== null) {
+        raiseStorageFull(raiser, naming, gallery.goodType, { store: house, producer: house });
+      }
       continue;
     }
     if (name === 'workerRefused') {

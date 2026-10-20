@@ -1614,6 +1614,7 @@ export const plGame = {
       vehicleSiteOccupied: 'Plac zajęty',
       nothingToDo: 'Nic do roboty',
       constructionStarved: 'Budowa czeka: {good}',
+      storageFull: 'Pełne magazyny: {good}',
       noVehicleForWork: 'Brak wozu',
       experienceUnlocks: 'Nowa wiedza',
       experienceBuilding: 'Nowy budynek',
@@ -1668,6 +1669,8 @@ export const plGame = {
       nothingToDo: '{name} nie ma nic do roboty.',
       constructionStarved:
         '{building}: budowa stoi, brakuje: {good}. Nie ma go w żadnym magazynie w zasięgu drogowskazów budowy. Wytwórz go, sprowadź albo połącz drogowskazami magazyn, który go ma.',
+      storageFull:
+        'Magazyny są pełne: {good}. {building} nie ma gdzie oddać wyrobów i nie może pracować. Zbuduj nowy magazyn albo zużyj zapasy.',
       noVehicleForWork: {
         he: '{name} ma trasę handlową, ale nie ma wozu. Wsadź go do wozu, a ruszy w drogę.',
         she: '{name} ma trasę handlową, ale nie ma wozu. Wsadź ją do wozu, a ruszy w drogę.',

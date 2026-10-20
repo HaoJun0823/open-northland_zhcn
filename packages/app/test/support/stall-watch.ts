@@ -9,6 +9,7 @@ import {
 import { IDLE_NOTE_TYPES } from '../../src/hud/tool-panel/messages/idle-reasons.js';
 import type { MessageNaming } from '../../src/hud/tool-panel/messages/raise.js';
 import { NoteRetirement } from '../../src/hud/tool-panel/messages/retire.js';
+import { storageLayoutOf } from '../../src/hud/tool-panel/messages/storage-full.js';
 import {
   type ProductionStall,
   USER_MESSAGE_TYPE,
@@ -27,11 +28,12 @@ const naming: MessageNaming = {
 };
 
 /** One stretch of a watched run: every stall note raised meanwhile, the ones standing after, and every
- *  idle note standing after. */
+ *  idle and storage-full note standing after. */
 export interface StallWatchRun {
   readonly raised: readonly ProductionStall[];
   readonly standing: readonly UserMessage[];
   readonly idle: readonly UserMessage[];
+  readonly storageFull: readonly UserMessage[];
 }
 
 /**
@@ -42,6 +44,7 @@ export function watchStalls(sim: Simulation): { run(sweeps: number): StallWatchR
   const source = createSnapshotMessageSource(HUMAN_PLAYER, {
     types: sim.content.buildings.filter((b) => b.recipes.length > 0).map((b) => b.typeId),
     workStatus: (entity, asked) => ({ status: sim.workStatus(entity as Entity), asked }),
+    storage: storageLayoutOf(sim.content),
   });
   const retirement = new NoteRetirement(new FightAreas(), source.stalls);
   const feed = createMessageFeed();
@@ -63,6 +66,7 @@ export function watchStalls(sim: Simulation): { run(sweeps: number): StallWatchR
         raised,
         standing: live.filter((m) => m.type === USER_MESSAGE_TYPE.productionStalled),
         idle: live.filter((m) => IDLE_NOTE_TYPES.has(m.type)),
+        storageFull: live.filter((m) => m.type === USER_MESSAGE_TYPE.storageFull),
       };
     },
   };

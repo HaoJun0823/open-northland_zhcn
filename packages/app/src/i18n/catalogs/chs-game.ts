@@ -1616,6 +1616,7 @@ export const chsGame = {
       vehicleSiteOccupied: '车场被占',
       nothingToDo: '无事可做',
       constructionStarved: '工地缺{good}',
+      storageFull: '仓库已满：{good}',
       noVehicleForWork: '没有车',
       experienceUnlocks: '新技能',
       experienceBuilding: '新建筑',
@@ -1669,6 +1670,7 @@ export const chsGame = {
       nothingToDo: '{name}无事可做。',
       constructionStarved:
         '{building}：因缺少{good}，建造已停止。工地路标范围内没有存有它的仓库。请生产或运来一些，或用路标连接存有它的仓库。',
+      storageFull: '仓库已满：{good}。{building}的产品无处可放，无法工作。请再建一座仓库，或用掉库存。',
       noVehicleForWork: {
         he: '{name}有贸易路线，但没有车。让他坐上车，就能启程。',
         she: '{name}有贸易路线，但没有车。让她坐上车，就能启程。',

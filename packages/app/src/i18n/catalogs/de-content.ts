@@ -500,6 +500,11 @@ export const deContent = {
       summary:
         'Eine Bäckerei und ein Wohnhaus stehen 52 Felder vom Lager entfernt, ohne Wegweiser dazwischen. Olaf ist der Bäckerei zugewiesen, steht aber orientierungslos herum. Weise andere Siedler per Rechtsklick der Bäckerei, dem Wohnhaus oder dem Hauptquartier zu. Lass dann den Kundschafter Wegweiser bis zur Bäckerei aufstellen: Olaf macht sich von selbst auf den Weg zur Arbeit.',
     },
+    'storage-full': {
+      title: 'Volle Lager',
+      summary:
+        'Das Hauptquartier und ein Wohnhaus sind voll, daneben eine Bäckerei mit vollem Brotregal. Der Bäcker kann das Brot nirgends abgeben und hört auf; nach 15 Sekunden nennt die Meldung über volle Lager die Nahrung, als die Brot gelagert wird. Wird im Haus Platz frei, bringt der Bäcker Brote dorthin, und die Meldung verschwindet.',
+    },
     'store-reach': {
       title: 'Lager außerhalb der Wegweiserreichweite',
       summary:

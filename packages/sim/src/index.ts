@@ -73,6 +73,7 @@ export {
   constructionBillForType,
   harvestJobsOf,
   jobAllowsAtomic,
+  stockSlotsForType,
 } from './core/content-index.js';
 export {
   EventBuffer,

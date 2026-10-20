@@ -436,7 +436,9 @@ export function createSnapshotMessageSource(
   const foodWaits = new FoodWaits();
   const asks = workshops === undefined ? null : new StatusAsks(workshops.workStatus);
   const stalls =
-    workshops === undefined || asks === null ? null : new WorkshopStalls(localPlayer, workshops.types, asks);
+    workshops === undefined || asks === null
+      ? null
+      : new WorkshopStalls(localPlayer, workshops.types, asks, workshops.storage);
   const siteAsks = sites === undefined ? null : new StatusAsks(sites.supply);
   const shortages = siteAsks === null ? null : new SiteShortages(localPlayer, siteAsks);
   const notDismissed: NoteDismissed = () => false;

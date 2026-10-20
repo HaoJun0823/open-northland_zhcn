@@ -328,6 +328,14 @@ export function buildingLevelForType(content: ContentSet, typeId: number): numbe
   return buildingLevelOf(contentIndex(content), typeId);
 }
 
+/** A finished building type's stock slot sizes by good, as every store rule reads them; empty for a type
+ *  that stocks nothing. */
+export function stockSlotsForType(content: ContentSet, typeId: number): ReadonlyMap<number, number> {
+  return contentIndex(content).stockSlotCapacityByBuilding.get(typeId) ?? NO_SLOTS;
+}
+
+const NO_SLOTS: ReadonlyMap<number, number> = new Map();
+
 function topLevelByType(content: ContentSet): ReadonlyMap<number, number> {
   const out = new Map<number, number>();
   for (const row of content.buildingBobs) {

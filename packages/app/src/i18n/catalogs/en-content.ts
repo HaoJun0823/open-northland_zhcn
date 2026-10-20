@@ -498,6 +498,11 @@ export const enContent = {
       summary:
         'A bakery and a dwelling stand 52 tiles from the camp, with no signposts between. Olaf is posted to the bakery but stands lost. Right-click other settlers onto the bakery, the dwelling or the headquarters, then have the scout raise signposts to the bakery: Olaf sets off to work on his own.',
     },
+    'storage-full': {
+      title: 'Full storehouses',
+      summary:
+        'The headquarters and a home are full beside a bakery with a full bread shelf. The baker has nowhere to take bread and stops; after 15 seconds the full storehouses note names the food bread is stored as. Empty the home and the baker carries loaves there, and the note goes.',
+    },
     'store-reach': {
       title: 'Store beyond signpost reach',
       summary:

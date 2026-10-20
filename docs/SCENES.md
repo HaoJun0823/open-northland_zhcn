@@ -179,6 +179,11 @@ signposts reach the bakery, Olaf walks to work and the mark lifts.
 them. Freya's full bakery names the bread no store in reach takes; Ingrid's empty bakery names the
 ingredients the headquarters holds outside her reach.
 
+`?scene=storage-full` places a headquarters and a home with every slot full beside a bakery whose bread
+shelf is full. The baker has nowhere to take bread and stops; after 15 seconds the full storehouses note
+names the food bread is stored as. Click it to jump to the headquarters. While a home still has room the
+baker carries loaves there and no note stands.
+
 `?scene=combat-blood` compares swords, spears, fists and arrows beside stones, a tree, a bush,
 loose wood and bones. The stage buttons also show separate fights behind and in front of a store:
 the rear fight must leave its visible roof and facade clean; the front fight must visibly stain the

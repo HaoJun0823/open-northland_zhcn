@@ -16,6 +16,7 @@ import {
 } from '../../../game/snapshot.js';
 import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
 import { type MessageNaming, type MessageRaiser, nodeOf } from './raise.js';
+import { StorageFull, type StorageLayout } from './storage-full.js';
 import { type ProductionStall, type ProductionStallReason, USER_MESSAGE_TYPE } from './types.js';
 import type { StatusAsks, WorkStatusRead } from './work-asks.js';
 
@@ -33,6 +34,8 @@ export interface WorkshopSeam {
   /** The building types that craft from recipes. */
   readonly types: readonly number[];
   readonly workStatus: WorkStatusRead;
+  /** Where the seat's products are stored; without it no storage-full note is raised. */
+  readonly storage?: StorageLayout;
 }
 
 /** Whether a workshop's stall stands, and why: undefined while not swept yet, null for none. */
@@ -44,6 +47,8 @@ export interface StallReader {
   /** Whether the workshop runs no cycle, whether or not a stall was found: its staff's idle notes then
    *  leave the word to the stall note. */
   isResting(workplace: number): boolean;
+  /** Whether the storage-full note about stored good `good` stands; undefined before the first sweep. */
+  storageFull(good: number, tick: number): boolean | undefined;
 }
 
 const OWNER_KEY_SPAN = 1 << 16;
@@ -120,6 +125,18 @@ export function stallOf(status: WorkStatus): ProductionStall | null {
   }
 }
 
+/** Whether a worker's diagnosis finds no building that takes `goodType` off its shelf. */
+function takesNowhere(status: WorkStatus | undefined, goodType: number): boolean {
+  switch (status?.kind) {
+    case 'outputFull':
+      return status.outputs.some((output) => output.goodType === goodType && output.destination === 'none');
+    case 'noOutputDestination':
+      return status.reason === 'noStorage' && status.goodType === goodType;
+    default:
+      return false;
+  }
+}
+
 /** One resting workshop's watch: since when it stands, and the verdict. */
 interface Watch {
   since: number;
@@ -171,28 +188,48 @@ function operatorOf(staff: readonly SnapshotEntity[]): SnapshotEntity | undefine
 export class WorkshopStalls implements StallReader {
   private watched = new Map<number, Watch>();
   private swept = false;
+  private readonly storage: StorageFull | null;
 
   constructor(
     private readonly seat: number,
     private readonly types: readonly number[],
     private readonly asks: StatusAsks<WorkStatus>,
-  ) {}
+    storage?: StorageLayout,
+  ) {
+    this.storage = storage === undefined ? null : new StorageFull(seat, storage);
+  }
 
-  /** Judge the resting workshops and raise a note for each one stalled. */
+  /** Judge the resting workshops and raise a note for each one stalled, and one for each good a resting
+   *  workshop's full shelf holds that the storehouses are full of. A stall for want of a store is left to
+   *  that note. */
   sweep(snapshot: WorldSnapshot, raiser: MessageRaiser, naming: MessageNaming): void {
     const next = new Map<number, Watch>();
+    const stalled: [SnapshotEntity, ProductionStall][] = [];
+    const fullShelves = new Map<number, SnapshotEntity[]>();
     for (const type of this.types) {
       for (const workshop of restingBuildingsOf(snapshot, this.seat, type)) {
         const watch = this.watched.get(workshop.id) ?? { since: snapshot.tick, verdict: undefined };
         next.set(workshop.id, watch);
         this.judge(snapshot, workshop, watch);
-        if (watch.verdict !== null && watch.verdict !== undefined) {
-          raiseStall(raiser, naming, workshop, watch.verdict);
+        if (watch.verdict !== null && watch.verdict !== undefined) stalled.push([workshop, watch.verdict]);
+        for (const good of this.blockedGoods(snapshot, workshop)) {
+          const producers = fullShelves.get(good);
+          if (producers === undefined) fullShelves.set(good, [workshop]);
+          else producers.push(workshop);
         }
       }
     }
+    this.storage?.sweep(snapshot, fullShelves, raiser, naming);
+    for (const [workshop, stall] of stalled) {
+      if (stall.reason === 'noOutputStore' && this.coveredByStorageFull(workshop, snapshot.tick)) continue;
+      raiseStall(raiser, naming, workshop, stall);
+    }
     this.watched = next;
     this.swept = true;
+  }
+
+  storageFull(good: number, tick: number): boolean | undefined {
+    return this.storage === null ? false : this.storage.stands(good, tick);
   }
 
   verdict(building: number): StallVerdict {
@@ -203,6 +240,21 @@ export class WorkshopStalls implements StallReader {
 
   isResting(workplace: number): boolean {
     return this.watched.has(workplace);
+  }
+
+  /** The stored good of each full shelf of `workshop` its staff's diagnosis finds no building to take. */
+  private blockedGoods(snapshot: WorldSnapshot, workshop: SnapshotEntity): number[] {
+    const full = this.storage?.fullShelves(workshop) ?? [];
+    if (full.length === 0) return [];
+    const statuses = staffOf(snapshot, workshop.id).map((worker) => this.asks.status(worker.id)?.status);
+    return full
+      .filter((shelf) => statuses.some((status) => takesNowhere(status, shelf.goodType)))
+      .map((shelf) => shelf.stored);
+  }
+
+  private coveredByStorageFull(workshop: SnapshotEntity, tick: number): boolean {
+    const shelves = this.storage?.fullShelves(workshop) ?? [];
+    return shelves.some((shelf) => this.storage?.stands(shelf.stored, tick) === true);
   }
 
   private judge(snapshot: WorldSnapshot, workshop: SnapshotEntity, watch: Watch): void {

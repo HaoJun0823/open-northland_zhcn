@@ -7,12 +7,14 @@ import type { MessageText } from './text.js';
  * counterpart there; they only key the feed, nothing persists them.
  *
  * The original never raises `cannotAttachVehicle`, which here stands in for the silently refused load of
- * a vehicle into a ship (approximation). The types past the original's range are this game's own: the
- * original fails a child order it cannot start without a word, reports every attacked body alone where
- * the two attack notes report one fight area each, and has a worker report each product it failed to
- * make where `productionStalled` reports the workshop once, with the reason, and raises no word about a
- * building site short of a material (`constructionStarved`) and gives scouts no landmass-wide sweep to
- * report the end of (`explorationFinished`). `workerRefused` says why a worker order seated nobody.
+ * a vehicle into a ship (approximation). The original raises `storageFull` for each worker whose load no
+ * store takes; here one note per good the seat's storehouses have no room for speaks for every producer.
+ * The types past the original's range are this game's own: the original fails a child order it cannot
+ * start without a word, reports every attacked body alone where the two attack notes report one fight
+ * area each, and has a worker report each product it failed to make where `productionStalled` reports
+ * the workshop once, with the reason, and raises no word about a building site short of a material
+ * (`constructionStarved`) and gives scouts no landmass-wide sweep to report the end of
+ * (`explorationFinished`). `workerRefused` says why a worker order seated nobody.
  * `settingsNeedRestart` reports the player's own settings change that waits for the map's next start, not
  * anything in the world.
  */
@@ -23,6 +25,7 @@ export const USER_MESSAGE_TYPE = {
   vehicleSiteNotFound: 0x09,
   vehicleSiteOccupied: 0x0a,
   nothingToDo: 0x0b,
+  storageFull: 0x0d,
   noVehicleForWork: 0x0f,
   experienceUnlocks: 0x12,
   canProduceNewGood: 0x13,
@@ -148,13 +151,14 @@ export interface PendingMessage {
    *  latest hit. */
   readonly at: HalfCellNode | null;
   /** Who a message with no live subject is about: the reaped settler's id, the seat number for a
-   *  player-scoped note, or a fight area's id. Part of the identity, so two deaths inside one lifetime
-   *  stay two notes. */
+   *  player-scoped note, a fight area's id, or the good a storage-full note is about. Part of the
+   *  identity, so two deaths inside one lifetime stay two notes. */
   readonly about: number | null;
   readonly goodType: number | null;
   /** Newly available capabilities carried together by the original's experience-unlock record. */
   readonly technologies: readonly MessageTechnology[] | null;
-  /** The building type an unlock note pictures in place of its settler; absent when it opens none. */
+  /** The building type a note pictures in place of its subject: the one an unlock opens, or the full
+   *  storehouse; absent when there is none. */
   readonly building?: number;
   /** The subject settler's trade when the message was raised, the trade a course taught, or the trade a
    *  worker order was refused; part of the identity. */

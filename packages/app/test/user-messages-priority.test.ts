@@ -31,9 +31,9 @@ function typesAt(level: MessagePriorityLevel): UserMessageType[] {
 }
 
 describe('user message priority (original behavior)', () => {
-  it('covers every one of the 35 types with one of the three levels', () => {
-    expect(ALL_TYPES).toHaveLength(35);
-    expect(typesAt(2).length + typesAt(1).length + typesAt(0).length).toBe(35);
+  it('covers every one of the 36 types with one of the three levels', () => {
+    expect(ALL_TYPES).toHaveLength(36);
+    expect(typesAt(2).length + typesAt(1).length + typesAt(0).length).toBe(36);
   });
 
   it('pins the important group', () => {
@@ -58,7 +58,7 @@ describe('user message priority (original behavior)', () => {
   });
 
   it('keeps the routine group routine, hunger included, while starving is important', () => {
-    const routine: UserMessageTypeName[] = ['nothingToDo', 'hungry', 'tired', 'noOneToMarry'];
+    const routine: UserMessageTypeName[] = ['nothingToDo', 'storageFull', 'hungry', 'tired', 'noOneToMarry'];
     expect(typesAt(0).sort((a, b) => a - b)).toEqual(
       routine.map((n) => USER_MESSAGE_TYPE[n]).sort((a, b) => a - b),
     );

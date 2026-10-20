@@ -1616,6 +1616,7 @@ export const chtGame = {
       vehicleSiteOccupied: '工場被佔用',
       nothingToDo: '無事可做',
       constructionStarved: '工地缺少{good}',
+      storageFull: '倉庫已滿：{good}',
       noVehicleForWork: '沒有車',
       experienceUnlocks: '新技能',
       experienceBuilding: '新建築',
@@ -1669,6 +1670,7 @@ export const chtGame = {
       nothingToDo: '{name}無事可做。',
       constructionStarved:
         '{building}：因缺少{good}而停工。工地路標範圍內沒有任何倉庫存有此物。請生產或運來一些，或用路標連接存有此物的倉庫。',
+      storageFull: '倉庫已滿：{good}。{building}的產品無處可放，無法工作。請再建一座倉庫，或用掉庫存。',
       noVehicleForWork: {
         he: '{name}有貿易路線卻沒有車。讓他上車即可開始這條路線。',
         she: '{name}有貿易路線卻沒有車。讓她上車即可開始這條路線。',

@@ -1641,6 +1641,7 @@ export const enGame = {
       vehicleSiteOccupied: 'Yard blocked',
       nothingToDo: 'Nothing to do',
       constructionStarved: 'Site needs {good}',
+      storageFull: 'Stores full: {good}',
       noVehicleForWork: 'No cart',
       experienceUnlocks: 'New skills',
       experienceBuilding: 'New building',
@@ -1696,6 +1697,8 @@ export const enGame = {
       nothingToDo: '{name} has nothing to do.',
       constructionStarved:
         "{building}: construction has stopped for lack of {good}. No store within the site's signpost reach holds it. Make or bring some in, or link a store that holds it with signposts.",
+      storageFull:
+        'Your stores are full of {good}. {building} has nowhere to take its goods and cannot work. Build another store, or use up the stock.',
       noVehicleForWork: {
         he: '{name} has a trade route but no cart. Put him in a cart to start the route.',
         she: '{name} has a trade route but no cart. Put her in a cart to start the route.',

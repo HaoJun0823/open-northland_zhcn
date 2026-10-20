@@ -133,7 +133,7 @@ export interface WorldFrame {
   readonly rangeRings?: readonly RangeRing[] | undefined;
   /** The ground acknowledgements of the player's latest walk and march orders (default none). */
   readonly orderMarkers?: readonly OrderMarker[] | undefined;
-  /** The targets of the player's latest claim and attack orders, playing their one-time flash (default none). */
+  /** The targets of the player's latest orders, playing their one-time flash (default none). */
   readonly targetFlashes?: ReadonlyMap<number, TargetFlash> | undefined;
   /** The refused goals of the selected lost settlers, held while they stay lost (default none). */
   readonly lostGoals?: readonly LostGoalMarker[] | undefined;

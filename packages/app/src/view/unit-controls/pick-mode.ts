@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { type BuildingType, type ContentSet, lastByTypeId } from '@open-northland/data';
-import type { BuildingHighlightItem } from '@open-northland/render';
+import type { BuildingHighlightItem, TargetFlashTone } from '@open-northland/render';
 import {
   type Entity,
   entitiesWith,
@@ -228,6 +228,8 @@ export interface PickModeDeps {
   readonly cue?: ((cue: UiCue) => void) | undefined;
   /** Where the orders a host answer decides wait for it. */
   readonly answered: AnsweredOrders;
+  /** Flashes an order's target once; absent, nothing is drawn. */
+  readonly flashTarget?: ((entity: number, tone: TargetFlashTone) => void) | undefined;
 }
 
 /**
@@ -357,10 +359,15 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       (order): order is UnitSelectionCommand =>
         order.kind === 'assignBuilder' || order.kind === 'trainSoldier',
     );
-    if (selectedOrders.length > 0)
-      return enqueueUnitSelection(selectedOrders, deps.enqueue, deps.onOrderLimit);
-    for (const order of orders) deps.enqueue(order);
-    return orders.length > 0;
+    let ordered: boolean;
+    if (selectedOrders.length > 0) {
+      ordered = enqueueUnitSelection(selectedOrders, deps.enqueue, deps.onOrderLimit);
+    } else {
+      for (const order of orders) deps.enqueue(order);
+      ordered = orders.length > 0;
+    }
+    if (ordered) deps.flashTarget?.(building, 'assign');
+    return ordered;
   };
 
   const resolveBuilding = (

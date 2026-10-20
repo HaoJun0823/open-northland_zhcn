@@ -56,7 +56,7 @@ export interface VehicleOrderDeps {
   /** Acknowledges a drive, mooring or bombardment on the ground where it was aimed; absent, nothing is
    *  drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
-  /** Flashes the target of a claim or an attack once; absent, nothing is drawn. */
+  /** Flashes an order's target once; absent, nothing is drawn. */
   readonly flashTarget?: ((entity: number, tone: TargetFlashTone) => void) | undefined;
 }
 
@@ -339,6 +339,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
   const loadInto = (vehicle: number, carrier: number): boolean => {
     if (vehicle === carrier || !isMooredShip(carrier)) return false;
     deps.enqueue({ kind: 'loadIntoVehicle', vehicle: vehicle as Entity, carrier: carrier as Entity });
+    deps.flashTarget?.(carrier, 'order');
     return true;
   };
 
@@ -361,8 +362,8 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
       deps.onOrderLimit?.();
       return false;
     }
-    const attach = (recipients: readonly number[]): boolean =>
-      enqueueUnitSelection(
+    const attach = (recipients: readonly number[]): boolean => {
+      const sent = enqueueUnitSelection(
         recipients.map((entity) => ({
           kind: 'attachToVehicle',
           entity: entity as Entity,
@@ -371,6 +372,9 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
         deps.enqueue,
         deps.onOrderLimit,
       );
+      if (sent) deps.flashTarget?.(vehicle, 'order');
+      return sent;
+    };
     const ask = deps.askAttachToVehicle;
     if (ask === undefined) {
       return attach(settlers);

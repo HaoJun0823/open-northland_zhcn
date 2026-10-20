@@ -1,11 +1,11 @@
 import type { TargetFlash, TargetFlashTone } from '@open-northland/render';
 
 /** How long one flash plays. Wall-clock, so an order given while paused still lands visibly. */
-export const TARGET_FLASH_MS = 600;
+export const TARGET_FLASH_MS = 400;
 
 const NONE: ReadonlyMap<number, TargetFlash> = new Map();
 
-/** The one-time flashes on the targets of the player's claim and attack orders: view state only. */
+/** The one-time flashes on the targets of the player's orders: view state only. */
 export interface TargetFlashes {
   /** Flash `entity`; a new order on a flashing target restarts its flash in the new tone. */
   flash(entity: number, tone: TargetFlashTone): void;

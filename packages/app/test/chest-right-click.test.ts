@@ -1,3 +1,4 @@
+import type { TargetFlashTone } from '@open-northland/render';
 import type { Command, Entity, WorldSnapshot } from '@open-northland/sim';
 import { components, fx, ONE, Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
@@ -39,6 +40,7 @@ function rightClick(
   settlers: readonly Entity[],
   chest: Entity,
   shiftKey = false,
+  flashed: [number, TargetFlashTone][] = [],
 ): Command[] {
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
@@ -67,6 +69,7 @@ function rightClick(
     enqueue: (command) => issued.push(command),
     selectOwnSettler: () => {},
     openActions: () => {},
+    flashTarget: (entity, tone) => flashed.push([entity, tone]),
   }).issueRightClick({ clientX: 0, clientY: 0, shiftKey } as MouseEvent);
   return issued;
 }
@@ -89,14 +92,18 @@ describe('right-clicking a chest', () => {
     const cutter = settlerAt(sim, WOODCUTTER);
     const idle = settlerAt(sim, null);
     const child = settlerAt(sim, null, true);
-    expect(rightClick(sim, [cutter, idle, child], wooden)).toEqual([
+    const flashed: [number, TargetFlashTone][] = [];
+    expect(rightClick(sim, [cutter, idle, child], wooden, false, flashed)).toEqual([
       {
         kind: 'unitActionGroup',
         members: [{ entity: cutter }, { entity: idle }],
         action: { kind: 'openChest', chest: wooden },
       },
     ]);
-    expect(rightClick(sim, [cutter, idle, child], magical).map((c) => c.kind)).toEqual(['moveUnitGroup']);
+    expect(rightClick(sim, [cutter, idle, child], magical, false, flashed).map((c) => c.kind)).toEqual([
+      'moveUnitGroup',
+    ]);
+    expect(flashed).toEqual([[wooden, 'order']]);
   });
 
   it('submits all 1000 eligible chest openers in one Shift-preserving envelope', () => {

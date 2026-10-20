@@ -1,4 +1,5 @@
 import { type ContentSet, lastByTypeId } from '@open-northland/data';
+import type { TargetFlashTone } from '@open-northland/render';
 import type { Command, Entity, Fixed, GroupWorker, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
 import { components, fx, ONE, playerCommand, Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
@@ -117,8 +118,9 @@ async function pressRightClick(
   content: ContentSet = sim.content,
   owned = true,
   click: 'settlers' | 'riders' = 'settlers',
-): Promise<{ issued: Command[]; ordered: boolean }> {
+): Promise<{ issued: Command[]; ordered: boolean; flashed: [number, TargetFlashTone][] }> {
   const issued: Command[] = [];
+  const flashed: [number, TargetFlashTone][] = [];
   const snapshot = sim.snapshot();
   const pickable: Pickable = { ref: building, x: 0, y: 0 };
   const targets: UnitTargets = {
@@ -147,13 +149,14 @@ async function pressRightClick(
     openActions: () => {},
     askAttachTradeHouse: (trader, house) =>
       Promise.resolve(sim.canAttachTradeHouse(trader as Entity, house as Entity)),
+    flashTarget: (entity, tone) => flashed.push([entity, tone]),
   });
   const ordered =
     click === 'settlers'
       ? controller.issueRightClick(CLICK)
       : controller.issueRiderTradeHouse(CLICK, null, () => undefined);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  return { issued, ordered };
+  return { issued, ordered, flashed };
 }
 
 /** The sandbox watchtower's short-bow seats (`logicworker 40 3`). */
@@ -396,7 +399,7 @@ describe('a right-click that orders nobody', () => {
     const woman = settlerAt(sim, null);
     sim.world.add(woman, Female, { female: true });
 
-    expect(await pressRightClick(sim, [woman], school)).toEqual({ issued: [], ordered: false });
+    expect(await pressRightClick(sim, [woman], school)).toEqual({ issued: [], ordered: false, flashed: [] });
   });
 
   it('reports nothing when the foundation takes none of the selection', async () => {
@@ -405,7 +408,7 @@ describe('a right-click that orders nobody', () => {
     const woman = settlerAt(sim, null);
     sim.world.add(woman, Female, { female: true });
 
-    expect(await pressRightClick(sim, [woman], site)).toEqual({ issued: [], ordered: false });
+    expect(await pressRightClick(sim, [woman], site)).toEqual({ issued: [], ordered: false, flashed: [] });
   });
 
   it('takes no hero into a home, a workplace or a barracks, and still posts the man beside him', async () => {
@@ -427,17 +430,29 @@ describe('a right-click that orders nobody', () => {
       expect(await pressRightClick(sim, [hero], building, heroContent)).toEqual({
         issued: [],
         ordered: false,
+        flashed: [],
       });
     }
     const posted = postedWorkers(await rightClick(sim, [hero, idle], standing, heroContent), standing);
     expect(posted.map((w) => w.entity)).toEqual([idle]);
   });
 
-  it('reports the order a building did take', async () => {
+  it('reports the order a building did take and flashes the building green', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const home = buildingAt(sim, BUILDING_HOME_00, ONE);
 
-    expect((await pressRightClick(sim, [settlerAt(sim, null)], home)).ordered).toBe(true);
+    const press = await pressRightClick(sim, [settlerAt(sim, null)], home);
+    expect(press.ordered).toBe(true);
+    expect(press.flashed).toEqual([[home, 'assign']]);
+  });
+
+  it('flashes a foundation green once a builder takes it', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const site = siteAt(sim, bakery(sim).typeId);
+
+    expect((await pressRightClick(sim, [settlerAt(sim, JOB_BUILDER)], site)).flashed).toEqual([
+      [site, 'assign'],
+    ]);
   });
 });
 
@@ -588,6 +603,7 @@ describe('right-clicking a standing house with a trader', () => {
     expect(await pressRightClick(sim, [ship], home, sim.content, true, 'riders')).toEqual({
       issued: [],
       ordered: false,
+      flashed: [],
     });
   });
 

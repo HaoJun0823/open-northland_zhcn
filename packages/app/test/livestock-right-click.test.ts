@@ -100,7 +100,7 @@ describe('right-clicking a claimable animal', () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const flashed: [number, TargetFlashTone][] = [];
     rightClick(sim, [settlerAt(sim, JOB_SCOUT)], { flashed });
-    expect(flashed).toEqual([[ANIMAL, 'claim']]);
+    expect(flashed).toEqual([[ANIMAL, 'order']]);
   });
 
   it('flashes nothing when no scout takes the claim', () => {

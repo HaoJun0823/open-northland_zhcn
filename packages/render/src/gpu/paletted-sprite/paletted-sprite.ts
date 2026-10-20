@@ -118,10 +118,9 @@ export class PalettedSprite extends Mesh<MeshGeometry, Shader> {
     this.vars.update();
   }
 
-  /** Lift `amount` (0..1) towards white, or towards the alert red when `alert`. */
-  setSelectionLight(amount: number, alert: boolean): void {
+  /** Lift `amount` (0..1) towards the colour of `tone`, a code from `LIFT_TONE_CODE` (0 is white). */
+  setSelectionLight(amount: number, tone: number): void {
     const u = this.vars.uniforms.uSelection;
-    const tone = alert ? 1 : 0;
     if (u[0] === amount && u[1] === tone) return;
     u[0] = amount;
     u[1] = tone;

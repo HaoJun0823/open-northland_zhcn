@@ -2,6 +2,7 @@ import { Container, Matrix, type ObservablePoint, type Texture } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
 import {
+  LIFT_TONE_CODE,
   type SelectionStyle,
   selectionLight,
   type TargetFlash,
@@ -9,16 +10,17 @@ import {
 } from '../selection-style.js';
 import { OutlineSprite, SelectionGraphics } from '../sprite-selection-effect.js';
 import type { TextureCache } from '../texture-cache.js';
-import { OUTLINE_DIRECTIONS, SELECTION_ALERT, SELECTION_STAMP } from '../world-batch-shader.js';
+import { OUTLINE_DIRECTIONS, SELECTION_STAMP, SELECTION_TONE_BAND } from '../world-batch-shader.js';
 import { worldBatched } from '../world-batcher.js';
 import type { PooledEntity } from './pooled-entity.js';
 
-/** How far an entity's colours lift, towards white or, `alert`, towards red. */
+/** How far an entity's colours lift, and towards which tone's colour ({@link LIFT_TONE_CODE}). */
 interface Light {
   readonly amount: number;
-  readonly alert: boolean;
+  readonly tone: number;
 }
-const UNLIT: Light = { amount: 0, alert: false };
+const WHITE = LIFT_TONE_CODE.order;
+const UNLIT: Light = { amount: 0, tone: WHITE };
 
 // Artistic choice: a narrow ivory core and a dark outer keyline for changing terrain contrast.
 // Draw each pass over the whole body before the next; individual layers must not border one another.
@@ -52,8 +54,8 @@ export class SelectionEffects {
       const flashed = flash === undefined ? 0 : targetFlashLight(flash.progress);
       const light: Light =
         flashed > 0
-          ? { amount: flashed, alert: flash?.tone === 'attack' }
-          : { amount: style === 'pulse' ? selectionLight(seconds) : 0, alert: false };
+          ? { amount: flashed, tone: flash === undefined ? WHITE : LIFT_TONE_CODE[flash.tone] }
+          : { amount: style === 'pulse' ? selectionLight(seconds) : 0, tone: WHITE };
       this.light(pe, light);
       if (light.amount === 0) this.lit.delete(pe);
       else this.lit.set(pe, light);
@@ -161,13 +163,13 @@ export class SelectionEffects {
     for (const [pe, light] of this.lit) this.light(pe, visible ? light : UNLIT);
   }
 
-  private light(pe: PooledEntity, { amount, alert }: Light): void {
-    const effect = alert && amount > 0 ? SELECTION_ALERT + amount : amount;
+  private light(pe: PooledEntity, { amount, tone }: Light): void {
+    const effect = amount > 0 ? tone * SELECTION_TONE_BAND + amount : 0;
     for (let i = 0; i < pe.sprites.length; i++) {
       const sprite = pe.sprites[i];
       if (sprite === undefined) continue;
       const excluded = (!pe.paletted && pe.pickExempt[i]) || ('glow' in sprite && sprite.glow === true);
-      if (sprite instanceof PalettedSprite) sprite.setSelectionLight(excluded ? 0 : amount, alert);
+      if (sprite instanceof PalettedSprite) sprite.setSelectionLight(excluded ? 0 : amount, tone);
       else sprite.selectionEffect = excluded ? 0 : effect;
     }
     if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = effect;

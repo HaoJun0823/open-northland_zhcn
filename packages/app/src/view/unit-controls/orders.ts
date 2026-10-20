@@ -94,7 +94,7 @@ export interface UnitOrderDeps {
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
   /** Acknowledges a walk or march on the ground where it was aimed; absent, nothing is drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
-  /** Flashes the target of a claim or an attack once; absent, nothing is drawn. */
+  /** Flashes an order's target once; absent, nothing is drawn. */
   readonly flashTarget?: ((entity: number, tone: TargetFlashTone) => void) | undefined;
 }
 
@@ -367,7 +367,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       const tile = worldToTile(world.x, world.y, deps.elevation);
       const walk = (unworn: readonly FormationUnit[]): boolean =>
         issueWalkOrder(tile, unworn, 'moveUnit', true, new Set(deps.drivenVehicles?.()));
-      if (pileGood !== undefined && wearFromGround(walkers, pileGood, walk, true)) return true;
+      if (pile !== null && pileGood !== undefined && wearFromGround(walkers, pile, pileGood, walk, true))
+        return true;
       return walk(walkers);
     }
     // The scouts go after a claimable animal; the rest take the ladder, which strikes an enemy's animal.
@@ -383,10 +384,11 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     // A chest nobody selected may open is walked to like any ground.
     if (chest !== null && openChest(rest, chest)) return true;
     if (
+      pile !== null &&
       pileGood !== undefined &&
       systems.isFoodIn(deps.content, systems.edibleGoodFormOf(deps.content, pileGood))
     ) {
-      return enqueueArmyOrder(
+      const eating = enqueueArmyOrder(
         {
           kind: 'unitActionGroup',
           members: rest.map((unit) => ({ entity: unit.ref as Entity })),
@@ -395,6 +397,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         deps.enqueue,
         onOrderLimit,
       );
+      if (eating) deps.flashTarget?.(pile, 'order');
+      return eating;
     }
     const aim: RightClickAim = {
       house: onBuilding ?? pickTopAt(deps.targets.buildings(), world.x, world.y),
@@ -403,8 +407,9 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       tile: worldToTile(world.x, world.y, deps.elevation),
     };
     if (
+      pile !== null &&
       pileGood !== undefined &&
-      wearFromGround(rest, pileGood, (unworn) => rightClickRest(event, unworn, aim))
+      wearFromGround(rest, pile, pileGood, (unworn) => rightClickRest(event, unworn, aim))
     ) {
       return true;
     }
@@ -504,7 +509,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         walkers.push(unit);
       }
     }
-    enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
+    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(site, 'assign');
     if (walkers.length > 0) issueWalkOrder(tile, walkers, 'moveUnit');
     return true;
   };
@@ -562,6 +567,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     const rest = commanded.filter((target) => !crew.has(target.ref) && takesBuilding(target.ref));
     if (def !== undefined && systems.isSchoolType(def)) {
       const ordered = enqueueUnitSelection(pending, deps.enqueue, onOrderLimit);
+      if (ordered) deps.flashTarget?.(building, 'assign');
       if (rest.length === 0) return ordered;
       const opened = openSchool(
         building,
@@ -601,6 +607,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       deps.enqueue({ kind: 'assignWorkerGroup', building: building as Entity, members: workers });
       ordered = true;
     }
+    if (ordered) deps.flashTarget?.(building, 'assign');
     return ordered;
   };
 
@@ -701,7 +708,9 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         ...(queued ? { queued } : {}),
       });
     }
-    return enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
+    const sent = enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
+    if (sent) deps.flashTarget?.(chest, 'order');
+    return sent;
   };
 
   /** Send every commanded scout after `animal`, queued behind its current order when `queued`, and flash
@@ -727,7 +736,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         ...(queued ? { queued } : {}),
       });
     }
-    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(animal, 'claim');
+    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(animal, 'order');
     return others;
   };
 
@@ -743,6 +752,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
    */
   const wearFromGround = (
     commanded: readonly FormationUnit[],
+    pile: number,
     goodType: number,
     onNoneWears: (commanded: readonly FormationUnit[]) => void,
     queued = false,
@@ -769,7 +779,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         { goodType, group },
         { skipReturn: true, queued },
       );
-      enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
+      if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(pile, 'order');
       if (commands.length === 0) onNoneWears(commanded);
     });
     return true;

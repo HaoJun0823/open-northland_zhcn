@@ -227,6 +227,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     cue,
     answered,
     ...(opts.attachPicksVersion !== undefined ? { answersVersion: opts.attachPicksVersion } : {}),
+    flashTarget: targetFlashes.flash,
   });
 
   const selectionCursor = createSelectionCursor({

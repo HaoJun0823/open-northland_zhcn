@@ -1,4 +1,4 @@
-import type { OrderMarkerKind } from '@open-northland/render';
+import type { OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
 import { type Command, fx, MAX_UNIT_ORDER_MEMBERS, type WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HUMAN_PLAYER } from '../src/game/rules.js';
@@ -155,6 +155,7 @@ const landed = (): Promise<void> => new Promise((resolve) => setTimeout(resolve,
 function harness(selected: readonly number[], arms: Arms) {
   const issued: Command[] = [];
   const marked: [Tile, OrderMarkerKind][] = [];
+  const flashed: [number, TargetFlashTone][] = [];
   const targets = targetsOf(arms);
   const controller = createVehicleOrderController({
     answered: createAnsweredOrders(),
@@ -169,6 +170,7 @@ function harness(selected: readonly number[], arms: Arms) {
     askMoorAt: answering(arms.canMoorAt),
     askAttachToVehicle: answering(arms.canAttachToVehicle),
     markOrder: (node, kind) => marked.push([node, kind]),
+    flashTarget: (entity, tone) => flashed.push([entity, tone]),
   });
   const pickMode = createPickModeController({
     answered: createAnsweredOrders(),
@@ -186,7 +188,7 @@ function harness(selected: readonly number[], arms: Arms) {
     setArmedCursor: () => undefined,
     canAttachToVehicle: arms.canAttachToVehicle,
   });
-  return { issued, controller, pickMode, marked };
+  return { issued, controller, pickMode, marked, flashed };
 }
 
 const rightClick = { clientX: CLICK.x, clientY: CLICK.y, button: 2 } as MouseEvent;
@@ -209,12 +211,13 @@ describe('vehicle right-click defaults', () => {
   });
 
   it('loads a land vehicle into an own moored ship ahead of striking, and never into one at sea', () => {
-    const { issued, controller } = harness([CATAPULT], {
+    const { issued, controller, flashed } = harness([CATAPULT], {
       ...ALL_UNDER,
       enemies: [under(ENEMY_CART, 'vehicle')],
     });
     expect(controller.issueRightClick(rightClick)).toBe(true);
     expect(issued).toEqual([{ kind: 'loadIntoVehicle', vehicle: CATAPULT, carrier: SHIP }]);
+    expect(flashed).toEqual([[SHIP, 'order']]);
 
     const atSea = harness([CATAPULT], {
       enemies: [under(ENEMY_CART, 'vehicle')],
@@ -224,6 +227,7 @@ describe('vehicle right-click defaults', () => {
     expect(atSea.issued).toEqual([
       { kind: 'attackWithVehicle', vehicle: CATAPULT, target: { kind: 'entity', entity: ENEMY_CART } },
     ]);
+    expect(atSea.flashed).toEqual([[ENEMY_CART, 'attack']]);
   });
 
   it('drives an unarmed cart to the spot even over an enemy, since its attack order would be dropped', () => {
@@ -370,6 +374,7 @@ describe('right-click attach', () => {
     expect(h.controller.issueAttachSelected(rightClick, () => undefined)).toBe(true);
     await landed();
     expect(h.issued).toEqual([{ kind: 'attachToVehicle', entity: OWN_SETTLER, vehicle: SHIP }]);
+    expect(h.flashed).toEqual([[SHIP, 'order']]);
   });
 
   it('yields to an own settler or an enemy drawn over the vehicle, the crew waiting at its door', () => {
@@ -400,6 +405,7 @@ describe('right-click attach', () => {
     expect(refused.controller.issueAttachSelected(rightClick, () => handedOn++)).toBe(true);
     await landed();
     expect(refused.issued).toEqual([]);
+    expect(refused.flashed).toEqual([]);
     expect(handedOn).toBe(1);
   });
 });

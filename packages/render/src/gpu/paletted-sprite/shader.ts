@@ -1,7 +1,7 @@
 import { MeshGeometry, Shader, type TextureSource } from 'pixi.js';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art-magnify.js';
 import type { GlslProgramSource } from '../program-source.js';
-import { ALERT_LIFT_GLSL } from '../selection-style.js';
+import { LIFT_COLOURS_GLSL } from '../selection-style.js';
 
 const VERTEX = `#version 300 es
 in vec2 aPosition; // native bob pixels (already offset by the frame's draw origin)
@@ -42,7 +42,7 @@ uniform vec2 uColorKey;     // .x > 0.5: key magenta; .y: near-black mode (0 off
 uniform vec4 uFrameUV;      // the current frame's atlas-UV box (min.xy, max.zw) - for the 'round' corner key
 uniform vec4 uSilhouette;   // .rgb: flat override colour, .w > 0.5: silhouette mode on (see the setter)
 uniform vec2 uSampling;     // .x: 0 nearest / 1 xbr
-uniform vec2 uSelection;   // .x: lift, 0..1; .y > 0.5: towards the alert red instead of white
+uniform vec2 uSelection;   // .x: lift, 0..1; .y: the lift's tone code, an index into LIFT_COLOURS
 uniform vec4 uTint;         // .rgb multiplies the LUT colour; white draws it straight
 uniform vec2 uAtlasSize;    // the indexed atlas's size in px
 uniform vec4 uClothRanges;  // two inclusive palette-index ranges (loA, hiA, loB, hiB) that are cloth
@@ -66,8 +66,10 @@ bool isCloth(float index) {
          (index >= uClothRanges.z && index <= uClothRanges.w);
 }
 
+${LIFT_COLOURS_GLSL}
+
 vec3 selectionLift() {
-  return uSelection.y > 0.5 ? ${ALERT_LIFT_GLSL} : vec3(1.0);
+  return LIFT_COLOURS[clamp(int(uSelection.y + 0.5), 0, LIFT_TONES - 1)];
 }
 
 // Wind in the cloth at atlas uv: a travelling wave slides the weave sideways inside the cloth's own

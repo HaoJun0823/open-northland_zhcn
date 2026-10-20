@@ -1,0 +1,32 @@
+{
+  "reason": "Przycisk budowania nie leży w pasku menu po lewej stronie ekranu: w naszej grze to \"Buduj\", pierwszy z lewej na pasku na dole ekranu (klawisz B bez zmian). Miejsce budowy wskazuje się LEWYM przyciskiem myszy; prawy przycisk odwołuje stawianie budynku. Zbędny cudzysłów na końcu zdania (błąd autora). Zbieranie gliny, drewna i kamienia to jeden zawód Zbieracz, a surowiec wybiera się ikoną w panelu postaci. Poprawione są też błędy gramatyczne i literówki. Przerwa w pracy nie dowodzi wyczerpania surowców: potrzeby również przerywają pracę. Ręczne przeniesienie obszaru pracy to nazwany rozkaz i lewy przycisk na wolnym terenie; początkowa flaga powstaje automatycznie przy zbieraczu. Zawód zbieracza może otrzymać dorosły mężczyzna.",
+  "file": "maps/community/tutorial_003/text/eng/briefings/briefings.txt",
+  "sha256": "48c0d131a1045c30f9089a90aa61ead511271deb6cd981bd308e7f95bd516e65",
+  "encoding": "utf-8",
+  "lines": [
+    {
+      "from": "Click on the building symbol (house with hammer) in the menu bar on the left-hand side of the screen or press \"b\" on your keyboard, then select the farm from the list. The ground will then darken, except where it is possible to erect a farm. Click with the RIGHT MOUSE BUTTON on any light location of your choice. Your builders will pick a building site to work at on their own, but you can also assign them to particular constructions if necessary.",
+      "to": "Click the \"Build\" button (the first one on the left of the bar at the bottom of the screen) or press \"b\" on your keyboard, then select the farm from the list. The ground will then darken, except where it is possible to erect a farm. Click with the LEFT MOUSE BUTTON on any light location of your choice. Your builders will pick a building site to work at on their own, but you can also assign them to particular constructions if necessary."
+    },
+    {
+      "from": "Build a well close to the place where you will build your bakery later on. There is still room directly in front of the headquarters. It's a nice spot and you can save building space for your really big buildings.\"",
+      "to": "Build a well close to the place where you will build your bakery later on. There is still room directly in front of the headquarters. It's a nice spot and you can save building space for your really big buildings."
+    },
+    {
+      "from": "EXTRACTORS are the basic workers for any building. At the beginning they collect clay, wood or stone. With the necessary experience, they can also extract gold, ore and mushrooms. ",
+      "to": "EXTRACTORS supply the basic resources for construction. At the beginning they collect clay, wood or stone. With the necessary experience, they can also extract gold, ore and mushrooms. "
+    },
+    {
+      "from": "Since you'll definitely need extractors, choose one of your Viking civilians, press the SPACEBAR or RIGHT-CLICK and assign him the profession of a clay-worker. You should make sure that his work area is over a clay pit so he can start working. If your extractor has nothing to do later on in the game, that will be because all the raw materials have been exploited. When this happens, just give him a different job. ",
+      "to": "Since you'll need extractors, select one of your adult male Vikings, press SPACE or right-click him, choose \"Change Profession\", then \"Extractor\". In his character panel, click the clay icon to make him collect that resource. Make sure a clay pit is within his work area. To move the work area, choose \"Assign Work Area\" from the action menu and LEFT-click free ground near the clay. If your extractor stops working, check his needs and work area. The resources may have run out; in that case, move the work area or give him a different job. "
+    },
+    {
+      "from": "Now employ a WOODCUTTER and a STONE COLLECTOR.",
+      "to": "Now give two more Vikings the EXTRACTOR profession. In one character panel, click the wood icon; in the other, click the stone icon."
+    },
+    {
+      "from": "Give two of your Vikings the job of a woodcutter and a stone collector respectively.",
+      "to": "Give two more Vikings the extractor profession: have one collect wood and the other stone."
+    }
+  ]
+}

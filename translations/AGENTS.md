@@ -40,16 +40,17 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
 
 - An overlay language (`chs`, `cht`) may overlay anything. A source language (`pol`, `eng`, `ger`,
   `rus`) may overlay only a community map (pack provenance `mod` or `user`, or a catalogue archive);
-  the pipeline refuses a source-language overlay on a campaign map, an object table or a book, because
-  that would be a committed copy of the original text. Those keep `tools/asset-pipeline/corrections/`.
+  the pipeline refuses a source-language overlay on a campaign map, on the original game's tutorials
+  the mod bundles (`tutorial_001` to `tutorial_007`), on an object table and on a book, because that
+  would be a committed copy of the original text. Those keep `tools/asset-pipeline/corrections/`.
 - When the pack or archive ships the overlay's language itself, the shipped text wins and the
   translations audit lists the overlay as redundant, unless the overlay's basis is that language.
 - An overlay whose basis is its own language is the project's edit of a community map's text: a typo,
   a wrong instruction, a name that disagrees with the rest of the map. It carries only the edited ids
-  and labels, each with its whole corrected string or block body. A structural repair of the
-  `briefings.txt` it rests on (a block marker, a broken tag) stays a correction, as do an added id the
-  source lacks and the edits of a map whose `map.dat` another folder shares: an overlay is filed under
-  that digest and would edit both. `tools/asset-pipeline/AGENTS.md` lists what stays a correction.
+  and labels, each with its whole corrected string or block body.
+  [`tools/asset-pipeline/AGENTS.md`](../tools/asset-pipeline/AGENTS.md) lists what stays a correction
+  instead. The audit reads the pack as shipped, so an overlay block that a structural correction
+  repairs can warn that its tags differ from the source; the pipeline log is the authority for it.
 - `basis` records the language and the digest of the decoded source text the overlay was written
   against. A changed source under an unchanged overlay is an audit warning, not a build failure.
 - A map takes, per language, the overlay of its `map.dat` whose `basis.digest` matches its own text
@@ -65,8 +66,7 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
   schema, only the changed keys, `map` and the file name as the overlay it edits, `basis` the shipped
   text in the language it was translated from. The loader attaches it to the imported overlay and the
   pipeline applies its entries over the overlay's when its basis matches the map's text, else leaves
-  it out with a warning. The audit warns when a map edit does not cover every key of the project's
-  source-language edit of the same text. A re-import rewrites `<name>.json` and leaves the edit alone.
+  it out with a warning. A re-import rewrites `<name>.json` and leaves the edit alone.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
 - Every string an overlay changes keeps the source's markup: `@` goal prefixes, `<picture:…>` and
   other tags inside a briefing block, `%s`-style placeholders.
@@ -74,23 +74,13 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
 ## Tools and checks
 
 `tools/translations/` holds the import from CulturesGameLocalization, the skeleton extractor for a
-map archive, and the audit. `npm run check:translations` validates every overlay against its schema
-and, with the unpacked pack present, reports redundant overlays, stale bases, keys the source lacks,
-values that do not keep the source's markup and values still equal to the source text.
+map archive, the Traditional Chinese derivation and the audit; their commands and flags are in
+[DEVELOPMENT.md](../docs/DEVELOPMENT.md#translation-overlays). Two rules follow from them:
 
-`npm run translations:skeleton -- <archive or folder> --lang <lang>` writes
-`<lang>/maps/<map>.<map.dat prefix>.json` for each map it holds, every value the basis text: replace
-each in place and delete the ones left untranslated, which fall back to the source anyway. When the
-plain file holds an overlay of other text, the skeleton takes the variant name, since an older text of
-this map and a copy sharing its alias look alike; `--force` replaces only a file of the same basis
-text. Copies with the same text share one file.
+- A `cht` file marked `derived: "chs"` is an OpenCC conversion of its `chs` file: edit the `chs` file
+  and rerun `npm run translations:derive-cht`, never the derived file. An imported or hand-written
+  `cht` file carries no mark and the command keeps it.
+- Copies of a map with the same text share one overlay file; the skeleton extractor takes a variant
+  name only for other text of the same `map.dat` and alias.
 
-`npm run translations:derive-cht` writes the `cht/maps/` and `cht/objects/` twin of every
-project-written `chs` file of those folders (map overlays and edits, object table edits) as an OpenCC
-conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`. It rewrites only files
-carrying that mark, and deletes one whose `chs` file is gone; an imported or hand-written `cht` file
-is kept. Edit the `chs` file and rerun the command, never the derived file.
-
-The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
-maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image
-([API](../docs/API.md#translation-overlays)).
+The catalogue API applies the same overlays to catalogue maps ([API](../docs/API.md#translation-overlays)).

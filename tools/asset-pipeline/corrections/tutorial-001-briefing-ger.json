@@ -1,0 +1,92 @@
+{
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny. Przed wymarszem grupa otrzymuje zapowiedź wskazówek o drogowskazach; Kari jest kobietą i jej imię po polsku pozostaje nieodmienne. Drogowskazy łączą się tylko w obrębie własnego gracza; instrukcja wymaga ciągłego własnego szlaku aż do wioski.",
+  "file": "maps/community/tutorial_001/text/ger/briefings/briefings.txt",
+  "sha256": "f1bcc738ac66d6b14930cc567d91e0e011ba83f8809392f83270ab1c886b3e76",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "(Durch einen Klick auf das Fähnchensymbol links in der Menüleiste kannst du dir dieses und alle nachfolgenden Fenster noch einmal anschauen.)",
+      "to": "(Durch einen Klick auf den Button \"Mission\" in der Leiste am unteren Bildschirmrand oder mit der Taste F1 kannst du dir dieses und alle nachfolgenden Fenster noch einmal anschauen.)"
+    },
+    {
+      "from": "Um ihn anzuwählen, klicke einfach mit der linken Maustaste auf ihn. Die Figur fängt an, leicht zu blinken, und es erscheint das Figurenfenster am rechten Bildschirmrand.",
+      "to": "Um ihn anzuwählen, klicke einfach mit der linken Maustaste auf ihn. Die Figur bekommt einen hellen Umriss, und es erscheint das Figurenfenster in der rechten unteren Bildschirmecke."
+    },
+    {
+      "from": "Wenn du mit einem ausgewählten Wikinger einen RECHTSKLICK auf ein Arbeitsgebäude ausführst, beginnt er in diesem Gebäude zu arbeiten und übernimmt auch automatisch den entsprechenden Beruf, sofern er die Fähigkeit besitzt ihn auszuführen. Klickst du mit rechts auf ein Wohngebäude, wird dein Wikinger sich dort einquartieren, insofern eine Wohnung frei ist. Wählst du mit einem Rechtsklick eine unbebaute Stelle, läuft dein Zögling direkt dort hin. Die HINWEISTEXTE am Mauszeiger geben Rückmeldung über die entsprechende Aktion. ",
+      "to": "Wenn du mit einem ausgewählten Wikinger einen RECHTSKLICK auf ein Arbeitsgebäude ausführst, beginnt er in diesem Gebäude zu arbeiten und übernimmt auch automatisch den entsprechenden Beruf, sofern er die Fähigkeit besitzt, ihn auszuführen. Klickst du mit rechts auf ein Wohngebäude, wird dein Wikinger sich dort einquartieren, insofern eine Wohnung frei ist. Wählst du mit einem Rechtsklick eine unbebaute Stelle, läuft dein Zögling direkt dorthin. Die Karte am Mauszeiger zeigt dir, über welchem Gebäude oder welcher Figur er sich befindet. "
+    },
+    {
+      "from": "Möchtest du automatisch scrollen, sobald du mit den Mauszeiger auf den BILDSCHIRMRAND triffst, musst du dieses im OPTIONSMENÜ (F2) einstellen. Dieses findest du über den Button mit den Werkzeugen in der Leiste am linken Bildschirmrand. Drücke dann auf EINGABE und du kannst im mittleren Bereich des Fensters den Scrollmodus einstellen.",
+      "to": "Das automatische Scrollen, sobald du mit dem Mauszeiger auf den BILDSCHIRMRAND triffst, ist von Anfang an eingeschaltet. Ausschalten kannst du es im SPIELMENÜ (Taste ESC oder der runde Button rechts oben am Bildschirm): wähle Einstellungen und dann den Reiter Spiel."
+    },
+    {
+      "from": "Oftmals ist es leichter und schneller über Tastaturkürzel Befehle auszuführen. Die Tastaturbelegung (F 1) im HILFESYSTEM gibt dir darüber Auskunft.",
+      "to": "Oftmals ist es leichter und schneller, über Tastaturkürzel Befehle auszuführen. Die Tastaturbelegung findest du im SPIELMENÜ (ESC) unter Einstellungen, im Reiter Steuerung. Dort kannst du sie auch ändern."
+    },
+    {
+      "from": "Eine Gruppe stellst du zusammen, indem du die SHIFT-Taste gedrückt hältst, die gewünschten Wikinger (auf der Karte oder aus jedem beliebigen Fenster) mit der linken Maustaste einzeln anklickst und somit der Gruppe hinzufügen.",
+      "to": "Eine Gruppe stellst du zusammen, indem du die SHIFT-Taste gedrückt hältst, die gewünschten Wikinger auf der Karte mit der linken Maustaste einzeln anklickst und somit der Gruppe hinzufügst."
+    },
+    {
+      "from": "Mit dem Drücken der STRG-Taste kannst du die einzelnen Wikinger wieder aus der Auswahl entfernen.",
+      "to": "Ein erneuter Klick mit gedrückter SHIFT-Taste entfernt einen Wikinger wieder aus der Auswahl. Im Fenster Untertanen (F2) fügst du Wikinger mit gedrückter STRG-Taste hinzu oder entfernst sie."
+    },
+    {
+      "from": "Wenn du auf das Fähnchensymbol in der Menüleiste am linken Bildschirmrand klickst, öffnet sich das Missionsfenster. In ihm kannst du alle Aufträge und Hinweise nachlesen und dir deine Ziele in Kurzform anschauen. Das Hauptziel, falls vorhanden, hebt sich etwas von den anderen Zielen ab. ",
+      "to": "Wenn du auf den Button \"Mission\" in der Leiste am unteren Bildschirmrand klickst (oder F1 drückst), öffnet sich das Missionsfenster. In ihm kannst du alle Aufträge und Hinweise nachlesen und dir deine Ziele in Kurzform anschauen. Das Hauptziel, falls vorhanden, hebt sich etwas von den anderen Zielen ab. "
+    },
+    {
+      "from": "Ein nochmaliger Klick auf das Fähnchensymbol schließt das Fenster.",
+      "to": "Ein nochmaliger Klick auf den Button \"Mission\" (oder F1) schließt das Fenster."
+    },
+    {
+      "from": "Wähle ihn dazu aus und klicke auf das \"Baue Wegweiser\" - Symbol in seinem Aktionsmenü. Mit einen Klick auf die rechte Maustaste kannst du einen Wegweiser auf die nun hell erleuchteten Flächen setzen. Achte darauf, dass die Wegweiser stets verbunden sind! Dies erkennst du daran, dass die Schilder in die entsprechenden Richtungen zeigen.",
+      "to": "Wähle ihn dazu aus und klicke auf das \"Baue Wegweiser\" - Symbol in seinem Aktionsmenü. Klicke dann mit der linken Maustaste auf die Stelle, an der der Wegweiser stehen soll; Flächen, auf die er nicht gesetzt werden kann, sind abgedunkelt. Achte darauf, dass die Wegweiser stets verbunden sind! Dies erkennst du daran, dass die Schilder in die entsprechenden Richtungen zeigen. Baue eine durchgehende Kette eigener Wegweiser bis ins Dorf; Wegweiser befreundeter Spieler verbinden sich nicht mit deinen."
+    },
+    {
+      "from": "Im OPTIONSMENÜ (F2) kannst du das Spiel jederzeit NEU STARTEN, BEENDEN und auch SPEICHERN. ",
+      "to": "Im SPIELMENÜ (Taste ESC oder der runde Button rechts oben am Bildschirm) kannst du das Spiel jederzeit SPEICHERN, LADEN und BEENDEN. "
+    },
+    {
+      "from": "Übrigens: einen Befehl wieder abbrechen oder eine Figur deselektieren kannst du, indem du mit der linken Maustaste auf eine beliebige leere Stelle auf der Landschaft drückst.",
+      "to": "Übrigens: eine Figur deselektieren kannst du, indem du mit der linken Maustaste auf eine beliebige leere Stelle auf der Landschaft drückst. Einen Befehl, der auf die Wahl einer Stelle wartet (etwa \"Senden nach\" oder das Aufstellen eines Wegweisers), brichst du mit der rechten Maustaste oder der Taste ESC ab."
+    },
+    {
+      "from": "Dieses Tutorial soll dir einen ersten Überblick über die Benutzerführung geben und wie man sich in der Spielwelt bewegt. Es wird dir die Auswahl und Steuerung deiner Figuren und andere wesentliche Funktionen wie: ",
+      "to": "Dieses Tutorial soll dir einen ersten Überblick über die Benutzerführung geben und zeigen, wie man sich in der Spielwelt bewegt. Es wird dir die Auswahl und Steuerung deiner Figuren und andere wesentliche Funktionen wie: "
+    },
+    {
+      "from": "Knut ist arbeitslos hat den ganzen Tag nichts zu tun. ",
+      "to": "Knut ist arbeitslos und hat den ganzen Tag nichts zu tun. "
+    },
+    {
+      "from": "Wenn du Knut eine Anweisung geben willst, wähle ihn aus und drücke anschließend die Leertaste oder wähle ihn sofort mit einem rechten Maustastenklick aus und es erscheint ein Menü. Mit einem Linksklick auf die Aktionen entscheidest du, ob ein Wikinger einen neuen Beruf ausüben, heiraten, eine Wohnung beziehen, in die Schule gehen oder den Arbeitsplatz und Ausrüstung wechseln soll.",
+      "to": "Wenn du Knut eine Anweisung geben willst, wähle ihn aus und drücke anschließend die Leertaste oder wähle ihn sofort mit einem rechten Maustastenklick aus und es erscheint ein Menü. Mit einem Linksklick auf die Aktionen entscheidest du, ob ein Wikinger einen neuen Beruf ausüben, heiraten, eine Wohnung beziehen, in die Schule gehen oder den Arbeitsplatz und die Ausrüstung wechseln soll."
+    },
+    {
+      "from": "Also: Gib Knut ein Dach über den Kopf und lass ihn als Farmer in der Farm arbeiten!",
+      "to": "Also: Gib Knut ein Dach über dem Kopf und lass ihn als Farmer in der Farm arbeiten!"
+    },
+    {
+      "from": "Drücke die Taste \"l\" auf der Tastatur, um die Spielgeschwindigkeit zu verdoppeln. Drücke nochmals \"l\" um die Spielgeschwindigkeit zu verdreifachen, und nochmals, um die normale Geschwindigkeit wieder herzustellen.",
+      "to": "Drücke die Taste \"l\" auf der Tastatur, um die Spielgeschwindigkeit zu verdoppeln. Drücke nochmals \"l\", um die Spielgeschwindigkeit zu verdreifachen, und nochmals, um die normale Geschwindigkeit wiederherzustellen."
+    },
+    {
+      "from": "Oftmals haben deine Wikinger Probleme mit der Orientierung, dann bietet es sich an, von einem Kundschafter Wegweiser bauen zu lassen, das sich auch wirklich niemand verläuft!",
+      "to": "Oftmals haben deine Wikinger Probleme mit der Orientierung, dann bietet es sich an, von einem Kundschafter Wegweiser bauen zu lassen, damit sich auch wirklich niemand verläuft!"
+    },
+    {
+      "from": "GUT GEMACHT! Knut hat nun ein Dach übern Kopf!",
+      "to": "GUT GEMACHT! Knut hat nun ein Dach überm Kopf!"
+    },
+    {
+      "from": "Suche in der Umgebung nach einer Frau!",
+      "to": "Suche in der Umgebung nach einer Frau! Wähle Knut aus und schicke ihn zu der Frau südlich der Farm. Falls das Gelände noch im Nebel liegt, schicke Knut dorthin, um es zu erkunden; allein das Verschieben des Bildausschnitts deckt die Karte nicht auf."
+    },
+    {
+      "from": "Probier dies aus. Schicke Ljotolf, Thorbjorn, Kari, Groa und Ulla ins Dorf der Ägypter!",
+      "to": "Probier dies aus. Schicke Ljotolf, Thorbjorn, Kari, Groa und Ulla ins Dorf der Ägypter! Die Gruppe braucht möglicherweise Wegweiser vom Kundschafter. Sobald der Kundschafter aufbricht, folgen weitere Hinweise."
+    }
+  ]
+}

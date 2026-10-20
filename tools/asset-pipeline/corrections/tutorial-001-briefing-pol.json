@@ -1,0 +1,80 @@
+{
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie tylko odznacza postać (nie anuluje rozkazu); rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Zamieszkanie dotyczy budynku mieszkalnego, nie dowolnego budynku. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny. Przed wymarszem grupa otrzymuje zapowiedź wskazówek o drogowskazach; Kari jest kobietą i jej imię po polsku pozostaje nieodmienne. Drogowskazy łączą się tylko w obrębie własnego gracza; instrukcja wymaga ciągłego własnego szlaku aż do wioski.",
+  "file": "maps/community/tutorial_001/text/pol/briefings/briefings.txt",
+  "sha256": "ea91c4f5f95c655626285e08e1d5697b2c0413d50f4ca0352b81890a9e5db877",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "(Kliknij na symbolu flagi na lewo od paska menu, aby ponownie wyświetlić to i następne okienka.)",
+      "to": "(Kliknij na przycisk Misja na pasku na dole ekranu lub wciśnij klawisz F1, aby ponownie wyświetlić to i następne okienka.)"
+    },
+    {
+      "from": "Aby go wybrać, po prostu kliknij na nim lewym przyciskiem myszy. Postać zacznie lekko migać, a blisko prawej krawędzi ekranu pojawi się okienko postaci.",
+      "to": "Aby go wybrać, po prostu kliknij na nim lewym przyciskiem myszy. Postać zostanie otoczona jasną obwódką, a w prawym dolnym rogu ekranu pojawi się okienko postaci."
+    },
+    {
+      "from": "Jeśli KLIKNIESZ PRAWYM PRZYCISKIEM MYSZY na miejsce pracy mając wybranego Wikinga, wówczas Wiking zacznie pracować w tym budynku automatycznie wybierając odpowiedni zawód, oczywiście pod warunkiem, że posiada umiejętność jego wykonywania. Jeśli klikniesz prawym przyciskiem myszy na budynku, twój Wiking wprowadzi się tam, oczywiście o ile jest w nim jeszcze wolne miejsce. Jeśli klikniesz prawym przyciskiem myszy na wolnym miejscu na mapie, wówczas twój protegowany natychmiast tam się uda. Okienko podpowiedzi pojawiające się przy wskaźniku myszy dostarczają opinię na temat odpowiedniej akcji. ",
+      "to": "Jeśli KLIKNIESZ PRAWYM PRZYCISKIEM MYSZY na miejsce pracy mając wybranego Wikinga, wówczas Wiking zacznie pracować w tym budynku automatycznie wybierając odpowiedni zawód, oczywiście pod warunkiem, że posiada umiejętność jego wykonywania. Jeśli klikniesz prawym przyciskiem myszy na budynku mieszkalnym, twój Wiking wprowadzi się tam, oczywiście o ile jest w nim jeszcze wolne miejsce. Jeśli klikniesz prawym przyciskiem myszy na wolnym miejscu na mapie, wówczas twój protegowany natychmiast tam się uda. Karta pojawiająca się przy wskaźniku myszy podpowiada, nad jakim budynkiem lub postacią się znajdujesz. "
+    },
+    {
+      "from": "Jeśli chcesz, aby ekran przesuwał się automatycznie po najechaniu wskaźnikiem myszy na KRAWĘDŹ EKRANU, musisz ustawić tą opcję w menu OPCJE (F2). Menu OPCJE możesz również wywołać przez kliknięcie na przycisku z rysunkiem narzędzi, który znajduje się na pasku po lewej stronie ekranu. Wówczas wciśnij klawisz ENTER i po środku ekranu ustaw tryb przewijania.",
+      "to": "Przewijanie ekranu po najechaniu wskaźnikiem myszy na KRAWĘDŹ EKRANU jest domyślnie włączone. Możesz je wyłączyć w MENU GRY (klawisz ESC lub okrągły przycisk w prawym górnym rogu ekranu): wybierz Ustawienia, a następnie zakładkę Rozgrywka."
+    },
+    {
+      "from": "Często łatwiej i szybciej jest wydawać komendy przez klawisze skrótu. Więcej informacji na temat konfiguracji klawiszy dostaniesz w SYSTEMIE POMOCY (F1).",
+      "to": "Często łatwiej i szybciej jest wydawać komendy przez klawisze skrótu. Listę klawiszy skrótu znajdziesz w MENU GRY (ESC) w Ustawieniach, na zakładce Sterowanie. Możesz je tam również zmienić."
+    },
+    {
+      "from": "Grupę możesz stworzyć wciskając klawisz SHIFT, a następnie dodając do grupy kolejnych Wikingów poprzez klikanie na nich lewym przyciskiem myszy (na mapie lub w okienku, według uznania).",
+      "to": "Grupę możesz stworzyć, przytrzymując klawisz SHIFT i dodając do grupy kolejnych Wikingów poprzez klikanie na nich lewym przyciskiem myszy na mapie."
+    },
+    {
+      "from": "Wciskając klawisz CTRL możesz ponownie wyłączyć z grupy wybranego Wikinga.",
+      "to": "Ponowne kliknięcie z wciśniętym klawiszem SHIFT na wybranym Wikingu wyłącza go z grupy. W oknie poddanych (F2) dodajesz i usuwasz Wikingów, klikając na nich z wciśniętym klawiszem CTRL."
+    },
+    {
+      "from": "Jeśli klikniesz na symbol flagi na pasku zadań po lewej stronie ekranu, otworzy się okno misji. Tutaj możesz przeczytać wszystkie rozkazy i wskazówki oraz zobaczyć streszczone główne cele misji. Cel główny, jeśli będzie dostępny, będzie się nieco wyróżniać od pozostałych celów. ",
+      "to": "Jeśli klikniesz na przycisk Misja na pasku na dole ekranu (lub wciśniesz klawisz F1), otworzy się okno misji. Tutaj możesz przeczytać wszystkie rozkazy i wskazówki oraz zobaczyć streszczone główne cele misji. Cel główny, jeśli będzie dostępny, będzie się nieco wyróżniać od pozostałych celów. "
+    },
+    {
+      "from": "Ponowne kliknięcie na symbolu flagi zamknie okno.",
+      "to": "Ponowne kliknięcie na przycisk Misja (lub klawisz F1) zamknie okno."
+    },
+    {
+      "from": "Aby postawić drogowskaz, wybierz Ljotolfa i kliknij na symbolu \"Postaw drogowskaz\" w menu Wikinga. Klikając prawym przyciskiem myszy możesz postawić drogowskaz w jakimkolwiek, podświetlonym miejscu. Upewnij się, że drogowskazy zawsze się łączą! Jest to sygnalizowane przez fakt, że znaki pokazują właściwe kierunki.",
+      "to": "Aby postawić drogowskaz, wybierz Ljotolfa i kliknij na symbolu \"Postaw drogowskaz\" w menu Wikinga. Następnie kliknij lewym przyciskiem myszy w miejscu, gdzie ma stanąć drogowskaz; miejsca, w których nie można go postawić, są przyciemnione. Upewnij się, że drogowskazy zawsze się łączą! Jest to sygnalizowane przez fakt, że znaki pokazują właściwe kierunki. Połącz własne drogowskazy w nieprzerwany szlak do wioski; znaki przyjaznych graczy nie łączą się z twoimi."
+    },
+    {
+      "from": "Możesz wybrać PONOWNE ROZPOCZĘCIE gry, WYJŚCIE z gry oraz ZAPIS gry w dowolnym momencie, wybierając odpowiednią opcję z menu OPCJE (Aby wywołać menu OPCJE, wciśnij klawisz F2). ",
+      "to": "Możesz ZAPISAĆ grę, WCZYTAĆ ją oraz WYJŚĆ z gry w dowolnym momencie, wybierając odpowiednią opcję z MENU GRY (Aby wywołać MENU GRY, wciśnij klawisz ESC lub kliknij okrągły przycisk w prawym górnym rogu ekranu). "
+    },
+    {
+      "from": "Przy okazji: Możesz anulować rozkaz lub odznaczyć postać poprzez kliknięcie lewym przyciskiem myszy na jakimkolwiek wolnym miejscu na ekranie gry.",
+      "to": "Przy okazji: Możesz odznaczyć postać poprzez kliknięcie lewym przyciskiem myszy na jakimkolwiek wolnym miejscu na ekranie gry. Rozkaz, który czeka na wskazanie miejsca (np. \"Idź do\" albo stawianie drogowskazu), anulujesz prawym przyciskiem myszy albo klawiszem ESC."
+    },
+    {
+      "from": "W tym samouczku znajdziesz pierwszy opis interfejsu użytkownika oraz dowiesz się, jak poruszać się po świecie gry. Dowiesz się również, jak wybierać i kontrolować swoje postaci, oraz jak używać następujących, podstawowych funkcji: ",
+      "to": "W tym samouczku znajdziesz pierwszy opis interfejsu użytkownika oraz dowiesz się, jak poruszać się po świecie gry. Dowiesz się również, jak wybierać i kontrolować swoje postaci oraz jak używać następujących podstawowych funkcji: "
+    },
+    {
+      "from": "aby dwukrotnie zwiększyć prędkość gry, wciśnij klawisz \"l\" na klawiaturze. Ponowne wciśnięcie klawisz \"l\" zwiększa trzykrotne prędkość gry. Jeśli teraz raz jeszcze wciśniesz klawisz \"l\", wówczas przywrócisz normalną prędkość gry.",
+      "to": "Aby dwukrotnie zwiększyć prędkość gry, wciśnij klawisz \"l\" na klawiaturze. Ponowne wciśnięcie klawisza \"l\" zwiększa trzykrotnie prędkość gry. Jeśli teraz raz jeszcze wciśniesz klawisz \"l\", wówczas przywrócisz normalną prędkość gry."
+    },
+    {
+      "from": "Twoja para Wikingów ma gości! Spotkaj się z Ljotolfem, Thorbjornem, Kari and Groa.",
+      "to": "Twoja para Wikingów ma gości! Odwiedź Ljotolfa, Thorbjorna, Kari i Groę."
+    },
+    {
+      "from": "Jeśli wybrałeś grupę, którą będziesz używać częściej, możesz zapisać ją wciskając klawisz CTRL i klawisz z cyfrą od 0 do 9. Aby wybrać tą grupę ponownie, wystarczy że wciśniesz odpowiedni klawisz z cyfrą. Grupa może być kontrolowana w ten sam sposób, co pojedyncza postać.",
+      "to": "Jeśli wybrałeś grupę, której będziesz używać częściej, możesz zapisać ją, wciskając klawisz CTRL i klawisz z cyfrą od 0 do 9. Aby wybrać tę grupę ponownie, wystarczy, że wciśniesz odpowiedni klawisz z cyfrą. Grupa może być kontrolowana w ten sam sposób, co pojedyncza postać."
+    },
+    {
+      "from": "Wypróbuj tworzenie grupy. Wyślij Ljotolfa, Thorbjorna, Kari, Groa i Ullę do wioski!",
+      "to": "Wypróbuj tworzenie grupy. Wyślij Ljotolfa, Thorbjorna, Kari, Groę i Ullę do wioski! Grupa może potrzebować drogowskazów ustawionych przez zwiadowcę. Wskazówki pojawią się, gdy zwiadowca wyruszy."
+    },
+    {
+      "from": "Znajdź mu kobietę w okolicy!",
+      "to": "Znajdź mu kobietę w okolicy! Wybierz Knuta i podejdź nim do kobiety na południe od farmy. Jeśli teren jest jeszcze zasłonięty, wyślij tam Knuta, aby go odkrył; samo przesuwanie widoku nie odkrywa terenu."
+    }
+  ]
+}

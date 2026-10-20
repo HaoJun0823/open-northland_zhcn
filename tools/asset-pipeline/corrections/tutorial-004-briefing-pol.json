@@ -1,0 +1,96 @@
+{
+  "reason": "U nas przycisk rozbudowy w panelu budynku nazywa się ROZBUDUJ (skrót R) i jest widoczny zawsze; nieaktywny, dopóki ludzie nie zdobędą potrzebnej wiedzy, a materiały na rozbudowę donoszą się dopiero po jej rozpoczęciu (plac budowy dla budowniczych), nie trzeba ich mieć wcześniej. Wyrób wybiera się przyciskiem towaru w sekcji PRODUKCJA panelu osadnika, nie w zakładce PRODUKT/PRACA. Poprawione są też błędy gramatyczne, literówki i nazwy wyrobów. Meble nie są skórzane, marmur powstaje z kamienia, a zwiadowca może schwytać zwierzęta. Naczynia powstają już w warsztacie garncarskim 2. Strona i cel uczą wyboru naczyń w sekcji PRODUKCJA i wyprodukowania przynajmniej jednej sztuki, zamiast niedostępnej kolejnej rozbudowy.",
+  "file": "maps/community/tutorial_004/text/pol/briefings/briefings.txt",
+  "sha256": "46cea421d38a6f52ec617c7c705d0610c31648a9d1a6944533c2ad319e2ea49d",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Ulepsz WARSZTAT GARNCARSKI! Aby tego dokonać, otwórz okienko budynku klikając na warsztat garncarski. Kliknij na przycisk ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone.",
+      "to": "Ulepsz WARSZTAT GARNCARSKI! Aby tego dokonać, otwórz okienko budynku, klikając na warsztat garncarski. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie."
+    },
+    {
+      "from": "Ulepsz WARSZTAT GARNCARSKI 2! Aby tego dokonać, otwórz okienko budynku klikając na warsztat garncarski. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone.",
+      "to": "Jeśli warsztat nie ma jeszcze poziomu 2, najpierw ukończ jego rozbudowę. Wybierz garncarza pracującego w WARSZTACIE GARNCARSKIM 2 i kliknij aktywny przycisk z naczyniami w sekcji PRODUKCJA jego panelu. Wyprodukuj co najmniej jedną sztukę naczyń!"
+    },
+    {
+      "from": "Ulepsz WARSZTAT KAMIENIARSKI! Aby tego dokonać, otwórz okienko budynku klikając na warsztat kamieniarski. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone.",
+      "to": "Ulepsz WARSZTAT KAMIENIARSKI! Aby tego dokonać, otwórz okienko budynku, klikając na warsztat kamieniarski. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie."
+    },
+    {
+      "from": "Ulepsz WARSZTAT CIESIELSKI! Aby tego dokonać, otwórz okienko budynku klikając na warsztat ciesielski. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do modernizacji środki zostaną zgromadzone. ",
+      "to": "Ulepsz WARSZTAT CIESIELSKI! Aby tego dokonać, otwórz okienko budynku, klikając na warsztat ciesielski. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie. "
+    },
+    {
+      "from": "Ulepsz WARSZTAT CIESIELSKI 2! Aby tego dokonać, otwórz okienko budynku klikając na warsztat ciesielski. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone. ",
+      "to": "Ulepsz WARSZTAT CIESIELSKI 2! Aby tego dokonać, otwórz okienko budynku, klikając na warsztat ciesielski. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie. "
+    },
+    {
+      "from": "Ulepsz WARSZTAT CIESIELSKI 3! Aby tego dokonać, otwórz okienko budynku klikając na warsztat ciesielski. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone. ",
+      "to": "Ulepsz WARSZTAT CIESIELSKI 3! Aby tego dokonać, otwórz okienko budynku, klikając na warsztat ciesielski. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie. "
+    },
+    {
+      "from": "Ulepsz KUŹNIĘ! Aby tego dokonać, otwórz okienko budynku klikając na kuźnię. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone. ",
+      "to": "Ulepsz KUŹNIĘ! Aby tego dokonać, otwórz okienko budynku, klikając na kuźnię. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie. "
+    },
+    {
+      "from": "Ulepsz ZAKŁAD KRAWIECKI! Aby tego dokonać, otwórz okienko budynku klikając na zakład krawiecki. Kliknij na przycisk \"ROZPOCZNIJ ULEPSZANIE\". Przycisk pojawi się tylko wtedy, gdy wszystkie wymagane do ulepszenia środki zostaną zgromadzone. ",
+      "to": "Ulepsz ZAKŁAD KRAWIECKI! Aby tego dokonać, otwórz okienko budynku, klikając na zakład krawiecki. Kliknij na przycisk \"ROZBUDUJ\" (lub naciśnij R). Przycisk jest aktywny dopiero wtedy, gdy twoi ludzie zdobędą potrzebną wiedzę. Wymagane do ulepszenia środki zostaną doniesione na plac rozbudowy, a ulepszenie wykonają twoi budowniczowie. "
+    },
+    {
+      "from": "Aby garncarz produkował dachówki, wybierz go i kliknij na przycisk obok dachówek w zakładce PRODUKT. Wówczas automatycznie zmieni produkcję na nowy wyrób. ",
+      "to": "Aby garncarz produkował dachówki, wybierz go i kliknij na przycisk z dachówkami w sekcji PRODUKCJA jego panelu. Wówczas automatycznie zmieni produkcję na nowy wyrób. "
+    },
+    {
+      "from": "Aby kamieniarz produkował marmur, wybierz go i kliknij na przycisk obok marmuru w zakładce PRODUKT. Wówczas automatycznie zmieni produkcję na nowy wyrób. ",
+      "to": "Aby kamieniarz produkował marmur, wybierz go i kliknij na przycisk z marmurem w sekcji PRODUKCJA jego panelu. Wówczas automatycznie zmieni produkcję na nowy wyrób. "
+    },
+    {
+      "from": "Aby cieśla produkował meble, wybierz go i kliknij na przycisk obok mebli w zakładce PRODUKT. Wówczas automatycznie zmieni produkcję na nowy wyrób. ",
+      "to": "Aby cieśla produkował meble, wybierz go i kliknij na przycisk z meblami w sekcji PRODUKCJA jego panelu. Wówczas automatycznie zmieni produkcję na nowy wyrób. "
+    },
+    {
+      "from": "Aby krawiec produkował skórzane zbroje, wybierz go i kliknij na przycisk obok skórzanej zbroi w zakładce PRODUKT. Wówczas automatycznie zmieni produkcję na nowy wyrób. ",
+      "to": "Aby krawiec produkował skórzane zbroje, wybierz go i kliknij na przycisk ze skórzaną zbroją w sekcji PRODUKCJA jego panelu. Wówczas automatycznie zmieni produkcję na nowy wyrób. "
+    },
+    {
+      "from": "Zbieracze posiadają zawody, które nie wymagają konkretnego miejsca pracy. Tak jak produkowane towary, tak samo możesz zmieniać wydobywane przez nich surowce. Oczywiście pod warunkiem, że robotnik jest dostatecznie doświadczony, oraz że jest dostępne odpowiednie miejsce pracy. ",
+      "to": "Zbieracze posiadają zawody, które nie wymagają konkretnego miejsca pracy. Tak jak produkowane towary, tak samo możesz zmieniać wydobywane przez nich surowce. Oczywiście pod warunkiem, że robotnik jest dostatecznie doświadczony oraz że jest dostępne odpowiednie miejsce pracy. "
+    },
+    {
+      "from": "Garncarz zdobył wystarczająco dużo doświadczenia wyrabiając cegły dla twoich Wikingów i teraz jest już gotów, aby produkować dachówki. ",
+      "to": "Garncarz zdobył wystarczająco dużo doświadczenia, wyrabiając cegły dla twoich Wikingów, i teraz jest już gotów, aby produkować dachówki. "
+    },
+    {
+      "from": "Powinieneś ulepszyć warsztat kamieniarski. Aby wyrabiać z obrobionego kamienia marmur, twój kamieniarz potrzebuje warsztatu kamieniarskiego 2. Jednakże ulepszenie warsztatu kamieniarskiego wymaga użycia cegieł, które mogą być wyprodukowane tylko w warsztacie garncarskim 1.",
+      "to": "Powinieneś ulepszyć warsztat kamieniarski. Aby wyrabiać z kamienia marmur, twój kamieniarz potrzebuje warsztatu kamieniarskiego 2. Jednakże ulepszenie warsztatu kamieniarskiego wymaga użycia cegieł, które mogą być wyprodukowane tylko w warsztacie garncarskim 1."
+    },
+    {
+      "from": "Od DRWALA DO CIEŚLI",
+      "to": "OD DRWALA DO CIEŚLI"
+    },
+    {
+      "from": "Cieśla zdobył dostateczne doświadczenie, aby produkować statki kupieckie. To wymaga ponownego ulepszenia warsztatu ciesielskiego. W następnym kursie gry powinieneś pamiętać, że budowanie statków kupieckich wymaga postawienia warsztatu ciesielskiego blisko wybrzeża. ",
+      "to": "Cieśla zdobył dostateczne doświadczenie, aby produkować statki kupieckie. To wymaga ponownego ulepszenia warsztatu ciesielskiego. W dalszej grze pamiętaj, że budowanie statków kupieckich wymaga postawienia warsztatu ciesielskiego blisko wybrzeża. "
+    },
+    {
+      "from": "Hodowca bydła potrzebuje fermy bydła, która powinna być wybudowana w pobliżu pasących się zwierząt. Zwierzęta te mogą być odszukane przez zwiadowcę. ",
+      "to": "Hodowca bydła potrzebuje fermy bydła, która powinna być wybudowana w pobliżu pasących się zwierząt. Zwierzęta te mogą być schwytane przez zwiadowcę. "
+    },
+    {
+      "from": "ULEPSZANIE ZAKŁADU KRAWIECKIGO ",
+      "to": "ULEPSZANIE ZAKŁADU KRAWIECKIEGO "
+    },
+    {
+      "from": "Ulepszyłeś warsztat ciesielski, ale cieśla nie wie, że powinien produkować meble skórzane zamiast drewnianych narzędzi ...",
+      "to": "Ulepszyłeś warsztat ciesielski, ale cieśla nie wie, że powinien produkować meble zamiast drewnianych narzędzi ..."
+    },
+    {
+      "from": "ULEPSZANIE WARSZTATU GARNCARSKIEGO 2",
+      "to": "PRODUKCJA NACZYŃ"
+    },
+    {
+      "from": "Garncarz zdobył wystarczająco dużo doświadczenia w robieniu dachówek, aby teraz zacząć produkować naczynia. To wymaga ponownego ulepszenia warsztatu garncarskiego. ",
+      "to": "Garncarz ma już dość doświadczenia, aby produkować naczynia. Naczynia wytwarza w warsztacie garncarskim 2. "
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny. Przed wymarszem grupa otrzymuje zapowiedź wskazówek o drogowskazach; Kari jest kobietą i jej imię po polsku pozostaje nieodmienne. Drogowskazy łączą się tylko w obrębie własnego gracza; instrukcja wymaga ciągłego własnego szlaku aż do wioski.",
+  "file": "maps/community/tutorial_001/text/eng/briefings/briefings.txt",
+  "sha256": "2c91c98c4a0f7a48942dbbef4d3207a1790cba032593ecb367eae2d218464c5a",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "(Click on the flag symbol on the left of the menu bar to view this and any of the following windows again.)",
+      "to": "(Click the Mission button on the bar at the bottom of the screen or press F1 to view this and any of the following windows again.)"
+    },
+    {
+      "from": "To select him, simply left-click on him. The character will start flashing slightly and the character display will open near the right edge of the screen.",
+      "to": "To select him, simply left-click on him. The character will get a light outline and the character display will open in the lower right corner of the screen."
+    },
+    {
+      "from": "If you RIGHT-CLICK on a work place when you have selected a Viking, he will begin working in that building and will automatically take on the respective profession if he is skilled to perform it. If you right-click on a dwelling, your Viking will move in if there is still room available. If you choose a free place on the map by right-clicking, your protégé will go there directly. The TOOLTIPS that appear at your mouse pointer provide feedback on the respective action. ",
+      "to": "If you RIGHT-CLICK on a work place when you have selected a Viking, he will begin working in that building and will automatically take on the respective profession if he is skilled to perform it. If you right-click on a dwelling, your Viking will move in if there is still room available. If you choose a free place on the map by right-clicking, your protégé will go there directly. The card that appears at your mouse pointer tells you which building or character it is over. "
+    },
+    {
+      "from": "If you want to scroll automatically by moving the cursor to the EDGE OF THE SCREEN, you need to set this option in the OPTIONS MENU (F2). This can be accessed by clicking the button with the tools on it in the bar on the left-hand side of the screen. Then press ENTER and you can set the scroll mode in the middle of the screen.",
+      "to": "Scrolling by moving the cursor to the EDGE OF THE SCREEN is switched on by default. You can switch it off in the GAME MENU (ESC key or the round button in the top right corner of the screen): choose Settings, then the Gameplay tab."
+    },
+    {
+      "from": "It is often easier and quicker to enter commands via hotkeys. The key configuration (F1) in the HELP SYSTEM will give you more information about this.",
+      "to": "It is often easier and quicker to enter commands via hotkeys. You will find the list of hotkeys in the GAME MENU (ESC) under Settings, on the Controls tab. You can also change them there."
+    },
+    {
+      "from": "You can create a group by pressing the SHIFT key and left-clicking on individual Vikings (on the map or from a window of your choice) with the left mouse button to add them to the group.",
+      "to": "You can create a group by holding the SHIFT key and left-clicking on individual Vikings on the map to add them to the group."
+    },
+    {
+      "from": "By pressing the CTRL key, you can deselect the individual Vikings again.",
+      "to": "SHIFT-clicking a selected Viking again removes him from the group. In the Subjects window (F2) you add and remove Vikings by clicking them with the CTRL key held."
+    },
+    {
+      "from": "If you click on the flag symbol in the menu bar on the left-hand side of the screen, this will open the mission window. Here you can read any orders and hints and see your mission objectives summarised. The main objective, if applicable, will stand out slightly from the other objectives. ",
+      "to": "If you click the Mission button on the bar at the bottom of the screen (or press F1), this will open the mission window. Here you can read any orders and hints and see your mission objectives summarised. The main objective, if applicable, will stand out slightly from the other objectives. "
+    },
+    {
+      "from": "A second click on the flag symbol closes the window.",
+      "to": "A second click on the Mission button (or F1) closes the window."
+    },
+    {
+      "from": "To do so, select him and click on the \"Erect Signpost\" symbol in his menu. By right-clicking you can set a signpost on any space that is lit up. Make sure the signposts are always connected! This is indicated by the fact that signs point in the respective directions.",
+      "to": "To do so, select him and click on the \"Erect Signpost\" symbol in his menu. Then left-click where the signpost should stand; places where it cannot be set are darkened. Make sure the signposts are always connected! This is indicated by the fact that signs point in the respective directions. Build a continuous chain of your own signposts to the village; friendly players’ signposts will not connect to yours."
+    },
+    {
+      "from": "You can RESTART, EXIT and SAVE the game at any time from the OPTIONS MENU (F2). ",
+      "to": "You can SAVE, LOAD and EXIT the game at any time from the GAME MENU (press ESC or click the round button in the top right corner of the screen). "
+    },
+    {
+      "from": "By the way: You can cancel an order or deselect a character by left-clicking on any free space on the map.",
+      "to": "By the way: You can deselect a character by left-clicking on any free space on the map. An order that waits for you to point at a spot (such as \"Go To\" or erecting a signpost) is cancelled with the right mouse button or the ESC key."
+    },
+    {
+      "from": "If you have selected a group you may need more often, you can save it by pressing the CTRL key and a number key from 0 to 9. To select this group again, all you have to do it press the respective number key. A group can be controlled in the same way as an individual character.",
+      "to": "If you have selected a group you may need more often, you can save it by pressing the CTRL key and a number key from 0 to 9. To select this group again, all you have to do is press the respective number key. A group can be controlled in the same way as an individual character."
+    },
+    {
+      "from": "Find a woman for him in his surroundings!",
+      "to": "Find a woman for him in his surroundings! Select Knut and have him approach the woman south of the farm. If the ground is still hidden by fog, send Knut there to explore it; simply panning the view does not reveal the map."
+    },
+    {
+      "from": "Try it. Send Ljotolf, Thorbjorn, Kari, Groa and Ulla into the village!",
+      "to": "Try it. Send Ljotolf, Thorbjorn, Kari, Groa and Ulla into the village! The group may need signposts placed by the scout. Guidance will follow once the scout sets out."
+    }
+  ]
+}

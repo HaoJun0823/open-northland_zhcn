@@ -42,13 +42,15 @@ A text edit of a community map (a base map under `maps/community/`) is a same-la
 overlay, not a correction; [`translations/AGENTS.md`](../../translations/AGENTS.md) owns it. A
 correction keeps:
 
-- the text of a campaign map, which is original text no overlay may carry;
+- the text of a campaign map and of the original game's tutorials the mod bundles under
+  `maps/community/` (`tutorial_001` to `tutorial_007`), which is original text no source-language
+  overlay may carry; `stages/maps/provenance.ts` names them;
 - a structural repair of a `briefings.txt`: a duplicated, missing or misspelt `[blockstart:…]` or
   `[blockend:…]` marker, a stray character after one, a block split in two, a broken `<picture:…>`
   tag. A file that also edits prose keeps only the repair, re-pinned to the same hash, and the edited
   blocks go to the overlay;
-- the text of a community map whose `map.dat` another map folder shares, since an overlay filed under
-  that digest would edit both maps;
+- the text of a community map whose `map.dat` and text another map folder shares, since an overlay
+  applies to every copy that ships the text it was written against;
 - scripts, `map.cif`, `map.dat`, `.inc` and rule files, and the display tables (`strings/tables.json`).
 
 A correction the run did not apply fails the pipeline, including after a data release changes the
@@ -85,8 +87,8 @@ as mission goals kept in an encrypted `text/<lang>/strings.cif` that no line swa
 names `map` (the map id) instead of `table`; the maps stage swaps the decoded text before the meta,
 script and strings files read it, under the same `from` check and the same failure rule. A community
 map's entry is either an added id, which an overlay cannot add without the translations audit
-reporting a key the source lacks, or a map whose `map.dat` is shared; its other string edits belong
-in its overlay.
+reporting a key the source lacks, or a map whose text no overlay may carry (above); its other string
+edits belong in its overlay.
 
 ## Decoder work
 

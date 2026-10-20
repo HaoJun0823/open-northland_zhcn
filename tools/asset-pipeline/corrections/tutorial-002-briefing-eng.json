@@ -1,0 +1,78 @@
+{
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny. Śmierć Bjarniego w tej lekcji daje ponowną próbę; ostrzeżenie o porażce kampanii jest warunkowe.",
+  "file": "maps/community/tutorial_002/text/eng/briefings/briefings.txt",
+  "sha256": "49e81ce03dd855ba663225526b9cf396ed7be9a1eaa25eb0a420a10c32a9f680",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "line": 35,
+      "from": "If you move the cursor over Gunnhild, her outline will light up. Everything connected to this character will also flash: the home, partner, work place and children. This way you can see at a glance who belongs to her, where she lives and works and what paths she has to take. Moreover, the name, current profession and experience level of the highlighted character are indicated underneath the mouse pointer if this Viking is currently learning a profession.",
+      "to": "If you move the cursor over Gunnhild, a card with her name and current profession appears underneath the mouse pointer. When you select her, the character panel in the bottom right corner of the screen shows her home, work place, partner and children. Clicking the partner, a child or a building in that panel selects it straight away. This way you can see at a glance who belongs to her, where she lives and where she works."
+    },
+    {
+      "line": 37,
+      "from": "You'll see the same effect if you move the cursor over a building as well. All the characters who live or work in that building will flash.",
+      "to": "Buildings work the same way: when you select a building, its panel shows all the characters who live or work in it."
+    },
+    {
+      "line": 49,
+      "from": "Start with the NAME. Select Bjoern and click on his name in the character display. A small window will pop up where you can change his name. ",
+      "to": "If a character has a “Rename” button beside their name, you can use it to enter a new name and confirm with ENTER. Bjoern's name is fixed in this tutorial, so this exercise changes only his profession. "
+    },
+    {
+      "line": 79,
+      "from": "Your Vikings will tell you what they think is important via the parchments at the top of the screen! Red parchments are important, green ones are slightly less important. By holding CTRL and right-clicking, you can delete all the displayed messages.",
+      "to": "Your Vikings will tell you what they think is important via the messages in the top left corner of the screen! Messages with a red seal are urgent, an orange seal marks important ones and a green seal less important ones. By holding SHIFT and right-clicking a message, you can delete all the displayed messages."
+    },
+    {
+      "line": 86,
+      "from": "Some Vikings differ from your civilian population: They are stronger and faster than ordinary Vikings, they don't get hungry and they don't need to sleep. They don't have a profession either, because their profession is to be a HERO. Their exploration radius corresponds to that of a scout. Heroes mainly live a solitary life and there are not many of them in the world, but one of them will accompany you from the very start of the game. He is BJARNI - the son of a legendary Viking king of the past. ",
+      "to": "Some Vikings differ from your civilian population: They are stronger and faster than ordinary Vikings, they don't get hungry and they don't need to sleep. They don't have a profession either, because their profession is to be a HERO. Their exploration radius is almost as wide as that of a scout. Heroes mainly live a solitary life and there are not many of them in the world, but one of them will accompany you from the very start of the game. He is BJARNI - the son of a legendary Viking king of the past. "
+    },
+    {
+      "line": 92,
+      "from": "CHARACTER DISPLAY",
+      "to": "SUBJECTS WINDOW"
+    },
+    {
+      "line": 94,
+      "from": "If you lose a hero or another Viking, use the character display (F7) or click the button with the helmet and the question mark. There you can search for your characters according to different categories and select them.",
+      "to": "If you lose a hero or another Viking, open the subjects window (F2) or click the \"Subjects\" button on the bottom bar. There you can search for your characters according to different categories and select them."
+    },
+    {
+      "line": 107,
+      "from": "Fight the wolves in the swamp with Bjarni by selecting him and clicking on the animals with the RIGHT MOUSE BUTTON when the tooltip \"Bjarni - Attack animal\" appears!",
+      "to": "Fight the wolves in the swamp with Bjarni: select him, click on him with the RIGHT MOUSE BUTTON (or press SPACE), choose the order \"Attack Animal\" from the action menu and click on a wolf with the LEFT MOUSE BUTTON!"
+    },
+    {
+      "line": 24,
+      "from": "He is a woodcutter, and he is happy doing his job. He has a wife and a young child waiting for him at home after work.",
+      "to": "His profession is Extractor, and he gathers wood. He enjoys his work. He has a wife and a young child waiting for him at home after work."
+    },
+    {
+      "line": 45,
+      "from": "He'd like to have a wife as well, to live in a dwelling and add to the Viking tribe. He doesn't like his name and his profession either, and he'd much rather sit and fish all day. ",
+      "to": "He'd like to have a wife as well, to live in a dwelling and add to the Viking tribe. He doesn't like his profession, and he'd much rather sit and fish all day. "
+    },
+    {
+      "line": 47,
+      "from": "Give BJOERN a new identity! ",
+      "to": "Give BJOERN a new profession! "
+    },
+    {
+      "line": 59,
+      "from": "Marry RAGNA to the Viking who was called BJOERN, assign them the dwelling on the shore and let them have a child.",
+      "to": "Marry BJOERN to RAGNA. Marriage may move the couple into Ragna's existing home. After the wedding, select Bjoern and assign him to the empty house on the eastern shore, near where he first stood. Ragna moves with him. Once they live in that house, ask the couple to have a child."
+    },
+    {
+      "line": 90,
+      "from": "Beware! If a hero dies, you have failed your mission!",
+      "to": "Beware! In some campaign missions, a hero's death can mean defeat. In this tutorial, if Bjarni dies, you get another attempt."
+    },
+    {
+      "line": 113,
+      "from": "In the real game, your mission would have failed.",
+      "to": "In a mission that requires the hero to survive, this would mean defeat."
+    }
+  ]
+}

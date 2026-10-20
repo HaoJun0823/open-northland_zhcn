@@ -1,0 +1,112 @@
+{
+  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu; oferty obcego plemienia to wiersz Offer (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka, a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem. Poprawione są też błędy gramatyczne i literówki; wózki mieszczą odpowiednio 15 i 30 towarów, nie przedział ilości.",
+  "file": "maps/community/tutorial_005/text/eng/briefings/briefings.txt",
+  "sha256": "85489d80eec2fa7e2b3df707c300184447bc93ccab444253f27a41c7725ebca1",
+  "encoding": "utf-8",
+  "lines": [
+    {
+      "from": "When selecting a merchant his character display opens on the TRADE tab, where you can adjust the trade settings.",
+      "to": "When selecting a merchant, his character display shows the TRADE section, where you can adjust the trade settings."
+    },
+    {
+      "from": "The first thing you have to do is to assign two TRADE POSTS. To do so, click on the small round button next to \"Trade Post\" in the character display for every trade post, or click the button with the scales in the merchant's action menu, then click on the respective trade post. As with any worker, you can assign the merchant to a trade post by right-clicking.",
+      "to": "The first thing you have to do is to assign two TRADE POSTS. To do so, click on \"Add a trade post\" in the TRADE section for every trade post, then click on the respective highlighted building. You can also assign the selected merchant to a trade post by right-clicking the building."
+    },
+    {
+      "from": "Assign one merchant to two warehouses.",
+      "to": [
+        "Assign one merchant to two warehouses.",
+        "",
+        "A merchant only trades while he drives a cart. Right-click the merchant, choose \"Assign Vehicle\" and click on one of the carts next to the warehouse. Then click the button with the scales (\"Set up trade\") in the TRADE section, and in the trade window click the arrow next to the honey."
+      ]
+    },
+    {
+      "from": "If you don't give the merchant any order, he will transport any goods - in this case honey. ",
+      "to": "The merchant only transports the goods you choose in the trade window - in this case honey. "
+    },
+    {
+      "from": "If you have assigned two trade posts, you should \"EMPLOY MERCHANT\". To do so, click on the respective button in the merchant's character display.",
+      "to": "The merchant starts working by himself once he has two trade posts and a cart. The button with the scales (\"Set up trade\") in the TRADE section of the merchant's character display opens the trade window."
+    },
+    {
+      "from": "If you trade within your nation, a window will appear with both trade posts, and in the middle you will see a list of goods that can be traded. If you don't click on anything, the merchant will try to balance the stores of goods in the warehouses. The arrows next to the list stand for the direction in which the goods are taken as well as letting you choose goods. ",
+      "to": "If you trade within your nation, the trade window shows both trade posts, each with a list of its goods. As long as you don't click on any arrow, the merchant transports nothing. The arrow next to a good shows the direction in which it is taken to the other trade post, and clicking it chooses that good for transport. "
+    },
+    {
+      "from": "If you click on one or several arrows, only those goods will be transported whose arrows are active, i.e. lit up. ",
+      "to": "Only the goods you chose with the arrows are transported; you will find them in the \"Transfers\" list. Clicking an arrow while holding Ctrl balances the stores of that good between both trade posts. "
+    },
+    {
+      "from": "Select Thorfinn, Lodin or Ari and assign the northern warehouse as trade post 1 and the southern warehouse at the pottery as trade post 2! (If you want to select a different trade post, select the button \"Remove Trade Post\" and click on the trade post you no longer need to deselect it. Choose another one afterwards.)",
+      "to": "Select Thorfinn, Lodin or Ari and assign the northern warehouse as trade post A and the southern warehouse at the pottery as trade post B! (If you want to select a different trade post, click the cross next to the trade post you no longer need in the merchant's TRADE section. Choose another one afterwards.)"
+    },
+    {
+      "from": "Carts are a major advantage for carriers and merchants, because they can carry 10 to 20 goods respectively at the same time. Therefore, they can make a merchant far more effective. To use a cart, a carrier or merchant must be assigned to the vehicle so he can steer it. ",
+      "to": "Carts are a major advantage for carriers and merchants, because they can carry 15 and 30 goods respectively at the same time. Therefore, they can make a merchant far more effective. To use a cart, a carrier or merchant must be assigned to the vehicle so he can steer it. "
+    },
+    {
+      "from": "This can be done using the action button \"Assign Vehicle\". As soon as you have used this button, the possible vehicles (ship, handcart or ox cart) will light up. Click on one of the carts with the right mouse button to inform the Viking of your choice. ",
+      "to": "This can be done using the action button \"Assign Vehicle\" (right-click the Viking to open his action menu). As soon as you have used this button, the possible vehicles (ship, handcart or ox cart) will light up. Click on one of the carts with the left mouse button to inform the Viking of your choice. "
+    },
+    {
+      "from": "You can assign a cart to a Viking as a vehicle directly via the tooltip option by right-clicking.",
+      "to": "You can also select the Viking and right-click a cart to assign it to him as his vehicle directly."
+    },
+    {
+      "from": "If you trade with another people, you can choose the goods you want your merchant to trade from among one or several of your trading partner's offers. The left-hand side displays the goods the friendly tribe supplies. The right-hand side shows what they expect in exchange. ",
+      "to": "If you trade with another people, you can choose the goods you want your merchant to trade from among your trading partner's offers. Once the partner's house is one of the trade posts, its offers appear in the merchant's TRADE section, in the \"Offer\" row. The left-hand side of an offer shows what you give, the right-hand side what you receive in exchange. "
+    },
+    {
+      "from": "Left-click on the line with the respective offer. Your merchant will then try to trade these goods. ",
+      "to": "Left-click on the respective offer. Your merchant will then try to trade these goods. "
+    },
+    {
+      "from": "If you want to choose another trade post, click on the button \"Remove Trade Post\" and click on the respective trading partner to deselect him and choose the new trading partner.",
+      "to": "If you want to choose another trade post, click the cross next to that trade post in the merchant's TRADE section and choose the new trading partner."
+    },
+    {
+      "from": "To load goods on a ship, a CARRIER needs to be assigned to it. The administration of the ship's store is handled the same as for warehouses: With individual registers grouped by goods. Click on the ship and the respective plus signs of the desired good to set the minimum stock.",
+      "to": "Goods are loaded onto a ship by a CARRIER assigned to it or by the ship's commander. You manage the ship's cargo in the \"Hold\" section of its display: Click on the ship and on the plus sign next to the desired good (add a good that is not listed with \"Add a good\") to set how much of it should be on board."
+    },
+    {
+      "from": "Load at least 5 sacks of flour onto the ship and assign a CARRIER with a CART to it. (To do so, first assign the carrier a cart as his vehicle, then select the cart and assign it to the ship.)",
+      "to": "Load at least 5 sacks of flour onto the ship and bring a MERCHANT with a CART aboard. (To do so, first assign the merchant a cart as his vehicle, then select the cart, click \"Board a ship\" in its display and click on the ship.)"
+    },
+    {
+      "from": "Any adult Viking assigned to the ship can steer it - he will automatically become its commander! This is done via the action button \"ASSIGN VEHICLE\". As soon as you have clicked this button, the possible vehicles will light up. Right-click on a ship to inform the Viking about your choice. ",
+      "to": "Any adult Viking assigned to the ship can steer it - he will automatically become its commander! This is done via the action button \"ASSIGN VEHICLE\". As soon as you have clicked this button, the possible vehicles will light up. Left-click on a ship to inform the Viking about your choice. "
+    },
+    {
+      "from": "(You can assign a ship to a Viking as a vehicle directly via the tooltip option by right-clicking.)",
+      "to": "(You can also select the Viking and right-click a ship to assign it to him as his vehicle directly.)"
+    },
+    {
+      "from": "Steer the ship to the Saracens' shore as you would one of your Vikings by using the \"GO TO\" order. ",
+      "to": "Steer the ship to the Saracens' shore: select it and right-click on the water, as you would send one of your Vikings, or use the \"Sail to\" button in the ship's display. "
+    },
+    {
+      "from": "Select the ship and press the SPACEBAR. The ship's available actions will be indicated. Select \"Moor\" and right-click on one of the highlighted places on the shore. ",
+      "to": "Select the ship and click the \"Moor\" button in its display. Then left-click on one of the highlighted places on the shore. "
+    },
+    {
+      "from": "Unload the goods (by selecting the ship, pressing the spacebar and clicking on the button \"Unload All Goods\") and trade with the Saracens!",
+      "to": "Unload the goods (by selecting the ship and clicking \"Unload all\" in its \"Hold\" section), bring the merchant's cart ashore (button \"Leave the ship\" in the cart's display) and trade with the Saracens!"
+    },
+    {
+      "from": "Check if you have assigned the northern warehouse to the merchant as trade post 1 and another warehouse as trade post 2.",
+      "to": "Check if you have assigned the northern warehouse to the merchant as trade post A and another warehouse as trade post B, if the merchant drives a cart, and if you have chosen the honey with an arrow in the trade window."
+    },
+    {
+      "from": "In the meantime, our merchants can establish new trade relations with a Frankish people ...",
+      "to": "In the meantime, our merchants can establish new trade relations with the Franks ..."
+    },
+    {
+      "from": "To trade with another nation which has a FRIENDLY attitude towards you, you need an effective trade agreement, and the other people must have a WAREHOUSE. Both prerequisites are fulfilled by this tiny Frankish people on the north coast. Your merchants also need to be assigned a CART.",
+      "to": "To trade with another nation which has a FRIENDLY attitude towards you, you need an effective trade agreement, and the other people must have a WAREHOUSE. Both prerequisites are fulfilled by this tiny Frankish village on the north coast. Your merchants also need to be assigned a CART."
+    },
+    {
+      "from": "Trade 10 furniture with the Franks! You will receive 20 gold pieces in exchange.",
+      "to": "Trade 10 pieces of furniture with the Franks! You will receive 20 gold pieces in exchange."
+    }
+  ]
+}

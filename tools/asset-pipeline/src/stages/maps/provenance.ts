@@ -11,10 +11,17 @@ export function mapProvenanceKind(folder: string): MapProvenanceKind {
   return 'unknown';
 }
 
+/** The original game's tutorials, which the mod bundles under `maps/community/`: their text is the
+ *  original's, so its edits stay pipeline corrections. */
+const ORIGINAL_TUTORIAL_FOLDERS: ReadonlySet<string> = new Set(
+  ['001', '002', '003', '004', '005', '006', '007'].map((n) => `maps/community/tutorial_${n}`),
+);
+
 /** Whether a source-language translation overlay may apply to the map in `folder`: a community map's
- *  text is the pack's to edit, a loose map's may be the original's. */
+ *  text is the pack's to edit; a loose map's, and an original tutorial's, is the original's. */
 export function takesSourceLanguageOverlays(folder: string): boolean {
-  return mapProvenanceKind(folder) !== 'unknown';
+  const normalized = folder.toLowerCase().replace(/\/+$/, '');
+  return mapProvenanceKind(normalized) !== 'unknown' && !ORIGINAL_TUTORIAL_FOLDERS.has(normalized);
 }
 
 /** The provenance of the map whose file sits at mod-relative `rel`. */

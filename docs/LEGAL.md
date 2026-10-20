@@ -13,9 +13,9 @@ what the check cannot see, such as a probe dump or a capture in a text format. D
 graphics, rules, and audio are written under the ignored `content/` directory and never
 committed. The one exception is a pipeline correction: it quotes the few lines it replaces in one
 source file, so the pipeline can check that they still match. Most are script command lines, briefing
-block markers and display strings. A campaign map's text takes no overlay (see below), so a
-correction of a campaign briefing or goal still quotes the few lines of original prose it fixes,
-before and after the fix.
+block markers and display strings. Original text takes no source-language overlay (see below), so a
+correction of a campaign or tutorial briefing or goal still quotes the few lines of original prose it
+fixes, before and after the fix.
 
 The app bundles third-party typefaces in `packages/app/public/fonts/`: Alegreya Sans, Alegreya Sans SC,
 Cinzel and Noto Sans SC, under the SIL Open Font License 1.1. Their licence texts sit beside them as
@@ -28,11 +28,10 @@ serve as a committed copy of the imported text table. Ordinary shared vocabulary
 
 Third-party translations: fan translations are imported as JSON overlays under `translations/`, with
 each set's license and provenance recorded in [`translations/SOURCES.md`](../translations/SOURCES.md).
-An overlay holds only the translated text keyed by string id or block label. An overlay in a source
-language is the project's edit of a community map's text, never of a campaign map's; its edited
-passages are the project's wording, and for the mod's bundled tutorials, whose maps come from the
-original game, those passages rework the original's lines the way the pipeline corrections they
-replace did. The one exception is the glossary, `translations/glossary.csv` and
+An imported or project-written translation holds only the translated text keyed by string id or block
+label. An overlay in a source language is the project's edit of a community map's text: the edited
+ids and blocks in the project's wording, never a campaign map's or an original tutorial's text, which
+stay pipeline corrections. The one exception is the glossary, `translations/glossary.csv` and
 `translations/glossary-project.csv`: beside each Chinese term it keeps the German, English and Polish
 term it translates (names of characters, places, objects and maps).
 

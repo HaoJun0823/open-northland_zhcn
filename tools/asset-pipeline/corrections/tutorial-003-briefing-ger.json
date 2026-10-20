@@ -1,0 +1,48 @@
+{
+  "reason": "Przycisk budowania nie leży w pasku menu po lewej stronie ekranu: w naszej grze to \"Buduj\", pierwszy z lewej na pasku na dole ekranu (klawisz B bez zmian). Miejsce budowy wskazuje się LEWYM przyciskiem myszy; prawy przycisk odwołuje stawianie budynku. Zbędny cudzysłów na końcu zdania (błąd autora). Zbieranie gliny, drewna i kamienia to jeden zawód Zbieracz, a surowiec wybiera się ikoną w panelu postaci. Poprawione są też błędy gramatyczne i literówki. Przerwa w pracy nie dowodzi wyczerpania surowców: potrzeby również przerywają pracę. Ręczne przeniesienie obszaru pracy to nazwany rozkaz i lewy przycisk na wolnym terenie; początkowa flaga powstaje automatycznie przy zbieraczu. Zawód zbieracza może otrzymać dorosły mężczyzna.",
+  "file": "maps/community/tutorial_003/text/ger/briefings/briefings.txt",
+  "sha256": "ffe2c6b111a4bb9dbbf05a67f02368e97f010ea92375416d44efc643c671edf4",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Klicke dazu auf das Bausymbol (Haus mit Hammer) in der Menüleiste links am Rand deines Bildschirmes, oder auf das B auf deiner Tastatur. Wähle dann aus der Liste die Farm aus. Der Untergrund verdunkelt sich dann bis auf die Stellen, wo eine Farm errichtet werden kann. Klicke mit der RECHTEN MAUSTASTE auf eine helle Stelle deiner Wahl. Bauarbeiter suchen sich ihre Baustellen von alleine, aber du kannst sie auch speziellen Baustellen bei Bedarf zuweisen.",
+      "to": "Klicke dazu auf die Schaltfläche \"Bauen\" (ganz links in der Leiste am unteren Bildschirmrand), oder auf das B auf deiner Tastatur. Wähle dann aus der Liste die Farm aus. Der Untergrund verdunkelt sich dann bis auf die Stellen, wo eine Farm errichtet werden kann. Klicke mit der LINKEN MAUSTASTE auf eine helle Stelle deiner Wahl. Bauarbeiter suchen sich ihre Baustellen von alleine, aber du kannst sie auch speziellen Baustellen bei Bedarf zuweisen."
+    },
+    {
+      "from": "Baue deshalb einen Brunnen in der Nähe der Stelle, wo du nachher deine Bäckerei platzieren willst. Direkt vor dem Haupthaus ist noch Platz. Es sieht nett aus, und du sparst Bauplatz für die wirklich großen Gebäude.\"",
+      "to": "Baue deshalb einen Brunnen in der Nähe der Stelle, wo du nachher deine Bäckerei platzieren willst. Direkt vor dem Haupthaus ist noch Platz. Es sieht nett aus, und du sparst Bauplatz für die wirklich großen Gebäude."
+    },
+    {
+      "from": "Da du also Abbauer auf jeden Fall benötigst, wähle dazu einen deiner Wikingerzivilisten aus, drücke die LEERTASTE oder die RECHTE MAUSTASTE und weise ihnen den Beruf des Abbauers für Lehm zu. Damit er auch anfängt zu arbeiten, solltest du darauf acht geben, dass sein Arbeitsbereich auch über einer Lehmgrube ist. Hat dein Abbauer im späteren Spielverlauf einmal nichts zu tun, liegt das daran, dass die Rohstoffe abgeerntet sind. Weise ihm dann einfach einen neuen Arbeitsbereich zu. ",
+      "to": "Da du also Abbauer auf jeden Fall benötigst, wähle einen erwachsenen Mann aus deinem Wikingervolk aus, drücke die LEERTASTE oder klicke ihn mit der RECHTEN MAUSTASTE an und wähle „Wechsele Beruf“, dann „Abbauer“. Klicke in seinem Figurenfenster auf das Lehmsymbol, damit er diesen Rohstoff sammelt. Achte darauf, dass eine Lehmgrube in seinem Arbeitsbereich liegt. Um den Arbeitsbereich zu verlegen, wähle „Setze Arbeitsbereich“ im Aktionsmenü und klicke mit der LINKEN Maustaste auf freien Boden beim Lehm. Wenn dein Abbauer nicht mehr arbeitet, prüfe seine Bedürfnisse und seinen Arbeitsbereich. Vielleicht sind die Rohstoffe erschöpft; verlege dann den Arbeitsbereich oder weise ihm einen anderen Beruf zu. "
+    },
+    {
+      "from": "Nun beschäftige noch einen HOLZABBAUER und einen STEINABBAUER.",
+      "to": "Weise nun zwei weiteren Wikingern den Beruf ABBAUER zu. Klicke im Figurenfenster des einen auf das Holzsymbol und beim anderen auf das Steinsymbol."
+    },
+    {
+      "from": "Um Gebäude zu errichten, brauchst du natürlich Bauarbeiter. Wähle dazu einen deiner Wikingerzivilisten aus, drücke die LEERTASTE oder die RECHTE MAUSTASTE und weise ihnen den Beruf des Bauarbeiters zu.",
+      "to": "Um Gebäude zu errichten, brauchst du natürlich Bauarbeiter. Wähle dazu einen deiner Wikingerzivilisten aus, drücke die LEERTASTE oder die RECHTE MAUSTASTE und weise ihm den Beruf des Bauarbeiters zu."
+    },
+    {
+      "from": "Nur wenn der Lehmabbauer genug Lehm produziert hat, ist es möglich eine Farm zu bauen. ",
+      "to": "Nur wenn der Lehmabbauer genug Lehm produziert hat, ist es möglich, eine Farm zu bauen. "
+    },
+    {
+      "from": "Versorge die Leute mit SCHUHEN, dann läuft es sich besser und schneller. Gleiches gilt für Strassen.",
+      "to": "Versorge die Leute mit SCHUHEN, dann läuft es sich besser und schneller. Gleiches gilt für Straßen."
+    },
+    {
+      "from": "Errichte die Mühle in die Nähe der Farm, von der sie den Weizen zum Mahlen des Mehls bekommt.",
+      "to": "Errichte die Mühle in der Nähe der Farm, von der sie den Weizen zum Mahlen des Mehls bekommt."
+    },
+    {
+      "from": "Dann lass jemand anderes als Farmer arbeiten, um die Weizenproduktion aufrecht zu erhalten.",
+      "to": "Dann lass jemand anderes als Farmer arbeiten, um die Weizenproduktion aufrechtzuerhalten."
+    },
+    {
+      "from": "Einigen Arbeitsstätten kannst du TRÄGER oder Händler zuweisen, während wir auf den Müller warteten. Sie können dem Handwerker viel Arbeit abnehmen, damit dieser sich voll der Produktion von Waren widmen kann. ",
+      "to": "Einigen Arbeitsstätten kannst du TRÄGER oder Händler zuweisen, während wir auf den Müller warten. Sie können dem Handwerker viel Arbeit abnehmen, damit dieser sich voll der Produktion von Waren widmen kann. "
+    }
+  ]
+}

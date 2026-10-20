@@ -1,0 +1,92 @@
+{
+  "reason": "U nas tragarza, zwiadowcę i kupca wysyła się do koszar przyciskiem \"Przydziel miejsce nauki\" (prawy klik na koszarach zatrudnia tragarza jako tragarza koszar); każdy dorosły mężczyzna poza bohaterami może się tam szkolić, trening nic nie kosztuje i nie daje doświadczenia (żołnierze zdobywają je w walce). Ekwipunek daje się też klawiszem I i polami w panelu osadnika. Katapultę robi warsztat ciesielski 4, a wehikuł wybiera się lewym kliknięciem. Wszystkich żołnierzy zaznacza klawisz M, grupę buduje się SHIFT. Tryb ignorowania nie wstrzymuje jedzenia i snu. Do wieży przydziela się tylko łuczników (koszary i magazyn główny nie biorą żołnierzy). Okno dyplomacji otwiera przycisk Dyplomacja na dolnym pasku i pokazuje listę plemion, nie mapę; trybut płaci się przyciskiem Zapłać. Plemię nie staje się wrogie od ataku, bo atakować można tylko wroga; komputer odpowiada na ustawiony stosunek. Poprawione są też błędy gramatyczne, literówki i nazwy przycisków. Zwykli żołnierze nie są klasą bohaterów; ekwipunek wybiera się przez pola w panelu i listę. Długi miecz jest mniej skuteczny przeciw zbroi płytowej niż przeszywnicy, ale zadaje jej obrażenia. Cel konfliktu dopuszcza walkę i pokojowe rozwiązanie. Większy zasięg włóczni porównuje się z krótkim mieczem; długi miecz ma taki sam zasięg jak włócznie.",
+  "file": "maps/community/tutorial_006/text/eng/briefings/briefings.txt",
+  "sha256": "766bb6c99d4d53593cfc02977ce3156f18e5db1bdf91ac093f95a9ca7fc6eaec",
+  "encoding": "utf-8",
+  "lines": [
+    {
+      "from": "Hint: If you want to recruit a carrier, scout or merchant, you need to give him a different profession (e.g. civilian) before sending him to the barracks. Otherwise he will not be trained there because he thinks that he is supposed to work in the barracks! ",
+      "to": "Hint: To send a carrier, scout or merchant to the barracks for training, use the action button \"Assign Learning Place\". If you right-click on the barracks instead, the carrier will not be trained there because he thinks that he is supposed to work in the barracks! "
+    },
+    {
+      "from": "(If you want to recruit a carrier, scout or merchant, you need to give him a different profession (e.g. civilian) before sending him to the barracks. Otherwise he will not be trained there because he thinks that he is supposed to work in the barracks!)",
+      "to": "(To send a carrier, scout or merchant to the barracks for training, use the action button \"Assign Learning Place\". If you right-click on the barracks instead, the carrier will not be trained there because he thinks that he is supposed to work in the barracks!)"
+    },
+    {
+      "from": "Any male Vikings - apart from carriers, merchants and heroes - can be assigned to the barracks to be trained. As soon as a Viking has arrived at the barracks, he will automatically be trained as a soldier. He'll leave the barracks as a trained soldier, but without any weapons or armour. You still have to give these to him (via the action menu option \"Change Equipment\" or via his EQUIPMENT tab)",
+      "to": "Any adult male Viking - apart from heroes - can be assigned to the barracks to be trained. As soon as a Viking has arrived at the barracks, he will automatically be trained as a soldier. He'll leave the barracks as a trained soldier, but without any weapons or armour. You still have to give these to him (via the action menu option \"Change Equipment\", the I key or the equipment slots in his panel)."
+    },
+    {
+      "from": "If you send the soldiers back to the barracks, they will be trained again. ",
+      "to": "Training in the barracks costs nothing, but it gives no experience either, so sending a soldier back to the barracks will not make him any better. "
+    },
+    {
+      "from": "Each soldier can be trained as often as you please. For each training in the barracks, you will have to pay coins from the barracks' store so that the soldier obtains 5 more experience points. The more experience points he has, the stronger and more powerful your soldier will be.",
+      "to": "Soldiers gain experience in battle: every blow or arrow that hits teaches them to handle their weapon better. The more experience points he has, the stronger and more powerful your soldier will be."
+    },
+    {
+      "from": "Soldiers and heroes can man catapults, which are especially efficient when attacking buildings. They are produced in the armourer's workshop 2. A soldier or a hero must be assigned to the vehicle in order to steer it. ",
+      "to": "Soldiers and heroes can man catapults, which are especially efficient when attacking buildings. They are produced in the carpenter's shop 4. A soldier or a hero must be assigned to the vehicle in order to steer it. "
+    },
+    {
+      "from": "Use the action button \"Assign Vehicle\" to assign a catapult to a Viking. As soon as you have clicked the button, the possible catapults will light up. Right-click on a catapult to inform the Viking about your choice.",
+      "to": "Use the action button \"Assign Vehicle\" to assign a catapult to a Viking. As soon as you have clicked the button, the possible catapults will light up. Left-click on a catapult to inform the Viking about your choice."
+    },
+    {
+      "from": "Several soldiers are selected the same way as normal Vikings. By DOUBLE-CLICKING with the left mouse button you can select all soldiers of the same type. Double-clicking on one of your spearmen, for example, will select all the spearmen in a certain area. You can also select all the visible soldiers via the selection button in the subjects window in the lower right corner. ",
+      "to": "Several soldiers are selected the same way as normal Vikings. By DOUBLE-CLICKING with the left mouse button you can select all soldiers of the same type. Double-clicking on one of your spearmen, for example, will select all the spearmen in a certain area. You can also select all your soldiers by pressing the M key. "
+    },
+    {
+      "from": "You can create a group of soldiers just like you would a group of civilians (see tutorial 1) by using the SHIFT and CTRL keys. If you have selected several soldiers, you can assign these to a group by holding CTRL and pressing a number from 0 to 9 to create a group with the respective number. To select this group, simply press its number key again. This function is very useful in battle!",
+      "to": "You can create a group of soldiers just like you would a group of civilians (see tutorial 1) by using the SHIFT key. If you have selected several soldiers, you can assign these to a group by holding CTRL and pressing a number from 0 to 9 to create a group with the respective number. To select this group, simply press its number key again. This function is very useful in battle!"
+    },
+    {
+      "from": "Ignorant mode: This function ensures that your soldiers will hold their positions, whatever happens! Whether they become hungry or their friends are attacked - they will not move one single step.",
+      "to": "Ignorant mode: This function ensures that your soldiers will hold their positions, whatever happens! Even if their friends are attacked - they will not move one single step, and will only strike an enemy who comes within reach of their weapons. They will still leave to eat and sleep, though, unless you prohibit regeneration."
+    },
+    {
+      "from": "Using the action button \"Assign Work Place\", you can send soldiers to a barracks or position archers in a defence tower or main warehouse. They will then defend that building in case of an attack. Instead of using this button, you can also assign a selected soldier by right-clicking on the desired building.",
+      "to": "Using the action button \"Assign Work Place\", you can position archers in a defence tower. They will then defend that building in case of an attack. Instead of using this button, you can also assign a selected archer by right-clicking on the tower."
+    },
+    {
+      "from": "Open the diplomacy window by clicking the button on the left-hand side of the screen or pressing the F5 key. The general map displays all nations which have already been discovered by you. ",
+      "to": "Open the diplomacy window by clicking the \"Diplomacy\" button on the bar at the bottom of the screen or pressing the F5 key. The list of tribes displays all nations which have already been discovered by you. "
+    },
+    {
+      "from": "If you have the required goods in your warehouses, you can left-click the corresponding option - and your army will have acquired some new brave warriors!",
+      "to": "If you have the required goods in your warehouses, you can click the \"Pay\" button - and your army will have acquired some new brave warriors!"
+    },
+    {
+      "from": "Opening the diplomacy window displays a general map. If there is more than one nation on the map, you can see whether the other nations are hostile, neutral or friendly, as well as set your own attitude. These attitudes may sometimes differ: Just because someone is friendly towards you, it doesn't mean you have to like him.",
+      "to": "Opening the diplomacy window displays a list of tribes. If there is more than one nation on the map, you can see whether the other nations are hostile, neutral or friendly, as well as set your own attitude. These attitudes may sometimes differ: Just because someone is friendly towards you, it doesn't mean you have to like him."
+    },
+    {
+      "from": "As soon as a tribe is attacked, its attitude towards the attacker becomes hostile, even if it was friendly before.",
+      "to": "Your soldiers will only attack a tribe you have set your attitude to hostile towards. A computer-controlled tribe then answers in kind and becomes hostile, even if it was friendly before."
+    },
+    {
+      "from": "Any Vikings can defend themselves very well. Even women can fight off approaching enemies with their fists. However, if you get involved in warfare or are attacked by a superior group, you will need a group of brave heroes ...",
+      "to": "Any Vikings can defend themselves very well. Even women can fight off approaching enemies with their fists. However, if you get involved in warfare or are attacked by a superior group, you will need a group of brave warriors ..."
+    },
+    {
+      "from": "And these are your heroes!",
+      "to": "And these are your soldiers!"
+    },
+    {
+      "from": "To equip a Viking, select him and give him the objects in the equipment register via the individual buttons. To equip a group of soldiers, it is recommended to select them all and press the SPACEBAR, then choose the button \"CHANGE EQUIPMENT\" (displaying a big and a small hammer). With this function you can easily equip entire armies! ",
+      "to": "To equip a Viking, select him, click an equipment slot in his panel and choose an item from the list. To equip a group of soldiers, it is recommended to select them all and press the SPACEBAR, then choose the button \"CHANGE EQUIPMENT\" (displaying a big and a small hammer). With this function you can easily equip entire armies! "
+    },
+    {
+      "from": "Your soldiers can be equipped with armour in order to protect them. Available armour types include: woollen armour, leather armour, chain mail and plate armour. Not every armour is effective against every weapon, though: A longsword, for instance, cannot do any harm against a plate armour, but is very effective against woollen armour ... ",
+      "to": "Your soldiers can be equipped with armour in order to protect them. Available armour types include: woollen armour, leather armour, chain mail and plate armour. Not every armour is effective against every weapon, though: A longsword, for instance, is less effective against plate armour than against woollen armour ... "
+    },
+    {
+      "from": "Build 2 defence towers here! Find a way to master the Saracens.",
+      "to": "Build 2 defence towers here! Find a way to resolve the conflict with the Saracens."
+    },
+    {
+      "from": "Spearmen are only suited for close combat and are most successful if several of them fight against one target together. Their range is wider than a sword fighter's.",
+      "to": "Spearmen are only suited for close combat and are most successful if several of them fight against one target together. Their range is wider than a shortsword fighter's."
+    }
+  ]
+}

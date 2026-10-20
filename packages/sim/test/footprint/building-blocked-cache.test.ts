@@ -142,8 +142,8 @@ describe('building blocked layer', () => {
   });
 });
 
-describe('building blocked layer - walls and joint seals', () => {
-  it('follows a wall, a gate swap and a door flipping a joint seal, level with a fresh carve', () => {
+describe('building blocked layer - walls and doors', () => {
+  it('follows walls, gate swaps and doors without adding corner blocks', () => {
     const sim = mappedSim(palisadeMap());
     const terrain = terrainOf(sim);
     const layer = buildingBlockedLayer(sim.world, ctxOf(sim), terrain);
@@ -163,25 +163,25 @@ describe('building blocked layer - walls and joint seals', () => {
       return placed;
     };
 
-    // Two walls on a slanted joint: the step between them is sealed at the corner below the first.
+    // The navigation edge rule closes this joint without occupying either corner.
     wallAt(SEAL_WALL.x, SEAL_WALL.y);
     const partner = wallAt(SEAL_WALL.x - 1, SEAL_WALL.y + 1);
     settled();
     expect(mask.has(node(SEAL_WALL.x, SEAL_WALL.y))).toBe(true);
-    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(true);
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(false);
     expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(false);
 
-    // A door on the sealed corner keeps it open, so the seal moves to the other corner.
+    // Adding a door must not occupy the other corner either.
     const hut = sim.world.create();
     sim.world.add(hut, Position, positionOfNode(ODD_CORNER.x + 1, ODD_CORNER.y));
     sim.world.add(hut, Building, { buildingType: HUT, tribe: VIKING, built: ONE, level: 0 });
     settled();
     expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(false);
-    expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(true);
+    expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(false);
 
     sim.world.destroy(hut);
     settled();
-    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(true);
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(false);
     expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(false);
 
     sim.world.destroy(partner);

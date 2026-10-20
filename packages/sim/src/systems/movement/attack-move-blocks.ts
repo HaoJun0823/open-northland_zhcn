@@ -12,10 +12,8 @@ import { type BlockOverlay, LayeredBlocks } from '../../nav/block-overlay.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
-import { buildingBlockedCells, buildingOpenings } from '../footprint/building-blocked-cache.js';
 import { translatedCells } from '../footprint/geometry.js';
 import { walkBlockMask } from '../footprint/walk-block-mask.js';
-import { standingWallCells, wallJointSeals } from '../footprint/wall-joints.js';
 
 interface Gate {
   readonly owner: number;
@@ -43,7 +41,6 @@ class GatePlans {
   private readonly captures: JournaledCaptures<Gate>;
   private readonly plans = new Map<number, AttackMoveBlocks>();
   private blockVersion = -1;
-  private buildingCells?: ReadonlySet<NodeId>;
 
   constructor(
     private readonly world: World,
@@ -79,11 +76,7 @@ class GatePlans {
     this.captures.catchUp();
     const mask = walkBlockMask(this.world, ctx, this.terrain);
     const actual = mask.levelled();
-    // Joint seals also depend on doors/walls hidden by other physical blocks. Their source identity
-    // changes even when the final walk mask stays identical.
-    const buildingCells = buildingBlockedCells(this.world, ctx, this.terrain);
-    if (this.blockVersion !== mask.version || this.buildingCells !== buildingCells) {
-      this.buildingCells = buildingCells;
+    if (this.blockVersion !== mask.version) {
       this.plans.clear();
       this.blockVersion = mask.version;
     }
@@ -98,22 +91,7 @@ class GatePlans {
         if (prior === undefined || e < prior) gates.set(node, e);
       }
     }
-    if (gates.size === 0) plan = { blocked: actual, gates };
-    else {
-      const standing = standingWallCells(this.world, this.terrain);
-      const seals = wallJointSeals(
-        this.terrain,
-        {
-          walls: { has: (node) => gates.has(node) || standing.walls.has(node) },
-          passages: {
-            has: (node) => !gates.has(node) && standing.passages.has(node),
-          },
-        },
-        gates.keys(),
-        buildingOpenings(this.world, ctx.content, this.terrain),
-      );
-      plan = { blocked: new LayeredBlocks([actual, gates, seals]), gates };
-    }
+    plan = { blocked: gates.size === 0 ? actual : new LayeredBlocks([actual, gates]), gates };
     this.plans.set(enemies, plan);
     return plan;
   }

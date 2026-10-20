@@ -64,7 +64,7 @@ export function invalidateRoutesThrough(
   for (const e of world.query(PathFollow, PathRoute, Position)) {
     const waypoints = world.get(e, PathRoute).waypoints;
     if (!boundsMeet(routeBoundsOf(terrain, waypoints), closed)) continue;
-    const stop = firstStopInto(terrain, waypoints, world.get(e, PathFollow).index, cells);
+    const stop = firstStopInto(waypoints, world.get(e, PathFollow).index, cells);
     if (stop !== null) crossing.push({ e, stop });
   }
   for (const { e, stop } of crossing) haltBefore(world, terrain, e, stop);
@@ -74,55 +74,18 @@ function boundsMeet(a: NodeBounds, b: NodeBounds): boolean {
   return a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY;
 }
 
-/** The first stop from `from` on that stands in `cells`, or that is the midpoint of a diagonal slipping
- *  past one: a diagonal keeps only one of its two midpoint flanks as its stop. */
+/** The first route stop whose node has closed, including a diagonal's actual midpoint. */
 function firstStopInto(
-  terrain: TerrainGraph,
   waypoints: readonly Waypoint[],
   from: number,
   cells: ReadonlySet<NodeId>,
 ): number | null {
-  // A midpoint is always followed by a node, which then needs no midpoint test.
-  let afterMidpoint = false;
   for (let at = from; at < waypoints.length; at++) {
     const stop = waypoints[at];
-    if (stop === undefined) continue;
-    if (cells.has(stop.node)) return at;
-    if (afterMidpoint) {
-      afterMidpoint = false;
-      continue;
-    }
-    const flanks = diagonalFlanks(terrain, waypoints, at);
-    if (flanks === null) continue;
-    afterMidpoint = true;
-    if (cells.has(flanks[0]) || cells.has(flanks[1])) return at;
+    if (stop !== undefined && cells.has(stop.node)) return at;
   }
   return null;
 }
-
-/** The two midpoint flanks when stop `at` is the middle of a diagonal edge, else null. The node between
- *  two diagonals in one direction lines up like a midpoint too, but it stands on its node's centre. */
-function diagonalFlanks(
-  terrain: TerrainGraph,
-  waypoints: readonly Waypoint[],
-  at: number,
-): readonly [NodeId, NodeId] | null {
-  const before = waypoints[at - 1];
-  const middle = waypoints[at];
-  const after = waypoints[at + 1];
-  if (before === undefined || middle === undefined || after === undefined) return null;
-  const ax = terrain.xOf(before.node);
-  const ay = terrain.yOf(before.node);
-  const cx = terrain.xOf(after.node);
-  const cy = terrain.yOf(after.node);
-  const my = terrain.yOf(middle.node);
-  if (ax === cx || Math.abs(cy - ay) !== DIAGONAL_ROW_SPAN || my * 2 !== ay + cy) return null;
-  if (!isEdgeMidpoint(terrain, middle)) return null;
-  return [terrain.nodeAt(ax, my), terrain.nodeAt(cx, my)];
-}
-
-/** A diagonal's half-rows: its end nodes lie two half-rows apart. */
-const DIAGONAL_ROW_SPAN = 2;
 
 /** Whether `stop` is a diagonal's midpoint, the one kind of stop that sits off its node's centre. */
 function isEdgeMidpoint(terrain: TerrainGraph, stop: Waypoint): boolean {
@@ -140,7 +103,11 @@ function haltBefore(world: World, terrain: TerrainGraph, e: Entity, stop: number
   const waypoints = path.waypoints;
   let end = stop;
   // A diagonal's midpoint is the middle of an edge, not a node centre to park on, even the one it heads to.
-  while (end - 1 >= route.index && diagonalFlanks(terrain, waypoints, end - 1) !== null) end -= 1;
+  while (end - 1 >= route.index) {
+    const previous = waypoints[end - 1];
+    if (previous === undefined || !isEdgeMidpoint(terrain, previous)) break;
+    end -= 1;
+  }
   if (end > route.index) {
     path.waypoints = waypoints.slice(0, end);
   } else {

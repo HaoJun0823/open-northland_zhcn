@@ -6,21 +6,19 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { buildingFootprintOf, countsMatchCells, doorNodeOf, sameCells, translatedCells } from './geometry.js';
-import { standingWallCells, wallJointSeals } from './wall-joints.js';
+import { standingWallCells } from './standing-walls.js';
 
 // The memoized per-world cache of cells standing buildings make unwalkable, plus its coherence verifier -
 // the building twin of ./resource-blocked-cache.ts.
 
 /**
- * The building bodies with the walls and their joint seals, kept per world and terrain: a building change
+ * The building bodies with the walls, kept per world and terrain: a building change
  * re-settles the nodes the {@link BuildingCellsIndex} flipped, and a wall or door change those its wall
  * cells gained or lost, so the cells are edited in place rather than copied per change.
  */
 interface BuildingBlockedCache extends CountedCells {
   /** The {@link BuildingCellsIndex} revision the cells were settled at. */
   buildingRevision: number;
-  /** The index's openings revision the {@link seals} were derived at. */
-  openingsRevision: number;
   /** Palisade and PalisadeBlocking membership generations: a wall or a shut gate blocks its walk cells.
    *  Its cells and gate state change only by a re-add; the in-place writes are a claim and build progress. */
   palisadeMembershipGeneration: number;
@@ -35,8 +33,6 @@ interface BuildingBlockedCache extends CountedCells {
   view: ReadonlySet<NodeId>;
   /** The standing walls' cells, as of the palisade generations. */
   walls: ReadonlySet<NodeId>;
-  /** The wall joint seals, as of the palisade generations and the openings revision. */
-  seals: ReadonlySet<NodeId>;
   /** The nodes that entered or left {@link cells} since {@link takeBuildingBlockFlips} last drained them,
    *  for its one reader; a node may repeat. Past {@link FLIP_LOG_CAP} entries the log is dropped and
    *  marked lost, so a cache nobody drains stays bounded. */
@@ -202,7 +198,6 @@ function withWalls(world: World, terrain: TerrainGraph, buildings: BuildingCells
   const blocked = new Set(buildings.blocked);
   const walls = standingWallCells(world, terrain);
   for (const cell of walls.walls) blocked.add(cell);
-  for (const cell of wallJointSeals(terrain, walls, walls.walls, buildings.openings)) blocked.add(cell);
   return blocked;
 }
 
@@ -252,7 +247,6 @@ class BuildingCellsIndex implements BuildingCells {
   /** Moves whenever {@link blocked} or {@link openings} changes, and on every full re-stamp. */
   revision = 0;
   /** Moves whenever {@link openings} changes, and on every full re-stamp. */
-  openingsRevision = 0;
   /** The nodes that entered or left {@link blocked} since {@link takeBlockedFlips} last drained them, for
    *  its one reader, the blocked layer; a node may repeat. */
   private readonly blockedFlips: NodeId[] = [];
@@ -316,7 +310,6 @@ class BuildingCellsIndex implements BuildingCells {
     this.membershipGeneration = world.componentGeneration(Building);
     this.valueGeneration = world.componentValueGeneration(Building);
     this.revision++;
-    this.openingsRevision++;
     this.blockedFlips.length = 0;
     this.blockedFlipsLost = true;
   }
@@ -372,7 +365,6 @@ class BuildingCellsIndex implements BuildingCells {
       if (count > 0) this.openings.add(cell);
       else this.openings.delete(cell);
       this.revision++;
-      this.openingsRevision++;
     }
   }
 
@@ -416,8 +408,7 @@ function verifyBuildingCells(world: World): string[] {
   return ['buildingCells diverge from a fresh carve - a building change went unseen'];
 }
 
-/** Every building's door node and the passage cleared from it to exterior ground, which a wall joint
- *  seal leaves open. The live index's set: read it, never keep it past a building change. Derived state,
+/** Every building's door node and the passage cleared from it to exterior ground. The live index's set: read it, never keep it past a building change. Derived state,
  *  never hashed. */
 export function buildingOpenings(
   world: World,
@@ -466,8 +457,7 @@ function verifyBuildingBlockedCache(world: World, content: ContentSet, terrain: 
  *
  * A building's own DOOR and the shortest passage to exterior ground are left walkable when the door
  * lies inside the walk-block. Without that passage a clear door point can still be sealed by wall cells.
- * Standing walls and shut gates add their walk cells and the seals of their slanted joints
- * (`wallJointSeals`), which leave a door and its passage open.
+ * Standing walls and shut gates add their walk cells; the navigation edge rule closes slanted joints.
  *
  * Derived state, never hashed. Memoized per world on the Building store's membership generation, the
  * buildings' types and the wall membership generations, so building progress, a wall claim and a wall's
@@ -506,7 +496,6 @@ function blockedCache(world: World, ctx: ContentContext, terrain: TerrainGraph):
     const cells = new Set<NodeId>();
     const created: BuildingBlockedCache = {
       buildingRevision: -1,
-      openingsRevision: -1,
       palisadeMembershipGeneration: -1,
       palisadeBlockingGeneration: -1,
       content: ctx.content,
@@ -515,7 +504,6 @@ function blockedCache(world: World, ctx: ContentContext, terrain: TerrainGraph):
       counts: new Uint16Array(terrain.nodeCount),
       view: new CellsView(cells),
       walls: NO_NODES,
-      seals: NO_NODES,
       flips: [],
       flipsLost: true,
     };
@@ -570,7 +558,7 @@ class CellsView implements ReadonlySet<NodeId> {
 const settleNodes: NodeId[] = [];
 
 /** Bring `cache` level with the building index and the walls: the nodes the index flipped and those the
- *  re-derived walls and seals gained or lost, or every node when the index lost its flips or the cache
+ *  re-derived walls gained or lost, or every node when the index lost its flips or the cache
  *  never `settled` before. */
 function settleLayer(
   world: World,
@@ -583,16 +571,10 @@ function settleLayer(
   nodes.length = 0;
   const tracked = buildings.takeBlockedFlips(nodes) && settled;
   const palisadesMoved = !palisadesUnchanged(world, cache);
-  if (palisadesMoved || !tracked || cache.openingsRevision !== buildings.openingsRevision) {
-    const standing = standingWallCells(world, terrain);
-    if (palisadesMoved || !tracked) {
-      const walls = new Set(standing.walls);
-      listDifference(cache.walls, walls, nodes);
-      cache.walls = walls;
-    }
-    const seals = wallJointSeals(terrain, standing, standing.walls, buildings.openings);
-    listDifference(cache.seals, seals, nodes);
-    cache.seals = seals;
+  if (palisadesMoved || !tracked) {
+    const walls = new Set(standingWallCells(world, terrain).walls);
+    listDifference(cache.walls, walls, nodes);
+    cache.walls = walls;
   }
   if (tracked) {
     for (let i = 0; i < nodes.length; i++) settleNode(cache, buildings, nodes[i] as NodeId);
@@ -601,14 +583,12 @@ function settleLayer(
     cache.cells.clear();
     for (const node of buildings.blocked) settleNode(cache, buildings, node);
     for (const node of cache.walls) settleNode(cache, buildings, node);
-    for (const node of cache.seals) settleNode(cache, buildings, node);
     cache.flips.length = 0;
     cache.flipsLost = true;
   }
   nodes.length = 0;
   cache.view = new CellsView(cache.cells);
   cache.buildingRevision = buildings.revision;
-  cache.openingsRevision = buildings.openingsRevision;
   cache.palisadeMembershipGeneration = world.componentGeneration(Palisade);
   cache.palisadeBlockingGeneration = world.componentGeneration(PalisadeBlocking);
 }
@@ -619,9 +599,9 @@ function listDifference(held: ReadonlySet<NodeId>, fresh: ReadonlySet<NodeId>, i
   for (const node of fresh) if (!held.has(node)) into.push(node);
 }
 
-/** Set `node`'s membership to the union of the building bodies, the walls and the seals, logging a flip. */
+/** Set `node`'s membership to the union of the building bodies and the walls, logging a flip. */
 function settleNode(cache: BuildingBlockedCache, buildings: BuildingCellsIndex, node: NodeId): void {
-  const blocked = buildings.blocked.has(node) || cache.walls.has(node) || cache.seals.has(node);
+  const blocked = buildings.blocked.has(node) || cache.walls.has(node);
   if (blocked === cache.cells.has(node)) return;
   if (blocked) cache.cells.add(node);
   else cache.cells.delete(node);

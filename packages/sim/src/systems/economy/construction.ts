@@ -129,8 +129,8 @@ function advanceBuildingSite(
   if (!world.has(e, Upgrading)) rampHealth(world, e, before, next);
 }
 
-/** Advance one wall site this tick. A hammered segment stands once no traveller is on its cells or on the
- *  joint seals it would make; whoever idles there is pushed off as it rises. */
+/** Advance one wall site this tick. A hammered segment stands once no traveller is on its walk cells; whoever
+ *  idles there is pushed off as it rises. */
 function advanceWallSite(
   world: World,
   ctx: SystemContext,

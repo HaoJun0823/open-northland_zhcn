@@ -6,7 +6,7 @@
  * Original behavior: the route search expands only the first six, a node's edges to its six neighbours
  * on a lattice whose odd rows sit half a node to +x, each gated by the map's per-node edge lane. Here an
  * E/W or N/S step is one such edge and a diagonal two in one direction, each needing the lane's bit, so
- * on every owned map our land joins exactly the original's. Approximation: route shapes. The edges that
+ * no step skips a blocked node. Approximation: route shapes. The edges that
  * shift a column, NW/SW from an even row and NE/SE from an odd one, have no step of their own and are
  * walked only inside a diagonal.
  *
@@ -87,7 +87,7 @@ export abstract class TerrainEdges extends TerrainLattice {
    * goldens: E/W half-column steps, the four diagonals, then N/S half-row steps. A step costs the edge's
    * world length; the pathfinder weighs it by the destination's ground. A step onto a blocked or
    * unwalkable destination is omitted, and so is one along ground the original's edges do not join; a
-   * diagonal additionally needs one of its two midpoint flanks passable.
+   * diagonal additionally needs the shared node of its two original edges passable.
    *
    * The allocating form; hot callers use {@link stepsInto}.
    */
@@ -146,43 +146,43 @@ export abstract class TerrainEdges extends TerrainLattice {
     const south = y + 1 < this.height && this.open(node + row, blocked, bytes, land);
     const northFar = y >= 2;
     const southFar = y + 2 < this.height;
-    // A diagonal is two original edges in one direction, through the node half a row along it; both
-    // midpoint flanks blocked is a wall joint, not a gap to slip through.
+    // A diagonal crosses one specific node of the staggered lattice. An open node beside that
+    // midpoint cannot substitute for it: that would cut through a slanted wall joint.
     if (
       east &&
       northFar &&
       this.twoEdges(edges, odd ? node + 1 - row : node - row, NORTH_EAST) &&
+      (odd ? this.open(node + 1 - row, blocked, bytes, land) : north) &&
       this.open(node + 1 - twoRows, blocked, bytes, land)
     ) {
-      if (north || this.open(node + 1 - row, blocked, bytes, land))
-        out.push((node + 1 - twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node + 1 - twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       east &&
       southFar &&
       this.twoEdges(edges, odd ? node + 1 + row : node + row, SOUTH_EAST) &&
+      (odd ? this.open(node + 1 + row, blocked, bytes, land) : south) &&
       this.open(node + 1 + twoRows, blocked, bytes, land)
     ) {
-      if (south || this.open(node + 1 + row, blocked, bytes, land))
-        out.push((node + 1 + twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node + 1 + twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       west &&
       southFar &&
       this.twoEdges(edges, odd ? node + row : node - 1 + row, SOUTH_WEST) &&
+      (odd ? south : this.open(node - 1 + row, blocked, bytes, land)) &&
       this.open(node - 1 + twoRows, blocked, bytes, land)
     ) {
-      if (south || this.open(node - 1 + row, blocked, bytes, land))
-        out.push((node - 1 + twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node - 1 + twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       west &&
       northFar &&
       this.twoEdges(edges, odd ? node - row : node - 1 - row, NORTH_WEST) &&
+      (odd ? north : this.open(node - 1 - row, blocked, bytes, land)) &&
       this.open(node - 1 - twoRows, blocked, bytes, land)
     ) {
-      if (north || this.open(node - 1 - row, blocked, bytes, land))
-        out.push((node - 1 - twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node - 1 - twoRows) as NodeId, DIAGONAL_STEP);
     }
     // The node straight up or down a half row is the original's NE/SE neighbour on an even row and its
     // NW/SW one on an odd row.

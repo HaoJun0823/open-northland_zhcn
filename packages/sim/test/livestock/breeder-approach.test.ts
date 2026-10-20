@@ -29,7 +29,7 @@ describe('a breeder approaching moving livestock', () => {
   ])('approaches a legal $flank diagonal with summoned=$summoned', ({ flank, summoned }) => {
     const map = grassNodeMap(64, 64);
     const typeIds = [...map.typeIds];
-    if (flank === 'water') typeIds[19 * 64 + 26] = 1;
+    if (flank === 'water') typeIds[19 * 64 + 27] = 1;
     const sim = new Simulation({ seed: 1, content: livestockContent(), map: { ...map, typeIds } });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('expected terrain');
@@ -41,7 +41,7 @@ describe('a breeder approaching moving livestock', () => {
     if (summoned) sim.world.mut(animal, FarmAnimal).summoner = breeder;
     if (flank === 'resource') {
       const obstacle = sim.world.create();
-      sim.world.add(obstacle, Position, positionOfNode(26, 19));
+      sim.world.add(obstacle, Position, positionOfNode(27, 19));
       stampResourceFootprintData(sim.world, obstacle, {
         walk: [{ dx: 0, dy: 0 }],
         build: [],
@@ -77,7 +77,7 @@ describe('a breeder approaching moving livestock', () => {
       expect(
         sim.world
           .tryGet(breeder, UnreachableGoals)
-          ?.entries.some((entry) => entry.cell === terrain.nodeAt(26, 19)),
+          ?.entries.some((entry) => entry.cell === terrain.nodeAt(27, 19)),
       ).not.toBe(true);
     }
     expect(claimed).toBe(true);

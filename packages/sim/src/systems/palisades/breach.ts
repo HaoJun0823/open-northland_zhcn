@@ -286,7 +286,7 @@ interface BreachLine {
 /** How many joints along the line from the first wall on the route a squad spreads its breakers. */
 const BREACH_SPREAD = 12;
 /** How far from the line the near-side walk reaches, in lattice steps: past a post's own neighbours to the
- *  row behind them, so the walk follows the line round its turns and seals. */
+ *  row behind them, so the walk follows the line round its turns. */
 const NEAR_SIDE_REACH = 2;
 /** How far from the line the walk through a fallen segment reaches: one step past the near side, so a second
  *  line close behind is crossed too. */

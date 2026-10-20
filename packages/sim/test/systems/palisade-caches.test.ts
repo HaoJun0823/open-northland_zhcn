@@ -4,7 +4,7 @@ import { Palisade, Position, SiteAssignment, UnderConstruction } from '../../src
 import { adminCommand, type Entity, fx, ONE, type ScriptLandscapeType, Simulation } from '../../src/index.js';
 import { claimSite, releaseSiteClaim } from '../../src/systems/economy/site-claim.js';
 import { buildingBlockedCells, placementBlockerVersion } from '../../src/systems/footprint/index.js';
-import { standingWallCells } from '../../src/systems/footprint/wall-joints.js';
+import { standingWallCells } from '../../src/systems/footprint/standing-walls.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
@@ -100,7 +100,7 @@ describe('wall caches', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('leave a building door open where a wall joint would seal it', () => {
+  it('leave a building door and the ground beside a wall joint open', () => {
     const base = testContent();
     const content = parseContentSet({
       ...base,
@@ -143,6 +143,6 @@ describe('wall caches', () => {
 
     const blocked = buildingBlockedCells(sim.world, ctxOf(sim), terrain);
     expect(blocked.has(terrain.nodeAt(door.hx, door.hy))).toBe(false);
-    expect(blocked.has(terrain.nodeAt(door.hx - 1, door.hy + 1))).toBe(true);
+    expect(blocked.has(terrain.nodeAt(door.hx - 1, door.hy + 1))).toBe(false);
   });
 });

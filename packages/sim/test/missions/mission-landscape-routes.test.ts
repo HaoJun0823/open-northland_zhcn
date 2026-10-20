@@ -270,7 +270,7 @@ describe('script landscape route invalidation', () => {
     setRandomChest(passOf(sim), 0, {
       opcode: 'SetRandomChestOnPosition',
       amount: TOWER_CHEST_MASK,
-      point: { hx: 5, hy: 5 },
+      point: { hx: 4, hy: 5 },
     });
     expect(sim.landscapeEdits().added).toHaveLength(1);
     expect(sim.world.get(e, PathRoute).waypoints.at(-1)?.node).toBe(terrainOf(sim).nodeAt(4, 4));

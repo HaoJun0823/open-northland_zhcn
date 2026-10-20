@@ -42,8 +42,7 @@ export function evictLooseGoodsFromFootprint(world: World, ctx: SystemContext, b
   evictLooseGoodsFromCells(world, ctx, terrain, body);
 }
 
-/** {@link evictLooseGoodsFromFootprint} over cells that already block, such as a finished wall's body and
- *  joint seals. */
+/** {@link evictLooseGoodsFromFootprint} over cells that already block, such as a finished wall's body. */
 export function evictLooseGoodsFromCells(
   world: World,
   ctx: SystemContext,

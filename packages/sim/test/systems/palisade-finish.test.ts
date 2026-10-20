@@ -113,7 +113,7 @@ function standing(sim: Simulation, hx: number, hy: number): Entity {
 }
 
 describe('a wall site that rises', () => {
-  it('pushes a settler off the joint seal it makes, so the finished line holds it', () => {
+  it('keeps a settler beside a finished joint on its side without evicting it', () => {
     const { sim, terrain } = fresh();
     for (let hx = 0; hx < WIDTH; hx++) placeWall(sim, hx, lineRow(hx), hx === SITE.hx);
     sim.step();
@@ -124,8 +124,9 @@ describe('a wall site that rises', () => {
     constructionSystem(sim.world, ctxOf(sim));
     expect(sim.world.has(site, PalisadeBlocking)).toBe(true);
     const blocked = dynamicBlockOverlay(sim.world, ctxOf(sim), terrain);
-    expect(blocked.has(terrain.nodeAt(SEAL.hx, SEAL.hy))).toBe(true);
+    expect(blocked.has(terrain.nodeAt(SEAL.hx, SEAL.hy))).toBe(false);
     const landed = nodeOf(sim, fighter);
+    expect(landed).toEqual(SEAL);
     expect(blocked.has(terrain.nodeAt(landed.hx, landed.hy))).toBe(false);
 
     const north = landed.hy < lineRow(landed.hx);

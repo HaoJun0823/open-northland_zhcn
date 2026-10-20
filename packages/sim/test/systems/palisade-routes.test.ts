@@ -476,7 +476,7 @@ describe('a wall line that turns', () => {
     const terrain = mapped(sim);
     const blocked = dynamicBlockOverlay(sim.world, ctxOf(sim), terrain);
     expect(blocked.has(terrain.nodeAt(GATE_X - 1, row))).toBe(false);
-    expect(blocked.has(terrain.nodeAt(GATE_X - 2, row + 1))).toBe(true);
+    expect(blocked.has(terrain.nodeAt(GATE_X - 2, row + 1))).toBe(false);
   });
 });
 
@@ -644,7 +644,7 @@ describe('attack-move planning around open enemy gates', () => {
     expect(sim.world.get(gate, Health).hitpoints).toBe(100);
   });
 
-  it('refreshes virtual joints when a new door leaves the physical block mask unchanged', () => {
+  it('keeps virtual gate bodies and open corners consistent when a door changes', () => {
     const DOOR_HUT = 999;
     const base = wallBreakingContent();
     const content = parseContentSet({
@@ -677,7 +677,7 @@ describe('attack-move planning around open enemy gates', () => {
     const plan = () => attackMoveBlocks(sim.world, ctxOf(sim), terrain, P0);
     const oddCorner = terrain.nodeAt(10, 11);
     const evenCorner = terrain.nodeAt(9, 10);
-    expect(plan().blocked.has(oddCorner)).toBe(true);
+    expect(plan().blocked.has(oddCorner)).toBe(false);
     expect(plan().blocked.has(evenCorner)).toBe(false);
     const version = walkBlockMask(sim.world, ctxOf(sim), terrain).version;
     const hut = sim.world.create();
@@ -685,7 +685,7 @@ describe('attack-move planning around open enemy gates', () => {
     sim.world.add(hut, Building, { buildingType: DOOR_HUT, tribe: VIKING, built: fx.fromInt(1), level: 0 });
     expect(walkBlockMask(sim.world, ctxOf(sim), terrain).version).toBe(version);
     expect(plan().blocked.has(oddCorner)).toBe(false);
-    expect(plan().blocked.has(evenCorner)).toBe(true);
+    expect(plan().blocked.has(evenCorner)).toBe(false);
     const restored = restoreSimulation(exportSaveGame(sim), { content, map: routesMap() });
     const cold = attackMoveBlocks(restored.world, ctxOf(restored), mapped(restored), P0);
     for (let node = 0; node < terrain.nodeCount; node++) {

@@ -43,9 +43,8 @@ const LANE_STEP = 2;
 const WORKER_X = 8;
 const NODE_X = 13;
 const FLAG_X = 18;
-/** Enough for the slowest lane to fully drain - clay (10 units x 10 back-to-back 23-tick digs, plus the
- *  carries) empties by tick 2400 on this layout; 3000 leaves honest headroom. */
-const RUN_TICKS = 3000;
+/** The final wood delivery arrives at tick 3037 with midpoint collision; allow the carry to finish. */
+const RUN_TICKS = 3500;
 
 const fixture: SceneDefinition = {
   id: 'gathering-render-fixture',

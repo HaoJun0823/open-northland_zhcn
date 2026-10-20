@@ -1,4 +1,3 @@
-import type { FootprintCell } from '@open-northland/data';
 import { Palisade, PalisadeBlocking, Position } from '../../components/index.js';
 import { JournaledCaptures } from '../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -11,10 +10,9 @@ export interface NodeMembership {
   has(node: NodeId): boolean;
 }
 
-/** The cells standing walls block, and the passages of open gates, which no joint seal may close. */
+/** The cells standing walls and the posts of open gates block. */
 export interface StandingWallCells {
   readonly walls: NodeMembership & Iterable<NodeId>;
-  readonly passages: NodeMembership;
 }
 
 /** A node set that counts its members, since the outer posts of a gate's run stand inside its body. */
@@ -46,7 +44,6 @@ class CountedNodes implements NodeMembership, Iterable<NodeId> {
 
 interface WallCapture {
   readonly walls: readonly NodeId[];
-  readonly passages: readonly NodeId[];
 }
 
 /** A wall's cells and gate state change only by re-adding its Palisade, and a wall never moves, so the
@@ -60,16 +57,11 @@ function captureWall(world: World, terrain: TerrainGraph, e: Entity): WallCaptur
   if (wall === undefined || p === undefined) return null;
   const { hx, hy } = nodeOfPosition(p.x, p.y);
   const walls = translatedCells(terrain, wall.walk, hx, hy);
-  if (wall.gate?.open !== true) return { walls, passages: [] };
-  const passages = translatedCells(terrain, wall.placementWalk, hx, hy).filter(
-    (cell) => !walls.includes(cell),
-  );
-  return { walls, passages };
+  return { walls };
 }
 
 class StandingWallIndex implements StandingWallCells {
   readonly walls = new CountedNodes();
-  readonly passages = new CountedNodes();
   private readonly captures: JournaledCaptures<WallCapture>;
 
   constructor(
@@ -84,15 +76,12 @@ class StandingWallIndex implements StandingWallCells {
         capture: (e) => captureWall(world, terrain, e),
         apply: (_e, captured) => {
           for (const cell of captured.walls) this.walls.add(cell);
-          for (const cell of captured.passages) this.passages.add(cell);
         },
         withdraw: (_e, captured) => {
           for (const cell of captured.walls) this.walls.remove(cell);
-          for (const cell of captured.passages) this.passages.remove(cell);
         },
         clear: () => {
           this.walls.clear();
-          this.passages.clear();
         },
       },
     );
@@ -105,18 +94,13 @@ class StandingWallIndex implements StandingWallCells {
 
 const standingWallIndexes = new WeakMap<World, StandingWallIndex>();
 
-function deriveStandingWallCells(
-  world: World,
-  terrain: TerrainGraph,
-): { walls: Set<NodeId>; passages: Set<NodeId> } {
+function deriveStandingWallCells(world: World, terrain: TerrainGraph): Set<NodeId> {
   const walls = new Set<NodeId>();
-  const passages = new Set<NodeId>();
   for (const e of world.query(PalisadeBlocking, Palisade, Position)) {
     const captured = captureWall(world, terrain, e);
     for (const cell of captured?.walls ?? []) walls.add(cell);
-    for (const cell of captured?.passages ?? []) passages.add(cell);
   }
-  return { walls, passages };
+  return walls;
 }
 
 function verifyStandingWallCells(world: World, terrain: TerrainGraph): string[] {
@@ -124,8 +108,7 @@ function verifyStandingWallCells(world: World, terrain: TerrainGraph): string[] 
   if (held === undefined || held.terrain !== terrain) return [];
   held.catchUp();
   const fresh = deriveStandingWallCells(world, terrain);
-  if (sameCells(new Set(held.walls), fresh.walls) && sameCells(new Set(held.passages), fresh.passages))
-    return [];
+  if (sameCells(new Set(held.walls), fresh)) return [];
   return ['standingWallCells holds other cells than a re-derivation - a wall changed in place'];
 }
 
@@ -143,74 +126,4 @@ export function standingWallCells(world: World, terrain: TerrainGraph): Standing
   }
   index.catchUp();
   return index;
-}
-
-/**
- * The nodes that close the slanted joints of wall lines touching `from`. Walls join on the six-node
- * landscape lattice, where an odd-row node's neighbours one half-row up and down sit a column to +x. Two
- * of the pathfinder's diagonal steps cross such a joint, each with one midpoint flank open; blocking one
- * corner of the joint refuses both. The odd-row corner is taken unless an open gate passes there or it
- * is one of the `openings`, a building's door or its passage; a joint whose only corner left is an
- * opening stays open, so a wall never shuts a building. Project rule: a joined wall line holds walkers
- * wherever it turns.
- */
-export function wallJointSeals(
-  terrain: TerrainGraph,
-  cells: StandingWallCells | { readonly walls: NodeMembership; readonly passages: NodeMembership },
-  from: Iterable<NodeId>,
-  openings: NodeMembership,
-): Set<NodeId> {
-  const seals = new Set<NodeId>();
-  const { walls, passages } = cells;
-  const open = (x: number, y: number): NodeId | null => {
-    if (!terrain.inBounds(x, y)) return null;
-    const node = terrain.nodeAt(x, y);
-    return walls.has(node) ? null : node;
-  };
-  for (const cell of from) {
-    const x = terrain.xOf(cell);
-    const y = terrain.yOf(cell);
-    const odd = (y & 1) === 1;
-    for (const dy of JOINT_ROW_STEPS) {
-      const partnerX = odd ? x + 1 : x - 1;
-      if (!terrain.inBounds(partnerX, y + dy) || !walls.has(terrain.nodeAt(partnerX, y + dy))) continue;
-      const oddCorner = odd ? open(x + 1, y) : open(x, y + dy);
-      const evenCorner = odd ? open(x, y + dy) : open(x - 1, y);
-      // A corner that is already wall closes the joint by the diagonal flank rule; the map edge needs none.
-      if (oddCorner === null || evenCorner === null) continue;
-      const seal = passages.has(oddCorner) || openings.has(oddCorner) ? evenCorner : oddCorner;
-      if (!openings.has(seal)) seals.add(seal);
-    }
-  }
-  return seals;
-}
-
-const JOINT_ROW_STEPS = [-1, 1] as const;
-
-/**
- * The cells `walk` anchored at `hx,hy` closes once it blocks: its own body and the joint seals it makes
- * against the standing walls, leaving the building `openings` open. An open gate's passage the body now
- * covers is no longer a passage.
- */
-export function wallClosingCells(
-  world: World,
-  terrain: TerrainGraph,
-  walk: readonly FootprintCell[],
-  hx: number,
-  hy: number,
-  openings: NodeMembership,
-): Set<NodeId> {
-  const body = new Set(translatedCells(terrain, walk, hx, hy));
-  const standing = standingWallCells(world, terrain);
-  const seals = wallJointSeals(
-    terrain,
-    {
-      walls: { has: (node) => body.has(node) || standing.walls.has(node) },
-      passages: { has: (node) => !body.has(node) && standing.passages.has(node) },
-    },
-    body,
-    openings,
-  );
-  for (const seal of seals) body.add(seal);
-  return body;
 }

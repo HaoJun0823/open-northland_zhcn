@@ -23,14 +23,12 @@ import type { SystemContext } from '../context.js';
 import { evictLooseGoodsFromCells } from '../economy/goods-evict.js';
 import { markShortPool } from '../economy/repair.js';
 import { evictWorkFlagsFromCells } from '../economy/work-flag.js';
-import { buildingOpenings } from '../footprint/building-blocked-cache.js';
 import { translatedCells } from '../footprint/geometry.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { clearLineGround, lineGroundOpen } from '../footprint/line-ground.js';
 import { placementBlockerGrid } from '../footprint/placement/blocker-grid.js';
 import { palisadeBodyCells } from '../footprint/placement/blockers.js';
 import { canPlacePalisadeAnchor, type PlacementProbe } from '../footprint/placement/index.js';
-import { wallClosingCells } from '../footprint/wall-joints.js';
 import { anyRouteFollowed, invalidateRoutesThrough, retryFailedRoutes } from '../landscape/routes.js';
 import { landscapeTypes } from '../landscape/view.js';
 import { evictSettlersFromCells, settlersByNode } from '../movement/evict.js';
@@ -162,8 +160,8 @@ export function createPalisade(
 }
 
 /** Open or close a standing gate, a damaged one included, by swapping to its paired data row, reporting whether the swap landed.
- * Closing is refused while a settler or creature stands on a cell the closed gate would block, its joint
- * seals included; a gate already in the requested state counts as landed. */
+ * Closing is refused while a settler or creature stands on a cell the closed gate would block; a gate
+ * already in the requested state counts as landed. */
 export function setPalisadeGate(
   world: World,
   ctx: SystemContext,
@@ -217,27 +215,26 @@ export function setPalisadeGate(
   return true;
 }
 
-/** The cells wall or gate `e` closes with `walk`, its joint seals included. */
+/** The cells wall or gate `e` closes with `walk`, at its current footprint. */
 function closingCellsOf(
   world: World,
-  ctx: SystemContext,
   terrain: TerrainGraph,
   e: Entity,
   walk: readonly FootprintCell[],
 ): Set<NodeId> {
   const at = world.get(e, Position);
   const { hx, hy } = nodeOfPosition(at.x, at.y);
-  return wallClosingCells(world, terrain, walk, hx, hy, buildingOpenings(world, ctx.content, terrain));
+  return new Set(translatedCells(terrain, walk, hx, hy));
 }
 
 /**
- * Settle the ground a wall that just started blocking closed, its body and its joint seals: every walker
+ * Settle the ground a wall that just started blocking closed, its body: every walker
  * whose route runs through it stops and searches again, rather than stepping through a gate that shut in
  * front of it, and the settlers standing idle there, the loose goods and the work flags are pushed off,
  * so none is stranded on a node no route leaves. A traveller stays; a wall site waits for it.
  */
 export function settleClosedWall(world: World, ctx: SystemContext, terrain: TerrainGraph, e: Entity): void {
-  const closing = closingCellsOf(world, ctx, terrain, e, world.get(e, Palisade).walk);
+  const closing = closingCellsOf(world, terrain, e, world.get(e, Palisade).walk);
   // A map's authored walls stand before anyone walks, so its load skips the route scan.
   if (anyRouteFollowed(world)) invalidateRoutesThrough(world, terrain, closing);
   evictSettlersFromCells(world, ctx, terrain, closing, 'wait');
@@ -258,7 +255,7 @@ export function travellerOnClosing(
   e: Entity,
 ): boolean {
   const byNode = settlersByNode(world);
-  for (const cell of closingCellsOf(world, ctx, terrain, e, world.get(e, Palisade).walk)) {
+  for (const cell of closingCellsOf(world, terrain, e, world.get(e, Palisade).walk)) {
     for (const settler of byNode.at(terrain.xOf(cell), terrain.yOf(cell))) {
       if (isTravelling(world, settler)) return true;
     }
@@ -298,7 +295,7 @@ function moverOnCells(world: World, terrain: TerrainGraph, cells: ReadonlySet<No
 }
 
 /**
- * Whether a mover stands where the gate's `walk` footprint, or a joint seal it makes, would close.
+ * Whether a mover stands where the gate's `walk` footprint would close.
  *
  * Approximation: the original swaps the gate record with no occupancy test at all, so it closes on a
  * passer-by. Refusing is this build's adaptation.
@@ -310,7 +307,7 @@ function gateClosingOccupied(
   gate: Entity,
   walk: readonly FootprintCell[],
 ): boolean {
-  return moverOnCells(world, terrain, closingCellsOf(world, ctx, terrain, gate, walk));
+  return moverOnCells(world, terrain, closingCellsOf(world, terrain, gate, walk));
 }
 
 interface AxialNode {

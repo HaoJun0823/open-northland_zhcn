@@ -1,10 +1,10 @@
-import { type ContentSet, footprintCellDx } from '@open-northland/data';
+import type { ContentSet } from '@open-northland/data';
 import { Building, Palisade, PalisadeBlocking, Position, ResourceFootprint } from '../../components/index.js';
 import { landscapeEditState } from '../../components/landscape.js';
 import type { ChangeFeed } from '../../ecs/change-feed.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
 import { ClearanceField, type ClearanceProbe } from '../../nav/clearance.js';
-import { HEX_NEIGHBOUR_OFFSETS, hexDistanceBetween, nodeOfPosition } from '../../nav/halfcell.js';
+import { hexDistanceBetween, nodeOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { type LandscapeBlocks, landscapeBlocks } from '../landscape/view.js';
@@ -12,8 +12,8 @@ import { buildingBlockedCells, walkBodyOf } from './building-blocked-cache.js';
 import { buildingFootprintOf, translatedCells } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
 import { tryFootprintCellsOf } from './resource-footprint-cells.js';
+import { standingWallCells } from './standing-walls.js';
 import { walkBlockMask } from './walk-block-mask.js';
-import { standingWallCells } from './wall-joints.js';
 
 // The per-world free-size classes vehicles stand by and ships route by, over the ground walk-block
 // (buildings and walls, resources, landscapes; never vehicles, which the mover judges against each other
@@ -65,17 +65,8 @@ function probeOf(world: World, ctx: ContentContext, terrain: TerrainGraph): Clea
   return (node) => (terrain.isWalkable(node) || terrain.isWater(node)) && !blocked.has(node);
 }
 
-/** Hex steps from a wall cell, a building door or a gate passage within which the joint seals it makes or
- *  moves lie: a seal is a corner beside a joint's wall cell, and an opening on one corner pushes it onto
- *  the other, two steps away. */
-const SEAL_REACH = 2;
-
-/** Every cell whose walk-block membership `e` can decide: a building's body plus its door passage (the
- *  carve-out) and the nodes within {@link SEAL_REACH} of any passage cell, where a joint seal it opens moves; a
- *  wall's whole placement body and the nodes within that reach of it, where its joint seals lie; or a
- *  resource's walk cells. The recompute rewrites only the classes within the cap of these, so
- *  every node whose probe a change can flip must be listed. Empty for a positionless or footprint-less
- *  entity. */
+/** Every cell whose walk-block membership `e` can decide: a building's body and door passage,
+ * a wall's open and closed footprints, or a resource's walk cells. */
 function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph, e: Entity): NodeId[] {
   const p = world.tryGet(e, Position);
   if (p === undefined) return [];
@@ -85,44 +76,19 @@ function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph
     const footprint = buildingFootprintOf(content, building.buildingType, building.tribe);
     if (footprint === undefined) return [];
     const { body, passage } = walkBodyOf(terrain, footprint, hx, hy);
-    addRings(terrain, body, passage, SEAL_REACH);
+    for (const cell of passage) body.add(cell);
     return [...body];
   }
   const wall = world.tryGet(e, Palisade);
   if (wall !== undefined) {
-    const cells = new Set<NodeId>();
     const body = [
       ...translatedCells(terrain, wall.placementWalk, hx, hy),
       ...translatedCells(terrain, wall.walk, hx, hy),
     ];
-    addRings(terrain, cells, body, SEAL_REACH);
-    return [...cells];
+    return [...new Set(body)];
   }
   const resource = tryFootprintCellsOf(world, e);
   return resource === undefined ? [] : translatedCells(terrain, resource.walk, hx, hy);
-}
-
-/** Add `from` and every node within `reach` hex steps of it to `cells`. */
-function addRings(terrain: TerrainGraph, cells: Set<NodeId>, from: readonly NodeId[], reach: number): void {
-  let frontier = [...from];
-  for (const node of frontier) cells.add(node);
-  for (let step = 0; step < reach; step++) {
-    const next: NodeId[] = [];
-    for (const node of frontier) {
-      const x = terrain.xOf(node);
-      const y = terrain.yOf(node);
-      for (const offset of HEX_NEIGHBOUR_OFFSETS) {
-        const nx = x + footprintCellDx(y, offset);
-        const ny = y + offset.dy;
-        if (!terrain.inBounds(nx, ny)) continue;
-        const neighbour = terrain.nodeAt(nx, ny);
-        if (cells.has(neighbour)) continue;
-        cells.add(neighbour);
-        next.push(neighbour);
-      }
-    }
-    frontier = next;
-  }
 }
 
 /** Replay one journal entry into `changed`: the cells the entity held and the cells it holds now. */
@@ -340,8 +306,7 @@ function fitMemoOf(terrain: TerrainGraph): FitMemo {
  * Whether a land vehicle of `logicSize` may pass through a node: it is {@link vehicleStandable}, or the
  * anchor is open and the rest of its disc is open land of the anchor's component except for at most
  * {@link RESOURCE_TOLERANCE_NEIGHBOURS} resource cells and {@link BUILDING_TOLERANCE_NEIGHBOURS} building
- * cells. Landscapes, water, unwalkable ground and walls stay hard; a building cell on or beside a wall
- * cell counts as wall, which also covers the wall joint seals. Deviation from the original, whose class
+ * cells. Landscapes, water, unwalkable ground and walls stay hard. Deviation from the original, whose class
  * test admits no overlap: the catapult squeezes between trees and houses like a settler walking by.
  * Allocation-free and memoized per predicate, since an A* search asks it for every neighbour it relaxes;
  * an older predicate read after a newer one was made loses memo hits, never answers, while fewer than
@@ -360,17 +325,6 @@ export function landVehicleFits(
   const resources = resourceBlockedCells(world, terrain);
   const landscapes = landscapeBlocks(world, terrain).walk;
   const walls = standingWallCells(world, terrain).walls;
-  const touchesWall = (node: NodeId): boolean => {
-    if (walls.has(node)) return true;
-    const x = terrain.xOf(node);
-    const y = terrain.yOf(node);
-    for (const offset of HEX_NEIGHBOUR_OFFSETS) {
-      const nx = x + footprintCellDx(y, offset);
-      const ny = y + offset.dy;
-      if (terrain.inBounds(nx, ny) && walls.has(terrain.nodeAt(nx, ny))) return true;
-    }
-    return false;
-  };
   const memo = fitMemoOf(terrain);
   const epoch = memo.nextEpoch();
   return (node) => {
@@ -400,7 +354,7 @@ export function landVehicleFits(
           return false;
         }
         if (buildings.has(cell)) {
-          if (++buildingCells > BUILDING_TOLERANCE_NEIGHBOURS || touchesWall(cell)) return false;
+          if (++buildingCells > BUILDING_TOLERANCE_NEIGHBOURS || walls.has(cell)) return false;
         } else if (resources.has(cell) && ++resourceCells > RESOURCE_TOLERANCE_NEIGHBOURS) {
           return false;
         }

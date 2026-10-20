@@ -32,7 +32,8 @@ describe('topology reroutes', () => {
   ] as const)('reroutes from walkable ground after %s changes beside a diagonal', (change) => {
     const map = grassNodeMap(16, 16);
     const typeIds = [...map.typeIds];
-    typeIds[5 * 16 + 4] = 1;
+    // The opposite flank is water; the actual midpoint (4,5) stays open.
+    typeIds[5 * 16 + 5] = 1;
     const options = {
       seed: 1,
       content: testContent(),

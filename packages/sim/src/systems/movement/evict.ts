@@ -37,8 +37,7 @@ export function evictSettlersFromFootprint(world: World, ctx: SystemContext, bui
  *  walled in; a wall site instead waits for them to pass. */
 export type WalkerEviction = 'move' | 'wait';
 
-/** {@link evictSettlersFromFootprint}'s move over cells that already block, such as a finished wall's body
- *  and joint seals. */
+/** {@link evictSettlersFromFootprint}'s move over cells that already block, such as a finished wall's body. */
 export function evictSettlersFromCells(
   world: World,
   ctx: SystemContext,

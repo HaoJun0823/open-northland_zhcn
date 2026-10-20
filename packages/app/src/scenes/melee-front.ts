@@ -1,4 +1,11 @@
-import { cellAnchorNode, components, type Entity, type Simulation } from '@open-northland/sim';
+import {
+  cellAnchorNode,
+  components,
+  type Entity,
+  hexDistanceBetween,
+  nodeOfPosition,
+  type Simulation,
+} from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_SOLDIER_SPEAR, JOB_SOLDIER_SWORD } from '../catalog/jobs.js';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../game/rules.js';
@@ -34,8 +41,8 @@ const JOBS_BY_ROW: readonly number[] = [JOB_SOLDIER_SWORD, JOB_SOLDIER_SPEAR];
 const RUN_TICKS = 500;
 
 /** Bodies collide, so the men who can strike one enemy at once are the ones on its free sides; four is
- *  where a crowd starts to read as a pile. The cap is asked while the smaller band still has more men than
- *  it: once the last few stand alone, the whole larger band closing on them is the wrap, not a pile. */
+ *  where a crowd starts to read as a pile. Ask the cap at a supported front: a target with no ally
+ *  within the spearmen's two-node reach is isolated, even if its band still fights elsewhere. */
 const MAX_STRIKERS_ON_ONE = 4;
 /** Share of the smaller band that fought, landing a blow or taking one: the rear is not idle for the whole
  *  fight. */
@@ -89,7 +96,23 @@ function observeMeleeFront(ticks: number): MeleeFrontObservation {
         if ((sim.world.tryGet(effect.target, Health)?.hitpoints ?? 0) <= 0) continue;
         strikers.set(effect.target, (strikers.get(effect.target) ?? 0) + 1);
       }
-      for (const n of strikers.values()) maxStrikersOnOne = Math.max(maxStrikersOnOne, n);
+      for (const [target, n] of strikers) {
+        const p = sim.world.get(target, components.Position);
+        const at = nodeOfPosition(p.x, p.y);
+        const owner = sim.world.get(target, Owner).player;
+        const supported = [...sim.world.query(Settler, Owner, components.Position, Health)].some((ally) => {
+          if (
+            ally === target ||
+            sim.world.get(ally, Owner).player !== owner ||
+            sim.world.get(ally, Health).hitpoints <= 0
+          )
+            return false;
+          const p = sim.world.get(ally, components.Position);
+          const to = nodeOfPosition(p.x, p.y);
+          return hexDistanceBetween(at.hx, at.hy, to.hx, to.hy) <= 2;
+        });
+        if (supported) maxStrikersOnOne = Math.max(maxStrikersOnOne, n);
+      }
     }
     for (const ev of sim.events.current()) {
       if (ev.kind !== 'combatHit') continue;

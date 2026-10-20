@@ -258,7 +258,12 @@ export {
 } from './simulation.js';
 export type { PlayerPlacementProbe } from './systems/conflict/contested-ground.js';
 export type { GatheringTrade } from './systems/economy/gather-goods.js';
-export type { ConstructionPlot, PlacementProbe, ResourceNodeSpec } from './systems/footprint/index.js';
+export {
+  type ConstructionPlot,
+  dynamicBlockOverlay,
+  type PlacementProbe,
+  type ResourceNodeSpec,
+} from './systems/footprint/index.js';
 export type { LandscapeEditView } from './systems/landscape/view.js';
 export { RUIN_COLLAPSE_TICKS } from './systems/lifecycle/ruins.js';
 export type { MatchGoalProgress } from './systems/match/index.js';

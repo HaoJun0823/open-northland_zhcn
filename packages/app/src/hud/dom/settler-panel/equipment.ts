@@ -39,7 +39,7 @@ function socketOf(row: EquipRow, slot: number, label: string, hero: boolean): So
   const ref = { group: row.group, slot };
   const cell = row.slots[slot];
   const bag = row.group === 'misc';
-  const fixed = hero;
+  const fixed = hero && !row.wearable;
   if (cell === undefined || !cell.occupied) {
     return {
       ref,
@@ -76,13 +76,13 @@ function socketOf(row: EquipRow, slot: number, label: string, hero: boolean): So
       wearPct: cell.conditionPct,
       label: formatMessage(copy.settlerPanel.swapLabel, { good }),
       tooltip,
-      removeLabel: hero ? null : discards ? `${takeOff}\n${copy.usedItemDiscardHint}` : takeOff,
+      removeLabel: fixed ? null : discards ? `${takeOff}\n${copy.usedItemDiscardHint}` : takeOff,
     },
   };
 }
 
-/** The sockets a person's equipment rows show: a hero's arms are locked and inert, and a slot its class
- *  leaves empty is not shown. */
+/** The sockets a person's equipment rows show: a hero's arms are locked and inert, a worn slot its class
+ *  leaves empty is not shown, and its bag stays open. */
 export function equipmentSockets(rows: readonly EquipRow[], hero: boolean): EquipmentSockets {
   const worn = (hero ? HERO_ORDER : WORN_ORDER).flatMap((group) => {
     const row = rows.find((candidate) => candidate.group === group);
@@ -91,8 +91,7 @@ export function equipmentSockets(rows: readonly EquipRow[], hero: boolean): Equi
   });
   const misc = rows.find((row) => row.group === 'misc');
   const bagLabel = messages().hud.settlerPanel.bag;
-  const bag =
-    hero || misc === undefined ? [] : misc.slots.map((_, slot) => socketOf(misc, slot, bagLabel, hero));
+  const bag = misc === undefined ? [] : misc.slots.map((_, slot) => socketOf(misc, slot, bagLabel, hero));
   return { worn, bag };
 }
 

@@ -153,8 +153,8 @@ function allows(
     case 'changeProfession':
       return tradeChangeable(content, e, job);
     case 'changeEquipment':
-      // The sim's `mayChangeEquipment`: a grown man who is no hero.
-      return isAdult(e) && !isFemale(e) && !systems.isHeroJob(content, job);
+      // The sim's `mayChangeEquipSlot`: a grown man, or a hero for its bag.
+      return systems.isHeroJob(content, job) || (isAdult(e) && !isFemale(e));
     case 'assignWorkArea':
       return worksAnArea(content, snapshot, e, job);
     case 'showWorkArea':

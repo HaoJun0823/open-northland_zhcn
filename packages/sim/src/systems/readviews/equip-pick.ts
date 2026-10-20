@@ -48,6 +48,39 @@ export function mayChangeEquipment(world: World, content: ContentSet, entity: En
   return !isHeroJob(content, settler.jobType);
 }
 
+/** Owner's rule: a hero fills and empties its misc bag; its arms, armor and shoes stay fixed by its class. */
+export function heroMayChangeSlot(group: EquipCategory): boolean {
+  return group === 'misc';
+}
+
+/** Whether a hero may put `goodType` in its bag: only a good with an effect that works without needs,
+ *  which a hero does not have - a heal, a combat effect or a faster walk. */
+export function heroMayCarry(content: ContentSet, goodType: number): boolean {
+  const equip = contentIndex(content).goods.get(goodType)?.equip;
+  if (equip === undefined || !heroMayChangeSlot(equip.category)) return false;
+  return (
+    equip.restorePct?.healthMax !== undefined ||
+    equip.damageDealtPct !== undefined ||
+    equip.criticalHit !== undefined ||
+    equip.damageTakenPct !== undefined ||
+    equip.walkStepTicksSaved !== undefined
+  );
+}
+
+/** Whether the settler may change what it holds in a `group` slot: any slot for a grown man who is no
+ *  hero, the slots {@link heroMayChangeSlot} opens for a hero, none for a woman or a child. */
+export function mayChangeEquipSlot(
+  world: World,
+  content: ContentSet,
+  entity: Entity,
+  group: EquipCategory,
+): boolean {
+  const settler = world.tryGet(entity, Settler);
+  if (settler === undefined) return false;
+  if (isHeroJob(content, settler.jobType)) return heroMayChangeSlot(group);
+  return mayChangeEquipment(world, content, entity);
+}
+
 /** A mission-locked profession cannot change through a weapon swap or by taking its weapon off. */
 export function weaponKeepsLockedJob(
   world: World,
@@ -149,8 +182,11 @@ export function equipPicksForSelection(
   for (const entity of entities) {
     if (seen.has(entity)) continue;
     seen.add(entity);
-    if (!mayChangeEquipment(world, content, entity) || !world.has(entity, Position)) continue;
+    if (!world.has(entity, Position)) continue;
     const jobType = world.get(entity, Settler).jobType;
+    const wholeKit = mayChangeEquipment(world, content, entity);
+    const hero = isHeroJob(content, jobType);
+    if (!wholeKit && !hero) continue;
     const owner = ownerOf(world, entity); // the errand never fetches a rival's stock
     let onSide = onSideOf.get(owner);
     if (onSide === undefined) {
@@ -164,6 +200,7 @@ export function equipPicksForSelection(
       for (const { goodType, amount } of source.goods) {
         const group = groupOf.get(goodType);
         if (group === undefined || !canEquipCategory(content, jobType, group)) continue;
+        if (hero && !heroMayCarry(content, goodType)) continue;
         if (group === 'weapon' && !weaponKeepsLockedJob(world, content, entity, goodType)) continue;
         let row = rows.get(goodType);
         if (row === undefined) {

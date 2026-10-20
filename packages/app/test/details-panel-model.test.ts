@@ -1304,7 +1304,7 @@ describe('selection details panel model', () => {
     expect(modelFor(JOB_COLLECTOR, {}).experience.length).toBeGreaterThan(0);
   });
 
-  it('shows a hero without need bars and with a read-only permanent loadout', () => {
+  it('shows a hero without need bars, with locked arms and an open bag', () => {
     const baseCtx = sandboxCtx();
     const ctx = {
       ...baseCtx,
@@ -1359,7 +1359,8 @@ describe('selection details panel model', () => {
     expect(model.bars).toHaveLength(1);
     expect(model.equipmentRows.find((row) => row.group === 'weapon')?.slots[0]?.occupied).toBe(true);
     expect(model.equipmentRows.find((row) => row.group === 'armor')?.slots[0]?.occupied).toBe(true);
-    expect(model.equipmentRows.every((row) => !row.wearable)).toBe(true);
+    // A hero fills only its bag.
+    expect(model.equipmentRows.filter((row) => row.wearable).map((row) => row.group)).toEqual(['misc']);
   });
 
   it('uses a map-authored hero name ahead of the reused hero body name', () => {

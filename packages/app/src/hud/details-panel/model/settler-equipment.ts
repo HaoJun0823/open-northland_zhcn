@@ -83,7 +83,8 @@ function slotModel(ctx: UnitPanelModelContext, slot: RawEquipSlot): EquipSlotMod
  * Two escapes keep worn gear reachable: a row the job would not offer still shows while something is
  * worn in it, and a settler carrying the combat `Weapon` component keeps its arms rows. A woman and a
  * child show a worker's rows with nothing wearable, so the panel keeps its shape: the sim's
- * `mayChangeEquipment` lets them wear nothing, where a hero still shows the fixed arms of its class.
+ * `mayChangeEquipSlot` lets them wear nothing, where a hero shows the fixed arms of its class and fills
+ * only its bag.
  */
 export function equipmentRows(ctx: UnitPanelModelContext, comps: Comp): EquipRow[] {
   const slots = messages().hud.equipmentSlots;
@@ -130,7 +131,7 @@ export function equipmentRows(ctx: UnitPanelModelContext, comps: Comp): EquipRow
     slotLabel: slots.misc,
     group: 'misc',
     slots: miscSlots,
-    wearable: !wearsNothing,
+    wearable: hero ? systems.heroMayChangeSlot('misc') : !wearsNothing,
   });
   return rows;
 }

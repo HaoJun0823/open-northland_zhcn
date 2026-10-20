@@ -5,7 +5,12 @@ import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { dynamicBlockOverlay } from '../../footprint/index.js';
 import { atomicDuration } from '../../readviews/animations.js';
-import { canEquipCategory, weaponKeepsLockedJob } from '../../readviews/equip-pick.js';
+import {
+  canEquipCategory,
+  heroMayCarry,
+  heroMayChangeSlot,
+  weaponKeepsLockedJob,
+} from '../../readviews/equip-pick.js';
 import { isHeroJob } from '../../readviews/jobs.js';
 import { equipErrandConfinement, type NavigationLimit } from '../../signposts/index.js';
 import type { SupplyTally } from '../../stores/index.js';
@@ -100,8 +105,10 @@ function playerIntentAllowed(
   settler: SettlerIdentity,
   intent: Pick<EquipOrderState, 'group' | 'goodType'>,
 ): boolean {
-  if (isHeroJob(ctx.content, settler.jobType)) return false;
+  const hero = isHeroJob(ctx.content, settler.jobType);
+  if (hero && !heroMayChangeSlot(intent.group)) return false;
   if (intent.goodType === null) return true;
+  if (hero && !heroMayCarry(ctx.content, intent.goodType)) return false;
   const good = contentIndex(ctx.content).goods.get(intent.goodType);
   return (
     good?.equip?.category === intent.group && canEquipCategory(ctx.content, settler.jobType, intent.group)

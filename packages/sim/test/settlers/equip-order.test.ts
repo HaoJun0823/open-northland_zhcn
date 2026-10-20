@@ -55,6 +55,9 @@ const SWORD = 9;
 const FUR_BOOTS = 10;
 const TOOL_WOODEN = 11;
 const MEAD = 13;
+const HEAL_POTION = 16;
+const FOOD_AMULET = 23;
+const STRENGTH_AMULET = 25;
 const LONG_SWORD = 17;
 const MAIL = 18;
 const WOOD = 1;
@@ -71,7 +74,7 @@ const FORGE_UPGRADE = 26;
 const BREWHOUSE = 10;
 /** The fixture's soldier trade (`soldier_unarmed`) - what `isFighterJob` reads off the job slug. */
 const FIGHTER_JOB = 31;
-/** The fixture's hero trade; heroes keep the equipment authored with their class. */
+/** The fixture's hero trade; heroes keep the arms authored with their class and change only their bag. */
 const HERO_JOB = 45;
 
 /** Enough ticks for a fetch across the small map plus the stow and return legs. */
@@ -955,7 +958,7 @@ describe('enlisting - a fighter trade keeps no tool', () => {
     expect(sim.world.has(e, EquipOrder)).toBe(true); // boots stay orderable on a fighter
   });
 
-  it('refuses every equip and unequip order on a hero', () => {
+  it('refuses every arms, armor and boots order on a hero', () => {
     const sim = freshSim();
     const hero = ownedSettler(sim, 2, 2);
     setSettlerJob(sim.world, hero, HERO_JOB);
@@ -968,6 +971,43 @@ describe('enlisting - a fighter trade keeps no tool', () => {
 
     expect(sim.world.has(hero, EquipOrder)).toBe(false);
     expect(sim.world.get(hero, Equipment).weapon?.goodType).toBe(SWORD);
+    expect(sim.equipPickList(hero, 'weapon')).toEqual([]);
+  });
+
+  it('fills and empties a hero bag slot with a good that acts without needs', () => {
+    const sim = freshSim();
+    const hero = ownedSettler(sim, 2, 2);
+    setSettlerJob(sim.world, hero, HERO_JOB);
+    wear(sim, hero, { weapon: SWORD });
+    pileAt(sim, 12, 2, HEAL_POTION, 1);
+    pileAt(sim, 12, 4, STRENGTH_AMULET, 1);
+    expect(sim.equipPickList(hero, 'misc')).toEqual([
+      { goodType: HEAL_POTION, available: 1 },
+      { goodType: STRENGTH_AMULET, available: 1 },
+    ]);
+
+    sim.enqueueSetup(equip(hero, HEAL_POTION, 'misc', 1));
+    sim.run(ERRAND_TICKS);
+    expect(sim.world.get(hero, Equipment).misc[1]?.goodType).toBe(HEAL_POTION);
+
+    sim.enqueueSetup({ kind: 'unequipGood', entity: hero, group: 'misc', slot: 1 });
+    sim.run(ERRAND_TICKS);
+    expect(sim.world.get(hero, Equipment).misc[1]).toBeNull();
+    expect(sim.world.get(hero, Equipment).weapon?.goodType).toBe(SWORD);
+  });
+
+  it('refuses a hero the bag goods that only answer needs', () => {
+    const sim = freshSim();
+    const hero = ownedSettler(sim, 2, 2);
+    setSettlerJob(sim.world, hero, HERO_JOB);
+    pileAt(sim, 12, 2, MEAD, 1);
+    pileAt(sim, 12, 4, FOOD_AMULET, 1);
+    expect(sim.equipPickList(hero, 'misc')).toEqual([]);
+
+    sim.enqueueSetup(equip(hero, MEAD, 'misc', 0));
+    sim.enqueueSetup(equip(hero, FOOD_AMULET, 'misc', 1));
+    sim.step();
+    expect(sim.world.has(hero, EquipOrder)).toBe(false);
   });
 
   it('refuses every equip order on a woman and offers her no pick list', () => {
@@ -1198,7 +1238,7 @@ describe('equipPicksForSelection - the selection menu read view', () => {
     ]);
   });
 
-  it('skips a hero, a woman and a child without hiding the rows from the rest', () => {
+  it('offers a hero only bag rows and skips a woman and a child without hiding the rows from the rest', () => {
     const sim = freshSim();
     const man = ownedSettler(sim, 2, 2);
     const hero = ownedSettler(sim, 3, 2);
@@ -1209,9 +1249,13 @@ describe('equipPicksForSelection - the selection menu read view', () => {
     const child = ownedSettler(sim, 5, 2);
     sim.world.add(child, Age, { ticks: 0, asOf: null });
     pileAt(sim, 8, 2, SHOES, 1);
+    pileAt(sim, 8, 4, MEAD, 1);
+    pileAt(sim, 10, 4, HEAL_POTION, 1);
 
     expect(sim.equipPicksForSelection([hero, woman, child, man])).toEqual([
       { goodType: SHOES, group: 'boots', available: 1, takers: [man] },
+      { goodType: MEAD, group: 'misc', available: 1, takers: [man] },
+      { goodType: HEAL_POTION, group: 'misc', available: 1, takers: [hero, man] },
     ]);
   });
 });

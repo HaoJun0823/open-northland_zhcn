@@ -62,7 +62,10 @@ export {
   type EquipSelectionPick,
   equipPickList,
   equipPicksForSelection,
+  heroMayCarry,
+  heroMayChangeSlot,
   mayChangeEquipment,
+  mayChangeEquipSlot,
 } from './equip-pick.js';
 export { edibleGoodFormOf, exportedGoodForm, isFood, isFoodIn } from './food.js';
 export {

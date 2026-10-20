@@ -21,7 +21,7 @@ import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { weaponKeepsLockedJob } from '../readviews/equip-pick.js';
-import { canEquipCategory, mayChangeEquipment } from '../readviews/index.js';
+import { canEquipCategory, heroMayCarry, isHeroJob, mayChangeEquipSlot } from '../readviews/index.js';
 import { isOrderableSettler, supersedeStandingOrders } from './guards.js';
 
 /**
@@ -37,14 +37,14 @@ function isValidSlotAddress(group: EquipCategory, slot: number): boolean {
   return slot === 0;
 }
 
-/** The shared issuer guard: a living owned settler whose equipment may change, with a trade, standing
- *  somewhere. A jobless settler is refused because the planner ladder never plans one, so its errand
- *  would sit inert forever. */
-function isEquipOrderable(world: World, ctx: SystemContext, e: Entity): boolean {
+/** The shared issuer guard: a living owned settler who may change the `group` slot, with a trade,
+ *  standing somewhere. A jobless settler is refused because the planner ladder never plans one, so its
+ *  errand would sit inert forever. */
+function isEquipOrderable(world: World, ctx: SystemContext, e: Entity, group: EquipCategory): boolean {
   return (
     isOrderableSettler(world, e) &&
     world.has(e, Position) &&
-    mayChangeEquipment(world, ctx.content, e) &&
+    mayChangeEquipSlot(world, ctx.content, e, group) &&
     world.get(e, Settler).jobType !== null
   );
 }
@@ -109,12 +109,13 @@ export function equipGood(
   const terrain = ctx.terrain;
   if (terrain === undefined) return; // mapless sim: no stores to fetch from
   const e = command.entity;
-  if (!isEquipOrderable(world, ctx, e)) return;
+  if (!isEquipOrderable(world, ctx, e, command.group)) return;
   const jobType = world.get(e, Settler).jobType;
   if (!isValidSlotAddress(command.group, command.slot)) return;
   const good = contentIndex(ctx.content).goods.get(command.goodType);
   if (good?.equip === undefined || good.equip.category !== command.group) return;
   if (!canEquipCategory(ctx.content, jobType, command.group)) return;
+  if (isHeroJob(ctx.content, jobType) && !heroMayCarry(ctx.content, command.goodType)) return;
   if (command.group === 'weapon' && !weaponKeepsLockedJob(world, ctx.content, e, command.goodType)) return;
   stampEquipOrder(world, terrain, e, {
     group: command.group,
@@ -136,7 +137,7 @@ export function unequipGood(
   const terrain = ctx.terrain;
   if (terrain === undefined) return;
   const e = command.entity;
-  if (!isEquipOrderable(world, ctx, e)) return;
+  if (!isEquipOrderable(world, ctx, e, command.group)) return;
   if (!isValidSlotAddress(command.group, command.slot)) return;
   const eq = world.tryGet(e, Equipment);
   if (eq === undefined || equipSlotValue(eq, command.group, command.slot) === null) return;

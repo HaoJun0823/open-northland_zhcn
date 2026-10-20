@@ -14,7 +14,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import { isEdibleFoodIn } from '../readviews/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
-import { accessibleStockAmounts } from '../stores/index.js';
+import { accessibleStockAmounts, recipeConsumes } from '../stores/index.js';
 import { SidedCandidates, sidesMatch } from './candidate-sides.js';
 
 /** A food source's anchor node and owner, captured so a withdrawal finds its bucket and side after the
@@ -132,7 +132,8 @@ function isFoodSource(world: World, content: ContentSet, e: Entity): boolean {
 /**
  * The lowest stocked good (ascending good type) a family may take away from `store` as food, or null when
  * it holds none. Tested on the good's edible form, since the family's lift performs that conversion; the
- * returned type is the raw one to lift. `accepts`, when given, further restricts the raw good. A raw
+ * returned type is the raw one to lift. Recipe inputs remain reserved for production, even when edible.
+ * `accepts`, when given, further restricts the raw good. A raw
  * min-scan over `keys()` plus `get`: the pick is order-free, and both the canonical sorted view and
  * destructured entries would allocate per store on the capture path and in every settler's larder search.
  */
@@ -144,10 +145,15 @@ export function lowestStockedFood(
 ): number | null {
   const amounts = accessibleStockAmounts(world, store);
   if (amounts === undefined) return null;
+  const building = world.tryGet(store, Building);
+  const inputs =
+    building === undefined
+      ? undefined
+      : contentIndex(content).mergedRecipeByBuilding.get(building.buildingType)?.inputs;
   let lowest: number | null = null;
   for (const goodType of amounts.keys()) {
     if ((amounts.get(goodType) ?? 0) <= 0 || (lowest !== null && goodType >= lowest)) continue;
-    if (!isEdibleFoodIn(content, goodType)) continue;
+    if (!isEdibleFoodIn(content, goodType) || recipeConsumes(inputs, goodType)) continue;
     if (accepts === undefined || accepts(goodType)) lowest = goodType;
   }
   return lowest;

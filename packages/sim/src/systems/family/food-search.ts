@@ -9,7 +9,7 @@ import type { SystemContext } from '../context.js';
 import { edibleGoodFormOf, isFoodIn } from '../readviews/index.js';
 import { hasRoom } from '../settlers/drives/economy/store-policy.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
-import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
+import { accessibleStockAmounts, mayFetchGoodFrom, type SupplyTally } from '../stores/index.js';
 import { type FoodSources, foodSourcesOf } from './food-sources.js';
 
 /**
@@ -108,6 +108,7 @@ export class ExternalFoodIndex {
     for (let i = 0; i < roomy.length; i++) {
       const goodType = roomy[i];
       if (goodType === undefined || (amounts.get(goodType) ?? 0) <= 0) continue;
+      if (!mayFetchGoodFrom(world, this.ctx, store, goodType)) continue;
       if (unclaimed === null) unclaimed = unclaimedGoodsAt(world, this.ctx, supply, store);
       if (unclaimed === undefined || unclaimed(goodType)) return goodType;
     }

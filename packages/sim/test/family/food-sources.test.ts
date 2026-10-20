@@ -85,6 +85,53 @@ function setUnjournaled(sim: Simulation, store: Entity, good: number, amount: nu
 }
 
 describe('foodSourcesOf', () => {
+  it('protects edible production inputs when choosing food for a home, including mixed stocks', () => {
+    const base = foodContent();
+    const processor = 91;
+    const content = parseContentSet({
+      ...base,
+      buildings: [
+        ...base.buildings,
+        {
+          typeId: processor,
+          id: 'food_processor',
+          kind: 'workplace',
+          stock: [
+            { goodType: FOOD, capacity: 5 },
+            { goodType: FOOD_EXTRA, capacity: 5 },
+          ],
+          recipes: [
+            {
+              inputs: [{ goodType: FOOD, amount: 1 }],
+              outputs: [{ goodType: FOOD_EXTRA, amount: 1 }],
+              ticks: 20,
+            },
+          ],
+        },
+      ],
+    });
+    const sim = new Simulation({ seed: 1, content });
+    const workshop = storeAt(sim, 1, FOOD, 3, processor);
+    const warehouse = storeAt(sim, 8, FOOD, 2, WAREHOUSE);
+    const home = storeAt(sim, 0, FOOD, 0, HOME);
+    const pick = () =>
+      new ExternalFoodIndex(sim.world, ctxOf(sim), undefined, collectSupplyTally(sim.world)).nearest(
+        { hx: 0, hy: 2 },
+        undefined,
+        home,
+        null,
+      );
+    expect(foodSourcesOf(sim.world, content).candidates).toEqual([warehouse]);
+    expect(pick()).toEqual({ store: warehouse, goodType: FOOD });
+    sim.world.mut(workshop, Stockpile).amounts.set(FOOD_EXTRA, 1);
+    expect(pick()).toEqual({ store: workshop, goodType: FOOD_EXTRA });
+    sim.world.mut(workshop, Building).buildingType = WAREHOUSE;
+    expect(pick()).toEqual({ store: workshop, goodType: FOOD });
+    sim.world.mut(workshop, Building).buildingType = processor;
+    expect(pick()).toEqual({ store: workshop, goodType: FOOD_EXTRA });
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
   it('catches up only the stores whose journaled inputs changed', () => {
     const sim = new Simulation({ seed: 1, content: foodContent() });
     const woodStores: Entity[] = [];

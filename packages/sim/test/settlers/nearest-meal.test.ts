@@ -13,11 +13,11 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type NodeId, ONE, positionOfNode, Simulation } from '../../src/index.js';
-import { plannerSystem } from '../../src/systems/index.js';
+import { atomicSystem, plannerSystem } from '../../src/systems/index.js';
 import { collectTargets, nearestFood } from '../../src/systems/settlers/targets/index.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
-import { ctxOf } from '../fixtures/context.js';
+import { ctxOf, nextTickCtxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import { needsSettlerAt } from './needs/support.js';
 
@@ -25,6 +25,7 @@ const FOOD = 3;
 const BREAD = 7;
 const FISH = 101;
 const HOME = 90;
+const FOOD_PROCESSOR = 91;
 const SOURCES = ['store', 'ground', 'producer', 'bush', 'home'] as const;
 type Source = (typeof SOURCES)[number];
 
@@ -35,6 +36,19 @@ function fixture() {
     goods: [...base.goods, { typeId: FISH, id: 'fish', weight: 1 }],
     buildings: [
       ...base.buildings,
+      {
+        typeId: FOOD_PROCESSOR,
+        id: 'food_processor',
+        kind: 'workplace',
+        stock: [
+          { goodType: FOOD, capacity: 5 },
+          { goodType: BREAD, capacity: 5 },
+        ],
+        recipes: [
+          { inputs: [{ goodType: FOOD, amount: 1 }], outputs: [{ goodType: BREAD, amount: 1 }], ticks: 20 },
+        ],
+        produces: [BREAD],
+      },
       {
         typeId: HOME,
         id: 'home_small',
@@ -218,6 +232,30 @@ describe('one nearest-meal search', () => {
     sim.run(5);
     expect(sim.world.get(eater, Carrying).amount).toBe(1);
     expect(sim.world.get(bush, BerryBush).stage).toBe('ripe');
+    expect(sim.checkInvariants()).toEqual([]);
+  });
+
+  it('leaves production ingredients untouched and eats only the finished food at a workshop', () => {
+    const { sim, eater, add, pick } = fixture();
+    const workshop = add('producer', 3); // The eater's half-cell on this odd visual row.
+    sim.world.mut(workshop, Building).buildingType = FOOD_PROCESSOR;
+    sim.world.mut(workshop, Stockpile).amounts.set(FOOD, 3);
+    const bush = add('bush', 8);
+
+    expect(pick()).toMatchObject({ kind: 'store', store: workshop, goodType: BREAD });
+    plannerSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(eater, CurrentAtomic).effect).toEqual({
+      kind: 'eat',
+      from: workshop,
+      goodType: BREAD,
+    });
+    // Run the meal alone: production is allowed to consume its own ingredient independently.
+    for (let tick = 0; tick < 5; tick++) atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.get(bush, BerryBush).stage).toBe('ripe');
+    expect(sim.world.get(workshop, Stockpile).amounts.get(BREAD)).toBe(1);
+    expect(sim.world.get(workshop, Stockpile).amounts.get(FOOD)).toBe(3);
+    sim.world.mut(workshop, Stockpile).amounts.set(BREAD, 0);
+    expect(sourceOf(pick())).toBe(bush);
     expect(sim.checkInvariants()).toEqual([]);
   });
 

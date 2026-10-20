@@ -7,4 +7,4 @@ export {
   TRANSLATIONS_ROOT,
   type TranslationOverlays,
 } from './load.js';
-export { MAP_OVERLAY_NAMING, MapOverlayFiling, type MapOverlaysByDigest } from './map-filing.js';
+export { MAP_OVERLAY_NAMING, MapOverlayFiling, type MapOverlaysByDatKey } from './map-filing.js';

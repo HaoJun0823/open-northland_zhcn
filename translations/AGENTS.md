@@ -17,18 +17,21 @@ translations/
                                  rewrites it whole
   glossary-project.csv           the project's own terms, same columns, edited in place
   <lang>/
-    maps/<map.dat sha256>.json   strings by id, briefing blocks by label  (MapOverlay)
-    maps/<map.dat sha256>.<basis prefix>.json
-                                 a further overlay of that map.dat, for a copy with other text
+    maps/<map>.<map.dat prefix>.json
+                                 strings by id, briefing blocks by label  (MapOverlay)
+    maps/<map>.<map.dat prefix>.<basis prefix>.json
+                                 a further overlay of that map.dat and alias, for a copy with other text
     objects/<table>.json         goods, houses, jobs, experiences, tribes by type id  (ObjectTableOverlay)
     books/<book>.json            hypertext books: history  (BookOverlay)
     campaigns/<campaign>.json    campaign title  (CampaignOverlay)
 ```
 
-A map overlay is named by the SHA-256 of the raw `map.dat`, so one file serves the pack's copy and
-every catalogue copy of the same map. Copies of one `map.dat` can ship different text (tribe variants
-of one map, a renamed tutorial): each further overlay of the same language adds the first 12 hex
-digits of its `basis.digest` to the name. The `map` field is a readable alias, never the identity.
+A map overlay is named by its `map` alias and the first 16 hex digits of the SHA-256 of the raw
+`map.dat`, so one file serves the pack's copy and every catalogue copy of the same map, and a reader
+finds a map by its name. The hex part is the identity: the alias may repeat between maps, and the name
+must repeat the file's `map` field. Copies of one `map.dat` can ship different text (tribe variants
+of one map, a renamed tutorial): a copy with another alias takes its own plain name; a further overlay
+of the same language, `map.dat` and alias adds the first 12 hex digits of its `basis.digest`.
 
 ## Rules
 
@@ -64,12 +67,12 @@ map archive, and the audit. `npm run check:translations` validates every overlay
 and, with the unpacked pack present, reports redundant overlays, stale bases, keys the source lacks,
 values that do not keep the source's markup and values still equal to the source text.
 
-`npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
-for each map it holds, every value the basis text: replace each in place and delete the ones left
-untranslated, which fall back to the source anyway. When the plain file holds an overlay of other
-text, the skeleton takes the variant name whatever the `map` alias says, since an older text of this
-map and a copy sharing its name look alike; `--force` replaces only a file of the same basis text.
-Copies with the same text share one file.
+`npm run translations:skeleton -- <archive or folder> --lang <lang>` writes
+`<lang>/maps/<map>.<map.dat prefix>.json` for each map it holds, every value the basis text: replace
+each in place and delete the ones left untranslated, which fall back to the source anyway. When the
+plain file holds an overlay of other text, the skeleton takes the variant name, since an older text of
+this map and a copy sharing its alias look alike; `--force` replaces only a file of the same basis
+text. Copies with the same text share one file.
 
 `npm run translations:derive-cht` writes the `cht/maps/` twin of every project-written `chs/maps/`
 overlay as an OpenCC conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`.

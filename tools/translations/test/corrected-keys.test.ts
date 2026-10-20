@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MAP_OVERLAY_BASIS_PREFIX_LENGTH } from '@open-northland/data';
+import { mapOverlayFileId } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
 import { correctedMapKeys, readGermanCorrections } from '../src/import/corrected-keys.js';
 
@@ -98,10 +98,19 @@ describe('German corrections', () => {
     const root = await folder({
       'corrections/strings/tables.json': [],
       'corrections/strings/maps.json': [],
-      [`translations/ger/maps/${dat}.json`]: germanOverlay({ '2': 'Fünf' }, { a: 'Davor.' }, OTHER_BASIS),
-      [`translations/ger/maps/${dat}.${BASIS_DIGEST.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}.json`]:
-        germanOverlay({ '3': 'Vier' }, { c: 'Danach.' }),
-      [`translations/ger/maps/${OTHER_DAT}.json`]: germanOverlay({ '1': 'Null' }, { b: 'Alles.' }),
+      [`translations/ger/maps/${mapOverlayFileId(PROBE_MAP.id, dat)}.json`]: germanOverlay(
+        { '2': 'Fünf' },
+        { a: 'Davor.' },
+        OTHER_BASIS,
+      ),
+      [`translations/ger/maps/${mapOverlayFileId(PROBE_MAP.id, dat, BASIS_DIGEST)}.json`]: germanOverlay(
+        { '3': 'Vier' },
+        { c: 'Danach.' },
+      ),
+      [`translations/ger/maps/${mapOverlayFileId(PROBE_MAP.id, OTHER_DAT)}.json`]: germanOverlay(
+        { '1': 'Null' },
+        { b: 'Alles.' },
+      ),
     });
     const read = await readGermanCorrections(join(root, 'corrections'), join(root, 'translations'));
     expect(correctedMapKeys(read, PROBE_MAP, basis, translation)).toEqual(['string 3', 'block c']);

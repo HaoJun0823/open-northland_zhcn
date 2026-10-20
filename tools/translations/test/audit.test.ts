@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northland/data';
+import {
+  MAP_OVERLAY_BASIS_PREFIX_LENGTH,
+  mapOverlayDatKey,
+  mapOverlayFileId,
+  OVERLAY_VERSION,
+} from '@open-northland/data';
 import { mapSourceTextDigest } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
@@ -23,10 +28,12 @@ import {
 const DIGEST = 'a'.repeat(64);
 const OTHER = 'b'.repeat(64);
 const DAT_MD5 = 'f'.repeat(32);
+/** The plain file names of the `fjord` overlays of `DIGEST` and `OTHER`. */
+const FILE = mapOverlayFileId('fjord', DIGEST);
+const OTHER_FILE = mapOverlayFileId('fjord', OTHER);
 
 /** The file name of a further map overlay of `DIGEST` written against `basisDigest`. */
-const variantOf = (basisDigest: string): string =>
-  `${DIGEST}.${basisDigest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
+const variantOf = (basisDigest: string): string => mapOverlayFileId('fjord', DIGEST, basisDigest);
 
 let dir: string;
 
@@ -68,8 +75,8 @@ describe('auditTranslations: layout and schema', () => {
     await put('glossary.csv', 'term');
     await put('glossary-project.csv', 'term');
     await put('.DS_Store', 'finder');
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }));
-    await put(`eng/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord' }));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾' }));
+    await put(`eng/maps/${FILE}.json`, mapOverlay({ '0': 'Fjord' }));
     await put('chs/objects/goods.json', { version: OVERLAY_VERSION, basis: basis(), names: { '1': '木头' } });
     await put('chs/books/history.json', { version: OVERLAY_VERSION, basis: basis(), blocks: {} });
     await put('cht/campaigns/saga.json', { version: OVERLAY_VERSION, title: '傳奇' });
@@ -81,7 +88,7 @@ describe('auditTranslations: layout and schema', () => {
 
   it('reports every layout and schema violation, each naming its file', async () => {
     await put('notes.txt', 'stray');
-    await put(`xyz/maps/${DIGEST}.json`, mapOverlay({}));
+    await put(`xyz/maps/${FILE}.json`, mapOverlay({}));
     await put('chs/strings/main.json', {});
     await put('chs/maps/fjord.json', mapOverlay({}));
     await put(`chs/maps/${OTHER}.txt`, 'text');
@@ -89,7 +96,7 @@ describe('auditTranslations: layout and schema', () => {
     await put('chs/books/sagas.json', { version: OVERLAY_VERSION, basis: basis(), blocks: {} });
     await put('chs/campaigns/Saga One.json', { version: OVERLAY_VERSION, title: 'x' });
     await put('pol/objects/goods.json', { version: OVERLAY_VERSION, basis: basis(), names: {} });
-    await put(`cht/maps/${DIGEST}.json`, { ...mapOverlay({}), basis: basis('short') });
+    await put(`cht/maps/${FILE}.json`, { ...mapOverlay({}), basis: basis('short') });
 
     const { errors, files } = await auditTranslations(dir);
 
@@ -101,7 +108,7 @@ describe('auditTranslations: layout and schema', () => {
       'chs/maps/fjord.json',
       'chs/objects/weather.json',
       'chs/strings',
-      `cht/maps/${DIGEST}.json`,
+      `cht/maps/${FILE}.json`,
       'notes.txt',
       'pol/objects/goods.json',
       'xyz/',
@@ -116,17 +123,17 @@ describe('auditTranslations: layout and schema', () => {
 describe('auditTranslations: map overlays of one map.dat', () => {
   it('refuses a variant name its basis does not begin, and a second file of one basis', async () => {
     const shared = basis('c'.repeat(64));
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, shared));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾' }, {}, shared));
     await put(`chs/maps/${variantOf(shared.digest)}.json`, mapOverlay({ '0': '峡湾' }, {}, shared));
     await put(`cht/maps/${variantOf('d'.repeat(64))}.json`, mapOverlay({ '0': '峽灣' }, {}, shared));
-    await put(`cht/maps/${DIGEST}.json`, mapOverlay({ '0': '峽灣' }, {}, shared));
+    await put(`cht/maps/${FILE}.json`, mapOverlay({ '0': '峽灣' }, {}, shared));
 
     const { errors, files } = await auditTranslations(dir);
 
     expect(files).toBe(2);
     expect(errors).toEqual([
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message: `${variantOf(shared.digest)}.json has the same map.dat and basis.digest`,
       },
       {
@@ -160,7 +167,7 @@ describe('auditTranslations: against the pack', () => {
 
   function pack(maps: readonly PackMap[]): PackText {
     return {
-      maps: async () => new Map([[DIGEST, maps]]),
+      maps: async () => new Map([[mapOverlayDatKey(DIGEST), maps]]),
       campaigns: new Set(['saga']),
       objectNames: async (lang, table) => {
         if (lang === 'pol' && table === 'goods') return goods;
@@ -172,12 +179,12 @@ describe('auditTranslations: against the pack', () => {
 
   it('lists stale bases, redundant languages and keys the source lacks as warnings only', async () => {
     await put(
-      `chs/maps/${DIGEST}.json`,
+      `chs/maps/${FILE}.json`,
       mapOverlay({ '0': '峡湾', '7': '多余' }, { title: '北', ending: '终' }, basis(polDigest)),
     );
-    await put(`cht/maps/${DIGEST}.json`, mapOverlay({ '0': '峽灣' }));
-    await put(`eng/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord' }, {}, basis(polDigest)));
-    await put(`chs/maps/${OTHER}.json`, mapOverlay({}));
+    await put(`cht/maps/${FILE}.json`, mapOverlay({ '0': '峽灣' }));
+    await put(`eng/maps/${FILE}.json`, mapOverlay({ '0': 'Fjord' }, {}, basis(polDigest)));
+    await put(`chs/maps/${OTHER_FILE}.json`, mapOverlay({}));
     await put('chs/objects/goods.json', {
       version: OVERLAY_VERSION,
       basis: basis(objectTableSourceDigest(goods)),
@@ -201,11 +208,11 @@ describe('auditTranslations: against the pack', () => {
       { file: 'chs/books/history.json', message: 'history.txt labels the pol source lacks: 01' },
       { file: 'chs/campaigns/lost.json', message: 'the pack has no campaign lost' },
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message: 'maps/community/fjord: string ids the pol source lacks: 7',
       },
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message: 'maps/community/fjord: briefing labels the pol source lacks: ending',
       },
       { file: 'chs/objects/goods.json', message: 'type ids the pol source lacks: 9' },
@@ -214,9 +221,9 @@ describe('auditTranslations: against the pack', () => {
         message: 'no readable pol houses table: Data/text/pol/strings/gameobjects/houses.cif not found',
       },
       { file: 'cht/books/history.json', message: 'the pol basis text changed' },
-      { file: `cht/maps/${DIGEST}.json`, message: 'maps/community/fjord: the pol basis text changed' },
+      { file: `cht/maps/${FILE}.json`, message: 'maps/community/fjord: the pol basis text changed' },
       {
-        file: `eng/maps/${DIGEST}.json`,
+        file: `eng/maps/${FILE}.json`,
         message: 'maps/community/fjord ships eng text itself, which wins; the overlay is redundant',
       },
     ]);
@@ -235,13 +242,13 @@ describe('auditTranslations: against the pack', () => {
     });
     const skeleton = { '0': 'Fjord', '1': 'Opis', '2': '...' };
     const blockSkeleton = { title: 'Na polnoc', art: '<picture:fjord.bmp>' };
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay(skeleton, blockSkeleton, basis(shippedDigest)));
+    await put(`chs/maps/${FILE}.json`, mapOverlay(skeleton, blockSkeleton, basis(shippedDigest)));
     await put(
-      `cht/maps/${DIGEST}.json`,
+      `cht/maps/${FILE}.json`,
       mapOverlay({ ...skeleton, '1': '描述' }, blockSkeleton, basis(shippedDigest)),
     );
     await put(
-      `pol/maps/${DIGEST}.json`,
+      `pol/maps/${FILE}.json`,
       mapOverlay({ '0': 'Fjord', '1': 'Nowy opis', '2': '...' }, {}, basis(shippedDigest)),
     );
 
@@ -249,19 +256,19 @@ describe('auditTranslations: against the pack', () => {
 
     expect(warnings).toEqual([
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message: 'maps/community/fjord: untranslated, every value is still the pol source text',
       },
       {
-        file: `cht/maps/${DIGEST}.json`,
+        file: `cht/maps/${FILE}.json`,
         message: 'maps/community/fjord: untranslated string ids, still the pol source text: 0',
       },
       {
-        file: `cht/maps/${DIGEST}.json`,
+        file: `cht/maps/${FILE}.json`,
         message: 'maps/community/fjord: untranslated briefing labels, still the pol source text: title',
       },
       {
-        file: `pol/maps/${DIGEST}.json`,
+        file: `pol/maps/${FILE}.json`,
         message: 'maps/community/fjord: unedited string ids, still the pol source text: 0',
       },
     ]);
@@ -278,7 +285,7 @@ describe('auditTranslations: against the pack', () => {
       text: { datDigest: DIGEST, languages: { pol: { strings: shipped, briefings: blocks } } },
     });
     await put(
-      `chs/maps/${DIGEST}.json`,
+      `chs/maps/${FILE}.json`,
       mapOverlay(
         { '0': '找到水井', '1': '木桶 %s/5', '2': '描述' },
         { title: '<picture:other.bmp>\n向北', art: '<font:big>峡湾<font:normal>' },
@@ -290,19 +297,19 @@ describe('auditTranslations: against the pack', () => {
 
     expect(warnings).toEqual([
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message:
           'maps/community/fjord: string ids whose goal prefix or placeholders differ from the pol source: 0, 1',
       },
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message: 'maps/community/fjord: briefing labels whose tags differ from the pol source: title',
       },
     ]);
   });
 
   it('warns about a source-language overlay on every copy of the map that refuses one', async () => {
-    await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis(polDigest)));
+    await put(`pol/maps/${FILE}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis(polDigest)));
     const copies = [
       packMap({ folder: 'maps/community/fjord' }),
       packMap({ folder: 'campaigns/saga/saga_01', campaign: 'saga', takesSourceLanguages: false }),
@@ -312,7 +319,7 @@ describe('auditTranslations: against the pack', () => {
 
     expect(warnings).toEqual([
       {
-        file: `pol/maps/${DIGEST}.json`,
+        file: `pol/maps/${FILE}.json`,
         message:
           'campaign map campaigns/saga/saga_01 takes no source-language overlay; the pipeline refuses it',
       },
@@ -340,7 +347,7 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
       }),
     );
     return {
-      maps: async () => new Map([[DIGEST, copies]]),
+      maps: async () => new Map([[mapOverlayDatKey(DIGEST), copies]]),
       campaigns: new Set(),
       objectNames: async () => {
         throw new Error('no object tables');
@@ -350,7 +357,7 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
   }
 
   it('takes for each copy the overlay written against its own text, and warns about none', async () => {
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
     const twin = basisOf('twin');
     await put(`chs/maps/${variantOf(twin.digest)}.json`, mapOverlay({ '0': '第二峡湾' }, {}, twin));
 
@@ -360,13 +367,13 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
   });
 
   it('names the copy that shares a file written against its twin', async () => {
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
 
     const { warnings } = await auditTranslations(dir, copiesOf('fjord', 'twin'));
 
     expect(warnings).toEqual([
       {
-        file: `chs/maps/${DIGEST}.json`,
+        file: `chs/maps/${FILE}.json`,
         message:
           "maps/community/twin: its pol text differs from maps/community/fjord's, which the overlay was " +
           'written against; a variant file gives it its own',
@@ -375,14 +382,14 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
   });
 
   it('applies an edit only to the copy whose text it was written against, without a stale fallback', async () => {
-    await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basisOf('fjord')));
+    await put(`pol/maps/${FILE}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basisOf('fjord')));
 
     const report = await auditTranslations(dir, copiesOf('fjord', 'twin'));
 
     expect(report.unmatchedMaps).toBe(0);
     expect(report.warnings).toEqual([
       {
-        file: `pol/maps/${DIGEST}.json`,
+        file: `pol/maps/${FILE}.json`,
         message:
           "maps/community/twin: not applied, its pol text differs from maps/community/fjord's, which the " +
           'edit was written against',
@@ -391,14 +398,14 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
   });
 
   it('counts an edit whose basis text changed as taken by no map', async () => {
-    await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis('e'.repeat(64))));
+    await put(`pol/maps/${FILE}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis('e'.repeat(64))));
 
     const report = await auditTranslations(dir, copiesOf('fjord'));
 
     expect(report.unmatchedMaps).toBe(1);
     expect(report.warnings).toEqual([
       {
-        file: `pol/maps/${DIGEST}.json`,
+        file: `pol/maps/${FILE}.json`,
         message:
           'maps/community/fjord: not applied, its pol basis text differs from the one the edit was written against',
       },
@@ -408,13 +415,13 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
   it('warns about a copy none of several overlays was written for, and counts those no copy takes', async () => {
     const twin = basisOf('twin');
     const lost = basis('e'.repeat(64));
-    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+    await put(`chs/maps/${FILE}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
     await put(`chs/maps/${variantOf(twin.digest)}.json`, mapOverlay({ '0': '第二峡湾' }, {}, twin));
     await put(`chs/maps/${variantOf(lost.digest)}.json`, mapOverlay({ '0': '失落' }, {}, lost));
 
     const { warnings, unmatchedMaps } = await auditTranslations(dir, copiesOf('fjord', 'twin', 'third'));
 
-    const files = [variantOf(twin.digest), variantOf(lost.digest), DIGEST]
+    const files = [variantOf(twin.digest), variantOf(lost.digest), FILE]
       .map((name) => `chs/maps/${name}.json`)
       .sort();
     expect(unmatchedMaps).toBe(1);
@@ -462,7 +469,7 @@ describe('readPackText', () => {
     const maps = await pack.maps();
 
     const digest = createHash('sha256').update(dat).digest('hex');
-    const [fjord] = maps.get(digest) ?? [];
+    const [fjord] = maps.get(mapOverlayDatKey(digest)) ?? [];
     expect(fjord?.folder).toBe('maps/community/fjord');
     expect(fjord?.id).toBe('fjord');
     expect(fjord?.datMd5).toBe(createHash('md5').update(dat).digest('hex'));

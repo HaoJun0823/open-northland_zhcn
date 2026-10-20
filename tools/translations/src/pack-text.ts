@@ -13,7 +13,7 @@ import {
   type SourceRoots,
   takesSourceLanguageOverlays,
 } from '@open-northland/asset-pipeline/sources';
-import { jsonFingerprint, type SourceLanguage } from '@open-northland/data';
+import { jsonFingerprint, mapOverlayDatKey, type SourceLanguage } from '@open-northland/data';
 import { textEncoding } from '@open-northland/formats/text-encoding';
 import {
   findMapFolders,
@@ -47,8 +47,9 @@ export type BookBlocks = ReadonlyMap<string, ReadonlyMap<string, string>>;
 /** The pack's source text as it shipped, read with the pipeline's readers but without its corrections:
  *  an overlay's basis is the shipped text. */
 export interface PackText {
-  /** Every base and campaign map, by raw `map.dat` SHA-256; one digest can name several copies. Read
-   *  on the first call, since it walks the whole pack. */
+  /** Every base and campaign map, by `mapOverlayDatKey` of its raw `map.dat` SHA-256, the key its
+   *  overlays are filed under; one key can name several copies. Read on the first call, since it walks
+   *  the whole pack. */
   maps(): Promise<ReadonlyMap<string, readonly PackMap[]>>;
   readonly campaigns: ReadonlySet<string>;
   /** One language's game-object table; throws when the pack lacks it or it does not decode. */
@@ -70,9 +71,10 @@ export function bookSourceDigest(blocks: BookBlocks): string {
 }
 
 function addMap(maps: Map<string, PackMap[]>, map: PackMap): void {
-  const copies = maps.get(map.text.datDigest) ?? [];
+  const key = mapOverlayDatKey(map.text.datDigest);
+  const copies = maps.get(key) ?? [];
   copies.push(map);
-  maps.set(map.text.datDigest, copies);
+  maps.set(key, copies);
 }
 
 /** The spelled path of folder `key`'s `map.dat`, which names the map, and its MD5; undefined without one. */

@@ -53,7 +53,7 @@ export interface AuditReport {
   /** Overlays the pipeline leaves out or reads against changed source text, and values still the
    *  source text unchanged. */
   readonly warnings: readonly AuditFinding[];
-  /** Map overlays no map of the pack takes: filed under a digest no map of the pack has, or an edit or
+  /** Map overlays no map of the pack takes: filed under a `map.dat` key no map of the pack has, or an edit or
    *  one of several of a language whose basis no copy's text matches. A catalogue map's, or a stale
    *  identity. */
   readonly unmatchedMaps: number;
@@ -93,7 +93,8 @@ const isHidden = (name: string): boolean => name.startsWith('.');
 interface MapOverlayFile {
   readonly file: string;
   readonly lang: Language;
-  readonly digest: string;
+  /** The `map.dat` key the file name carries. */
+  readonly datKey: string;
   readonly overlay: MapOverlay;
 }
 
@@ -161,9 +162,9 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
             case 'maps': {
               const overlay = await readOverlayFile('maps', path);
               const refusal = filing.file(lang, id, overlay);
-              const digest = parseMapOverlayFileId(id)?.datDigest;
+              const datKey = parseMapOverlayFileId(id)?.datKey;
               if (refusal !== undefined) errors.push({ file, message: refusal });
-              else if (digest !== undefined) valid.maps.push({ file, lang, digest, overlay });
+              else if (datKey !== undefined) valid.maps.push({ file, lang, datKey, overlay });
               break;
             }
             case 'objects':
@@ -362,15 +363,15 @@ function auditMapOverlays(
   return files.filter(({ overlay }) => !taken(overlay)).length;
 }
 
-/** The valid map overlays by `map.dat` digest, then language, in file order. */
-function mapOverlaysByDigest(maps: readonly MapOverlayFile[]): Map<string, Map<Language, MapOverlayFile[]>> {
-  const byDigest = new Map<string, Map<Language, MapOverlayFile[]>>();
+/** The valid map overlays by `map.dat` key, then language, in file order. */
+function mapOverlaysByDatKey(maps: readonly MapOverlayFile[]): Map<string, Map<Language, MapOverlayFile[]>> {
+  const byKey = new Map<string, Map<Language, MapOverlayFile[]>>();
   for (const entry of maps) {
-    const byLanguage = byDigest.get(entry.digest) ?? new Map<Language, MapOverlayFile[]>();
+    const byLanguage = byKey.get(entry.datKey) ?? new Map<Language, MapOverlayFile[]>();
     byLanguage.set(entry.lang, [...(byLanguage.get(entry.lang) ?? []), entry]);
-    byDigest.set(entry.digest, byLanguage);
+    byKey.set(entry.datKey, byLanguage);
   }
-  return byDigest;
+  return byKey;
 }
 
 /**
@@ -388,8 +389,8 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
   let unmatchedMaps = 0;
   if (pack !== undefined) {
     const maps = valid.maps.length === 0 ? new Map<string, readonly PackMap[]>() : await pack.maps();
-    for (const [digest, byLanguage] of mapOverlaysByDigest(valid.maps)) {
-      const copies = maps.get(digest);
+    for (const [datKey, byLanguage] of mapOverlaysByDatKey(valid.maps)) {
+      const copies = maps.get(datKey);
       for (const files of byLanguage.values())
         unmatchedMaps += copies === undefined ? files.length : auditMapOverlays(files, copies, warn);
     }

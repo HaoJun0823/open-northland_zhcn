@@ -1,4 +1,4 @@
-import { LANGUAGES, type Language, type MapOverlay } from '@open-northland/data';
+import { LANGUAGES, type Language, type MapOverlay, mapOverlayDatKey } from '@open-northland/data';
 import type { MapOverlaySource } from '@open-northland/map-import';
 import type { SourceRoots } from '../../roots.js';
 import type { MapDatConversion } from './convert.js';
@@ -12,7 +12,7 @@ export function mapOverlaySource(
 ): MapOverlaySource | undefined {
   const maps = roots.overlays?.maps;
   if (maps === undefined) return undefined;
-  return { mapOverlays: (digest) => maps.get(digest) ?? NO_OVERLAYS, allowSourceLanguages };
+  return { mapOverlays: (digest) => maps.get(mapOverlayDatKey(digest)) ?? NO_OVERLAYS, allowSourceLanguages };
 }
 
 /** The run-log line of the map overlays: applied per language, then the ones left out or stale. */
@@ -42,8 +42,8 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
       }
     }
   }
-  const converted = new Set(maps.map((map) => map.datDigest));
-  const unmatched = [...filed].filter((digest) => !converted.has(digest)).length;
+  const converted = new Set(maps.map((map) => mapOverlayDatKey(map.datDigest)));
+  const unmatched = [...filed].filter((key) => !converted.has(key)).length;
   const perLanguage =
     LANGUAGES.flatMap((lang) => {
       const count = applied.get(lang);

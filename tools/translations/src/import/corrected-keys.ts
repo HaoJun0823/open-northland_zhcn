@@ -1,11 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { campaignMapId, GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
+import { mapOverlayDatKey } from '@open-northland/data';
 import { MAP_DAT_FILE, type MapLanguageText, mapIdFromPath } from '@open-northland/map-import';
 import {
   listDirectory,
   MapOverlayFiling,
-  type MapOverlaysByDigest,
+  type MapOverlaysByDatKey,
   readOverlayFile,
 } from '@open-northland/translations';
 import { BASIS_LANGUAGE } from './columns.js';
@@ -23,7 +24,7 @@ export interface GermanCorrections {
   /** Replaced `briefings.txt` lines by our map id. */
   readonly briefingLines: ReadonlyMap<string, ReadonlySet<string>>;
   /** The German map overlays (`translations/ger/maps/`), the project's edits of the basis text. */
-  readonly overlays: MapOverlaysByDigest;
+  readonly overlays: MapOverlaysByDatKey;
 }
 
 const STRING_TABLES_FILE = ['strings', 'tables.json'] as const;
@@ -62,7 +63,7 @@ function correctedMap(file: string): { readonly id: string; readonly name: strin
 
 /** The German map overlays of the translations folder `translations`, filed as the loader files them;
  *  the other languages' files, which the run may be about to regenerate, are not read. */
-async function readGermanOverlays(translations: string): Promise<MapOverlaysByDigest> {
+async function readGermanOverlays(translations: string): Promise<MapOverlaysByDatKey> {
   const dir = join(translations, BASIS_LANGUAGE, MAP_OVERLAYS_DIR);
   const filing = new MapOverlayFiling();
   for (const entry of await listDirectory(dir)) {
@@ -132,7 +133,7 @@ export function correctedMapKeys(
 ): string[] {
   const keys: string[] = [];
   const edit = corrections.overlays
-    .get(map.text.datDigest)
+    .get(mapOverlayDatKey(map.text.datDigest))
     ?.get(BASIS_LANGUAGE)
     ?.find((german) => german.basis.lang === BASIS_LANGUAGE && german.basis.digest === basis.digest);
   const ids = new Set([...(corrections.mapStrings.get(map.id) ?? []), ...Object.keys(edit?.strings ?? {})]);

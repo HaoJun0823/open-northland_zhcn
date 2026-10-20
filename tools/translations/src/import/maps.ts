@@ -1,6 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { MapOverlay, OVERLAY_LANGUAGES, OVERLAY_VERSION, type OverlayLanguage } from '@open-northland/data';
+import {
+  MapOverlay,
+  mapOverlayFileId,
+  OVERLAY_LANGUAGES,
+  OVERLAY_VERSION,
+  type OverlayLanguage,
+} from '@open-northland/data';
 import { type MapLanguageText, mapSourceTextDigest } from '@open-northland/map-import';
 import type { PackMap } from '../pack-text.js';
 import { BASIS_LANGUAGE, LOCALIZATION_SOURCES } from './columns.js';
@@ -106,7 +112,10 @@ function translateLanguage(
     strings: translation.strings,
     briefings: translation.briefings,
   });
-  return { result, file: { path: `${lang}/maps/${map.text.datDigest}.json`, value: overlay } };
+  return {
+    result,
+    file: { path: `${lang}/maps/${mapOverlayFileId(map.id, map.text.datDigest)}.json`, value: overlay },
+  };
 }
 
 /**

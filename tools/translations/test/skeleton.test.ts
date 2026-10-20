@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, MapOverlay, OVERLAY_VERSION } from '@open-northland/data';
+import { MapOverlay, mapOverlayDatKey, mapOverlayFileId, OVERLAY_VERSION } from '@open-northland/data';
 import { mapSourceTextDigest, readMapSourceText } from '@open-northland/map-import';
 import { loadTranslationOverlays } from '@open-northland/translations';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -146,7 +146,7 @@ describe('writeMapOverlay', () => {
     const fjord = skeletons.find((skeleton) => skeleton.kind === 'skeleton');
     if (fjord?.kind !== 'skeleton') throw new Error('no skeleton');
     const out = join(dir, 'translations');
-    const path = join(out, 'chs', 'maps', `${fjord.digest}.json`);
+    const path = join(out, 'chs', 'maps', `${mapOverlayFileId('fjord', fjord.digest)}.json`);
     const translated = { ...fjord.overlay, strings: { '0': '峡湾' } };
 
     const first = await writeMapOverlay(out, 'chs', fjord.digest, translated, false);
@@ -154,7 +154,7 @@ describe('writeMapOverlay', () => {
     const keptOverlay = MapOverlay.parse(JSON.parse(await readFile(path, 'utf8')));
     const forced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
 
-    const plain = { file: path, variant: false, otherTextOf: undefined };
+    const plain = { file: path, variant: false };
     expect([first, kept, forced]).toEqual([
       { ...plain, outcome: 'written' },
       { ...plain, outcome: 'exists' },
@@ -169,47 +169,40 @@ describe('writeMapOverlay', () => {
     const fjord = skeletons.find((skeleton) => skeleton.kind === 'skeleton');
     if (fjord?.kind !== 'skeleton') throw new Error('no skeleton');
     const out = join(dir, 'translations');
-    const path = join(out, 'chs', 'maps', `${fjord.digest}.json`);
+    const path = join(out, 'chs', 'maps', `${mapOverlayFileId('fjord', fjord.digest)}.json`);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, '{}');
 
     const forced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
 
-    expect(forced).toEqual({ file: path, outcome: 'protected', variant: false, otherTextOf: undefined });
+    expect(forced).toEqual({ file: path, outcome: 'protected', variant: false });
     expect(await readFile(path, 'utf8')).toBe('{}');
   });
 
-  it('writes a copy with other text to a variant file beside the plain one, in this run or a later one', async () => {
+  it('writes a copy with other text under its own alias beside the first, both plain names', async () => {
     const { skeletons } = await skeletonsOf(await putDownload(), { lang: 'chs' });
     const written = skeletons.flatMap((skeleton) => (skeleton.kind === 'skeleton' ? [skeleton] : []));
     const [fjord, wariant] = written;
     if (fjord === undefined || wariant === undefined) throw new Error('two skeletons expected');
     const out = join(dir, 'translations');
-    const variant = `${fjord.digest}.${wariant.overlay.basis.digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
-    const file = (name: string) => join(out, 'chs', 'maps', `${name}.json`);
+    const file = (alias: string) => join(out, 'chs', 'maps', `${mapOverlayFileId(alias, fjord.digest)}.json`);
 
-    // In order, as the command writes them: which name a skeleton takes depends on the files before it.
     const results: Awaited<ReturnType<typeof writeMapOverlay>>[] = [];
     for (const _run of ['first', 'again'])
       for (const { digest, overlay } of written)
         results.push(await writeMapOverlay(out, 'chs', digest, overlay, false));
 
     expect(results).toEqual([
-      { file: file(fjord.digest), outcome: 'written', variant: false, otherTextOf: undefined },
-      { file: file(variant), outcome: 'written', variant: true, otherTextOf: 'fjord' },
-      { file: file(fjord.digest), outcome: 'exists', variant: false, otherTextOf: undefined },
-      { file: file(variant), outcome: 'exists', variant: true, otherTextOf: 'fjord' },
+      { file: file('fjord'), outcome: 'written', variant: false },
+      { file: file('wariant'), outcome: 'written', variant: false },
+      { file: file('fjord'), outcome: 'exists', variant: false },
+      { file: file('wariant'), outcome: 'exists', variant: false },
     ]);
     const overlays = await loadTranslationOverlays(out);
-    expect(overlays.maps.get(fjord.digest)?.get('chs')).toEqual([wariant.overlay, fjord.overlay]);
-
-    await rm(file(fjord.digest));
-    expect(await writeMapOverlay(out, 'chs', wariant.digest, wariant.overlay, false)).toEqual({
-      file: file(variant),
-      outcome: 'exists',
-      variant: true,
-      otherTextOf: undefined,
-    });
+    expect(overlays.maps.get(mapOverlayDatKey(fjord.digest))?.get('chs')).toEqual([
+      fjord.overlay,
+      wariant.overlay,
+    ]);
   });
 
   it('writes a variant beside a plain file of the same alias and other text, even when forced', async () => {
@@ -217,12 +210,12 @@ describe('writeMapOverlay', () => {
     const fjord = skeletons.find((skeleton) => skeleton.kind === 'skeleton');
     if (fjord?.kind !== 'skeleton') throw new Error('no skeleton');
     const out = join(dir, 'translations');
-    const plainPath = join(out, 'chs', 'maps', `${fjord.digest}.json`);
+    const plainPath = join(out, 'chs', 'maps', `${mapOverlayFileId('fjord', fjord.digest)}.json`);
     const variantPath = join(
       out,
       'chs',
       'maps',
-      `${fjord.digest}.${fjord.overlay.basis.digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}.json`,
+      `${mapOverlayFileId('fjord', fjord.digest, fjord.overlay.basis.digest)}.json`,
     );
     // An older text of this map and a catalogue copy sharing its name carry the same alias.
     const translated = {
@@ -234,7 +227,15 @@ describe('writeMapOverlay', () => {
 
     const forced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
 
-    expect(forced).toEqual({ file: variantPath, outcome: 'written', variant: true, otherTextOf: 'fjord' });
+    expect(forced).toEqual({ file: variantPath, outcome: 'written', variant: true });
+    // The variant exists now, so the same overlay takes the variant name whatever the plain file holds.
+    await rm(plainPath);
+    expect(await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, false)).toEqual({
+      file: variantPath,
+      outcome: 'exists',
+      variant: true,
+    });
+    await writeMapOverlay(out, 'chs', fjord.digest, translated, false);
     expect(MapOverlay.parse(JSON.parse(await readFile(plainPath, 'utf8')))).toEqual(translated);
   });
 });

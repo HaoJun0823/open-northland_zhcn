@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CatalogEntry, CatalogFile, Language, MapOverlay } from '@open-northland/data';
-import { CatalogEntry as CatalogEntrySchema, OVERLAY_VERSION } from '@open-northland/data';
+import { CatalogEntry as CatalogEntrySchema, mapOverlayDatKey, OVERLAY_VERSION } from '@open-northland/data';
 import { mapSourceTextDigest, openArchive, readMapSourceText } from '@open-northland/map-import';
 import { zipSync } from 'fflate';
 // The map-import fixtures author a decodable map.dat and plaintext map files; reused rather than copied.
@@ -50,7 +50,7 @@ export async function overlaysFor(
   const byLanguage = new Map<Language, readonly MapOverlay[]>();
   for (const [lang, table] of Object.entries(strings) as [Language, Record<string, string>][])
     byLanguage.set(lang, [{ version: OVERLAY_VERSION, map: key, basis, strings: table, briefings: {} }]);
-  return new Map([[source.datDigest, byLanguage]]);
+  return new Map([[mapOverlayDatKey(source.datDigest), byLanguage]]);
 }
 
 export function fileUrl(id: string): string {

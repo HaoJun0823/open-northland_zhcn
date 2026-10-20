@@ -27,15 +27,58 @@ export const OverlayBasis = z.strictObject({
 });
 export type OverlayBasis = z.infer<typeof OverlayBasis>;
 
+/** How many leading hex digits of the raw `map.dat` SHA-256 a map overlay's file name carries: 64 bits,
+ *  which tell apart the maps of the pack and the catalogue without the full digest's length. */
+export const MAP_OVERLAY_DAT_PREFIX_LENGTH = 16;
+/** How many leading hex digits of `basis.digest` a further map overlay's file name carries. */
+export const MAP_OVERLAY_BASIS_PREFIX_LENGTH = 12;
+/** The `map` alias as a file name part: a map id slug. */
+const MapAlias = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
+const MAP_OVERLAY_FILE_ID = new RegExp(
+  `^([a-z0-9][a-z0-9_-]*)\\.([0-9a-f]{${MAP_OVERLAY_DAT_PREFIX_LENGTH}})` +
+    `(?:\\.([0-9a-f]{${MAP_OVERLAY_BASIS_PREFIX_LENGTH}}))?$`,
+);
+
+/** A map overlay's file name without `.json`, split into the `map` alias, the `map.dat` prefix that files
+ *  it and the basis prefix a further overlay of that `map.dat` carries. */
+export interface MapOverlayFileId {
+  readonly map: string;
+  readonly datKey: string;
+  readonly basisPrefix: string | undefined;
+}
+
+/** The key map overlays are filed under: the prefix of the raw `map.dat` SHA-256 their names carry. */
+export function mapOverlayDatKey(datDigest: string): string {
+  return datDigest.slice(0, MAP_OVERLAY_DAT_PREFIX_LENGTH);
+}
+
+/** The parts of map overlay file name `id` (without `.json`), or undefined when it has neither form. */
+export function parseMapOverlayFileId(id: string): MapOverlayFileId | undefined {
+  const match = MAP_OVERLAY_FILE_ID.exec(id);
+  const map = match?.[1];
+  const datKey = match?.[2];
+  return map === undefined || datKey === undefined ? undefined : { map, datKey, basisPrefix: match?.[3] };
+}
+
+/** The file name without `.json` of the overlay of map `map` with `datDigest`: a further one takes its
+ *  basis prefix. */
+export function mapOverlayFileId(map: string, datDigest: string, basisDigest?: string): string {
+  const plain = `${map}.${mapOverlayDatKey(datDigest)}`;
+  return basisDigest === undefined
+    ? plain
+    : `${plain}.${basisDigest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
+}
+
 /**
- * `translations/<lang>/maps/<map.dat SHA-256>.json`: one map's strings by id and briefing blocks by label.
- * A further overlay of the same `map.dat` and language, for a copy of the map with other text, is
- * `<map.dat SHA-256>.<first hex digits of basis.digest>.json`.
+ * `translations/<lang>/maps/<map>.<map.dat prefix>.json`: one map's strings by id and briefing blocks by
+ * label. `<map>` is the overlay's `map` alias and `<map.dat prefix>` the first hex digits of the raw
+ * `map.dat` SHA-256, which identify the file. A further overlay of the same `map.dat` and language, for a
+ * copy of the map with other text, adds `.<first hex digits of basis.digest>` before `.json`.
  */
 export const MapOverlay = z.strictObject({
   version: z.literal(OVERLAY_VERSION),
-  /** The map id the overlay was written for, for readers; the file name and basis are the identity. */
-  map: z.string().min(1),
+  /** The map id the overlay was written for, which its file name repeats. */
+  map: MapAlias,
   basis: OverlayBasis,
   strings: z.record(IdKey, z.string()).default({}),
   /** `briefings.txt` block bodies by label, with the tags a block body carries (`<picture:…>` and so on). */
@@ -45,33 +88,6 @@ export const MapOverlay = z.strictObject({
   derived: z.enum(LANGUAGES).optional(),
 });
 export type MapOverlay = z.infer<typeof MapOverlay>;
-
-/** How many leading hex digits of `basis.digest` a further map overlay's file name carries. */
-export const MAP_OVERLAY_BASIS_PREFIX_LENGTH = 12;
-const MAP_OVERLAY_FILE_ID = new RegExp(
-  `^([0-9a-f]{64})(?:\\.([0-9a-f]{${MAP_OVERLAY_BASIS_PREFIX_LENGTH}}))?$`,
-);
-
-/** A map overlay's file name without `.json`, split into the `map.dat` digest and the basis prefix a
- *  further overlay of that digest carries. */
-export interface MapOverlayFileId {
-  readonly datDigest: string;
-  readonly basisPrefix: string | undefined;
-}
-
-/** The parts of map overlay file name `id` (without `.json`), or undefined when it has neither form. */
-export function parseMapOverlayFileId(id: string): MapOverlayFileId | undefined {
-  const match = MAP_OVERLAY_FILE_ID.exec(id);
-  const datDigest = match?.[1];
-  return datDigest === undefined ? undefined : { datDigest, basisPrefix: match?.[2] };
-}
-
-/** The file name without `.json` of a map overlay of `datDigest`: a further one takes its basis prefix. */
-export function mapOverlayFileId(datDigest: string, basisDigest?: string): string {
-  return basisDigest === undefined
-    ? datDigest
-    : `${datDigest}.${basisDigest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
-}
 
 /**
  * `translations/<lang>/objects/<table>.json`: one game-object name table (`goods`, `houses`, `jobs`,

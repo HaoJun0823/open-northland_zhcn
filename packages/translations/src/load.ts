@@ -10,7 +10,7 @@ import {
   MapOverlay,
   ObjectTableOverlay,
 } from '@open-northland/data';
-import { MapOverlayFiling, type MapOverlaysByDigest } from './map-filing.js';
+import { MapOverlayFiling, type MapOverlaysByDatKey } from './map-filing.js';
 
 /** The repository's `translations/` directory, resolved from this package so any working directory works. */
 export const TRANSLATIONS_ROOT = fileURLToPath(new URL('../../../translations/', import.meta.url));
@@ -50,7 +50,7 @@ const SCHEMAS: { readonly [K in OverlayKind]: Schema<OverlayByKind[K]> } = {
 /** Every overlay of the repository, validated, keyed the way the stages look them up. */
 export interface TranslationOverlays {
   /** Map overlays by the raw `map.dat` SHA-256 hex digest, then language. */
-  readonly maps: MapOverlaysByDigest;
+  readonly maps: MapOverlaysByDatKey;
   /** Game-object name tables by language, then table (`goods`, `houses`, `jobs`, ...). */
   readonly objects: ReadonlyMap<Language, ReadonlyMap<string, ObjectTableOverlay>>;
   /** Hypertext books by language, then book (`history`). */

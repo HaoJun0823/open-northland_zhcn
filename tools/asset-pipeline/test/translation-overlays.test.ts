@@ -8,6 +8,7 @@ import {
   MapBriefing,
   type MapOverlay,
   MapStrings,
+  mapOverlayDatKey,
   type ObjectTableOverlay,
   OVERLAY_VERSION,
 } from '@open-northland/data';
@@ -84,9 +85,9 @@ describe('base maps stage', () => {
       data: temp.game,
       overlays: overlays({
         maps: new Map([
-          [digestOf(community), both('Fjord')],
-          [digestOf(loose), both('Loose')],
-          ['f'.repeat(64), both('Elsewhere')],
+          [mapOverlayDatKey(digestOf(community)), both('Fjord')],
+          [mapOverlayDatKey(digestOf(loose)), both('Loose')],
+          [mapOverlayDatKey('f'.repeat(64)), both('Elsewhere')],
         ]),
       }),
     };
@@ -160,7 +161,9 @@ describe('base maps stage, an edit of a community map', () => {
       data: temp.game,
       corrections,
       overlays: overlays({
-        maps: new Map([[digestOf(dat), new Map<Language, readonly MapOverlay[]>([['pol', [edit]]])]]),
+        maps: new Map([
+          [mapOverlayDatKey(digestOf(dat)), new Map<Language, readonly MapOverlay[]>([['pol', [edit]]])],
+        ]),
       }),
     };
 
@@ -314,7 +317,7 @@ describe('campaigns stage', () => {
       );
     }
     await writeFileWithParents(join(pack, 'campaigns', CAMPAIGN, 'presentation/map.png'), 'png');
-    const [first = '', second = ''] = digests;
+    const [first = '', second = ''] = digests.map(mapOverlayDatKey);
     const title = (text: string): CampaignOverlay => ({ version: OVERLAY_VERSION, title: text });
     const roots: SourceRoots = {
       data: join(pack, 'base'),

@@ -268,6 +268,16 @@ describe('the briefing callbacks', () => {
     expect(spoken).toEqual([{ lang: 'pol', id: 3 }]);
   });
 
+  it('drop a delivered chapter`s narration on the close, so a later reader opening is silent', async () => {
+    const { mission, fire, spoken } = mount();
+    mission.showPage(PAGE);
+    mission.close();
+    mission.toggle();
+    await answered();
+    fire.callback(SOUND);
+    expect(spoken).toEqual(['stop']);
+  });
+
   it('speak a delivered page anew, the chapter already shown included', () => {
     const { mission, fire, spoken } = mount();
     mission.showPage(PAGE);

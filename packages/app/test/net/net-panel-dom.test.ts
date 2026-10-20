@@ -313,7 +313,7 @@ function mountOverlays(feed: NetPanelSource, now: () => number = () => 0) {
   const overlays = mountNetOverlays({
     source: feed,
     scale: () => 1,
-    controller: () => controller,
+    controller,
     cue: () => undefined,
     now,
   });
@@ -579,7 +579,7 @@ describe('the speed bar', () => {
     const overlays = mountNetOverlays({
       source: source(panelModel({ clock: paced })),
       scale: () => 1,
-      controller: () => controller,
+      controller,
       cue: () => undefined,
     });
     overlays.refresh();
@@ -664,7 +664,7 @@ describe('the chat cues', () => {
     const overlays = mountNetOverlays({
       source: feed,
       scale: () => 1,
-      controller: () => controller,
+      controller,
       cue: () => undefined,
       notify: (notification) => rung.push(notification),
       now: () => 0,
@@ -698,7 +698,7 @@ describe('the chat cues', () => {
     const overlays = mountNetOverlays({
       source: feed,
       scale: () => 1,
-      controller: () => controller,
+      controller,
       cue: () => undefined,
       notify: () => undefined,
       now: () => 0,

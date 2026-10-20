@@ -215,7 +215,7 @@ export class WorkshopStalls implements StallReader {
       watch.verdict = null;
       return;
     }
-    // A workshop not yet judged keeps an undefined verdict, so a note restored from an earlier mount stands.
+    // A workshop not yet judged keeps an undefined verdict, so a note adopted from a seat switch's feed stands.
     if (snapshot.tick - watch.since < PRODUCTION_STALL_GRACE_TICKS) return;
     const operator = operatorOf(staff);
     if (operator === undefined) {

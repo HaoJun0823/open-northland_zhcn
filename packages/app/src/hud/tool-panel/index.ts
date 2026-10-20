@@ -384,7 +384,7 @@ function loadToolPanelAssets(lang: string): Promise<ToolPanelAssets> {
     history,
   }));
   assetsByLanguage.set(lang, assets);
-  // A rejected load would otherwise pin every later rebuild to the one transient failure.
+  // A rejected load would otherwise pin every later mount to the one transient failure.
   void assets.catch(() => assetsByLanguage.delete(lang));
   return assets;
 }

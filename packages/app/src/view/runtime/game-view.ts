@@ -1007,8 +1007,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           : mapObjectPixelHit(sprite, host.tick, wx, wy);
       },
       siteFlagHitOf: (ref, wx, wy) => renderer.siteFlagHit(ref, wx, wy),
-      claimPointer: (x: number, y: number) =>
-        toolPanel.claimPointer(x, y) || mountedMinimap.claimsPointer(x, y),
+      claimPointer: (x: number, y: number) => toolPanel.claimPointer() || mountedMinimap.claimsPointer(x, y),
       onUiCue: uiCue,
       ...(soundDriver !== null
         ? {
@@ -1196,7 +1195,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         toolPanel.controller.placementBuilding() !== null ||
         toolPanel.controller.palisadeGfxIndex() !== null ||
         toolPanel.controller.roadActive() ||
-        toolPanel.claimPointer(clientX, clientY) ||
+        toolPanel.claimPointer() ||
         controls.claimsPointer(clientX, clientY),
     });
 
@@ -1279,7 +1278,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         : mountNetOverlays({
             source: deps.netPanel,
             scale: hudDom.currentScale,
-            controller: () => toolPanel.controller,
+            controller: toolPanel.controller,
             cue: uiCue,
             notify: (notification) => soundDriver?.notify(notification),
           });

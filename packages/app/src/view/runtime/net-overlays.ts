@@ -23,7 +23,7 @@ export type NetOverlaysController = Pick<
 export interface NetOverlaysDeps {
   readonly source: NetPanelSource;
   readonly scale: () => number;
-  readonly controller: () => NetOverlaysController;
+  readonly controller: NetOverlaysController;
   readonly cue: (cue: UiCue) => void;
   /** Rings a notification: a chat line arriving, a player coming or going, the world out of sync. */
   readonly notify?: (notification: NotificationCue) => void;
@@ -62,17 +62,17 @@ export function mountNetOverlays(deps: NetOverlaysDeps): NetOverlays {
   let autoOpened = false;
   const statusLine = createNetStatusLine({
     source,
-    panelOpen: () => deps.controller().networkOpen(),
+    panelOpen: () => deps.controller.networkOpen(),
     onOpenPanel: () => {
       autoOpened = false;
-      deps.controller().openNetwork();
+      deps.controller.openNetwork();
     },
     cue: deps.cue,
   });
   let waiting = false;
   let syncedClock: NetClockModel | null = null;
   let syncedPlayers: readonly NetPlayerRow[] | null = null;
-  let syncedController: NetOverlaysController | null = null;
+  let statusLineHung = false;
   // The feed counts its lines from its own mount, as these overlays do.
   let heardVersion = 0;
   let heardNotice: NetNotice | null = null;
@@ -89,7 +89,8 @@ export function mountNetOverlays(deps: NetOverlaysDeps): NetOverlays {
     for (const cue of cues) deps.notify?.(cue);
   };
 
-  const followHold = (controller: NetOverlaysController, held: boolean): void => {
+  const followHold = (held: boolean): void => {
+    const { controller } = deps;
     if (!controller.networkOpen()) autoOpened = false;
     if (held === waiting) return;
     // Opening now would close the line under the player's keys and send the rest of the word to the game.
@@ -106,22 +107,23 @@ export function mountNetOverlays(deps: NetOverlaysDeps): NetOverlays {
 
   return {
     refresh: () => {
-      const controller = deps.controller();
+      const { controller } = deps;
       const model = source.model();
       if (model !== null) {
-        followHold(controller, model.clock.held);
-        // A bar not yet synced starts plain and bare, so it takes the clock and the line.
-        const fresh = controller !== syncedController;
-        if (fresh) controller.hangBesideBar(statusLine.element);
-        if (fresh || clockMoved(syncedClock, model.clock)) {
+        followHold(model.clock.held);
+        // The bar starts plain and bare: the first model hangs the line and takes the clock.
+        if (!statusLineHung) {
+          controller.hangBesideBar(statusLine.element);
+          statusLineHung = true;
+        }
+        if (clockMoved(syncedClock, model.clock)) {
           controller.syncSpeed(speedControlFor(model.clock));
         }
-        if (fresh || model.clock !== syncedClock || model.players !== syncedPlayers) {
+        if (model.clock !== syncedClock || model.players !== syncedPlayers) {
           controller.setSpeedLook(speedBarLook(model.clock, model.players));
         }
         syncedClock = model.clock;
         syncedPlayers = model.players;
-        syncedController = controller;
         ringNew(model);
       }
       chat.setHidden(controller.networkOpen());
@@ -130,7 +132,7 @@ export function mountNetOverlays(deps: NetOverlaysDeps): NetOverlays {
     },
     clockHeld: () => source.model()?.clock.held === true,
     dispose: () => {
-      deps.controller().hangBesideBar(null);
+      deps.controller.hangBesideBar(null);
       chat.dispose();
     },
   };

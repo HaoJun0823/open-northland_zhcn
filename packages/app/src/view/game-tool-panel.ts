@@ -195,7 +195,7 @@ export interface GameToolPanelHandle {
   readonly controller: ToolPanelController;
   /** True while a held placement, plan or tool takes every canvas press; asked before any world
    *  picking. */
-  claimPointer(clientX: number, clientY: number): boolean;
+  claimPointer(): boolean;
   /** Shared with the frame loop's build hover, so the ghost and the placement click resolve identically. */
   clientToTile(clientX: number, clientY: number): { col: number; row: number } | null;
   dispose(): void;

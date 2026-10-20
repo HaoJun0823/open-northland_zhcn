@@ -5,7 +5,7 @@
 Two competing mechanisms arbitrate the same canvas mousedown. The tool panel and the minimap each
 register their own listener and win by registration order plus `stopImmediatePropagation`, while
 unit-controls run an explicit claim chain (`claimPointer` → panel → actions → pick mode). Because
-mount order is not draw order, the minimap draws over the strip yet the strip got the click first;
+mount order is not draw order, a held mode's canvas press and the minimap competed where they overlap;
 instead of unifying, a patch predicate `deferToOverlay` was added to the tool panel and wired in
 `game-view.ts` to `minimap.claimsPointer`. There are now four differently named predicates for one
 concept (`claimsPointer`, `claimPointer`, `claims`, `deferToOverlay`), hand-composed in
@@ -26,5 +26,5 @@ reason about listener registration order, which is invisible at the call site.
 ## Verify
 
 `npm test`, `npm run check`, `npm run build`. Human seam: in `?scene=sandbox` click the tool-panel
-strip, the minimap (including where it overlaps the strip's lower buttons), the details panel, and
+strip, the minimap (including where a held placement's press lands on it), the details panel, and
 unit selection/orders; each must behave as today.

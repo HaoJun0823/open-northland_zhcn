@@ -145,7 +145,7 @@ export class SiteShortages implements ShortageReader {
       return;
     }
     watch.unheldSince ??= tick;
-    // Within the grace the verdict stays as it was, so a note restored from an earlier mount stands.
+    // Within the grace the verdict stays as it was, so a note adopted from a seat switch's feed stands.
     if (tick - watch.unheldSince < CONSTRUCTION_SHORTAGE_GRACE_TICKS) return;
     watch.verdict = unheld.goodType;
   }

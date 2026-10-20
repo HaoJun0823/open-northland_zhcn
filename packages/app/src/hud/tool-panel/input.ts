@@ -128,8 +128,8 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
     };
 
     // Right button cancels an active placement or held paper; otherwise it is a world order for unit controls.
-    // Where Ctrl+left-click arrives as button 2, a Ctrl press falls through as the primary press: the Ctrl
-    // coarse step and a wall tool kept for the next line still work.
+    // Where Ctrl+left-click arrives as button 2, a Ctrl press falls through as the primary press, so a
+    // wall tool stays armed for the next line.
     const primaryWithCtrl = e.button === 2 && e.ctrlKey && ctrlClickIsRightButton;
     if (e.button === 2 && !primaryWithCtrl) {
       if (anyHeld()) {

@@ -37,8 +37,7 @@ const TIP_EDGE_MARGIN_PX = 6;
 /** The counters near the screen's right edge hang their breakdown to the left instead. */
 const FLIPPED_CATEGORIES: ReadonlySet<SummaryCategoryId> = new Set(['armament', 'equipment', 'other']);
 
-/** Tip ids run across mounts, not within one: a HUD-scale change builds the next bar before disposing
- *  the last, so for that moment two bars share the plane and their `aria-describedby` must not collide. */
+/** Tip ids run across mounts, so no two bars on one page share an `aria-describedby` id. */
 let nextTipId = 0;
 
 interface CountButton {

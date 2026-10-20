@@ -8,7 +8,7 @@ over a possibly-partial install. The run's own output does not record that it ha
 `runPipeline` returns `void`, so a conversion that skipped atlases, cursors, and maps ends exactly
 like a clean run. Nothing that later loads the content can tell the two apart.
 
-The same missing seam makes the stage tests brittle: seventeen sites across ten test files spy on
+The same missing seam makes the stage tests brittle: twenty-one sites across ten test files spy on
 `console.warn` and assert on English prose, so rewording a warning breaks tests that are not about
 wording.
 

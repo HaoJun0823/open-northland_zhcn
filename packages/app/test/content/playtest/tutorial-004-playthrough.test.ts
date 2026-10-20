@@ -110,6 +110,8 @@ describe.runIf(hasRealIr())('tutorial_004 playthrough', () => {
       site(sim, log, 'work_mason_hut_00', nodeOf(sim, stone));
       expectFired(sim, log, 5, 300, 'carpenter page');
       site(sim, log, 'work_joinery_00', { hx: HQ.hx + 8, hy: HQ.hy + 10 });
+      // End the future tailor's hunt before the workshop covers its approach; walk to the signpost.
+      order(sim, PLAYER, { kind: 'moveUnit', entity: tailor, x: 145, y: 128 });
       site(sim, log, 'work_sewery_00', { hx: HQ.hx + 16, hy: HQ.hy + 4 });
       employ(sim, stone, built(sim, log, 'work_mason_hut_00', 300), 'mason');
       expectFired(sim, log, 14, 60, 'mason at work');

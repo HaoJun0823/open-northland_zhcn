@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   BerryBush,
+  Building,
   MoveGoal,
+  Owner,
   Palisade,
   PathRequest,
   Position,
+  Stockpile,
+  setSignpostNavigation,
   UnreachableGoals,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
@@ -63,6 +67,20 @@ function food(sim: Simulation, eater: Entity, here?: NodeId) {
 }
 
 describe('forage target reachability', () => {
+  it('skips an enclosed food store and selects it after a passage opens', () => {
+    const { sim, eater, berry: store, blocker } = setup(SEAL_RING);
+    sim.world.remove(store, BerryBush);
+    sim.world.add(store, Building, { buildingType: 1, tribe: 1, built: ONE, level: 0 });
+    sim.world.add(store, Stockpile, { amounts: new Map([[3, 5]]) });
+    const bush = sim.world.create();
+    sim.world.add(bush, Position, positionOfNode(2, 16));
+    sim.world.add(bush, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
+
+    expect(food(sim, eater)).toMatchObject({ kind: 'bush', bush });
+    sim.world.destroy(blocker);
+    expect(food(sim, eater)).toMatchObject({ kind: 'store', store });
+  });
+
   it.each([{ walk: SEAL_RING }, { walk: [{ dx: 0, dy: 0 }, ...SEAL_RING] }])(
     'skips sealed or covered interaction cells',
     ({ walk }) => {
@@ -121,50 +139,61 @@ const WALL: ScriptLandscapeType = {
   },
 };
 
-it('forages farther reachable berries past a sealed palisade without reporting lost', () => {
-  const map = {
-    ...grassNodeMap(30, 20),
-    landscapes: { types: [WALL], placements: [] },
-  };
-  const sim = new Simulation({ seed: 1, content: testContent(), map });
-  const berry = sim.world.create();
-  sim.world.add(berry, Position, positionOfNode(10, 6));
-  sim.world.add(berry, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
-  for (const { point } of hexagonRing({ hx: 10, hy: 6 }, 2)) {
-    sim.enqueueSetup({
-      kind: 'placePalisade',
-      gfxIndex: WALL.typeId,
-      x: point.hx,
-      y: point.hy,
-      tribe: 1,
-    });
-  }
-  sim.step();
-  expect([...sim.world.query(Palisade)]).toHaveLength(12);
-  expect(sim.world.has(berry, BerryBush)).toBe(true);
-  const eater = needsSettlerAt(sim, 1, 3, { hunger: ONE });
-  const farther = sim.world.create();
-  sim.world.add(farther, Position, positionOfNode(2, 16));
-  sim.world.add(farther, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
-  const terrain = sim.terrain;
-  if (terrain === undefined) throw new Error('terrain missing');
-  const regions = routeRegions(sim.world, ctxOf(sim), terrain);
-  expect(regions.unroutable(terrain.nodeAt(2, 6), terrain.nodeAt(10, 6))).toBe(true);
-  expect(regions.unroutable(terrain.nodeAt(2, 6), terrain.nodeAt(2, 16))).toBe(false);
-  plannerSystem(sim.world, ctxOf(sim));
-  expect(sim.world.get(eater, MoveGoal).cell).toBe(terrain.nodeAt(2, 16));
-  let lost = 0;
-  let ateFarther = false;
-  for (let tick = 0; tick < 300; tick++) {
+it.each(['bush', 'store'] as const)(
+  'forages farther reachable berries past a sealed palisade around a %s without reporting lost',
+  (source) => {
+    const map = {
+      ...grassNodeMap(30, 20),
+      landscapes: { types: [WALL], placements: [] },
+    };
+    const sim = new Simulation({ seed: 1, content: testContent(), map });
+    setSignpostNavigation(sim.world, true);
+    const berry = sim.world.create();
+    sim.world.add(berry, Position, positionOfNode(10, 6));
+    if (source === 'bush') {
+      sim.world.add(berry, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
+    } else {
+      sim.world.add(berry, Building, { buildingType: 1, tribe: 1, built: ONE, level: 0 });
+      sim.world.add(berry, Stockpile, { amounts: new Map([[3, 5]]) });
+      sim.world.add(berry, Owner, { player: 0 });
+    }
+    for (const { point } of hexagonRing({ hx: 10, hy: 6 }, 2)) {
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL.typeId,
+        x: point.hx,
+        y: point.hy,
+        tribe: 1,
+      });
+    }
     sim.step();
-    expect(sim.world.tryGet(eater, PathRequest)?.failed).not.toBe(true);
-    lost += sim.events
-      .current()
-      .filter((event) => event.kind === 'settlerLost' && event.entity === eater).length;
-    ateFarther ||= sim.world.get(farther, BerryBush).stage === 'bare';
-  }
-  expect(lost).toBe(0);
-  expect(ateFarther).toBe(true);
-  expect(sim.checkInvariants()).toEqual([]);
-  expect(sim.world.verifyCaches()).toEqual([]);
-});
+    expect([...sim.world.query(Palisade)]).toHaveLength(12);
+    expect(sim.world.isAlive(berry)).toBe(true);
+    const eater = needsSettlerAt(sim, 1, 3, { hunger: ONE });
+    sim.world.add(eater, Owner, { player: 0 });
+    const farther = sim.world.create();
+    sim.world.add(farther, Position, positionOfNode(2, 16));
+    sim.world.add(farther, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('terrain missing');
+    const regions = routeRegions(sim.world, ctxOf(sim), terrain);
+    expect(regions.unroutable(terrain.nodeAt(2, 6), terrain.nodeAt(10, 6))).toBe(true);
+    expect(regions.unroutable(terrain.nodeAt(2, 6), terrain.nodeAt(2, 16))).toBe(false);
+    plannerSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(eater, MoveGoal).cell).toBe(terrain.nodeAt(2, 16));
+    let lost = 0;
+    let ateFarther = false;
+    for (let tick = 0; tick < 300; tick++) {
+      sim.step();
+      expect(sim.world.tryGet(eater, PathRequest)?.failed).not.toBe(true);
+      lost += sim.events
+        .current()
+        .filter((event) => event.kind === 'settlerLost' && event.entity === eater).length;
+      ateFarther ||= sim.world.get(farther, BerryBush).stage === 'bare';
+    }
+    expect(lost).toBe(0);
+    expect(ateFarther).toBe(true);
+    expect(sim.checkInvariants()).toEqual([]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  },
+);

@@ -10,13 +10,11 @@ import {
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SpatialGate } from '../../../nav/node-circle.js';
-import { intersectReach } from '../../../nav/range-search.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { BERRY_FORAGE_RADIUS } from '../../economy/berries.js';
 import { lowestStockedFood } from '../../family/food-sources.js';
 import { routeRegions } from '../../footprint/index.js';
-import { goodsSearchLimitAt } from '../../signposts/reach.js';
 import { bushesNearNode } from '../../spatial/bushes.js';
 import { closer, manhattan } from '../../spatial/metric.js';
 import type { SupplyTally } from '../../stores/index.js';
@@ -49,22 +47,16 @@ function nearestFoodStore(
   gate?: SpatialGate,
 ): { store: Entity; goodType: number; dist: number; cell: NodeId } | null {
   const component = terrain.componentOf(here);
+  const regions = routeRegions(world, ctx, terrain);
   const avoid = (cell: NodeId): boolean =>
-    terrain.componentOf(cell) !== component || isUnreachableGoal(memo, cell);
+    terrain.componentOf(cell) !== component ||
+    !regions.standable(cell) ||
+    regions.unroutable(here, cell) ||
+    isUnreachableGoal(memo, cell);
   const winner = index.nearest(
     here,
     (e) => qualifiedGood(edibleFoodGoodFor(world, ctx, supply, e)),
-    intersectReach(
-      gate,
-      goodsSearchLimitAt(
-        world,
-        ctx.content,
-        terrain,
-        ownerOf(world, eater),
-        terrain.xOf(here),
-        terrain.yOf(here),
-      ),
-    ),
+    gate,
     avoid,
     sameSideAs(world, ownerOf(world, eater)), // a settler eats from its own player's larder
   );
@@ -165,6 +157,8 @@ type FoodTarget =
  * The nearest food of any kind a hungry settler should head for, or null when neither a store nor a ripe
  * bush is in reach. Store and bush are weighed by the one shared `(distance, cell-id)` tie-break, so a
  * bush can win an equal-distance tie: the choice is pure nearest-food, not "bush only if no store".
+ * Project rule: both use the eater's walking area. Applying the narrower haul-goods search only to
+ * stocked meals would reject a nearer meal while admitting a farther bush.
  */
 export function nearestFood(
   targets: TargetCandidates,

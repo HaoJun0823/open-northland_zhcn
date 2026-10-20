@@ -5,9 +5,11 @@ import {
   Building,
   CurrentAtomic,
   MoveGoal,
+  Owner,
   Position,
   Resource,
   Stockpile,
+  setSignpostNavigation,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
@@ -137,6 +139,49 @@ describe('forageDrive - the planner choosing to forage a wild bush', () => {
 });
 
 describe('eat drive - picking the NEAREST food across stores and bushes', () => {
+  it.each(['loose pile', 'storehouse'] as const)(
+    'chooses a nearer meal in a %s beyond goods-search reach but inside walking reach',
+    (source) => {
+      const run = (): string => {
+        const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 8) });
+        setSignpostNavigation(sim.world, true);
+        const settler = settlerAt(sim, 0, 2, HUNGRY);
+        sim.world.add(settler, Owner, { player: 0 });
+        const store = storeAt(sim, 21, 2, 5);
+        sim.world.add(store, Owner, { player: 0 });
+        if (source === 'loose pile') sim.world.remove(store, Building);
+        // Both exceed the 40-node goods-search range but lie within the 50-node walk range.
+        const bush = bushAt(sim, 24, 2);
+
+        plannerSystem(sim.world, ctxOf(sim));
+
+        expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 21, 2));
+        for (let tick = 0; tick < 1000 && sim.world.get(store, Stockpile).amounts.get(FOOD) === 5; tick++) {
+          sim.step();
+        }
+        expect(sim.world.get(store, Stockpile).amounts.get(FOOD)).toBe(4);
+        expect(sim.world.get(bush, BerryBush).stage).toBe('ripe');
+        expect(sim.checkInvariants()).toEqual([]);
+        return sim.hashState();
+      };
+      expect(run()).toBe(run());
+    },
+  );
+
+  it('still chooses the nearer bush when both foods lie beyond goods-search reach', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 8) });
+    setSignpostNavigation(sim.world, true);
+    const settler = settlerAt(sim, 0, 2, HUNGRY);
+    sim.world.add(settler, Owner, { player: 0 });
+    const store = storeAt(sim, 24, 2, 5);
+    sim.world.add(store, Owner, { player: 0 });
+    bushAt(sim, 21, 2);
+
+    plannerSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 21, 2));
+  });
+
   it('forages a bush that is nearer than any food store', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
     const settler = settlerAt(sim, 0, 0, HUNGRY);

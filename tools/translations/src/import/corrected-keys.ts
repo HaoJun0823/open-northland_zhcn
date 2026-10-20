@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { campaignMapId, GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
-import { mapOverlayDatKey } from '@open-northland/data';
+import { mapOverlayDatKey, splitOverlayEdit } from '@open-northland/data';
 import { MAP_DAT_FILE, type MapLanguageText, mapIdFromPath } from '@open-northland/map-import';
 import {
   listDirectory,
@@ -69,7 +69,8 @@ async function readGermanOverlays(translations: string): Promise<MapOverlaysByDa
   for (const entry of await listDirectory(dir)) {
     if (!entry.isFile() || !entry.name.endsWith(OVERLAY_EXTENSION)) continue;
     const path = join(dir, entry.name);
-    const name = entry.name.slice(0, -OVERLAY_EXTENSION.length);
+    const { name, edit } = splitOverlayEdit(entry.name.slice(0, -OVERLAY_EXTENSION.length));
+    if (edit) continue;
     const refusal = filing.file(BASIS_LANGUAGE, name, await readOverlayFile('maps', path));
     if (refusal !== undefined) throw new Error(`${path}: ${refusal}`);
   }

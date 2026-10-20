@@ -11,10 +11,10 @@ import type { NodeId } from '../nav/terrain/index.js';
 export const Signpost = defineComponent<{ links: readonly Entity[] }>('Signpost', 'economy');
 
 /**
- * The scout's pending "erect a signpost here" order - the `placeSignpost` command's en-route marker. The
- * scout walks to `goal` under a normal `PlayerOrder`, then the build-guide hammer atomic's `erectSignpost`
- * effect spawns the post. Dropped when the walk fails, a need interrupts it, or the spot became illegal
- * meanwhile.
+ * The scout's pending "erect a signpost here" order - the `placeSignpost` command's marker. The scout
+ * walks to `goal` under a normal `PlayerOrder`, then the build-guide hammer atomic's `erectSignpost`
+ * effect spawns the post and retires the order. Dropped when the walk fails, a need interrupts it, or the
+ * spot became illegal meanwhile.
  */
 export const ErectSignpostOrder = defineComponent<{ goal: NodeId }>('ErectSignpostOrder', 'settlers');
 

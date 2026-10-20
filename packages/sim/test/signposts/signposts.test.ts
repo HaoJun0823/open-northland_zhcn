@@ -97,6 +97,22 @@ describe('placeSignpost - the scout erects a guidepost', () => {
     expect(sim.world.get(scout, SettlerProgress).experience.get(SCOUT_EXPERIENCE_TYPE)).toBe(1);
   });
 
+  it('the placement answer keeps the spacing around the spot for the whole hammer swing', () => {
+    const sim = freshSim();
+    const scout = makeUnit(sim, 4, 2, SCOUT);
+    sim.enqueueSetup({ kind: 'placeSignpost', entity: scout, x: 8, y: 4 });
+    const beside = { minHx: 10, maxHx: 10, minHy: 4, maxHy: 4 };
+    let swingTicks = 0;
+    for (let t = 0; t < 60 && signposts(sim).length === 0; t++) {
+      sim.step();
+      if (sim.world.tryGet(scout, CurrentAtomic)?.atomicId !== BUILD_GUIDE_ATOMIC_ID) continue;
+      swingTicks++;
+      expect(sim.signpostAnswer(P0, beside)?.accepted).toEqual(new Uint8Array([0]));
+    }
+    expect(swingTicks).toBeGreaterThan(0);
+    expect(signposts(sim)).toHaveLength(1);
+  });
+
   it('a scout walks to a distant goal first, then erects there', () => {
     const sim = freshSim();
     const scout = makeUnit(sim, 2, 2, SCOUT);

@@ -1,6 +1,7 @@
 import {
   type CurrentAtomic,
   clearNeedOrder,
+  ErectSignpostOrder,
   ownerOf,
   Settler,
   spendProductionCount,
@@ -108,6 +109,7 @@ export function applyEffect(
       serveDrillRepetition(world, settler, atomic.duration);
       return;
     case 'erectSignpost': {
+      world.remove(settler, ErectSignpostOrder);
       const terrain = ctx.terrain;
       const player = ownerOf(world, settler);
       if (terrain === undefined || player === undefined) return;

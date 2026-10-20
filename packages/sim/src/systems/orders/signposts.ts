@@ -66,7 +66,7 @@ export function placeSignpost(
  * could re-task the scout.
  *
  * The spot is re-validated on arrival because the world may have changed en route, and the signpost itself
- * spawns only when the swing's `erectSignpost` effect completes.
+ * spawns only when the swing's `erectSignpost` effect completes, which also retires the order.
  */
 export const signpostOrderSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
@@ -89,14 +89,21 @@ export const signpostOrderSystem: System = (world, ctx) => {
       continue;
     }
     if (world.has(e, PlayerOrder)) continue; // still walking the order out
-    world.remove(e, ErectSignpostOrder);
     // A walker's position truncates onto the goal node up to a step short of its centre, so only a scout
-    // standing still proves arrival; a swing begun on the move slides along the rest of the step.
-    if (isTravelling(world, e)) continue; // a failed walk finishing its step - autonomy resumes
+    // standing still proves arrival; a swing begun on the move slides along the rest of the step. A failed
+    // walk finishing its step, a walk that failed or was superseded, and a spot that became illegal all
+    // drop the errand.
     const p = world.get(e, Position);
     const here = nodeOfPosition(p.x, p.y);
-    if (terrain.nodeAt(here.hx, here.hy) !== goal) continue; // walk failed or was superseded
-    if (!canPlaceSignpost(world, ctx, terrain, goal, owner.player)) continue; // spot became illegal
+    if (
+      isTravelling(world, e) ||
+      terrain.nodeAt(here.hx, here.hy) !== goal ||
+      !canPlaceSignpost(world, ctx, terrain, goal, owner.player)
+    ) {
+      world.remove(e, ErectSignpostOrder);
+      continue;
+    }
+    // The order stays through the swing, so the planned spot keeps its spacing until the post stands.
     const c = terrain.coordsOf(goal);
     addCurrentAtomic(world, e, {
       atomicId: BUILD_GUIDE_ATOMIC_ID,

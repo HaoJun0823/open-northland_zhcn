@@ -9,10 +9,10 @@ export interface SignpostSpot {
 }
 
 /**
- * The spots `player`'s scouts are on their way to erect a signpost at: the errand a scout walks and every
- * queued one. The placement overlay keeps the spacing from them, so a chain of queued posts can be laid
- * out before the first one stands. Left out: the hammer swing, which ends with the post, and an order
- * parked behind an atomic, so that no parked order in the world moves {@link plannedSignpostsVersion}.
+ * The spots `player`'s scouts are on their way to erect a signpost at: the errand a scout walks or swings
+ * the hammer for, and every queued one. The placement overlay keeps the spacing from them, so a chain of
+ * queued posts can be laid out before the first one stands. Left out: an order parked behind an atomic,
+ * so that no parked order in the world moves {@link plannedSignpostsVersion}.
  */
 export function plannedSignposts(world: World, terrain: TerrainGraph, player: number): SignpostSpot[] {
   const planned: SignpostSpot[] = [];

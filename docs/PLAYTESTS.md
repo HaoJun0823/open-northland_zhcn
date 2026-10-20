@@ -52,7 +52,7 @@ does not reach them.
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `northland-campaign_02_01` | PLAGA | 1h/7ai | ok | ok | played in Polish; win, unlock of stage 2, hero and village defeats, defence and large-attack routes, save/restore; Miguel's gold goal and Polish defeat page corrected; without orders the village kills 57 of the 92 snakes and holds, so the main goal needs the player |
-| `northland-campaign_02_02_sub` | TRZY ŻYCZENIA - WIELKA KLĘSKA GŁODU | 1h/1ai | ok | ok | sub-mission played in Polish; doors, genie, three answers, wrong answer, hero death, return to the parent; cave crossing forced; Polish "step off the switches" page corrected; open: [gaps in the walls](tickets/sim/three-wishes-wall-gaps.md) |
+| `northland-campaign_02_02_sub` | TRZY ŻYCZENIA - WIELKA KLĘSKA GŁODU | 1h/1ai | ok | ok | sub-mission played in Polish; doors, genie, three answers, wrong answer, hero death, return to the parent; cave crossing forced; Polish "step off the switches" page corrected; open: [idle heroes opening the snake chamber](tickets/sim/three-wishes-wall-gaps.md) |
 | `northland-campaign_02_02` | WIELKA KLĘSKA GŁODU | 1h/6ai | ok | ok | played in Polish; both routes to the catacombs (own heroes, bribed Saracens and Ykol), win, unlock of stage 3, hero and village defeats, refugees after 30 min, save/restore; goal 0 restored by reading a missing description as string 0; buildings past the technology gate and the tributes' goods forced |
 | `northland-campaign_02_03` | STARZY PRZYJACIELE | 1h/4ai | – | – |  |
 | `northland-campaign_02_04_sub1` | MIECZE KRÓLI - ŁAŃCUCH FENRISA | 1h/2ai | – | – | sub-mission |
@@ -71,7 +71,7 @@ does not reach them.
 | `wonder-campaign_03_01` | LATARNIA MORSKA Z FAROS | 2h/6ai | ok | ok | played in Polish; goods-first and Sostratos-first routes, vagabonds paid or fought, Viking tribute, hero and Sostratos deaths, unlock of stage 2; economy, stores and the long walks forced; fighter commander restocking a ship got lost (fixed); Polish briefing and settlement goal text corrected; the missing post in the vagabond camp's east wall corrected |
 | `wonder-campaign_03_01_sub` | ŚWIĘTY OGIEŃ | 1h/3ai | – | ok | sub-mission; entered and left from the parent in the browser, guard fight and walks forced |
 | `wonder-campaign_03_02` | WISZĄCE OGRODY SEMIRAMIDY  | 1h/6ai | ok | ok | played in Polish; win across a save, unlock of stage 3, tribute and fight routes for the women (the fight breaks the robbers' gate and pen wall), hero and women defeats, Kobul, chests, catapults, magic fields; economy, wells and stores forced; slot-5 info line, tunnel refusal after the women's return and Polish page 4 corrected |
-| `wonder-campaign_03_02_sub` | PODZIEMNE KORYTARZE  | 1h/4ai | issues | issues | sub-mission; scripted chain to the end transition passes, fight forced; the heroes slip past the closed gate 4 and win at once: [diagonal wall joints](tickets/sim/diagonal-step-cuts-landscape-wall-joints.md) |
+| `wonder-campaign_03_02_sub` | PODZIEMNE KORYTARZE  | 1h/4ai | ok | ok | sub-mission; scripted chain to the end transition passes, fight forced; closed gates seal the exit in the route regression and the authored all-gates opening restores access |
 | `wonder-campaign_03_03` | KOLOS Z RODOS  | 1h/14ai | – | – |  |
 | `wonder-campaign_03_03_sub1` | KOLOS - SEKRETNE PRZEJŚCIE | 1h/1ai | – | – | sub-mission |
 | `wonder-campaign_03_03_sub2` | KOLOS - SEKRETNE PRZEJŚCIE | 1h/1ai | – | – | sub-mission |
@@ -159,7 +159,7 @@ does not reach them.
 | `saracen_4_sub_4` | PDP : 04 - WNĘTRZE SFINKSA | 1h/1ai | – | – | sub-mission |
 | `straznicypolnocy` | STRAŻNICY PÓŁNOCY | 1h/12ai | – | – |  |
 | `straznicypolnocy_sub1` | LEGOWISKO POTWORÓW | 2h/3ai | – | – | sub-mission |
-| `straznicypolnocy_sub2` | JOTUNHEIM | 1h/2ai | – | – | sub-mission |
+| `straznicypolnocy_sub2` | JOTUNHEIM | 1h/2ai | – | – | sub-mission; ice-wall diagonal blocking covered by a content regression, full playthrough pending |
 | `upadek_krola` | UPADEK KRÓLA | 1h/7ai | – | – |  |
 | `upadek_krola_sub` | WIĘŹIENIE ALTERACK | 1h/2ai | – | – | sub-mission |
 | `wielka_bitwa_z_saracenami` | WIELKA BITWA Z SARACENAMI | 1h/12ai | – | – |  |

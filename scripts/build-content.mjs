@@ -221,8 +221,10 @@ export async function translationsDigest(dir = TRANSLATIONS_DIR) {
   } catch {
     return hash.digest('hex');
   }
+  // Translation overlays are JSON; film subtitles are SRT. Both live under translations/ and must
+  // invalidate a stale content tree when added or edited.
   const files = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .filter((entry) => entry.isFile() && (entry.name.endsWith('.json') || entry.name.endsWith('.srt')))
     .map((entry) => join(entry.parentPath ?? entry.path, entry.name))
     .sort();
   for (const file of files) {

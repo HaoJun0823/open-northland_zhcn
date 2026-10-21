@@ -1,0 +1,39 @@
+1
+00:00:02,720 --> 00:00:04,960
+Dies ist die Geschichte von tapferen
+Helden,
+
+2
+00:00:04,960 --> 00:00:07,220
+die das Schicksal einst zusammenführte.
+
+3
+00:00:07,460 --> 00:00:11,520
+Bjarni, stolzer Wikinger und Entdecker
+einer neuen Welt.
+
+4
+00:00:11,740 --> 00:00:15,060
+Cyra, holde Prinzessin aus dem Morgenland.
+
+5
+00:00:15,240 --> 00:00:17,620
+Sigurd, Held aus dem Reich der Franken
+
+6
+00:00:17,620 --> 00:00:20,380
+und Hatschi, der tapfere Sarazene.
+
+7
+00:00:20,920 --> 00:00:24,260
+Zahlreiche Kämpfe und Abenteuer hatten sie
+schon bestanden,
+
+8
+00:00:24,560 --> 00:00:26,760
+doch nun drohte der Welt eine Gefahr,
+
+9
+00:00:27,000 --> 00:00:29,800
+die selbst das Reich der Götter
+erschüttern konnte.

@@ -69,7 +69,11 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
   text in the language it was translated from. The loader attaches it to the imported overlay and the
   pipeline applies its entries over the overlay's when its basis matches the map's text, else leaves
   it out with a warning. A re-import rewrites `<name>.json` and leaves the edit alone.
-- Authored film subtitles may use source or overlay languages; they are separate from title overlays.
+- Film subtitles are an explicit exception to the source-language text restriction: independently
+  transcribed narration may be committed as SRT, along with its translations. Each spoken language
+  uses its own audio timeline; translations use the fallback audio timeline. Keep language-specific
+  character names consistent with the campaign strings and record provenance in `SOURCES.md`.
+  Subtitle files are project-edited; the JSON overlay importer does not own them.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
 - Every string an overlay changes keeps the source's markup: `@` goal prefixes, `<picture:…>` and
   other tags inside a briefing block, `%s`-style placeholders.

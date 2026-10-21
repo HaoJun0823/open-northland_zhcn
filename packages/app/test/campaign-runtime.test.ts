@@ -60,7 +60,7 @@ describe('campaign handovers', () => {
     t.runtime.events(events, proceed);
     t.runtime.events(events, proceed);
     await vi.waitFor(() => expect(t.exit).toHaveBeenCalledOnce());
-    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE);
+    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE);
     expect(proceed).not.toHaveBeenCalled();
     expect(t.resume).not.toHaveBeenCalled();
   });
@@ -75,9 +75,7 @@ describe('campaign handovers', () => {
       ],
     } as unknown as WorldSnapshot;
     t.runtime.restore(snapshot);
-    await vi.waitFor(() =>
-      expect(t.play).toHaveBeenCalledWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE),
-    );
+    await vi.waitFor(() => expect(t.play).toHaveBeenCalledWith(ENGLISH_VIDEO, PLAYER_LANGUAGE));
     expect(readCampaignProgress(t.campaign, t.storage).unlocked).toContain('second');
   });
   it('does not access storage for ordinary events and retains grants when reads fail', () => {
@@ -137,7 +135,7 @@ describe('campaign handovers', () => {
     );
     t.failed.mock.calls[0]?.[0].continueWithoutSaving();
     await vi.waitFor(() => expect(t.exit).toHaveBeenCalledOnce());
-    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE);
+    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE);
     expect(t.failed).toHaveBeenCalledOnce();
   });
   it('completes the campaign when the local seat wins its last stage', () => {

@@ -1,8 +1,8 @@
 import '../hud/dom/foundation.css';
 import './movie.css';
-import type { CampaignMovie, MapTextLanguage } from '@open-northland/data';
+import { type CampaignMovie, LANGUAGE_INFO, type MapTextLanguage } from '@open-northland/data';
 import { syncMovieSound } from './movie-sync.js';
-import { activeCue, parseSrt, type SubtitleCue, type SubtitleTrack } from './subtitles.js';
+import { activeCue, type MovieSubtitles, parseSrt, type SubtitleCue } from './subtitles.js';
 
 /** The original's film frame, used while a movie names no size of its own. */
 const DEFAULT_MOVIE_WIDTH = 640;
@@ -72,7 +72,7 @@ export function playCampaignMovie(
   labels: MovieLabels,
   signal?: AbortSignal,
   silenceMusic?: MusicSilencer,
-  subtitles?: readonly SubtitleTrack[],
+  subtitles?: MovieSubtitles,
 ): Promise<void> {
   if (movie === undefined || signal?.aborted === true) return Promise.resolve();
   return new Promise((resolve) => {
@@ -82,7 +82,8 @@ export function playCampaignMovie(
       readonly cues: readonly SubtitleCue[];
       readonly line: HTMLElement;
     }[] = [];
-    let subtitlesHidden = false;
+    let subtitlesHidden = !(subtitles?.visible ?? false);
+    const subtitleRequest = new AbortController();
     const subtitleBox = document.createElement('div');
     subtitleBox.className = 'campaign-movie__subtitles';
     subtitleBox.hidden = true;
@@ -99,28 +100,27 @@ export function playCampaignMovie(
     // Lines are created in request order so the original track stays above the translation whatever the
     // fetch order; a failed or missing fetch is silent, like a sound track that will not load.
     const trackLines = new Map<MapTextLanguage, HTMLElement>();
-    for (const track of subtitles ?? []) {
+    for (const track of subtitles?.tracks ?? []) {
       const line = document.createElement('div');
       line.className = 'campaign-movie__subtitle';
-      line.lang = track.language;
+      line.lang = LANGUAGE_INFO[track.language].tag;
       line.hidden = true;
       subtitleBox.append(line);
       trackLines.set(track.language, line);
     }
     void Promise.all(
-      (subtitles ?? []).map(async (track) => {
+      (subtitles?.tracks ?? []).map(async (track) => {
         try {
-          const response = await fetch(track.url);
+          const response = await fetch(track.url, { signal: subtitleRequest.signal });
           if (!response.ok) return;
           const cues = parseSrt(await response.text());
-          if (cues.length === 0) return;
+          if (cues.length === 0 || subtitleRequest.signal.aborted) return;
           const line = trackLines.get(track.language);
           if (line === undefined) return;
           tracks.push({ language: track.language, cues, line });
           line.hidden = false;
-          subtitleBox.hidden = false;
           subtitleToggle.hidden = false;
-          subtitleToggle.textContent = labels.subtitlesOff;
+          setSubtitlesVisible(!subtitlesHidden);
         } catch {
           // Leave the track out; the film plays without it.
         }
@@ -130,6 +130,7 @@ export function playCampaignMovie(
       subtitlesHidden = !visible;
       subtitleBox.hidden = !visible || tracks.length === 0;
       subtitleToggle.textContent = visible ? labels.subtitlesOff : labels.subtitles;
+      if (visible) showSubtitles(media.position());
     };
     subtitleToggle.addEventListener('click', () => setSubtitlesVisible(subtitlesHidden));
     const surface = document.createElement('dialog');
@@ -206,6 +207,7 @@ export function playCampaignMovie(
     const finish = (): void => {
       if (done) return;
       done = true;
+      subtitleRequest.abort();
       music.release();
       window.removeEventListener('resize', resize);
       signal?.removeEventListener('abort', finish);

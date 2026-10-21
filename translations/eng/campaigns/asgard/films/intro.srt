@@ -1,19 +1,40 @@
 1
-00:00:02,840 --> 00:00:08,160
-A few years had passed since we had returned to our home village after our long journey.
+00:00:03,040 --> 00:00:06,980
+A few years had passed since we had
+returned to our home village
 
 2
-00:00:08,700 --> 00:00:14,340
-I, Bjarni, son of life, was there when we discovered a strange new world in the West
+00:00:06,980 --> 00:00:08,520
+after our long journey.
 
 3
-00:00:14,340 --> 00:00:16,840
-and made friends with the Redskin natives.
+00:00:08,780 --> 00:00:12,440
+I, Bjarni, son of Leif, was there when we
+discovered
 
 4
-00:00:17,480 --> 00:00:22,820
-Life in our small village on the coast of Greenland had been quiet and peaceful ever since our return,
+00:00:12,440 --> 00:00:14,580
+a strange new world in the west
 
 5
-00:00:23,400 --> 00:00:28,800
-until that memorable day in May when fate once again put me to the test.
+00:00:14,580 --> 00:00:17,240
+and made friends with the red-skinned
+natives.
+
+6
+00:00:17,540 --> 00:00:20,280
+Life in our small village on the coast of
+Greenland
+
+7
+00:00:20,280 --> 00:00:23,200
+had been quiet and peaceful ever since our
+return,
+
+8
+00:00:23,480 --> 00:00:26,040
+until that memorable day in May
+
+9
+00:00:26,040 --> 00:00:29,140
+when fate once again put me to the test.

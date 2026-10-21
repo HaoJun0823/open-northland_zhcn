@@ -13,6 +13,23 @@ export interface SubtitleTrack {
   readonly url: string;
 }
 
+export interface MovieSubtitles {
+  readonly tracks: readonly SubtitleTrack[];
+  readonly visible: boolean;
+}
+
+/** Captions start hidden only when the film speaks the reader's language. */
+export function movieSubtitles(
+  subtitles: Partial<Record<MapTextLanguage, string>> | undefined,
+  audioLanguage: MapTextLanguage | undefined,
+  uiLanguage: MapTextLanguage,
+): MovieSubtitles {
+  return {
+    tracks: subtitleTracks(subtitles, [audioLanguage, uiLanguage]),
+    visible: audioLanguage !== uiLanguage,
+  };
+}
+
 /** The subtitle lines one film shows for the wanted languages, in the given order: the played
  *  sound-track language first (the original line), then the reader's language. A language the film
  *  carries no subtitle for, and a language repeated across the two, drop out. */

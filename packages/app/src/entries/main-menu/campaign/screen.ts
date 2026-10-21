@@ -18,11 +18,11 @@ import {
   resetCampaignProgress,
   skipCampaignStage,
 } from '../../../campaign/progress.js';
-import { subtitleTracks } from '../../../campaign/subtitles.js';
+import { movieSubtitles } from '../../../campaign/subtitles.js';
 import { createHudPlane } from '../../../hud/dom/root.js';
 import { createSystemConfirm, type SystemConfirmCopy } from '../../../hud/dom/system-confirm.js';
 import { displayViewOf, uiScaleFor } from '../../../hud/ui-scale.js';
-import { currentLocale, messages } from '../../../i18n/index.js';
+import { currentLocale, mapTextLanguage, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import { replaceEntryUrl } from '../../../view/navigation-guard.js';
 import { targetSearch } from '../../../view/target-search.js';
@@ -247,11 +247,12 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
         button.addEventListener('click', () => {
           if (busy || asking) return;
           setBusy(true);
-          const tracks = subtitleTracks(movie.subtitles, [
+          const subtitles = movieSubtitles(
+            movie.subtitles,
             campaignMovieLanguage(campaign, language),
-            language,
-          ]);
-          void playCampaignMovie(movie, movieLabels(), scope.signal, silenceMusic, tracks).then(() => {
+            mapTextLanguage(currentLocale()),
+          );
+          void playCampaignMovie(movie, movieLabels(), scope.signal, silenceMusic, subtitles).then(() => {
             if (scope.signal.aborted) return;
             setBusy(false);
             start.disabled = selected === undefined;

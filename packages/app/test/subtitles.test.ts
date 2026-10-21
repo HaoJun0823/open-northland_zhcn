@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeCue, parseSrt, subtitleTracks } from '../src/campaign/subtitles.js';
+import { activeCue, movieSubtitles, parseSrt, subtitleTracks } from '../src/campaign/subtitles.js';
 
 const SAMPLE = `1
 00:00:01,000 --> 00:00:03,500
@@ -79,5 +79,26 @@ describe('subtitleTracks', () => {
   it('skips an unknown language and an absent subtitle map', () => {
     expect(subtitleTracks(urls, [undefined, 'chs'])).toEqual([{ language: 'chs', url: urls.chs }]);
     expect(subtitleTracks(undefined, ['eng', 'chs'])).toEqual([]);
+  });
+});
+
+describe('subtitle defaults', () => {
+  it.each(['eng', 'ger', 'pol', 'rus', 'chs', 'cht'] as const)(
+    'keeps matching %s audio optional',
+    (language) => {
+      expect(movieSubtitles({ [language]: '/film.srt' }, language, language)).toEqual({
+        visible: false,
+        tracks: [{ language, url: '/film.srt' }],
+      });
+    },
+  );
+  it('shows the translation when the audio falls back to English', () => {
+    expect(movieSubtitles({ eng: '/en.srt', rus: '/ru.srt' }, 'eng', 'rus')).toEqual({
+      visible: true,
+      tracks: [
+        { language: 'eng', url: '/en.srt' },
+        { language: 'rus', url: '/ru.srt' },
+      ],
+    });
   });
 });

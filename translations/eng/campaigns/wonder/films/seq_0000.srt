@@ -1,15 +1,35 @@
 1
-00:00:00,630 --> 00:00:06,630
-All the artifacts had been returned to their ancient places on the Eighth Wonder of the World.
+00:00:00,920 --> 00:00:04,840
+All the artifacts had been returned to
+their ancient places
 
 2
-00:00:06,630 --> 00:00:57,380
-It was time for destiny to take its seven wonders of the world, was now united here.
+00:00:04,840 --> 00:00:07,060
+on the eighth wonder of the world.
 
 3
-00:00:57,380 --> 00:01:05,380
-A mighty lance of fire shot towards the sky and put an end to the evil.
+00:00:08,400 --> 00:00:12,140
+It was time for destiny to take its
+course.
 
 4
-00:01:05,380 --> 00:01:07,740
+00:00:51,220 --> 00:00:55,780
+The mysterious energy of all the seven
+wonders of the world
+
+5
+00:00:55,840 --> 00:00:59,080
+was now united here in the obelisk.
+
+6
+00:00:59,580 --> 00:01:03,240
+A mighty lance of flame shot towards the
+sky
+
+7
+00:01:03,240 --> 00:01:05,580
+and put an end to the evil.
+
+8
+00:01:06,080 --> 00:01:08,240
 Our heroes had won.

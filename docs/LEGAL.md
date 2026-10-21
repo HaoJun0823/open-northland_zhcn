@@ -35,6 +35,10 @@ stay pipeline corrections. The one exception is the glossary, `translations/glos
 `translations/glossary-project.csv`: beside each Chinese term it keeps the German, English and Polish
 term it translates (names of characters, places, objects and maps).
 
+Independently authored film subtitles under `translations/<lang>/campaigns/<campaign>/films/`
+are also permitted: transcriptions of the narration and their translations, with provenance in
+`translations/SOURCES.md`. This exception covers subtitle text, not the recordings or video files.
+
 Tests use synthetic fixtures created for this project. A test or pull request must not contain an
 original file, decoded asset, extracted text corpus, or other distributable game content.
 

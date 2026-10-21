@@ -264,69 +264,104 @@ describe('seek bar visibility', () => {
   });
 });
 
-function currentTimeOf(element: HTMLElement, value?: number): number {
-  const store = element as unknown as { _currentTime?: number };
-  if (value === undefined) return store._currentTime ?? 0;
-  store._currentTime = value;
-  return value;
-}
-
 describe('playCampaignMovie subtitles', () => {
   const SRT =
-    '1\n00:00:01,000 --> 00:00:03,500\nFirst line.\n\n' + '2\n00:00:04,000 --> 00:00:06,000\nSecond line.\n';
-
+    '1\n00:00:01,000 --> 00:00:03,500\nFirst line.\n\n2\n00:00:04,000 --> 00:00:06,000\nSecond line.\n';
+  let lifetime: AbortController;
   beforeEach(() => {
+    lifetime = new AbortController();
     HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
       this.open = true;
     });
     HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
     HTMLMediaElement.prototype.pause = vi.fn();
     HTMLMediaElement.prototype.load = vi.fn();
-    // jsdom leaves `currentTime` at 0; back it with a field so the film clock can advance in tests.
-    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
-      configurable: true,
-      get() {
-        return currentTimeOf(this);
-      },
-      set(value: number) {
-        currentTimeOf(this, value);
-      },
-    });
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({ ok: true, text: async () => SRT })),
+      vi.fn(async () => new Response(SRT)),
     );
   });
   afterEach(() => {
+    lifetime.abort();
     vi.unstubAllGlobals();
     document.body.replaceChildren();
   });
-
-  it('renders the active cue and hides the box on the `c` key', async () => {
-    void playCampaignMovie(MOVIE, LABELS, undefined, undefined, [
-      { language: 'eng', url: '/subtitles/eng.srt' },
-    ]);
-    const box = surface().querySelector('.campaign-movie__subtitles') as HTMLElement;
-    await vi.waitFor(() => expect(box.hidden).toBe(false));
-    const video = surface().querySelector('video') as HTMLVideoElement;
-    const sound = surface().querySelector('audio') as HTMLAudioElement;
-    // jsdom leaves `currentTime` at 0 and `duration` at NaN; back them with fields so the film clock advances.
-    for (const element of [video, sound]) {
-      Object.defineProperty(element, 'currentTime', {
-        configurable: true,
-        get: () => currentTimeOf(element),
-        set: (value: number) => void currentTimeOf(element, value),
-      });
-      Object.defineProperty(element, 'duration', { configurable: true, get: () => 100 });
-    }
-    video.currentTime = 2;
-    video.dispatchEvent(new Event('timeupdate'));
-    const line = box.querySelector('.campaign-movie__subtitle') as HTMLElement;
-    expect(line.textContent).toBe('First line.');
-    surface().dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true }));
-    expect(box.hidden).toBe(true);
+  function start(visible = true, bilingual = false) {
+    void playCampaignMovie(MOVIE, LABELS, lifetime.signal, undefined, {
+      visible,
+      tracks: [
+        { language: 'eng', url: '/eng.srt' },
+        ...(bilingual ? [{ language: 'chs' as const, url: '/chs.srt' }] : []),
+      ],
+    });
+    const dialog = surface();
+    const video = dialog.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'duration', { configurable: true, value: 100 });
+    const box = dialog.querySelector('.campaign-movie__subtitles') as HTMLElement;
+    const toggle = dialog.querySelector('.campaign-movie__controls button:last-child') as HTMLButtonElement;
+    const advance = (time: number) => {
+      video.currentTime = time;
+      video.dispatchEvent(new Event('timeupdate'));
+    };
+    return { dialog, box, toggle, advance };
+  }
+  it('starts same-language captions hidden and enables them with the button', async () => {
+    const t = start(false);
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
+    t.advance(2);
+    expect(t.box.hidden).toBe(true);
+    expect(t.toggle.textContent).toBe('Subtitles');
+    t.toggle.click();
+    expect(t.box.hidden).toBe(false);
+    expect(t.box.textContent).toBe('First line.');
+    expect(t.toggle.textContent).toBe('Hide subtitles');
+    t.toggle.click();
+    expect(t.box.hidden).toBe(true);
   });
-
+  it('refreshes immediately when the keyboard re-enables captions after a seek', async () => {
+    const t = start();
+    await vi.waitFor(() => expect(t.box.hidden).toBe(false));
+    t.advance(2);
+    expect(t.box.textContent).toBe('First line.');
+    t.dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true }));
+    t.advance(5);
+    expect(t.box.hidden).toBe(true);
+    t.dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'C', bubbles: true }));
+    expect(t.box.hidden).toBe(false);
+    expect(t.box.textContent).toBe('Second line.');
+  });
+  it('keeps captions off when the second language arrives late', async () => {
+    let complete: (response: Response) => void = () => {};
+    const delayed = new Promise<Response>((resolve) => {
+      complete = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => (url === '/chs.srt' ? delayed : Promise.resolve(new Response(SRT)))),
+    );
+    const t = start(true, true);
+    await vi.waitFor(() => expect(t.box.hidden).toBe(false));
+    t.advance(2);
+    t.toggle.click();
+    complete(new Response(SRT.replace('First line.', '译文')));
+    await vi.waitFor(() =>
+      expect(t.box.querySelector('[lang="zh-Hans"]')?.hasAttribute('hidden')).toBe(false),
+    );
+    expect(t.box.hidden).toBe(true);
+    expect(t.toggle.textContent).toBe('Subtitles');
+    t.toggle.click();
+    expect(t.box.textContent).toBe('First line.译文');
+  });
+  it('aborts outstanding subtitle loads when the film closes', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
+    start();
+    const options = vi.mocked(fetch).mock.calls[0]?.[1];
+    lifetime.abort();
+    expect(options?.signal?.aborted).toBe(true);
+  });
   it('leaves the film playing when a subtitle fetch fails', async () => {
     vi.stubGlobal(
       'fetch',
@@ -334,11 +369,10 @@ describe('playCampaignMovie subtitles', () => {
         throw new Error('no network');
       }),
     );
-    void playCampaignMovie(MOVIE, LABELS, undefined, undefined, [
-      { language: 'eng', url: '/subtitles/eng.srt' },
-    ]);
-    const box = surface().querySelector('.campaign-movie__subtitles') as HTMLElement;
+    const t = start();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(box.hidden).toBe(true);
+    expect(t.box.hidden).toBe(true);
+    expect(t.toggle.hidden).toBe(true);
+    expect(t.dialog.isConnected).toBe(true);
   });
 });

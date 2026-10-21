@@ -35,7 +35,7 @@ import { campaignFailureDialog } from '../../campaign/failure-dialog.js';
 import { campaignLanguage } from '../../campaign/locale.js';
 import { playCampaignMovie } from '../../campaign/movie.js';
 import { createCampaignRuntime } from '../../campaign/runtime.js';
-import { subtitleTracks } from '../../campaign/subtitles.js';
+import { movieSubtitles } from '../../campaign/subtitles.js';
 import { pickerEntries } from '../../catalog/professions.js';
 import { emblemBuildingType } from '../../content/building-gfx/emblems.js';
 import type { FellingClips } from '../../content/felling-clips.js';
@@ -881,9 +881,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           },
           pause: () => pauseHolds.hold('campaign'),
           resume: () => pauseHolds.release('campaign'),
-          play: async (movie, audio, ui) => {
+          play: async (movie, audio) => {
             const copy = messages().campaign;
-            const tracks = subtitleTracks(movie?.subtitles, [audio, ui]);
+            const subtitles = movieSubtitles(movie?.subtitles, audio, mapTextLanguage(currentLocale()));
             await playCampaignMovie(
               movie,
               {
@@ -896,7 +896,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
               },
               lifetime.signal,
               soundDriver === null ? undefined : () => soundDriver.silenceMusic(),
-              tracks,
+              subtitles,
             );
           },
           exit: finishScript,

@@ -1,27 +1,39 @@
 1
-00:00:01,460 --> 00:00:06,840
-This is the story of a band of brave heroes, whom fate once united.
+00:00:01,680 --> 00:00:04,780
+This is the story of a band of brave
+heroes
 
 2
-00:00:06,840 --> 00:00:10,740
-Bjarni, a proud viking and the discoverer of a new world.
+00:00:04,780 --> 00:00:06,700
+who fate once united.
 
 3
-00:00:10,740 --> 00:00:14,380
-Cyra, a fair princess of the Orient.
+00:00:07,060 --> 00:00:10,780
+Bjarni, a proud Viking and the discoverer
+of a new world.
 
 4
-00:00:14,380 --> 00:00:17,380
-Sigurd, a hero from the Frankish Empire.
+00:00:11,320 --> 00:00:14,140
+Cyra, a fair princess of the Orient.
 
 5
-00:00:17,380 --> 00:00:19,720
-And Hatschi, the brave Starrus.
+00:00:14,560 --> 00:00:17,300
+Sigurd, a hero from the Frankish Empire,
 
 6
-00:00:19,720 --> 00:00:23,720
-Together they have already survived many fights and adventures.
+00:00:17,500 --> 00:00:19,360
+and Hatchie, the brave Saracen.
 
 7
-00:00:23,720 --> 00:00:29,800
-But now the world was threatened by a menace so great, it could shake even the realm of the gods.
+00:00:19,880 --> 00:00:23,520
+Together they had already survived many
+fights and adventures,
+
+8
+00:00:23,740 --> 00:00:26,920
+but now the world was threatened by a
+menace so great
+
+9
+00:00:26,960 --> 00:00:29,720
+it could shake even the realm of the gods.

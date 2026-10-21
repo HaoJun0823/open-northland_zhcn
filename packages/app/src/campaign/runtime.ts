@@ -22,13 +22,8 @@ export interface CampaignRuntimeDeps {
   readonly storage: Pick<Storage, 'getItem' | 'setItem'>;
   readonly pause: () => void;
   readonly resume: () => void;
-  /** Plays a script video; `undefined` when the campaign has no film for the sequence. The second and
-   *  third arguments are the played sound track's language and the UI text language, for dual subtitles. */
-  readonly play: (
-    movie: CampaignMovie | undefined,
-    audioLanguage?: MapTextLanguage,
-    uiLanguage?: MapTextLanguage,
-  ) => Promise<void>;
+  /** Plays a script video and identifies its audio language; the caller owns the current UI locale. */
+  readonly play: (movie: CampaignMovie | undefined, audioLanguage?: MapTextLanguage) => Promise<void>;
   readonly exit: () => void;
   readonly failed: (recovery: CampaignFailureRecovery) => void;
   readonly signal: AbortSignal;
@@ -117,7 +112,7 @@ export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
         const audioLanguage =
           deps.campaign === undefined ? undefined : campaignMovieLanguage(deps.campaign, deps.language);
         void deps
-          .play(movie, audioLanguage, deps.language)
+          .play(movie, audioLanguage)
           .then(() => finishMovie(true))
           .catch(() => {
             if (!deps.signal.aborted)

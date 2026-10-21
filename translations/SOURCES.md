@@ -61,3 +61,27 @@ Overlays the project wrote itself, edited in place:
 - `chs/maps/` files for community maps the import did not cover: the project's translation from the
   Polish text, machine-translated with the glossary and edited by a reviewer; unreviewed by a native
   speaker. Their `cht/maps/` twins are OpenCC conversions (`npm run translations:derive-cht`).
+
+
+## Campaign film subtitles
+
+`<lang>/campaigns/{asgard,northland,wonder}/films/*.srt` are project-edited subtitles. The initial
+English transcription and Simplified Chinese translation were contributed by HaoJun0823. They are
+separate from the imported JSON overlays above.
+
+- `eng`, `ger`, `pol`: transcriptions of the corresponding data-pack film audio, checked against two
+  ElevenLabs Scribe v2 passes, with targeted Scribe v1 and independent OpenAI transcription checks
+  where recognition disagreed. Cue times follow each language's word timestamps; silent passages
+  carry no lingering cue. Speech recognition is evidence, not a native-speaker listening review.
+- `rus`: project translation of the checked English narration; the pack has no Russian film audio.
+- `chs`: the contributed translation revised against the checked English narration and glossary.
+  These revisions and the Russian translation are AI-assisted and not native-speaker reviewed.
+- `cht`: OpenCC `cn` → `tw` conversion of the revised `chs` subtitles, not separately reviewed.
+  The JSON-only `translations:derive-cht` command does not regenerate these SRT files.
+
+Character spellings follow the shipped campaign strings and `glossary.csv`: English **Hatchie**,
+German/Polish **Hatschi**, Russian **Хатчи**; **Bjarni**, **Cyra**, **Sigurd** and their localized forms.
+The [publisher's Northland synopsis](https://www.application-systems.co.uk/northland/) also confirms
+the Saracen identity and the Midgard Serpent; its inconsistent hero spellings do not override the
+campaign strings. The English Northland introduction's Saracen epithet is resolved from that context
+and the German and Polish narration because automated recognition disagrees on the English word.

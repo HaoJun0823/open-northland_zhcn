@@ -76,12 +76,9 @@ export function playCampaignMovie(
 ): Promise<void> {
   if (movie === undefined || signal?.aborted === true) return Promise.resolve();
   return new Promise((resolve) => {
-    /** A loaded subtitle track and the line that shows its active cue. */
-    const tracks: {
-      readonly language: MapTextLanguage;
-      readonly cues: readonly SubtitleCue[];
-      readonly line: HTMLElement;
-    }[] = [];
+    const tracks: { readonly language: MapTextLanguage; readonly cues: readonly SubtitleCue[] }[] = [];
+    let selectedTrack = 0;
+    let languageChosen = false;
     let subtitlesHidden = !(subtitles?.visible ?? false);
     const subtitleRequest = new AbortController();
     const subtitleBox = document.createElement('div');
@@ -93,42 +90,27 @@ export function playCampaignMovie(
     subtitleToggle.setAttribute('aria-label', labels.subtitles);
     subtitleToggle.setAttribute('aria-keyshortcuts', 'C');
     subtitleToggle.hidden = true;
+    const subtitleLanguage = document.createElement('button');
+    subtitleLanguage.className = 'campaign-movie__captions campaign-movie__language';
+    subtitleLanguage.hidden = true;
+    const line = document.createElement('div');
+    line.className = 'campaign-movie__subtitle';
+    subtitleBox.append(line);
     const showSubtitles = (time: number): void => {
-      if (subtitlesHidden) return;
-      for (const track of tracks) {
-        const cue = activeCue(track.cues, time);
-        track.line.textContent = cue === undefined ? '' : cue.text;
-      }
-    };
-    // Lines are created in request order so the original track stays above the translation whatever the
-    // fetch order; a failed or missing fetch is silent, like a sound track that will not load.
-    const trackLines = new Map<MapTextLanguage, HTMLElement>();
-    for (const track of subtitles?.tracks ?? []) {
-      const line = document.createElement('div');
-      line.className = 'campaign-movie__subtitle';
+      const track = tracks[selectedTrack];
+      if (subtitlesHidden || track === undefined) return;
       line.lang = LANGUAGE_INFO[track.language].tag;
-      line.hidden = true;
-      subtitleBox.append(line);
-      trackLines.set(track.language, line);
-    }
-    void Promise.all(
-      (subtitles?.tracks ?? []).map(async (track) => {
-        try {
-          const response = await fetch(track.url, { signal: subtitleRequest.signal });
-          if (!response.ok) return;
-          const cues = parseSrt(await response.text());
-          if (cues.length === 0 || subtitleRequest.signal.aborted) return;
-          const line = trackLines.get(track.language);
-          if (line === undefined) return;
-          tracks.push({ language: track.language, cues, line });
-          line.hidden = false;
-          subtitleToggle.hidden = false;
-          setSubtitlesVisible(!subtitlesHidden);
-        } catch {
-          // Leave the track out; the film plays without it.
-        }
-      }),
-    );
+      line.textContent = activeCue(track.cues, time)?.text ?? '';
+    };
+    const showLanguage = (): void => {
+      const track = tracks[selectedTrack];
+      if (track === undefined) return;
+      const tag = LANGUAGE_INFO[track.language].tag;
+      subtitleLanguage.textContent = tag.split('-')[0]?.toUpperCase() ?? tag;
+      const name = new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
+      subtitleLanguage.title = `${labels.subtitles}: ${name}`;
+      subtitleLanguage.setAttribute('aria-label', subtitleLanguage.title);
+    };
     const setSubtitlesVisible = (visible: boolean): void => {
       subtitlesHidden = !visible;
       subtitleBox.hidden = !visible || tracks.length === 0;
@@ -136,9 +118,47 @@ export function playCampaignMovie(
       subtitleToggle.title = `${visible ? labels.subtitlesOff : labels.subtitles} (C)`;
       if (visible) showSubtitles(media.position());
     };
+    // A slow alternative must not delay a ready track or undo the viewer's language choice.
+    const requestedTracks = subtitles?.tracks ?? [];
+    for (const track of requestedTracks) {
+      void (async () => {
+        try {
+          const response = await fetch(track.url, { signal: subtitleRequest.signal });
+          if (!response.ok) return;
+          const cues = parseSrt(await response.text());
+          if (cues.length === 0 || subtitleRequest.signal.aborted) return;
+          const chosenLanguage = tracks[selectedTrack]?.language;
+          tracks.push({ language: track.language, cues });
+          tracks.sort(
+            (a, b) =>
+              requestedTracks.findIndex((entry) => entry.language === a.language) -
+              requestedTracks.findIndex((entry) => entry.language === b.language),
+          );
+          selectedTrack = languageChosen
+            ? Math.max(
+                0,
+                tracks.findIndex((entry) => entry.language === chosenLanguage),
+              )
+            : 0;
+          subtitleToggle.hidden = false;
+          subtitleLanguage.hidden = tracks.length < 2;
+          showLanguage();
+          setSubtitlesVisible(!subtitlesHidden);
+        } catch {
+          // Failed tracks are not offered; the film and other subtitles remain available.
+        }
+      })();
+    }
     subtitleToggle.addEventListener('click', (event) => {
       setSubtitlesVisible(subtitlesHidden);
       // Pointer activation must not pin the bar if the viewer later uses the C shortcut.
+      if (event.detail > 0) surface.focus({ preventScroll: true });
+    });
+    subtitleLanguage.addEventListener('click', (event) => {
+      languageChosen = true;
+      selectedTrack = (selectedTrack + 1) % tracks.length;
+      showLanguage();
+      setSubtitlesVisible(true);
       if (event.detail > 0) surface.focus({ preventScroll: true });
     });
     const surface = document.createElement('dialog');
@@ -182,7 +202,7 @@ export function playCampaignMovie(
     clock.className = 'campaign-movie__clock';
     const seekRow = document.createElement('div');
     seekRow.className = 'campaign-movie__seek';
-    seekRow.append(seek, clock, subtitleToggle);
+    seekRow.append(seek, clock, subtitleToggle, subtitleLanguage);
     // The HUD scope lends the controls its tokens and button style; the black surface stays outside it.
     const frameHud = document.createElement('div');
     frameHud.className = 'on-hud';
@@ -301,11 +321,14 @@ export function playCampaignMovie(
       }
       if (event.key === 'Tab') {
         event.preventDefault();
-        const order = [seek, subtitleToggle, play, skip].filter(
+        const order = [seek, subtitleToggle, subtitleLanguage, play, skip].filter(
           (control) =>
             !control.disabled &&
             !control.hidden &&
-            !((control === seek || control === subtitleToggle) && seekRow.hidden),
+            !(
+              (control === seek || control === subtitleToggle || control === subtitleLanguage) &&
+              seekRow.hidden
+            ),
         );
         const at = order.indexOf(document.activeElement as HTMLButtonElement | HTMLInputElement);
         const step = event.shiftKey ? order.length - 1 : 1;

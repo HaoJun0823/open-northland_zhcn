@@ -1,4 +1,4 @@
-import type { MapTextLanguage } from '@open-northland/data';
+import { LANGUAGES, type MapTextLanguage } from '@open-northland/data';
 
 /** One subtitle line shown for its language; `text` may hold several source lines joined by newlines. */
 export interface SubtitleCue {
@@ -25,14 +25,12 @@ export function movieSubtitles(
   uiLanguage: MapTextLanguage,
 ): MovieSubtitles {
   return {
-    tracks: subtitleTracks(subtitles, [audioLanguage, uiLanguage]),
+    tracks: subtitleTracks(subtitles, [uiLanguage, 'eng', ...LANGUAGES]),
     visible: audioLanguage !== uiLanguage,
   };
 }
 
-/** The subtitle lines one film shows for the wanted languages, in the given order: the played
- *  sound-track language first (the original line), then the reader's language. A language the film
- *  carries no subtitle for, and a language repeated across the two, drop out. */
+/** Available tracks in preference order, omitting missing and duplicate languages. */
 export function subtitleTracks(
   subtitles: Partial<Record<MapTextLanguage, string>> | undefined,
   languages: readonly (MapTextLanguage | undefined)[],

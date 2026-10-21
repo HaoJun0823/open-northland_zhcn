@@ -120,7 +120,7 @@
   font: 500 11px / 1 var(--font-body);
   font-variant-numeric: tabular-nums;
 }
-/* Centered over the film, above the seek bar and below the controls; the audio language line first. */
+/* The selected subtitle track is centered over the film, above the seek bar. */
 .campaign-movie__subtitles {
   position: absolute;
   left: 50%;

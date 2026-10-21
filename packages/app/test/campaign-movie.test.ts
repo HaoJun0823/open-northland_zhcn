@@ -332,7 +332,30 @@ describe('playCampaignMovie subtitles', () => {
     expect(t.box.hidden).toBe(false);
     expect(t.box.textContent).toBe('Second line.');
   });
-  it('keeps captions off when the second language arrives late', async () => {
+  it('shows one language and cycles through loaded languages without changing playback', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async (url: string) => new Response(url === '/chs.srt' ? SRT.replace('First line.', '译文') : SRT),
+      ),
+    );
+    const t = start(true, true);
+    await vi.waitFor(() => expect(t.box.hidden).toBe(false));
+    t.advance(2);
+    const language = t.dialog.querySelector('.campaign-movie__language') as HTMLButtonElement;
+    expect(t.box.textContent).toBe('First line.');
+    expect(language.textContent).toBe('EN');
+    t.toggle.click();
+    language.click();
+    expect(t.box.hidden).toBe(false);
+    expect(t.box.textContent).toBe('译文');
+    expect(t.box.firstElementChild?.getAttribute('lang')).toBe('zh-Hans');
+    expect(language.textContent).toBe('ZH');
+    expect(t.dialog.querySelector('video')?.currentTime).toBe(2);
+    language.click();
+    expect(t.box.textContent).toBe('First line.');
+  });
+  it('does not wait for a slow alternative or re-enable captions when it arrives', async () => {
     let complete: (response: Response) => void = () => {};
     const delayed = new Promise<Response>((resolve) => {
       complete = resolve;
@@ -342,18 +365,49 @@ describe('playCampaignMovie subtitles', () => {
       vi.fn((url: string) => (url === '/chs.srt' ? delayed : Promise.resolve(new Response(SRT)))),
     );
     const t = start(true, true);
-    await vi.waitFor(() => expect(t.box.hidden).toBe(false));
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
     t.advance(2);
+    expect(t.box.textContent).toBe('First line.');
     t.toggle.click();
-    complete(new Response(SRT.replace('First line.', '译文')));
+    complete(new Response(SRT));
     await vi.waitFor(() =>
-      expect(t.box.querySelector('[lang="zh-Hans"]')?.hasAttribute('hidden')).toBe(false),
+      expect((t.dialog.querySelector('.campaign-movie__language') as HTMLElement).hidden).toBe(false),
     );
     expect(t.box.hidden).toBe(true);
-    expect(t.toggle.getAttribute('aria-pressed')).toBe('false');
-    expect(t.toggle.title).toBe('Subtitles (C)');
+  });
+  it('preserves preference order when requests finish out of order', async () => {
+    let complete: (response: Response) => void = () => {};
+    const delayed = new Promise<Response>((resolve) => {
+      complete = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === '/eng.srt' ? delayed : Promise.resolve(new Response(SRT.replace('First line.', '译文'))),
+      ),
+    );
+    const t = start(false, true);
+    complete(new Response(SRT));
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
+    t.advance(2);
+    expect(t.box.hidden).toBe(true);
     t.toggle.click();
-    expect(t.box.textContent).toBe('First line.译文');
+    expect(t.box.textContent).toBe('First line.');
+  });
+  it('omits failed tracks and hides the language button when only one loads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/eng.srt'
+          ? new Response('', { status: 404 })
+          : new Response(SRT.replace('First line.', '译文')),
+      ),
+    );
+    const t = start(true, true);
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
+    t.advance(2);
+    expect(t.box.textContent).toBe('译文');
+    expect((t.dialog.querySelector('.campaign-movie__language') as HTMLElement).hidden).toBe(true);
   });
   it('returns pointer focus to the film but keeps keyboard activation on captions', async () => {
     const t = start();

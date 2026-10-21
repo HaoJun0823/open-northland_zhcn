@@ -60,14 +60,14 @@ describe('subtitleTracks', () => {
     chs: '/campaigns/x/films/chs/intro.srt',
   };
 
-  it('lists the audio language above the UI language, each with its url', () => {
+  it('lists requested languages in preference order', () => {
     expect(subtitleTracks(urls, ['eng', 'chs'])).toEqual([
       { language: 'eng', url: urls.eng },
       { language: 'chs', url: urls.chs },
     ]);
   });
 
-  it('keeps one line when the audio and UI language match', () => {
+  it('deduplicates repeated languages', () => {
     expect(subtitleTracks(urls, ['eng', 'eng'])).toEqual([{ language: 'eng', url: urls.eng }]);
   });
 
@@ -96,9 +96,17 @@ describe('subtitle defaults', () => {
     expect(movieSubtitles({ eng: '/en.srt', rus: '/ru.srt' }, 'eng', 'rus')).toEqual({
       visible: true,
       tracks: [
-        { language: 'eng', url: '/en.srt' },
         { language: 'rus', url: '/ru.srt' },
+        { language: 'eng', url: '/en.srt' },
       ],
     });
   });
+});
+
+it('offers English first when UI subtitles are unavailable, then other available languages', () => {
+  expect(movieSubtitles({ eng: '/en.srt', pol: '/pl.srt', chs: '/zh.srt' }, 'eng', 'cht').tracks).toEqual([
+    { language: 'eng', url: '/en.srt' },
+    { language: 'pol', url: '/pl.srt' },
+    { language: 'chs', url: '/zh.srt' },
+  ]);
 });

@@ -1,9 +1,11 @@
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   type Campaign,
   CampaignIndex,
   isSourceLanguage,
+  LANGUAGES,
   type LocalizedText,
   type MapTextLanguage,
   OVERLAY_LANGUAGES,
@@ -123,6 +125,36 @@ async function publish(packRoot: string, outDir: string, campaignId: string, fil
   return `/${CAMPAIGNS_DIR}/${campaignId}/${file}`;
 }
 
+/** The repository's authored subtitles, resolved from this stage file so any working directory works. */
+const SUBTITLE_ROOT = fileURLToPath(new URL('../../../../translations/', import.meta.url));
+
+/**
+ * Publishes each authored `.srt` for a film slot from `translations/<lang>/campaigns/<id>/films/<slot>.srt`
+ * into ignored `content/campaigns/<id>/films/<lang>/<slot>.srt`, returning the per-language URLs the
+ * `Movie.subtitles` map records. A language without a file is omitted; a slot with none returns
+ * undefined. The generated `campaigns-index.json` is not committed, so no subtitle text enters the repo.
+ */
+async function publishSubtitles(
+  outDir: string,
+  campaignId: string,
+  slot: string,
+): Promise<Partial<Record<MapTextLanguage, string>> | undefined> {
+  const subtitles: Partial<Record<MapTextLanguage, string>> = {};
+  for (const language of LANGUAGES) {
+    const source = join(SUBTITLE_ROOT, language, 'campaigns', campaignId, 'films', `${slot}.srt`);
+    try {
+      await stat(source);
+    } catch {
+      continue;
+    }
+    const target = join(outDir, CAMPAIGNS_DIR, campaignId, 'films', language, `${slot}.srt`);
+    await mkdir(dirname(target), { recursive: true });
+    await copyFile(source, target);
+    subtitles[language] = `/${CAMPAIGNS_DIR}/${campaignId}/films/${language}/${slot}.srt`;
+  }
+  return Object.keys(subtitles).length > 0 ? subtitles : undefined;
+}
+
 /** A stage's title is its map's name in the campaign's languages. */
 function stageTitle(map: ConvertedMap, languages: readonly MapTextLanguage[]): LocalizedText {
   return Object.fromEntries(
@@ -187,12 +219,16 @@ async function convertCampaign(
     maps.push(converted);
   }
   const asset = (file: string): Promise<string> => publish(packRoot, outDir, campaign.id, file);
-  const film = async (source: CampaignFilmSource) => ({
-    url: await asset(source.video),
-    audio: await asset(source.audio),
-    width: source.width,
-    height: source.height,
-  });
+  const film = async (source: CampaignFilmSource, slot: string) => {
+    const subtitles = await publishSubtitles(outDir, campaign.id, slot);
+    return {
+      url: await asset(source.video),
+      audio: await asset(source.audio),
+      width: source.width,
+      height: source.height,
+      ...(subtitles === undefined ? {} : { subtitles }),
+    };
+  };
 
   const languages = campaignLanguages(campaign, maps);
   const stages: Campaign['stages'][number][] = [];
@@ -227,9 +263,12 @@ async function convertCampaign(
     const films = campaign.movies[language];
     if (films === undefined) continue;
     movies[language] = {
-      ...(films.intro === undefined ? {} : { intro: await film(films.intro) }),
+      ...(films.intro === undefined ? {} : { intro: await film(films.intro, 'intro') }),
       videos: await Promise.all(
-        films.videos.map(async (video) => ({ ...(await film(video)), sequence: video.sequence })),
+        films.videos.map(async (video) => ({
+          ...(await film(video, `seq_${String(video.sequence).padStart(4, '0')}`)),
+          sequence: video.sequence,
+        })),
       ),
     };
   }

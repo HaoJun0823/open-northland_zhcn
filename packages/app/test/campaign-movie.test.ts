@@ -4,7 +4,14 @@ import { movieClock, movieMusicHold, playCampaignMovie } from '../src/campaign/m
 
 /** A film silences the page's music once and gives it back once, on every way the film ends. */
 
-const LABELS = { play: 'Play', skip: 'Skip', failed: 'Failed', seek: 'Position' };
+const LABELS = {
+  play: 'Play',
+  skip: 'Skip',
+  failed: 'Failed',
+  seek: 'Position',
+  subtitles: 'Subtitles',
+  subtitlesOff: 'Hide subtitles',
+};
 const MOVIE = {
   sequence: 0,
   url: '/campaigns/test/video/intro.webm',
@@ -254,5 +261,84 @@ describe('seek bar visibility', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+function currentTimeOf(element: HTMLElement, value?: number): number {
+  const store = element as unknown as { _currentTime?: number };
+  if (value === undefined) return store._currentTime ?? 0;
+  store._currentTime = value;
+  return value;
+}
+
+describe('playCampaignMovie subtitles', () => {
+  const SRT =
+    '1\n00:00:01,000 --> 00:00:03,500\nFirst line.\n\n' + '2\n00:00:04,000 --> 00:00:06,000\nSecond line.\n';
+
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+      this.open = true;
+    });
+    HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
+    HTMLMediaElement.prototype.pause = vi.fn();
+    HTMLMediaElement.prototype.load = vi.fn();
+    // jsdom leaves `currentTime` at 0; back it with a field so the film clock can advance in tests.
+    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
+      configurable: true,
+      get() {
+        return currentTimeOf(this);
+      },
+      set(value: number) {
+        currentTimeOf(this, value);
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, text: async () => SRT })),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it('renders the active cue and hides the box on the `c` key', async () => {
+    void playCampaignMovie(MOVIE, LABELS, undefined, undefined, [
+      { language: 'eng', url: '/subtitles/eng.srt' },
+    ]);
+    const box = surface().querySelector('.campaign-movie__subtitles') as HTMLElement;
+    await vi.waitFor(() => expect(box.hidden).toBe(false));
+    const video = surface().querySelector('video') as HTMLVideoElement;
+    const sound = surface().querySelector('audio') as HTMLAudioElement;
+    // jsdom leaves `currentTime` at 0 and `duration` at NaN; back them with fields so the film clock advances.
+    for (const element of [video, sound]) {
+      Object.defineProperty(element, 'currentTime', {
+        configurable: true,
+        get: () => currentTimeOf(element),
+        set: (value: number) => void currentTimeOf(element, value),
+      });
+      Object.defineProperty(element, 'duration', { configurable: true, get: () => 100 });
+    }
+    video.currentTime = 2;
+    video.dispatchEvent(new Event('timeupdate'));
+    const line = box.querySelector('.campaign-movie__subtitle') as HTMLElement;
+    expect(line.textContent).toBe('First line.');
+    surface().dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true }));
+    expect(box.hidden).toBe(true);
+  });
+
+  it('leaves the film playing when a subtitle fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('no network');
+      }),
+    );
+    void playCampaignMovie(MOVIE, LABELS, undefined, undefined, [
+      { language: 'eng', url: '/subtitles/eng.srt' },
+    ]);
+    const box = surface().querySelector('.campaign-movie__subtitles') as HTMLElement;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(box.hidden).toBe(true);
   });
 });

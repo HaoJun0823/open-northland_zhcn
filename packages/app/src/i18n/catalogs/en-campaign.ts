@@ -25,6 +25,8 @@ export const enCampaign = {
   skipMovie: 'Skip video',
   movieFailed: 'The video could not be loaded. You can skip it.',
   seekMovie: 'Video position',
+  subtitles: 'Subtitles',
+  subtitlesOff: 'Hide subtitles',
   watchIntro: 'Watch the intro',
   watchFinale: 'Watch the ending',
 } as const;

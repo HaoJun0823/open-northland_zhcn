@@ -152,7 +152,14 @@ async function askInHud(copy: SystemConfirmCopy, signal: AbortSignal): Promise<b
 
 function movieLabels(): MovieLabels {
   const copy = messages().campaign;
-  return { play: copy.play, skip: copy.skipMovie, failed: copy.movieFailed, seek: copy.seekMovie };
+  return {
+    play: copy.play,
+    skip: copy.skipMovie,
+    failed: copy.movieFailed,
+    seek: copy.seekMovie,
+    subtitles: copy.subtitles,
+    subtitlesOff: copy.subtitlesOff,
+  };
 }
 
 /** The Campaign tab of New Game: shown in place of the map list, under the screen's own head. */

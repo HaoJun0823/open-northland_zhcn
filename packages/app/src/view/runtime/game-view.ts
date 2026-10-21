@@ -1,5 +1,5 @@
 import type { SceneryObject, SoundStatsView, UiCue, VoiceCall } from '@open-northland/audio';
-import type { Campaign } from '@open-northland/data';
+import type { Campaign, MapTextLanguage } from '@open-northland/data';
 import { BUILDING_KIND, jobCanPray, type MapRelationFlag } from '@open-northland/data';
 import type { SessionDriver } from '@open-northland/lockstep';
 import type {
@@ -34,6 +34,7 @@ import { type Application, Container } from 'pixi.js';
 import { campaignFailureDialog } from '../../campaign/failure-dialog.js';
 import { campaignLanguage } from '../../campaign/locale.js';
 import { playCampaignMovie } from '../../campaign/movie.js';
+import type { SubtitleTrack } from '../../campaign/subtitles.js';
 import { createCampaignRuntime } from '../../campaign/runtime.js';
 import { pickerEntries } from '../../catalog/professions.js';
 import { emblemBuildingType } from '../../content/building-gfx/emblems.js';
@@ -880,13 +881,29 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           },
           pause: () => pauseHolds.hold('campaign'),
           resume: () => pauseHolds.release('campaign'),
-          play: async (movie) => {
+          play: async (movie, audio, ui) => {
             const copy = messages().campaign;
+            const tracks =
+              movie?.subtitles === undefined
+                ? []
+                : [audio, ui]
+                    .filter((language): language is MapTextLanguage => language !== undefined)
+                    .filter((language, index, wanted) => wanted.indexOf(language) === index)
+                    .map((language) => ({ language, url: movie.subtitles?.[language] }))
+                    .filter((track): track is SubtitleTrack => track.url !== undefined);
             await playCampaignMovie(
               movie,
-              { play: copy.play, skip: copy.skipMovie, failed: copy.movieFailed, seek: copy.seekMovie },
+              {
+                play: copy.play,
+                skip: copy.skipMovie,
+                failed: copy.movieFailed,
+                seek: copy.seekMovie,
+                subtitles: copy.subtitles,
+                subtitlesOff: copy.subtitlesOff,
+              },
               lifetime.signal,
               soundDriver === null ? undefined : () => soundDriver.silenceMusic(),
+              tracks,
             );
           },
           exit: finishScript,

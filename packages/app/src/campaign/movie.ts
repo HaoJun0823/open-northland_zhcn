@@ -1,7 +1,8 @@
 import '../hud/dom/foundation.css';
 import './movie.css';
-import type { CampaignMovie } from '@open-northland/data';
+import type { CampaignMovie, MapTextLanguage } from '@open-northland/data';
 import { syncMovieSound } from './movie-sync.js';
+import { activeCue, parseSrt, type SubtitleCue, type SubtitleTrack } from './subtitles.js';
 
 /** The original's film frame, used while a movie names no size of its own. */
 const DEFAULT_MOVIE_WIDTH = 640;
@@ -56,6 +57,8 @@ export interface MovieLabels {
   readonly play: string;
   readonly failed: string;
   readonly seek: string;
+  readonly subtitles: string;
+  readonly subtitlesOff: string;
 }
 
 /**
@@ -69,9 +72,66 @@ export function playCampaignMovie(
   labels: MovieLabels,
   signal?: AbortSignal,
   silenceMusic?: MusicSilencer,
+  subtitles?: readonly SubtitleTrack[],
 ): Promise<void> {
   if (movie === undefined || signal?.aborted === true) return Promise.resolve();
   return new Promise((resolve) => {
+    /** A loaded subtitle track and the line that shows its active cue. */
+    const tracks: {
+      readonly language: MapTextLanguage;
+      readonly cues: readonly SubtitleCue[];
+      readonly line: HTMLElement;
+    }[] = [];
+    let subtitlesHidden = false;
+    const subtitleBox = document.createElement('div');
+    subtitleBox.className = 'campaign-movie__subtitles';
+    subtitleBox.hidden = true;
+    const subtitleToggle = document.createElement('button');
+    subtitleToggle.className = 'on-button';
+    subtitleToggle.hidden = true;
+    const showSubtitles = (time: number): void => {
+      if (subtitlesHidden) return;
+      for (const track of tracks) {
+        const cue = activeCue(track.cues, time);
+        track.line.textContent = cue === undefined ? '' : cue.text;
+      }
+    };
+    // Lines are created in request order so the original track stays above the translation whatever the
+    // fetch order; a failed or missing fetch is silent, like a sound track that will not load.
+    const trackLines = new Map<MapTextLanguage, HTMLElement>();
+    for (const track of subtitles ?? []) {
+      const line = document.createElement('div');
+      line.className = 'campaign-movie__subtitle';
+      line.lang = track.language;
+      line.hidden = true;
+      subtitleBox.append(line);
+      trackLines.set(track.language, line);
+    }
+    void Promise.all(
+      (subtitles ?? []).map(async (track) => {
+        try {
+          const response = await fetch(track.url);
+          if (!response.ok) return;
+          const cues = parseSrt(await response.text());
+          if (cues.length === 0) return;
+          const line = trackLines.get(track.language);
+          if (line === undefined) return;
+          tracks.push({ language: track.language, cues, line });
+          line.hidden = false;
+          subtitleBox.hidden = false;
+          subtitleToggle.hidden = false;
+          subtitleToggle.textContent = labels.subtitlesOff;
+        } catch {
+          // Leave the track out; the film plays without it.
+        }
+      }),
+    );
+    const setSubtitlesVisible = (visible: boolean): void => {
+      subtitlesHidden = !visible;
+      subtitleBox.hidden = !visible || tracks.length === 0;
+      subtitleToggle.textContent = visible ? labels.subtitlesOff : labels.subtitles;
+    };
+    subtitleToggle.addEventListener('click', () => setSubtitlesVisible(subtitlesHidden));
     const surface = document.createElement('dialog');
     surface.className = 'campaign-movie';
     surface.setAttribute('role', 'dialog');
@@ -99,7 +159,7 @@ export function playCampaignMovie(
     status.setAttribute('role', 'status');
     const controls = document.createElement('div');
     controls.className = 'campaign-movie__controls';
-    controls.append(play, skip, status);
+    controls.append(play, skip, status, subtitleToggle);
     const seek = document.createElement('input');
     seek.type = 'range';
     seek.className = 'campaign-movie__seek-range';
@@ -120,7 +180,7 @@ export function playCampaignMovie(
     frameHud.append(seekRow);
     const frame = document.createElement('div');
     frame.className = 'campaign-movie__frame';
-    frame.append(video, sound, frameHud);
+    frame.append(video, sound, subtitleBox, frameHud);
     // A pointer that merely rests where the film opened must not show the bar; a move does.
     let pointing: ReturnType<typeof setTimeout> | undefined;
     const stopPointing = (): void => {
@@ -179,6 +239,7 @@ export function playCampaignMovie(
       const progress = duration > 0 ? (position / duration) * 100 : 0;
       seek.style.setProperty('--progress', `${progress}%`);
       clock.textContent = `${movieClock(position)} / ${movieClock(duration)}`;
+      showSubtitles(position);
     };
     const attempt = (): void => {
       if (failed) return;
@@ -220,9 +281,16 @@ export function playCampaignMovie(
         event.preventDefault();
         finish();
       }
+      if (event.key === 'c' || event.key === 'C') {
+        if (!subtitleToggle.hidden) {
+          event.preventDefault();
+          setSubtitlesVisible(subtitlesHidden);
+        }
+        return;
+      }
       if (event.key === 'Tab') {
         event.preventDefault();
-        const order = [seek, play, skip].filter(
+        const order = [seek, play, skip, subtitleToggle].filter(
           (control) => !control.disabled && !control.hidden && !(control === seek && seekRow.hidden),
         );
         const at = order.indexOf(document.activeElement as HTMLButtonElement | HTMLInputElement);

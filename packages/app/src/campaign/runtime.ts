@@ -1,6 +1,6 @@
 import type { Campaign, CampaignMovie, MapTextLanguage } from '@open-northland/data';
 import type { SimEvent, WorldSnapshot } from '@open-northland/sim';
-import { campaignMovies } from './locale.js';
+import { campaignMovieLanguage, campaignMovies } from './locale.js';
 import { completeCampaign, grantCampaignMaps, isFinalCampaignStage } from './progress.js';
 
 type Grant = { readonly campaignId: number; readonly mapId: number };
@@ -22,8 +22,13 @@ export interface CampaignRuntimeDeps {
   readonly storage: Pick<Storage, 'getItem' | 'setItem'>;
   readonly pause: () => void;
   readonly resume: () => void;
-  /** Plays a script video; `undefined` when the campaign has no film for the sequence. */
-  readonly play: (movie: CampaignMovie | undefined) => Promise<void>;
+  /** Plays a script video; `undefined` when the campaign has no film for the sequence. The second and
+   *  third arguments are the played sound track's language and the UI text language, for dual subtitles. */
+  readonly play: (
+    movie: CampaignMovie | undefined,
+    audioLanguage?: MapTextLanguage,
+    uiLanguage?: MapTextLanguage,
+  ) => Promise<void>;
   readonly exit: () => void;
   readonly failed: (recovery: CampaignFailureRecovery) => void;
   readonly signal: AbortSignal;
@@ -109,8 +114,10 @@ export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
           deps.campaign === undefined
             ? undefined
             : campaignMovies(deps.campaign, deps.language).videos.find((movie) => movie.sequence === video);
+        const audioLanguage =
+          deps.campaign === undefined ? undefined : campaignMovieLanguage(deps.campaign, deps.language);
         void deps
-          .play(movie)
+          .play(movie, audioLanguage, deps.language)
           .then(() => finishMovie(true))
           .catch(() => {
             if (!deps.signal.aborted)

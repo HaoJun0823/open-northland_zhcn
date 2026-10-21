@@ -26,6 +26,8 @@ export const plCampaign = {
   skipMovie: 'Pomiń film',
   movieFailed: 'Nie udało się wczytać filmu. Możesz go pominąć.',
   seekMovie: 'Pozycja w filmie',
+  subtitles: 'Napisy',
+  subtitlesOff: 'Ukryj napisy',
   watchIntro: 'Obejrzyj wstęp',
   watchFinale: 'Obejrzyj finał',
 } as const;

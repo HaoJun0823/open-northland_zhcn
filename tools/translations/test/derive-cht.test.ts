@@ -154,5 +154,7 @@ describe('withPhraseOverrides', () => {
     expect(convert('选择新的贸易伙伴，建造更复杂的建筑')).toBe('選擇新的貿易夥伴，建造更複雜的建築');
     expect(convert('按空格键打开装备列表，画面会自动滚动')).toBe('按空白鍵開啟裝備清單，畫面會自動捲動');
     expect(convert('所有在这座建筑里居住的人')).toBe('所有在這座建築裡居住的人');
+    expect(convert('向游牧民缴纳贡品，把面包送回游牧民营地')).toBe('向遊牧民繳納貢品，把麵包送回遊牧民營地');
+    expect(convert('去找索斯特拉托斯之父')).toBe('去找索斯特拉託斯之父');
   });
 });

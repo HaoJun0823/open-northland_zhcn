@@ -63,6 +63,7 @@ export const PHRASE_OVERRIDES: readonly (readonly [string, string])[] = [
   ['脚本', '腳本'],
   ['设备', '設備'],
   ['打采', '打采'],
+  ['面包', '麵包'],
   // One Simplified character for two Traditional ones.
   ['这只意味', '這只意味'],
   ['这只说明', '這只說明'],
@@ -101,6 +102,8 @@ export const PHRASE_OVERRIDES: readonly (readonly [string, string])[] = [
   ['采罗夫', '采羅夫'],
   ['范达尔', '范達爾'],
   ['哈希', '哈希'],
+  ['游牧民', '遊牧民'],
+  ['索斯特拉托斯', '索斯特拉託斯'],
   // The HUD's wording (`cht-game.ts`).
   ['点击', '點擊'],
   ['空格键', '空白鍵'],

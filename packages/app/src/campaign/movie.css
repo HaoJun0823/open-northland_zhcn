@@ -45,7 +45,7 @@
   display: none;
 }
 /* Over the film's own black band at the frame's foot, shown while the pointer moves over the film or
-   the bar has focus. */
+   a control has keyboard focus. */
 .campaign-movie .campaign-movie__seek {
   position: absolute;
   left: 0;
@@ -58,13 +58,15 @@
   background: linear-gradient(transparent, #000a);
   opacity: 0;
   transition: opacity 0.15s ease-out;
-  pointer-events: auto;
+  pointer-events: none;
 }
 .campaign-movie__frame--pointing .campaign-movie__seek,
-.campaign-movie .campaign-movie__seek:focus-within {
+.campaign-movie .campaign-movie__seek:has(:focus-visible) {
   opacity: 1;
+  pointer-events: auto;
 }
-.campaign-movie .campaign-movie__seek[hidden] {
+.campaign-movie .campaign-movie__seek[hidden],
+.campaign-movie .campaign-movie__captions[hidden] {
   display: none;
 }
 .campaign-movie .campaign-movie__seek-range {
@@ -122,7 +124,7 @@
 .campaign-movie__subtitles {
   position: absolute;
   left: 50%;
-  bottom: 30px;
+  bottom: 42px;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -143,4 +145,28 @@
 }
 .campaign-movie__subtitles[hidden] {
   display: none;
+}
+
+.campaign-movie .campaign-movie__captions {
+  flex: none;
+  min-width: 32px;
+  height: 26px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: #0008;
+  color: var(--muted);
+  font: 700 12px / 1 var(--font-body);
+  letter-spacing: 1px;
+}
+.campaign-movie .campaign-movie__captions[aria-pressed="true"] {
+  color: var(--bronze-hi);
+  box-shadow: inset 0 -2px currentColor;
+}
+.campaign-movie .campaign-movie__captions:hover {
+  color: var(--text);
+}
+.campaign-movie .campaign-movie__captions:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }

@@ -74,10 +74,9 @@ separate from the imported JSON overlays above.
   where recognition disagreed. Cue times follow each language's word timestamps; silent passages
   carry no lingering cue. Speech recognition is evidence, not a native-speaker listening review.
 - `rus`: project translation of the checked English narration; the pack has no Russian film audio.
-- `chs`: the contributed translation revised against the checked English narration and glossary.
-  These revisions and the Russian translation are AI-assisted and not native-speaker reviewed.
-- `cht`: OpenCC `cn` → `tw` conversion of the revised `chs` subtitles, not separately reviewed.
-  The JSON-only `translations:derive-cht` command does not regenerate these SRT files.
+- `chs`: HaoJun0823's native-speaker translation, retained verbatim as contributed.
+- The Russian translation is AI-assisted and not native-speaker reviewed. There is no `cht` film
+  subtitle track; this project does not undertake a Traditional Chinese translation of these films.
 
 Character spellings follow the shipped campaign strings and `glossary.csv`: English **Hatchie**,
 German/Polish **Hatschi**, Russian **Хатчи**; **Bjarni**, **Cyra**, **Sigurd** and their localized forms.

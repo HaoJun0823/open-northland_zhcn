@@ -73,7 +73,9 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
   transcribed narration may be committed as SRT, along with its translations. Each spoken language
   uses its own audio timeline; translations use the fallback audio timeline. Keep language-specific
   character names consistent with the campaign strings and record provenance in `SOURCES.md`.
-  Subtitle files are project-edited; the JSON overlay importer does not own them.
+  The JSON overlay importer does not own SRT files. Preserve the contributed native-speaker `chs`
+  film subtitles verbatim; corrections belong with their author. Do not add or derive `cht` film
+  subtitles. Other subtitle languages are project-edited.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
 - Every string an overlay changes keeps the source's markup: `@` goal prefixes, `<picture:…>` and
   other tags inside a briefing block, `%s`-style placeholders.

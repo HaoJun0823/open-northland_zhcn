@@ -129,7 +129,7 @@ describe('playCampaignMovie ending', () => {
     const done = playCampaignMovie(MOVIE, LABELS);
     const { video, sound } = tracks();
     endTrack(video);
-    surface().querySelectorAll('button')[1]?.click();
+    surface().querySelectorAll<HTMLButtonElement>('.campaign-movie__controls button')[1]?.click();
     await done;
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
     expect([video.hasAttribute('src'), sound.hasAttribute('src')]).toEqual([false, false]);
@@ -142,7 +142,7 @@ describe('playCampaignMovie music', () => {
     const { silence, state } = silencer();
     const done = playCampaignMovie(MOVIE, LABELS, undefined, silence);
     expect(state).toEqual({ taken: 1, given: 0 });
-    surface().querySelectorAll('button')[1]?.click();
+    surface().querySelectorAll<HTMLButtonElement>('.campaign-movie__controls button')[1]?.click();
     await done;
     expect(state).toEqual({ taken: 1, given: 1 });
   });
@@ -162,7 +162,7 @@ describe('playCampaignMovie music', () => {
     const done = playCampaignMovie(MOVIE, LABELS, undefined, silence);
     surface().querySelector('video')?.dispatchEvent(new Event('error'));
     expect(state).toEqual({ taken: 1, given: 1 });
-    surface().querySelectorAll('button')[1]?.click();
+    surface().querySelectorAll<HTMLButtonElement>('.campaign-movie__controls button')[1]?.click();
     await done;
     expect(state).toEqual({ taken: 1, given: 1 });
   });
@@ -192,7 +192,7 @@ describe('playCampaignMovie picture failure', () => {
     );
     const done = playCampaignMovie(MOVIE, LABELS);
     const { video } = tracks();
-    const [play, skip] = surface().querySelectorAll('button');
+    const [play, skip] = surface().querySelectorAll<HTMLButtonElement>('.campaign-movie__controls button');
     video.dispatchEvent(new Event('error'));
     // The browser fires `error`, then rejects the pending start with NotSupportedError.
     for (const reject of starts) reject(new DOMException('no source', 'NotSupportedError'));
@@ -298,7 +298,7 @@ describe('playCampaignMovie subtitles', () => {
     const video = dialog.querySelector('video') as HTMLVideoElement;
     Object.defineProperty(video, 'duration', { configurable: true, value: 100 });
     const box = dialog.querySelector('.campaign-movie__subtitles') as HTMLElement;
-    const toggle = dialog.querySelector('.campaign-movie__controls button:last-child') as HTMLButtonElement;
+    const toggle = dialog.querySelector('.campaign-movie__captions') as HTMLButtonElement;
     const advance = (time: number) => {
       video.currentTime = time;
       video.dispatchEvent(new Event('timeupdate'));
@@ -310,11 +310,13 @@ describe('playCampaignMovie subtitles', () => {
     await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
     t.advance(2);
     expect(t.box.hidden).toBe(true);
-    expect(t.toggle.textContent).toBe('Subtitles');
+    expect(t.toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(t.toggle.title).toBe('Subtitles (C)');
     t.toggle.click();
     expect(t.box.hidden).toBe(false);
     expect(t.box.textContent).toBe('First line.');
-    expect(t.toggle.textContent).toBe('Hide subtitles');
+    expect(t.toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(t.toggle.title).toBe('Hide subtitles (C)');
     t.toggle.click();
     expect(t.box.hidden).toBe(true);
   });
@@ -348,9 +350,34 @@ describe('playCampaignMovie subtitles', () => {
       expect(t.box.querySelector('[lang="zh-Hans"]')?.hasAttribute('hidden')).toBe(false),
     );
     expect(t.box.hidden).toBe(true);
-    expect(t.toggle.textContent).toBe('Subtitles');
+    expect(t.toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(t.toggle.title).toBe('Subtitles (C)');
     t.toggle.click();
     expect(t.box.textContent).toBe('First line.译文');
+  });
+  it('returns pointer focus to the film but keeps keyboard activation on captions', async () => {
+    const t = start();
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
+    t.toggle.focus();
+    t.toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    expect(document.activeElement).toBe(t.dialog);
+    t.toggle.focus();
+    t.toggle.click();
+    expect(document.activeElement).toBe(t.toggle);
+  });
+  it('tabs through the seek bar and captions, and skips both after video failure', async () => {
+    const t = start();
+    await vi.waitFor(() => expect(t.toggle.hidden).toBe(false));
+    t.advance(2);
+    const seek = t.dialog.querySelector('input');
+    const skip = t.dialog.querySelectorAll<HTMLButtonElement>('.campaign-movie__controls button')[1];
+    t.dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(seek);
+    t.dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(t.toggle);
+    t.dialog.querySelector('video')?.dispatchEvent(new Event('error'));
+    t.dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(skip);
   });
   it('aborts outstanding subtitle loads when the film closes', () => {
     vi.stubGlobal(

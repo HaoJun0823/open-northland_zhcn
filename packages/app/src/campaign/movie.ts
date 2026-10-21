@@ -88,7 +88,10 @@ export function playCampaignMovie(
     subtitleBox.className = 'campaign-movie__subtitles';
     subtitleBox.hidden = true;
     const subtitleToggle = document.createElement('button');
-    subtitleToggle.className = 'on-button';
+    subtitleToggle.className = 'campaign-movie__captions';
+    subtitleToggle.textContent = 'CC';
+    subtitleToggle.setAttribute('aria-label', labels.subtitles);
+    subtitleToggle.setAttribute('aria-keyshortcuts', 'C');
     subtitleToggle.hidden = true;
     const showSubtitles = (time: number): void => {
       if (subtitlesHidden) return;
@@ -129,10 +132,15 @@ export function playCampaignMovie(
     const setSubtitlesVisible = (visible: boolean): void => {
       subtitlesHidden = !visible;
       subtitleBox.hidden = !visible || tracks.length === 0;
-      subtitleToggle.textContent = visible ? labels.subtitlesOff : labels.subtitles;
+      subtitleToggle.setAttribute('aria-pressed', String(visible));
+      subtitleToggle.title = `${visible ? labels.subtitlesOff : labels.subtitles} (C)`;
       if (visible) showSubtitles(media.position());
     };
-    subtitleToggle.addEventListener('click', () => setSubtitlesVisible(subtitlesHidden));
+    subtitleToggle.addEventListener('click', (event) => {
+      setSubtitlesVisible(subtitlesHidden);
+      // Pointer activation must not pin the bar if the viewer later uses the C shortcut.
+      if (event.detail > 0) surface.focus({ preventScroll: true });
+    });
     const surface = document.createElement('dialog');
     surface.className = 'campaign-movie';
     surface.setAttribute('role', 'dialog');
@@ -160,7 +168,7 @@ export function playCampaignMovie(
     status.setAttribute('role', 'status');
     const controls = document.createElement('div');
     controls.className = 'campaign-movie__controls';
-    controls.append(play, skip, status, subtitleToggle);
+    controls.append(play, skip, status);
     const seek = document.createElement('input');
     seek.type = 'range';
     seek.className = 'campaign-movie__seek-range';
@@ -174,7 +182,7 @@ export function playCampaignMovie(
     clock.className = 'campaign-movie__clock';
     const seekRow = document.createElement('div');
     seekRow.className = 'campaign-movie__seek';
-    seekRow.append(seek, clock);
+    seekRow.append(seek, clock, subtitleToggle);
     // The HUD scope lends the controls its tokens and button style; the black surface stays outside it.
     const frameHud = document.createElement('div');
     frameHud.className = 'on-hud';
@@ -208,6 +216,7 @@ export function playCampaignMovie(
       if (done) return;
       done = true;
       subtitleRequest.abort();
+      stopPointing();
       music.release();
       window.removeEventListener('resize', resize);
       signal?.removeEventListener('abort', finish);
@@ -284,7 +293,7 @@ export function playCampaignMovie(
         finish();
       }
       if (event.key === 'c' || event.key === 'C') {
-        if (!subtitleToggle.hidden) {
+        if (!subtitleToggle.hidden && !seekRow.hidden) {
           event.preventDefault();
           setSubtitlesVisible(subtitlesHidden);
         }
@@ -292,8 +301,11 @@ export function playCampaignMovie(
       }
       if (event.key === 'Tab') {
         event.preventDefault();
-        const order = [seek, play, skip, subtitleToggle].filter(
-          (control) => !control.disabled && !control.hidden && !(control === seek && seekRow.hidden),
+        const order = [seek, subtitleToggle, play, skip].filter(
+          (control) =>
+            !control.disabled &&
+            !control.hidden &&
+            !((control === seek || control === subtitleToggle) && seekRow.hidden),
         );
         const at = order.indexOf(document.activeElement as HTMLButtonElement | HTMLInputElement);
         const step = event.shiftKey ? order.length - 1 : 1;

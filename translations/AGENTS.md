@@ -27,6 +27,8 @@ translations/
     objects/<table>.edit.json    the project's edit over the imported objects/<table>.json
     books/<book>.json            hypertext books: history  (BookOverlay)
     campaigns/<campaign>.json    campaign title  (CampaignOverlay)
+    campaigns/<campaign>/films/<slot>.srt
+                                 authored film subtitles; intro or seq_0000-style slots
 ```
 
 A map overlay is named by its `map` alias and the first 16 hex digits of the SHA-256 of the raw
@@ -67,6 +69,7 @@ of the same language, `map.dat` and alias adds the first 12 hex digits of its `b
   text in the language it was translated from. The loader attaches it to the imported overlay and the
   pipeline applies its entries over the overlay's when its basis matches the map's text, else leaves
   it out with a warning. A re-import rewrites `<name>.json` and leaves the edit alone.
+- Authored film subtitles may use source or overlay languages; they are separate from title overlays.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
 - Every string an overlay changes keeps the source's markup: `@` goal prefixes, `<picture:…>` and
   other tags inside a briefing block, `%s`-style placeholders.

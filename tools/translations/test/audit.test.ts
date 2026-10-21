@@ -86,6 +86,39 @@ describe('auditTranslations: layout and schema', () => {
     expect(report).toEqual({ files: 5, errors: [], warnings: [], unmatchedMaps: 0 });
   });
 
+  it('accepts authored film subtitles in source and overlay languages beside campaign titles', async () => {
+    await put('chs/campaigns/saga.json', { version: OVERLAY_VERSION, title: '傳奇' });
+    for (const lang of ['eng', 'chs']) {
+      for (const slot of ['intro', 'seq_0000']) {
+        await put(`${lang}/campaigns/saga/films/${slot}.srt`, '1\n00:00:00,000 --> 00:00:01,000\nTest');
+      }
+    }
+    expect(await auditTranslations(dir)).toEqual({
+      files: 1,
+      errors: [],
+      warnings: [],
+      unmatchedMaps: 0,
+    });
+  });
+
+  it('rejects stray campaign files and directories without allowing source-language title overlays', async () => {
+    await put('eng/campaigns/saga.json', { version: OVERLAY_VERSION, title: 'Saga' });
+    await put('chs/campaigns/Saga One/films/intro.srt', 'text');
+    await put('chs/campaigns/saga/notes.txt', 'text');
+    await put('chs/campaigns/saga/films/intro.json', {});
+    await put('chs/campaigns/saga/films/seq_1.srt', 'text');
+    await put('chs/campaigns/saga/films/intro.srt/nested.txt', 'text');
+    const { errors } = await auditTranslations(dir);
+    expect(errors.map(({ file }) => file)).toEqual([
+      'chs/campaigns/Saga One',
+      'chs/campaigns/saga/films/intro.json',
+      'chs/campaigns/saga/films/intro.srt',
+      'chs/campaigns/saga/films/seq_1.srt',
+      'chs/campaigns/saga/notes.txt',
+      'eng/campaigns/saga.json',
+    ]);
+  });
+
   it('reports every layout and schema violation, each naming its file', async () => {
     await put('notes.txt', 'stray');
     await put(`xyz/maps/${FILE}.json`, mapOverlay({}));

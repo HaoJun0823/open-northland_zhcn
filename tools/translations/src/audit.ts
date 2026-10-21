@@ -124,6 +124,36 @@ interface ValidOverlays {
   readonly campaigns: { readonly file: string; readonly id: string }[];
 }
 
+/** Campaign directories hold authored film subtitles alongside the title overlays. */
+async function auditCampaignDirectory(
+  root: string,
+  file: string,
+  id: string,
+  errors: AuditFinding[],
+): Promise<void> {
+  if (!CAMPAIGN_FILE.test(id)) {
+    errors.push({ file, message: 'a campaign directory is named by the campaign id' });
+    return;
+  }
+  for (const entry of await listDirectory(join(root, file))) {
+    if (isHidden(entry.name)) continue;
+    const folder = `${file}/${entry.name}`;
+    if (entry.name !== 'films' || !entry.isDirectory()) {
+      errors.push({ file: folder, message: 'expected the films folder for authored subtitles' });
+      continue;
+    }
+    for (const film of await listDirectory(join(root, folder))) {
+      if (isHidden(film.name)) continue;
+      if (!film.isFile() || !/^(intro|seq_[0-9]{4,})\.srt$/.test(film.name)) {
+        errors.push({
+          file: `${folder}/${film.name}`,
+          message: 'a film subtitle is intro.srt or seq_<four-digit sequence>.srt',
+        });
+      }
+    }
+  }
+}
+
 /** Walks `root`, reporting layout and schema violations and collecting the valid overlays. */
 async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOverlays> {
   const valid: ValidOverlays = {
@@ -167,6 +197,10 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
       for (const entry of await listDirectory(join(root, lang, kind))) {
         if (isHidden(entry.name)) continue;
         const file = `${lang}/${kind}/${entry.name}`;
+        if (kind === 'campaigns' && entry.isDirectory()) {
+          await auditCampaignDirectory(root, file, entry.name, errors);
+          continue;
+        }
         if (!entry.isFile() || !entry.name.endsWith(OVERLAY_EXTENSION)) {
           errors.push({ file, message: 'an overlay is a .json file' });
           continue;

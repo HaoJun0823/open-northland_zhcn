@@ -881,9 +881,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           },
           pause: () => pauseHolds.hold('campaign'),
           resume: () => pauseHolds.release('campaign'),
-          play: async (movie, audio) => {
+          play: async (movie) => {
             const copy = messages().campaign;
-            const subtitles = movieSubtitles(movie?.subtitles, audio, mapTextLanguage(currentLocale()));
+            const subtitles = movieSubtitles(movie?.subtitles, mapTextLanguage(currentLocale()));
             await playCampaignMovie(
               movie,
               {

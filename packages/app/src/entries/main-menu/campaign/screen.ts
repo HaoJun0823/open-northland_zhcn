@@ -1,12 +1,7 @@
 import type { Campaign, MapTextLanguage } from '@open-northland/data';
 import { loadCampaigns } from '../../../campaign/catalog.js';
 import { campaignMissionQuery, RECOMMENDED_CAMPAIGN_TRIBE } from '../../../campaign/launch.js';
-import {
-  campaignLanguage,
-  campaignLogo,
-  campaignMovieLanguage,
-  localizedText,
-} from '../../../campaign/locale.js';
+import { campaignLanguage, campaignLogo, localizedText } from '../../../campaign/locale.js';
 import { type MovieLabels, type MusicSilencer, playCampaignMovie } from '../../../campaign/movie.js';
 import {
   type CampaignProgress,
@@ -247,11 +242,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
         button.addEventListener('click', () => {
           if (busy || asking) return;
           setBusy(true);
-          const subtitles = movieSubtitles(
-            movie.subtitles,
-            campaignMovieLanguage(campaign, language),
-            mapTextLanguage(currentLocale()),
-          );
+          const subtitles = movieSubtitles(movie.subtitles, mapTextLanguage(currentLocale()));
           void playCampaignMovie(movie, movieLabels(), scope.signal, silenceMusic, subtitles).then(() => {
             if (scope.signal.aborted) return;
             setBusy(false);

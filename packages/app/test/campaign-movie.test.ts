@@ -332,7 +332,7 @@ describe('playCampaignMovie subtitles', () => {
     expect(t.box.hidden).toBe(false);
     expect(t.box.textContent).toBe('Second line.');
   });
-  it('shows one language and cycles through loaded languages without changing playback', async () => {
+  it('opens a language list and selects one track without changing playback', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -347,13 +347,67 @@ describe('playCampaignMovie subtitles', () => {
     expect(language.textContent).toBe('EN');
     t.toggle.click();
     language.click();
+    const menu = t.dialog.querySelector('.campaign-movie__languages') as HTMLElement;
+    expect(menu.hidden).toBe(false);
+    (menu.querySelector('[data-language=chs]') as HTMLButtonElement).click();
+    expect(menu.hidden).toBe(true);
     expect(t.box.hidden).toBe(false);
     expect(t.box.textContent).toBe('译文');
     expect(t.box.firstElementChild?.getAttribute('lang')).toBe('zh-Hans');
     expect(language.textContent).toBe('ZH');
     expect(t.dialog.querySelector('video')?.currentTime).toBe(2);
     language.click();
+    (menu.querySelector('[data-language=eng]') as HTMLButtonElement).click();
     expect(t.box.textContent).toBe('First line.');
+  });
+  it('closes the language list on Escape without closing the movie and navigates with arrows', async () => {
+    const t = start(false, true);
+    await vi.waitFor(() =>
+      expect((t.dialog.querySelector('.campaign-movie__language') as HTMLElement).hidden).toBe(false),
+    );
+    const button = t.dialog.querySelector('.campaign-movie__language') as HTMLButtonElement;
+    button.click();
+    const menu = t.dialog.querySelector('.campaign-movie__languages') as HTMLElement;
+    expect(document.activeElement?.getAttribute('aria-checked')).toBe('true');
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect((document.activeElement as HTMLElement).dataset.language).toBe('chs');
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(menu.hidden).toBe(true);
+    expect(t.dialog.isConnected).toBe(true);
+    expect(document.activeElement).toBe(button);
+    expect(t.box.hidden).toBe(true);
+    button.click();
+    t.dialog.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(menu.hidden).toBe(true);
+  });
+  it('keeps menu focus when another language loads', async () => {
+    let complete: (response: Response) => void = () => {};
+    const delayed = new Promise<Response>((resolve) => {
+      complete = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => (url === '/pol.srt' ? delayed : Promise.resolve(new Response(SRT)))),
+    );
+    void playCampaignMovie(MOVIE, LABELS, lifetime.signal, undefined, {
+      visible: false,
+      tracks: [
+        { language: 'eng', url: '/eng.srt' },
+        { language: 'pol', url: '/pol.srt' },
+        { language: 'chs', url: '/chs.srt' },
+      ],
+    });
+    const dialog = surface();
+    const button = dialog.querySelector('.campaign-movie__language') as HTMLButtonElement;
+    await vi.waitFor(() => expect(button.hidden).toBe(false));
+    button.click();
+    const focused = document.activeElement;
+    complete(new Response(SRT));
+    await vi.waitFor(() => expect(dialog.querySelectorAll('[role=menuitemradio]')).toHaveLength(3));
+    expect(document.activeElement).toBe(focused);
+    expect(
+      [...dialog.querySelectorAll<HTMLElement>('[role=menuitemradio]')].map((item) => item.dataset.language),
+    ).toEqual(['eng', 'pol', 'chs']);
   });
   it('does not wait for a slow alternative or re-enable captions when it arrives', async () => {
     let complete: (response: Response) => void = () => {};

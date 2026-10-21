@@ -83,30 +83,20 @@ describe('subtitleTracks', () => {
 });
 
 describe('subtitle defaults', () => {
-  it.each(['eng', 'ger', 'pol', 'rus', 'chs', 'cht'] as const)(
-    'keeps matching %s audio optional',
-    (language) => {
-      expect(movieSubtitles({ [language]: '/film.srt' }, language, language)).toEqual({
-        visible: false,
-        tracks: [{ language, url: '/film.srt' }],
-      });
-    },
-  );
-  it('shows the translation when the audio falls back to English', () => {
-    expect(movieSubtitles({ eng: '/en.srt', rus: '/ru.srt' }, 'eng', 'rus')).toEqual({
-      visible: true,
-      tracks: [
-        { language: 'rus', url: '/ru.srt' },
-        { language: 'eng', url: '/en.srt' },
-      ],
-    });
+  const urls = { eng: '/en.srt', pol: '/pl.srt', ger: '/de.srt', rus: '/ru.srt', chs: '/zh.srt' };
+  it.each([
+    ['eng', 'eng', false],
+    ['pol', 'pol', false],
+    ['ger', 'ger', false],
+    ['rus', 'rus', true],
+    ['chs', 'chs', true],
+    ['cht', 'chs', true],
+  ] as const)('defaults %s to %s with visibility %s', (ui, selected, visible) => {
+    const result = movieSubtitles(urls, ui);
+    expect(result.visible).toBe(visible);
+    expect(result.tracks[0]?.language).toBe(selected);
   });
-});
-
-it('offers English first when UI subtitles are unavailable, then other available languages', () => {
-  expect(movieSubtitles({ eng: '/en.srt', pol: '/pl.srt', chs: '/zh.srt' }, 'eng', 'cht').tracks).toEqual([
-    { language: 'eng', url: '/en.srt' },
-    { language: 'pol', url: '/pl.srt' },
-    { language: 'chs', url: '/zh.srt' },
-  ]);
+  it('falls back to English if the preferred subtitles are missing', () => {
+    expect(movieSubtitles({ eng: '/en.srt', pol: '/pl.srt' }, 'cht').tracks[0]?.language).toBe('eng');
+  });
 });

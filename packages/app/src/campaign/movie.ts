@@ -93,6 +93,21 @@ export function playCampaignMovie(
     const subtitleLanguage = document.createElement('button');
     subtitleLanguage.className = 'campaign-movie__captions campaign-movie__language';
     subtitleLanguage.hidden = true;
+    subtitleLanguage.setAttribute('aria-haspopup', 'menu');
+    subtitleLanguage.setAttribute('aria-expanded', 'false');
+    const languageMenu = document.createElement('div');
+    languageMenu.className = 'campaign-movie__languages';
+    languageMenu.id = 'campaign-movie-languages';
+    subtitleLanguage.setAttribute('aria-controls', languageMenu.id);
+    languageMenu.setAttribute('role', 'menu');
+    languageMenu.setAttribute('aria-label', labels.subtitles);
+    languageMenu.hidden = true;
+    const closeLanguages = (restoreFocus = false): void => {
+      languageMenu.hidden = true;
+      subtitleLanguage.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) subtitleLanguage.focus();
+    };
+
     const line = document.createElement('div');
     line.className = 'campaign-movie__subtitle';
     subtitleBox.append(line);
@@ -110,6 +125,9 @@ export function playCampaignMovie(
       const name = new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
       subtitleLanguage.title = `${labels.subtitles}: ${name}`;
       subtitleLanguage.setAttribute('aria-label', subtitleLanguage.title);
+      for (const option of languageMenu.querySelectorAll('button')) {
+        option.setAttribute('aria-checked', String(option.dataset.language === track.language));
+      }
     };
     const setSubtitlesVisible = (visible: boolean): void => {
       subtitlesHidden = !visible;
@@ -142,6 +160,27 @@ export function playCampaignMovie(
             : 0;
           subtitleToggle.hidden = false;
           subtitleLanguage.hidden = tracks.length < 2;
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.setAttribute('role', 'menuitemradio');
+          option.dataset.language = track.language;
+          const tag = LANGUAGE_INFO[track.language].tag;
+          option.lang = tag;
+          option.textContent = new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
+          option.addEventListener('click', (event) => {
+            languageChosen = true;
+            selectedTrack = tracks.findIndex((entry) => entry.language === track.language);
+            showLanguage();
+            setSubtitlesVisible(true);
+            closeLanguages(event.detail === 0);
+            if (event.detail > 0) surface.focus({ preventScroll: true });
+          });
+          const nextTrack = tracks[tracks.findIndex((entry) => entry.language === track.language) + 1];
+          const nextOption =
+            nextTrack === undefined
+              ? null
+              : languageMenu.querySelector(`[data-language="${nextTrack.language}"]`);
+          languageMenu.insertBefore(option, nextOption);
           showLanguage();
           setSubtitlesVisible(!subtitlesHidden);
         } catch {
@@ -154,12 +193,28 @@ export function playCampaignMovie(
       // Pointer activation must not pin the bar if the viewer later uses the C shortcut.
       if (event.detail > 0) surface.focus({ preventScroll: true });
     });
-    subtitleLanguage.addEventListener('click', (event) => {
-      languageChosen = true;
-      selectedTrack = (selectedTrack + 1) % tracks.length;
-      showLanguage();
-      setSubtitlesVisible(true);
-      if (event.detail > 0) surface.focus({ preventScroll: true });
+    subtitleLanguage.addEventListener('click', () => {
+      if (!languageMenu.hidden) {
+        closeLanguages(true);
+        return;
+      }
+      languageMenu.hidden = false;
+      subtitleLanguage.setAttribute('aria-expanded', 'true');
+      languageMenu.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    });
+    languageMenu.addEventListener('keydown', (event) => {
+      const options = [...languageMenu.querySelectorAll('button')];
+      const at = options.indexOf(document.activeElement as HTMLButtonElement);
+      let next: number | undefined;
+      if (event.key === 'ArrowDown') next = (at + 1) % options.length;
+      if (event.key === 'ArrowUp') next = (at + options.length - 1) % options.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = options.length - 1;
+      if (next !== undefined) {
+        event.preventDefault();
+        event.stopPropagation();
+        options[next]?.focus();
+      }
     });
     const surface = document.createElement('dialog');
     surface.className = 'campaign-movie';
@@ -202,7 +257,7 @@ export function playCampaignMovie(
     clock.className = 'campaign-movie__clock';
     const seekRow = document.createElement('div');
     seekRow.className = 'campaign-movie__seek';
-    seekRow.append(seek, clock, subtitleToggle, subtitleLanguage);
+    seekRow.append(seek, clock, subtitleToggle, subtitleLanguage, languageMenu);
     // The HUD scope lends the controls its tokens and button style; the black surface stays outside it.
     const frameHud = document.createElement('div');
     frameHud.className = 'on-hud';
@@ -302,15 +357,26 @@ export function playCampaignMovie(
       seekRow.hidden = true;
       skip.focus();
     });
+    surface.addEventListener('pointerdown', (event) => {
+      if (
+        event.target instanceof Node &&
+        !languageMenu.contains(event.target) &&
+        !subtitleLanguage.contains(event.target)
+      )
+        closeLanguages();
+    });
     surface.addEventListener('cancel', (event) => {
       event.preventDefault();
-      finish();
+      if (!languageMenu.hidden) closeLanguages(true);
+      else finish();
     });
     surface.addEventListener('keydown', (event) => {
       event.stopPropagation();
       if (event.key === 'Escape') {
         event.preventDefault();
-        finish();
+        if (!languageMenu.hidden) closeLanguages(true);
+        else finish();
+        return;
       }
       if (event.key === 'c' || event.key === 'C') {
         if (!subtitleToggle.hidden && !seekRow.hidden) {
@@ -321,6 +387,7 @@ export function playCampaignMovie(
       }
       if (event.key === 'Tab') {
         event.preventDefault();
+        if (!languageMenu.hidden) closeLanguages(true);
         const order = [seek, subtitleToggle, subtitleLanguage, play, skip].filter(
           (control) =>
             !control.disabled &&

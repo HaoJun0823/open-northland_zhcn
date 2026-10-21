@@ -18,15 +18,14 @@ export interface MovieSubtitles {
   readonly visible: boolean;
 }
 
-/** Captions start hidden only when the film speaks the reader's language. */
+/** Narrated UI languages start with captions off; Chinese and Russian start with captions on. */
 export function movieSubtitles(
   subtitles: Partial<Record<MapTextLanguage, string>> | undefined,
-  audioLanguage: MapTextLanguage | undefined,
   uiLanguage: MapTextLanguage,
 ): MovieSubtitles {
   return {
-    tracks: subtitleTracks(subtitles, [uiLanguage, 'eng', ...LANGUAGES]),
-    visible: audioLanguage !== uiLanguage,
+    tracks: subtitleTracks(subtitles, [uiLanguage === 'cht' ? 'chs' : uiLanguage, 'eng', ...LANGUAGES]),
+    visible: uiLanguage === 'rus' || uiLanguage === 'chs' || uiLanguage === 'cht',
   };
 }
 

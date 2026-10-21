@@ -61,7 +61,8 @@
   pointer-events: none;
 }
 .campaign-movie__frame--pointing .campaign-movie__seek,
-.campaign-movie .campaign-movie__seek:has(:focus-visible) {
+.campaign-movie .campaign-movie__seek:has(:focus-visible),
+.campaign-movie .campaign-movie__seek:has(.campaign-movie__languages:not([hidden])) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -169,4 +170,47 @@
 .campaign-movie .campaign-movie__captions:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.campaign-movie__languages {
+  position: absolute;
+  right: 10px;
+  bottom: calc(100% + 4px);
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--bronze-hi);
+  border-radius: 3px;
+  background: #17130ff2;
+}
+.campaign-movie__languages[hidden] {
+  display: none;
+}
+.campaign-movie__languages button {
+  padding: 7px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 14px / 1.3 var(--font-body);
+  text-align: left;
+}
+.campaign-movie__languages button[aria-checked="true"] {
+  color: var(--bronze-hi);
+  background: #ffffff12;
+}
+.campaign-movie__languages button:hover,
+.campaign-movie__languages button:focus-visible {
+  outline: 1px solid var(--bronze-hi);
+  background: #ffffff20;
+}
+
+.campaign-movie__languages button::before {
+  content: "✓";
+  display: inline-block;
+  width: 20px;
+  visibility: hidden;
+}
+.campaign-movie__languages button[aria-checked="true"]::before {
+  visibility: visible;
 }

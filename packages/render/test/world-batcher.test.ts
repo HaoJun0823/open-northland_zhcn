@@ -315,7 +315,10 @@ describe('world batcher palette LUT', () => {
     Object.assign(renderer, {
       runners: { contextChange: { add: () => undefined } },
       state: { set: () => undefined },
-      texture: { bind: (source: TextureSource, slot: number) => bound.push([source, slot]) },
+      texture: {
+        bind: (source: TextureSource, slot: number) => bound.push([source, slot]),
+        unbindIntegerTextures: () => undefined,
+      },
       geometry: { draw: (_topology: string, size: number) => drawn.push(size) },
       shader: {
         bind: (shader: { glProgram: unknown }) => {

@@ -1,7 +1,7 @@
 version: 2
 updates:
-  # The root lockfile covers every workspace. An Electron or esbuild bump also needs its exact pin in
-  # the root package.json allowScripts (`npm approve-scripts <pkg>`), and Electron its
+  # The root lockfile covers every workspace. An esbuild bump also needs its exact pin in the root
+  # package.json allowScripts (`npm approve-scripts esbuild`); an Electron bump needs its
   # electronVersion in packages/desktop/electron-builder.yml.
   - package-ecosystem: npm
     directory: /

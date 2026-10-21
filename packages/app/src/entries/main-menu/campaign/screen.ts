@@ -1,7 +1,12 @@
 import type { Campaign, MapTextLanguage } from '@open-northland/data';
 import { loadCampaigns } from '../../../campaign/catalog.js';
 import { campaignMissionQuery, RECOMMENDED_CAMPAIGN_TRIBE } from '../../../campaign/launch.js';
-import { campaignLanguage, campaignLogo, localizedText } from '../../../campaign/locale.js';
+import {
+  campaignLanguage,
+  campaignLogo,
+  campaignMovieLanguage,
+  localizedText,
+} from '../../../campaign/locale.js';
 import { type MovieLabels, type MusicSilencer, playCampaignMovie } from '../../../campaign/movie.js';
 import {
   type CampaignProgress,
@@ -13,6 +18,7 @@ import {
   resetCampaignProgress,
   skipCampaignStage,
 } from '../../../campaign/progress.js';
+import { subtitleTracks } from '../../../campaign/subtitles.js';
 import { createHudPlane } from '../../../hud/dom/root.js';
 import { createSystemConfirm, type SystemConfirmCopy } from '../../../hud/dom/system-confirm.js';
 import { displayViewOf, uiScaleFor } from '../../../hud/ui-scale.js';
@@ -241,7 +247,11 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
         button.addEventListener('click', () => {
           if (busy || asking) return;
           setBusy(true);
-          void playCampaignMovie(movie, movieLabels(), scope.signal, silenceMusic).then(() => {
+          const tracks = subtitleTracks(movie.subtitles, [
+            campaignMovieLanguage(campaign, language),
+            language,
+          ]);
+          void playCampaignMovie(movie, movieLabels(), scope.signal, silenceMusic, tracks).then(() => {
             if (scope.signal.aborted) return;
             setBusy(false);
             start.disabled = selected === undefined;

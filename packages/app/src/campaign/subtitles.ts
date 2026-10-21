@@ -13,6 +13,24 @@ export interface SubtitleTrack {
   readonly url: string;
 }
 
+/** The subtitle lines one film shows for the wanted languages, in the given order: the played
+ *  sound-track language first (the original line), then the reader's language. A language the film
+ *  carries no subtitle for, and a language repeated across the two, drop out. */
+export function subtitleTracks(
+  subtitles: Partial<Record<MapTextLanguage, string>> | undefined,
+  languages: readonly (MapTextLanguage | undefined)[],
+): SubtitleTrack[] {
+  const tracks: SubtitleTrack[] = [];
+  for (const language of languages) {
+    if (language === undefined) continue;
+    const url = subtitles?.[language];
+    if (url === undefined) continue;
+    if (tracks.some((track) => track.language === language)) continue;
+    tracks.push({ language, url });
+  }
+  return tracks;
+}
+
 function parseTime(code: string): number | undefined {
   const match = /^(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})$/.exec(code.trim());
   if (match === null) return undefined;

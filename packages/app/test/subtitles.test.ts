@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeCue, parseSrt } from '../src/campaign/subtitles.js';
+import { activeCue, parseSrt, subtitleTracks } from '../src/campaign/subtitles.js';
 
 const SAMPLE = `1
 00:00:01,000 --> 00:00:03,500
@@ -51,5 +51,33 @@ describe('activeCue', () => {
       { start: 5, end: 6, text: 'narrow' },
     ];
     expect(activeCue(overlapping, 5.5)).toEqual({ start: 5, end: 6, text: 'narrow' });
+  });
+});
+
+describe('subtitleTracks', () => {
+  const urls = {
+    eng: '/campaigns/x/films/eng/intro.srt',
+    chs: '/campaigns/x/films/chs/intro.srt',
+  };
+
+  it('lists the audio language above the UI language, each with its url', () => {
+    expect(subtitleTracks(urls, ['eng', 'chs'])).toEqual([
+      { language: 'eng', url: urls.eng },
+      { language: 'chs', url: urls.chs },
+    ]);
+  });
+
+  it('keeps one line when the audio and UI language match', () => {
+    expect(subtitleTracks(urls, ['eng', 'eng'])).toEqual([{ language: 'eng', url: urls.eng }]);
+  });
+
+  it('drops a language the film carries no subtitle for', () => {
+    expect(subtitleTracks({ eng: urls.eng }, ['eng', 'chs'])).toEqual([{ language: 'eng', url: urls.eng }]);
+    expect(subtitleTracks(urls, ['ger', 'chs'])).toEqual([{ language: 'chs', url: urls.chs }]);
+  });
+
+  it('skips an unknown language and an absent subtitle map', () => {
+    expect(subtitleTracks(urls, [undefined, 'chs'])).toEqual([{ language: 'chs', url: urls.chs }]);
+    expect(subtitleTracks(undefined, ['eng', 'chs'])).toEqual([]);
   });
 });

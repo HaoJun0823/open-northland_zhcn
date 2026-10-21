@@ -24,6 +24,8 @@ export const ruCampaign = {
   skipMovie: 'Пропустить видео',
   movieFailed: 'Не удалось загрузить видео. Его можно пропустить.',
   seekMovie: 'Позиция в видео',
+  subtitles: 'Субтитры',
+  subtitlesOff: 'Скрыть субтитры',
   watchIntro: 'Смотреть вступление',
   watchFinale: 'Смотреть финал',
 } as const;

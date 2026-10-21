@@ -6,6 +6,7 @@ const Id = z
   .regex(/^[a-z0-9][a-z0-9_-]*$/)
   .max(128);
 const MovieAsset = z.string().regex(/^\/campaigns\/[a-z0-9_/-]+\.(webm|mp4)$/);
+const SubtitleAsset = z.string().regex(/^\/campaigns\/[a-z0-9_/-]+\.srt$/);
 const MapAsset = z.string().regex(/^\/campaigns\/[a-z0-9_/-]+\.png$/);
 const Slot = z.number().int().nonnegative();
 const Language = z.enum(MAP_TEXT_LANGUAGES);
@@ -15,6 +16,7 @@ const Movie = z.strictObject({
   audio: MovieAsset,
   width: z.number().int().positive().max(8192),
   height: z.number().int().positive().max(8192),
+  subtitles: z.partialRecord(Language, SubtitleAsset).optional(),
 });
 
 /** One text in the languages that carry it; at least one does. */

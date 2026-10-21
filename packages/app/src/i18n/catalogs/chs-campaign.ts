@@ -23,6 +23,8 @@ export const chsCampaign = {
   skipMovie: '跳过视频',
   movieFailed: '视频无法载入，可以直接跳过。',
   seekMovie: '视频进度',
+  subtitles: '字幕',
+  subtitlesOff: '隐藏字幕',
   watchIntro: '观看开场',
   watchFinale: '观看结局',
 } as const;

@@ -5,6 +5,7 @@ import { type CampaignFailureRecovery, createCampaignRuntime } from '../src/camp
 import { campaignFixture, memoryStorage } from './support/campaign.js';
 
 const ENGLISH_VIDEO = expect.objectContaining({ audio: '/campaigns/test/eng/video-1.webm' });
+const PLAYER_LANGUAGE = 'eng' as const;
 
 const LOCAL_PLAYER = 0;
 const OTHER_PLAYER = 1;
@@ -14,7 +15,7 @@ function setup(mapId = 'first') {
   const storage = memoryStorage();
   const deps = {
     campaign,
-    language: 'eng' as const,
+    language: PLAYER_LANGUAGE,
     mapId,
     localPlayer: LOCAL_PLAYER,
     storage,
@@ -59,7 +60,7 @@ describe('campaign handovers', () => {
     t.runtime.events(events, proceed);
     t.runtime.events(events, proceed);
     await vi.waitFor(() => expect(t.exit).toHaveBeenCalledOnce());
-    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO);
+    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE);
     expect(proceed).not.toHaveBeenCalled();
     expect(t.resume).not.toHaveBeenCalled();
   });
@@ -74,7 +75,9 @@ describe('campaign handovers', () => {
       ],
     } as unknown as WorldSnapshot;
     t.runtime.restore(snapshot);
-    await vi.waitFor(() => expect(t.play).toHaveBeenCalledWith(ENGLISH_VIDEO));
+    await vi.waitFor(() =>
+      expect(t.play).toHaveBeenCalledWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE),
+    );
     expect(readCampaignProgress(t.campaign, t.storage).unlocked).toContain('second');
   });
   it('does not access storage for ordinary events and retains grants when reads fail', () => {
@@ -134,7 +137,7 @@ describe('campaign handovers', () => {
     );
     t.failed.mock.calls[0]?.[0].continueWithoutSaving();
     await vi.waitFor(() => expect(t.exit).toHaveBeenCalledOnce());
-    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO);
+    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO, PLAYER_LANGUAGE, PLAYER_LANGUAGE);
     expect(t.failed).toHaveBeenCalledOnce();
   });
   it('completes the campaign when the local seat wins its last stage', () => {

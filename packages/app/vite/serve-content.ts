@@ -33,6 +33,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.ogg': 'audio/ogg',
   '.cur': 'image/x-icon',
   '.webm': 'video/webm',
+  '.srt': 'application/x-subrip',
 };
 
 /**

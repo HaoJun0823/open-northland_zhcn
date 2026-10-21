@@ -118,3 +118,29 @@
   font: 500 11px / 1 var(--font-body);
   font-variant-numeric: tabular-nums;
 }
+/* Centered over the film, above the seek bar and below the controls; the audio language line first. */
+.campaign-movie__subtitles {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: min(90%, 720px);
+  text-align: center;
+  pointer-events: none;
+}
+.campaign-movie__subtitle {
+  margin: 0;
+  color: #fff;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 4px #000;
+  font: 600 18px / 1.35 var(--font-body);
+  white-space: pre-line;
+}
+.campaign-movie__subtitles[hidden] {
+  display: none;
+}

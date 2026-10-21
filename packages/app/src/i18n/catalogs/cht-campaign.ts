@@ -23,6 +23,8 @@ export const chtCampaign = {
   skipMovie: '跳過影片',
   movieFailed: '影片無法載入，可以直接跳過。',
   seekMovie: '影片進度',
+  subtitles: '字幕',
+  subtitlesOff: '隱藏字幕',
   watchIntro: '觀看開場',
   watchFinale: '觀看結局',
 } as const;

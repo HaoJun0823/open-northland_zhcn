@@ -61,6 +61,14 @@ export function campaignMovies(
   return (chosen === undefined ? undefined : campaign.movies[chosen]) ?? NO_MOVIES;
 }
 
+/** The language key whose films `campaignMovies` selected: the played sound track's language. */
+export function campaignMovieLanguage(
+  campaign: Pick<Campaign, 'movies'>,
+  language: MapTextLanguage,
+): MapTextLanguage | undefined {
+  return fallbackLanguage(presentIn(campaign.movies), language);
+}
+
 /** The finale in a language, falling back like the other films; `undefined` without one. */
 export function campaignFinale(
   campaign: Pick<Campaign, 'movies'>,

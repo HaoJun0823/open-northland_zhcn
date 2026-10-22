@@ -32,6 +32,7 @@ import { menuSearch } from '../../view/params.js';
 import type { GameViewHandle } from '../../view/runtime/game-view.js';
 import type { NetReadout } from '../../view/runtime/net-readout.js';
 import { type AssembledMapWorld, assembleMapWorld, presentMapWorld, type RestoredSave } from '../map/boot.js';
+import { keptView } from './kept-view.js';
 import { mountHaltNotice } from './menu-notice.js';
 import { mountNetHud, type NetHud } from './net-hud.js';
 import {
@@ -80,6 +81,7 @@ export function renderNetworkGame(
     plaque = null;
   }
   const roomId = client.room?.id ?? params.get('room');
+  const kept = roomId === null ? null : keptView(connection.url, roomId);
   const released = new WeakSet<AssembledMapWorld>();
   function release(world: AssembledMapWorld<RelayedMapWorld>): void {
     if (released.has(world)) return;
@@ -114,6 +116,8 @@ export function renderNetworkGame(
     }
     hud = null;
     if (view !== null) {
+      const state = view.viewState();
+      if (state !== null) kept?.set(state);
       view.destroy();
       view = null;
     }
@@ -135,7 +139,10 @@ export function renderNetworkGame(
   }
   /** The player's own way out: the only one that gives the seat up. */
   function returnToMenu(): void {
-    void swapToEntry(menuSearch(), () => dispose(true)).catch((error: unknown) => fail(error));
+    void swapToEntry(menuSearch(), () => {
+      dispose(true);
+      kept?.set(null);
+    }).catch((error: unknown) => fail(error));
   }
   /** End the game on `error`, under `title` when the caller names one, else under where the game
    *  stands: a start that never came, or a game that stood. A halt never gives the seat up: while
@@ -157,6 +164,14 @@ export function renderNetworkGame(
     );
   }
   const startWait = createStartWait(client);
+  window.addEventListener(
+    'pagehide',
+    () => {
+      const state = view?.viewState() ?? null;
+      if (state !== null) kept?.set(state);
+    },
+    { signal: scope.signal },
+  );
 
   const exit = roomExitObserver((reason) => fail(roomEndText(reason), null, false));
   const unsubscribe = connection.subscribe((event) => {
@@ -215,6 +230,10 @@ export function renderNetworkGame(
         throw new Error('The session and verified map differ');
       clearWorld();
       canvasUsed = true;
+      // A snapshot's view is its donor's: this client's own groups, kept as the last world went, win.
+      const ownView = save !== null && start === null ? (kept?.get() ?? null) : null;
+      const stagedSave =
+        ownView === null || save === null ? save : { ...save, header: { ...save.header, view: ownView } };
       const world = await assembleMapWorld(activeCanvas, params, {
         hostWorld: (inputs) => hostRelayedWorld(host, inputs, params, start),
         multiplayer: true,
@@ -224,7 +243,7 @@ export function renderNetworkGame(
           client.reportLoading(percent);
         },
         mapId: map.mapId,
-        stagedSave: save,
+        stagedSave,
         verifiedMap: map,
         sessionFor: () => session,
       });

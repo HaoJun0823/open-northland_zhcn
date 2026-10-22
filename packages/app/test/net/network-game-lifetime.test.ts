@@ -386,3 +386,27 @@ describe('a closed link before the clock runs', () => {
     ]);
   });
 });
+
+describe('control groups across a relayed rebuild', () => {
+  const GROUPS: SavedView = { seat: LOCAL_SEAT, controlGroups: { controlGroup1: [7, 9] } };
+
+  it('restores the groups the torn-down view held into the world a snapshot rebuilds', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.presented.view = GROUPS;
+    await game.restore();
+    const plan = mocks.assemble.mock.calls.at(-1)?.[2] as { stagedSave: { header: { view: unknown } } };
+    expect(plan.stagedSave.header.view).toEqual(GROUPS);
+  });
+
+  it('keeps them for a reload of the same room', async () => {
+    const first = presentedGame();
+    await first.start();
+    first.presented.view = GROUPS;
+    first.fail('message', new Error('a bad frame'));
+    const reloaded = presentedGame();
+    await reloaded.restore();
+    const plan = mocks.assemble.mock.calls.at(-1)?.[2] as { stagedSave: { header: { view: unknown } } };
+    expect(plan.stagedSave.header.view).toEqual(GROUPS);
+  });
+});

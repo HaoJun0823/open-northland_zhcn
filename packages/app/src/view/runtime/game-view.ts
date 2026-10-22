@@ -297,6 +297,8 @@ export interface GameViewHandle {
   issue(command: PlayerCommand): void;
   /** The sound driver's running one-shot counts, or null when this session plays no sound. */
   soundStats(): SoundStatsView | null;
+  /** The view a save would record (the control groups), for a rebuilt world of the same game to restore. */
+  viewState(): SavedView | null;
 }
 
 const PAUSE_HOLDER_MENU = 'menu';
@@ -1408,6 +1410,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       lifetime: lifetime.signal,
       issue: issueCommand,
       soundStats: () => soundDriver?.stats ?? null,
+      viewState,
     };
   } catch (error) {
     try {

@@ -3,8 +3,11 @@ import { connect, type Socket } from 'node:net';
 import { PROTOCOL_VERSION } from '@open-northland/net-protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
-import { MESSAGE_BURST } from '../src/host/socket-budget.js';
+import { MESSAGE_BURST, RECOVERY_BURST } from '../src/host/socket-budget.js';
 import { type RelayHost, startRelayHost } from '../src/host/ws-host.js';
+
+/** More recovery requests than the burst holds. */
+const RECOVERY_REQUESTS = RECOVERY_BURST + 2;
 
 async function introduced(port: number, token: string): Promise<WebSocket> {
   const socket = new WebSocket(`ws://127.0.0.1:${port}`);
@@ -110,6 +113,36 @@ describe('host resource limits', () => {
     expect(receive).toHaveBeenCalledTimes(4);
     expect(host.relay.clientCount).toBe(0);
     expect((await fetch(`http://127.0.0.1:${host.port}/healthz`)).status).toBe(200);
+  });
+
+  it('refuses saves past the recovery budget and keeps the connection', async () => {
+    host = await startRelayHost({ port: 0 });
+    const socket = await introduced(host.port, 'recovery-save-token');
+    const rejections: unknown[] = [];
+    socket.on('message', (data) => {
+      const message = JSON.parse(String(data)) as { kind: string; reason?: { code: string } };
+      if (message.kind === 'rejected' && message.reason?.code === 'retryTooSoon') rejections.push(message);
+    });
+    const receive = vi.spyOn(host.relay, 'receive');
+    for (let id = 1; id <= RECOVERY_REQUESTS; id++)
+      socket.send(JSON.stringify({ kind: 'saveOrders', id, tick: 1, world: 0 }));
+    socket.send(JSON.stringify({ kind: 'requestInitialSave' }));
+    await vi.waitFor(() => expect(rejections).toHaveLength(RECOVERY_REQUESTS - RECOVERY_BURST + 1));
+    expect(rejections[0]).toEqual({
+      kind: 'rejected',
+      of: 'saveOrders',
+      reason: { code: 'retryTooSoon' },
+      requestId: RECOVERY_BURST + 1,
+    });
+    expect(rejections.at(-1)).toEqual({
+      kind: 'rejected',
+      of: 'requestInitialSave',
+      reason: { code: 'retryTooSoon' },
+    });
+    expect(receive).toHaveBeenCalledTimes(RECOVERY_BURST);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    expect(host.relay.clientCount).toBe(1);
+    socket.terminate();
   });
 
   it('reports the bytes of a message still arriving, and nothing once a frame completes', async () => {

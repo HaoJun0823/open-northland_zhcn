@@ -7,6 +7,7 @@ import {
   type ClosingCode,
   MAX_BLOB_MESSAGE_BYTES,
   PROTOCOL_VERSION,
+  type RelayReason,
   type RelayReasonCode,
   type ServerMessage,
 } from '@open-northland/net-protocol';
@@ -32,6 +33,7 @@ const CLOSE_TRY_AGAIN_LATER = 1013;
 /** Close reasons are relay reason codes, which a client words in its own language. */
 const TRAFFIC_LIMIT: ClosingCode = 'trafficLimit';
 const RELAY_FAULT: RelayReasonCode = 'relayFault';
+const RETRY_TOO_SOON: RelayReason = { code: 'retryTooSoon' };
 const SERVER_RESTART: ClosingCode = 'serverRestart';
 export const HEALTH_PATH = '/healthz';
 const MS_PER_SECOND = 1000;
@@ -238,13 +240,15 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
           raw = null;
         }
       }
-      if (!recovery.take(raw, performance.now())) {
+      const recoveryVerdict = recovery.take(raw, performance.now());
+      if (recoveryVerdict === 'close') {
         refuseTraffic();
         return;
       }
       // A relay fault costs the one connection that triggered it, never the other rooms.
       try {
-        relay.receive(client, raw, byteLength(data));
+        if (recoveryVerdict === 'refuse') relay.refuse(client, raw, RETRY_TOO_SOON);
+        else relay.receive(client, raw, byteLength(data));
       } catch (err) {
         log('receive failed', { error: String(err) });
         socket.close(CLOSE_INTERNAL_ERROR, RELAY_FAULT);

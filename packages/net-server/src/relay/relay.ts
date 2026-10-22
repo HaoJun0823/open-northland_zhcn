@@ -172,6 +172,15 @@ export class Relay {
     member.inboundBytes = bytes;
   }
 
+  /** Answer a message the host will not hand over, without parsing it, as the relay refuses one. */
+  refuse(client: ClientHandle, raw: unknown, reason: RelayReason): void {
+    if (!this.clients.has(client)) return;
+    this.heard(client);
+    const of = clientMessageKind(raw);
+    if (of === null || client.token === null) this.fail(client, { code: 'helloFirst' });
+    else this.reject(client, of, reason, raw);
+  }
+
   /** A whole message arrived: the client is heard, and nothing of it is still arriving. */
   private heard(client: Client): void {
     const member = client.member;

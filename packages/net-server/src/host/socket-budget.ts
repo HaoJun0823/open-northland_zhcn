@@ -98,8 +98,13 @@ export function sendBounded(
 }
 
 /** Recovery requests held in reserve, and the time one of them takes to come back. */
-const RECOVERY_BURST = 4;
+export const RECOVERY_BURST = 4;
 const RECOVERY_REFILL_MS = 2000;
+
+/** What the host does with a message under the recovery budget: hand it over, refuse it so the player
+ *  can retry, or close. A refused `loaded` would leave the room waiting for an unreported world, so
+ *  that connection closes instead and its reconnect reports the world afresh. */
+export type RecoveryVerdict = 'accept' | 'refuse' | 'close';
 
 /** Recovery can return a full snapshot or replay for a tiny request. */
 export class RecoveryBudget {
@@ -107,16 +112,18 @@ export class RecoveryBudget {
 
   constructor(private updatedAt: number) {}
 
-  take(raw: unknown, now: number): boolean {
+  take(raw: unknown, now: number): RecoveryVerdict {
     const kind = clientMessageKind(raw);
-    if (kind !== 'loaded' && kind !== 'saveOrders' && kind !== 'requestInitialSave') return true;
+    if (kind !== 'loaded' && kind !== 'saveOrders' && kind !== 'requestInitialSave') return 'accept';
     this.remaining = Math.min(
       RECOVERY_BURST,
       this.remaining + Math.max(0, now - this.updatedAt) / RECOVERY_REFILL_MS,
     );
     this.updatedAt = now;
-    if (this.remaining < 1) return false;
-    this.remaining--;
-    return true;
+    if (this.remaining >= 1) {
+      this.remaining--;
+      return 'accept';
+    }
+    return kind === 'loaded' ? 'close' : 'refuse';
   }
 }

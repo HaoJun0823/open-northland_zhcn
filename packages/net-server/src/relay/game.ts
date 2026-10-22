@@ -136,15 +136,16 @@ export class Game {
     else if (this.clock.running) refusal = this.catchUp(member, world, now);
     else refusal = this.admitBeforeStart(member, world);
     if (refusal !== null) return refusal;
-    this.startClockWhenLoaded(now);
+    let told = this.startClockWhenLoaded(now);
     this.settle(now);
-    if (this.endedTick === null && this.clock.running) this.updateWaiting(now);
+    if (this.endedTick === null) told = this.updateWaiting(now) || told;
     const ended = this.end.message;
     if (ended !== null) {
       this.deliver(member, ended);
       return null;
     }
-    this.deliver(member, this.waiting.message(now));
+    // A returning client rebuilt its view with no waited set; one broadcast just now already told it.
+    if (!told) this.deliver(member, this.waiting.message(now));
     // A returning or reloaded client rebuilt its view with no tallies, and tallies are sent as they move.
     for (const tally of this.kickVotes.openTallies()) this.deliver(member, tally);
     return null;
@@ -350,7 +351,8 @@ export class Game {
 
   /** Every member the room cannot run without holds the clock; a slow one paces it instead, until it
    *  has stayed slow long enough to hold it too. */
-  private updateWaiting(now: number): void {
+  /** True when it broadcast the waited set. */
+  private updateWaiting(now: number): boolean {
     const waited: Waited[] = [];
     for (const member of this.members.values()) {
       if (this.absentReason(member, now) === null) {
@@ -361,10 +363,12 @@ export class Game {
       const reason = this.waitReason(member, now);
       if (reason !== null) waited.push({ token: member.token, nick: member.nick, reason });
     }
-    if (this.waiting.update(waited, now)) this.broadcast(this.waiting.message(now));
+    const told = this.waiting.update(waited, now);
+    if (told) this.broadcast(this.waiting.message(now));
     for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
     if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
+    return told;
   }
 
   /** Ticks the member trails beyond the frames a healthy client on its link still has in flight: the
@@ -407,17 +411,17 @@ export class Game {
   }
 
   /** The clock starts once every seated player has loaded, a dropped one included: a game never starts
-   *  without one of its players. */
-  private startClockWhenLoaded(now: number): void {
-    if (this.clock.running || this.builtTick === null) return;
+   *  without one of its players. True when it started and broadcast the waited set. */
+  private startClockWhenLoaded(now: number): boolean {
+    if (this.clock.running || this.builtTick === null) return false;
     for (const member of this.members.values()) {
-      if (member.seat !== null && !member.loaded) return;
+      if (member.seat !== null && !member.loaded) return false;
     }
     this.clock.start();
     this.resync.restartCadence(now);
     this.broadcast(this.clockMessage(null));
     this.waiting.restart(now);
-    this.updateWaiting(now);
+    return this.updateWaiting(now);
   }
 
   /** Judge every tick each client in sync has passed, and drop the references no client can still

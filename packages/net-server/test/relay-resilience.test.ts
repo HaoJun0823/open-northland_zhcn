@@ -267,8 +267,9 @@ describe('waiting for a member', () => {
     t.relay.disconnect(c.handle);
     expect(a.of('clock')).toEqual([]);
     tick(t, [a, b], TICK_MS * 2);
+    // Waited for since the others loaded, one poll before the drop was told.
     expect(a.last('waiting')?.for).toMatchObject([
-      { nick: 'Cezary', reason: 'gone', voteAfterMs: KICK_COUNTDOWN_MS },
+      { nick: 'Cezary', reason: 'gone', voteAfterMs: Math.ceil(KICK_COUNTDOWN_MS - TICK_MS) },
     ]);
     tick(t, [a, b], KICK_COUNTDOWN_MS / 2);
     t.relay.disconnect(b.handle);

@@ -10,7 +10,8 @@ export interface RafLoop {
 export interface RafLoopOptions {
   readonly fpsLimit?: FpsLimit;
   /** Called once, when the animation frame after the first completed `frame` begins: the browser has
-   *  presented what that frame drew, first-use GPU work it blocked on included. */
+   *  presented what that frame drew, first-use GPU work it blocked on included. A hidden page runs no
+   *  animation frames, so there it is called at once, after one `frame` outside them if none ran. */
   readonly onFirstFrameShown?: () => void;
 }
 
@@ -55,23 +56,42 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
   let running = true;
   let drawn = false;
   let shown = false;
+  const draw = (nowMs: number): void => {
+    lastDrawnMs = nowMs;
+    frame(nowMs);
+    drawn = true;
+  };
+  const markShown = (): void => {
+    shown = true;
+    stopWatchingHidden();
+    options.onFirstFrameShown?.();
+  };
+  // A hidden page runs no animation frames, so its first frame would never count as shown; the one
+  // frame drawn here starts the world, which the display then stops taking until the page shows.
+  const whenHidden = (): void => {
+    if (!running || shown || !document.hidden) return;
+    if (!drawn) draw(performance.now());
+    if (running && !shown) markShown();
+  };
+  const watchesHidden = options.onFirstFrameShown !== undefined && typeof document !== 'undefined';
+  const stopWatchingHidden = (): void => {
+    if (watchesHidden) document.removeEventListener('visibilitychange', whenHidden);
+  };
+  if (watchesHidden) {
+    document.addEventListener('visibilitychange', whenHidden);
+    queueMicrotask(whenHidden);
+  }
   let rafId = requestAnimationFrame(function tick(nowMs) {
     if (!running) return;
-    if (drawn && !shown) {
-      shown = true;
-      options.onFirstFrameShown?.();
-    }
-    if (admits(nowMs)) {
-      lastDrawnMs = nowMs;
-      frame(nowMs);
-      drawn = true;
-    }
+    if (drawn && !shown) markShown();
+    if (admits(nowMs)) draw(nowMs);
     // `frame` may have stopped the loop, so re-check before rescheduling.
     if (running) rafId = requestAnimationFrame(tick);
   });
   return {
     stop(): void {
       running = false;
+      stopWatchingHidden();
       cancelAnimationFrame(rafId);
     },
     setFpsLimit(fpsLimit): void {

@@ -155,7 +155,86 @@ describe('startRafLoop', () => {
     expect(shown).toHaveBeenCalledOnce();
     loop.stop();
   });
+
+  it('reports the first frame shown at once on a page hidden before it, drawing that frame itself', async () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+    const page = fakeDocument(true);
+    vi.stubGlobal('document', page);
+
+    let frames = 0;
+    const shown = vi.fn();
+    const loop = startRafLoop(() => frames++, { onFirstFrameShown: shown });
+    await Promise.resolve();
+    // No animation frame ran: a hidden page gets none until it is shown again.
+    expect(frames).toBe(1);
+    expect(shown).toHaveBeenCalledOnce();
+    expect(page.listeners()).toBe(0);
+    clock.flush(0);
+    clock.flush(1000 / 60);
+    expect(shown).toHaveBeenCalledOnce();
+    loop.stop();
+  });
+
+  it('reports a drawn first frame shown when the page hides before presenting it', async () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+    const page = fakeDocument(false);
+    vi.stubGlobal('document', page);
+
+    let frames = 0;
+    const shown = vi.fn();
+    const loop = startRafLoop(() => frames++, { onFirstFrameShown: shown });
+    await Promise.resolve();
+    expect(shown).not.toHaveBeenCalled();
+    clock.flush(0);
+    page.hide();
+    expect(frames).toBe(1);
+    expect(shown).toHaveBeenCalledOnce();
+    loop.stop();
+  });
+
+  it('stops watching the page once stopped, so a later hide draws nothing', async () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+    const page = fakeDocument(false);
+    vi.stubGlobal('document', page);
+
+    const frame = vi.fn();
+    const shown = vi.fn();
+    startRafLoop(frame, { onFirstFrameShown: shown }).stop();
+    expect(page.listeners()).toBe(0);
+    page.hide();
+    await Promise.resolve();
+    expect(frame).not.toHaveBeenCalled();
+    expect(shown).not.toHaveBeenCalled();
+  });
 });
+
+/** The part of `document` the loop reads: whether the page is hidden, and its visibility event. */
+function fakeDocument(hidden: boolean): {
+  hidden: boolean;
+  addEventListener: (type: string, listener: () => void) => void;
+  removeEventListener: (type: string, listener: () => void) => void;
+  hide: () => void;
+  listeners: () => number;
+} {
+  const listeners = new Set<() => void>();
+  const page = {
+    hidden,
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    hide: () => {
+      page.hidden = true;
+      for (const listener of [...listeners]) listener();
+    },
+    listeners: () => listeners.size,
+  };
+  return page;
+}
 
 /** Timestamps of the admitted frames when `ticks` animation frames arrive `stepMs` apart. */
 function admitted(limiter: (nowMs: number) => boolean, stepMs: number, ticks: number): number[] {

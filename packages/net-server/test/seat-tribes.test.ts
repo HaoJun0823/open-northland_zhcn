@@ -44,16 +44,12 @@ describe('seat tribes in the lobby', () => {
     expect(c.last('room')?.room.seats).toEqual(a.last('room')?.room.seats);
   });
 
-  it('lets the creator set any seat’s tribe and clears every ready flag when it changes', () => {
+  it('lets the creator set any seat’s tribe and keeps every ready flag', () => {
     const { a, b, seat, readiness } = lobby();
     a.send({ kind: 'setReady', ready: true });
     b.send({ kind: 'setReady', ready: true });
     a.send({ kind: 'setSeat', player: 1, tribe: EGYPT });
     expect(seat(1)).toMatchObject({ authoredTribe: FRANK, tribe: EGYPT });
-    expect(readiness()).toEqual([false, false, false, false]);
-    a.send({ kind: 'setReady', ready: true });
-    b.send({ kind: 'setReady', ready: true });
-    a.send({ kind: 'setSeat', player: 1, tribe: EGYPT });
     expect(readiness()).toEqual([true, true, false, false]);
   });
 

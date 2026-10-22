@@ -3,6 +3,7 @@ export const chsNetworkRoom = {
   host: '房主',
   yourSeat: '你的席位：{seat}',
   changeSeat: '换席位',
+  moveMember: '移至',
   absentSeat: '已停用的席位',
   departure: '玩家离开后，其席位保持闲置。',
   observers: '观战者',

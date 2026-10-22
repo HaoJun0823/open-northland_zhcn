@@ -170,7 +170,7 @@ export class Room {
     member.lastHeardAt = now;
     if (this.game === null) {
       member.compatibility = null;
-      this.lobby.invalidateReady();
+      member.ready = false;
     } else {
       member.progressAt = now;
       this.game.dropWorld(member, now);
@@ -239,6 +239,11 @@ export class Room {
   setSeat(member: Member, player: number, change: SeatChange): Refusal {
     if (this.game !== null) return { code: 'gameStarted' };
     return this.lobby.setSeat(member, player, change);
+  }
+
+  moveMember(member: Member, nick: string, player: number | null): Refusal {
+    if (this.game !== null) return { code: 'gameStarted' };
+    return this.lobby.moveMember(member, nick, player);
   }
 
   setReady(member: Member, ready: boolean): Refusal {
@@ -531,7 +536,6 @@ export class Room {
   private admit(member: Member): void {
     member.joinOrder = this.joined++;
     this.members.set(member.token, member);
-    this.lobby.invalidateReady();
   }
 
   /** `seatTo` is what a departed player's seat became in the running game. */
@@ -544,7 +548,6 @@ export class Room {
     this.game?.forget(member);
     this.seats.standUp(member);
     this.members.delete(member.token);
-    if (this.game === null) this.lobby.invalidateReady();
     if (member.token === this.creatorToken) {
       const next = this.members.keys().next();
       if (!next.done) this.creatorToken = next.value;

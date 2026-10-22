@@ -41,6 +41,7 @@ export const deNetworkRelay = {
     seatTribeUnavailable: 'für Platz {seat} lässt sich kein Stamm auswählen',
     seatDifficultyUnavailable: 'für Platz {seat} lässt sich keine Computer-Schwierigkeitsstufe festlegen',
     seatRequired: 'belege zuerst einen Platz',
+    notMember: '{nick} ist nicht im Raum',
     memberNotReady: '{nick} ist nicht bereit',
     initialSaveMissing: 'der Raumersteller hat den Spielstand noch nicht bereitgestellt',
     mapDeliveryOff: 'dieser Raum stellt seine Karte nicht bereit',

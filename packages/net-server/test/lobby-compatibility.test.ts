@@ -79,7 +79,7 @@ describe('lobby compatibility gate', () => {
     expect(s.a.last('rejected')?.reason).toEqual(incompatible('Bartek', 'map', 'missing'));
   });
 
-  it('invalidates ready after report changes, and keeps no-op reports and seat claims ready', () => {
+  it('withdraws only the reporting member’s ready, and keeps no-op reports and seat claims ready', () => {
     const s = lobby();
     s.report();
     s.ready();
@@ -87,7 +87,7 @@ describe('lobby compatibility gate', () => {
     s.a.send({ kind: 'claimSeat', player: 0 });
     expect(s.readiness()).toEqual([true, true]);
     s.b.send({ kind: 'setCompatibility', compatibility: null });
-    expect(s.readiness()).toEqual([false, false]);
+    expect(s.readiness()).toEqual([true, false]);
     s.a.send({ kind: 'start' });
     expect(s.a.last('rejected')?.reason).toEqual(incompatible('Bartek', 'report', 'missing'));
     s.report();
@@ -95,26 +95,26 @@ describe('lobby compatibility gate', () => {
     expect(s.a.last('rejected')?.reason).toMatchObject({ code: 'memberNotReady' });
   });
 
-  it('invalidates ready after roster changes and when a lobby identity reconnects', () => {
+  it('keeps ready through others joining and leaving, and withdraws a mover’s or a reconnecting member’s', () => {
     const s = lobby();
     s.report();
     s.ready();
     const c = s.introduce(TOKEN_C, 'Cezary');
     c.send({ kind: 'joinRoom', roomId: s.roomId });
-    expect(s.readiness()).toEqual([false, false]);
+    expect(s.readiness()).toEqual([true, true]);
     c.send({ kind: 'leaveRoom' });
-    s.ready();
+    expect(s.readiness()).toEqual([true, true]);
     s.b.send({ kind: 'claimSeat', player: 2 });
-    expect(s.readiness()).toEqual([false, false]);
+    expect(s.readiness()).toEqual([true, false]);
     s.ready();
     const back = s.introduce(TOKEN_B, 'Renamed');
     expect(back.last('welcome')?.nick).toBe('Bartek');
-    expect(s.readiness()).toEqual([false, false]);
+    expect(s.readiness()).toEqual([true, false]);
     s.a.send({ kind: 'start' });
     expect(s.a.last('rejected')?.reason).toEqual(incompatible('Bartek', 'report', 'missing'));
   });
 
-  it('lets only the creator change settings, keeps the world fixed and invalidates ready', () => {
+  it('lets only the creator change settings, keeps the world fixed and keeps ready', () => {
     const s = lobby();
     s.report();
     s.ready();
@@ -130,7 +130,7 @@ describe('lobby compatibility gate', () => {
     s.a.send({ kind: 'setSettings', settings });
     expect(s.readiness()).toEqual([true, true]);
     s.a.send({ kind: 'setSettings', settings: { ...settings, seed: 99, speed: 2 } });
-    expect(s.readiness()).toEqual([false, false]);
+    expect(s.readiness()).toEqual([true, true]);
     expect(s.a.last('room')?.room.settings).toEqual({ ...SETTINGS, seed: 99, speed: 2 });
     s.a.send({ kind: 'setSettings', settings: { ...settings, world: { kind: 'map', mapId: 'other' } } });
     expect(s.a.last('rejected')?.reason).toEqual({
@@ -144,23 +144,58 @@ describe('lobby compatibility gate', () => {
     expect(s.b.last('rejected')?.reason).toEqual({ code: 'gameStarted' });
   });
 
-  it('carries a seat color into the descriptor and invalidates ready only when it changes', () => {
+  it('carries a seat color into the descriptor and keeps ready', () => {
     const s = lobby();
     s.report();
     s.ready();
     s.b.send({ kind: 'setSeat', player: 1, color: 5 });
     expect(s.b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
-    s.a.send({ kind: 'setSeat', player: 0, color: 0 });
-    expect(s.readiness()).toEqual([true, true]);
     s.a.send({ kind: 'setSeat', player: 1, color: 5 });
-    expect(s.readiness()).toEqual([false, false]);
-    s.ready();
+    expect(s.readiness()).toEqual([true, true]);
     s.a.send({ kind: 'start' });
     expect(s.b.last('start')?.session.seats).toEqual([
       { player: 0, mode: 'human', color: 0 },
       { player: 1, mode: 'human', color: 5 },
       { player: 2, mode: 'computer', color: 2 },
     ]);
+  });
+
+  it('lets the creator move a member, swapping seats and keeping both ready', () => {
+    const s = lobby();
+    s.report();
+    s.ready();
+    s.b.send({ kind: 'moveMember', nick: 'Ania', player: 2 });
+    expect(s.b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
+    s.a.send({ kind: 'moveMember', nick: 'Nobody', player: 2 });
+    expect(s.a.last('rejected')?.reason).toEqual({ code: 'notMember', nick: 'Nobody' });
+    s.a.send({ kind: 'moveMember', nick: 'Bartek', player: 9 });
+    expect(s.a.last('rejected')?.reason).toEqual({ code: 'noSeat', player: 9 });
+    s.a.send({ kind: 'moveMember', nick: 'Bartek', player: 2 });
+    const seats = () => s.a.last('room')?.room.seats.map((seat) => [seat.nick, seat.ready]);
+    expect(seats()).toEqual([
+      ['Ania', true],
+      [null, false],
+      ['Bartek', true],
+    ]);
+    s.a.send({ kind: 'moveMember', nick: 'Bartek', player: 0 });
+    expect(seats()).toEqual([
+      ['Bartek', true],
+      [null, false],
+      ['Ania', true],
+    ]);
+    s.a.send({ kind: 'moveMember', nick: 'Bartek', player: null });
+    expect(seats()).toEqual([
+      [null, false],
+      [null, false],
+      ['Ania', true],
+    ]);
+    s.a.send({ kind: 'moveMember', nick: 'Bartek', player: 2 });
+    expect(seats()).toEqual([
+      [null, false],
+      [null, false],
+      ['Bartek', false],
+    ]);
+    expect(s.a.last('room')?.room.members.find((member) => member.nick === 'Ania')?.seat).toBeNull();
   });
 
   it('announces a canonical duplicate nick after entering, before synchronous room actions', () => {

@@ -243,6 +243,7 @@ export type ClientMessage =
       readonly tribe?: number;
       readonly difficulty?: ComputerDifficulty;
     }
+  | { readonly kind: 'moveMember'; readonly nick: string; readonly player: number | null }
   | { readonly kind: 'setReady'; readonly ready: boolean }
   | { readonly kind: 'setCompatibility'; readonly compatibility: LobbyCompatibility | null }
   | { readonly kind: 'setSettings'; readonly settings: LobbySettings }

@@ -16,6 +16,7 @@ import {
   savedSeatHint,
   seatCivilization,
 } from './model.js';
+import { moveMemberControl } from './move-member.js';
 import type { NetworkRoomDeps } from './types.js';
 
 const { COMPUTER_DIFFICULTIES } = components;
@@ -135,6 +136,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
     difficulty.root.classList.add('network-room__difficulty');
     const take = button(copy.takeSeat, () => client.claimSeat(player));
     take.classList.add('network-room__claim');
+    const move = moveMemberControl(deps);
     const row = node('div', 'network-room__seat');
     row.setAttribute('role', 'group');
     row.tabIndex = -1;
@@ -149,7 +151,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
     nameLine.append(name, yours, host, detail);
     const identityText = node('div', 'network-room__seat-description');
     identityText.append(nameLine, faction);
-    identity.append(identityText, take);
+    identity.append(identityText, take, move.root);
     const human = node('span', 'network-room__human', copy.human);
     human.append(readiness);
     row.append(
@@ -228,6 +230,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
           difficulty.update(seat.difficulty, !canSetSeatDifficulty(room, client.nick, connected));
         take.disabled = !canClaimSeat(room, seat, client.nick, connected);
         take.hidden = !seat.claimable || seat.nick !== null;
+        move.update(room, seat.nick, player, permissions.interactive);
       },
     };
   }

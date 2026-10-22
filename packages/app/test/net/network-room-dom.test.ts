@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { MAP_TYPE } from '@open-northland/data';
 import { PROTOCOL_VERSION, type RoomView } from '@open-northland/net-protocol';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { type MapSelectItem, mapItem } from '../../src/entries/main-menu/map-select-model.js';
 import { connectionForm } from '../../src/entries/main-menu/network/connection-form.js';
 import { DEFAULT_RELAY_URL } from '../../src/entries/main-menu/network/relay-default.js';
@@ -72,6 +72,7 @@ function mount(
   const client = {
     nick: 'Astrid',
     claimSeat: vi.fn(),
+    moveMember: vi.fn(),
     setSeat: vi.fn(),
     setSettings: vi.fn(),
     setReady: vi.fn(),
@@ -116,6 +117,49 @@ describe('multiplayer entry', () => {
     expect(take.disabled).toBe(false);
     take.click();
     expect(client.claimSeat).toHaveBeenCalledWith(0);
+  });
+
+  it('offers the creator a move for every member, seated or observing', () => {
+    const { room, client } = mount();
+    const view = lobby();
+    const [host] = view.members;
+    const [open] = view.seats;
+    if (host === undefined || open === undefined) throw new Error('lobby fixture lost its member or seat');
+    const seated: RoomView = {
+      ...view,
+      seats: [
+        { ...open, nick: 'Bjorn', ready: true },
+        { ...open, player: 1, color: 1 },
+      ],
+      members: [host, { ...host, nick: 'Bjorn', seat: 0 }],
+    };
+    room.update(seated, true);
+    const moves = [...room.element.querySelectorAll<HTMLElement>('.network-room__move')];
+    const visible = moves.filter((move) => !move.hidden);
+    expect(visible).toHaveLength(2);
+    // jsdom lacks the popover API the menu opens with.
+    const proto = HTMLElement.prototype as Partial<Pick<HTMLElement, 'showPopover' | 'hidePopover'>>;
+    proto.showPopover = () => {};
+    proto.hidePopover = () => {};
+    onTestFinished(() => {
+      delete proto.showPopover;
+      delete proto.hidePopover;
+    });
+    const pick = (move: HTMLElement | undefined, label: string): void => {
+      move?.querySelector('button')?.click();
+      const found = [...(move?.querySelectorAll('button') ?? [])].find((button) =>
+        button.textContent?.startsWith(label),
+      );
+      if (found === undefined) throw new Error(`Missing option: ${label}`);
+      found.click();
+    };
+    const seatTwo = `${messages().networkRoom.seat} 2`;
+    pick(visible[0], seatTwo);
+    expect(client.moveMember).toHaveBeenCalledWith('Bjorn', 1);
+    pick(visible[1], seatTwo);
+    expect(client.moveMember).toHaveBeenCalledWith('Astrid', 1);
+    room.update({ ...seated, creator: 'Bjorn' }, true);
+    expect(moves.filter((move) => !move.hidden)).toHaveLength(0);
   });
 
   it('remembers a valid custom address, preserves it after invalid input, and accepts a URL override', () => {

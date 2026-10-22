@@ -21,6 +21,8 @@ export function dispatchRoomMessage(room: Room, member: Member, message: RoomMes
       return room.setCompatibility(member, message.compatibility);
     case 'setSettings':
       return room.setSettings(member, message.settings);
+    case 'moveMember':
+      return room.moveMember(member, message.nick, message.player);
     case 'setReady':
       return room.setReady(member, message.ready);
     case 'start':

@@ -41,6 +41,7 @@ export const enNetworkRelay = {
     seatTribeUnavailable: 'seat {seat} has no tribe to choose',
     seatDifficultyUnavailable: 'seat {seat} takes no computer level',
     seatRequired: 'take a seat first',
+    notMember: '{nick} is not in the room',
     memberNotReady: '{nick} is not ready',
     initialSaveMissing: 'the room creator has not shared the saved game yet',
     mapDeliveryOff: 'this room does not share its map',

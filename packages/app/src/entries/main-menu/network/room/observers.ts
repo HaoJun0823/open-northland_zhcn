@@ -2,10 +2,12 @@ import type { RoomView } from '@open-northland/net-protocol';
 import { messages } from '../../../../i18n/index.js';
 import { node } from '../../dom.js';
 import { button } from './controls.js';
+import { moveMemberControl } from './move-member.js';
 import type { NetworkRoomDeps } from './types.js';
 
 /** Observers occupy no map seat. One free row always follows the occupied rows. */
-export function roomObservers({ client, copy }: NetworkRoomDeps) {
+export function roomObservers(deps: NetworkRoomDeps) {
+  const { client, copy } = deps;
   const text = messages().mainMenu.lobby;
   const root = node('section', 'network-room__observers');
   const list = node('div');
@@ -15,21 +17,43 @@ export function roomObservers({ client, copy }: NetworkRoomDeps) {
   label.append(node('strong', '', text.observerName), node('p', 'network-room__muted', text.observerDetail));
   free.append(label, join);
   root.append(node('h3', '', copy.observers), list, free);
+  // Rows are kept by nick and moved only when the order changes: a detached row would close the
+  // creator's open move menu.
+  const rows = new Map<string, ReturnType<typeof observerRow>>();
+  function observerRow(nick: string) {
+    const row = node('div', 'network-room__observer');
+    const you = node('span', 'network-room__badge network-room__badge--you', copy.you);
+    const away = node('span', 'network-room__muted', copy.disconnected);
+    const move = moveMemberControl(deps);
+    you.hidden = nick !== client.nick;
+    row.append(node('strong', '', nick), you, away, move.root);
+    return {
+      row,
+      update(room: RoomView, connected: boolean, interactive: boolean): void {
+        away.hidden = connected;
+        move.update(room, nick, null, interactive);
+      },
+    };
+  }
   return {
     root,
     update(room: RoomView, connected: boolean): void {
-      list.replaceChildren(
-        ...room.members
-          .filter((member) => member.seat === null)
-          .map((member) => {
-            const row = node('div', 'network-room__observer');
-            row.append(node('strong', '', member.nick));
-            if (member.nick === client.nick)
-              row.append(node('span', 'network-room__badge network-room__badge--you', copy.you));
-            if (!member.connected) row.append(node('span', 'network-room__muted', copy.disconnected));
-            return row;
-          }),
-      );
+      const observers = room.members.filter((member) => member.seat === null);
+      for (const [nick, row] of rows)
+        if (!observers.some((member) => member.nick === nick)) {
+          row.row.remove();
+          rows.delete(nick);
+        }
+      const interactive = connected && room.state === 'lobby';
+      observers.forEach((member, index) => {
+        let row = rows.get(member.nick);
+        if (row === undefined) {
+          row = observerRow(member.nick);
+          rows.set(member.nick, row);
+        }
+        row.update(room, member.connected, interactive);
+        if (list.children.item(index) !== row.row) list.insertBefore(row.row, list.children.item(index));
+      });
       const self = room.members.find((member) => member.nick === client.nick);
       join.disabled = !connected || room.state !== 'lobby' || self === undefined || self.seat === null;
     },

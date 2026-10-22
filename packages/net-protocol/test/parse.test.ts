@@ -106,6 +106,8 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
   { kind: 'leaveRoom' },
   { kind: 'claimSeat', player: 2 },
   { kind: 'claimSeat', player: null },
+  { kind: 'moveMember', nick: 'Bartek', player: 2 },
+  { kind: 'moveMember', nick: 'Bartek', player: null },
   { kind: 'setSeat', player: 1, mode: 'computer', color: 4 },
   { kind: 'setSeat', player: 1 },
   { kind: 'setSeat', player: 1, tribe: 4 },
@@ -169,6 +171,9 @@ describe('client messages', () => {
 
   it.each<[string, unknown, RegExp]>([
     ['an unknown kind', { kind: 'teleport' }, /message\.kind/],
+    ['a moved nick with a newline', { kind: 'moveMember', nick: 'A\nB', player: 0 }, /control character/],
+    ['a moved member without a seat', { kind: 'moveMember', nick: 'A' }, /moveMember\.player/],
+    ['a move to a fractional seat', { kind: 'moveMember', nick: 'A', player: 0.5 }, /moveMember\.player/],
     ['a short token', { kind: 'hello', protocol: 1, token: 'short', nick: 'A' }, /hello\.token/],
     [
       'a nick with a newline',
@@ -520,6 +525,7 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
   { kind: 'rejected', of: 'command', reason: { code: 'seatRequired' } },
   { kind: 'rejected', of: 'claimSeat', reason: { code: 'seatNotClaimable', player: 2 } },
   { kind: 'rejected', of: 'claimSeat', reason: { code: 'seatTaken', player: 2, nick: 'Bartek' } },
+  { kind: 'rejected', of: 'moveMember', reason: { code: 'notMember', nick: 'Bartek' } },
   {
     kind: 'rejected',
     of: 'setReady',

@@ -40,6 +40,7 @@ export const chtNetworkRelay = {
     seatTribeUnavailable: '第 {seat} 號席位沒有可選擇的民族',
     seatDifficultyUnavailable: '第 {seat} 號席位不能設定電腦等級',
     seatRequired: '請先入座',
+    notMember: '{nick} 不在房間裡',
     memberNotReady: '{nick} 尚未就緒',
     initialSaveMissing: '房間建立者尚未分享存檔',
     mapDeliveryOff: '這個房間不分享地圖',

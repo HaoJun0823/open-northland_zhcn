@@ -42,6 +42,8 @@ describe('computer seat levels in the lobby', () => {
       peer.send({ kind: 'claimSeat', player: 2 });
       expect(peer.last('rejected')?.reason).toEqual({ code: 'seatNotClaimable', player: 2 });
     }
+    a.send({ kind: 'moveMember', nick: 'Bartek', player: 2 });
+    expect(a.last('rejected')?.reason).toEqual({ code: 'seatNotClaimable', player: 2 });
     expect(seat(0)).toMatchObject({ nick: 'Ania', ready: true });
     expect(seat(2)).toMatchObject({ nick: null, mode: 'map-ai', claimable: false });
     b.send({ kind: 'claimSeat', player: 1 });
@@ -50,6 +52,8 @@ describe('computer seat levels in the lobby', () => {
     b.send({ kind: 'setReady', ready: true });
     a.send({ kind: 'start' });
     expect(a.last('start')?.session.seats).toContainEqual({ player: 2, mode: 'map-ai', color: 2 });
+    a.send({ kind: 'moveMember', nick: 'Bartek', player: 0 });
+    expect(a.last('rejected')?.reason).toEqual({ code: 'gameStarted' });
   });
 
   it('lets the creator set a seat’s level, and refuses it elsewhere', () => {

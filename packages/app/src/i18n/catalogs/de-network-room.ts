@@ -3,6 +3,7 @@ export const deNetworkRoom = {
   host: 'Gastgeber',
   yourSeat: 'Dein Platz: {seat}',
   changeSeat: 'Platz wechseln',
+  moveMember: 'Versetzen nach',
   absentSeat: 'Deaktivierter Platz',
   departure: 'Wenn ein Spieler die Partie verlässt, bleibt sein Platz inaktiv.',
   observers: 'Zuschauer',

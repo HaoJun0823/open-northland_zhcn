@@ -3,6 +3,7 @@ export const ruNetworkRoom = {
   host: 'Создатель игры',
   yourSeat: 'Ваше место: {seat}',
   changeSeat: 'Сменить место',
+  moveMember: 'Пересадить на',
   absentSeat: 'Отключённое место',
   departure: 'Когда игрок выходит, его место остаётся в режиме бездействия.',
   observers: 'Наблюдатели',

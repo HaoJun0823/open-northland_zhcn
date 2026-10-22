@@ -126,6 +126,9 @@ a view: a link measurement is stored and shown with the next view, and progress 
   the authored one; a seat without it plays the roster tribe. `difficulty` needs a seat that has one (else
   `seatDifficultyUnavailable`) and reaches the start descriptor only while the computer plays it; a
   computer seat without one plays `hard`.
+- `moveMember { nick, player }` is the creator's: it seats that member at a claimable seat, swapping it
+  with the seat's occupant, who takes the mover's seat or joins the observers; `player: null` makes the
+  member an observer. Unknown nicks are refused `notMember`.
 - `setSettings { settings }` is the creator's and replaces `{ name, seed, rules, speed, kickedSeatMode? }`
   in full; `world`, `initialSave`, `mapOrigin` and `catalogMap` are immutable and refused. A replacement
   that changes nothing produces no room update. A saved room also fixes its seed, rules, seat colors,
@@ -138,9 +141,10 @@ a view: a link measurement is stored and shown with the next view, and progress 
   the room ([Waiting](#waiting)). Socket loss alone keeps the seat for reconnection. The departing
   connection can create or join another room once it receives `left`.
 
-Every effective report, membership, seat, color, tribe, level or settings change clears all ready flags;
-repeating the same report, claim or settings keeps them. A reconnect in the lobby also clears that
-member's report and all readiness, so the new client must check its files; a reconnect into a started game
+Readiness is each member's own. It clears only when that member changes its own report, takes another
+seat itself or stands up; the creator's settings and seat changes, a `moveMember` and other members
+joining or leaving keep it, and Start checks compatibility again. A reconnect in the lobby clears that
+member's report and readiness, so the new client must check its files; a reconnect into a started game
 is checked by its snapshot tick and digests instead.
 
 A compatibility report is `{ content, map, client, protocol, save? }`: lowercase SHA-256 hex digests of
@@ -646,6 +650,7 @@ closes or the room ends). `RelayReason` holds each code's values.
 | `leaveRoom` | `notInRoom` |
 | `claimSeat` | `noSeat`, `seatNotClaimable`, `seatTaken`; `gameStarted` for a seat after the start |
 | `setSeat` | `gameStarted`, `creatorOnly`, `savedSeatsFixed`, `noSeat`, `seatTribeUnavailable`, `seatDifficultyUnavailable`, `seatTaken` (a mode for a taken seat), `seatModeUnavailable` |
+| `moveMember` | `gameStarted`, `creatorOnly`, `notMember`, `noSeat`, `seatNotClaimable` |
 | `setSettings` | `gameStarted`, `creatorOnly`, `savedRulesFixed`; an immutable field is `malformed` |
 | `setCompatibility`, `loading`, `responsiveness` | `gameStarted`; `gameNotStarted`; `seatRequired` |
 | `setReady` | `gameStarted`, `initialSaveMissing`, `seatRequired`, `noCreator`, `incompatible` |

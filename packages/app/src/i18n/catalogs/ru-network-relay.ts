@@ -40,6 +40,7 @@ export const ruNetworkRelay = {
     seatTribeUnavailable: 'для места {seat} выбор цивилизации недоступен',
     seatDifficultyUnavailable: 'для места {seat} нельзя задать уровень сложности компьютера',
     seatRequired: 'сначала займите место',
+    notMember: '{nick} нет в комнате',
     memberNotReady: '{nick}: готовность не подтверждена',
     initialSaveMissing: 'создатель комнаты ещё не передал сохранение',
     mapDeliveryOff: 'эта комната не передаёт свою карту',

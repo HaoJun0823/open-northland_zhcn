@@ -20,6 +20,7 @@ const LOBBY_ACTIONS = [
   'leaveRoom',
   'claimSeat',
   'setSeat',
+  'moveMember',
   'setSettings',
   'requestInitialSave',
   'requestMap',

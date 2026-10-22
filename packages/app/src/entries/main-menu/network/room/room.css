@@ -505,3 +505,11 @@
 .network-room__observer p {
   margin: 4px 0 0;
 }
+.network-room__move {
+  align-self: center;
+  flex: none;
+  margin-left: auto;
+}
+.network-room__observer > .network-room__move {
+  margin-left: 0;
+}

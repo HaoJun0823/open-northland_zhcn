@@ -33,6 +33,7 @@ const SAMPLES: { readonly [C in RelayReasonCode]: Extract<RelayReason, { code: C
   seatTribeUnavailable: { code: 'seatTribeUnavailable', player: 2 },
   seatDifficultyUnavailable: { code: 'seatDifficultyUnavailable', player: 2 },
   seatRequired: { code: 'seatRequired' },
+  notMember: { code: 'notMember', nick: 'Zenon' },
   memberNotReady: { code: 'memberNotReady', nick: 'Bartek' },
   incompatible: { code: 'incompatible', nick: 'Bartek', kind: 'map', reason: 'missing' },
   initialSaveMissing: { code: 'initialSaveMissing' },

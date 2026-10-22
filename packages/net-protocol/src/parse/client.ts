@@ -27,6 +27,7 @@ export const CLIENT_KINDS = keysOf<ClientMessageKind>({
   leaveRoom: true,
   claimSeat: true,
   setSeat: true,
+  moveMember: true,
   setReady: true,
   setSettings: true,
   setCompatibility: true,
@@ -79,6 +80,12 @@ export function parseClientMessage(value: unknown): ClientMessage {
       return { kind, roomId: asString(raw.roomId, 'joinRoom.roomId', MAX_ROOM_ID_LENGTH) };
     case 'claimSeat':
       return { kind, player: raw.player === null ? null : parseSeatIndex(raw.player, 'claimSeat.player') };
+    case 'moveMember':
+      return {
+        kind,
+        nick: parseNick(raw.nick, 'moveMember.nick'),
+        player: raw.player === null ? null : parseSeatIndex(raw.player, 'moveMember.player'),
+      };
     case 'setSeat':
       return {
         kind,

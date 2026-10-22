@@ -19,14 +19,11 @@ export class Lobby {
     private readonly changed: () => void,
   ) {}
 
-  invalidateReady(): void {
-    for (const member of this.members.values()) member.ready = false;
-  }
-
+  /** Readiness is the member's own: only its own report or seat change withdraws it. */
   setCompatibility(member: Member, compatibility: LobbyCompatibility | null): Refusal {
     if (sameCompatibility(member.compatibility, compatibility)) return null;
     member.compatibility = compatibility;
-    this.invalidateReady();
+    member.ready = false;
     this.changed();
     return null;
   }
@@ -48,7 +45,6 @@ export class Lobby {
       ...(before.mapOrigin === undefined ? {} : { mapOrigin: before.mapOrigin }),
       ...(before.catalogMap === undefined ? {} : { catalogMap: before.catalogMap }),
     };
-    this.invalidateReady();
     this.changed();
     return null;
   }
@@ -60,7 +56,22 @@ export class Lobby {
       const refusal = this.seats.claim(member, player);
       if (refusal !== null) return refusal;
     }
-    this.invalidateReady();
+    this.changed();
+    return null;
+  }
+
+  /** The creator moves a member to a seat or to the observers; whoever sat there takes the member's
+   *  place. Both keep their readiness while they stay seated. */
+  moveMember(member: Member, nick: string, player: number | null): Refusal {
+    if (member !== this.creator()) return { code: 'creatorOnly' };
+    const moved = [...this.members.values()].find((other) => other.nick === nick);
+    if (moved === undefined) return { code: 'notMember', nick };
+    if (moved.seat === player) return null;
+    if (player === null) this.seats.standUp(moved);
+    else {
+      const refusal = this.seats.move(moved, player);
+      if (refusal !== null) return refusal;
+    }
     this.changed();
     return null;
   }
@@ -92,7 +103,6 @@ export class Lobby {
       before?.difficulty === after?.difficulty
     )
       return null;
-    this.invalidateReady();
     this.changed();
     return null;
   }

@@ -77,6 +77,25 @@ export class SeatTable {
     return null;
   }
 
+  /** Seat a member, swapping it with the seat's occupant; readiness travels with each of them. */
+  move(member: Member, player: number): Refusal {
+    const seat = this.at(player);
+    if (seat === null) return { code: 'noSeat', player };
+    if (!seat.claimable) return { code: 'seatNotClaimable', player };
+    const occupant = seat.member;
+    const from = member.seat === null ? null : this.at(member.seat);
+    if (occupant !== null) {
+      if (from === null) this.standUp(occupant);
+      else {
+        from.member = occupant;
+        occupant.seat = from.player;
+      }
+    } else if (from !== null) from.member = null;
+    seat.member = member;
+    member.seat = player;
+    return null;
+  }
+
   standUp(member: Member): void {
     if (member.seat === null) return;
     const seat = this.at(member.seat);

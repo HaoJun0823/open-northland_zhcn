@@ -41,6 +41,7 @@ export const plNetworkRelay = {
     seatTribeUnavailable: 'miejsce {seat} nie ma plemienia do wyboru',
     seatDifficultyUnavailable: 'miejsce {seat} nie ma poziomu komputera do wyboru',
     seatRequired: 'najpierw zajmij miejsce',
+    notMember: '{nick} nie ma w pokoju',
     memberNotReady: 'gracz {nick} nie jest gotowy',
     initialSaveMissing: 'twórca pokoju nie udostępnił jeszcze zapisu gry',
     mapDeliveryOff: 'ten pokój nie udostępnia swojej mapy',

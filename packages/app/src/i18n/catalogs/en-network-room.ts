@@ -3,6 +3,7 @@ export const enNetworkRoom = {
   host: 'Host',
   yourSeat: 'Your seat: {seat}',
   changeSeat: 'Switch seat',
+  moveMember: 'Move to',
   absentSeat: 'Disabled seat',
   departure: 'When a player leaves, their seat stays idle.',
   observers: 'Observers',

@@ -82,6 +82,10 @@ export class RelayLobby {
     this.send({ kind: 'claimSeat', player });
   }
 
+  moveMember(nick: string, player: number | null): void {
+    this.send({ kind: 'moveMember', nick, player });
+  }
+
   setSeat(player: number, change: SeatChange): void {
     this.send({ kind: 'setSeat', player, ...change });
   }

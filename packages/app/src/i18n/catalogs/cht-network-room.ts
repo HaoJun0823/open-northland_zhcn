@@ -3,6 +3,7 @@ export const chtNetworkRoom = {
   host: '房主',
   yourSeat: '你的席位：{seat}',
   changeSeat: '換席位',
+  moveMember: '移至',
   absentSeat: '已停用的席位',
   departure: '玩家離開後，其席位會保持閒置。',
   observers: '觀戰者',

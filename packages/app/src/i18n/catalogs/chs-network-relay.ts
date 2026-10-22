@@ -40,6 +40,7 @@ export const chsNetworkRelay = {
     seatTribeUnavailable: '席位 {seat} 没有可选的民族',
     seatDifficultyUnavailable: '席位 {seat} 不能设置电脑等级',
     seatRequired: '请先入座',
+    notMember: '{nick} 不在房间里',
     memberNotReady: '{nick} 尚未准备就绪',
     initialSaveMissing: '房间创建者尚未共享存档',
     mapDeliveryOff: '该房间不共享其地图',

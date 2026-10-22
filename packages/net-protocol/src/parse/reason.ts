@@ -56,6 +56,7 @@ const REASON_PARAMS: { readonly [C in RelayReasonCode]: ParamsOf<Extract<RelayRe
   seatTribeUnavailable: { player: 'seat' },
   seatDifficultyUnavailable: { player: 'seat' },
   seatRequired: {},
+  notMember: { nick: 'nick' },
   memberNotReady: { nick: 'nick' },
   incompatible: { nick: 'nick', kind: 'compatibilityKind', reason: 'compatibilityReason' },
   initialSaveMissing: {},

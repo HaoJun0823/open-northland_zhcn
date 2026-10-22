@@ -445,6 +445,7 @@ describe('WebAudioEngine music', () => {
     const calm = cues([TRACK, CALM_TWO, CALM_THREE, ATTACK]);
     engine.setMusic({ ...calm, standby: () => ATTACK });
     await flush();
+    await flush(); // these short cues start inside the prefetch lead, so the standby follows at once
     expect(fetched).toEqual(['/music/theme_viking_neutral.ogg', '/music/attack_arabs.ogg']);
     engine.transitionMusic('now');
     await flush();

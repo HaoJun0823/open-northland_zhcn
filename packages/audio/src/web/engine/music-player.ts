@@ -36,6 +36,23 @@ export const MUSIC_STOP_FADE_S = 1.5;
  */
 export const SPARE_DECODED_TRACKS = 1;
 
+/**
+ * Seconds before a cue's end fade begins that its sequence's standby starts to load, so a map boot
+ * fetches only the cue it plays. Approximation: covers the largest rendered track (about 3.1 MB) at
+ * about 1 Mbit/s plus its decode. A mood change asks for the standby at once.
+ */
+export const STANDBY_PREFETCH_LEAD_S = 30;
+
+const MS_PER_S = 1000;
+
+/** Runs `task` after `delayS` seconds and returns its cancel. */
+export type MusicScheduler = (delayS: number, task: () => void) => () => void;
+
+const wallClockScheduler: MusicScheduler = (delayS, task) => {
+  const timer = setTimeout(task, delayS * MS_PER_S);
+  return () => clearTimeout(timer);
+};
+
 interface PlayingCue {
   readonly cue: MusicCue;
   readonly source: AudioBufferSourceNode;
@@ -79,6 +96,8 @@ export class MusicPlayer {
   /** Context time the last cue faded out reaches silence. A fade outlives {@link current}, so this is
    *  what a later handover has to wait for rather than opening over an audible tail. */
   private silentUntil = 0;
+  /** Cancels the running cue's scheduled standby prefetch. */
+  private cancelPrefetch: (() => void) | null = null;
 
   constructor(
     private readonly ctx: AudioContext,
@@ -89,6 +108,9 @@ export class MusicPlayer {
     private readonly fetchBytes: FetchBytes,
     /** Playback gate, re-checked when an async load lands (a mute can arrive while a track is in flight). */
     private readonly canPlay: () => boolean,
+    /** Wakes the standby prefetch; the audio clock has no timer of its own. A suspended context only
+     *  makes the prefetch early. */
+    private readonly schedule: MusicScheduler = wallClockScheduler,
   ) {}
 
   /** Play `sequence` from its next cue, fading out whatever else plays; re-asserting the running
@@ -107,6 +129,7 @@ export class MusicPlayer {
   /** Cut over to the sequence's next cue now, opening it under the running one's fade. */
   interrupt(): void {
     if (this.sequence === null) return;
+    this.prefetchStandbyNow();
     this.switchNow(true);
   }
 
@@ -114,6 +137,7 @@ export class MusicPlayer {
    *  all its passes, but no later than {@link CALM_RETURN_MAX_WAIT_S} from now; the sequence's next cue
    *  follows as usual. A cue not sounding yet is replaced. */
   endAtPassEnd(): void {
+    this.prefetchStandbyNow();
     const playing = this.current;
     const now = this.ctx.currentTime;
     if ((playing === null && this.loading) || (playing !== null && playing.startsAt > now)) {
@@ -137,6 +161,7 @@ export class MusicPlayer {
    * its silence, cannot be kept, so the sequence's next cue cuts in instead.
    */
   keepOrInterrupt(): void {
+    this.prefetchStandbyNow();
     const playing = this.current;
     const now = this.ctx.currentTime;
     if (playing === null && this.loading) return;
@@ -199,6 +224,7 @@ export class MusicPlayer {
 
   /** Silence the running cue, recording in {@link silentUntil} when it stops being audible. */
   private fadeOutCurrent(fadeS: number): void {
+    this.unschedulePrefetch();
     const now = this.ctx.currentTime;
     const playing = this.current;
     if (playing === null) return;
@@ -263,11 +289,33 @@ export class MusicPlayer {
     for (const file of spares) if (!kept.has(file)) this.buffers.delete(file);
   }
 
-  /** Decode the sequence's standby track ahead, so cutting over to it does not wait on a fetch. */
-  private prefetchStandby(sequence: MusicSequence): void {
-    const track = sequence.standby?.() ?? null;
+  /** Decode the sequence's standby track once `playing` nears its end fade, so cutting over to it
+   *  then does not wait on a fetch, without competing with a boot's other loads. */
+  private schedulePrefetch(playing: PlayingCue): void {
+    this.unschedulePrefetch();
+    this.standby = this.sequence?.standby?.()?.file ?? null;
+    if (this.standby === null) return;
+    const prefetchAt = playing.endsAt - playing.cue.fadeS - STANDBY_PREFETCH_LEAD_S;
+    this.cancelPrefetch = this.schedule(Math.max(0, prefetchAt - this.ctx.currentTime), () => {
+      this.cancelPrefetch = null;
+      if (this.current === playing) this.prefetchStandbyNow();
+    });
+  }
+
+  private unschedulePrefetch(): void {
+    this.cancelPrefetch?.();
+    this.cancelPrefetch = null;
+  }
+
+  /** Decode the sequence's standby track ahead; a cut-in onto it waits on this load. A closed
+   *  context fails every decode, which would drop the standby from the shared sequence for good. */
+  private prefetchStandbyNow(): void {
+    this.unschedulePrefetch();
+    if (this.ctx.state === 'closed') return;
+    const sequence = this.sequence;
+    const track = sequence?.standby?.() ?? null;
     this.standby = track?.file ?? null;
-    if (track === null) return;
+    if (sequence === null || track === null) return;
     void this.load(track.file).then((buffer) => {
       if (buffer === null) sequence.drop(track.file);
     });
@@ -337,7 +385,7 @@ export class MusicPlayer {
       source.start(startsAt, 0, playS);
       this.current = playing;
       this.trimBuffers(null);
-      if (sequence !== null) this.prefetchStandby(sequence);
+      this.schedulePrefetch(playing);
     });
   }
 }

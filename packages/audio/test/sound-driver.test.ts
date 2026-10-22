@@ -298,7 +298,8 @@ describe('SoundDriver', () => {
     } as const;
     driver.update({ ...ours, events: [] });
     await flush();
-    // The Danger stem decodes ahead behind the opening cue, ready for a cut-in.
+    await flush();
+    // The short opening cue starts inside the prefetch lead, so the Danger stem decodes right behind it.
     const music = ['/music/mission_arabs1_standard.ogg', '/music/mission_arabs1_danger.ogg'];
     expect(fetched).toEqual(music);
 

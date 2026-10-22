@@ -10,7 +10,7 @@ import {
   type WireDigest,
 } from '@open-northland/net-protocol';
 import type { SyncDomain } from '@open-northland/sim';
-import { type BlobUpload, relayBlob } from './blob-relay.js';
+import { type BlobUpload, blobMessage, relayBlob } from './blob-relay.js';
 import type { CachedSnapshot } from './catch-up.js';
 import { Departures } from './departures.js';
 import { framesIn, governedSpeed } from './governor.js';
@@ -271,7 +271,7 @@ export class Game {
         return null;
       }
     }
-    return relayBlob(this.members.values(), this.deliver, sender, upload);
+    return relayBlob(this.members.values(), this.deliver, sender, upload.to, blobMessage(sender, upload));
   }
 
   /** The member's connection dropped, returned or was replaced: it says where it stands again with

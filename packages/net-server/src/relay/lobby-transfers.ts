@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { RoomSettings } from '@open-northland/net-protocol';
-import { type BlobUpload, relayBlob } from './blob-relay.js';
+import { type BlobMessage, type BlobUpload, blobMessage, relayBlob } from './blob-relay.js';
 import type { CachedSnapshot } from './catch-up.js';
 import { broadcast, type Deliver, type Member, type Refusal } from './member.js';
 
@@ -9,10 +9,9 @@ import { broadcast, type Deliver, type Member, type Refusal } from './member.js'
 const REQUEST_COOLDOWN_MS = 2000;
 
 /** The map text the creator last delivered or deposited, kept for the room's life so the relay can
- *  serve it again. */
+ *  serve it again. Every request is answered with the one message object, which the host encodes once. */
 interface KeptMap {
-  readonly from: string;
-  readonly bytes: string;
+  readonly message: BlobMessage;
   readonly uploader: Member;
   /** The map fingerprint the creator's compatibility report named when it sent the text. */
   readonly fingerprint: string | null;
@@ -54,13 +53,15 @@ export class LobbyTransfers {
     if (upload.type === 'map') {
       if (this.settings().mapOrigin === undefined) return { code: 'mapDeliveryOff' };
       if (upload.tick !== null) return { code: 'mapUploadHasTick' };
+      const message = blobMessage(member, upload);
       // A map the creator addresses to itself is a deposit: kept for later requests, sent to nobody.
       const refusal =
-        upload.to === member.nick ? null : relayBlob(this.members.values(), this.deliver, member, upload);
+        upload.to === member.nick
+          ? null
+          : relayBlob(this.members.values(), this.deliver, member, upload.to, message);
       if (refusal === null) {
         this.kept = {
-          from: member.nick,
-          bytes: upload.bytes,
+          message,
           uploader: member,
           fingerprint: member.compatibility?.map ?? null,
         };
@@ -119,7 +120,7 @@ export class LobbyTransfers {
     }
     if (this.tooSoon(this.mapRequests, member, now)) return { code: 'retryTooSoon' };
     if (kept !== null) {
-      this.deliver(member, { kind: 'blob', type: 'map', from: kept.from, tick: null, bytes: kept.bytes });
+      this.deliver(member, kept.message);
     } else if (creator !== null) {
       this.deliver(creator, { kind: 'mapRequest', from: member.nick });
     }

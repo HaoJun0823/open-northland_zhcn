@@ -3,32 +3,32 @@ import type { Deliver, Member, Refusal } from './member.js';
 
 export type { BlobUpload } from '@open-northland/net-protocol';
 
+export type BlobMessage = Extract<ServerMessage, { kind: 'blob' }>;
+
+export function blobMessage(sender: Member, upload: BlobUpload): BlobMessage {
+  return { kind: 'blob', type: upload.type, from: sender.nick, tick: upload.tick, bytes: upload.bytes };
+}
+
 /** Hand a blob to the member `to` names, or to everyone but the sender. One message object, so the
  *  host serialises it once. */
 export function relayBlob(
   members: Iterable<Member>,
   deliver: Deliver,
   sender: Member,
-  upload: BlobUpload,
+  to: string | null,
+  message: BlobMessage,
 ): Refusal {
-  const message: ServerMessage = {
-    kind: 'blob',
-    type: upload.type,
-    from: sender.nick,
-    tick: upload.tick,
-    bytes: upload.bytes,
-  };
-  if (upload.to === null) {
+  if (to === null) {
     for (const member of members) {
       if (member.connected && member !== sender) deliver(member, message);
     }
     return null;
   }
   for (const member of members) {
-    if (member.nick === upload.to) {
+    if (member.nick === to) {
       deliver(member, message);
       return null;
     }
   }
-  return { code: 'noRecipient', nick: upload.to };
+  return { code: 'noRecipient', nick: to };
 }

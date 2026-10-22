@@ -183,6 +183,20 @@ describe('the kept map', () => {
     expect(b.last('rejected')?.reason).toEqual({ code: 'mapNotKept' });
   });
 
+  it.each([
+    ['delivered to a member', 'Bartek'],
+    ['deposited', 'Ania'],
+  ])('serves the map it kept as %s as one message object', (_, to) => {
+    const { a, b, advance } = mapLobby();
+    a.send(deliverTo(to, mapText('first')));
+    b.send({ kind: 'requestMap' });
+    advance(COOLDOWN_MS);
+    b.send({ kind: 'requestMap' });
+    const [first, ...rest] = b.of('blob');
+    expect(rest.length).toBeGreaterThan(0);
+    for (const served of rest) expect(served).toBe(first);
+  });
+
   it('asks the creator again once it reports another copy of the map, and not a creator it passed to', () => {
     const { a, b, advance } = mapLobby();
     a.send(deliverTo('Bartek', mapText('first')));

@@ -8,12 +8,13 @@ import {
 } from './governor.js';
 
 /**
- * Which members the clock is paced for, and which of them it waits for. A member trailing by more
- * than `LAG_BEHIND_MS` of frames is lagging and catches up alone; one lagging for `SLOW_GRACE_MS` on
- * end, or trailing by more than `SLOW_AT_ONCE_MS`, is slow, and stays slow until it trails by no more
- * than `GOVERN_RELEASE_MS`. One slow for `SLOW_WAIT_AFTER_MS` on end is waited for. A hold on a member
- * for another reason keeps its verdict and pauses both of its clocks: wall time under such a hold does
- * not count as lagging or as slow.
+ * Which members the clock is paced for, and which of them it waits for, judged by each member's
+ * backlog: the ticks it trails beyond what its link and the room's reserve hold in flight. A member
+ * with a backlog of more than `LAG_BEHIND_MS` of frames is lagging and catches up alone; one lagging
+ * for `SLOW_GRACE_MS` on end, or with a backlog of more than `SLOW_AT_ONCE_MS`, is slow, and stays slow
+ * until its backlog is no more than `GOVERN_RELEASE_MS`. One slow for `SLOW_WAIT_AFTER_MS` on end is
+ * waited for. A hold on a member for another reason keeps its verdict and pauses both of its clocks:
+ * wall time under such a hold does not count as lagging or as slow.
  */
 export class Pacing {
   /** When each lagging member began to lag, in the relay's milliseconds. */
@@ -38,20 +39,20 @@ export class Pacing {
     if (!this.heldSince.has(token)) this.heldSince.set(token, now);
   }
 
-  /** Judge a member the relay follows from how many ticks it trails the clock at `requestedSpeed`. */
-  observe(token: string, behindTicks: number, requestedSpeed: number, now: number): void {
+  /** Judge a member the relay follows from its backlog in ticks at `requestedSpeed`. */
+  observe(token: string, backlogTicks: number, requestedSpeed: number, now: number): void {
     this.resume(token, now);
     if (this.slowSince.has(token)) {
-      if (behindTicks <= framesIn(GOVERN_RELEASE_MS, requestedSpeed)) this.forget(token);
+      if (backlogTicks <= framesIn(GOVERN_RELEASE_MS, requestedSpeed)) this.forget(token);
       return;
     }
-    if (behindTicks <= framesIn(LAG_BEHIND_MS, requestedSpeed)) {
+    if (backlogTicks <= framesIn(LAG_BEHIND_MS, requestedSpeed)) {
       this.laggingSince.delete(token);
       return;
     }
     const since = this.laggingSince.get(token) ?? now;
     this.laggingSince.set(token, since);
-    if (now - since >= SLOW_GRACE_MS || behindTicks > framesIn(SLOW_AT_ONCE_MS, requestedSpeed))
+    if (now - since >= SLOW_GRACE_MS || backlogTicks > framesIn(SLOW_AT_ONCE_MS, requestedSpeed))
       this.slowSince.set(token, now);
   }
 

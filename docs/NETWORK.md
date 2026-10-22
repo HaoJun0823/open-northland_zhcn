@@ -390,12 +390,19 @@ their reports decide the reference and the final result.
 
 ## Pacing
 
-A member the relay follows (connected, heard, loaded and in sync) is lagging while its acknowledged
-tick trails the clock by more than `LAG_BEHIND_MS` (1 s) of frames at the requested speed, 12 ticks
-at speed 1 and 12 times the speed otherwise. A lagging member catches up alone and the room notices
-nothing. Once it has lagged for `SLOW_GRACE_MS` (4 s) of wall time on end it is slow, and stays slow
-until it trails by no more than `GOVERN_RELEASE_MS` (0.5 s) of frames. A member trailing by more than
-`SLOW_AT_ONCE_MS` (`LAG_BEHIND_MS + SLOW_GRACE_MS`, 5 s) of frames is slow at once, without the grace.
+A member is judged by its backlog: how far its acknowledged tick trails the clock beyond the frames
+a healthy client on its link still holds. Those are the frames of one smoothed round trip at the
+speed the clock emits them, rounded up, which are on their way to the client or its acknowledgements
+on their way back, and the room's [response reserve](#order-responsiveness), which the client holds
+back before it applies a frame. A member on a 450 ms link in a room with a reserve of 2 therefore
+trails by 7 or 8 ticks at speed 1 with a backlog of none. A member the relay follows (connected,
+heard, loaded and in sync) is lagging while its backlog is more than `LAG_BEHIND_MS` (1 s) of frames
+at the requested speed, 12 ticks at speed 1 and 12 times the speed otherwise. A lagging member
+catches up alone and the room notices nothing. Once it has lagged for `SLOW_GRACE_MS` (4 s) of wall
+time on end it is slow, and stays slow until its backlog is no more than `GOVERN_RELEASE_MS` (0.5 s)
+of frames. A member whose backlog is more than `SLOW_AT_ONCE_MS` (`LAG_BEHIND_MS + SLOW_GRACE_MS`,
+5 s) of frames is slow at once, without the grace. Its own measured `load.buffered` is not taken off:
+a client that cannot keep up holds its backlog in that buffer.
 A member the clock holds for is not judged while held, since the held clock adds no lag. It keeps its
 verdict through the hold, and its grace pauses: wall time under a hold for it does not count toward
 `SLOW_GRACE_MS`. The pause is per member: a hold for another member stops the clock, so a lagging
@@ -422,7 +429,7 @@ seat that cannot keep up even at the floor would otherwise hold the room at it i
 further behind, with no way out. Wall time the clock holds for it for another reason, such as its
 silence, does not count toward the 30 s, as for the grace. The clock holds for it like for any waited member, so it catches up
 while the others wait, and its countdown and vote run as for every other reason. It is still judged
-while waited: once it trails by no more than `GOVERN_RELEASE_MS` it is released, no longer waited for
+while waited: once its backlog is no more than `GOVERN_RELEASE_MS` it is released, no longer waited for
 and no longer votable, and the clock runs again. A seat that is chronically slow therefore alternates
 between governed play and holds, and the waited time it keeps between holds (see [Waiting](#waiting))
 makes each later hold votable sooner: the others decide whether to wait for it or vote it out.

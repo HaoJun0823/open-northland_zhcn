@@ -17,6 +17,7 @@ import {
   SLOW_GRACE_MS,
   SLOW_WAIT_AFTER_MS,
 } from '../src/relay/governor.js';
+import { AUTO_INITIAL_BUFFER_TICKS } from '../src/relay/responsiveness.js';
 import {
   ackThrough,
   digest,
@@ -41,8 +42,9 @@ import {
 
 const BLOB = Buffer.from('bytes the relay never reads').toString('base64');
 const LAG_TICKS = framesIn(LAG_BEHIND_MS, SETTINGS.speed);
-/** Wall time a member trailing from the first frame takes to pass the lag threshold. */
-const LAG_ONSET_MS = (LAG_TICKS + 1) * TICK_MS;
+/** Wall time a member trailing from the first frame takes to pass the lag threshold, beyond the
+ *  reserve the room starts with. */
+const LAG_ONSET_MS = (LAG_TICKS + 1 + AUTO_INITIAL_BUFFER_TICKS) * TICK_MS;
 /** Long enough, by a margin of a few ticks, for a member trailing from the first frame to be slow. */
 const SLOW_AFTER_MS = LAG_ONSET_MS + SLOW_GRACE_MS + TICK_MS * 4;
 /** A member this far behind is lagging, under twice the threshold. */
@@ -115,7 +117,14 @@ function ackTo(peer: Peer, tick: number, load: ClientLoad): void {
   ackedTick.set(peer, Math.max(acked, tick));
 }
 
-/** Move the clock with `lead` acknowledging every frame and `trailer` staying `behind` ticks short. */
+/** The frames a healthy client holds back anyway: the room's reserve. The stage's pongs answer at
+ *  once, so no frames are in flight on its links. */
+function reserveOf(peer: Peer): number {
+  return peer.last('responsiveness')?.bufferTicks ?? 0;
+}
+
+/** Move the clock with `lead` acknowledging every frame and `trailer` staying `behind` ticks short of
+ *  what it holds back anyway. */
 function trail(
   s: MessageStage,
   lead: Peer,
@@ -127,7 +136,7 @@ function trail(
   for (let elapsed = 0; elapsed < ms; elapsed += TICK_MS) {
     tick(s, [lead, trailer], TICK_MS);
     ackTo(lead, lastTick(lead), LOAD);
-    ackTo(trailer, lastTick(trailer) - behind, load);
+    ackTo(trailer, lastTick(trailer) - behind - reserveOf(trailer), load);
   }
 }
 

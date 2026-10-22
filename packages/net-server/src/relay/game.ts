@@ -13,7 +13,7 @@ import type { SyncDomain } from '@open-northland/sim';
 import { type BlobUpload, relayBlob } from './blob-relay.js';
 import type { CachedSnapshot } from './catch-up.js';
 import { Departures } from './departures.js';
-import { governedSpeed } from './governor.js';
+import { framesIn, governedSpeed } from './governor.js';
 import { type KickOutcome, KickVotes, type PassedKick } from './kick-vote.js';
 import { MatchEnd } from './match-end.js';
 import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from './member.js';
@@ -54,6 +54,8 @@ export class Game {
     initialSave: CachedSnapshot | null = null,
     onEnded: () => void = () => {},
     private readonly log: RelayLog = () => undefined,
+    /** The room's response reserve: the frames each client holds back before it applies one. */
+    private readonly reserveTicks: () => number,
   ) {
     this.initialSaveTick = initialSave?.tick ?? null;
     this.clock = new RoomClock(speed);
@@ -352,7 +354,7 @@ export class Game {
     const waited: Waited[] = [];
     for (const member of this.members.values()) {
       if (this.absentReason(member, now) === null) {
-        this.pacing.observe(member.token, this.clock.tick - member.ackedTick, this.clock.speed, now);
+        this.pacing.observe(member.token, this.backlogTicks(member), this.clock.speed, now);
       } else {
         this.pacing.hold(member.token, now);
       }
@@ -363,6 +365,13 @@ export class Game {
     for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
     if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
+  }
+
+  /** Ticks the member trails beyond the frames a healthy client on its link still has in flight: the
+   *  frames of one round trip at the speed they are emitted at, and the reserve it holds back. */
+  private backlogTicks(member: Member): number {
+    const inFlight = framesIn(member.roundTripMs, this.clock.governed?.speed ?? this.clock.speed);
+    return this.clock.tick - member.ackedTick - inFlight - this.reserveTicks();
   }
 
   /** Pace the clock for `slow` at the requested speed; true when the governed clock changed. */

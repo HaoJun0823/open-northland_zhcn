@@ -8,6 +8,7 @@ import {
   SLOW_GRACE_MS,
   SLOW_WAIT_AFTER_MS,
 } from '../src/relay/governor.js';
+import { AUTO_INITIAL_BUFFER_TICKS } from '../src/relay/responsiveness.js';
 import {
   digest,
   LOAD,
@@ -24,8 +25,9 @@ const CHRONIC_LOAD: ClientLoad = { tickMs: 1000, buffered: 0 };
 /** Ticks the slow member trails by: past the slow-at-once threshold, so it is slow from the start. */
 const FAR_BEHIND_TICKS = framesIn(SLOW_GRACE_MS * 2, SETTINGS.speed);
 const RELEASE_TICKS = framesIn(GOVERN_RELEASE_MS, SETTINGS.speed);
-/** Wall time a member trailing from the first frame takes to be slow at once. */
-const SLOW_ONSET_MS = (framesIn(SLOW_AT_ONCE_MS, SETTINGS.speed) + 1) * TICK_MS;
+/** Wall time a member trailing from the first frame takes to be slow at once, beyond the reserve the
+ *  room starts with. */
+const SLOW_ONSET_MS = (framesIn(SLOW_AT_ONCE_MS, SETTINGS.speed) + 1 + AUTO_INITIAL_BUFFER_TICKS) * TICK_MS;
 /** Wall time from the first frame until the room waits for a member slow from the start. */
 const WAITED_AFTER_MS = SLOW_ONSET_MS + SLOW_WAIT_AFTER_MS;
 /** Wall time of a few advances, the margin around a boundary. */
@@ -42,7 +44,8 @@ function ackTo(peer: Peer, tick: number, load: ClientLoad): void {
 }
 
 /** Move the clock with every peer heard, `leads` acknowledging each frame and `trailer` staying
- *  `behind` ticks short of the clock. */
+ *  `behind` ticks short of the frames it holds back anyway, the room's reserve: the stage's pongs
+ *  answer at once, so no frames are in flight on its links. */
 function trail(
   s: MessageStage,
   leads: readonly Peer[],
@@ -58,7 +61,7 @@ function trail(
       if (ping !== undefined) peer.send({ kind: 'pong', t: ping.t });
     }
     for (const lead of leads) ackTo(lead, lastTick(lead), LOAD);
-    ackTo(trailer, lastTick(trailer) - behind, load);
+    ackTo(trailer, lastTick(trailer) - behind - (trailer.last('responsiveness')?.bufferTicks ?? 0), load);
   }
 }
 

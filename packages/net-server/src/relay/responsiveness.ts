@@ -9,6 +9,8 @@ import { isSynced, type Member } from './member.js';
 
 /** These are room pacing choices, independent of each member's existing command delivery budget. */
 const MANUAL_TICKS = { responsive: 1, balanced: 2, smooth: 3 } as const;
+/** The automatic reserve before the room has measured its links. */
+export const AUTO_INITIAL_BUFFER_TICKS = 2;
 /** How long a lower target must persist for each tick the reserve falls. */
 const LOWER_AFTER_MS = 10_000;
 /** How long a higher target must persist for each tick the reserve rises. A link sample arrives once
@@ -38,9 +40,13 @@ export function automaticBufferTicks(members: Iterable<MeasuredMember>, speed: n
 }
 
 export class Responsiveness {
-  private state: ResponsivenessState = { mode: 'auto', bufferTicks: 2, by: null };
+  private state: ResponsivenessState = { mode: 'auto', bufferTicks: AUTO_INITIAL_BUFFER_TICKS, by: null };
   private lowerSince: number | null = null;
   private raiseSince: number | null = null;
+
+  get bufferTicks(): number {
+    return this.state.bufferTicks;
+  }
 
   message(): Extract<ServerMessage, { kind: 'responsiveness' }> {
     return { kind: 'responsiveness', ...this.state };
@@ -48,7 +54,7 @@ export class Responsiveness {
 
   select(mode: ResponsivenessMode, by: string): boolean {
     if (mode === this.state.mode) return false;
-    this.state = { mode, bufferTicks: mode === 'auto' ? 2 : MANUAL_TICKS[mode], by };
+    this.state = { mode, bufferTicks: mode === 'auto' ? AUTO_INITIAL_BUFFER_TICKS : MANUAL_TICKS[mode], by };
     this.lowerSince = null;
     this.raiseSince = null;
     return true;

@@ -268,6 +268,7 @@ export class Room {
       this.transfers.initialSave,
       () => this.broadcastView(),
       (event, fields) => this.log(event, fields),
+      () => this.responsiveness.bufferTicks,
     );
     this.transfers.release();
     this.startedSeats = this.seats.sessionSeats();

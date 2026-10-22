@@ -16,10 +16,12 @@ export { isLobbyAction, type LobbyAction, type RelayClientView } from './relay-c
 export { RelayRefusal } from './relay-refusal.js';
 export {
   LINK_QUIET_MS,
+  LINK_REPLACE_MS,
   type RelayLink,
   type RelayLinkEvents,
   RelaySocket,
   type RelaySocketOptions,
+  TRANSFER_REPLACE_MS,
 } from './relay-socket.js';
 export { type ClockState, RelayState } from './relay-state.js';
 export {

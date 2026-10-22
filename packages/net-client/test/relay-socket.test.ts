@@ -1,4 +1,4 @@
-import { LINK_QUIET_MS, RelaySocket } from '@open-northland/net-client';
+import { LINK_QUIET_MS, LINK_REPLACE_MS, RelaySocket, TRANSFER_REPLACE_MS } from '@open-northland/net-client';
 import type { ClientMessage } from '@open-northland/net-protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -43,7 +43,10 @@ class FakeSocket {
 
 const HELLO: ClientMessage = { kind: 'hello', protocol: 1, token: 'token-0123456789abcdef', nick: 'Ania' };
 
-function harness(onRetry?: () => void) {
+/** How often the socket looks at a quiet link. */
+const QUIET_POLL_MS = 1000;
+
+function harness(onRetry?: () => void, awaitsTransfer?: () => boolean) {
   const sockets: FakeSocket[] = [];
   const events: string[] = [];
   const received: unknown[] = [];
@@ -61,6 +64,7 @@ function harness(onRetry?: () => void) {
     },
     onQuiet: (quietMs) => events.push(`quiet:${quietMs}`),
     onHeard: () => events.push('heard'),
+    ...(awaitsTransfer === undefined ? {} : { awaitsTransfer }),
     createSocket: () => {
       const fake = new FakeSocket();
       sockets.push(fake);
@@ -172,7 +176,7 @@ describe('RelaySocket', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('does not time out an open socket while a large message is still arriving', () => {
+  it('keeps a quiet socket open when its host cannot tell a large message is arriving', () => {
     const { socket, sockets, events, received } = harness();
     sockets[0]?.open();
     // Browser sockets expose no progress event; only the completed message reaches onmessage.
@@ -185,6 +189,54 @@ describe('RelaySocket', () => {
     expect(received).toEqual([{ kind: 'blob', bytes: 'AAAA' }]);
     socket.close();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('replaces a link quiet past the replacement bound with a fresh socket', () => {
+    const { socket, sockets, events } = harness(undefined, () => false);
+    sockets[0]?.open();
+    vi.advanceTimersByTime(LINK_REPLACE_MS - QUIET_POLL_MS);
+    expect(sockets).toHaveLength(1);
+    expect(events).toEqual(['open', `quiet:${LINK_QUIET_MS}`]);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(true);
+    expect(socket.connected).toBe(false);
+    expect(events.at(-1)).toBe('retry:1:1000');
+    vi.advanceTimersByTime(1000);
+    sockets[1]?.open();
+    expect(socket.connected).toBe(true);
+    // The abandoned socket's late close cannot touch its replacement.
+    sockets[0]?.drop(CLOSE_ABNORMAL);
+    expect(events.slice(-2)).toEqual(['retry:1:1000', 'open']);
+  });
+
+  it('counts the replacement bound from the last message', () => {
+    const { sockets } = harness(undefined, () => false);
+    sockets[0]?.open();
+    vi.advanceTimersByTime(LINK_REPLACE_MS - QUIET_POLL_MS);
+    sockets[0]?.deliver('{"kind":"ping","t":1}');
+    vi.advanceTimersByTime(LINK_REPLACE_MS - QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(false);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(true);
+  });
+
+  it('waits the longer bound while a large message is awaited', () => {
+    let awaiting = true;
+    const { sockets, events } = harness(undefined, () => awaiting);
+    sockets[0]?.open();
+    vi.advanceTimersByTime(TRANSFER_REPLACE_MS - QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(false);
+    expect(events).toEqual(['open', `quiet:${LINK_QUIET_MS}`]);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(true);
+    // Once nothing is awaited any more, the short bound applies again at the next look.
+    vi.advanceTimersByTime(1000);
+    sockets[1]?.open();
+    vi.advanceTimersByTime(LINK_REPLACE_MS * 2);
+    expect(sockets[1]?.closedByClient).toBe(false);
+    awaiting = false;
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[1]?.closedByClient).toBe(true);
   });
 
   it('stays closed once the relay replaced or refused the connection', () => {

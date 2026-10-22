@@ -119,6 +119,11 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
   private snapshotInFlight: Promise<void> | null = null;
   private awaitingResume = false;
   private shrinkingBuffer = false;
+  /** A map or initial save this client asked for on the current socket and has not received. */
+  private lobbyBlobOwed = false;
+  /** A snapshot the relay serves this client on the current socket: its world is gone, or stands
+   *  behind the cached snapshot the relay replays from. */
+  private snapshotOwed = false;
 
   get session(): GameSession | null {
     return this.state.session;
@@ -180,7 +185,25 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // What the old socket carried may never come back; a stamp left for it would skew later commands
     // and hold the outbox.
     this.latency.forgetInFlight();
+    // A new socket is served again from its own `start`, `desync` and requests.
+    this.lobbyBlobOwed = false;
+    this.snapshotOwed = false;
     super.hello();
+  }
+
+  /** Whether a large message is owed to this client, which a link carrying it shows only once whole. */
+  get awaitsTransfer(): boolean {
+    return this.lobbyBlobOwed || this.snapshotOwed;
+  }
+
+  override requestMap(): void {
+    this.lobbyBlobOwed = true;
+    super.requestMap();
+  }
+
+  override requestInitialSave(): void {
+    this.lobbyBlobOwed = true;
+    super.requestInitialSave();
   }
 
   get tick(): number | null {
@@ -313,12 +336,15 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         break;
       case 'left':
         this.awaitingResume = false;
+        this.lobbyBlobOwed = false;
+        this.snapshotOwed = false;
         this.knownSnapshotTick = null;
         this.completion.clear();
         this.dropWorld();
         break;
       case 'start':
         this.learnSnapshotTick(message.snapshotTick);
+        this.snapshotOwed = message.snapshotTick !== null;
         this.startSession(message.session, message.snapshotTick);
         break;
       case 'clock':
@@ -329,6 +355,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         else this.transport.receiveFrame(message);
         break;
       case 'desync':
+        this.snapshotOwed = true;
         this.verdicts.freeze('diverged', message.tick, message.domains, [message.reference]);
         this.dropWorld();
         break;
@@ -339,6 +366,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.answerSnapshotRequest();
         break;
       case 'blob':
+        if (message.type === 'map' || message.type === 'initialSave') this.lobbyBlobOwed = false;
+        if (message.type === 'snapshot') this.snapshotOwed = false;
         if (message.type === 'snapshot' && message.tick !== null) {
           this.learnSnapshotTick(message.tick);
           this.restoreFrom(message.bytes, message.tick);
@@ -348,6 +377,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.send({ kind: 'pong', t: message.t });
         break;
       case 'rejected':
+        if (message.of === 'requestMap' || message.of === 'requestInitialSave') this.lobbyBlobOwed = false;
         if (message.of === 'saveOrders') this.saveOrders.refuse(message.requestId, message.reason);
         if (message.of === 'command') {
           this.latency.refused();
@@ -466,7 +496,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       return;
     }
     if (this.state.outOfSync) {
-      this.send({ kind: 'loaded', tick: null });
+      this.askForSnapshot();
       return;
     }
     void this.track(
@@ -479,7 +509,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
             this.adoptWorld(opened);
             this.reportLoaded();
           } else {
-            this.send({ kind: 'loaded', tick: null });
+            this.askForSnapshot();
           }
         },
       ),
@@ -525,7 +555,14 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       this.loadedHeld = true;
       return;
     }
+    // Frames the relay pruned behind its cache come back as that snapshot.
+    this.snapshotOwed = this.knownSnapshotTick !== null && sim.tick < this.knownSnapshotTick;
     this.send({ kind: 'loaded', tick: sim.tick, world: this.world });
+  }
+
+  private askForSnapshot(): void {
+    this.snapshotOwed = true;
+    this.send({ kind: 'loaded', tick: null });
   }
 
   private adoptWorld(opened: OpenedWorld): void {

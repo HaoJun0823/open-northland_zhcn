@@ -11,9 +11,17 @@ const RETRY_MAX_MS = 10_000;
 const CONNECT_TIMEOUT_MS = 10_000;
 /** An open link on which no relay message arrived for this long is quiet: the relay pings every second,
  *  and judges a client silent after this long without an answer, so the room has most likely stopped
- *  hearing this client at the same moment. The socket stays open: a large message still arriving
- *  looks the same, and a route that fell away may come back under it. */
+ *  hearing this client at the same moment. The report keeps the socket open: a large message still
+ *  arriving looks the same, and a route that fell away may come back under it. */
 export const LINK_QUIET_MS = 4000;
+/** A quiet link is replaced by a fresh socket on the same token after this long, unless the client
+ *  awaits a large message: a link that dropped without a close (a router or WiFi roam) would otherwise
+ *  hold the room until it is voted out, while a new socket rejoins within a second. */
+export const LINK_REPLACE_MS = 2 * LINK_QUIET_MS;
+/** How long a quiet link may carry an awaited large message before it is replaced. A full 32 MiB blob
+ *  is about 45 MB as base64, which arrives within it at 1.2 Mbit/s; a snapshot of a few MiB at a
+ *  tenth of that rate. */
+export const TRANSFER_REPLACE_MS = 5 * 60_000;
 const QUIET_POLL_MS = 1000;
 const FINAL_CLOSE_CODES: readonly number[] = [CLOSE_REPLACED, CLOSE_PROTOCOL_ERROR];
 /** A restarted relay has forgotten every room, so reconnecting to one would only be refused. The
@@ -38,6 +46,9 @@ export interface RelayLinkEvents {
   readonly onQuiet?: (quietMs: number) => void;
   /** The relay was heard again on a link reported quiet. */
   readonly onHeard?: () => void;
+  /** Whether the client awaits a large message, which a browser socket shows only once complete.
+   *  Without it a quiet link cannot be told from such a message still arriving, and is kept. */
+  readonly awaitsTransfer?: () => boolean;
 }
 
 /** A connection to the relay that carries client messages out and reports through `RelayLinkEvents`. */
@@ -161,9 +172,14 @@ export class RelaySocket implements RelayLink {
         return;
       }
       const quietMs = this.now() - this.heardAt;
-      if (this.quiet || quietMs < LINK_QUIET_MS) return;
-      this.quiet = true;
-      this.options.onQuiet?.(quietMs);
+      if (quietMs < LINK_QUIET_MS) return;
+      if (!this.quiet) {
+        this.quiet = true;
+        this.options.onQuiet?.(quietMs);
+      }
+      const awaitsTransfer = this.options.awaitsTransfer;
+      if (awaitsTransfer === undefined) return;
+      if (quietMs >= (awaitsTransfer() ? TRANSFER_REPLACE_MS : LINK_REPLACE_MS)) this.abandon(socket);
     }, QUIET_POLL_MS);
   }
 
@@ -179,13 +195,18 @@ export class RelaySocket implements RelayLink {
     this.deadline = setTimeout(() => {
       this.deadline = null;
       if (this.closed || this.socket !== socket) return;
-      // A broken link may never finish its close handshake. Detach it before retrying so queued
-      // events cannot act on the replacement connection.
-      this.socket = null;
-      this.stopQuietWatch();
-      socket.close();
-      this.scheduleRetry();
+      this.abandon(socket);
     }, CONNECT_TIMEOUT_MS);
+  }
+
+  /** A broken link may never finish its close handshake. Detach it before retrying so queued events
+   *  cannot act on the replacement connection. */
+  private abandon(socket: WebSocket): void {
+    this.clearDeadline();
+    this.socket = null;
+    this.stopQuietWatch();
+    socket.close();
+    this.scheduleRetry();
   }
 
   private scheduleRetry(): void {

@@ -694,9 +694,20 @@ while the world stands behind the newest snapshot tick the client has seen the r
 `RelaySocket` keeps
 the connection and reopens it on the same token after a drop; a connection the relay replaced or
 refused stays closed. A connection attempt that has not opened within 10 seconds is closed and retried
-even if no socket close event arrives. An open socket has no client-side receive deadline: browser
-sockets report a large message only when it is complete, so time between messages is not proof that
-the transfer stopped. The host's silence limit still applies to incoming traffic.
+even if no socket close event arrives. An open socket that carried nothing from the relay for
+`LINK_QUIET_MS` (4 s) is reported quiet, and the player sees the lost-link screen. A browser socket
+reports a large message only once it is complete, so silence cannot tell a stalled route from a
+transfer still arriving; what the client awaits decides. A socket quiet for `LINK_REPLACE_MS` (8 s)
+is replaced by a new one on the same token, which rejoins within a second, while a link dropped
+without a close would otherwise hold the room until the kick vote. While the client awaits a large
+message (a map or initial save it requested, or a snapshot: after `desync`, after a `loaded
+{ tick: null }`, or after a `loaded` whose tick stands behind `start`'s `snapshotTick`) the bound is
+`TRANSFER_REPLACE_MS` (5 min), within which a full 32 MiB blob (about 45 MB as base64) arrives at
+1.2 Mbit/s. The host hands the socket the client's `awaitsTransfer`; a socket without it keeps a quiet
+link open. Each new socket forgets what the old one awaited and is served again from its own `start`.
+A large message nobody asked for, such as a shared save or a broadcast initial save, counts as
+silence, so a link slower than its size over 8 s loses it to a replacement; the room's state is
+served again either way. The relay's own silence limit still applies to incoming traffic.
 The client keeps the room's chat as the relay logs it: `chatHistory` replaces
 it on every entry and return, each `chat` appends to it, up to `MAX_CHAT_HISTORY_LINES`. The desktop
 and browser app plays through the `?relay=` entry, whose client, link and world run in a network

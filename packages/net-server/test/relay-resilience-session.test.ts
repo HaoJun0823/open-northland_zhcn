@@ -21,6 +21,7 @@ import {
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
+import { SLOW_WAIT_AFTER_MS } from '../src/relay/governor.js';
 import { TEST_COMPATIBILITY } from './support/compatibility.js';
 import { HeadlessClient } from './support/headless-client.js';
 import {
@@ -332,20 +333,32 @@ describe('a relayed session under faults', () => {
     expect(bartek.kicks).toEqual([]);
   });
 
-  it('never waits for nor offers a vote against a connected client that stops ticking', async () => {
+  it('waits for a connected client that stops ticking only once it has stayed slow for the bound', async () => {
     const { stage, ania, bartek } = await twoClients(22);
     await runUntil(stage, [ania, bartek], 40);
-    await runFor(stage, [ania], LAG_BEHIND_MS + SLOW_GRACE_MS + KICK_COUNTDOWN_MS + SETTLE_MS * 2);
-    expect(ania.waits.at(-1)?.for).toEqual([]);
-    expect(ania.room?.members.find((member) => member.nick === 'Bartek')?.connected).toBe(true);
+    await runFor(stage, [ania], LAG_BEHIND_MS + SLOW_GRACE_MS + SLOW_WAIT_AFTER_MS - SETTLE_MS * 2);
+    expect(ania.waits.at(-1)?.for ?? []).toEqual([]);
+    expect(ania.governed).toMatchObject({ nick: 'Bartek' });
     const paced = ania.tick ?? 0;
+    ania.kick(1, true);
     await runFor(stage, [ania], SETTLE_MS);
     expect(ania.tick).toBeGreaterThan(paced);
-    ania.kick(1, true);
-    await runFor(stage, [ania], SETTLE_MS * 2);
     expect(ania.rejections.at(-1)?.reason).toEqual({ code: 'notWaitedFor', nick: 'Bartek' });
-    expect(ania.kicks).toEqual([]);
-    expect(bartek.kicks).toEqual([]);
+
+    await runFor(stage, [ania], SETTLE_MS * 3);
+    expect(ania.waits.at(-1)?.for).toMatchObject([{ nick: 'Bartek', reason: 'slow' }]);
+    expect(ania.room?.members.find((member) => member.nick === 'Bartek')?.connected).toBe(true);
+    const held = ania.tick;
+    ania.kick(1, true);
+    await runFor(stage, [ania], SETTLE_MS);
+    expect(ania.tick).toBe(held);
+    expect(ania.rejections.at(-1)?.reason).toMatchObject({ code: 'voteNotOpen' });
+
+    await runFor(stage, [ania], KICK_COUNTDOWN_MS);
+    expect(ania.waits.at(-1)?.for).toEqual([{ nick: 'Bartek', reason: 'slow', voteAfterMs: 0 }]);
+    ania.kick(1, true);
+    await runFor(stage, [ania], SETTLE_MS);
+    expect(ania.kicks).toMatchObject([{ player: 1, nick: 'Bartek', cause: 'vote' }]);
   });
 
   it('detects a diverged client within a tick, names the domain, and resyncs it from the reference', async () => {

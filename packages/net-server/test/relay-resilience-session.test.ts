@@ -237,7 +237,11 @@ describe('a relayed session under faults', () => {
     bartek.sendBlob({ type: 'save', to: 'Ania', tick: bartek.tick, bytes });
     await runFor(stage, clients, 25_000);
     expect(ania.blobs.at(-1)).toMatchObject({ type: 'save', bytes });
-    expect(ania.waits.some((notice) => notice.for.some((member) => member.reason === 'silent'))).toBe(true);
+    // The upload's progress keeps its sender heard, though its pongs wait behind it.
+    const silent = ania.waits.flatMap((notice) =>
+      notice.for.filter((member) => member.reason === 'silent').map((member) => member.nick),
+    );
+    expect(silent).not.toContain('Bartek');
     const captures = await runUntil(
       stage,
       clients,

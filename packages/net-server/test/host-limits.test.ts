@@ -6,10 +6,20 @@ import { WebSocket } from 'ws';
 import { MESSAGE_BURST } from '../src/host/socket-budget.js';
 import { type RelayHost, startRelayHost } from '../src/host/ws-host.js';
 
+async function introduced(port: number, token: string): Promise<WebSocket> {
+  const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+  await once(socket, 'open');
+  const welcomed = once(socket, 'message');
+  socket.send(JSON.stringify({ kind: 'hello', protocol: PROTOCOL_VERSION, token, nick: 'Peer' }));
+  await welcomed;
+  return socket;
+}
+
 describe('host resource limits', () => {
   let host: RelayHost | null = null;
   afterEach(async () => {
     await host?.close();
+    vi.restoreAllMocks();
   });
 
   it('bounds TCP sockets that never send HTTP headers, then recovers capacity', async () => {
@@ -100,6 +110,25 @@ describe('host resource limits', () => {
     expect(receive).toHaveBeenCalledTimes(4);
     expect(host.relay.clientCount).toBe(0);
     expect((await fetch(`http://127.0.0.1:${host.port}/healthz`)).status).toBe(200);
+  });
+
+  it('reports the bytes of a message still arriving, and nothing once a frame completes', async () => {
+    host = await startRelayHost({ port: 0 });
+    const socket = await introduced(host.port, 'progress-report-token');
+    const receiving = vi.spyOn(host.relay, 'receiving');
+    const head = '{"kind":"chat","text":"';
+    socket.send(head, { fin: false });
+    await vi.waitFor(() => expect(receiving.mock.calls.at(-1)?.[1]).toBeGreaterThanOrEqual(head.length));
+    const received = once(socket, 'message');
+    socket.send('still arriving"}', { fin: true });
+    await received;
+    expect(receiving.mock.calls.at(-1)?.[1]).toBe(0);
+    receiving.mockClear();
+    const pong = once(socket, 'pong');
+    socket.ping();
+    await pong;
+    expect(receiving.mock.calls.map(([, bytes]) => bytes)).toEqual([0]);
+    socket.terminate();
   });
 
   it('disconnects a message flood without stopping the relay', async () => {

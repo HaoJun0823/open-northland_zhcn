@@ -16,7 +16,7 @@ import { Departures } from './departures.js';
 import { governedSpeed } from './governor.js';
 import { type KickOutcome, KickVotes, type PassedKick } from './kick-vote.js';
 import { MatchEnd } from './match-end.js';
-import { broadcast, type Deliver, isSynced, type Member, type Refusal } from './member.js';
+import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from './member.js';
 import { Pacing } from './pacing.js';
 import type { RelayLog } from './relay-log.js';
 import { Resync } from './resync.js';
@@ -24,9 +24,6 @@ import { RoomClock } from './room-clock.js';
 import { SaveOrders } from './save-orders.js';
 import { SyncLedger, type Verdict } from './sync-ledger.js';
 import { type Waited, Waiting } from './waiting.js';
-
-/** Pings unanswered this long make a connection silent, whatever its socket says. */
-export const SILENT_AFTER_MS = 4000;
 
 type Loaded = Extract<ClientMessage, { kind: 'loaded' }>;
 type LoadedWorld = Loaded & { readonly tick: number };
@@ -388,7 +385,7 @@ export class Game {
     if (!member.connected) return 'gone';
     if (member.outOfSync !== null) return 'resync';
     if (!member.loaded) return 'loading';
-    return now - member.lastHeardAt > SILENT_AFTER_MS ? 'silent' : null;
+    return isSilent(member, now) ? 'silent' : null;
   }
 
   /** The clock starts once every seated player has loaded, a dropped one included: a game never starts

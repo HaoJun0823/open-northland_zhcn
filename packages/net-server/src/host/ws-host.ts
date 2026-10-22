@@ -174,10 +174,26 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     const heard = (): void => {
       lastHeardAt.set(socket, performance.now());
     };
-    // A browser's upload may take longer than the silence limit before one whole message arrives.
-    const receivedBytes = (data: Buffer): void => {
-      if (data.length > 0 && socket.readyState === socket.OPEN) heard();
+    // Bytes of a frame still arriving: counted before `ws` parses a chunk, settled by each frame it
+    // completes, so what remains after the parse belongs to a message the relay has not seen yet.
+    let unparsedBytes = 0;
+    const countBytes = (data: Buffer): void => {
+      unparsedBytes += data.length;
     };
+    const frameEnded = (): void => {
+      unparsedBytes = 0;
+    };
+    // A browser's upload may take longer than the silence limits before one whole message arrives.
+    const receivedBytes = (data: Buffer): void => {
+      if (data.length === 0 || socket.readyState !== socket.OPEN) return;
+      heard();
+      try {
+        relay.receiving(client, unparsedBytes);
+      } catch (err) {
+        log('receiving failed', { error: String(err) });
+      }
+    };
+    request.socket.prependListener('data', countBytes);
     request.socket.on('data', receivedBytes);
     const connection: Connection = {
       send: (message) => {
@@ -199,14 +215,17 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       return false;
     };
     socket.on('ping', (data) => {
+      frameEnded();
       heard();
       if (acceptTraffic(data.length)) socket.pong(data);
     });
     socket.on('pong', (data) => {
+      frameEnded();
       heard();
       acceptTraffic(data.length, controlPings.answer(data) ? 0 : 1);
     });
     socket.on('message', (data, isBinary) => {
+      frameEnded();
       heard();
       if (!acceptTraffic(byteLength(data))) return;
       // Anything but a JSON text frame is handed over as a value no message parses, which closes the
@@ -233,6 +252,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     });
     // A fault in departure handling is logged; it never reaches the process.
     socket.on('close', () => {
+      request.socket.off('data', countBytes);
       request.socket.off('data', receivedBytes);
       lastHeardAt.delete(socket);
       try {

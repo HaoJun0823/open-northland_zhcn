@@ -128,6 +128,7 @@ export class Relay {
   receive(client: ClientHandle, raw: unknown, bytes?: number): void {
     // A closed or replaced connection may still deliver what its socket had queued; none of it counts.
     if (!this.clients.has(client)) return;
+    this.heard(client);
     if (bytes !== undefined && bytes > MAX_CLIENT_MESSAGE_BYTES && clientMessageKind(raw) !== 'blob') {
       this.fail(client, { code: 'messageTooLarge' });
       return;
@@ -152,6 +153,32 @@ export class Relay {
     }
     const refusal = this.dispatch(client, message);
     if (refusal !== null) this.reject(client, message.kind, refusal, message);
+  }
+
+  /** The transport holds `bytes` of a message still arriving from `client`, 0 when it holds none. A
+   *  browser sends a snapshot as one message, so its pongs wait behind the upload: progress on it is
+   *  what keeps the client heard meanwhile. */
+  receiving(client: ClientHandle, bytes: number): void {
+    const member = client.member;
+    if (!this.clients.has(client) || member === null) return;
+    if (bytes <= 0) {
+      member.inboundSince = null;
+      member.inboundBytes = 0;
+      return;
+    }
+    const now = this.now();
+    member.lastHeardAt = now;
+    member.inboundSince ??= now;
+    member.inboundBytes = bytes;
+  }
+
+  /** A whole message arrived: the client is heard, and nothing of it is still arriving. */
+  private heard(client: Client): void {
+    const member = client.member;
+    if (member === null) return;
+    member.lastHeardAt = this.now();
+    member.inboundSince = null;
+    member.inboundBytes = 0;
   }
 
   advance(): void {
@@ -248,6 +275,8 @@ export class Relay {
       client.member = member;
       member.linkMeasured = false;
       member.jitterMs = 0;
+      member.inboundSince = null;
+      member.inboundBytes = 0;
       room.reconnect(member, this.now());
       this.emptySince.delete(room);
     }
@@ -316,16 +345,13 @@ export class Relay {
         const now = this.now();
         const samples = client.probe.delay.samples;
         const changed = client.probe.pong(message.t, now);
-        if (client.room !== null && client.member !== null) {
-          client.member.lastHeardAt = now;
-          if (client.probe.delay.samples !== samples) {
-            client.room.linkMeasured(
-              client.member,
-              client.probe.delay.ticks,
-              client.probe.delay.roundTripMs,
-              client.probe.delay.jitterMs,
-            );
-          }
+        if (client.room !== null && client.member !== null && client.probe.delay.samples !== samples) {
+          client.room.linkMeasured(
+            client.member,
+            client.probe.delay.ticks,
+            client.probe.delay.roundTripMs,
+            client.probe.delay.jitterMs,
+          );
         }
         if (changed) client.connection.send({ kind: 'delay', ticks: client.probe.delay.ticks });
         return null;

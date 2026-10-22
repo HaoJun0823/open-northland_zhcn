@@ -14,8 +14,12 @@ export interface Member {
   /** When the current connection was made, then the order of joining; the earliest wins a digest tie. */
   connectedSince: number;
   joinOrder: number;
-  /** When the last pong arrived; what makes a half-open socket silent. */
+  /** When the client's last message, or progress on one still arriving, reached the relay. */
   lastHeardAt: number;
+  /** When the first bytes of a message still arriving came in, and how many have; null and 0 when
+   *  none is. A pong queued behind a large upload measures the upload, not the link. */
+  inboundSince: number | null;
+  inboundBytes: number;
   /** The connection's input delay and round trip, as the relay last measured them. */
   delayTicks: number;
   roundTripMs: number;
@@ -40,6 +44,13 @@ export interface Member {
   outOfSync: DesyncNotice | null;
 }
 
+/** Nothing heard from a client this long makes it silent, whatever its socket says. */
+export const SILENT_AFTER_MS = 4000;
+
+export function isSilent(member: Pick<Member, 'lastHeardAt'>, now: number): boolean {
+  return now - member.lastHeardAt > SILENT_AFTER_MS;
+}
+
 export type DesyncNotice = Extract<ServerMessage, { kind: 'desync' }>;
 
 export interface MeasuredLink {
@@ -57,6 +68,8 @@ export function createMember(token: string, nick: string, now: number, link: Mea
     connectedSince: now,
     joinOrder: 0,
     lastHeardAt: now,
+    inboundSince: null,
+    inboundBytes: 0,
     delayTicks: link.delayTicks,
     roundTripMs: link.roundTripMs,
     jitterMs: link.jitterMs ?? 0,

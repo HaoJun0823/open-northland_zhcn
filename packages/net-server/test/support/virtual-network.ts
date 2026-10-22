@@ -51,6 +51,9 @@ interface Direction {
   availableAt: number;
 }
 
+/** How often a link reports a message still crossing it, as the host does on each TCP read. */
+const PROGRESS_INTERVAL_MS = 100;
+
 interface Delivery {
   readonly at: number;
   readonly seq: number;
@@ -60,7 +63,8 @@ interface Delivery {
 /**
  * In-memory links between headless clients and one relay on a virtual clock. Messages cross a link
  * after serialization, bandwidth delay and seeded jitter, in order per direction. A large message
- * blocks later messages on that direction, as it does on a TCP connection.
+ * blocks later messages on that direction, as it does on a TCP connection, and reports its progress
+ * to the relay as the host does.
  */
 export class VirtualNetwork {
   private readonly queue: Delivery[] = [];
@@ -99,9 +103,18 @@ export class VirtualNetwork {
       if (!alive || !upAlive) return;
       const text = JSON.stringify(message);
       const bytes = Buffer.byteLength(text);
-      this.schedule(up, oneWay(), bytes, options.uploadBytesPerSecond, () => {
-        if (alive && upAlive) this.relay.receive(handle, JSON.parse(text), bytes);
-      });
+      this.schedule(
+        up,
+        oneWay(),
+        bytes,
+        options.uploadBytesPerSecond,
+        () => {
+          if (alive && upAlive) this.relay.receive(handle, JSON.parse(text), bytes);
+        },
+        (arrived) => {
+          if (alive && upAlive) this.relay.receiving(handle, arrived);
+        },
+      );
     });
     return {
       close: () => {
@@ -127,17 +140,32 @@ export class VirtualNetwork {
     }
   }
 
+  /** `progress` hears how many bytes of a message slower than the progress cadence have arrived. */
   private schedule(
     direction: Direction,
     delayMs: number,
     bytes: number,
     bytesPerSecond: number | undefined,
     run: () => void,
+    progress?: (arrived: number) => void,
   ): void {
     const duration = bytesPerSecond === undefined ? 0 : (bytes / bytesPerSecond) * 1000;
-    direction.availableAt = Math.max(this.clock.now(), direction.availableAt) + duration;
+    const sendAt = Math.max(this.clock.now(), direction.availableAt);
+    direction.availableAt = sendAt + duration;
     const at = Math.max(direction.availableAt + delayMs, direction.lastAt);
+    for (
+      let sent = PROGRESS_INTERVAL_MS;
+      progress !== undefined && sent < duration;
+      sent += PROGRESS_INTERVAL_MS
+    ) {
+      const arrived = Math.floor((bytes * sent) / duration);
+      this.enqueue(Math.max(sendAt + sent + delayMs, direction.lastAt), () => progress(arrived));
+    }
     direction.lastAt = at;
+    this.enqueue(at, run);
+  }
+
+  private enqueue(at: number, run: () => void): void {
     const delivery = { at, seq: this.seq++, run };
     // Insert behind everything due at or before it: the queue stays ordered by (at, seq).
     let index = this.queue.length;

@@ -49,8 +49,9 @@ export interface OffClockRun {
 export interface HostedBuild<E> extends BuiltWorld<E> {
   readonly driver: SessionDriver;
   readonly run?: OffClockRun;
-  /** The driver may step nothing while it waits for another authority's frames; its session then
-   *  polls at {@link IDLE_POLL_TICKS} until `wake`. */
+  /** Another authority runs the clock. The driver may step nothing while it waits for that
+   *  authority's frames, and its session then polls at {@link IDLE_POLL_TICKS} until `wake`; a runtime
+   *  that stopped drawing does not stop the session, which holds the ticks for its return. */
   readonly awaitsFrames?: boolean;
   /** Where a driver that reports its own load learns the tick costs its `advance` does not see. */
   readonly costs?: TickCostSink;
@@ -92,6 +93,27 @@ export function leadTickLimit(speed: number, frameMs: number): number {
   const leadMs = LEAD_FRAMES * Math.min(frameMs, MAX_LEAD_FRAME_MS) + LEAD_GRACE_MS;
   return Math.ceil((leadMs / 1000) * TICKS_PER_SECOND * speed) + LEAD_SPARE_TICKS;
 }
+
+/** The runtime's frames a batch may wait undelivered before the runtime counts as not drawing: a slow
+ *  display still delivers within them and paces the clock, a hidden page delivers nothing. */
+const STOPPED_AFTER_FRAMES = 4;
+
+/** The least wait before a runtime counts as not drawing: long enough that a busy frame is no stop,
+ *  short enough that a hidden page falls well inside the relay's second of lag. */
+const MIN_STOPPED_AFTER_MS = 500;
+
+/** Events that only sound or animate the moment they happen. A runtime that was not drawing gets the
+ *  ticks it missed without them, rather than hearing and seeing all of them at once on its return. */
+const MOMENTARY_EVENTS: ReadonlySet<SimEvent['kind']> = new Set([
+  'atomicSound',
+  'missionSound',
+  'combatSwing',
+  'projectileLaunched',
+  'projectileMissed',
+  'groundBurst',
+]);
+
+const outlastsMoment = (event: SimEvent): boolean => !MOMENTARY_EVENTS.has(event.kind);
 
 /** A waiting driver's poll period, in tick periods at the session speed. A frame's arrival wakes the
  *  session at once, so this only bounds how often a driver that holds no frame is asked again. */
@@ -184,6 +206,9 @@ export class ServedSession<E> {
   private cancelWakeup: (() => void) | null = null;
   /** The pending wakeup is a waiting driver's poll, which `wake` cuts short. */
   private polling = false;
+  /** The pending wakeup is the moment an undelivered batch makes the runtime count as stopped, which a
+   *  delivery cuts short. */
+  private holdingForDisplay = false;
   /** Every tick stepped, for telling an advance that stepped none. */
   private steppedTicks = 0;
   /** The last tick the outbox holds a record of: a failure names the tick after it. */
@@ -217,6 +242,8 @@ export class ServedSession<E> {
       take: (records, leadTicks) => this.takeBatch(records, leadTicks),
       post: (batch) => this.post({ kind: 'ticks', batch }, fogTransfer(batch.fog)),
       limit: () => leadTickLimit(this.driver.speed, this.frameMs),
+      stoppedAfterMs: () =>
+        this.awaitsFrames ? Math.max(STOPPED_AFTER_FRAMES * this.frameMs, MIN_STOPPED_AFTER_MS) : null,
     });
     this.answers = inlineSessionHost(sim, { snapshots: 'live' });
     // Without the events: each tick's record carries its own, so the stream's clone would be dropped.
@@ -343,26 +370,45 @@ export class ServedSession<E> {
   }
 
   private canStep(): boolean {
-    return (
-      this.started &&
-      !this.driver.paused &&
-      !this.broken &&
-      !this.replaced &&
-      !this.running &&
-      this.outbox.mayStep()
-    );
+    return this.clockFree() && this.outbox.mayStep();
+  }
+
+  /** Whether the clock runs, the runtime's deliveries aside. */
+  private clockFree(): boolean {
+    return this.started && !this.driver.paused && !this.broken && !this.replaced && !this.running;
   }
 
   /** Restart the clock after a hold; the time held is not owed. */
   private resume(): void {
-    if (this.cancelWakeup !== null || !this.canStep()) return;
+    if (this.holdingForDisplay) this.halt();
+    if (this.cancelWakeup !== null) return;
+    if (!this.canStep()) {
+      this.holdForDisplay();
+      return;
+    }
     this.lastLoopMs = performance.now();
     this.schedule(0);
+  }
+
+  /** A clock held only by an undelivered batch steps on once the runtime counts as stopped. */
+  private holdForDisplay(): void {
+    const dueMs = this.outbox.stopDueMs();
+    const nowMs = performance.now();
+    if (this.cancelWakeup !== null || !this.clockFree() || dueMs === null || dueMs <= nowMs) return;
+    const timer = setTimeout(() => {
+      this.cancelWakeup = null;
+      this.holdingForDisplay = false;
+      this.resume();
+    }, dueMs - nowMs);
+    this.polling = false;
+    this.holdingForDisplay = true;
+    this.cancelWakeup = () => clearTimeout(timer);
   }
 
   private halt(): void {
     this.cancelWakeup?.();
     this.cancelWakeup = null;
+    this.holdingForDisplay = false;
   }
 
   private schedule(delayMs: number, polling = false): void {
@@ -371,7 +417,10 @@ export class ServedSession<E> {
       this.cancelWakeup = null;
       const before = this.steppedTicks;
       const alpha = this.stepNow();
-      if (alpha === null || !this.canStep()) return;
+      if (alpha === null || !this.canStep()) {
+        this.holdForDisplay();
+        return;
+      }
       this.idleAdvances = this.steppedTicks === before ? this.idleAdvances + 1 : 0;
       const tickMs = MS_PER_TICK / this.driver.speed;
       // A second advance in a row that stepped nothing is a driver waiting or paused, whose leftover
@@ -445,7 +494,11 @@ export class ServedSession<E> {
     this.outbox.add({
       tick,
       // Posted now, the live list is cloned by the post; held back, it must outlive the next step.
-      events: this.outbox.postsNow() ? events : cloneEvents(events),
+      events: this.outbox.displayStopped()
+        ? cloneEvents(events.filter(outlastsMoment))
+        : this.outbox.postsNow()
+          ? events
+          : cloneEvents(events),
       simMs,
       diagnostics:
         cadence === null

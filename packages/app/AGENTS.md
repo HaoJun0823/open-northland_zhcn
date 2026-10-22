@@ -45,8 +45,9 @@ The root [`AGENTS.md`](../../AGENTS.md) still applies.
   `RelayClient` and each world the client adopts. There the relay runs the clock: a runtime that
   draws too slowly leaves the client's acknowledgements behind, and its load (`TickCostSink` in
   `session/worker/serve.ts`) carries what a tick costs the display, so the relay governs the room
-  for it. A hidden tab draws nothing: it stops acknowledging and the room is paced for it, never held
-  nor voted on while it answers pings, and it catches up on return.
+  for it. A hidden tab draws nothing: once its runtime has taken in nothing for a few frames, the
+  network worker steps and acknowledges on, holding the ticks for the runtime's return, so the room is
+  paced for the tab only while the browser's throttled timers fall behind the clock.
 - No relayed world's `Simulation` is referenced on the main thread. The main thread reads the client
   through `RelayClientMirror` (the relay messages the worker's client applied, and its facts), each
   adopted world through that world's `WorkerSession`, and matches a save to the running world by

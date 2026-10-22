@@ -5,7 +5,7 @@ import type { ContentIr, LandscapeGfxRow } from '../src/content/ir/rows.js';
 /**
  * resolveBuildingSignRefs - the pure IR→sign-refs join: each player slot resolves its six `ls_temp`
  * sign records (worker disc, carrier pennant, three residence banners, construction stand) into one
- * served-stem + bob-per-kind ref, or `undefined` when any record is missing (the renderer then falls
+ * served-stem + wave-loop-per-kind ref, or `undefined` when any record is missing (the renderer then falls
  * back to slot 0's sheet or the placeholder squares). The garrison flag's five-record star ladder rides
  * along optionally: it degrades on its own without taking the slot's door badges with it.
  */
@@ -48,14 +48,21 @@ function soldierRecords(nn: number, base: number): LandscapeGfxRow[] {
 const irOf = (landscapeGfx: readonly LandscapeGfxRow[]): ContentIr => ({ landscapeGfx });
 
 describe('resolveBuildingSignRefs', () => {
-  it('resolves a slot per shipped player: its served stem + the first bob of each record', () => {
+  it("resolves a slot per shipped player: its served stem + each record's whole wave loop", () => {
     const ir = irOf([...playerRecords(1, 0), ...playerRecords(2, 10)]);
     const refs = resolveBuildingSignRefs(ir);
 
     expect(refs).toHaveLength(10);
     expect(refs[0]).toEqual({
       stem: 'ls_temp.human_player01',
-      bobByKind: { worker: 33, carrier: 34, couple: 13, single: 23, family: 31, construction: 35 },
+      bobsByKind: {
+        worker: [33],
+        carrier: [34],
+        couple: [13, 12, 11],
+        single: [23, 22, 21],
+        family: [31, 30, 29],
+        construction: [35],
+      },
     });
     expect(refs[1]?.stem).toBe('ls_temp.human_player02');
     expect(refs[2]).toBeUndefined(); // player03 not authored in this fixture
@@ -79,7 +86,7 @@ describe('resolveBuildingSignRefs', () => {
     // A gap would fly the wrong count (four men under three stars), so the flag degrades whole - but the
     // six door-badge kinds are untouched, which is why it is resolved apart from them.
     expect(resolveBuildingSignRefs(irOf(short))[0]?.garrisonBobs).toBeUndefined();
-    expect(resolveBuildingSignRefs(irOf(short))[0]?.bobByKind.worker).toBe(33);
+    expect(resolveBuildingSignRefs(irOf(short))[0]?.bobsByKind.worker).toEqual([33]);
 
     const foreign = ladder.map((r) =>
       r.editName === 'player01 soldier 03' ? { ...r, paletteName: 'human_player07' } : r,

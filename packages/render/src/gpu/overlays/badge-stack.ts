@@ -1,4 +1,5 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
+import { type AtlasFrame, type WaveLoop, waveFrameAt } from '../../data/sprites/index.js';
 import type { TextureCache } from '../texture-cache.js';
 import { worldBatched } from '../world-batcher.js';
 import {
@@ -39,6 +40,12 @@ const HOUSEHOLD_COLOR: Readonly<Record<HouseholdKind, number>> = {
   couple: 0xff7a9c, // pink
   family: 0xffd24d, // gold
 };
+/** A built sign chain: its node, plus the per-frame wave step when a row draws a looping banner. */
+export interface SignStackMark {
+  readonly node: Container;
+  readonly advance?: (clock: number) => void;
+}
+
 /** A door badge stack from the decoded sign art: one player-coloured sign sprite per row, chained
  *  upward from the anchor. The signs draw in the world batch of the sprites around them, unmagnified:
  *  the world shader reads them with one plain sampler tap, no magnifier. */
@@ -46,19 +53,34 @@ export function makeSignStack(
   rows: readonly DoorBadgeRow[],
   textures: TextureCache,
   sheet: BuildingSignSheet,
-): Container {
-  const c = new Container();
+): SignStackMark {
+  const node = new Container();
+  const waving: { readonly sprite: Sprite; readonly loop: WaveLoop<AtlasFrame>; readonly rowY: number }[] =
+    [];
   let drawn = 0;
   for (const row of rows) {
     const kind = signKindOf(row.role);
-    const base = sheet.frameByKind[kind];
-    const frame = drawn === 0 ? base : chainedFrame(kind, base);
-    const s = worldBatched(new Sprite(textures.unmagnified(textures.get(sheet.source, frame))));
-    s.position.set(frame.offsetX, -(drawn * SIGN_STEP) + frame.offsetY);
-    c.addChild(s);
+    const [base, ...baseRest] = sheet.loopByKind[kind];
+    const chained = (frame: AtlasFrame): AtlasFrame => (drawn === 0 ? frame : chainedFrame(kind, frame));
+    const first = chained(base);
+    const rest = baseRest.map(chained);
+    const loop: WaveLoop<AtlasFrame> = [first, ...rest];
+    const s = worldBatched(new Sprite(textures.unmagnified(textures.get(sheet.source, first))));
+    const rowY = -(drawn * SIGN_STEP);
+    s.position.set(first.offsetX, rowY + first.offsetY);
+    node.addChild(s);
+    if (rest.length > 0) waving.push({ sprite: s, loop, rowY });
     drawn++;
   }
-  return c;
+  if (waving.length === 0) return { node };
+  const advance = (clock: number): void => {
+    for (const { sprite, loop, rowY } of waving) {
+      const frame = waveFrameAt(loop, clock);
+      sprite.texture = textures.unmagnified(textures.get(sheet.source, frame));
+      sprite.position.set(frame.offsetX, rowY + frame.offsetY);
+    }
+  };
+  return { node, advance };
 }
 
 /** Top of `row`'s placeholder mark in anchor space (+y down): inset into the band `signRowAt` resolves

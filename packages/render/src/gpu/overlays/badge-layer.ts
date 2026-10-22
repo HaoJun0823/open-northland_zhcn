@@ -21,6 +21,8 @@ import { type BuildingSignSheet, IDENTITY_COLOUR, type SignGfx, sheetFor } from 
 
 interface BadgeStack {
   readonly node: Container;
+  /** The chain's banner wave step; absent when no row loops. */
+  readonly advanceRows?: ((clock: number) => void) | undefined;
   /** The garrison flag, flown from the building's mast. A sibling of the chain in the sprite layer, not
    *  its child: the two marks stand at different anchors but pool, cull and sort as one building. */
   readonly flag?: Container | undefined;
@@ -80,7 +82,7 @@ export class BadgeLayer {
    * Reconcile the badge stacks to `badges`, retiring stacks for buildings no longer in the list. A
    * building outside `viewport` keeps its pooled stack but is detached and neither repositioned nor
    * rebuilt, so cost tracks the screen and not the map's building count. `clock` is the render clock in
-   * sim ticks, which the on-screen garrison flags wave on.
+   * sim ticks, which the on-screen residence banners and garrison flags wave on.
    */
   draw(badges: readonly DoorBadge[], elevation?: ElevationField, viewport?: Viewport, clock = 0): void {
     this.drawn.clear();
@@ -122,6 +124,7 @@ export class BadgeLayer {
       stack.node.visible = true;
       if (stack.node.parent === null) this.spriteLayer.addChild(stack.node);
       stack.node.position.set(anchor.x, anchor.y);
+      stack.advanceRows?.(clock);
       const building = screenDepth(anchor.depthX, anchor.depthY, 'building');
       const depth = building + SIGN_DEPTH_EPS;
       stack.node.zIndex = depth;
@@ -156,11 +159,11 @@ export class BadgeLayer {
     behindFrom: number | undefined,
   ): BadgeStack {
     const gfx = this.gfx;
-    const node =
+    const chain =
       gfx !== undefined && sheet !== undefined
         ? makeSignStack(badge.rows, gfx.textures, sheet)
-        : makePlaceholderStack(badge.rows);
-    const base = { node, rows, stars, behindFrom, player };
+        : { node: makePlaceholderStack(badge.rows) };
+    const base = { node: chain.node, advanceRows: chain.advance, rows, stars, behindFrom, player };
     // Gated on the capped `stars`, not on `garrison` being present: `stars` is the whole garrison term
     // in the rebuild key, and a zero-star garrison keys the same as none, so such a flag never retires.
     if (badge.garrison === undefined || stars < 1) return base;

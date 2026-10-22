@@ -1,5 +1,5 @@
 import type { TextureSource } from 'pixi.js';
-import type { AtlasFrame } from '../../data/sprites/index.js';
+import type { AtlasFrame, WaveLoop } from '../../data/sprites/index.js';
 import type { TextureCache } from '../texture-cache.js';
 
 /**
@@ -30,11 +30,12 @@ export function signKindOf(role: DoorBadgeRole): BuildingSignKind {
   return role === 'craftsman' || role === 'gatherer' ? 'worker' : role;
 }
 
-/** One player's recoloured sign art: that player's `ls_temp` atlas page + the frame each sign kind
- *  draws. Frames are per-sheet objects (never shared across pages - the texture cache keys by frame). */
+/** One player's recoloured sign art: that player's `ls_temp` atlas page + the wave loop each sign kind
+ *  draws (the residence banners author eight frames, the other signs one). Frames are per-sheet objects
+ *  (never shared across pages - the texture cache keys by frame). */
 export interface BuildingSignSheet {
   readonly source: TextureSource;
-  readonly frameByKind: Readonly<Record<BuildingSignKind, AtlasFrame>>;
+  readonly loopByKind: Readonly<Record<BuildingSignKind, WaveLoop<AtlasFrame>>>;
   /** The garrison flag's wave loop per star count, index 0 = one star. Absent when the slot's
    *  `soldier 01`..`05` records did not resolve, which leaves a manned post on the placeholder flag. */
   readonly garrison?: readonly (readonly AtlasFrame[])[];

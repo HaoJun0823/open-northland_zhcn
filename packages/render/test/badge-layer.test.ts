@@ -1,7 +1,7 @@
 import { Container, type Graphics, Point, type Sprite, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { SIGN_DEPTH_EPS, screenDepth } from '../src/data/scene/index.js';
-import { type AtlasFrame, FLAG_WAVE_TICKS_PER_FRAME } from '../src/data/sprites/index.js';
+import { type AtlasFrame, FLAG_WAVE_TICKS_PER_FRAME, type WaveLoop } from '../src/data/sprites/index.js';
 import { BadgeLayer } from '../src/gpu/overlays/badge-layer.js';
 import { type ConstructionSign, ConstructionSignLayer } from '../src/gpu/overlays/construction-sign-layer.js';
 import { badgeAnchor, type DoorBadge } from '../src/gpu/overlays/door-badge.js';
@@ -38,18 +38,29 @@ function layerIn(colourOf?: (player: number) => number): { layer: BadgeLayer; ro
 }
 
 /** A fake decoded sign sheet. The texture cache keys by frame object, so kinds must not share one, and
- *  the geometry mirrors the real `ls_temp` bobs (h 33, offsetY -26) so the chain-crop cuts land inside it. */
+ *  the geometry mirrors the real `ls_temp` bobs (h 33, offsetY -26) so the chain-crop cuts land inside it.
+ *  The residence banners loop {@link BANNER_WAVE} frames a column apart, like the real 8-frame records. */
+const BANNER_WAVE = 2;
+const BANNER_FRAME_DY = 34;
 function sheet(garrison?: readonly (readonly AtlasFrame[])[]): BuildingSignSheet {
-  const frame = (x: number): AtlasFrame => ({ x, y: 0, width: 25, height: 33, offsetX: -13, offsetY: -26 });
+  const frame = (x: number, y = 0): AtlasFrame => ({
+    x,
+    y,
+    width: 25,
+    height: 33,
+    offsetX: -13,
+    offsetY: -26,
+  });
+  const banner = (x: number): WaveLoop<AtlasFrame> => [frame(x), frame(x, BANNER_FRAME_DY)];
   return {
     source: new TextureSource({ width: 512, height: 64 }),
-    frameByKind: {
-      worker: frame(0),
-      carrier: frame(26),
-      single: frame(52),
-      couple: frame(78),
-      family: frame(104),
-      construction: frame(130),
+    loopByKind: {
+      worker: [frame(0)],
+      carrier: [frame(26)],
+      single: banner(52),
+      couple: banner(78),
+      family: banner(104),
+      construction: [frame(130)],
     },
     ...(garrison !== undefined ? { garrison } : {}),
   };
@@ -293,6 +304,27 @@ describe('BadgeLayer (decoded sign art)', () => {
     expect((stack.children[5] as Sprite).texture.frame.height).toBe(24);
     const anchor = tileToScreen(3, 5);
     expect(stack.position.y).toBe(anchor.y);
+  });
+
+  it('waves the residence banners on the render clock, cropped when chained, and keeps the disc still', () => {
+    const { layer, root } = layerIn();
+    layer.setGfx({ byPlayer: [sheet()], textures: new TextureCache() });
+    const drawnAt = (clock: number): readonly Sprite['texture']['frame'][] => {
+      layer.draw(
+        [badge(1, 3, 5, [{ role: 'family' }, { role: 'single' }, ...workers(1, 0)])],
+        undefined,
+        undefined,
+        clock,
+      );
+      return (root.children[0] as Container).children.map((c) => (c as Sprite).texture.frame);
+    };
+    const still = drawnAt(0);
+    const waved = drawnAt(FLAG_WAVE_TICKS_PER_FRAME);
+    expect(waved[0]?.y).toBe((still[0]?.y ?? 0) + BANNER_FRAME_DY);
+    expect(waved[1]?.y).toBe((still[1]?.y ?? 0) + BANNER_FRAME_DY);
+    expect(waved[1]?.height).toBe(22); // the chained banner keeps its base cut on every wave frame
+    expect(waved[2]).toEqual(still[2]);
+    expect(drawnAt(BANNER_WAVE * FLAG_WAVE_TICKS_PER_FRAME)[0]?.y).toBe(still[0]?.y);
   });
 
   it('batches the signs with the world sprites, unmagnified', () => {

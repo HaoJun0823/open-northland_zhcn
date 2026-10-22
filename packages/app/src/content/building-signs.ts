@@ -3,11 +3,11 @@ import type {
   BuildingSignGfx,
   BuildingSignKind,
   BuildingSignSheet,
+  WaveLoop,
 } from '@open-northland/render';
 import { servedAtlasStem } from './ir/joins.js';
 import { loadIr, loadLayer, MissingAtlasError } from './ir/load.js';
 import type { ContentIr, LandscapeGfxRow } from './ir/rows.js';
-import { type GatheringNodeRef, nodeRefFrom } from './resource-gfx/refs.js';
 
 /**
  * The building-sign art join: resolve the original's player-coloured `ls_temp` sign records and the
@@ -17,8 +17,8 @@ import { type GatheringNodeRef, nodeRefFrom } from './resource-gfx/refs.js';
  * Source basis: the record names are the ones the original references and `landscapes.cif` binds per
  * player (`playerNN ...`); the banner→family-state and carrier→pennant assignments are observed
  * original behavior pending an in-game recheck (signs 01-04 all bind the same disc bob, so the disc
- * for workers is the only readable choice). Named approximations: each residence banner authors an
- * 8-frame wave loop and is drawn as a still, and the records' `ls_temp_s` shadow twin is not loaded.
+ * for workers is the only readable choice). Each residence banner flies its authored 8-frame wave loop
+ * like the garrison flag. Named approximation: the records' `ls_temp_s` shadow twin is not loaded.
  */
 
 /** The `[GfxLandscape]` record name suffix each sign kind resolves (prefixed `playerNN `). */
@@ -43,11 +43,11 @@ const GARRISON_RECORDS: readonly string[] = [
 /** Player slots the original ships recoloured sign records for (`player01`...`player10`). */
 const SIGN_PLAYER_COUNT = 10;
 
-/** One player slot's resolved sign refs: the served `ls_temp.human_playerNN` stem, a bob per kind, and
- *  the garrison flag's per-star wave loops when that slot's `soldier` records resolved. */
+/** One player slot's resolved sign refs: the served `ls_temp.human_playerNN` stem, a wave loop of bobs
+ *  per kind, and the garrison flag's per-star wave loops when that slot's `soldier` records resolved. */
 export interface BuildingSignPlayerRef {
   readonly stem: string;
-  readonly bobByKind: Readonly<Record<BuildingSignKind, number>>;
+  readonly bobsByKind: Readonly<Record<BuildingSignKind, WaveLoop<number>>>;
   readonly garrisonBobs?: readonly (readonly number[])[];
 }
 
@@ -73,9 +73,9 @@ function resolveSlot(
   byName: ReadonlyMap<string, LandscapeGfxRow>,
   prefix: string,
 ): BuildingSignPlayerRef | undefined {
-  const kindRef = (kind: BuildingSignKind): GatheringNodeRef | undefined => {
+  const kindRef = (kind: BuildingSignKind): SignRecordRef | undefined => {
     const rec = byName.get(prefix + KIND_RECORD[kind]);
-    return rec === undefined ? undefined : nodeRefFrom(rec);
+    return rec === undefined ? undefined : signRecordRef(rec);
   };
   const worker = kindRef('worker');
   const carrier = kindRef('carrier');
@@ -98,16 +98,28 @@ function resolveSlot(
   const garrisonBobs = resolveGarrisonBobs(byName, prefix, worker.stem);
   return {
     stem: worker.stem,
-    bobByKind: {
-      worker: worker.bob,
-      carrier: carrier.bob,
-      single: single.bob,
-      couple: couple.bob,
-      family: family.bob,
-      construction: construction.bob,
+    bobsByKind: {
+      worker: worker.bobs,
+      carrier: carrier.bobs,
+      single: single.bobs,
+      couple: couple.bobs,
+      family: family.bobs,
+      construction: construction.bobs,
     },
     ...(garrisonBobs !== undefined ? { garrisonBobs } : {}),
   };
+}
+
+interface SignRecordRef {
+  readonly stem: string;
+  readonly bobs: WaveLoop<number>;
+}
+
+/** A sign record's served stem and wave loop, or `undefined` when it names no atlas or frame. */
+function signRecordRef(record: LandscapeGfxRow): SignRecordRef | undefined {
+  const stem = servedAtlasStem(record);
+  const [first, ...rest] = waveBobs(record);
+  return stem === undefined || first === undefined ? undefined : { stem, bobs: [first, ...rest] };
 }
 
 /** One slot's five garrison-flag wave loops, or `undefined` unless all five resolve off the slot's own
@@ -148,7 +160,7 @@ export async function loadBuildingSignGfx(): Promise<BuildingSignGfx | null> {
   return byPlayer.some((sheet) => sheet !== undefined) ? { byPlayer } : null;
 }
 
-/** One slot's sheet: its atlas page + the frame per kind, or `undefined` when the atlas is missing
+/** One slot's sheet: its atlas page + the wave loop per kind, or `undefined` when the atlas is missing
  *  or stale (a frame the refs name is absent from it). */
 async function loadSheet(ref: BuildingSignPlayerRef | undefined): Promise<BuildingSignSheet | undefined> {
   if (ref === undefined) return undefined;
@@ -159,14 +171,17 @@ async function loadSheet(ref: BuildingSignPlayerRef | undefined): Promise<Buildi
     if (err instanceof MissingAtlasError) return undefined;
     throw err;
   }
-  const frame = (kind: BuildingSignKind): AtlasFrame | undefined =>
-    layer.atlas.frames.get(ref.bobByKind[kind]);
-  const worker = frame('worker');
-  const carrier = frame('carrier');
-  const single = frame('single');
-  const couple = frame('couple');
-  const family = frame('family');
-  const construction = frame('construction');
+  const frameOf = (bob: number): AtlasFrame | undefined => layer.atlas.frames.get(bob);
+  const loop = (kind: BuildingSignKind): WaveLoop<AtlasFrame> | undefined => {
+    const [first, ...rest] = atlasFrames(ref.bobsByKind[kind], frameOf) ?? [];
+    return first === undefined ? undefined : [first, ...rest];
+  };
+  const worker = loop('worker');
+  const carrier = loop('carrier');
+  const single = loop('single');
+  const couple = loop('couple');
+  const family = loop('family');
+  const construction = loop('construction');
   if (
     worker === undefined ||
     carrier === undefined ||
@@ -177,10 +192,10 @@ async function loadSheet(ref: BuildingSignPlayerRef | undefined): Promise<Buildi
   ) {
     return undefined;
   }
-  const garrison = garrisonFrames(ref.garrisonBobs, (bob) => layer.atlas.frames.get(bob));
+  const garrison = garrisonFrames(ref.garrisonBobs, frameOf);
   return {
     source: layer.source,
-    frameByKind: { worker, carrier, single, couple, family, construction },
+    loopByKind: { worker, carrier, single, couple, family, construction },
     ...(garrison !== undefined ? { garrison } : {}),
   };
 }
@@ -192,15 +207,25 @@ function garrisonFrames(
   frameOf: (bob: number) => AtlasFrame | undefined,
 ): readonly (readonly AtlasFrame[])[] | undefined {
   if (bobs === undefined) return undefined;
-  const loops: AtlasFrame[][] = [];
+  const loops: (readonly AtlasFrame[])[] = [];
   for (const loop of bobs) {
-    const frames: AtlasFrame[] = [];
-    for (const bob of loop) {
-      const frame = frameOf(bob);
-      if (frame === undefined) return undefined;
-      frames.push(frame);
-    }
+    const frames = atlasFrames(loop, frameOf);
+    if (frames === undefined) return undefined;
     loops.push(frames);
   }
   return loops;
+}
+
+/** A bob list as atlas frames, or `undefined` when the loaded atlas is missing one (a stale `content/`). */
+function atlasFrames(
+  bobs: readonly number[],
+  frameOf: (bob: number) => AtlasFrame | undefined,
+): readonly AtlasFrame[] | undefined {
+  const frames: AtlasFrame[] = [];
+  for (const bob of bobs) {
+    const frame = frameOf(bob);
+    if (frame === undefined) return undefined;
+    frames.push(frame);
+  }
+  return frames;
 }

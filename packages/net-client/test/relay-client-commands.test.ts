@@ -177,6 +177,35 @@ describe('the outbox under the relay per-tick budget', () => {
     expect(commandsSent().map((message) => message.envelope)).toEqual([order(1)]);
     expect(observed.filter((message) => message.kind === 'rejected')).toEqual([]);
   });
+
+  it('holds an order given while disconnected for the world a return is served as a snapshot', async () => {
+    let connected = true;
+    const { client, commandsSent, observed } = await runningClient({ connected: () => connected });
+    connected = false;
+    client.submit(order(1));
+    connected = true;
+    client.hello();
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: RESTORED_TICK });
+    client.receive({ kind: 'blob', type: 'snapshot', from: 'Bartek', tick: RESTORED_TICK, bytes: 'AAAA' });
+    await client.settled();
+    applyNext(client, []);
+    expect(client.tick).toBe(RESTORED_TICK + 1);
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1)]);
+    expect(observed.filter((message) => message.kind === 'rejected')).toEqual([]);
+  });
+
+  it('drops the held orders of a room the client leaves', async () => {
+    let connected = true;
+    const { client, commandsSent } = await runningClient({ connected: () => connected });
+    connected = false;
+    client.submit(order(1));
+    client.receive({ kind: 'left' });
+    connected = true;
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    await client.settled();
+    applyNext(client, []);
+    expect(commandsSent()).toEqual([]);
+  });
 });
 
 describe('snapshot requests', () => {

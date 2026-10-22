@@ -362,6 +362,9 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.knownSnapshotTick = null;
         this.relayTickHeard = null;
         this.latency.forgetInFlight();
+        // Gestures held for this room's game would act on the next room's. A world dropped within
+        // the room keeps them for the one restored in its place, the same game further on.
+        this.outbox.clear();
         this.completion.clear();
         this.dropWorld();
         break;
@@ -652,8 +655,6 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     this.driver = null;
     this.transport = null;
     this.earlyFrames.length = 0;
-    // Gestures held for a world that is gone would act on the next one.
-    this.outbox.clear();
   }
 
   private heardRelayTick(tick: number): void {

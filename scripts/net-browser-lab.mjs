@@ -597,3 +597,6 @@ const summary = formatSummary(report);
 writeFileSync(join(logDir, 'summary.txt'), `${summary}\n`);
 console.log(`\n${summary}\nreport: ${outPath}`);
 process.exitCode = failures.length > 0 || !report.seats.kept ? 1 : 0;
+// A step that timed out can leave a page, socket or timer behind; the report is out, so end once
+// stdout drains (a pipe on macOS writes asynchronously).
+process.stdout.write('', () => process.exit());

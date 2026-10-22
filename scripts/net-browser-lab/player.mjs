@@ -65,8 +65,14 @@ function evaluate(page, fn, arg, what = 'page.evaluate') {
 /** A page in its own browser context, so its nick keeps its own reconnect token, recording its errors. */
 export async function openPlayer(browser, { nick, profile, log }) {
   const context = await browser.newContext({ viewport: VIEWPORT, locale: 'en-US' });
-  await skipOriginalGameGate(context);
-  const page = await context.newPage();
+  let page;
+  try {
+    await skipOriginalGameGate(context);
+    page = await context.newPage();
+  } catch (error) {
+    await context.close().catch(() => undefined);
+    throw error;
+  }
   const player = { nick, profile, context, page, errors: [], droppedErrors: 0, log };
   const record = (source, text) => {
     if (player.errors.length >= MAX_ERRORS) {

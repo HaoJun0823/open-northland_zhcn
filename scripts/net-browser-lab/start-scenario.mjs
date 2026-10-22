@@ -112,15 +112,22 @@ async function evaluate(page, fn, arg) {
 async function openRoom({ browser, servers, port, log, speed = 1, hiddenFromStart = () => false }) {
   const tap = await startRelayTap({ upstream: servers.relay, port });
   const players = [];
-  for (let index = 0; index < PLAYERS; index++) {
-    const player = await openPlayer(browser, { nick: playerNick(index), profile: null, log });
-    await player.page.addInitScript(instrument, { hiddenFromStart: hiddenFromStart(index) });
-    player.page.setDefaultTimeout(START_TIMEOUT_MS);
-    player.cdp = await player.context.newCDPSession(player.page);
-    await watchWorkers(player);
-    player.frozen = false;
-    player.timeline = [];
-    players.push(player);
+  try {
+    for (let index = 0; index < PLAYERS; index++) {
+      const player = await openPlayer(browser, { nick: playerNick(index), profile: null, log });
+      players.push(player);
+      await player.page.addInitScript(instrument, { hiddenFromStart: hiddenFromStart(index) });
+      player.page.setDefaultTimeout(START_TIMEOUT_MS);
+      player.cdp = await player.context.newCDPSession(player.page);
+      await watchWorkers(player);
+      player.frozen = false;
+      player.timeline = [];
+    }
+  } catch (error) {
+    // A listening tap would keep the lab's process alive past its report.
+    for (const player of players) await player.context.close().catch(() => undefined);
+    await tap.close();
+    throw error;
   }
   const room = { tap, players, roomId: null, sampler: null, opened: Date.now() };
   room.sampler = setInterval(() => void sampleAll(room), SAMPLE_MS);
@@ -440,15 +447,26 @@ export async function runStartScenarios({ browser, servers, port, map, cases, lo
     const run = CASES[name];
     if (run === undefined)
       throw new Error(`Unknown start case '${name}'; use ${START_CASE_NAMES.join(', ')}`);
+    if (!browser.isConnected()) {
+      log(`start case ${name} skipped: the browser is gone`);
+      break;
+    }
     log(`start case ${name}`);
-    const room = await openRoom({
-      browser,
-      servers,
-      port,
-      log,
-      speed: name === 'speed' ? SPEED : 1,
-      hiddenFromStart: (index) => name === 'noFrame' && index === ACTED_ON,
-    });
+    let room;
+    try {
+      room = await openRoom({
+        browser,
+        servers,
+        port,
+        log,
+        speed: name === 'speed' ? SPEED : 1,
+        hiddenFromStart: (index) => name === 'noFrame' && index === ACTED_ON,
+      });
+    } catch (error) {
+      results[name] = { error: `room not opened: ${error.message.split('\n')[0]}` };
+      log(`start case ${name}: ${results[name].error}`);
+      continue;
+    }
     let outcome;
     try {
       outcome = await run(room, { browser, servers, map, log });

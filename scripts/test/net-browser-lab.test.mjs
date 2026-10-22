@@ -85,6 +85,11 @@ test('the start summary gives each player its load, first acknowledgement and ru
   assert.doesNotMatch(text, /ab12cd34/);
 });
 
+test('the start summary keeps a case whose room never opened, with its error', () => {
+  const text = formatStartSummary({ reload: { error: 'room not opened: Target closed' } });
+  assert.match(text, /reload +\| error room not opened: Target closed/);
+});
+
 test('a creator lobby address carries a room speed other than 1', () => {
   const url = new URL(
     lobbyUrl(APP, { relay: RELAY, roomId: null, map: 'magiczny_las', players: 3, nick: 'Ania', speed: 3 }),

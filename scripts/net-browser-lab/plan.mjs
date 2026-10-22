@@ -310,7 +310,9 @@ export function formatStartSummary(start) {
       )
       .map(([key, value]) => `${key} ${typeof value === 'object' ? JSON.stringify(value) : value}`)
       .join(', ');
-    for (const [index, player] of (result.players ?? []).entries())
+    const players = result.players ?? [];
+    if (players.length === 0) lines.push(`${name.padEnd(14)} | ${figures}`);
+    for (const [index, player] of players.entries())
       lines.push(
         [
           (index === 0 ? name : '').padEnd(14),

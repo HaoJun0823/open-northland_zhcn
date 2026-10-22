@@ -9,7 +9,12 @@ import { isSynced, type Member } from './member.js';
 
 /** These are room pacing choices, independent of each member's existing command delivery budget. */
 const MANUAL_TICKS = { responsive: 1, balanced: 2, smooth: 3 } as const;
+/** How long a lower target must persist for each tick the reserve falls. */
 const LOWER_AFTER_MS = 10_000;
+/** How long a higher target must persist for each tick the reserve rises. A link sample arrives once
+ *  a second, so one late pong, whose share of the smoothed jitter fades over a few samples, lifts the
+ *  reserve by a tick or so instead of to the cap. */
+const RAISE_AFTER_MS = 1000;
 
 type MeasuredMember = Pick<
   Member,
@@ -35,6 +40,7 @@ export function automaticBufferTicks(members: Iterable<MeasuredMember>, speed: n
 export class Responsiveness {
   private state: ResponsivenessState = { mode: 'auto', bufferTicks: 2, by: null };
   private lowerSince: number | null = null;
+  private raiseSince: number | null = null;
 
   message(): Extract<ServerMessage, { kind: 'responsiveness' }> {
     return { kind: 'responsiveness', ...this.state };
@@ -44,28 +50,32 @@ export class Responsiveness {
     if (mode === this.state.mode) return false;
     this.state = { mode, bufferTicks: mode === 'auto' ? 2 : MANUAL_TICKS[mode], by };
     this.lowerSince = null;
+    this.raiseSince = null;
     return true;
   }
 
   observe(members: Iterable<MeasuredMember>, speed: number | null, now: number): boolean {
     if (this.state.mode !== 'auto' || speed === null) {
       this.lowerSince = null;
+      this.raiseSince = null;
       return false;
     }
     const target = automaticBufferTicks(members, speed);
-    if (target === this.state.bufferTicks) {
-      this.lowerSince = null;
-      return false;
-    }
-    if (target < this.state.bufferTicks) {
+    const raise = target > this.state.bufferTicks;
+    if (!raise) this.raiseSince = null;
+    if (target >= this.state.bufferTicks) this.lowerSince = null;
+    if (target === this.state.bufferTicks) return false;
+    if (raise) {
+      this.raiseSince ??= now;
+      if (now - this.raiseSince < RAISE_AFTER_MS) return false;
+      // The next tick up needs its own second of a higher target.
+      this.raiseSince = now;
+    } else {
       this.lowerSince ??= now;
       if (now - this.lowerSince < LOWER_AFTER_MS) return false;
+      this.lowerSince = null;
     }
-    this.state = {
-      ...this.state,
-      bufferTicks: target > this.state.bufferTicks ? target : this.state.bufferTicks - 1,
-    };
-    this.lowerSince = null;
+    this.state = { ...this.state, bufferTicks: this.state.bufferTicks + (raise ? 1 : -1) };
     return true;
   }
 }

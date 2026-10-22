@@ -1,4 +1,6 @@
+import { MAX_RESPONSIVENESS_BUFFER_TICKS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
+import { InputDelayEstimator } from '../src/relay/input-delay.js';
 import { createMember } from '../src/relay/member.js';
 import { automaticBufferTicks, Responsiveness } from '../src/relay/responsiveness.js';
 import { startedRoom, startingRoom, TOKEN_B } from './support/message-stage.js';
@@ -44,7 +46,7 @@ describe('room responsiveness policy', () => {
     expect(automaticBufferTicks([stable, recovering], 1)).toBe(1);
   });
 
-  it('raises immediately and lowers at most one tick per ten seconds of continuously calm running', () => {
+  it('moves one tick per second of a higher target and per ten seconds of a lower one', () => {
     const policy = new Responsiveness();
     const calm = [measured(120)];
     expect(policy.message()).toMatchObject({ mode: 'auto', bufferTicks: 2, by: null });
@@ -52,15 +54,62 @@ describe('room responsiveness policy', () => {
     expect(policy.observe(calm, 1, 9999)).toBe(false);
     expect(policy.observe(calm, 1, 10000)).toBe(true);
     expect(policy.message().bufferTicks).toBe(1);
-    expect(policy.observe([measured(100, 100)], 1, 10001)).toBe(true);
-    expect(policy.message().bufferTicks).toBe(3);
-    policy.observe(calm, 1, 11000);
-    expect(policy.observe(calm, 1, 21000)).toBe(true);
+    const erratic = [measured(100, 100)];
+    expect(policy.observe(erratic, 1, 10001)).toBe(false);
+    expect(policy.observe(erratic, 1, 11000)).toBe(false);
+    expect(policy.observe(erratic, 1, 11001)).toBe(true);
     expect(policy.message().bufferTicks).toBe(2);
-    policy.observe(calm, 1, 21001);
-    expect(policy.observe(calm, 1, 31000)).toBe(false);
-    expect(policy.observe(calm, 1, 31001)).toBe(true);
+    expect(policy.observe(erratic, 1, 12000)).toBe(false);
+    expect(policy.observe(erratic, 1, 12001)).toBe(true);
+    expect(policy.message().bufferTicks).toBe(3);
+    policy.observe(calm, 1, 13000);
+    expect(policy.observe(calm, 1, 23000)).toBe(true);
+    expect(policy.message().bufferTicks).toBe(2);
+    policy.observe(calm, 1, 23001);
+    expect(policy.observe(calm, 1, 33000)).toBe(false);
+    expect(policy.observe(calm, 1, 33001)).toBe(true);
   });
+
+  it.each([
+    { base: 120, late: 3000 },
+    { base: 300, late: 3000 },
+  ])(
+    'moves one tick for a single $late ms pong on a $base ms link and returns within the calm window',
+    ({ base, late }) => {
+      const SAMPLE_MS = 1000;
+      const STEADY_SAMPLES = 60;
+      const RECOVERY_LIMIT_MS = 40_000;
+      const OBSERVATIONS_PER_SAMPLE = 10;
+      const link = new InputDelayEstimator();
+      const policy = new Responsiveness();
+      let now = 0;
+      const second = () => {
+        for (let i = 0; i < OBSERVATIONS_PER_SAMPLE; i++) {
+          now += SAMPLE_MS / OBSERVATIONS_PER_SAMPLE;
+          policy.observe([measured(link.roundTripMs, link.jitterMs)], 1, now);
+        }
+      };
+      for (let i = 0; i < STEADY_SAMPLES; i++) {
+        link.sample(base);
+        second();
+      }
+      const steady = policy.message().bufferTicks;
+      link.sample(late);
+      const lateAt = now;
+      let peak = steady;
+      let settledAt = now;
+      while (now - lateAt < RECOVERY_LIMIT_MS) {
+        second();
+        link.sample(base);
+        const ticks = policy.message().bufferTicks;
+        peak = Math.max(peak, ticks);
+        if (ticks > steady) settledAt = now;
+      }
+      expect(peak).toBeLessThanOrEqual(steady + 1);
+      expect(policy.message().bufferTicks).toBe(steady);
+      expect(settledAt - lateAt).toBeLessThan(RECOVERY_LIMIT_MS / 2);
+    },
+  );
 
   it('does not count paused or held time as evidence for a smaller buffer', () => {
     const policy = new Responsiveness();
@@ -124,13 +173,22 @@ describe('shared responsiveness selection', () => {
     for (const peer of [s.a, s.b]) peer.send({ kind: 'pong', t: 1000 });
     expect(s.b.handle.member).toMatchObject({ linkMeasured: true, roundTripMs: 100, jitterMs: 0 });
     s.a.send({ kind: 'clock', speed: 8 });
-    s.advance(1000);
-    s.advance(100);
-    s.a.send({ kind: 'pong', t: 2100 });
-    s.advance(500);
-    s.b.send({ kind: 'pong', t: 2100 });
-    s.advance(1);
-    expect(s.a.last('responsiveness')).toMatchObject({ mode: 'auto', bufferTicks: 6 });
+    // Two rounds in which Bartek answers late raise his smoothed jitter.
+    for (let round = 0; round < 2; round++) {
+      s.advance(900);
+      const stamp = s.a.last('ping')?.t;
+      s.advance(100);
+      s.a.send({ kind: 'pong', t: stamp });
+      s.advance(500);
+      s.b.send({ kind: 'pong', t: stamp });
+      s.advance(1);
+    }
+    // The reserve climbs a tick per second of the higher target the faster clock asks for.
+    for (let step = 0; step < MAX_RESPONSIVENESS_BUFFER_TICKS; step++) s.advance(1000);
+    expect(s.a.last('responsiveness')).toMatchObject({
+      mode: 'auto',
+      bufferTicks: MAX_RESPONSIVENESS_BUFFER_TICKS,
+    });
     expect(s.b.last('responsiveness')).toEqual(s.a.last('responsiveness'));
     const back = s.introduce(TOKEN_B, 'Bartek');
     expect(back.handle.member).toMatchObject({ linkMeasured: false, jitterMs: 0 });

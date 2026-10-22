@@ -68,6 +68,7 @@ import { routeAhead } from '../fixtures/vehicle-route.js';
 // every other weapon.
 
 const VIKING = 1;
+const IDLE = 0;
 const SOLDIER = 31; // `soldier_unarmed`: a fighter trade, so it may crew the catapult
 const ARCHER = 40;
 const CATAPULT_JOB = 54;
@@ -1260,6 +1261,15 @@ describe('vehicles as targets', () => {
     expect(s.world.get(soldier, Engagement).target).toBe(cart);
   });
 
+  it('a fighter looking for an enemy takes a catapult ahead of a nearer civilian', () => {
+    const s = sim(grass(30, 10));
+    const soldier = fighterAt(s, 10, 8, P1);
+    fighterAt(s, 13, 8, P2, IDLE);
+    const catapult = catapultAt(s, 24, 8, P2);
+    combatSystem(s.world, ctxOf(s));
+    expect(s.world.get(soldier, Engagement).target).toBe(catapult);
+  });
+
   it("a trained swordsman's blow on a vehicle is the bare column, unraised by his experience", () => {
     const s = sim(grass(20, 6));
     const soldier = fighterAt(s, 6, 4, P1);
@@ -1302,7 +1312,7 @@ describe('vehicles as targets', () => {
 });
 
 describe('a besieger the catapult strikes', () => {
-  it('turns from the nearer house it holds on the catapult, which outranks it as a shooter', () => {
+  it('turns from the nearer house it holds on the catapult, which holds the first combat rank', () => {
     const s = sim(grass(30, 4));
     const house = houseAt(s, 2, 0, P2);
     const besieger = fighterAt(s, 4, 0, P1);

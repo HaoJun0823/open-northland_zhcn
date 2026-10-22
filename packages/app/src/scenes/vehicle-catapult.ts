@@ -57,6 +57,9 @@ const ENEMY_PICKET: readonly [number, number, number, number][] = [
   [JOB_ARCHER, WEAPON_SHORT_BOW, 9, 12],
   [JOB_SOLDIER_SWORD, WEAPON_SWORD, 13, 13],
 ];
+/** Enough to outlast the stones that land on the picket before the run ends, so the catapult's turn on it
+ *  is still in progress to check. */
+const PICKET_HITPOINTS = 100_000;
 /** After the commander has walked to the door and stepped in. */
 const ATTACK_ORDER_TICK = 40;
 /** Claims a position no session transport hands out for that tick. */
@@ -79,7 +82,7 @@ function build(sim: Simulation): void {
   if (wood === undefined) throw new Error('vehicle-catapult: no wood gatherer spec');
   for (const [x, y] of HUT_GROVE) placeResourceNode(sim, wood, x, y);
   for (const [job, weaponTypeId, x, y] of ENEMY_PICKET) {
-    spawnSandboxSettler(sim, job, x, y, ENEMY_PLAYER, { weaponTypeId });
+    spawnSandboxSettler(sim, job, x, y, ENEMY_PLAYER, { weaponTypeId, hitpoints: PICKET_HITPOINTS });
   }
   sim.enqueueAt(
     playerCommand(HUMAN_PLAYER, {

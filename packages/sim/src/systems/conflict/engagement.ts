@@ -521,8 +521,9 @@ const PICK_SPREAD_NODES = 3;
 
 type PickTier = (world: World, ctx: SystemContext, index: CombatIndex, t: Entity) => boolean;
 
-/** Owner rule: fighters, towers and firing buildings share the first tier. Remaining tiers preserve the original's
- *  approximate ordering: military buildings, wildlife, other people, vehicles, then other buildings. */
+/** The first tier is the first combat priority ({@link isPriorityCombatTarget}). Remaining tiers preserve the
+ *  original's approximate ordering: military buildings, wildlife, other people, unarmed vehicles, then other
+ *  buildings. */
 const PICK_TIERS: readonly PickTier[] = [
   (world, ctx, index, t) => isPriorityCombatTarget(world, ctx, t, index.firingNow),
   (world, _ctx, index, t) => world.has(t, Building) && !index.isLowPriorityBuilding(t),

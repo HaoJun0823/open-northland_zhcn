@@ -177,7 +177,10 @@ export function isFighterTarget(world: World, ctx: SystemContext, t: Entity): bo
   return world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType);
 }
 
-/** Owner rule: fighters, towers and actively defending buildings share the first combat priority. */
+/** Fighters, armed vehicles, towers and actively defending buildings share the first combat priority.
+ *  Original behavior: a fighter's first scan takes soldiers and heroes, then catapults, crewed or not, then
+ *  headquarters and towers. Owner rule: fighters and towers rank equal. Approximation: an armed vehicle,
+ *  ranked between them, joins them, and the headquarters stays in the pick's next tier. */
 export function isPriorityCombatTarget(
   world: World,
   ctx: SystemContext,
@@ -185,6 +188,8 @@ export function isPriorityCombatTarget(
   firing: () => ReadonlySet<Entity>,
 ): boolean {
   if (isFighterTarget(world, ctx, t)) return true;
+  const vehicle = world.tryGet(t, Vehicle);
+  if (vehicle !== undefined) return vehicleWeapon(ctx, vehicle) !== null;
   const building = world.tryGet(t, Building);
   return (
     building !== undefined && (buildingCombatClass(ctx, building.buildingType) === 'tower' || firing().has(t))
@@ -203,25 +208,18 @@ export function turnsAsideUnder(
   return order.breach === undefined && !isPriorityCombatTarget(world, ctx, order.target, firing);
 }
 
-/** How a fighter ranks the enemies it may turn between, first rank first: fighters, towers and firing buildings,
- * then armed vehicles, then anything else. No retarget leaves a target for one of a lower rank. */
-export const STRIKE_RANK = { COMBAT: 0, SHOOTER: 1, OTHER: 2 } as const;
+/** How a fighter ranks the enemies it may turn between, first rank first: the first combat priority
+ *  ({@link isPriorityCombatTarget}), then anything else. No retarget leaves a target for one of a lower rank. */
+export const STRIKE_RANK = { COMBAT: 0, OTHER: 1 } as const;
 export type StrikeRank = (typeof STRIKE_RANK)[keyof typeof STRIKE_RANK];
 
-/** The combat rank reads the shared firing set only for a non-tower building. Armed vehicles hold the
- * second tier, crewed or not, as a fleer runs from one ({@link isFleeThreat}). */
 export function strikeRank(
   world: World,
   ctx: SystemContext,
   t: Entity,
   firing: () => ReadonlySet<Entity>,
 ): StrikeRank {
-  if (isPriorityCombatTarget(world, ctx, t, firing)) return STRIKE_RANK.COMBAT;
-  if (world.has(t, Building)) return STRIKE_RANK.OTHER;
-  const vehicle = world.tryGet(t, Vehicle);
-  return vehicle !== undefined && vehicleWeapon(ctx, vehicle) !== null
-    ? STRIKE_RANK.SHOOTER
-    : STRIKE_RANK.OTHER;
+  return isPriorityCombatTarget(world, ctx, t, firing) ? STRIKE_RANK.COMBAT : STRIKE_RANK.OTHER;
 }
 
 /** Whether `t` is a live target this attacker may swing at - a positioned, `Health`-bearing enemy settler,

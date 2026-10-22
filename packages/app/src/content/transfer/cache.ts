@@ -40,7 +40,7 @@ export function createMapCache(storage: MapCacheStorage, now: () => number = Dat
         const bytes = await storage.read(entry.key);
         if (typeof bytes !== 'string' || bytes.length !== entry.size) continue;
         try {
-          const handle = decodeMapTransfer(bytes, {
+          const handle = await decodeMapTransfer(bytes, {
             mapId,
             fingerprint: entry.fingerprint,
             provenance: { kind: entry.origin },
@@ -53,8 +53,9 @@ export function createMapCache(storage: MapCacheStorage, now: () => number = Dat
       }
       return null;
     },
-    async write(handle: VerifiedMapDocuments, origin: DeliverableMapOrigin): Promise<void> {
-      const bytes = encodeMapTransfer(handle, { kind: origin });
+    /** `encoded` is the transfer text `handle` was decoded from, kept instead of encoding it again. */
+    async write(handle: VerifiedMapDocuments, origin: DeliverableMapOrigin, encoded?: string): Promise<void> {
+      const bytes = encoded ?? (await encodeMapTransfer(handle, { kind: origin }));
       await storage.write(
         {
           key: `${handle.mapId}:${handle.fingerprint}:${origin}`,
@@ -84,9 +85,10 @@ export async function loadPersistedMap(
 export async function persistVerifiedMap(
   handle: VerifiedMapDocuments,
   origin: DeliverableMapOrigin,
+  encoded?: string,
 ): Promise<void> {
   try {
-    await browserCache.write(handle, origin);
+    await browserCache.write(handle, origin, encoded);
   } catch (error) {
     diag.warn('content', 'Map cache could not retain downloaded map', { error: String(error) });
   }

@@ -47,10 +47,19 @@ export async function decodeSnapshot(
   bytes: string,
   maxDecodedBytes = MAX_DECODED_SNAPSHOT_BYTES,
 ): Promise<SaveGame> {
-  const compressed = base64ToBytes(bytes);
-  const declared = declaredInflatedSize(compressed);
-  if (declared > maxDecodedBytes) throw new Error(`snapshot inflates past ${maxDecodedBytes} bytes`);
-  return parseSaveGame(JSON.parse(await gunzipText(compressed, maxDecodedBytes)));
+  return parseSaveGame(JSON.parse(await inflateText(base64ToBytes(bytes), maxDecodedBytes, 'snapshot')));
+}
+
+/** The UTF-8 text of a peer's gzip stream, refused past `maxDecodedBytes` before and while inflating;
+ *  `what` names the payload in the refusal. */
+export async function inflateText(
+  compressed: Uint8Array<ArrayBuffer>,
+  maxDecodedBytes: number,
+  what: string,
+): Promise<string> {
+  if (declaredInflatedSize(compressed) > maxDecodedBytes)
+    throw new Error(`${what} inflates past ${maxDecodedBytes} bytes`);
+  return gunzipText(compressed, maxDecodedBytes, what);
 }
 
 /** The size the gzip trailer declares; a lie is still caught while inflating, this only refuses the
@@ -68,12 +77,16 @@ function streamOf(body: string | Uint8Array<ArrayBuffer>): ReadableStream<Uint8A
   return stream;
 }
 
-async function gzipText(text: string): Promise<Uint8Array<ArrayBuffer>> {
+export async function gzipText(text: string): Promise<Uint8Array<ArrayBuffer>> {
   const compressed = streamOf(text).pipeThrough(new CompressionStream('gzip'));
   return new Uint8Array(await new Response(compressed).arrayBuffer());
 }
 
-async function gunzipText(bytes: Uint8Array<ArrayBuffer>, maxDecodedBytes: number): Promise<string> {
+async function gunzipText(
+  bytes: Uint8Array<ArrayBuffer>,
+  maxDecodedBytes: number,
+  what: string,
+): Promise<string> {
   const reader = streamOf(bytes).pipeThrough(new DecompressionStream('gzip')).getReader();
   const decoder = new TextDecoder('utf-8', { fatal: true });
   const chunks: string[] = [];
@@ -83,7 +96,7 @@ async function gunzipText(bytes: Uint8Array<ArrayBuffer>, maxDecodedBytes: numbe
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > maxDecodedBytes) throw new Error(`snapshot inflates past ${maxDecodedBytes} bytes`);
+      if (total > maxDecodedBytes) throw new Error(`${what} inflates past ${maxDecodedBytes} bytes`);
       chunks.push(decoder.decode(value, { stream: true }));
     }
     chunks.push(decoder.decode());

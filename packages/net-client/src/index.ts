@@ -28,4 +28,6 @@ export {
   type CompressedSave,
   decodeSnapshot,
   encodeSnapshot,
+  gzipText,
+  inflateText,
 } from './snapshot-codec.js';

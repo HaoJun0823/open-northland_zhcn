@@ -40,7 +40,9 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
   let locallyListed = false;
   let loaded = false;
   let loading = false;
-  let encodedMap: string | undefined;
+  let encodedMap: Promise<string> | undefined;
+  /** The generation whose delivered blob is still decoding, so a retry's second copy is ignored. */
+  let decodingGeneration: number | null = null;
   let cacheFingerprint: string | null = null;
   let requested = false;
   let disposed = false;
@@ -92,12 +94,25 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
     }
     if (documents.fingerprint !== expectedFingerprint()) return;
     encodedMap ??= encodeMapTransfer(documents, { kind: deliveryOrigin });
-    options.client.sendBlob({
-      type: 'map',
-      to: nick,
-      tick: null,
-      bytes: encodedMap,
-    });
+    const active = generation;
+    const encoded = documents;
+    encodedMap.then(
+      (bytes) => {
+        const current = room;
+        if (
+          disposed ||
+          generation !== active ||
+          documents !== encoded ||
+          current?.state !== 'lobby' ||
+          !current.members.some((member) => member.nick === nick && member.connected)
+        )
+          return;
+        options.client.sendBlob({ type: 'map', to: nick, tick: null, bytes });
+      },
+      (error: unknown) => {
+        if (!disposed && generation === active) reportError(error);
+      },
+    );
   }
   function flushPending() {
     if (documents === null || documents.fingerprint !== expectedFingerprint()) return;
@@ -254,27 +269,36 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
         }
         if (message.kind !== 'blob' || message.type !== 'map') return;
         // A retry can leave two responses in flight; the already verified documents remain authoritative.
-        if (documents !== null || !loaded || !requested) return;
+        if (documents !== null || decodingGeneration === generation || !loaded || !requested) return;
         if (message.from !== room.creator || message.tick !== null || room.settings.world.kind !== 'map')
           throw new Error('Unexpected map delivery');
         const fingerprint = expectedFingerprint();
-        if (fingerprint === null || (locallyListed && !mapDeliveryAllowed(origin)))
+        const allowedOrigin = room.settings.mapOrigin;
+        if (
+          fingerprint === null ||
+          allowedOrigin === undefined ||
+          (locallyListed && !mapDeliveryAllowed(origin))
+        )
           throw new Error('Map delivery is not authorized');
-        const handle = decodeMapTransfer(message.bytes, {
+        const active = generation;
+        const current = () => !disposed && generation === active;
+        decodingGeneration = active;
+        void decodeMapTransfer(message.bytes, {
           mapId: room.settings.world.mapId,
           fingerprint,
-          provenance: { kind: room.settings.mapOrigin ?? 'unknown' },
-        });
-        documents = handle;
-        const active = generation;
-        const allowedOrigin = room.settings.mapOrigin;
-        if (allowedOrigin === undefined) throw new Error('Map delivery is not authorized');
-        void (options.cacheWrite ?? persistVerifiedMap)(handle, allowedOrigin)
-          .then(() => {
-            if (!disposed && generation === active && documents === handle) options.onVerified(handle);
+          provenance: { kind: allowedOrigin },
+        })
+          .then(async (handle) => {
+            if (!current() || documents !== null) return;
+            documents = handle;
+            await (options.cacheWrite ?? persistVerifiedMap)(handle, allowedOrigin, message.bytes);
+            if (current() && documents === handle) options.onVerified(handle);
           })
-          .catch((error) => {
-            if (!disposed && generation === active) reportError(error);
+          .catch((error: unknown) => {
+            if (current()) reportError(error);
+          })
+          .finally(() => {
+            if (decodingGeneration === active) decodingGeneration = null;
           });
       } catch (error) {
         reportError(error);

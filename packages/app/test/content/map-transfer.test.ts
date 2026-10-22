@@ -23,7 +23,7 @@ describe.runIf(hasRealIr())('verified map transfer with owned content', () => {
       JSON.parse(readFileSync(realMapPath(mapId), 'utf8')),
       JSON.parse(readFileSync(realMapPath(mapId).replace(/\.json$/, '.script.json'), 'utf8')),
     );
-    const guest = decodeMapTransfer(encodeMapTransfer(source, { kind: 'mod' }), {
+    const guest = await decodeMapTransfer(await encodeMapTransfer(source, { kind: 'mod' }), {
       mapId,
       fingerprint: source.fingerprint,
       provenance: { kind: 'mod' },

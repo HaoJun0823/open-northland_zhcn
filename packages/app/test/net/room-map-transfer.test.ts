@@ -92,7 +92,7 @@ const blob = {
   type: 'map',
   from: 'Host',
   tick: null,
-  bytes: encodeMapTransfer(handle, { kind: 'user' }),
+  bytes: await encodeMapTransfer(handle, { kind: 'user' }),
 } as const;
 
 it('requests a missing user map and retains only creator-verified bytes', async () => {
@@ -103,7 +103,7 @@ it('requests a missing user map and retains only creator-verified bytes', async 
   expect(s.transfer.verified()).toBeNull();
   expect(s.onError).toHaveBeenCalledOnce();
   s.transfer.observeBlob(blob);
-  expect(s.transfer.verified()?.fingerprint).toBe(handle.fingerprint);
+  await vi.waitFor(() => expect(s.transfer.verified()?.fingerprint).toBe(handle.fingerprint));
   await vi.waitFor(() => expect(s.onVerified).toHaveBeenLastCalledWith(s.transfer.verified()));
   s.transfer.observeBlob(blob);
   expect(s.onError).toHaveBeenCalledOnce();
@@ -122,10 +122,11 @@ it('never requests missing maps with unknown room origin and retries corrupt del
   await vi.waitFor(() => expect(s.client.requestMap).toHaveBeenCalledOnce());
   s.transfer.observeBlob({ ...blob, bytes: 'bad' });
   expect(s.transfer.verified()).toBeNull();
+  await vi.waitFor(() => expect(s.onError).toHaveBeenCalledOnce());
   s.transfer.retry();
   await vi.waitFor(() => expect(s.client.requestMap).toHaveBeenCalledTimes(2));
   s.transfer.observeBlob(blob);
-  expect(s.transfer.verified()).not.toBeNull();
+  await vi.waitFor(() => expect(s.transfer.verified()).not.toBeNull());
   s.transfer.dispose();
 });
 it('creator sends retained local documents only when the local catalog permits delivery', async () => {
@@ -133,8 +134,13 @@ it('creator sends retained local documents only when the local catalog permits d
   s.transfer.observe(room());
   await vi.waitFor(() => expect(s.onVerified).toHaveBeenCalled());
   s.transfer.observeBlob({ kind: 'mapRequest', from: 'Guest' });
-  expect(s.client.sendBlob).toHaveBeenCalledWith(
-    expect.objectContaining({ type: 'map', to: 'Guest', tick: null }),
+  await vi.waitFor(() =>
+    expect(s.client.sendBlob).toHaveBeenCalledWith({
+      type: 'map',
+      to: 'Guest',
+      tick: null,
+      bytes: blob.bytes,
+    }),
   );
   s.transfer.dispose();
   const denied = setup(true, 'Host', transport(true, 'unknown'));
@@ -211,17 +217,20 @@ it('waits for persistence before readiness and drops late persistence completion
   const onVerified = vi.fn();
   const onError = vi.fn();
   const client = { nick: 'Guest', sendBlob: vi.fn(), requestMap: vi.fn() };
+  const cacheWrite = vi.fn(async () => saved);
   const transfer = createRoomMapTransfer({
     client,
     onVerified,
     onError,
     fetchImpl: transport(false),
     cacheRead: async () => null,
-    cacheWrite: async () => saved,
+    cacheWrite,
   });
   transfer.observe(room());
   await vi.waitFor(() => expect(client.requestMap).toHaveBeenCalled());
   transfer.observeBlob(blob);
+  // The delivered text is persisted as it arrived, not encoded a second time.
+  await vi.waitFor(() => expect(cacheWrite).toHaveBeenCalledWith(transfer.verified(), 'user', blob.bytes));
   expect(onVerified).toHaveBeenLastCalledWith(null);
   transfer.observe(null);
   finish();

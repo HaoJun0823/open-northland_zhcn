@@ -10,7 +10,7 @@ import { buildMapWorld } from '../../src/entries/map/world.js';
 import { AUTHORED_ENTITIES, AUTHORED_ROWS } from '../support/authored-entities.js';
 import { authoredMapFile } from '../support/world-maps.js';
 
-it('boots transferred authored map and roster with the same initial and future world hashes', () => {
+it('boots transferred authored map and roster with the same initial and future world hashes', async () => {
   const source = verifyMapDocuments('island', authoredMapFile(AUTHORED_ENTITIES), {
     players: [
       { player: 0, type: 'human', tribeId: 1, colorId: 2 },
@@ -18,7 +18,7 @@ it('boots transferred authored map and roster with the same initial and future w
     ],
     diplomacy: [{ from: 0, to: 1, state: 'friend' }],
   });
-  const received = decodeMapTransfer(encodeMapTransfer(source, { kind: 'user' }), {
+  const received = await decodeMapTransfer(await encodeMapTransfer(source, { kind: 'user' }), {
     mapId: 'island',
     fingerprint: source.fingerprint,
     provenance: { kind: 'user' },

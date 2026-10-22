@@ -12,7 +12,16 @@ interface Documents {
   readonly map: unknown;
   readonly script: unknown;
 }
-const retained = new WeakMap<VerifiedMapDocuments, Documents>();
+/** The boot inputs parsed from the documents, shared by every reader of one verified handle. */
+interface ParsedDocuments {
+  readonly map: ReturnType<typeof parseTerrainMap>;
+  readonly script: ReturnType<typeof MapScript.parse> | null;
+}
+interface Retained {
+  readonly raw: Documents;
+  readonly parsed: ParsedDocuments;
+}
+const retained = new WeakMap<VerifiedMapDocuments, Retained>();
 
 /** A map id names a file on every peer, so it is one plain ASCII token. */
 export function isMapId(mapId: string): boolean {
@@ -21,6 +30,14 @@ export function isMapId(mapId: string): boolean {
 
 export function validMapId(mapId: string): void {
   if (!isMapId(mapId)) throw new Error('Invalid lobby map id');
+}
+
+/** Frozen through, so no reader of a shared parse can change what the next one boots from. */
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  for (const child of Object.values(value)) deepFreeze(child);
+  return value;
 }
 
 /** Own the exact raw documents whose fingerprint was verified, including unknown script fields. */
@@ -33,28 +50,34 @@ export function verifyMapDocuments(mapId: string, map: unknown, script: unknown)
   ) {
     throw new Error('Map documents exceed local size limit');
   }
-  const owned: Documents = JSON.parse(text);
-  parseTerrainMap(owned.map);
-  if (owned.script !== null) MapScript.parse(owned.script);
-  const handle = Object.freeze({ mapId, fingerprint: mapDocumentsFingerprint(owned) });
-  retained.set(handle, owned);
+  const raw: Documents = JSON.parse(text);
+  const parsed = deepFreeze({
+    map: parseTerrainMap(raw.map),
+    script: raw.script === null ? null : MapScript.parse(raw.script),
+  });
+  const handle = Object.freeze({ mapId, fingerprint: mapDocumentsFingerprint(raw) });
+  retained.set(handle, { raw, parsed });
   return handle;
 }
 
-export function rawVerifiedMapDocuments(handle: VerifiedMapDocuments): Documents {
+function retainedOf(handle: VerifiedMapDocuments): Retained {
   const value = retained.get(handle);
   if (value === undefined) throw new Error('Unverified map documents');
-  return structuredClone(value);
+  return value;
 }
 
-export function readVerifiedMapDocuments(handle: VerifiedMapDocuments, mapId: string = handle.mapId) {
+/** The verified raw documents themselves, for the transfer envelope to serialize; never mutate them. */
+export function rawVerifiedMapDocuments(handle: VerifiedMapDocuments): Documents {
+  return retainedOf(handle).raw;
+}
+
+/** The boot inputs, parsed once at verification and frozen. */
+export function readVerifiedMapDocuments(
+  handle: VerifiedMapDocuments,
+  mapId: string = handle.mapId,
+): ParsedDocuments {
   if (handle.mapId !== mapId) throw new Error('Verified map does not match boot map');
-  const value = retained.get(handle);
-  if (value === undefined) throw new Error('Unverified map documents');
-  return {
-    map: parseTerrainMap(value.map),
-    script: value.script === null ? null : MapScript.parse(value.script),
-  };
+  return retainedOf(handle).parsed;
 }
 
 async function readDocument(path: string, fetchImpl: typeof fetch): Promise<unknown> {

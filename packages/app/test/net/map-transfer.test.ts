@@ -30,10 +30,16 @@ describe('verified map documents and bounded transfer', () => {
     const source = verifyMapDocuments('island', map, null);
     map.typeIds[0] = 20;
     const first = readVerifiedMapDocuments(source);
-    first.map.typeIds[0] = 10;
+    expect(() => {
+      first.map.typeIds[0] = 10;
+    }).toThrow(TypeError);
     expect(readVerifiedMapDocuments(source).map.typeIds).toEqual([0]);
     expect(readVerifiedMapDocuments(source).script).toBeNull();
     expect(() => readVerifiedMapDocuments({ ...source })).toThrow('Unverified');
+  });
+  it('parses the boot inputs once per verified handle', () => {
+    const source = handle();
+    expect(readVerifiedMapDocuments(source)).toBe(readVerifiedMapDocuments(source));
   });
   it('rejects an unknown origin, a wrong room, corruption, malformed scripts, and extra envelope keys', () => {
     const blob = encodeMapTransfer(handle(), origin);

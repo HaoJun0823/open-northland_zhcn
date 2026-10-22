@@ -11,7 +11,14 @@ import {
   type SoundIndex,
   WORLD_VOICE_CAP,
 } from '../src/index.js';
-import { FakeContext, type FakeGain, type FakeNode, type FakeSource, flush } from './helpers/fake-audio.js';
+import {
+  FakeContext,
+  type FakeGain,
+  type FakeNode,
+  type FakeSource,
+  flush,
+  servingSoundBanks,
+} from './helpers/fake-audio.js';
 
 /**
  * The arbiter's playback seam through the driver: the arbiter reads each wav's decoded length from the
@@ -77,7 +84,7 @@ function makeDriver(clipSeconds: number): { readonly driver: SoundDriver; readon
   const ctx = new FakeContext();
   const driver = new SoundDriver(index, defaultBindings(), {
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async () => new ArrayBuffer(clipSeconds),
+    fetchBytes: servingSoundBanks(async () => new ArrayBuffer(clipSeconds)),
     random: () => 0,
   });
   return { driver, ctx };

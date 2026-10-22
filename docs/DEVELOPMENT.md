@@ -136,6 +136,9 @@ built and versioned independently. Its initial base derives from CnMod 1.3.2;
 readable rules and community maps use the pack layout documented in the contract. Pack construction
 removes tools and unrelated files before publication.
 
+The sound stage encodes every clip twice through ffmpeg, losslessly as FLAC and compactly as Ogg
+Opus, so the pipeline needs an `ffmpeg` built with libopus on `PATH`, or its path in `ON_FFMPEG`.
+
 The music stage renders the DirectMusic soundtrack (`DataX/DM2`, included in the pack) to one ogg
 track per segment entirely in Node: segment interpretation, DLS synthesis, reverb, and ogg encoding
 all run from npm dependencies, with no native toolchain. Without `DataX/DM2` the stage is skipped

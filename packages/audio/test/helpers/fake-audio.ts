@@ -1,3 +1,5 @@
+import { SOUND_BANKS_FILE, SOUND_BANKS_VERSION, type SoundBanksDocument } from '@open-northland/data';
+import type { FetchBytes } from '../../src/web/platform.js';
 /**
  * A minimal fake Web Audio context for exercising the impure `web/` layer headless through the
  * engine's injected `createContext`/`fetchBytes` seams. It records graph topology (what connected to
@@ -214,3 +216,21 @@ export class FakeContext {
 
 /** Let the load→decode→play promise chain settle. */
 export const flush = (): Promise<unknown> => new Promise((r) => setTimeout(r, 0));
+
+/** A sound tree that serves no banks: every clip loads from its own file, `.flac` in place of `.wav`. */
+export const NO_SOUND_BANKS: SoundBanksDocument = {
+  version: SOUND_BANKS_VERSION,
+  extensions: { lossless: 'flac', compact: 'ogg' },
+  clips: {},
+};
+
+/** `fetchBytes` behind a sound tree's `banks.json`, which answers `banks` and leaves every other URL
+ *  to `fetchBytes`. */
+export function servingSoundBanks(
+  fetchBytes: FetchBytes,
+  banks: SoundBanksDocument = NO_SOUND_BANKS,
+): FetchBytes {
+  const index = new TextEncoder().encode(JSON.stringify(banks));
+  return (url) =>
+    url.endsWith(`/${SOUND_BANKS_FILE}`) ? Promise.resolve(index.slice().buffer) : fetchBytes(url);
+}

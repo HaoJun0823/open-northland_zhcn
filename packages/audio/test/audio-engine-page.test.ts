@@ -9,7 +9,7 @@ import {
   volumeGain,
   WebAudioEngine,
 } from '../src/index.js';
-import { FakeContext } from './helpers/fake-audio.js';
+import { FakeContext, servingSoundBanks } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /**
@@ -28,10 +28,10 @@ function makeEngine(): {
   const clock = { ms: 0 };
   const engine = new WebAudioEngine({
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async (url) => {
+    fetchBytes: servingSoundBanks(async (url) => {
       fetched.push(url);
       return new ArrayBuffer(4);
-    },
+    }),
     now: () => clock.ms,
   });
   return { engine, ctx, fetched, clock };
@@ -45,7 +45,7 @@ describe('WebAudioEngine preload', () => {
     expect(fetched).toEqual([]);
     await engine.resume();
     const report = await done;
-    expect(fetched).toEqual(['/sounds/gui/click.wav']);
+    expect(fetched).toEqual(['/sounds/gui/click.flac']);
     expect(report?.decoded).toBe(1);
   });
 
@@ -62,10 +62,10 @@ describe('WebAudioEngine preload', () => {
     const held: Array<() => void> = [];
     const engine = new WebAudioEngine({
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => {
+      fetchBytes: servingSoundBanks(async () => {
         await new Promise<void>((release) => held.push(release));
         return new ArrayBuffer(4);
-      },
+      }),
     });
     const files = Array.from({ length: PRELOAD_CONCURRENCY * 3 }, (_, i) => ({
       file: `talk-${i}.wav`,

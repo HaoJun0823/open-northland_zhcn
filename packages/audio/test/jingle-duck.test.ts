@@ -28,7 +28,7 @@ import {
   OneShotArbiter,
   WebAudioEngine,
 } from '../src/index.js';
-import { FakeContext, flush } from './helpers/fake-audio.js';
+import { FakeContext, flush, servingSoundBanks } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /** How deep a jingle dips the music: by its rank, scaled by the share it rings at, and not at all for a
@@ -137,7 +137,7 @@ describe('jingle duck depth', () => {
     const ctx = new FakeContext();
     const engine = new WebAudioEngine({
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => new ArrayBuffer(4),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(4)),
     });
     await engine.resume();
     const { duck } = mixerGraph(ctx);

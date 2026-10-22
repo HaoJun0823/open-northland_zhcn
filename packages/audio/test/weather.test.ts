@@ -26,6 +26,7 @@ import {
   FakePanner,
   FakeShaper,
   type FakeSource,
+  servingSoundBanks,
 } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
@@ -391,7 +392,7 @@ describe('WebAudioEngine weather', () => {
     const ctx = new FakeContext();
     const engine = new WebAudioEngine({
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => new ArrayBuffer(4),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(4)),
     });
     const rain = conditions({ amounts: { ...DRY, rain: 0.3 } });
     engine.applyWeather(rain, 0);

@@ -1,3 +1,4 @@
+import { soundClipPath } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   BUS_PREVIEWS,
@@ -9,7 +10,15 @@ import {
   SoundDriver,
   shotPerspectiveLayer,
 } from '../src/index.js';
-import { FakeContext, type FakeGain, type FakePanner, type FakeSource, flush } from './helpers/fake-audio.js';
+import {
+  FakeContext,
+  type FakeGain,
+  type FakePanner,
+  type FakeSource,
+  flush,
+  NO_SOUND_BANKS,
+  servingSoundBanks,
+} from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /** A settings slider's test button plays one short clip on its own bus. */
@@ -41,10 +50,10 @@ describe('bus preview', () => {
     );
     const driver = new SoundDriver(index, defaultBindings(), {
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async (url) => {
+      fetchBytes: servingSoundBanks(async (url) => {
         fetched.push(url);
         return new ArrayBuffer(1);
-      },
+      }),
     });
     driver.previewBus('world');
     await flush();
@@ -53,7 +62,7 @@ describe('bus preview', () => {
     driver.previewBus('world');
     driver.previewBus('music');
     await flush();
-    const world = BUS_PREVIEWS.world?.files[0] ?? '';
+    const world = soundClipPath(BUS_PREVIEWS.world?.files[0] ?? '', NO_SOUND_BANKS.extensions.lossless);
     expect(fetched.filter((url) => url.endsWith(world))).toHaveLength(1);
     expect(ctx.sources).toHaveLength(1);
     const source = ctx.sources[0] as FakeSource;

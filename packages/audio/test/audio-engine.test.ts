@@ -29,6 +29,7 @@ import {
   type FakePanner,
   type FakeSource,
   flush,
+  servingSoundBanks,
 } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
@@ -53,11 +54,11 @@ function makeEngine(opts: { failFetch?: boolean; noPanner?: boolean; random?: ()
   const fetched: string[] = [];
   const engine = new WebAudioEngine({
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async (url) => {
+    fetchBytes: servingSoundBanks(async (url) => {
       fetched.push(url);
       if (opts.failFetch) throw new Error('missing wav');
       return new ArrayBuffer(4);
-    },
+    }),
     ...(opts.random !== undefined ? { random: opts.random } : {}),
   });
   return { engine, ctx, fetched };
@@ -83,7 +84,7 @@ describe('WebAudioEngine one-shots', () => {
     expect(engine.started).toBe(true);
     engine.apply({ oneShots: [shot()], ambient: [] });
     await flush();
-    expect(fetched).toEqual(['/sounds/sfx/hammer.wav']);
+    expect(fetched).toEqual(['/sounds/sfx/hammer.flac']);
     expect(ctx.sources).toHaveLength(1);
     const source = ctx.sources[0] as FakeSource;
     expect(source.started).toBe(true);
@@ -214,7 +215,7 @@ describe('WebAudioEngine one-shots', () => {
     engine.apply({ oneShots: [shot({ files: ['a.wav', 'b.wav'] })], ambient: [] });
     await flush();
     expect(ctx.sources).toHaveLength(3);
-    expect(fetched).toEqual(['/sounds/sfx/hammer.wav', '/sounds/a.wav']);
+    expect(fetched).toEqual(['/sounds/sfx/hammer.flac', '/sounds/a.flac']);
   });
 
   it('plays a shot at the rate the arbiter gave it, and at the recorded rate without one', async () => {

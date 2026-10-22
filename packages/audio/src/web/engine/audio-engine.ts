@@ -1,3 +1,4 @@
+import type { SoundQuality } from '@open-northland/data';
 import { JINGLE_DUCK_FULL_DB } from '../../data/bindings.js';
 import {
   clampVolume,
@@ -37,7 +38,12 @@ import { BusDuck, type DuckHold } from './bus-duck.js';
 import { MusicPlayer } from './music-player.js';
 import { NARRATION_IDLE, Narration, type NarrationCue, type NarrationState } from './narration.js';
 import { CLICK_FREE_RAMP_S, rampParam } from './ramps.js';
-import { type PreloadSample, SampleCache, type SamplePreloadReport } from './sample-cache.js';
+import {
+  DEFAULT_SOUND_QUALITY,
+  type PreloadSample,
+  SampleCache,
+  type SamplePreloadReport,
+} from './sample-cache.js';
 import { WeatherSoundscape } from './weather-soundscape.js';
 
 /**
@@ -66,8 +72,10 @@ export interface SoundPreloadReport extends SamplePreloadReport {
 
 /** Options for {@link WebAudioEngine}. Platform seams default to the real browser behaviour. */
 export interface AudioEngineOptions {
-  /** URL prefix the wav files are served under (a file path is appended). Default {@link DEFAULT_SOUNDS_BASE_URL}. */
+  /** URL prefix the sound tree is served under (a clip or bank path is appended). Default {@link DEFAULT_SOUNDS_BASE_URL}. */
   readonly baseUrl?: string;
+  /** Which encoding of the sound clips to fetch. Default {@link DEFAULT_SOUND_QUALITY}. */
+  readonly soundQuality?: SoundQuality;
   /** URL prefix the rendered music files are served under. Default {@link DEFAULT_MUSIC_BASE_URL}. */
   readonly musicBaseUrl?: string;
   /** Initial slider positions. Default {@link DEFAULT_VOLUMES}. */
@@ -83,7 +91,7 @@ export interface AudioEngineOptions {
   readonly random?: RandomFn;
 }
 
-/** URL prefix of the content tree's decoded wavs; every host serves the tree at the root. */
+/** URL prefix of the content tree's encoded sound clips; every host serves the tree at the root. */
 export const DEFAULT_SOUNDS_BASE_URL = '/sounds/';
 /** URL prefix of the content tree's rendered music tracks. */
 export const DEFAULT_MUSIC_BASE_URL = '/music/';
@@ -180,6 +188,7 @@ export class WebAudioEngine {
   private readonly musicBaseUrl: string;
   private readonly createContext: ContextFactory;
   private readonly fetchBytes: FetchBytes;
+  private readonly soundQuality: SoundQuality;
   private readonly now: WallClock;
   private readonly random: RandomFn;
   private ctx: AudioContext | null = null;
@@ -236,6 +245,7 @@ export class WebAudioEngine {
 
   constructor(options: AudioEngineOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_SOUNDS_BASE_URL;
+    this.soundQuality = options.soundQuality ?? DEFAULT_SOUND_QUALITY;
     this.musicBaseUrl = options.musicBaseUrl ?? DEFAULT_MUSIC_BASE_URL;
     this.volumes = clampedVolumes(options.volumes ?? DEFAULT_VOLUMES);
     this.createContext = options.createContext ?? webAudioContextFactory;
@@ -624,7 +634,9 @@ export class WebAudioEngine {
     this.buses = buses;
     this.layers = layers;
     this.musicDuck = musicDuck;
-    this.samples = new SampleCache(this.baseUrl, this.fetchBytes, (bytes) => ctx.decodeAudioData(bytes));
+    this.samples = new SampleCache(this.baseUrl, this.fetchBytes, (bytes) => ctx.decodeAudioData(bytes), {
+      quality: this.soundQuality,
+    });
     this.settleSamples(this.samples);
     this.mixer = new AmbientMixer(ctx, layers.bed, this.samples, () => this.canPlay(), this.random);
     this.music = new MusicPlayer(ctx, buses.music, this.musicBaseUrl, this.fetchBytes, () => this.canPlay());

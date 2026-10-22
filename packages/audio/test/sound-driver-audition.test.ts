@@ -14,7 +14,13 @@ import {
   type SoundStatsView,
   WORLD_VOICE_CAP,
 } from '../src/index.js';
-import { FakeContext, type FakePanner, type FakeSource, flush } from './helpers/fake-audio.js';
+import {
+  FakeContext,
+  type FakePanner,
+  type FakeSource,
+  flush,
+  servingSoundBanks,
+} from './helpers/fake-audio.js';
 
 /**
  * The gallery's way through the driver: auditioned shots pass the arbiter like a game frame's, and the
@@ -51,7 +57,7 @@ function makeDriver(): { readonly driver: SoundDriver; readonly ctx: FakeContext
   const ctx = new FakeContext();
   const driver = new SoundDriver(index, defaultBindings(), {
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async () => new ArrayBuffer(CLIP_S),
+    fetchBytes: servingSoundBanks(async () => new ArrayBuffer(CLIP_S)),
     random: () => 0,
   });
   return { driver, ctx };

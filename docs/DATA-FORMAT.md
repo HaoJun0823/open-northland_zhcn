@@ -23,7 +23,8 @@ content/
     <id>.voice-<lang>-NNNN.wav  optional spoken briefing line; its maps-index row lists each one
   bobs/                   atlases and colour LUTs
   textures/               ground pages and transition overlays
-  sounds/                 the mod's wav tree
+  sounds/                 the mod's sound clips, each as FLAC and Ogg Opus, alone and packed into
+                          banks/ by folder; banks.json indexes both
   music/                  rendered tracks and their manifest
   gui/                    decoded interface assets
   goods/                  decoded goods art
@@ -69,7 +70,7 @@ English-locale conversion of CnMod 1.3.2; state a different input beside any cla
 | `.pcx` | palette-indexed pictures and palette carriers | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.fnt` | bitmap-font wrapper around a bob container; documented only, no stage reads it | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.cur` | Windows cursor resource | `packages/formats/src/cur.ts` and its tests |
-| `.wav` | sound effects and voices | browser-native playback |
+| `.wav` | sound effects and voices | the pipeline re-encodes them through ffmpeg (`stages/sounds/`); briefing voices play as shipped |
 | `.sgt` / `.dls` | DirectMusic soundtrack | `packages/formats/src/sgt.ts`, `dls.ts`, performed by the pipeline's `stages/music/interpret.ts` |
 
 The music interpreter follows the MIT [libdmusic](https://github.com/frabert/libdmusic) player, with

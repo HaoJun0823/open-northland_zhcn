@@ -36,6 +36,7 @@ export {
 export { CLICK_FREE_RAMP_S } from './ramps.js';
 export {
   DECODED_BYTES_PER_SAMPLE,
+  DEFAULT_SOUND_QUALITY,
   decodedBytes,
   PRELOAD_CONCURRENCY,
   type PreloadSample,

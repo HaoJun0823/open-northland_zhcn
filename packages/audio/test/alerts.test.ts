@@ -36,7 +36,7 @@ import {
   VOICE_MUSIC_DUCK_DB,
   WebAudioEngine,
 } from '../src/index.js';
-import { FakeContext, type FakeGain, flush } from './helpers/fake-audio.js';
+import { FakeContext, type FakeGain, flush, servingSoundBanks } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /**
@@ -215,7 +215,7 @@ describe('alert and notice sounds', () => {
     const ctx = new FakeContext();
     const driver = new SoundDriver(index, bindings, {
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => new ArrayBuffer(1),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(1)),
     });
     await driver.resume();
     const HUNGER = '7';
@@ -408,7 +408,7 @@ describe('alert duck', () => {
     const ctx = new FakeContext();
     const engine = new WebAudioEngine({
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => new ArrayBuffer(HORN_S),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(HORN_S)),
     });
     await engine.resume();
     const { buses, duck: musicDuck } = mixerGraph(ctx);

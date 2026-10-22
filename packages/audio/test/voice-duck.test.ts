@@ -9,7 +9,7 @@ import {
   WebAudioEngine,
 } from '../src/index.js';
 import { BusDuck } from '../src/web/engine/bus-duck.js';
-import { FakeContext, type FakeGain, flush } from './helpers/fake-audio.js';
+import { FakeContext, type FakeGain, flush, servingSoundBanks } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /**
@@ -27,8 +27,9 @@ function makeEngine(): { readonly engine: WebAudioEngine; readonly ctx: FakeCont
   const ctx = new FakeContext();
   const engine = new WebAudioEngine({
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async (url) =>
-      new ArrayBuffer(url === `${DEFAULT_SOUNDS_BASE_URL}long.wav` ? LONG_LINE_S : LINE_S),
+    fetchBytes: servingSoundBanks(
+      async (url) => new ArrayBuffer(url === `${DEFAULT_SOUNDS_BASE_URL}long.flac` ? LONG_LINE_S : LINE_S),
+    ),
   });
   return { engine, ctx };
 }

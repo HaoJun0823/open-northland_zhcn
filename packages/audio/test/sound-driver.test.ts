@@ -4,7 +4,7 @@ import { type Entity, ONE, type SimEvent, type WorldSnapshot } from '@open-north
 import { describe, expect, it } from 'vitest';
 import type { SoundIndex } from '../src/index.js';
 import { defaultBindings, SELECT_COOLDOWN_S, SoundDriver, TENSE_ENTER_THREAT } from '../src/index.js';
-import { FakeContext, type FakeSource, flush } from './helpers/fake-audio.js';
+import { FakeContext, type FakeSource, flush, servingSoundBanks } from './helpers/fake-audio.js';
 import { musicTrack } from './helpers/music-manifest.js';
 
 /**
@@ -83,10 +83,10 @@ function makeDriver(): Harness {
   const fetched: string[] = [];
   const driver = new SoundDriver(index, defaultBindings(), {
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async (url) => {
+    fetchBytes: servingSoundBanks(async (url) => {
       fetched.push(url);
       return new ArrayBuffer(4);
-    },
+    }),
     random: () => 0,
   });
   return { driver, ctx, fetched };
@@ -111,7 +111,7 @@ describe('SoundDriver', () => {
     expect(driver.started).toBe(true);
     driver.update({ ...baseInput, events });
     await flush();
-    expect(fetched).toEqual(['/sounds/static/hammer01.wav']);
+    expect(fetched).toEqual(['/sounds/static/hammer01.flac']);
     expect(ctx.sources).toHaveLength(1);
     expect((ctx.sources[0] as FakeSource).started).toBe(true);
   });
@@ -125,7 +125,7 @@ describe('SoundDriver', () => {
     driver.cue('confirm');
     driver.cue('fail');
     await flush();
-    expect(fetched).toEqual(['/sounds/gui/click_confirm.wav', '/sounds/gui/click_fail.wav']);
+    expect(fetched).toEqual(['/sounds/gui/click_confirm.flac', '/sounds/gui/click_fail.flac']);
     expect(ctx.sources).toHaveLength(2);
     expect((ctx.sources[0] as FakeSource).started).toBe(true);
   });
@@ -144,7 +144,7 @@ describe('SoundDriver', () => {
     ];
     driver.update({ ...baseInput, snapshot: twoHouses, events, localPlayer: 0 });
     await flush();
-    expect(fetched).toEqual(['/sounds/jingles/jingles_housebuilt.wav']);
+    expect(fetched).toEqual(['/sounds/jingles/jingles_housebuilt.flac']);
     expect(ctx.sources).toHaveLength(1);
     // Inside the jingle's own cooldown the repeat is swallowed, not queued.
     ctx.currentTime = 1;
@@ -171,7 +171,7 @@ describe('SoundDriver', () => {
     ];
     driver.update({ ...baseInput, events });
     await flush();
-    expect(fetched).toEqual(['/sounds/voice/male_social.wav']);
+    expect(fetched).toEqual(['/sounds/voice/male_social.flac']);
   });
 
   it('keeps a fogged settler silent (the visibleTile gate)', async () => {
@@ -192,7 +192,7 @@ describe('SoundDriver', () => {
     driver.respond({ members: [99] }); // gone from the snapshot: nothing to answer with
     driver.update({ ...baseInput, events: [] });
     await flush();
-    expect(fetched).toEqual(['/sounds/humantalk/m1ok01.wav']);
+    expect(fetched).toEqual(['/sounds/humantalk/m1ok01.flac']);
     // Answered once: the next frame carries no pending order.
     driver.update({ ...baseInput, events: [] });
     await flush();
@@ -205,7 +205,7 @@ describe('SoundDriver', () => {
     driver.select({ members: [3], fallback: 'confirm' });
     driver.update({ ...baseInput, events: [] });
     await flush();
-    expect(fetched).toEqual(['/sounds/humantalk/m1ok01.wav']);
+    expect(fetched).toEqual(['/sounds/humantalk/m1ok01.flac']);
     ctx.currentTime = SELECT_COOLDOWN_S / 2;
     driver.select({ members: [3], fallback: 'confirm' });
     driver.update({ ...baseInput, events: [] });
@@ -219,7 +219,7 @@ describe('SoundDriver', () => {
     driver.select({ members: [7], fallback: 'confirm' }); // the building has no voice
     driver.update({ ...baseInput, events: [] });
     await flush();
-    expect(fetched.at(-1)).toBe('/sounds/gui/click_confirm.wav');
+    expect(fetched.at(-1)).toBe('/sounds/gui/click_confirm.flac');
   });
 
   it('forgets a notice reported just before a mute instead of ringing it on unmute', async () => {
@@ -268,7 +268,7 @@ describe('SoundDriver', () => {
       drawnCreatures,
     });
     await flush();
-    expect(fetched).toEqual(['/sounds/generic/m 01.wav']);
+    expect(fetched).toEqual(['/sounds/generic/m 01.flac']);
   });
 
   it('plays the map music, then hands over to its Danger variant once another player strikes us', async () => {

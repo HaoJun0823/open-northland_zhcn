@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VOICE_DUCK_DIP_S, VOICE_DUCK_RELEASE_S, WebAudioEngine } from '../src/index.js';
 import { MUSIC_SILENCE_HOLD_S } from '../src/web/engine/audio-engine.js';
-import { FakeContext, type FakeGain } from './helpers/fake-audio.js';
+import { FakeContext, type FakeGain, servingSoundBanks } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /** A film's silence over the music: a full mute on the voice duck from the take to the release. */
@@ -12,7 +12,7 @@ function makeEngine(): { readonly engine: WebAudioEngine; readonly ctx: FakeCont
   const ctx = new FakeContext();
   const engine = new WebAudioEngine({
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async () => new ArrayBuffer(1),
+    fetchBytes: servingSoundBanks(async () => new ArrayBuffer(1)),
   });
   return { engine, ctx };
 }

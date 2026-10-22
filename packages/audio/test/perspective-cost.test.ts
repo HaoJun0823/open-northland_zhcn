@@ -21,7 +21,7 @@ import {
   SoundDriver,
   WebAudioEngine,
 } from '../src/index.js';
-import { FakeBiquad, FakeContext, flush } from './helpers/fake-audio.js';
+import { FakeBiquad, FakeContext, flush, servingSoundBanks } from './helpers/fake-audio.js';
 
 /**
  * The listening perspective's cost on a busy, zoomed-out screen, counted rather than timed: the
@@ -215,7 +215,7 @@ describe('listening perspective cost on a busy screen', () => {
       const ctx = new FakeContext();
       const engine = new WebAudioEngine({
         createContext: () => ctx as unknown as AudioContext,
-        fetchBytes: async () => new ArrayBuffer(4),
+        fetchBytes: servingSoundBanks(async () => new ArrayBuffer(4)),
       });
       await engine.resume();
       const shots = decide(busyScene(0)).shots.slice(0, shotCount);
@@ -238,7 +238,7 @@ describe('listening perspective cost on a busy screen', () => {
     const ctx = new FakeContext();
     const driver = new SoundDriver(index, defaultBindings(), {
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async () => new ArrayBuffer(4),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(4)),
     });
     await driver.resume();
     const frame = (scale: number): void =>

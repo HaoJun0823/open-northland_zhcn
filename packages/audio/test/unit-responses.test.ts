@@ -16,7 +16,7 @@ import {
   UNIT_RESPONSE_MODES,
   type VoiceCall,
 } from '../src/index.js';
-import { FakeContext, flush } from './helpers/fake-audio.js';
+import { FakeContext, flush, servingSoundBanks } from './helpers/fake-audio.js';
 
 /** Settlers answering the player sound on their own bus, the one a player turns down as "unit responses",
  *  and speak only as the player's unit responses choice lets them. */
@@ -111,10 +111,10 @@ describe('unit responses choice', () => {
     const ctx = new FakeContext();
     const driver = new SoundDriver(index, defaultBindings(), {
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: async (url) => {
+      fetchBytes: servingSoundBanks(async (url) => {
         fetched.push(url);
         return new ArrayBuffer(1);
-      },
+      }),
     });
     await driver.resume();
     const frame = async (): Promise<string[]> => {
@@ -125,9 +125,9 @@ describe('unit responses choice', () => {
     };
     driver.setUnitResponses('selection');
     driver.respond(ORDER);
-    expect(await frame()).toEqual(['click_confirm.wav']);
+    expect(await frame()).toEqual(['click_confirm.flac']);
     ctx.currentTime += 10;
     driver.select({ members: [SETTLER] });
-    expect(await frame()).toEqual(['m1ok01.wav']);
+    expect(await frame()).toEqual(['m1ok01.flac']);
   });
 });

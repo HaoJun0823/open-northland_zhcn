@@ -20,7 +20,13 @@ import {
   trackRotation,
   WebAudioEngine,
 } from '../src/index.js';
-import { FakeContext, type FakeGain, type FakeSource, flush } from './helpers/fake-audio.js';
+import {
+  FakeContext,
+  type FakeGain,
+  type FakeSource,
+  flush,
+  servingSoundBanks,
+} from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
 import { manifestDocument, musicTrack } from './helpers/music-manifest.js';
 
@@ -73,13 +79,13 @@ function makeEngine(opts: { failFetch?: boolean; failFile?: string; trackS?: num
   const fetched: string[] = [];
   const engine = new WebAudioEngine({
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async (url) => {
+    fetchBytes: servingSoundBanks(async (url) => {
       fetched.push(url);
       if (opts.failFetch || (opts.failFile !== undefined && url.endsWith(opts.failFile))) {
         throw new Error('missing track');
       }
       return new ArrayBuffer(opts.trackS ?? TRACK_S);
-    },
+    }),
   });
   return { engine, ctx, fetched };
 }

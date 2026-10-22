@@ -8,7 +8,7 @@ import {
   SoundDriver,
   type SoundIndex,
 } from '../src/index.js';
-import { FakeContext } from './helpers/fake-audio.js';
+import { FakeContext, servingSoundBanks } from './helpers/fake-audio.js';
 
 /** The driver rolls the object ambience on the audio clock: the game's speed and a held clock decide
  *  nothing but whether it rolls at all. */
@@ -54,7 +54,7 @@ async function makeDriver(): Promise<{ driver: SoundDriver; ctx: FakeContext }> 
   const ctx = new FakeContext();
   const driver = new SoundDriver(index, defaultBindings(), {
     createContext: () => ctx as unknown as AudioContext,
-    fetchBytes: async () => new ArrayBuffer(4),
+    fetchBytes: servingSoundBanks(async () => new ArrayBuffer(4)),
     random: () => 0,
   });
   await driver.resume();

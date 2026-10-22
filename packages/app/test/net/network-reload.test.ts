@@ -13,6 +13,10 @@ const fake = vi.hoisted(() => ({
   room: null as unknown,
   /** The page's text as the map load began. */
   textAtMapLoad: null as string | null,
+  requestMap: vi.fn(),
+  /** This browser lost the room's map, so the load falls back to the relay's copy. */
+  mapLost: false,
+  delivered: null as string | null,
 }));
 vi.mock('../../src/net/connection.js', () => ({
   NetworkConnection: class {
@@ -21,6 +25,7 @@ vi.mock('../../src/net/connection.js', () => ({
     readonly client = {
       nick: 'Ania',
       joinRoom: vi.fn(),
+      requestMap: fake.requestMap,
       get room() {
         return fake.room;
       },
@@ -35,8 +40,9 @@ vi.mock('../../src/net/connection.js', () => ({
   },
 }));
 vi.mock('../../src/content/transfer/index.js', () => ({
-  loadRoomMapDocuments: async () => {
+  loadRoomMapDocuments: async (_room: unknown, services: { delivered?: () => Promise<string> }) => {
     fake.textAtMapLoad = document.body.textContent;
+    if (fake.mapLost) fake.delivered = (await services.delivered?.()) ?? null;
     return { mapId: 'forest' };
   },
 }));
@@ -46,6 +52,7 @@ vi.mock('../../src/content/lobby-identity.js', () => ({
 vi.mock('../../src/entries/relay/network-game.js', () => ({ renderNetworkGame: vi.fn() }));
 vi.mock('../../src/launch.js', () => ({ swapToEntry: vi.fn(async () => undefined) }));
 
+import { renderNetworkGame } from '../../src/entries/relay/network-game.js';
 import { renderNetworkReload } from '../../src/entries/relay/network-reload.js';
 
 /** The session-storage entry holding this room's control groups across a reload. */
@@ -60,6 +67,10 @@ afterEach(() => {
   document.body.replaceChildren();
   window.sessionStorage.clear();
   fake.dispose.mockClear();
+  fake.requestMap.mockClear();
+  vi.mocked(renderNetworkGame).mockClear();
+  fake.mapLost = false;
+  fake.delivered = null;
 });
 
 /** A started room whose creator runs another client build than this reloaded tab. */
@@ -130,4 +141,39 @@ it('keeps the groups while the seat is held and forgets them when the player lea
   // Settle the surrender's own connection at once.
   fake.listener?.({ kind: 'failure', what: 'open', error: new Error('gone') } satisfies ConnectionEvent);
   expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).toBeNull();
+});
+
+/** A started room this tab's build and files match. */
+const MATCHING_ROOM = {
+  ...STARTED_ROOM,
+  members: [
+    { nick: 'Bartek', seat: 1, compatibility: { ...OWN_REPORT, save: null } },
+    { nick: 'Ania', seat: 0, compatibility: null },
+  ],
+} as unknown as RoomView;
+const MAP_TEXT = 'H4sIAAAAAAAAA0tLTQEAQ1ZMCwMAAAA=';
+
+it('asks the relay for the map this browser lost and returns to the game with it', async () => {
+  fake.mapLost = true;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = MATCHING_ROOM;
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.requestMap).toHaveBeenCalledOnce());
+  relay({ kind: 'blob', type: 'map', from: 'Bartek', tick: null, bytes: MAP_TEXT });
+  await vi.waitFor(() => expect(renderNetworkGame).toHaveBeenCalledOnce());
+  expect(fake.delivered).toBe(MAP_TEXT);
+});
+
+it('names the refusal and keeps the seat when the relay cannot serve the map', async () => {
+  fake.mapLost = true;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = MATCHING_ROOM;
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.requestMap).toHaveBeenCalledOnce());
+  relay({ kind: 'rejected', of: 'requestMap', reason: { code: 'mapNotKept' } });
+  expect(document.body.textContent).toContain(messages().networkRelay.reasons.mapNotKept);
+  expect(buttonLabels()).toEqual([messages().networkRelay.retry, messages().networkRelay.leaveGame]);
+  expect(renderNetworkGame).not.toHaveBeenCalled();
 });

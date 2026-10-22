@@ -583,8 +583,9 @@ A client keeps the custom maps it verified in browser storage, capped at four ma
 encoded transfer text (a delivered map is stored as the text it arrived in), and validates a copy again against its fingerprint and permitted origin before
 playing it; base and unknown origins are never served from that store. A catalogue map fetched from
 the catalogue's server joins the player's installed catalogue maps instead. A reload rejoins on the token,
-checks compatibility, and rebuilds over the retained map from the relay's cached snapshot, or from the
-descriptor while the relay still holds every frame.
+fetches a map it no longer holds from the catalogue's server or else with `requestMap`, checks
+compatibility, and rebuilds over that map from the relay's cached snapshot, or from the descriptor
+while the relay still holds every frame.
 
 ## Resync and catching up
 

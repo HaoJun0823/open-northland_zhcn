@@ -22,6 +22,13 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
   let closed = false;
   let opening = false;
   let handedOff = false;
+  /** Takes the map text the relay serves once this page has asked for it. */
+  let mapDelivered: ((bytes: string) => void) | null = null;
+  const requestMap = () =>
+    new Promise<string>((resolve) => {
+      mapDelivered = resolve;
+      connection.client.requestMap();
+    });
   // Nothing here gives the seat up: the halt notice's Leave is the player's own way to.
   const dispose = () => {
     if (closed) return;
@@ -57,6 +64,16 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       return;
     }
     if (message.kind === 'welcome') connection.client.joinRoom(roomId);
+    if (message.kind === 'blob' && message.type === 'map') {
+      mapDelivered?.(message.bytes);
+      mapDelivered = null;
+      return;
+    }
+    // The room still holds the seat when it cannot serve the map.
+    if (message.kind === 'rejected' && message.of === 'requestMap') {
+      fail(relayReasonText(message.reason));
+      return;
+    }
     if (message.kind === 'left' || message.kind === 'error' || message.kind === 'rejected') {
       fail(message.kind === 'left' ? messages().net.roomEnded : relayReasonText(message.reason), false);
       return;
@@ -69,7 +86,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       // The verify blocks the page; the world's boot then mounts its own steps over this card.
       await mountBootProgress(['verify']).begin('verify');
       if (closed) return;
-      const map = await loadRoomMapDocuments(room);
+      const map = await loadRoomMapDocuments(room, { delivered: requestMap });
       if (closed) return;
       if (map === null) throw new Error(messages().network.missingMap);
       const report = await loadLobbyCompatibility(map.mapId, fetch, undefined, map);

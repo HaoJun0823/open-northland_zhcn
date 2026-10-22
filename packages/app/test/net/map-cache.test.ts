@@ -8,6 +8,7 @@ import {
   type MapCacheStorage,
   retainedCacheKeys,
 } from '../../src/content/transfer/cache-store.js';
+import { encodeMapTransfer } from '../../src/content/transfer/codec.js';
 import { verifyMapDocuments } from '../../src/content/transfer/documents.js';
 import { loadRoomMapDocuments } from '../../src/content/transfer/reload.js';
 import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
@@ -70,10 +71,9 @@ it('evicts oldest entries by both count and total byte budget', () => {
     ...retainedCacheKeys([meta(1, MAX_CACHED_MAP_BYTES / 2), meta(2, MAX_CACHED_MAP_BYTES / 2), meta(3, 1)]),
   ]).toEqual(['3', '2']);
 });
-it('running reload requires the current room fingerprint and refuses a local protected-map claim', async () => {
-  const map = handle();
-  const cached = vi.fn(async () => ({ handle: map, origin: 'user' as const }));
-  const room: RoomView = {
+/** A running room whose creator reported the map `fingerprint`. */
+function runningRoom(fingerprint: string): RoomView {
+  return {
     id: 'r',
     state: 'running',
     creator: 'Host',
@@ -91,7 +91,7 @@ it('running reload requires the current room fingerprint and refuses a local pro
         nick: 'Host',
         seat: 0,
         connected: true,
-        compatibility: { map: map.fingerprint, content: 'c', client: 'b', protocol: 3 },
+        compatibility: { map: fingerprint, content: 'c', client: 'b', protocol: 3 },
         load: null,
         loading: null,
         roundTripMs: null,
@@ -100,6 +100,11 @@ it('running reload requires the current room fingerprint and refuses a local pro
       },
     ],
   };
+}
+it('running reload requires the current room fingerprint and refuses a local protected-map claim', async () => {
+  const map = handle();
+  const cached = vi.fn(async () => ({ handle: map, origin: 'user' as const }));
+  const room = runningRoom(map.fingerprint);
   expect(await loadRoomMapDocuments(room, { local: async () => null, cached, list: async () => [] })).toBe(
     map,
   );
@@ -113,4 +118,27 @@ it('running reload requires the current room fingerprint and refuses a local pro
     }),
   ).toBeNull();
   expect(cached).not.toHaveBeenCalled();
+});
+it('running reload installs the map the relay serves when nothing else holds it', async () => {
+  const map = handle();
+  const bytes = await encodeMapTransfer(map, { kind: 'user' });
+  const persist = vi.fn(async () => undefined);
+  const loaded = await loadRoomMapDocuments(runningRoom(map.fingerprint), {
+    local: async () => null,
+    cached: async () => null,
+    list: async () => [],
+    delivered: async () => bytes,
+    persist,
+  });
+  expect(loaded?.fingerprint).toBe(map.fingerprint);
+  expect(persist).toHaveBeenCalledWith(loaded, 'user', bytes);
+  await expect(
+    loadRoomMapDocuments(runningRoom('0'.repeat(64)), {
+      local: async () => null,
+      cached: async () => null,
+      list: async () => [],
+      delivered: async () => bytes,
+      persist,
+    }),
+  ).rejects.toThrow();
 });

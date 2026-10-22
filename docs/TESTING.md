@@ -474,8 +474,9 @@ npm run bench:net-lab -- --save bench-out/net-lab/magiczny_las-hard-t40000.save.
 `initialSave` blob and every member reports its fingerprint. The seats come from the save's roster,
 and humans take over the seats its computers held, in seat order. The map, the session seed and the
 computers' difficulty are the save's, and `--ticks` counts from the save's tick. The summary adds the
-save's sizes, the decode time and one line per restore: the tick, the snapshot's size and the world build's wall time. A
-restore after a `reload` also gets the virtual time from the reload to its first tick.
+save's sizes, the decode time and one line per restore: the tick, the snapshot's size and the world
+build's wall time. A restore after a `reload` also gets the virtual time from the reload to its first
+tick.
 
 The headless client always opens a saved start from the snapshot the relay serves. The app opens
 its verified lobby copy instead, so the lab's saved start sends each client the save twice.

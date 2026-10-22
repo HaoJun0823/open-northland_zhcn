@@ -365,14 +365,18 @@ millisecond the member is not waited for: a member that answered after 30 s of a
 later. A member that keeps ending its waits just in time therefore still reaches a vote once the room
 has waited for it more than a short while: one silent for 2 s of every 6, so held a third of the time,
 is votable in its waits after about 4 minutes. The clock's start clears every member's
-waited time, so the load everyone was waited through before it counts against nobody. A wait is over as soon as nobody is waited for: the dropped token returned, the silent one
-answered, or the diverged one rebuilt. A client that never loads or stops answering pings is waited
+waited time, so the load everyone was waited through before it counts against nobody, and the
+`waiting` that follows its `clock` names who the room waits for once it runs. A wait is over as
+soon as nobody is waited for: the dropped token returned, the silent one answered, or the diverged
+one rebuilt. A client that never loads or stops answering pings is waited
 for and can be voted out, before the start as after it; a member kicked before the start is not waited
-for to start the clock. A client whose own link is lost reckons the same countdown for itself, from the
+for to start the clock. A client whose own link is lost reckons a countdown for itself, from the
 drop of its socket or, on a socket that stays open, from the moment the relay stopped hearing it: the
 client's `LINK_QUIET_MS` (equal to `SILENT_AFTER_MS`) without a relay message. In a game on screen, the app
-then shows that countdown on a screen that takes no order until the relay is heard again, the same
-way the others see it beside the client's name. Before the clock runs, a member that has not loaded and whose boot has not
+then shows that countdown on a screen that takes no order until the relay is heard again. It counts
+the whole `KICK_COUNTDOWN_MS` from the loss, while the relay carries over the waited time the member
+still owes, so the client's countdown is an upper bound: the others may be offered the vote sooner
+than its screen shows. Before the clock runs, a member that has not loaded and whose boot has not
 moved for `LOADING_STALL_MS` (2 min, counted from the start, its last `loading`, its `loaded`, or its
 drop or return) ends the room: every connected member gets `error { loadingTimedOut, nick }` and
 `left`, and the players host again. The app shows no countdown for it and offers no vote on its

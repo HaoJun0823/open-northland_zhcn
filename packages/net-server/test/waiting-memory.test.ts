@@ -5,8 +5,10 @@ import { WAIT_FORGIVENESS, Waiting } from '../src/relay/waiting.js';
 import {
   digest,
   LOAD,
+  type MessageStage,
   type Peer,
   roomOfThree,
+  roomOfThreeStarting,
   startedRoom,
   startingRoom,
 } from './support/message-stage.js';
@@ -141,6 +143,47 @@ describe('the votes against a member that keeps the room held in short waits', (
     expect(s.a.last('kicked')).toMatchObject({ player: 1, nick: 'Bartek', cause: 'vote' });
     // The second wait showed the first yes again before Cezary added his.
     expect(s.c.of('kickVote').map((tally) => tally.yes)).toEqual([['Ania'], ['Ania'], ['Ania', 'Cezary']]);
+  });
+});
+
+describe('the waited set at the start of the clock', () => {
+  /** Move the clock with every peer answering its pings, so none is silent. */
+  const heard = (s: MessageStage, peers: readonly Peer[], ms: number): void => {
+    for (let elapsed = 0; elapsed < ms; elapsed += TICK_MS) {
+      s.advance(TICK_MS);
+      for (const peer of peers) {
+        const ping = peer.last('ping');
+        if (ping !== undefined) peer.send({ kind: 'pong', t: ping.t });
+      }
+    }
+  };
+  const startNotices = (peer: Peer, from: number) =>
+    peer.sent
+      .slice(from)
+      .flatMap((message) =>
+        message.kind === 'clock' ? ['clock'] : message.kind === 'waiting' ? [message.for] : [],
+      );
+
+  it('follows the clock as the room stands, not as it was waited for while loading', () => {
+    const s = startingRoom();
+    heard(s, [s.a, s.b], LONG_LOAD_MS);
+    s.a.send({ kind: 'loaded', tick: 0, world: 0 });
+    const from = s.a.sent.length;
+    s.b.send({ kind: 'loaded', tick: 0, world: 0 });
+    expect(startNotices(s.a, from)).toEqual(['clock', []]);
+  });
+
+  it('leaves out a member kicked while loading, whose kick starts the clock', () => {
+    const s = roomOfThreeStarting();
+    s.a.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.c.send({ kind: 'loaded', tick: 0, world: 0 });
+    heard(s, [s.a, s.b, s.c], KICK_COUNTDOWN_MS + TICK_MS * 2);
+    expect(s.a.last('waiting')?.for).toEqual([{ nick: 'Bartek', reason: 'loading', voteAfterMs: 0 }]);
+    s.a.send({ kind: 'kick', player: 1, yes: true });
+    const from = s.a.sent.length;
+    s.c.send({ kind: 'kick', player: 1, yes: true });
+    expect(s.a.last('kicked')).toMatchObject({ nick: 'Bartek' });
+    expect(startNotices(s.a, from)).toEqual(['clock', []]);
   });
 });
 

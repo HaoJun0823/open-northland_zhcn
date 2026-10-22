@@ -28,6 +28,8 @@ interface Account {
 export class Waiting {
   /** The waited set as the clients were last told it. */
   private announced: readonly Waited[] = [];
+  /** The countdowns restarted since the clients were last told: the next update tells them again. */
+  private restarted = false;
   private readonly accounts = new Map<string, Account>();
   private readonly voteAnnounced = new Set<string>();
 
@@ -88,18 +90,20 @@ export class Waiting {
         opened = true;
       }
     }
-    return opened || !sameWait(before, waited);
+    const restarted = this.restarted;
+    this.restarted = false;
+    return opened || restarted || !sameWait(before, waited);
   }
 
   /** The clock starts: the load every member was waited through before it counts against nobody.
-   *  True when someone is still waited for, whose countdown has just started again. */
-  restart(now: number): boolean {
+   *  The next update tells the clients the waited set and its countdowns afresh. */
+  restart(now: number): void {
     for (const account of this.accounts.values()) {
       account.owedMs = 0;
       account.at = now;
     }
     this.voteAnnounced.clear();
-    return this.active;
+    this.restarted = true;
   }
 
   /** A departed token keeps no countdown. */

@@ -1,4 +1,4 @@
-import { compatibilityIssues } from '@open-northland/net-protocol';
+import { compatibilityIssues, type ServerMessage } from '@open-northland/net-protocol';
 import { loadLobbyCompatibility } from '../../content/lobby-identity.js';
 import { loadRoomMapDocuments } from '../../content/transfer/index.js';
 import { messages } from '../../i18n/index.js';
@@ -77,8 +77,9 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       connection.client.joinRoom(roomId);
       mapRequest.relinked();
     }
-    // The room took the seat while this tab loaded: its farewell comes before the `left`.
-    if (message.kind === 'kicked' && message.player === connection.client.session?.localSeat) {
+    // The room took the seat while this tab was away or loading; the `left` follows. A farewell
+    // reaches a tab that holds no room yet, and it may name a nick the room made unique.
+    if (message.kind === 'kicked' && ownKick(message, connection.client)) {
       fail(ownDepartureText(message), false);
       return;
     }
@@ -133,4 +134,11 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
     },
     { once: true },
   );
+}
+
+function ownKick(
+  kicked: Extract<ServerMessage, { kind: 'kicked' }>,
+  client: NetworkConnection['client'],
+): boolean {
+  return client.room === null || kicked.player === client.session?.localSeat;
 }

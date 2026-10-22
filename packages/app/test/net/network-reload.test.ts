@@ -11,6 +11,8 @@ const fake = vi.hoisted(() => ({
   listener: undefined as ((event: unknown) => void) | undefined,
   dispose: vi.fn(),
   room: null as unknown,
+  /** The session the client holds: none before the relay's `start` reaches this tab. */
+  session: { localSeat: 0 } as { localSeat: number } | null,
   /** The page's text as the map load began. */
   textAtMapLoad: null as string | null,
   requestMap: vi.fn(),
@@ -30,7 +32,9 @@ vi.mock('../../src/net/connection.js', () => ({
       nick: 'Ania',
       joinRoom: vi.fn(),
       requestMap: fake.requestMap,
-      session: { localSeat: 0 },
+      get session() {
+        return fake.session;
+      },
       get room() {
         return fake.room;
       },
@@ -87,6 +91,8 @@ afterEach(() => {
   fake.mapLost = false;
   fake.mapGone = false;
   fake.delivered = null;
+  fake.room = null;
+  fake.session = { localSeat: 0 };
 });
 
 /** A started room whose creator runs another client build than this reloaded tab. */
@@ -248,6 +254,18 @@ it('says the room handed the seat over when this tab loaded too long, though the
   } as ServerMessage);
   relay({ kind: 'left' });
   expect(document.body.textContent).toContain(messages().net.youTimedOut.computer);
+  expect(document.body.textContent).not.toContain(messages().net.roomEnded);
+  expect(buttonLabels()).toEqual([messages().hud.returnToMenu]);
+});
+
+it('says the room took the seat when its farewell meets a tab that holds no room yet', () => {
+  fake.session = null;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  relay({ kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania' });
+  // The room had made this player's nick unique, so only the missing room marks the farewell as its own.
+  relay({ kind: 'kicked', player: 2, nick: 'Ania2', mode: 'computer', cause: 'vote', tick: 0 });
+  relay({ kind: 'left' });
+  expect(document.body.textContent).toContain(messages().net.youWereKicked);
   expect(document.body.textContent).not.toContain(messages().net.roomEnded);
   expect(buttonLabels()).toEqual([messages().hud.returnToMenu]);
 });

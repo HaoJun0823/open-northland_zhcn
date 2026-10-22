@@ -473,6 +473,53 @@ restore after a `reload` also gets the virtual time from the reload to its first
 The headless client always opens a saved start from the snapshot the relay serves. The app opens
 its verified lobby copy instead, so the lab's saved start sends each client the save twice.
 
+### Browser multiplayer lab
+
+`node scripts/net-browser-lab.mjs` plays one relayed session with real game pages: one headless
+Chromium, a browser context per player so each nick keeps its own reconnect token. The pages join
+through the developer lobby URLs of [DEVELOPMENT.md](DEVELOPMENT.md#relay-server) and order
+through the HUD, so the join path, the command path under `?relay=` and a reload's rejoin run as a
+player's do. It needs generated content (`ON_CONTENT_DIR` as for the dev server).
+
+```sh
+node scripts/net-browser-lab.mjs --help
+ON_CONTENT_DIR=/abs/primary/content node scripts/net-browser-lab.mjs --players 3 --seconds 90 \
+  --profiles home,far,bad
+node scripts/net-browser-lab.mjs --relay wss://test-relay.opennorthland.org --profiles home --no-chaos
+```
+
+Unless given `--relay` or `--app`, it starts a relay on 8770-8779 (rebuilding a stale
+`packages/net-server/dist` first) and an app server on 5176-5179. That server runs the checkout's
+Vite config without hot reload and without the restart on a source edit, so an edit elsewhere in the
+checkout neither reloads the pages nor splits them across client builds. `--profiles` puts a
+[chaos proxy](DEVELOPMENT.md#network-chaos-proxy) per player on 8780-8789 with that profile.
+Every process it started is stopped by its PID at the end, failures included.
+
+A run measures, per page:
+
+- join times from navigation: the room view, the world shown, the first running tick;
+- orders through the HUD, each confirmed in the page's own world: a marquee group and a right-click
+  walk (applied when a route ends by the clicked point), a Shift queued walk or an attack-move,
+  the defence keys `V` and `Shift+V`, and a building from the construction window placed on the
+  ground. The proxy logs count the `command` frames each page sent;
+- measurement windows from `perf()`: frame p95 and worst frame, delivered speed, round trip, input
+  delay and click-to-apply. A hidden window or one that drew no frame is dropped;
+- the seat each page commands, read as the owner of the settlers it selects, before the chaos
+  and at the end.
+
+With proxies, three chaos events fire at 30, 50 and 70 % of the window, each followed until the page
+runs again, and every player orders again after each: a 1006 cut of the second player's link, a
+half-open link on the third (its profile's flapping off) held past the relay's 30 s silence close,
+and a reload of the creator. Each reports when the page saw its link lost, when its world ran again,
+and how long the room's clock stood still on another page. `--no-chaos` keeps the links impaired
+without the events.
+
+The summary prints one line per player, the chaos events, the seat check and the distinct console
+and page errors. The JSON report, the step log, the servers' logs and the proxies' frame logs land
+beside `--out` (default `bench-out/net-browser-lab/<stamp>/`); with a relay it started, the report
+adds the relay's log lines about the room. Times are wall time on this machine and vary with its
+load; read them as a smoke test of the real client, and the load lab above for numbers that repeat.
+
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.
 
 ## Choosing the required checks

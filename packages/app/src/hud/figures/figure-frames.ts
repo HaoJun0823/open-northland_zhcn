@@ -43,19 +43,20 @@ const INDEXED_BYTES = 2;
  *  back from its atlas costs several times the recolour itself, and a figure's clip comes round again. */
 const INDEXED_STORE_BYTES = 16 * 1024 * 1024;
 
-/** The frame's palette index and coverage per pixel, read from its atlas RGBA: red carries the index. */
+/** The indexed layout's coverage channel: red carries the palette index, and the sheet is opaque. */
+const COVERAGE_CHANNEL = 1;
+
+/** The frame's palette index and coverage per pixel, read exactly from its opaque atlas RGBA. */
 export function indexedPixels(rgba: Uint8ClampedArray): Uint8Array {
   const out = new Uint8Array((rgba.length / CHANNELS) * INDEXED_BYTES);
   for (let px = 0, i = 0; i < rgba.length; px += INDEXED_BYTES, i += CHANNELS) {
     out[px] = rgba[i] ?? 0;
-    out[px + 1] = rgba[i + 3] ?? 0;
+    out[px + 1] = rgba[i + COVERAGE_CHANNEL] ?? 0;
   }
   return out;
 }
 
-/** Recolour indexed pixels through an RGB palette into `out` (RGBA, zeroed); an uncovered pixel stays clear.
- *  The atlas read premultiplies, so a partly covered pixel's index is approximate; the shipped atlases
- *  carry only full or empty coverage. */
+/** Recolour indexed pixels through an RGB palette into `out` (RGBA, zeroed); an uncovered pixel stays clear. */
 export function recolourPixels(indexed: Uint8Array, colours: Uint8Array, out: Uint8ClampedArray): void {
   for (let px = 0, i = 0; px < indexed.length; px += INDEXED_BYTES, i += CHANNELS) {
     const coverage = indexed[px + 1] ?? 0;

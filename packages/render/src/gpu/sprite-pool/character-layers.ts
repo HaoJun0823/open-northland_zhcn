@@ -56,8 +56,9 @@ function pushGlow(out: LayerBuffer, of: ResolvedLayer): void {
 
 /**
  * One frame again, for the binder to project onto the ground under the character. An indexed sheet
- * carries the palette index in red and coverage in alpha, and a species sheet is plain RGB; either way
- * only the coverage reaches a silhouette, so both cast from the frame as it is. `rows` keeps that many
+ * carries the palette index in red and coverage in green, and a species sheet is plain RGB; either way
+ * only the coverage reaches a silhouette (the world batch reads an indexed page's from green), so both
+ * cast from the frame as it is. `rows` keeps that many
  * of the frame's top rows, which is how the head overlay casts beside the body instead of over it.
  */
 function castLayerFor(of: ResolvedLayer, rows?: number, originY?: number): ResolvedLayer {

@@ -5,10 +5,6 @@ import sharp from 'sharp';
 /** The served atlas sheet format: lossless WebP, about half the bytes of our zlib-default PNG. */
 export const ATLAS_IMAGE_EXTENSION = '.webp';
 
-/** How the app decodes a sheet. A `straight` sheet (an `.indexed` palette index in red) must never
- *  share a URL with a premultiplied one, since Pixi caches one texture per URL. */
-export type AtlasImageAlpha = 'straight' | 'premultiplied';
-
 /** Hex digits of the SHA-256 that name a sheet: 64 bits, the hypertext pictures' width. */
 const NAME_HASH_HEX = 16;
 
@@ -23,9 +19,9 @@ const WEBP_LOSSLESS_QUALITY = 75;
  * The content-addressed file name of a sheet, so byte-identical sheets of different stems (a build-time
  * sheet every recolour shares, an empty bob set) are written and fetched once.
  */
-export function atlasImageName(image: RgbaImage, alpha: AtlasImageAlpha): string {
+export function atlasImageName(image: RgbaImage): string {
   const hash = createHash('sha256')
-    .update(`${alpha} ${image.width}x${image.height}\n`)
+    .update(`${image.width}x${image.height}\n`)
     .update(image.rgba)
     .digest('hex');
   return `${hash.slice(0, NAME_HASH_HEX)}${ATLAS_IMAGE_EXTENSION}`;
@@ -33,7 +29,7 @@ export function atlasImageName(image: RgbaImage, alpha: AtlasImageAlpha): string
 
 /**
  * Encodes a sheet as lossless WebP. `exact` keeps the RGB under fully transparent pixels, which libwebp
- * otherwise rewrites: a straight-alpha sheet reads those bytes.
+ * otherwise rewrites, so a sheet decodes to the bytes it was packed from.
  */
 export async function encodeAtlasImage(image: RgbaImage): Promise<Uint8Array> {
   const { width, height, rgba } = image;

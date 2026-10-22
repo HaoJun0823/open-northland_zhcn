@@ -19,7 +19,7 @@ const source = vi.hoisted(() => {
 });
 
 vi.mock('@open-northland/render', () => ({
-  loadAtlasSource: ((url, scaleMode, alpha) => source.load(url, scaleMode, alpha)) as LoadAtlasSource,
+  loadAtlasSource: ((url, scaleMode, layout) => source.load(url, scaleMode, layout)) as LoadAtlasSource,
 }));
 
 // Test files share one module registry, so the fake above only reaches `content/net.ts` when that

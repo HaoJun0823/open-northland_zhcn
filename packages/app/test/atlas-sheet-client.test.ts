@@ -35,21 +35,20 @@ describe('createPalettedSheetClient', () => {
       spawned.push(worker);
       return worker;
     }, 3);
-    for (const palette of ['a', 'b', 'c']) void colour('https://x/bobs/sheet.webp', palette, 'bitmap');
+    for (const palette of ['a', 'b', 'c']) void colour('https://x/bobs/sheet.webp', palette);
     expect(spawned).toHaveLength(1);
     expect(spawned[0]?.requests.map((r) => r.palette)).toEqual(['a', 'b', 'c']);
   });
 
-  it('settles each request by its id, and rejects what a failed worker still owed', async () => {
+  it('settles each request by its id, and rejects an error reply and what a failed worker still owed', async () => {
     const worker = new FakeWorker();
     const colour = createPalettedSheetClient(() => worker, 1);
-    const first = colour('u', 'p', 'blob');
-    const second = colour('u', 'q', 'blob');
-    const [a, b] = worker.requests;
+    const first = colour('u', 'p');
+    const second = colour('u', 'q');
+    const [, b] = worker.requests;
     worker.reply({ id: b?.id ?? -1, error: 'late' });
-    await expect(second).resolves.toEqual({ id: b?.id, error: 'late' });
+    await expect(second).rejects.toThrow(/late/);
     worker.fail('boom');
     await expect(first).rejects.toThrow(/boom/);
-    expect(a?.form).toBe('blob');
   });
 });

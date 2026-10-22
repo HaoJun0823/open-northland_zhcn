@@ -47,8 +47,9 @@ Every bob page in the generated content is an RGBA8 PNG (PNG colour type 6): 501
 3558 MB as RGBA8, and 82 palette-indexed character and vehicle pages, 464 MB. `loadAtlasSource`
 (`packages/render/src/gpu/pixi-app.ts`) loads each through Pixi `Assets` into an RGBA8 `ImageSource`.
 
-- **Indexed pages carry one byte of information.** Red holds the palette index, alpha is binary and
-  green is constant, and the world batch shader already reads them through the palette LUT. Stored as
+- **Indexed pages carry little information.** Red holds the palette index, green the coverage (binary
+  on most pages), and the page is opaque; the world batch shader already reads them through the palette
+  LUT. Stored as
   R8 with index 0 transparent they would take a quarter of their memory, as RG8 half. On the
   six-seat `magiczny_las` world at t120000 the indexed pages on the GPU are 49 MB of 406 MB after the
   restore and 64 MB of 421 MB after 30 s at x3, so R8 saves about 37-48 MB there. The pixel readbacks

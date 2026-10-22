@@ -12,18 +12,18 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 /**
  * `loadAtlasSource` uploads through Pixi's `Assets`, which needs a GPU; stub just that export (the rest of
- * the render module stays real) and record the `(url, alpha)` it is asked for. Hoisted so `vi.mock` can
+ * the render module stays real) and record the `(url, layout)` it is asked for. Hoisted so `vi.mock` can
  * close over the recorder.
  */
 type LoadAtlasSource = typeof import('@open-northland/render').loadAtlasSource;
-type Upload = { url: string; alpha: Parameters<LoadAtlasSource>[2] };
+type Upload = { url: string; layout: Parameters<LoadAtlasSource>[2] };
 
 const uploads = vi.hoisted(() => [] as Upload[]);
 
 vi.mock('@open-northland/render', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@open-northland/render')>();
-  const loadAtlasSource: LoadAtlasSource = (url, _scaleMode, alpha) => {
-    uploads.push({ url, alpha });
+  const loadAtlasSource: LoadAtlasSource = (url, _scaleMode, layout) => {
+    uploads.push({ url, layout });
     return Promise.resolve({ label: url } as unknown as TextureSource);
   };
   return { ...actual, loadAtlasSource };
@@ -41,7 +41,7 @@ const IR_LOADER_TIMEOUT_MS = 30_000;
 
 const BODY_STEM = 'ls_houses_viking.house01';
 const SHADOW_STEM = 'ls_houses_viking.house01.shadow';
-/** A palette-indexed stem, which must load straight-alpha (see `isIndexedStem`). */
+/** A palette-indexed stem, which loads in the indexed layout (see `isIndexedStem`). */
 const INDEXED_STEM = 'cr_hum_body_00.indexed';
 
 /** The sheet every stub manifest names, as stems with identical sheets do. */
@@ -102,7 +102,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     const [first, second] = await Promise.all([loadLayer(BODY_STEM), loadLayer(BODY_STEM)]);
 
     expect(urls).toEqual([`/bobs/${BODY_STEM}.atlas.json`]);
-    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, alpha: 'premultiplied' }]);
+    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'rgba' }]);
     expect(second).toBe(first); // one shared instance, not two decodes of the same bytes
   });
 
@@ -140,14 +140,14 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     expect(urls.filter((u) => u === `/bobs/${BUILD_SHEET}`)).toHaveLength(1);
   });
 
-  it('loads a palette-indexed stem straight-alpha', async () => {
+  it('loads a palette-indexed stem in the indexed layout', async () => {
     const { impl } = countingFetch({ [INDEXED_STEM]: MANIFEST });
     vi.stubGlobal('fetch', impl);
     const { loadLayer } = await freshLoader();
 
     await loadLayer(INDEXED_STEM);
 
-    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, alpha: 'straight' }]);
+    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'indexed' }]);
   });
 
   it('degrades to a shadow-less layer when the shadow atlas is absent', async () => {
@@ -191,5 +191,22 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
 
     manifests = { [BODY_STEM]: MANIFEST };
     await expect(loadLayer(BODY_STEM)).resolves.toMatchObject({ source: expect.anything() });
+  });
+
+  it('degrades a sheet that cannot be coloured to an empty page, and asks again next time', async () => {
+    // No worker can start here, so the colouring fails as a broken sheet would.
+    const paletted = { ...MANIFEST, palette: 'AAAA' };
+    const { impl, urls } = countingFetch({ [BODY_STEM]: paletted });
+    vi.stubGlobal('fetch', impl);
+    const { loadLayer } = await freshLoader();
+    const { Texture } = await import('pixi.js');
+
+    const layer = await loadLayer(BODY_STEM);
+    expect(layer.source).toBe(Texture.EMPTY.source);
+    expect(layer.atlas.frames.size).toBe(1);
+    expect(uploads).toEqual([]);
+
+    await loadLayer(BODY_STEM);
+    expect(urls.filter((u) => u === `/bobs/${BODY_STEM}.atlas.json`)).toHaveLength(2);
   });
 });

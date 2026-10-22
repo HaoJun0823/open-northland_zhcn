@@ -4,6 +4,7 @@ import {
   type BuildTimeSheet,
   type SpriteLayer,
 } from '@open-northland/render';
+import { Texture } from 'pixi.js';
 import { loadAtlasSheet } from '../atlas-sheet/index.js';
 import { fetchImageData, fetchJsonOrNull } from '../net.js';
 import { atlasImagePath, contentFetch } from '../url.js';
@@ -15,8 +16,8 @@ import { BODY_IMAGELIB, type BobSeqRow, type ContentIr } from './rows.js';
  */
 export class MissingAtlasError extends Error {}
 
-/** Indexed sheets (the pipeline emits every one as `<stem>.indexed`) carry a palette index in red, so they
- *  must load straight-alpha. */
+/** Indexed sheets (the pipeline emits every one as `<stem>.indexed`): palette index in red, coverage in
+ *  green. */
 function isIndexedStem(stem: string): boolean {
   return stem.endsWith('.indexed');
 }
@@ -24,11 +25,14 @@ function isIndexedStem(stem: string): boolean {
 /** Every decoded atlas body in flight or settled, by served stem. */
 const layerBodies = new Map<string, Promise<SpriteLayer>>();
 
+/** Layers whose sheet could not be coloured: they draw nothing and the next caller tries again. */
+const degradedLayers = new WeakSet<SpriteLayer>();
+
 /**
  * One decoded atlas body (`<stem>.atlas.json` and the sheet it names, coloured through the manifest's
- * palette when it names one) served at `/bobs/`. A manifest with a
- * `buildImage` also reads that time sheet CPU-side for the per-pixel construction-reveal thresholds,
- * degrading to the crop reveal when unreadable.
+ * palette when it names one) served at `/bobs/`. A sheet that cannot be coloured leaves an empty page,
+ * so the stem draws nothing. A manifest with a `buildImage` also reads that time sheet CPU-side for the
+ * per-pixel construction-reveal thresholds, degrading to the crop reveal when unreadable.
  */
 async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   const res = await contentFetch(`/bobs/${stem}.atlas.json`);
@@ -39,12 +43,18 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   }
   const manifest = (await res.json()) as AtlasManifest;
   const [source, times] = await Promise.all([
-    loadAtlasSheet(manifest, isIndexedStem(stem)),
+    loadAtlasSheet(manifest, isIndexedStem(stem) ? 'indexed' : 'rgba'),
     manifest.buildImage === undefined
       ? Promise.resolve(undefined)
       : loadBuildTimeSheet(atlasImagePath(manifest.buildImage)),
   ]);
-  return { atlas: atlasFromManifest(manifest), source, ...(times !== undefined ? { times } : {}) };
+  const layer = {
+    atlas: atlasFromManifest(manifest),
+    source: source ?? Texture.EMPTY.source,
+    ...(times !== undefined ? { times } : {}),
+  };
+  if (source === undefined) degradedLayers.add(layer);
+  return layer;
 }
 
 /**
@@ -57,9 +67,12 @@ function loadLayerBody(stem: string): Promise<SpriteLayer> {
   if (cached !== undefined) return cached;
   const pending = fetchLayerBody(stem);
   // Memoize only success, so a transient failure does not pin this stem to the fallback for the page's life.
-  pending.catch(() => {
+  const forget = (): void => {
     if (layerBodies.get(stem) === pending) layerBodies.delete(stem);
-  });
+  };
+  pending.then((layer) => {
+    if (degradedLayers.has(layer)) forget();
+  }, forget);
   layerBodies.set(stem, pending);
   return pending;
 }

@@ -7,12 +7,13 @@ import {
   packIndexedBobAtlas,
   packShadowBobAtlas,
 } from '@open-northland/formats/atlas/index';
-import { decodeBmd } from '@open-northland/formats/bmd/index';
+import { type Bmd, decodeBmd } from '@open-northland/formats/bmd/index';
 import { paletteAliasMap } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
 import {
   assertDistinctBobBasenames,
+  bobAtlasStem,
   INDEXED_ATLAS_SUFFIX,
   type PalettedBobAtlas,
   writeSourceBobAtlas,
@@ -41,6 +42,29 @@ function paletteSlug(name: string): string {
   return name.replace(/[^a-z0-9_]+/g, '_');
 }
 
+/**
+ * Stems the app's DOM shows as an `<img>` or a CSS background, which shows a sheet's pixels as they
+ * are, so each keeps an RGB sheet however many colourings its bob set has: every colouring of the goods'
+ * piles and of the carts (good icons), and single stems for the ship and livestock good icons and each
+ * civilization's headquarters (its tribe emblem). The app's joins pick them; the real-content test
+ * `dom-picture-sheets.test.ts` checks this list against those joins.
+ */
+const DOM_PICTURE_BOB_SETS: ReadonlySet<string> = new Set(['ls_goods', 'cr_veh_body_00']);
+const DOM_PICTURE_STEMS: ReadonlySet<string> = new Set([
+  'ls_vehicles.human_ship01',
+  'cr_ani_body_00.cattle01',
+  'cr_ani_body_00.house01',
+  'ls_houses_viking4.house02',
+  'ls_houses_frank.caves',
+  'ls_houses_byzantine.house_byzantine01',
+  'ls_houses_saracen.house_saracen01',
+  'ls_houses_egypt.caves',
+]);
+
+function isDomPicture(stem: string): boolean {
+  return DOM_PICTURE_STEMS.has(stem) || DOM_PICTURE_BOB_SETS.has(stem.slice(0, stem.indexOf('.')));
+}
+
 /** One binding whose palette and body `.bmd` were found, waiting for its bob set to be packed. */
 interface ResolvedBinding {
   readonly paletteName: string;
@@ -56,8 +80,9 @@ interface ResolvedBinding {
  * per creature; naming on the `.bmd` alone would collapse them onto one last-palette-wins file. A bob
  * set served in more than one colouring (several palettes, or a character body the app also draws
  * indexed) is written once as an indexed sheet that every stem names with its own palette
- * ({@link PalettedBobAtlas}); a bob set with one colouring keeps its RGB sheet. Shadow `.bmd`s convert
- * separately ({@link convertShadowBmdTree}).
+ * ({@link PalettedBobAtlas}); a bob set with one colouring, and a stem the DOM shows
+ * ({@link DOM_PICTURE_STEMS}), keeps its RGB sheet. Shadow `.bmd`s convert separately
+ * ({@link convertShadowBmdTree}).
  *
  * Per-binding boundary failures are warned and skipped; a basename collision is the one fatal case
  * ({@link assertDistinctBobBasenames}), having no per-binding answer.
@@ -123,24 +148,26 @@ export async function convertBmdTree(
       alpha: buildTimeBmds.has(bmd) ? 'build-time' : 'per-pixel',
       ...(coverage === undefined ? {} : { coverageBobs: coverage }),
     };
-    const shared = group.length > 1 || isCharacterBmd(bmd);
-    let atlasFor: (palette: Uint8Array) => BobAtlas | PalettedBobAtlas;
+    const stems = group.map((binding) => {
+      const slug = paletteSlug(binding.paletteName);
+      return { ...binding, slug, inColour: isDomPicture(bobAtlasStem(bmdSource.rel, slug)) };
+    });
+    const sharing = stems.filter((stem) => !stem.inColour).length;
+    const shared = sharing > 1 || (sharing === 1 && isCharacterBmd(bmd));
+    let decoded: Bmd;
+    let indexed: BobAtlas | undefined;
     try {
-      const decoded = decodeBmd(await readFile(bmdSource.path));
-      if (shared) {
-        const indexed = packIndexedBobAtlas(decoded, options);
-        atlasFor = (palette) => ({ indexed, palette });
-      } else {
-        atlasFor = (palette) => packBobAtlas(decoded, palette, options);
-      }
+      decoded = decodeBmd(await readFile(bmdSource.path));
+      if (shared) indexed = packIndexedBobAtlas(decoded, options);
     } catch (err) {
       console.warn(`[pipeline] skipped ${bmd}: ${errorMessage(err)}`);
       continue;
     }
-    for (const { paletteName, palette } of group) {
+    for (const { paletteName, palette, slug, inColour } of stems) {
       try {
-        const slug = paletteSlug(paletteName);
-        const { image, manifest } = await writeSourceBobAtlas(outDir, bmdSource.rel, slug, atlasFor(palette));
+        const atlas: BobAtlas | PalettedBobAtlas =
+          indexed === undefined || inColour ? packBobAtlas(decoded, palette, options) : { indexed, palette };
+        const { image, manifest } = await writeSourceBobAtlas(outDir, bmdSource.rel, slug, atlas);
         done.push({ bmd, paletteName, image, manifest });
       } catch (err) {
         console.warn(`[pipeline] skipped ${bmd}: ${errorMessage(err)}`);

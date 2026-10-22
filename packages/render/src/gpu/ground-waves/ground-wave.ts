@@ -11,7 +11,7 @@ export interface GroundWave {
   readonly y: number;
   /** Terrain-elevation lift (world px, >= 0), subtracted from the drawn `y` like a map object's. */
   readonly lift?: number;
-  /** The `.indexed` atlas: the displacement in red, the written mask in alpha. */
+  /** The `.indexed` atlas: the displacement in red, the written mask in green, opaque. */
   readonly source: TextureSource;
   /** The looping frame list, one frame per sim tick. */
   readonly frames: readonly AtlasFrame[];

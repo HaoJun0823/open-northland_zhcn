@@ -1,7 +1,8 @@
 import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
-import { atlasSheetUrl } from '../content/atlas-sheet/index.js';
+import { palettedSheetBitmap } from '../content/atlas-sheet/index.js';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
+import { atlasImagePath, contentUrl } from '../content/url.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { el, mountMessage, pageInnerStyle, pageRootStyle } from '../view/overlay.js';
 
@@ -82,6 +83,28 @@ function installStyle(): void {
   s.id = STYLE_ID;
   s.textContent = GALLERY_CSS;
   document.head.append(s);
+}
+
+/** The object URL of the last paletted sheet the gallery coloured, revoked when the next one replaces it. */
+let colouredSheetUrl: string | undefined;
+
+/**
+ * The sheet a stem's tiles crop from: a paletted one is coloured as the map colours it and shown through
+ * an object URL, since a sheet-sized data URL passes the browser's URL length limit.
+ */
+async function gallerySheetUrl(atlas: AtlasJson): Promise<string> {
+  if (atlas.palette === undefined) return contentUrl(atlasImagePath(atlas.image));
+  const bitmap = await palettedSheetBitmap(atlas.image, atlas.palette);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
+  if (blob === null) throw new Error(`icons: ${atlas.image} could not be encoded`);
+  if (colouredSheetUrl !== undefined) URL.revokeObjectURL(colouredSheetUrl);
+  colouredSheetUrl = URL.createObjectURL(blob);
+  return colouredSheetUrl;
 }
 
 function groupLabel(base: string): string {
@@ -180,7 +203,7 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
         meta.textContent = formatMessage(messages().icons.loadFailed, { stem });
         return;
       }
-      grid.style.setProperty('--sheet', `url('${await atlasSheetUrl(atlas)}')`);
+      grid.style.setProperty('--sheet', `url('${await gallerySheetUrl(atlas)}')`);
       grid.style.setProperty('--sw', String(atlas.width));
       grid.style.setProperty('--sh', String(atlas.height));
       const withName = stem.startsWith(`${GUI_BASE}.`);

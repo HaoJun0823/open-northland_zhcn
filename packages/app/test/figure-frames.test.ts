@@ -45,7 +45,8 @@ describe('figure frame recolour', () => {
   colours.set([10, 20, 30], RED_INDEX * RGB);
 
   it('keeps each atlas pixel as its palette index and coverage', () => {
-    const rgba = new Uint8ClampedArray([RED_INDEX, 9, 9, COVERED, 5, 9, 9, 0]);
+    // The indexed layout: index in red, coverage in green, blue 0, opaque.
+    const rgba = new Uint8ClampedArray([RED_INDEX, COVERED, 0, 255, 5, 0, 0, 255]);
     expect([...indexedPixels(rgba)]).toEqual([RED_INDEX, COVERED, 5, 0]);
   });
 

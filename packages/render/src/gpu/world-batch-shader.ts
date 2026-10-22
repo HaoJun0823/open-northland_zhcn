@@ -16,8 +16,11 @@ export const WORLD_FLAG_SHADOW = 2;
 export const WORLD_FLAG_PALETTED = 4;
 /** A paletted element drawn as its row's {@link GLOW_PALETTE_INDEX} colour over its coverage alone. */
 export const WORLD_FLAG_GLOW = 8;
-/** A paletted element's LUT row, from `aFlags` bit 4 up; a float32 holds it exactly below 2^20 rows. */
-export const WORLD_LUT_ROW_SHIFT = 4;
+/** The element's page is in the indexed layout: palette index in red, coverage in green, opaque. A
+ *  paletted element's page always is; an unpaletted one draws its coverage alone, as black. */
+export const WORLD_FLAG_INDEXED = 16;
+/** A paletted element's LUT row, from `aFlags` bit 5 up; a float32 holds it exactly below 2^19 rows. */
+export const WORLD_LUT_ROW_SHIFT = 5;
 /**
  * The palette index a hero's glow takes its colour from: step 10 of the team ramp in the body palette's
  * vest band (160-175), which each player's team row of the human LUT carries. Original behavior: the glow
@@ -177,6 +180,7 @@ const int WORLD_FLAG_MAGNIFY = ${WORLD_FLAG_MAGNIFY};
 const int WORLD_FLAG_SHADOW = ${WORLD_FLAG_SHADOW};
 const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
 const int WORLD_FLAG_GLOW = ${WORLD_FLAG_GLOW};
+const int WORLD_FLAG_INDEXED = ${WORLD_FLAG_INDEXED};
 const float GLOW_PALETTE_INDEX = ${GLOW_PALETTE_INDEX}.0;
 const int WORLD_LUT_ROW_SHIFT = ${WORLD_LUT_ROW_SHIFT};
 const int LUT_SLOT = ${lutSlotOf(maxTextures)};
@@ -200,7 +204,7 @@ ${BLOOD_COAT_GLSL}
 ${BLOOD_SURFACE_GLSL}
 // The texels one fragment blends, read in one pass over the sampler chain: xBR's neighbourhood of the
 // sample point's corner, one 2x2 at the sample point, or the four 2x2 windows of a paletted element's
-// minification taps. A tap outside the element's frame is transparent, and a paletted tap resolves its
+// minification taps. A tap outside the element's frame is transparent, and an indexed tap resolves its
 // colour before any blend, so the magnifiers blend colours, never indices. The arrays and the rest of
 // the per-fragment state are locals of main: as globals, which ANGLE gathers into one struct passed by
 // reference to every function, the program measured slower on Metal for every fragment it draws,
@@ -234,11 +238,18 @@ vec3 paletteColour(float red, int lutRow) {
   return texelFetch(uTextures[LUT_SLOT], ivec2(int(floor(red * PALETTE_INDEX_MAX + 0.5)), lutRow), 0).rgb;
 }
 
-// A tap outside the element's frame is transparent; a paletted tap resolves its colour here.
-vec4 resolvedTap(vec4 tap, ivec2 at, vec2 texSize, bool paletted, int lutRow) {
+// A texel as drawn, premultiplied: an indexed one takes its coverage from green, and its colour from the
+// LUT when paletted, else black.
+vec4 drawnTexel(vec4 tap, bool indexed, bool paletted, int lutRow) {
+  if (!indexed) return tap;
+  return vec4(paletted ? paletteColour(tap.r, lutRow) * tap.g : vec3(0.0), tap.g);
+}
+
+// A tap outside the element's frame is transparent; an indexed tap resolves its colour here.
+vec4 resolvedTap(vec4 tap, ivec2 at, vec2 texSize, bool indexed, bool paletted, int lutRow) {
   vec2 uv = (vec2(at) + 0.5) / texSize;
   if (any(lessThan(uv, vFrame.xy)) || any(greaterThanEqual(uv, vFrame.zw))) return vec4(0.0);
-  return paletted ? vec4(paletteColour(tap.r, lutRow) * tap.a, tap.a) : tap;
+  return drawnTexel(tap, indexed, paletted, lutRow);
 }
 
 ${PIXEL_ART_MAGNIFY_CORE_GLSL}
@@ -273,6 +284,8 @@ void main(void) {
     texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
     uvFootprint = fwidth(vUV);
   }
+  int flags = int(vFlags);
+  bool indexed = hasFlag(flags, WORLD_FLAG_INDEXED);
   if (vSelection < 0.0) {
     // A selection outline draws its colour over the body's coverage alone, which plain taps give: no
     // palette, magnifier or minification taps. On a magnified (linearly filtered) page a tap stays half
@@ -285,7 +298,8 @@ void main(void) {
       float uncovered = 1.0;
       for (int k = 0; k < OUTLINE_TAPS; k++) {
         vec2 uv = outlineUV(k);
-        float tap = sampleTexture(WORLD_MAGNIFY > 0.5 ? clamp(uv, stampLow, stampHigh) : uv, uvDx, uvDy).a;
+        vec4 texel = sampleTexture(WORLD_MAGNIFY > 0.5 ? clamp(uv, stampLow, stampHigh) : uv, uvDx, uvDy);
+        float tap = indexed ? texel.g : texel.a;
         bool inside = all(greaterThanEqual(uv, vFrame.xy)) && all(lessThan(uv, vFrame.zw));
         uncovered *= 1.0 - (inside ? vColor.a * tap : 0.0);
       }
@@ -294,11 +308,11 @@ void main(void) {
       return;
     }
     vec2 stampUV = WORLD_MAGNIFY > 0.5 ? clamp(vUV, stampLow, stampHigh) : vUV;
-    float coverage = sampleTexture(stampUV, uvDx, uvDy).a;
+    vec4 stamp = sampleTexture(stampUV, uvDx, uvDy);
+    float coverage = indexed ? stamp.g : stamp.a;
     finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
     return;
   }
-  int flags = int(vFlags);
   bool paletted = hasFlag(flags, WORLD_FLAG_PALETTED);
   int lutRow = flags >> WORLD_LUT_ROW_SHIFT;
   bool magnified = texelsPerPixel < 1.0;
@@ -315,13 +329,14 @@ void main(void) {
   vec4 outColor;
   if (!filtered || (minified && single)) {
     vec4 texel = sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
-    outColor = paletted ? vec4(paletteColour(texel.r, lutRow) * texel.a, texel.a) : texel;
+    outColor = drawnTexel(texel, indexed, paletted, lutRow);
   } else if (minified) {
     // Not a mipmap substitute at extreme zoom-out: sampling cost is deliberately bounded.
-    outColor = MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy)
+    // Never paletted, so an indexed page's averaged coverage stays its coverage.
+    outColor = drawnTexel(MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy)
                      + sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high), uvDx, uvDy)
                      + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy)
-                     + sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy));
+                     + sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy)), indexed, false, lutRow);
   } else {
     // xBR's window, or one 2x2 at the sample point for a prescaled page's sharp magnification and for
     // a paletted element at a texel per pixel, else four 2x2 spread over the minified footprint. Only
@@ -356,9 +371,9 @@ ${XBR_NEIGHBOURS.map(([name, dx, dy], k) => `      tapAt[${k}] = centre + window
     // per fragment and this one chain reads every tap; a tap-by-tap chain compiled for minutes there.
 ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k < tapCount) taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
     // The one 2x2 most gathers take resolves at literal indices, which measured faster; the rest loop.
-${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTap(taps[${k}], tapAt[${k}], texSize, paletted, lutRow);`).join('\n')}
+${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTap(taps[${k}], tapAt[${k}], texSize, indexed, paletted, lutRow);`).join('\n')}
     for (int k = SUB_WINDOW_TAPS; k < TAP_COUNT; k++) {
-      if (k < tapCount) taps[k] = resolvedTap(taps[k], tapAt[k], texSize, paletted, lutRow);
+      if (k < tapCount) taps[k] = resolvedTap(taps[k], tapAt[k], texSize, indexed, paletted, lutRow);
     }
     if (xbr) {
       XbrNeighbours n = XbrNeighbours(${XBR_NEIGHBOURS.map((_, k) => `taps[${k}]`).join(', ')});

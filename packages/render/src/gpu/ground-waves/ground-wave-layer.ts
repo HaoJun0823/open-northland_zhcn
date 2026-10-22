@@ -25,12 +25,8 @@ const blockKeyAt = (column: number, row: number): number => row * BLOCK_ROW_STRI
 const blockKey = (wave: GroundWave): number => blockKeyAt(blockOf(wave.x), blockOf(wave.y));
 
 interface WaveBlock {
-  /** Blocks draw in the order their first wave was placed, so overlapping waves keep their order. */
-  readonly order: number;
   readonly waves: GroundWave[];
 }
-
-const byPlacement = (a: WaveBlock, b: WaveBlock): number => a.order - b.order;
 
 /** What the last lift map was drawn from; the same inputs draw the same map. */
 interface LiftInputs {
@@ -50,8 +46,10 @@ interface LiftInputs {
  * before creatures, each wave's current bob copies, for every written texel of value `v`, the pixel `v`
  * rows below it into its place, so the ground under the wave rises by 1 to 6 px while settlers stay put. Here the visible
  * waves render into a screen-sized lift map, redrawn when the tick, the camera, the screen or the waves
- * change, and a filter on the ground container applies it. Approximations: overlapping waves take the
- * last drawn value instead of chaining their copies,
+ * change, and a filter on the ground container applies it. The waves' indexed sheets are opaque (lift in
+ * red, the written mask in green, 0 where unwritten), so they draw with a per-channel maximum, which keeps
+ * an unwritten texel from erasing a neighbour's lift. Approximations: overlapping waves take the larger
+ * value instead of chaining their copies,
  * and static landscape objects, which the original lifts with the ground, stay put.
  */
 export class GroundWaveLayer {
@@ -60,7 +58,7 @@ export class GroundWaveLayer {
   private readonly view = new Container();
   private readonly sprites: Sprite[] = [];
   private readonly blocks = new Map<number, WaveBlock>();
-  /** This frame's blocks in view, in placement order. */
+  /** This frame's blocks in view. */
   private readonly inView: WaveBlock[] = [];
   private revision = 0;
   /** Null until a map is drawn, and after a frame without one. */
@@ -97,7 +95,7 @@ export class GroundWaveLayer {
       const key = blockKey(wave);
       let block = this.blocks.get(key);
       if (block === undefined) {
-        block = { order: this.blocks.size, waves: [] };
+        block = { waves: [] };
         this.blocks.set(key, block);
       }
       block.waves.push(wave);
@@ -196,7 +194,7 @@ export class GroundWaveLayer {
     );
   }
 
-  /** The blocks whose square holds the view, in placement order. */
+  /** The blocks whose square holds the view; the maximum blend makes their order irrelevant. */
   private blocksInView(vp: Viewport): readonly WaveBlock[] {
     const inView = this.inView;
     inView.length = 0;
@@ -207,7 +205,7 @@ export class GroundWaveLayer {
         if (block !== undefined) inView.push(block);
       }
     }
-    return inView.sort(byPlacement);
+    return inView;
   }
 
   /** The lift map is framed on the main camera, so another view of the world draws the ground unlifted. */
@@ -261,6 +259,7 @@ export class GroundWaveLayer {
 
   private mintSprite(): Sprite {
     const sprite = new Sprite();
+    sprite.blendMode = 'max';
     this.view.addChild(sprite);
     this.sprites.push(sprite);
     return sprite;

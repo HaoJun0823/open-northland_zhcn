@@ -31,7 +31,7 @@ export async function bobsIndexEntries(outDir: string): Promise<BobsIndexEntry[]
   const stems = [...names]
     .filter((name) => name.endsWith(ATLAS_MANIFEST_SUFFIX))
     .map((name) => name.slice(0, -ATLAS_MANIFEST_SUFFIX.length))
-    // An `.indexed` sheet holds a palette index in red and a mask in alpha, not a viewable image.
+    // An `.indexed` sheet holds a palette index in red and coverage in green, not a viewable image.
     .filter((stem) => !stem.endsWith(`.${INDEXED_ATLAS_SUFFIX}`));
   const entries: BobsIndexEntry[] = [];
   for (const stem of stems) {

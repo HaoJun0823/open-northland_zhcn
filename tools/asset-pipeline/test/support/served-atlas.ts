@@ -10,7 +10,7 @@ import { ATLAS_MANIFEST_SUFFIX, BOBS_DIR } from '../../src/stages/content-tree.j
 /** A written `<stem>.atlas.json` with the packer's full frame records. */
 export type ServedManifest = AtlasManifest & { readonly frames: readonly AtlasFrame[] };
 
-/** Decodes a served sheet to straight RGBA, the bytes the app's straight-alpha upload sees. */
+/** Decodes a served sheet to its RGBA bytes, as packed. */
 export async function decodeAtlasImage(bytes: Uint8Array): Promise<RgbaImage> {
   const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return { width: info.width, height: info.height, rgba: new Uint8Array(data) };

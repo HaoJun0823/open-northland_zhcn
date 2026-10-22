@@ -18,6 +18,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 import { bloodSurface } from '../src/gpu/blood-surface.js';
 import {
+  markIndexedSource,
   markPalettedTexture,
   markShadowTexture,
   palettedLutOf,
@@ -33,6 +34,7 @@ import {
   routeWorldBatches,
   WORLD_ATTRIBUTE_OFFSETS,
   WORLD_FLAG_GLOW,
+  WORLD_FLAG_INDEXED,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
@@ -220,6 +222,20 @@ describe('world batcher element flags', () => {
     for (const t of [blob, body]) t.destroy();
     page.destroy();
   });
+
+  it('flags every texture cut from an indexed page, so its coverage reads from green', () => {
+    const page = new TextureSource({ width: 8, height: 8 });
+    markIndexedSource(page);
+    const silhouette = new Texture({ source: page });
+    markShadowTexture(silhouette);
+
+    expect(packedFlags(silhouette)).toBe(WORLD_FLAG_INDEXED);
+    setWorldShadowStyle(DEFAULT_SHADOW_STYLE);
+    expect(packedFlags(silhouette)).toBe(WORLD_FLAG_INDEXED | WORLD_FLAG_SHADOW);
+
+    silhouette.destroy();
+    page.destroy();
+  });
 });
 
 describe('world batcher palette LUT', () => {
@@ -267,14 +283,14 @@ describe('world batcher palette LUT', () => {
     const flagsOf = (element: number, vertex: number) =>
       floats[(element * 4 + vertex) * WORLD_VERTEX_SIZE + WORLD_ATTRIBUTE_OFFSETS.aFlags / 4];
     for (let vertex = 0; vertex < 4; vertex++) {
-      expect(flagsOf(0, vertex)).toBe(WORLD_FLAG_PALETTED | (3 << WORLD_LUT_ROW_SHIFT));
-      expect(flagsOf(1, vertex)).toBe(WORLD_FLAG_PALETTED | (1 << WORLD_LUT_ROW_SHIFT));
+      expect(flagsOf(0, vertex)).toBe(WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | (3 << WORLD_LUT_ROW_SHIFT));
+      expect(flagsOf(1, vertex)).toBe(WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | (1 << WORLD_LUT_ROW_SHIFT));
       expect(flagsOf(2, vertex)).toBe(0);
     }
 
     // A repack outside a rebuild, such as a new frame on the same page, keeps the row.
     batcher.updateElement(elements[0] as DefaultBatchableQuadElement);
-    expect(flagsOf(0, 0)).toBe(WORLD_FLAG_PALETTED | (3 << WORLD_LUT_ROW_SHIFT));
+    expect(flagsOf(0, 0)).toBe(WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | (3 << WORLD_LUT_ROW_SHIFT));
     batcher.destroy();
   });
 
@@ -494,7 +510,7 @@ describe('world batcher palette LUT', () => {
     const floats = batcher.attributeBuffer.float32View;
     const flagsOf = (element: number) =>
       floats[element * 4 * WORLD_VERTEX_SIZE + WORLD_ATTRIBUTE_OFFSETS.aFlags / 4];
-    const body = WORLD_FLAG_PALETTED | (2 << WORLD_LUT_ROW_SHIFT);
+    const body = WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | (2 << WORLD_LUT_ROW_SHIFT);
     expect(flagsOf(0)).toBe(body | WORLD_FLAG_GLOW);
     expect(flagsOf(1)).toBe(body);
     batcher.destroy();

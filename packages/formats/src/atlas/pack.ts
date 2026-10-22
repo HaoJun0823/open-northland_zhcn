@@ -13,6 +13,7 @@ import {
   INDEXED_BAKE,
   indexedBake,
   SHADOW_BAKE,
+  writeIndexedPixel,
 } from './bake.js';
 
 /** Transparent gutter (in pixels) left between packed frames so sampling can't bleed across them. */
@@ -84,15 +85,24 @@ export function packShadowBobAtlas(bmd: Bmd): BobAtlas {
 }
 
 /**
- * Packs every bob into an indexed atlas (palette index in red, mask in alpha). Placement, manifest and
- * time sheet are identical to the RGB atlas {@link packBobAtlas} makes of the same `.bmd` with the same
- * options, so colouring this sheet through a palette yields that atlas's sheet. Coverage bakes graded,
- * like the RGB path, so the type-4 bobs' authored feathered translucency survives into the drawn sprite.
+ * Packs every bob into an indexed atlas (the opaque layout of `expandBobFrameIndexed`; the gutters are
+ * uncovered pixels too). Placement, manifest and time sheet are identical to the RGB atlas
+ * {@link packBobAtlas} makes of the same `.bmd` with the same options, so colouring this sheet through a
+ * palette yields that atlas's sheet. Coverage bakes graded, like the RGB path, so the type-4 bobs'
+ * authored feathered translucency survives into the drawn sprite.
  */
 export function packIndexedBobAtlas(bmd: Bmd, options: PackBobAtlasOptions = {}): BobAtlas {
   const { maxWidth = DEFAULT_ATLAS_MAX_WIDTH, alpha = 'per-pixel', coverageBobs = NO_BOBS } = options;
   const atlasBake = indexedBake(alpha);
-  return packBobAtlasWith(bmd, (bobId) => (coverageBobs.has(bobId) ? INDEXED_BAKE : atlasBake), maxWidth);
+  const atlas = packBobAtlasWith(
+    bmd,
+    (bobId) => (coverageBobs.has(bobId) ? INDEXED_BAKE : atlasBake),
+    maxWidth,
+  );
+  const { rgba } = atlas.image;
+  // The packer leaves the space between frames all zero; the layout's uncovered pixel is opaque.
+  for (let o = 0; o < rgba.length; o += 4) if (rgba[o + 3] === 0) writeIndexedPixel(rgba, o, 0, 0);
+  return atlas;
 }
 
 /** The bake one bob id takes. */

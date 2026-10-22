@@ -26,6 +26,7 @@ import { surfaceOf } from './blood-surface.js';
 import {
   hasPrescaledPages,
   isCollectingDrawnPages,
+  isIndexedSource,
   isMagnifiedTexture,
   isShadowTexture,
   noteDrawnPage,
@@ -49,6 +50,7 @@ import {
   lutSlotOf,
   WORLD_BATCH_MAX_TEXTURES,
   WORLD_FLAG_GLOW,
+  WORLD_FLAG_INDEXED,
   WORLD_FLAG_MAGNIFY,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
@@ -60,6 +62,7 @@ export {
   GLOW_PALETTE_INDEX,
   lutSlotOf,
   WORLD_FLAG_GLOW,
+  WORLD_FLAG_INDEXED,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
@@ -413,17 +416,20 @@ function defineWorldBatcher(): WorldBatcherClass {
     return index + WORLD_VERTEX_SIZE - 2;
   }
 
-  /** The flags of an element whose page is not paletted; the shadow lookups are skipped entirely while
-   *  no shadow shading is compiled in. */
+  /** The flags of an element whose texture is not paletted, though its page may be indexed (a cast
+   *  silhouette or outline of an indexed body); the shadow lookups are skipped entirely while no shadow
+   *  shading is compiled in. */
   function plainFlags(texture: Texture): number {
     const magnify = isMagnifiedTexture(texture) ? WORLD_FLAG_MAGNIFY : 0;
-    if (worldShadowStyle() === null || !isShadowTexture(texture)) return magnify;
-    return magnify | WORLD_FLAG_SHADOW;
+    const plain = isIndexedSource(texture.source) ? magnify | WORLD_FLAG_INDEXED : magnify;
+    if (worldShadowStyle() === null || !isShadowTexture(texture)) return plain;
+    return plain | WORLD_FLAG_SHADOW;
   }
 
   function palettedFlags(element: BatchableElement): number {
     return (
       WORLD_FLAG_PALETTED |
+      WORLD_FLAG_INDEXED |
       (glowOf(element) ? WORLD_FLAG_GLOW : 0) |
       (lutRowOf(element) << WORLD_LUT_ROW_SHIFT)
     );

@@ -234,6 +234,7 @@ export {
   PalettedSprite,
 } from './gpu/paletted-sprite/index.js';
 export {
+  type AtlasSheetLayout,
   DEFAULT_PIXEL_ART_SCALER,
   PIXEL_ART_SCALERS,
   type PixelArtScaler,

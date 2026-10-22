@@ -8,7 +8,7 @@ describe('colourIndexedSheet', () => {
 
   it('colours a covered pixel through its index, keeps its coverage, and zeroes an uncovered one', () => {
     // Opaque index 7, graded index 0, then an uncovered pixel whose stray index must not leak colour.
-    const indexed = Uint8Array.from([7, 0, 0, 255, 0, 0, 0, 0x60, 7, 0, 0, 0]);
+    const indexed = Uint8Array.from([7, 255, 0, 255, 0, 0x60, 0, 255, 7, 0, 0, 255]);
     const out = new Uint8ClampedArray(indexed.length).fill(99);
     colourIndexedSheet(indexed, palette, out);
     expect([...out]).toEqual([200, 100, 50, 255, 10, 20, 30, 0x60, 0, 0, 0, 0]);

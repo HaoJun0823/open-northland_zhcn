@@ -34,7 +34,7 @@ function tiltCorners(corners: Float32Array, pivotX: number, pivotY: number, radi
 
 /**
  * A feet-anchored sprite whose colour is a per-player palette lookup rather than a baked texture: the
- * indexed atlas holds a palette index in red and a mask in alpha, and each index is read through the
+ * indexed atlas holds a palette index in red and coverage in green, and each index is read through the
  * `256 × N` LUT row chosen by {@link PalettedSprite.player}. Team colour is a palette-band remap, not a
  * whole-sprite tint, and one indexed atlas plus one LUT draw all N player colours.
  *

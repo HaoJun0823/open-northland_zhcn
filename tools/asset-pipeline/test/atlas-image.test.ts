@@ -30,13 +30,12 @@ describe('encodeAtlasImage', () => {
 });
 
 describe('atlasImageName', () => {
-  it('names identical sheets alike and keeps straight and premultiplied sheets apart', () => {
+  it('names identical sheets alike and different sheets apart', () => {
     const copy: RgbaImage = { ...SHEET, rgba: SHEET.rgba.slice() };
-    const name = atlasImageName(SHEET, 'premultiplied');
+    const name = atlasImageName(SHEET);
     expect(name).toMatch(new RegExp(`^[0-9a-f]{16}\\${ATLAS_IMAGE_EXTENSION}$`));
-    expect(atlasImageName(copy, 'premultiplied')).toBe(name);
-    expect(atlasImageName(SHEET, 'straight')).not.toBe(name);
+    expect(atlasImageName(copy)).toBe(name);
     // The same bytes in another shape are another sheet.
-    expect(atlasImageName({ ...SHEET, width: 2, height: 4 }, 'premultiplied')).not.toBe(name);
+    expect(atlasImageName({ ...SHEET, width: 2, height: 4 })).not.toBe(name);
   });
 });

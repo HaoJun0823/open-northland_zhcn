@@ -1,7 +1,7 @@
 import { Application, Assets, ImageSource, type Texture, type TextureSource } from 'pixi.js';
 import { registerHumanPaletteUploader } from './human-palette-lut.js';
 import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
-import { markPixelArtSource } from './pixel-art-registry.js';
+import { type AtlasSheetLayout, markIndexedSource, markPixelArtSource } from './pixel-art-registry.js';
 import { registerWrittenPageUploader } from './written-page-source.js';
 
 /**
@@ -141,28 +141,20 @@ export function leaveCursorToCss(events: { cursorStyles: Record<string, unknown>
 
 /**
  * Load a decoded atlas sheet as a Pixi {@link TextureSource}. The default `nearest` keeps pixel-art bobs
- * crisp; ground texture pages pass `linear`.
- *
- * `alpha: 'straight'` is required for palette-indexed sheets (`<stem>.indexed`): their red channel is a
- * palette index, not colour, so Pixi's default premultiply-on-upload would scale the index by the frame's
- * graded coverage and every feathered pixel would look up the wrong LUT entry. `data.alphaMode:
- * 'premultiplied-alpha'` is Pixi's only hook that decodes the bitmap with `premultiplyAlpha: 'none'`, and
- * that label also uploads the bytes raw. It stays on the source although the bytes are straight: every
- * shader reading an indexed sheet premultiplies its own output, and the label keeps Pixi's normal blend,
- * so a character's quads batch with the plain sprites around them.
+ * crisp; ground texture pages pass `linear`. An `indexed` sheet (palette index in red, coverage in
+ * green, opaque) decodes and uploads like any other, since premultiplying an opaque image changes
+ * nothing; its source is marked so the world batch reads coverage from green.
  */
 export async function loadAtlasSource(
   url: string,
   scaleMode: 'nearest' | 'linear' = 'nearest',
-  alpha: 'premultiplied' | 'straight' = 'premultiplied',
+  layout: AtlasSheetLayout = 'rgba',
 ): Promise<TextureSource> {
-  const texture =
-    alpha === 'straight'
-      ? ((await Assets.load({ src: url, data: { alphaMode: 'premultiplied-alpha' } })) as Texture)
-      : ((await Assets.load(url)) as Texture);
+  const texture = (await Assets.load(url)) as Texture;
   texture.source.scaleMode = scaleMode;
   // A nearest-loaded page is authored pixel art and may magnify edge-aware; ground pages stay linear.
   if (scaleMode === 'nearest') markPixelArtSource(texture.source);
+  if (layout === 'indexed') markIndexedSource(texture.source);
   return texture.source;
 }
 

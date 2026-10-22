@@ -93,7 +93,7 @@ describe('GroundWaveLayer', () => {
     restoreContext();
   });
 
-  it('draws the waves of the blocks under the view in placement order, whatever their position', () => {
+  it('draws the waves of the blocks under the view with a per-channel maximum', () => {
     const { renderer, render } = fakeRenderer();
     const layer = new GroundWaveLayer(renderer, new Container());
     // The first wave placed lies in a block to the right of the second's, which sits left of the origin.
@@ -107,7 +107,12 @@ describe('GroundWaveLayer', () => {
     expect(render).toHaveBeenCalledTimes(1);
     const root = render.mock.calls[0]?.[0].container as Container;
     const drawn = root.children[0]?.children.filter((sprite) => sprite.visible) ?? [];
-    expect(drawn.map((sprite) => sprite.x)).toEqual([right + FRAME_0.offsetX, left + FRAME_0.offsetX]);
+    expect(drawn.map((sprite) => sprite.x).sort((a, b) => a - b)).toEqual([
+      left + FRAME_0.offsetX,
+      right + FRAME_0.offsetX,
+    ]);
+    // An opaque sheet's unwritten texels hold lift 0 and mask 0, which a maximum never writes over a lift.
+    expect(drawn.map((sprite) => sprite.blendMode)).toEqual(['max', 'max']);
 
     layer.update({ minX: right + 1, minY: -1, maxX: right + 2, maxY: 1 }, CAMERA, SCREEN, SCREEN, 1, true);
     expect(root.children[0]?.children.filter((sprite) => sprite.visible)).toHaveLength(0);

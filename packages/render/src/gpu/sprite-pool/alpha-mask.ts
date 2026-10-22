@@ -1,5 +1,6 @@
 import type { TextureSource } from 'pixi.js';
 import { type DrawableResource, isDrawableResource, readable2dContext } from '../drawable-resource.js';
+import { isIndexedSource } from '../pixel-art-registry.js';
 
 /**
  * Per-atlas alpha masks refining the picker's AABB hit to the drawn texel. Pixel hit-testing is a
@@ -13,6 +14,10 @@ import { type DrawableResource, isDrawableResource, readable2dContext } from '..
  */
 export const SOLID_ALPHA_MIN = 128;
 
+/** The channel a sheet's coverage is in: alpha, or green on an indexed (opaque) sheet. */
+const ALPHA_CHANNEL = 3;
+const INDEXED_COVERAGE_CHANNEL = 1;
+
 /** A 1-bit solid/transparent mask over a whole atlas sheet, row-major and bit-packed. */
 export interface AlphaMask {
   readonly width: number;
@@ -24,10 +29,11 @@ export function buildAlphaMask(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,
   height: number,
+  coverageChannel = ALPHA_CHANNEL,
 ): AlphaMask {
   const bits = new Uint8Array(Math.ceil((width * height) / 8));
   for (let i = 0; i < width * height; i++) {
-    const alpha = rgba[i * 4 + 3] ?? 0;
+    const alpha = rgba[i * 4 + coverageChannel] ?? 0;
     if (alpha >= SOLID_ALPHA_MIN) {
       bits[i >> 3] = (bits[i >> 3] ?? 0) | (1 << (i & 7));
     }
@@ -75,7 +81,9 @@ export function alphaMaskOf(source: TextureSource): AlphaMask | null {
   const mask = isDrawableResource(resource)
     ? (() => {
         const pixels = readPixels(resource, source.pixelWidth, source.pixelHeight);
-        return pixels === null ? null : buildAlphaMask(pixels.data, pixels.width, pixels.height);
+        if (pixels === null) return null;
+        const channel = isIndexedSource(source) ? INDEXED_COVERAGE_CHANNEL : ALPHA_CHANNEL;
+        return buildAlphaMask(pixels.data, pixels.width, pixels.height, channel);
       })()
     : null;
   maskCache.set(source, mask);

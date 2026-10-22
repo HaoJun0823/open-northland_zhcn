@@ -4,7 +4,7 @@ import { type GlslProgramSource, glProgramFor } from '../program-source.js';
 /**
  * The ground-lift filter: each output pixel whose screen position the wave map covers reads the input
  * that many world pixels below it, so the ground under a wave rises by the map's value. The map is a
- * screen-sized render of the visible waves, lift in red and coverage in alpha.
+ * screen-sized render of the visible waves, lift in red and the written mask in green.
  */
 
 const VERTEX = `
@@ -40,7 +40,7 @@ const FRAGMENT = `
   void main(void) {
     vec4 wave = texture(uWaveMap, vScreen / uScreenSize);
     vec2 uv = vTextureCoord;
-    if (wave.a > 0.5) {
+    if (wave.g > 0.5) {
       float devicePx = floor(floor(wave.r * 255.0 + 0.5) * uLiftScale * uResolution + 0.5);
       uv.y += devicePx / uResolution * uInputSize.w;
     }

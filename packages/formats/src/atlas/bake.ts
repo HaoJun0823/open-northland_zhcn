@@ -39,19 +39,31 @@ export function expandBobFrame(frame: BobFrame, palette: Uint8Array): RgbaImage 
   return { width, height, rgba: paletteToRgba(pixels, palette, (i) => mask[i] ?? 0) };
 }
 
+/** The indexed layout's channels: palette index in red, coverage in green, blue 0, alpha always opaque.
+ *  An opaque image decodes the same with or without premultiplication, so any plain image decode (a
+ *  2d canvas, a premultiplied texture upload) reads the index and coverage back exactly. */
+const INDEXED_INDEX_CHANNEL = 0;
+const INDEXED_COVERAGE_CHANNEL = 1;
+const ALPHA_CHANNEL = 3;
+
+/** One indexed pixel: {@link INDEXED_INDEX_CHANNEL}, {@link INDEXED_COVERAGE_CHANNEL}, opaque. */
+export function writeIndexedPixel(rgba: Uint8Array, offset: number, index: number, coverage: number): void {
+  rgba[offset + INDEXED_INDEX_CHANNEL] = index;
+  rgba[offset + INDEXED_COVERAGE_CHANNEL] = coverage;
+  rgba[offset + ALPHA_CHANNEL] = BOB_ALPHA_OPAQUE;
+}
+
 /**
- * Palette index in red, `mask` in alpha, green/blue left 0. Colour is deferred to the renderer, which
- * reads each index through a per-player palette LUT so a clothing band recolours at draw time.
+ * A frame in the indexed layout ({@link INDEXED_COVERAGE_CHANNEL}): the `mask` is the coverage and an
+ * unwritten pixel is index 0 at coverage 0. Colour is deferred to the renderer, which reads each index
+ * through a per-player palette LUT so a clothing band recolours at draw time.
  */
 export function expandBobFrameIndexed(frame: BobFrame): RgbaImage {
   const { width, height, pixels, mask } = frame;
   const rgba = new Uint8Array(width * height * 4);
   for (let i = 0; i < pixels.length; i++) {
     const coverage = mask[i] ?? 0;
-    if (coverage === 0) continue; // transparent: leave RGBA all-zero
-    const o = i * 4;
-    rgba[o] = pixels[i] ?? 0;
-    rgba[o + 3] = coverage;
+    writeIndexedPixel(rgba, i * 4, coverage === 0 ? 0 : (pixels[i] ?? 0), coverage);
   }
   return { width, height, rgba };
 }
@@ -102,7 +114,7 @@ export function colouredBake(palette: Uint8Array, alpha: AtlasAlphaMode): BobBak
 
 export const INDEXED_BAKE: BobBake = { secondByte: 'alpha', plane: expandBobFrameIndexed };
 
-/** The indexed counterpart of {@link colouredBake}: the same mask and time plane, the index in red. */
+/** The indexed counterpart of {@link colouredBake}: the same mask and time plane, in the indexed layout. */
 export function indexedBake(alpha: AtlasAlphaMode): BobBake {
   return alpha === 'build-time'
     ? { secondByte: 'time', plane: expandBobFrameIndexed, time: expandBobFrameTime }

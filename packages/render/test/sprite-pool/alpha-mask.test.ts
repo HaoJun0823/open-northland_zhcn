@@ -35,6 +35,15 @@ describe('buildAlphaMask / maskSolidAt', () => {
     }
   });
 
+  it('reads coverage from green on an indexed sheet, whose alpha is opaque everywhere', () => {
+    const GREEN = 1;
+    // Index 9 uncovered, then index 0 covered: the layout's red is never coverage.
+    const rgba = Uint8Array.from([9, 0, 0, 255, 0, 255, 0, 255]);
+    const mask = buildAlphaMask(rgba, 2, 1, GREEN);
+    expect(maskSolidAt(mask, 0, 0)).toBe(false);
+    expect(maskSolidAt(mask, 1, 0)).toBe(true);
+  });
+
   it('treats out-of-range coordinates as transparent', () => {
     const mask = buildAlphaMask(rgbaWithAlpha(2, 1, [255, 255]), 2, 1);
     expect(maskSolidAt(mask, -1, 0)).toBe(false);

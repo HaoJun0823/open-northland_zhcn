@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import { atlasSheetUrl } from '../../content/atlas-sheet/index.js';
+import { pictureSheetUrl } from '../../content/atlas-sheet/index.js';
 import { loadGoodsManifest } from '../../content/goods-gfx.js';
 import {
   type SpriteIconFrame,
@@ -43,8 +43,10 @@ export async function goodIconSource(
   const frame = icon?.atlas.frames.find((f) => f.bobId === icon.bobId);
   if (icon === null || frame === undefined) return null;
   const { atlas } = icon;
+  const url = pictureSheetUrl(atlas);
+  if (url === null) return null;
   return {
-    url: await atlasSheetUrl(atlas),
+    url,
     sheet: { width: atlas.width, height: atlas.height },
     rect: frame.rect,
   };

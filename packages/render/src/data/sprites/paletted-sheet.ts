@@ -2,6 +2,8 @@
 const RGB = 3;
 const RGBA = 4;
 const ALPHA = 3;
+/** The indexed layout's coverage channel; red is the palette index, and the sheet is opaque. */
+const COVERAGE = 1;
 /** A served palette's length: 256 RGB entries. */
 export const ATLAS_PALETTE_BYTES = 256 * RGB;
 
@@ -17,9 +19,9 @@ export function decodeAtlasPalette(base64: string): Uint8Array {
 }
 
 /**
- * Colours an indexed sheet (palette index in red, coverage in alpha, straight) through `palette` into
- * `out`: a covered pixel takes the indexed colour and keeps its coverage, an uncovered one stays all
- * zero. These are the bytes the pipeline's RGB bake of the same bob set writes.
+ * Colours an indexed sheet (palette index in red, coverage in green, opaque) through `palette` into
+ * straight RGBA `out`: a covered pixel takes the indexed colour with its coverage as alpha, an uncovered
+ * one is all zero. These are the bytes the pipeline's RGB bake of the same bob set writes.
  */
 export function colourIndexedSheet(
   indexed: Uint8Array | Uint8ClampedArray,
@@ -27,7 +29,7 @@ export function colourIndexedSheet(
   out: Uint8Array | Uint8ClampedArray,
 ): void {
   for (let o = 0; o < indexed.length; o += RGBA) {
-    const coverage = indexed[o + ALPHA] ?? 0;
+    const coverage = indexed[o + COVERAGE] ?? 0;
     if (coverage === 0) {
       out[o] = 0;
       out[o + 1] = 0;

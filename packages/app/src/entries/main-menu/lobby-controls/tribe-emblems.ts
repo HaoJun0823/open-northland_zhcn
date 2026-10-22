@@ -1,6 +1,6 @@
 import { CIVILIZATION_TRIBES } from '@open-northland/data';
 import type { AtlasManifest } from '@open-northland/render';
-import { atlasSheetUrl } from '../../../content/atlas-sheet/index.js';
+import { pictureSheetUrl } from '../../../content/atlas-sheet/index.js';
 import { tribeEmblemRows } from '../../../content/building-gfx/emblems.js';
 import { servedAtlasStem } from '../../../content/ir/joins.js';
 import { loadIr } from '../../../content/ir/load.js';
@@ -40,8 +40,10 @@ async function emblemUrl(bob: BuildingBobRow): Promise<string | null> {
   const manifest = await fetchJsonOrNull<AtlasManifest>(`/bobs/${stem}.atlas.json`);
   const rect = manifest?.frames.find((frame) => frame.bobId === bob.bobId)?.rect;
   if (manifest === null || rect === undefined || rect.width === 0 || rect.height === 0) return null;
+  const src = pictureSheetUrl(manifest);
+  if (src === null) return null;
   const image = new Image();
-  image.src = await atlasSheetUrl(manifest);
+  image.src = src;
   await image.decode();
   const canvas = document.createElement('canvas');
   canvas.width = EMBLEM_PX;

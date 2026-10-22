@@ -245,7 +245,7 @@ describe('packBobAtlas', () => {
 });
 
 describe('expandBobFrameIndexed', () => {
-  it('writes the palette index to red + mask to alpha, leaving unmasked pixels transparent', () => {
+  it('writes the palette index to red and the mask to green, opaque, with unmasked pixels index 0', () => {
     const frame: BobFrame = {
       width: 3,
       height: 1,
@@ -253,18 +253,18 @@ describe('expandBobFrameIndexed', () => {
       mask: Uint8Array.from([255, 128, 0]),
     };
     const rgba = expandBobFrameIndexed(frame).rgba;
-    // idx 5 -> (5,0,0,255); idx 200 with graded coverage -> (200,0,0,128); masked-off -> (0,0,0,0).
-    expect([...rgba]).toEqual([5, 0, 0, 255, 200, 0, 0, 128, 0, 0, 0, 0]);
+    // idx 5 -> (5,255,0,255); idx 200 with graded coverage -> (200,128,0,255); masked-off -> (0,0,0,255).
+    expect([...rgba]).toEqual([5, 255, 0, 255, 200, 128, 0, 255, 0, 0, 0, 255]);
   });
 
   it('keeps index 0 as a real (opaque) index when its mask is set', () => {
     const frame: BobFrame = { width: 1, height: 1, pixels: Uint8Array.of(0), mask: Uint8Array.of(255) };
-    expect([...expandBobFrameIndexed(frame).rgba]).toEqual([0, 0, 0, 255]);
+    expect([...expandBobFrameIndexed(frame).rgba]).toEqual([0, 255, 0, 255]);
   });
 });
 
 describe('packIndexedBobAtlas', () => {
-  it('keeps Double8Bit coverage graded (the LUT shader modulates by alpha)', () => {
+  it('keeps Double8Bit coverage graded (the LUT shader modulates by the green coverage)', () => {
     // One type-4 bob, raw run of 2 [index, alpha] pairs with a graded alpha byte 0x40.
     const bmd = makeBmd([
       {
@@ -280,9 +280,11 @@ describe('packIndexedBobAtlas', () => {
       const o = (ATLAS_GUTTER * indexed.image.width + ATLAS_GUTTER + x) * 4;
       return [...indexed.image.rgba.subarray(o, o + 4)];
     };
-    // Same graded bake as the RGB path: the authored 0x40 coverage rides into the sheet's alpha.
-    expect(px(0)).toEqual([7, 0, 0, 0x40]);
-    expect(px(1)).toEqual([8, 0, 0, 255]);
+    // Same graded bake as the RGB path: the authored 0x40 coverage rides into the sheet's green.
+    expect(px(0)).toEqual([7, 0x40, 0, 255]);
+    expect(px(1)).toEqual([8, 255, 0, 255]);
+    // The gutter is an uncovered pixel of the layout: opaque, coverage 0.
+    expect([...indexed.image.rgba.subarray(0, 4)]).toEqual([0, 0, 0, 255]);
   });
 
   it('shares placement/manifest with the RGB atlas but stores indices, not colours', () => {
@@ -306,9 +308,9 @@ describe('packIndexedBobAtlas', () => {
       const o = (y * img.width + x) * 4;
       return [...img.rgba.subarray(o, o + 4)];
     };
-    // Indexed atlas carries the raw index in red (7, 8), alpha opaque - not the palette colour.
-    expect(px(indexed.image, ATLAS_GUTTER, ATLAS_GUTTER)).toEqual([7, 0, 0, 255]);
-    expect(px(indexed.image, ATLAS_GUTTER + 1, ATLAS_GUTTER)).toEqual([8, 0, 0, 255]);
+    // Indexed atlas carries the raw index in red (7, 8) and full coverage in green - not the colour.
+    expect(px(indexed.image, ATLAS_GUTTER, ATLAS_GUTTER)).toEqual([7, 255, 0, 255]);
+    expect(px(indexed.image, ATLAS_GUTTER + 1, ATLAS_GUTTER)).toEqual([8, 255, 0, 255]);
   });
 });
 

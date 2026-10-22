@@ -229,6 +229,34 @@ describe('convertBmdTree', () => {
     expect(bear).not.toEqual(wolf);
   });
 
+  it('keeps an RGB sheet per palette for a bob set the DOM shows, however many colourings it has', async () => {
+    // The goods' pile icons are CSS crops of their sheets, which show pixels as they are.
+    await layDownAssets();
+    await writeFile(join(out, 'Data', 'Bobs', 'LS_Goods.bmd'), sampleBmdBytes());
+    await writeFile(join(out, 'Data', 'Pal', 'Wolf01.pcx'), samplePcx(solidPalette(255, 0, 0)).bytes);
+    const bindings: BmdPaletteBinding[] = ['bear01', 'wolf01'].map((paletteName) => ({
+      bmd: 'data/bobs/ls_goods.bmd',
+      shadowBmd: undefined,
+      paletteName,
+      tribeId: 1,
+      jobId: 2,
+    }));
+    const palettes: PaletteAlias[] = [
+      { name: 'bear01', gfxFile: 'data/pal/bear01.pcx' },
+      { name: 'wolf01', gfxFile: 'data/pal/wolf01.pcx' },
+    ];
+
+    const done = await convertBmdTree(
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
+      out,
+      await indexSourceAssets({ data: out }),
+    );
+
+    expect(new Set(done.map((c) => c.image)).size).toBe(2);
+    for (const stem of ['ls_goods.bear01', 'ls_goods.wolf01'])
+      expect((await readServedManifest(out, stem)).palette).toBeUndefined();
+  });
+
   it('converts a repeated (bmd, palette) binding once, the base/mod legs overlap by design', async () => {
     await layDownAssets();
     const { palettes } = sampleBinding();

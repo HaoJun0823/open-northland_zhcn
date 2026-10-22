@@ -34,7 +34,7 @@ precision highp float;
 in vec2 vUV;
 out vec4 finalColor;
 
-uniform sampler2D uTexture; // indexed atlas: red = palette index / 255, alpha = mask
+uniform sampler2D uTexture; // indexed atlas: red = palette index / 255, green = coverage, opaque
 uniform sampler2D uLut;     // 256 x N palette LUT: row = player colour, column = palette index
 uniform vec2 uLutSize;      // (256, N)
 uniform vec4 uPlacement;    // .w = player-colour row to read (0 .. N-1)
@@ -82,7 +82,7 @@ float blowCloth(vec2 uv, inout float index) {
   if (u > uFrameUV.x && u < uFrameUV.z) {
     vec4 moved = textureLod(uTexture, vec2(u, uv.y), 0.0);
     float movedIndex = floor(moved.r * 255.0 + 0.5);
-    if (moved.a > 0.0 && isCloth(movedIndex)) index = movedIndex;
+    if (moved.g > 0.0 && isCloth(movedIndex)) index = movedIndex;
   }
   return 1.0 + uClothWave.z * cos(wave);
 }
@@ -102,7 +102,7 @@ vec4 resolvedTexel(ivec2 pixel) {
   float index = floor(t.r * 255.0 + 0.5);
   float shade = blowCloth(uv, index);
   vec2 lutUV = vec2((index + 0.5) / uLutSize.x, (uPlacement.w + 0.5) / uLutSize.y);
-  return vec4(mix(textureLod(uLut, lutUV, 0.0).rgb * shade * uTint.rgb, selectionLift(), uSelection.x) * t.a, t.a);
+  return vec4(mix(textureLod(uLut, lutUV, 0.0).rgb * shade * uTint.rgb, selectionLift(), uSelection.x) * t.g, t.g);
 }
 
 #define MAGNIFY_FETCH(px) resolvedTexel(px)
@@ -139,7 +139,7 @@ void main(void) {
   }
   // textureLod(..., 0.0) samples the base level only: an averaged mip index decodes to the wrong entry.
   vec4 texel = textureLod(uTexture, vUV, 0.0);
-  if (texel.a == 0.0) discard; // unwritten bob pixel
+  if (texel.g == 0.0) discard; // unwritten bob pixel
   // Recover the exact palette index (0..255) from the red channel, then read the player's LUT row.
   float index = floor(texel.r * 255.0 + 0.5);
   float shade = blowCloth(vUV, index);
@@ -172,7 +172,7 @@ void main(void) {
   rgb = mix(rgb, selectionLift(), uSelection.x);
   // Modulate by the texel's authored coverage (premultiplied - Pixi's normal blend expects it), so the
   // graded indexed bake's feathered edges draw translucent instead of binary.
-  finalColor = vec4(rgb, 1.0) * texel.a;
+  finalColor = vec4(rgb, 1.0) * texel.g;
 }`;
 
 /**

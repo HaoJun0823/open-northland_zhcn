@@ -1,6 +1,8 @@
 import type { Simulation } from '../simulation.js';
 import { foodSourcesOf } from '../systems/family/food-sources.js';
 import { qualitySources } from '../systems/family/quality-search.js';
+import { workFlagPlacementBlocks } from '../systems/footprint/index.js';
+import { placementBlockerGrid } from '../systems/footprint/placement/blocker-grid.js';
 import { unitWalkBlocks } from '../systems/movement/collision/standing-posts.js';
 import { constructionSiteCells } from '../systems/settlers/targets/construction-site-cells.js';
 import { cropsByFarm } from '../systems/settlers/targets/crops-by-farm.js';
@@ -37,4 +39,7 @@ export function warmRestoredWorld(sim: Simulation): void {
   yardOccupancy(world, terrain);
   stockpileCells(world, content, terrain);
   constructionSiteCells(world, content, terrain);
+  // The first building placed after a load reads both blocker sets, each a stamp of every blocker.
+  placementBlockerGrid(world, content, terrain);
+  workFlagPlacementBlocks(world, content, terrain);
 }

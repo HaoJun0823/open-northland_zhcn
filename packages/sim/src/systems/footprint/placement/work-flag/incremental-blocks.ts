@@ -43,6 +43,8 @@ interface IncrementalBlocks extends BlockedRefcounts {
   flagMoves: number;
   /** Each placed flag's blocked node; a flag off the map holds none. */
   readonly flagNodes: Map<Entity, NodeId>;
+  /** Full rebuilds paid, for the test seam below. */
+  readonly rebuilds: number;
 }
 const blocksMemo = new WeakMap<World, IncrementalBlocks>();
 
@@ -91,7 +93,12 @@ function refreshMarkerLayer(world: World, state: IncrementalBlocks): void {
   }
 }
 
-function rebuildState(world: World, content: ContentSet, terrain: TerrainGraph): IncrementalBlocks {
+function rebuildState(
+  world: World,
+  content: ContentSet,
+  terrain: TerrainGraph,
+  rebuilds: number,
+): IncrementalBlocks {
   // The refcounts the journal stamps into are the ones the state below hands out.
   const counts = new Uint16Array(terrain.nodeCount);
   const refs: BlockedRefcounts = { counts, blocked: new PositiveCountOverlay(counts) };
@@ -108,6 +115,7 @@ function rebuildState(world: World, content: ContentSet, terrain: TerrainGraph):
     flagGen: world.componentGeneration(DeliveryFlag),
     flagMoves: workFlagMoveCount(world),
     flagNodes: new Map(),
+    rebuilds,
   };
   refreshMarkerLayer(world, state);
   return state;
@@ -133,10 +141,15 @@ function liveBlocks(world: World, content: ContentSet, terrain: TerrainGraph): I
   if (held !== undefined && held.content === content && held.terrain === terrain && catchUp(world, held)) {
     return held;
   }
-  const fresh = rebuildState(world, content, terrain);
+  const fresh = rebuildState(world, content, terrain, (held?.rebuilds ?? 0) + 1);
   blocksMemo.set(world, fresh);
   world.registerCacheVerifier('workFlagPlacementBlocks', () => verifyBlocksMemo(world, content, terrain));
   return fresh;
+}
+
+/** Test-only seam: the full rebuilds this world's blocked set has paid. */
+export function workFlagBlockRebuilds(world: World): number {
+  return blocksMemo.get(world)?.rebuilds ?? 0;
 }
 
 /** The nodes a work flag may NOT occupy - the {@link rederiveBlockedCells} rule, served off the incremental

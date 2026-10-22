@@ -1,9 +1,4 @@
-import {
-  MAX_COMMAND_BYTES_PER_TICK,
-  MAX_COMMANDS_PER_TICK,
-  MAX_ENVELOPE_BYTES,
-  type RoomSettings,
-} from '@open-northland/net-protocol';
+import { MAX_COMMANDS_PER_TICK, MAX_ENVELOPE_BYTES, type RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
 import { playerCommand, restoreSimulation, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';

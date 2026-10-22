@@ -112,6 +112,6 @@ it('keeps the groups while the seat is held and forgets them when the player lea
   );
   leave?.click();
   // Settle the surrender's own connection at once.
-  fake.listener?.({ kind: 'failure', what: 'world', error: new Error('gone') } satisfies ConnectionEvent);
+  fake.listener?.({ kind: 'failure', what: 'open', error: new Error('gone') } satisfies ConnectionEvent);
   expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).toBeNull();
 });

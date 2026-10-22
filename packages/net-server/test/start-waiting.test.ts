@@ -1,4 +1,4 @@
-import { TICK_MS } from '@open-northland/net-protocol';
+import { TICK_MS, type WaitedMember } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { SILENT_AFTER_MS } from '../src/index.js';
 import { type MessageStage, type Peer, roomOfThreeStarting } from './support/message-stage.js';
@@ -20,10 +20,13 @@ function heard(s: MessageStage, peers: readonly Peer[], ms: number): void {
   }
 }
 
-const startNotices = (peer: Peer, from: number) =>
+/** The clock, or one waited set, in the order a member heard them. */
+type StartNotice = 'clock' | readonly WaitedMember[];
+
+const startNotices = (peer: Peer, from: number): StartNotice[] =>
   peer.sent
     .slice(from)
-    .flatMap((message) =>
+    .flatMap((message): StartNotice[] =>
       message.kind === 'clock' ? ['clock'] : message.kind === 'waiting' ? [message.for] : [],
     );
 

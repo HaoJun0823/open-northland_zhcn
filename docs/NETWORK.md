@@ -768,7 +768,8 @@ grows with a catch-up pace while the display draws at least four frames a second
 paces the room. A display that has taken in nothing for four of its frames, and for at least 500 ms, has
 stopped, as a hidden page's frame loop does: the worker keeps stepping and acknowledging, and hands the
 display every tick since in one batch when it draws again, without their momentary sound and effect
-events. It holds up to `MAX_HELD_TICKS` that way, then waits for the display.
+events. Past `MAX_HELD_TICKS` held ticks it drops the records held so far and steps on, and the
+display's world rebuilds whole when it draws again.
 
 ## Operations
 

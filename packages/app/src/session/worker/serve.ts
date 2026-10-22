@@ -193,7 +193,7 @@ export class ServedSession<E> {
   private readonly awaitsFrames: boolean;
   private readonly costs: TickCostSink | undefined;
   private readonly timeScale: (() => number) | undefined;
-  private readonly deltas: SnapshotDeltaStream;
+  private deltas: SnapshotDeltaStream;
   /** Answers the request-shaped reads as the inline host does, over this thread's sim. */
   private readonly answers: SessionHost;
   private readonly options: WorkerSessionOptions;
@@ -252,19 +252,14 @@ export class ServedSession<E> {
       post: (batch) => this.post({ kind: 'ticks', batch }, fogTransfer(batch.fog)),
       limit: () => this.leadLimit(),
       stoppedAfterMs: () => this.stopWaitMs(),
+      // A fresh stream opens with a rebuild, which carries the world the dropped ticks left.
+      droppedHeld: () => {
+        this.deltas.close();
+        this.deltas = this.openDeltas();
+      },
     });
     this.answers = inlineSessionHost(sim, { snapshots: 'live' });
-    // Without the events: each tick's record carries its own, so the stream's clone would be dropped.
-    this.deltas = new SnapshotDeltaStream(
-      {
-        world: sim.world,
-        get tick() {
-          return sim.tick;
-        },
-        events: { current: () => NO_EVENTS },
-      },
-      { digest: options.diagnostics },
-    );
+    this.deltas = this.openDeltas();
     this.fogSeat = options.fogSeat;
     this.recordedTick = sim.tick;
     this.lastFacts = readWorldFacts(sim);
@@ -293,6 +288,21 @@ export class ServedSession<E> {
         extras: built.extras,
       },
     });
+  }
+
+  private openDeltas(): SnapshotDeltaStream {
+    const { sim } = this;
+    // Without the events: each tick's record carries its own, so the stream's clone would be dropped.
+    return new SnapshotDeltaStream(
+      {
+        world: sim.world,
+        get tick() {
+          return sim.tick;
+        },
+        events: { current: () => NO_EVENTS },
+      },
+      { digest: this.options.diagnostics },
+    );
   }
 
   /** Stop for good: the clock halts, pending answers reject, and nothing more is posted. */

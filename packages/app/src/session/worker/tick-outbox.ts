@@ -12,10 +12,13 @@ export interface TickOutboxLink {
   /** How long a batch may wait undelivered before the runtime counts as not drawing, and the clock
    *  steps on past the limit; null when the clock waits for the runtime however long. */
   stoppedAfterMs(): number | null;
+  /** The outbox dropped held records: the next batch must carry the whole world, since the runtime
+   *  will not hear of what those ticks did. */
+  droppedHeld(): void;
 }
 
-/** The ticks a runtime that stopped drawing may leave undelivered before the clock waits for it after
- *  all: ten minutes at the highest relayed speed. */
+/** The ticks held for a runtime that stopped drawing, ten minutes at the highest relayed speed; past
+ *  them the older records go, so a hidden page's memory stays bounded and it never holds the clock. */
 export const MAX_HELD_TICKS = 10 * 60 * TICKS_PER_SECOND * MAX_SPEED;
 
 /**
@@ -44,7 +47,7 @@ export class TickOutbox {
   mayStep(): boolean {
     const undelivered = this.undeliveredTicks();
     if (undelivered < this.link.limit()) return true;
-    return undelivered < MAX_HELD_TICKS && this.displayStopped();
+    return this.displayStopped();
   }
 
   /** Whether the batch in flight has waited past the link's stop limit: the runtime draws nothing, as
@@ -63,6 +66,10 @@ export class TickOutbox {
   }
 
   add(record: TickRecord): void {
+    if (this.pending.length >= MAX_HELD_TICKS) {
+      this.pending = [];
+      this.link.droppedHeld();
+    }
     this.pending.push(record);
     this.peakUndelivered = Math.max(this.peakUndelivered, this.undeliveredTicks());
     if (this.postsNow()) this.flush();

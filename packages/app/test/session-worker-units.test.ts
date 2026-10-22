@@ -5,7 +5,7 @@ import { createSceneSim, SCENES } from '../src/scenes/index.js';
 import { changedFacts, readWorldFacts } from '../src/session/worker/facts.js';
 import { FogPosts } from '../src/session/worker/fog-posts.js';
 import type { SessionPort } from '../src/session/worker/port.js';
-import type { FromWorker, ToWorker } from '../src/session/worker/protocol.js';
+import type { FromWorker, TickBatch, ToWorker } from '../src/session/worker/protocol.js';
 import { ArrivalAlpha } from '../src/session/worker/render-alpha.js';
 import {
   ASSUMED_FRAME_MS,
@@ -15,6 +15,7 @@ import {
   type WorldBuilder,
 } from '../src/session/worker/serve.js';
 import { StallWatch } from '../src/session/worker/stall-watch.js';
+import { MAX_HELD_TICKS, TickOutbox } from '../src/session/worker/tick-outbox.js';
 import { DISPOSED_SESSION_MESSAGE, startWorkerSession } from '../src/session/worker/worker-session.js';
 import { decodeSaveText, type SaveFile } from '../src/view/runtime/save-load/codec.js';
 import { canonicalEntities } from './support/session-worker/canonical-entities.js';
@@ -65,6 +66,33 @@ describe('arrival alpha', () => {
     alpha.setSpeed(SPEED, MS_PER_TICK * HALF);
     expect(alpha.at(MS_PER_TICK * HALF)).toBeCloseTo(HALF);
     expect(alpha.at(MS_PER_TICK * HALF + PERIOD_MS * 0.25)).toBeCloseTo(HALF + 0.25);
+  });
+});
+
+describe('tick outbox', () => {
+  it('drops the held ticks at the cap instead of holding the clock, and rebuilds the runtime whole', () => {
+    const posted: number[][] = [];
+    let dropped = 0;
+    const outbox = new TickOutbox({
+      take: (records) => ({ ticks: records }) as unknown as TickBatch,
+      post: (batch) => posted.push(batch.ticks.map((record) => record.tick)),
+      limit: () => 1,
+      // A runtime that takes in nothing counts as stopped at once.
+      stoppedAfterMs: () => 0,
+      droppedHeld: () => dropped++,
+    });
+    const record = (tick: number) => ({ tick, events: [], simMs: 0, diagnostics: null });
+    // The first tick goes out at once and is never delivered: the page is hidden.
+    outbox.add(record(0));
+    let tick = 1;
+    for (; tick <= MAX_HELD_TICKS; tick++) outbox.add(record(tick));
+    expect(dropped).toBe(0);
+    expect(outbox.mayStep()).toBe(true);
+    outbox.add(record(tick));
+    expect(dropped).toBe(1);
+    expect(outbox.mayStep()).toBe(true);
+    outbox.delivered(1);
+    expect(posted).toEqual([[0], [tick]]);
   });
 });
 

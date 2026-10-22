@@ -183,6 +183,21 @@ describe('the kept map', () => {
     expect(b.last('rejected')?.reason).toEqual({ code: 'mapNotKept' });
   });
 
+  it('keeps no map at the start that the creator replaced in the lobby', () => {
+    const { a, b } = mapLobby();
+    a.send(deliverTo('Ania', mapText('first')));
+    a.send({ kind: 'claimSeat', player: 0 });
+    b.send({ kind: 'claimSeat', player: 1 });
+    const otherMap = { ...TEST_COMPATIBILITY, map: 'c'.repeat(64) };
+    for (const p of [a, b]) p.send({ kind: 'setCompatibility', compatibility: otherMap });
+    for (const p of [a, b]) p.send({ kind: 'setReady', ready: true });
+    a.send({ kind: 'start' });
+    expect(a.of('start')).toHaveLength(1);
+    b.send({ kind: 'requestMap' });
+    expect(b.of('blob')).toEqual([]);
+    expect(b.last('rejected')?.reason).toEqual({ code: 'mapNotKept' });
+  });
+
   it.each([
     ['delivered to a member', 'Bartek'],
     ['deposited', 'Ania'],

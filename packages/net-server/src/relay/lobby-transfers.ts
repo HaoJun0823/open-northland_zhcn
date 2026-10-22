@@ -35,9 +35,11 @@ export class LobbyTransfers {
     return this.snapshot;
   }
 
-  /** The room's snapshot retention takes the initial save over; the kept map stays the room's map. */
+  /** The room's snapshot retention takes the initial save over; the map kept for the creator's current
+   *  copy stays the room's map. */
   start(): void {
     this.snapshot = null;
+    this.kept = this.keptMap();
     this.started = true;
   }
 

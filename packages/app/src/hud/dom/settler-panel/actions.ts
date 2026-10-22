@@ -42,7 +42,7 @@ export interface SettlerPanelActions {
   readonly orderNeed: (id: number, need: NeedKind, queued: boolean) => void;
   readonly assignWorkplace: (id: number) => void;
   readonly unassignWorkplace: (id: number) => void;
-  /** Arm the pick of a carrier's pickup flag, as the ring's "Assign Work Area" does. */
+  /** Arm the pick of a posted worker's flag, as the ring's "Assign Work Area" does. */
   readonly assignWorkArea: (id: number) => void;
   readonly clearWorkArea: (id: number) => void;
   /** End a builder's road or wall run. */

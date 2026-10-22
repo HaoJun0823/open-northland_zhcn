@@ -212,23 +212,22 @@ describe('allowedActions - one settler', () => {
     expect(bare.has('showWorkArea')).toBe(false);
     const flagged = allowedActions(content, snapshotOf([settler(1, JOB_COLLECTOR, { workFlag: true })]), [1]);
     expect(flagged.has('showWorkArea')).toBe(true);
-    for (const job of [JOB_COLLECTOR, JOB_HUNTER, JOB_FISHER]) {
-      const employed = allowedActions(content, snapshotOf([settler(1, job, { workplace: true })]), [1]);
-      expect(employed.has('assignWorkArea')).toBe(false);
-      expect(employed.has('showWorkArea')).toBe(false);
-    }
   });
 
-  it('offers a pickup flag to a carrier at a warehouse or a recipe workshop only', () => {
+  it('offers a post flag to a carrier at a warehouse or a recipe workshop, and to a posted field worker', () => {
     const HEADQUARTERS = 1;
     const WELL = 10;
     const FARM = 12;
     const MILL = 13;
-    const postedAt = (buildingType: number, flagged = false): ReadonlySet<ActionCommandId> => {
-      const carrier = settler(1, JOB_CARRIER, { workplace: true });
+    const postedAt = (
+      buildingType: number,
+      flagged = false,
+      job = JOB_CARRIER,
+    ): ReadonlySet<ActionCommandId> => {
+      const worker = settler(1, job, { workplace: true });
       const flag = flagged ? { HaulFlag: { flag: FLAG, radius: 32 } } : {};
       const snapshot = snapshotOf([
-        { ...carrier, components: { ...carrier.components, ...flag } },
+        { ...worker, components: { ...worker.components, ...flag } },
         { id: WORKSHOP, components: { Building: { buildingType, tribe: TRIBE } } },
       ]);
       return allowedActions(content, snapshot, [1]);
@@ -239,6 +238,11 @@ describe('allowedActions - one settler', () => {
       expect(postedAt(post, true).has('showWorkArea')).toBe(true);
     }
     for (const post of [WELL, FARM]) expect(postedAt(post).has('assignWorkArea')).toBe(false);
+    for (const job of [JOB_COLLECTOR, JOB_HUNTER, JOB_FISHER]) {
+      expect(postedAt(HEADQUARTERS, false, job).has('assignWorkArea')).toBe(true);
+      expect(postedAt(HEADQUARTERS, false, job).has('showWorkArea')).toBe(false);
+      expect(postedAt(HEADQUARTERS, true, job).has('showWorkArea')).toBe(true);
+    }
     expect(allowedActions(content, snapshotOf([settler(1, JOB_CARRIER)]), [1]).has('assignWorkArea')).toBe(
       false,
     );

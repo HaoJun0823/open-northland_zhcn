@@ -5,6 +5,7 @@ import {
   JOB_CARRIER,
   JOB_CIVILIST,
   JOB_COLLECTOR,
+  JOB_FISHER,
   JOB_HERO_SWORD,
   JOB_HUNTER,
   JOB_SCOUT,
@@ -22,7 +23,7 @@ import {
   VEHICLE_HANDCART,
 } from '../src/game/sandbox/ids/index.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
-import { holdsHaulFlagPost } from '../src/game/snapshot.js';
+import { postFlagTradeOf } from '../src/game/snapshot.js';
 import { vehicleLabel } from '../src/game/technology.js';
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import { goodLabel } from '../src/hud/details-panel/model/context.js';
@@ -163,43 +164,76 @@ describe('the settler panel model', () => {
     expect(gatherer({}).workplace?.centreFlag).toBeNull();
   });
 
-  it('gives a warehouse carrier the work area row, with the remove button once a flag stands', () => {
+  it('gives a posted carrier, extractor, hunter and fisherman the work area row, with the remove button once a flag stands', () => {
     const content = sandboxContent();
     const ctx: UnitPanelModelContext = {
       ...sandboxCtx(),
-      holdsHaulFlagPost: (snapshot, ent) => holdsHaulFlagPost(content, snapshot, ent),
+      postFlagTrade: (snapshot, ent) => postFlagTradeOf(content, snapshot, ent),
     };
-    const carrier = (components: Record<string, unknown>): EntitySnapshot[] => [
+    const posted = (jobType: number, components: Record<string, unknown> = {}): EntitySnapshot[] => [
       buildingEntity(WORKSHOP, BUILDING_WAREHOUSE_00),
       {
         id: SETTLER,
         components: owned({
-          Settler: { tribe: 1, jobType: JOB_CARRIER },
+          Settler: { tribe: 1, jobType },
           JobAssignment: { workplace: WORKSHOP },
           ...components,
         }),
       },
     ];
-    expect(settlerModel(carrier({}), ctx).workArea).toEqual({ flag: null, assign: true, remove: null });
-    expect(settlerModel(carrier({ HaulFlag: { flag: 99, radius: 32 } }), ctx).workArea).toEqual({
+    expect(settlerModel(posted(JOB_CARRIER), ctx).workArea).toEqual({
+      trade: 'carrier',
+      flag: null,
+      assign: true,
+      remove: null,
+    });
+    expect(settlerModel(posted(JOB_CARRIER, { HaulFlag: { flag: 99, radius: 32 } }), ctx).workArea).toEqual({
+      trade: 'carrier',
       flag: 99,
       assign: true,
       remove: true,
     });
-    const collector = settlerModel(
-      [
-        buildingEntity(WORKSHOP, BUILDING_WAREHOUSE_00),
+    expect(settlerModel(posted(JOB_HUNTER), ctx).workArea?.trade).toBe('hunter');
+    expect(settlerModel(posted(JOB_FISHER), ctx).workArea?.trade).toBe('fisher');
+    expect(settlerModel(posted(JOB_COLLECTOR), ctx).workArea?.trade).toBe('collector');
+    expect(settlerModel(posted(JOB_SCOUT), ctx).workArea).toBeNull();
+    for (const jobType of [JOB_COLLECTOR, JOB_HUNTER, JOB_FISHER]) {
+      const unposted = settlerModel(
+        [
+          {
+            id: SETTLER,
+            components: owned({ Settler: { tribe: 1, jobType }, WorkFlag: { flag: 99, radius: 32 } }),
+          },
+        ],
+        ctx,
+      );
+      expect(unposted.workArea).toBeNull();
+    }
+  });
+
+  it("keeps a posted extractor's Workplace pick to buildings once his post takes a flag of its own", () => {
+    const content = sandboxContent();
+    const usesWorkFlag = (jobType: number): boolean => systems.jobUsesWorkFlag({ content }, jobType);
+    const extractor = (posted: boolean): SettlerPanelModel =>
+      settlerModel(
+        [
+          buildingEntity(WORKSHOP, BUILDING_WAREHOUSE_00),
+          {
+            id: SETTLER,
+            components: owned({
+              Settler: { tribe: 1, jobType: JOB_COLLECTOR },
+              ...(posted ? { JobAssignment: { workplace: WORKSHOP } } : {}),
+            }),
+          },
+        ],
         {
-          id: SETTLER,
-          components: owned({
-            Settler: { tribe: 1, jobType: JOB_COLLECTOR },
-            JobAssignment: { workplace: WORKSHOP },
-          }),
+          ...sandboxCtx(),
+          usesWorkFlag,
+          postFlagTrade: (snapshot, ent) => postFlagTradeOf(content, snapshot, ent),
         },
-      ],
-      ctx,
-    );
-    expect(collector.workArea).toBeNull();
+      );
+    expect(extractor(false).workplace?.flag).toBe(true);
+    expect(extractor(true).workplace?.flag).toBe(false);
   });
 
   it("tells both spouses what holds the wife's child order", () => {

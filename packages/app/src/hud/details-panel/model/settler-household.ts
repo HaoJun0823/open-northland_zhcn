@@ -10,6 +10,7 @@ import {
   isFemale,
   isMarrying,
   marriageOf,
+  type PostFlagTrade,
   residenceHomeOf,
   type SnapshotEntity,
   settlerJobType,
@@ -58,10 +59,11 @@ export interface SettlerWorkplaceRow extends SettlerSeatRow {
   readonly centreFlag: number | null;
 }
 
-/** The Area row of a carrier whose post takes a pickup flag: whether a flag stands, the button
- *  that plants or moves it, and the one that takes it away. */
+/** The Area row of a worker whose post takes a flag: whose trade words it, whether a flag stands, the
+ *  button that plants or moves it, and the one that takes it away. */
 export interface SettlerWorkAreaRow {
-  /** The flag the centre button brings into view; null while the carrier holds none. */
+  readonly trade: PostFlagTrade;
+  /** The flag the centre button brings into view; null while the worker holds none. */
   readonly flag: number | null;
   readonly assign: SeatControl;
   readonly remove: SeatControl | null;
@@ -86,40 +88,43 @@ export interface SettlerFamilyModel {
 /**
  * The Workplace row of a worker, or null when there is none to show: a trade no workplace employs
  * (the scout) has no row while it holds no post. Remove releases a building post only; a pinned site
- * and a lesson are left to the action ring.
+ * and a lesson are left to the action ring. With `postFlag`, the post takes a flag of its own in the
+ * Area row, so this row's pick only changes the post.
  */
 export function workplaceRow(
   ctx: UnitPanelModelContext,
   ent: SnapshotEntity,
   place: SettlerPlace | null,
   control: SeatControl,
+  postFlag: boolean,
 ): SettlerWorkplaceRow | null {
   const jobType = settlerJobType(ent);
   const employed = ctx.buildings.some((building) =>
     building.workers.some((slot) => slot.jobType === jobType),
   );
-  const flag = jobType !== undefined && ctx.usesWorkFlag?.(jobType) === true;
-  if (place === null && !employed && !flag) return null;
+  const flagTrade = jobType !== undefined && ctx.usesWorkFlag?.(jobType) === true;
+  if (place === null && !employed && !flagTrade) return null;
   return {
     target: place,
-    assign: employed || flag ? control : null,
+    assign: employed || flagTrade ? control : null,
     remove: workplaceOf(ent) === undefined ? null : control,
-    flag,
-    // A carrier's flag belongs to its Area row.
+    flag: flagTrade && !postFlag,
+    // A posted worker's flag belongs to its Area row.
     centreFlag: ent.components.HaulFlag === undefined ? (workFlagOf(ent) ?? null) : null,
   };
 }
 
-/** The Area row, or null for a settler whose post takes no pickup flag. */
+/** The Area row, or null for a settler whose post takes no flag. */
 export function workAreaRow(
   ctx: UnitPanelModelContext,
   snapshot: WorldSnapshot,
   ent: SnapshotEntity,
   control: SeatControl,
 ): SettlerWorkAreaRow | null {
-  if (ctx.holdsHaulFlagPost?.(snapshot, ent) !== true) return null;
+  const trade = ctx.postFlagTrade?.(snapshot, ent) ?? null;
+  if (trade === null) return null;
   const flag = workFlagOf(ent) ?? null;
-  return { flag, assign: control, remove: flag === null ? null : control };
+  return { trade, flag, assign: control, remove: flag === null ? null : control };
 }
 
 /** The Home row: a grown person's own, a child's read-only (it lives where its parents do). */

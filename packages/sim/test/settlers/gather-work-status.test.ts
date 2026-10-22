@@ -3,13 +3,17 @@ import {
   Building,
   Carrying,
   FishSwarm,
+  GroundDrop,
+  HaulFlag,
+  JobAssignment,
   Owner,
   Position,
   ProductionCounters,
   Resource,
   Stockpile,
+  WorkFlag,
 } from '../../src/components/index.js';
-import { ONE, positionOfNode, Simulation } from '../../src/index.js';
+import { type Fixed, ONE, positionOfNode, Simulation } from '../../src/index.js';
 import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
 import { testContent } from '../fixtures/content.js';
 import { settlerAt } from '../fixtures/settler.js';
@@ -21,6 +25,13 @@ function tree(sim: Simulation, hx: number, hy: number): void {
   sim.world.add(entity, Position, positionOfNode(hx, hy));
   sim.world.add(entity, Resource, { goodType: 1, remaining: 3, harvestAtomic: 24 });
   stampResourceFootprintData(sim.world, entity, anchorOnlyFootprint());
+}
+
+function pile(sim: Simulation, at: { x: Fixed; y: Fixed }): void {
+  const entity = sim.world.create();
+  sim.world.add(entity, Position, { x: at.x, y: at.y });
+  sim.world.add(entity, Stockpile, { amounts: new Map([[1, 1]]) });
+  sim.world.add(entity, GroundDrop, { goodType: 1 });
 }
 
 function worker(sim: Simulation) {
@@ -46,6 +57,29 @@ describe('selected gatherer work diagnostics', () => {
     expect(sim.workStatus(entity)).toEqual({ kind: 'resourceRouteBlocked', goodTypes: [1] });
     bindToFlag(sim, entity, 1, 2, 3);
     expect(sim.workStatus(entity)).toEqual({ kind: 'noEligibleResource', goodTypes: [1], scope: 'workArea' });
+  });
+
+  it("bounds a posted gatherer's search to the flag its post took", () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(60, 12) });
+    const entity = worker(sim);
+    const post = sim.world.create();
+    sim.world.add(post, Position, positionOfNode(4, 4));
+    sim.world.add(post, Building, { buildingType: 1, tribe: 1, built: ONE, level: 0 });
+    sim.world.add(post, Stockpile, { amounts: new Map() });
+    sim.world.add(entity, JobAssignment, { workplace: post });
+    tree(sim, 8, 4);
+    expect(sim.workStatus(entity)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
+
+    const flag = bindToFlag(sim, entity, 25, 2, 3);
+    const radius = sim.world.get(entity, WorkFlag).radius;
+    sim.world.remove(entity, WorkFlag);
+    sim.world.add(entity, HaulFlag, { flag, radius });
+    expect(sim.workStatus(entity)).toEqual({ kind: 'noEligibleResource', goodTypes: [1], scope: 'workArea' });
+    // A loose trunk by the post is no work for it; one by the flag is.
+    pile(sim, positionOfNode(4, 4));
+    expect(sim.workStatus(entity)).toEqual({ kind: 'noEligibleResource', goodTypes: [1], scope: 'workArea' });
+    pile(sim, sim.world.get(flag, Position));
+    expect(sim.workStatus(entity)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
   });
 
   it('reports blocked approaches when a building covers the resource work cell', () => {
@@ -98,8 +132,18 @@ describe('selected gatherer work diagnostics', () => {
     sim.world.mut(swarm, FishSwarm).count = 1;
     expect(sim.workStatus(entity)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
 
-    // A flag moves where the search starts.
-    bindToFlag(sim, entity, 70, 2, 3);
+    // A flag moves where the search starts, the one a post took as well.
+    const flag = bindToFlag(sim, entity, 70, 2, 3);
+    expect(sim.workStatus(entity)).toEqual({ kind: 'noFish' });
+    const radius = sim.world.get(entity, WorkFlag).radius;
+    sim.world.remove(entity, WorkFlag);
+    const post = sim.world.create();
+    sim.world.add(post, Position, positionOfNode(4, 4));
+    sim.world.add(post, Building, { buildingType: 1, tribe: 1, built: ONE, level: 0 });
+    sim.world.add(post, Stockpile, { amounts: new Map() });
+    sim.world.add(entity, JobAssignment, { workplace: post });
+    expect(sim.workStatus(entity)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
+    sim.world.add(entity, HaulFlag, { flag, radius });
     expect(sim.workStatus(entity)).toEqual({ kind: 'noFish' });
   });
 

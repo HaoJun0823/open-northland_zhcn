@@ -3,6 +3,7 @@ import {
   Building,
   CurrentAtomic,
   DeliveryFlag,
+  HaulFlag,
   Health,
   HUNTER_WORK_FLAG_RADIUS,
   JobAssignment,
@@ -17,7 +18,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../src/index.js';
-import { HUNT_CARCASS_SLACK_NODES } from '../../src/systems/conflict/hunting/index.js';
+import { HUNT_CARCASS_SLACK_NODES, huntingGround } from '../../src/systems/conflict/hunting/index.js';
 import { huntingGroundHoldsCarcass } from '../../src/systems/conflict/hunting/kill-claim.js';
 import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
 import { setJob } from '../../src/systems/orders/index.js';
@@ -271,5 +272,55 @@ describe('hunter - one hunter per kill, inside its own ground', () => {
 
     sim.run(600);
     expect(meatLeft(sim, inGround)).toBeLessThan(4);
+  });
+
+  /** Plant a flag through the player's order, as the settler panel's Area row does. */
+  function orderFlagAtNode(sim: Simulation, hunter: Entity, hx: number, hy: number): void {
+    sim.enqueueSetup({ kind: 'setWorkFlag', entity: hunter, x: hx, y: hy });
+    sim.step();
+  }
+
+  it('a posted hunter given a flag hunts its ground at the flag and banks the meat at its workplace', () => {
+    const sim = new Simulation({ seed: 3, content: testContent(), map: grassNodeMap(200, 8) });
+    const hunter = workplaceHunter(sim);
+    const hut = sim.world.get(hunter, JobAssignment).workplace;
+    // The same body the flagless hunter leaves lying across the map, with the flag planted beside it.
+    const acrossTheMap = carcassAtNode(sim, BEYOND_GROUND, 2, hunter);
+    orderFlagAtNode(sim, hunter, BEYOND_GROUND - 4, 2);
+
+    expect(sim.world.get(hunter, JobAssignment).workplace).toBe(hut);
+    expect(sim.world.get(hunter, HaulFlag).radius).toBe(HUNTER_WORK_FLAG_RADIUS);
+    for (let i = 0; i < 4000 && (sim.world.get(hut, Stockpile).amounts.get(MEAT) ?? 0) === 0; i++) sim.step();
+
+    expect(meatLeft(sim, acrossTheMap)).toBeLessThan(4);
+    expect(sim.world.get(hut, Stockpile).amounts.get(MEAT) ?? 0).toBeGreaterThan(0);
+  });
+
+  it('a posted hunter with nothing in its flagged ground waits at the flag', () => {
+    const FLAG = { hx: 80, hy: 2 };
+    const sim = new Simulation({ seed: 3, content: testContent(), map: grassNodeMap(200, 8) });
+    const hunter = workplaceHunter(sim);
+    orderFlagAtNode(sim, hunter, FLAG.hx, FLAG.hy);
+
+    sim.run(1500);
+
+    expect(nodesFrom(sim, hunter, FLAG.hx, FLAG.hy)).toBeLessThanOrEqual(4);
+  });
+
+  it('a posted hunter whose flag is taken away hunts around its workplace again', () => {
+    const sim = new Simulation({ seed: 3, content: testContent(), map: grassNodeMap(200, 8) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('the map sim has terrain');
+    const hunter = workplaceHunter(sim);
+    orderFlagAtNode(sim, hunter, 80, 2);
+    expect(huntingGround(sim.world, terrain, hunter)?.anchorCell).toBe(terrain.nodeAt(80, 2));
+
+    sim.enqueueSetup({ kind: 'clearHaulFlag', entity: hunter });
+    sim.step();
+
+    expect(sim.world.has(hunter, HaulFlag)).toBe(false);
+    expect(huntingGround(sim.world, terrain, hunter)?.anchorCell).toBe(
+      terrain.nodeAt(HUT_NODE.hx, HUT_NODE.hy),
+    );
   });
 });

@@ -60,6 +60,7 @@ export {
   postCollectsAroundWorkplace,
   postTakesHaulFlag,
   WORKPLACE_COLLECT_RADIUS,
+  worksFieldFromPost,
 } from './economy/haul-flag.js';
 export { OUTPUT_TENTHS_PER_UNIT } from './economy/production/bonus-output.js';
 // The repair crew cap, so the app's right-click and site pick fall through where assignBuilder refuses.

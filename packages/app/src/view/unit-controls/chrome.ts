@@ -2,7 +2,7 @@ import type { UiCue } from '@open-northland/audio';
 import { projectNode } from '@open-northland/render';
 import { type Entity, systems, type UnlockStatus, type WorldSnapshot } from '@open-northland/sim';
 import { nodeOfId } from '../../game/node-id.js';
-import { holdsHaulFlagPost } from '../../game/snapshot.js';
+import { postFlagTradeOf } from '../../game/snapshot.js';
 import { technologyReason } from '../../game/technology.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import {
@@ -398,7 +398,7 @@ export async function createUnitChrome(
     armor: opts.content.armor,
     isLivestockWorkplace: (typeId) => systems.isLivestockWorkplaceType(opts.content, typeId),
     usesWorkFlag: (jobType) => systems.jobUsesWorkFlag({ content: opts.content }, jobType),
-    holdsHaulFlagPost: (snapshot, ent) => holdsHaulFlagPost(opts.content, snapshot, ent),
+    postFlagTrade: (snapshot, ent) => postFlagTradeOf(opts.content, snapshot, ent),
     livestockTribeOfGood: (goodType) => systems.livestockTribeOfGood(opts.content, goodType),
     edibleGoodForm: (goodType) => systems.edibleGoodFormOf(opts.content, goodType),
     isTraderJob: (jobType) => systems.isTraderJob(opts.content, jobType),

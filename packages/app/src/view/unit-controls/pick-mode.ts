@@ -486,8 +486,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return 'pending';
   };
 
-  /** Plant the flag of every unit at `named`; one holding a post leaves it first, so the sim, which
-   *  ignores a posted worker's flag order, takes the flag. */
+  /** Plant the flag of every unit at `named`; one holding a post leaves it first, since the Workplace row's
+   *  ground pick trades the post for the worker's own flag. */
   const resolveFlag = (units: readonly number[], named: Tile): boolean =>
     deps.orders().issueSetWorkFlag(named, units, true);
 

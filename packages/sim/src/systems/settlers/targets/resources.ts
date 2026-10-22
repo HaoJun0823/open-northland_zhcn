@@ -206,12 +206,17 @@ function nearestDropFor(
     if (cell === undefined) return null;
     return { cell, payload: good };
   };
-  // A pile's stance is the node itself, a free neighbour, or the work cell of a resource standing on it.
+  // A pile's stance is the node itself, a free neighbour, or the work cell of a resource standing on it,
+  // so a pile farther than that offset past `within` has no stance inside it and is never resolved.
+  const maxWorkOffset = contentIndex(ctx.content).maxResourceWorkOffset;
+  const anchorReach = within === undefined ? 0 : within.radius + maxWorkOffset;
   const anchors = new AnchorRanking(
     terrain.xOf(here),
     terrain.yOf(here),
-    contentIndex(ctx.content).maxResourceWorkOffset,
-    ADMIT_ANY_ANCHOR,
+    maxWorkOffset,
+    within === undefined
+      ? ADMIT_ANY_ANCHOR
+      : (hx, hy) => workBoundDistance(terrain, within, hx, hy) <= anchorReach,
   );
   for (let i = 0; i < lists.length; i++) {
     const piles = lists[i];

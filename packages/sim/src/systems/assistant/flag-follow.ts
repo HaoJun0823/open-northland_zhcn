@@ -4,6 +4,8 @@ import {
   assistantMovesFlags,
   CurrentAtomic,
   HarvestFocus,
+  HaulFlag,
+  JobAssignment,
   ownerOf,
   Position,
   ReplantMisses,
@@ -36,7 +38,7 @@ import {
 } from '../computer-player/workforce/flag-spots.js';
 import type { System, SystemContext } from '../context.js';
 import { jobGatherGoods, openGatherGoods } from '../economy/gather-goods.js';
-import { jobCanHarvest, liveWorkFlag, relocateWorkFlag } from '../economy/work-flag.js';
+import { jobCanHarvest, liveFlagOf, relocateWorkFlag } from '../economy/work-flag.js';
 import { tryFootprintCellsOf } from '../footprint/resource-footprint-cells.js';
 import { needSubjectOf, settlerMeetsNeed } from '../progression/index.js';
 import { isHunterJob } from '../readviews/index.js';
@@ -45,13 +47,15 @@ import { wakeIdle } from '../settlers/planner/idle-replan.js';
 import { interactionCell } from '../settlers/targets/index.js';
 import { type NavigationLimit, navigationLimitFor } from '../signposts/index.js';
 import { anyResourceNear } from '../spatial/resources.js';
+import { workplaceStocksGood, workplaceStoredGoods } from '../stores/index.js';
 
 /**
  * The assistant's flag follow: with its owner's {@link AssistantMovesFlags} switch on, a flag gatherer's
- * flag is kept within {@link FOLLOW_FLAG_BAND} of a workable resource of his goods. The moved flag stands
- * on the side toward the owner's building nearest the old flag, so the yard lies between the work and the
- * settlement. A computer seat keeps the switch on and adds its own pull back toward its workshops. Source
- * basis: authored, the switch is this project's addition; the band is the owner's ruling.
+ * flag, his own or the one his post took, is kept within {@link FOLLOW_FLAG_BAND} of a workable resource
+ * of his goods. The moved flag stands on the side toward the owner's building nearest the old flag, so the
+ * yard lies between the work and the settlement. A computer seat keeps the switch on and adds its own pull
+ * back toward its workshops. Source basis: authored, the switch is this project's addition; the band is
+ * the owner's ruling.
  */
 
 /** How far from his resource the follow keeps a gatherer's flag: 3-5 tiles, 6-10 half-cell nodes (owner's
@@ -72,25 +76,29 @@ export const flagFollowSystem: System = (world, ctx) => {
   if (terrain === undefined) return; // mapless: no cells to plant a flag on
   if (world.lowestEntityWith(AssistantMovesFlags) === null) return; // nobody has the switch on
   const holders = world.canonicalQuery(WorkFlag);
+  // Posted carriers hold one too; the harvest gate in `followFlag` passes them over.
+  const posted = world.canonicalQuery(HaulFlag);
   const slice = ctx.tick % FLAG_FOLLOW_CHECK_PERIOD_TICKS;
-  if (slice >= holders.length) return;
+  if (slice >= holders.length && slice >= posted.length) return;
   const round = Math.floor(ctx.tick / FLAG_FOLLOW_CHECK_PERIOD_TICKS);
   const switchedOn = new Map<number, boolean>();
   let search: FollowSearch | null = null;
-  // Ascending ids: a re-plant claims its spot against the later ones of the same slice.
-  for (let i = slice; i < holders.length; i += FLAG_FOLLOW_CHECK_PERIOD_TICKS) {
-    const e = holders[i];
+  const check = (e: Entity | undefined): void => {
     const owner = e === undefined ? undefined : ownerOf(world, e);
-    if (e === undefined || owner === undefined) continue;
+    if (e === undefined || owner === undefined) return;
     let on = switchedOn.get(owner);
     if (on === undefined) {
       on = assistantMovesFlags(world, owner);
       switchedOn.set(owner, on);
     }
-    if (!on) continue;
+    if (!on) return;
     search ??= followSearch(world, ctx, terrain);
     followFlag(world, ctx, terrain, e, round, search);
-  }
+  };
+  // Ascending ids, own flags before post flags: a re-plant claims its spot against the later ones of the
+  // same slice.
+  for (let i = slice; i < holders.length; i += FLAG_FOLLOW_CHECK_PERIOD_TICKS) check(holders[i]);
+  for (let i = slice; i < posted.length; i += FLAG_FOLLOW_CHECK_PERIOD_TICKS) check(posted[i]);
 };
 
 /** One slice's shared search state: the reach and workable tests and the spots already handed out. */
@@ -128,7 +136,7 @@ function followFlag(
   // Mid-action his patch reads as working, and a walk another system owns (an order, a flight, a wedding)
   // must not lose its route to a moved flag.
   if (world.has(e, CurrentAtomic) || anotherSystemOwns(world, e)) return;
-  const flag = liveWorkFlag(world, e);
+  const flag = liveFlagOf(world, e);
   const flagNode = flag === undefined ? null : anchorNodeOf(world, flag.flag);
   if (flag === undefined || flagNode === null) return;
   const goods = followedGoods(world, ctx, e, jobType);
@@ -268,13 +276,17 @@ function settlementSide(world: World, e: Entity, flagNode: HalfCellNode): HalfCe
   return best;
 }
 
-/** The goods his flag follows: those his counters leave open and his experience lets him dig, so the
- *  re-plant's few attempts never go to a deposit he would turn down. */
+/** The goods his flag follows: those his counters leave open, his post stocks and his experience lets him
+ *  dig, so the re-plant's few attempts never go to a deposit he would turn down. */
 function followedGoods(world: World, ctx: SystemContext, e: Entity, jobType: number): number[] {
   const open = openGatherGoods(world, ctx, e, jobType);
+  const workplace = world.tryGet(e, JobAssignment)?.workplace;
+  const stored = workplace === undefined ? undefined : workplaceStoredGoods(world, ctx, workplace);
   const subject = needSubjectOf(world, e);
-  return (open === undefined ? jobGatherGoods(ctx, jobType) : [...open]).filter((g) =>
-    settlerMeetsNeed(world, ctx, subject, 'good', g),
+  return (open === undefined ? jobGatherGoods(ctx, jobType) : [...open]).filter(
+    (g) =>
+      (stored === undefined || workplaceStocksGood(ctx, stored, g)) &&
+      settlerMeetsNeed(world, ctx, subject, 'good', g),
   );
 }
 

@@ -361,7 +361,7 @@ export function workplaceOf(e: SnapshotEntity): number | undefined {
   return num(a?.workplace);
 }
 
-/** Whether the settler is a carrier at a post that takes a pickup flag (the sim's `postTakesHaulFlag`). */
+/** Whether the settler holds a post that takes a flag of its own (the sim's `postTakesHaulFlag`). */
 export function holdsHaulFlagPost(content: ContentSet, snapshot: WorldSnapshot, e: SnapshotEntity): boolean {
   const jobType = settlerJobType(e);
   const workplace = workplaceOf(e);
@@ -372,6 +372,23 @@ export function holdsHaulFlagPost(content: ContentSet, snapshot: WorldSnapshot, 
     buildingType !== undefined &&
     systems.postTakesHaulFlag(content, jobType, buildingType)
   );
+}
+
+/** The trades whose post takes a flag: a carrier collects around it, a collector, hunter or fisher works
+ *  there. */
+export type PostFlagTrade = 'carrier' | 'collector' | 'hunter' | 'fisher';
+
+/** The trade of a settler whose post takes a flag, or null when its post takes none. */
+export function postFlagTradeOf(
+  content: ContentSet,
+  snapshot: WorldSnapshot,
+  e: SnapshotEntity,
+): PostFlagTrade | null {
+  if (!holdsHaulFlagPost(content, snapshot, e)) return null;
+  const jobType = settlerJobType(e) ?? null;
+  if (systems.isHunterJob(content, jobType)) return 'hunter';
+  if (systems.isFisherJob(content, jobType)) return 'fisher';
+  return systems.worksFieldFromPost(content, jobType) ? 'collector' : 'carrier';
 }
 
 /** The unit's military mode, or undefined before the simulation has stamped one. */

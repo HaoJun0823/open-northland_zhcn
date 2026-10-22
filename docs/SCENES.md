@@ -161,6 +161,13 @@ when nothing lies there. Select him to plant, move
 or take away the flag from the settler panel's Area row or the action ring; without it he fetches the
 heap too.
 
+`?scene=field-post-flags` posts an extractor, a hunter and a fisherman to a headquarters with one tree
+beside it and no game or water in reach. The extractor's flag stands in a grove to the south-east, the
+hunter's by a hare meadow far east, the fisherman's on the shore of a pond; all three keep their post,
+work at the flag and carry wood, leather, meat and fish home, and the tree by the headquarters stays.
+Select any of them to move or take away the flag from the Area row or the action ring; without it the
+extractor fells the near tree and the other two stand idle by the headquarters.
+
 `?scene=idle-work` places three bakeries and a collector on empty grass. Ingrid's bakery lacks water
 and flour; Sigrid has bread production set to zero; Freya's bread shelf is full; Bjorn has no resources
 to collect. Select a worker or bakery and hover or keyboard-focus the status strip to read the full

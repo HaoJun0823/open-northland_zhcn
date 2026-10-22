@@ -138,7 +138,7 @@ describe('porter dormancy', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(30, 1) });
     const hq = hqAt(sim, 0, 0);
     const porter = porterAt(sim, 1, 0, hq);
-    bindHaulFlag(sim.world, porter, { x: fx.fromInt(20), y: fx.fromInt(0) });
+    bindHaulFlag(sim.world, ctxOf(sim), porter, { x: fx.fromInt(20), y: fx.fromInt(0) });
     if (sim.terrain === undefined) throw new Error('mapped fixture');
     const ctx = ctxOf(sim);
     const plan: PlannerContext = {
@@ -158,7 +158,7 @@ describe('porter dormancy', () => {
     };
     markPorterDormant(plan);
     expect(porterDormant(plan)).toBe(true);
-    bindHaulFlag(sim.world, porter, { x: fx.fromInt(5), y: fx.fromInt(0) }); // a position write only
+    bindHaulFlag(sim.world, ctxOf(sim), porter, { x: fx.fromInt(5), y: fx.fromInt(0) }); // a position write only
     expect(porterDormant(plan)).toBe(false);
   });
 

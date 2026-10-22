@@ -10,6 +10,7 @@ import {
   type EquipmentSlot,
   FishSwarm,
   FOG_MODE,
+  HaulFlag,
   JobAssignment,
   MISC_EQUIP_SLOTS,
   MoveGoal,
@@ -22,7 +23,7 @@ import {
   WorkFlag,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../src/index.js';
+import { fx, type NodeId, nodeOfPosition, positionOfNode, Simulation } from '../../src/index.js';
 import {
   addFishSwarms,
   FISH_CAST_ATOMIC,
@@ -158,7 +159,7 @@ describe('fishing', () => {
     expect(idle.world.has(stranded, MoveGoal)).toBe(false);
   });
 
-  it('retires the flag of an HQ-employed fisher and banks the catch directly into the HQ', () => {
+  it("retires an HQ-employed fisher's yard flag, banks the catch into the HQ and keeps his post's flag", () => {
     const sim = new Simulation({ seed: 4, content: fishingContent(), map: grassNodeMap(16, 6) });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('test needs terrain');
@@ -193,6 +194,7 @@ describe('fishing', () => {
     sim.enqueueSetup({ kind: 'setWorkFlag', entity: fisher, x: 6, y: 3 });
     sim.step();
     expect(sim.world.has(fisher, WorkFlag)).toBe(false);
+    const postFlag = sim.world.get(fisher, HaulFlag).flag;
 
     for (let tick = 0; tick < 500 && (sim.world.get(hq, Stockpile).amounts.get(FOOD) ?? 0) === 0; tick++) {
       sim.step();
@@ -201,9 +203,83 @@ describe('fishing', () => {
     expect(sim.world.has(fisher, Carrying)).toBe(false);
     expect(sim.world.get(hq, Stockpile).amounts.get(FOOD)).toBe(1);
 
+    // Released, he keeps the flag his post took as his yard: the flag is his, not the building's.
     unassignWorker(sim.world, ctxOf(sim), { kind: 'unassignWorker', entity: fisher });
     expect(sim.world.has(fisher, JobAssignment)).toBe(false);
-    expect(sim.world.has(fisher, WorkFlag)).toBe(true);
+    expect(sim.world.has(fisher, HaulFlag)).toBe(false);
+    expect(sim.world.get(fisher, WorkFlag).flag).toBe(postFlag);
+  });
+
+  it("searches for a shore from his post's flag, so a posted fisher works far water and banks at his post", () => {
+    // The water sits at the west end of a long strip, the HQ and its fisher at the east end, well past
+    // his 20-node shore search; the flag his post took stands inland of the swarm's shore, inside that
+    // search of it.
+    const FLAG_INLAND = 10;
+    const run = (
+      flagged: boolean,
+    ): { shore: NodeId; firstGoal: NodeId | undefined; cast: boolean; banked: number } => {
+      const sim = new Simulation({ seed: 4, content: fishingContent(), map: grassNodeMap(96, 6) });
+      const terrain = sim.terrain;
+      if (terrain === undefined) throw new Error('test needs terrain');
+      const [swarm] = addFishSwarms(sim.world, terrain, [{ hx: 5, hy: 3, count: 5, continent: 7 }]);
+      const shore = swarm === undefined ? null : sim.world.get(swarm, FishSwarm).shore;
+      if (shore === null) throw new Error('fish swarm has no shore');
+      const hq = sim.world.create();
+      sim.world.add(hq, Position, positionOfNode(88, 3));
+      sim.world.add(hq, Building, { buildingType: 1, tribe: 1, built: fx.fromInt(1), level: 0 });
+      sim.world.add(hq, Stockpile, { amounts: new Map() });
+      sim.world.add(hq, Owner, { player: OWNER });
+      const fisher = fisherAt(sim, 90, 3);
+      sim.world.add(fisher, Owner, { player: OWNER });
+      sim.world.add(fisher, JobAssignment, { workplace: hq });
+      const c = terrain.coordsOf(shore);
+      if (flagged) sim.enqueueSetup({ kind: 'setWorkFlag', entity: fisher, x: c.x + FLAG_INLAND, y: c.y });
+      sim.step();
+      const firstGoal = sim.world.tryGet(fisher, MoveGoal)?.cell;
+      let cast = false;
+      for (let tick = 0; tick < 2000 && (sim.world.get(hq, Stockpile).amounts.get(FOOD) ?? 0) === 0; tick++) {
+        sim.step();
+        cast ||= sim.world.tryGet(fisher, CurrentAtomic)?.atomicId === FISH_CAST_ATOMIC;
+      }
+      expect(sim.world.has(fisher, JobAssignment)).toBe(true);
+      return { shore, firstGoal, cast, banked: sim.world.get(hq, Stockpile).amounts.get(FOOD) ?? 0 };
+    };
+
+    const flagged = run(true);
+    // He heads straight for the water his flag marks, not for the flag first.
+    expect(flagged.firstGoal).toBe(flagged.shore);
+    expect(flagged).toMatchObject({ cast: true, banked: 1 });
+    // Without the flag the same man searches from his post and never finds the water.
+    expect(run(false)).toMatchObject({ cast: false, banked: 0 });
+  });
+
+  it('waits at its post flag when no water lies within the search from it', () => {
+    const DRY_FLAG = { hx: 88, hy: 3 } as const;
+    /** Close enough to the flag to stand at it: its interaction cell lies a step or two aside. */
+    const AT_FLAG_NODES = 4;
+    const sim = new Simulation({ seed: 4, content: fishingContent(), map: grassNodeMap(96, 6) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('test needs terrain');
+    addFishSwarms(sim.world, terrain, [{ hx: 5, hy: 3, count: 5, continent: 7 }]);
+    const hq = sim.world.create();
+    sim.world.add(hq, Position, positionOfNode(50, 3));
+    sim.world.add(hq, Building, { buildingType: 1, tribe: 1, built: fx.fromInt(1), level: 0 });
+    sim.world.add(hq, Stockpile, { amounts: new Map() });
+    sim.world.add(hq, Owner, { player: OWNER });
+    const fisher = fisherAt(sim, 52, 3);
+    sim.world.add(fisher, Owner, { player: OWNER });
+    sim.world.add(fisher, JobAssignment, { workplace: hq });
+    sim.enqueueSetup({ kind: 'setWorkFlag', entity: fisher, x: DRY_FLAG.hx, y: DRY_FLAG.hy });
+
+    let cast = false;
+    for (let tick = 0; tick < 2000; tick++) {
+      sim.step();
+      cast ||= sim.world.tryGet(fisher, CurrentAtomic)?.atomicId === FISH_CAST_ATOMIC;
+    }
+    const at = sim.world.get(fisher, Position);
+    expect(cast).toBe(false);
+    expect(Math.abs(nodeOfPosition(at.x, at.y).hx - DRY_FLAG.hx)).toBeLessThanOrEqual(AT_FLAG_NODES);
+    expect(sim.world.get(fisher, JobAssignment).workplace).toBe(hq);
   });
 
   it('does not fish while its assigned HQ has no room for another catch', () => {

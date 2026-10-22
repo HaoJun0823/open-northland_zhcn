@@ -21,6 +21,8 @@ import { surveyHuntingGame } from '../conflict/hunting/index.js';
 import type { SystemContext } from '../context.js';
 import { FISH_SHORE_SEARCH_RADIUS } from '../economy/fish.js';
 import { nodeHoldsOpenGood, openGatherGoods } from '../economy/gather-goods.js';
+import { liveFlagOf } from '../economy/work-flag.js';
+import { workBoundDistance } from '../settlers/targets/resource-stances.js';
 import { nearestHarvestableFor } from '../settlers/targets/resources.js';
 import { StoreSinks } from '../settlers/targets/stores/sinks.js';
 import { takesDeposits } from '../settlers/targets/stores/stock.js';
@@ -100,36 +102,41 @@ export function gatherWorkStatus(
   }
   // A fisher's work is the shore search alone, so its reason lies there too.
   if (isFisherJob(ctx.content, jobType)) {
-    return stopped ? { kind: 'nothingSelected' } : fishWorkStatus(world, terrain, flag?.flag ?? entity);
+    const from = liveFlagOf(world, entity)?.flag ?? entity;
+    return stopped ? { kind: 'nothingSelected' } : fishWorkStatus(world, terrain, from);
   }
+  const node = nodeOfPosition(position.x, position.y);
+  const here = terrain.nodeAtClamped(node.hx, node.hy);
+  // The work area is the gatherer's own flag, a work flag or the one its post took.
+  const own = liveFlagOf(world, entity);
+  const area =
+    own === undefined
+      ? undefined
+      : { center: interactionCell(world, ctx, terrain, own.flag, here), radius: own.radius };
+  const maxWorkOffset = contentIndex(ctx.content).maxResourceWorkOffset;
   // Already-harvested piles remain work even after a gathering counter stops. Their own delivery and
   // reachability policies need a separate diagnosis; never call a harvest-only search proof of no work.
-  // A flag gatherer carries off only the piles it dug itself.
-  const piles = world.canonicalQuery(GroundDrop, Stockpile, Position);
-  if (piles.some((pile) => flag === undefined || world.tryGet(pile, HarvestedBy)?.by === entity))
+  // A flag gatherer carries off only the piles it dug itself. A posted one lifts piles whose stance, a
+  // work offset from the pile, lies within its area widened by the trunk slack, another work offset.
+  const pileReach = area === undefined ? 0 : area.radius + maxWorkOffset + maxWorkOffset;
+  const counts = (pile: Entity): boolean => {
+    if (flag !== undefined) return world.tryGet(pile, HarvestedBy)?.by === entity;
+    if (area === undefined) return true;
+    const at = terrain.coordsOf(entityNode(world, terrain, pile));
+    return workBoundDistance(terrain, area, at.x, at.y) <= pileReach;
+  };
+  if (world.canonicalQuery(GroundDrop, Stockpile, Position).some(counts))
     return { kind: 'unknown', reason: 'gatherSearch' };
   if (stopped) return { kind: 'nothingSelected' };
   // Farmers can sow new plots.
   if (resourceSearchUnsupported) return { kind: 'unknown', reason: 'gatherSearch' };
-  const node = nodeOfPosition(position.x, position.y);
-  const here = terrain.nodeAtClamped(node.hx, node.hy);
-  const area =
-    flag === undefined
-      ? undefined
-      : { center: interactionCell(world, ctx, terrain, flag.flag, here), radius: flag.radius };
   const limit = navigationLimitFor(world, ctx.content, terrain, entity);
   const allowed = jobAtomics(ctx, jobType);
   const center = area === undefined ? undefined : terrain.coordsOf(area.center);
   const candidates =
     center === undefined || area === undefined
       ? canonicalResources(world)
-      : resourcesNearNode(
-          world,
-          center.x,
-          center.y,
-          area.radius + contentIndex(ctx.content).maxResourceWorkOffset,
-          allowed,
-        );
+      : resourcesNearNode(world, center.x, center.y, area.radius + maxWorkOffset, allowed);
   const bounded = candidates.length > MAX_DIAGNOSTIC_RESOURCES;
   const inspected = bounded ? candidates.slice(0, MAX_DIAGNOSTIC_RESOURCES) : candidates;
   const open = openGatherGoods(world, ctx, entity, jobType);

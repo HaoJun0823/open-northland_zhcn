@@ -4,24 +4,35 @@ import { isCarrierJobId } from '../../core/content-index/jobs.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext } from '../context.js';
+import { jobNeedsWorkHouse } from '../readviews/index.js';
 import { isStorageBuildingType } from '../stores/index.js';
+import { jobUsesWorkFlag } from './work-flag.js';
 
 /**
- * Whether a `jobType` worker posted at `buildingType` may be given a pickup flag: a carrier at a warehouse
- * or the headquarters, or at a recipe workshop. A carrier at a farm, herb hut, well, hive, tower or the
- * barracks takes none (owner ruling: a flag there serves nothing).
+ * Whether a `jobType` worker posted at `buildingType` may be given a flag of its own: a field trade
+ * ({@link worksFieldFromPost}) at any post, a carrier at a warehouse or the headquarters, or at a recipe
+ * workshop. A carrier at a farm, herb hut, well, hive, tower or the barracks takes none (owner ruling: a
+ * flag there serves nothing).
  */
 export function postTakesHaulFlag(content: ContentSet, jobType: number, buildingType: number): boolean {
   const index = contentIndex(content);
   const job = index.jobs.get(jobType);
   const type = index.buildings.get(buildingType);
-  if (job === undefined || type === undefined || !isCarrierJobId(job.id)) return false;
+  if (job === undefined || type === undefined) return false;
+  if (worksFieldFromPost(content, jobType)) return true;
+  if (!isCarrierJobId(job.id)) return false;
   if (type.kind === BUILDING_KIND.storage) return true;
   return (
     index.mergedRecipeByBuilding.has(buildingType) &&
     !type.refillsOwnStock &&
     !type.produces.some((good) => index.goods.get(good)?.farming !== undefined)
   );
+}
+
+/** A trade that gathers, hunts or fishes from a flag and may work its post's flag the same way: every flag
+ *  trade but one bound to its workhouse, as the farmer and the herb gatherer reap their own hut's fields. */
+export function worksFieldFromPost(content: ContentSet, jobType: number | null): boolean {
+  return jobType !== null && jobUsesWorkFlag({ content }, jobType) && !jobNeedsWorkHouse(content, jobType);
 }
 
 /** Whether settler `e` holds a post {@link postTakesHaulFlag} admits. */

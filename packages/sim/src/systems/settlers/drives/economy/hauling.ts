@@ -34,7 +34,7 @@ export function planPorter(plan: PlannerContext, idle: IdleStands): boolean {
     if (!dormant) markPorterDormant(plan);
     if (area === null) return false;
     idle.stand(e, false);
-    waitAtHaulFlag(plan, area);
+    waitAtHaulFlag(plan, area.flag);
     return true;
   }
   wakePorter(world, e);

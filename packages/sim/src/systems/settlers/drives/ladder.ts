@@ -55,6 +55,7 @@ import {
   planProducer,
   planSiteStaff,
   planVehicleCargo,
+  planWaitAtFieldFlag,
   planWorkshopSupplier,
 } from './economy/index.js';
 import { planEquipOrder } from './equip-order.js';
@@ -404,6 +405,7 @@ function planTrade(plan: PlannerContext, pass: PlannerPass, hx: number, hy: numb
   if (planFisher(plan)) return true;
   if (planGatherer(plan, pass.harvestClaims, pass.idle)) return true;
   if (planPorter(plan, pass.idle)) return true;
+  if (planWaitAtFieldFlag(plan, pass.idle)) return true;
 
   // A settler the haul rung also refuses is genuinely idle. One already chatting keeps its chat, and one
   // a script pinned stays where it is; a graduate heads back to its school's yard, and the rest step off a

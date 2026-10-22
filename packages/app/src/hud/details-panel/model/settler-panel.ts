@@ -301,11 +301,12 @@ export function settlerPanelModel(
   }
   // A woman and a child hold no trade to train in.
   const trains = role !== 'woman' && role !== 'child';
+  const workArea = role === 'worker' ? workAreaRow(ctx, snapshot, ent, control) : null;
   return {
     ...base,
     renamable: !hero && comps.ScriptedName === undefined,
-    workplace: role === 'worker' ? workplaceRow(ctx, ent, work.place, control) : null,
-    workArea: role === 'worker' ? workAreaRow(ctx, snapshot, ent, control) : null,
+    workplace: role === 'worker' ? workplaceRow(ctx, ent, work.place, control, workArea !== null) : null,
+    workArea,
     buildRun: buildRunOf(comps),
     home: homeRow(ctx, snapshot, ent, role, control),
     vehicle: vehicleRow(ctx, snapshot, ent, role, control),

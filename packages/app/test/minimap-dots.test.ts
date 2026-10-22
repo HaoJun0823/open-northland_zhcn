@@ -191,18 +191,21 @@ describe('forEachMinimapDot', () => {
     expect(dotsOf(roads, { filters: only('roads', 'mine') })).toEqual([site]);
   });
 
-  it("plots signposts and a gatherer's work flag in the gatherer's colour", () => {
+  it("plots signposts and a worker's own or post flag in the worker's colour", () => {
     const dots = dotsOf(
       [
         { id: 1, components: { Signpost: {}, Owner: { player: 1 }, ...at(2, 2) } },
         { id: 2, components: { DeliveryFlag: {}, ...at(5, 5) } },
         { id: 3, components: { ...person(3, 0, 1, 1).components, WorkFlag: { flag: 2, radius: 24 } } },
+        { id: 4, components: { DeliveryFlag: {}, ...at(7, 3) } },
+        { id: 5, components: { ...person(5, 1, 1, 2).components, HaulFlag: { flag: 4, radius: 32 } } },
       ],
       { filters: only('signposts') },
     );
     expect(dots).toEqual([
       { ...pxAt(2, 2), mark: 'signpost', colour: colour(1) },
       { ...pxAt(5, 5), mark: 'signpost', colour: colour(0) },
+      { ...pxAt(7, 3), mark: 'signpost', colour: colour(1) },
     ]);
   });
 

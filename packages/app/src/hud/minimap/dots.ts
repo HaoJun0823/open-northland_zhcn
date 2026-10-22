@@ -130,7 +130,7 @@ export function scopeAdmits(
 
 /** The components whose carriers the plot reads. Held as ids: the plot runs a few times a second, so it
  *  resolves its entities then rather than keeping their objects current every delta. */
-const PLOTTED = ['Building', 'Settler', 'Signpost', 'WorkFlag', 'RoadSite'] as const;
+const PLOTTED = ['Building', 'Settler', 'Signpost', 'WorkFlag', 'HaulFlag', 'RoadSite'] as const;
 
 /** The component indexes the plot reads, for the frame's index registry. */
 export function readMinimapIndexes(snapshot: WorldSnapshot): void {
@@ -138,8 +138,8 @@ export function readMinimapIndexes(snapshot: WorldSnapshot): void {
 }
 
 /** The carrier walks of a plot, bottom to top; a walk that ends a layer stamps it. The signpost layer
- *  walks the posts, then the gatherers' delivery flags. */
-const WALKS = ['roadSites', 'signposts', 'flags', 'buildings', 'settlers', 'vehicles'] as const;
+ *  walks the posts, then the gatherers' own flags, then the flags posted workers took. */
+const WALKS = ['roadSites', 'signposts', 'flags', 'postFlags', 'buildings', 'settlers', 'vehicles'] as const;
 type Walk = (typeof WALKS)[number];
 /** One stage of a plot: a carrier walk, one part of a held group sent to the sink, or the end of a layer,
  *  which clears its groups and moves its hostile markers to the pass after every layer. */
@@ -151,7 +151,8 @@ type PlotStage =
 const ENDS_LAYER: Readonly<Record<Walk, boolean>> = {
   roadSites: true,
   signposts: false,
-  flags: true,
+  flags: false,
+  postFlags: true,
   buildings: true,
   settlers: true,
   vehicles: true,
@@ -285,6 +286,7 @@ export class MinimapDotPlot {
         return layers.roads;
       case 'signposts':
       case 'flags':
+      case 'postFlags':
         return layers.signposts;
       case 'buildings':
         return layers.buildings;
@@ -346,8 +348,9 @@ export class MinimapDotPlot {
             this.colourOf(ctx, owner),
           );
         return;
-      case 'flags': {
-        // A delivery flag carries no owner; its gatherer's is the flag's, one gatherer per flag.
+      case 'flags':
+      case 'postFlags': {
+        // A delivery flag carries no owner; its worker's is the flag's, one worker per flag.
         const flagId = workFlagOf(e);
         if (owner === undefined || flagId === undefined || !this.admits(ctx, owner)) return;
         const flag = entityById(snapshot, flagId);
@@ -471,6 +474,7 @@ const CARRIER: Readonly<Record<Exclude<Walk, 'vehicles'>, (typeof PLOTTED)[numbe
   roadSites: 'RoadSite',
   signposts: 'Signpost',
   flags: 'WorkFlag',
+  postFlags: 'HaulFlag',
   buildings: 'Building',
   settlers: 'Settler',
 };

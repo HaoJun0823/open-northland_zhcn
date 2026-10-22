@@ -25,9 +25,9 @@ import { clearNavState } from '../movement/nav-state.js';
 import { isFisherJob, isHunterJob } from '../readviews/index.js';
 import { canonicalById, entityNode } from '../spatial/nodes.js';
 
-// The work-flag lifecycle, for a field worker's `WorkFlag` and a carrier's `HaulFlag`. Minting and removal
-// go through `bindFreshFlag`, `bindHaulFlag` and `removeWorkFlag`, so a `DeliveryFlag` exists exactly while
-// a live worker references it. Authored: auto-planting a flag the moment a settler becomes a gatherer is a
+// The work-flag lifecycle, for a field worker's `WorkFlag` and a posted worker's `HaulFlag`. Minting and
+// removal go through `bindFreshFlag`, `bindHaulFlag` and `removeWorkFlag`, so a `DeliveryFlag` exists exactly
+// while a live worker references it. Authored: auto-planting a flag the moment a settler becomes a gatherer is a
 // convention of this engine rather than observed behavior.
 
 /** The field worker's flag while its marker entity still exists; a stale binding reads as undefined. */
@@ -36,7 +36,12 @@ export function liveWorkFlag(world: World, e: Entity): { flag: Entity; radius: n
   return wf !== undefined && world.has(wf.flag, Position) ? wf : undefined;
 }
 
-function workFlagRadiusFor(ctx: SystemContext, jobType: number | null): number {
+/** The settler's own live flag: its work flag, else the flag its post took. */
+export function liveFlagOf(world: World, e: Entity): { flag: Entity; radius: number } | undefined {
+  return liveWorkFlag(world, e) ?? liveHaulFlag(world, e);
+}
+
+function workFlagRadiusFor(ctx: ContentContext, jobType: number | null): number {
   return isHunterJob(ctx.content, jobType) ? HUNTER_WORK_FLAG_RADIUS : DEFAULT_WORK_FLAG_RADIUS;
 }
 
@@ -67,31 +72,37 @@ function mintFlagMarker(world: World, pos: { x: Fixed; y: Fixed }): Entity {
   return flag;
 }
 
-/** The carrier's pickup flag while its marker entity still exists. */
+/** The posted worker's flag while its marker entity still exists. */
 export function liveHaulFlag(world: World, e: Entity): { flag: Entity; radius: number } | undefined {
   const hf = world.tryGet(e, HaulFlag);
   return hf !== undefined && world.has(hf.flag, Position) ? hf : undefined;
 }
 
-/** Plant carrier `e`'s pickup flag at `pos`, or move the one it has, and drop its route so it re-plans
- *  around the new area. */
-export function bindHaulFlag(world: World, e: Entity, pos: { x: Fixed; y: Fixed }): void {
+/** Plant posted worker `e`'s flag at `pos` with its trade's radius, or move the one it has, and drop its
+ *  route so it re-plans around the new area. */
+export function bindHaulFlag(
+  world: World,
+  ctx: ContentContext,
+  e: Entity,
+  pos: { x: Fixed; y: Fixed },
+): void {
   const live = liveHaulFlag(world, e);
   if (live !== undefined) {
     relocateWorkFlag(world, live.flag, pos, e);
     return;
   }
   removeWorkFlag(world, e); // a stale binding's marker id
-  world.add(e, HaulFlag, { flag: mintFlagMarker(world, pos), radius: DEFAULT_WORK_FLAG_RADIUS });
+  const radius = workFlagRadiusFor(ctx, world.tryGet(e, Settler)?.jobType ?? null);
+  world.add(e, HaulFlag, { flag: mintFlagMarker(world, pos), radius });
   clearNavState(world, e);
 }
 
 /**
  * Move an existing flag marker to `pos` and re-plan its owner. Three pieces of a gatherer's delivery state
  * cache the old position - the sticky {@link YardDeliveryRoute} goal, an in-flight `pileup` into this
- * flag, and the live nav goal - so all three are dropped and it re-plans next tick; a carrier only drops
- * its nav goal. Omitting `owner` scans for the one {@link WorkFlag} or {@link HaulFlag} referencing `flag`,
- * which the placement push-out needs since it starts from the marker.
+ * flag, and the live nav goal - so all three are dropped and it re-plans next tick. A posted worker banks
+ * at its post, so it only drops its nav goal. Omitting `owner` scans for the one {@link WorkFlag} or
+ * {@link HaulFlag} referencing `flag`, which the placement push-out needs since it starts from the marker.
  */
 export function relocateWorkFlag(
   world: World,
@@ -178,15 +189,15 @@ export function jobCanHarvestGood(ctx: ContentContext, jobType: number, goodType
 }
 
 /**
- * Sync a settler's work flag to its new `jobType`: an unposted field gatherer or fisher keeps its live flag
- * or gets a fresh one at its feet, and every other job drops the flag rather than stranding an owner-less
- * one on the map. A building-employed collector banks directly into its workplace instead.
+ * Sync a settler's work flag to its new `jobType`: an unposted field gatherer or fisher keeps its live flag,
+ * the one its post took included, or gets a fresh one at its feet, and every other job drops the flag
+ * rather than stranding an owner-less one on the map. A building-employed collector banks directly into its
+ * workplace instead.
  */
 export function syncWorkFlagToJob(world: World, ctx: SystemContext, e: Entity, jobType: number): void {
   const usesFlag = !world.has(e, JobAssignment);
   if (jobUsesWorkFlag(ctx, jobType) && usesFlag) {
-    const live = liveWorkFlag(world, e);
-    if (live !== undefined) {
+    if (liveWorkFlag(world, e) !== undefined || keepPostFlag(world, e)) {
       // Keep the flag, re-fitting its radius to the new trade.
       world.mut(e, WorkFlag).radius = workFlagRadiusFor(ctx, jobType);
       return;
@@ -195,6 +206,18 @@ export function syncWorkFlagToJob(world: World, ctx: SystemContext, e: Entity, j
   } else {
     removeWorkFlag(world, e);
   }
+}
+
+/** Turn the flag a settler's former post took into its work flag, since the flag is the worker's: one
+ *  released from its post, or retrained into a flag trade, works on from that spot. Says whether one was
+ *  kept. */
+function keepPostFlag(world: World, e: Entity): boolean {
+  const post = liveHaulFlag(world, e);
+  const kept = post === undefined ? undefined : { flag: post.flag, radius: post.radius };
+  world.remove(e, HaulFlag); // a stale binding as well
+  if (kept === undefined) return false;
+  world.add(e, WorkFlag, kept);
+  return true;
 }
 
 /**
@@ -222,10 +245,11 @@ export function removeWorkFlag(world: World, e: Entity): void {
     world.remove(e, HaulFlag);
   }
   const wf = world.tryGet(e, WorkFlag);
-  if (wf === undefined) return;
-  if (world.isAlive(wf.flag)) world.destroy(wf.flag);
-  world.remove(e, WorkFlag);
-  world.remove(e, YardDeliveryRoute);
+  if (wf !== undefined) {
+    if (world.isAlive(wf.flag)) world.destroy(wf.flag);
+    world.remove(e, WorkFlag);
+    world.remove(e, YardDeliveryRoute);
+  }
   world.remove(e, ReplantMisses); // a record of misses from a flag that is gone
 }
 

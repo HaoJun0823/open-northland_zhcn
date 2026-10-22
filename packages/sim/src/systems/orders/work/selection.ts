@@ -45,11 +45,11 @@ import { dropOrderQueue, isOrderableSettler } from '../guards.js';
 const WORK_FLAG_SNAP_MAX_RADIUS = 6;
 
 /**
- * Place or move one unposted gatherer/fisher flag, or a posted carrier's pickup flag, to node (x,y) - see
- * the command doc. An existing flag is relocated and only the marker moves, because a flag stores nothing
- * and the goods already dropped stay pinned to their tiles; otherwise a fresh flag is minted there and
- * bound with the trade's radius. A building-employed collector has no delivery flag: its workplace is both
- * its work anchor and sink.
+ * Place or move one unposted gatherer/fisher flag, or the flag a posted carrier or field worker holds, to
+ * node (x,y) - see the command doc. An existing flag is relocated and only the marker moves, because a flag
+ * stores nothing and the goods already dropped stay pinned to their tiles; otherwise a fresh flag is minted
+ * there and bound with the trade's radius. A building-employed collector has no delivery flag: its
+ * workplace is its sink, and its post's flag only bounds where it works.
  *
  * The clicked node snaps to the nearest legal one within {@link WORK_FLAG_SNAP_MAX_RADIUS}, so "work this
  * iron mine" lands on the ore itself. A player's flag may land beyond the settler's signpost confinement:
@@ -90,22 +90,20 @@ export function setWorkFlag(
   dropOrderQueue(world, e);
   const c = terrain.coordsOf(target);
   const pos = positionOfNode(c.x, c.y);
+  // A moved flag restarts the search from it: the node being approached may lie outside the new radius.
+  if (world.has(e, HarvestFocus)) world.remove(e, HarvestFocus);
   if (hauls) {
-    bindHaulFlag(world, e, pos);
+    bindHaulFlag(world, ctx, e, pos);
+  } else if (live !== undefined) {
+    relocateWorkFlag(world, live.flag, pos, e);
   } else {
-    // A moved flag restarts the search from it: the node being approached may lie outside the new radius.
-    if (world.has(e, HarvestFocus)) world.remove(e, HarvestFocus);
-    if (live !== undefined) {
-      relocateWorkFlag(world, live.flag, pos, e);
-    } else {
-      bindFreshFlag(world, ctx, e, pos);
-      clearNavState(world, e);
-    }
+    bindFreshFlag(world, ctx, e, pos);
+    clearNavState(world, e);
   }
   markIfPostedOutOfReach(world, ctx, e);
 }
 
-/** Take a posted carrier's pickup flag away - see the command doc. */
+/** Take a posted worker's flag away - see the command doc. */
 export function clearHaulFlag(world: World, command: Extract<Command, { kind: 'clearHaulFlag' }>): void {
   const e = command.entity;
   if (!isOrderableSettler(world, e) || liveHaulFlag(world, e) === undefined) return;

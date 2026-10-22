@@ -1,4 +1,10 @@
-import { HUNTER_WORK_FLAG_RADIUS, JobAssignment, Position, WorkFlag } from '../../../components/index.js';
+import {
+  HaulFlag,
+  HUNTER_WORK_FLAG_RADIUS,
+  JobAssignment,
+  Position,
+  WorkFlag,
+} from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
@@ -28,16 +34,16 @@ export function groundDistance(terrain: TerrainGraph, anchorCell: NodeId, node: 
 }
 
 /**
- * The area an owned hunter hunts and harvests: its work-flag circle, or the
- * {@link HUNTER_WORK_FLAG_RADIUS} circle around the workplace it is employed at instead (the two are
- * mutually exclusive). Null for a hunter with neither, which hunts by plain sight and forages unbounded.
+ * The area an owned hunter hunts and harvests: the circle of its own flag, a work flag or the one its post
+ * took, else the {@link HUNTER_WORK_FLAG_RADIUS} circle around the workplace it is employed at. Null for
+ * an unposted hunter without a flag, which hunts by plain sight and forages unbounded.
  */
 export function huntingGround(
   world: World,
   terrain: TerrainGraph,
   e: Entity,
 ): { anchorCell: NodeId; radius: number } | null {
-  const flag = world.tryGet(e, WorkFlag);
+  const flag = world.tryGet(e, WorkFlag) ?? world.tryGet(e, HaulFlag);
   if (flag !== undefined && world.has(flag.flag, Position)) {
     const p = world.get(flag.flag, Position);
     const n = nodeOfPosition(p.x, p.y);

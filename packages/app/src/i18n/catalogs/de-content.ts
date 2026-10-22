@@ -480,6 +480,11 @@ export const deContent = {
       summary:
         'Ein Abbauer stapelt Bruchstein an seinem Arbeitsplatz weit östlich des Hauptquartiers. Der Träger des Hauptquartiers hat eine Arbeitsfahne daneben: Er trägt den Bruchstein aus dem Steinbruch und das Mehl einer Mühle nahe der Fahne zum Hauptquartier, lässt den Haufen direkt am Hauptquartier liegen und wartet an der Fahne, wenn dort nichts mehr liegt.',
     },
+    'field-post-flags': {
+      title: 'Fahnen für Abbauer, Jäger und Fischer mit Arbeitsplatz',
+      summary:
+        'Ein Abbauer, ein Jäger und ein Fischer arbeiten für das Hauptquartier, neben dem ein einzelner Baum steht und in dessen Nähe es weder Wild noch Wasser gibt. Der Abbauer hat eine Fahne in einem Wäldchen im Südosten, der Jäger eine an einer Hasenwiese weit im Osten, der Fischer eine am Ufer eines Teichs. Alle drei arbeiten an ihrer Fahne und bringen den Ertrag zum Hauptquartier, wo Fleisch und Fisch als Nahrung lagern, und der Baum am Hauptquartier bleibt stehen. Wähle einen von ihnen, um die Fahne in der Zeile „Arbeitsbereich“ im Siedlerfenster zu versetzen oder zu entfernen; ohne sie fällt der Abbauer den nahen Baum und die anderen stehen untätig am Hauptquartier.',
+    },
     'gatherer-flag-follow': {
       title: 'Fahnen folgen den Rohstoffen',
       summary:

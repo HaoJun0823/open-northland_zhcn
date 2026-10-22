@@ -285,7 +285,7 @@ export function planWorkshopSupplier(
   // presence gate still fires; one at a workshop run by other operators, or at a house that fills
   // itself, drives nothing and may loiter.
   const drivesProduction = recipe !== undefined && isWorkplaceOperator(world, ctx, workplace, worker.jobType);
-  if (area !== null && !drivesProduction) waitAtHaulFlag(plan, area);
+  if (area !== null && !drivesProduction) waitAtHaulFlag(plan, area.flag);
   else loiterByDoor(plan, workplace, spacing, drivesProduction);
 }
 

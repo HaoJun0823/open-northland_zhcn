@@ -65,7 +65,7 @@ export function warmModel(goodIds: readonly string[]): SettlerPanelModel {
       flag: false,
       centreFlag: null,
     },
-    workArea: { flag: 1, assign: true, remove: true },
+    workArea: { trade: 'carrier', flag: 1, assign: true, remove: true },
     buildRun: 'roads',
     home: { target: null, assign: true, remove: null },
     vehicle: { target: { id: 2, label: 'Warm', load: 'Warm' }, assign: true, remove: true },

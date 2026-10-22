@@ -13,7 +13,7 @@ import {
 import { localizedBuildingName } from '../../../catalog/building-i18n.js';
 import { vikingBuildingByTypeId } from '../../../catalog/buildings.js';
 import { professionDefForJob } from '../../../catalog/professions.js';
-import type { SnapshotEntity } from '../../../game/snapshot.js';
+import type { PostFlagTrade, SnapshotEntity } from '../../../game/snapshot.js';
 import type { ViewerSeat } from '../../../game/viewer-seat.js';
 import {
   currentLocale,
@@ -61,8 +61,10 @@ export interface UnitPanelModelContext {
   /** The sim's flag-trade test (`jobUsesWorkFlag`): a gatherer or a fisher, whose workplace pick also
    *  plants the flag. Absent = no trade works from a flag. */
   readonly usesWorkFlag?: ((jobType: number) => boolean) | undefined;
-  /** Whether the settler is a carrier at a post that takes a pickup flag. Absent = none does. */
-  readonly holdsHaulFlagPost?: ((snapshot: WorldSnapshot, ent: SnapshotEntity) => boolean) | undefined;
+  /** The trade of a settler whose post takes a flag, null when its post takes none. Absent = none does. */
+  readonly postFlagTrade?:
+    | ((snapshot: WorldSnapshot, ent: SnapshotEntity) => PostFlagTrade | null)
+    | undefined;
   /** The sim's species-good seam: the animal tribe a good is a herd of, null for an ordinary ware whose
    *  stock row holds goods rather than counting a farm's animals. */
   readonly livestockTribeOfGood?: ((goodType: number) => number | null) | undefined;

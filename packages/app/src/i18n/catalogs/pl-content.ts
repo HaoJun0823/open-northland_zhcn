@@ -476,6 +476,11 @@ export const plContent = {
       summary:
         'Zbieracz układa kamień przy swojej chorągiewce daleko na wschód od kwatery głównej. Tragarz kwatery ma chorągiewkę przy tym składzie: nosi kamień z kamieniołomu i mąkę z pobliskiego młyna, zostawia kupkę leżącą przy kwaterze i czeka przy chorągiewce, gdy nic tam nie leży.',
     },
+    'field-post-flags': {
+      title: 'Chorągiewki zbieracza, myśliwego i rybaka z kwatery',
+      summary:
+        'Zbieracz, myśliwy i rybak pracują dla kwatery głównej, przy której stoi jedno drzewo, a w pobliżu nie ma ani zwierzyny, ani wody. Zbieracz ma chorągiewkę w zagajniku na południowym wschodzie, myśliwy przy łące z zającami daleko na wschodzie, rybak na brzegu stawu. Wszyscy trzej pracują przy swoich chorągiewkach i noszą do kwatery drewno, skóry, mięso i ryby, a mięso i ryby trafiają tam do zapasów jako jedzenie. Drzewo przy kwaterze stoi nietknięte. Zaznacz któregoś, by przenieść lub zabrać chorągiewkę w wierszu „Obszar” panelu osadnika; bez niej zbieracz ścina pobliskie drzewo, a pozostali stoją bezczynnie przy kwaterze.',
+    },
     'gatherer-flag-follow': {
       title: 'Flagi idą za surowcami',
       summary:

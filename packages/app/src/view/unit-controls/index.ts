@@ -1,5 +1,5 @@
 import { entityById, MAX_UNIT_ORDER_MEMBERS, systems, type WorldSnapshot } from '@open-northland/sim';
-import { isSettler, isVehicle, settlerJobType } from '../../game/snapshot.js';
+import { holdsHaulFlagPost, isSettler, isVehicle, settlerJobType } from '../../game/snapshot.js';
 import { pickableSeat } from '../../game/viewer-seat.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
@@ -116,11 +116,18 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
   const targetFlashes = createTargetFlashes(() => performance.now());
   const lostGoals = createLostGoals(nodeBounds(opts.mapSize).width);
   /** A gatherer's or a fisher's workplace pick also plants its flag, so the panel's one button serves
-   *  both ways the trade works. */
+   *  both ways the trade works. A post that takes a flag keeps it in the Area row instead, so that pick
+   *  only changes the post. */
   const worksFromFlag = (id: number): boolean => {
-    const entity = entityById(opts.snapshot(), id);
+    const snapshot = opts.snapshot();
+    const entity = entityById(snapshot, id);
     const job = entity === undefined ? undefined : settlerJobType(entity);
-    return job !== undefined && systems.jobUsesWorkFlag({ content: opts.content }, job);
+    return (
+      entity !== undefined &&
+      job !== undefined &&
+      systems.jobUsesWorkFlag({ content: opts.content }, job) &&
+      !holdsHaulFlagPost(opts.content, snapshot, entity)
+    );
   };
   // `pickMode` is built below; the arrows defer the reads to click time.
   const ringCommand = (id: ActionOrderId, targets: readonly number[], queued?: boolean): boolean =>

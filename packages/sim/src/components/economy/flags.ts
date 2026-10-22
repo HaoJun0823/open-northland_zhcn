@@ -20,7 +20,10 @@ export const WorkFlag = defineComponent<{ flag: Entity; radius: number }>('WorkF
  * Binds an employed carrier to a {@link DeliveryFlag} marker the player planted: it lifts loose ground
  * goods only within `radius` nodes of `flag` and waits beside it when none lie there, still delivering to
  * its workplace. A workshop carrier looks there for its missing inputs before the stores. Without it a
- * carrier collects wherever its signposts reach. The flag belongs to the carrier, not to the building.
+ * carrier collects wherever its signposts reach. A posted gatherer harvests only within `radius` nodes of
+ * the flag, a posted hunter hunts inside its `radius` (map points) instead of around its workplace, and a
+ * posted fisher looks for a shore from it; all still bank at the workplace and wait at the flag when idle.
+ * The flag belongs to the worker, not to the building.
  * Source basis: owner ruling after the CulturesNation mod's porter flag as the owner describes it; the
  * radius and the wait at the flag are owner choices, not measured behavior.
  */

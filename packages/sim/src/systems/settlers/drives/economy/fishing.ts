@@ -4,7 +4,7 @@ import { hexDistance, hexNeighboursOf, nodeOfPosition } from '../../../../nav/ha
 import type { NodeId } from '../../../../nav/terrain/index.js';
 import { FISH_CAST_ATOMIC, FISH_SHORE_SEARCH_RADIUS, fishGoodOf } from '../../../economy/fish.js';
 import { gatherGoodOpen } from '../../../economy/gather-goods.js';
-import { liveWorkFlag } from '../../../economy/work-flag.js';
+import { liveFlagOf } from '../../../economy/work-flag.js';
 import { toolWorkFactorPct } from '../../../equipment/index.js';
 import { dynamicBlockOverlay, routeRegions } from '../../../footprint/index.js';
 import { jobExperiencePercent, strokesPerUnit, workRepeatsFor } from '../../../progression/index.js';
@@ -75,13 +75,14 @@ export function planFisher(plan: PlannerContext): boolean {
 }
 
 /**
- * Where the fisher's shore search starts: his catch-delivery flag while he holds a live one, else his own
- * feet. Authored: the flag is the water he was posted to, so a man back from a meal or a nap returns to it
- * instead of idling wherever he stands, out of reach of any shore. Routability is still judged from his feet.
+ * Where the fisher's shore search starts: his own flag while he holds a live one, the catch-delivery flag
+ * or the one his post took, else his own feet. Authored: the flag is the water he was sent to, so a man back
+ * from a meal, a nap or a trip to his workplace returns to it instead of idling wherever he stands, out of
+ * reach of any shore. Routability is still judged from his feet.
  */
 function shoreSearchOrigin(plan: PlannerContext): NodeId {
   const { world, terrain, entity, here } = plan;
-  const flag = liveWorkFlag(world, entity);
+  const flag = liveFlagOf(world, entity);
   return flag === undefined ? here : entityNode(world, terrain, flag.flag);
 }
 

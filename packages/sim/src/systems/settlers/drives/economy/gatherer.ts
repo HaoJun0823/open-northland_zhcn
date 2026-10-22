@@ -9,6 +9,7 @@ import {
 } from '../../../conflict/hunting/index.js';
 import type { SystemContext } from '../../../context.js';
 import { nodeHoldsOpenGood, openGatherGoods } from '../../../economy/gather-goods.js';
+import { liveHaulFlag } from '../../../economy/work-flag.js';
 import { resourceStanceCells } from '../../../footprint/index.js';
 import { atomicDuration } from '../../../readviews/animations.js';
 import { isHunterJob, jobNeedsWorkHouse } from '../../../readviews/index.js';
@@ -30,7 +31,8 @@ import type { HarvestClaims } from './harvest-claims.js';
 /**
  * HARVEST / COLLECT - the gatherer drive. A flag-bound gatherer harvests inside its flag's radius; an
  * unbound roamer takes the nearest standing resource or loose trunk of its trade, whichever is nearer,
- * and returns false when nothing is reachable or its trade needs a workplace.
+ * and returns false when nothing is reachable or its trade needs a workplace. A posted roamer holding
+ * the flag its post took looks only inside that flag's radius and still banks at its post.
  *
  * Harvesting is gated by the job's atomic permissions, the good's `needforgood` XP threshold and the
  * gatherer's production counters; collecting an already-dropped good is hauling, not harvesting.
@@ -61,6 +63,14 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
   // ground has no sweeper left. A hunter with neither flag nor workplace still roams unbounded.
   const ground = hunter ? huntingGround(world, terrain, e) : null;
   const huntArea = ground === null ? undefined : carcassArea(plan, ground.anchorCell, ground.radius);
+  // Any other roamer is bounded only by the flag its post took. A trunk falls on its tree's anchor, which
+  // may stand a work offset past the radius the feller's stance was in, so piles get that slack.
+  const post = hunter ? undefined : postFlagBound(plan);
+  const bound = hunter ? huntArea : post;
+  const pileBound =
+    post === undefined
+      ? bound
+      : { ...post, radius: post.radius + contentIndex(ctx.content).maxResourceWorkOffset };
   const reserved = hunter ? foreignKill(plan) : undefined;
   const focus =
     admits === null
@@ -73,7 +83,7 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
             (admits === undefined || admits(node)) &&
             reserved?.(node) !== true,
         );
-  if (focus !== null && startHarvestFromNode(plan, focus, harvestClaims, huntArea)) return true;
+  if (focus !== null && startHarvestFromNode(plan, focus, harvestClaims, bound)) return true;
   const node =
     admits === null
       ? null
@@ -81,18 +91,27 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
           exclude: harvestClaims,
           goodFilter,
           admits,
-          within: huntArea,
+          within: bound,
           reserved,
         });
-  const trunk = nearestCollectablePileFor(plan, { goodFilter, within: huntArea });
+  const trunk = nearestCollectablePileFor(plan, { goodFilter, within: pileBound });
   const nodeDist = node !== null ? node.dist : Number.POSITIVE_INFINITY;
   // On a tie prefer the already-felled trunk over a fresh tree.
   if (trunk !== null && trunk.dist <= nodeDist) {
     walkPickupBatch(plan, trunk.pile, trunk.goodType, trunk.cell);
     return true;
   }
-  if (node !== null) return startHarvestFromNode(plan, node, harvestClaims, huntArea);
+  if (node !== null) return startHarvestFromNode(plan, node, harvestClaims, bound);
   return false;
+}
+
+/** A posted roamer's work area: the radius of the flag its post took around the flag, as a flag gatherer's
+ *  area spans; undefined without one. */
+function postFlagBound(plan: PlannerContext): WorkBound | undefined {
+  const { world, ctx, terrain, entity, here } = plan;
+  const live = liveHaulFlag(world, entity);
+  if (live === undefined) return undefined;
+  return { center: interactionCell(world, ctx, terrain, live.flag, here), radius: live.radius };
 }
 
 /** Every content good a workplace's stored-goods set counts as its ware, kept per set: the sets come from

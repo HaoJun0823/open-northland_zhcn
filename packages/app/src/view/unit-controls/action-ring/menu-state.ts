@@ -95,8 +95,8 @@ function offersMode(
   return systems.isFighterJob(content, job) && (several || stanceModeOf(e) !== mode);
 }
 
-/** The trades that work a harvest area or place a fishing delivery flag, and the carriers that collect
- *  around a pickup flag. */
+/** The trades that work a harvest area or place a fishing delivery flag, and the posted workers whose post
+ *  takes a flag of its own. */
 function worksAnArea(
   content: ContentSet,
   snapshot: WorldSnapshot,
@@ -158,9 +158,9 @@ function allows(
     case 'assignWorkArea':
       return worksAnArea(content, snapshot, e, job);
     case 'showWorkArea':
-      // There is a circle to draw only around a work flag: an employed gatherer roams for the nearest
-      // node instead of working a bounded area, a fisher uses it as the delivery point, and a carrier
-      // without one collects wherever its signposts reach.
+      // There is a circle to draw only around a work flag: an employed gatherer without one roams for the
+      // nearest node instead of working a bounded area, a fisher uses it as the delivery point, and a
+      // carrier without one collects wherever its signposts reach.
       return worksAnArea(content, snapshot, e, job) && workAreaOf(e) !== undefined;
     case 'erectSignpost':
     case 'explore':

@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Building,
   DEFAULT_WORK_FLAG_RADIUS,
+  HaulFlag,
   IdleStand,
+  JobAssignment,
   Owner,
   PlayerOrder,
   Position,
   ReplantMisses,
   Resource,
+  Stockpile,
+  WorkFlag,
   writeProductionGoods,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, nodeOfPosition, Simulation } from '../../src/index.js';
+import { fx, nodeOfPosition, ONE, Simulation } from '../../src/index.js';
 import {
   FLAG_FOLLOW_CHECK_PERIOD_TICKS,
   FOLLOW_FLAG_BAND,
@@ -57,6 +62,9 @@ function bothGoodsContent(): ReturnType<typeof testContent> {
 }
 /** The fixture's home, placed as the owner's only building. */
 const HOME = 2;
+/** The fixture's headquarters, which stocks wood but no stone. */
+const HEADQUARTERS = 1;
+const POST_TILE = 90;
 const OTHER_PLAYER = 1;
 
 function setup(
@@ -138,6 +146,28 @@ describe('assistant flag follow', () => {
     expect(after[0]).not.toEqual(before[0]);
     expect(after[1]).not.toEqual(before[1]);
     expect(after[0]).not.toEqual(after[1]);
+  });
+
+  it("moves the flag a gatherer's post took, after the goods his post stocks", () => {
+    const { sim, gatherer, flag, tree } = setup(true, bothGoodsContent());
+    const post = sim.world.create();
+    sim.world.add(post, Position, { x: fx.fromInt(POST_TILE), y: fx.fromInt(0) });
+    sim.world.add(post, Building, { buildingType: HEADQUARTERS, tribe: VIKING, built: ONE, level: 0 });
+    sim.world.add(post, Stockpile, { amounts: new Map() });
+    sim.world.add(post, Owner, { player: PLAYER });
+    sim.world.add(gatherer, JobAssignment, { workplace: post });
+    sim.world.remove(gatherer, WorkFlag);
+    sim.world.add(gatherer, HaulFlag, { flag, radius: DEFAULT_WORK_FLAG_RADIUS });
+    // Stone inside his circle, which his post does not stock: his patch is worked out all the same.
+    const stone = sim.world.create();
+    sim.world.add(stone, Position, { x: fx.fromInt(FLAG_TILE + 10), y: fx.fromInt(0) });
+    sim.world.add(stone, Resource, { goodType: STONE, remaining: 2, harvestAtomic: STONE_HARVEST_ATOMIC });
+    stampResourceFootprintData(sim.world, stone, anchorOnlyFootprint());
+
+    runTicks(sim, CHECK_ROUND_TICKS);
+    expect(nodeDistance(nodeOf(sim, flag), nodeOf(sim, tree))).toBeLessThanOrEqual(FOLLOW_FLAG_BAND.max);
+    expect(sim.world.get(gatherer, HaulFlag).flag).toBe(flag);
+    expect(sim.world.has(gatherer, WorkFlag)).toBe(false);
   });
 
   it('runs before the planner, so a moved flag is planned from the same tick', () => {

@@ -205,13 +205,24 @@ export function createWorkSection(
       }
       setHidden(workArea.element, model.workArea === null);
       if (model.workArea !== null) {
+        const { trade, flag } = model.workArea;
         workArea.update({
           label: panel.workArea,
-          value: [{ text: model.workArea.flag !== null ? panel.workAreaFlag : panel.workAreaReach }],
+          value: [{ text: flag !== null ? panel.workAreaFlag : panel.workAreaUnflagged[trade] }],
           buttons: [
-            flagButton(model.workArea.flag),
-            seatButton(model.workArea.assign, GLYPH.banner, panel.assignWorkArea, panel.assignWorkAreaHint),
-            seatButton(model.workArea.remove, GLYPH.close, panel.clearWorkArea, panel.clearWorkAreaHint),
+            flagButton(flag),
+            seatButton(
+              model.workArea.assign,
+              GLYPH.banner,
+              panel.assignWorkArea,
+              panel.assignWorkAreaHint[trade],
+            ),
+            seatButton(
+              model.workArea.remove,
+              GLYPH.close,
+              panel.clearWorkArea,
+              panel.clearWorkAreaHint[trade],
+            ),
           ],
         });
       }

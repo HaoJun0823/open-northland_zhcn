@@ -16,9 +16,9 @@ import {
 /**
  * The range circle `e` shows: the ground a worker looks for work in, or the ground a building would shoot
  * over in defence mode, raised or not. A building without a defence circle shows its porters' pickup area
- * while one works there. Undefined for everything else, an employed gatherer included: it roams for the
- * nearest node anywhere. A fisher's circle is where he looks for a shore; he still casts at fish further
- * out in the water.
+ * while one works there. Undefined for everything else, an employed gatherer without a flag included: it
+ * roams for the nearest node anywhere. A fisher's circle is where he looks for a shore; he still casts at
+ * fish further out in the water.
  */
 export function rangeRingOf(
   content: ContentSet,

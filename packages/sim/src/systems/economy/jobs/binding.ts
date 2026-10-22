@@ -106,10 +106,10 @@ export function craftsAnyAt(
 }
 
 /**
- * Unbind `e` from its workplace and give back what the post had taken over: a gathering trade gets a flag
- * yard at its feet again, and the counters die with the employment they were set under. The exact inverse
- * of {@link bindEmployment}, so the player's release order and a razed workplace leave a settler in one
- * state.
+ * Unbind `e` from its workplace and give back what the post had taken over: a gathering trade gets its
+ * own flag again, the one its post took or else a yard at its feet, and the counters die with the
+ * employment they were set under. The exact inverse of {@link bindEmployment}, so the player's release
+ * order and a razed workplace leave a settler in one state.
  *
  * The counters go with this binding, so a later post never inherits them.
  */

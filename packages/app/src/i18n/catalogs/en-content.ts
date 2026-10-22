@@ -478,6 +478,11 @@ export const enContent = {
       summary:
         'An extractor stacks quarrystone at his yard far east of the headquarters. The headquarters carrier holds a flag beside that yard: he carries the quarrystone and the flour of a mill near the flag home, leaves the heap by the headquarters alone and waits at the flag when nothing lies there.',
     },
+    'field-post-flags': {
+      title: 'Flags for a posted extractor, hunter and fisherman',
+      summary:
+        "An extractor, a hunter and a fisherman work for the headquarters, which has one tree beside it and no game or water in reach. The extractor holds a flag in a grove to the south-east, the hunter one by a hare meadow far east and the fisherman one on the shore of a pond. All three work at their flag and carry the haul home, where meat and fish are stored as food, and the tree by the headquarters stays standing. Select any of them to move or take away the flag in the settler panel's Area row; without it the extractor fells the near tree and the other two stand idle by the headquarters.",
+    },
     'gatherer-flag-follow': {
       title: 'Flags follow the resources',
       summary:

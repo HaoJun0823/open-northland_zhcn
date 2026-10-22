@@ -92,3 +92,14 @@ describe('click-to-apply stamps', () => {
     expect(client.latency.lastMs).toBe(250);
   });
 });
+
+describe('local refusals', () => {
+  it('tells the host about an order given with no world', async () => {
+    const { client, observed, commandsSent } = await runningClient();
+    client.receive({ kind: 'desync', tick: 1, domains: ['rng'], reference: 'Bartek' });
+    observed.length = 0;
+    client.submit(order(1));
+    expect(commandsSent()).toHaveLength(0);
+    expect(observed).toEqual([{ kind: 'rejected', of: 'command', reason: { code: 'notLoaded' } }]);
+  });
+});

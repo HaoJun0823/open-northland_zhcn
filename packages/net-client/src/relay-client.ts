@@ -250,12 +250,14 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     return this.track('save', (async () => this.sendBlob(blob))());
   }
 
-  /** Commands need a connected world and must fit in one atomic wire envelope. */
+  /** Commands need a connected world and must fit in one atomic wire envelope. A refusal here reaches
+   *  the host as a relay refusal would, without consuming an earlier command's latency stamp. */
   submit(envelope: CommandEnvelope): void {
     if (this.session !== null && typeof this.session.localSeat !== 'number') return;
     if (this.resultTick !== null || this.completion.confirmedTick !== null) return;
     if (this.driver === null) {
       this.options.onError?.('command', new Error(`${this.nick} holds no world`));
+      this.refuseLocally('notLoaded');
       return;
     }
     if (this.options.connected?.() === false) {
@@ -263,13 +265,15 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       return;
     }
     if (new TextEncoder().encode(JSON.stringify(envelope)).byteLength > MAX_ENVELOPE_BYTES) {
-      // Notify the same nonfatal HUD path as a relay refusal, without consuming an earlier command's
-      // latency stamp: this envelope never entered the transport or the in-flight queue.
-      this.options.onMessage?.({ kind: 'rejected', of: 'command', reason: { code: 'envelopeTooLarge' } });
+      this.refuseLocally('envelopeTooLarge');
       return;
     }
     this.driver.submit(envelope);
     this.latency.issued(this.now());
+  }
+
+  private refuseLocally(code: 'notLoaded' | 'envelopeTooLarge'): void {
+    this.options.onMessage?.({ kind: 'rejected', of: 'command', reason: { code } });
   }
 
   receive(raw: unknown): void {

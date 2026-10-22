@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import type { ContentSet } from '@open-northland/data';
+import { BOB_ATLASES_PATH, BobAtlasSet, bobAtlasManifest, type ContentSet } from '@open-northland/data';
 import {
   type AtlasManifest,
   atlasFromManifest,
@@ -40,13 +40,30 @@ export function contentDir(): string {
   return isAbsolute(override) ? override : resolve(checkoutRoot(), override);
 }
 
+const atlasSets = new Map<string, BobAtlasSet | null>();
+
+/** The served `bobs/atlases.json` under test, read once per content directory; null when absent. */
+function servedAtlasSet(): BobAtlasSet | null {
+  const dir = contentDir();
+  let set = atlasSets.get(dir);
+  if (set === undefined) {
+    const path = resolve(dir, BOB_ATLASES_PATH);
+    set = existsSync(path) ? BobAtlasSet.parse(JSON.parse(readFileSync(path, 'utf8'))) : null;
+    atlasSets.set(dir, set);
+  }
+  return set;
+}
+
+/** `stem`'s served manifest, decoded as the app reads it; undefined when the stem is not served. */
+export function servedAtlasManifest(stem: string): AtlasManifest | undefined {
+  const set = servedAtlasSet();
+  return set === null ? undefined : bobAtlasManifest(set, stem);
+}
+
 /** Whether `stem`'s atlas manifest and the sheet it names are both served. */
 export function servedAtlasExists(stem: string): boolean {
-  const bobs = resolve(contentDir(), 'bobs');
-  const manifest = resolve(bobs, `${stem}.atlas.json`);
-  if (!existsSync(manifest)) return false;
-  const { image } = JSON.parse(readFileSync(manifest, 'utf8')) as AtlasManifest;
-  return existsSync(resolve(bobs, image));
+  const manifest = servedAtlasManifest(stem);
+  return manifest !== undefined && existsSync(resolve(contentDir(), 'bobs', manifest.image));
 }
 
 export function irPath(): string {
@@ -117,9 +134,8 @@ export function characterTablesUnderTest(
   const ir = rawIrUnderTest() as ContentIr;
   const source = {} as TextureSource;
   const layerFor = (stem: string): SpriteLayer | undefined => {
-    const path = resolve(contentDir(), 'bobs', `${stem}.atlas.json`);
-    if (!existsSync(path)) return undefined;
-    return { source, atlas: atlasFromManifest(JSON.parse(readFileSync(path, 'utf8'))) };
+    const manifest = servedAtlasManifest(stem);
+    return manifest === undefined ? undefined : { source, atlas: atlasFromManifest(manifest) };
   };
   const looksByTribe = resolveLooks(ir, civilizations, INDEXED_CHARACTER_PALETTE);
   const animalJobsByTribe = resolveAnimalJobLooks(ir, civilizations);

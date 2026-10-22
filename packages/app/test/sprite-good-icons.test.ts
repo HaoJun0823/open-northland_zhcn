@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sandboxContent } from '../src/game/sandbox/content/index.js';
+import { bobAtlasDocument } from './support/bob-atlases.js';
 
 /**
  * A good with no `ls_goods` pile draws its own sprite in the DOM HUD: a vehicle good the vehicle
@@ -97,10 +98,13 @@ function atlas(stem: string, bobs: readonly number[]) {
 
 const served: Record<string, unknown> = {
   '/ir.json': ir,
-  [`/bobs/${CART_STEM}.atlas.json`]: atlas(CART_STEM, [CART_OTHER_BOB, CART_STANDING_BOB]),
-  [`/bobs/${OXCART_STEM}.atlas.json`]: atlas(OXCART_STEM, [CART_STANDING_BOB]),
-  [`/bobs/${COW_STEM}.atlas.json`]: atlas(COW_STEM, [COW_WAIT_START + 1, COW_STANDING_BOB]),
-  [`/bobs/${FISH_STEM}.atlas.json`]: atlas(FISH_STEM, [FISH_SIDE_BOB - 1, FISH_SIDE_BOB]),
+  '/bobs/atlases.json': bobAtlasDocument({
+    [CART_STEM]: atlas(CART_STEM, [CART_OTHER_BOB, CART_STANDING_BOB]),
+    [OXCART_STEM]: atlas(OXCART_STEM, [CART_STANDING_BOB]),
+    [COW_STEM]: atlas(COW_STEM, [COW_WAIT_START + 1, COW_STANDING_BOB]),
+    [FISH_STEM]: atlas(FISH_STEM, [FISH_SIDE_BOB - 1, FISH_SIDE_BOB]),
+    'ls_goods.goods_gold': atlas('ls_goods.goods_gold', [GOLD_BAR_BOB]),
+  }),
   // The data's fish pile is gold's bar in gold's palette.
   '/goods/manifest.json': {
     indexedStem: 'ls_goods.indexed',
@@ -109,7 +113,6 @@ const served: Record<string, unknown> = {
     palettes: ['goods_gold'],
     icons: { fish: { frame: GOLD_BAR_BOB, palette: 'goods_gold', fillFrames: [GOLD_BAR_BOB] } },
   },
-  '/bobs/ls_goods.goods_gold.atlas.json': atlas('ls_goods.goods_gold', [GOLD_BAR_BOB]),
 };
 
 function stubServer(): void {

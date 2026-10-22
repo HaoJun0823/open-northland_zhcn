@@ -12,7 +12,7 @@ const GOODTYPES_INI = 'Data/logic/goodtypes.ini';
 /** The `[GfxLandscape]` object table that binds `ls_goods.bmd` frames to goods by `logicType`. */
 const LANDSCAPES_CIF = 'Data/engine2d/inis/landscapes/landscapes.cif';
 
-/** `loadLayer` stem of the recolourable indexed goods atlas (`<stem>.atlas.json` and the sheet it names). */
+/** `loadLayer` stem of the recolourable indexed goods atlas (its `bobs/atlases.json` entry and the sheet it names). */
 export const GOODS_ATLAS_STEM = 'ls_goods';
 
 /** The `editGroups` membership marking a `[GfxLandscape]` record as a good's on-map pile graphic. */

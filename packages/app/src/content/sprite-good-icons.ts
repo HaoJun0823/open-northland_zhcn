@@ -3,11 +3,11 @@ import { DEFAULT_FACING, frameOf, type SpriteFrameRef } from '@open-northland/re
 import { systems } from '@open-northland/sim';
 import { ANIMAL_BODY_IMAGELIB, ANIMAL_PALETTE_BY_TRIBE, animalBodyStem } from '../catalog/animal-roster.js';
 import { animalBinding } from './animal-gfx/bindings.js';
+import { loadAtlasManifest } from './bob-atlases.js';
 import { FISH_ATLAS } from './fish-gfx.js';
 import { sequencesFor } from './ir/joins.js';
 import { loadIr } from './ir/load.js';
 import type { ContentIr } from './ir/rows.js';
-import { fetchJsonOrNull } from './net.js';
 import { vehicleAtlasStem, vehicleGraphicsRows, vehicleLook } from './vehicle-gfx/bindings.js';
 
 /**
@@ -39,11 +39,11 @@ export interface ServedAtlas {
 
 const atlasByStem = new Map<string, Promise<ServedAtlas | null>>();
 
-/** `/bobs/<stem>.atlas.json`, fetched once per page; null when not served. */
+/** A stem's manifest, decoded once per page; null when not served. */
 export function servedAtlas(stem: string): Promise<ServedAtlas | null> {
   let pending = atlasByStem.get(stem);
   if (pending === undefined) {
-    pending = fetchJsonOrNull<ServedAtlas>(`/bobs/${stem}.atlas.json`);
+    pending = loadAtlasManifest(stem);
     atlasByStem.set(stem, pending);
   }
   return pending;

@@ -1,13 +1,15 @@
+import { type BobAtlasGeometry, decodeAtlasFrames } from '@open-northland/data';
 import {
-  type AtlasManifest,
-  atlasFromManifest,
   type BuildTimeSheet,
+  indexAtlasFrames,
+  type SpriteAtlas,
   type SpriteLayer,
 } from '@open-northland/render';
-import { Texture } from 'pixi.js';
+import { Texture, type TextureSource } from 'pixi.js';
 import { loadAtlasSheet } from '../atlas-sheet/index.js';
+import { loadServedBobAtlas } from '../bob-atlases.js';
 import { fetchImageData, fetchJsonOrNull } from '../net.js';
-import { atlasImagePath, contentFetch } from '../url.js';
+import { atlasImagePath } from '../url.js';
 import { BODY_IMAGELIB, type BobSeqRow, type ContentIr } from './rows.js';
 
 /**
@@ -28,29 +30,49 @@ const layerBodies = new Map<string, Promise<SpriteLayer>>();
 /** Layers whose sheet could not be coloured: they draw nothing and the next caller tries again. */
 const degradedLayers = new WeakSet<SpriteLayer>();
 
+/** Indexed frames by geometry, then by the page they cut. The renderer keys its texture views by frame
+ *  object, so a frame belongs to one page: palette twins share a geometry but each colours its own page,
+ *  and stems sharing a page (one RGB sheet) share frames. */
+const atlasByGeometry = new WeakMap<BobAtlasGeometry, WeakMap<TextureSource, SpriteAtlas>>();
+
+function spriteAtlasOf(geometry: BobAtlasGeometry, source: TextureSource): SpriteAtlas {
+  let byPage = atlasByGeometry.get(geometry);
+  if (byPage === undefined) {
+    byPage = new WeakMap();
+    atlasByGeometry.set(geometry, byPage);
+  }
+  let atlas = byPage.get(source);
+  if (atlas === undefined) {
+    atlas = indexAtlasFrames(geometry.width, geometry.height, decodeAtlasFrames(geometry));
+    byPage.set(source, atlas);
+  }
+  return atlas;
+}
+
 /**
- * One decoded atlas body (`<stem>.atlas.json` and the sheet it names, coloured through the manifest's
- * palette when it names one) served at `/bobs/`. A sheet that cannot be coloured leaves an empty page,
- * so the stem draws nothing. A manifest with a `buildImage` also reads that time sheet CPU-side for the
+ * One decoded atlas body (the stem's entry in `bobs/atlases.json` and the sheet it names, coloured
+ * through the stem's palette when it names one). A sheet that cannot be coloured leaves an empty page,
+ * so the stem draws nothing. A stem with a `buildImage` also reads that time sheet CPU-side for the
  * per-pixel construction-reveal thresholds, degrading to the crop reveal when unreadable.
  */
 async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
-  const res = await contentFetch(`/bobs/${stem}.atlas.json`);
-  if (!res.ok) {
+  const served = await loadServedBobAtlas(stem);
+  if (served === null) {
     throw new MissingAtlasError(
-      `atlas: decoded atlas '${stem}' not found (HTTP ${res.status}). Run \`npm run build:content\` to populate content/.`,
+      `atlas: decoded atlas '${stem}' not served. Run \`npm run build:content\` to populate content/.`,
     );
   }
-  const manifest = (await res.json()) as AtlasManifest;
+  const { sheet, geometry } = served;
   const [source, times] = await Promise.all([
-    loadAtlasSheet(manifest, isIndexedStem(stem) ? 'indexed' : 'rgba'),
-    manifest.buildImage === undefined
+    loadAtlasSheet(sheet, isIndexedStem(stem) ? 'indexed' : 'rgba'),
+    sheet.buildImage === undefined
       ? Promise.resolve(undefined)
-      : loadBuildTimeSheet(atlasImagePath(manifest.buildImage)),
+      : loadBuildTimeSheet(atlasImagePath(sheet.buildImage)),
   ]);
+  const page = source ?? Texture.EMPTY.source;
   const layer = {
-    atlas: atlasFromManifest(manifest),
-    source: source ?? Texture.EMPTY.source,
+    atlas: spriteAtlasOf(geometry, page),
+    source: page,
     ...(times !== undefined ? { times } : {}),
   };
   if (source === undefined) degradedLayers.add(layer);

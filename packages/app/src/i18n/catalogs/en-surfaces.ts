@@ -702,7 +702,7 @@ export const enSurfaces = {
     atlas: 'Atlas',
     filter: 'Filter frames…',
     zoom: 'Zoom',
-    loadFailed: 'Could not load /bobs/{stem}.atlas.json',
+    loadFailed: 'Could not load {stem} (/bobs/atlases.json)',
     frameCount: '{stem} - {count} frames{note}',
     copied: '{tag}{name} - copied',
     frameCapNote: ' (showing {count})',

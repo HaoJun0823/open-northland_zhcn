@@ -1,5 +1,6 @@
 export * from './atlas-listing.js';
 export * from './atomic-anims.js';
+export * from './bob-atlases.js';
 export * from './bob-sequences.js';
 export * from './building-bobs.js';
 export * from './human-palettes.js';

@@ -1,18 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AMBIENT_LOOK_BY_TRIBE } from '../../src/catalog/animal-roster.js';
 import { ADULT_ANIMAL_JOB } from '../../src/content/animal-gfx/bindings.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import { hasRealIr, rawIrUnderTest, servedAtlasManifest } from './helpers.js';
 
 /** The drawable bob ids of a served atlas, or null when the atlas is not served. */
 function drawableBobIds(stem: string): Set<number> | null {
-  const path = resolve(contentDir(), 'bobs', `${stem}.atlas.json`);
-  if (!existsSync(path)) return null;
-  const manifest = JSON.parse(readFileSync(path, 'utf8')) as {
-    frames: { bobId: number; rect: { width: number; height: number } }[];
-  };
+  const manifest = servedAtlasManifest(stem);
+  if (manifest === undefined) return null;
   return new Set(manifest.frames.filter((f) => f.rect.width > 0 && f.rect.height > 0).map((f) => f.bobId));
 }
 

@@ -5,7 +5,7 @@ import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/form
 import { decodePcx } from '@open-northland/formats/pcx';
 import { PLAYER_COLORS, synthesizePlayerSource } from '@open-northland/formats/player-palette';
 import { errorMessage } from '../errors.js';
-import { INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
+import { type BobAtlasCatalog, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
 import type { SourceAssetIndex } from './source-files.js';
 
 /** Directory holding the creature `.pcx` palettes, the `playerNN.pcx` player colours among them. */
@@ -37,11 +37,14 @@ async function readCreaturePalette(tree: SourceAssetIndex, file: string): Promis
 }
 
 /**
- * Writes one guidepost atlas per player (`ls_guidepost.player_NN.atlas.json`): the shared indexed
+ * Writes one guidepost atlas per player (`ls_guidepost.player_NN`): the shared indexed
  * sheet coloured through that player's full source palette, which differs from a composed human palette at every index the
  * guidepost draws.
  */
-export async function convertGuidepostPlayerAtlases(outDir: string, tree: SourceAssetIndex): Promise<number> {
+export async function convertGuidepostPlayerAtlases(
+  atlases: BobAtlasCatalog,
+  tree: SourceAssetIndex,
+): Promise<number> {
   const source = tree.get(normalizeAssetPath(GUIDEPOST_BMD));
   if (source === undefined) {
     throw new Error('guidepost atlases: ls_guidepost.bmd not found in any source layer');
@@ -57,20 +60,20 @@ export async function convertGuidepostPlayerAtlases(outDir: string, tree: Source
     // The `player_NN` suffix is a string contract with the app's `guidepostPlayerAtlas`; a drift there
     // falls back silently to bridge01.
     const suffix = `player_${String(color.id).padStart(2, '0')}`;
-    await writeSourceBobAtlas(outDir, source.rel, suffix, { indexed, palette });
+    await writeSourceBobAtlas(atlases, source.rel, suffix, { indexed, palette });
     emitted++;
   }
   return emitted;
 }
 
 /**
- * Emits an indexed atlas (`<bmd-basename>.indexed.atlas.json`) for every human character `.bmd`
+ * Emits an indexed atlas (`<bmd-basename>.indexed`) for every human character `.bmd`
  * in `bindings`, deduped because many bindings share one body. A missing or malformed `.bmd` is skipped
  * with a warning.
  */
 export async function convertIndexedCharacterAtlases(
   bindings: readonly BmdPaletteBinding[],
-  outDir: string,
+  atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
 ): Promise<string[]> {
   const characterBmds = new Set<string>();
@@ -86,7 +89,7 @@ export async function convertIndexedCharacterAtlases(
     }
     try {
       const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
-      const { image } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
       done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped indexed ${bmdRef}: ${errorMessage(err)}`);

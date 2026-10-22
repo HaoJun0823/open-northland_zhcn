@@ -1,13 +1,15 @@
 import type { TextureSource } from 'pixi.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { bobAtlasDocument, type StubAtlasManifest } from './support/bob-atlases.js';
 
 /**
  * One atlas can be asked for with its shadow twin and without it, so `content/ir/load.ts` caches the atlas
  * BODY per stem and composes the shadow on top - keying on `(stem, shadowStem)` would dedupe neither call.
  *
- * Pixi's `Assets` already dedupes the sheet upload by URL. What the cache removes is the manifest
- * fetch + frame indexing and, for an atlas with a `buildImage`, a second CPU readback of that time
- * sheet - that one goes through `fetchImageData`, which nothing else caches.
+ * Pixi's `Assets` already dedupes the sheet upload by URL. What the cache removes is the frame indexing
+ * and, for an atlas with a `buildImage`, a second CPU readback of that time sheet - that one goes
+ * through `fetchImageData`, which nothing else caches. Every stem's manifest comes from one
+ * `bobs/atlases.json`, fetched once.
  */
 
 /**
@@ -59,8 +61,11 @@ const MANIFEST = {
 /** The house atlases' shape: a time sheet the loader reads back CPU-side. */
 const BUILD_MANIFEST = { ...MANIFEST, buildImage: BUILD_SHEET } as const;
 
-/** A `fetch` stub recording every requested URL and serving `manifests` by stem; anything else 404s. */
-function countingFetch(manifests: Readonly<Record<string, object>>): {
+const ATLASES_URL = '/bobs/atlases.json';
+
+/** A `fetch` stub recording every requested URL and serving `manifests` as the atlas document, absent
+ *  when there are none; anything else 404s. */
+function countingFetch(manifests: Readonly<Record<string, StubAtlasManifest>>): {
   impl: typeof fetch;
   urls: string[];
 } {
@@ -68,11 +73,10 @@ function countingFetch(manifests: Readonly<Record<string, object>>): {
   const impl: typeof fetch = (input) => {
     const url = String(input);
     urls.push(url);
-    const stem = Object.keys(manifests).find((s) => url === `/bobs/${s}.atlas.json`);
     return Promise.resolve(
-      stem === undefined
-        ? new Response(null, { status: 404 })
-        : new Response(JSON.stringify(manifests[stem])),
+      url === ATLASES_URL && Object.keys(manifests).length > 0
+        ? new Response(JSON.stringify(bobAtlasDocument(manifests)))
+        : new Response(null, { status: 404 }),
     );
   };
   return { impl, urls };
@@ -101,7 +105,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
 
     const [first, second] = await Promise.all([loadLayer(BODY_STEM), loadLayer(BODY_STEM)]);
 
-    expect(urls).toEqual([`/bobs/${BODY_STEM}.atlas.json`]);
+    expect(urls).toEqual([ATLASES_URL]);
     expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'rgba' }]);
     expect(second).toBe(first); // one shared instance, not two decodes of the same bytes
   });
@@ -119,7 +123,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     // sprite sheet the same body plus its cast-shadow twin.
     const [bare, shadowed] = await Promise.all([loadLayer(BODY_STEM), loadLayer(BODY_STEM, SHADOW_STEM)]);
 
-    expect(urls.filter((u) => u === `/bobs/${BODY_STEM}.atlas.json`)).toHaveLength(1);
+    expect(urls.filter((u) => u === ATLASES_URL)).toHaveLength(1);
     expect(uploads).toHaveLength(2); // the body and the shadow, one upload each
     expect(bare.source).toBe(shadowed.source);
     expect(bare.atlas).toBe(shadowed.atlas);
@@ -162,17 +166,14 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
   });
 
   it('reports the missing body even when the shadow fails first, in some other way', async () => {
-    // The shadow fails IMMEDIATELY at the network level while the body's 404 arrives a tick later. This
-    // is the one case that pins the ordering: the body is awaited FIRST, so its `MissingAtlasError` is
-    // what the caller sees. Racing the two would surface the shadow's error instead, and the callers
-    // that degrade on a missing atlas (`content/objects.ts`) rethrow
-    // anything else - a partial `content/` would hard-fail rather than fall back.
-    vi.stubGlobal('fetch', ((input: RequestInfo | URL) =>
-      String(input) === `/bobs/${SHADOW_STEM}.atlas.json`
-        ? Promise.reject(new Error('shadow transport failed'))
-        : new Promise((resolve) => {
-            setTimeout(() => resolve(new Response(null, { status: 404 })), 5);
-          })) as typeof fetch);
+    // The shadow, asked for first, fails on a broken frame list while the body is simply not served.
+    // The body is awaited FIRST, so its `MissingAtlasError` is what the caller sees. Racing the two would
+    // surface the shadow's error instead, and the callers that degrade on a missing atlas
+    // (`content/objects.ts`) rethrow anything else - a partial `content/` would hard-fail rather than
+    // fall back.
+    const document = bobAtlasDocument({ [SHADOW_STEM]: MANIFEST });
+    const broken = { ...document, geometries: document.geometries.map((g) => ({ ...g, frames: 'x' })) };
+    vi.stubGlobal('fetch', (() => Promise.resolve(new Response(JSON.stringify(broken)))) as typeof fetch);
     const { loadLayer, MissingAtlasError } = await freshLoader();
 
     const failed = loadLayer(BODY_STEM, SHADOW_STEM);
@@ -182,7 +183,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
   });
 
   it('memoizes only success, so a transient failure does not pin the stem', async () => {
-    let manifests: Record<string, object> = {};
+    let manifests: Record<string, StubAtlasManifest> = {};
     vi.stubGlobal('fetch', ((input: RequestInfo | URL) =>
       countingFetch(manifests).impl(input)) as typeof fetch);
     const { loadLayer, MissingAtlasError } = await freshLoader();
@@ -195,7 +196,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
 
   it('degrades a sheet that cannot be coloured to an empty page, and asks again next time', async () => {
     // No worker can start here, so the colouring fails as a broken sheet would.
-    const paletted = { ...MANIFEST, palette: 'AAAA' };
+    const paletted = { ...MANIFEST, palette: 'AAAA', imageEncoding: 'index-coverage-png' as const };
     const { impl, urls } = countingFetch({ [BODY_STEM]: paletted });
     vi.stubGlobal('fetch', impl);
     const { loadLayer } = await freshLoader();
@@ -206,7 +207,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     expect(layer.atlas.frames.size).toBe(1);
     expect(uploads).toEqual([]);
 
-    await loadLayer(BODY_STEM);
-    expect(urls.filter((u) => u === `/bobs/${BODY_STEM}.atlas.json`)).toHaveLength(2);
+    expect(await loadLayer(BODY_STEM)).not.toBe(layer);
+    expect(urls.filter((u) => u === ATLASES_URL)).toHaveLength(1);
   });
 });

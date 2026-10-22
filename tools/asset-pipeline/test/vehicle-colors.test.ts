@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { sampleBmdBytes } from '../../../packages/formats/test/fixtures/bmd.js';
 import { solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
-import { BOBS_DIR } from '../src/stages/content-tree.js';
+import { BOBS_DIR, BobAtlasCatalog } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 import { convertVehiclePaletteFamilies, paletteFamilyLutFile } from '../src/stages/vehicle-colors.js';
 import { makeTempDir } from './support/game-tree.js';
@@ -47,18 +47,19 @@ describe('convertVehiclePaletteFamilies', () => {
 
   it('emits the indexed body and a row-per-member LUT for a body whose palette starts a family', async () => {
     const out = await sourceTree(FAMILY);
+    const atlases = new BobAtlasCatalog(out);
     const result = await convertVehiclePaletteFamilies(
       [
         { bmd: SHIP_BMD, paletteName: 'ship01' },
         { bmd: CART_BMD, paletteName: 'goods' },
       ],
       aliases,
-      out,
+      atlases,
       await indexSourceAssets({ data: out }),
     );
 
     expect(result.luts).toEqual([paletteFamilyLutFile('ship01')]);
-    const { image } = await readServedManifest(out, 'ship.indexed');
+    const { image } = await readServedManifest(atlases, 'ship.indexed');
     expect(result.indexed).toEqual([`${BOBS_DIR}/${image}`]);
     const lut = await decodePng(await readFile(join(out, paletteFamilyLutFile('ship01'))));
     expect([lut.width, lut.height]).toEqual([PALETTE_ENTRIES, FAMILY.length]);
@@ -71,7 +72,7 @@ describe('convertVehiclePaletteFamilies', () => {
     const result = await convertVehiclePaletteFamilies(
       [{ bmd: SHIP_BMD, paletteName: 'ship01' }],
       aliases,
-      out,
+      new BobAtlasCatalog(out),
       await indexSourceAssets({ data: out }),
     );
     expect(result).toEqual({ indexed: [], luts: [] });

@@ -1,8 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  BOB_ATLASES_PATH,
   BobsIndex,
+  bobAtlasSet,
   CampaignIndex,
+  encodeAtlasGeometry,
   MapScript,
   MapsIndex,
   mapDocumentsFingerprint,
@@ -30,13 +33,16 @@ beforeEach(async () => {
 
 afterEach(() => tmp.cleanup());
 
-/** Writes a `<stem>.atlas.json` naming each stem's sheet, and the sheet files that exist. */
+/** Writes a `bobs/atlases.json` naming each stem's sheet, and the sheet files that exist. */
 async function outputWith(
   manifests: Readonly<Record<string, string>>,
   sheets: readonly string[],
 ): Promise<void> {
-  for (const [stem, image] of Object.entries(manifests))
-    await writeFileWithParents(join(out, 'bobs', `${stem}.atlas.json`), JSON.stringify({ image }));
+  const geometry = encodeAtlasGeometry({ width: 0, height: 0, frames: [] });
+  const set = bobAtlasSet(
+    Object.entries(manifests).map(([stem, image]) => [stem, { sheet: { image }, geometry }]),
+  );
+  await writeFileWithParents(join(out, BOB_ATLASES_PATH), JSON.stringify(set));
   for (const sheet of sheets) await writeFileWithParents(join(out, 'bobs', sheet), Uint8Array.of(1));
 }
 

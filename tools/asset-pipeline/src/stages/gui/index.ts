@@ -1,5 +1,5 @@
 import type { SourceRoots } from '../../roots.js';
-import { writeJsonFile } from '../content-tree.js';
+import { type BobAtlasCatalog, writeJsonFile } from '../content-tree.js';
 import { convertGuiAtlases, type GuiAtlasResult } from './atlases.js';
 import { convertCursors, type GuiCursorResult } from './cursors.js';
 import { convertGuiHistory, type GuiHistoryResult } from './history.js';
@@ -36,9 +36,13 @@ export interface GuiStageSummary {
  * Runs the GUI extraction and writes `content/gui/manifest.json`. Each sub-step warns and skips on its own,
  * so a partial game install still produces whatever it can.
  */
-export async function convertGuiStage(roots: SourceRoots, outDir: string): Promise<GuiStageSummary> {
+export async function convertGuiStage(
+  roots: SourceRoots,
+  outDir: string,
+  bobAtlases: BobAtlasCatalog,
+): Promise<GuiStageSummary> {
   const palettes = await convertGuiPaletteLut(roots, outDir);
-  const atlases = await convertGuiAtlases(roots, outDir, palettes.byName);
+  const atlases = await convertGuiAtlases(roots, bobAtlases, palettes.byName);
   const strings = await convertGuiStrings(roots, outDir);
   const history = await convertGuiHistory(roots, outDir);
   const cursors = await convertCursors(roots, outDir);

@@ -1,7 +1,7 @@
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
 import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
-import { emitIndexedAndPreviewAtlas } from '../content-tree.js';
+import { type BobAtlasCatalog, emitIndexedAndPreviewAtlas } from '../content-tree.js';
 import { readSourceFile } from '../source-files.js';
 
 /** The GUI bob sheets to atlas, each with the palette its RGBA preview is coloured through. */
@@ -36,7 +36,7 @@ export interface GuiAtlasResult {
  */
 export async function convertGuiAtlases(
   roots: SourceRoots,
-  outDir: string,
+  bobAtlases: BobAtlasCatalog,
   paletteByName: ReadonlyMap<string, Uint8Array>,
 ): Promise<GuiAtlasResult[]> {
   const done: GuiAtlasResult[] = [];
@@ -60,7 +60,7 @@ export async function convertGuiAtlases(
     let frames: number;
     try {
       ({ indexedStem, previewStem, frames } = await emitIndexedAndPreviewAtlas(
-        outDir,
+        bobAtlases,
         src.stem,
         decodeBmd(bytes),
         src.previewPalette,

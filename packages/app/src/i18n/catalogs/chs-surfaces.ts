@@ -681,7 +681,7 @@ export const chsSurfaces = {
     atlas: '图集',
     filter: '筛选帧…',
     zoom: '缩放',
-    loadFailed: '无法载入 /bobs/{stem}.atlas.json',
+    loadFailed: '无法载入 {stem} (/bobs/atlases.json)',
     frameCount: '{stem} - {count} 帧{note}',
     copied: '{tag}{name} - 已复制',
     frameCapNote: '（显示 {count} 帧）',

@@ -13,6 +13,7 @@ import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
 import {
   assertDistinctBobBasenames,
+  type BobAtlasCatalog,
   bobAtlasStem,
   INDEXED_ATLAS_SUFFIX,
   type PalettedBobAtlas,
@@ -22,7 +23,7 @@ import { isCharacterBmd } from '../player-colors.js';
 import type { SourceAssetIndex } from '../source-files.js';
 import { bindingKey, type GraphicsBindingSet } from './bindings.js';
 
-/** One emitted bob atlas: the binding it came from plus the relative sheet / manifest JSON paths. */
+/** One emitted bob atlas: the binding it came from, its served stem and its sheet's path. */
 export interface BmdConversion {
   /** The body `.bmd`'s path under `outDir`, normalized (forward slashes, lower-case) - the binding key. */
   readonly bmd: string;
@@ -30,8 +31,8 @@ export interface BmdConversion {
   readonly paletteName: string;
   /** The atlas sheet's path relative to `outDir`, shared by stems with identical sheets. */
   readonly image: string;
-  /** The atlas manifest JSON's path relative to `outDir`. */
-  readonly manifest: string;
+  /** The stem the app loads it by, a key of `bobs/atlases.json`. */
+  readonly stem: string;
 }
 
 /**
@@ -71,7 +72,7 @@ interface ResolvedBinding {
  */
 export async function convertBmdTree(
   graphics: GraphicsBindingSet,
-  outDir: string,
+  atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
   domPictures: ReadonlySet<string>,
 ): Promise<BmdConversion[]> {
@@ -145,8 +146,8 @@ export async function convertBmdTree(
       try {
         const atlas: BobAtlas | PalettedBobAtlas =
           indexed === undefined || inColour ? packBobAtlas(decoded, palette, options) : { indexed, palette };
-        const { image, manifest } = await writeSourceBobAtlas(outDir, bmdSource.rel, slug, atlas);
-        done.push({ bmd, paletteName, image, manifest });
+        const { image } = await writeSourceBobAtlas(atlases, bmdSource.rel, slug, atlas);
+        done.push({ bmd, paletteName, image, stem: bobAtlasStem(bmdSource.rel, slug) });
       } catch (err) {
         console.warn(`[pipeline] skipped ${bmd}: ${errorMessage(err)}`);
       }
@@ -155,20 +156,20 @@ export async function convertBmdTree(
   return done;
 }
 
-/** The atlas-filename suffix of a converted shadow `.bmd` (`<shadow-stem>.shadow.atlas.json`) -
+/** The stem suffix of a converted shadow `.bmd` (`<shadow-basename>.shadow`) -
  *  the palette slug's slot, fixed because a shadow atlas is palette-less. */
 const SHADOW_ATLAS_SUFFIX = 'shadow';
 
 /**
  * Converts the shadow `.bmd` of every binding that names one (`GfxBobLibs`/`shadowlib` second value)
- * into a packed shadow atlas at `<shadow-basename>.shadow.atlas.json`. A shadow bob set parallels
+ * into a packed shadow atlas at `<shadow-basename>.shadow`. A shadow bob set parallels
  * its body's bob ids (observed: `ls_trees_s.bmd` mirrors `ls_trees.bmd`'s 493 slots), so a consumer
  * looks a caster's shadow up by the body's own bob id. One atlas per shadow `.bmd`, since a shadow has
  * no palette for recolours to differ by.
  */
 export async function convertShadowBmdTree(
   graphics: GraphicsBindingSet,
-  outDir: string,
+  atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
 ): Promise<string[]> {
   const convertible = (ref: string | undefined): ref is string => ref !== undefined && tree.has(ref);
@@ -190,7 +191,7 @@ export async function convertShadowBmdTree(
     }
     try {
       const atlas = packShadowBobAtlas(decodeBmd(await readFile(source.path)));
-      const { image } = await writeSourceBobAtlas(outDir, source.rel, SHADOW_ATLAS_SUFFIX, atlas);
+      const { image } = await writeSourceBobAtlas(atlases, source.rel, SHADOW_ATLAS_SUFFIX, atlas);
       done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped shadow ${shadowBmd}: ${errorMessage(err)}`);
@@ -201,12 +202,12 @@ export async function convertShadowBmdTree(
 
 /**
  * Converts every `.bmd` a `GfxUserFXMatrix` landscape record draws from into an indexed atlas at
- * `<bmd-basename>.indexed.atlas.json`: a displacement bob's raw value in red and its written mask
+ * `<bmd-basename>.indexed`: a displacement bob's raw value in red and its written mask
  * in green, opaque, since a palette would destroy the value. Deduped per `.bmd`.
  */
 export async function convertEffectBmdTree(
   records: readonly Pick<LandscapeGfx, 'bmd' | 'userFxMatrix'>[],
-  outDir: string,
+  atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
 ): Promise<string[]> {
   const effectBmds = new Set<string>();
@@ -220,7 +221,7 @@ export async function convertEffectBmdTree(
     }
     try {
       const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
-      const { image } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
       done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped effect ${bmdRef}: ${errorMessage(err)}`);

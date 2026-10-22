@@ -9,7 +9,7 @@ import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { paletteCarrier } from '../../../packages/formats/test/fixtures/pcx.js';
 import { DATA_BOBS_DIR } from '../src/roots.js';
-import { BOBS_DIR } from '../src/stages/content-tree.js';
+import { BOBS_DIR, BobAtlasCatalog } from '../src/stages/content-tree.js';
 import {
   convertCursors,
   convertGuiAtlases,
@@ -123,7 +123,8 @@ describe('gui stage', () => {
 
   it('emits an indexed + preview atlas (with manifest) per bob sheet under the /bobs tree', async () => {
     const { byName } = await convertGuiPaletteLut({ data: game }, out);
-    const atlases = await convertGuiAtlases({ data: game }, out, byName);
+    const bobAtlases = new BobAtlasCatalog(out);
+    const atlases = await convertGuiAtlases({ data: game }, bobAtlases, byName);
 
     expect(atlases.map((a) => a.stem).sort()).toEqual(['ls_gui_bubbles', 'ls_gui_window']);
     const window = atlases.find((a) => a.stem === 'ls_gui_window');
@@ -132,10 +133,10 @@ describe('gui stage', () => {
     expect(window?.frames).toBe(2);
 
     // Both the indexed atlas and the colour preview decode as valid RGBA sheets, and share the packing.
-    const indexed = await readServedSheet(out, 'ls_gui_window.indexed');
-    const preview = await readServedSheet(out, 'ls_gui_window.iconsleft');
+    const indexed = await readServedSheet(bobAtlases, 'ls_gui_window.indexed');
+    const preview = await readServedSheet(bobAtlases, 'ls_gui_window.iconsleft');
     expect(indexed.width).toBe(preview.width);
-    expect((await readServedManifest(out, 'ls_gui_window.indexed')).frames).toHaveLength(2);
+    expect((await readServedManifest(bobAtlases, 'ls_gui_window.indexed')).frames).toHaveLength(2);
   });
 
   it('decodes the eight ingamegui tables per language, id→text, CP1250-decoded', async () => {
@@ -293,7 +294,7 @@ describe('gui stage', () => {
   });
 
   it('ties everything together into content/gui/manifest.json', async () => {
-    const summary = await convertGuiStage({ data: game }, out);
+    const summary = await convertGuiStage({ data: game }, out, new BobAtlasCatalog(out));
     expect(summary).toMatchObject({ atlases: 2, frames: 4, palettes: 14, cursors: 3 });
 
     const manifest = JSON.parse(await readFile(join(out, 'gui', 'manifest.json'), 'utf8'));
@@ -310,7 +311,7 @@ describe('gui stage', () => {
     await rm(join(game, DATA_BOBS_DIR, 'ls_gui_bubbles.bmd'));
     const { byName } = await convertGuiPaletteLut({ data: game }, out);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const atlases = await convertGuiAtlases({ data: game }, out, byName);
+    const atlases = await convertGuiAtlases({ data: game }, new BobAtlasCatalog(out), byName);
     expect(atlases.map((a) => a.stem)).toEqual(['ls_gui_window']); // the good one still converts
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped ls_gui_bubbles/));
     warn.mockRestore();

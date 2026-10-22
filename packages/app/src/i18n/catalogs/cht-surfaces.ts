@@ -682,7 +682,7 @@ export const chtSurfaces = {
     atlas: '圖集',
     filter: '篩選影格…',
     zoom: '縮放',
-    loadFailed: '無法載入 /bobs/{stem}.atlas.json',
+    loadFailed: '無法載入 {stem} (/bobs/atlases.json)',
     frameCount: '{stem} - {count} 個影格{note}',
     copied: '{tag}{name} - 已複製',
     frameCapNote: '（顯示 {count} 個）',

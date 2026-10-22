@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { BOB_ATLASES_PATH } from '@open-northland/data';
 import { decodePng } from '@open-northland/formats/png';
 import { loadTranslationOverlays } from '@open-northland/translations';
 import type { Args } from './args.js';
@@ -14,7 +15,7 @@ import {
   resolveGraphicsBindings,
 } from './stages/bmd/index.js';
 import { CAMPAIGNS_DIR, convertCampaignStage } from './stages/campaigns.js';
-import { BOBS_DIR, MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
+import { BOBS_DIR, BobAtlasCatalog, MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
 import { convertGoodsStage } from './stages/goods/index.js';
 import { convertGuiStage } from './stages/gui/index.js';
 import { HYPERTEXT_PICTURES_DIR } from './stages/gui/paths.js';
@@ -80,8 +81,9 @@ export async function runPipeline(args: Args): Promise<void> {
   // Every atlas stage writes content-addressed sheets here and skips a name already present, so the
   // reset belongs to the run.
   await rm(join(args.out, BOBS_DIR), { recursive: true, force: true });
+  const bobAtlases = new BobAtlasCatalog(args.out);
   // The IR rows name the stems the app's DOM shows, which keep RGB sheets.
-  const atlases = await convertBmdTree(graphics, args.out, assets, domPictureStems(ir, graphics.bindings));
+  const atlases = await convertBmdTree(graphics, bobAtlases, assets, domPictureStems(ir, graphics.bindings));
   const { bindings, palettes } = graphics;
   const distinct = new Set(atlases.map((a) => a.image)).size;
   const distinctBmd = new Set(atlases.map((a) => a.bmd)).size;
@@ -91,20 +93,20 @@ export async function runPipeline(args: Args): Promise<void> {
       `(${palettes.length} palette aliases)`,
   );
 
-  const shadowAtlases = await convertShadowBmdTree(graphics, args.out, assets);
+  const shadowAtlases = await convertShadowBmdTree(graphics, bobAtlases, assets);
   console.log(
     `[pipeline] shadow bmd -> atlas: ${shadowAtlases.length} shadow atlas file(s) into ${args.out}`,
   );
 
-  const indexed = await convertIndexedCharacterAtlases(bindings, args.out, assets);
-  const guideAtlases = await convertGuidepostPlayerAtlases(args.out, assets).catch((err: unknown) => {
+  const indexed = await convertIndexedCharacterAtlases(bindings, bobAtlases, assets);
+  const guideAtlases = await convertGuidepostPlayerAtlases(bobAtlases, assets).catch((err: unknown) => {
     console.warn(`[pipeline] guidepost player atlases skipped: ${errorMessage(err)}`);
     return 0;
   });
   const vehicleColors = await convertVehiclePaletteFamilies(
     (await loadVehicleGraphicsBindings(roots)).map((row) => row.binding),
     palettes,
-    args.out,
+    bobAtlases,
     assets,
   );
   console.log(
@@ -116,7 +118,7 @@ export async function runPipeline(args: Args): Promise<void> {
   // The history book and every map briefing write content-addressed pictures here, so the reset
   // belongs to the run: neither stage owns the directory alone.
   await rm(join(args.out, HYPERTEXT_PICTURES_DIR), { recursive: true, force: true });
-  const gui = await convertGuiStage(roots, args.out);
+  const gui = await convertGuiStage(roots, args.out, bobAtlases);
   console.log(
     `[pipeline] gui: ${gui.atlases} atlas(es) (${gui.frames} frames), ${gui.palettes}-palette LUT, ` +
       `${gui.strings.map((s) => `${s.lang}:${s.tables}t/${s.strings}s`).join(' ') || 'no strings'}, ` +
@@ -124,7 +126,7 @@ export async function runPipeline(args: Args): Promise<void> {
       `${gui.cursors} cursor(s) into ${join(args.out, 'gui')}`,
   );
 
-  const goods = await convertGoodsStage(roots, args.out);
+  const goods = await convertGoodsStage(roots, args.out, bobAtlases);
   console.log(
     `[pipeline] goods: ${goods.frames}-frame atlas, ${goods.palettes}-palette LUT, ` +
       `${goods.icons} good icon(s) into ${join(args.out, 'goods')}`,
@@ -137,8 +139,10 @@ export async function runPipeline(args: Args): Promise<void> {
   );
 
   // Needs the extracted `GfxUserFXMatrix` flags, hence after writeIr.
-  const effectAtlases = await convertEffectBmdTree(ir.landscapeGfx, args.out, assets);
+  const effectAtlases = await convertEffectBmdTree(ir.landscapeGfx, bobAtlases, assets);
   console.log(`[pipeline] effect bmd -> atlas: ${effectAtlases.length} indexed effect atlas(es)`);
+  await bobAtlases.writeDocument();
+  console.log(`[pipeline] atlas manifests -> ${join(args.out, BOB_ATLASES_PATH)}`);
 
   // Needs the extracted `[transition]` table, hence after writeIr.
   const maskedPairs = ir.gfxPatternTransitions.flatMap((t) =>
@@ -202,7 +206,7 @@ export async function runPipeline(args: Args): Promise<void> {
           `into ${join(args.out, 'music')}`,
   );
 
-  // Last, so the bobs listing sees every atlas the stages above wrote.
+  // Last, so the bobs listing sees every sheet the stages above wrote.
   await writeListings(args.out, [...terrains, ...campaigns.maps], campaigns.index);
   console.log(
     `[pipeline] listings: ${MAPS_INDEX_FILE}, ${BOBS_INDEX_FILE}, ${CAMPAIGNS_INDEX_FILE} into ${args.out}`,

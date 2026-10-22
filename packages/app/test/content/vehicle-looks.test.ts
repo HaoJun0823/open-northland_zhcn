@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { atlasFromManifest } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
@@ -9,7 +9,7 @@ import {
   vehicleAtlasStems,
   vehicleGraphicsRows,
 } from '../../src/content/vehicle-gfx/index.js';
-import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasManifest } from './helpers.js';
 
 /**
  * The shipped `vehicleGraphics` rows over the REAL baked atlases: every row binds a look, and the data
@@ -34,10 +34,10 @@ describe.runIf(hasRealIr())('the vehicle looks over the decoded content', () => 
   const loaded = new Set<string>();
   const frames: DrawableFrames = new Map(
     [...stems].flatMap((stem) => {
-      const path = resolve(bobs, `${stem}.atlas.json`);
-      if (!existsSync(path)) return [];
+      const manifest = servedAtlasManifest(stem);
+      if (manifest === undefined) return [];
       loaded.add(stem);
-      const atlas = atlasFromManifest(JSON.parse(readFileSync(path, 'utf8')));
+      const atlas = atlasFromManifest(manifest);
       const drawable = new Set<number>();
       for (const [id, f] of atlas.frames) if (f.width > 0 && f.height > 0) drawable.add(id);
       return [[stem, drawable] as const];

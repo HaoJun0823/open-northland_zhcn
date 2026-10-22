@@ -21,8 +21,10 @@ content/
     <id>.png              optional authored picture (the map's minimap.pcx)
     <id>.map.png          optional minimap rasterized from the terrain
     <id>.voice-<lang>-NNNN.wav  optional spoken briefing line; its maps-index row lists each one
-  bobs/                   atlases and colour LUTs: <stem>.atlas.json names the sheet it cuts from,
-                          stored once under the hash of its pixels. The recolours of one bob set
+  bobs/                   atlases and colour LUTs: atlases.json holds every stem's manifest (the
+                          sheet it cuts from, and a frame geometry the recolours of a bob set share,
+                          its fields delta-coded as `decodeAtlasFrames` in packages/data reads them).
+                          A sheet is stored once under the hash of its pixels. The recolours of one bob set
                           share an indexed sheet, each carrying its base64 `palette` and the sheet's
                           `imageEncoding`, `index-coverage-png`: a grey + alpha PNG with the palette
                           index in grey and coverage in alpha, which the app decodes in JavaScript.

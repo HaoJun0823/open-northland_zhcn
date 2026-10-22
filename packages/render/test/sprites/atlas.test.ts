@@ -73,7 +73,7 @@ describe('resolveSpriteFrame', () => {
 });
 
 describe('atlasFromManifest', () => {
-  /** A decoded `.atlas.json` shape, including the `type`/`opaque` fields the renderer ignores. */
+  /** A stem's manifest as `bobs/atlases.json` decodes it. */
   const manifest: AtlasManifest = {
     width: 1024,
     height: 7693,

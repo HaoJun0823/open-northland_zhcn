@@ -19,7 +19,7 @@ game assets):
 
 - Build a minimal synthetic game tree under a temp dir (reuse the shared `test/fixtures/` byte-buffer
   builders - palette/pcx/bmd/cif) sufficient to drive each stage.
-- `convertGoodsStage`: assert it emits the icon atlas PNG + `.atlas.json`, the goods palette LUT, and
+- `convertGoodsStage`: assert it emits the icon atlas sheet + its `bobs/atlases.json` entry, the goods palette LUT, and
   a manifest whose good→icon join matches the fixture inputs; assert a missing-palette carrier
   degrades to a neutral row (matching the warn-and-skip contract) instead of aborting.
 - `writeIr`: assert `<out>/ir.json` is written, round-trips through `parseContentSet` (zod +

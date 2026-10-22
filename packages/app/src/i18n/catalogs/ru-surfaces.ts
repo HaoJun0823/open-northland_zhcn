@@ -735,7 +735,7 @@ export const ruSurfaces = {
     atlas: 'Атлас',
     filter: 'Фильтр кадров…',
     zoom: 'Масштаб',
-    loadFailed: 'Не удалось загрузить /bobs/{stem}.atlas.json',
+    loadFailed: 'Не удалось загрузить {stem} (/bobs/atlases.json)',
     frameCount: '{stem} — кадров: {count}{note}',
     copied: '{tag}{name} — скопировано',
     frameCapNote: ' (показано: {count})',

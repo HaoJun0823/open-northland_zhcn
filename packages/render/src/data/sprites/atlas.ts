@@ -1,3 +1,5 @@
+import type { BobAtlasFrame, BobAtlasManifest } from '@open-northland/data';
+
 /** Authored ground marker in frame-local source pixels, independent of image padding. */
 export interface SelectionEllipse {
   readonly cx: number;
@@ -61,21 +63,8 @@ export function indexAtlasFrames(
   return { width, height, frames };
 }
 
-/**
- * A manifest frame narrowed to its placement; the manifest's `type`/`opaque` describe the source bob,
- * not where it draws.
- */
-export interface AtlasManifestFrame {
-  readonly bobId: number;
-  readonly rect: {
-    readonly x: number;
-    readonly y: number;
-    readonly width: number;
-    readonly height: number;
-  };
-  readonly offsetX: number;
-  readonly offsetY: number;
-}
+/** A manifest frame: its placement; the frame layout `bobs/atlases.json` serves per bob set. */
+export type AtlasManifestFrame = BobAtlasFrame;
 
 /**
  * How a paletted sheet is stored. `index-coverage-png`: an 8-bit grey + alpha PNG (colour type 4), the
@@ -84,27 +73,9 @@ export interface AtlasManifestFrame {
  */
 export type AtlasImageEncoding = 'index-coverage-png';
 
-/**
- * The served `<stem>.atlas.json` a `.bmd` atlas build writes, re-declared structurally so `render`
- * never imports the build tool. Image names are file names in the manifest's own directory; stems
- * with byte-identical sheets name the same file.
- */
-export interface AtlasManifest {
-  readonly width: number;
-  readonly height: number;
-  readonly frames: readonly AtlasManifestFrame[];
-  /** The sheet the frames are cut from. */
-  readonly image: string;
-  /**
-   * Present when {@link image} is an indexed sheet shared by the bob set's recolours: this stem's 256 RGB
-   * entries, base64, which the loader colours the sheet through (`colourIndexedSheet`).
-   */
-  readonly palette?: string;
-  /** How {@link image} is stored; present with {@link palette}. */
-  readonly imageEncoding?: AtlasImageEncoding;
-  /** The `'build-time'` bake's time sheet, placed like {@link image}. */
-  readonly buildImage?: string;
-}
+/** One stem's manifest, decoded from `bobs/atlases.json`. Image names are file names under `bobs/`;
+ *  stems with byte-identical sheets name the same file. */
+export type AtlasManifest = BobAtlasManifest;
 
 /**
  * CPU-side copy of a build-time sheet: row-major 0-255 per-pixel thresholds at atlas

@@ -1,6 +1,7 @@
 import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
-import type { AtlasImageEncoding } from '@open-northland/render';
+import type { AtlasManifest } from '@open-northland/render';
 import { palettedSheetBitmap } from '../content/atlas-sheet/index.js';
+import { loadAtlasManifest } from '../content/bob-atlases.js';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
 import { atlasImagePath, contentUrl } from '../content/url.js';
@@ -21,19 +22,6 @@ const BOBS_INDEX_URL = '/bobs-index.json';
 export function parseBobsIndex(data: unknown): readonly BobsIndexEntry[] {
   const parsed = BobsIndex.safeParse(data);
   return parsed.success ? parsed.data : [];
-}
-
-interface AtlasFrameJson {
-  readonly bobId: number;
-  readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
-}
-interface AtlasJson {
-  readonly width: number;
-  readonly height: number;
-  readonly image: string;
-  readonly palette?: string;
-  readonly imageEncoding?: AtlasImageEncoding;
-  readonly frames: readonly AtlasFrameJson[];
 }
 
 /** Frames of this sheet carry human names, so the gallery shows them beside the index. */
@@ -94,7 +82,7 @@ let colouredSheetUrl: string | undefined;
  * The sheet a stem's tiles crop from: a paletted one is coloured as the map colours it and shown through
  * an object URL, since a sheet-sized data URL passes the browser's URL length limit.
  */
-async function gallerySheetUrl(atlas: AtlasJson): Promise<string> {
+async function gallerySheetUrl(atlas: AtlasManifest): Promise<string> {
   if (atlas.palette === undefined) return contentUrl(atlasImagePath(atlas.image));
   const bitmap = await palettedSheetBitmap({ ...atlas, palette: atlas.palette });
   const canvas = document.createElement('canvas');
@@ -200,7 +188,7 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
     const showAtlas = async (stem: string): Promise<void> => {
       grid.textContent = '';
       selected = null;
-      const atlas = await fetchJsonOrNull<AtlasJson>(`/bobs/${stem}.atlas.json`);
+      const atlas = await loadAtlasManifest(stem);
       if (atlas === null) {
         meta.textContent = formatMessage(messages().icons.loadFailed, { stem });
         return;

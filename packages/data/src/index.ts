@@ -1,3 +1,4 @@
+export * from './bob-atlases.js';
 export * from './building-tribe.js';
 export * from './cadaver.js';
 export * from './catalog/animal-locomotion.js';

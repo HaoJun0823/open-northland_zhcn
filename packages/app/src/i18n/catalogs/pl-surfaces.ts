@@ -701,7 +701,7 @@ export const plSurfaces = {
     atlas: 'Atlas',
     filter: 'Filtruj klatki…',
     zoom: 'Powiększenie',
-    loadFailed: 'Nie udało się wczytać /bobs/{stem}.atlas.json',
+    loadFailed: 'Nie udało się wczytać {stem} (/bobs/atlases.json)',
     frameCount: '{stem} - {count} klatek{note}',
     copied: '{tag}{name} - skopiowano',
     frameCapNote: ' (pokazano {count})',

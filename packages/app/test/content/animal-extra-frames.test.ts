@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { resolveSettlerBobId } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
 import {
@@ -11,7 +9,7 @@ import { animalBinding } from '../../src/content/animal-gfx/bindings.js';
 import { animalWalkVariants } from '../../src/content/animal-gfx/extras.js';
 import { sequencesFor } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import { hasRealIr, rawIrUnderTest, servedAtlasManifest } from './helpers.js';
 
 describe.runIf(hasRealIr())('additional wildlife frames in generated content', () => {
   it.each([
@@ -28,9 +26,8 @@ describe.runIf(hasRealIr())('additional wildlife frames in generated content', (
     const palette = ANIMAL_PALETTE_BY_TRIBE.get(tribe);
     if (binding === null || seq === undefined || palette === undefined)
       throw new Error(`missing tribe ${tribe}`);
-    const atlas = JSON.parse(
-      readFileSync(join(contentDir(), 'bobs', `${animalBodyStem(palette)}.atlas.json`), 'utf8'),
-    ) as { frames: { bobId: number; rect: { width: number; height: number } }[] };
+    const atlas = servedAtlasManifest(animalBodyStem(palette));
+    if (atlas === undefined) throw new Error(`tribe ${tribe}: ${animalBodyStem(palette)} not served`);
     const drawn = new Set(
       atlas.frames.filter((f) => f.rect.width > 0 && f.rect.height > 0).map((f) => f.bobId),
     );

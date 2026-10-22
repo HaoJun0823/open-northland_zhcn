@@ -13,7 +13,7 @@ async function fixture(t) {
     ['/bobs-index.json', [{ stem: 'worker', image: 'c0ffee.webp' }]],
     ['/maps/forest.json', {}],
     ['/maps/forest.meta.json', {}],
-    ['/bobs/worker.atlas.json', {}],
+    ['/bobs/atlases.json', {}],
     ['/bobs/c0ffee.webp', 'webp'],
   ]);
   const server = createServer((req, res) => {

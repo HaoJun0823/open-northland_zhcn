@@ -747,7 +747,7 @@ export const deSurfaces = {
     atlas: 'Atlas',
     filter: 'Bilder filtern…',
     zoom: 'Zoom',
-    loadFailed: '/bobs/{stem}.atlas.json konnte nicht geladen werden',
+    loadFailed: '{stem} (/bobs/atlases.json) konnte nicht geladen werden',
     frameCount: '{stem} – Bilder: {count}{note}',
     copied: '{tag}{name} – kopiert',
     frameCapNote: ' (davon {count} angezeigt)',

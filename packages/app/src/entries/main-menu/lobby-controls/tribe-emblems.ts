@@ -1,11 +1,10 @@
 import { CIVILIZATION_TRIBES } from '@open-northland/data';
-import type { AtlasManifest } from '@open-northland/render';
 import { pictureSheetUrl } from '../../../content/atlas-sheet/index.js';
+import { loadAtlasManifest } from '../../../content/bob-atlases.js';
 import { tribeEmblemRows } from '../../../content/building-gfx/emblems.js';
 import { servedAtlasStem } from '../../../content/ir/joins.js';
 import { loadIr } from '../../../content/ir/load.js';
 import type { BuildingBobRow } from '../../../content/ir/rows.js';
-import { fetchJsonOrNull } from '../../../content/net.js';
 
 /** Square edge in device pixels the thumbnail is painted at; the CSS box scales it down. */
 const EMBLEM_PX = 128;
@@ -37,7 +36,7 @@ export function loadTribeEmblems(): Promise<TribeEmblems> {
 async function emblemUrl(bob: BuildingBobRow): Promise<string | null> {
   const stem = servedAtlasStem(bob);
   if (stem === undefined) return null;
-  const manifest = await fetchJsonOrNull<AtlasManifest>(`/bobs/${stem}.atlas.json`);
+  const manifest = await loadAtlasManifest(stem);
   const rect = manifest?.frames.find((frame) => frame.bobId === bob.bobId)?.rect;
   if (manifest === null || rect === undefined || rect.width === 0 || rect.height === 0) return null;
   const src = pictureSheetUrl(manifest);

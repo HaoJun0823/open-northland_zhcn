@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { clipDirs, GALLERY_DIRS } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +10,7 @@ import {
   VIKING_CHARACTERS,
 } from '../../src/catalog/roster.js';
 import type { BobSeqRow } from '../../src/content/ir/rows.js';
-import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasExists } from './helpers.js';
+import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasExists, servedAtlasManifest } from './helpers.js';
 
 /**
  * Pins that the decoded content actually carries every body imagelib + head/body atlas the roster
@@ -41,10 +41,6 @@ describe.runIf(hasRealIr())('roster is backed by decoded content', () => {
     const bobs = resolve(contentDir(), 'bobs');
     if (!existsSync(bobs)) return;
     const byLib = new Map((rawIrUnderTest() as Ir).bobSequences?.map((s) => [s.imagelib, s.sequences ?? []]));
-    interface AtlasFrameLite {
-      readonly bobId: number;
-      readonly rect: { readonly width: number; readonly height: number };
-    }
     for (const c of VIKING_CHARACTERS) {
       const walk = pickWalkRow(byLib.get(c.imagelib) ?? []);
       if (walk === undefined) continue;
@@ -52,10 +48,9 @@ describe.runIf(hasRealIr())('roster is backed by decoded content', () => {
       // bob, else the montage/anim shows a headless body while the checklist claims "no headless cell".
       for (const h of c.headBmds) {
         const stem = characterStem(h);
-        const p = resolve(bobs, `${stem}.atlas.json`);
-        if (!existsSync(p)) continue; // file existence is the other guard's concern
-        const frames = (JSON.parse(readFileSync(p, 'utf8')).frames ?? []) as AtlasFrameLite[];
-        const atStart = frames.find((f) => f.bobId === walk.start);
+        const manifest = servedAtlasManifest(stem);
+        if (manifest === undefined) continue; // the stem being served is the other guard's concern
+        const atStart = manifest.frames.find((f) => f.bobId === walk.start);
         expect(
           atStart !== undefined && atStart.rect.width > 0,
           `${stem} draws no head at walk.start ${walk.start} (body ${c.imagelib}) → headless cell`,

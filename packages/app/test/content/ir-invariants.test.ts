@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { hasFieldFarmAtomics } from '@open-northland/data';
 import { atlasFromManifest } from '@open-northland/render';
 import { cadaverGoodCycle } from '@open-northland/sim';
@@ -19,7 +17,7 @@ import type { ContentIr } from '../../src/content/ir/rows.js';
 import { WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG } from '../../src/content/settler-gfx/index.js';
 import { BUILDING_WATCHTOWER, WEAPON_GOOD_SLUG_BY_JOB } from '../../src/game/sandbox/ids/index.js';
 import { HIDDEN_GOODS, SUMMARY_CATEGORIES } from '../../src/hud/summary/model.js';
-import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
+import { hasRealIr, loadContentUnderTest, rawIrUnderTest, servedAtlasManifest } from './helpers.js';
 
 /**
  * Property invariants over the REAL generated IR + its sim-ready merge - the class of break the
@@ -60,9 +58,10 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
     for (const ref of [refs.hearts, refs.stork]) {
       expect(ref).toBeDefined();
       if (ref === undefined) continue;
-      const atlas = atlasFromManifest(
-        JSON.parse(readFileSync(resolve(contentDir(), 'bobs', `${ref.layer}.atlas.json`), 'utf8')),
-      );
+      const manifest = servedAtlasManifest(ref.layer);
+      expect(manifest, ref.layer).toBeDefined();
+      if (manifest === undefined) continue;
+      const atlas = atlasFromManifest(manifest);
       const frames = ref.valencies[0] ?? [];
       expect(frames.length).toBeGreaterThan(1);
       for (const bob of frames) expect(atlas.frames.has(bob), `${ref.layer}:${bob}`).toBe(true);
@@ -145,9 +144,8 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
     const overruns = new Set<string>();
     for (const row of rows) {
       const stem = row.body.slice(row.body.lastIndexOf('/') + 1).replace(/\.bmd$/i, '');
-      const atlasPath = resolve(contentDir(), 'bobs', `${stem}.${row.bodyPalette}.atlas.json`);
-      const atlas = JSON.parse(readFileSync(atlasPath, 'utf8')) as { frames: readonly { bobId: number }[] };
-      const bobIds = new Set(atlas.frames.map((f) => f.bobId));
+      const atlas = servedAtlasManifest(`${stem}.${row.bodyPalette}`);
+      const bobIds = new Set(atlas?.frames.map((f) => f.bobId));
       const frames = [
         ...row.clips.flatMap((c) => c.dirFrames.flat()),
         ...row.gaits.flatMap((g) => [...g.dirFrames.flat(), ...(g.turnFrames ?? []).flat()]),

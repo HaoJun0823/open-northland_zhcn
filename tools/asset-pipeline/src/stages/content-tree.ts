@@ -1,8 +1,14 @@
 import { basename, join } from 'node:path';
+import {
+  BOB_ATLASES_PATH,
+  type BobAtlasSet,
+  bobAtlasSet,
+  encodeAtlasGeometry,
+  type ServedBobAtlas,
+} from '@open-northland/data';
 import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
 import type { Bmd } from '@open-northland/formats/bmd/index';
 import type { RgbaImage } from '@open-northland/formats/image';
-import type { AtlasManifest } from '@open-northland/render';
 import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { statIfExists, writeFileWithParents } from '../files.js';
 import {
@@ -24,9 +30,6 @@ export const SOUNDS_DIR = 'sounds';
 /** Decoded map grids and their sidecars. */
 export const MAPS_DIR = 'maps';
 
-/** A stem's `<stem>.atlas.json`, the manifest the app reads first; it names the sheet files. */
-export const ATLAS_MANIFEST_SUFFIX = '.atlas.json';
-
 /**
  * Writes `value` as pretty-printed JSON (2-space indent, trailing newline) to `<outDir>/<relPath>`,
  * creating the parent directory.
@@ -38,7 +41,6 @@ export async function writeJsonFile(outDir: string, relPath: string, value: unkn
 /** The relative paths a bob atlas write produced (under `outDir`). */
 export interface BobAtlasFiles {
   readonly image: string;
-  readonly manifest: string;
 }
 
 /**
@@ -66,39 +68,55 @@ export interface PalettedBobAtlas {
 }
 
 /**
- * Writes a packed bob atlas's sheet, and a `'build-time'` bake's time sheet, under {@link BOBS_DIR},
- * then the `<stem>.atlas.json` that names them. A {@link PalettedBobAtlas} writes its indexed sheet
- * and puts the palette in the manifest.
+ * The run's bob atlases: each stage writes its sheets under {@link BOBS_DIR} through
+ * {@link writeAtlas}, and the manifests stay here until {@link writeDocument} serves them all as one
+ * {@link BOB_ATLASES_PATH}, so a boot fetches one file instead of one per stem. Stems sharing a frame
+ * layout (a bob set's recolours) share one geometry entry.
  */
-async function writeBobAtlas(
-  outDir: string,
-  stem: string,
-  atlas: BobAtlas | PalettedBobAtlas,
-): Promise<BobAtlasFiles> {
-  const paletted = 'indexed' in atlas;
-  if (paletted && atlas.palette.length !== ATLAS_PALETTE_BYTES) {
-    throw new Error(
-      `atlas: ${stem} palette has ${atlas.palette.length} bytes, expected ${ATLAS_PALETTE_BYTES}`,
-    );
+export class BobAtlasCatalog {
+  readonly #stems = new Map<string, ServedBobAtlas>();
+
+  constructor(readonly outDir: string) {}
+
+  /**
+   * Writes a packed bob atlas's sheet, and a `'build-time'` bake's time sheet, and keeps the stem's
+   * manifest naming them. A {@link PalettedBobAtlas} writes its indexed sheet and keeps the palette. A
+   * stem written again takes the later atlas, as its file did.
+   */
+  async writeAtlas(stem: string, atlas: BobAtlas | PalettedBobAtlas): Promise<BobAtlasFiles> {
+    const paletted = 'indexed' in atlas;
+    if (paletted && atlas.palette.length !== ATLAS_PALETTE_BYTES) {
+      throw new Error(
+        `atlas: ${stem} palette has ${atlas.palette.length} bytes, expected ${ATLAS_PALETTE_BYTES}`,
+      );
+    }
+    const packed = paletted ? atlas.indexed : atlas;
+    const image = await writeAtlasImage(this.outDir, packed.image, paletted);
+    const buildImage =
+      packed.timeImage === undefined ? undefined : await writeAtlasImage(this.outDir, packed.timeImage);
+    const sheet = {
+      image,
+      ...(paletted
+        ? {
+            palette: Buffer.from(atlas.palette).toString('base64'),
+            imageEncoding: 'index-coverage-png' as const,
+          }
+        : {}),
+      ...(buildImage === undefined ? {} : { buildImage }),
+    };
+    this.#stems.set(stem, { sheet, geometry: encodeAtlasGeometry(packed.manifest) });
+    return { image: `${BOBS_DIR}/${image}` };
   }
-  const packed = paletted ? atlas.indexed : atlas;
-  const image = await writeAtlasImage(outDir, packed.image, paletted);
-  const buildImage =
-    packed.timeImage === undefined ? undefined : await writeAtlasImage(outDir, packed.timeImage);
-  const served = {
-    ...packed.manifest,
-    image,
-    ...(paletted
-      ? {
-          palette: Buffer.from(atlas.palette).toString('base64'),
-          imageEncoding: 'index-coverage-png' as const,
-        }
-      : {}),
-    ...(buildImage === undefined ? {} : { buildImage }),
-  } satisfies AtlasManifest;
-  const manifest = `${BOBS_DIR}/${stem}${ATLAS_MANIFEST_SUFFIX}`;
-  await writeJsonFile(outDir, manifest, served);
-  return { image: `${BOBS_DIR}/${image}`, manifest };
+
+  /** The served document of every stem written so far. */
+  document(): BobAtlasSet {
+    return bobAtlasSet(this.#stems);
+  }
+
+  /** Writes {@link document} to {@link BOB_ATLASES_PATH}; compact, since nobody reads it by eye. */
+  async writeDocument(): Promise<void> {
+    await writeFileWithParents(join(this.outDir, BOB_ATLASES_PATH), JSON.stringify(this.document()));
+  }
 }
 
 /** The two `loadLayer` stems {@link emitIndexedAndPreviewAtlas} wrote, plus the atlas frame count. */
@@ -121,7 +139,7 @@ export const INDEXED_ATLAS_SUFFIX = 'indexed';
  * app-side loaders mirror).
  */
 export async function emitIndexedAndPreviewAtlas(
-  outDir: string,
+  atlases: BobAtlasCatalog,
   keyStem: string,
   bmd: Bmd,
   previewSuffix: string,
@@ -130,8 +148,8 @@ export async function emitIndexedAndPreviewAtlas(
   const indexed = packIndexedBobAtlas(bmd);
   const indexedStem = `${keyStem}.${INDEXED_ATLAS_SUFFIX}`;
   const previewStem = `${keyStem}.${previewSuffix}`;
-  await writeBobAtlas(outDir, indexedStem, indexed);
-  await writeBobAtlas(outDir, previewStem, packBobAtlas(bmd, previewPalette));
+  await atlases.writeAtlas(indexedStem, indexed);
+  await atlases.writeAtlas(previewStem, packBobAtlas(bmd, previewPalette));
   return { indexedStem, previewStem, frames: indexed.manifest.frames.length };
 }
 
@@ -148,12 +166,12 @@ export function bobAtlasStem(bmdRel: string, suffix: string): string {
 
 /** Writes a packed atlas for the source `.bmd` at `bmdRel` under its {@link bobAtlasStem}. */
 export async function writeSourceBobAtlas(
-  outDir: string,
+  atlases: BobAtlasCatalog,
   bmdRel: string,
   suffix: string,
   atlas: BobAtlas | PalettedBobAtlas,
 ): Promise<BobAtlasFiles> {
-  return writeBobAtlas(outDir, bobAtlasStem(bmdRel, suffix), atlas);
+  return atlases.writeAtlas(bobAtlasStem(bmdRel, suffix), atlas);
 }
 
 /**

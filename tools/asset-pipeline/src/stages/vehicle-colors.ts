@@ -8,7 +8,7 @@ import { decodePcx } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
-import { BOBS_DIR, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
+import { BOBS_DIR, type BobAtlasCatalog, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
 import { paletteFamily } from './ir/vehicle-graphics.js';
 import type { SourceAssetIndex } from './source-files.js';
 
@@ -33,7 +33,7 @@ export function paletteFamilyLutFile(bodyPalette: string): string {
 export async function convertVehiclePaletteFamilies(
   bindings: readonly Pick<VehicleGraphicsBinding, 'bmd' | 'paletteName'>[],
   palettes: readonly PaletteAlias[],
-  outDir: string,
+  atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
 ): Promise<VehicleColorResult> {
   const aliases = paletteAliasMap(palettes);
@@ -45,7 +45,7 @@ export async function convertVehiclePaletteFamilies(
     if (!lutByFamily.has(binding.paletteName)) {
       lutByFamily.set(
         binding.paletteName,
-        await writeFamilyLut(binding.paletteName, family, aliases, outDir, tree),
+        await writeFamilyLut(binding.paletteName, family, aliases, atlases.outDir, tree),
       );
     }
     if (lutByFamily.get(binding.paletteName) !== undefined) bodies.add(binding.bmd);
@@ -59,7 +59,7 @@ export async function convertVehiclePaletteFamilies(
     }
     try {
       const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
-      const { image } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
       indexed.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped indexed ${bmdRef}: ${errorMessage(err)}`);

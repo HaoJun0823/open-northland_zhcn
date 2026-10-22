@@ -7,7 +7,13 @@ import type { GoodsManifest } from '../../src/content/goods-gfx.js';
 import { servedAtlasStem } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { spriteGoodIcon } from '../../src/content/sprite-good-icons.js';
-import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
+import {
+  contentDir,
+  hasRealIr,
+  loadContentUnderTest,
+  rawIrUnderTest,
+  servedAtlasManifest,
+} from './helpers.js';
 
 /** A `fetch` serving the content tree under test at its content paths. */
 const serveContentFetch: typeof fetch = (input) => {
@@ -18,8 +24,7 @@ const serveContentFetch: typeof fetch = (input) => {
 };
 
 function manifestOf(stem: string): { readonly palette?: string } | null {
-  const path = resolve(contentDir(), 'bobs', `${stem}.atlas.json`);
-  return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as { palette?: string }) : null;
+  return servedAtlasManifest(stem) ?? null;
 }
 
 /**

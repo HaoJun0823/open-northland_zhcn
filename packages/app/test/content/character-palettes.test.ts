@@ -18,7 +18,13 @@ import {
   resolveAnimalJobLooks,
   resolveLooks,
 } from '../../src/content/sprite-sheet/character-looks.js';
-import { characterTablesUnderTest, contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import {
+  characterTablesUnderTest,
+  contentDir,
+  hasRealIr,
+  rawIrUnderTest,
+  servedAtlasManifest,
+} from './helpers.js';
 
 /**
  * Pins which atlas each character layer loads from against the served content: a look draws through the
@@ -36,7 +42,7 @@ const GRIZZLY_BODY = 'cr_hum_body_72';
 const INDEXED_SUFFIX = `.${INDEXED_CHARACTER_PALETTE}`;
 
 function atlasServed(stem: string): boolean {
-  return existsSync(resolve(contentDir(), 'bobs', `${stem}.atlas.json`));
+  return servedAtlasManifest(stem) !== undefined;
 }
 
 /** Every look of every civilization that authors `[jobbasegraphics]` records, as the LUT-loaded sheet

@@ -1,7 +1,7 @@
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
 import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
-import { emitIndexedAndPreviewAtlas, writeJsonFile } from '../content-tree.js';
+import { type BobAtlasCatalog, emitIndexedAndPreviewAtlas, writeJsonFile } from '../content-tree.js';
 import { identityPalette, writeLutPng } from '../palette-lut.js';
 import { readSourceFile } from '../source-files.js';
 import { buildGoodIcons, GOODS_ATLAS_STEM, type GoodIcon, loadGoods } from './icons.js';
@@ -53,7 +53,11 @@ export interface GoodsStageSummary {
  * Decode `ls_goods.bmd` into an indexed + preview atlas, stack the referenced recolor palettes into a LUT,
  * build the good→icon bindings, and write them under `outDir`.
  */
-export async function convertGoodsStage(roots: SourceRoots, outDir: string): Promise<GoodsStageSummary> {
+export async function convertGoodsStage(
+  roots: SourceRoots,
+  outDir: string,
+  bobAtlases: BobAtlasCatalog,
+): Promise<GoodsStageSummary> {
   let icons: Record<string, GoodIcon>;
   try {
     icons = await buildGoodIcons(roots, await loadGoods(roots));
@@ -84,7 +88,7 @@ export async function convertGoodsStage(roots: SourceRoots, outDir: string): Pro
   try {
     const bmd = decodeBmd(await readSourceFile(roots, GOODS_BMD));
     const emitted = await emitIndexedAndPreviewAtlas(
-      outDir,
+      bobAtlases,
       GOODS_ATLAS_STEM,
       bmd,
       PREVIEW_PALETTE,

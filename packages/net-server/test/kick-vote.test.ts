@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { KickVotes } from '../src/relay/kick-vote.js';
 import { createMember, type Member } from '../src/relay/member.js';
-import { KICK_COUNTDOWN_MS, Waiting } from '../src/relay/waiting.js';
+import { KICK_COUNTDOWN_MS, WAIT_FORGIVENESS, Waiting } from '../src/relay/waiting.js';
 
 const TARGET_SEAT = 0;
 const STILL_WAITED = () => true;
@@ -73,26 +73,29 @@ describe('kick withdrawal', () => {
 
 describe('kick recount', () => {
   it('stops counting a dropped voter, counts it again on its return, and passes when the electorate shrinks', () => {
-    const { peers, members, votes, cast, target } = room(5);
+    const { peers, members, waiting, votes, cast, target } = room(5);
     const [, a, b, c, d] = peers;
     if (a === undefined || b === undefined || c === undefined || d === undefined) throw new Error('peers');
     cast(a);
     cast(b);
-    expect(votes.recount(members, STILL_WAITED)).toEqual({ moved: [], passed: null });
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS, STILL_WAITED)).toEqual({
+      moved: [],
+      passed: null,
+    });
 
     a.connected = false;
-    expect(votes.recount(members, STILL_WAITED)).toEqual({
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS, STILL_WAITED)).toEqual({
       moved: [{ kind: 'kickVote', player: TARGET_SEAT, nick: target.nick, yes: [b.nick], needed: 2 }],
       passed: null,
     });
     a.connected = true;
-    expect(votes.recount(members, STILL_WAITED).moved).toEqual([
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS, STILL_WAITED).moved).toEqual([
       { kind: 'kickVote', player: TARGET_SEAT, nick: target.nick, yes: [a.nick, b.nick], needed: 3 },
     ]);
 
     // A non-voter dropping leaves three connected others: two yeses are a majority now.
     d.connected = false;
-    expect(votes.recount(members, STILL_WAITED)).toMatchObject({
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS, STILL_WAITED)).toMatchObject({
       moved: [{ yes: [a.nick, b.nick], needed: 2 }],
       passed: { target, player: TARGET_SEAT },
     });
@@ -111,20 +114,64 @@ describe('kick recount', () => {
     again.cast(d);
     if (e === undefined) throw new Error('peers');
     e.connected = false;
-    expect(again.votes.recount(again.members, ANSWERED)).toMatchObject({
+    expect(again.votes.recount(again.members, again.waiting, KICK_COUNTDOWN_MS, ANSWERED)).toMatchObject({
       moved: [{ needed: 2 }],
       passed: null,
     });
-    expect(again.votes.recount(again.members, STILL_WAITED).passed).toEqual({
-      target: again.target,
-      player: TARGET_SEAT,
-    });
+    expect(again.votes.recount(again.members, again.waiting, KICK_COUNTDOWN_MS, STILL_WAITED).passed).toEqual(
+      {
+        target: again.target,
+        player: TARGET_SEAT,
+      },
+    );
   });
 
-  it('closes the votes against a member no longer waited for', () => {
-    const { members, peers, votes, cast } = room(3);
-    cast(peers[1]);
-    votes.retain(() => false);
-    expect(votes.recount(members, STILL_WAITED)).toEqual({ moved: [], passed: null });
+  it('hides the vote while its target is not waited for, and closes it once the target owes nothing', () => {
+    const { members, peers, waiting, votes, cast, target } = room(3);
+    const [, a, b] = peers;
+    if (a === undefined || b === undefined) throw new Error('peers');
+    cast(a);
+    waiting.update([], KICK_COUNTDOWN_MS);
+    expect(votes.follow(members, waiting)).toEqual([]);
+    expect(votes.openTallies()).toEqual([]);
+    b.connected = false;
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS, STILL_WAITED)).toEqual({
+      moved: [],
+      passed: null,
+    });
+    b.connected = true;
+
+    const back = KICK_COUNTDOWN_MS + 1;
+    waiting.update([{ token: target.token, nick: target.nick, reason: 'gone' }], back);
+    const shown = { kind: 'kickVote', player: TARGET_SEAT, nick: target.nick, yes: [a.nick], needed: 2 };
+    expect(votes.follow(members, waiting)).toEqual([shown]);
+    expect(votes.follow(members, waiting)).toEqual([]);
+
+    const forgivenAt = back + KICK_COUNTDOWN_MS / WAIT_FORGIVENESS;
+    waiting.update([], back);
+    waiting.update([], forgivenAt);
+    expect(waiting.owes(target.token)).toBe(false);
+    votes.follow(members, waiting);
+    waiting.update([{ token: target.token, nick: target.nick, reason: 'gone' }], forgivenAt);
+    expect(votes.follow(members, waiting)).toEqual([]);
+  });
+
+  it('passes no vote on a recount while its target is waited for again but its countdown runs', () => {
+    const { members, peers, waiting, votes, cast, target } = room(5);
+    const [, a, b, , d] = peers;
+    if (d === undefined) throw new Error('peers');
+    cast(a);
+    cast(b);
+    waiting.update([], KICK_COUNTDOWN_MS);
+    const back = KICK_COUNTDOWN_MS * 2;
+    waiting.update([{ token: target.token, nick: target.nick, reason: 'gone' }], back);
+    expect(waiting.voteOpen(target.token, back)).toBe(false);
+    // Two yeses meet the need of the three others left connected, but the countdown has not run out.
+    d.connected = false;
+    expect(votes.recount(members, waiting, back, STILL_WAITED).passed).toBeNull();
+    expect(votes.recount(members, waiting, KICK_COUNTDOWN_MS * 3, STILL_WAITED).passed).toEqual({
+      target,
+      player: TARGET_SEAT,
+    });
   });
 });

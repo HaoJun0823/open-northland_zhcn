@@ -48,8 +48,35 @@ describe('RelayClient awaiting a large message', () => {
     relayClient.receive({
       kind: 'rejected',
       of: 'requestInitialSave',
-      reason: { code: 'retryTooSoon' },
+      reason: { code: 'initialSaveMissing' },
     });
+    expect(relayClient.awaitsTransfer).toBe(false);
+  });
+
+  it('awaits the map while the initial save asked for beside it is already answered', () => {
+    const relayClient = client();
+    relayClient.requestMap();
+    relayClient.requestInitialSave();
+    relayClient.receive({
+      kind: 'rejected',
+      of: 'requestInitialSave',
+      reason: { code: 'initialSaveMissing' },
+    });
+    expect(relayClient.awaitsTransfer).toBe(true);
+    relayClient.receive({ kind: 'blob', type: 'map', from: 'Bartek', tick: null, bytes: 'AAAA' });
+    expect(relayClient.awaitsTransfer).toBe(false);
+  });
+
+  it('keeps awaiting a requested map when a repeat of the request is refused as too soon', () => {
+    const relayClient = client();
+    relayClient.requestMap();
+    relayClient.requestMap();
+    relayClient.receive({ kind: 'rejected', of: 'requestMap', reason: { code: 'retryTooSoon' } });
+    expect(relayClient.awaitsTransfer).toBe(true);
+    relayClient.receive({ kind: 'blob', type: 'map', from: 'Bartek', tick: null, bytes: 'AAAA' });
+    expect(relayClient.awaitsTransfer).toBe(false);
+    relayClient.requestMap();
+    relayClient.receive({ kind: 'rejected', of: 'requestMap', reason: { code: 'retryTooSoon' } });
     expect(relayClient.awaitsTransfer).toBe(false);
   });
 

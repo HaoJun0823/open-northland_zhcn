@@ -46,6 +46,10 @@ import { WorldLoader } from './world-loader.js';
  *  of them in one display frame. */
 const OWED_TICKS_ON_REFUSAL = 1;
 
+/** The lobby blobs a client asks the room for; each is answered on its own. */
+type LobbyBlob = 'map' | 'initialSave';
+const LOBBY_BLOB_OF = { requestMap: 'map', requestInitialSave: 'initialSave' } as const;
+
 /** A world the client runs, and the generation its acknowledgements carry: `DESCRIPTOR_WORLD` for a
  *  world built from the descriptor, else the tick of the snapshot it was restored from. */
 export interface OpenedWorld {
@@ -119,8 +123,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
   private snapshotInFlight: Promise<void> | null = null;
   private awaitingResume = false;
   private shrinkingBuffer = false;
-  /** A map or initial save this client asked for on the current socket and has not received. */
-  private lobbyBlobOwed = false;
+  /** Per lobby blob, the requests on the current socket the relay has not answered with it or a refusal. */
+  private readonly lobbyBlobRequests = new Map<LobbyBlob, number>();
   /** A snapshot the relay serves this client on the current socket: its world is gone, or stands
    *  behind the cached snapshot the relay replays from. */
   private snapshotOwed = false;
@@ -186,24 +190,36 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // and hold the outbox.
     this.latency.forgetInFlight();
     // A new socket is served again from its own `start`, `desync` and requests.
-    this.lobbyBlobOwed = false;
+    this.lobbyBlobRequests.clear();
     this.snapshotOwed = false;
     super.hello();
   }
 
   /** Whether a large message is owed to this client, which a link carrying it shows only once whole. */
   get awaitsTransfer(): boolean {
-    return this.lobbyBlobOwed || this.snapshotOwed;
+    return this.lobbyBlobRequests.size > 0 || this.snapshotOwed;
   }
 
   override requestMap(): void {
-    this.lobbyBlobOwed = true;
+    this.owe('map');
     super.requestMap();
   }
 
   override requestInitialSave(): void {
-    this.lobbyBlobOwed = true;
+    this.owe('initialSave');
     super.requestInitialSave();
+  }
+
+  private owe(blob: LobbyBlob): void {
+    this.lobbyBlobRequests.set(blob, (this.lobbyBlobRequests.get(blob) ?? 0) + 1);
+  }
+
+  /** `retryTooSoon` answers only the repeated request, while an earlier one may still be served; any
+   *  other refusal means none of them will be. */
+  private lobbyBlobRefused(blob: LobbyBlob, code: string): void {
+    const left = (this.lobbyBlobRequests.get(blob) ?? 0) - 1;
+    if (code === 'retryTooSoon' && left > 0) this.lobbyBlobRequests.set(blob, left);
+    else this.lobbyBlobRequests.delete(blob);
   }
 
   get tick(): number | null {
@@ -336,7 +352,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         break;
       case 'left':
         this.awaitingResume = false;
-        this.lobbyBlobOwed = false;
+        this.lobbyBlobRequests.clear();
         this.snapshotOwed = false;
         this.knownSnapshotTick = null;
         this.completion.clear();
@@ -366,7 +382,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.answerSnapshotRequest();
         break;
       case 'blob':
-        if (message.type === 'map' || message.type === 'initialSave') this.lobbyBlobOwed = false;
+        if (message.type === 'map' || message.type === 'initialSave')
+          this.lobbyBlobRequests.delete(message.type);
         if (message.type === 'snapshot') this.snapshotOwed = false;
         if (message.type === 'snapshot' && message.tick !== null) {
           this.learnSnapshotTick(message.tick);
@@ -377,7 +394,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.send({ kind: 'pong', t: message.t });
         break;
       case 'rejected':
-        if (message.of === 'requestMap' || message.of === 'requestInitialSave') this.lobbyBlobOwed = false;
+        if (message.of === 'requestMap' || message.of === 'requestInitialSave')
+          this.lobbyBlobRefused(LOBBY_BLOB_OF[message.of], message.reason.code);
         if (message.of === 'saveOrders') this.saveOrders.refuse(message.requestId, message.reason);
         if (message.of === 'command') {
           this.latency.refused();

@@ -208,7 +208,9 @@ export class Game {
    *  moved, and return a vote that now passes for the room to carry out. */
   recountKickVotes(now: number): PassedKick | null {
     if (this.endedTick !== null) return null;
-    const { moved, passed } = this.kickVotes.recount(this.members, (target) => this.waitedNow(target, now));
+    const { moved, passed } = this.kickVotes.recount(this.members, this.waiting, now, (target) =>
+      this.waitedNow(target, now),
+    );
     for (const tally of moved) this.broadcast(tally);
     return passed;
   }
@@ -236,7 +238,7 @@ export class Game {
     this.pacing.forget(member.token);
     this.waiting.forget(member.token);
     this.removed(now);
-    if (this.endedTick === null) this.updateWaiting(now);
+    if (this.endedTick === null && this.clock.running) this.updateWaiting(now);
   }
 
   /** The kicked member is out of the room: the rest may be complete now. */
@@ -358,7 +360,7 @@ export class Game {
       if (reason !== null) waited.push({ token: member.token, nick: member.nick, reason });
     }
     if (this.waiting.update(waited, now)) this.broadcast(this.waiting.message(now));
-    this.kickVotes.retain((token) => this.waiting.isWaitedFor(token));
+    for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
     if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
   }

@@ -23,8 +23,9 @@ export type WaitedNow = (member: Member) => boolean;
 /**
  * Who said yes to kicking each waited member. A yes counts only while its voter is connected, and the
  * vote passes once the counted yeses reach a strict majority of the connected members other than the
- * target, while the room would still wait for the target now. A vote lives while its target is waited
- * for; a departed token loses its votes.
+ * target, while the room would still wait for the target now with its vote open. The yeses outlive a
+ * wait while the target still owes waited time, so the yeses of a target dropping in short waits add
+ * up across them; a departed token loses its votes.
  */
 export class KickVotes {
   /** Voter tokens by target token. */
@@ -70,6 +71,8 @@ export class KickVotes {
    *  since they were last broadcast, and the first vote that now passes. */
   recount(
     members: ReadonlyMap<string, Member>,
+    waiting: Waiting,
+    now: number,
     waitedNow: WaitedNow,
   ): {
     readonly moved: readonly KickTally[];
@@ -79,13 +82,14 @@ export class KickVotes {
     let passed: PassedKick | null = null;
     for (const [token, voters] of this.ballots) {
       const target = members.get(token);
-      if (target === undefined || target.seat === null) continue;
+      if (target === undefined || target.seat === null || !waiting.isWaitedFor(token)) continue;
       const tally = tallyOf(members, target, target.seat, voters);
       if (!sameTally(tally, this.announced.get(token))) {
         this.announced.set(token, tally);
         moved.push(tally);
       }
-      if (passed === null && passes(tally) && waitedNow(target)) passed = { target, player: target.seat };
+      if (passed === null && passes(tally) && waiting.voteOpen(token, now) && waitedNow(target))
+        passed = { target, player: target.seat };
     }
     return { moved, passed };
   }
@@ -95,13 +99,26 @@ export class KickVotes {
     return [...this.announced.values()];
   }
 
-  /** Close the votes against every member the room no longer waits for. */
-  retain(waitedFor: (token: string) => boolean): void {
-    for (const token of this.ballots.keys()) {
-      if (waitedFor(token)) continue;
-      this.ballots.delete(token);
-      this.announced.delete(token);
+  /** Drop the yeses against every member that owes no waited time any more. A vote whose target is
+   *  not waited for is hidden, as clients drop its tally with the wait; returns the tally of each
+   *  hidden vote whose target is waited for again, to show it once more. */
+  follow(members: ReadonlyMap<string, Member>, waiting: Waiting): readonly KickTally[] {
+    const shown: KickTally[] = [];
+    for (const [token, voters] of this.ballots) {
+      if (!waiting.owes(token)) {
+        this.ballots.delete(token);
+        this.announced.delete(token);
+      } else if (!waiting.isWaitedFor(token)) {
+        this.announced.delete(token);
+      } else if (!this.announced.has(token)) {
+        const target = members.get(token);
+        if (target === undefined || target.seat === null) continue;
+        const tally = tallyOf(members, target, target.seat, voters);
+        this.announced.set(token, tally);
+        shown.push(tally);
+      }
     }
+    return shown;
   }
 
   /** A departed token keeps neither a vote against it nor its yes in another. */

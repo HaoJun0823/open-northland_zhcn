@@ -428,9 +428,14 @@ makes each later hold votable sooner: the others decide whether to wait for it o
 Once a member's countdown has passed, any other member sends `kick { player, yes: true }` for its
 seat; a repeat from the same member counts once. `kick { player, yes: false }` withdraws that
 member's yes, and is refused with `noVoteToWithdraw` from a member that has none. Each yes and each
-withdrawal is broadcast as `kickVote { player, nick, yes: [nicks], needed }`. A vote lives only while
-its target is waited for; a member that is slow, but not yet waited for as `slow`, is refused with
-`notWaitedFor`.
+withdrawal is broadcast as `kickVote { player, nick, yes: [nicks], needed }`. A yes is cast only
+while its target is waited for; a member that is slow, but not yet waited for as `slow`, is refused
+with `notWaitedFor`. The yeses outlive the wait they were cast in while the target still owes waited
+time (see [Waiting](#waiting)), and are dropped once it owes none: the yeses against a member that
+drops in short waits add up across them, so two voters of three may each say yes in a different
+wait. Between its target's waits a vote is hidden, as clients drop its tally with the wait, and the
+relay broadcasts its tally again when the target is waited for again; its countdown must run out
+again before it takes a yes or passes.
 
 The electorate is the connected members other than the target, and `needed` is a strict majority of
 it, `floor(others / 2) + 1` (`kickVotesNeeded`): both of two, 2 of 3, 3 of 4. A yes counts only while
@@ -438,9 +443,9 @@ its voter is connected. It stops counting when the voter drops and counts again 
 while the vote is open; a member that leaves the room loses its votes. Each drop, return or departure
 recounts every open vote and broadcasts each tally that moved, so a vote can pass on a vote, on a
 voter's return, or on another member dropping or leaving. A vote passes only while the relay would
-still wait for its target at that moment: a yes against a target that answered or loaded since the
-last poll is refused with `notWaitedFor`, a recount passes no vote against it, and its vote closes on
-the next poll.
+still wait for its target at that moment with its countdown run out: a yes against a target that
+answered or loaded since the last poll is refused with `notWaitedFor`, a recount passes no vote
+against it, and its vote is hidden from the next poll.
 A member whose `loaded` is accepted, on its return or after a reload, gets one `kickVote` per open
 vote with its current tally right after its `waiting`, since it missed the broadcasts that built it.
 
@@ -449,7 +454,7 @@ electorate for each excludes every dropped member: with four players and two dro
 both of the two still connected, and the last connected member kicks each of the others alone. The
 clock stays held until every waited member is back or kicked. Kicking one leaves the others'
 countdowns and votes as they were; a dropped member that is no longer waited for after its return
-closes only the vote against itself. With every member dropped nobody can vote: the room ends at the
+hides only the vote against itself. With every member dropped nobody can vote: the room ends at the
 history age limit (see [Resync and catching up](#resync-and-catching-up)), or after the 10 minutes a
 room with nobody connected is kept when no frame is retained, whichever comes first.
 

@@ -51,6 +51,11 @@ export class Waiting {
     return this.accounts.get(token)?.waited ?? false;
   }
 
+  /** The member is waited for, or still owes some of the time it was. */
+  owes(token: string): boolean {
+    return this.accounts.has(token);
+  }
+
   voteOpen(token: string, now: number): boolean {
     return this.voteAfterMs(token, now) === 0;
   }

@@ -2,7 +2,14 @@ import { TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { KICK_COUNTDOWN_MS, SILENT_AFTER_MS } from '../src/index.js';
 import { WAIT_FORGIVENESS, Waiting } from '../src/relay/waiting.js';
-import { digest, LOAD, type Peer, startedRoom, startingRoom } from './support/message-stage.js';
+import {
+  digest,
+  LOAD,
+  type Peer,
+  roomOfThree,
+  startedRoom,
+  startingRoom,
+} from './support/message-stage.js';
 
 const TOKEN = 'token-of-bartek';
 const WAITED = [{ token: TOKEN, nick: 'Bartek', reason: 'silent' as const }];
@@ -98,6 +105,42 @@ describe('a member that keeps the room held in short waits', () => {
     // A burst's margin either side of the owed time's straight line.
     expect(kickedAtMs).toBeGreaterThan(KICK_COUNTDOWN_MS / owedPerMs - BURST_EVERY_MS * 2);
     expect(kickedAtMs).toBeLessThan(KICK_COUNTDOWN_MS / owedPerMs + BURST_EVERY_MS * 2);
+  });
+});
+
+describe('the votes against a member that keeps the room held in short waits', () => {
+  it('add up across its waits, so two voters who each say yes in a different wait kick it', () => {
+    const s = roomOfThree();
+    const acked = new Map<Peer, number>();
+    const answer = (peer: Peer) => {
+      const ping = peer.last('ping');
+      if (ping !== undefined) peer.send({ kind: 'pong', t: ping.t });
+      const top = peer.last('frame')?.tick ?? 0;
+      for (let tick = (acked.get(peer) ?? 0) + 1; tick <= top; tick++)
+        peer.send({ kind: 'ack', tick, digest: digest(1), world: 0, load: LOAD });
+      acked.set(peer, top);
+    };
+    const voters = [s.a, s.c];
+    let windows = 0;
+    let wasOpen = false;
+    for (let ms = TICK_MS; ms <= FLAP_RUN_MS && s.a.last('kicked') === undefined; ms += TICK_MS) {
+      s.advance(TICK_MS);
+      answer(s.a);
+      answer(s.c);
+      const wait = s.a.last('waiting')?.for.find((member) => member.nick === 'Bartek');
+      const open = wait?.voteAfterMs === 0;
+      if (open && !wasOpen) {
+        const voter = voters[windows % voters.length];
+        windows++;
+        voter?.send({ kind: 'kick', player: 1, yes: true });
+      }
+      wasOpen = open;
+      if (Math.floor(ms / BURST_EVERY_MS) !== Math.floor((ms - TICK_MS) / BURST_EVERY_MS)) answer(s.b);
+    }
+    expect(windows).toBe(2);
+    expect(s.a.last('kicked')).toMatchObject({ player: 1, nick: 'Bartek', cause: 'vote' });
+    // The second wait showed the first yes again before Cezary added his.
+    expect(s.c.of('kickVote').map((tally) => tally.yes)).toEqual([['Ania'], ['Ania'], ['Ania', 'Cezary']]);
   });
 });
 

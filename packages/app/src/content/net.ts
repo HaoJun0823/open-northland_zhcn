@@ -1,5 +1,6 @@
 import { loadAtlasSource, type TextureSource } from '@open-northland/render';
 import { diag } from '../diag/log.js';
+import { contentFetch } from './url.js';
 
 /**
  * The fetch idioms this folder's optional-`content/` loaders share, kept in one place so the
@@ -9,12 +10,15 @@ import { diag } from '../diag/log.js';
  */
 
 /**
- * Fetch and parse a JSON document, or `null` when it is absent or unreadable. `fetchImpl` is injectable
- * so a headless caller can drive the same degrade policy over its own transport.
+ * Fetch and parse a JSON document by its content path, or `null` when it is absent or unreadable.
+ * `fetchImpl` is injectable so a headless caller can drive the same degrade policy over its own transport.
  */
-export async function fetchJsonOrNull<T>(url: string, fetchImpl: typeof fetch = fetch): Promise<T | null> {
+export async function fetchJsonOrNull<T>(
+  path: string,
+  fetchImpl: typeof fetch = contentFetch,
+): Promise<T | null> {
   try {
-    const res = await fetchImpl(url);
+    const res = await fetchImpl(path);
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -23,9 +27,10 @@ export async function fetchJsonOrNull<T>(url: string, fetchImpl: typeof fetch = 
 }
 
 /**
- * Load a texture if the server has it, else `undefined` so the caller degrades. Never rejects:
- * `undefined` is the only failure signal its callers read. Only a failed load pays for a HEAD probe,
- * which tells expected absence (quiet) from a broken file or transport (warned).
+ * Load a texture by its URL (a bundled asset's, or `contentUrl` of a content path) if the server has
+ * it, else `undefined` so the caller degrades. Never rejects: `undefined` is the only failure signal
+ * its callers read. Only a failed load pays for a HEAD probe, which tells expected absence (quiet)
+ * from a broken file or transport (warned).
  */
 export async function loadTextureIfPresent(
   url: string,
@@ -50,12 +55,13 @@ async function isServed(url: string): Promise<boolean> {
 }
 
 /**
- * Fetch a served PNG and read it back CPU-side as pixels via a 2D canvas (browser-only). `null` when the
- * image is absent or unreadable or no 2D context can be had, so callers degrade.
+ * Fetch a content PNG by its content path and read it back CPU-side as pixels via a 2D canvas
+ * (browser-only). `null` when the image is absent or unreadable or no 2D context can be had, so
+ * callers degrade.
  */
-export async function fetchImageData(url: string): Promise<ImageData | null> {
+export async function fetchImageData(path: string): Promise<ImageData | null> {
   try {
-    const res = await fetch(url);
+    const res = await contentFetch(path);
     if (!res.ok) return null;
     const bitmap = await createImageBitmap(await res.blob());
     const canvas = document.createElement('canvas');

@@ -4,6 +4,7 @@ import { diag } from '../../diag/log.js';
 import { installAnnouncedCatalogMap } from '../map-source/install.js';
 import { findMapSource, mapFetch } from '../map-source/sources.js';
 import { MAPS_INDEX_URL, parseMapsIndex } from '../maps-index.js';
+import { contentFetch } from '../url.js';
 import { loadPersistedMap, persistedMapOrigin, persistVerifiedMap } from './cache.js';
 import {
   type DeliverableMapOrigin,
@@ -72,7 +73,7 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
   let shipped = false;
   let disposed = false;
   const pending = new Set<string>();
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImpl = options.fetchImpl ?? contentFetch;
   const verifyNotice = options.verifyNotice ?? SILENT_VERIFY_NOTICE;
   /** Verifies under way; the notice stays up until the last one returns. */
   let verifying = 0;

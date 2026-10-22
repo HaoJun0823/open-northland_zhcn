@@ -2,6 +2,7 @@ import type { SpriteLayer, VehicleBinding, VehicleColourLut } from '@open-northl
 import { loadLayer, MissingAtlasError } from '../ir/load.js';
 import type { ContentIr } from '../ir/rows.js';
 import { loadTextureIfPresent } from '../net.js';
+import { contentUrl } from '../url.js';
 import {
   buildVehicleBinding,
   type DrawableFrames,
@@ -32,7 +33,7 @@ export interface VehicleSheet {
  *  count read off the texture; `undefined` when the pipeline hasn't produced it. */
 async function loadOwnerLut(family: string | undefined): Promise<VehicleColourLut | undefined> {
   if (family === undefined) return undefined;
-  const source = await loadTextureIfPresent(`/bobs/${family}.lut.png`);
+  const source = await loadTextureIfPresent(contentUrl(`/bobs/${family}.lut.png`));
   if (source === undefined) return undefined;
   return { source, colours: source.pixelHeight, sailRanges: SHIP_SAIL_INDEX_RANGES };
 }

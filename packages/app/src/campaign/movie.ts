@@ -1,6 +1,7 @@
 import '../hud/dom/foundation.css';
 import './movie.css';
 import { type CampaignMovie, LANGUAGE_INFO, type MapTextLanguage } from '@open-northland/data';
+import { contentFetch, contentUrl } from '../content/url.js';
 import { syncMovieSound } from './movie-sync.js';
 import { activeCue, type MovieSubtitles, parseSrt, type SubtitleCue } from './subtitles.js';
 
@@ -141,7 +142,7 @@ export function playCampaignMovie(
     for (const track of requestedTracks) {
       void (async () => {
         try {
-          const response = await fetch(track.url, { signal: subtitleRequest.signal });
+          const response = await contentFetch(track.url, { signal: subtitleRequest.signal });
           if (!response.ok) return;
           const cues = parseSrt(await response.text());
           if (cues.length === 0 || subtitleRequest.signal.aborted) return;
@@ -224,11 +225,11 @@ export function playCampaignMovie(
     // A click on the picture focuses the surface, not the page, so its keys stay out of the menu and game.
     surface.tabIndex = -1;
     const video = document.createElement('video');
-    video.src = movie.url;
+    video.src = contentUrl(movie.url);
     video.playsInline = true;
     video.preload = 'auto';
     const sound = document.createElement('audio');
-    sound.src = movie.audio;
+    sound.src = contentUrl(movie.audio);
     sound.preload = 'auto';
     // The film closes once both tracks have ended; `finish` is bound below.
     const media = syncMovieSound(video, sound, () => finish());

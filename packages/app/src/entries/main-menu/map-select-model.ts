@@ -1,6 +1,7 @@
 import type { MapsIndexEntry, MapsIndexPlayerSlot, MapTextLanguage } from '@open-northland/data';
 import { isMultiplayerMapType, MAP_TYPE, narratedLanguages } from '@open-northland/data';
 import { catalogEntryThumbnailUrl, type MapSource } from '../../content/map-source/index.js';
+import { contentUrl } from '../../content/url.js';
 import { localizedMapText } from '../../game/map-strings.js';
 import { hasWords, searchWords } from '../../hud/dom/parts/name-search.js';
 import { compareLabels, currentLocale } from '../../i18n/index.js';
@@ -149,7 +150,7 @@ export function defaultMapPreview(item: MapSelectItem): MapPreviewView | null {
 export function mapPreviewUrl(item: Pick<MapSelectItem, 'id' | 'pictureUrl'>, view: MapPreviewView): string {
   if (view === 'picture' && item.pictureUrl !== undefined) return item.pictureUrl;
   const stem = `/maps/${encodeURIComponent(item.id)}`;
-  return view === 'picture' ? `${stem}.png` : `${stem}.map.png`;
+  return contentUrl(view === 'picture' ? `${stem}.png` : `${stem}.map.png`);
 }
 
 /** Survives leaving the screen, so a lobby round trip re-enters with the same filter and selection. */

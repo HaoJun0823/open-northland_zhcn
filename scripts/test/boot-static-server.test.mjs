@@ -28,6 +28,7 @@ test('serves content over the app build, the index at the root, and nothing outs
   assert.equal(await index.text(), '<p>app</p>');
   assert.equal(await (await get('/shared.json')).text(), '"from content"');
   assert.equal((await get('/maps/a%20b.json')).status, 200);
+  assert.equal((await get(`/c/${'0'.repeat(64)}/maps/a%20b.json`)).status, 200);
   assert.equal((await get('/missing.json')).status, 404);
   assert.equal((await get('/..%2fsecret.txt')).status, 404);
 });

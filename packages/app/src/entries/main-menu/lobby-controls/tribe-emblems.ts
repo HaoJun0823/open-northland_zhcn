@@ -5,6 +5,7 @@ import { servedAtlasStem } from '../../../content/ir/joins.js';
 import { loadIr } from '../../../content/ir/load.js';
 import type { BuildingBobRow } from '../../../content/ir/rows.js';
 import { fetchJsonOrNull } from '../../../content/net.js';
+import { contentUrl } from '../../../content/url.js';
 
 /** Square edge in device pixels the thumbnail is painted at; the CSS box scales it down. */
 const EMBLEM_PX = 128;
@@ -40,7 +41,7 @@ async function emblemUrl(bob: BuildingBobRow): Promise<string | null> {
   const rect = manifest?.frames.find((frame) => frame.bobId === bob.bobId)?.rect;
   if (rect === undefined || rect.width === 0 || rect.height === 0) return null;
   const image = new Image();
-  image.src = `/bobs/${stem}.png`;
+  image.src = contentUrl(`/bobs/${stem}.png`);
   await image.decode();
   const canvas = document.createElement('canvas');
   canvas.width = EMBLEM_PX;

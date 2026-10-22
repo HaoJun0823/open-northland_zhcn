@@ -1,5 +1,6 @@
 import { MapScript, mapDocumentsFingerprint, parseTerrainMap } from '@open-northland/data';
 import { MAX_BLOB_BYTES } from '@open-northland/net-protocol';
+import { contentFetch } from '../url.js';
 
 export const MAX_MAP_TRANSFER_BYTES = MAX_BLOB_BYTES;
 // A map too large for the relay can still be verified and played locally.
@@ -108,7 +109,7 @@ async function readDocument(path: string, fetchImpl: typeof fetch): Promise<unkn
 
 export async function loadVerifiedMapDocuments(
   mapId: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
 ): Promise<VerifiedMapDocuments | null> {
   validMapId(mapId);
   const [map, script] = await Promise.all([

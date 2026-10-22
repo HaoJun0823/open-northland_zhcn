@@ -1,11 +1,14 @@
 import { type MusicManifest, parseMusicManifest } from '@open-northland/audio';
 import { diag } from '../diag/index.js';
+import { contentFetch } from './url.js';
 
 /**
  * The rendered-music fetch boundary: the pipeline's `music/manifest.json`, or null when no music was
  * rendered (a checkout without it stays silent, music-wise, and still boots).
  */
-export async function loadMusicManifest(fetchImpl: typeof fetch = fetch): Promise<MusicManifest | null> {
+export async function loadMusicManifest(
+  fetchImpl: typeof fetch = contentFetch,
+): Promise<MusicManifest | null> {
   try {
     const res = await fetchImpl('/music/manifest.json');
     if (!res.ok) return null;

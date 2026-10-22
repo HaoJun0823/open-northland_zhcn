@@ -7,6 +7,7 @@ import {
   type TerrainMapFile,
 } from '@open-northland/data';
 import { diag } from '../diag/index.js';
+import { contentFetch } from './url.js';
 
 /**
  * The decoded-map fetch boundary: app-layer I/O for a `content/maps/<id>.json` grid, never allowed in the
@@ -29,7 +30,7 @@ function safeMapId(id: string): string | null {
  */
 export async function loadTerrainMap(
   id: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
 ): Promise<TerrainMapFile | null> {
   const safe = safeMapId(id);
   if (safe === null) {
@@ -59,7 +60,10 @@ export async function loadTerrainMap(
  * A decoded map's meta sidecar, or null when it is absent or malformed (the map then plays no music
  * and the mission book has no map name or menu description to fall back on).
  */
-export async function loadMapMeta(id: string, fetchImpl: typeof fetch = fetch): Promise<MapMeta | null> {
+export async function loadMapMeta(
+  id: string,
+  fetchImpl: typeof fetch = contentFetch,
+): Promise<MapMeta | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
   try {
@@ -79,7 +83,7 @@ export async function loadMapMeta(id: string, fetchImpl: typeof fetch = fetch): 
  */
 export async function loadMapBriefing(
   id: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
 ): Promise<MapBriefing | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
@@ -99,7 +103,7 @@ export async function loadMapBriefing(
  */
 export async function loadMapStrings(
   id: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
 ): Promise<MapStrings | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
@@ -118,7 +122,10 @@ export async function loadMapStrings(
  * absence and returns null silently; a malformed file returns null with a warning, so the entry degrades
  * to the roster-less defaults.
  */
-export async function loadMapScript(id: string, fetchImpl: typeof fetch = fetch): Promise<MapScript | null> {
+export async function loadMapScript(
+  id: string,
+  fetchImpl: typeof fetch = contentFetch,
+): Promise<MapScript | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
   try {

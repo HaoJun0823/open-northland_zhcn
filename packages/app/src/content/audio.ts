@@ -1,11 +1,26 @@
-import { buildSoundIndex, defaultBindings, SoundDriver, type SoundIndex } from '@open-northland/audio';
+import {
+  type AudioEngineOptions,
+  buildSoundIndex,
+  DEFAULT_MUSIC_BASE_URL,
+  DEFAULT_SOUNDS_BASE_URL,
+  defaultBindings,
+  SoundDriver,
+  type SoundIndex,
+} from '@open-northland/audio';
 import type { SoundBank } from '@open-northland/data';
 import type { ContentIr } from './ir/rows.js';
+import { contentUrl } from './url.js';
 
 /**
  * The audio content boundary: build the {@link SoundDriver} the live loop pumps from the decoded sound
  * bank in the shared IR.
  */
+
+/** Where an audio engine of this page reads the content tree's clips and music. */
+export const CONTENT_AUDIO_URLS = {
+  baseUrl: contentUrl(DEFAULT_SOUNDS_BASE_URL),
+  musicBaseUrl: contentUrl(DEFAULT_MUSIC_BASE_URL),
+} as const satisfies AudioEngineOptions;
 
 /**
  * True when the bank carries at least one clip in any category. The one "is there anything to play?" test,
@@ -36,5 +51,5 @@ export function soundIndexOf(ir: ContentIr, sounds: SoundBank): SoundIndex {
 export function createSoundDriver(ir: ContentIr | null): SoundDriver | null {
   const sounds = ir?.sounds;
   if (ir === null || !hasSoundContent(sounds)) return null;
-  return new SoundDriver(soundIndexOf(ir, sounds), defaultBindings());
+  return new SoundDriver(soundIndexOf(ir, sounds), defaultBindings(), CONTENT_AUDIO_URLS);
 }

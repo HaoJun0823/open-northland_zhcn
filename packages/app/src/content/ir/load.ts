@@ -6,6 +6,7 @@ import {
   type SpriteLayer,
 } from '@open-northland/render';
 import { fetchImageData, fetchJsonOrNull } from '../net.js';
+import { contentFetch, contentUrl } from '../url.js';
 import { BODY_IMAGELIB, type BobSeqRow, type ContentIr } from './rows.js';
 
 /**
@@ -29,7 +30,7 @@ const layerBodies = new Map<string, Promise<SpriteLayer>>();
  * crop reveal when unreadable.
  */
 async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
-  const res = await fetch(`/bobs/${stem}.atlas.json`);
+  const res = await contentFetch(`/bobs/${stem}.atlas.json`);
   if (!res.ok) {
     throw new MissingAtlasError(
       `atlas: decoded atlas '${stem}' not found (HTTP ${res.status}). Run \`npm run build:content\` to populate content/.`,
@@ -37,7 +38,11 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   }
   const manifest = (await res.json()) as AtlasManifest;
   const [source, times] = await Promise.all([
-    loadAtlasSource(`/bobs/${stem}.png`, 'nearest', isIndexedStem(stem) ? 'straight' : 'premultiplied'),
+    loadAtlasSource(
+      contentUrl(`/bobs/${stem}.png`),
+      'nearest',
+      isIndexedStem(stem) ? 'straight' : 'premultiplied',
+    ),
     manifest.build === true ? loadBuildTimeSheet(`/bobs/${stem}.build.png`) : Promise.resolve(undefined),
   ]);
   return { atlas: atlasFromManifest(manifest), source, ...(times !== undefined ? { times } : {}) };

@@ -2,6 +2,7 @@ import type { MapsIndexEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { diag } from '../../diag/log.js';
 import { loadMapList } from '../maps-index.js';
+import { contentFetch } from '../url.js';
 import type { InstalledMapRecord } from './installed.js';
 import { type InstalledMapStore, installedMapStore } from './store.js';
 
@@ -98,7 +99,7 @@ export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry 
       return [];
     }
   };
-  const sources = async (shippedFetch: typeof fetch = fetch) => {
+  const sources = async (shippedFetch: typeof fetch = contentFetch) => {
     const [listed, local] = await Promise.all([deps.shipped(), installed()]);
     return mergeMapSources(listed, local, deps.irVersion, shippedFetch);
   };
@@ -108,7 +109,7 @@ export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry 
       const key = mapId.toLowerCase();
       return (await sources()).find((source) => source.entry.id.toLowerCase() === key) ?? null;
     },
-    async fetchFor(mapId, fallback = fetch) {
+    async fetchFor(mapId, fallback = contentFetch) {
       const key = mapId.toLowerCase();
       const source = (await sources(fallback)).find((item) => item.entry.id.toLowerCase() === key);
       return source !== undefined &&

@@ -38,6 +38,7 @@ import {
   unlockedStages,
 } from './model.js';
 import './screen.css';
+import { contentUrl } from '../../../content/url.js';
 import { campaignTribeChoice } from './tribe-choice.js';
 
 /** Window storage, or none where reading the accessor itself throws. */
@@ -109,7 +110,7 @@ function campaignTab(campaign: Campaign, language: MapTextLanguage): HTMLButtonE
   }
   const logo = node('img', 'campaign-screen__campaign-logo');
   logo.alt = title;
-  logo.src = url;
+  logo.src = contentUrl(url);
   logo.addEventListener('error', () => logo.replaceWith(text()), { once: true });
   button.append(logo);
   return button;

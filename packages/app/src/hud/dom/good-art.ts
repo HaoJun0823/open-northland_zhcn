@@ -6,6 +6,7 @@ import {
   spriteGoodIcon,
   swarmFishIcon,
 } from '../../content/sprite-good-icons.js';
+import { contentUrl } from '../../content/url.js';
 import { diag } from '../../diag/index.js';
 import type { GoodIconSource, PresentationPack } from '../../presentation/pack.js';
 
@@ -42,7 +43,11 @@ export async function goodIconSource(
   const frame = icon?.atlas.frames.find((f) => f.bobId === icon.bobId);
   if (icon === null || frame === undefined) return null;
   const { atlas, stem } = icon;
-  return { url: `/bobs/${stem}.png`, sheet: { width: atlas.width, height: atlas.height }, rect: frame.rect };
+  return {
+    url: contentUrl(`/bobs/${stem}.png`),
+    sheet: { width: atlas.width, height: atlas.height },
+    rect: frame.rect,
+  };
 }
 
 /**

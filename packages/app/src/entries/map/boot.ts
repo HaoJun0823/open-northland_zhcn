@@ -31,6 +31,7 @@ import { loadMapObjects } from '../../content/objects.js';
 import { resolveSpriteSheet } from '../../content/sprite-sheet/index.js';
 import { loadRealTerrain, MissingTerrainError } from '../../content/terrain.js';
 import { readVerifiedMapDocuments, type VerifiedMapDocuments } from '../../content/transfer/index.js';
+import { contentFetch } from '../../content/url.js';
 import { diag, hashTraceFor, setDiagGameSession } from '../../diag/index.js';
 import { assertMultiplayerMap } from '../../game/multiplayer-map.js';
 import { sandboxGoods } from '../../game/sandbox/index.js';
@@ -233,7 +234,7 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
   try {
     await boot.begin('map');
     // An installed catalogue map loads from its own store; every other map from the page's `/maps/`.
-    const files = mapId !== null ? await mapFetch(mapId) : fetch;
+    const files = mapId !== null ? await mapFetch(mapId) : contentFetch;
     const loaded = verified?.map ?? (mapId !== null ? await loadTerrainMap(mapId, files) : null);
     // A roster-less map keeps the defaults: seat 0, and colour = slot id.
     const [script, meta, briefing, strings] = await Promise.all([

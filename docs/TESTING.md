@@ -552,4 +552,5 @@ area the fix touched.
 | Sort comparators, the local float allowance, or the state hash | standard gates plus `npm run test:engines` when local content and the Playwright browsers exist |
 | The original-game gate, the settings store or the entry redirect | `npm run test:gate` |
 | Desktop boot or protocol, window mode, or save/load wiring | `npm run test:desktop` |
+| The web image (`deploy/web`) or the content URL layout | `npm run build`, `npm run web:image`, then `node deploy/web/smoke-image.mjs`: on a read-only root, the image serves the build's `/c/<content>/` tree immutable, redirects another hash to the bare path, and revalidates the bare paths ([web image](BUILDING.md#web-image)) |
 | Visual or audio work | matching automated checks plus a stated human review step |

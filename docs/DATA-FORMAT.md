@@ -3,7 +3,9 @@
 The asset pipeline converts the validated Open Northland source data pack into a local `content/`
 directory. The directory is ignored by Git because it contains derived game data.
 
-The tree is laid out exactly as the app fetches it, so every host serves it as static files from `/`:
+The tree is laid out exactly as the app fetches it, so every host serves it as static files from `/`,
+and for a production build also under the versioned `/c/<content>/` prefix
+([build version](BUILDING.md#build-version)):
 
 ```text
 content/

@@ -1,6 +1,7 @@
 import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
+import { contentUrl } from '../content/url.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { el, mountMessage, pageInnerStyle, pageRootStyle } from '../view/overlay.js';
 
@@ -177,7 +178,7 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
         meta.textContent = formatMessage(messages().icons.loadFailed, { stem });
         return;
       }
-      grid.style.setProperty('--sheet', `url('/bobs/${stem}.png')`);
+      grid.style.setProperty('--sheet', `url('${contentUrl(`/bobs/${stem}.png`)}')`);
       grid.style.setProperty('--sw', String(atlas.width));
       grid.style.setProperty('--sh', String(atlas.height));
       const withName = stem.startsWith(`${GUI_BASE}.`);

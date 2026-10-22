@@ -13,10 +13,18 @@ Without `ON_VERSION`, the menu shows `dev`. The build writes `version.json` besi
 | `version` | Release version |
 | `build` | Entry script name; changes on rebuild |
 | `restore` | Hash of client sources and `content/ir.json`; null without content |
+| `content` | Hash of every file in the content tree; null without content |
 
 Released web tabs poll this file. A new build reloads from the menu; a local game can reload and
 resume when `restore` matches. Relay close code `CLOSE_SERVICE_RESTART` returns to the menu.
 To test updates, serve a build, open it, then rebuild into the same `dist/` with another version.
+
+A build fetches content under `/c/<content>/`, so a release with other content bytes uses other
+URLs. The hash is the sha256 of the tree's `sha256sum` manifest
+(`find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum`); a symlink in the
+tree fails the build. Hashing the 1.4 GB, 3835-file tree adds 1 to 7 s to `vite build`, depending on
+the disk cache. The dev server hashes nothing and serves bare paths. It and
+`vite preview` also answer `/c/<any hash>/`, as do the desktop shell and `test:boot`.
 
 ## Release checks
 
@@ -81,12 +89,30 @@ Build the app first, with `content/` present:
 ```bash
 npm run build
 npm run web:image
+node deploy/web/smoke-image.mjs open-northland-web
 docker run --rm --publish 8080:80 open-northland-web
 ```
 
-`deploy/web/Dockerfile` copies the prebuilt app and content. nginx serves both from one root:
-`/` is the app, `/assets/` is cached permanently, other files require revalidation, missing paths
-return 404, and `/healthz` is the health endpoint.
+`deploy/web/Dockerfile` copies the prebuilt app and content. It rehashes the content it ships and
+refuses an app built against another tree, so build both from the same `content/`. It also writes a
+`.gz` beside every js, css and json file for `gzip_static`.
+
+| Path | Served | `Cache-Control` |
+| --- | --- | --- |
+| `/c/<content>/...` | the content tree only | `immutable` for 200, 206 and 304; `no-cache` otherwise |
+| `/c/<other hash>/...` | 302 to the bare path | `no-store` |
+| `/assets/...` | hashed app files | `immutable` for 200, 206 and 304 |
+| other paths | the app, else the content tree | `no-cache` |
+
+Missing paths return 404 and `/healthz` is the health endpoint. A CDN in front may cache everything
+under `/c/` by these headers (for Cloudflare, a cache rule on URI path starting with `/c/` that
+respects origin headers); the bare paths must stay uncached. On a read-only root the smoke check
+proves every row: 200, 206 and 304 under both prefixes, misses under `/c/<content>/` and `/assets/`,
+the redirect with its percent-encoding kept and the bare file it lands on, and the FLAC media type.
+
+The hash covers content bytes only, not how they are served. A release that changes the headers,
+media types or encoding of unchanged content under `/c/` needs a Cloudflare purge of `/c/*`;
+browsers keep their copies until they evict them.
 
 nginx runs unprivileged. The image supports a read-only root with writable `/tmp`.
 Internal port 80 requires permission to bind low ports; restricted runtimes can set

@@ -26,11 +26,13 @@ export function restoreIdentity(clientBuild: string, contentRoot: string): strin
   return createHash('sha256').update(clientBuild).update('\n').update(readFileSync(ir)).digest('hex');
 }
 
-/** What `version.json` reports beside the build's own entry script: the release, and the identity a
- *  running game must share for its save to survive a reload into this build. */
+/** What `version.json` reports beside the build's own entry script: the release, the identity a
+ *  running game must share for its save to survive a reload into this build, and the hash of the
+ *  content tree it serves under `/c/<content>/` (null without content). */
 export interface ServedBuildFile {
   readonly version: string;
   readonly restore: string | null;
+  readonly content: string | null;
 }
 
 const PAGE_ENTRY = 'index.html';

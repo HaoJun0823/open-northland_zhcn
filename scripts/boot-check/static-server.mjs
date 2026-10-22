@@ -27,6 +27,9 @@ const CONTENT_TYPES = {
   '.txt': 'text/plain; charset=utf-8',
 };
 const FALLBACK_CONTENT_TYPE = 'application/octet-stream';
+/** A build's versioned content path (packages/app/build/content-hash.ts); nothing here caches, so any
+ *  hash reads the served tree. */
+const VERSIONED_CONTENT_PATH = /^\/c\/[0-9a-f]{64}(\/.*)$/;
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
 const HTTP_METHOD_NOT_ALLOWED = 405;
@@ -59,7 +62,7 @@ export async function startStaticServer(roots) {
       return;
     }
     const { pathname } = new URL(request.url ?? '/', 'http://127.0.0.1');
-    const file = await resolveServedFile(absoluteRoots, pathname);
+    const file = await resolveServedFile(absoluteRoots, pathname.replace(VERSIONED_CONTENT_PATH, '$1'));
     if (file === null) {
       response.writeHead(HTTP_NOT_FOUND, { 'Content-Type': 'text/plain' }).end('not found\n');
       return;

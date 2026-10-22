@@ -1,7 +1,8 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
-import type { Plugin } from 'vite';
+import type { Connect, Plugin } from 'vite';
+import { unversionedContentPath } from '../build/content-hash.js';
 
 // The first path segment of every URL the app fetches from the content tree. A miss there answers
 // 404: Vite's SPA fallback would otherwise serve `index.html` as HTTP 200 and the loaders' `!res.ok`
@@ -91,46 +92,58 @@ export function isContentPath(pathname: string): boolean {
   return CONTENT_ROOTS.has(pathname.split('/')[1] ?? '');
 }
 
-/** Streams the pipeline's output tree from `/` as static files, laid out exactly as the app fetches it. */
+/**
+ * Answers content requests from `contentRoot`, at bare paths and under a build's `/c/<hash>/` prefix,
+ * whatever the hash: nothing here caches, so a stale hash cannot pin a file.
+ */
+function contentMiddleware(contentRoot: string): Connect.NextHandleFunction {
+  return (req, res, next) => {
+    const requested = (req.url ?? '').split('?')[0] ?? '';
+    const pathname = unversionedContentPath(requested);
+    void (async () => {
+      const file = await contentFile(contentRoot, pathname);
+      if (file === undefined) {
+        if (isContentPath(pathname) || pathname !== requested) {
+          res.statusCode = 404;
+          res.end();
+          return;
+        }
+        next();
+        return;
+      }
+      res.setHeader('Content-Type', CONTENT_TYPES[extname(file)] ?? 'application/octet-stream');
+      res.setHeader('Accept-Ranges', 'bytes');
+      const { size } = await stat(file);
+      const range = byteRange(req.headers.range, size);
+      if (range === 'unsatisfiable') {
+        res.statusCode = HTTP_RANGE_NOT_SATISFIABLE;
+        res.setHeader('Content-Range', `bytes */${size}`);
+        res.end();
+        return;
+      }
+      if (range !== undefined) {
+        res.statusCode = HTTP_PARTIAL_CONTENT;
+        res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+      }
+      res.setHeader('Content-Length', range === undefined ? size : range.end - range.start + 1);
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      createReadStream(file, range).pipe(res);
+    })().catch(next);
+  };
+}
+
+/** Streams the pipeline's output tree as static files to the dev server and to `vite preview`. */
 export function serveContent(contentRoot: string): Plugin {
   return {
     name: 'opennorthland-serve-content',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const pathname = (req.url ?? '').split('?')[0] ?? '';
-        void (async () => {
-          const file = await contentFile(contentRoot, pathname);
-          if (file === undefined) {
-            if (isContentPath(pathname)) {
-              res.statusCode = 404;
-              res.end();
-              return;
-            }
-            next();
-            return;
-          }
-          res.setHeader('Content-Type', CONTENT_TYPES[extname(file)] ?? 'application/octet-stream');
-          res.setHeader('Accept-Ranges', 'bytes');
-          const { size } = await stat(file);
-          const range = byteRange(req.headers.range, size);
-          if (range === 'unsatisfiable') {
-            res.statusCode = HTTP_RANGE_NOT_SATISFIABLE;
-            res.setHeader('Content-Range', `bytes */${size}`);
-            res.end();
-            return;
-          }
-          if (range !== undefined) {
-            res.statusCode = HTTP_PARTIAL_CONTENT;
-            res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
-          }
-          res.setHeader('Content-Length', range === undefined ? size : range.end - range.start + 1);
-          if (req.method === 'HEAD') {
-            res.end();
-            return;
-          }
-          createReadStream(file, range).pipe(res);
-        })().catch(next);
-      });
+      server.middlewares.use(contentMiddleware(contentRoot));
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(contentMiddleware(contentRoot));
     },
   };
 }

@@ -3,6 +3,7 @@ import type { SpriteLayer, TextureSource } from '@open-northland/render';
 import { diag } from '../diag/index.js';
 import { loadLayer } from './ir/load.js';
 import { fetchJsonOrNull, loadTextureIfPresent } from './net.js';
+import { contentFetch, contentUrl } from './url.js';
 
 /**
  * GUI content bindings for the pipeline's `gui` stage outputs. Atlases and the palette LUT ride the
@@ -70,7 +71,7 @@ export function loadGuiWindowIndexed(): Promise<SpriteLayer> {
  * RGBA preview atlas.
  */
 export function loadGuiPaletteLut(): Promise<TextureSource | undefined> {
-  return loadTextureIfPresent(`/bobs/${GUI_PALETTE_LUT_STEM}.png`);
+  return loadTextureIfPresent(contentUrl(`/bobs/${GUI_PALETTE_LUT_STEM}.png`));
 }
 
 const guiStringsByLang = new Map<string, Promise<GuiStrings | null>>();
@@ -94,7 +95,7 @@ export function loadGuiStrings(lang: string): Promise<GuiStrings | null> {
 /** Load one language's rendered history tables (read in the mission book's chronicle), or `null` without them. */
 export async function loadGuiHistory(
   lang: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
 ): Promise<HypertextBook | null> {
   const raw = await fetchJsonOrNull<unknown>(`${GUI_ROOT}/history/${lang}.json`, fetchImpl);
   if (raw === null) return null;
@@ -109,5 +110,5 @@ export async function loadGuiHistory(
 /** A hypertext page picture's URL, by the content-addressed file name its block carries; a checkout
  *  without the pipeline's output answers it with a missing image. */
 export function hypertextPictureUrl(file: string): string {
-  return `${GUI_ROOT}/hypertext/${file}`;
+  return contentUrl(`${GUI_ROOT}/hypertext/${file}`);
 }

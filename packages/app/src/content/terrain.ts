@@ -10,6 +10,7 @@ import {
 import { diag } from '../diag/index.js';
 import { loadIr } from './ir/load.js';
 import type { ContentIr } from './ir/rows.js';
+import { contentUrl } from './url.js';
 
 /**
  * The real-ground binding: draw terrain from the decoded `text_*.pcx` pages served out of the gitignored
@@ -116,7 +117,7 @@ export async function loadRealTerrain(
   await Promise.all(
     [...pageKeys].map(async (key) => {
       try {
-        pages.set(key, await loadPage(`/textures/${key}.png`));
+        pages.set(key, await loadPage(contentUrl(`/textures/${key}.png`)));
       } catch {
         diag.warn('content', `terrain: page ${key}.png failed to load; its triangles fall back`);
       }

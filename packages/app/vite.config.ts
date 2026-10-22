@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultClientConditions, defineConfig, type Plugin, runnerImport } from 'vite';
 import { clientBuildIdentity, refreshClientBuild } from './build/client-version.js';
+import { contentPrefix, contentTreeHash } from './build/content-hash.js';
 import { emitVersionFile, gameVersion, restoreIdentity } from './build/game-version.js';
 import { devCheckout } from './vite/dev-checkout.js';
 import { gpuBenchmarks } from './vite/gpu-benchmarks.js';
@@ -25,26 +26,31 @@ const version = gameVersion();
 const clientBuild = clientBuildIdentity(resolve(here, '../..'));
 const restore = restoreIdentity(clientBuild, contentRoot);
 
-export default defineConfig(async ({ command }) => ({
-  root: here,
-  resolve: { conditions: [...(command === 'serve' ? ['source'] : []), ...defaultClientConditions] },
-  define: {
-    __CLIENT_BUILD__: JSON.stringify(clientBuild),
-    __GAME_VERSION__: JSON.stringify(version),
-    __RESTORE_IDENTITY__: JSON.stringify(restore),
-    __API_URL__: JSON.stringify(process.env.ON_API_URL ?? null),
-    // The sim's fixed-point overflow asserts run in the dev server and are compiled out of builds.
-    __SIM_ASSERTS__: JSON.stringify(command === 'serve'),
-  },
-  plugins: [
-    devCheckout(resolve(here, '../..'), contentRoot),
-    serveContent(contentRoot),
-    gpuBenchmarks(),
-    refreshClientBuild(resolve(here, '../..')),
-    emitVersionFile({ version, restore }),
-    ...(await checkoutPlugins(command)),
-  ],
-  server: { open: false },
-  // `manifest` feeds scripts/bundle-report.mjs, which prints what each URL mode costs after the build.
-  build: { target: 'es2022', outDir: 'dist', manifest: true },
-}));
+export default defineConfig(async ({ command }) => {
+  // A build serves content under its tree's hash; the dev server and `vite preview` hash nothing.
+  const content = command === 'build' ? await contentTreeHash(contentRoot) : null;
+  return {
+    root: here,
+    resolve: { conditions: [...(command === 'serve' ? ['source'] : []), ...defaultClientConditions] },
+    define: {
+      __CLIENT_BUILD__: JSON.stringify(clientBuild),
+      __GAME_VERSION__: JSON.stringify(version),
+      __RESTORE_IDENTITY__: JSON.stringify(restore),
+      __API_URL__: JSON.stringify(process.env.ON_API_URL ?? null),
+      __CONTENT_PREFIX__: JSON.stringify(content === null ? '' : contentPrefix(content)),
+      // The sim's fixed-point overflow asserts run in the dev server and are compiled out of builds.
+      __SIM_ASSERTS__: JSON.stringify(command === 'serve'),
+    },
+    plugins: [
+      devCheckout(resolve(here, '../..'), contentRoot),
+      serveContent(contentRoot),
+      gpuBenchmarks(),
+      refreshClientBuild(resolve(here, '../..')),
+      emitVersionFile({ version, restore, content }),
+      ...(await checkoutPlugins(command)),
+    ],
+    server: { open: false },
+    // `manifest` feeds scripts/bundle-report.mjs, which prints what each URL mode costs after the build.
+    build: { target: 'es2022', outDir: 'dist', manifest: true },
+  };
+});

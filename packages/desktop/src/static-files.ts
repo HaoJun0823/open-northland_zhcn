@@ -24,7 +24,16 @@ export async function fileUnderRoot(root: string, rawPathname: string): Promise<
   }
 }
 
+/**
+ * A web build fetches content under `/c/<hash>/`, the hash of the tree it was built against. The shell
+ * serves its own content tree under any hash: `app://` responses are never cached, so a hash cannot
+ * pin a stale file. `packages/app/build/content-hash.ts` owns the prefix shape.
+ */
+const VERSIONED_CONTENT_PATH = /^\/c\/[0-9a-f]{64}(\/.*)$/;
+
 /** Installed maps use the snapshot IPC; static resources remain read-only. */
 export async function servedFile(roots: ShellRoots, pathname: string): Promise<string | undefined> {
+  const versioned = VERSIONED_CONTENT_PATH.exec(pathname)?.[1];
+  if (versioned !== undefined) return fileUnderRoot(roots.contentRoot, versioned);
   return (await fileUnderRoot(roots.appRoot, pathname)) ?? (await fileUnderRoot(roots.contentRoot, pathname));
 }

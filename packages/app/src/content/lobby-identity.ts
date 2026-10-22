@@ -8,12 +8,13 @@ import {
   type VerifiedMapDocuments,
   validMapId,
 } from './transfer/index.js';
+import { contentFetch } from './url.js';
 
 declare const __CLIENT_BUILD__: string;
 
 export async function loadLobbyCompatibility(
   mapId: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = contentFetch,
   client = typeof __CLIENT_BUILD__ === 'string' ? __CLIENT_BUILD__ : 'unbundled',
   supplied?: VerifiedMapDocuments | null,
 ): Promise<LobbyCompatibility> {

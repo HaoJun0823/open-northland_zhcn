@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fileUnderRoot } from '../src/static-files.js';
+import { fileUnderRoot, servedFile } from '../src/static-files.js';
 
 /** The boundary between a crafted `app://` path and the rest of the user's disk. */
 describe('fileUnderRoot', () => {
@@ -41,5 +41,37 @@ describe('fileUnderRoot', () => {
     expect(await fileUnderRoot(root, '/maps')).toBeUndefined();
     expect(await fileUnderRoot(root, '/maps/missing.json')).toBeUndefined();
     expect(await fileUnderRoot(root, '/maps/%zz.json')).toBeUndefined();
+  });
+});
+
+describe('servedFile', () => {
+  const HASH = 'a'.repeat(64);
+  let tmp: string;
+  let appRoot: string;
+  let contentRoot: string;
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(join(tmpdir(), 'opennorthland-served-'));
+    appRoot = join(tmp, 'app');
+    contentRoot = join(tmp, 'content');
+    await mkdir(appRoot, { recursive: true });
+    await mkdir(contentRoot, { recursive: true });
+    await writeFile(join(appRoot, 'index.html'), '<!doctype html>');
+    await writeFile(join(contentRoot, 'ir.json'), '{}');
+  });
+
+  afterEach(() => rm(tmp, { recursive: true, force: true }));
+
+  it('serves content at its bare path and under any build hash', async () => {
+    const roots = { appRoot, contentRoot };
+    expect(await servedFile(roots, '/ir.json')).toBe(join(contentRoot, 'ir.json'));
+    expect(await servedFile(roots, `/c/${HASH}/ir.json`)).toBe(join(contentRoot, 'ir.json'));
+  });
+
+  it('keeps the app out of the versioned prefix', async () => {
+    const roots = { appRoot, contentRoot };
+    expect(await servedFile(roots, '/index.html')).toBe(join(appRoot, 'index.html'));
+    expect(await servedFile(roots, `/c/${HASH}/index.html`)).toBeUndefined();
+    expect(await servedFile(roots, `/c/${HASH}/../app/index.html`)).toBeUndefined();
   });
 });

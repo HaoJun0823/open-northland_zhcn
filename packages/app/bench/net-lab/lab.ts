@@ -269,9 +269,13 @@ export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<L
   const links = probes.map((probe) => linkProbe(stage, probe));
   const slowestTripMs = Math.max(...config.links.map((link) => link.latencyMs + link.jitterMs));
   const slowestDownload = Math.min(...config.links.map((link) => link.downloadBytesPerSecond));
-  // A snapshot crosses the slowest link once at a saved start and once per chaos event.
+  const creatorLink = config.links[0];
+  if (creatorLink === undefined) throw new Error('a room needs a creator');
+  // A saved start's snapshot first crosses the creator's uplink whole, since the relay forwards a blob
+  // only once all of it arrived; then it crosses the slowest downlink, and again once per chaos event.
   const snapshotBytes = saved?.initial.bytes.length ?? 0;
   const transferMs =
+    (snapshotBytes * MS_PER_SECOND) / creatorLink.uploadBytesPerSecond +
     ((START_TRANSFERS + config.chaos.length) * snapshotBytes * MS_PER_SECOND) / slowestDownload;
   const clients = probes.map((probe) => probe.client);
   const buildStartMs = performance.now();

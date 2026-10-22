@@ -1,5 +1,6 @@
 import { closingCode } from '@open-northland/net-protocol';
 import { type ConnectionEvent, NetworkConnection } from '../../net/connection.js';
+import { reloadDocument } from '../../view/navigation-guard.js';
 
 /** How long giving a seat up waits for the relay before the menu opens anyway; the seat then stays held
  *  and the room can still vote it out. */
@@ -31,7 +32,7 @@ export function closeKeepsSeat(reason: string | undefined): boolean {
 
 export function keptSeat(url: string, identity: Identity, roomId: string): KeptSeat {
   return {
-    retry: () => window.location.reload(),
+    retry: reloadDocument,
     leave: () => surrenderSeat(url, identity, roomId),
   };
 }

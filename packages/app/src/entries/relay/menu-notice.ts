@@ -6,6 +6,9 @@ import { menuSearch } from '../../view/params.js';
 import type { KeptView } from './kept-view.js';
 import type { KeptSeat } from './seat-surrender.js';
 
+/** A reason's own full stop, which `seatKept` puts after the clause itself. */
+const SENTENCE_END = /[.。]$/u;
+
 /** The notice a relayed entry ends on, with a way back to the menu that takes the notice with it. */
 export function mountReturnToMenuNotice(title: string, detail: string): void {
   mountHaltNotice(title, detail, { onCard: false, seat: null, view: null });
@@ -48,7 +51,10 @@ export function mountHaltNotice(title: string, detail: string, options: HaltNoti
             },
           },
         ];
-  const text = seat === null ? detail : formatMessage(copy.networkRelay.seatKept, { reason: detail });
+  const text =
+    seat === null
+      ? detail
+      : formatMessage(copy.networkRelay.seatKept, { reason: detail.replace(SENTENCE_END, '') });
   if (options.onCard) {
     remove = mountBootNotice(title, text, actions);
     return;

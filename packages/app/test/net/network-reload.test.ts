@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { PROTOCOL_VERSION, type RoomView, type ServerMessage } from '@open-northland/net-protocol';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { messages } from '../../src/i18n/index.js';
+import { formatMessage, messages } from '../../src/i18n/index.js';
 import type { ConnectionEvent } from '../../src/net/connection.js';
 
 const ROOM_ID = 'room1';
@@ -17,6 +17,10 @@ const fake = vi.hoisted(() => ({
   /** This browser lost the room's map, so the load falls back to the relay's copy. */
   mapLost: false,
   delivered: null as string | null,
+  /** Neither this browser nor anyone else can provide the room's map. */
+  mapGone: false,
+  retry: vi.fn(),
+  leave: vi.fn(async () => undefined),
 }));
 vi.mock('../../src/net/connection.js', () => ({
   NetworkConnection: class {
@@ -26,6 +30,7 @@ vi.mock('../../src/net/connection.js', () => ({
       nick: 'Ania',
       joinRoom: vi.fn(),
       requestMap: fake.requestMap,
+      session: { localSeat: 0 },
       get room() {
         return fake.room;
       },
@@ -42,6 +47,7 @@ vi.mock('../../src/net/connection.js', () => ({
 vi.mock('../../src/content/transfer/index.js', () => ({
   loadRoomMapDocuments: async (_room: unknown, services: { delivered?: () => Promise<string> }) => {
     fake.textAtMapLoad = document.body.textContent;
+    if (fake.mapGone) return null;
     if (fake.mapLost) fake.delivered = (await services.delivered?.()) ?? null;
     return { mapId: 'forest' };
   },
@@ -50,7 +56,14 @@ vi.mock('../../src/content/lobby-identity.js', () => ({
   loadLobbyCompatibility: async () => OWN_REPORT,
 }));
 vi.mock('../../src/entries/relay/network-game.js', () => ({ renderNetworkGame: vi.fn() }));
-vi.mock('../../src/launch.js', () => ({ swapToEntry: vi.fn(async () => undefined) }));
+vi.mock('../../src/launch.js', async () => ({
+  swapToEntry: (await import('../support/swap-to-entry.js')).swapToEntry,
+}));
+// The halt notice's seat is the test's own: giving it up would open a real connection.
+vi.mock('../../src/entries/relay/seat-surrender.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/entries/relay/seat-surrender.js')>()),
+  keptSeat: () => ({ retry: fake.retry, leave: fake.leave }),
+}));
 
 import { renderNetworkGame } from '../../src/entries/relay/network-game.js';
 import { renderNetworkReload } from '../../src/entries/relay/network-reload.js';
@@ -69,7 +82,10 @@ afterEach(() => {
   fake.dispose.mockClear();
   fake.requestMap.mockClear();
   vi.mocked(renderNetworkGame).mockClear();
+  fake.retry.mockClear();
+  fake.leave.mockClear();
   fake.mapLost = false;
+  fake.mapGone = false;
   fake.delivered = null;
 });
 
@@ -138,8 +154,7 @@ it('keeps the groups while the seat is held and forgets them when the player lea
     (button) => button.textContent === messages().networkRelay.leaveGame,
   );
   leave?.click();
-  // Settle the surrender's own connection at once.
-  fake.listener?.({ kind: 'failure', what: 'open', error: new Error('gone') } satisfies ConnectionEvent);
+  expect(fake.leave).toHaveBeenCalledOnce();
   expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).toBeNull();
 });
 
@@ -173,7 +188,78 @@ it('names the refusal and keeps the seat when the relay cannot serve the map', a
   relay({ kind: 'start' } as ServerMessage);
   await vi.waitFor(() => expect(fake.requestMap).toHaveBeenCalledOnce());
   relay({ kind: 'rejected', of: 'requestMap', reason: { code: 'mapNotKept' } });
-  expect(document.body.textContent).toContain(messages().networkRelay.reasons.mapNotKept);
+  await vi.waitFor(() =>
+    expect(document.body.textContent).toContain(messages().networkRelay.reasons.mapNotKept),
+  );
   expect(buttonLabels()).toEqual([messages().networkRelay.retry, messages().networkRelay.leaveGame]);
   expect(renderNetworkGame).not.toHaveBeenCalled();
+});
+
+it('asks for the map again on the socket that replaced the one the request went out on', async () => {
+  fake.mapLost = true;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = MATCHING_ROOM;
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.requestMap).toHaveBeenCalledOnce());
+  fake.listener?.({ kind: 'link', state: 'reconnecting', atMs: 0 } as ConnectionEvent);
+  relay({ kind: 'welcome', nick: 'Ania' } as ServerMessage);
+  // The relay put the member back and starts it again; the load under way takes that start.
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  expect(fake.requestMap).toHaveBeenCalledTimes(2);
+  relay({ kind: 'blob', type: 'map', from: 'Bartek', tick: null, bytes: MAP_TEXT });
+  await vi.waitFor(() => expect(renderNetworkGame).toHaveBeenCalledOnce());
+});
+
+it('keeps the seat when the relay names its reason before closing the link for good', () => {
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  relay({ kind: 'error', reason: { code: 'trafficLimit' } } as ServerMessage);
+  expect(fake.dispose).not.toHaveBeenCalled();
+  fake.listener?.({ kind: 'link', state: 'closed', reason: 'trafficLimit', atMs: 0 } as ConnectionEvent);
+  expect(buttonLabels()).toEqual([messages().networkRelay.retry, messages().networkRelay.leaveGame]);
+  expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).not.toBeNull();
+});
+
+it('says why the room ended when the relay retires it', () => {
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  relay({ kind: 'error', reason: { code: 'loadingTimedOut', nick: 'Bartek' } } as ServerMessage);
+  relay({ kind: 'left' });
+  expect(document.body.textContent).toContain(
+    formatMessage(messages().net.startTimedOut, { nick: 'Bartek' }),
+  );
+  expect(buttonLabels()).toEqual([messages().hud.returnToMenu]);
+});
+
+it('says the room handed the seat over when this tab loaded too long, though the room goes on', async () => {
+  fake.mapLost = true;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = MATCHING_ROOM;
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.requestMap).toHaveBeenCalledOnce());
+  relay({
+    kind: 'kicked',
+    player: 0,
+    nick: 'Ania',
+    mode: 'computer',
+    cause: 'loadingTimedOut',
+    tick: 0,
+  } as ServerMessage);
+  relay({ kind: 'left' });
+  expect(document.body.textContent).toContain(messages().net.youTimedOut.computer);
+  expect(document.body.textContent).not.toContain(messages().net.roomEnded);
+  expect(buttonLabels()).toEqual([messages().hud.returnToMenu]);
+});
+
+it('says the reloaded tab lost the map in one sentence', async () => {
+  fake.mapGone = true;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = MATCHING_ROOM;
+  relay({ kind: 'room', room: MATCHING_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.dispose).toHaveBeenCalled());
+  const text = document.body.textContent ?? '';
+  expect(text).toContain(messages().network.mapLostOnReturn.slice(0, -1));
+  expect(text).not.toContain('..');
 });

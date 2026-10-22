@@ -42,6 +42,7 @@ export const enNetwork = {
   retry: 'Retry',
   saveInvalid: 'This save cannot be used for this multiplayer map.',
   missingMap: 'This map is missing. Only user and mod maps can be delivered by the creator.',
+  mapLostOnReturn: "This browser no longer has the room's map, and the room cannot send it.",
   starting: 'Starting the shared game…',
   verifyingMap: 'Verifying the map…',
 } as const;

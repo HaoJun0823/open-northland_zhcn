@@ -3,14 +3,22 @@ import { loadLobbyCompatibility } from '../../content/lobby-identity.js';
 import { loadRoomMapDocuments } from '../../content/transfer/index.js';
 import { messages } from '../../i18n/index.js';
 import { NetworkConnection } from '../../net/connection.js';
-import { relayCloseText, relayFailureText, relayReasonText } from '../../net/relay-reason.js';
+import { relayMapRequest } from '../../net/map-request.js';
+import {
+  ownDepartureText,
+  relayCloseText,
+  relayFailureText,
+  relayReasonText,
+} from '../../net/relay-reason.js';
 import { dismissBootProgress, mountBootProgress } from '../../view/boot-progress.js';
+import { releaseDocument } from '../../view/navigation-guard.js';
 import { compatibilityIssuesText } from './compatibility.js';
 import { relayIdentity } from './identity.js';
 import { keptView } from './kept-view.js';
 import { mountHaltNotice } from './menu-notice.js';
 import { renderNetworkGame } from './network-game.js';
 import { wrongReconnectRoom } from './reload-message.js';
+import { roomEndText, roomExitObserver } from './room-exit.js';
 import { closeKeepsSeat, keptSeat } from './seat-surrender.js';
 
 /** A document reload recreates the connection while the runtime still restores the relay snapshot. */
@@ -22,18 +30,13 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
   let closed = false;
   let opening = false;
   let handedOff = false;
-  /** Takes the map text the relay serves once this page has asked for it. */
-  let mapDelivered: ((bytes: string) => void) | null = null;
-  const requestMap = () =>
-    new Promise<string>((resolve) => {
-      mapDelivered = resolve;
-      connection.client.requestMap();
-    });
+  const mapRequest = relayMapRequest(connection.client);
   // Nothing here gives the seat up: the halt notice's Leave is the player's own way to.
   const dispose = () => {
     if (closed) return;
     closed = true;
     unsubscribe();
+    mapRequest.cancel();
     if (!handedOff) connection.dispose(false);
   };
   /** `seatKept` says the relay may still hold this client's seat, which the notice then offers back. */
@@ -41,12 +44,16 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
     if (closed) return;
     dispose();
     dismissBootProgress();
+    // Nothing is running any more; closing the tab on the notice loses nothing.
+    releaseDocument();
     mountHaltNotice(messages().networkRelay.openFailed, relayFailureText(error), {
       onCard: false,
       seat: seatKept ? keptSeat(url, connection.identity, roomId) : null,
       view: keptView(url, roomId),
     });
   };
+  // An `error` says why the relay ends the room or the link; the `left` or the close after it decides.
+  const exit = roomExitObserver((reason) => fail(roomEndText(reason), false));
   const unsubscribe = connection.subscribe((event) => {
     if (event.kind === 'link' && event.state === 'closed') {
       fail(relayCloseText(event.reason), closeKeepsSeat(event.reason));
@@ -63,19 +70,20 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       fail(messages().networkRelay.reconnectOtherRoom, false);
       return;
     }
-    if (message.kind === 'welcome') connection.client.joinRoom(roomId);
-    if (message.kind === 'blob' && message.type === 'map') {
-      mapDelivered?.(message.bytes);
-      mapDelivered = null;
+    if (exit(message)) return;
+    // A refused map request reaches the load as its error, and the room still holds the seat.
+    if (mapRequest.observe(message)) return;
+    if (message.kind === 'welcome') {
+      connection.client.joinRoom(roomId);
+      mapRequest.relinked();
+    }
+    // The room took the seat while this tab loaded: its farewell comes before the `left`.
+    if (message.kind === 'kicked' && message.player === connection.client.session?.localSeat) {
+      fail(ownDepartureText(message), false);
       return;
     }
-    // The room still holds the seat when it cannot serve the map.
-    if (message.kind === 'rejected' && message.of === 'requestMap') {
-      fail(relayReasonText(message.reason));
-      return;
-    }
-    if (message.kind === 'left' || message.kind === 'error' || message.kind === 'rejected') {
-      fail(message.kind === 'left' ? messages().net.roomEnded : relayReasonText(message.reason), false);
+    if (message.kind === 'rejected') {
+      fail(relayReasonText(message.reason), false);
       return;
     }
     if (message.kind !== 'start' || opening) return;
@@ -86,9 +94,9 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       // The verify blocks the page; the world's boot then mounts its own steps over this card.
       await mountBootProgress(['verify']).begin('verify');
       if (closed) return;
-      const map = await loadRoomMapDocuments(room, { delivered: requestMap });
+      const map = await loadRoomMapDocuments(room, { delivered: mapRequest.request });
       if (closed) return;
-      if (map === null) throw new Error(messages().network.missingMap);
+      if (map === null) throw new Error(messages().network.mapLostOnReturn);
       const report = await loadLobbyCompatibility(map.mapId, fetch, undefined, map);
       if (closed) return;
       const members = room.members.filter((member) => member.nick !== connection.client.nick);

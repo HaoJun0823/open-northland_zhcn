@@ -47,6 +47,7 @@ export const deNetwork = {
   saveInvalid: 'Dieser Spielstand kann für diese Mehrspielerkarte nicht verwendet werden.',
   missingMap:
     'Diese Karte fehlt. Der Raumersteller kann nur benutzererstellte Karten und Mod-Karten bereitstellen.',
+  mapLostOnReturn: 'Dieser Browser hat die Karte des Raums nicht mehr, und der Raum kann sie nicht senden.',
   starting: 'Gemeinsames Spiel wird gestartet…',
   verifyingMap: 'Karte wird überprüft…',
 } as const;

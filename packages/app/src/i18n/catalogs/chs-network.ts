@@ -42,6 +42,7 @@ export const chsNetwork = {
   retry: '重试',
   saveInvalid: '此存档不能用于这张多人地图。',
   missingMap: '缺少这张地图。房间创建者只能分发用户地图和模组地图。',
+  mapLostOnReturn: '此浏览器中已没有房间的地图，房间也无法发送这张地图。',
   starting: '正在启动联机游戏…',
   verifyingMap: '正在校验地图…',
 } as const;

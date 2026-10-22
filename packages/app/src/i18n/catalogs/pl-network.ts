@@ -43,6 +43,7 @@ export const plNetwork = {
   retry: 'Spróbuj ponownie',
   saveInvalid: 'Tego zapisu nie można użyć do gry wieloosobowej na tej mapie.',
   missingMap: 'Brakuje tej mapy. Twórca może przesłać tylko mapy użytkownika i moda.',
+  mapLostOnReturn: 'Ta przeglądarka nie ma już mapy pokoju, a pokój nie może jej przesłać.',
   starting: 'Uruchamianie wspólnej gry…',
   verifyingMap: 'Weryfikowanie mapy…',
 } satisfies {

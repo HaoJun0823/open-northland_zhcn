@@ -42,6 +42,7 @@ export const chtNetwork = {
   retry: '重試',
   saveInvalid: '這個存檔無法用於這張多人地圖。',
   missingMap: '缺少這張地圖。房間建立者只能傳送使用者地圖與模組地圖。',
+  mapLostOnReturn: '此瀏覽器中已沒有房間的地圖，房間也無法傳送這張地圖。',
   starting: '正在啟動連線遊戲…',
   verifyingMap: '正在校驗地圖…',
 } as const;

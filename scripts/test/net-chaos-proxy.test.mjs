@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { WebSocket, WebSocketServer } from 'ws';
-import { startChaosProxy } from '../net-chaos-proxy.mjs';
+import { isLoopback, startChaosProxy } from '../net-chaos-proxy.mjs';
 
 const ONE_WAY_MS = 50;
 /** Timers fire late, never early; this much late is still a pass on a loaded machine. */
@@ -22,6 +22,8 @@ const CLOSE_TRY_AGAIN_LATER = 1013;
 const HTTP_BAD_REQUEST = 400;
 const SMALL_QUEUE_BYTES = 1000;
 const NO_LATENCY = { latencyMs: 0, jitterMs: 0, bytesPerSecond: null };
+const HTTP_FORBIDDEN = 403;
+const HTTP_UNSUPPORTED_MEDIA_TYPE = 415;
 const KIB = 1024;
 const MIB = 1024 * KIB;
 /** The relay's fragment size; it sends a control ping after each fragment but the last. */
@@ -382,4 +384,30 @@ test('a flood toward a held link pauses the sender instead of filling the proxy'
   assert.ok(client.socket.bufferedAmount > 0, 'the sender keeps the rest');
   proxy.control({ set: { halfOpen: false } });
   for (let n = 0; n < FLOOD_MESSAGES; n++) assert.equal((await client.next()).body.n, n);
+});
+
+test('the control endpoint refuses web pages and bodies that are not JSON', async (t) => {
+  const { proxy } = await setup(t);
+  const controlUrl = `http://127.0.0.1:${proxy.port}/control`;
+  const fromPage = await fetch(controlUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'https://example.com' },
+    body: JSON.stringify({ profile: 'bad' }),
+  });
+  assert.equal(fromPage.status, HTTP_FORBIDDEN);
+  const plain = await fetch(controlUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({ profile: 'bad' }),
+  });
+  assert.equal(plain.status, HTTP_UNSUPPORTED_MEDIA_TYPE);
+  assert.equal(proxy.state().profile, 'lan');
+  assert.equal((await fetch(controlUrl)).status, 200);
+});
+
+test('control answers only loopback peers', () => {
+  for (const address of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) assert.equal(isLoopback(address), true);
+  for (const address of ['192.168.1.20', '::ffff:10.0.0.3', 'fe80::1', undefined]) {
+    assert.equal(isLoopback(address), false);
+  }
 });

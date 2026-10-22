@@ -313,7 +313,8 @@ past it the client gets 1013 `proxyQueueFull`, the relay 1001, and the log says 
 `GET /control` on the same port returns the state: the upstream, the default profile and settings,
 the remaining unreachable time, and per open connection its `id`, settings, queued bytes and chunks,
 whether each direction's reader is paused, and its frame, byte and dropped-byte counts. `POST
-/control` takes one JSON object; every field is optional:
+/control` takes one JSON object with `content-type: application/json` (415 otherwise); every field
+is optional:
 
 | Field | Effect |
 | --- | --- |
@@ -326,12 +327,15 @@ whether each direction's reader is paused, and its frame, byte and dropped-byte 
 `halfOpen: true` stops forwarding in both directions without closing either socket, which is what
 the relay's silence timeout must catch; `false` resumes and delivers what was held. `flap` drops
 each connection `everyMs` after it opened or after the setting changed, so reconnects keep
-flapping. An unknown field or a bad value answers 400 with `{ error }`. Example:
+flapping. An unknown field or a bad value answers 400 with `{ error }`. Control answers only peers
+on this machine, also when `--host 0.0.0.0` opens the proxy itself to the LAN, and refuses any
+request with an `Origin` header (403), so a web page cannot drive it. Example:
 
 ```bash
-curl -s localhost:8780/control -d '{"profile":"mobile"}'
-curl -s localhost:8780/control -d '{"connection":2,"set":{"halfOpen":true}}'
-curl -s localhost:8780/control -d '{"connection":2,"disconnect":{"code":1006,"afterMs":500}}'
+curl -s localhost:8780/control -H 'content-type: application/json' -d '{"profile":"mobile"}'
+curl -s localhost:8780/control -H 'content-type: application/json' -d '{"connection":2,"set":{"halfOpen":true}}'
+curl -s localhost:8780/control -H 'content-type: application/json' \
+  -d '{"connection":2,"disconnect":{"code":1006,"afterMs":500}}'
 ```
 
 To play the developer lobby through it, run the relay and the proxy, then point the windows at the

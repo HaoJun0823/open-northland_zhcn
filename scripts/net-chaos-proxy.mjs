@@ -45,8 +45,10 @@ const QUEUE_FULL_REASON = 'proxyQueueFull';
 const HTTP_SWITCHING_PROTOCOLS = 101;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
+const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_TOO_LARGE = 413;
+const HTTP_UNSUPPORTED_MEDIA_TYPE = 415;
 const HTTP_HEAD_END = '\r\n\r\n';
 const HTTP_DEFAULT_PORT = 80;
 const HTTPS_DEFAULT_PORT = 443;
@@ -801,6 +803,12 @@ function openUpstream(target) {
   return connectTls({ host, port, servername: isIP(host) === 0 ? host : undefined, allowHalfOpen: true });
 }
 
+/** Whether a peer address is this machine. */
+export function isLoopback(address) {
+  if (address === undefined) return false;
+  return address === '::1' || address.startsWith('127.') || address.startsWith('::ffff:127.');
+}
+
 /**
  * Starts the proxy. `upstream` is the relay's ws:// or wss:// URL; a client's request path and query
  * are appended to it. Resolves once listening, with the bound port, the control functions and `close`.
@@ -883,8 +891,19 @@ export async function startChaosProxy({
       response.end(`${JSON.stringify(value)}\n`);
     };
     if (path !== '/control') return reply(HTTP_NOT_FOUND, { error: 'only /control is served here' });
+    // A proxy listening on the LAN still takes orders only from this machine, and never from a web page.
+    if (!isLoopback(request.socket.remoteAddress)) {
+      return reply(HTTP_FORBIDDEN, { error: 'control answers only this machine' });
+    }
+    if (request.headers.origin !== undefined) {
+      return reply(HTTP_FORBIDDEN, { error: 'control refuses requests from a web page' });
+    }
     if (request.method === 'GET') return reply(HTTP_OK, state());
     if (request.method !== 'POST') return reply(HTTP_NOT_FOUND, { error: 'GET or POST /control' });
+    const mediaType = request.headers['content-type']?.split(';')[0].trim().toLowerCase();
+    if (mediaType !== JSON_MEDIA_TYPE) {
+      return reply(HTTP_UNSUPPORTED_MEDIA_TYPE, { error: `POST /control takes ${JSON_MEDIA_TYPE}` });
+    }
     const chunks = [];
     let size = 0;
     request.on('data', (chunk) => {

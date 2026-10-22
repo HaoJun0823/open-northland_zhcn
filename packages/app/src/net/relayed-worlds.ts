@@ -86,8 +86,10 @@ export class RelayedWorlds<E> {
   }
 
   /** The worker failed: the opening world rejects, the served one throws on its next frame, and no
-   *  world opens any more. */
+   *  world opens any more. After `close` the worker only ended as asked: the served world's pending
+   *  reads never land, as on its own disposal, since its view's fire-and-forget reads have no handler. */
   fail(error: Error): void {
+    if (this.closed) return;
     this.closed = true;
     this.opening?.fail(error);
     this.served?.fail(error);

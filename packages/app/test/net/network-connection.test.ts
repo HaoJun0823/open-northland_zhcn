@@ -1,6 +1,7 @@
 import type { GameSession } from '@open-northland/lockstep';
 import { RelayRefusal } from '@open-northland/net-client';
 import { PROTOCOL_VERSION, type RoomView } from '@open-northland/net-protocol';
+import { packSnapshotDelta } from '@open-northland/sim';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { messages } from '../../src/i18n/index.js';
 import { type NetWorldPort, NetworkConnection } from '../../src/net/connection.js';
@@ -378,5 +379,65 @@ describe('network connection world requests', () => {
     await turn();
     expect(open).not.toHaveBeenCalled();
     expect(worker.kinds()).not.toContain('worldInputs');
+  });
+});
+
+/** The worker's `ready` for an empty world, as the served session's first message. */
+function emptyWorldReady(): FromNetWorker<unknown> {
+  const ready = {
+    delta: packSnapshotDelta({ tick: 0, sequence: 0, rebuild: true, touched: [], removed: [], events: [] }),
+    facts: {},
+    fog: null,
+    timeOrigin: performance.timeOrigin,
+    buildMs: 0,
+    log: [],
+    extras: null,
+  };
+  return { kind: 'ready', ready } as unknown as FromNetWorker<unknown>;
+}
+
+describe('a served world when the connection ends', () => {
+  /** A connection serving one world, and a read of it the worker has not answered yet. */
+  async function servedWithPendingRead() {
+    const { connection, worker } = connect();
+    const onWorld = vi.fn();
+    connection.bindWorld(
+      {
+        open: async (_session, _tick, host) => {
+          await host({ saveText: null } as never, { speed: 1, paused: true, fogSeat: null } as never);
+        },
+        restore: async () => undefined,
+      },
+      onWorld,
+    );
+    worker.send({ kind: 'openWorld', requestId: 0, session: SESSION, snapshotTick: null });
+    await turn();
+    worker.send({ kind: 'facts', facts: FACTS });
+    worker.send(emptyWorldReady());
+    await turn();
+    const world = onWorld.mock.calls[0]?.[0];
+    if (world === undefined) throw new Error('the world was not served');
+    const read = vi.fn();
+    const failed = vi.fn();
+    world.session.host.landscapeEdits().then(read, failed);
+    return { connection, worker, world, read, failed };
+  }
+
+  it('leaves a read pending once the game ended the connection, as its view disposes the world', async () => {
+    const { connection, worker, world, read, failed } = await servedWithPendingRead();
+    connection.dispose(false);
+    worker.send({ kind: 'closed' });
+    await turn();
+    expect([read.mock.calls.length, failed.mock.calls.length]).toEqual([0, 0]);
+    world.session.dispose();
+  });
+
+  it('fails a read when the worker fails under a running game', async () => {
+    const { worker, world, read, failed } = await servedWithPendingRead();
+    worker.send({ kind: 'closed' });
+    await turn();
+    expect(read).not.toHaveBeenCalled();
+    expect(failed).toHaveBeenCalledOnce();
+    world.session.dispose();
   });
 });

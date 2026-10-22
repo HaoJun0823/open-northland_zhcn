@@ -311,11 +311,12 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
   }
 
   /** Send what the relay's per-tick budget has room for; the rest goes as this seat's commands apply,
-   *  and after those a socket or world change carried have settled. */
+   *  after those a socket or world change carried have settled, and not before a new socket's room
+   *  admits the world again. */
   private sendQueued(): void {
     const driver = this.driver;
     if (driver === null || this.outbox.size === 0 || this.options.connected?.() === false) return;
-    if (this.latency.carrying) return;
+    if (this.latency.carrying || this.awaitingResume) return;
     this.outbox.drain(
       () => this.latency.sent,
       (envelope, clickedAt, bytes) => {

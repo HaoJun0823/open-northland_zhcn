@@ -178,6 +178,20 @@ describe('the outbox under the relay per-tick budget', () => {
     expect(observed.filter((message) => message.kind === 'rejected')).toEqual([]);
   });
 
+  it('holds every order on a new socket until the room admits the world again', async () => {
+    let connected = true;
+    const { client, commandsSent } = await runningClient({ connected: () => connected });
+    connected = false;
+    client.submit(order(1));
+    connected = true;
+    client.hello();
+    client.submit(order(2));
+    expect(commandsSent()).toHaveLength(0);
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    client.advance(TICK_MS);
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1), order(2)]);
+  });
+
   it('holds an order given while disconnected for the world a return is served as a snapshot', async () => {
     let connected = true;
     const { client, commandsSent, observed } = await runningClient({ connected: () => connected });

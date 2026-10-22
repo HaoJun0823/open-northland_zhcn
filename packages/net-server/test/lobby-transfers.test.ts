@@ -143,6 +143,46 @@ describe('the kept map', () => {
     expect(b.last('blob')?.bytes).toBe(mapText('second'));
   });
 
+  it('keeps a map the creator deposits for itself without forwarding it, and replaces it with the next', () => {
+    const { a, b, advance } = mapLobby();
+    a.send(deliverTo('Ania', mapText('first')));
+    expect(a.of('rejected')).toEqual([]);
+    expect(a.of('blob')).toEqual([]);
+    expect(b.of('blob')).toEqual([]);
+    b.send({ kind: 'requestMap' });
+    expect(a.of('mapRequest')).toEqual([]);
+    expect(b.last('blob')).toEqual({
+      kind: 'blob',
+      type: 'map',
+      from: 'Ania',
+      tick: null,
+      bytes: mapText('first'),
+    });
+    a.send(deliverTo('Ania', mapText('second')));
+    advance(COOLDOWN_MS);
+    b.send({ kind: 'requestMap' });
+    expect(b.of('blob')).toHaveLength(2);
+    expect(b.last('blob')?.bytes).toBe(mapText('second'));
+  });
+
+  it('refuses a deposit from a guest and after the start', () => {
+    const { a, b } = mapLobby();
+    b.send(deliverTo('Bartek', mapText('guest')));
+    expect(b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
+    a.send({ kind: 'claimSeat', player: 0 });
+    b.send({ kind: 'claimSeat', player: 1 });
+    for (const p of [a, b]) {
+      p.send({ kind: 'setCompatibility', compatibility: TEST_COMPATIBILITY });
+      p.send({ kind: 'setReady', ready: true });
+    }
+    a.send({ kind: 'start' });
+    expect(a.of('start')).toHaveLength(1);
+    a.send(deliverTo('Ania', mapText('late')));
+    expect(a.last('rejected')?.reason).toEqual({ code: 'lobbyFilesFixed' });
+    b.send({ kind: 'requestMap' });
+    expect(b.last('rejected')?.reason).toEqual({ code: 'mapNotKept' });
+  });
+
   it('asks the creator again once it reports another copy of the map, and not a creator it passed to', () => {
     const { a, b, advance } = mapLobby();
     a.send(deliverTo('Bartek', mapText('first')));

@@ -8,7 +8,8 @@ import { broadcast, type Deliver, type Member, type Refusal } from './member.js'
  *  request's large response. */
 const REQUEST_COOLDOWN_MS = 2000;
 
-/** The map text the creator last delivered, kept for the room's life so the relay can serve it again. */
+/** The map text the creator last delivered or deposited, kept for the room's life so the relay can
+ *  serve it again. */
 interface KeptMap {
   readonly from: string;
   readonly bytes: string;
@@ -53,7 +54,9 @@ export class LobbyTransfers {
     if (upload.type === 'map') {
       if (this.settings().mapOrigin === undefined) return { code: 'mapDeliveryOff' };
       if (upload.tick !== null) return { code: 'mapUploadHasTick' };
-      const refusal = relayBlob(this.members.values(), this.deliver, member, upload);
+      // A map the creator addresses to itself is a deposit: kept for later requests, sent to nobody.
+      const refusal =
+        upload.to === member.nick ? null : relayBlob(this.members.values(), this.deliver, member, upload);
       if (refusal === null) {
         this.kept = {
           from: member.nick,

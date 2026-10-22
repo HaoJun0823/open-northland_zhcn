@@ -255,10 +255,23 @@ It is the only trusted command the wire carries; a client refuses a frame with a
 
 The relay pings each client once a second (`ping { t, roundTripMs }`, answered by `pong { t }`) and
 keeps a smoothed round trip and jitter per client; `roundTripMs` is that smoothed trip, carried so
-the client can show it. The assigned input delay is
-`ceil((rtt + jitter) / tickLength) + 1` ticks, starting at 2 and never below 1, raised on the spot by
-a spike and lowered one tick at a time once the smoothed trip has allowed it for ten quiet samples. A
-change is sent as `delay { ticks }`; every member also gets its current delay at the start.
+the client can show it. Each sample is clamped before it enters the smoothing: it counts as at most
+twice the smoothed trip, or the smoothed trip plus one tick when that is more, and the first sample
+as at most one second. The trip and the jitter (the mean deviation from the trip) then move a quarter
+of the way toward the clamped sample. One late pong, such as one queued behind the member's own
+snapshot upload, therefore moves both a little, while a lasting change carries them over within
+about ten samples.
+
+The assigned input delay is `ceil((rtt + jitter) / tickLength) + 1` ticks of the smoothed values,
+with `tickLength` the tick at speed 1, starting at 2, never below 1 and never above 12 (one second).
+The first sample sets it directly; after that it rises at most one tick per sample, and once the
+budget has stayed below it for three samples in a row it drops to that budget. A change is sent as `delay { ticks }`; every
+member also gets its current delay at the start.
+
+A delay that is lower than the link needs never splits state: the relay places a command on the
+next unemitted tick when its stamped tick plus the delay has already passed, so the command applies
+as soon as it arrives and its click-to-apply time follows the link's jitter instead of staying
+fixed. A higher delay only adds latency, which is why the cap holds even on a slower link.
 
 ## Order responsiveness
 
@@ -279,9 +292,11 @@ Auto starts at two ticks. Its authored policy uses the worst connected, loaded, 
 member's `min(25 ms, RTT * 0.1) + 2 * jitter` as a reserve in milliseconds, converts it to ticks at
 the effective governed speed, and clamps the result to 1..6. Stable latency is already covered by the
 input delay; only a capped RTT margin supplements measured variation. An unmeasured active link
-keeps at least two ticks. Spectators do not affect the estimate. A higher target takes effect at
-once; a lower target must persist for ten running seconds before the reserve falls by one tick.
-Pauses and held rooms reset this decrease timer, and reconnects invalidate stale link measurements.
+keeps at least two ticks. Spectators do not affect the estimate. A higher target must persist for
+one running second for each tick the reserve rises, and a lower target for ten running seconds for
+each tick it falls. Pauses and held rooms reset both timers, and reconnects invalidate stale link
+measurements. The jitter comes from the clamped samples above, so one late pong lifts the target
+little and only for a few seconds.
 
 ## Acknowledgements and the sync check
 
@@ -325,7 +340,12 @@ count; it says where it stands again on its return.
 The clock holds, emitting no frames, while any seated player is:
 
 - `gone`: its connection dropped;
-- `silent`: it has answered no ping for `SILENT_AFTER_MS` (4 s), whatever its socket says;
+- `silent`: the relay has heard nothing from it for `SILENT_AFTER_MS` (4 s), whatever its socket says.
+  Any message counts, and so does progress on one still arriving: a pong queued behind a large upload
+  does not make its sender silent. Progress on a large message to the client counts the same way: the
+  client's answer to each control ping between its fragments (see
+  [Public relay security boundary](#public-relay-security-boundary)) keeps a client heard while the
+  relay's pings and frames wait behind a snapshot it is downloading;
 - `loading`: it has not said where its world stands, before the start or after a return;
 - `resync`: it is out of sync and its snapshot has not arrived.
 
@@ -466,7 +486,9 @@ creator through the relay only when the server cannot deliver it. `requestMap` s
 creator `mapRequest { from }` so a member can retry delivery. Map and initial-save requests each
 have a two-second per-member cooldown to bound small-request/large-response amplification. The origin is advisory: clients must
 validate source provenance, sender identity, payload schema and the expected map fingerprint.
-Map replacement after Start is refused.
+Map replacement after Start is refused. A map's bytes are the clients' contract: gzip of the JSON
+envelope `{ version: 2, mapId, map, script }`, so `MAX_BLOB_BYTES` bounds the compressed map; a
+receiver refuses anything but a gzip stream and stops inflating past 64 MiB plus the envelope's keys.
 
 An `initialSave` is creator-only, lobby-only, has `to: null` and the declared tick. The declaration is
 `initialSave: { fingerprint, tick }` with `tick` at least 1, copied into every session descriptor.
@@ -505,7 +527,7 @@ seat handover the previous room had scheduled but not applied, and player orders
 ticks and order.
 
 A client keeps the custom maps it verified in browser storage, capped at four maps and 64 MiB of
-encoded transfer text, and validates a copy again against its fingerprint and permitted origin before
+encoded transfer text (a delivered map is stored as the text it arrived in), and validates a copy again against its fingerprint and permitted origin before
 playing it; base and unknown origins are never served from that store. A catalogue map fetched from
 the catalogue's server joins the player's installed catalogue maps instead. A reload rejoins on the token,
 checks compatibility, and rebuilds over the retained map from the relay's cached snapshot, or from the
@@ -520,10 +542,10 @@ UTF-8 frame JSON) and `MAX_HISTORY_AGE_MS` (10 minutes of wall time since the ol
 The relay requests a refresh every `SNAPSHOT_REFRESH_MS` (5 min), or once history reaches half its
 byte or age budget. While any seated player remains, only seated players may donate snapshots;
 observer uploads are refused and observers are not retried as donors. With no seated players,
-observers maintain the cache. `snapshotRequest` goes to the eligible client in sync with the lowest round trip, which
-answers with a `snapshot` blob at its current tick. An unanswered request is repeated every
-`SNAPSHOT_RETRY_MS` (10 s) to the next eligible donor, at once when the asked donor drops, and one
-request is outstanding however many members wait for it. A snapshot prunes the frames it covers.
+observers maintain the cache. `snapshotRequest` goes to the eligible client in sync and not silent with the lowest
+round trip, which answers with a `snapshot` blob at its current tick. An unanswered request is repeated every
+`SNAPSHOT_RETRY_MS` (10 s) to the next eligible donor, at once when the asked donor drops, diverges or
+goes silent, and one request is outstanding however many members wait for it. A snapshot prunes the frames it covers.
 With no retained frames, a same-tick upload also satisfies a paused refresh. An older upload leaves
 the cache unchanged.
 
@@ -561,7 +583,11 @@ first. The client answers `loaded`:
   relay sends the frames after it, or the cached snapshot and the frames after that when the frames
   before the cache are gone;
 - `{ tick: null }` when it holds no world and a snapshot is cached, and the relay sends the snapshot
-  and the frames after it;
+  and the frames after it. A cache more than `RETURN_SNAPSHOT_MAX_TICKS` (120 ticks, 10 s at normal
+  speed) behind the clock would cost the client that long a replay and the room a governed clock
+  meanwhile, so the relay asks a donor for a fresh snapshot instead, through the one outstanding
+  request, and the clock holds for the client as `loading` until it arrives. With no eligible donor,
+  or none answering within `SNAPSHOT_RETRY_MS`, the client takes the cache;
 - `{ tick, world: 0 }` with the tick of a world freshly built from the descriptor when
   `snapshotTick` was null.
 
@@ -633,7 +659,21 @@ every tick, answers pings and snapshot requests, and asks a diverged world's hos
 the sim behind the relay's clock by the room's [response reserve](#order-responsiveness), scaling the
 time it feeds the driver without skipping ticks, so a late frame lands inside the buffer. Catch-up is
 capped at 192 ticks/s using the effective governed speed, leaving room for commands and pongs within the
-host's 256 messages/s budget; every applied tick still sends its digest. `RelaySocket` keeps
+host's 256 messages/s budget; every applied tick still sends its digest. A wait for a frame keeps at
+most one tick of owed time, so after a hold the pacer refills the buffer and a burst of late frames
+runs one tick per display frame rather than five.
+
+The client sends a gesture only while fewer than `MAX_COMMANDS_PER_TICK` of its own are in flight
+(sent and not yet applied or refused); the rest wait in order in a local outbox of 100 and leave as
+earlier ones apply, so a long wall line or a run of orders given while paused lands over successive
+ticks instead of being refused with `commandBudget`. A gesture past a full outbox, an oversized one,
+and one issued with no world are refused locally with `rejected { of: "command" }` (`commandBudget`,
+`envelopeTooLarge`, `notLoaded`); one issued while disconnected waits in the outbox until the room
+admits the world again. The click-to-apply stamps of commands in flight are forgotten when a world is
+adopted or a socket is replaced, since those may never come back. A `snapshotRequest` is skipped
+while the world stands behind the newest snapshot tick the client has seen the relay cache.
+
+`RelaySocket` keeps
 the connection and reopens it on the same token after a drop; a connection the relay replaced or
 refused stays closed. A connection attempt that has not opened within 10 seconds is closed and retried
 even if no socket close event arrives. An open socket has no client-side receive deadline: browser
@@ -644,9 +684,16 @@ it on every entry and return, each `chat` appends to it, up to `MAX_CHAT_HISTORY
 and browser app plays through the `?relay=` entry, whose client, link and world run in a network
 worker, the headless test client through an in-memory network. The app's client holds `loaded` until
 the display has shown its first frame of the world and begun the next, and keeps the loading screen
-up until the room's clock runs and nobody is still loading. A stalled display thread does not delay the app's
-acknowledgements: the worker keeps stepping and acknowledging, and drops the transient events of ticks
-the display has not taken.
+up until the room's clock runs and nobody is still loading. The worker wakes and feeds its client at
+the pace the client plays: the governed speed while the room is governed, and up to the catch-up cap
+while it drains a backlog. It steps at most a couple of display frames past the tick the display drew,
+a lead that grows with a catch-up pace while the display draws at least four frames a second, so a
+display slower than that paces the room (see
+[Acknowledgements](#acknowledgements-and-the-sync-check)). A display that has taken in nothing for
+four of its frames, and for at least 500 ms, has stopped, as a hidden page's frame loop does: the worker
+keeps stepping and acknowledging, and hands the display every tick since in one batch when it draws
+again, without their momentary sound and effect events. It holds up to ten minutes of ticks at the top
+speed that way, then waits for the display.
 
 ## Operations
 
@@ -691,7 +738,7 @@ resume. The desktop window disables Electron's background throttling so a minimi
 client keeps ticking.
 
 In a browser the network worker steps and acknowledges on its own `setTimeout` chain, so a hidden tab
-does not stop it, but the browser slows it. Measured with a dedicated worker running a 20 ms timer chain
+whose frame loop stopped does not stop it (see [The client](#the-client)), but the browser slows it. Measured with a dedicated worker running a 20 ms timer chain
 and a 20 ms interval, on a tab hidden behind another tab of the same window for seven minutes (macOS):
 
 | Browser | Visible | Hidden |
@@ -700,10 +747,10 @@ and a 20 ms interval, on a tab hidden behind another tab of the same window for 
 | Safari 27 | not measured, hidden from the start | about 100 ms per firing for four and a half minutes, then the tab stopped reporting at all and stayed silent |
 | Firefox 155 | 24 ms per firing | not reached: behind another window and minimized the page never reported itself hidden and kept 24 ms |
 
-The lockstep driver owes `elapsed * speed` ticks per firing and steps at most five of them, so a
-clamped 100 ms firing still delivers up to 50 ticks a second: derived from the driver, not measured in
-the worker, a hidden Chrome tab keeps pace up to about speed 4 and trails beyond it. The room is then
-paced for it, and on return it drains its buffered frames at up to five ticks per firing. A Safari tab
+The worker's clock owes at most five ticks of wall time per firing, so a clamped 100 ms firing still
+delivers up to 50 ticks a second: derived from the clock, not measured in a browser, a hidden Chrome
+tab keeps pace up to about speed 4 and trails beyond it. The room is then paced for it, and on return
+it drains its buffered frames at the client's catch-up rate. A Safari tab
 suspended this way acknowledges nothing and is `silent` after `SILENT_AFTER_MS`; nothing distinguishes
 it from a crashed client. Neither case is designed around: the desktop build is the primary target.
 
@@ -718,12 +765,16 @@ simulation or sabotage its own match; digest agreement is not an anti-cheat guar
 The host bounds application and unsolicited WebSocket control traffic together at 256 messages/s with a
 512-message burst, and 1 MiB/s with a two-blob burst. Recovery requests (`loaded`, `saveOrders`,
 `requestInitialSave`) share a separate four-request burst, refilling one request every two seconds,
-before relay dispatch. Exceeding a traffic budget disconnects the sender. WebSocket compression is
+before relay dispatch. A `saveOrders` or `requestInitialSave` past it is answered `rejected` with
+`retryTooSoon` and the connection stays; a `loaded` past it closes the connection as a traffic excess
+does, since a refused `loaded` would leave the room waiting for that world, and the reconnect reports
+it again. Exceeding a traffic budget disconnects the sender. WebSocket compression is
 disabled, payloads are capped, an unacknowledged close is terminated after one second, and a socket
 with no incoming transport data for 30 s is closed. Incoming bytes keep a progressing upload alive
-before its complete message can be parsed; application traffic is still validated and budgeted.
-Large outgoing text messages use 128 KiB WebSocket fragments with control pings between them, so a
-passive receiver can answer while downloading. Matching requested pongs spend only the byte budget;
+before its complete message can be parsed, and keep its sender heard by the relay; application traffic
+is still validated and budgeted.
+Large outgoing text messages use 32 KiB WebSocket fragments with control pings between them, so a
+passive receiver can answer while downloading; at 16 KiB/s an answer comes every two seconds. Matching requested pongs spend only the byte budget;
 unsolicited or excess pongs still spend both budgets. Outstanding ping credits are capped at 512.
 Fragmentation preserves one application message and does not change the game protocol.
 

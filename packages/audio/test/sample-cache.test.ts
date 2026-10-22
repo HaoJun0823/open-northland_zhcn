@@ -19,6 +19,11 @@ const CLIP_BYTES = CLIP_FRAMES * DECODED_BYTES_PER_SAMPLE;
 /** Every byte of a compact clip or bank in the fake tree, so a decoder can tell the encodings apart. */
 const COMPACT_MARK = 0x0c;
 const isCompact = (file: string): boolean => file.endsWith('.ogg') || file.endsWith('.compact.bin');
+/** Every byte of a clip served corrupt, which no decoder takes. */
+const CORRUPT_MARK = 0xee;
+/** An Ogg stream's capture pattern, which opens the cache's Opus probe. */
+const OGG_CAPTURE = [0x4f, 0x67, 0x67, 0x53];
+const isOgg = (bytes: Uint8Array): boolean => OGG_CAPTURE.every((byte, i) => bytes[i] === byte);
 
 interface Harness {
   readonly cache: SampleCache;
@@ -27,6 +32,8 @@ interface Harness {
   readonly warnings: string[];
   /** The fetches still waiting, in the order they were asked for. */
   readonly pending: Array<{ readonly file: string; readonly release: () => void }>;
+  /** The byte length of every Ogg stream decoded: the cache's Opus probe. */
+  readonly oggDecodes: number[];
 }
 
 function makeCache(
@@ -41,9 +48,12 @@ function makeCache(
     indexFailures?: number;
     /** The decoder rejects compact bytes, as Safari before 18.4 does Ogg Opus. */
     noCompactDecoder?: boolean;
+    /** A clip file served with bytes no decoder takes. */
+    corrupt?: string;
   } = {},
 ): Harness {
   const fetched: string[] = [];
+  const oggDecodes: number[] = [];
   const warnings: string[] = [];
   const pending: Harness['pending'] = [];
   const serve = async (url: string): Promise<ArrayBuffer> => {
@@ -56,6 +66,7 @@ function makeCache(
     ).length;
     const bytes = new Uint8Array(Math.max(1, bankClips) * CLIP_FRAMES * BYTES_PER_FRAME);
     if (isCompact(file)) bytes.fill(COMPACT_MARK);
+    if (file === opts.corrupt) bytes.fill(CORRUPT_MARK);
     return bytes.buffer;
   };
   const served = opts.banks === null ? serve : servingSoundBanks(serve, opts.banks ?? NO_SOUND_BANKS);
@@ -70,7 +81,10 @@ function makeCache(
     '/sounds/',
     fetchBytes,
     async (bytes) => {
-      if (opts.noCompactDecoder === true && new Uint8Array(bytes)[0] === COMPACT_MARK)
+      const view = new Uint8Array(bytes);
+      if (isOgg(view)) oggDecodes.push(view.length);
+      const opus = view[0] === COMPACT_MARK || isOgg(view);
+      if (view[0] === CORRUPT_MARK || (opts.noCompactDecoder === true && opus))
         throw new DOMException('Unable to decode audio data', 'EncodingError');
       return {
         length: bytes.byteLength / BYTES_PER_FRAME,
@@ -85,7 +99,7 @@ function makeCache(
       warn: (message) => warnings.push(message),
     },
   );
-  return { cache, fetched, warnings, pending };
+  return { cache, fetched, warnings, pending, oggDecodes };
 }
 
 /** The fetched clip and bank files, without the index. */
@@ -313,6 +327,20 @@ describe('SampleCache compact fallback', () => {
     ]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/lossless/);
+  });
+
+  it('fails only a corrupt compact clip when the browser decodes Ogg Opus, probing once', async () => {
+    const { cache, fetched, warnings, oggDecodes } = makeCache({
+      banks: twoBanks(),
+      quality: 'compact',
+      corrupt: 'talk/a.ogg',
+    });
+    expect(await cache.get('talk/a.wav')).toBeNull();
+    expect(await cache.get('talk/b.wav')).not.toBeNull();
+    expect(await cache.get('gui/click.wav')).not.toBeNull();
+    expect(files(fetched)).toEqual(['talk/a.ogg', 'talk/b.ogg', 'gui/click.ogg']);
+    expect(oggDecodes).toHaveLength(1);
+    expect(warnings).toEqual([]);
   });
 
   it('stays compact when a clip fails to arrive rather than to decode', async () => {

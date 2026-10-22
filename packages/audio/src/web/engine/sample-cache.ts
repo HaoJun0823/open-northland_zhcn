@@ -32,6 +32,20 @@ export const PRELOAD_CONCURRENCY = 16;
 /** The encoding a cache fetches when its owner names none: the source PCM unchanged. */
 export const DEFAULT_SOUND_QUALITY: SoundQuality = 'lossless';
 
+/**
+ * 20 ms of digital silence as Ogg Opus (mono, 48 kHz), 163 bytes encoded for this repository by
+ * ffmpeg's libopus with bit-exact flags. A browser decodes it exactly when it decodes Ogg Opus at all,
+ * which tells a browser without the codec from one corrupt clip.
+ */
+const OPUS_PROBE_BASE64 =
+  'T2dnUwACAAAAAAAAAAAAAAAAAAAAAAIotXIBE09wdXNIZWFkAQE4AYC7AAAAAABPZ2dTAAAAAAAAAAAAAAAAAAABAAAASZW+VAEu' +
+  'T3B1c1RhZ3MGAAAAZmZtcGVnAQAAABQAAABlbmNvZGVyPUxhdmMgbGlib3B1c09nZ1MABPgEAAAAAAAAAAAAAAIAAADbWnPVAgcG' +
+  'CAvmOyOrYAgIrLMOxg==';
+
+function opusProbeBytes(): ArrayBuffer {
+  return Uint8Array.from(atob(OPUS_PROBE_BASE64), (c) => c.charCodeAt(0)).buffer;
+}
+
 /** A bank a running preload holds, and the quality it was fetched in. */
 interface HeldBank {
   readonly quality: SoundQuality;
@@ -79,8 +93,9 @@ export function decodedBytes(buffer: AudioBuffer): number {
  * at most once while cached, concurrent requests share the in-flight promise, and a failure is memoised
  * as null so a missing clip never spams the network. A preload fetches whole banks (`banks.json`) and
  * decodes their clips from memory; any other load, or one whose bank or index did not arrive, fetches
- * the clip's own file. A browser that cannot decode the compact encoding (Safari before 18.4 has no
- * Ogg Opus) moves the cache to lossless for the session. Decoding on the playing context resamples
+ * the clip's own file. A compact clip that fails to decode probes the browser once with a tiny Ogg
+ * Opus clip: a browser that cannot decode the encoding (Safari before 18.4 has no Ogg Opus) moves the
+ * cache to lossless for the session, and otherwise only that clip fails. Decoding on the playing context resamples
  * each clip to its rate once. Past the byte budget the least recently played unpinned clip is dropped
  * and loads again on its next play. Owned by the engine (decoding needs its `AudioContext`).
  */
@@ -96,8 +111,10 @@ export class SampleCache {
   private evictions = 0;
   private readonly budgetBytes: number;
   private readonly concurrency: number;
-  /** Lossless once the compact encoding has failed to decode. */
+  /** Lossless once the browser proved unable to decode the compact encoding. */
   private quality: SoundQuality;
+  /** Whether the browser decodes Ogg Opus, asked on the first compact decode failure. */
+  private opusProbe: Promise<boolean> | null = null;
   private readonly warn: (message: string) => void;
   /** The bank index, fetched as the cache is made so the first play finds it. A load that finds it
    *  missing or invalid clears it, so the next load asks again. */
@@ -229,8 +246,9 @@ export class SampleCache {
     return promise;
   }
 
-  /** `file` decoded in the cache's quality. A compact clip the browser cannot decode moves the cache
-   *  to lossless and loads again; a failed fetch is no decode failure and moves nothing. */
+  /** `file` decoded in the cache's quality. A compact clip that fails to decode in a browser without
+   *  Ogg Opus moves the cache to lossless and loads again; in one with it, only that clip fails. A
+   *  failed fetch is no decode failure and moves nothing. */
   private async fetchAndDecode(file: string): Promise<AudioBuffer> {
     const index = await this.bankIndex();
     const quality = this.quality;
@@ -238,10 +256,18 @@ export class SampleCache {
     try {
       return await this.decode(bytes);
     } catch (err) {
-      if (servedEncoding(index, file, quality) !== 'compact') throw err;
+      if (servedEncoding(index, file, quality) !== 'compact' || (await this.decodesOpus())) throw err;
       this.fallBackToLossless(err);
       return this.decode(await this.clipBytes(file, 'lossless', index));
     }
+  }
+
+  private decodesOpus(): Promise<boolean> {
+    this.opusProbe ??= this.decode(opusProbeBytes()).then(
+      () => true,
+      () => false,
+    );
+    return this.opusProbe;
   }
 
   private fallBackToLossless(reason: unknown): void {

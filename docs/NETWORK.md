@@ -509,7 +509,11 @@ own content version matches, verifies the fingerprint, and asks the creator thro
 the server cannot deliver it. The origin is advisory: clients must validate source provenance, sender
 identity, payload schema and the expected map fingerprint.
 
-The relay keeps the latest map text the creator delivered, replaced by its next delivery. `requestMap`
+A `map` the creator addresses to itself is a deposit: the relay keeps it and forwards it to nobody. The
+creator deposits a `user` or `mod` origin map once the lobby settles on it, so a member returning to the
+started game without the map is served even when every guest already had it; a catalogue map and a map the
+page's own maps index lists are never deposited. The relay keeps the latest map text the creator delivered
+or deposited for the room's life, replaced by its next delivery or deposit. `requestMap`
 answers with that text as the same `blob { type: "map", from }` the creator sent: in the lobby while the
 creator still offers it under the same map fingerprint, and after Start to any member, such as one that
 returns without the map. Otherwise, in the lobby, it sends the connected creator `mapRequest { from }` so a
@@ -666,7 +670,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `MAX_COMMANDS_PER_TICK` [protocol] | 20 | Gestures one member lands on one tick; a client's gestures in flight. |
 | `MAX_ENVELOPE_BYTES`, `MAX_COMMAND_BYTES_PER_TICK` [protocol] | 512 KiB, 1 MiB | One envelope as JSON; envelopes one member lands on one tick. |
 | `MAX_CLIENT_MESSAGE_BYTES` [protocol] | 513 KiB | A client message other than a blob: one envelope plus 1 KiB. |
-| `MAX_BLOB_BYTES`, `MAX_BLOB_MESSAGE_BYTES` [protocol] | 32 MiB, about 42.7 MiB | A decoded blob, also the kept map text; its message, base64 plus 1 KiB. |
+| `MAX_BLOB_BYTES`, `MAX_BLOB_MESSAGE_BYTES` [protocol] | 32 MiB, about 42.7 MiB | A decoded blob, also the kept map text (one delivery or deposit per room); its message, base64 plus 1 KiB. |
 | `MAX_SAVE_ORDERS_BYTES` [protocol] | 16 MiB | A `saveOrders` reply as UTF-8 JSON. |
 | `MAX_PENDING_COMMANDS_PER_MEMBER`, `MAX_PENDING_COMMAND_BYTES` [server] | 128, 2 MiB | Accepted future gestures per member, paused rooms included. |
 | `MAX_COMMAND_HISTORY_BYTES` [server] | 12 MiB | Retained frames plus pending input at admission, with overhead. |
@@ -833,9 +837,9 @@ its own match; digest agreement is not an anti-cheat guarantee.
 
 The host bounds application and unsolicited WebSocket control traffic together by `MESSAGES_PER_SECOND`
 with a `MESSAGE_BURST` and `BYTES_PER_SECOND` with a `BYTE_BURST`. Recovery requests (`loaded`,
-`saveOrders`, `requestInitialSave`) share a separate `RECOVERY_BURST` before relay dispatch. A
-`saveOrders` or `requestInitialSave` past it is answered `rejected` with `retryTooSoon` and the connection
-stays; a `loaded` past it closes the connection as a traffic excess does, since a refused `loaded` would
+`saveOrders`, `requestInitialSave`, `requestMap`) share a separate `RECOVERY_BURST` before relay dispatch.
+A `saveOrders`, `requestInitialSave` or `requestMap` past it is answered `rejected` with `retryTooSoon` and
+the connection stays; a `loaded` past it closes the connection as a traffic excess does, since a refused `loaded` would
 leave the room waiting for that world, and the reconnect reports it again. WebSocket compression is
 disabled, payloads are capped, an unacknowledged close is terminated after one second, and a socket
 silent for `SILENT_SOCKET_MS` is closed. Incoming bytes keep a progressing upload alive before its complete

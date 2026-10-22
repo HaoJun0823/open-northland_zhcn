@@ -411,9 +411,9 @@ export interface EngageSpec {
 
 /**
  * The enemy this combatant fights this tick with its reach from `here` in map points, or null. An
- * {@link AttackOrder} focus and a live `spec.lock` resolve ahead of the nearest search; a fighter's own
- * breach yields to a primary-tier target inside `weapon`'s band, and any other order that lets its fighter
- * turn aside to a higher-ranked enemy ({@link asideFromOrder}). Otherwise the nearest target `spec.accept`
+ * {@link AttackOrder} focus and a live `spec.lock` resolve ahead of the nearest search; a breach yields to
+ * an enemy inside `weapon`'s band ({@link breakerRival}), and any other order that lets its fighter turn
+ * aside to a higher-ranked enemy ({@link asideFromOrder}). Otherwise the nearest target `spec.accept`
  * admits within `[spec.minDist, spec.searchRadius]`, with the `spec.lowPriority` tier searched only when the
  * primary tier finds nothing in sight. `moving` is the swing gate's own reading of whether the unit still
  * walks, so the held enemy is weighed against its neighbours on exactly the ticks a swing could start;
@@ -427,7 +427,7 @@ export function resolveTarget(
   self: Entity,
   here: NodeId,
   spec: EngageSpec,
-  weapon: WeaponBand,
+  weapon: ArmedWith,
   moving: boolean,
   travelling: boolean,
 ): { target: Entity; dist: number } | null {
@@ -438,19 +438,8 @@ export function resolveTarget(
   if (order !== undefined) {
     const x = terrain.xOf(here);
     const y = terrain.yOf(here);
-    // An enemy within a breaker's reach is fought first, and the wall taken up again once it is gone.
     const rival =
-      order.breach?.enemy === undefined
-        ? null
-        : index.nearest(
-            x,
-            y,
-            weapon.minRange,
-            weapon.maxRange,
-            (t) => !spec.lowPriority(t) && spec.accept(t),
-            spec.player,
-            SEARCH_METRIC,
-          );
+      order.breach === undefined ? null : breakerRival(world, ctx, pass, spec, weapon, x, y, order.breach);
     if (rival !== null) return { target: rival.entity, dist: rival.distance };
     if (spec.hold !== undefined && turnsAsideUnder(world, ctx, order, index.firingNow)) {
       const aside = asideFromOrder(
@@ -509,6 +498,33 @@ export function resolveTarget(
       ? pickWildVictim(world, ctx, pass, spec, x, y)
       : (pickInBand(pass, spec, x, y, 'primary') ?? pickInBand(pass, spec, x, y, 'low'));
   return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
+}
+
+/**
+ * The enemy within reach a breaker fights before its wall, which it takes up again once none is left. A
+ * fighter's own breach and a march's take a first-tier one first, then any other but a plain building; a
+ * breach on the way to an ordered target turns only where the order lets its fighter turn aside
+ * ({@link turnsAsideUnder}), and only to a first-tier one. A melee fighter looks only on its own breach and
+ * keeps chopping otherwise, while a shooter looks on any, since its shots fly over the wall. Owner rule.
+ */
+function breakerRival(
+  world: World,
+  ctx: SystemContext,
+  pass: CombatPass,
+  spec: EngageSpec,
+  weapon: ArmedWith,
+  x: number,
+  y: number,
+  breach: { readonly resume: Entity | null; readonly enemy?: Entity | undefined },
+): { entity: Entity; distance: number } | null {
+  if (breach.enemy === undefined && !isRangedWeapon(weapon.weapon)) return null;
+  const nearest = (accept: (t: Entity) => boolean): { entity: Entity; distance: number } | null =>
+    pass.index.nearest(x, y, weapon.minRange, weapon.maxRange, accept, spec.player, SEARCH_METRIC);
+  const ordered = breach.enemy === undefined && breach.resume !== null;
+  if (ordered && !turnsAsideUnder(world, ctx, { target: breach.resume }, pass.index.firingNow)) return null;
+  const priority = spec.hold === undefined ? null : nearest(spec.hold.priorityTarget);
+  if (ordered) return priority;
+  return priority ?? nearest((t) => !spec.lowPriority(t) && spec.accept(t));
 }
 
 /** Every engage search counts map points, the metric weapon reach and the stances' radii share. */

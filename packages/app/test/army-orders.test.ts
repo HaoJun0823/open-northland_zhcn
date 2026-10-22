@@ -18,9 +18,18 @@ const COUNT = 1000;
 const TARGET = { col: 150, row: 80 };
 const POINT = halfCellToScreen(TARGET.col, TARGET.row);
 const ENEMY = 5000;
+const HOUSE = 6000;
 
-/** `commanded`: the first settler commands the first vehicle, standing beside it. */
-function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0, commanded = false) {
+/** `commanded`: the first settler commands the first vehicle, standing beside it. `house`: an own
+ *  building stands under the click. */
+function harness(
+  enemy = false,
+  count = COUNT,
+  posted = false,
+  vehicleCount = 0,
+  commanded = false,
+  house = false,
+) {
   const units = Array.from({ length: count }, (_, i) => ({
     ref: i + 1,
     ...halfCellToScreen(2 + 2 * (i % 40), 2 + 2 * Math.floor(i / 40)),
@@ -58,8 +67,8 @@ function harness(enemy = false, count = COUNT, posted = false, vehicleCount = 0,
   const cues: string[] = [];
   const content = sandboxContent();
   const targets: UnitTargets = {
-    owned: () => [],
-    buildings: () => [],
+    owned: (kind) => (house && kind === 'building' ? [{ ref: HOUSE, ...POINT, kind: 'building' }] : []),
+    buildings: () => (house ? [{ ref: HOUSE, ...POINT, kind: 'building' }] : []),
     flags: () => [],
     signposts: () => [],
     chests: () => [],
@@ -209,6 +218,22 @@ describe('army selection input', () => {
     expect(h.ring('changeEquipment')).toBe(false);
     expect(h.issued).toEqual([]);
     expect(h.limited).toEqual([1]);
+  });
+
+  it.each(['home', 'workplace'] as const)('refuses an oversized %s pick on a building whole', (kind) => {
+    const h = harness(false, MAX_UNIT_ORDER_MEMBERS + 1, false, 0, false, true);
+    h.pickMode.arm({ kind, units: [...h.selected] });
+    expect(h.pickMode.handleMouseDown(click(0))).toBe('missed');
+    expect(h.issued).toEqual([]);
+    expect(h.limited).toEqual([1]);
+  });
+
+  it('refuses an oversized right-click on an own building before any group order', () => {
+    const h = harness(false, MAX_UNIT_ORDER_MEMBERS + 1, false, 0, false, true);
+    expect(h.orders.issueRightClick(click(2), HOUSE)).toBe(false);
+    expect(h.issued).toEqual([]);
+    expect(h.limited).toEqual([1]);
+    expect(h.cues).toEqual(['fail']);
   });
 
   it('refuses an oversized release-and-flag before releasing anyone', () => {

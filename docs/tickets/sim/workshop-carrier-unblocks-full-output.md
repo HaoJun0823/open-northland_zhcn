@@ -10,8 +10,9 @@ but this does not help while they are absent or seated.
 The bound supplier already runs before general porter work in `drives/ladder.ts`, but that rung
 always claims the carrier. When the supplier has no work it waits at its pickup flag or loiters,
 preventing the wider settlement's hauling fallback. Both output-first unblocking and availability
-for general hauling remain to implement. Original trip scheduling is unconfirmed; this priority is
-an approximation.
+for general hauling remain to implement. Original behavior: the workshop's carrier fetches a missing
+input before it carries any output out, so output-first unblocking is a departure that needs the
+owner's ruling.
 
 ## Scope
 

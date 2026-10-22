@@ -238,9 +238,13 @@ function ranksBefore(
 }
 
 /**
- * The finished output a producer should haul out of its own workplace to clear room for the next cycle, or
- * null when it holds none another store can accept beyond what settlers already walking to it claimed. Walked in the type's `produces` order, so the pick
- * never depends on store insertion history.
+ * The finished output a worker should haul out of its own workplace, or null when it holds none another
+ * store can accept beyond what settlers already walking to it claimed. Original behavior: the workshop's
+ * carrier takes a full output shelf first, else the output it holds most of, the lowest id on a tie.
+ * Departure: the original takes the highest-id full shelf every time, and a workshop refills the shelf it
+ * just lost a unit from before the carrier is back, so that rule keeps every other full product waiting
+ * for good; a random full shelf goes instead. The original also gives up when its pick has no consumer,
+ * where here the next deliverable output goes.
  */
 export function workplaceOutputToHaul(
   deliverable: (goodType: number) => boolean,
@@ -252,11 +256,21 @@ export function workplaceOutputToHaul(
   const stock = world.get(workplace, Stockpile).amounts;
   const produces = buildingProduces(world, ctx, workplace);
   const made = mergedRecipeOf(world, ctx, workplace)?.outputs.map((o) => o.goodType) ?? [];
-  for (const good of produces.length > 0 ? produces : made) {
-    if ((stock.get(good) ?? 0) <= supply.reservedAt(workplace, good)) continue; // none a walker has not claimed
-    if (!isWorkplaceOutput(world, ctx, workplace, good)) continue;
+  const full: number[] = [];
+  let most: number | null = null;
+  let mostAmount = 0;
+  for (const goodType of produces.length > 0 ? produces : made) {
+    const amount = stock.get(goodType) ?? 0;
+    if (amount <= supply.reservedAt(workplace, goodType)) continue; // none a walker has not claimed
+    if (!isWorkplaceOutput(world, ctx, workplace, goodType)) continue;
     // The routing itself excludes this producer as a sink.
-    if (deliverable(good)) return good;
+    if (!deliverable(goodType)) continue;
+    if (amount >= stockCapacity(world, ctx, workplace, goodType)) full.push(goodType);
+    else if (most === null || amount > mostAmount || (amount === mostAmount && goodType < most)) {
+      most = goodType;
+      mostAmount = amount;
+    }
   }
-  return null;
+  if (full.length > 1) return full[ctx.rng.int(full.length)] ?? null;
+  return full[0] ?? most;
 }

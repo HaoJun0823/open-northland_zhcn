@@ -13,6 +13,7 @@ import {
   Resting,
   SettlerProgress,
   Stockpile,
+  setStockAmount,
 } from '../../../src/components/index.js';
 import { Simulation } from '../../../src/index.js';
 import {
@@ -344,6 +345,46 @@ describe('producer self-service - hauling the finished output', () => {
     const atomic = sim.world.get(porter, CurrentAtomic);
     expect(atomic.atomicId).toBe(PICKUP_ATOMIC);
     expect(atomic.effect).toMatchObject({ kind: 'pickup', goodType: PLANK, from: mill });
+  });
+
+  /** The good the bakehouse's bound carrier lifts with both inputs at capacity and the given shelves. */
+  function bakehouseCarrierHaul(
+    plank: number,
+    food: number,
+    { hqFoodFull = false, seed = 1 } = {},
+  ): number | undefined {
+    const sim = new Simulation({ seed, content: testContent(), map: grassMap(6, 1) });
+    const shop = buildingAt(sim, BAKEHOUSE, 0, 0, [
+      [WOOD, 10],
+      [WHEAT, 10],
+      [PLANK, plank],
+      [FOOD_SIMPLE, food],
+    ]);
+    const hq = buildingAt(sim, HEADQUARTERS, 3, 0);
+    if (hqFoodFull)
+      setStockAmount(sim.world, hq, FOOD_SIMPLE, stockCapacity(sim.world, ctxOf(sim), hq, FOOD_SIMPLE));
+    const porter = settlerAt(sim, 0, 0, CARRIER, shop);
+    plannerSystem(sim.world, ctxOf(sim));
+    const effect = sim.world.tryGet(porter, CurrentAtomic)?.effect;
+    return effect?.kind === 'pickup' ? effect.goodType : undefined;
+  }
+
+  it('a bound CARRIER hauls the output it holds most of, not always the first product', () => {
+    // Listed first, the plank would win every trip while the shop kept making it, and the food shelf
+    // would never clear.
+    expect(bakehouseCarrierHaul(3, 8)).toBe(FOOD_SIMPLE);
+    expect(bakehouseCarrierHaul(8, 3)).toBe(PLANK);
+  });
+
+  it('a bound CARRIER picks among several full shelves, so no one product holds the others back', () => {
+    const SEEDS = 8;
+    const picks = new Set<number | undefined>();
+    for (let seed = 1; seed <= SEEDS; seed++) picks.add(bakehouseCarrierHaul(20, 20, { seed }));
+    expect(picks).toEqual(new Set([PLANK, FOOD_SIMPLE]));
+  });
+
+  it('a bound CARRIER hauls the next output when no store can take the first', () => {
+    expect(bakehouseCarrierHaul(3, 8, { hqFoodFull: true })).toBe(PLANK);
   });
 
   it('a STARVED craftsman fetches its input itself even when a carrier is bound', () => {

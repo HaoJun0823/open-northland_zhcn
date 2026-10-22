@@ -10,6 +10,7 @@ import {
   convertBmdTree,
   convertEffectBmdTree,
   convertShadowBmdTree,
+  domPictureStems,
   resolveGraphicsBindings,
 } from './stages/bmd/index.js';
 import { CAMPAIGNS_DIR, convertCampaignStage } from './stages/campaigns.js';
@@ -63,12 +64,24 @@ export async function runPipeline(args: Args): Promise<void> {
     `[pipeline] vertex palette: ${vertexPalette.length} entries -> ${join(args.out, VERTEX_PALETTE_FILE)}`,
   );
 
+  const ir = await writeIr(roots, args.out);
+  console.log(
+    `[pipeline] ini -> ir: ${ir.goods.length} goods, ${ir.jobs.length} jobs, ${ir.jobExperience.length} job-xp tracks, ` +
+      `${ir.buildings.length} buildings, ` +
+      `${ir.weapons.length} weapons, ${ir.armor.length} armor, ${ir.animals.length} animals, ${ir.vehicles.length} vehicles, ${ir.landscape.length} landscape, ` +
+      `${ir.tribes.length} tribes, ${ir.atomicAnimations.length} atomic animations, ${ir.bobSequences.length} bob-sequence sets, ${ir.buildingBobs.length} building bobs, ${ir.maps.length} maps, ` +
+      `${ir.gatheringPipeline.length} gathering pipelines, ` +
+      `${ir.humanPalettes.recipes.length} human palette recipes over ${Object.keys(ir.humanPalettes.ramps).length} ramps ` +
+      `-> ${join(args.out, 'ir.json')}`,
+  );
+
   const graphics = await resolveGraphicsBindings(roots);
   const assets = await indexSourceAssets(roots);
   // Every atlas stage writes content-addressed sheets here and skips a name already present, so the
   // reset belongs to the run.
   await rm(join(args.out, BOBS_DIR), { recursive: true, force: true });
-  const atlases = await convertBmdTree(graphics, args.out, assets);
+  // The IR rows name the stems the app's DOM shows, which keep RGB sheets.
+  const atlases = await convertBmdTree(graphics, args.out, assets, domPictureStems(ir, graphics.bindings));
   const { bindings, palettes } = graphics;
   const distinct = new Set(atlases.map((a) => a.image)).size;
   const distinctBmd = new Set(atlases.map((a) => a.bmd)).size;
@@ -115,17 +128,6 @@ export async function runPipeline(args: Args): Promise<void> {
   console.log(
     `[pipeline] goods: ${goods.frames}-frame atlas, ${goods.palettes}-palette LUT, ` +
       `${goods.icons} good icon(s) into ${join(args.out, 'goods')}`,
-  );
-
-  const ir = await writeIr(roots, args.out);
-  console.log(
-    `[pipeline] ini -> ir: ${ir.goods.length} goods, ${ir.jobs.length} jobs, ${ir.jobExperience.length} job-xp tracks, ` +
-      `${ir.buildings.length} buildings, ` +
-      `${ir.weapons.length} weapons, ${ir.armor.length} armor, ${ir.animals.length} animals, ${ir.vehicles.length} vehicles, ${ir.landscape.length} landscape, ` +
-      `${ir.tribes.length} tribes, ${ir.atomicAnimations.length} atomic animations, ${ir.bobSequences.length} bob-sequence sets, ${ir.buildingBobs.length} building bobs, ${ir.maps.length} maps, ` +
-      `${ir.gatheringPipeline.length} gathering pipelines, ` +
-      `${ir.humanPalettes.recipes.length} human palette recipes over ${Object.keys(ir.humanPalettes.ramps).length} ramps ` +
-      `-> ${join(args.out, 'ir.json')}`,
   );
 
   const sounds = await convertSoundTree(roots, args.out, loopedBedClips(ir.sounds));

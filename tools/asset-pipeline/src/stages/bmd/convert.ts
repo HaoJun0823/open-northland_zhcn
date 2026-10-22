@@ -38,31 +38,8 @@ export interface BmdConversion {
  * Filesystem-safe slug of an already lower-cased palette `editname`: every non-`[a-z0-9_]` run collapses
  * to a single `_`, so a stray space or punctuation cannot leak into an output path.
  */
-function paletteSlug(name: string): string {
+export function paletteSlug(name: string): string {
   return name.replace(/[^a-z0-9_]+/g, '_');
-}
-
-/**
- * Stems the app's DOM shows as an `<img>` or a CSS background, which shows a sheet's pixels as they
- * are, so each keeps an RGB sheet however many colourings its bob set has: every colouring of the goods'
- * piles and of the carts (good icons), and single stems for the ship and livestock good icons and each
- * civilization's headquarters (its tribe emblem). The app's joins pick them; the real-content test
- * `dom-picture-sheets.test.ts` checks this list against those joins.
- */
-const DOM_PICTURE_BOB_SETS: ReadonlySet<string> = new Set(['ls_goods', 'cr_veh_body_00']);
-const DOM_PICTURE_STEMS: ReadonlySet<string> = new Set([
-  'ls_vehicles.human_ship01',
-  'cr_ani_body_00.cattle01',
-  'cr_ani_body_00.house01',
-  'ls_houses_viking4.house02',
-  'ls_houses_frank.caves',
-  'ls_houses_byzantine.house_byzantine01',
-  'ls_houses_saracen.house_saracen01',
-  'ls_houses_egypt.caves',
-]);
-
-function isDomPicture(stem: string): boolean {
-  return DOM_PICTURE_STEMS.has(stem) || DOM_PICTURE_BOB_SETS.has(stem.slice(0, stem.indexOf('.')));
 }
 
 /** One binding whose palette and body `.bmd` were found, waiting for its bob set to be packed. */
@@ -80,8 +57,8 @@ interface ResolvedBinding {
  * per creature; naming on the `.bmd` alone would collapse them onto one last-palette-wins file. A bob
  * set served in more than one colouring (several palettes, or a character body the app also draws
  * indexed) is written once as an indexed sheet that every stem names with its own palette
- * ({@link PalettedBobAtlas}); a bob set with one colouring, and a stem the DOM shows
- * ({@link DOM_PICTURE_STEMS}), keeps its RGB sheet. Shadow `.bmd`s convert separately
+ * ({@link PalettedBobAtlas}); a bob set with one colouring, and a stem in `domPictures` (the stems the
+ * app's DOM shows as they are, `domPictureStems`), keeps its RGB sheet. Shadow `.bmd`s convert separately
  * ({@link convertShadowBmdTree}).
  *
  * Per-binding boundary failures are warned and skipped; a basename collision is the one fatal case
@@ -96,6 +73,7 @@ export async function convertBmdTree(
   graphics: GraphicsBindingSet,
   outDir: string,
   tree: SourceAssetIndex,
+  domPictures: ReadonlySet<string>,
 ): Promise<BmdConversion[]> {
   const { bindings, palettes, buildTimeBmds, coverageBobs } = graphics;
   assertDistinctBobBasenames(bindings.map((b) => b.bmd).filter((ref) => tree.has(ref)));
@@ -150,7 +128,7 @@ export async function convertBmdTree(
     };
     const stems = group.map((binding) => {
       const slug = paletteSlug(binding.paletteName);
-      return { ...binding, slug, inColour: isDomPicture(bobAtlasStem(bmdSource.rel, slug)) };
+      return { ...binding, slug, inColour: domPictures.has(bobAtlasStem(bmdSource.rel, slug)) };
     });
     const sharing = stems.filter((stem) => !stem.inColour).length;
     const shared = sharing > 1 || (sharing === 1 && isCharacterBmd(bmd));
@@ -224,7 +202,7 @@ export async function convertShadowBmdTree(
 /**
  * Converts every `.bmd` a `GfxUserFXMatrix` landscape record draws from into an indexed atlas at
  * `<bmd-basename>.indexed.atlas.json`: a displacement bob's raw value in red and its written mask
- * in alpha, since a palette would destroy the value. Deduped per `.bmd`.
+ * in green, opaque, since a palette would destroy the value. Deduped per `.bmd`.
  */
 export async function convertEffectBmdTree(
   records: readonly Pick<LandscapeGfx, 'bmd' | 'userFxMatrix'>[],

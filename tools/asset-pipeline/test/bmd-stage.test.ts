@@ -20,6 +20,9 @@ import { indexSourceAssets } from '../src/stages/source-files.js';
 import { makeTempDir } from './support/game-tree.js';
 import { decodeAtlasImage, readServedManifest, readServedSheet } from './support/served-atlas.js';
 
+/** No stem the DOM shows: every bob set with several colourings shares an indexed sheet. */
+const NO_DOM_PICTURES: ReadonlySet<string> = new Set();
+
 /** `.bmd` bytes through a palette into the RGB atlas the stage writes for a bob set with one colouring. */
 function bmdToAtlas(
   bytes: Uint8Array,
@@ -158,6 +161,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done).toHaveLength(1);
@@ -201,6 +205,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done).toHaveLength(2);
@@ -210,6 +215,8 @@ describe('convertBmdTree', () => {
       ['body.bear01', 'body.wolf01'].map((stem) => readServedManifest(out, stem)),
     );
     expect(bearManifest?.palette).toBeDefined();
+    expect(bearManifest?.imageEncoding).toBe('index-coverage-png');
+    expect(bearManifest?.image).toMatch(/^[0-9a-f]{16}\.png$/);
     expect(wolfManifest?.palette).not.toBe(bearManifest?.palette);
     expect(done.map((c) => c.manifest).sort()).toEqual([
       `${BOBS_DIR}/body.bear01.atlas.json`,
@@ -229,7 +236,7 @@ describe('convertBmdTree', () => {
     expect(bear).not.toEqual(wolf);
   });
 
-  it('keeps an RGB sheet per palette for a bob set the DOM shows, however many colourings it has', async () => {
+  it('keeps an RGB sheet per palette for each stem the DOM shows, however many colourings its set has', async () => {
     // The goods' pile icons are CSS crops of their sheets, which show pixels as they are.
     await layDownAssets();
     await writeFile(join(out, 'Data', 'Bobs', 'LS_Goods.bmd'), sampleBmdBytes());
@@ -250,6 +257,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      new Set(['ls_goods.bear01', 'ls_goods.wolf01']),
     );
 
     expect(new Set(done.map((c) => c.image)).size).toBe(2);
@@ -270,6 +278,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done.map((c) => c.manifest)).toEqual([`${BOBS_DIR}/body.bear01.atlas.json`]);
@@ -298,6 +307,7 @@ describe('convertBmdTree', () => {
       },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     // The app asks for `/bobs/f_bakery.house.atlas.json` - the source's `nowe/` subdirectory must not
@@ -320,6 +330,7 @@ describe('convertBmdTree', () => {
         { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
         out,
         await indexSourceAssets({ data: out }),
+        NO_DOM_PICTURES,
       ),
     ).rejects.toThrow(/basename collision.*nowe\/body\.bmd/s);
   });
@@ -345,6 +356,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done.map((c) => c.manifest)).toEqual([`${BOBS_DIR}/body.bear01.atlas.json`]);
@@ -361,6 +373,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes: [], buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     ); // empty palette index
 
     expect(done).toEqual([]);
@@ -379,6 +392,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done).toEqual([]);
@@ -398,6 +412,7 @@ describe('convertBmdTree', () => {
       { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     expect(done).toEqual([]);
@@ -551,6 +566,7 @@ describe('convertBmdTree build-time bake', () => {
       { bindings, palettes, buildTimeBmds: new Set(['data/bobs/house.bmd']), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
+      NO_DOM_PICTURES,
     );
 
     const alphaOf = async (stem: string): Promise<number> => {

@@ -5,3 +5,4 @@ export {
   convertEffectBmdTree,
   convertShadowBmdTree,
 } from './convert.js';
+export { domPictureStems } from './dom-pictures.js';

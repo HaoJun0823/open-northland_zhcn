@@ -142,6 +142,8 @@ it('creator sends retained local documents only when the local catalog permits d
       bytes: blob.bytes,
     }),
   );
+  // Every page serves a map its own index lists, so the creator leaves the relay no copy of it.
+  expect(s.client.sendBlob).toHaveBeenCalledOnce();
   s.transfer.dispose();
   const denied = setup(true, 'Host', transport(true, 'unknown'));
   denied.transfer.observe(room());

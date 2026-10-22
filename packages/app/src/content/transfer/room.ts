@@ -5,7 +5,13 @@ import { installAnnouncedCatalogMap } from '../map-source/install.js';
 import { findMapSource, mapFetch } from '../map-source/sources.js';
 import { MAPS_INDEX_URL, parseMapsIndex } from '../maps-index.js';
 import { loadPersistedMap, persistedMapOrigin, persistVerifiedMap } from './cache.js';
-import { decodeMapTransfer, encodeMapTransfer, isDeliverableMapOrigin, mapDeliveryAllowed } from './codec.js';
+import {
+  type DeliverableMapOrigin,
+  decodeMapTransfer,
+  encodeMapTransfer,
+  isDeliverableMapOrigin,
+  mapDeliveryAllowed,
+} from './codec.js';
 import {
   loadVerifiedMapDocuments,
   readVerifiedMapDocuments,
@@ -19,6 +25,11 @@ type Upload = Omit<Extract<ClientMessage, { kind: 'blob' }>, 'kind'>;
 export interface MapVerifyNotice {
   show(): Promise<void>;
   hide(): void;
+}
+/** Origins whose map the creator deposits on the relay: the ones only a player's copy can provide. */
+const DEPOSITED_ORIGINS = ['user', 'mod'] as const satisfies readonly DeliverableMapOrigin[];
+function isDepositedOrigin(kind: unknown): kind is (typeof DEPOSITED_ORIGINS)[number] {
+  return DEPOSITED_ORIGINS.some((origin) => origin === kind);
 }
 const SILENT_VERIFY_NOTICE: MapVerifyNotice = { show: async () => undefined, hide: () => undefined };
 
@@ -55,6 +66,10 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
   let decodingGeneration: number | null = null;
   let cacheFingerprint: string | null = null;
   let requested = false;
+  /** Whether this load's documents went to the relay as the room's deposit. */
+  let deposited = false;
+  /** Whether the room's map is in the page's own maps index. */
+  let shipped = false;
   let disposed = false;
   const pending = new Set<string>();
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -113,9 +128,12 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       return;
     }
     if (documents.fingerprint !== expectedFingerprint()) return;
-    encodedMap ??= encodeMapTransfer(documents, { kind: deliveryOrigin });
+    upload(documents, deliveryOrigin, nick);
+  }
+  /** Encodes the documents once per load and sends them to `nick` while they are still the room's. */
+  function upload(encoded: VerifiedMapDocuments, deliveryOrigin: DeliverableMapOrigin, nick: string) {
+    encodedMap ??= encodeMapTransfer(encoded, { kind: deliveryOrigin });
     const active = generation;
-    const encoded = documents;
     encodedMap.then(
       (bytes) => {
         const current = room;
@@ -134,8 +152,28 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       },
     );
   }
+  /** The creator leaves the relay a copy of a player's own map, addressed to itself, so a member who
+   *  returns to the started game without it can still get it. Every page serves the shipped maps and
+   *  the catalogue server a catalogue map, so neither is deposited. */
+  function deposit() {
+    if (
+      deposited ||
+      shipped ||
+      room?.state !== 'lobby' ||
+      room.creator !== options.client.nick ||
+      documents === null ||
+      documents.fingerprint !== expectedFingerprint() ||
+      (locallyListed && !mapDeliveryAllowed(origin))
+    )
+      return;
+    const deliveryOrigin = origin?.kind ?? persistedMapOrigin(documents);
+    if (!isDepositedOrigin(deliveryOrigin) || deliveryOrigin !== room.settings.mapOrigin) return;
+    deposited = true;
+    upload(documents, deliveryOrigin, options.client.nick);
+  }
   function flushPending() {
     if (documents === null || documents.fingerprint !== expectedFingerprint()) return;
+    deposit();
     for (const nick of pending) sendTo(nick);
     pending.clear();
   }
@@ -150,6 +188,8 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
     locallyListed = false;
     loaded = false;
     requested = false;
+    deposited = false;
+    shipped = false;
     const mapId = room?.settings.world.kind === 'map' ? room.settings.world.mapId : null;
     if (mapId === null) return;
     loading = true;
@@ -168,6 +208,7 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       const entry = matches.find((item) => !mapDeliveryAllowed(item.provenance)) ?? matches[0];
       origin = entry?.provenance;
       locallyListed = entry !== undefined;
+      shipped = locallyListed;
       if (!locallyListed) {
         const installed = await (options.findSource ?? findMapSource)(mapId);
         if (disposed || generation !== active) return;

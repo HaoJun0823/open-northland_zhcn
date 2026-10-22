@@ -33,6 +33,8 @@ const ROOM: RoomSettings = {
   mapOrigin: 'catalog',
   catalogMap: { entryId: MAP_ID, mapId: MAP_ID, fingerprint: TINY_FINGERPRINT, irVersion: IR_VERSION },
 };
+/** The relay answers one member's map request at most this often. */
+const REQUEST_COOLDOWN_MS = 2000;
 const SHIPPED_INDEX: typeof fetch = async (input) =>
   String(input) === '/maps-index.json' ? Response.json([]) : new Response(null, { status: 404 });
 
@@ -68,6 +70,7 @@ async function member(
           fetch: store.fetchFor(record),
         };
   };
+  const uploads: { readonly to: string | null }[] = [];
   const verified: (VerifiedMapDocuments | null)[] = [];
   const errors: Error[] = [];
   const notices: ('show' | 'hide')[] = [];
@@ -77,7 +80,10 @@ async function member(
   const transfer = createRoomMapTransfer({
     client: {
       nick,
-      sendBlob: (upload) => peer.send({ kind: 'blob', ...upload }),
+      sendBlob: (upload) => {
+        uploads.push(upload);
+        peer.send({ kind: 'blob', ...upload });
+      },
       requestMap: () => peer.send({ kind: 'requestMap' }),
     },
     onVerified: (documents) => verified.push(documents),
@@ -102,7 +108,9 @@ async function member(
     }
     read = peer.sent.length;
   };
-  return { transfer, verified, errors, catalogInstall, pump, store, notices };
+  /** Maps this member addressed to itself: deposits the relay keeps for the room. */
+  const deposits = () => uploads.filter((upload) => upload.to === nick).length;
+  return { transfer, verified, errors, catalogInstall, pump, store, notices, deposits };
 }
 
 async function lobby(server: typeof fetch, origin: 'catalog' | 'user' = 'catalog') {
@@ -124,7 +132,7 @@ async function lobby(server: typeof fetch, origin: 'catalog' | 'user' = 'catalog
       await settle();
     }
   };
-  return { a, b, host, guest, run };
+  return { a, b, host, guest, run, advance: s.advance };
 }
 
 describe('a catalogue map in a lobby', () => {
@@ -138,6 +146,7 @@ describe('a catalogue map in a lobby', () => {
     expect(a.of('mapRequest')).toHaveLength(0);
     expect(guest.notices).toEqual(['show', 'hide']);
     expect(host.notices).toEqual([]);
+    expect(host.deposits()).toBe(0);
     expect([...host.errors, ...guest.errors]).toEqual([]);
   });
 
@@ -157,12 +166,19 @@ describe('a catalogue map in a lobby', () => {
 });
 
 it('delivers a locally imported user map through the relay without consulting the catalogue', async () => {
-  const { a, b, host, guest, run } = await lobby(catalogServer([ENTRY]), 'user');
+  const { a, b, host, guest, run, advance } = await lobby(catalogServer([ENTRY]), 'user');
   await run();
   expect(host.catalogInstall).not.toHaveBeenCalled();
   expect(guest.catalogInstall).not.toHaveBeenCalled();
-  expect(a.of('mapRequest')).toEqual([{ kind: 'mapRequest', from: 'Bartek' }]);
   expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania' });
   expect(guest.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
   expect([...host.errors, ...guest.errors]).toEqual([]);
+  // The creator deposits its own map once, and the relay serves it without asking the creator again.
+  expect(host.deposits()).toBe(1);
+  expect(a.of('blob')).toEqual([]);
+  const asked = a.of('mapRequest').length;
+  advance(REQUEST_COOLDOWN_MS);
+  b.send({ kind: 'requestMap' });
+  expect(a.of('mapRequest')).toHaveLength(asked);
+  expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania' });
 });

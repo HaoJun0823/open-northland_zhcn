@@ -1,6 +1,7 @@
 import { MessageChannel } from 'node:worker_threads';
 import { RelayClient } from '@open-northland/net-client';
-import { DESCRIPTOR_WORLD } from '@open-northland/net-protocol';
+import { DESCRIPTOR_WORLD, type ServerMessage } from '@open-northland/net-protocol';
+import { MAX_UNIT_ORDER_MEMBERS, parseCommandEnvelope, playerCommand } from '@open-northland/sim';
 import { afterEach, expect, it } from 'vitest';
 import { createSceneSim, SCENES } from '../../src/scenes/index.js';
 import { clientTimeScale } from '../../src/session/worker/net-serve.js';
@@ -17,6 +18,10 @@ const DRAIN_WATCH_MS = 2000;
 const MIN_DRAIN_TICKS_PER_SECOND = 140;
 const REQUESTED_SPEED = 8;
 const GOVERNED_SPEED = 1;
+
+const SEAT = 0;
+/** Any good id: the order is refused for its size before anything reads it. */
+const ANY_GOOD = 123456789;
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -112,4 +117,40 @@ it('paces the worker by the speed the relay runs at, and by the client draining 
   for (let tick = 1; tick <= BACKLOG_FRAMES; tick++) client.receive({ kind: 'frame', tick, commands: [] });
   // A backlog plays faster than the relay's clock, and the worker's clock wakes with it.
   expect(clientTimeScale(client)).toBeGreaterThan(1);
+});
+
+it("reports the client's own refusal of an order to the runtime as the relay's refusal", async () => {
+  const { connection, driver, dispose } = await shownWorld(channel());
+  const heard: ServerMessage[] = [];
+  const unsubscribe = connection.subscribe((event) => {
+    if (event.kind === 'message') heard.push(event.message);
+  });
+  try {
+    const small = playerCommand(SEAT, {
+      kind: 'setAssistantCounter',
+      player: SEAT,
+      counter: 'extraMen',
+      value: 1,
+      infinite: false,
+    });
+    const oversized = parseCommandEnvelope({
+      ...small,
+      command: {
+        kind: 'unitOrdersGroup',
+        members: Array.from({ length: MAX_UNIT_ORDER_MEMBERS }, (_, index) => ({
+          entity: index + 1,
+          actions: [
+            { kind: 'equipGood', group: 'weapon', slot: 1, goodType: ANY_GOOD, skipReturn: false },
+            { kind: 'equipGood', group: 'armor', slot: 1, goodType: ANY_GOOD, skipReturn: false },
+          ],
+        })),
+      },
+    });
+    driver.submit(oversized);
+    await until(() => heard.some((message) => message.kind === 'rejected'));
+    expect(heard).toContainEqual({ kind: 'rejected', of: 'command', reason: { code: 'envelopeTooLarge' } });
+  } finally {
+    unsubscribe();
+    dispose();
+  }
 });

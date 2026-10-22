@@ -16,10 +16,6 @@ export interface Member {
   joinOrder: number;
   /** When the client's last message, or progress on one still arriving, reached the relay. */
   lastHeardAt: number;
-  /** When the first bytes of a message still arriving came in, and how many have; null and 0 when
-   *  none is. A pong queued behind a large upload measures the upload, not the link. */
-  inboundSince: number | null;
-  inboundBytes: number;
   /** The connection's input delay and round trip, as the relay last measured them. */
   delayTicks: number;
   roundTripMs: number;
@@ -68,8 +64,6 @@ export function createMember(token: string, nick: string, now: number, link: Mea
     connectedSince: now,
     joinOrder: 0,
     lastHeardAt: now,
-    inboundSince: null,
-    inboundBytes: 0,
     delayTicks: link.delayTicks,
     roundTripMs: link.roundTripMs,
     jitterMs: link.jitterMs ?? 0,

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   INITIAL_INPUT_DELAY_TICKS,
   InputDelayEstimator,
+  LatencyProbe,
   MAX_INPUT_DELAY_TICKS,
 } from '../src/relay/input-delay.js';
 
@@ -92,5 +93,39 @@ describe('input delay estimator', () => {
 
   it('never drops below one tick, where an instant trip lands', () => {
     expect(steadyAt(0).ticks).toBe(1);
+  });
+});
+
+describe('latency probe', () => {
+  const PING_INTERVAL_MS = 1000;
+  const LINK_MS = 40;
+  const UPLOAD_MS = 3000;
+
+  /** The stamp of the ping due at `at`. */
+  function pingAt(probe: LatencyProbe, at: number): number {
+    const stamp = probe.pingDue(at);
+    if (stamp === null) throw new Error(`no ping due at ${at}`);
+    return stamp;
+  }
+
+  it('takes no sample from a pong that waited behind an upload, and samples the next ping', () => {
+    const probe = new LatencyProbe(0);
+    const held = pingAt(probe, PING_INTERVAL_MS);
+    probe.held();
+    expect(probe.pong(held, PING_INTERVAL_MS + UPLOAD_MS)).toBe(false);
+    expect(probe.delay.samples).toBe(0);
+
+    const next = pingAt(probe, PING_INTERVAL_MS * 2 + UPLOAD_MS);
+    probe.pong(next, next + LINK_MS);
+    expect(probe.delay.samples).toBe(1);
+    expect(probe.delay.roundTripMs).toBe(LINK_MS);
+  });
+
+  it('ignores an upload that ended before the ping went out', () => {
+    const probe = new LatencyProbe(0);
+    probe.held();
+    const stamp = pingAt(probe, PING_INTERVAL_MS);
+    probe.pong(stamp, stamp + LINK_MS);
+    expect(probe.delay.samples).toBe(1);
   });
 });

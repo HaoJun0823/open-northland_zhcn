@@ -30,7 +30,7 @@ function client(nick: string): HeadlessClient {
   });
 }
 
-it('keeps a snapshot donor’s input delay and the room reserve within a tick of their steady values', async () => {
+it('keeps a snapshot donor’s input delay steady and the room reserve within a tick of its steady value', async () => {
   const clock = new VirtualClock();
   const relay = new Relay({ now: clock.now });
   const stage: Stage = { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(5)) };
@@ -76,7 +76,7 @@ it('keeps a snapshot donor’s input delay and the room reserve within a tick of
   }
   const trace = `steady delay=${steadyDelay} reserve=${steadyReserve}\n${rows.join('\n')}`;
   expect(cezary.restoredFrom.length, trace).toBeGreaterThan(0);
-  expect(peakDelay, trace).toBeLessThanOrEqual(steadyDelay + 1);
+  expect(peakDelay, trace).toBe(steadyDelay);
   expect(peakReserve, trace).toBeLessThanOrEqual(steadyReserve + 1);
   expect(ania.delayTicks, trace).toBe(steadyDelay);
   expect(bartek.responsiveness.bufferTicks, trace).toBe(steadyReserve);

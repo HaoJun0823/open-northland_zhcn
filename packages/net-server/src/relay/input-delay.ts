@@ -96,6 +96,8 @@ function delayFor(rttMs: number, jitterMs: number): number {
 export class LatencyProbe {
   readonly delay = new InputDelayEstimator();
   private pingSentAt: number | null = null;
+  /** The outstanding ping's answer waits behind a message from the client that was still arriving. */
+  private pingHeld = false;
   private lastPingAt: number;
 
   constructor(now: number) {
@@ -108,7 +110,14 @@ export class LatencyProbe {
     if (this.pingSentAt !== null && now - this.pingSentAt < PING_TIMEOUT_MS) return null;
     this.lastPingAt = now;
     this.pingSentAt = now;
+    this.pingHeld = false;
     return now;
+  }
+
+  /** A message from the client is still arriving: the answer to a ping already sent queues behind it
+   *  and measures that upload, not the link, so it is not sampled. */
+  held(): void {
+    if (this.pingSentAt !== null) this.pingHeld = true;
   }
 
   /** Take a pong; true when the assigned delay changed. A stamp that is not the outstanding ping is
@@ -116,6 +125,7 @@ export class LatencyProbe {
   pong(stamp: number, now: number): boolean {
     if (this.pingSentAt === null || stamp !== this.pingSentAt) return false;
     this.pingSentAt = null;
+    if (this.pingHeld) return false;
     return this.delay.sample(now - stamp);
   }
 }

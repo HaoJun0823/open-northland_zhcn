@@ -53,6 +53,8 @@ class Client {
   nick = '';
   room: Room | null = null;
   member: Member | null = null;
+  /** A message from this connection is still arriving. */
+  uploading = false;
   readonly probe: LatencyProbe;
 
   constructor(
@@ -157,19 +159,13 @@ export class Relay {
 
   /** The transport holds `bytes` of a message still arriving from `client`, 0 when it holds none. A
    *  browser sends a snapshot as one message, so its pongs wait behind the upload: progress on it is
-   *  what keeps the client heard meanwhile. */
+   *  what keeps the client heard meanwhile, and a pong it delayed is no round-trip sample. */
   receiving(client: ClientHandle, bytes: number): void {
-    const member = client.member;
-    if (!this.clients.has(client) || member === null) return;
-    if (bytes <= 0) {
-      member.inboundSince = null;
-      member.inboundBytes = 0;
-      return;
-    }
-    const now = this.now();
-    member.lastHeardAt = now;
-    member.inboundSince ??= now;
-    member.inboundBytes = bytes;
+    if (!this.clients.has(client)) return;
+    client.uploading = bytes > 0;
+    if (!client.uploading) return;
+    client.probe.held();
+    if (client.member !== null) client.member.lastHeardAt = this.now();
   }
 
   /** `client` took another part of a large message the transport is still sending it. Its frames and
@@ -192,11 +188,10 @@ export class Relay {
 
   /** A whole message arrived: the client is heard, and nothing of it is still arriving. */
   private heard(client: Client): void {
-    const member = client.member;
-    if (member === null) return;
-    member.lastHeardAt = this.now();
-    member.inboundSince = null;
-    member.inboundBytes = 0;
+    // The message that ends an upload holds the answer to a ping sent since the upload's last progress.
+    if (client.uploading) client.probe.held();
+    client.uploading = false;
+    if (client.member !== null) client.member.lastHeardAt = this.now();
   }
 
   advance(): void {
@@ -307,8 +302,6 @@ export class Relay {
       client.member = member;
       member.linkMeasured = false;
       member.jitterMs = 0;
-      member.inboundSince = null;
-      member.inboundBytes = 0;
       room.reconnect(member, this.now());
       this.emptySince.delete(room);
     }

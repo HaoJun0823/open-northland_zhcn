@@ -176,8 +176,8 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     const heard = (): void => {
       lastHeardAt.set(socket, performance.now());
     };
-    // Bytes of a frame still arriving: counted before `ws` parses a chunk, settled by each frame it
-    // completes, so what remains after the parse belongs to a message the relay has not seen yet.
+    // Whether a frame is still arriving: bytes counted before `ws` parses a chunk, cleared by each frame
+    // it completes. A chunk that ends one frame and starts the next reads as none until the next chunk.
     let unparsedBytes = 0;
     const countBytes = (data: Buffer): void => {
       unparsedBytes += data.length;

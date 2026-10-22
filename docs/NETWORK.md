@@ -258,9 +258,10 @@ keeps a smoothed round trip and jitter per client; `roundTripMs` is that smoothe
 the client can show it. Each sample is clamped before it enters the smoothing: it counts as at most
 twice the smoothed trip, or the smoothed trip plus one tick when that is more, and the first sample
 as at most one second. The trip and the jitter (the mean deviation from the trip) then move a quarter
-of the way toward the clamped sample. One late pong, such as one queued behind the member's own
-snapshot upload, therefore moves both a little, while a lasting change carries them over within
-about ten samples.
+of the way toward the clamped sample. One late pong therefore moves both a little, while a lasting
+change carries them over within about ten samples. A pong to a ping that was outstanding while a
+message from the client was still arriving, such as its own snapshot upload, is no sample: it waited
+behind that message and measures the upload, not the link.
 
 The assigned input delay is `ceil((rtt + jitter) / tickLength) + 1` ticks of the smoothed values,
 with `tickLength` the tick at speed 1, starting at 2, never below 1 and never above 12 (one second).

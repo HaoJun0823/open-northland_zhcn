@@ -40,23 +40,12 @@ describe('hearing from a client', () => {
     expect(silentNicks(s.a)).toEqual([]);
   });
 
-  it('counts progress on a message still arriving, and says how much of it has', () => {
+  it('counts progress on a message still arriving', () => {
     const s = startedRoom();
-    const member = s.b.handle.member;
-    if (member === null) throw new Error('Bartek has no member');
-    const startedAt = s.now() + TICK_MS;
-    let arrived = 0;
-    run(s, QUIET_MS, (ticks) => {
-      arrived = ticks * UPLOAD_BYTES_PER_TICK;
-      s.relay.receiving(s.b.handle, arrived);
-    });
+    run(s, QUIET_MS, (ticks) => s.relay.receiving(s.b.handle, ticks * UPLOAD_BYTES_PER_TICK));
     expect(silentNicks(s.a)).toEqual([]);
-    expect(member.inboundSince).toBe(startedAt);
-    expect(member.inboundBytes).toBe(arrived);
 
     s.b.send({ kind: 'blob', type: 'save', to: 'Ania', tick: 1, bytes: 'AAAA' });
-    expect(member.inboundSince).toBeNull();
-    expect(member.inboundBytes).toBe(0);
     // A transport holding nothing more is not heard from: silence still counts.
     run(s, QUIET_MS, () => s.relay.receiving(s.b.handle, 0));
     expect(silentNicks(s.a)).toEqual(['Bartek']);

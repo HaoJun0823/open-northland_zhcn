@@ -51,10 +51,17 @@ export interface HostedBuild<E> extends BuiltWorld<E> {
   readonly run?: OffClockRun;
   /** Another authority runs the clock. The driver may step nothing while it waits for that
    *  authority's frames, and its session then polls at {@link IDLE_POLL_TICKS} until `wake`; a runtime
-   *  that stopped drawing does not stop the session, which holds the ticks for its return. */
+   *  that stopped drawing does not stop the session, which holds the ticks for its return. The driver
+   *  skips none of the authority's frames, so time the clock writes off is not counted as dropped. */
   readonly awaitsFrames?: boolean;
   /** Where a driver that reports its own load learns the tick costs its `advance` does not see. */
   readonly costs?: TickCostSink;
+  /** How many times its speed the driver plays at on its next advance, as a relayed client slower
+   *  while the room is governed and faster while it drains held frames; 1 when unset. The clock wakes
+   *  and feeds by it. The lead grows with a faster pace while the runtime draws at least every
+   *  {@link MAX_LEAD_FRAME_MS}, so a backlog drains at the driver's pace, and keeps to the speed
+   *  otherwise: what a slower runtime takes in per frame then holds the clock back. */
+  readonly timeScale?: () => number;
 }
 
 /** The tick costs a session's driver cannot measure itself. */
@@ -185,6 +192,7 @@ export class ServedSession<E> {
   private readonly offClock: OffClockRun | undefined;
   private readonly awaitsFrames: boolean;
   private readonly costs: TickCostSink | undefined;
+  private readonly timeScale: (() => number) | undefined;
   private readonly deltas: SnapshotDeltaStream;
   /** Answers the request-shaped reads as the inline host does, over this thread's sim. */
   private readonly answers: SessionHost;
@@ -238,10 +246,11 @@ export class ServedSession<E> {
     this.offClock = built.run;
     this.awaitsFrames = built.awaitsFrames === true;
     this.costs = built.costs;
+    this.timeScale = built.timeScale;
     this.outbox = new TickOutbox({
       take: (records, leadTicks) => this.takeBatch(records, leadTicks),
       post: (batch) => this.post({ kind: 'ticks', batch }, fogTransfer(batch.fog)),
-      limit: () => leadTickLimit(this.driver.speed, this.frameMs),
+      limit: () => this.leadLimit(),
       stoppedAfterMs: () =>
         this.awaitsFrames ? Math.max(STOPPED_AFTER_FRAMES * this.frameMs, MIN_STOPPED_AFTER_MS) : null,
     });
@@ -335,7 +344,7 @@ export class ServedSession<E> {
         // The batch in flight and the ticks stepped behind it share one lead, so two frames take in one
         // lead's ticks between them.
         const leadMs = this.frameMs * LEAD_FRAMES;
-        this.costs?.drawn(leadMs / leadTickLimit(this.driver.speed, this.frameMs), ticks);
+        this.costs?.drawn(leadMs / this.leadLimit(), ticks);
         this.resume();
         return;
       }
@@ -422,7 +431,7 @@ export class ServedSession<E> {
         return;
       }
       this.idleAdvances = this.steppedTicks === before ? this.idleAdvances + 1 : 0;
-      const tickMs = MS_PER_TICK / this.driver.speed;
+      const tickMs = this.tickMs();
       // A second advance in a row that stepped nothing is a driver waiting or paused, whose leftover
       // fraction says nothing of when to ask again; one alone may be a timer that fired a hair early.
       if (this.awaitsFrames && this.idleAdvances > 1) this.schedule(IDLE_POLL_TICKS * tickMs, true);
@@ -447,7 +456,7 @@ export class ServedSession<E> {
   private stepNow(): number | null {
     if (!this.canStep()) return null;
     const nowMs = performance.now();
-    const tickMs = MS_PER_TICK / this.driver.speed;
+    const tickMs = this.tickMs();
     this.owedMs += nowMs - this.lastLoopMs;
     this.lastLoopMs = nowMs;
     // A sim slower than its clock owes more with each tick it steps: past a frame's cap of ticks the
@@ -468,10 +477,26 @@ export class ServedSession<E> {
     }
   }
 
-  /** Drop this much of the wall time owed, counted as dropped ticks. */
+  /** The wall time the driver's next advance takes to earn a tick. */
+  private tickMs(): number {
+    return MS_PER_TICK / (this.driver.speed * this.scale());
+  }
+
+  private scale(): number {
+    return this.timeScale?.() ?? 1;
+  }
+
+  /** See {@link HostedBuild.timeScale} for when the lead grows with the driver's pace. */
+  private leadLimit(): number {
+    const scale = this.frameMs <= MAX_LEAD_FRAME_MS ? Math.max(1, this.scale()) : 1;
+    return leadTickLimit(this.driver.speed * scale, this.frameMs);
+  }
+
+  /** Drop this much of the wall time owed, counted as dropped ticks unless another authority's
+   *  frames still bring every tick. */
   private writeOff(ms: number): void {
     if (ms <= 0) return;
-    this.droppedMs += ms * this.driver.speed;
+    if (!this.awaitsFrames) this.droppedMs += ms * this.driver.speed;
     this.owedMs -= ms;
   }
 

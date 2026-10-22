@@ -2,6 +2,7 @@ import type { SessionDriver } from '@open-northland/lockstep';
 import {
   type AdoptedWorld,
   isLobbyAction,
+  paceScale,
   RelayClient,
   type RelayLink,
   type RelayLinkEvents,
@@ -204,6 +205,7 @@ class RelayConnection<B, E> {
             charge: (ms) => this.client.chargeTickWork(ms),
             drawn: (ms, ticks) => this.client.drawnTickCost(ms, ticks),
           },
+          timeScale: () => clientTimeScale(this.client),
         },
         candidate.options,
         candidate.buildMs,
@@ -307,6 +309,15 @@ function relayedDriver(client: RelayClient, advanced: () => void): SessionDriver
     submit: (envelope) => client.submit(envelope),
     captureSave: (options) => client.captureSave(options),
   };
+}
+
+/** How many times the requested speed the client's next advance plays at: the governed speed while
+ *  the relay governs the room, paced faster while the client drains held frames and slower while it
+ *  refills its buffer. */
+export function clientTimeScale(client: RelayClient): number {
+  const running = client.governed?.speed ?? client.speed;
+  const pace = paceScale(client.bufferedTicks, running, client.responsiveness.bufferTicks);
+  return (running / client.speed) * pace;
 }
 
 function relayFacts(client: RelayClient): RelayFacts {

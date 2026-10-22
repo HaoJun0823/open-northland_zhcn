@@ -8,6 +8,7 @@ import {
   PathFollow,
   Position,
   Settler,
+  Stance,
   Stockpile,
   UnderConstruction,
 } from '../../src/components/index.js';
@@ -15,6 +16,7 @@ import { CHANGE_FEED_LIMIT } from '../../src/ecs/change-feed.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, halfCellMapFromCells, nodeOfPosition, positionOfNode, Simulation } from '../../src/index.js';
 import { constructionWorkCells, dynamicBlockOverlay } from '../../src/systems/index.js';
+import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { PlannerSpacing } from '../../src/systems/settlers/planner/spacing.js';
 import { TEST_MANIFEST, testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -33,6 +35,7 @@ import { grassCellMap as grassMap } from '../fixtures/terrain.js';
 const GRASS = 0;
 const VIKING = 1;
 const WOODCUTTER = 1;
+const SOLDIER = 31;
 const HUMAN_PLAYER = 0;
 
 function sim(): Simulation {
@@ -49,6 +52,23 @@ function settlerAt(s: Simulation, x: number, y: number, jobType: number, owner: 
 /** An idle OWNED viking woodcutter (no job binding, so with no resources nearby it has nothing to do). */
 function idleWoodcutter(s: Simulation, x: number, y: number, owner: number | null = HUMAN_PLAYER): Entity {
   return settlerAt(s, x, y, WOODCUTTER, owner);
+}
+
+/** An owned soldier at node (x,y) holding the DEFEND stance on node `anchor`. */
+function guardAt(s: Simulation, x: number, y: number, anchor: { x: number; y: number }): Entity {
+  const e = settlerAt(s, x, y, SOLDIER, HUMAN_PLAYER);
+  const terrain = s.terrain;
+  if (terrain === undefined) throw new Error('setup: terrain missing');
+  s.world.add(e, Stance, {
+    mode: MILITARY_MODE.DEFEND,
+    anchorCell: terrain.nodeAtClamped(anchor.x, anchor.y),
+  });
+  return e;
+}
+
+function anchorOf(s: Simulation, e: Entity): { x: number; y: number } | null {
+  const anchor = s.world.get(e, Stance).anchorCell;
+  return anchor === null ? null : (s.terrain?.coordsOf(anchor) ?? null);
 }
 
 /** The half-cell node an entity stands on. */
@@ -120,6 +140,28 @@ describe('idle-spacing (de-stack) drive', () => {
     s.run(15);
     expect(tileOf(s, e)).toEqual({ x: 4, y: 3 });
     expect(s.world.has(e, MoveGoal)).toBe(false);
+  });
+
+  it('spreads DEFEND guards sharing their anchor, moving the post with the guard that steps aside', () => {
+    const s = sim();
+    const keeper = guardAt(s, 4, 3, { x: 4, y: 3 });
+    const mover = guardAt(s, 4, 3, { x: 4, y: 3 });
+    s.run(15);
+
+    expect(tileOf(s, keeper)).toEqual({ x: 4, y: 3 });
+    const m = tileOf(s, mover);
+    expect(Math.abs(m.x - 4) + Math.abs(m.y - 3)).toBe(1);
+    expect(anchorOf(s, keeper)).toEqual({ x: 4, y: 3 });
+    expect(anchorOf(s, mover)).toEqual(m);
+  });
+
+  it('keeps the post of a DEFEND guard stacked away from it: walking back there is the combat pass', () => {
+    const s = sim();
+    guardAt(s, 4, 3, { x: 4, y: 3 });
+    const away = guardAt(s, 4, 3, { x: 8, y: 3 });
+    s.run(15);
+
+    expect(anchorOf(s, away)).toEqual({ x: 8, y: 3 });
   });
 });
 

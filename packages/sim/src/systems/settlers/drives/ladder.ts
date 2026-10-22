@@ -66,7 +66,7 @@ import { planBreeder } from './husbandry/index.js';
 import { guideLostSettler } from './lost-guide.js';
 import { answerNeedInPlace, dropUnservedNeedOrder, orderedNeed, planMealBreak, planNeeds } from './needs.js';
 import { planShelter } from './shelter.js';
-import { deStackIdle, stepOffHomeDoor } from './spacing.js';
+import { deStackGuard, deStackIdle, stepOffHomeDoor } from './spacing.js';
 import { holdsPostThroughNeed, planTowerPost } from './tower-post.js';
 import { planTraining } from './training.js';
 
@@ -263,8 +263,11 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   }
   // DEFEND hold: a guard keeps its post against the company and economy rungs, and the CombatSystem walks
   // it back when displaced. Below the equip errand on purpose: the one errand a guard still runs without
-  // dropping its stance.
-  if (world.tryGet(e, Stance)?.mode === MILITARY_MODE.DEFEND) return;
+  // dropping its stance. A guard sharing its post's node still spaces out like any idler.
+  if (world.tryGet(e, Stance)?.mode === MILITARY_MODE.DEFEND) {
+    if (!staysPut(world, e)) deStackGuard(world, ctx, terrain, e, hx, hy, pass.spacing);
+    return;
+  }
   // The company rung: a lonely settler leaves its work to find a partner, above the economy rungs on
   // purpose - the "worker downs tools to socialize" beat. Nobody walks off to chat while a battle is on
   // nearby: the fighting trades never reach this rung at all (`social/gossip/plan.ts` bars them), so the
@@ -431,7 +434,7 @@ function standIdle(
   const lost = world.has(e, LostWay);
   if (!lost && planGraduateWait(world, ctx, terrain, e, plan.here, pass.spacing, plan.limit)) return;
   if (!lost && stepOffHomeDoor(world, ctx, terrain, e, plan.here, pass.spacing)) return;
-  if (lost || !deStackIdle(world, terrain, e, hx, hy, pass.spacing)) {
+  if (lost || deStackIdle(world, terrain, e, hx, hy, pass.spacing) === null) {
     planGossipIdle(
       world,
       ctx,

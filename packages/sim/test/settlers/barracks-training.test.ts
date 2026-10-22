@@ -15,6 +15,7 @@ import {
   Settler,
   SettlerProgress,
   Sheltering,
+  Stance,
   Stockpile,
   setMissionBehaviour,
   stampOwner,
@@ -26,6 +27,7 @@ import { fx, ONE, type SimEvent, Simulation } from '../../src/index.js';
 import { hexDistanceBetween, nodeOfPosition } from '../../src/nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { needSubjectOf, plannerSystem, settlerMeetsNeed } from '../../src/systems/index.js';
+import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { BARRACKS_DRILL_TICKS } from '../../src/systems/settlers/drives/training.js';
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
 import { noteUnreachableGoal } from '../../src/systems/settlers/unreachable-goals.js';
@@ -216,6 +218,27 @@ describe('trainSoldier - the barracks drill', () => {
     expect(qualifiesAsSoldier(sim, recruit)).toBe(false);
     expect(sim.world.has(recruit, TrainingOrder)).toBe(false);
     expect(sim.world.has(recruit, Resting)).toBe(false); // back outside
+  });
+
+  it('spreads recruits leaving one barracks door onto their own nodes, each anchored where it stands', () => {
+    const sim = simWithBarracks();
+    const house = barracksAt(sim, 6, 3);
+    const recruits = [3, 4, 5].map((y) => settlerAt(sim, CIVILIST_JOB, 2, y));
+    for (const recruit of recruits) sim.enqueueSetup({ kind: 'trainSoldier', entity: recruit, house });
+    run(sim, RUN_TICKS + WALK_TICKS);
+
+    const terrain = terrainOf(sim);
+    const nodes = recruits.map((recruit) => {
+      expect(jobOf(sim, recruit)).toBe(SOLDIER_JOB);
+      expect(sim.world.get(recruit, Stance).mode).toBe(MILITARY_MODE.DEFEND);
+      expect(sim.world.has(recruit, MoveGoal)).toBe(false); // settled, not still shuffling
+      const at = sim.world.get(recruit, Position);
+      const n = nodeOfPosition(at.x, at.y);
+      const node = terrain.nodeAtClamped(n.hx, n.hy);
+      expect(sim.world.get(recruit, Stance).anchorCell).toBe(node); // so the combat walk-back keeps it there
+      return node;
+    });
+    expect(new Set(nodes).size).toBe(recruits.length);
   });
 
   it('waits beside a barracks foundation and drills once it stands', () => {

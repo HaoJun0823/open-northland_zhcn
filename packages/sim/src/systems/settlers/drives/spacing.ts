@@ -1,9 +1,10 @@
-import { MoveGoal, Owner, Residence } from '../../../components/index.js';
+import { MoveGoal, Owner, Residence, Stance } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { builtHomeType } from '../../family/households.js';
+import { moveAnchor } from '../../orders/combat.js';
 import { nearestCell } from '../../spatial/metric.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
 import { interactionCell } from '../targets/index.js';
@@ -16,8 +17,8 @@ import { interactionCell } from '../targets/index.js';
  * The idle-spacing drive: a resting owned settler sharing its node with a lower-id resting owned settler is
  * sent to the nearest free node. The lowest-id occupant keeps the tile, and a unit boxed in stays.
  *
- * Transit is never blocked; only a unit that has arrived with nothing to do relocates. Returns true when it
- * sent the unit stepping aside.
+ * Transit is never blocked; only a unit that has arrived with nothing to do relocates. Returns the node it
+ * sent the unit to, or null when it stays.
  */
 export function deStackIdle(
   world: World,
@@ -26,20 +27,41 @@ export function deStackIdle(
   tileX: number,
   tileY: number,
   spacing: PlannerSpacing,
-): boolean {
+): NodeId | null {
   // Only owned units space out: an unowned settler is absent from `occupancy`, so the keeper test below
   // could never recognise it as the keeper and it would wrongly de-stack.
-  if (!world.has(e, Owner)) return false;
+  if (!world.has(e, Owner)) return null;
   const bucket = spacing.occupancy.at(tileX, tileY);
-  if (bucket.length < 2 || bucket[0] === e) return false;
+  if (bucket.length < 2 || bucket[0] === e) return null;
   // Never aim at a cell under a standing building: A* refuses a blocked goal, and a MoveGoal whose route
   // cannot resolve would freeze the unit.
   const from = terrain.nodeAtClamped(tileX, tileY);
   const free = nearestFreeCell(terrain, from, spacing);
-  if (free === null) return false;
+  if (free === null) return null;
   spacing.claim(free);
   world.add(e, MoveGoal, { cell: free });
-  return true;
+  return free;
+}
+
+/**
+ * {@link deStackIdle} for a DEFEND guard, whose hold ends the ladder before the idle tail: a guard standing
+ * on its own anchor moves the post to the free node it steps to, or the combat walk-back would lead it
+ * straight back onto the stack. Recruits leaving one barracks door fan out this way. A guard off its
+ * anchor is left to that walk-back. Source basis: authored.
+ */
+export function deStackGuard(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  e: Entity,
+  hx: number,
+  hy: number,
+  spacing: PlannerSpacing,
+): void {
+  const here = terrain.nodeAtClamped(hx, hy);
+  if ((world.tryGet(e, Stance)?.anchorCell ?? here) !== here) return;
+  const free = deStackIdle(world, terrain, e, hx, hy, spacing);
+  if (free !== null) moveAnchor(world, ctx.content, e, free);
 }
 
 /** A resident with no current errand leaves the door clear for incoming deliveries and sleepers.

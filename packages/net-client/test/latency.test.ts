@@ -50,6 +50,44 @@ describe('CommandLatency', () => {
     expect(latency.inFlight).toBe(0);
   });
 
+  it('counts carried commands in flight without measuring them, until the relay could no longer land them', () => {
+    const latency = new CommandLatency();
+    latency.issued(0);
+    latency.issued(10);
+    latency.carryOver(3);
+    expect(latency.inFlight).toBe(2);
+    expect(latency.carrying).toBe(true);
+    latency.relayAt(40, 2, 38);
+    latency.applied(500);
+    expect(latency.lastMs).toBeNull();
+    latency.ran(42);
+    expect(latency.inFlight).toBe(1);
+    latency.ran(43);
+    expect(latency.inFlight).toBe(0);
+    expect(latency.carrying).toBe(false);
+  });
+
+  it('keeps carried commands until the relay tick after the change is known', () => {
+    const latency = new CommandLatency();
+    latency.issued(0);
+    latency.carryOver(2);
+    latency.ran(1000);
+    expect(latency.carrying).toBe(true);
+    latency.relayAt(10, 2, 12);
+    expect(latency.carrying).toBe(false);
+  });
+
+  it('settles carried commands the relay refuses or every client drops', () => {
+    const latency = new CommandLatency();
+    latency.issued(0);
+    latency.issued(0);
+    latency.carryOver(2);
+    latency.refused();
+    latency.dropped();
+    expect(latency.inFlight).toBe(0);
+    expect(latency.carrying).toBe(false);
+  });
+
   it('ignores an application nothing was issued for', () => {
     const latency = new CommandLatency();
     latency.applied(500);

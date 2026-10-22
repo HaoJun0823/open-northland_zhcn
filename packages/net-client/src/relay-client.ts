@@ -128,6 +128,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
   /** A snapshot the relay serves this client on the current socket: its world is gone, or stands
    *  behind the cached snapshot the relay replays from. */
   private snapshotOwed = false;
+  /** The newest tick a `clock` (the one it runs next) or a `frame` on the current socket named. */
+  private relayTickHeard: number | null = null;
 
   get session(): GameSession | null {
     return this.state.session;
@@ -186,9 +188,10 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // A new socket is writable before its retained world has been admitted again. Buffered frames
     // must wait for start -> loaded, otherwise their acknowledgements arrive while not loaded.
     this.awaitingResume = this.session !== null;
-    // What the old socket carried may never come back; a stamp left for it would skew later commands
-    // and hold the outbox.
-    this.latency.forgetInFlight();
+    // The relay keeps what the old socket delivered and lands it before anything sent now; the
+    // `clock` that follows `start` names its tick, which bounds where those commands land.
+    this.latency.carryOver(this.delayTicks ?? 0);
+    this.relayTickHeard = null;
     // A new socket is served again from its own `start`, `desync` and requests.
     this.lobbyBlobRequests.clear();
     this.snapshotOwed = false;
@@ -319,10 +322,12 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     this.options.onMessage?.({ kind: 'rejected', of: 'command', reason: { code } });
   }
 
-  /** Send what the relay's per-tick budget has room for; the rest goes as this seat's commands apply. */
+  /** Send what the relay's per-tick budget has room for; the rest goes as this seat's commands apply,
+   *  and after those a socket or world change carried have settled. */
   private sendQueued(): void {
     const driver = this.driver;
     if (driver === null || this.outbox.size === 0 || this.options.connected?.() === false) return;
+    if (this.latency.carrying) return;
     this.outbox.drain(
       () => this.latency.inFlight,
       (envelope, clickedAt) => {
@@ -355,6 +360,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.lobbyBlobRequests.clear();
         this.snapshotOwed = false;
         this.knownSnapshotTick = null;
+        this.relayTickHeard = null;
+        this.latency.forgetInFlight();
         this.completion.clear();
         this.dropWorld();
         break;
@@ -364,9 +371,11 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.startSession(message.session, message.snapshotTick);
         break;
       case 'clock':
+        this.heardRelayTick(message.tick);
         this.driver?.setSpeed(runningSpeed(message));
         break;
       case 'frame':
+        this.heardRelayTick(message.tick);
         if (this.transport === null) this.earlyFrames.push(message);
         else this.transport.receiveFrame(message);
         break;
@@ -608,12 +617,16 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
             this.latency.applied(this.now());
           }
         }
+        this.latency.ran(frame.tick);
       },
     });
     for (const frame of this.earlyFrames) this.transport.receiveFrame(frame);
     this.earlyFrames.length = 0;
-    // A restored world may already cover the frames of commands in flight, which then never apply.
-    this.latency.forgetInFlight();
+    // A restored world may already cover the frames of commands in flight, which then never apply;
+    // they settle once this world stands past the last tick the relay could land them on.
+    this.latency.carryOver(this.delayTicks ?? 0);
+    if (this.relayTickHeard !== null)
+      this.latency.relayAt(this.relayTickHeard, this.delayTicks ?? 0, sim.tick);
     this.driver = new LockstepDriver({
       sim,
       transport: this.transport,
@@ -641,6 +654,11 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     this.earlyFrames.length = 0;
     // Gestures held for a world that is gone would act on the next one.
     this.outbox.clear();
+  }
+
+  private heardRelayTick(tick: number): void {
+    if (this.relayTickHeard === null || tick > this.relayTickHeard) this.relayTickHeard = tick;
+    this.latency.relayAt(this.relayTickHeard, this.delayTicks ?? 0, this.tick);
   }
 
   private learnSnapshotTick(tick: number | null): void {

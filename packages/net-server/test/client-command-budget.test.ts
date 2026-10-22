@@ -4,8 +4,8 @@ import { playerCommand, restoreSimulation, Simulation } from '@open-northland/si
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
 import { HeadlessClient } from './support/headless-client.js';
-import { assembleRoom, runFor, type Stage } from './support/session-run.js';
-import { seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';
+import { assembleRoom, relink, runFor, type Stage } from './support/session-run.js';
+import { type Link, seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';
 
 const SEED = 7;
 const settings: RoomSettings = {
@@ -21,6 +21,10 @@ const PAUSED_ORDERS = 30;
 const LINK = { latencyMs: 70, jitterMs: 30 };
 const SETTLE_MS = 500;
 const RUN_MS = 3000;
+/** Long enough for a replaced socket's `start` and `clock` to arrive and its world to be admitted. */
+const REJOIN_MS = 1000;
+/** Orders given after the socket replacement, told apart from the ones before it by value. */
+const AFTER_REJOIN_VALUE = 100;
 
 function client(nick: string): HeadlessClient {
   return new HeadlessClient({
@@ -31,12 +35,16 @@ function client(nick: string): HeadlessClient {
   });
 }
 
-async function room(): Promise<{ stage: Stage; clients: readonly [HeadlessClient, HeadlessClient] }> {
+async function room(): Promise<{
+  stage: Stage;
+  clients: readonly [HeadlessClient, HeadlessClient];
+  links: readonly Link[];
+}> {
   const clock = new VirtualClock();
   const relay = new Relay({ now: clock.now });
   const stage: Stage = { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(29)) };
   const clients = [client('Ania'), client('Bartek')] as const;
-  for (const c of clients) stage.network.link(c, LINK);
+  const links = clients.map((c) => stage.network.link(c, LINK));
   await assembleRoom(stage, clients, {
     settings,
     seats: [0, 1].map((player) => ({
@@ -50,7 +58,7 @@ async function room(): Promise<{ stage: Stage; clients: readonly [HeadlessClient
     settleMs: SETTLE_MS,
   });
   await runFor(stage, clients, SETTLE_MS);
-  return { stage, clients };
+  return { stage, clients, links };
 }
 
 function counterOrder(value: number) {
@@ -103,6 +111,28 @@ describe('gestures past the relay per-tick budget', () => {
     await runFor(stage, clients, RUN_MS);
     expect(ania.rejections).toEqual([]);
     for (const observer of clients) expect(applied(observer).values).toEqual(values);
+    expect(ania.sim?.hashState()).toBe(bartek.sim?.hashState());
+  });
+
+  it('counts the orders a replaced socket delivered, so the ones after it are not refused', async () => {
+    const { stage, clients, links } = await room();
+    const [ania, bartek] = clients;
+    ania.setPaused(true);
+    await runFor(stage, clients, SETTLE_MS);
+    const before = Array.from({ length: MAX_COMMANDS_PER_TICK }, (_, i) => i);
+    for (const value of before) ania.submit(counterOrder(value));
+    await runFor(stage, clients, SETTLE_MS);
+    links[0]?.close();
+    relink(stage, ania, LINK);
+    await runFor(stage, clients, REJOIN_MS);
+    const after = before.map((value) => AFTER_REJOIN_VALUE + value);
+    for (const value of after) ania.submit(counterOrder(value));
+    await runFor(stage, clients, SETTLE_MS);
+    ania.setPaused(false);
+    await runFor(stage, clients, RUN_MS);
+    expect(ania.rejections).toEqual([]);
+    for (const observer of clients) expect(applied(observer).values).toEqual([...before, ...after]);
+    expect(ania.latency.inFlight).toBe(0);
     expect(ania.sim?.hashState()).toBe(bartek.sim?.hashState());
   });
 });

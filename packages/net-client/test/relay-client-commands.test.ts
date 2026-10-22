@@ -64,6 +64,11 @@ async function runningClient(options: { snapshotTick?: number | null; connected?
   return { client, clock, sent, observed, commandsSent };
 }
 
+/** The relay's clock at `tick`, as it follows `start` on a socket that returns to a running game. */
+function clockAt(tick: number): ServerMessage {
+  return { kind: 'clock', tick, speed: 1, paused: false, by: null, governed: null };
+}
+
 /** Deliver the frame for the client's next tick carrying `commands`, then run it. */
 function applyNext(client: RelayClient, envelopes: readonly CommandEnvelope[]): void {
   const tick = (client.tick ?? 0) + 1;
@@ -75,6 +80,7 @@ function applyNext(client: RelayClient, envelopes: readonly CommandEnvelope[]): 
 describe('click-to-apply stamps', () => {
   it('forgets a command whose frame a restored snapshot already covers', async () => {
     const { client, clock } = await runningClient();
+    client.receive(clockAt(0));
     client.submit(order(1));
     client.receive({ kind: 'desync', tick: 1, domains: ['rng'], reference: 'Bartek' });
     client.receive({ kind: 'blob', type: 'snapshot', from: 'Bartek', tick: RESTORED_TICK, bytes: 'AAAA' });
@@ -86,16 +92,38 @@ describe('click-to-apply stamps', () => {
     expect(client.latency.lastMs).toBe(250);
   });
 
-  it('forgets commands sent on a socket that was replaced', async () => {
-    const { client, clock } = await runningClient();
+  it('holds new commands until the ones a replaced socket delivered have applied, measuring none of those', async () => {
+    const { client, clock, commandsSent } = await runningClient();
     client.submit(order(1));
     client.hello();
     client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    client.receive(clockAt(0));
     clock.now = 60_000;
     client.submit(order(2));
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1)]);
+    applyNext(client, [order(1)]);
+    expect(client.latency.lastMs).toBeNull();
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1), order(2)]);
     clock.now = 60_250;
     applyNext(client, [order(2)]);
     expect(client.latency.lastMs).toBe(250);
+    expect(client.latency.inFlight).toBe(0);
+  });
+
+  it('forgets a command the replaced socket lost once the relay could no longer land it', async () => {
+    const { client, clock, commandsSent } = await runningClient();
+    client.submit(order(1));
+    client.hello();
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    client.receive(clockAt(0));
+    clock.now = 60_000;
+    client.submit(order(2));
+    applyNext(client, []);
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1), order(2)]);
+    clock.now = 60_250;
+    applyNext(client, [order(2)]);
+    expect(client.latency.lastMs).toBe(250);
+    expect(client.latency.inFlight).toBe(0);
   });
 });
 

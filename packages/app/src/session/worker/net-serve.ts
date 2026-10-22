@@ -105,6 +105,7 @@ class RelayConnection<B, E> {
       onQuiet: (quietMs) => post({ kind: 'link', state: 'quiet', quietMs }),
       onHeard: () => post({ kind: 'link', state: 'ok' }),
       onClosed: (reason) => post({ kind: 'link', state: 'closed', reason }),
+      awaitsTransfer: () => client.awaitsTransfer,
     });
     client.attach((message) => {
       this.link.send(message);

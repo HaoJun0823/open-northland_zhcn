@@ -398,6 +398,7 @@ export class Game {
     this.clock.start();
     this.resync.restartCadence(now);
     this.broadcast(this.clockMessage(null));
+    if (this.waiting.restart(now)) this.broadcast(this.waiting.message(now));
   }
 
   /** Judge every tick each client in sync has passed, and drop the references no client can still

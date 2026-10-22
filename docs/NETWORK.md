@@ -354,9 +354,15 @@ the frames resume once nobody is waited for. A member that is merely behind is n
 [Pacing](#pacing).
 
 Every change to the waited set is broadcast as `waiting { for: [{ nick, reason, voteAfterMs }] }`; an
-empty `for` ends the wait. Each member's `voteAfterMs` counts down from `KICK_COUNTDOWN_MS` (60 s)
-from the moment that member began to be waited for, and restarts only once it has stopped being waited
-for. A wait is over as soon as nobody is waited for: the dropped token returned, the silent one
+empty `for` ends the wait. Each member's `voteAfterMs` is what is left of `KICK_COUNTDOWN_MS` (60 s)
+after the time the room has waited for that member, and counts down while it is waited for. The
+waited time is kept when the wait ends and forgiven at `WAIT_FORGIVENESS` (0.1) waited millisecond per
+millisecond the member is not waited for: a member that answered after 30 s of a wait and drops again
+100 s later starts at 40 s, and one that answered after 30 s gets the whole countdown again 300 s
+later. A member that keeps ending its waits just in time therefore still reaches a vote once the room
+has waited for it more than a short while: one silent for 2 s of every 6, so held a third of the time,
+is votable in its waits after about 4 minutes. The clock's start clears every member's
+waited time, so the load everyone was waited through before it counts against nobody. A wait is over as soon as nobody is waited for: the dropped token returned, the silent one
 answered, or the diverged one rebuilt. A client that never loads or stops answering pings is waited
 for and can be voted out, before the start as after it; a member kicked before the start is not waited
 for to start the clock. A client whose own link is lost reckons the same countdown for itself, from the

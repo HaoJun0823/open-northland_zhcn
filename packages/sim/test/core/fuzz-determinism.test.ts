@@ -916,14 +916,16 @@ function nextCommand(rng: Rng): Command {
         state: pick(rng, ['friend', 'neutral', 'enemy'] as const),
       };
     case 51:
-      // A group housing order over nucleus and wild ids, repeats included, half of them at the
-      // preamble's home: at apply time the seat branch drops the members it does not command, and the
-      // handler ranks the rest homeless first against the stream's assignHouse and unassignHouse rolls.
+      // A group housing order over nucleus and wild ids, half of them at the preamble's home: at apply
+      // time the seat branch drops the members it does not command, and the handler ranks the rest
+      // homeless first against the stream's assignHouse and unassignHouse rolls.
       return {
         kind: 'assignHouseGroup',
-        members: Array.from({ length: rng.int(GROUP_SIZE_RANGE) }, () => ({
-          entity: (rng.int(rng.int(2) === 0 ? NUCLEUS_ID_RANGE : TARGET_ID_RANGE) + 1) as Entity,
-        })),
+        members: firstOfEachEntity(
+          Array.from({ length: rng.int(GROUP_SIZE_RANGE) }, () => ({
+            entity: (rng.int(rng.int(2) === 0 ? NUCLEUS_ID_RANGE : TARGET_ID_RANGE) + 1) as Entity,
+          })),
+        ),
         house: rng.int(2) === 0 ? NUCLEUS_HOME : ((rng.int(TARGET_ID_RANGE) + 1) as Entity),
       };
     case 52:
@@ -932,10 +934,12 @@ function nextCommand(rng: Rng): Command {
       // releases.
       return {
         kind: 'assignWorkerGroup',
-        members: Array.from({ length: rng.int(GROUP_SIZE_RANGE) }, () => ({
-          entity: (rng.int(rng.int(2) === 0 ? NUCLEUS_ID_RANGE : TARGET_ID_RANGE) + 1) as Entity,
-          jobPriority: Array.from({ length: rng.int(3) }, () => pick(rng, JOB_TYPES)),
-        })),
+        members: firstOfEachEntity(
+          Array.from({ length: rng.int(GROUP_SIZE_RANGE) }, () => ({
+            entity: (rng.int(rng.int(2) === 0 ? NUCLEUS_ID_RANGE : TARGET_ID_RANGE) + 1) as Entity,
+            jobPriority: Array.from({ length: rng.int(3) }, () => pick(rng, JOB_TYPES)),
+          })),
+        ),
         building: rng.int(2) === 0 ? NUCLEUS_HOME : ((rng.int(TARGET_ID_RANGE) + 1) as Entity),
       };
     case 53:
@@ -1081,6 +1085,16 @@ function nextCommand(rng: Rng): Command {
     default:
       throw new Error(`fuzz roll ${roll} has no case: widen the switch or the modulus above`);
   }
+}
+
+/** A group order's members with each repeated entity after its first dropped, as the parser requires. */
+function firstOfEachEntity<M extends { readonly entity: Entity }>(members: readonly M[]): M[] {
+  const seen = new Set<Entity>();
+  return members.filter(({ entity }) => {
+    if (seen.has(entity)) return false;
+    seen.add(entity);
+    return true;
+  });
 }
 
 function issuableBySeat(command: Command): command is PlayerCommand {

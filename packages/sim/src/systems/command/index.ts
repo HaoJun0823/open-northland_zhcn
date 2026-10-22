@@ -364,6 +364,7 @@ function applyCommand(
       assignWorker(world, ctx, command);
       return;
     case 'assignWorkerGroup':
+      if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
       assignWorkerGroup(world, ctx, command);
       return;
     case 'unassignWorker':
@@ -445,6 +446,7 @@ function applyCommand(
       assignHouse(world, ctx, command);
       return;
     case 'assignHouseGroup':
+      if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
       assignHouseGroup(world, ctx, command);
       return;
     case 'unassignHouse':

@@ -9,7 +9,8 @@ import {
   Position,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, Simulation } from '../../src/index.js';
+import { fx, MAX_UNIT_ORDER_MEMBERS, Simulation, setupCommand } from '../../src/index.js';
+import { commandSystem } from '../../src/systems/command/index.js';
 import { assignWorker, assignWorkerGroup } from '../../src/systems/orders/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -140,5 +141,22 @@ describe('assignWorkerGroup - post a group to one building', () => {
     expect(workplaceOf(sim, idle)).toBe(clicked);
     expect(workplaceOf(sim, working)).toBe(clicked);
     expect(sim.world.has(working, CurrentAtomic)).toBe(true); // not re-hired, so not re-idled
+  });
+
+  it('drops a group longer than the group order bound whole, as every other group order does', () => {
+    for (const extra of [0, 1]) {
+      const sim = new Simulation({ seed: 1, content: testContent() });
+      const mill = placeBuilding(sim, SAWMILL, 10);
+      const settler = settlerAt(sim, 10);
+      // Unborn ids fill the list: the handler skips each one, so only the bound decides the outcome.
+      const filler = Array.from({ length: MAX_UNIT_ORDER_MEMBERS - 1 + extra }, (_, i) => settler + 1 + i);
+      const members = [settler, ...filler].map((entity) => ({
+        entity: entity as Entity,
+        jobPriority: [CARPENTER],
+      }));
+      sim.enqueue(setupCommand({ kind: 'assignWorkerGroup', building: mill, members }));
+      commandSystem(sim.world, ctxOf(sim));
+      expect(workplaceOf(sim, settler)).toBe(extra === 0 ? mill : undefined);
+    }
   });
 });

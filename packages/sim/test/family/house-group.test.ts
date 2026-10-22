@@ -13,8 +13,16 @@ import {
 } from '../../src/components/index.js';
 import { fx, ONE } from '../../src/core/fixed.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { parseCommandEnvelope, playerCommand, replay, Simulation } from '../../src/index.js';
+import {
+  MAX_UNIT_ORDER_MEMBERS,
+  parseCommandEnvelope,
+  playerCommand,
+  replay,
+  Simulation,
+  setupCommand,
+} from '../../src/index.js';
 import { nodeOfPosition, positionOfNode } from '../../src/nav/halfcell.js';
+import { commandSystem } from '../../src/systems/command/index.js';
 import { familiesOf } from '../../src/systems/index.js';
 import { groupPlacementOrder } from '../../src/systems/orders/group-placement.js';
 import { assignHouse, assignHouseGroup } from '../../src/systems/orders/index.js';
@@ -258,6 +266,22 @@ describe('assignHouseGroup - send a group to one home', () => {
     for (const house of homes) expect(familiesOf(sim.world, house)).toHaveLength(HOME_SIZE);
     const replayed = replay({ content: content(), seed: 7, map, log: sim.commands.log, untilTick: sim.tick });
     expect(replayed.hashState()).toBe(sim.hashState());
+  });
+});
+
+describe('assignHouseGroup - the group order bound', () => {
+  it('drops a group longer than the bound whole, as every other group order does', () => {
+    for (const extra of [0, 1]) {
+      const sim = new Simulation({ seed: 1, content: content() });
+      const house = homeAt(sim, 10);
+      const settler = adultAt(sim, 11);
+      // Unborn ids fill the list: the handler skips each one, so only the bound decides the outcome.
+      const filler = Array.from({ length: MAX_UNIT_ORDER_MEMBERS - 1 + extra }, (_, i) => settler + 1 + i);
+      const members = [settler, ...filler].map((entity) => ({ entity: entity as Entity }));
+      sim.enqueue(setupCommand({ kind: 'assignHouseGroup', members, house }));
+      commandSystem(sim.world, ctxOf(sim));
+      expect(homeOf(sim, settler)).toBe(extra === 0 ? house : undefined);
+    }
   });
 });
 

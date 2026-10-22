@@ -1,6 +1,7 @@
 import { EQUIP_CATEGORIES, HomeQualityEffect, MAP_GOAL_GOODS_MAX } from '@open-northland/data';
 import { COMPUTER_DIFFICULTIES, COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
 import { ASSISTANT_COUNTER_KINDS } from '../../components/assistant.js';
+import { MISC_EQUIP_SLOTS } from '../../components/equipment.js';
 import { MAX_MATCH_GOALS, type MatchGoal } from '../../components/match.js';
 import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../components/mission.js';
 import type { NeedKind } from '../../components/needs.js';
@@ -64,6 +65,18 @@ const DESTINATION_GROUP: FieldCheck = {
   arrayOf: { fields: { required: { entity: 'integer', ...NODE } } },
 };
 
+/**
+ * The original's type spaces (`logicdefines.inc` `JOB_TYPE_MAXIMUM`, `GOOD_TYPE_MAXIMUM`,
+ * `TRIBE_TYPE_MAXIMUM`). They bound how many entries a list naming each job, good or tribe once can
+ * hold, not the ids: a worker slot's job id sits above the job space.
+ */
+export const JOB_TYPE_SPACE = 56;
+export const GOOD_TYPE_SPACE = 66;
+export const TRIBE_TYPE_SPACE = 42;
+
+/** The jobs an `assignWorker` member would take, most preferred first. */
+const JOB_PRIORITY: FieldCheck = { arrayOf: 'integer', maxLength: JOB_TYPE_SPACE };
+
 /** One equipment slot in a `spawnSettler` payload; null (or absent) leaves the slot empty. */
 const EQUIP_SLOT: FieldCheck = {
   nullOr: { fields: { required: { goodType: 'integer' }, optional: { degreeOfUsePct: 'integer' } } },
@@ -76,7 +89,7 @@ const EQUIPMENT: FieldCheck = {
       tool: EQUIP_SLOT,
       weapon: EQUIP_SLOT,
       armor: EQUIP_SLOT,
-      misc: { arrayOf: EQUIP_SLOT },
+      misc: { arrayOf: EQUIP_SLOT, maxLength: MISC_EQUIP_SLOTS },
     },
   },
 };
@@ -208,17 +221,14 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   unassignBuilder: { required: { entity: 'integer' } },
   assignBuilder: { required: { entity: 'integer', site: 'integer' } },
   assignHouse: { required: { entity: 'integer', house: 'integer' } },
-  assignHouseGroup: {
-    required: { members: { arrayOf: { fields: { required: { entity: 'integer' } } } }, house: 'integer' },
-  },
-  assignWorker: {
-    required: { entity: 'integer', building: 'integer', jobPriority: { arrayOf: 'integer' } },
-  },
+  assignHouseGroup: { required: { members: UNIT_GROUP, house: 'integer' } },
+  assignWorker: { required: { entity: 'integer', building: 'integer', jobPriority: JOB_PRIORITY } },
   assignWorkerGroup: {
     required: {
       building: 'integer',
       members: {
-        arrayOf: { fields: { required: { entity: 'integer', jobPriority: { arrayOf: 'integer' } } } },
+        ...UNIT_GROUP,
+        arrayOf: { fields: { required: { entity: 'integer', jobPriority: JOB_PRIORITY } } },
       },
     },
   },
@@ -357,7 +367,9 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   setAssistantWeaponVeto: { required: { player: 'integer', goodType: 'integer', vetoed: 'boolean' } },
   setAssistantPostGraduates: { required: { player: 'integer', enabled: 'boolean' } },
   setAssistantMoveFlags: { required: { player: 'integer', enabled: 'boolean' } },
-  setProductionGoods: { required: { entity: 'integer', goods: { arrayOf: 'integer' } } },
+  setProductionGoods: {
+    required: { entity: 'integer', goods: { arrayOf: 'integer', maxLength: GOOD_TYPE_SPACE } },
+  },
   setProductionCount: { required: { entity: 'integer', goodType: 'integer', count: 'integer' } },
   setDefenceMode: { required: { building: 'integer', enabled: 'boolean' } },
   setDiplomacy: { required: { from: 'integer', to: 'integer', state: { oneOf: DIPLOMACY_STATES } } },
@@ -375,7 +387,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   continueMatch: { required: { player: 'integer' } },
   endMatchContinuation: { required: {} },
   setMatchParticipants: {
-    required: { players: { arrayOf: 'integer' } },
+    required: { players: { arrayOf: 'integer', maxLength: MAX_PLAYERS } },
     optional: {
       victory: { oneOf: ['script', 'elimination', 'goals'] },
       goals: { arrayOf: { variants: MATCH_GOAL_PAYLOAD }, maxLength: MAX_MATCH_GOALS },
@@ -386,7 +398,9 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   setBioGroundWaived: { required: { waived: 'boolean' } },
   setPalisadeGateMode: { required: { palisade: 'integer', mode: { oneOf: GATE_MODES } } },
   setPalisadeGate: { required: { palisade: 'integer', open: 'boolean' } },
-  setPlayerPlacementTribes: { required: { player: 'integer', tribes: { arrayOf: 'integer' } } },
+  setPlayerPlacementTribes: {
+    required: { player: 'integer', tribes: { arrayOf: 'integer', maxLength: TRIBE_TYPE_SPACE } },
+  },
   setAiControl: {
     required: { player: 'integer', enabled: 'boolean' },
     optional: {

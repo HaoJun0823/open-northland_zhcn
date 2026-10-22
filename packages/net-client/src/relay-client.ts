@@ -518,7 +518,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       this.askForSnapshot();
       return;
     }
-    void this.track(
+    this.track(
       'open',
       this.loader.run(
         () => openSessionWorld(this.options.world, session, snapshotTick),
@@ -542,7 +542,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       return;
     }
     this.dropWorld();
-    void this.track(
+    this.track(
       'restore',
       this.loader.run(
         () => restoreSessionWorld(this.options.world, session, snapshot, tick),
@@ -674,7 +674,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         if (this.snapshotInFlight === work) this.snapshotInFlight = null;
       });
     this.snapshotInFlight = work;
-    void this.track('snapshot', work);
+    this.track('snapshot', work);
   }
 
   /** A snapshot names the session's map, so the client restoring it can hold it to its own world. */
@@ -683,9 +683,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     return world?.kind === 'map' ? { mapId: world.mapId } : {};
   }
 
-  /** Keep `work` for `settled`, and report its failure; the returned promise still rejects for a
-   *  caller that awaits it. */
-  private track(what: string, work: Promise<void>): Promise<void> {
+  /** Keep `work` for `settled`, and report its failure. */
+  private track(what: string, work: Promise<void>): void {
     this.pending.add(work);
     work.then(
       () => this.pending.delete(work),
@@ -694,7 +693,6 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.options.onError?.(what, error);
       },
     );
-    return work;
   }
 }
 

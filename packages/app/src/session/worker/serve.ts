@@ -251,8 +251,7 @@ export class ServedSession<E> {
       take: (records, leadTicks) => this.takeBatch(records, leadTicks),
       post: (batch) => this.post({ kind: 'ticks', batch }, fogTransfer(batch.fog)),
       limit: () => this.leadLimit(),
-      stoppedAfterMs: () =>
-        this.awaitsFrames ? Math.max(STOPPED_AFTER_FRAMES * this.frameMs, MIN_STOPPED_AFTER_MS) : null,
+      stoppedAfterMs: () => this.stopWaitMs(),
     });
     this.answers = inlineSessionHost(sim, { snapshots: 'live' });
     // Without the events: each tick's record carries its own, so the stream's clone would be dropped.
@@ -337,14 +336,19 @@ export class ServedSession<E> {
         this.resume();
         return;
       case 'delivered': {
-        this.frameMs = message.frameMs;
+        // A runtime back from not drawing (a hidden page) reports the whole gap as its frame. It counts
+        // as long as the stop wait it outlasted, and as no sample of the display's tick cost; a display
+        // that turned slow outlasts the growing wait a frame or two, then reports again.
+        const stopWaitMs = this.stopWaitMs();
+        const returned = stopWaitMs !== null && this.outbox.displayStopped();
+        this.frameMs = returned ? Math.min(message.frameMs, stopWaitMs) : message.frameMs;
         const flushStartMs = performance.now();
         const ticks = this.outbox.delivered(message.messages);
         this.costs?.charge(performance.now() - flushStartMs);
         // The batch in flight and the ticks stepped behind it share one lead, so two frames take in one
         // lead's ticks between them.
         const leadMs = this.frameMs * LEAD_FRAMES;
-        this.costs?.drawn(leadMs / this.leadLimit(), ticks);
+        if (!returned) this.costs?.drawn(leadMs / this.leadLimit(), ticks);
         this.resume();
         return;
       }
@@ -484,6 +488,11 @@ export class ServedSession<E> {
 
   private scale(): number {
     return this.timeScale?.() ?? 1;
+  }
+
+  /** How long a batch may wait undelivered before the runtime counts as not drawing. */
+  private stopWaitMs(): number | null {
+    return this.awaitsFrames ? Math.max(STOPPED_AFTER_FRAMES * this.frameMs, MIN_STOPPED_AFTER_MS) : null;
   }
 
   /** See {@link HostedBuild.timeScale} for when the lead grows with the driver's pace. */

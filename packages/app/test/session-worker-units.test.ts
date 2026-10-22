@@ -12,6 +12,7 @@ import {
   BROKEN_SESSION_MESSAGE,
   leadTickLimit,
   serveSession,
+  type WorldBuilder,
 } from '../src/session/worker/serve.js';
 import { StallWatch } from '../src/session/worker/stall-watch.js';
 import { DISPOSED_SESSION_MESSAGE, startWorkerSession } from '../src/session/worker/worker-session.js';
@@ -118,9 +119,14 @@ describe('world facts', () => {
 });
 
 /** Both ends in this thread over a `MessageChannel`, with the runtime's messages counted as they land. */
-function inProcessSession(boot: TestWorldBoot, speed = 1, paused = true) {
+function inProcessSession(
+  boot: TestWorldBoot,
+  speed = 1,
+  paused = true,
+  build: WorldBuilder<TestWorldBoot, null> = buildTestWorld,
+) {
   const channel = new MessageChannel();
-  serveSession(nodeParentPort(channel.port1), buildTestWorld);
+  serveSession(nodeParentPort(channel.port1), build);
   const inner = nodeParentPort(channel.port2);
   const batches: number[] = [];
   const failedTicks: number[] = [];
@@ -278,6 +284,47 @@ describe('tick batch queue', () => {
       await settle(PAST_THE_LIMIT_MS);
       // The clock feeds the driver a tick at a time, so it stops exactly at the limit.
       expect(await lead()).toBe(limit);
+    } finally {
+      session.dispose();
+    }
+  });
+});
+
+describe('a runtime back from not drawing', () => {
+  /** The frame interval a page reports on its first frame after it was hidden for a minute. */
+  const HIDDEN_RETURN_FRAME_MS = 60_000;
+  /** Past the least stop wait, so the batch in flight counts the runtime as stopped. */
+  const HIDDEN_MS = 700;
+
+  it('reads its first frame as no frame rate and reports no drawn tick cost for it', async () => {
+    const drawn: number[] = [];
+    const { session: started, batches } = inProcessSession(
+      { kind: 'scene', id: 'sandbox' },
+      1,
+      false,
+      (boot, options) => ({
+        ...buildTestWorld(boot, options),
+        awaitsFrames: true,
+        costs: { charge: () => undefined, drawn: (ms) => drawn.push(ms) },
+      }),
+    );
+    const session = await started;
+    try {
+      const deliveredFrame = async (frameMs: number): Promise<void> => {
+        const before = batches.length;
+        session.driver.advance(frameMs);
+        while (batches.length === before) await settle(TURN_MS);
+      };
+      session.driver.advance(ASSUMED_FRAME_MS);
+      while (batches.length === 0) await settle(TURN_MS);
+      await deliveredFrame(ASSUMED_FRAME_MS);
+      expect(drawn).toHaveLength(1);
+      await settle(HIDDEN_MS);
+      await deliveredFrame(HIDDEN_RETURN_FRAME_MS);
+      expect(drawn).toHaveLength(1);
+      await deliveredFrame(ASSUMED_FRAME_MS);
+      expect(drawn).toHaveLength(2);
+      expect(Math.max(...drawn)).toBeLessThan(MS_PER_TICK);
     } finally {
       session.dispose();
     }

@@ -15,6 +15,7 @@ import {
   MIN_GOVERNED_SPEED,
   SLOW_AT_ONCE_MS,
   SLOW_GRACE_MS,
+  SLOW_WAIT_AFTER_MS,
 } from '../src/relay/governor.js';
 import {
   ackThrough,
@@ -364,7 +365,7 @@ describe('pacing the clock for a slow member', () => {
     });
   });
 
-  it('keeps the clock running for a slow member that never acknowledges, with no wait and no vote', () => {
+  it('keeps the clock running for a slow member that never acknowledges, with no wait and no vote short of the bound', () => {
     const s = startedRoom();
     play(s, [s.a], SLOW_AFTER_MS + TICK_MS * 2, [s.a, s.b]);
     expect(s.a.last('waiting')?.for).toEqual([]);
@@ -374,7 +375,7 @@ describe('pacing the clock for a slow member', () => {
       cause: 'lag',
     });
     const before = lastTick(s.a);
-    play(s, [s.a], KICK_COUNTDOWN_MS, [s.a, s.b]);
+    play(s, [s.a], SLOW_WAIT_AFTER_MS - SLOW_GRACE_MS, [s.a, s.b]);
     expect(lastTick(s.a)).toBeGreaterThan(before);
     expect(s.a.last('waiting')?.for).toEqual([]);
     s.a.send({ kind: 'kick', player: 1, yes: true });

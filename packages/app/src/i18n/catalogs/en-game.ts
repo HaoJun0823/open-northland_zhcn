@@ -318,6 +318,7 @@ export const enGame = {
         resync: 'resyncing',
         silent: 'not responding',
         gone: 'connection lost',
+        slow: 'cannot keep up',
       },
       loadingPercent: 'loading, {percent}%',
       voteIn: 'vote in {seconds} s',

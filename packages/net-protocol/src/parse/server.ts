@@ -64,6 +64,7 @@ const WAIT_REASONS = keysOf<WaitReason>({
   silent: true,
   loading: true,
   resync: true,
+  slow: true,
 });
 
 const GOVERNOR_CAUSES = keysOf<GovernorCause>({ load: true, lag: true });

@@ -347,6 +347,7 @@ export const deGame = {
         resync: 'synchronisiert erneut',
         silent: 'antwortet nicht',
         gone: 'Verbindung verloren',
+        slow: 'kommt nicht mit',
       },
       loadingPercent: 'lädt, {percent}%',
       voteIn: 'Abstimmung in {seconds} s',

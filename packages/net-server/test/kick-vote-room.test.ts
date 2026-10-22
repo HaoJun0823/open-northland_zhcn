@@ -64,6 +64,19 @@ function roomOf(count: number) {
 }
 
 const lastTick = (peer: Peer): number => peer.last('frame')?.tick ?? 0;
+const ackedTick = new WeakMap<Peer, number>();
+
+/** Move the clock with `peers` heard and acknowledging every frame, so none of them falls behind. */
+function keepUp(s: MessageStage, peers: readonly Peer[], ms: number): void {
+  for (let elapsed = 0; elapsed < ms; elapsed += TICK_MS) {
+    tick(s, peers, TICK_MS);
+    for (const peer of peers) {
+      const acked = ackedTick.get(peer) ?? 0;
+      if (lastTick(peer) > acked) ackThrough(peer, acked + 1, lastTick(peer));
+      ackedTick.set(peer, lastTick(peer));
+    }
+  }
+}
 const waitedNicks = (peer: Peer): string[] => (peer.last('waiting')?.for ?? []).map((entry) => entry.nick);
 
 describe('kick votes against two dropped members', () => {
@@ -257,7 +270,7 @@ describe('kick votes as members come and go', () => {
   it('kicks no silent target that answered within the poll, on a yes or on a recount', () => {
     const s = roomOf(5);
     const [a, b, c, d, e] = [s.member(0), s.member(1), s.member(2), s.member(3), s.member(4)];
-    tick(s, [a, b, d, e], SILENT_AFTER_MS + KICK_COUNTDOWN_MS + TICK_MS * 2);
+    keepUp(s, [a, b, d, e], SILENT_AFTER_MS + KICK_COUNTDOWN_MS + TICK_MS * 2);
     expect(a.last('waiting')?.for).toEqual([{ nick: 'Cezary', reason: 'silent', voteAfterMs: 0 }]);
     s.kick(a, 2);
     s.kick(b, 2);

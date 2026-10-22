@@ -2,8 +2,8 @@ import type { GovernorCause, ResponsivenessMode, ResponsivenessState } from '@op
 
 /** A player's standing in a relayed room as the network panel shows it. `catchingUp` trails the clock
  *  without slowing anyone; `slowing` is the member the room is paced for; `offline` is disconnected
- *  while the relay does not wait for it (a spectator, or after the verdict); the last four are the
- *  relay's wait reasons, which hold the clock. */
+ *  while the relay does not wait for it (a spectator, or after the verdict); the last five are the
+ *  relay's wait reasons, which hold the clock: `slow` is a member that stayed `slowing` too long. */
 export type NetPlayerStatus =
   | 'ok'
   | 'catchingUp'
@@ -12,10 +12,11 @@ export type NetPlayerStatus =
   | 'loading'
   | 'resync'
   | 'silent'
-  | 'gone';
+  | 'gone'
+  | 'slow';
 
 /** The statuses a waited member reads as: the relay emits no frames while any member has one. */
-const HELD_STATUSES: readonly NetPlayerStatus[] = ['loading', 'resync', 'silent', 'gone'];
+const HELD_STATUSES: readonly NetPlayerStatus[] = ['loading', 'resync', 'silent', 'gone', 'slow'];
 
 export function isHeldStatus(status: NetPlayerStatus): boolean {
   return HELD_STATUSES.includes(status);

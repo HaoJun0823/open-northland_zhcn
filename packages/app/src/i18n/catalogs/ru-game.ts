@@ -341,6 +341,7 @@ export const ruGame = {
         resync: 'повторная синхронизация',
         silent: 'не отвечает',
         gone: 'связь потеряна',
+        slow: 'не успевает',
       },
       loadingPercent: 'загрузка, {percent}%',
       voteIn: 'голосование через {seconds} с',

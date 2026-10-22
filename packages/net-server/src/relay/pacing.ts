@@ -1,39 +1,47 @@
-import { framesIn, GOVERN_RELEASE_MS, LAG_BEHIND_MS, SLOW_AT_ONCE_MS, SLOW_GRACE_MS } from './governor.js';
+import {
+  framesIn,
+  GOVERN_RELEASE_MS,
+  LAG_BEHIND_MS,
+  SLOW_AT_ONCE_MS,
+  SLOW_GRACE_MS,
+  SLOW_WAIT_AFTER_MS,
+} from './governor.js';
 
 /**
- * Which members the clock is paced for. A member trailing by more than `LAG_BEHIND_MS` of frames is
- * lagging and catches up alone; one lagging for `SLOW_GRACE_MS` on end, or trailing by more than
- * `SLOW_AT_ONCE_MS`, is slow, and stays slow until it trails by no more than `GOVERN_RELEASE_MS`.
- * Neither is waited for. A hold on a member keeps its verdict and pauses its grace: wall time under a
- * hold does not count as lagging.
+ * Which members the clock is paced for, and which of them it waits for. A member trailing by more
+ * than `LAG_BEHIND_MS` of frames is lagging and catches up alone; one lagging for `SLOW_GRACE_MS` on
+ * end, or trailing by more than `SLOW_AT_ONCE_MS`, is slow, and stays slow until it trails by no more
+ * than `GOVERN_RELEASE_MS`. One slow for `SLOW_WAIT_AFTER_MS` on end is waited for. A hold on a member
+ * for another reason keeps its verdict and pauses both of its clocks: wall time under such a hold does
+ * not count as lagging or as slow.
  */
 export class Pacing {
   /** When each lagging member began to lag, in the relay's milliseconds. */
   private readonly laggingSince = new Map<string, number>();
-  /** Milliseconds each lagging member had lagged when its hold began, while the hold lasts. */
-  private readonly laggedBeforeHold = new Map<string, number>();
-  private readonly slow = new Set<string>();
+  /** When each slow member became slow. */
+  private readonly slowSince = new Map<string, number>();
+  /** When the hold on each held member began, while it lasts. */
+  private readonly heldSince = new Map<string, number>();
 
   isSlow(token: string): boolean {
-    return this.slow.has(token);
+    return this.slowSince.has(token);
   }
 
-  /** The clock waits for the member at `now`: its grace stops until the next `observe`. */
+  /** The member has been slow long enough that the room waits for it until it is released. */
+  waitsFor(token: string, now: number): boolean {
+    const since = this.slowSince.get(token);
+    return since !== undefined && !this.heldSince.has(token) && now - since >= SLOW_WAIT_AFTER_MS;
+  }
+
+  /** The clock waits for the member at `now`: its clocks stop until the next `observe`. */
   hold(token: string, now: number): void {
-    const since = this.laggingSince.get(token);
-    if (since === undefined) return;
-    this.laggedBeforeHold.set(token, now - since);
-    this.laggingSince.delete(token);
+    if (!this.heldSince.has(token)) this.heldSince.set(token, now);
   }
 
   /** Judge a member the relay follows from how many ticks it trails the clock at `requestedSpeed`. */
   observe(token: string, behindTicks: number, requestedSpeed: number, now: number): void {
-    const lagged = this.laggedBeforeHold.get(token);
-    if (lagged !== undefined) {
-      this.laggedBeforeHold.delete(token);
-      this.laggingSince.set(token, now - lagged);
-    }
-    if (this.slow.has(token)) {
+    this.resume(token, now);
+    if (this.slowSince.has(token)) {
       if (behindTicks <= framesIn(GOVERN_RELEASE_MS, requestedSpeed)) this.forget(token);
       return;
     }
@@ -44,13 +52,25 @@ export class Pacing {
     const since = this.laggingSince.get(token) ?? now;
     this.laggingSince.set(token, since);
     if (now - since >= SLOW_GRACE_MS || behindTicks > framesIn(SLOW_AT_ONCE_MS, requestedSpeed))
-      this.slow.add(token);
+      this.slowSince.set(token, now);
   }
 
   /** A member that left, or whose world is being replaced, starts with no lag on record. */
   forget(token: string): void {
     this.laggingSince.delete(token);
-    this.laggedBeforeHold.delete(token);
-    this.slow.delete(token);
+    this.slowSince.delete(token);
+    this.heldSince.delete(token);
+  }
+
+  /** Move the member's clocks past the hold that just ended. */
+  private resume(token: string, now: number): void {
+    const heldAt = this.heldSince.get(token);
+    if (heldAt === undefined) return;
+    this.heldSince.delete(token);
+    const heldMs = now - heldAt;
+    for (const clock of [this.laggingSince, this.slowSince]) {
+      const since = clock.get(token);
+      if (since !== undefined) clock.set(token, since + heldMs);
+    }
   }
 }

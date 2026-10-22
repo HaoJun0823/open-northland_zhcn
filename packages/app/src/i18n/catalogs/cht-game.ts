@@ -313,6 +313,7 @@ export const chtGame = {
         resync: '重新同步中',
         silent: '沒有回應',
         gone: '連線中斷',
+        slow: '跟不上',
       },
       loadingPercent: '載入中，{percent}%',
       voteIn: '{seconds} 秒後投票',

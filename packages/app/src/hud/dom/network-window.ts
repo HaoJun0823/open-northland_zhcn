@@ -61,6 +61,7 @@ const STATUS_TONE: Readonly<Record<NetPlayerStatus, 'ok' | 'warn' | 'danger'>> =
   resync: 'warn',
   silent: 'danger',
   gone: 'danger',
+  slow: 'danger',
 };
 
 export interface NetworkWindowDeps {

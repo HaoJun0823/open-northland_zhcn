@@ -347,11 +347,13 @@ The clock holds, emitting no frames, while any seated player is:
   [Public relay security boundary](#public-relay-security-boundary)) keeps a client heard while the
   relay's pings and frames wait behind a snapshot it is downloading;
 - `loading`: it has not said where its world stands, before the start or after a return;
-- `resync`: it is out of sync and its snapshot has not arrived.
+- `resync`: it is out of sync and its snapshot has not arrived;
+- `slow`: it has been slow for `SLOW_WAIT_AFTER_MS` (30 s) on end and has not caught up since; see
+  [Pacing](#pacing).
 
 A held clock runs for nobody: a `clock { paused: false }` changes the pause flag and nothing else, and
-the frames resume once nobody is waited for. A member that is merely behind is never waited for; see
-[Pacing](#pacing).
+the frames resume once nobody is waited for. A member that is merely behind, or slow for less than
+`SLOW_WAIT_AFTER_MS`, is not waited for; see [Pacing](#pacing).
 
 Every change to the waited set is broadcast as `waiting { for: [{ nick, reason, voteAfterMs }] }`; an
 empty `for` ends the wait. Each member's `voteAfterMs` is what is left of `KICK_COUNTDOWN_MS` (60 s)
@@ -397,9 +399,8 @@ on its return; one that had lagged 1 s has 3 s of grace left on its return, howe
 Only leaving the room, or a world rebuilt from a snapshot after a resync or a return without one,
 clears the verdict and the lag.
 
-A slow member is never waited for, gets no countdown and cannot be voted out. While any seated player is
-slow the relay governs the clock, whatever the requested speed. Each slow member's bound is the lower
-of its sustainable speed with headroom, `TICK_MS / load.tickMs * GOVERNOR_HEADROOM` (0.8), or
+While any seated player is slow the relay governs the clock, whatever the requested speed. Each slow
+member's bound is the lower of its sustainable speed with headroom, `TICK_MS / load.tickMs * GOVERNOR_HEADROOM` (0.8), or
 `GOVERNOR_HEADROOM` times the requested speed before its first load report, and the catch-up share
 of the requested speed, `CATCH_UP_SHARE` (0.8) times it. `cause` names the lower one, `lag` on a tie.
 The bound is rounded to `GOVERNED_SPEED_STEP` (0.05), never above the requested speed and never below
@@ -411,13 +412,24 @@ bound becomes the lower one. A load report jittering across one rounding boundar
 point where the two bounds cross, therefore does not become a `clock` broadcast per advance. Once
 nobody is slow the clock runs at the requested speed again.
 
+A seated member slow for `SLOW_WAIT_AFTER_MS` (30 s) of wall time on end is waited for as `slow`: a
+seat that cannot keep up even at the floor would otherwise hold the room at it indefinitely, falling
+further behind, with no way out. Wall time the clock holds for it for another reason, such as its
+silence, does not count toward the 30 s, as for the grace. The clock holds for it like for any waited member, so it catches up
+while the others wait, and its countdown and vote run as for every other reason. It is still judged
+while waited: once it trails by no more than `GOVERN_RELEASE_MS` it is released, no longer waited for
+and no longer votable, and the clock runs again. A seat that is chronically slow therefore alternates
+between governed play and holds, and the waited time it keeps between holds (see [Waiting](#waiting))
+makes each later hold votable sooner: the others decide whether to wait for it or vote it out.
+
 ## Kick votes
 
 Once a member's countdown has passed, any other member sends `kick { player, yes: true }` for its
 seat; a repeat from the same member counts once. `kick { player, yes: false }` withdraws that
 member's yes, and is refused with `noVoteToWithdraw` from a member that has none. Each yes and each
 withdrawal is broadcast as `kickVote { player, nick, yes: [nicks], needed }`. A vote lives only while
-its target is waited for; a member that is only slow is refused with `notWaitedFor`.
+its target is waited for; a member that is slow, but not yet waited for as `slow`, is refused with
+`notWaitedFor`.
 
 The electorate is the connected members other than the target, and `needed` is a strict majority of
 it, `floor(others / 2) + 1` (`kickVotesNeeded`): both of two, 2 of 3, 3 of 4. A yes counts only while

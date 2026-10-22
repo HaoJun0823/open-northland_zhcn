@@ -344,17 +344,18 @@ export class Game {
     member.loaded = true;
   }
 
-  /** Every member the room cannot run without holds the clock; a slow one paces it instead. */
+  /** Every member the room cannot run without holds the clock; a slow one paces it instead, until it
+   *  has stayed slow long enough to hold it too. */
   private updateWaiting(now: number): void {
     const waited: Waited[] = [];
     for (const member of this.members.values()) {
-      const reason = this.waitReason(member, now);
-      if (reason === null) {
+      if (this.absentReason(member, now) === null) {
         this.pacing.observe(member.token, this.clock.tick - member.ackedTick, this.clock.speed, now);
       } else {
         this.pacing.hold(member.token, now);
-        waited.push({ token: member.token, nick: member.nick, reason });
       }
+      const reason = this.waitReason(member, now);
+      if (reason !== null) waited.push({ token: member.token, nick: member.nick, reason });
     }
     if (this.waiting.update(waited, now)) this.broadcast(this.waiting.message(now));
     this.kickVotes.retain((token) => this.waiting.isWaitedFor(token));
@@ -381,6 +382,12 @@ export class Game {
   }
 
   private waitReason(member: Member, now: number): WaitReason | null {
+    if (member.seat === null) return null;
+    return this.absentReason(member, now) ?? (this.pacing.waitsFor(member.token, now) ? 'slow' : null);
+  }
+
+  /** Why the room cannot run with a seated member at all: the relay does not follow its world. */
+  private absentReason(member: Member, now: number): Exclude<WaitReason, 'slow'> | null {
     if (member.seat === null) return null;
     if (!member.connected) return 'gone';
     if (member.outOfSync !== null) return 'resync';

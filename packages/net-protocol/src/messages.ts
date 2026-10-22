@@ -166,8 +166,9 @@ export interface ClientLoad {
   readonly buffered: number;
 }
 
-/** Why the clock holds for a member; a member that is merely slow paces the clock instead. */
-export type WaitReason = 'gone' | 'silent' | 'loading' | 'resync';
+/** Why the clock holds for a member. A slow member paces the clock instead, and is waited for as
+ *  `slow` only once it has stayed slow for the relay's bound. */
+export type WaitReason = 'gone' | 'silent' | 'loading' | 'resync' | 'slow';
 
 /** What bounds a governed speed: `load` when the member's reported tick cost does, `lag` when the
  *  catch-up share of the requested speed does (a member that reports it could keep up, yet trails). */

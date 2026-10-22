@@ -313,6 +313,7 @@ export const chsGame = {
         resync: '重新同步中',
         silent: '无响应',
         gone: '连接中断',
+        slow: '跟不上',
       },
       loadingPercent: '载入中，{percent}%',
       voteIn: '{seconds} 秒后可投票',

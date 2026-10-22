@@ -214,6 +214,15 @@ describe('the relayed network panel feed', () => {
     expect(rows[2]?.behindTicks).toBe(LAG_TICKS + 1);
   });
 
+  it('reads the member the room is paced for as held once the relay waits for it as slow', () => {
+    const { feed, send } = setup();
+    send({ kind: 'waiting', for: [{ nick: 'Edek', reason: 'slow', voteAfterMs: VOTE_AFTER_MS }] });
+    const edek = rowOf(feed, 'Edek');
+    expect(edek?.status).toBe('slow');
+    expect(edek?.vote).toMatchObject({ voteInSeconds: VOTE_AFTER_MS / SECOND_MS });
+    expect(feed.model().clock.held).toBe(true);
+  });
+
   it('counts a held member down to its vote, then offers a yes, then its withdrawal', () => {
     const { feed, send, time } = setup();
     send({ kind: 'waiting', for: [{ nick: 'Bartek', reason: 'gone', voteAfterMs: VOTE_AFTER_MS }] });

@@ -475,6 +475,7 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
     for: [
       { nick: 'Ania', reason: 'gone', voteAfterMs: 60000 },
       { nick: 'Cezary', reason: 'resync', voteAfterMs: 0 },
+      { nick: 'Dorota', reason: 'slow', voteAfterMs: 30000 },
     ],
   },
   { kind: 'waiting', for: [] },
@@ -608,7 +609,7 @@ describe('server messages', () => {
   });
 
   it('refuses a wait reason and a desync domain it does not know', () => {
-    for (const reason of ['bored', 'slow'])
+    for (const reason of ['bored', 'lagging'])
       expect(() =>
         parseServerMessage({ kind: 'waiting', for: [{ nick: 'A', reason, voteAfterMs: 0 }] }, parseSession),
       ).toThrow(/reason/);

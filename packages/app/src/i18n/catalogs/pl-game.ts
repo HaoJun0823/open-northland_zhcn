@@ -316,6 +316,7 @@ export const plGame = {
         resync: 'synchronizuje',
         silent: 'nie odpowiada',
         gone: 'brak połączenia',
+        slow: 'nie nadąża',
       },
       loadingPercent: 'wczytuje, {percent}%',
       voteIn: 'głosowanie za {seconds} s',

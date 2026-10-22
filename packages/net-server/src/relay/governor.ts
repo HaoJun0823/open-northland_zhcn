@@ -9,6 +9,9 @@ export const SLOW_GRACE_MS = 4000;
 /** A client trailing by more than this many milliseconds of frames is slow without the grace: a lag a
  *  grace's worth past the threshold is no blip. */
 export const SLOW_AT_ONCE_MS = LAG_BEHIND_MS + SLOW_GRACE_MS;
+/** Wall time a client stays slow, continuously and outside holds for it, before the room waits for it:
+ *  the clock holds while it catches up, and its countdown to a vote runs. */
+export const SLOW_WAIT_AFTER_MS = 30_000;
 /** A slow client is released once it trails by no more than this; lower than `LAG_BEHIND_MS` so a
  *  client near the threshold does not flip every advance. */
 export const GOVERN_RELEASE_MS = 500;

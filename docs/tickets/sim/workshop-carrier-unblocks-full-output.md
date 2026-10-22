@@ -16,9 +16,9 @@ owner's ruling.
 
 ## Scope
 
-- When the workshop has shelf-blocking output that can be delivered, use `shelfBlockedOutput` and
-  the existing `walkPickupBatch`/delivery path before searching for missing inputs, as the craftsman
-  drive already does. Preserve ordinary supply and pickup-flag source preference.
+- When the workshop has shelf-blocking output that can be delivered, haul it through the existing
+  `walkPickupBatch`/delivery path before searching for missing inputs, choosing among several blocked
+  outputs as the craftsman drive's `blockedOutputToHaul` does. Preserve ordinary supply and pickup-flag source preference.
 - Keep the bound carrier available to the wider settlement when its workshop has no blocking work.
   Let it take useful general hauling rather than always claiming the planner rung and idling locally;
   reuse the existing hauling fallback. Cover any operator-presence and pickup-flag constraints.

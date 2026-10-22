@@ -43,7 +43,7 @@ export {
   BREEDING_PAIR,
   isYardBuilt,
   outputRoomForCycles,
-  shelfBlockedOutput,
+  shelfBlockedOutputs,
   startableCycleCount,
 } from './production/cycles.js';
 export {

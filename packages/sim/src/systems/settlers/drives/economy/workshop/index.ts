@@ -5,7 +5,7 @@ import type { Entity, World } from '../../../../../ecs/world.js';
 import { claimProductionCycle, productionAssignments } from '../../../../economy/production/assignments.js';
 import {
   outputRoomForCycles,
-  shelfBlockedOutput,
+  shelfBlockedOutputs,
   skipUnfundedRecipe,
 } from '../../../../economy/production.js';
 import { operatorRecipeEnabled } from '../../../../progression/index.js';
@@ -203,8 +203,8 @@ export function planProducer(
   }
 
   // A full output slot still outranks topping up inputs for products that cannot currently be shelved.
-  const blocked = shelfBlockedOutput(world, ctx, workplace);
-  if (blocked !== null && deliverableGoodProbe(plan)(blocked)) {
+  const blocked = blockedOutputToHaul(plan, workplace);
+  if (blocked !== null) {
     walkPickupBatch(plan, workplace, blocked);
     return;
   }
@@ -363,6 +363,16 @@ function loiterByDoor(
     const { x, y } = terrain.coordsOf(here);
     planGossipIdle(world, ctx, entity, plan, x, y, plan.gossipCandidates, LOITER_PLAN_PERIOD_TICKS);
   });
+}
+
+/** A deliverable output whose full shelf stops `workplace`, at random among several like
+ *  {@link workplaceOutputToHaul}'s full shelves, so the first product is not always the one cleared. */
+function blockedOutputToHaul(plan: PlannerContext, workplace: Entity): number | null {
+  const blocked = shelfBlockedOutputs(plan.world, plan.ctx, workplace);
+  if (blocked.length === 0) return null;
+  const deliverable = blocked.filter(deliverableGoodProbe(plan));
+  if (deliverable.length > 1) return deliverable[plan.ctx.rng.int(deliverable.length)] ?? null;
+  return deliverable[0] ?? null;
 }
 
 /** Lift one carry-load of an output out of the workplace, claimed; the delivery rung routes it to a store. */

@@ -243,8 +243,8 @@ function ranksBefore(
  * carrier takes a full output shelf first, else the output it holds most of, the lowest id on a tie.
  * Departure: the original takes the highest-id full shelf every time, and a workshop refills the shelf it
  * just lost a unit from before the carrier is back, so that rule keeps every other full product waiting
- * for good; a random full shelf goes instead. The original also gives up when its pick has no consumer,
- * where here the next deliverable output goes.
+ * for good; a random full shelf goes instead. The original tries only that full shelf and then the
+ * most-stocked output, idling when neither has a consumer; here the next deliverable output goes.
  */
 export function workplaceOutputToHaul(
   deliverable: (goodType: number) => boolean,

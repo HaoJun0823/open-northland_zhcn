@@ -102,26 +102,32 @@ export function outputRoomForCycles(
 }
 
 /**
- * The stocked output good whose full shelf stopped this workplace, or null when it can still start any
- * cycle. Only a unit physically leaving frees the slot, so the good is named for the unblocking haul to
- * carry. Recipe iteration follows the type's fixed content order, so the pick is canonical.
+ * The stocked output goods whose full shelves stopped this workplace, one per blocked recipe, or none when
+ * it can still start any cycle. Only a unit physically leaving frees a slot, so these are the goods an
+ * unblocking haul may carry. Recipe iteration follows the type's fixed content order, so the list is
+ * canonical.
  */
-export function shelfBlockedOutput(world: World, ctx: SystemContext, building: Entity): number | null {
+export function shelfBlockedOutputs(world: World, ctx: SystemContext, building: Entity): readonly number[] {
   const b = world.tryGet(building, Building);
-  if (b === undefined || b.built < ONE) return null;
+  if (b === undefined || b.built < ONE) return NO_GOODS;
   const recipes = recipesByProductOf(world, ctx, building);
-  if (recipes === undefined) return null;
+  if (recipes === undefined) return NO_GOODS;
   const stock = world.get(building, Stockpile).amounts;
-  let blocked: number | null = null;
+  let blocked: number[] | null = null;
   for (const recipe of recipes.values()) {
     if (isYardBuilt(ctx, recipe)) continue; // built on a yard, never shelved
     if (!workplaceRecipeEnabled(world, ctx, building, recipe)) continue; // locked: shipping a unit would not help
     if (inputStockForCycles(world, building, recipe) < 1) continue; // starved: the fetch rung owns this one
-    if (outputRoomForCycles(world, ctx, building, recipe) > 0) return null;
-    blocked ??= stockedOutput(stock, recipe);
+    if (outputRoomForCycles(world, ctx, building, recipe) > 0) return NO_GOODS;
+    const good = stockedOutput(stock, recipe);
+    if (good === null) continue;
+    blocked ??= [];
+    blocked.push(good);
   }
-  return blocked;
+  return blocked ?? NO_GOODS;
 }
+
+const NO_GOODS: readonly number[] = [];
 
 /** The first output of `recipe` the workplace actually holds a unit of - what a haul could carry out. */
 function stockedOutput(stock: ReadonlyMap<number, number>, recipe: Recipe): number | null {

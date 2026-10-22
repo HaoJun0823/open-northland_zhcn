@@ -665,6 +665,30 @@ describe('producer unblocks its own full output slot', () => {
     expect(atomic.effect).toEqual({ kind: 'pickup', goodType: PLANK, amount: 1, from: mill });
   });
 
+  it('ships either of two full products, not always the first recipe’s', () => {
+    const SEEDS = 8;
+    const shipped = new Set<number | undefined>();
+    for (let seed = 1; seed <= SEEDS; seed++) {
+      const sim = new Simulation({ seed, content: testContent(), map: grassMap(6, 1) });
+      const forge = buildingAt(sim, FORGE, 0, 0, [
+        [WOOD, 10],
+        [PLANK, 20],
+        [FOOD_SIMPLE, 20],
+      ]);
+      buildingAt(sim, HEADQUARTERS, 3, 0);
+      settlerAt(sim, 5, 0, WOODCUTTER);
+      const smith = settlerAt(sim, 0, 0, CARPENTER, forge);
+      sim.world.mut(smith, SettlerProgress).experience.set(WOOD_TRACK, PLANK_GATE_RAW_XP);
+      pinProducts(sim, smith, [PLANK, FOOD_SIMPLE]);
+
+      plannerSystem(sim.world, ctxOf(sim));
+
+      const effect = sim.world.tryGet(smith, CurrentAtomic)?.effect;
+      shipped.add(effect?.kind === 'pickup' ? effect.goodType : undefined);
+    }
+    expect(shipped).toEqual(new Set([PLANK, FOOD_SIMPLE]));
+  });
+
   it('fetches for a product with shelf room before shipping a blocked product', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
     // Planks are at the brim with wood on hand, while food can start after fetching wheat. Shipping

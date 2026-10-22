@@ -363,7 +363,8 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
     value === null ? copy.none : format(value);
   const ms = (value: number): string => formatMessage(copy.ms, { ms: Math.round(value) });
 
-  const writePlayer = (view: PlayerView, player: NetPlayerRow): void => {
+  /** `watching`: this client observes, and the relay refuses its kick votes. */
+  const writePlayer = (view: PlayerView, player: NetPlayerRow, watching: boolean): void => {
     view.chip.style.background = player.color ?? 'transparent';
     setClass(view.chip, 'on-net-chip--none', player.color === null);
     write(view.nick, player.nick);
@@ -390,6 +391,7 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
     if (note instanceof HTMLElement) {
       setHidden(note, vote === null || ballot !== null);
       write(note, vote === null ? '' : voteText(vote));
+      setTip(note, watching ? `${tipsCopy.vote}. ${copy.observerNoVote}` : tipsCopy.vote);
     }
     if (vote !== null && ballot !== null) {
       const tally = { yes: vote.yes, needed: vote.needed };
@@ -408,13 +410,14 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
     const listed = new Set(players.map((player) => player.nick));
     for (const nick of views.keys()) if (!listed.has(nick)) views.delete(nick);
     const order: HTMLElement[] = [];
+    const watching = observing(players);
     for (const player of players) {
       let view = views.get(player.nick);
       if (view === undefined) {
         view = buildPlayer();
         views.set(player.nick, view);
       }
-      writePlayer(view, player);
+      writePlayer(view, player, watching);
       order.push(view.row);
     }
     const current = [...rows.children];
@@ -565,12 +568,14 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
     showLink(model.link);
     const bufferMs = Math.round((model.responsiveness.bufferTicks * TICK_MS) / model.clock.runningSpeed);
     const reserveTip = formatMessage(responseCopy.reserve, { ms: bufferMs });
+    // The relay refuses an observer's responsiveness change.
+    const watching = observing(model.players);
     const responseOption = (mode: ResponsivenessMode) => ({
       label: responseCopy.options[mode],
-      enabled: model.link.connected,
+      enabled: model.link.connected && !watching,
       tooltip: `${responseCopy.options[mode]}. ${responseCopy.hints[mode]}${
         mode === model.responsiveness.mode ? ` ${reserveTip}` : ''
-      }`,
+      }${watching ? ` ${responseCopy.observerOnly}.` : ''}`,
     });
     response.update(
       {
@@ -618,4 +623,9 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
       window.dispose();
     },
   };
+}
+
+/** Whether this client watches the room from no seat. */
+function observing(players: readonly NetPlayerRow[]): boolean {
+  return players.some((player) => player.self && player.seat === null);
 }

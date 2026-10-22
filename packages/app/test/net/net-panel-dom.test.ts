@@ -126,6 +126,42 @@ it('requests a room-wide response mode and displays only the relay-confirmed cho
   window.dispose();
 });
 
+it('keeps an observer from response modes the relay would refuse it, and says why', () => {
+  const copy = messages().hud.network;
+  const watcher: NetPlayerRow = {
+    nick: 'Ania',
+    seat: null,
+    self: true,
+    color: null,
+    tribe: null,
+    status: 'ok',
+    pingMs: null,
+    delayTicks: null,
+    tickCostPct: null,
+    behindTicks: 0,
+    loadingPercent: null,
+    vote: null,
+  };
+  const waited: NetPlayerRow = {
+    ...watcher,
+    nick: 'Bartek',
+    seat: 1,
+    self: false,
+    status: 'gone',
+    vote: { voteInSeconds: 0, yes: 0, needed: 1, ballot: null },
+  };
+  const feed = source(panelModel({ players: [watcher, waited] }));
+  const requested: string[] = [];
+  feed.setResponsiveness = (mode) => requested.push(mode);
+  const { plane, window } = mountWindow(feed);
+  const buttons = [...plane.querySelectorAll<HTMLButtonElement>('.on-net-link > .on-net-response button')];
+  buttons[1]?.click();
+  expect(requested).toEqual([]);
+  expect(buttons[1]?.getAttribute(TIP)).toContain(copy.responsiveness.observerOnly);
+  expect(plane.querySelector('.on-net-vote__note')?.getAttribute(TIP)).toContain(copy.observerNoVote);
+  window.dispose();
+});
+
 const CHAT_OPENED_AT = new Date(2026, 0, 1, 21, 40).getTime();
 const MINUTE_MS = 60_000;
 const said = (index: number): NetChatLine => ({

@@ -91,6 +91,8 @@ function relayPlayerRows(facts: RelayRoomFacts): readonly NetPlayerRow[] {
   const lagTicks = Math.ceil((CATCHING_UP_BEHIND_MS / TICK_MS) * (clock?.speed ?? DEFAULT_SPEED));
   // The relay's electorate before its first tally: every other connected member.
   const connected = room.members.filter((member) => member.connected).length;
+  // The relay refuses an observer's vote, so an observer is offered no ballot.
+  const voting = room.members.some((member) => member.nick === facts.selfNick && member.seat !== null);
   return room.members.map((member): NetPlayerRow => {
     const self = member.nick === facts.selfNick;
     const wait = waited.get(member.nick);
@@ -128,7 +130,7 @@ function relayPlayerRows(facts: RelayRoomFacts): readonly NetPlayerRow[] {
               yes: tally?.yes.length ?? 0,
               needed: tally?.needed ?? kickVotesNeeded(electorate),
               ballot:
-                self || member.seat === null || seconds > 0
+                self || !voting || member.seat === null || seconds > 0
                   ? null
                   : tally?.yes.includes(facts.selfNick) === true
                     ? 'cast'

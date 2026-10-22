@@ -234,6 +234,14 @@ describe('the relayed network panel feed', () => {
     expect(feed.model().clock.held).toBe(false);
   });
 
+  it('offers an observer no ballot, since the relay refuses its kick votes', () => {
+    const { feed, send } = setup();
+    const watching = ROOM.members.map((row) => (row.nick === 'Ania' ? { ...row, seat: null } : row));
+    send({ kind: 'room', room: { ...ROOM, members: watching } });
+    send({ kind: 'waiting', for: [{ nick: 'Bartek', reason: 'gone', voteAfterMs: 0 }] });
+    expect(rowOf(feed, 'Bartek')?.vote).toMatchObject({ voteInSeconds: 0, ballot: null });
+  });
+
   it('reads a member who drops after the verdict as offline, which holds nothing', () => {
     // After a match ends the relay stops waiting for members but still sends their room views.
     const { feed, send } = setup();

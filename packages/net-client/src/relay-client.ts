@@ -307,11 +307,12 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       this.refuseLocally('notLoaded');
       return;
     }
-    if (new TextEncoder().encode(JSON.stringify(envelope)).byteLength > MAX_ENVELOPE_BYTES) {
+    const bytes = new TextEncoder().encode(JSON.stringify(envelope)).byteLength;
+    if (bytes > MAX_ENVELOPE_BYTES) {
       this.refuseLocally('envelopeTooLarge');
       return;
     }
-    if (!this.outbox.push(envelope, this.now())) {
+    if (!this.outbox.push(envelope, this.now(), bytes)) {
       this.refuseLocally('commandBudget');
       return;
     }
@@ -329,10 +330,10 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     if (driver === null || this.outbox.size === 0 || this.options.connected?.() === false) return;
     if (this.latency.carrying) return;
     this.outbox.drain(
-      () => this.latency.inFlight,
-      (envelope, clickedAt) => {
+      () => this.latency.sent,
+      (envelope, clickedAt, bytes) => {
         driver.submit(envelope);
-        this.latency.issued(clickedAt);
+        this.latency.issued(clickedAt, bytes);
       },
     );
   }

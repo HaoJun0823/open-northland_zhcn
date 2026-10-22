@@ -12,6 +12,8 @@ export const ENVELOPE_VERSION = 2;
 export const MAX_COMMANDS_PER_TICK = 20;
 /** Bytes of one envelope as JSON, including a bounded army's individual formation destinations. */
 export const MAX_ENVELOPE_BYTES = 512 * 1024;
+/** Bytes of envelopes as JSON one member may land on one tick, beside the gesture count. */
+export const MAX_COMMAND_BYTES_PER_TICK = 1024 * 1024;
 /** Maximum shared playout reserve selected by the room's Auto mode. */
 export const MAX_RESPONSIVENESS_BUFFER_TICKS = 6;
 export const MAX_SPEED = 8;

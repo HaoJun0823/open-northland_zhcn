@@ -3,6 +3,7 @@ import { RelayClient } from '@open-northland/net-client';
 import {
   type ClientMessage,
   MAX_CLIENT_MESSAGE_BYTES,
+  MAX_COMMAND_BYTES_PER_TICK,
   MAX_ENVELOPE_BYTES,
   type ServerMessage,
   TICK_MS,
@@ -108,3 +109,21 @@ it.each(['x', 'ą', '兵', '🚩'])(
     expect(observed).toEqual([{ kind: 'rejected', of: 'command', reason: { code: 'envelopeTooLarge' } }]);
   },
 );
+
+it('holds a large gesture back while the ones in flight would push its tick past the byte budget', async () => {
+  const { client, sim, sent } = await runningClient();
+  const entity = sim.world.create();
+  const renamed = (name: string) => playerCommand(0, { kind: 'renameSettler', entity, name });
+  const largest = (mark: string) =>
+    renamed(mark + 'x'.repeat(MAX_ENVELOPE_BYTES - jsonBytes(renamed('')) - mark.length));
+  const orders = ['a', 'b', 'c'].map(largest);
+  for (const order of orders) expect(jsonBytes(order)).toBe(MAX_ENVELOPE_BYTES);
+  const fitting = Math.floor(MAX_COMMAND_BYTES_PER_TICK / MAX_ENVELOPE_BYTES);
+  for (const order of orders) client.submit(order);
+  expect(sent.flatMap((message) => (message.kind === 'command' ? [message.envelope] : []))).toEqual(
+    orders.slice(0, fitting),
+  );
+  client.receive({ kind: 'frame', tick: 1, commands: [{ sequence: 0, envelope: orders[0] }] });
+  client.advance(TICK_MS * 2);
+  expect(sent.flatMap((message) => (message.kind === 'command' ? [message.envelope] : []))).toEqual(orders);
+});

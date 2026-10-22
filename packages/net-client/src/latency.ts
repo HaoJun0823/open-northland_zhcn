@@ -1,3 +1,5 @@
+import type { InFlight } from './command-outbox.js';
+
 /** Weight of the newest sample in the smoothed click-to-apply time. */
 const SMOOTHING = 0.25;
 /** The relay lands a command on its next tick at the earliest. */
@@ -15,8 +17,14 @@ const MIN_APPLY_LEAD_TICKS = 1;
  * sent, so every command of this seat applied, dropped or refused meanwhile is a carried one and the
  * count stays exact.
  */
+interface Stamp {
+  readonly clickedAt: number;
+  readonly bytes: number;
+}
+
 export class CommandLatency {
-  private readonly issuedAt: number[] = [];
+  private readonly stamps: Stamp[] = [];
+  private stampBytes = 0;
   private carried = 0;
   private carryDelayTicks = 0;
   /** The last tick a carried command can apply on; null until the relay's tick after the change is known. */
@@ -35,7 +43,12 @@ export class CommandLatency {
 
   /** Commands sent and not yet applied or refused, carried ones included. */
   get inFlight(): number {
-    return this.carried + this.issuedAt.length;
+    return this.carried + this.stamps.length;
+  }
+
+  /** The measured commands in flight and their bytes; carried ones hold every new send back anyway. */
+  get sent(): InFlight {
+    return { count: this.stamps.length, bytes: this.stampBytes };
   }
 
   /** Commands from before a change may still apply; a new one waits until they are settled. */
@@ -43,37 +56,39 @@ export class CommandLatency {
     return this.carried > 0;
   }
 
-  /** A command went to the relay; `clickedAt` is when the player issued it, before any outbound wait. */
-  issued(clickedAt: number): void {
-    this.issuedAt.push(clickedAt);
+  /** A command of `bytes` went to the relay; `clickedAt` is when the player issued it, before any
+   *  outbound wait. */
+  issued(clickedAt: number, bytes: number): void {
+    this.stamps.push({ clickedAt, bytes });
+    this.stampBytes += bytes;
   }
 
   /** One of this seat's commands applied on a tick that just ran. */
   applied(now: number): void {
     if (this.takeCarried()) return;
-    const issued = this.issuedAt.shift();
-    if (issued === undefined) return;
-    const ms = now - issued;
+    const stamp = this.settle(this.stamps.shift());
+    if (stamp === undefined) return;
+    const ms = now - stamp.clickedAt;
     this.latestMs = ms;
     this.smoothedMs = this.smoothedMs === null ? ms : this.smoothedMs + SMOOTHING * (ms - this.smoothedMs);
   }
 
   /** Every client dropped one of this seat's commands from a frame, the oldest in flight. */
   dropped(): void {
-    if (!this.takeCarried()) this.issuedAt.shift();
+    if (!this.takeCarried()) this.settle(this.stamps.shift());
   }
 
   /** The relay refused a command. It answers on receipt, before any later command of this seat can
    *  have come back, so the refused one is most likely the newest stamp. */
   refused(): void {
-    if (this.issuedAt.pop() === undefined) this.takeCarried();
+    if (this.settle(this.stamps.pop()) === undefined) this.takeCarried();
   }
 
   /** The socket was replaced or another world adopted: what is in flight is carried from here, sent
    *  under an input delay of `delayTicks`. */
   carryOver(delayTicks: number): void {
-    this.carried += this.issuedAt.length;
-    this.issuedAt.length = 0;
+    this.carried += this.stamps.length;
+    this.forgetStamps();
     if (this.carried === 0) return;
     this.carryDelayTicks = Math.max(this.carryDelayTicks, delayTicks);
     this.carriedUntil = null;
@@ -94,8 +109,18 @@ export class CommandLatency {
 
   /** Commands in flight for a room this client left never come back. */
   forgetInFlight(): void {
-    this.issuedAt.length = 0;
+    this.forgetStamps();
     this.clearCarried();
+  }
+
+  private settle(stamp: Stamp | undefined): Stamp | undefined {
+    if (stamp !== undefined) this.stampBytes -= stamp.bytes;
+    return stamp;
+  }
+
+  private forgetStamps(): void {
+    this.stamps.length = 0;
+    this.stampBytes = 0;
   }
 
   private takeCarried(): boolean {

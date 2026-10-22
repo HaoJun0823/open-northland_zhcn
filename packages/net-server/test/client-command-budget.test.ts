@@ -1,8 +1,14 @@
-import { MAX_COMMANDS_PER_TICK, type RoomSettings } from '@open-northland/net-protocol';
+import {
+  MAX_COMMAND_BYTES_PER_TICK,
+  MAX_COMMANDS_PER_TICK,
+  MAX_ENVELOPE_BYTES,
+  type RoomSettings,
+} from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
 import { playerCommand, restoreSimulation, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
+import { MAX_COMMAND_BYTES_PER_TICK as RELAY_COMMAND_BYTES_PER_TICK } from '../src/relay/room-clock.js';
 import { HeadlessClient } from './support/headless-client.js';
 import { assembleRoom, relink, runFor, type Stage } from './support/session-run.js';
 import { type Link, seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';
@@ -132,6 +138,22 @@ describe('gestures past the relay per-tick budget', () => {
     await runFor(stage, clients, RUN_MS);
     expect(ania.rejections).toEqual([]);
     for (const observer of clients) expect(applied(observer).values).toEqual([...before, ...after]);
+    expect(ania.latency.inFlight).toBe(0);
+    expect(ania.sim?.hashState()).toBe(bartek.sim?.hashState());
+  });
+
+  it('lands large orders over successive ticks instead of crossing the byte budget of one', async () => {
+    expect(MAX_COMMAND_BYTES_PER_TICK).toBe(RELAY_COMMAND_BYTES_PER_TICK);
+    const { stage, clients } = await room();
+    const [ania, bartek] = clients;
+    const renamed = (name: string) => playerCommand(0, { kind: 'renameSettler', entity: 1, name });
+    const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+    const largest = (mark: string) =>
+      renamed(mark + 'x'.repeat(MAX_ENVELOPE_BYTES - jsonBytes(renamed('')) - mark.length));
+    const orders = ['a', 'b', 'c'].map(largest);
+    for (const order of orders) ania.submit(order);
+    await runFor(stage, clients, RUN_MS);
+    expect(ania.rejections).toEqual([]);
     expect(ania.latency.inFlight).toBe(0);
     expect(ania.sim?.hashState()).toBe(bartek.sim?.hashState());
   });

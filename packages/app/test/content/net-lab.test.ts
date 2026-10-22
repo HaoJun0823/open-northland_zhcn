@@ -18,6 +18,8 @@ const TICKS = 120;
 const FREEZE_AT_TICK = 60;
 const FREEZE_MS = 1000;
 const LAB_TIMEOUT_MS = 30_000;
+/** Shares are divided back into the tick total, so only rounding may separate the two. */
+const SHARE_RELATIVE_TOLERANCE = 1e-9;
 
 describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('the headless multiplayer load lab', () => {
   it('plays a tiny relayed session to one state and reports it the same way twice', {
@@ -56,8 +58,19 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('the headless mul
       expect(wall.tickMs.count).toBe(TICKS - (wall.firstTick ?? TICKS) + 1);
       expect(wall.worstTicks.length).toBeGreaterThan(0);
       expect(wall.topSystems.length).toBeGreaterThan(0);
+      // A share is of the whole tick time, the `outside systems` part the timers miss included.
+      const tickTotalMs = wall.tickMs.mean * wall.tickMs.count;
+      for (const row of wall.topSystems.filter((top) => top.share > 0)) {
+        expect(Math.abs(row.totalMs / row.share - tickTotalMs)).toBeLessThan(
+          tickTotalMs * SHARE_RELATIVE_TOLERANCE,
+        );
+      }
     }
     expect(report.wallClock.spikes.length).toBeGreaterThan(0);
     expect(formatSummary(report)).toContain('hashes agree');
+    const [spike] = report.wallClock.spikes;
+    if (spike === undefined) throw new Error('no spike');
+    const unkept = { ...report, wallClock: { ...report.wallClock, spikes: [{ ...spike, systems: null }] } };
+    expect(formatSummary(unkept)).toContain('systems not kept');
   });
 });

@@ -14,7 +14,7 @@ import type { OrderKind } from './orders.js';
 import type { ClientTraffic, GovernorChange, MeteredRelay } from './relay-meter.js';
 
 /** Bumped on a layout change; a reader of an older report re-runs the lab instead. */
-export const LAB_REPORT_VERSION = 2;
+export const LAB_REPORT_VERSION = 3;
 /** Worst ticks named per client and for the room. */
 const REPORTED_WORST_TICKS = 10;
 /** Systems named per client as where its time went. */
@@ -94,7 +94,8 @@ export interface RoomSpike {
    *  client's alone is that client's scheduling or collection. */
   readonly medianMs: number;
   readonly maxMs: number;
-  readonly systems: readonly SystemCost[];
+  /** The breakdown of the client nearest the median; null when no client kept this tick's breakdown. */
+  readonly systems: readonly SystemCost[] | null;
   readonly commands: readonly CommandSummary[];
 }
 
@@ -140,6 +141,7 @@ export interface ClientWall {
   readonly firstTick: number | null;
   readonly tickMs: Stat;
   readonly worstTicks: readonly WorstTick[];
+  /** Shares of the recorded tick time; `outside systems` is the part no system timer covered. */
   readonly topSystems: readonly { readonly name: string; readonly totalMs: number; readonly share: number }[];
   /** Wall ms of each restore's world build, in the order of the client's `restores`. */
   readonly restoreBuildMs: readonly number[];
@@ -266,7 +268,7 @@ function roomSpikes(probes: readonly ClientProbe[]): Omit<RoomSpike, 'commands'>
     const kept = probes
       .flatMap((probe) => probe.worst.filter((entry) => entry.tick === row.tick))
       .sort((a, b) => Math.abs(a.ms - row.medianMs) - Math.abs(b.ms - row.medianMs));
-    return { ...row, systems: kept[0]?.systems ?? [] };
+    return { ...row, systems: kept[0]?.systems ?? null };
   });
 }
 
@@ -420,7 +422,8 @@ function commandLine(commands: readonly CommandSummary[]): string {
   return [...tally].map(([key, n]) => (n === 1 ? key : `${key}x${n}`)).join(' ');
 }
 
-function systemLine(systems: readonly SystemCost[]): string {
+function systemLine(systems: readonly SystemCost[] | null): string {
+  if (systems === null) return 'not kept';
   return systems.map((system) => `${system.name} ${ms(system.ms)}`).join(', ') || '-';
 }
 
@@ -531,7 +534,7 @@ export function formatSummary(report: LabReport): string {
   if (top.length > 0) {
     lines.push(
       '',
-      `where ${report.clients[0]?.nick ?? 'client 0'}'s sim time went: ` +
+      `where ${report.clients[0]?.nick ?? 'client 0'}'s tick time went: ` +
         top.map((row) => `${row.name} ${(row.share * PERCENT).toFixed(1)}%`).join(', '),
     );
   }

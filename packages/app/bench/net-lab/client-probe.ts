@@ -24,6 +24,9 @@ const SECONDS_PER_MINUTE = 60;
 export const KEPT_WORST_TICKS = 50;
 /** Systems named per kept tick. */
 const SYSTEMS_PER_TICK = 5;
+/** A tick's wall time no instrumented system accounts for: the digest seal, road lane sync, the
+ *  acknowledgement and serialization work around the systems. */
+export const OUTSIDE_SYSTEMS = 'outside systems';
 /** The spread of the gap between two orders around its mean: half to one and a half of it. */
 const ORDER_GAP_SPREAD = 0.5;
 /** Base64 carries three bytes in every four characters. */
@@ -345,6 +348,10 @@ export class ClientProbe {
   private record(tick: number, ms: number): void {
     this.ticks.push(tick);
     this.tickMs.push(ms);
+    if (this.timeSystems) {
+      const systemsMs = [...this.tickSystems.values()].reduce((sum, systemMs) => sum + systemMs, 0);
+      this.tickSystems.set(OUTSIDE_SYSTEMS, Math.max(0, ms - systemsMs));
+    }
     for (const [name, systemMs] of this.tickSystems) {
       this.systemTotals.set(name, (this.systemTotals.get(name) ?? 0) + systemMs);
     }

@@ -1,4 +1,9 @@
-import { PLACED_GARRISON_MASTS, type PlacedGarrisonMast } from '../../catalog/building-tweaks.js';
+import type { ErasedRegion } from '@open-northland/render';
+import {
+  GARRISON_FINIALS,
+  PLACED_GARRISON_MASTS,
+  type PlacedGarrisonMast,
+} from '../../catalog/building-tweaks.js';
 import type { WorldTribes } from '../../game/world-tribes.js';
 import type { BuildingBobRow, BuildingFlagPointRow, ContentIr } from '../ir/rows.js';
 import { CANONICAL_EDIT_NAME, perTypeHouseRows, rowsByType } from './families.js';
@@ -9,9 +14,11 @@ export interface FlagPoint {
   readonly y: number;
 }
 
-/** A garrison mast, and the height from which down its flag draws behind the building. */
+/** A garrison mast, the height from which down its flag draws behind the building, and the finial the
+ *  flag replaces. */
 export interface MastPoint extends FlagPoint {
   readonly behindFrom?: number;
+  readonly replaces?: ErasedRegion;
 }
 
 /** A flag-point row, or a garrison mast the catalog places where no record authors one. */
@@ -38,7 +45,8 @@ export function soldierFlagPointByType(
 ): ReadonlyMap<number, MastPoint> {
   const perType = perTypeHouseRows(ir);
   const authored = perType?.buildingSoldierFlagPoints ?? [];
-  return pointsByType([...authored, ...placedMastRows(perType?.buildingBobs ?? [], authored)], tribeId);
+  const rows = [...authored, ...placedMastRows(perType?.buildingBobs ?? [], authored)];
+  return pointsByType(rows, tribeId, GARRISON_FINIALS);
 }
 
 /** A mast row per level of each tower record the catalog places a mast on, unless the record's
@@ -105,13 +113,23 @@ export function buildingSignAnchorsFor(
   };
 }
 
-function pointsByType(rows: readonly MastRow[] | undefined, tribeId: number): ReadonlyMap<number, MastPoint> {
+function pointsByType(
+  rows: readonly MastRow[] | undefined,
+  tribeId: number,
+  finials?: ReadonlyMap<string, ErasedRegion>,
+): ReadonlyMap<number, MastPoint> {
   const out = new Map<number, MastPoint>();
   for (const [typeId, group] of rowsByType(rows ?? [], tribeId)) {
     const row = pickFlagPointRow(typeId, group);
     if (row === undefined) continue;
     const { x, y, behindFrom } = row;
-    out.set(typeId, { x, y, ...(behindFrom !== undefined ? { behindFrom } : {}) });
+    const replaces = row.editName !== undefined ? finials?.get(row.editName) : undefined;
+    out.set(typeId, {
+      x,
+      y,
+      ...(behindFrom !== undefined ? { behindFrom } : {}),
+      ...(replaces !== undefined ? { replaces } : {}),
+    });
   }
   return out;
 }

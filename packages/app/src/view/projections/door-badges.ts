@@ -1,6 +1,7 @@
 import {
   type DoorBadge,
   type DoorBadgeRow,
+  type ErasedRegion,
   GARRISON_MAST_FALLBACK_DX,
   type HouseholdKind,
 } from '@open-northland/render';
@@ -50,7 +51,14 @@ export interface BuildingDoorInfo {
   readonly id?: string | undefined;
   readonly footprint?: DoorFootprint | undefined;
   readonly flagPoint?: { readonly x: number; readonly y: number } | undefined;
-  readonly mastPoint?: { readonly x: number; readonly y: number; readonly behindFrom?: number } | undefined;
+  readonly mastPoint?:
+    | {
+        readonly x: number;
+        readonly y: number;
+        readonly behindFrom?: number;
+        readonly replaces?: ErasedRegion;
+      }
+    | undefined;
 }
 
 /** Body-relative anchors by type and tribe, with the entity's authored variant when present. */
@@ -268,11 +276,16 @@ function anchorOf(
 function mastOf(
   info: BuildingDoorInfo | undefined,
   post: Pick<DoorBadge, 'dx' | 'dy'>,
-): { readonly dx: number; readonly dy: number; readonly behindFromDy?: number } {
+): Omit<NonNullable<DoorBadge['garrison']>, 'stars'> {
   const mast = info?.mastPoint;
   if (mast !== undefined) {
-    const { x: dx, y: dy, behindFrom } = mast;
-    return { dx, dy, ...(behindFrom !== undefined ? { behindFromDy: behindFrom } : {}) };
+    const { x: dx, y: dy, behindFrom, replaces } = mast;
+    return {
+      dx,
+      dy,
+      ...(behindFrom !== undefined ? { behindFromDy: behindFrom } : {}),
+      ...(replaces !== undefined ? { replaces } : {}),
+    };
   }
   return { dx: (post.dx ?? 0) + GARRISON_MAST_FALLBACK_DX, dy: post.dy ?? 0 };
 }

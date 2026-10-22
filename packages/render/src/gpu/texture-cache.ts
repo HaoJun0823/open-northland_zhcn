@@ -3,6 +3,12 @@ import { clamp } from '../data/math.js';
 import type { AtlasFrame, BuildTimeSheet } from '../data/sprites/index.js';
 import { BuildingTextureCache } from './building-texture-cache.js';
 import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import {
+  type ErasedFrame,
+  ErasedFrameCache,
+  type ErasedRegion,
+  type FramePlacement,
+} from './erased-frame-cache.js';
 import { type GroundColours, GroundedFootCache, type GroundFootPart, sinkBody } from './ground-foot/index.js';
 import {
   isPixelArtSource,
@@ -52,6 +58,7 @@ export class TextureCache {
   private readonly groundedEnhanced = new BuildingTextureCache({ enhanced: true, rework: this.sinkFoot });
   private readonly groundedPlain = new BuildingTextureCache({ enhanced: false, rework: this.sinkFoot });
   private readonly softShadows = new SoftShadowCache();
+  private readonly erasedFrames = new ErasedFrameCache();
   private useSoftShadows = false;
   private revision = 0;
   /** {@link revision} plus a bump after every frame whose bake budget ran out. */
@@ -230,6 +237,17 @@ export class TextureCache {
     const body = (enhanced ? this.groundedEnhanced : this.groundedPlain).get(source, frame);
     if (body === null) return null;
     return part === 'body' ? body : part === 'shade' ? overlays.shade : overlays.cover;
+  }
+
+  /** `frame` copied onto a page of its own with `region` cleared, served like an atlas frame; null when
+   *  the region misses the frame or its pixels are unreadable. */
+  erased(
+    source: TextureSource,
+    frame: AtlasFrame,
+    region: ErasedRegion,
+    placement: FramePlacement,
+  ): ErasedFrame | null {
+    return this.erasedFrames.get(source, frame, region, placement);
   }
 
   getBuilding(source: TextureSource, frame: AtlasFrame): Texture {
@@ -429,6 +447,8 @@ export class TextureCache {
       for (const bake of byThreshold.values()) bake.texture.destroy(true);
     }
     this.revealCache.clear();
+    // After the views minted on their pages.
+    this.erasedFrames.clear();
   }
 }
 

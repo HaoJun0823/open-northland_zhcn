@@ -5,6 +5,7 @@ import { cameraScreenX, cameraScreenY, snapToDevicePixels } from '../../data/pro
 import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, buildTimeThreshold, type SpriteKind } from '../../data/sprites/index.js';
 import { type BloodSurface, bloodSurface, detachBloodSurface, setBloodless } from '../blood-surface.js';
+import type { ErasedRegion } from '../erased-frame-cache.js';
 import { PalettedQuad, PalettedSprite } from '../paletted-sprite/index.js';
 import { mintPlanRoad, PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
 import { mintPlanStake, type PlanStakeTextures, STAKE_BOUNDS } from '../plan-stake.js';
@@ -45,7 +46,14 @@ const BLOODLESS_KINDS: ReadonlySet<DrawItem['kind']> = new Set<DrawItem['kind']>
 
 export type BindFrame = Pick<
   PoolFrame,
-  'camera' | 'screenW' | 'screenH' | 'highlight' | 'snapResolution' | 'enhancedSampling' | 'shadowStyle'
+  | 'camera'
+  | 'screenW'
+  | 'screenH'
+  | 'highlight'
+  | 'erased'
+  | 'snapResolution'
+  | 'enhancedSampling'
+  | 'shadowStyle'
 >;
 
 /**
@@ -105,6 +113,8 @@ export class LayerBinder {
   private feetX = 0;
   private feetY = 0;
   private readonly drawBox = createLayerDrawBox();
+  /** Each layer's twin drawing an erased copy of its frame, minted again when the cache bakes anew. */
+  private readonly erasedLayers = new WeakMap<ResolvedLayer, Map<ErasedRegion, ResolvedLayer>>();
 
   constructor(
     private readonly textures: TextureCache,
@@ -215,9 +225,11 @@ export class LayerBinder {
     let spriteSlot = 0;
     let shadowSlot = 0;
     const shadowStyle = frame.shadowStyle;
+    const erased = frame.erased?.get(item.ref);
     for (let i = 0; i < layers.length; i++) {
-      const layer = layers[i];
-      if (layer === undefined) continue;
+      const resolved = layers[i];
+      if (resolved === undefined) continue;
+      const layer = erased === undefined ? resolved : this.erasedLayer(resolved, erased);
       // A cast layer holds unprojected body art, so it draws only with a style to project it by.
       if (layer.cast === true && shadowStyle === undefined) continue;
       if (layer.castReplaced === true && shadowStyle !== undefined) continue;
@@ -282,9 +294,10 @@ export class LayerBinder {
               facade: item.kind === 'building',
               enabled: receivesBlood && item.ghost !== true,
             },
-            receivesBlood ? buildingBlood?.get(layer.frame) : undefined,
+            // The atlas frame, so the stains outlast a flag that erases part of the body.
+            receivesBlood ? buildingBlood?.get(resolved.frame) : undefined,
           );
-          if (receivesBlood) buildingBlood?.set(layer.frame, surface);
+          if (receivesBlood) buildingBlood?.set(resolved.frame, surface);
         }
         if (
           (item.kind === 'building' || item.kind === 'palisade') &&
@@ -515,6 +528,25 @@ export class LayerBinder {
     spr.paletteTint = tint;
     spr.setClothWind(layer.cloth ?? null);
     spr.visible = true;
+  }
+
+  /** `layer` drawing its frame with `region` cleared: the body and the cast drawn from it. An authored
+   *  silhouette stands elsewhere, and a revealing stage reads its time sheet at the atlas frame's rect. */
+  private erasedLayer(layer: ResolvedLayer, region: ErasedRegion): ResolvedLayer {
+    if ((layer.shadow === true && layer.cast !== true) || layer.reveal !== undefined) return layer;
+    const bake = this.textures.erased(layer.source, layer.frame, region, layer);
+    if (bake === null) return layer;
+    let byRegion = this.erasedLayers.get(layer);
+    if (byRegion === undefined) {
+      byRegion = new Map();
+      this.erasedLayers.set(layer, byRegion);
+    }
+    let twin = byRegion.get(region);
+    if (twin?.frame !== bake.frame) {
+      twin = { ...layer, source: bake.source, frame: bake.frame };
+      byRegion.set(region, twin);
+    }
+    return twin;
   }
 
   private bindPlainLayer(

@@ -1,4 +1,5 @@
 import type { FootprintCell } from '@open-northland/data';
+import type { ErasedRegion } from '@open-northland/render';
 
 /**
  * Where the worker-icon and occupancy badges anchor, as an offset from the door node. The default of one
@@ -45,4 +46,21 @@ export const PLACED_GARRISON_MASTS: ReadonlyMap<string, PlacedGarrisonMast> = ne
   ['saracen tower', { x: 29, y: -267 }],
   // The middle of the flat wooden roof.
   ['Egypt Tower', { x: 6, y: -228 }],
+]);
+
+/**
+ * The roof finial a tower's garrison flag replaces, keyed by the record's `EditName` for every level, in
+ * bob-anchor px like the masts: the frank tower's pennant, a cut above its spire and a band right of
+ * it, and the saracen tower's crescent. Intentional deviation: the original draws the flag over the
+ * body's own finial, which shows through the gaps of the wave; boxes measured on the drawn bodies.
+ */
+export const GARRISON_FINIALS: ReadonlyMap<string, ErasedRegion> = new Map([
+  [
+    'frank tower',
+    [
+      { minX: -9, minY: -316, maxX: 25, maxY: -290 },
+      { minX: 2, minY: -290, maxX: 25, maxY: -279 },
+    ],
+  ],
+  ['saracen tower', [{ minX: 14, minY: -289, maxX: 41, maxY: -266 }]],
 ]);

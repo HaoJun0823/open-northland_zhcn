@@ -28,6 +28,7 @@ import {
   type ConstructionPlotFrame,
   ConstructionPlotLayer,
   type ExperienceStarGfx,
+  FlagErasures,
   type GeometryDebugItem,
   HudLayer,
   type ImportMarkerGfx,
@@ -108,6 +109,7 @@ export class WorldRenderer {
   private readonly placementGhost: PlacementGhostLayer;
   private readonly marks: WorldMarks;
   private highlight: ReadonlyMap<number, boolean> = EMPTY_HIGHLIGHT;
+  private readonly flagErasures = new FlagErasures();
   private highlightItems: readonly BuildingHighlightItem[] | null = null;
   private readonly hud = new HudLayer();
   private readonly chrome: WorldChrome;
@@ -480,6 +482,7 @@ export class WorldRenderer {
     this.sceneLight.update({ screenW, screenH, gameSeconds });
     this.mapObjects.update(vp, tick, this.fog.cellStateAt, fogFrame.fogEpoch, tick + alpha, this.wind);
     const portrait = this.portrait.subjects();
+    const erased = this.flagErasures.update(doorBadges);
     this.pool.reconcile({
       snapshot,
       selection,
@@ -503,6 +506,7 @@ export class WorldRenderer {
       ...fogFrame,
       ...(this.withheldRefs !== undefined ? { withheldRefs: this.withheldRefs } : {}),
       ...(this.highlight.size > 0 ? { highlight: this.highlight } : {}),
+      ...(erased.size > 0 ? { erased } : {}),
       ...(portrait.ref !== null ? { portraitRef: portrait.ref } : {}),
       ...(portrait.house !== null ? { portraitHouse: portrait.house } : {}),
       ...(portrait.others.length > 0 ? { insetRefs: portrait.others } : {}),

@@ -1,6 +1,6 @@
 import type { Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { PLACED_GARRISON_MASTS } from '../src/catalog/building-tweaks.js';
+import { GARRISON_FINIALS, PLACED_GARRISON_MASTS } from '../src/catalog/building-tweaks.js';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { buildingModels } from '../src/view/runtime/read-models.js';
 
@@ -164,7 +164,10 @@ describe('view building models', () => {
       { ...ir([], [AUTHORED]), buildingBobs: [skin(SARACEN), skin(VIKING)] },
       [VIKING, SARACEN],
     );
-    expect(infoOf(TOWER, SARACEN)?.mastPoint).toEqual(PLACED_GARRISON_MASTS.get(SARACEN_TOWER));
+    expect(infoOf(TOWER, SARACEN)?.mastPoint).toEqual({
+      ...PLACED_GARRISON_MASTS.get(SARACEN_TOWER),
+      replaces: GARRISON_FINIALS.get(SARACEN_TOWER),
+    });
     expect(infoOf(TOWER, VIKING)?.mastPoint).toEqual({ x: AUTHORED.x, y: AUTHORED.y });
   });
 

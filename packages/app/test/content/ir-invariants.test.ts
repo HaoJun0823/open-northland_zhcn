@@ -5,7 +5,7 @@ import { atlasFromManifest } from '@open-northland/render';
 import { cadaverGoodCycle } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HARVEST_CADAVER_ATOMIC } from '../../src/catalog/atomics.js';
-import { PLACED_GARRISON_MASTS } from '../../src/catalog/building-tweaks.js';
+import { GARRISON_FINIALS, PLACED_GARRISON_MASTS } from '../../src/catalog/building-tweaks.js';
 import { NAV_LANDSCAPE_TYPES } from '../../src/catalog/terrain.js';
 import {
   flagPointByType,
@@ -450,6 +450,17 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
     for (const row of ir.buildingBobs ?? []) {
       if (!mastedTypes.has(row.typeId)) continue;
       expect(soldierFlagPointByType(ir, row.tribeId).has(row.typeId), row.editName).toBe(true);
+    }
+  });
+
+  it('replaces a finial only on a tower record that flies a garrison flag', () => {
+    const ir = rawIrUnderTest() as ContentIr;
+    // A renamed record would silently leave its finial standing under the flag.
+    for (const [name, region] of GARRISON_FINIALS) {
+      const row = ir.buildingBobs?.find((bob) => bob.editName === name);
+      expect(row, name).toBeDefined();
+      if (row === undefined) continue;
+      expect(soldierFlagPointByType(ir, row.tribeId).get(row.typeId)?.replaces, name).toBe(region);
     }
   });
 

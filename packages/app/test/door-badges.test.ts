@@ -246,8 +246,13 @@ describe('computeDoorBadges', () => {
     expect(badge?.dy).toBe(29);
   });
 
-  it('hands the layer the height its flag hides behind the tower from', () => {
-    const MAST = { x: 10, y: -206, behindFrom: -209 };
+  it('hands the layer the height its flag hides behind the tower from, and the finial it replaces', () => {
+    const MAST = {
+      x: 10,
+      y: -206,
+      behindFrom: -209,
+      replaces: [{ minX: 0, minY: -230, maxX: 9, maxY: -210 }],
+    };
     const types = new Map<number, BuildingDoorInfo>([[7, { id: 'tower_00', mastPoint: MAST }]]);
     const snap = snapshotOf([building(1, 7, 4, 4), settler(2, ARCHER, 1)]);
     expect(computeDoorBadges(snap, buildingInfoOf(types), roleOf)[0]?.garrison).toEqual({
@@ -255,6 +260,7 @@ describe('computeDoorBadges', () => {
       dx: MAST.x,
       dy: MAST.y,
       behindFromDy: MAST.behindFrom,
+      replaces: MAST.replaces,
     });
   });
 

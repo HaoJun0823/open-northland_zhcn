@@ -154,6 +154,7 @@ export {
 export { buildWeatherField, type WeatherField } from './data/weather/field.js';
 export type { ClothIndexRanges } from './gpu/cloth-wind.js';
 export { type DrawableResource, isDrawableResource, readable2dContext } from './gpu/drawable-resource.js';
+export type { AnchorRect, ErasedRegion } from './gpu/erased-frame-cache.js';
 export {
   AnimationGallery,
   clipDirs,

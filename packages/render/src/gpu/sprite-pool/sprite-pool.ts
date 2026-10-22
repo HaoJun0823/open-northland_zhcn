@@ -27,6 +27,7 @@ import type { ElevationField } from '../../data/terrain/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
 import { BuildingDamage, type FallenBody } from '../building-damage/building-damage.js';
 import { DepthSortedLayer, drawLayerOf } from '../depth-sorted-layer.js';
+import type { ErasedRegion } from '../erased-frame-cache.js';
 import { PalettedQuad } from '../paletted-sprite/index.js';
 import { PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
 import type { PlanStakeTextures } from '../plan-stake.js';
@@ -130,6 +131,9 @@ export interface PoolFrame {
   /** Workplace-assignment highlight: building id → assignable (green tint) or not (red). Transient view
    *  state like the selection, never sim state. */
   readonly highlight?: ReadonlyMap<number, boolean>;
+  /** Building id → the part of its art a mark stands in for, such as a manned tower's roof finial under
+   *  its garrison flag. Pass a new map on every change. */
+  readonly erased?: ReadonlyMap<number, ErasedRegion>;
   /** The details-panel portrait's subject: force-drawn through the cull so its cutout survives
    *  off-screen or indoors, but hidden on the main map (see {@link DrawItem.portraitOnly}). */
   readonly portraitRef?: number;
@@ -220,6 +224,7 @@ export class SpritePool {
   /** What the last full pass drew under, which a still frame must match. */
   private passEpoch = -1;
   private passHighlight: PoolFrame['highlight'];
+  private passErased: PoolFrame['erased'];
   private passStyle: PoolFrame['selectionStyle'];
   private passHasPortrait = false;
   /** Bumped whenever a held entity may have to draw otherwise without its draw item changing. */
@@ -227,6 +232,7 @@ export class SpritePool {
   private holdBind = -1;
   private holdMotion = -1;
   private holdHighlight: PoolFrame['highlight'];
+  private holdErased: PoolFrame['erased'];
   private holdStyle: PoolFrame['selectionStyle'];
   /** The pooled entity of each of {@link lastItems}, by index: a repeated scene build skips the lookups. */
   private readonly lastPooled: (PooledEntity | undefined)[] = [];
@@ -359,6 +365,7 @@ export class SpritePool {
     this.lastPooled.length = scene.items.length;
     this.passEpoch = this.epoch.current;
     this.passHighlight = frame.highlight;
+    this.passErased = frame.erased;
     this.passStyle = frame.selectionStyle;
 
     // Iterating `attached` instead of the whole pool keeps the detach scan bounded by the screen.
@@ -430,12 +437,14 @@ export class SpritePool {
       this.epoch.bind !== this.holdBind ||
       this.epoch.motion !== this.holdMotion ||
       frame.highlight !== this.holdHighlight ||
+      frame.erased !== this.holdErased ||
       frame.selectionStyle !== this.holdStyle
     ) {
       this.holdGeneration++;
       this.holdBind = this.epoch.bind;
       this.holdMotion = this.epoch.motion;
       this.holdHighlight = frame.highlight;
+      this.holdErased = frame.erased;
       this.holdStyle = frame.selectionStyle;
     }
     for (const ref of scene.releasedStatics ?? NO_REFS) {
@@ -511,6 +520,7 @@ export class SpritePool {
       this.epoch.viewMoved ||
       this.passHasPortrait ||
       frame.highlight !== this.passHighlight ||
+      frame.erased !== this.passErased ||
       frame.selectionStyle !== this.passStyle
     )
       return false;
@@ -566,12 +576,13 @@ export class SpritePool {
   private presentPooled(pe: PooledEntity, item: DrawItem, frame: PoolFrame, continuous: boolean): void {
     const stamp = pe.bound;
     const highlight = frame.highlight?.get(item.ref);
+    const erased = frame.erased?.get(item.ref);
     const steady = continuous && pe.reveal === undefined;
     if (
       steady &&
       (stamp.alpha === frame.alpha ||
         repeatsInTick(pe, item, frame.tick, frame.alpha, this.sheet, frame.environmentMotion === true)) &&
-      stamp.holds(item, this.epoch.current, highlight) &&
+      stamp.holds(item, this.epoch.current, highlight, erased) &&
       this.binder.paletteHolds(pe, item)
     ) {
       this.keepBound(pe);
@@ -582,7 +593,7 @@ export class SpritePool {
       resolvesWithoutClock(item) &&
       stamp.clockFree &&
       atRest(pe.motion) &&
-      stamp.bindHolds(item, this.epoch.bind, highlight) &&
+      stamp.bindHolds(item, this.epoch.bind, highlight, erased) &&
       stamp.sameItem(item) &&
       this.binder.paletteHolds(pe, item)
     ) {
@@ -598,7 +609,7 @@ export class SpritePool {
       // The present may have started a construction reveal, which binds every frame.
       item.hpFrac === undefined &&
       pe.reveal === undefined &&
-      stamp.bindHolds(item, this.epoch.bind, highlight) &&
+      stamp.bindHolds(item, this.epoch.bind, highlight, erased) &&
       stamp.presents(pe.motion, layers) &&
       this.binder.paletteHolds(pe, item)
     ) {
@@ -608,7 +619,7 @@ export class SpritePool {
     }
     const deferrals = this.textures.deferrals;
     this.binder.bind(pe, item, layers, frame, this.frameId);
-    stamp.record(item, this.epoch, highlight, pe.motion, layers);
+    stamp.record(item, this.epoch, highlight, erased, pe.motion, layers);
     // A bake the budget turned away left a stand-in on this entity alone: it binds again next frame.
     if (this.textures.deferrals !== deferrals) stamp.retry();
     pe.container.zIndex = pooledDepth(pe, item);

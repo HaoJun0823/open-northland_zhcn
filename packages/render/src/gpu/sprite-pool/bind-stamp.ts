@@ -1,4 +1,5 @@
 import type { DrawItem } from '../../data/scene/index.js';
+import type { ErasedRegion } from '../erased-frame-cache.js';
 import { planSiteOf } from './bind-layers.js';
 import type { MotionTrack } from './motion.js';
 import type { ResolvedLayer } from './resolved-layer.js';
@@ -90,6 +91,7 @@ export class BindStamp {
   /** The frame alpha of the last present, which may have run without a bind. */
   alpha = Number.NaN;
   highlight: boolean | undefined;
+  erased: ErasedRegion | undefined;
   private bindEpoch = -1;
   private drawX = Number.NaN;
   private drawY = Number.NaN;
@@ -111,15 +113,27 @@ export class BindStamp {
   /** Whether a bound layer leans with the vegetation clock. */
   private sways = false;
 
-  /** Whether the bind reads the same item, frame-wide inputs and highlight it last read. */
-  holds(item: DrawItem, epoch: number, highlight: boolean | undefined): boolean {
-    return this.item === item && this.epoch === epoch && this.highlight === highlight;
+  /** Whether the bind reads the same item, frame-wide inputs, highlight and erased region it last read. */
+  holds(
+    item: DrawItem,
+    epoch: number,
+    highlight: boolean | undefined,
+    erased: ErasedRegion | undefined,
+  ): boolean {
+    return (
+      this.item === item && this.epoch === epoch && this.highlight === highlight && this.erased === erased
+    );
   }
 
   /** Whether a bind of `item` under these bind inputs reads what the last one did, apart from the layers
    *  and the drawn anchor {@link presents} compares. */
-  bindHolds(item: DrawItem, bindEpoch: number, highlight: boolean | undefined): boolean {
-    if (this.bindEpoch !== bindEpoch || this.highlight !== highlight) return false;
+  bindHolds(
+    item: DrawItem,
+    bindEpoch: number,
+    highlight: boolean | undefined,
+    erased: ErasedRegion | undefined,
+  ): boolean {
+    if (this.bindEpoch !== bindEpoch || this.highlight !== highlight || this.erased !== erased) return false;
     // Draw items are immutable, so the item last bound or carried still holds its fields. Reading them
     // off the many item shapes would box every numeric one on each frame of a still scene.
     if (this.item === item) return true;
@@ -194,6 +208,7 @@ export class BindStamp {
     item: DrawItem,
     epoch: FrameEpoch,
     highlight: boolean | undefined,
+    erased: ErasedRegion | undefined,
     motion: MotionTrack,
     layers: readonly ResolvedLayer[] | null,
   ): void {
@@ -201,6 +216,7 @@ export class BindStamp {
     this.epoch = epoch.current;
     this.bindEpoch = epoch.bind;
     this.highlight = highlight;
+    this.erased = erased;
     this.kind = item.kind;
     this.ghost = item.ghost === true;
     this.isFlag = item.isFlag === true;

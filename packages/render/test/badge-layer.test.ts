@@ -4,7 +4,7 @@ import { SIGN_DEPTH_EPS, screenDepth } from '../src/data/scene/index.js';
 import { type AtlasFrame, FLAG_WAVE_TICKS_PER_FRAME, type WaveLoop } from '../src/data/sprites/index.js';
 import { BadgeLayer } from '../src/gpu/overlays/badge-layer.js';
 import { type ConstructionSign, ConstructionSignLayer } from '../src/gpu/overlays/construction-sign-layer.js';
-import { badgeAnchor, type DoorBadge } from '../src/gpu/overlays/door-badge.js';
+import { badgeAnchor, type DoorBadge, FlagErasures } from '../src/gpu/overlays/door-badge.js';
 import { GARRISON_STAR_MAX, garrisonFlagLoop, hitsGarrisonFlag } from '../src/gpu/overlays/garrison-flag.js';
 import {
   type BuildingSignSheet,
@@ -616,5 +616,31 @@ describe('ConstructionSignLayer', () => {
     const layer = new ConstructionSignLayer();
     layer.draw([{ id: 9, x: 4 * ONE, y: 2 * ONE }]);
     expect(layer.container.children).toHaveLength(0);
+  });
+});
+
+describe('flag erasures', () => {
+  const FINIAL = [{ minX: 0, minY: -30, maxX: 10, maxY: -20 }];
+  const tower = (id: number, stars: number): DoorBadge => ({
+    id,
+    x: 0,
+    y: 0,
+    rows: [],
+    garrison: { stars, dx: 0, dy: -20, replaces: FINIAL },
+  });
+
+  it('keeps the map while the flagged towers hold, so the pool keeps its holds', () => {
+    const erasures = new FlagErasures();
+    const first = erasures.update([tower(1, 1), tower(2, 3)]);
+    expect([...first]).toEqual([
+      [1, FINIAL],
+      [2, FINIAL],
+    ]);
+    // A star more flies the same flag over the same roof.
+    expect(erasures.update([tower(1, 2), tower(2, 3)])).toBe(first);
+    const manned = erasures.update([tower(2, 3)]);
+    expect(manned).not.toBe(first);
+    expect([...manned.keys()]).toEqual([2]);
+    expect(erasures.update([{ id: 2, x: 0, y: 0, rows: [] }]).size).toBe(0);
   });
 });

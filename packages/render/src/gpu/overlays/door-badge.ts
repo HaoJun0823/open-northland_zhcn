@@ -1,5 +1,6 @@
 import { ONE, tileToScreen } from '../../data/projection/index.js';
 import { type ElevationField, terrainLiftAt } from '../../data/terrain/index.js';
+import type { ErasedRegion } from '../erased-frame-cache.js';
 import type { DoorBadgeRow } from './sign-gfx.js';
 
 /** One building's badge data: its stack anchor (snapshot `Position` fixed-point units + an optional
@@ -32,7 +33,39 @@ export interface DoorBadge {
     /** The screen-px offset, like `dy`, from which down the flag draws behind its building, so the
      *  parapet in front of the pole covers it; absent flies the whole flag in front. */
     readonly behindFromDy?: number;
+    /** The building's own art the flag stands in for, such as the pennant the original tower carries on
+     *  its roof; cleared from the body while the flag flies. */
+    readonly replaces?: ErasedRegion;
   };
+}
+
+const NO_ERASURES: ReadonlyMap<number, ErasedRegion> = new Map();
+
+/**
+ * Building id → the art its garrison flag stands in for, for the sprite pool. The map is replaced only
+ * when its contents change, since a new map releases every still entity's hold on its bind.
+ */
+export class FlagErasures {
+  private held = NO_ERASURES;
+
+  update(badges: readonly DoorBadge[]): ReadonlyMap<number, ErasedRegion> {
+    let same = true;
+    let count = 0;
+    for (const badge of badges) {
+      const region = badge.garrison?.replaces;
+      if (region === undefined) continue;
+      count++;
+      if (this.held.get(badge.id) !== region) same = false;
+    }
+    if (same && count === this.held.size) return this.held;
+    const next = new Map<number, ErasedRegion>();
+    for (const badge of badges) {
+      const region = badge.garrison?.replaces;
+      if (region !== undefined) next.set(badge.id, region);
+    }
+    this.held = next;
+    return next;
+  }
 }
 
 /** Where one building's door marks stand, in world px (pre-camera). */

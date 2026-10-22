@@ -1,9 +1,15 @@
 import type { GameSession } from '@open-northland/lockstep';
 import { RelayClient } from '@open-northland/net-client';
-import { type ClientMessage, type ServerMessage, TICK_MS } from '@open-northland/net-protocol';
+import {
+  type ClientMessage,
+  MAX_COMMANDS_PER_TICK,
+  type ServerMessage,
+  TICK_MS,
+} from '@open-northland/net-protocol';
 import { type CommandEnvelope, playerCommand, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
+import { MAX_QUEUED_COMMANDS } from '../src/command-outbox.js';
 
 const SESSION: GameSession = {
   world: { kind: 'scene', sceneId: 'fixture' },
@@ -101,5 +107,46 @@ describe('local refusals', () => {
     client.submit(order(1));
     expect(commandsSent()).toHaveLength(0);
     expect(observed).toEqual([{ kind: 'rejected', of: 'command', reason: { code: 'notLoaded' } }]);
+  });
+});
+
+describe('the outbox under the relay per-tick budget', () => {
+  it('carries gestures past the budget over until earlier ones apply, in order', async () => {
+    const { client, commandsSent } = await runningClient();
+    const burst = Array.from({ length: MAX_COMMANDS_PER_TICK + 1 }, (_, i) => order(i));
+    for (const envelope of burst) client.submit(envelope);
+    expect(commandsSent().map((message) => message.envelope)).toEqual(burst.slice(0, MAX_COMMANDS_PER_TICK));
+    applyNext(client, burst.slice(0, 1));
+    expect(commandsSent().map((message) => message.envelope)).toEqual(burst);
+  });
+
+  it('sends a held gesture when the relay refuses an earlier one', async () => {
+    const { client, commandsSent } = await runningClient();
+    for (let i = 0; i <= MAX_COMMANDS_PER_TICK; i++) client.submit(order(i));
+    client.receive({ kind: 'rejected', of: 'command', reason: { code: 'commandBudget' } });
+    expect(commandsSent()).toHaveLength(MAX_COMMANDS_PER_TICK + 1);
+  });
+
+  it('refuses a gesture locally once the outbox is full', async () => {
+    const { client, observed, commandsSent } = await runningClient();
+    for (let i = 0; i < MAX_COMMANDS_PER_TICK + MAX_QUEUED_COMMANDS + 1; i++) client.submit(order(i));
+    expect(commandsSent()).toHaveLength(MAX_COMMANDS_PER_TICK);
+    expect(observed).toEqual([{ kind: 'rejected', of: 'command', reason: { code: 'commandBudget' } }]);
+  });
+
+  it('holds an order given while disconnected and sends it once the room takes the world back', async () => {
+    let connected = true;
+    const { client, commandsSent, observed } = await runningClient({ connected: () => connected });
+    connected = false;
+    client.submit(order(1));
+    expect(commandsSent()).toHaveLength(0);
+    connected = true;
+    client.hello();
+    client.advance(TICK_MS);
+    expect(commandsSent()).toHaveLength(0);
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    client.advance(TICK_MS);
+    expect(commandsSent().map((message) => message.envelope)).toEqual([order(1)]);
+    expect(observed.filter((message) => message.kind === 'rejected')).toEqual([]);
   });
 });

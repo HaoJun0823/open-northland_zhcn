@@ -25,6 +25,7 @@ import {
   type SaveGame,
   type Simulation,
 } from '@open-northland/sim';
+import { CommandOutbox } from './command-outbox.js';
 import { DigestTrail } from './digest-trail.js';
 import { DisputeCapture, type DisputeRecord } from './dispute-capture.js';
 import { applyInitialSeatControl, openSessionWorld, restoreSessionWorld } from './initial-save-world.js';
@@ -79,10 +80,10 @@ export interface RelayClientOptions {
   /** A world adopted: built, or restored from a snapshot. */
   readonly onWorld?: (world: AdoptedWorld) => void;
   readonly onDropped?: (tick: number, reason: string) => void;
-  /** A world port or snapshot failure, and a command issued with no world or no connection to send it. */
+  /** A world port or snapshot failure, and a command issued with no world to run it. */
   readonly onError?: (what: string, error: unknown) => void;
   /** Whether a message sent now reaches the relay; default always. A command issued while it does not
-   *  is dropped here rather than lost on the way. */
+   *  waits in the outbox rather than being lost on the way. */
   readonly connected?: () => boolean;
   /** Milliseconds for the click-to-apply and tick-cost measurements; default `performance.now`. */
   readonly now?: () => number;
@@ -95,6 +96,7 @@ export interface RelayClientOptions {
 export class RelayClient extends RelayLobby implements SessionDriver, RelayClientView {
   sim: Simulation | null = null;
   readonly latency: CommandLatency;
+  private readonly outbox = new CommandOutbox();
   readonly digests = new DigestTrail();
   private readonly verdicts = new DisputeCapture();
   private driver: LockstepDriver | null = null;
@@ -173,7 +175,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // A new socket is writable before its retained world has been admitted again. Buffered frames
     // must wait for start -> loaded, otherwise their acknowledgements arrive while not loaded.
     this.awaitingResume = this.session !== null;
-    // What the old socket carried may never come back; a stamp left for it would skew later commands.
+    // What the old socket carried may never come back; a stamp left for it would skew later commands
+    // and hold the outbox.
     this.latency.forgetInFlight();
     super.hello();
   }
@@ -250,8 +253,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     return this.track('save', (async () => this.sendBlob(blob))());
   }
 
-  /** Commands need a connected world and must fit in one atomic wire envelope. A refusal here reaches
-   *  the host as a relay refusal would, without consuming an earlier command's latency stamp. */
+  /** Commands need a world and must fit in one atomic wire envelope. A refusal here reaches the host
+   *  as a relay refusal would, without consuming an earlier command's latency stamp. */
   submit(envelope: CommandEnvelope): void {
     if (this.session !== null && typeof this.session.localSeat !== 'number') return;
     if (this.resultTick !== null || this.completion.confirmedTick !== null) return;
@@ -260,20 +263,32 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       this.refuseLocally('notLoaded');
       return;
     }
-    if (this.options.connected?.() === false) {
-      this.options.onError?.('command', new Error(`${this.nick} is not connected`));
-      return;
-    }
     if (new TextEncoder().encode(JSON.stringify(envelope)).byteLength > MAX_ENVELOPE_BYTES) {
       this.refuseLocally('envelopeTooLarge');
       return;
     }
-    this.driver.submit(envelope);
-    this.latency.issued(this.now());
+    if (!this.outbox.push(envelope, this.now())) {
+      this.refuseLocally('commandBudget');
+      return;
+    }
+    this.sendQueued();
   }
 
-  private refuseLocally(code: 'notLoaded' | 'envelopeTooLarge'): void {
+  private refuseLocally(code: 'notLoaded' | 'envelopeTooLarge' | 'commandBudget'): void {
     this.options.onMessage?.({ kind: 'rejected', of: 'command', reason: { code } });
+  }
+
+  /** Send what the relay's per-tick budget has room for; the rest goes as this seat's commands apply. */
+  private sendQueued(): void {
+    const driver = this.driver;
+    if (driver === null || this.outbox.size === 0 || this.options.connected?.() === false) return;
+    this.outbox.drain(
+      () => this.latency.inFlight,
+      (envelope, clickedAt) => {
+        driver.submit(envelope);
+        this.latency.issued(clickedAt);
+      },
+    );
   }
 
   receive(raw: unknown): void {
@@ -328,7 +343,10 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         break;
       case 'rejected':
         if (message.of === 'saveOrders') this.saveOrders.refuse(message.requestId, message.reason);
-        if (message.of === 'command') this.latency.refused();
+        if (message.of === 'command') {
+          this.latency.refused();
+          this.sendQueued();
+        }
         // A world the relay would not take leaves this client with nothing to run; the host decides.
         if (message.of === 'loaded') this.options.onError?.('open', new RelayRefusal(message.reason));
         break;
@@ -384,6 +402,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // Finish only after consuming the former reserve. At high speed new frames can arrive before
     // every display advance, so observing the buffer only before advancing would miss that moment.
     if (transport.bufferedTicks < this.responsiveness.bufferTicks) this.shrinkingBuffer = false;
+    this.sendQueued();
     return this.alpha;
   }
 
@@ -559,6 +578,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     this.driver = null;
     this.transport = null;
     this.earlyFrames.length = 0;
+    // Gestures held for a world that is gone would act on the next one.
+    this.outbox.clear();
   }
 
   private answerSnapshotRequest(): void {

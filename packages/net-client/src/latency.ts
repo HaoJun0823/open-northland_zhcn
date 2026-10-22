@@ -4,7 +4,7 @@ const SMOOTHING = 0.25;
 /**
  * Click-to-apply time for this seat's own commands, and how many of them are in flight. The relay
  * keeps one member's commands in order, so the oldest stamp belongs to the next command of this seat
- * to come back in a frame.
+ * to come back in a frame. The outbox bounds the stamps to the relay's per-tick budget.
  */
 export class CommandLatency {
   private readonly issuedAt: number[] = [];

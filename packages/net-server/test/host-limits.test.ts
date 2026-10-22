@@ -145,6 +145,22 @@ describe('host resource limits', () => {
     socket.terminate();
   });
 
+  it('logs a fault while refusing traffic instead of throwing from the socket listener', async () => {
+    const events: string[] = [];
+    host = await startRelayHost({ port: 0, log: (event) => events.push(event) });
+    const socket = await introduced(host.port, 'refusal-fault-token');
+    vi.spyOn(host.relay, 'disconnect').mockImplementation(() => {
+      throw new Error('departure fault');
+    });
+    const closed = once(socket, 'close');
+    for (let i = 0; i <= RECOVERY_BURST; i++) socket.send(JSON.stringify({ kind: 'loaded', tick: null }));
+    const [code] = await closed;
+    expect(code).toBe(1013);
+    // One from the refusal itself, one from the close that follows it.
+    await vi.waitFor(() => expect(events.filter((event) => event === 'disconnect failed')).toHaveLength(2));
+    expect((await fetch(`http://127.0.0.1:${host.port}/healthz`)).status).toBe(200);
+  });
+
   it('reports the bytes of a message still arriving, and nothing once a frame completes', async () => {
     host = await startRelayHost({ port: 0 });
     const socket = await introduced(host.port, 'progress-report-token');

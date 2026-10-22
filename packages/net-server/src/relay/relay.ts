@@ -229,29 +229,43 @@ export class Relay {
     }
   }
 
+  /** A fault in one client's or room's share of a poll is logged; it would otherwise recur on every
+   *  poll and stop the clients or rooms after it. */
+  private guarded(event: string, fields: Record<string, unknown>, step: () => void): void {
+    try {
+      step();
+    } catch (err) {
+      this.log(event, { ...fields, error: String(err) });
+    }
+  }
+
   /** An introduced client is pinged on its cadence; one that never introduced itself is closed. */
   private pollClients(now: number): void {
     for (const client of this.clients) {
-      if (client.token === null) {
-        if (now - client.connectedAt >= HELLO_TIMEOUT_MS) this.fail(client, { code: 'helloOverdue' });
-        continue;
-      }
-      const stamp = client.probe.pingDue(now);
-      if (stamp !== null) {
-        client.connection.send({ kind: 'ping', t: stamp, roundTripMs: client.probe.delay.roundTripMs });
-      }
+      this.guarded('poll fault', { nick: client.nick }, () => {
+        if (client.token === null) {
+          if (now - client.connectedAt >= HELLO_TIMEOUT_MS) this.fail(client, { code: 'helloOverdue' });
+          return;
+        }
+        const stamp = client.probe.pingDue(now);
+        if (stamp !== null) {
+          client.connection.send({ kind: 'ping', t: stamp, roundTripMs: client.probe.delay.roundTripMs });
+        }
+      });
     }
   }
 
   private expireEmptyRooms(now: number): void {
     for (const room of this.rooms.values()) {
-      if (room.connectedCount > 0) {
-        this.emptySince.delete(room);
-        continue;
-      }
-      const since = this.emptySince.get(room) ?? now;
-      this.emptySince.set(room, since);
-      if (now - since >= EMPTY_ROOM_TTL_MS) this.dropRoom(room);
+      this.guarded('expiry fault', { room: room.id }, () => {
+        if (room.connectedCount > 0) {
+          this.emptySince.delete(room);
+          return;
+        }
+        const since = this.emptySince.get(room) ?? now;
+        this.emptySince.set(room, since);
+        if (now - since >= EMPTY_ROOM_TTL_MS) this.dropRoom(room);
+      });
     }
   }
 

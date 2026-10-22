@@ -206,9 +206,16 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       },
     };
     const client = relay.connect(connection);
+    const disconnect = (): void => {
+      try {
+        relay.disconnect(client);
+      } catch (err) {
+        log('disconnect failed', { error: String(err) });
+      }
+    };
     const refuseTraffic = (): void => {
       socket.close(CLOSE_TRY_AGAIN_LATER, TRAFFIC_LIMIT);
-      relay.disconnect(client);
+      disconnect();
     };
     const acceptTraffic = (bytes: number, messageCost: 0 | 1 = 1): boolean => {
       if (socket.readyState !== socket.OPEN) return false;
@@ -259,11 +266,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       request.socket.off('data', countBytes);
       request.socket.off('data', receivedBytes);
       lastHeardAt.delete(socket);
-      try {
-        relay.disconnect(client);
-      } catch (err) {
-        log('disconnect failed', { error: String(err) });
-      }
+      disconnect();
     });
     // `ws` closes the socket itself after a protocol error; a transport error is followed by `close`.
     socket.on('error', (err) => log('socket error', { error: String(err) }));

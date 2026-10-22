@@ -2,8 +2,6 @@
 const RGB = 3;
 const RGBA = 4;
 const ALPHA = 3;
-/** The indexed layout's coverage channel; red is the palette index, and the sheet is opaque. */
-const COVERAGE = 1;
 /** A served palette's length: 256 RGB entries. */
 export const ATLAS_PALETTE_BYTES = 256 * RGB;
 
@@ -18,18 +16,33 @@ export function decodeAtlasPalette(base64: string): Uint8Array {
   return palette;
 }
 
+/** Where a decoded paletted sheet's pixels hold their bytes: the palette index is each pixel's first
+ *  byte, the coverage the byte at `coverage`. */
+export interface IndexedPixelLayout {
+  readonly bytesPerPixel: number;
+  readonly coverage: number;
+}
+
+/** An `index-coverage-png` sheet decoded as it is stored: grey index, alpha coverage. */
+export const GREY_ALPHA_INDEXED: IndexedPixelLayout = { bytesPerPixel: 2, coverage: 1 };
+
+/** The same sheet drawn into a 2d canvas and read back: grey (so the index) in red, coverage in alpha. */
+export const CANVAS_READ_INDEXED: IndexedPixelLayout = { bytesPerPixel: RGBA, coverage: ALPHA };
+
 /**
- * Colours an indexed sheet (palette index in red, coverage in green, opaque) through `palette` into
- * straight RGBA `out`: a covered pixel takes the indexed colour with its coverage as alpha, an uncovered
- * one is all zero. These are the bytes the pipeline's RGB bake of the same bob set writes.
+ * Colours a paletted sheet's pixels (laid out as `layout` says) through `palette` into straight RGBA
+ * `out`: a covered pixel takes the indexed colour with its coverage as alpha, an uncovered one is all
+ * zero. These are the bytes the pipeline's RGB bake of the same bob set writes.
  */
 export function colourIndexedSheet(
   indexed: Uint8Array | Uint8ClampedArray,
+  layout: IndexedPixelLayout,
   palette: Uint8Array,
   out: Uint8Array | Uint8ClampedArray,
 ): void {
-  for (let o = 0; o < indexed.length; o += RGBA) {
-    const coverage = indexed[o + COVERAGE] ?? 0;
+  const { bytesPerPixel, coverage: coverageByte } = layout;
+  for (let i = 0, o = 0; i < indexed.length; i += bytesPerPixel, o += RGBA) {
+    const coverage = indexed[i + coverageByte] ?? 0;
     if (coverage === 0) {
       out[o] = 0;
       out[o + 1] = 0;
@@ -37,7 +50,7 @@ export function colourIndexedSheet(
       out[o + ALPHA] = 0;
       continue;
     }
-    const p = (indexed[o] ?? 0) * RGB;
+    const p = (indexed[i] ?? 0) * RGB;
     out[o] = palette[p] ?? 0;
     out[o + 1] = palette[p + 1] ?? 0;
     out[o + 2] = palette[p + 2] ?? 0;

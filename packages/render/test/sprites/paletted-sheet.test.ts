@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ATLAS_PALETTE_BYTES, colourIndexedSheet, decodeAtlasPalette } from '../../src/data/index.js';
+import {
+  ATLAS_PALETTE_BYTES,
+  CANVAS_READ_INDEXED,
+  colourIndexedSheet,
+  decodeAtlasPalette,
+  GREY_ALPHA_INDEXED,
+} from '../../src/data/index.js';
 
 describe('colourIndexedSheet', () => {
   const palette = new Uint8Array(ATLAS_PALETTE_BYTES);
@@ -8,10 +14,17 @@ describe('colourIndexedSheet', () => {
 
   it('colours a covered pixel through its index, keeps its coverage, and zeroes an uncovered one', () => {
     // Opaque index 7, graded index 0, then an uncovered pixel whose stray index must not leak colour.
-    const indexed = Uint8Array.from([7, 255, 0, 255, 0, 0x60, 0, 255, 7, 0, 0, 255]);
-    const out = new Uint8ClampedArray(indexed.length).fill(99);
-    colourIndexedSheet(indexed, palette, out);
+    const indexed = Uint8Array.from([7, 255, 0, 0x60, 7, 0]);
+    const out = new Uint8ClampedArray(12).fill(99);
+    colourIndexedSheet(indexed, GREY_ALPHA_INDEXED, palette, out);
     expect([...out]).toEqual([200, 100, 50, 255, 10, 20, 30, 0x60, 0, 0, 0, 0]);
+  });
+
+  it('reads a canvas readback of the sheet: index in red, coverage in alpha', () => {
+    const indexed = Uint8Array.from([7, 7, 7, 255, 0, 0, 0, 0x60]);
+    const out = new Uint8ClampedArray(8);
+    colourIndexedSheet(indexed, CANVAS_READ_INDEXED, palette, out);
+    expect([...out]).toEqual([200, 100, 50, 255, 10, 20, 30, 0x60]);
   });
 });
 

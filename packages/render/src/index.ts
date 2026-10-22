@@ -71,6 +71,7 @@ export {
 export {
   ATLAS_PALETTE_BYTES,
   type AtlasFrame,
+  type AtlasImageEncoding,
   type AtlasManifest,
   type AtlasManifestFrame,
   atlasFromManifest,
@@ -83,6 +84,7 @@ export {
   type BuildTimeSheet,
   type ByJobTable,
   buildTimeThreshold,
+  CANVAS_READ_INDEXED,
   type CarryingBinding,
   type CartDriveAnim,
   type ConstructionLayerRef,
@@ -98,6 +100,7 @@ export {
   type FrameListAnim,
   frameOf,
   GFX_DIR_TO_FACING,
+  GREY_ALPHA_INDEXED,
   indexAtlasFrames,
   type LayeredBobRef,
   lookupFrame,

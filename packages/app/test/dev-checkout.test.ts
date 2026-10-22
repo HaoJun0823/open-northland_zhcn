@@ -109,6 +109,42 @@ it('rejects workspace links pointing at the primary checkout', async () => {
   await expect(server(task, 5175)).rejects.toThrow('do not share node_modules');
 });
 
+it('checks a subpath-only package by where its link points', async () => {
+  const appRoot = await app(root);
+  await writeFile(
+    join(appRoot, 'package.json'),
+    JSON.stringify({ dependencies: { '@open-northland/sim': '*', '@open-northland/formats': '*' } }),
+  );
+  const formats = join(root, 'packages/formats');
+  await mkdir(join(formats, 'src'), { recursive: true });
+  await writeFile(
+    join(formats, 'package.json'),
+    JSON.stringify({ name: '@open-northland/formats', exports: { './*': { source: './src/*.ts' } } }),
+  );
+  await symlink(formats, join(root, 'node_modules/@open-northland/formats'), 'junction');
+  await expect(server(root, 5175)).resolves.toBeDefined();
+
+  const task = join(root, 'task');
+  git('worktree', 'add', '-b', 'task', task);
+  await app(task);
+  await mkdir(join(task, 'packages/app'), { recursive: true });
+  await writeFile(
+    join(task, 'packages/app/package.json'),
+    JSON.stringify({ dependencies: { '@open-northland/formats': '*' } }),
+  );
+  await symlink(formats, join(task, 'node_modules/@open-northland/formats'), 'junction');
+  await expect(server(task, 5176)).rejects.toThrow('do not share node_modules');
+});
+
+it('checks a package with a string or no `exports` field through its main entry', async () => {
+  await app(root);
+  const manifest = join(root, 'packages/sim/package.json');
+  await writeFile(manifest, JSON.stringify({ name: '@open-northland/sim', exports: './src/index.ts' }));
+  await expect(server(root, 5175)).resolves.toBeDefined();
+  await writeFile(manifest, JSON.stringify({ name: '@open-northland/sim', main: './src/index.ts' }));
+  await expect(server(root, 5176)).resolves.toBeDefined();
+});
+
 it('reports the actual checkout and build over HTTP and never drifts from a busy port', async () => {
   await app(root);
   const preview = await server(root, 0);

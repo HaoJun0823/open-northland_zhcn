@@ -21,11 +21,13 @@ content/
     <id>.png              optional authored picture (the map's minimap.pcx)
     <id>.map.png          optional minimap rasterized from the terrain
     <id>.voice-<lang>-NNNN.wav  optional spoken briefing line; its maps-index row lists each one
-  bobs/                   atlases and colour LUTs: <stem>.atlas.json names the lossless WebP sheet it
-                          cuts from, stored once under the hash of its pixels; the recolours of one
-                          bob set share an indexed sheet and each carry their base64 `palette`. An
-                          indexed sheet (those and every <stem>.indexed) is opaque: palette index in
-                          red, coverage in green, blue 0
+  bobs/                   atlases and colour LUTs: <stem>.atlas.json names the sheet it cuts from,
+                          stored once under the hash of its pixels. The recolours of one bob set
+                          share an indexed sheet, each carrying its base64 `palette` and the sheet's
+                          `imageEncoding`, `index-coverage-png`: a grey + alpha PNG with the palette
+                          index in grey and coverage in alpha, which the app decodes in JavaScript.
+                          Every other sheet is lossless WebP; a <stem>.indexed one is opaque, palette
+                          index in red, coverage in green, blue 0
   textures/               ground pages and transition overlays
   sounds/                 the mod's sound clips, each as FLAC and Ogg Opus, alone and packed into
                           banks/ by folder; banks.json indexes both

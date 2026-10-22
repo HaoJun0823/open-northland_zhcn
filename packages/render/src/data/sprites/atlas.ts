@@ -78,6 +78,13 @@ export interface AtlasManifestFrame {
 }
 
 /**
+ * How a paletted sheet is stored. `index-coverage-png`: an 8-bit grey + alpha PNG (colour type 4), the
+ * palette index in grey and the coverage in alpha. The app decodes it in JavaScript: a browser image
+ * decode premultiplies a covered pixel's index away, and some browsers alter canvas reads.
+ */
+export type AtlasImageEncoding = 'index-coverage-png';
+
+/**
  * The served `<stem>.atlas.json` a `.bmd` atlas build writes, re-declared structurally so `render`
  * never imports the build tool. Image names are file names in the manifest's own directory; stems
  * with byte-identical sheets name the same file.
@@ -93,6 +100,8 @@ export interface AtlasManifest {
    * entries, base64, which the loader colours the sheet through (`colourIndexedSheet`).
    */
   readonly palette?: string;
+  /** How {@link image} is stored; present with {@link palette}. */
+  readonly imageEncoding?: AtlasImageEncoding;
   /** The `'build-time'` bake's time sheet, placed like {@link image}. */
   readonly buildImage?: string;
 }

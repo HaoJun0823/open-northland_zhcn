@@ -5,7 +5,12 @@ import type { RgbaImage } from '@open-northland/formats/image';
 import type { AtlasManifest } from '@open-northland/render';
 import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { statIfExists, writeFileWithParents } from '../files.js';
-import { atlasImageName, encodeAtlasImage } from './atlas-image.js';
+import {
+  atlasImageName,
+  encodeAtlasImage,
+  encodePalettedSheet,
+  PALETTED_SHEET_EXTENSION,
+} from './atlas-image.js';
 
 // The output tree is served as static files, so each directory's name is the URL root the app fetches
 // it at, and every file inside is lower-cased because the IR's references are.
@@ -37,23 +42,23 @@ export interface BobAtlasFiles {
 }
 
 /**
- * Writes `image` under {@link BOBS_DIR} at its content-addressed name and returns that name. A sheet
- * already written this run is not encoded again; the run clears the directory first, so a present
- * file holds these bytes.
+ * Writes `image` under {@link BOBS_DIR} at its content-addressed name and returns that name: a WebP,
+ * or for a `paletted` sheet an `index-coverage-png`. A sheet already written this run is not encoded
+ * again; the run clears the directory first, so a present file holds these bytes.
  */
-async function writeAtlasImage(outDir: string, image: RgbaImage): Promise<string> {
-  const name = atlasImageName(image);
+async function writeAtlasImage(outDir: string, image: RgbaImage, paletted = false): Promise<string> {
+  const name = paletted ? atlasImageName(image, PALETTED_SHEET_EXTENSION) : atlasImageName(image);
   const path = join(outDir, BOBS_DIR, name);
   if ((await statIfExists(path)) === undefined)
-    await writeFileWithParents(path, await encodeAtlasImage(image));
+    await writeFileWithParents(path, await (paletted ? encodePalettedSheet : encodeAtlasImage)(image));
   return name;
 }
 
 /**
  * One recolour of a bob set that other recolours share: the indexed atlas
  * (`packIndexedBobAtlas`, with the alpha options the RGB bake would take) and this stem's palette. It
- * is served as the shared indexed sheet plus the palette, which the app colours at load, so the bob
- * set's recolours cost one sheet.
+ * is served as the shared indexed sheet (an `index-coverage-png`) plus the palette, which the app
+ * colours at load, so the bob set's recolours cost one sheet.
  */
 export interface PalettedBobAtlas {
   readonly indexed: BobAtlas;
@@ -77,13 +82,18 @@ async function writeBobAtlas(
     );
   }
   const packed = paletted ? atlas.indexed : atlas;
-  const image = await writeAtlasImage(outDir, packed.image);
+  const image = await writeAtlasImage(outDir, packed.image, paletted);
   const buildImage =
     packed.timeImage === undefined ? undefined : await writeAtlasImage(outDir, packed.timeImage);
   const served = {
     ...packed.manifest,
     image,
-    ...(paletted ? { palette: Buffer.from(atlas.palette).toString('base64') } : {}),
+    ...(paletted
+      ? {
+          palette: Buffer.from(atlas.palette).toString('base64'),
+          imageEncoding: 'index-coverage-png' as const,
+        }
+      : {}),
     ...(buildImage === undefined ? {} : { buildImage }),
   } satisfies AtlasManifest;
   const manifest = `${BOBS_DIR}/${stem}${ATLAS_MANIFEST_SUFFIX}`;

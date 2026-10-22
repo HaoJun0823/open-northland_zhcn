@@ -6,6 +6,7 @@
 import type { BobFrame } from '../bmd/index.js';
 import { BOB_ALPHA_OPAQUE } from '../bmd/index.js';
 import { assertPaletteBytes, paletteToRgba, type RgbaImage } from '../image.js';
+import type { GreyAlphaImage } from '../png.js';
 
 /**
  * How an atlas reads a Double8Bit pair's second byte:
@@ -51,6 +52,17 @@ export function writeIndexedPixel(rgba: Uint8Array, offset: number, index: numbe
   rgba[offset + INDEXED_INDEX_CHANNEL] = index;
   rgba[offset + INDEXED_COVERAGE_CHANNEL] = coverage;
   rgba[offset + ALPHA_CHANNEL] = BOB_ALPHA_OPAQUE;
+}
+
+/** An indexed-layout image as grey + alpha: the palette index in grey, the coverage in alpha. */
+export function indexedToGreyAlpha(image: RgbaImage): GreyAlphaImage {
+  const { width, height, rgba } = image;
+  const pixels = new Uint8Array(width * height * 2);
+  for (let i = 0, o = 0; o < rgba.length; i += 2, o += 4) {
+    pixels[i] = rgba[o + INDEXED_INDEX_CHANNEL] ?? 0;
+    pixels[i + 1] = rgba[o + INDEXED_COVERAGE_CHANNEL] ?? 0;
+  }
+  return { width, height, pixels };
 }
 
 /**

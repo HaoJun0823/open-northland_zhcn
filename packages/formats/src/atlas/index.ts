@@ -1,4 +1,10 @@
-export { type AtlasAlphaMode, expandBobFrame, expandBobFrameIndexed, SHADOW_ALPHA } from './bake.js';
+export {
+  type AtlasAlphaMode,
+  expandBobFrame,
+  expandBobFrameIndexed,
+  indexedToGreyAlpha,
+  SHADOW_ALPHA,
+} from './bake.js';
 export {
   ATLAS_GUTTER,
   type AtlasFrame,

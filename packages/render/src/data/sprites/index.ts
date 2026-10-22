@@ -1,5 +1,6 @@
 export {
   type AtlasFrame,
+  type AtlasImageEncoding,
   type AtlasManifest,
   type AtlasManifestFrame,
   atlasFromManifest,
@@ -53,7 +54,14 @@ export {
   type ParticleRef,
   particleFrame,
 } from './munition.js';
-export { ATLAS_PALETTE_BYTES, colourIndexedSheet, decodeAtlasPalette } from './paletted-sheet.js';
+export {
+  ATLAS_PALETTE_BYTES,
+  CANVAS_READ_INDEXED,
+  colourIndexedSheet,
+  decodeAtlasPalette,
+  GREY_ALPHA_INDEXED,
+  type IndexedPixelLayout,
+} from './paletted-sheet.js';
 export { resolveSpriteBobId } from './resolve.js';
 export {
   DEFAULT_FACING,

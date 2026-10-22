@@ -39,9 +39,22 @@ export function devCheckout(root: string, contentRoot: string): Plugin {
         dependencies: Record<string, string>;
       };
       for (const name of Object.keys(dependencies).filter((name) => name.startsWith('@open-northland/'))) {
-        const resolved = await server.pluginContainer.resolveId(name, join(app, 'src/main.ts'));
-        const source = join(checkout, 'packages', name.slice('@open-northland/'.length), 'src');
-        const child = resolved && relative(source, realpathSync(resolved.id));
+        const pkg = join(checkout, 'packages', name.slice('@open-northland/'.length));
+        const source = join(pkg, 'src');
+        const link = join(checkout, 'node_modules', name);
+        // A package exporting subpaths only (`./*`) has no entry to resolve; its link must point here.
+        // A string or missing `exports` names only the main entry.
+        const { exports } = JSON.parse(readFileSync(join(link, 'package.json'), 'utf8')) as {
+          exports?: string | Record<string, unknown>;
+        };
+        const hasEntry =
+          typeof exports !== 'object' ||
+          '.' in exports ||
+          !Object.keys(exports).some((key) => key.startsWith('.'));
+        const resolved = hasEntry
+          ? await server.pluginContainer.resolveId(name, join(app, 'src/main.ts'))
+          : { id: join(realpathSync(link), 'package.json') };
+        const child = resolved && relative(hasEntry ? source : pkg, realpathSync(resolved.id));
         if (!child || child === '..' || child.startsWith(`..${sep}`) || isAbsolute(child))
           throw new Error(
             `${name} must resolve to ${source}; got ${resolved?.id ?? 'no module'}. Run npm ci in this checkout; do not share node_modules.`,

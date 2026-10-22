@@ -1,4 +1,5 @@
-import { colourIndexedSheet, decodeAtlasPalette } from '@open-northland/render/data';
+import { decodeGreyAlphaPng, type GreyAlphaImage } from '@open-northland/formats/png';
+import { colourIndexedSheet, decodeAtlasPalette, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import type { PalettedSheetReply, PalettedSheetRequest } from './protocol.js';
 
 const scope = globalThis as unknown as Pick<Worker, 'addEventListener' | 'postMessage'>;
@@ -7,7 +8,7 @@ const scope = globalThis as unknown as Pick<Worker, 'addEventListener' | 'postMe
  * Decoded sheets kept for the next recolour of the same bob set, oldest first. The page routes every
  * stem of one sheet to one worker and asks for them together at boot, so a small budget catches them.
  */
-const decoded = new Map<string, Promise<ImageData>>();
+const decoded = new Map<string, Promise<GreyAlphaImage>>();
 /** The byte size of each settled entry of {@link decoded}. */
 const decodedBytes = new Map<string, number>();
 const DECODED_BUDGET_BYTES = 64 * 1024 * 1024;
@@ -15,41 +16,19 @@ const DECODED_BUDGET_BYTES = 64 * 1024 * 1024;
 const IDLE_RELEASE_MS = 2000;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** One 2d scratch canvas, sized per read and shrunk after; the rule is no canvas per image kept alive. */
-let scratch: OffscreenCanvas | undefined;
-
 /**
- * The pixels of a decoded indexed sheet. The sheet is opaque, so the 2d canvas's premultiplied store
- * keeps every byte, and colour conversion is off for an untagged image either way.
+ * An `index-coverage-png` sheet decoded in JavaScript: a browser image decode would premultiply a covered
+ * pixel's index away, and a canvas read is altered by some privacy settings and missing from older
+ * Safari workers.
  */
-function readPixels(bitmap: ImageBitmap): ImageData {
-  scratch ??= new OffscreenCanvas(1, 1);
-  scratch.width = bitmap.width;
-  scratch.height = bitmap.height;
-  try {
-    const ctx = scratch.getContext('2d', { willReadFrequently: true });
-    if (ctx === null) throw new Error('paletted sheet: no 2d context in the worker');
-    ctx.drawImage(bitmap, 0, 0);
-    return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-  } finally {
-    scratch.width = 1;
-    scratch.height = 1;
-  }
-}
-
-async function decodeIndexed(url: string): Promise<ImageData> {
+async function decodeIndexed(url: string): Promise<GreyAlphaImage> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`paletted sheet: ${url} answered HTTP ${res.status}`);
-  const bitmap = await createImageBitmap(await res.blob(), { colorSpaceConversion: 'none' });
-  try {
-    return readPixels(bitmap);
-  } finally {
-    bitmap.close();
-  }
+  return decodeGreyAlphaPng(new Uint8Array(await res.arrayBuffer()));
 }
 
 /** The decoded sheet at `url`, kept within {@link DECODED_BUDGET_BYTES}; a failure is not kept. */
-function indexedSheet(url: string): Promise<ImageData> {
+function indexedSheet(url: string): Promise<GreyAlphaImage> {
   const kept = decoded.get(url);
   if (kept !== undefined) {
     decoded.delete(url);
@@ -61,7 +40,7 @@ function indexedSheet(url: string): Promise<ImageData> {
   pending.then(
     (sheet) => {
       if (decoded.get(url) !== pending) return;
-      decodedBytes.set(url, sheet.data.length);
+      decodedBytes.set(url, sheet.pixels.length);
       evictOverBudget();
     },
     () => decoded.delete(url),
@@ -97,9 +76,13 @@ function releaseIdle(): void {
 
 async function serve(request: PalettedSheetRequest): Promise<PalettedSheetReply> {
   const sheet = await indexedSheet(request.url);
-  const rgba = new Uint8ClampedArray(sheet.data.length);
-  colourIndexedSheet(sheet.data, decodeAtlasPalette(request.palette), rgba);
-  const bitmap = await createImageBitmap(new ImageData(rgba, sheet.width, sheet.height));
+  const rgba = new Uint8ClampedArray(sheet.width * sheet.height * 4);
+  colourIndexedSheet(sheet.pixels, GREY_ALPHA_INDEXED, decodeAtlasPalette(request.palette), rgba);
+  // The default leaves premultiplication to the browser; asking for it keeps every browser's page equal
+  // to a Pixi-loaded RGBA sheet.
+  const bitmap = await createImageBitmap(new ImageData(rgba, sheet.width, sheet.height), {
+    premultiplyAlpha: 'premultiply',
+  });
   return { id: request.id, bitmap };
 }
 

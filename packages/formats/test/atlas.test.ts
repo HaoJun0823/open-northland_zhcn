@@ -4,6 +4,7 @@ import {
   type AtlasFrame,
   expandBobFrame,
   expandBobFrameIndexed,
+  indexedToGreyAlpha,
   packBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
@@ -260,6 +261,20 @@ describe('expandBobFrameIndexed', () => {
   it('keeps index 0 as a real (opaque) index when its mask is set', () => {
     const frame: BobFrame = { width: 1, height: 1, pixels: Uint8Array.of(0), mask: Uint8Array.of(255) };
     expect([...expandBobFrameIndexed(frame).rgba]).toEqual([0, 255, 0, 255]);
+  });
+});
+
+describe('indexedToGreyAlpha', () => {
+  it('moves the index to grey and the coverage to alpha', () => {
+    const frame: BobFrame = {
+      width: 3,
+      height: 1,
+      pixels: Uint8Array.from([5, 200, 9]),
+      mask: Uint8Array.from([255, 128, 0]),
+    };
+    const image = indexedToGreyAlpha(expandBobFrameIndexed(frame));
+    expect(image).toMatchObject({ width: 3, height: 1 });
+    expect([...image.pixels]).toEqual([5, 255, 200, 128, 0, 0]);
   });
 });
 

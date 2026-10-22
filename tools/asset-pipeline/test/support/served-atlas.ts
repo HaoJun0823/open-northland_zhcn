@@ -2,8 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AtlasFrame } from '@open-northland/formats/atlas/index';
 import type { RgbaImage } from '@open-northland/formats/image';
+import { decodeGreyAlphaPng } from '@open-northland/formats/png';
 import type { AtlasManifest } from '@open-northland/render';
-import { colourIndexedSheet, decodeAtlasPalette } from '@open-northland/render/data';
+import { colourIndexedSheet, decodeAtlasPalette, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import sharp from 'sharp';
 import { ATLAS_MANIFEST_SUFFIX, BOBS_DIR } from '../../src/stages/content-tree.js';
 
@@ -22,10 +23,12 @@ export async function readServedManifest(out: string, stem: string): Promise<Ser
 
 /** The sheet a stem's manifest names, decoded and coloured through the stem's palette as the app does. */
 export async function readServedSheet(out: string, stem: string): Promise<RgbaImage> {
-  const { image, palette } = await readServedManifest(out, stem);
-  const sheet = await decodeAtlasImage(await readFile(join(out, BOBS_DIR, image)));
-  if (palette === undefined) return sheet;
-  const rgba = new Uint8Array(sheet.rgba.length);
-  colourIndexedSheet(sheet.rgba, decodeAtlasPalette(palette), rgba);
-  return { ...sheet, rgba };
+  const { image, palette, imageEncoding } = await readServedManifest(out, stem);
+  const bytes = await readFile(join(out, BOBS_DIR, image));
+  if (palette === undefined) return decodeAtlasImage(bytes);
+  if (imageEncoding !== 'index-coverage-png') throw new Error(`${stem}: paletted sheet without its encoding`);
+  const { width, height, pixels } = await decodeGreyAlphaPng(bytes);
+  const rgba = new Uint8Array(width * height * 4);
+  colourIndexedSheet(pixels, GREY_ALPHA_INDEXED, decodeAtlasPalette(palette), rgba);
+  return { width, height, rgba };
 }

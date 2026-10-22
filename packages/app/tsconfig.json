@@ -9,6 +9,7 @@
   "include": ["src/**/*.ts", "src/assets/**/*.json"],
   "references": [
     { "path": "../data" },
+    { "path": "../formats" },
     { "path": "../sim" },
     { "path": "../lockstep" },
     { "path": "../net-protocol" },

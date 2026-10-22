@@ -1,4 +1,5 @@
 import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
+import type { AtlasImageEncoding } from '@open-northland/render';
 import { palettedSheetBitmap } from '../content/atlas-sheet/index.js';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
@@ -31,6 +32,7 @@ interface AtlasJson {
   readonly height: number;
   readonly image: string;
   readonly palette?: string;
+  readonly imageEncoding?: AtlasImageEncoding;
   readonly frames: readonly AtlasFrameJson[];
 }
 
@@ -94,7 +96,7 @@ let colouredSheetUrl: string | undefined;
  */
 async function gallerySheetUrl(atlas: AtlasJson): Promise<string> {
   if (atlas.palette === undefined) return contentUrl(atlasImagePath(atlas.image));
-  const bitmap = await palettedSheetBitmap(atlas.image, atlas.palette);
+  const bitmap = await palettedSheetBitmap({ ...atlas, palette: atlas.palette });
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import {
   type AtlasAlphaMode,
   type BobAtlas,
+  indexedToGreyAlpha,
   type PackBobAtlasOptions,
   packBobAtlas,
   packIndexedBobAtlas,
@@ -10,12 +11,14 @@ import {
 import { type Bmd, BOB_TYPE_DOUBLE8BIT, decodeBmd } from '@open-northland/formats/bmd/index';
 import { paletteAliasMap } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
-import { colourIndexedSheet } from '@open-northland/render/data';
+import { decodeGreyAlphaPng } from '@open-northland/formats/png';
+import { colourIndexedSheet, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import { describe, expect, it } from 'vitest';
 import { packLineControl } from '../../../packages/formats/test/fixtures/bmd.js';
 import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from '../src/corrections.js';
 import { resolveDataPack } from '../src/roots.js';
+import { encodePalettedSheet } from '../src/stages/atlas-image.js';
 import { resolveGraphicsBindings } from '../src/stages/bmd/index.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 
@@ -24,7 +27,7 @@ function expectColouredTwin(bmd: Bmd, palette: Uint8Array, options: PackBobAtlas
   const rgb: BobAtlas = packBobAtlas(bmd, palette, options);
   const indexed = packIndexedBobAtlas(bmd, options);
   const coloured = new Uint8Array(indexed.image.rgba.length);
-  colourIndexedSheet(indexed.image.rgba, palette, coloured);
+  colourIndexedSheet(indexedToGreyAlpha(indexed.image).pixels, GREY_ALPHA_INDEXED, palette, coloured);
   expect(indexed.manifest, label).toEqual(rgb.manifest);
   expect(Buffer.from(coloured).equals(Buffer.from(rgb.image.rgba)), label).toBe(true);
   expect(indexed.timeImage === undefined, label).toBe(rgb.timeImage === undefined);
@@ -57,6 +60,12 @@ describe('packIndexedBobAtlas coloured through a palette', () => {
     ['build-time with a coverage decor bob', { alpha: 'build-time', coverageBobs: new Set([11]) }],
   ])('is the RGB atlas for %s', (_, options) => {
     expectColouredTwin(bmd, rampPalette(), options);
+  });
+
+  it('keeps every index and coverage through the served PNG', async () => {
+    const indexed = packIndexedBobAtlas(bmd, { alpha: 'per-pixel' });
+    const served = await decodeGreyAlphaPng(await encodePalettedSheet(indexed.image));
+    expect(served.pixels).toEqual(indexedToGreyAlpha(indexed.image).pixels);
   });
 });
 

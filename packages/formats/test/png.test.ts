@@ -1,12 +1,12 @@
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { decodePng, encodePng } from '../src/png.js';
+import { decodeGreyAlphaPng, decodePng, encodeGreyAlphaPng, encodePng } from '../src/png.js';
 
 /**
  * PNG container tests. No fixtures are committed: we synthesize RGBA in memory, encode it, and assert
  * `decodePng` recovers dimensions and pixels byte-for-byte. A handful of cases hand-build PNG bytes (with
  * an independent CRC-32, so the decoder is checked against a separate implementation) to exercise the
- * signature/CRC guards and the not-yet-supported row filters.
+ * signature/CRC guards and every row filter.
  */
 
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -46,20 +46,46 @@ const makeChunk = (type: string, data: Uint8Array): Uint8Array => {
   return out;
 };
 
-/** Builds a colour-type-6 PNG whose every scanline uses `filter`, to probe decode's filter support. */
-const makePngWithFilter = (width: number, height: number, rgba: Uint8Array, filter: number): Uint8Array => {
-  const stride = width * 4;
+/** Filters one scanline per the PNG spec's five filter types; an independent copy of the predictors. */
+const filterRow = (row: Uint8Array, prev: Uint8Array | null, bpp: number, filter: number): Uint8Array => {
+  const out = new Uint8Array(row.length);
+  for (let i = 0; i < row.length; i++) {
+    const a = i >= bpp ? (row[i - bpp] ?? 0) : 0;
+    const b = prev?.[i] ?? 0;
+    const c = i >= bpp ? (prev?.[i - bpp] ?? 0) : 0;
+    const p = a + b - c;
+    const [pa, pb, pc] = [Math.abs(p - a), Math.abs(p - b), Math.abs(p - c)];
+    const paeth = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+    const predicted = [0, a, b, (a + b) >> 1, paeth][filter] ?? 0;
+    out[i] = ((row[i] ?? 0) - predicted) & 0xff;
+  }
+  return out;
+};
+
+/** Builds an 8-bit PNG of `colorType` whose row `y` uses `filters[y % filters.length]`. */
+const makePngWithFilters = (
+  width: number,
+  height: number,
+  pixels: Uint8Array,
+  colorType: number,
+  filters: readonly number[],
+): Uint8Array => {
+  const bpp = colorType === 4 ? 2 : 4;
+  const stride = width * bpp;
   const raw = new Uint8Array(height * (stride + 1));
   for (let y = 0; y < height; y++) {
+    const filter = filters[y % filters.length] ?? 0;
+    const row = pixels.subarray(y * stride, y * stride + stride);
+    const prev = y > 0 ? pixels.subarray((y - 1) * stride, y * stride) : null;
     raw[y * (stride + 1)] = filter;
-    raw.set(rgba.subarray(y * stride, y * stride + stride), y * (stride + 1) + 1);
+    raw.set(filter > 4 ? row : filterRow(row, prev, bpp, filter), y * (stride + 1) + 1);
   }
   const ihdr = new Uint8Array(13);
   const hv = new DataView(ihdr.buffer);
   hv.setUint32(0, width, false);
   hv.setUint32(4, height, false);
   ihdr[8] = 8;
-  ihdr[9] = 6;
+  ihdr[9] = colorType;
   const parts = [
     Uint8Array.from(SIGNATURE),
     makeChunk('IHDR', ihdr),
@@ -75,6 +101,13 @@ const makePngWithFilter = (width: number, height: number, rgba: Uint8Array, filt
   }
   return out;
 };
+
+/** Grey + alpha pixels where both channels vary across rows and columns. */
+const greyAlpha = (width: number, height: number): Uint8Array =>
+  Uint8Array.from({ length: width * height * 2 }, (_, i) => (i * 37 + (i >> 3) * 11) & 0xff);
+
+/** Every filter type the spec defines: None, Sub, Up, Average, Paeth. */
+const ALL_FILTERS = [0, 1, 2, 3, 4];
 
 describe('encodePng / decodePng', () => {
   it('round-trips dimensions and RGBA pixels', async () => {
@@ -93,10 +126,58 @@ describe('encodePng / decodePng', () => {
     expect((await decodePng(png)).rgba).toEqual(Uint8Array.from([10, 20, 30, 40]));
   });
 
-  it('decodes a hand-built filter-0 PNG (independent CRC) identically', async () => {
-    const rgba = gradient(4, 3);
-    const decoded = await decodePng(makePngWithFilter(4, 3, rgba, 0));
-    expect(decoded).toEqual({ width: 4, height: 3, rgba });
+  it('decodes a hand-built PNG of every row filter (independent CRC) identically', async () => {
+    const rgba = gradient(6, 10);
+    for (const filter of ALL_FILTERS) {
+      expect(await decodePng(makePngWithFilters(6, 10, rgba, 6, [filter]))).toEqual({
+        width: 6,
+        height: 10,
+        rgba,
+      });
+    }
+    expect(await decodePng(makePngWithFilters(6, 10, rgba, 6, ALL_FILTERS))).toEqual({
+      width: 6,
+      height: 10,
+      rgba,
+    });
+  });
+
+  it('takes a caller-supplied compressor', async () => {
+    const rgba = gradient(3, 3);
+    const png = await encodePng(
+      { width: 3, height: 3, rgba },
+      { deflate: async (bytes) => new Uint8Array(deflateSync(bytes, { level: 9 })) },
+    );
+    expect((await decodePng(png)).rgba).toEqual(rgba);
+  });
+});
+
+describe('encodeGreyAlphaPng / decodeGreyAlphaPng', () => {
+  it('round-trips grey + alpha pixels as colour type 4', async () => {
+    const pixels = greyAlpha(9, 4);
+    const png = await encodeGreyAlphaPng({ width: 9, height: 4, pixels });
+    expect(png[25]).toBe(4); // IHDR colour type: signature(8) + len(4) + type(4) + width/height(8) + depth(1)
+    expect(await decodeGreyAlphaPng(png)).toEqual({ width: 9, height: 4, pixels });
+  });
+
+  it('decodes rows under each of the five filters, mixed within one image', async () => {
+    const pixels = greyAlpha(7, 11);
+    for (const filter of ALL_FILTERS) {
+      expect((await decodeGreyAlphaPng(makePngWithFilters(7, 11, pixels, 4, [filter]))).pixels).toEqual(
+        pixels,
+      );
+    }
+    expect((await decodeGreyAlphaPng(makePngWithFilters(7, 11, pixels, 4, ALL_FILTERS))).pixels).toEqual(
+      pixels,
+    );
+  });
+
+  it('rejects a PNG of another colour type', async () => {
+    const png = await encodePng({ width: 1, height: 1, rgba: Uint8Array.from([1, 2, 3, 4]) });
+    await expect(decodeGreyAlphaPng(png)).rejects.toThrow(/colorType=6/);
+    await expect(
+      decodePng(await encodeGreyAlphaPng({ width: 1, height: 1, pixels: Uint8Array.from([1, 2]) })),
+    ).rejects.toThrow(/colorType=4/);
   });
 });
 
@@ -125,8 +206,8 @@ describe('decodePng guards', () => {
     await expect(decodePng(png)).rejects.toThrow(/CRC mismatch in IDAT/);
   });
 
-  it('rejects a non-None row filter until those are implemented', async () => {
-    const png = makePngWithFilter(3, 2, gradient(3, 2), 1); // filter 1 = Sub
-    await expect(decodePng(png)).rejects.toThrow(/unsupported row filter 1/);
+  it('rejects a row filter the spec does not define', async () => {
+    const png = makePngWithFilters(3, 2, gradient(3, 2), 6, [5]);
+    await expect(decodePng(png)).rejects.toThrow(/unknown row filter 5/);
   });
 });

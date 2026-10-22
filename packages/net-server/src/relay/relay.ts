@@ -179,6 +179,13 @@ export class Relay {
     member.lastHeardAt = this.now();
   }
 
+  /** The transport has queued `client` a message it sends in parts and the client has not read to
+   *  the end (true), or has read it all (false). */
+  sending(client: ClientHandle, inFlight: boolean): void {
+    if (!this.clients.has(client)) return;
+    client.probe.downloading(inFlight);
+  }
+
   /** Answer a message the host will not hand over, without parsing it, as the relay refuses one. */
   refuse(client: ClientHandle, raw: unknown, reason: RelayReason): void {
     if (!this.clients.has(client)) return;

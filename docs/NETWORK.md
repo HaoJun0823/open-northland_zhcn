@@ -263,7 +263,9 @@ as at most one second. The trip and the jitter (the mean deviation from the trip
 of the way toward the clamped sample. One late pong therefore moves both a little, while a lasting
 change carries them over within about ten samples. A pong to a ping that was outstanding while a
 message from the client was still arriving, such as its own snapshot upload, is no sample: it waited
-behind that message and measures the upload, not the link.
+behind that message and measures the upload, not the link. The same holds for a ping sent while a
+fragmented message to the client was still unread, such as a snapshot or map it is downloading, until
+the client answers the control ping after that message's last fragment.
 
 The assigned input delay is `ceil((rtt + jitter) / tickLength) + 1` ticks of the smoothed values,
 with `tickLength` the tick at speed 1, starting at 2, never below 1 and never above 12 (one second).
@@ -346,7 +348,7 @@ The clock holds, emitting no frames, while any seated player is:
 - `silent`: the relay has heard nothing from it for `SILENT_AFTER_MS` (4 s), whatever its socket says.
   Any message counts, and so does progress on one still arriving: a pong queued behind a large upload
   does not make its sender silent. Progress on a large message to the client counts the same way: the
-  client's answer to each control ping between its fragments (see
+  client's answer to the control ping after each of its fragments (see
   [Public relay security boundary](#public-relay-security-boundary)) keeps a client heard while the
   relay's pings and frames wait behind a snapshot it is downloading;
 - `loading`: it has not said where its world stands, before the start or after a return, and is still
@@ -845,11 +847,12 @@ disabled, payloads are capped, an unacknowledged close is terminated after one s
 with no incoming transport data for 30 s is closed. Incoming bytes keep a progressing upload alive
 before its complete message can be parsed, and keep its sender heard by the relay; application traffic
 is still validated and budgeted.
-Large outgoing text messages use 32 KiB WebSocket fragments with a control ping after each but the
-last, so a passive receiver answers while downloading: at 16 KiB/s an answer comes every two seconds
-for the whole message. Matching requested pongs spend only the byte budget; unsolicited or excess
-pongs still spend both budgets. Outstanding ping credits are capped at twice the fragments a full send
-buffer holds (5462), so every fragment of a message the buffer accepts gets its ping.
+Large outgoing text messages use 32 KiB WebSocket fragments with a control ping after each, so a
+passive receiver answers while downloading: at 16 KiB/s an answer comes every two seconds for the
+whole message, and the answer to the last one says it has read the message. Matching requested
+pongs spend only the byte budget; unsolicited or excess pongs still spend both budgets. Outstanding
+ping credits are capped at twice the fragments a full send buffer holds (5462), so every fragment of
+a message the buffer accepts gets its ping.
 Fragmentation preserves one application message and does not change the game protocol.
 
 The HTTP host caps all TCP connections at the configured WebSocket limit plus 16, including sockets

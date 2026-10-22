@@ -160,7 +160,10 @@ describe('socket traffic budgets', () => {
       sendBounded(socket, encodeText(text));
       expect(await received).toEqual({ text, binary: false });
       expect(events[0]).toBe('ping');
-      expect(events.at(-1)).toBe('message');
+      // The last fragment's ping follows the whole message.
+      const fragmentCount = Math.ceil(Buffer.byteLength(text) / TEXT_FRAGMENT_BYTES);
+      await vi.waitFor(() => expect(events.filter((event) => event === 'ping')).toHaveLength(fragmentCount));
+      expect(events.slice(-2)).toEqual(['message', 'ping']);
       await pong;
     } finally {
       client.terminate();
@@ -201,7 +204,7 @@ describe('socket traffic budgets', () => {
     for (let message = largest; socket.terminate.mock.calls.length === 0; message = half) {
       sendBounded(socket, message, ping);
       if (socket.terminate.mock.calls.length === 0)
-        fragmentsBehindPings += Math.ceil(message.byteLength / TEXT_FRAGMENT_BYTES) - 1;
+        fragmentsBehindPings += Math.ceil(message.byteLength / TEXT_FRAGMENT_BYTES);
       largestGapBytes = Math.max(largestGapBytes, gapBytes);
       gapBytes = 0;
     }
@@ -242,7 +245,7 @@ describe('socket traffic budgets', () => {
       expect(Buffer.concat(fragments).toString()).toBe(text);
       const fragmentCount = Math.ceil(message.byteLength / TEXT_FRAGMENT_BYTES);
       expect(endings).toEqual([...Array<boolean>(fragmentCount - 1).fill(false), true]);
-      expect(socket.ping).toHaveBeenCalledTimes(fragmentCount - 1);
+      expect(socket.ping).toHaveBeenCalledTimes(fragmentCount);
       expect(socket.terminate).not.toHaveBeenCalled();
     }
     expect(backing.size).toBe(1);

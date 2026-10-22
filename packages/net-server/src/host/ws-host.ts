@@ -197,9 +197,19 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     };
     request.socket.prependListener('data', countBytes);
     request.socket.on('data', receivedBytes);
+    // From a fragmented send until the client has answered every control ping, so read it all.
+    let downloadInFlight = false;
+    const reportDownload = (inFlight: boolean): void => {
+      downloadInFlight = inFlight;
+      try {
+        relay.sending(client, inFlight);
+      } catch (err) {
+        log('sending failed', { error: String(err) });
+      }
+    };
     const connection: Connection = {
       send: (message) => {
-        sendBounded(socket, encode(message), ping);
+        if (sendBounded(socket, encode(message), ping) && !downloadInFlight) reportDownload(true);
       },
       close: (reason) => {
         socket.close(reason === 'replaced' ? CLOSE_REPLACED : CLOSE_PROTOCOL_ERROR, reason);
@@ -240,6 +250,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       } catch (err) {
         log('downloading failed', { error: String(err) });
       }
+      if (downloadInFlight && controlPings.settled) reportDownload(false);
     });
     socket.on('message', (data, isBinary) => {
       frameEnded();

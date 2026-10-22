@@ -9,7 +9,8 @@ export const BYTES_PER_SECOND = 1024 * 1024;
 export const BYTE_BURST = MAX_BLOB_MESSAGE_BYTES * 2;
 export const MAX_BUFFERED_BYTES = MAX_BLOB_MESSAGE_BYTES * 2;
 /** A control ping follows each fragment, and its pong keeps a slow download heard before the whole
- *  message is delivered: at 16 KiB/s one arrives every two seconds, inside the relay's silence limit. */
+ *  message is delivered: at 16 KiB/s one arrives every two seconds, inside the relay's silence limit.
+ *  The pong to the last fragment's ping says the client has read the whole message. */
 export const TEXT_FRAGMENT_BYTES = 32 * 1024;
 /** One ping per fragment of a full send buffer, and as many again for pings already past it in kernel
  *  buffers and on the wire, which hold far less than the buffer bound: every fragment gets its ping. */
@@ -63,6 +64,11 @@ export class ControlPings {
     this.acknowledged = sequence;
     return true;
   }
+
+  /** Every ping issued has been answered. */
+  get settled(): boolean {
+    return this.acknowledged === this.issued;
+  }
 }
 
 export interface EncodedMessage {
@@ -76,29 +82,31 @@ export function encodeText(text: string): EncodedMessage {
   return { data: byteLength <= TEXT_FRAGMENT_BYTES ? text : Buffer.from(text), byteLength };
 }
 
+/** True when the message went out in fragments, each followed by a control ping. */
 export function sendBounded(
   socket: Pick<WebSocket, 'readyState' | 'OPEN' | 'bufferedAmount' | 'send' | 'ping' | 'terminate'>,
   message: EncodedMessage,
   ping: () => void = () => socket.ping(),
-): void {
-  if (socket.readyState !== socket.OPEN) return;
+): boolean {
+  if (socket.readyState !== socket.OPEN) return false;
   const { data, byteLength } = message;
   const fragments = Math.max(1, Math.ceil(byteLength / TEXT_FRAGMENT_BYTES));
-  const overhead = fragments * MAX_FRAME_HEADER_BYTES + (fragments - 1) * MAX_CONTROL_FRAME_BYTES;
+  const overhead = fragments * (MAX_FRAME_HEADER_BYTES + MAX_CONTROL_FRAME_BYTES);
   if (socket.bufferedAmount + byteLength + overhead > MAX_BUFFERED_BYTES) {
     socket.terminate();
-    return;
+    return false;
   }
   if (typeof data === 'string') {
     socket.send(data);
-    return;
+    return false;
   }
   for (let offset = 0; offset < data.length; offset += TEXT_FRAGMENT_BYTES) {
     const end = Math.min(offset + TEXT_FRAGMENT_BYTES, data.length);
     const fin = end === data.length;
     socket.send(data.subarray(offset, end), { binary: false, fin });
-    if (!fin) ping();
+    ping();
   }
+  return true;
 }
 
 /** Recovery requests held in reserve, and the time one of them takes to come back. */

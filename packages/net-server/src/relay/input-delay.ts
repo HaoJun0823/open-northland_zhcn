@@ -98,6 +98,8 @@ export class LatencyProbe {
   private pingSentAt: number | null = null;
   /** The outstanding ping's answer waits behind a message from the client that was still arriving. */
   private pingHeld = false;
+  /** A large message to the client is still queued ahead of anything sent to it now. */
+  private downloadInFlight = false;
   private lastPingAt: number;
 
   constructor(now: number) {
@@ -110,8 +112,14 @@ export class LatencyProbe {
     if (this.pingSentAt !== null && now - this.pingSentAt < PING_TIMEOUT_MS) return null;
     this.lastPingAt = now;
     this.pingSentAt = now;
-    this.pingHeld = false;
+    this.pingHeld = this.downloadInFlight;
     return now;
+  }
+
+  /** A ping sent while a large message to the client is in flight waits behind it, and its answer
+   *  measures that download, not the link, so it is not sampled. A ping already ahead of it is. */
+  downloading(inFlight: boolean): void {
+    this.downloadInFlight = inFlight;
   }
 
   /** A message from the client is still arriving: the answer to a ping already sent queues behind it

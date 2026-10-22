@@ -44,10 +44,11 @@ describe('hearing from a client that is downloading', () => {
     expect(silentNicks(s.a)).toContain('Bartek');
   });
 
-  it('reports each fragment the client has read of a large message', async () => {
+  it('reports each fragment the client has read of a large message, and when it has read it all', async () => {
     host = await startRelayHost({ port: 0, host: '127.0.0.1' });
     const connect = vi.spyOn(host.relay, 'connect');
     const downloading = vi.spyOn(host.relay, 'downloading');
+    const sending = vi.spyOn(host.relay, 'sending');
     const socket = new WebSocket(`ws://127.0.0.1:${host.port}`);
     await once(socket, 'open');
     const welcomed = once(socket, 'message');
@@ -63,13 +64,23 @@ describe('hearing from a client that is downloading', () => {
     const connection = connect.mock.calls[0]?.[0];
     const client = connect.mock.results[0]?.value;
     if (connection === undefined) throw new Error('the host made no connection');
+    const small = once(socket, 'message');
+    connection.send({ kind: 'blob', type: 'save', from: 'Bartek', tick: 1, bytes: 'AAAA' });
+    await small;
+    expect(sending).not.toHaveBeenCalled();
+
     const received = once(socket, 'message');
     // The message's envelope makes it a little longer than its bytes: one fragment more than these.
     const bytes = 'A'.repeat(TEXT_FRAGMENT_BYTES * FRAGMENTS);
     connection.send({ kind: 'blob', type: 'save', from: 'Bartek', tick: 1, bytes });
+    expect(sending.mock.calls).toEqual([[client, true]]);
     await received;
-    await vi.waitFor(() => expect(downloading).toHaveBeenCalledTimes(FRAGMENTS));
+    await vi.waitFor(() => expect(downloading).toHaveBeenCalledTimes(FRAGMENTS + 1));
     expect(downloading.mock.calls.every(([handle]) => handle === client)).toBe(true);
+    expect(sending.mock.calls).toEqual([
+      [client, true],
+      [client, false],
+    ]);
     socket.terminate();
   });
 });

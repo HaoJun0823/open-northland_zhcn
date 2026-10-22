@@ -87,12 +87,16 @@ export class VirtualNetwork {
     let alive = true;
     let upAlive = true;
     let downAlive = true;
+    let unansweredFragmentPings = 0;
     const oneWay = (): number => Math.max(0, latency / 2 + (this.random() - 0.5) * jitter);
     const connection: Connection = {
       send: (message: ServerMessage) => {
         if (!alive || !downAlive) return;
         const text = JSON.stringify(message);
         const bytes = Buffer.byteLength(text);
+        const fragments = bytes > TEXT_FRAGMENT_BYTES ? Math.ceil(bytes / TEXT_FRAGMENT_BYTES) : 0;
+        if (fragments > 0 && unansweredFragmentPings === 0) this.relay.sending(handle, true);
+        unansweredFragmentPings += fragments;
         const delay = oneWay();
         this.schedule(
           down,
@@ -102,12 +106,17 @@ export class VirtualNetwork {
           () => {
             if (alive && downAlive) client.receive(JSON.parse(text));
           },
-          // The host pings after each fragment of a large message; the client's pong comes back up.
+          // The host pings after each fragment of a large message; the client's pong comes back up,
+          // and the last one unanswered says the client has read all it was sent.
           (sendAt, durationMs) => {
-            for (let read = TEXT_FRAGMENT_BYTES; read < bytes; read += TEXT_FRAGMENT_BYTES) {
+            for (let fragment = 1; fragment <= fragments; fragment++) {
+              const read = Math.min(fragment * TEXT_FRAGMENT_BYTES, bytes);
               const answeredAt = sendAt + (durationMs * read) / bytes + delay + latency / 2;
               this.enqueue(answeredAt, () => {
-                if (alive && upAlive && downAlive) this.relay.downloading(handle);
+                if (!alive || !upAlive || !downAlive) return;
+                this.relay.downloading(handle);
+                unansweredFragmentPings--;
+                if (unansweredFragmentPings === 0) this.relay.sending(handle, false);
               });
             }
           },

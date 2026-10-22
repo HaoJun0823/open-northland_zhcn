@@ -238,7 +238,7 @@ export class Game {
     this.pacing.forget(member.token);
     this.waiting.forget(member.token);
     this.removed(now);
-    if (this.endedTick === null && this.clock.running) this.updateWaiting(now);
+    if (this.endedTick === null) this.updateWaiting(now);
   }
 
   /** The kicked member is out of the room: the rest may be complete now. */
@@ -407,7 +407,8 @@ export class Game {
     this.clock.start();
     this.resync.restartCadence(now);
     this.broadcast(this.clockMessage(null));
-    if (this.waiting.restart(now)) this.broadcast(this.waiting.message(now));
+    this.waiting.restart(now);
+    this.updateWaiting(now);
   }
 
   /** Judge every tick each client in sync has passed, and drop the references no client can still

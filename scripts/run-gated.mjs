@@ -66,7 +66,10 @@ function spawnGated(file, args, options) {
 
 /** `cmd.exe` quoting: wrap what cmd would split or read as an operator, doubling the quotes inside. */
 function quoteForCmd(argument) {
-  return argument === '' || /[\s"&|<>^()%!]/.test(argument) ? `"${argument.replace(/"/g, '""')}"` : argument;
+  if (argument !== '' && !/[\s"&|<>^()%!]/.test(argument)) return argument;
+  // Double trailing backslashes so the child does not read the closing quote as literal text.
+  const quoted = argument.replace(/"/g, '""').replace(/\\+$/, '$&$&');
+  return `"${quoted}"`;
 }
 
 function slotCount() {

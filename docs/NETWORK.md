@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 36` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 40` in
 `packages/net-protocol`. A change one side of the current version could not honour, a message shape
 or the value set of a validated field such as the fog mode ids, bumps the version; the relay refuses a
 `hello` that names another.
@@ -478,8 +478,10 @@ hides only the vote against itself. With every member dropped nobody can vote: t
 history age limit (see [Resync and catching up](#resync-and-catching-up)), or after the 10 minutes a
 room with nobody connected is kept when no frame is retained, whichever comes first.
 
-When the yeses reach `needed` the relay broadcasts `kicked { player, nick, mode, cause, tick }`, removes
-the member (its token is a stranger from then on), and returns the seat to `settings.kickedSeatMode`
+When the yeses reach `needed` the relay broadcasts `kicked { player, nick, mode, cause, tick }` and
+removes the member. A member whose link was down when the vote passed gets that `kicked` and `left`
+once when its token next says `hello`, while the room lasts; afterwards, and once the room ended, its
+token is a stranger. The seat goes to `settings.kickedSeatMode`
 (`computer` or `idle`). An `idle` policy always applies; `computer` applies when the seat offers it,
 otherwise a lobby AI seat stays AI and every other vacant mode falls back to `idle`,
 whose settlers already stand. The room view reflects this mode. For
@@ -487,8 +489,8 @@ whose settlers already stand. The room view reflects this mode. For
 every budget, so the AI takes the seat on the same tick on every client. For `mode: "idle"` the seat
 simply issues nothing more. A vote passed before any world has loaded holds its handover notice and
 AI command until the first `loaded` fixes the built tick, and then names the first resumed tick.
-`cause` says why the seat was left: `vote`, or `left` for a member
-that left the started game itself.
+`cause` says why the seat was left: `vote`, `loadingTimedOut` for a boot that stalled before the
+clock ran (see [Waiting](#waiting)), or `left` for a member that left the started game itself.
 
 ## Manual save order capture
 
@@ -640,8 +642,9 @@ replaces the client's world, and the frames that follow are applied through the 
 accepted `loaded` is answered with `ended` once the match has ended, else with `waiting` for the
 current waited set followed by one `kickVote` per open vote (see [Kick votes](#kick-votes)).
 
-A token the room removed meanwhile, voted out while its link was down, gets `welcome` alone, since the
-relay sends `kicked` and `left` to connected members only. The client therefore answers every
+A token voted out while its link was down gets its `kicked` and `left` once after `welcome`, while
+the room lasts (see [Kick votes](#kick-votes)); one whose room ended meanwhile gets `welcome` alone.
+The client therefore answers every
 `welcome` while it holds a started room with `joinRoom` for that room and reads the refusal: a member
 put back is refused `alreadyInRoom` and stays; `gameStarted` means the room goes on without it, and
 `noRoom` that the room ended; on either the client ends its game with a notice and leaves the room

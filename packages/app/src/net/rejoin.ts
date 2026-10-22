@@ -7,8 +7,8 @@ export type RejoinOutcome = 'passed' | 'consumed' | { readonly refused: RelayRea
 /**
  * Whether a started room still has this client after the link came back: ask for the held room on
  * each welcome and read the refusal. `alreadyInRoom` is the relay's answer for a member it put back, or
- * to a join sent beside the relay's own restoration, and never news; the protocol reference says why a
- * token the room removed meanwhile hears nothing else.
+ * to a join sent beside the relay's own restoration, and never news; a token voted out meanwhile hears
+ * its `kicked` and `left` first, and one whose room ended hears nothing else.
  */
 export function rejoinProbe(client: {
   readonly room: Pick<RoomView, 'id' | 'state'> | null;

@@ -429,9 +429,12 @@ The main flags:
 - `--orders-per-minute` and `--mix move=5,build=1,assistant=2,job=2` set each human's orders: group
   moves, building sites, assistant counters and profession changes for its own seat. Each order is
   checked against the sim's own placement, formation and profession queries before it is sent.
-- `--chaos kind@tick:client:ms` fires at a relay clock tick. `cut` blackholes the client for `ms` and
-  then reconnects it. `relink` closes its socket and reconnects after `ms`. `freeze` holds its
-  messages and frames for `ms`, then takes them in one frame, as a frozen tab does.
+- `--chaos kind@tick:client:ms` fires at a tick counted from the room's start. `cut` blackholes the
+  client for `ms` and then reconnects it. `relink` closes its socket and reconnects after `ms`; the
+  client keeps its world and the relay replays the frames it missed. `freeze` holds its messages and
+  frames for `ms`, then takes them in one frame, as a frozen tab does. `reload` closes the socket and
+  comes back after `ms` as a reloaded page: a new client with the same identity and no world, which
+  the relay restores from the room's cached snapshot and the frames after it.
 
 The summary prints one line per client and the room's spikes. A spike is a tick ranked by its
 median wall cost across the clients, with the systems and the commands applied on that tick. A tick
@@ -446,6 +449,29 @@ clock and repeats for a seed: hashes, lag, waits, orders, bytes and click-to-app
 Clients report their tick load to the relay on the virtual clock, so the relay governs the room on
 lag only, never on a client's machine load. A cut or relink lets the relay learn of the close at
 once, where a real relay would wait for silent pings.
+
+#### Rooms from a developed world
+
+`build-save` runs a map with its claimable seats played by the computer and nobody else, on the plain
+sim without a relay, and writes the canonical save. The file is gzip of the save JSON, the snapshot
+codec's own encoding, so its base64 is a valid snapshot payload. The default path is under the
+ignored `bench-out/`. The save is derived from decoded content: never commit it.
+
+```sh
+npm run bench:net-lab -- build-save --map magiczny_las --difficulty hard --ticks 40000
+npm run bench:net-lab -- --save bench-out/net-lab/magiczny_las-hard-t40000.save.gz --humans 6 \
+  --ticks 3000 --links home,home,far,lan,bad,home --chaos relink@1000:2:2000,reload@2000:4:1000
+```
+
+`--save` starts the room from that save as the lobby does. The creator uploads it as the
+`initialSave` blob and every member reports its fingerprint. The seats come from the save's roster,
+and humans take over the seats its computers held, in seat order. The map and the session seed are
+the save's, and `--ticks` counts from the save's tick. The summary adds the save's sizes, the decode
+time and one line per restore: the tick, the snapshot's size and the world build's wall time. A
+restore after a `reload` also gets the virtual time from the reload to its first tick.
+
+The headless client always opens a saved start from the snapshot the relay serves. The app opens
+its verified lobby copy instead, so the lab's saved start sends each client the save twice.
 
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.
 

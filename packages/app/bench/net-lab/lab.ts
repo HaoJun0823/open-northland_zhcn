@@ -5,38 +5,33 @@
  * relay run on virtual time, so for one seed everything but the wall-clock measurements repeats.
  */
 import { readFileSync } from 'node:fs';
-import { mapLobbySlots } from '@open-northland/data';
 import type { GameSession } from '@open-northland/lockstep';
-import { type RoomSeatSetup, type RoomSettings, TICK_MS } from '@open-northland/net-protocol';
+import { bytesToBase64, decodeSnapshot, prepareInitialSave } from '@open-northland/net-client';
+import { type RoomSettings, TICK_MS } from '@open-northland/net-protocol';
 import type { SaveGame, Simulation } from '@open-northland/sim';
+import { TEST_COMPATIBILITY } from '../../../net-server/test/support/compatibility.js';
 import { HeadlessClient } from '../../../net-server/test/support/headless-client.js';
-import { assembleRoom, NETWORK_STEP_MS, type Stage } from '../../../net-server/test/support/session-run.js';
+import {
+  assembleRoom,
+  NETWORK_STEP_MS,
+  type RoomPlan,
+  type Stage,
+  settle,
+} from '../../../net-server/test/support/session-run.js';
 import {
   type Link,
   seededRandom,
   VirtualClock,
   VirtualNetwork,
 } from '../../../net-server/test/support/virtual-network.js';
-import type { ContentIr } from '../../src/content/ir/rows.js';
-import { initialLobbyOptions } from '../../src/entries/main-menu/lobby/model.js';
-import {
-  authoredVacantMode,
-  offersDifficulty,
-  startingDifficulty,
-  vacantOffers,
-} from '../../src/entries/main-menu/lobby/roster-state.js';
-import { buildRelayedMapWorld, type MapWorkerBoot } from '../../src/entries/map/world-inputs.js';
-import { FOG_MODE_BY_NAME } from '../../src/game/fog.js';
-import { loadContentUnderTest, rawIrUnderTest } from '../../test/content/helpers.js';
-import { realMapPath, realMapScript } from '../../test/content/real-map-world.js';
+import { buildRelayedMapWorld } from '../../src/entries/map/world-inputs.js';
 import { calibrationMs, loadPerCpu } from '../environment.js';
 import { ClientProbe } from './client-probe.js';
 import type { ChaosEvent, LabConfig } from './config.js';
 import { MeteredRelay } from './relay-meter.js';
-import { buildReport, type LabReport, type LabSeats, type TimelineSample } from './report.js';
+import { buildReport, type LabReport, type LabWorld, type TimelineSample } from './report.js';
+import { labSeats, type RoomSeats, roomRules, savedLabSeats, savedRules, worldBoot } from './world.js';
 
-/** A network room starts with allies sharing the map, as the main menu creates it. */
-const ROOM_ALLIED_VISION = true;
 /** Virtual time for one lobby step to cross the links, before each link's own round trip is added. */
 const LOBBY_SETTLE_MS = 800;
 /** Virtual time a run may take past its ticks at the room's speed, as a multiple of that time. */
@@ -46,6 +41,9 @@ const DEADLINE_SLACK_MS = 60_000;
 const ORDER_SEED_SALT = 0x9e3779b9;
 const NETWORK_SEED_SALT = 0x85ebca6b;
 const BYTES_PER_MB = 1024 * 1024;
+const MS_PER_SECOND = 1000;
+/** Snapshot transfers a saved room's deadline allows for: the start's, and one per chaos event. */
+const START_TRANSFERS = 1;
 
 export interface LabHooks {
   /** Called about every `progressEveryTicks` relay ticks with a one-line status. */
@@ -57,78 +55,72 @@ const DEFAULT_PROGRESS_TICKS = 500;
 
 type LabStage = Stage & { readonly relay: MeteredRelay };
 
-/** The room's seats from the map script: humans take the first claimable seats, computers the next. */
-export function labSeats(config: LabConfig): { readonly setup: RoomSeatSetup[]; readonly seats: LabSeats } {
-  const script = realMapScript(config.mapId);
-  if (script === null) throw new Error(`${config.mapId} ships no script`);
-  const slots = mapLobbySlots(script);
-  const claimable = slots.filter((slot) => slot.claimable && !slot.hidden);
-  if (claimable.length < config.humans) {
-    throw new Error(`${config.mapId} has ${claimable.length} claimable seats, ${config.humans} humans asked`);
-  }
-  const human = claimable.slice(0, config.humans).map((slot) => slot.player);
-  const rest = claimable.slice(config.humans);
-  const computerCount = config.computers ?? rest.length;
-  if (computerCount > rest.length) {
-    throw new Error(
-      `${config.mapId} leaves ${rest.length} claimable seats, ${computerCount} computers asked`,
-    );
-  }
-  const computer = rest.slice(0, computerCount).map((slot) => slot.player);
-  const setup = slots.map((slot): RoomSeatSetup => {
-    const asComputer = computer.includes(slot.player);
-    const offers = vacantOffers(slot);
-    if (asComputer && !offers.includes('computer')) {
-      throw new Error(`${config.mapId} seat ${slot.player} offers no computer player`);
+/** The save a room starts from, as its creator prepares it. */
+interface SavedStart {
+  readonly path: string;
+  readonly save: SaveGame;
+  readonly initial: Awaited<ReturnType<typeof prepareInitialSave>>;
+  /** Wall ms to inflate and parse the file as a client decodes a served snapshot. */
+  readonly decodeMs: number;
+  readonly fileBytes: number;
+}
+
+async function loadSavedStart(path: string): Promise<SavedStart> {
+  const file = readFileSync(path);
+  const text = bytesToBase64(file);
+  const decodeStart = performance.now();
+  const save = await decodeSnapshot(text);
+  const decodeMs = performance.now() - decodeStart;
+  if (save.header.mapId === null) throw new Error(`${path} names no map`);
+  return { path, save, initial: await prepareInitialSave(save), decodeMs, fileBytes: file.byteLength };
+}
+
+/** The lobby a saved room walks: as a fresh one, with the creator's initial-save upload and every
+ *  member's report of that save before anyone is ready. The upload crosses every link before Ready. */
+async function assembleSavedRoom(
+  stage: LabStage,
+  clients: readonly HeadlessClient[],
+  plan: RoomPlan,
+  saved: SavedStart,
+  deadlineMs: number,
+): Promise<void> {
+  const [host, ...guests] = clients;
+  if (host === undefined) throw new Error('a room needs a creator');
+  for (const client of clients) client.hello();
+  settle(stage, plan.settleMs);
+  host.createRoom(plan.settings, plan.seats);
+  settle(stage, plan.settleMs);
+  const roomId = host.room?.id;
+  if (roomId === undefined)
+    throw new Error(`${host.nick} created no room: ${JSON.stringify(host.rejections)}`);
+  for (const guest of guests) guest.joinRoom(roomId);
+  settle(stage, plan.settleMs);
+  clients.forEach((client, index) => {
+    client.claimSeat(plan.seatOf(index));
+  });
+  settle(stage, plan.settleMs);
+  const { identity, bytes } = saved.initial;
+  host.sendBlob({ type: 'initialSave', to: null, tick: identity.tick, bytes });
+  for (const client of clients)
+    client.setCompatibility({ ...TEST_COMPATIBILITY, save: identity.fingerprint });
+  const holds = (client: HeadlessClient): boolean => client.blobs.some((blob) => blob.type === 'initialSave');
+  while (!clients.every(holds)) {
+    if (stage.clock.now() > deadlineMs) {
+      const missing = clients.filter((client) => !holds(client)).map((client) => client.nick);
+      throw new Error(`the initial save did not reach ${missing.join(', ')} by the deadline`);
     }
-    return {
-      player: slot.player,
-      color: slot.colorId,
-      mode: asComputer ? 'computer' : authoredVacantMode(slot),
-      offers,
-      claimable: slot.claimable && !slot.hidden,
-      authoredTribe: slot.tribeId,
-      ...(asComputer
-        ? { difficulty: config.difficulty }
-        : offersDifficulty(slot)
-          ? { difficulty: startingDifficulty(slot) }
-          : {}),
-    };
-  });
-  const others = setup
-    .filter((seat) => !human.includes(seat.player) && !computer.includes(seat.player))
-    .map((seat) => ({ player: seat.player, mode: seat.mode }));
-  return { setup, seats: { human, computer, difficulty: config.difficulty, others } };
-}
-
-/** The rules a fresh room starts with: the main menu's defaults. */
-function roomRules(): RoomSettings['rules'] {
-  const options = initialLobbyOptions(new URLSearchParams(), ROOM_ALLIED_VISION);
-  return {
-    fog: FOG_MODE_BY_NAME[options.fog],
-    progression: options.professionProgression,
-    needs: options.settlerNeeds,
-    weather: options.weather,
-    alliedVision: options.alliedVision,
-  };
-}
-
-/** What each client builds its world from: the documents the relayed entry loads, the map parsed per
- *  client so no two worlds share an object. */
-async function worldBoot(mapId: string): Promise<(session: GameSession) => MapWorkerBoot> {
-  const { merge } = await loadContentUnderTest();
-  const mapText = readFileSync(realMapPath(mapId), 'utf8');
-  const ir = rawIrUnderTest() as ContentIr;
-  const script = realMapScript(mapId);
-  return (session) => ({
-    map: JSON.parse(mapText),
-    ir,
-    script,
-    content: merge.content,
-    session,
-    missions: null,
-    saveText: null,
-  });
+    settle(stage, NETWORK_STEP_MS);
+  }
+  settle(stage, plan.settleMs);
+  for (const [index, client] of clients.entries()) if (plan.seatOf(index) !== null) client.setReady(true);
+  settle(stage, plan.settleMs);
+  host.start();
+  settle(stage, plan.settleMs);
+  await Promise.all(clients.map((client) => client.settled()));
+  for (const client of clients) {
+    if (client.session === null)
+      throw new Error(`${client.nick} got no session: ${JSON.stringify(client.rejections)}`);
+  }
 }
 
 /** Scripted disturbances in firing order, and the ones whose end is due. */
@@ -140,9 +132,13 @@ class ChaosSchedule {
 
   constructor(
     events: readonly ChaosEvent[],
+    /** The tick the room started at; an event's tick counts from it. */
+    private readonly startTick: number,
     private readonly stage: LabStage,
     private readonly probes: readonly ClientProbe[],
     private readonly links: Link[],
+    /** A new client for a reloaded page of the probe numbered `index`. */
+    private readonly reloadedClient: (index: number) => HeadlessClient,
   ) {
     this.pending = [...events].sort((a, b) => a.atTick - b.atTick || a.client - b.client);
   }
@@ -150,7 +146,7 @@ class ChaosSchedule {
   run(): void {
     const now = this.stage.clock.now();
     const relayTick = this.stage.relay.clockTick;
-    while ((this.pending[0]?.atTick ?? Number.POSITIVE_INFINITY) <= relayTick) {
+    while (this.startTick + (this.pending[0]?.atTick ?? Number.POSITIVE_INFINITY) <= relayTick) {
       const event = this.pending.shift();
       if (event !== undefined) this.start(event, now, relayTick);
     }
@@ -186,6 +182,14 @@ class ChaosSchedule {
         link.close();
         later(() => this.reconnect(probe));
         return;
+      case 'reload':
+        probe.disturbed = true;
+        link.close();
+        later(() => {
+          probe.reload(this.reloadedClient(probe.index));
+          this.reconnect(probe);
+        });
+        return;
     }
   }
 
@@ -202,24 +206,31 @@ function linkProbe(stage: LabStage, probe: ClientProbe): Link {
 }
 
 /** How far each client trails the relay's clock right now, and what it holds buffered. */
-function sample(stage: LabStage, probes: readonly ClientProbe[]): TimelineSample {
+function sample(stage: LabStage, probes: readonly ClientProbe[], startTick: number): TimelineSample {
   const relayTick = stage.relay.clockTick;
   return {
     virtualMs: stage.clock.now(),
     relayTick,
-    behind: probes.map((probe) => relayTick - (probe.client.tick ?? 0)),
+    behind: probes.map((probe) => relayTick - (probe.standing ?? startTick)),
     buffered: probes.map((probe) => probe.client.bufferedTicks),
   };
 }
 
-/** Play the configured session to `config.ticks` on every client and report what it cost. */
+/** Play the configured session for `config.ticks` on every client and report what it cost. */
 export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<LabReport> {
   const startedAtMs = Date.now();
   const startMs = performance.now();
   const calibrationBeforeMs = calibrationMs();
   let worstLoad = loadPerCpu();
-  const { setup, seats } = labSeats(config);
-  const boot = await worldBoot(config.mapId);
+  const saved = config.save === null ? null : await loadSavedStart(config.save);
+  const mapId = saved?.save.header.mapId ?? config.mapId;
+  const startTick = saved?.save.header.tick ?? 0;
+  const endTick = startTick + config.ticks;
+  const { setup, seats }: RoomSeats =
+    saved === null
+      ? labSeats({ ...config, mapId })
+      : savedLabSeats(saved.save, config.humans, config.computers);
+  const boot = await worldBoot(mapId);
   const clock = new VirtualClock();
   const relay = new MeteredRelay({ now: clock.now });
   const stage: LabStage = {
@@ -229,61 +240,76 @@ export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<L
   };
   const buildWorld = async (session: GameSession): Promise<Simulation> =>
     buildRelayedMapWorld(boot(session), null).sim;
-  const restoreWorld = async (session: GameSession, save: SaveGame): Promise<Simulation> =>
-    buildRelayedMapWorld(boot(session), save).sim;
-  const probes = config.links.map((link, index) => {
-    const client = new HeadlessClient({
+  let probes: ClientProbe[] = [];
+  const clientOf = (index: number): HeadlessClient =>
+    new HeadlessClient({
       token: `net-lab-client-${index}-token-0123456789`,
       nick: `Gracz ${index}`,
       buildWorld,
-      restoreWorld,
+      restoreWorld: async (session, save) => {
+        const restoreStart = performance.now();
+        const { sim } = buildRelayedMapWorld(boot(session), save);
+        probes[index]?.restored(save.header.tick, performance.now() - restoreStart);
+        return sim;
+      },
       now: clock.now,
     });
-    return new ClientProbe(
-      index,
-      client,
-      link,
-      clock.now,
-      seededRandom((config.seed + Math.imul(index + 1, ORDER_SEED_SALT)) >>> 0),
-      { ordersPerMinute: config.ordersPerMinute, weights: config.orderWeights, lastTick: config.ticks },
-      config.systems,
-    );
-  });
+  probes = config.links.map(
+    (link, index) =>
+      new ClientProbe(
+        index,
+        clientOf(index),
+        link,
+        clock.now,
+        seededRandom((config.seed + Math.imul(index + 1, ORDER_SEED_SALT)) >>> 0),
+        { ordersPerMinute: config.ordersPerMinute, weights: config.orderWeights, lastTick: endTick },
+        config.systems,
+      ),
+  );
   const links = probes.map((probe) => linkProbe(stage, probe));
   const slowestTripMs = Math.max(...config.links.map((link) => link.latencyMs + link.jitterMs));
+  const slowestDownload = Math.min(...config.links.map((link) => link.downloadBytesPerSecond));
+  // A snapshot crosses the slowest link once at a saved start and once per chaos event.
+  const snapshotBytes = saved?.initial.bytes.length ?? 0;
+  const transferMs =
+    ((START_TRANSFERS + config.chaos.length) * snapshotBytes * MS_PER_SECOND) / slowestDownload;
   const clients = probes.map((probe) => probe.client);
   const buildStartMs = performance.now();
-  await assembleRoom(stage, clients, {
-    settings: {
-      name: `net-lab ${config.mapId}`,
-      world: { kind: 'map', mapId: config.mapId },
-      seed: config.seed,
-      rules: roomRules(),
-      speed: config.speed,
-      kickedSeatMode: 'idle',
-    },
+  const settings: RoomSettings = {
+    name: `net-lab ${mapId}`,
+    world: { kind: 'map', mapId },
+    seed: saved?.save.header.seed ?? config.seed,
+    rules: saved === null ? roomRules() : savedRules(saved.save),
+    speed: config.speed,
+    kickedSeatMode: 'idle',
+    ...(saved === null ? {} : { initialSave: saved.initial.identity }),
+  };
+  const plan: RoomPlan = {
+    settings,
     seats: setup,
     seatOf: (index) => seats.human[index] ?? null,
     settleMs: LOBBY_SETTLE_MS + 2 * slowestTripMs,
-  });
+  };
+  if (saved === null) await assembleRoom(stage, clients, plan);
+  else await assembleSavedRoom(stage, clients, plan, saved, clock.now() + transferMs + DEADLINE_SLACK_MS);
   const assembleSeconds = (performance.now() - buildStartMs) / 1000;
 
-  const chaos = new ChaosSchedule(config.chaos, stage, probes, links);
+  const chaos = new ChaosSchedule(config.chaos, startTick, stage, probes, links, clientOf);
   const chaosMs = config.chaos.reduce((sum, event) => sum + event.ms, 0);
   const runMs = (config.ticks * TICK_MS) / config.speed;
-  const deadline = clock.now() + runMs * DEADLINE_FACTOR + DEADLINE_SLACK_MS + chaosMs;
+  const deadline = clock.now() + runMs * DEADLINE_FACTOR + DEADLINE_SLACK_MS + chaosMs + transferMs;
   const deliverMs: number[] = [];
   const relayMs: number[] = [];
   const timeline: TimelineSample[] = [];
   let nextSampleAt = clock.now();
-  let nextProgressTick = hooks.progressEveryTicks ?? DEFAULT_PROGRESS_TICKS;
+  let nextProgressTick = startTick + (hooks.progressEveryTicks ?? DEFAULT_PROGRESS_TICKS);
   let peakRssMb = 0;
   const loopStartMs = performance.now();
   try {
     while (probes.some((probe) => probe.capture === null)) {
       if (clock.now() > deadline) {
         const standings = probes.map((probe) => `${probe.client.nick}@${probe.client.tick}`).join(', ');
-        throw new Error(`not every client reached tick ${config.ticks} by the deadline: ${standings}`);
+        throw new Error(`not every client reached tick ${endTick} by the deadline: ${standings}`);
       }
       clock.tick(NETWORK_STEP_MS);
       const deliverStart = performance.now();
@@ -294,12 +320,12 @@ export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<L
       deliverMs.push(relayStart - deliverStart);
       chaos.run();
       for (const probe of probes) probe.advance(NETWORK_STEP_MS);
-      await Promise.all(clients.map((client) => client.settled()));
+      await Promise.all(probes.map((probe) => probe.client.settled()));
       for (const probe of probes) {
-        probe.maxBehind = Math.max(probe.maxBehind, relay.clockTick - (probe.client.tick ?? 0));
+        probe.maxBehind = Math.max(probe.maxBehind, relay.clockTick - (probe.standing ?? startTick));
       }
       if (clock.now() >= nextSampleAt) {
-        timeline.push(sample(stage, probes));
+        timeline.push(sample(stage, probes, startTick));
         nextSampleAt += config.sampleMs;
         peakRssMb = Math.max(peakRssMb, Math.round(process.memoryUsage.rss() / BYTES_PER_MB));
         worstLoad = Math.max(worstLoad ?? 0, loadPerCpu() ?? 0);
@@ -318,8 +344,19 @@ export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<L
   }
   peakRssMb = Math.max(peakRssMb, Math.round(process.memoryUsage.rss() / BYTES_PER_MB));
   worstLoad = Math.max(worstLoad ?? 0, loadPerCpu() ?? 0);
+  const world: LabWorld = {
+    mapId,
+    startTick,
+    endTick,
+    seed: settings.seed,
+    save:
+      saved === null
+        ? null
+        : { path: saved.path, fileBytes: saved.fileBytes, initialSaveBytes: saved.initial.bytes.length },
+  };
   return buildReport({
     config,
+    world,
     seats,
     probes,
     relay,
@@ -333,6 +370,7 @@ export async function runLab(config: LabConfig, hooks: LabHooks = {}): Promise<L
       totalSeconds: (performance.now() - startMs) / 1000,
       assembleSeconds,
       runSeconds: (performance.now() - loopStartMs) / 1000,
+      saveDecodeMs: saved?.decodeMs ?? null,
       peakRssMb,
       loadPerCpu: worstLoad === 0 ? null : worstLoad,
       calibration: { beforeMs: calibrationBeforeMs, afterMs: calibrationMs() },

@@ -26,6 +26,9 @@ export const KEPT_WORST_TICKS = 50;
 const SYSTEMS_PER_TICK = 5;
 /** The spread of the gap between two orders around its mean: half to one and a half of it. */
 const ORDER_GAP_SPREAD = 0.5;
+/** Base64 carries three bytes in every four characters. */
+const BASE64_GROUP_CHARS = 4;
+const BASE64_GROUP_BYTES = 3;
 
 export interface SystemCost {
   readonly name: string;
@@ -36,6 +39,18 @@ export interface KeptTick {
   readonly tick: number;
   readonly ms: number;
   readonly systems: readonly SystemCost[];
+}
+
+/** One world this client rebuilt from a snapshot the relay served. */
+export interface RestoreRecord {
+  readonly tick: number;
+  /** The served gzip's size, decoded from its base64. */
+  readonly snapshotBytes: number;
+  /** Virtual ms from the client's reload to the restored world's first tick; null for a restore
+   *  that no reload asked for, such as a saved room's start. */
+  readonly sinceReloadMs: number | null;
+  /** Wall ms of rebuilding the world from the decoded save; machine-dependent. */
+  readonly buildMs: number;
 }
 
 export interface OrderSchedule {
@@ -75,8 +90,39 @@ export interface SeatCensus {
   readonly buildings: number;
 }
 
+/** What `seat` holds in `snapshot`. */
+export function seatCensus(snapshot: WorldSnapshot, seat: number): SeatCensus {
+  return {
+    people: settlersOwnedBy(snapshot, seat).filter((entity) => !isWildlife(entity)).length,
+    buildings: indexesOf(snapshot).get(BUILDINGS_BY_OWNER).get(seat)?.length ?? 0,
+  };
+}
+
 function counts(): Record<OrderKind, number> {
   return Object.fromEntries(ORDER_KINDS.map((kind) => [kind, 0])) as Record<OrderKind, number>;
+}
+
+interface ServedSnapshot {
+  readonly kind: 'blob';
+  readonly type: 'snapshot';
+  readonly tick: number;
+  readonly bytes: string;
+}
+
+function isServedSnapshot(raw: unknown): raw is ServedSnapshot {
+  if (typeof raw !== 'object' || raw === null) return false;
+  const message = raw as Partial<ServedSnapshot>;
+  return (
+    message.kind === 'blob' &&
+    message.type === 'snapshot' &&
+    typeof message.tick === 'number' &&
+    typeof message.bytes === 'string'
+  );
+}
+
+function base64Bytes(text: string): number {
+  const padding = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0;
+  return (text.length / BASE64_GROUP_CHARS) * BASE64_GROUP_BYTES - padding;
 }
 
 interface OwnFrameCommands {
@@ -107,7 +153,17 @@ export class ClientProbe {
   /** Order stamps given up on: their link died under them, or the relay refused them. */
   lostStamps = 0;
   maxBehind = 0;
-  capture: { readonly tick: number; readonly hash: string; readonly census: SeatCensus | null } | null = null;
+  capture: {
+    readonly tick: number;
+    readonly hash: string;
+    readonly census: SeatCensus | null;
+    readonly entities: number;
+  } | null = null;
+  /** The world's entity count on the first tick this probe recorded. */
+  firstEntities: number | null = null;
+  readonly restores: RestoreRecord[] = [];
+  /** Clients this probe ran before a reload replaced them, oldest first. */
+  readonly retired: HeadlessClient[] = [];
   /** Chaos holds orders while set: the client is cut off, away or frozen. */
   disturbed = false;
 
@@ -121,32 +177,50 @@ export class ClientProbe {
   private seenRejections = 0;
   private frozenSince: number | null = null;
   private readonly held: unknown[] = [];
+  private served: { readonly tick: number; readonly bytes: number } | null = null;
+  private landed: { readonly tick: number; readonly snapshotBytes: number; readonly buildMs: number } | null =
+    null;
+  private reloadedAt: number | null = null;
+  private lastRunTick: number | null = null;
+  private current: HeadlessClient;
 
   constructor(
     readonly index: number,
-    readonly client: HeadlessClient,
+    client: HeadlessClient,
     readonly link: ClientLink,
     private readonly now: () => number,
     private readonly random: () => number,
     private readonly schedule: OrderSchedule,
     private readonly timeSystems: boolean,
   ) {
+    this.current = client;
     this.linked = {
       receive: (raw) => {
         if (this.frozenSince !== null) {
           this.held.push(raw);
           return;
         }
-        this.noteFrame(raw);
-        client.receive(raw);
+        this.note(raw);
+        this.client.receive(raw);
       },
-      attach: (send) => client.attach(send),
+      attach: (send) => this.client.attach(send),
     };
+  }
+
+  /** The page this probe runs now; a reload replaces it. */
+  get client(): HeadlessClient {
+    return this.current;
   }
 
   get seat(): number | null {
     const seat = this.client.session?.localSeat;
     return typeof seat === 'number' ? seat : null;
+  }
+
+  /** The client's tick, or the last one it ran while a reload left it without a world; null before
+   *  its first world. */
+  get standing(): number | null {
+    return this.client.tick ?? this.lastRunTick;
   }
 
   freeze(): void {
@@ -161,10 +235,26 @@ export class ClientProbe {
     this.frozenSince = null;
     this.disturbed = false;
     for (const raw of this.held.splice(0)) {
-      this.noteFrame(raw);
+      this.note(raw);
       this.client.receive(raw);
     }
     this.advance(this.now() - since);
+  }
+
+  /** A reloaded page: `client` takes over from the current one, with no world until the relay serves
+   *  it a snapshot. Link it and introduce it next. */
+  reload(client: HeadlessClient): void {
+    this.retired.push(this.current);
+    this.current = client;
+    this.seenRejections = 0;
+    this.reloadedAt = this.now();
+    this.adopt();
+  }
+
+  /** The client's `restoreWorld` rebuilt a world at `tick` in `buildMs` of wall time. */
+  restored(tick: number, buildMs: number): void {
+    const served = this.served?.tick === tick ? this.served : null;
+    this.landed = { tick, snapshotBytes: served?.bytes ?? 0, buildMs };
   }
 
   /** The link under the client died; stamps of orders in flight on it measure nothing now. */
@@ -186,11 +276,7 @@ export class ClientProbe {
   private census(): SeatCensus | null {
     const seat = this.seat;
     if (seat === null || this.view === null) return null;
-    const snapshot = this.view.snapshot();
-    return {
-      people: settlersOwnedBy(snapshot, seat).filter((entity) => !isWildlife(entity)).length,
-      buildings: indexesOf(snapshot).get(BUILDINGS_BY_OWNER).get(seat)?.length ?? 0,
-    };
+    return seatCensus(this.view.snapshot(), seat);
   }
 
   /** Close what the probe holds open on the current world. */
@@ -220,15 +306,40 @@ export class ClientProbe {
     const sim = this.client.sim;
     if (sim !== null && sim === this.sim) {
       const tick = sim.tick;
-      if (tick <= this.schedule.lastTick) this.record(tick, ms);
+      this.lastRunTick = tick;
+      this.noteRestore(sim);
+      if (tick <= this.schedule.lastTick && tick > (this.ticks.at(-1) ?? Number.NEGATIVE_INFINITY)) {
+        this.firstEntities ??= sim.world.entityCount;
+        this.record(tick, ms);
+      }
       this.applied(tick);
       this.forgetRefused();
       if (tick < this.schedule.lastTick && !this.disturbed) this.maybeOrder(sim, tick);
-      if (tick === this.schedule.lastTick)
-        this.capture = { tick, hash: sim.hashState(), census: this.census() };
+      if (tick === this.schedule.lastTick) {
+        this.capture = {
+          tick,
+          hash: sim.hashState(),
+          census: this.census(),
+          entities: sim.world.entityCount,
+        };
+      }
     }
     this.tickSystems.clear();
     this.mark = performance.now();
+  }
+
+  /** A restored world's first tick closes its restore record. */
+  private noteRestore(sim: Simulation): void {
+    const landed = this.landed;
+    if (landed === null || sim.tick <= landed.tick) return;
+    this.landed = null;
+    this.restores.push({
+      tick: landed.tick,
+      snapshotBytes: landed.snapshotBytes,
+      sinceReloadMs: this.reloadedAt === null ? null : this.now() - this.reloadedAt,
+      buildMs: landed.buildMs,
+    });
+    this.reloadedAt = null;
   }
 
   private record(tick: number, ms: number): void {
@@ -267,9 +378,13 @@ export class ClientProbe {
     this.client.submit(playerCommand(seat, command));
   }
 
-  /** The seat's own commands in a frame the client just took, matched to their stamps in order: the
-   *  relay keeps one member's commands in the order it sent them. */
-  private noteFrame(raw: unknown): void {
+  /** A served snapshot's size, and the seat's own commands in a frame the client just took, matched to
+   *  their stamps in order: the relay keeps one member's commands in the order it sent them. */
+  private note(raw: unknown): void {
+    if (isServedSnapshot(raw)) {
+      this.served = { tick: raw.tick, bytes: base64Bytes(raw.bytes) };
+      return;
+    }
     const seat = this.seat;
     if (seat === null || !isFrame(raw)) return;
     for (const { envelope } of raw.commands) {

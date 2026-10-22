@@ -8,13 +8,13 @@ import { captureEnvironment } from '../environment.js';
 import { percentile } from '../report/index.js';
 import { table } from '../report/table.js';
 import type { BenchEnvironment } from '../report/types.js';
-import type { ClientProbe, KeptTick, SeatCensus, SystemCost } from './client-probe.js';
+import type { ClientProbe, KeptTick, RestoreRecord, SeatCensus, SystemCost } from './client-probe.js';
 import type { ChaosEvent, ClientLink, ComputerDifficulty, LabConfig } from './config.js';
 import type { OrderKind } from './orders.js';
 import type { ClientTraffic, GovernorChange, MeteredRelay } from './relay-meter.js';
 
 /** Bumped on a layout change; a reader of an older report re-runs the lab instead. */
-export const LAB_REPORT_VERSION = 1;
+export const LAB_REPORT_VERSION = 2;
 /** Worst ticks named per client and for the room. */
 const REPORTED_WORST_TICKS = 10;
 /** Systems named per client as where its time went. */
@@ -50,6 +50,21 @@ export interface LabSeats {
   readonly difficulty: ComputerDifficulty;
   /** The seats nobody plays, with what they do. */
   readonly others: readonly { readonly player: number; readonly mode: string }[];
+}
+
+/** The world the room played: fresh from the map at tick 0, or resumed from a save. */
+export interface LabWorld {
+  readonly mapId: string;
+  readonly startTick: number;
+  /** The tick every client ran to, where the hashes are compared. */
+  readonly endTick: number;
+  readonly seed: number;
+  readonly save: {
+    readonly path: string;
+    readonly fileBytes: number;
+    /** The initial-save blob's base64 text, as the creator uploads it. */
+    readonly initialSaveBytes: number;
+  } | null;
 }
 
 export interface TimelineSample {
@@ -91,6 +106,12 @@ export interface ClientReport {
   readonly hash: string | null;
   /** The seat's holdings at the last tick, on this client's world. */
   readonly census: SeatCensus | null;
+  /** The world's entity count on the first tick this client recorded and on the last. */
+  readonly entities: { readonly first: number | null; readonly last: number | null };
+  /** Worlds rebuilt from a served snapshot; the build's wall time is under `wallClock`. */
+  readonly restores: readonly Omit<RestoreRecord, 'buildMs'>[];
+  /** Reloads replaced this client's page; the counts below cover every page it had. */
+  readonly reloads: number;
   readonly behindTicks: { readonly max: number; readonly p95: number; readonly mean: number };
   readonly bufferedTicks: { readonly max: number; readonly mean: number };
   readonly waits: number;
@@ -120,11 +141,14 @@ export interface ClientWall {
   readonly tickMs: Stat;
   readonly worstTicks: readonly WorstTick[];
   readonly topSystems: readonly { readonly name: string; readonly totalMs: number; readonly share: number }[];
+  /** Wall ms of each restore's world build, in the order of the client's `restores`. */
+  readonly restoreBuildMs: readonly number[];
 }
 
 export interface LabReport {
   readonly version: typeof LAB_REPORT_VERSION;
   readonly config: LabConfig;
+  readonly world: LabWorld;
   readonly seats: LabSeats;
   readonly result: {
     readonly tick: number;
@@ -157,6 +181,8 @@ export interface LabReport {
     /** Lobby plus every client's world build. */
     readonly assembleSeconds: number;
     readonly runSeconds: number;
+    /** Wall ms to inflate and parse the save the room started from, as a client decodes a snapshot. */
+    readonly saveDecodeMs: number | null;
     readonly clients: readonly ClientWall[];
     readonly spikes: readonly RoomSpike[];
     /** Per 5 ms network step: `deliverMs` is the clients taking their messages, `relayAdvanceMs` the
@@ -168,6 +194,7 @@ export interface LabReport {
 
 export interface ReportInputs {
   readonly config: LabConfig;
+  readonly world: LabWorld;
   readonly seats: LabSeats;
   readonly probes: readonly ClientProbe[];
   readonly relay: MeteredRelay;
@@ -181,6 +208,7 @@ export interface ReportInputs {
     readonly totalSeconds: number;
     readonly assembleSeconds: number;
     readonly runSeconds: number;
+    readonly saveDecodeMs: number | null;
     readonly peakRssMb: number;
     readonly loadPerCpu: number | null;
     readonly calibration: { readonly beforeMs: number; readonly afterMs: number };
@@ -264,6 +292,9 @@ function clientReport(
   relay: MeteredRelay,
 ): ClientReport {
   const { client } = probe;
+  const pages = [...probe.retired, client];
+  const sum = (count: (page: (typeof pages)[number]) => number): number =>
+    pages.reduce((total, page) => total + count(page), 0);
   return {
     client: probe.index,
     nick: client.nick,
@@ -271,16 +302,19 @@ function clientReport(
     link: probe.link,
     hash: probe.capture?.hash ?? null,
     census: probe.capture?.census ?? null,
+    entities: { first: probe.firstEntities, last: probe.capture?.entities ?? null },
+    restores: probe.restores.map(({ buildMs: _buildMs, ...restore }) => restore),
+    reloads: probe.retired.length,
     behindTicks: behindOf(timeline, probe.index, probe.maxBehind),
     bufferedTicks: bufferedOf(timeline, probe.index),
-    waits: client.waits.length,
-    desyncs: client.desyncs.length,
-    restoredFrom: client.restoredFrom,
-    rejections: client.rejections.map((entry) => `${entry.of}: ${entry.reason.code}`),
-    dropped: client.dropped,
-    errors: client.errors.map((reason) => reason.code),
-    snapshotsSent: client.snapshotsSent,
-    droppedTicks: client.droppedTicks,
+    waits: sum((page) => page.waits.length),
+    desyncs: sum((page) => page.desyncs.length),
+    restoredFrom: pages.flatMap((page) => page.restoredFrom),
+    rejections: pages.flatMap((page) => page.rejections.map((entry) => `${entry.of}: ${entry.reason.code}`)),
+    dropped: pages.flatMap((page) => page.dropped),
+    errors: pages.flatMap((page) => page.errors.map((reason) => reason.code)),
+    snapshotsSent: sum((page) => page.snapshotsSent),
+    droppedTicks: sum((page) => page.droppedTicks),
     orders: { issued: probe.issued, skipped: probe.skipped, lostStamps: probe.lostStamps },
     clickToFrameMs: stat(probe.clickToFrameMs),
     clickToApplyMs: stat(probe.clickToApplyMs),
@@ -304,6 +338,7 @@ function clientWall(probe: ClientProbe, commands: ReadonlyMap<number, CommandSum
       .map(([name, totalMs]) => ({ name, totalMs, share: total === 0 ? 0 : totalMs / total }))
       .sort((a, b) => b.totalMs - a.totalMs || a.name.localeCompare(b.name))
       .slice(0, TOP_SYSTEMS),
+    restoreBuildMs: probe.restores.map((restore) => restore.buildMs),
   };
 }
 
@@ -318,6 +353,7 @@ export function buildReport(inputs: ReportInputs): LabReport {
   const deterministic = {
     version: LAB_REPORT_VERSION,
     config,
+    world: inputs.world,
     seats: inputs.seats,
     clients,
     relay: {
@@ -343,7 +379,7 @@ export function buildReport(inputs: ReportInputs): LabReport {
   return {
     ...deterministic,
     result: {
-      tick: config.ticks,
+      tick: inputs.world.endTick,
       hashesAgree: hashes.size === 1 && !hashes.has(null),
       virtualSeconds: inputs.virtualMs / 1000,
       deterministicDigest,
@@ -360,6 +396,7 @@ export function buildReport(inputs: ReportInputs): LabReport {
       totalSeconds: inputs.wall.totalSeconds,
       assembleSeconds: inputs.wall.assembleSeconds,
       runSeconds: inputs.wall.runSeconds,
+      saveDecodeMs: inputs.wall.saveDecodeMs,
       clients: probes.map((probe) => clientWall(probe, commands)),
       spikes: spikes.map((spike) => ({ ...spike, commands: commands.get(spike.tick) ?? [] })),
       deliverMs: stat(inputs.deliverMs),
@@ -370,6 +407,7 @@ export function buildReport(inputs: ReportInputs): LabReport {
 
 const ms = (value: number): string => value.toFixed(MS_DIGITS);
 const kib = (bytes: number): string => `${(bytes / 1024).toFixed(1)}K`;
+const mib = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 
 function commandLine(commands: readonly CommandSummary[]): string {
   if (commands.length === 0) return '-';
@@ -388,11 +426,19 @@ function systemLine(systems: readonly SystemCost[]): string {
 
 /** The stdout summary: one line per client, then the room's spikes. */
 export function formatSummary(report: LabReport): string {
-  const { config, result, wallClock } = report;
+  const { config, result, wallClock, world } = report;
+  const entities = report.clients[0]?.entities;
   const lines: string[] = [
-    `net-lab ${config.mapId}: ${config.humans} humans on seats ${report.seats.human.join(',')}, ` +
+    `net-lab ${world.mapId}: ${config.humans} humans on seats ${report.seats.human.join(',')}, ` +
       `computers ${report.seats.computer.join(',') || 'none'} (${report.seats.difficulty}), ` +
-      `${config.ticks} ticks at speed ${config.speed}, seed ${config.seed}`,
+      `ticks ${world.startTick}..${world.endTick} at speed ${config.speed}, seed ${world.seed}`,
+    ...(world.save === null
+      ? []
+      : [
+          `from save ${world.save.path}: ${mib(world.save.fileBytes)} gzip, initial-save blob ` +
+            `${mib(world.save.initialSaveBytes)} base64, decode ${ms(wallClock.saveDecodeMs ?? 0)} ms (wall)`,
+        ]),
+    `entities ${entities?.first ?? '-'} at the first tick, ${entities?.last ?? '-'} at the last`,
     result.hashesAgree
       ? `hashes agree at tick ${result.tick}; deterministic digest ${result.deterministicDigest}`
       : `!!! HASH MISMATCH at tick ${result.tick}: ${report.clients.map((c) => `${c.nick}=${c.hash}`).join(' ')}`,
@@ -463,6 +509,16 @@ export function formatSummary(report: LabReport): string {
     lines.push(
       `chaos: ${event.kind} client ${event.client} for ${event.ms} ms at relay tick ${fired.relayTick}`,
     );
+  }
+  for (const [i, client] of report.clients.entries()) {
+    const builds = wallClock.clients[i]?.restoreBuildMs ?? [];
+    client.restores.forEach((restore, r) => {
+      lines.push(
+        `restore: ${client.nick} at tick ${restore.tick} from a ${mib(restore.snapshotBytes)} snapshot, ` +
+          `build ${ms(builds[r] ?? 0)} ms (wall)` +
+          (restore.sinceReloadMs === null ? '' : `, ${restore.sinceReloadMs} ms from reload to first tick`),
+      );
+    });
   }
   lines.push('', 'room spikes (wall ms, median over clients):');
   for (const spike of wallClock.spikes) {

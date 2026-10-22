@@ -50,18 +50,27 @@ export type ChaosEvent =
   | { readonly kind: 'relink'; readonly atTick: number; readonly client: number; readonly ms: number }
   /** Run nothing and read nothing for `ms`, as a frozen tab does, then take the held messages and the
    *  whole elapsed time in one frame. */
-  | { readonly kind: 'freeze'; readonly atTick: number; readonly client: number; readonly ms: number };
+  | { readonly kind: 'freeze'; readonly atTick: number; readonly client: number; readonly ms: number }
+  /** Close the socket and come back after `ms` as a reloaded page: a new client with the same identity
+   *  and no world, which the relay brings back from the room's snapshot. */
+  | { readonly kind: 'reload'; readonly atTick: number; readonly client: number; readonly ms: number };
 export type ChaosKind = ChaosEvent['kind'];
-const CHAOS_KINDS: readonly ChaosKind[] = ['cut', 'relink', 'freeze'];
+const CHAOS_KINDS: readonly ChaosKind[] = ['cut', 'relink', 'freeze', 'reload'];
+/** Kinds whose `ms` may be left out: the client comes back at once. */
+const INSTANT_CHAOS_KINDS: readonly ChaosKind[] = ['relink', 'reload'];
 
 export interface LabConfig {
   readonly mapId: string;
+  /** A gzipped canonical save the room starts from instead of a fresh world; its map is the room's. */
+  readonly save: string | null;
   readonly humans: number;
   /** Computer seats taken from the claimable seats left after the humans; null takes all of them. */
   readonly computers: number | null;
   readonly difficulty: ComputerDifficulty;
+  /** Ticks every client must run: from tick 0, or from the save's tick. */
   readonly ticks: number;
   readonly speed: number;
+  /** The session seed of a fresh room; a saved room keeps the save's. */
   readonly seed: number;
   /** One per human client. */
   readonly links: readonly ClientLink[];
@@ -79,6 +88,7 @@ export interface LabConfig {
 
 export const DEFAULT_LAB_CONFIG: Omit<LabConfig, 'links'> = {
   mapId: 'magiczny_las',
+  save: null,
   humans: 2,
   computers: null,
   difficulty: 'hard',
@@ -96,10 +106,12 @@ const DEFAULT_PROFILE: LinkProfileName = 'home';
 
 export const LAB_USAGE = `usage: npm run bench:net-lab -- [flags]
   --map <id>                decoded map (default ${DEFAULT_LAB_CONFIG.mapId})
+  --save <file>             start from this gzipped save (build-save writes one); humans take over
+                            the seats its computers held, and the map and seed are the save's
   --humans <n>              headless human clients (default ${DEFAULT_LAB_CONFIG.humans})
   --computers <n>           computer seats from the claimable seats left (default: all of them)
   --difficulty <level>      easy | medium | hard (default ${DEFAULT_LAB_CONFIG.difficulty})
-  --ticks <n>               ticks every client must reach (default ${DEFAULT_LAB_CONFIG.ticks})
+  --ticks <n>               ticks every client must run, from the start or the save (default ${DEFAULT_LAB_CONFIG.ticks})
   --speed <x>               room speed (default ${DEFAULT_LAB_CONFIG.speed})
   --seed <n>                session seed; also seeds jitter and orders (default ${DEFAULT_LAB_CONFIG.seed})
   --links <p,p,...>         link profile per client, cycled (${Object.keys(LINK_PROFILES).join(', ')}; default ${DEFAULT_PROFILE})
@@ -108,12 +120,13 @@ export const LAB_USAGE = `usage: npm run bench:net-lab -- [flags]
   --orders-per-minute <n>   orders per human client per game minute (default ${DEFAULT_LAB_CONFIG.ordersPerMinute})
   --mix <kind=w,...>        order weights over ${ORDER_KINDS.join(', ')}
   --chaos <kind@tick:client:ms,...>
-                            ${CHAOS_KINDS.join(' | ')} at a relay clock tick, for client index (from 0)
+                            ${CHAOS_KINDS.join(' | ')} at a tick counted from the room's start, for
+                            client index (from 0)
   --systems on|off          time each sim system for the spike breakdown (default on)
   --sample-ms <n>           virtual ms between timeline samples (default ${DEFAULT_LAB_CONFIG.sampleMs})
   --out <path>              write the JSON report there`;
 
-function integer(flag: string, raw: string, min: number): number {
+export function integerArg(flag: string, raw: string, min: number): number {
   const value = Number(raw);
   if (!Number.isInteger(value) || value < min)
     throw new Error(`${flag} must be an integer >= ${min}, got '${raw}'`);
@@ -162,9 +175,9 @@ function linkOverride(raw: string): { readonly client: number; readonly link: Cl
       );
     }
     const field = LINK_OVERRIDES[key as keyof typeof LINK_OVERRIDES];
-    link = { ...link, [field]: integer(`--link ${key}`, value, 0) };
+    link = { ...link, [field]: integerArg(`--link ${key}`, value, 0) };
   }
-  return { client: integer('--link index', index, 0), link };
+  return { client: integerArg('--link index', index, 0), link };
 }
 
 function orderWeights(raw: string): Record<OrderKind, number> {
@@ -174,7 +187,7 @@ function orderWeights(raw: string): Record<OrderKind, number> {
     if (kind === undefined || value === undefined || !ORDER_KINDS.includes(kind as OrderKind)) {
       throw new Error(`--mix wants <kind>=<weight> over ${ORDER_KINDS.join(', ')}, got '${pair}'`);
     }
-    weights[kind as OrderKind] = integer(`--mix ${kind}`, value, 0);
+    weights[kind as OrderKind] = integerArg(`--mix ${kind}`, value, 0);
   }
   if (Object.values(weights).every((weight) => weight === 0))
     throw new Error('--mix gives every kind weight 0');
@@ -193,14 +206,15 @@ function chaosEvents(raw: string, humans: number): ChaosEvent[] {
     if (!CHAOS_KINDS.includes(kind as ChaosKind)) {
       throw new Error(`--chaos kind '${kind}' is not one of ${CHAOS_KINDS.join(', ')}`);
     }
-    const index = integer('--chaos client', client, 0);
+    const index = integerArg('--chaos client', client, 0);
     if (index >= humans) throw new Error(`--chaos names client ${index}, but only ${humans} run`);
-    if (kind !== 'relink' && ms === undefined) throw new Error(`--chaos ${kind} needs a duration: '${item}'`);
+    if (!INSTANT_CHAOS_KINDS.includes(kind as ChaosKind) && ms === undefined)
+      throw new Error(`--chaos ${kind} needs a duration: '${item}'`);
     return {
       kind: kind as ChaosKind,
-      atTick: integer('--chaos tick', atTick, 1),
+      atTick: integerArg('--chaos tick', atTick, 1),
       client: index,
-      ms: ms === undefined ? 0 : integer('--chaos ms', ms, 0),
+      ms: ms === undefined ? 0 : integerArg('--chaos ms', ms, 0),
     };
   });
 }
@@ -236,24 +250,27 @@ export function parseLabArgs(argv: readonly string[]): LabConfig {
     const raw = take(flag);
     if (raw !== undefined) config[key] = parse(raw);
   };
+  if (values.has('--map') && values.has('--save'))
+    throw new Error('--map and --save exclude each other: the save names its map');
   read('--map', 'mapId', (raw) => raw);
-  read('--humans', 'humans', (raw) => integer('--humans', raw, 1));
-  read('--computers', 'computers', (raw) => integer('--computers', raw, 0));
+  read('--save', 'save', (raw) => raw);
+  read('--humans', 'humans', (raw) => integerArg('--humans', raw, 1));
+  read('--computers', 'computers', (raw) => integerArg('--computers', raw, 0));
   read('--difficulty', 'difficulty', (raw) => {
     if (!DIFFICULTIES.includes(raw))
       throw new Error(`--difficulty must be one of ${DIFFICULTIES.join(', ')}`);
     return raw as ComputerDifficulty;
   });
-  read('--ticks', 'ticks', (raw) => integer('--ticks', raw, 1));
+  read('--ticks', 'ticks', (raw) => integerArg('--ticks', raw, 1));
   read('--speed', 'speed', (raw) => positive('--speed', raw));
-  read('--seed', 'seed', (raw) => integer('--seed', raw, 0));
+  read('--seed', 'seed', (raw) => integerArg('--seed', raw, 0));
   read('--orders-per-minute', 'ordersPerMinute', (raw) => positive('--orders-per-minute', raw));
   read('--mix', 'orderWeights', orderWeights);
   read('--systems', 'systems', (raw) => {
     if (raw !== 'on' && raw !== 'off') throw new Error(`--systems must be on or off, got '${raw}'`);
     return raw === 'on';
   });
-  read('--sample-ms', 'sampleMs', (raw) => integer('--sample-ms', raw, 1));
+  read('--sample-ms', 'sampleMs', (raw) => integerArg('--sample-ms', raw, 1));
   read('--out', 'out', (raw) => raw);
   const chaos = take('--chaos');
   const profiles = (take('--links') ?? DEFAULT_PROFILE).split(',').map(profileOf);

@@ -39,7 +39,7 @@ import {
   walkOrder,
   withTimeout,
 } from './net-browser-lab/player.mjs';
-import { createProcessSet, ensureRelayBuild, freePort } from './net-browser-lab/processes.mjs';
+import { createProcessSet, ensureRelayBuild, freePort, stopOnSignals } from './net-browser-lab/processes.mjs';
 import { runStartScenarios } from './net-browser-lab/start-scenario.mjs';
 
 const TICKS_PER_SECOND = 12;
@@ -509,6 +509,9 @@ async function main() {
   browser = await chromium.launch({
     headless: !options.headed,
     channel: 'chromium',
+    handleSIGINT: false,
+    handleSIGTERM: false,
+    handleSIGHUP: false,
     args:
       options.headed && process.env.ON_BENCH_WINDOW_POSITION
         ? [...BROWSER_ARGS, `--window-position=${process.env.ON_BENCH_WINDOW_POSITION}`]
@@ -543,19 +546,7 @@ async function main() {
   return { servers, players, roomId, chaos, playedSeconds };
 }
 
-/** Exit codes for a run ended by a signal: 128 plus the signal's number. */
-const SIGNAL_EXIT = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 };
-let stoppingOnSignal = false;
-for (const [signal, code] of Object.entries(SIGNAL_EXIT)) {
-  process.on(signal, async () => {
-    if (stoppingOnSignal) return;
-    stoppingOnSignal = true;
-    log(`${signal}: closing the browser and stopping the servers`);
-    if (browser !== null) await browser.close().catch(() => undefined);
-    await processes.stopAll();
-    process.exit(code);
-  });
-}
+stopOnSignals(processes, { beforeStop: async () => browser?.close(), log });
 
 let outcome = null;
 try {

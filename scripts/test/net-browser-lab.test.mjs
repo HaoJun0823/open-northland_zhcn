@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -308,6 +309,43 @@ test('the process set stops its children and starts none once stopping began', a
     await assert.rejects(processes.start('late', process.execPath, idle, { ready: /ready/ }), /stopping/);
     assert.equal(processes.list().length, 1);
   } finally {
+    rmSync(logDir, { recursive: true, force: true });
+  }
+});
+
+function isRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test('SIGINT to the lab closes the browser, stops its children, then exits with 130', async () => {
+  const logDir = mkdtempSync(join(tmpdir(), 'net-browser-lab-'));
+  const lab = spawn(process.execPath, [join(import.meta.dirname, 'support/lab-signal-child.mjs'), logDir], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  let childPid = null;
+  try {
+    childPid = await new Promise((done, fail) => {
+      let out = '';
+      lab.stdout.on('data', (chunk) => {
+        out += chunk.toString();
+        const match = /child (\d+)/.exec(out);
+        if (match !== null) done(Number(match[1]));
+      });
+      lab.once('exit', (code) => fail(new Error(`the lab exited with ${code} before its child ran`)));
+    });
+    const exited = new Promise((done) => lab.once('exit', (code, signal) => done({ code, signal })));
+    lab.kill('SIGINT');
+    assert.deepEqual(await exited, { code: 130, signal: null });
+    assert.equal(existsSync(join(logDir, 'browser-closed')), true);
+    assert.equal(isRunning(childPid), false);
+  } finally {
+    if (lab.exitCode === null) lab.kill('SIGKILL');
+    if (childPid !== null && isRunning(childPid)) process.kill(childPid, 'SIGKILL');
     rmSync(logDir, { recursive: true, force: true });
   }
 });

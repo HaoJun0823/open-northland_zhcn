@@ -131,3 +131,25 @@ export function createProcessSet(logDir, log) {
 
   return { start, stopAll, list: () => children };
 }
+
+/** Exit codes for a run ended by a signal: 128 plus the signal's number. */
+const SIGNAL_EXIT = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 };
+
+/**
+ * On SIGINT, SIGTERM or SIGHUP: run `beforeStop` (closing the browser), stop every child of `processes`,
+ * then exit with the signal's code. The lab owns these signals; its browser launches without
+ * Playwright's own handlers, which would exit before the children are stopped.
+ */
+export function stopOnSignals(processes, { beforeStop, log }) {
+  let stopping = false;
+  for (const [signal, code] of Object.entries(SIGNAL_EXIT)) {
+    process.on(signal, async () => {
+      if (stopping) return;
+      stopping = true;
+      log(`${signal}: closing the browser and stopping the servers`);
+      await beforeStop().catch(() => undefined);
+      await processes.stopAll();
+      process.exit(code);
+    });
+  }
+}

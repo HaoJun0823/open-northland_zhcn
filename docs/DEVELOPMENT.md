@@ -294,6 +294,10 @@ start of a text message), each ping and pong, and each close frame with its code
 the delay through the proxy, plus the connection events; stdout gets the events without the frames.
 `--seed` fixes the jitter sequence of every connection, so a run repeats.
 
+Latency is one way, so a round trip is twice it; caps are in Mbit/s or KiB/s as written. These are
+not the load lab's profiles of the same names: its `home` is a 40 ms round trip at 1 / 6 MiB/s (see
+[Multiplayer load lab](TESTING.md#multiplayer-load-lab)).
+
 | Profile | One-way latency | Jitter | Up / down cap | Stalls | Flapping |
 | --- | --- | --- | --- | --- | --- |
 | `lan` (default) | 1 ms | 0 | none | none | none |

@@ -5,6 +5,11 @@ const SMOOTHING = 0.25;
 /** The relay lands a command on its next tick at the earliest. */
 const MIN_APPLY_LEAD_TICKS = 1;
 
+interface Stamp {
+  readonly clickedAt: number;
+  readonly bytes: number;
+}
+
 /**
  * Click-to-apply time for this seat's own commands, and how many of them are in flight. The relay
  * keeps one member's commands in order, so the oldest stamp belongs to the next command of this seat
@@ -17,11 +22,6 @@ const MIN_APPLY_LEAD_TICKS = 1;
  * sent, so every command of this seat applied, dropped or refused meanwhile is a carried one and the
  * count stays exact.
  */
-interface Stamp {
-  readonly clickedAt: number;
-  readonly bytes: number;
-}
-
 export class CommandLatency {
   private readonly stamps: Stamp[] = [];
   private stampBytes = 0;

@@ -1,4 +1,5 @@
 import type { CartDriveBinding, SpriteLayer, SpriteSheet } from '@open-northland/render';
+import { Texture } from 'pixi.js';
 import { JOB_CARRIER, JOB_TRADER } from '../../catalog/jobs.js';
 import { INDEXED_CHARACTER_PALETTE, PLAYER_COLOR_COUNT } from '../../catalog/roster.js';
 import { VEHICLE_HANDCART, VEHICLE_OXCART } from '../../game/sandbox/ids/vehicles.js';
@@ -51,9 +52,14 @@ import { humanPaletteLut } from './human-palettes.js';
 // Assemble the real decoded SpriteSheet from the loaded atlases and binding reducers. Loads from the
 // gitignored `content/` over the dev/shot vite server.
 
-/** The decoded human body + head atlases (`test_human_00` palette) served at `/bobs/<name>.*`. */
+/** The decoded human body + head atlases (`test_human_00` palette) the sheet-global settler path draws. */
 const HUMAN_BODY_ATLAS = 'cr_hum_body_00.test_human_00';
 const HUMAN_HEAD_ATLAS = 'cr_hum_head_00.test_human_00';
+/** The base layer of a sheet whose settlers all draw as characters: nothing reads it. */
+const UNDRAWN_LAYER: SpriteLayer = {
+  source: Texture.EMPTY.source,
+  atlas: { width: 0, height: 0, frames: new Map() },
+};
 
 /** The scout's guidepost atlases: bob 0 the post, bobs 1..18 the direction board in ~20° angular steps
  *  around the post top. Each owner draws its own `ls_guidepost.player_NN` bake, baked rather than
@@ -90,6 +96,18 @@ async function loadGatheringFamilies(
 }
 
 /**
+ * The base body layer and head overlay. Only the sheet-global settler path, for a sheet without
+ * characters, draws them, so a sheet with characters loads neither.
+ */
+export async function loadBaseHumanLayers(
+  hasCharacters: boolean,
+): Promise<{ readonly body: SpriteLayer; readonly head?: SpriteLayer }> {
+  if (hasCharacters) return { body: UNDRAWN_LAYER };
+  const [body, head] = await Promise.all([loadLayer(HUMAN_BODY_ATLAS), loadLayer(HUMAN_HEAD_ATLAS)]);
+  return { body, head };
+}
+
+/**
  * Load the real human {@link SpriteSheet}: the body layer as the base sheet, the head layer as an overlay
  * drawn on top at the same bob id.
  */
@@ -101,19 +119,11 @@ export async function loadHumanSpriteSheet(
   /** Tribes that need settler looks but no building pages: the admin panel's spawnable monsters. */
   extraCharacterTribes: readonly number[] = [],
 ): Promise<SpriteSheet> {
-  // This sheet's own body/head layers draw no cast shadow - a settler's silhouette rides its per-job
-  // character look - so their fetches start before the IR await; the tree/house/family loads wait for
-  // the IR's body-stem → shadow-stem join to attach each atlas's twin.
-  const bodyLoad = loadLayer(HUMAN_BODY_ATLAS);
-  const headLoad = loadLayer(HUMAN_HEAD_ATLAS);
-  // Keep an absent-content rejection from surfacing as unhandled while the IR await is still pending.
-  bodyLoad.catch(() => undefined);
-  headLoad.catch(() => undefined);
+  // The tree/house/family loads wait for the IR's body-stem → shadow-stem join to attach each atlas's
+  // twin. An absent tree or house atlas is the sign `content/` is not populated.
   const ir = await loadIr();
   const shadowStems = shadowStemsByAtlasStem(ir);
-  const [body, head, tree, house, buildings] = await Promise.all([
-    bodyLoad,
-    headLoad,
+  const [tree, house, buildings] = await Promise.all([
     loadLayer(TREE_ATLAS, shadowStems.get(TREE_ATLAS)),
     loadLayer(HOUSE_ATLAS, shadowStems.get(HOUSE_ATLAS)),
     loadBuildingSheet(ir, tribes, shadowStems),
@@ -138,6 +148,7 @@ export async function loadHumanSpriteSheet(
     humanCharacters !== undefined && animalCharacters !== undefined
       ? { ...humanCharacters, animals: animalCharacters }
       : humanCharacters;
+  const { body, head } = await loadBaseHumanLayers(characters !== undefined);
   // Gathering economy: the per-good bindings are built against exactly the families that loaded, the same
   // load-then-drop-unloaded contract the building families use. The default yew node stays the
   // `kindLayers.resource` layer, so it is excluded from the loaded families.
@@ -238,7 +249,7 @@ export async function loadHumanSpriteSheet(
       ...(vehicles.binding !== undefined ? { vehicle: vehicles.binding } : {}),
       ...(munitionBinding !== undefined ? { munition: munitionBinding } : {}),
     },
-    overlays: [head],
+    ...(head !== undefined ? { overlays: [head] } : {}),
     // The tree and the default building each draw from their own atlas (distinct id spaces), so they bind
     // as per-kind layers rather than sharing the body atlas the settler uses.
     kindLayers: { resource: tree, building: house },

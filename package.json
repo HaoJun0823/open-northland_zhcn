@@ -35,6 +35,7 @@
     "bench:browser-shots": "node scripts/bench-browser-shots.mjs",
     "bench:gpu": "node scripts/bench-gpu.mjs",
     "bench:hud": "node scripts/bench-hud.mjs",
+    "bench:net-lab": "node scripts/bench-net-lab.mjs",
     "test:content": "node scripts/run-gated.mjs node scripts/test-content.mjs",
     "test:pipeline": "node scripts/test-pipeline.mjs",
     "test:engines": "node scripts/test-engines.mjs",

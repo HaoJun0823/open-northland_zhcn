@@ -13,6 +13,7 @@
     "test/content/helpers.ts",
     "test/content/real-map-world.ts"
   ],
+  "exclude": ["bench/net-lab.ts", "bench/net-lab/**"],
   "references": [
     { "path": "./tsconfig.json" },
     { "path": "../data" },

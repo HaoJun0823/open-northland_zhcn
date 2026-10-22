@@ -403,6 +403,50 @@ another report layout version is refused by name; re-run the benchmark.
 
 Absolute timing is machine-dependent, so compare runs on the same machine.
 
+### Multiplayer load lab
+
+`npm run bench:net-lab` plays one relayed session on a real decoded map: headless human clients
+over the in-memory relay on a virtual clock, computer seats beside them, each client running its own
+sim. It needs generated content and fails without it. The runner bundles the program from source,
+so it needs no workspace build.
+
+```sh
+npm run bench:net-lab -- --help
+npm run bench:net-lab -- --map diamentowa_dolina --humans 6 --computers 2 --ticks 3000 \
+  --links home,home,far,lan,bad,home --out bench-out/net-lab.json
+npm run bench:net-lab -- --humans 3 --ticks 900 --chaos cut@200:1:3000,freeze@400:2:6000,relink@600:0:1500
+```
+
+The main flags:
+
+- `--map`, `--humans`, `--computers` and `--difficulty` set the room. Humans take the first claimable
+  seats. Computers take the next ones, all of them unless `--computers` says how many.
+- `--ticks` sets how far every client must get, and the hashes are compared there. `--speed` is the
+  room speed. `--seed` seeds the session, the link jitter and the orders.
+- `--links` gives a profile per client, cycled: `lan`, `home`, `far` or `bad`. Each profile is a
+  latency, jitter and bandwidth set in `packages/app/bench/net-lab/config.ts`. `--link 2=bad,latencyMs=600`
+  overrides one client.
+- `--orders-per-minute` and `--mix move=5,build=1,assistant=2,job=2` set each human's orders: group
+  moves, building sites, assistant counters and profession changes for its own seat. Each order is
+  checked against the sim's own placement, formation and profession queries before it is sent.
+- `--chaos kind@tick:client:ms` fires at a relay clock tick. `cut` blackholes the client for `ms` and
+  then reconnects it. `relink` closes its socket and reconnects after `ms`. `freeze` holds its
+  messages and frames for `ms`, then takes them in one frame, as a frozen tab does.
+
+The summary prints one line per client and the room's spikes. A spike is a tick ranked by its
+median wall cost across the clients, with the systems and the commands applied on that tick. A tick
+that is slow on every client is the sim's own cost; one slow client alone is scheduling or garbage
+collection. The JSON report adds per-client worst ticks, where the sim time went, lag and buffer
+timelines, relay bytes per message kind, governor changes and the fired chaos events.
+
+Everything under `wallClock` is wall time on this machine: tick costs, spikes, the relay's poll.
+Compare those numbers only between runs on the same machine. Everything else runs on the virtual
+clock and repeats for a seed: hashes, lag, waits, orders, bytes and click-to-apply times. The
+`deterministic digest` in the summary shows this; two runs with one seed print the same digest.
+Clients report their tick load to the relay on the virtual clock, so the relay governs the room on
+lag only, never on a client's machine load. A cut or relink lets the relay learn of the close at
+once, where a real relay would wait for silent pings.
+
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.
 
 ## Choosing the required checks

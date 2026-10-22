@@ -11,6 +11,9 @@ export interface HeadlessClientOptions {
   readonly buildWorld: (session: GameSession) => Promise<Simulation>;
   /** Rebuild the world from a snapshot another client took; the real entry's restore twin. */
   readonly restoreWorld: (session: GameSession, save: SaveGame) => Promise<Simulation>;
+  /** The clock the client stamps its tick cost and click-to-apply times with; a virtual clock keeps the
+   *  load it reports, and so the relay's pacing, independent of the machine. Default `performance.now`. */
+  readonly now?: () => number;
 }
 
 type Notice<K extends ServerMessage['kind']> = Extract<ServerMessage, { kind: K }>;
@@ -73,6 +76,7 @@ export class HeadlessClient extends RelayClient {
       token: options.token,
       nick: options.nick,
       world: worldPortFor(options),
+      ...(options.now === undefined ? {} : { now: options.now }),
       onMessage: (message) => {
         switch (message.kind) {
           case 'room':

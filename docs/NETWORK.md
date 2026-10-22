@@ -166,7 +166,9 @@ whose connection dropped included, so a game never starts without one of its pla
 announced by `clock { tick, speed, paused: false, by: null, governed: null }` naming the first tick
 to run. The app reports `loaded` only once its display has shown the world's first frame and begun
 the next one, so a first frame that blocks on first-use graphics work still holds the room, and
-every player's game starts together rather than when the slowest one's sim is built. A client
+every player's game starts together rather than when the slowest one's sim is built. A hidden
+page runs no animation frames, so there the app reports `loaded` once it has drawn one frame, and a
+tab hidden through its load neither holds the room nor runs out its loading time. A client
 holding no world that asks with `loaded { tick: null }` instead counts as loaded once the relay
 serves it the room's snapshot, before its display shows the restored world. Until then it may send
 `loading { progress }`, its boot progress in whole percent (0-100), which the room view shows; the
@@ -742,7 +744,8 @@ The client keeps the room's chat as the relay logs it: `chatHistory` replaces
 it on every entry and return, each `chat` appends to it, up to `MAX_CHAT_HISTORY_LINES`. The desktop
 and browser app plays through the `?relay=` entry, whose client, link and world run in a network
 worker, the headless test client through an in-memory network. The app's client holds `loaded` until
-the display has shown its first frame of the world and begun the next, and keeps the loading screen
+the display has shown its first frame of the world and begun the next, or on a hidden page has
+drawn it, and keeps the loading screen
 up until the room's clock runs and nobody is still loading. The worker wakes and feeds its client at
 the pace the client plays: the governed speed while the room is governed, and up to the catch-up cap
 while it drains a backlog. It steps at most a couple of display frames past the tick the display drew,

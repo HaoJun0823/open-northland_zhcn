@@ -23,11 +23,16 @@ it('asks a seated player for snapshots before faster observers, including retrie
     },
     0,
   );
-  resync.advance(SNAPSHOT_REFRESH_MS);
-  resync.advance(SNAPSHOT_REFRESH_MS + SNAPSHOT_RETRY_MS);
+  // Donors are asked only while the relay hears them.
+  const advanceHeard = (now: number): void => {
+    for (const member of members.values()) member.lastHeardAt = now;
+    resync.advance(now);
+  };
+  advanceHeard(SNAPSHOT_REFRESH_MS);
+  advanceHeard(SNAPSHOT_REFRESH_MS + SNAPSHOT_RETRY_MS);
   expect(asked).toEqual(['Player', 'Player']);
   // Once no seated players remain, the observers can maintain their own session.
   player.seat = null;
-  resync.advance(SNAPSHOT_REFRESH_MS + 2 * SNAPSHOT_RETRY_MS);
+  advanceHeard(SNAPSHOT_REFRESH_MS + 2 * SNAPSHOT_RETRY_MS);
   expect(asked.at(-1)).toBe('Observer 0');
 });

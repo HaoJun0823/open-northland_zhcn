@@ -73,7 +73,10 @@ describe('terminal room consensus', () => {
     s.b.send(finish(1));
     s.advance(1);
     expect(s.a.of('snapshotRequest')).toHaveLength(1);
-    s.advance(SNAPSHOT_RETRY_MS);
+    s.advance(SNAPSHOT_RETRY_MS - TICK_MS);
+    // Only a donor the relay still hears is asked.
+    s.b.send({ kind: 'pong', t: s.b.last('ping')?.t ?? 0 });
+    s.advance(TICK_MS);
     expect(s.b.of('snapshotRequest')).toHaveLength(1);
     expect(s.a.of('frame')).toHaveLength(1);
   });

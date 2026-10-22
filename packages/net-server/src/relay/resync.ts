@@ -5,7 +5,7 @@ import {
   HISTORY_REFRESH_AGE_MS,
   MAX_COMMAND_HISTORY_BYTES,
 } from './catch-up.js';
-import { type Deliver, isSynced, type Member, type Refusal } from './member.js';
+import { type Deliver, isSilent, isSynced, type Member, type Refusal } from './member.js';
 
 /** Cadence of the cached snapshot's refresh from the best-connected client. */
 export const SNAPSHOT_REFRESH_MS = HISTORY_REFRESH_AGE_MS;
@@ -69,6 +69,7 @@ export class Resync {
   queue(member: Member, now: number): void {
     if (member.outOfSync !== null && this.catchUp.snapshot?.from === member.nick) this.snapshotInvalid = true;
     this.awaiting.add(member);
+    this.releaseUnfitDonor(now);
     if (this.requestedAt === null || now - this.requestedAt >= SNAPSHOT_RETRY_MS) this.request(now);
   }
 
@@ -135,6 +136,7 @@ export class Resync {
   /** Unanswered refreshes retry even when no member is currently waiting for resync. */
   advance(now: number): Refusal {
     if (this.catchUp.expired(now)) return { code: 'historyAge' };
+    this.releaseUnfitDonor(now);
     const refreshDue = this.catchUp.needsRefresh(now) || now - this.lastRefreshAt >= SNAPSHOT_REFRESH_MS;
     if (refreshDue && !this.refreshing) {
       this.refreshing = true;
@@ -159,7 +161,9 @@ export class Resync {
     }
     const members = [...this.members.values()];
     const hasPlayers = members.some((member) => member.seat !== null);
-    const eligible = members.filter((member) => isSynced(member) && (!hasPlayers || member.seat !== null));
+    const eligible = members.filter(
+      (member) => canDonate(member, now) && (!hasPlayers || member.seat !== null),
+    );
     if (eligible.length === 0) return;
     if (eligible.every((member) => this.triedDonors.has(member.token))) this.triedDonors.clear();
     let donor: Member | null = null;
@@ -175,6 +179,16 @@ export class Resync {
     this.deliver(donor, { kind: 'snapshotRequest' });
   }
 
+  /** A donor that diverged or went silent after the request will not answer it: the request goes on
+   *  to the next donor now instead of after the retry. */
+  private releaseUnfitDonor(now: number): void {
+    if (this.askedDonor === null) return;
+    const donor = this.members.get(this.askedDonor);
+    if (donor !== undefined && canDonate(donor, now)) return;
+    this.askedDonor = null;
+    this.requestedAt = null;
+  }
+
   private anySynced(): boolean {
     for (const member of this.members.values()) if (isSynced(member)) return true;
     return false;
@@ -185,4 +199,9 @@ export class Resync {
     this.askedDonor = null;
     this.triedDonors.clear();
   }
+}
+
+/** In sync and heard: a silent member's round trip is stale, and it may not answer at all. */
+function canDonate(member: Member, now: number): boolean {
+  return isSynced(member) && !isSilent(member, now);
 }

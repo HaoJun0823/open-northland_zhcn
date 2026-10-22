@@ -66,12 +66,13 @@ describe('socket traffic budgets', () => {
 
   it('shares the recovery burst across request kinds without charging normal game traffic', () => {
     const budget = new RecoveryBudget(0);
-    for (const kind of ['loaded', 'loaded', 'saveOrders', 'requestInitialSave'])
+    for (const kind of ['loaded', 'saveOrders', 'requestInitialSave', 'requestMap'])
       expect(budget.take({ kind }, 0)).toBe('accept');
-    // Saves are refused and may be retried; only an unreportable world costs the connection.
+    // Saves and maps are refused and may be retried; only an unreportable world costs the connection.
     expect(budget.take({ kind: 'loaded' }, 0)).toBe('close');
     expect(budget.take({ kind: 'saveOrders' }, 0)).toBe('refuse');
     expect(budget.take({ kind: 'requestInitialSave' }, 0)).toBe('refuse');
+    expect(budget.take({ kind: 'requestMap' }, 0)).toBe('refuse');
     for (let i = 0; i < 1000; i++) expect(budget.take({ kind: 'ack' }, 1000)).toBe('accept');
     expect(budget.take({ kind: 'loaded' }, 1999)).toBe('close');
     expect(budget.take({ kind: 'loaded' }, 2000)).toBe('accept');

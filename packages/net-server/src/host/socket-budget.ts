@@ -1,5 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { clientMessageKind, MAX_BLOB_MESSAGE_BYTES } from '@open-northland/net-protocol';
+import {
+  type ClientMessageKind,
+  clientMessageKind,
+  MAX_BLOB_MESSAGE_BYTES,
+} from '@open-northland/net-protocol';
 import type { WebSocket } from 'ws';
 
 export const DEFAULT_MAX_CONNECTIONS = 256;
@@ -118,6 +122,14 @@ const RECOVERY_REFILL_MS = 2000;
  *  that connection closes instead and its reconnect reports the world afresh. */
 export type RecoveryVerdict = 'accept' | 'refuse' | 'close';
 
+/** Tiny requests the relay answers with a snapshot, a replay, a save or a map. */
+const RECOVERY_KINDS: ReadonlySet<ClientMessageKind | null> = new Set<ClientMessageKind>([
+  'loaded',
+  'saveOrders',
+  'requestInitialSave',
+  'requestMap',
+]);
+
 /** Recovery can return a full snapshot or replay for a tiny request. */
 export class RecoveryBudget {
   private remaining = RECOVERY_BURST;
@@ -126,7 +138,7 @@ export class RecoveryBudget {
 
   take(raw: unknown, now: number): RecoveryVerdict {
     const kind = clientMessageKind(raw);
-    if (kind !== 'loaded' && kind !== 'saveOrders' && kind !== 'requestInitialSave') return 'accept';
+    if (!RECOVERY_KINDS.has(kind)) return 'accept';
     this.remaining = Math.min(
       RECOVERY_BURST,
       this.remaining + Math.max(0, now - this.updatedAt) / RECOVERY_REFILL_MS,

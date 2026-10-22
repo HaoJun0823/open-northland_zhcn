@@ -1,5 +1,6 @@
+import { TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
-import { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS } from '../src/index.js';
+import { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS, SILENT_AFTER_MS } from '../src/index.js';
 import {
   roomOfThreeStarting,
   SEATS,
@@ -39,6 +40,22 @@ describe('member boot progress', () => {
       { nick: 'Ania', loading: 100 },
       { nick: 'Bartek', loading: 100 },
     ]);
+  });
+
+  it('reads a loader that stopped answering as silent, not as loading', () => {
+    const s = startingRoom();
+    s.a.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.b.send({ kind: 'loading', progress: HALFWAY });
+    const bartek = () => s.a.last('waiting')?.for.find(({ nick }) => nick === 'Bartek')?.reason;
+    for (let ms = 0; ms <= SILENT_AFTER_MS; ms += TICK_MS) {
+      s.advance(TICK_MS);
+      const ping = s.a.last('ping');
+      if (ping !== undefined) s.a.send({ kind: 'pong', t: ping.t });
+    }
+    expect(bartek()).toBe('silent');
+    s.b.send({ kind: 'loading', progress: NEARLY });
+    s.advance(TICK_MS);
+    expect(bartek()).toBe('loading');
   });
 
   it('ignores a report from a member whose world has loaded, without refusing it', () => {

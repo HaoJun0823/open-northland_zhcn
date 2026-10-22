@@ -406,8 +406,9 @@ export class Game {
     if (member.seat === null) return null;
     if (!member.connected) return 'gone';
     if (member.outOfSync !== null) return 'resync';
-    if (!member.loaded) return 'loading';
-    return isSilent(member, now) ? 'silent' : null;
+    // A loader that stopped answering is away, not loading: its last progress says nothing now.
+    if (isSilent(member, now)) return 'silent';
+    return member.loaded ? null : 'loading';
   }
 
   /** The clock starts once every seated player has loaded, a dropped one included: a game never starts

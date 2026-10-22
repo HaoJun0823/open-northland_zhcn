@@ -494,6 +494,7 @@ class WorkerClient<E> {
       assistantGrants: (player) => assistantFacts(facts(), player).grants,
       assistantWeaponVetoes: (player) => assistantFacts(facts(), player).weaponVetoes,
       assistantSoldierOnlyGrants: (player) => assistantFacts(facts(), player).soldierOnlyGrants,
+      assistantCivilianOnlyGrants: (player) => assistantFacts(facts(), player).civilianOnlyGrants,
       assistantPostsGraduates: (player) => assistantFacts(facts(), player).postsGraduates,
       assistantMovesFlags: (player) => assistantFacts(facts(), player).movesFlags,
       needsEnabled: () => facts().needsEnabled,
@@ -620,6 +621,7 @@ function assistantFacts(facts: WorldFacts, player: number): AssistantFacts {
       grants: [],
       weaponVetoes: [],
       soldierOnlyGrants: [],
+      civilianOnlyGrants: [],
       postsGraduates: false,
       movesFlags: false,
     }

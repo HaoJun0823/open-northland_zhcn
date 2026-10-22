@@ -4,6 +4,7 @@ import {
   AssistantCounters,
   type AssistantCounterValues,
   AssistantWeaponVetoes,
+  assistantCivilianOnlyGoods,
   assistantCountersEntity,
   assistantGrantedGoods,
   assistantMovesFlags,
@@ -629,6 +630,11 @@ export class Simulation {
   /** The good types `player`'s assistant hands to fighters alone, as a detached copy. */
   assistantSoldierOnlyGrants(player: number): readonly number[] {
     return [...assistantSoldierOnlyGoods(this.world, player)];
+  }
+
+  /** The good types `player`'s assistant hands to civilians alone, as a detached copy. */
+  assistantCivilianOnlyGrants(player: number): readonly number[] {
+    return [...assistantCivilianOnlyGoods(this.world, player)];
   }
 
   /** The weapon goods `player`'s assistant never arms a recruit with, as a detached copy. */

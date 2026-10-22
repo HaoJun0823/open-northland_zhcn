@@ -1,6 +1,7 @@
 import type { ContentSet, EquipCategory, EquipClass } from '@open-northland/data';
 import {
   AssistantGrants,
+  assistantCivilianOnlyGoods,
   assistantSoldierOnlyGoods,
   Carrying,
   Equipment,
@@ -73,13 +74,16 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   let underwayAtStart: ReadonlyMap<number, ReadonlyMap<number, number>> | undefined;
   const stampedHere = new PlayerGoodCounts();
   const stock = FetchableStock.of(world, ctx);
-  // Each granting player's soldiers-only goods, read once per pass rather than per settler.
-  const limits = new Map<number, readonly number[]>();
-  const soldiersOnlyOf = (player: number): readonly number[] => {
-    let goods = limits.get(player);
+  // Each granting player's goods kept from civilians (the soldiers-only ones) and from fighters (the
+  // civilians-only ones), read once per pass rather than per settler.
+  const keptFromCivilians = new Map<number, readonly number[]>();
+  const keptFromFighters = new Map<number, readonly number[]>();
+  const keptFrom = (player: number, fighter: boolean): readonly number[] => {
+    const held = fighter ? keptFromFighters : keptFromCivilians;
+    let goods = held.get(player);
     if (goods === undefined) {
-      goods = assistantSoldierOnlyGoods(world, player);
-      limits.set(player, goods);
+      goods = fighter ? assistantCivilianOnlyGoods(world, player) : assistantSoldierOnlyGoods(world, player);
+      held.set(player, goods);
     }
     return goods;
   };
@@ -108,7 +112,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     // Nor does it call a garrison down from his tower: the wall stays manned unless the player asks.
     if (standsAtPost(world, e) !== null) continue;
     const toolless = !toolHelpsJob(ctx.content, jobType);
-    const soldiersOnly = fighter ? NO_LIMITS : soldiersOnlyOf(owner);
+    const kept = keptFrom(owner, fighter);
 
     underwayAtStart ??= equipFetchesHeld(world);
     const heldAtStart = underwayAtStart.get(owner);
@@ -117,7 +121,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     let route: GrantRoute | undefined;
     for (const spec of wanted) {
       if (toolless && spec.category === 'tool') continue; // its boots and misc grants still apply
-      if (soldiersOnly.includes(spec.goodType)) continue; // kept for the fighters
+      if (kept.includes(spec.goodType)) continue; // the other group's alone
       const slot = freeSlotFor(eq, spec);
       if (slot === null) continue;
       const underway = (heldAtStart?.get(spec.goodType) ?? 0) + stampedHere.of(owner, spec.goodType);
@@ -279,8 +283,6 @@ export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): num
   }
   return free;
 }
-
-const NO_LIMITS: readonly number[] = [];
 
 /** Units counted per player and good, made only for the pairs counted. */
 class PlayerGoodCounts {

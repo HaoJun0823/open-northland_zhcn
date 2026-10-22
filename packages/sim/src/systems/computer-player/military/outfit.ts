@@ -61,7 +61,7 @@ export function outfitGrantOrders(world: World, ctx: SystemContext, player: numb
   const granted = assistantGrantedGoods(world, player);
   for (const goodType of soldierOutfitGoods(ctx)) {
     if (!limited.includes(goodType))
-      commands.push({ kind: 'setAssistantGrantAudience', player, goodType, soldiersOnly: true });
+      commands.push({ kind: 'setAssistantGrantAudience', player, goodType, audience: 'soldiers' });
     if (!granted.includes(goodType))
       commands.push({ kind: 'setAssistantGrant', player, goodType, enabled: true });
   }

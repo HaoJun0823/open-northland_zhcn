@@ -1372,12 +1372,12 @@ export const deGame = {
       },
       audience: {
         label: 'wer es bekommt',
-        none: 'Niemand',
-        noneTip: 'Wird nicht ausgegeben. Wer eines hat, behält es.',
-        everyone: 'Alle',
-        everyoneTip: 'Jeder erwachsene Mann ohne eines holt sich eines aus dem Lager, auch Soldaten.',
+        civilians: 'Zivilisten',
+        civiliansTip:
+          'Erwachsene Männer, die keine Soldaten sind. An: Jeder ohne eines holt sich eines aus dem Lager. Aus: Wer eines hat, behält es.',
         soldiers: 'Soldaten',
-        soldiersTip: 'Nur Soldaten holen sich eines. Zivilisten behalten, was sie schon tragen.',
+        soldiersTip:
+          'An: Jeder Soldat ohne eines holt sich eines aus dem Lager. Aus: Wer eines hat, behält es.',
       },
       counters: {
         extraWomen: {

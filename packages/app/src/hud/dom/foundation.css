@@ -6822,55 +6822,26 @@ body.on-drag-scroll * {
 .on-hud .on-asst__col .on-section {
   margin: 8px 0 2px;
 }
-/* A drink or amulet row's one control: three choice dots under the audience words the section's rule
-   carries once, so ten rows read as one table instead of ten strips. */
+/* A drink or amulet row's controls: one switch per group under the group words the section's rule
+   carries once, so ten rows read as one table instead of ten strips. A column is a switch wide, so the
+   soldiers' column lines up with the gear switches above; a longer word overhangs it evenly. */
 .on-hud .on-asst-audience-head,
-.on-hud .on-asst-row--audience .on-segmented {
+.on-hud .on-asst-audience {
   display: grid;
-  grid-template-columns: repeat(3, var(--asst-audience-col));
-  --asst-audience-col: 44px;
+  grid-template-columns: repeat(2, var(--asst-audience-col));
+  column-gap: 20px;
+  --asst-audience-col: 36px; /* the .on-switch width */
 }
 .on-hud .on-asst-audience-head {
   margin-right: 4px;
   font: 700 10px var(--font-body);
   letter-spacing: 0;
-  text-align: center;
   color: var(--muted);
 }
 .on-hud .on-asst-audience-head > i {
+  justify-self: center;
   font-style: normal;
-}
-.on-hud .on-asst-row--audience .on-segmented {
-  width: auto;
-  border: 0;
-  border-radius: 0;
-  overflow: visible;
-}
-.on-hud .on-asst-row--audience .on-segmented > button {
-  display: grid;
-  place-items: center;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-.on-hud .on-asst-row--audience .on-segmented > button::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--wood-lo);
-  border-radius: 50%;
-  background: #0d100d99;
-  box-shadow: inset 0 1px 2px #0008;
-}
-.on-hud .on-asst-row--audience .on-segmented > button:hover:not([disabled])::before {
-  border-color: #c9a262aa;
-}
-.on-hud .on-asst-row--audience .on-segmented > button[aria-pressed="true"]::before {
-  border-color: #e8c479;
-  background: radial-gradient(circle at 40% 35%, #f3d690, #b58a3f 70%);
-  box-shadow: 0 0 4px #e8c47966;
+  white-space: nowrap;
 }
 .on-hud .on-asst-row {
   display: grid;

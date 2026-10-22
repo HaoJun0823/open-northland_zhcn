@@ -48,10 +48,16 @@ export const AssistantGrants = defineComponent<{
   goods: readonly number[];
 }>('AssistantGrants', 'players');
 
+/** Who a carried (`misc`) grant goes to: every man the pass dresses, the fighters alone, or the
+ *  civilians alone. */
+export const ASSISTANT_GRANT_AUDIENCES = ['everyone', 'soldiers', 'civilians'] as const;
+export type AssistantGrantAudience = (typeof ASSISTANT_GRANT_AUDIENCES)[number];
+
 /**
  * The per-player audience limits of {@link AssistantGrants}: the carried (`misc`) good types handed to
  * fighters only. Kept apart from the grant list, so a limit outlives a revoked grant and binds the next
- * one; the carrier lives while the list is non-empty, like {@link AssistantGrants}.
+ * one; the carrier lives while the list is non-empty, like {@link AssistantGrants}. A good is never on
+ * this list and {@link AssistantCivilianOnlyGrants} at once.
  */
 export const AssistantSoldierOnlyGrants = defineComponent<{
   /** The player slot the limits belong to (`[0, MAX_PLAYERS)`). */
@@ -60,7 +66,17 @@ export const AssistantSoldierOnlyGrants = defineComponent<{
   goods: readonly number[];
 }>('AssistantSoldierOnlyGrants', 'players');
 
-/** A per-player good list carrier: {@link AssistantGrants} and {@link AssistantWeaponVetoes}. */
+/** The mirror limit of {@link AssistantSoldierOnlyGrants}: the carried good types handed to civilians
+ *  only. */
+export const AssistantCivilianOnlyGrants = defineComponent<{
+  /** The player slot the limits belong to (`[0, MAX_PLAYERS)`). */
+  player: number;
+  /** Limited good type ids, ascending. */
+  goods: readonly number[];
+}>('AssistantCivilianOnlyGrants', 'players');
+
+/** A per-player good list carrier: {@link AssistantGrants}, its audience limits and
+ *  {@link AssistantWeaponVetoes}. */
 export type PlayerGoodList = Component<{ player: number; goods: readonly number[] }>;
 
 /** `list`'s carrier for `player`, or null when the list is empty. The lowest-id carrier wins should more
@@ -90,6 +106,11 @@ export function assistantGrantedGoods(world: World, player: number): readonly nu
 /** The good types `player`'s assistant hands to fighters alone, ascending; empty by default. */
 export function assistantSoldierOnlyGoods(world: World, player: number): readonly number[] {
   return playerGoodList(world, AssistantSoldierOnlyGrants, player);
+}
+
+/** The good types `player`'s assistant hands to civilians alone, ascending; empty by default. */
+export function assistantCivilianOnlyGoods(world: World, player: number): readonly number[] {
+  return playerGoodList(world, AssistantCivilianOnlyGrants, player);
 }
 
 /**

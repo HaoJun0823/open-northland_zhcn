@@ -132,6 +132,8 @@ export interface SessionHost {
   assistantWeaponVetoes(player: number): readonly number[];
   /** The good types `player`'s assistant hands to fighters alone. */
   assistantSoldierOnlyGrants(player: number): readonly number[];
+  /** The good types `player`'s assistant hands to civilians alone. */
+  assistantCivilianOnlyGrants(player: number): readonly number[];
   /** Whether `player`'s assistant sends graduates straight to a free workplace. */
   assistantPostsGraduates(player: number): boolean;
   /** Whether `player`'s gatherers move their own flags after the resources. */

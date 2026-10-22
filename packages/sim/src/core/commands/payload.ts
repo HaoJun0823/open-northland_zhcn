@@ -1,6 +1,6 @@
 import { EQUIP_CATEGORIES, HomeQualityEffect, MAP_GOAL_GOODS_MAX } from '@open-northland/data';
 import { COMPUTER_DIFFICULTIES, COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
-import { ASSISTANT_COUNTER_KINDS } from '../../components/assistant.js';
+import { ASSISTANT_COUNTER_KINDS, ASSISTANT_GRANT_AUDIENCES } from '../../components/assistant.js';
 import { MISC_EQUIP_SLOTS } from '../../components/equipment.js';
 import { MAX_MATCH_GOALS, type MatchGoal } from '../../components/match.js';
 import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../components/mission.js';
@@ -362,7 +362,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   },
   setAssistantGrant: { required: { player: 'integer', goodType: 'integer', enabled: 'boolean' } },
   setAssistantGrantAudience: {
-    required: { player: 'integer', goodType: 'integer', soldiersOnly: 'boolean' },
+    required: { player: 'integer', goodType: 'integer', audience: { oneOf: ASSISTANT_GRANT_AUDIENCES } },
   },
   setAssistantWeaponVeto: { required: { player: 'integer', goodType: 'integer', vetoed: 'boolean' } },
   setAssistantPostGraduates: { required: { player: 'integer', enabled: 'boolean' } },

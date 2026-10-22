@@ -1233,12 +1233,10 @@ export const chsGame = {
       },
       audience: {
         label: '领取者',
-        none: '无人',
-        noneTip: '不发放。已持有的人继续保留。',
-        everyone: '所有人',
-        everyoneTip: '每个没有的成年男人都会去仓库领一个，士兵也一样。',
+        civilians: '平民',
+        civiliansTip: '不是士兵的成年男人。开启：每个没有的人都会去仓库领一个。关闭：已持有的人继续保留。',
         soldiers: '士兵',
-        soldiersTip: '只有士兵去领取。平民保留身上已有的。',
+        soldiersTip: '开启：每个没有的士兵都会去仓库领一个。关闭：已持有的人继续保留。',
       },
       counters: {
         extraWomen: {

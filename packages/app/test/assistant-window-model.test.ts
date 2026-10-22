@@ -3,6 +3,8 @@ import {
   ASSISTANT_WINDOW_NARROW_W,
   ASSISTANT_WINDOW_WIDE_W,
   assistantWindowWidth,
+  audienceLacking,
+  audienceWith,
   birthNotes,
   counterFace,
   counterFromFace,
@@ -114,6 +116,25 @@ describe('assistant bookings off the snapshot', () => {
     expect(bookings.sons).toBe(1);
     expect(bookings.drilling).toEqual({ trainSoldiers: 1, trainSword: 1, trainSpear: 0, trainBow: 0 });
     expect(bookings.arming).toEqual({ trainSoldiers: 0, trainSword: 1, trainSpear: 0, trainBow: 0 });
+  });
+});
+
+describe("a drink or amulet row's group switches", () => {
+  it('turns one group on or off and leaves the other as it was', () => {
+    expect(audienceWith('none', 'civilians', true)).toBe('civilians');
+    expect(audienceWith('none', 'soldiers', true)).toBe('soldiers');
+    expect(audienceWith('soldiers', 'civilians', true)).toBe('everyone');
+    expect(audienceWith('everyone', 'soldiers', false)).toBe('civilians');
+    expect(audienceWith('everyone', 'civilians', false)).toBe('soldiers');
+    expect(audienceWith('civilians', 'civilians', false)).toBe('none');
+  });
+
+  it('counts the men still lacking the good in the groups that receive it', () => {
+    const shortage = { lacking: 7, soldiersLacking: 3 };
+    expect(audienceLacking(shortage, 'none')).toBe(0);
+    expect(audienceLacking(shortage, 'everyone')).toBe(7);
+    expect(audienceLacking(shortage, 'soldiers')).toBe(3);
+    expect(audienceLacking(shortage, 'civilians')).toBe(4);
   });
 });
 

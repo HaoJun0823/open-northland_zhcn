@@ -1,6 +1,7 @@
 import {
   ASSISTANT_COUNTER_MAX,
   ASSISTANT_COUNTER_MIN,
+  AssistantCivilianOnlyGrants,
   type AssistantCounterKind,
   AssistantCounters,
   AssistantGrants,
@@ -41,8 +42,8 @@ export function revokeAssistantGrants(world: World, player: number, goods: reado
   for (const good of goods) setListed(world, AssistantGrants, player, good, false);
 }
 
-/** Keep one carried good for `player`'s fighters alone, or lift the limit - see the command doc. The
- *  carrier lifecycle is {@link setListed}'s. */
+/** Keep one carried good for `player`'s fighters or civilians alone, or lift the limit - see the command
+ *  doc. The carrier lifecycle is {@link setListed}'s. */
 export function setAssistantGrantAudience(
   world: World,
   ctx: SystemContext,
@@ -50,7 +51,9 @@ export function setAssistantGrantAudience(
 ): void {
   const good = contentIndex(ctx.content).goods.get(command.goodType);
   if (good?.equip?.category !== 'misc') return; // boots and tools go to everyone the pass dresses
-  setListed(world, AssistantSoldierOnlyGrants, command.player, command.goodType, command.soldiersOnly);
+  const { player, goodType, audience } = command;
+  setListed(world, AssistantSoldierOnlyGrants, player, goodType, audience === 'soldiers');
+  setListed(world, AssistantCivilianOnlyGrants, player, goodType, audience === 'civilians');
 }
 
 /** Lift the soldiers-only limit of `goods` for `player`, the strategic AI's teardown seam. */

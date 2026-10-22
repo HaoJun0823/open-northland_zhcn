@@ -1233,12 +1233,10 @@ export const chtGame = {
       },
       audience: {
         label: '發放對象',
-        none: '無人',
-        noneTip: '不發放。已經帶著的人可以保留。',
-        everyone: '所有人',
-        everyoneTip: '每位沒有的成年男性都會去倉庫領一份，士兵也是。',
+        civilians: '平民',
+        civiliansTip: '不是士兵的成年男性。開啟：每位沒有的人都會去倉庫領一份。關閉：已經帶著的人可以保留。',
         soldiers: '士兵',
-        soldiersTip: '只有士兵會去領。平民保留他們已經帶著的東西。',
+        soldiersTip: '開啟：每位沒有的士兵都會去倉庫領一份。關閉：已經帶著的人可以保留。',
       },
       counters: {
         extraWomen: {

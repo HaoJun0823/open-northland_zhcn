@@ -21,21 +21,25 @@ import { FIGURE, GLYPH } from '../icons.js';
 import { COUNTER_TENS_STEP, createCounter } from '../parts/counter.js';
 import { element, setHidden, setTip, write } from '../parts/dom.js';
 import { createSection } from '../parts/section.js';
-import { createSegmented } from '../parts/segmented.js';
 import { createSwitch } from '../parts/switch.js';
 import { attachTipLayer, type TipChip } from '../parts/tip-layer.js';
 import { centralWindowPlacer, createHudWindow } from '../window.js';
 import {
   ASSISTANT_WINDOW_WIDE_W,
   type AssistantBookings,
+  AUDIENCE_GROUPS,
   assistantWindowWidth,
+  audienceLacking,
+  audienceWith,
   birthNotes,
   counterFace,
   counterFromFace,
   counterRange,
+  groupReceives,
   NO_BOOKINGS,
   NOTE_TONE,
   PressHold,
+  type RowAudience,
   type StatusNote,
   type StatusNoteKey,
   sameCounter,
@@ -46,6 +50,7 @@ import {
 type CounterKind = components.AssistantCounterKind;
 type CounterState = components.AssistantCounterState;
 type ClassIntent = Exclude<components.AssistantRecruitIntent, 'trainSoldiers'>;
+type GrantAudience = components.AssistantGrantAudience;
 
 const ROW_ICON_PX = 24;
 const SUB_ICON_PX = 18;
@@ -58,14 +63,14 @@ export interface AssistantCountersSeam {
 }
 
 /** The sim's switches for the watched seat: a give switch is on when its goods are granted, a weapon
- *  switch when its good is not vetoed, and a give switch is soldiers-only when its goods are kept for
- *  fighters. */
+ *  switch when its good is not vetoed, and a give switch's audience says which group its goods are kept
+ *  for, if any. */
 export interface AssistantSwitchesSeam {
   read(): Readonly<Record<AssistantGrantId, boolean>>;
   /** False when the write was rejected, which the window must not echo. */
   set(id: AssistantGrantId, enabled: boolean): boolean;
-  readSoldiersOnly(): Readonly<Record<GiveSwitchId, boolean>>;
-  setSoldiersOnly(id: GiveSwitchId, soldiersOnly: boolean): boolean;
+  readAudiences(): Readonly<Record<GiveSwitchId, GrantAudience>>;
+  setAudience(id: GiveSwitchId, audience: GrantAudience): boolean;
 }
 
 /** Whose assistant the window shows: a seat the player commands, a watched seat's (read only), or nobody's. */
@@ -143,10 +148,6 @@ const CHARM_ORDER: readonly GiveSwitchId[] = [
   'giveCriticalHitAmulet',
   'giveSpeedAmulet',
 ];
-/** A drink or amulet row's one control: off, kept for the soldiers, or handed to everyone. */
-type Audience = 'none' | 'soldiers' | 'everyone';
-const AUDIENCES: readonly Audience[] = ['none', 'soldiers', 'everyone'];
-
 export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindow {
   const copy = messages().hud.assistant;
   const locale = bcp47Tag();
@@ -177,19 +178,17 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
   let writable = false;
   let liveCounters = deps.counters.read();
   let liveSwitches = deps.switches.read();
-  let liveSoldiersOnly = deps.switches.readSoldiersOnly();
+  let liveAudiences = deps.switches.readAudiences();
 
   // A press shows at once; the live value takes over when it arrives or the hold runs out.
   const pendingCounters = new PressHold<CounterKind, CounterState>(sameCounter);
   const pendingSwitches = new PressHold<AssistantGrantId, boolean>((a, b) => a === b);
-  const pendingSoldiersOnly = new PressHold<GiveSwitchId, boolean>((a, b) => a === b);
+  const pendingAudiences = new PressHold<GiveSwitchId, GrantAudience>((a, b) => a === b);
   const counterNow = (kind: CounterKind): CounterState =>
     pendingCounters.shown(kind, liveCounters[kind], tick);
   const switchNow = (id: AssistantGrantId): boolean => pendingSwitches.shown(id, liveSwitches[id], tick);
-  const soldiersOnlyNow = (id: GiveSwitchId): boolean =>
-    pendingSoldiersOnly.shown(id, liveSoldiersOnly[id], tick);
-  const audienceNow = (id: GiveSwitchId): Audience =>
-    !switchNow(id) ? 'none' : soldiersOnlyNow(id) ? 'soldiers' : 'everyone';
+  const audienceNow = (id: GiveSwitchId): RowAudience =>
+    !switchNow(id) ? 'none' : pendingAudiences.shown(id, liveAudiences[id], tick);
 
   const pressCounter = (kind: CounterKind, face: number): void => {
     const next = counterFromFace(counterNow(kind), face);
@@ -211,17 +210,15 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
     show();
   };
   /** The limit goes first, so no civilian is dressed in the tick between it and the grant. */
-  const pressAudience = (id: GiveSwitchId, next: Audience): void => {
-    const soldiersOnly = next === 'soldiers';
+  const pressAudience = (id: GiveSwitchId, next: RowAudience): void => {
     const on = next !== 'none';
-    const written =
-      (next === 'none' || deps.switches.setSoldiersOnly(id, soldiersOnly)) && deps.switches.set(id, on);
+    const written = (next === 'none' || deps.switches.setAudience(id, next)) && deps.switches.set(id, on);
     if (!written) {
       deps.cue('fail');
       return;
     }
     deps.cue('confirm');
-    if (next !== 'none') pendingSoldiersOnly.hold(id, soldiersOnly, liveSoldiersOnly[id], tick);
+    if (next !== 'none') pendingAudiences.hold(id, next, liveAudiences[id], tick);
     pendingSwitches.hold(id, on, liveSwitches[id], tick);
     show();
   };
@@ -300,13 +297,13 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
     if (caption instanceof HTMLElement) setTip(caption, tip);
     return s.element;
   };
-  /** The three audience words once, over the columns the rows' choice dots sit in. */
+  /** The group words once, over the columns the rows' switches sit in. */
   const audienceHead = (): HTMLElement => {
     const head = element('span', 'on-asst-audience-head');
-    for (const audience of AUDIENCES) {
+    for (const group of AUDIENCE_GROUPS) {
       const word = element('i', '');
-      word.textContent = copy.audience[audience];
-      setTip(word, copy.audience[`${audience}Tip`]);
+      word.textContent = copy.audience[group];
+      setTip(word, copy.audience[`${group}Tip`]);
       head.append(word);
     }
     return head;
@@ -441,65 +438,60 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
   const shortageText = (
     shortage: AssistantShortage,
     lacking: number,
-    soldiersAlone: boolean,
+    everyone: boolean,
     amount: number,
   ): string => {
     if (lacking === 0) return '';
     const soldiers =
-      !soldiersAlone && shortage.soldiersLacking > 0
+      everyone && shortage.soldiersLacking > 0
         ? ` ${formatMessage(pluralForm(shortage.soldiersLacking, copy.shortage.soldiers, locale), { count: shortage.soldiersLacking })}`
         : '';
     const covered = amount < lacking ? copy.shortage.short : copy.shortage.covered;
     return `${formatMessage(copy.shortage.lacking, { count: lacking })}${soldiers}. ${covered}`;
   };
   /** A give row: the first good's icon with the stock of every good the switch grants and the men its
-   *  current choice would still dress (nobody while it is off, the soldiers alone under that choice),
-   *  and either an on/off switch or, for a drink and an amulet, the strip choosing who receives it. */
+   *  current choice would still dress (nobody while it is off, one group alone when it is kept for
+   *  that group), and either an on/off switch or, for a drink and an amulet, one switch per group. */
   const giveRow = (id: GiveSwitchId): HTMLElement => {
     const goods = GIVE_SWITCH_GOODS[id];
     const { art, count, lack } = goodArt(goods[0], ROW_ICON_PX);
     const audience = AUDIENCE_SWITCH_IDS.includes(id);
     const gear = audience ? audienceRow(id, art) : switchRow(id, art);
-    const soldiersAlone = (): boolean => audience && audienceNow(id) === 'soldiers';
-    const lackingNow = (shortage: AssistantShortage): number => {
-      if (!gear.on()) return 0;
-      return soldiersAlone() ? shortage.soldiersLacking : shortage.lacking;
+    const rowAudience = (): RowAudience => {
+      if (audience) return audienceNow(id);
+      return gear.on() ? 'everyone' : 'none';
     };
     updates.push(() => {
       const shortage = shortages[id];
-      const lacking = lackingNow(shortage);
+      const choice = rowAudience();
+      const lacking = audienceLacking(shortage, choice);
       const amount = stockOfAll(goods);
-      showStock(count, amount, gear.on(), shortageText(shortage, lacking, soldiersAlone(), amount));
+      showStock(count, amount, gear.on(), shortageText(shortage, lacking, choice === 'everyone', amount));
       write(lack, String(lacking));
       setHidden(lack, lacking === 0);
     });
     return gear.row;
   };
+  /** Both groups off is the row off, both on hands the good to everyone. */
   const audienceRow = (id: GiveSwitchId, art: HTMLElement): { row: HTMLElement; on: () => boolean } => {
     const row = element('div', 'on-asst-row on-asst-row--audience');
     const text = copy.switches[id];
-    const strip = createSegmented(AUDIENCES, `${text.label}: ${copy.audience.label}`, (pick) =>
-      pressAudience(id, pick),
-    );
-    row.append(art, label(text.label, text.tip, element('span', 'on-asst-marks')), strip.element);
-    // Dots under the section's audience words: the word and its meaning travel in the tooltip.
-    const options = {
-      none: { label: '', tooltip: `${copy.audience.none}. ${copy.audience.noneTip}`, enabled: writable },
-      everyone: {
-        label: '',
-        tooltip: `${copy.audience.everyone}. ${copy.audience.everyoneTip}`,
-        enabled: writable,
-      },
-      soldiers: {
-        label: '',
-        tooltip: `${copy.audience.soldiers}. ${copy.audience.soldiersTip}`,
-        enabled: writable,
-      },
-    };
+    const pair = element('span', 'on-asst-audience');
+    pair.setAttribute('role', 'group');
+    pair.setAttribute('aria-label', `${text.label}: ${copy.audience.label}`);
+    // Switches under the section's group words: the word and its meaning travel in the tooltip.
+    const switches = AUDIENCE_GROUPS.map((group) => {
+      const word = copy.audience[group];
+      const control = createSwitch(word, `${word}. ${copy.audience[`${group}Tip`]}`, (next) =>
+        pressAudience(id, audienceWith(audienceNow(id), group, next)),
+      );
+      pair.append(control.element);
+      return { group, control };
+    });
+    row.append(art, label(text.label, text.tip, element('span', 'on-asst-marks')), pair);
     updates.push(() => {
       const choice = audienceNow(id);
-      for (const option of Object.values(options)) option.enabled = writable;
-      strip.update(options, choice);
+      for (const { group, control } of switches) control.update(groupReceives(choice, group), writable);
       row.classList.toggle('on-asst-row--off', choice === 'none');
     });
     return { row, on: () => switchNow(id) };
@@ -522,7 +514,7 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
     setHidden(access, now === 'control');
     liveCounters = deps.counters.read();
     liveSwitches = deps.switches.read();
-    liveSoldiersOnly = deps.switches.readSoldiersOnly();
+    liveAudiences = deps.switches.readAudiences();
     bookings = deps.bookings();
     shortages = deps.shortages();
     for (const update of updates) update();

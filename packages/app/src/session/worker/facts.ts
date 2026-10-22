@@ -31,6 +31,7 @@ export function readWorldFacts(sim: Simulation): WorldFacts {
         grants: sim.assistantGrants(player),
         weaponVetoes: sim.assistantWeaponVetoes(player),
         soldierOnlyGrants: sim.assistantSoldierOnlyGrants(player),
+        civilianOnlyGrants: sim.assistantCivilianOnlyGrants(player),
         postsGraduates: sim.assistantPostsGraduates(player),
         movesFlags: sim.assistantMovesFlags(player),
       }),

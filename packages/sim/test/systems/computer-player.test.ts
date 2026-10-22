@@ -173,7 +173,7 @@ describe('setAiControl - the AI seat flag', () => {
     const outfit = [HEAL_BIG, HEAL_SMALL, DEFENCE_AMULET, STRENGTH_AMULET];
     expect(published).toEqual(
       outfit.flatMap((goodType) => [
-        { kind: 'setAssistantGrantAudience', player: AI_SEAT, goodType, soldiersOnly: true },
+        { kind: 'setAssistantGrantAudience', player: AI_SEAT, goodType, audience: 'soldiers' },
         { kind: 'setAssistantGrant', player: AI_SEAT, goodType, enabled: true },
       ]),
     );
@@ -200,7 +200,7 @@ describe('setAiControl - the AI seat flag', () => {
       kind: 'setAssistantGrantAudience',
       player: AI_SEAT,
       goodType: SPEED_AMULET,
-      soldiersOnly: true,
+      audience: 'soldiers',
     });
     for (const command of published) sim.enqueueSetup(command);
     sim.step();

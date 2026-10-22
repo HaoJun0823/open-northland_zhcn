@@ -163,6 +163,7 @@ export interface AssistantFacts {
   readonly grants: readonly number[];
   readonly weaponVetoes: readonly number[];
   readonly soldierOnlyGrants: readonly number[];
+  readonly civilianOnlyGrants: readonly number[];
   readonly postsGraduates: boolean;
   readonly movesFlags: boolean;
 }

@@ -1234,12 +1234,12 @@ export const plGame = {
       },
       audience: {
         label: 'kto dostaje',
-        none: 'Nikt',
-        noneTip: 'Nie jest wydawane. Kto już ma, zachowuje.',
-        everyone: 'Wszyscy',
-        everyoneTip: 'Każdy dorosły mężczyzna bez tego pójdzie po to do magazynu, żołnierze też.',
+        civilians: 'Osadnicy',
+        civiliansTip:
+          'Dorośli mężczyźni, którzy nie są żołnierzami. Włączone: każdy bez tego pójdzie po to do magazynu. Wyłączone: kto już ma, zachowuje.',
         soldiers: 'Żołnierze',
-        soldiersTip: 'Idą po to tylko żołnierze. Cywile zachowują to, co już noszą.',
+        soldiersTip:
+          'Włączone: każdy żołnierz bez tego pójdzie po to do magazynu. Wyłączone: kto już ma, zachowuje.',
       },
       counters: {
         extraWomen: {

@@ -1257,12 +1257,12 @@ export const enGame = {
       },
       audience: {
         label: 'who receives it',
-        none: 'Nobody',
-        noneTip: 'Not handed out. Whoever carries one keeps it.',
-        everyone: 'Everyone',
-        everyoneTip: 'Every adult man without one fetches one from the store, soldiers too.',
+        civilians: 'Civilians',
+        civiliansTip:
+          'Adult men who are not soldiers. On: each one without it fetches one from the store. Off: whoever carries one keeps it.',
         soldiers: 'Soldiers',
-        soldiersTip: 'Only soldiers fetch one. Civilians keep what they already carry.',
+        soldiersTip:
+          'On: each soldier without it fetches one from the store. Off: whoever carries one keeps it.',
       },
       counters: {
         extraWomen: {

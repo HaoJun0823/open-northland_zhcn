@@ -2,6 +2,8 @@ import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Age,
+  AssistantCivilianOnlyGrants,
+  type AssistantGrantAudience,
   AssistantGrants,
   AssistantSoldierOnlyGrants,
   addPerson,
@@ -132,13 +134,13 @@ function grant(sim: Simulation, goodType: number, enabled = true, player = HUMAN
   sim.enqueueSetup({ kind: 'setAssistantGrant', player, goodType, enabled });
 }
 
-function limitToSoldiers(
+function setAudience(
   sim: Simulation,
   goodType: number,
-  soldiersOnly = true,
+  audience: AssistantGrantAudience,
   player = HUMAN_PLAYER,
 ): void {
-  sim.enqueueSetup({ kind: 'setAssistantGrantAudience', player, goodType, soldiersOnly });
+  sim.enqueueSetup({ kind: 'setAssistantGrantAudience', player, goodType, audience });
 }
 
 /** The shared fixture plus the big healing potion: the small one's effect in a five-sip bottle. */
@@ -230,21 +232,40 @@ describe('setAssistantGrant - the per-player grant list', () => {
 
   it('limits carried goods to soldiers in ascending id, independent of the grant, and drops the carrier when empty', () => {
     const sim = freshSim();
-    limitToSoldiers(sim, STRENGTH_AMULET);
-    limitToSoldiers(sim, MEAD);
-    limitToSoldiers(sim, WOOD); // not wearable: skipped
-    limitToSoldiers(sim, SHOES); // gear has no audience: skipped
+    setAudience(sim, STRENGTH_AMULET, 'soldiers');
+    setAudience(sim, MEAD, 'soldiers');
+    setAudience(sim, WOOD, 'soldiers'); // not wearable: skipped
+    setAudience(sim, SHOES, 'soldiers'); // gear has no audience: skipped
     sim.step();
     expect(sim.assistantSoldierOnlyGrants(HUMAN_PLAYER)).toEqual([MEAD, STRENGTH_AMULET]);
     expect(sim.assistantGrants(HUMAN_PLAYER)).toEqual([]); // a limit grants nothing by itself
     expect(sim.assistantSoldierOnlyGrants(RIVAL_PLAYER)).toEqual([]);
-    limitToSoldiers(sim, MEAD, false);
+    setAudience(sim, MEAD, 'everyone');
     sim.step();
     expect(sim.assistantSoldierOnlyGrants(HUMAN_PLAYER)).toEqual([STRENGTH_AMULET]);
-    limitToSoldiers(sim, STRENGTH_AMULET, false);
+    setAudience(sim, STRENGTH_AMULET, 'everyone');
     sim.step();
     expect(sim.assistantSoldierOnlyGrants(HUMAN_PLAYER)).toEqual([]);
     expect([...sim.world.query(AssistantSoldierOnlyGrants)]).toEqual([]);
+  });
+
+  it("keeps a good on one group's list at a time, and drops both carriers when it goes to everyone", () => {
+    const sim = freshSim();
+    setAudience(sim, MEAD, 'soldiers');
+    setAudience(sim, STRENGTH_AMULET, 'civilians');
+    sim.step();
+    expect(sim.assistantSoldierOnlyGrants(HUMAN_PLAYER)).toEqual([MEAD]);
+    expect(sim.assistantCivilianOnlyGrants(HUMAN_PLAYER)).toEqual([STRENGTH_AMULET]);
+    setAudience(sim, MEAD, 'civilians');
+    sim.step();
+    expect(sim.assistantSoldierOnlyGrants(HUMAN_PLAYER)).toEqual([]);
+    expect(sim.assistantCivilianOnlyGrants(HUMAN_PLAYER)).toEqual([MEAD, STRENGTH_AMULET]);
+    setAudience(sim, MEAD, 'everyone');
+    setAudience(sim, STRENGTH_AMULET, 'everyone');
+    sim.step();
+    expect(sim.assistantCivilianOnlyGrants(HUMAN_PLAYER)).toEqual([]);
+    expect([...sim.world.query(AssistantSoldierOnlyGrants)]).toEqual([]);
+    expect([...sim.world.query(AssistantCivilianOnlyGrants)]).toEqual([]);
   });
 
   it('refuses a non-wearable good and an out-of-range player', () => {
@@ -599,7 +620,7 @@ describe('assistant auto-equip - dispatch and reservation', () => {
     grant(sim, STRENGTH_AMULET);
     grant(sim, MEAD);
     grant(sim, SHOES);
-    limitToSoldiers(sim, STRENGTH_AMULET);
+    setAudience(sim, STRENGTH_AMULET, 'soldiers');
 
     sim.run(4 * ERRAND_TICKS);
 
@@ -612,9 +633,32 @@ describe('assistant auto-equip - dispatch and reservation', () => {
     expect(carried(woodcutter)).toEqual([MEAD]); // the amulet is the soldiers' alone, the mead everyone's
     expect(sim.world.get(woodcutter, Equipment).boots?.goodType).toBe(SHOES);
 
-    limitToSoldiers(sim, STRENGTH_AMULET, false);
+    setAudience(sim, STRENGTH_AMULET, 'everyone');
     sim.run(2 * ERRAND_TICKS);
     expect(carried(woodcutter)).toEqual([MEAD, STRENGTH_AMULET]);
+  });
+
+  it('keeps a civilians-only good from soldiers; the soldiers still take the goods open to them', () => {
+    const sim = freshSim();
+    const fighter = ownedSettler(sim, 2, 2);
+    setSettlerJob(sim.world, fighter, FIGHTER_JOB);
+    const woodcutter = ownedSettler(sim, 2, 4);
+    pileAt(sim, 12, 2, STRENGTH_AMULET, 5);
+    pileAt(sim, 12, 4, MEAD, 5);
+    grant(sim, STRENGTH_AMULET);
+    grant(sim, MEAD);
+    setAudience(sim, MEAD, 'civilians');
+    setAudience(sim, STRENGTH_AMULET, 'soldiers');
+
+    sim.run(4 * ERRAND_TICKS);
+
+    const carried = (e: Entity): number[] =>
+      sim.world
+        .get(e, Equipment)
+        .misc.flatMap((s) => (s === null ? [] : [s.goodType]))
+        .sort((a, b) => a - b);
+    expect(carried(fighter)).toEqual([STRENGTH_AMULET]);
+    expect(carried(woodcutter)).toEqual([MEAD]);
   });
 
   it('hands out the big bottle before the small one and treats either as the same drink', () => {

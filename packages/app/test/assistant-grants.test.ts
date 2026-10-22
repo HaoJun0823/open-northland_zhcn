@@ -22,23 +22,26 @@ const CONTENT = {
 };
 
 /** A sim face granting `granted`, vetoing `vetoed`, posting graduates when `posts`, moving flags when
- *  `movesFlags` and keeping `soldiersOnly` for soldiers. */
+ *  `movesFlags`, keeping `soldiersOnly` for soldiers and `civiliansOnly` for civilians. */
 const simGranting = (
   granted: readonly number[],
   vetoed: readonly number[] = [],
   posts = false,
   movesFlags = false,
   soldiersOnly: readonly number[] = [],
+  civiliansOnly: readonly number[] = [],
 ): {
   assistantGrants: () => readonly number[];
   assistantWeaponVetoes: () => readonly number[];
   assistantSoldierOnlyGrants: () => readonly number[];
+  assistantCivilianOnlyGrants: () => readonly number[];
   assistantPostsGraduates: () => boolean;
   assistantMovesFlags: () => boolean;
 } => ({
   assistantGrants: () => granted,
   assistantWeaponVetoes: () => vetoed,
   assistantSoldierOnlyGrants: () => soldiersOnly,
+  assistantCivilianOnlyGrants: () => civiliansOnly,
   assistantPostsGraduates: () => posts,
   assistantMovesFlags: () => movesFlags,
 });
@@ -119,24 +122,26 @@ describe('assistantGrantsSeam', () => {
     ]);
   });
 
-  it('reads a switch as soldiers-only when every good it grants is limited, and writes one limit per good', () => {
+  it("reads a switch as one group's when every good it grants is limited to it, and writes one audience per good", () => {
     const sent: Command[] = [];
     const seam = assistantGrantsSeam(
-      simGranting([], [], false, false, [DEFENSE_AMULET, HEAL_BIG]),
+      simGranting([], [], false, false, [DEFENSE_AMULET, HEAL_BIG], [MEAD]),
       CONTENT,
       () => 2,
       (c) => sent.push(c),
     );
-    const limited = seam.readSoldiersOnly();
-    expect(limited.giveDefenseAmulet).toBe(true);
-    expect(limited.giveHealingPotions).toBe(false); // the small bottle is open to everyone
-    expect(limited.giveMead).toBe(false);
-    expect(seam.setSoldiersOnly('giveHealingPotions', true)).toBe(true);
-    expect(seam.setSoldiersOnly('giveDefenseAmulet', false)).toBe(true);
+    const audiences = seam.readAudiences();
+    expect(audiences.giveDefenseAmulet).toBe('soldiers');
+    expect(audiences.giveHealingPotions).toBe('everyone'); // the small bottle is open to everyone
+    expect(audiences.giveMead).toBe('civilians');
+    expect(seam.setAudience('giveHealingPotions', 'soldiers')).toBe(true);
+    expect(seam.setAudience('giveDefenseAmulet', 'civilians')).toBe(true);
+    expect(seam.setAudience('giveMead', 'everyone')).toBe(true);
     expect(sent).toEqual([
-      { kind: 'setAssistantGrantAudience', player: 2, goodType: HEAL_BIG, soldiersOnly: true },
-      { kind: 'setAssistantGrantAudience', player: 2, goodType: HEAL_SMALL, soldiersOnly: true },
-      { kind: 'setAssistantGrantAudience', player: 2, goodType: DEFENSE_AMULET, soldiersOnly: false },
+      { kind: 'setAssistantGrantAudience', player: 2, goodType: HEAL_BIG, audience: 'soldiers' },
+      { kind: 'setAssistantGrantAudience', player: 2, goodType: HEAL_SMALL, audience: 'soldiers' },
+      { kind: 'setAssistantGrantAudience', player: 2, goodType: DEFENSE_AMULET, audience: 'civilians' },
+      { kind: 'setAssistantGrantAudience', player: 2, goodType: MEAD, audience: 'everyone' },
     ]);
   });
 
@@ -220,7 +225,7 @@ describe('assistantGrantsSeam', () => {
     );
     expect(seam.set('giveBoots', true)).toBe(false);
     expect(seam.set('moveFlags', true)).toBe(false);
-    expect(seam.setSoldiersOnly('giveMead', true)).toBe(false);
+    expect(seam.setAudience('giveMead', 'soldiers')).toBe(false);
     expect(sent).toEqual([]);
   });
 });

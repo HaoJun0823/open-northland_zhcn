@@ -1,4 +1,5 @@
 import { components, TICKS_PER_SECOND } from '@open-northland/sim';
+import type { AssistantShortage } from '../../../view/assistant-shortages.js';
 import type { Rect } from '../../geometry.js';
 import type { ScreenSize } from '../../nav-beam.js';
 import { centralWindowBox, centralWindowOrigin } from '../../regions.js';
@@ -43,6 +44,38 @@ export function counterFromFace(current: CounterState, face: number): CounterSta
 
 export const sameCounter = (a: CounterState, b: CounterState): boolean =>
   a.value === b.value && a.infinite === b.infinite;
+
+/** The two groups a drink or amulet row hands its good to, one switch each. */
+export type AudienceGroup = 'civilians' | 'soldiers';
+export const AUDIENCE_GROUPS: readonly AudienceGroup[] = ['civilians', 'soldiers'];
+
+/** A drink or amulet row's state: off, or the sim's audience of the granted good. */
+export type RowAudience = 'none' | components.AssistantGrantAudience;
+
+export const groupReceives = (audience: RowAudience, group: AudienceGroup): boolean =>
+  audience === 'everyone' || audience === group;
+
+/** The row's state once `group`'s switch is set to `on`, the other group's left as it was. */
+export function audienceWith(audience: RowAudience, group: AudienceGroup, on: boolean): RowAudience {
+  const other: AudienceGroup = group === 'soldiers' ? 'civilians' : 'soldiers';
+  const otherOn = groupReceives(audience, other);
+  if (on) return otherOn ? 'everyone' : group;
+  return otherOn ? other : 'none';
+}
+
+/** The men a row's state would still dress, out of those its good is missing from. */
+export function audienceLacking(shortage: AssistantShortage, audience: RowAudience): number {
+  switch (audience) {
+    case 'none':
+      return 0;
+    case 'everyone':
+      return shortage.lacking;
+    case 'soldiers':
+      return shortage.soldiersLacking;
+    case 'civilians':
+      return shortage.lacking - shortage.soldiersLacking;
+  }
+}
 
 /** The seat's assistant orders in flight, read off the bookings the sim keeps on the people it sent. */
 export interface AssistantBookings {

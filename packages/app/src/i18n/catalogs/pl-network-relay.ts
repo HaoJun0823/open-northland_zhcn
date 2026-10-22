@@ -52,6 +52,7 @@ export const plNetworkRelay = {
     retryTooSoon: 'odczekaj chwilę przed ponowną prośbą',
     mapProviderAway: 'twórca pokoju, który udostępnia mapę, nie jest połączony',
     creatorHasMap: 'twórca pokoju ma już mapę',
+    mapNotKept: 'serwer nie przechowuje kopii mapy tego pokoju',
     lobbyFilesFixed: 'po starcie nie można zmienić mapy ani zapisu gry',
     noRecipient: 'gracza {nick} nie ma w pokoju',
     alreadyLoaded: 'ta gra już zgłosiła swój świat',

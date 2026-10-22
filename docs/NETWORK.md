@@ -530,8 +530,13 @@ comes with `catalogMap: { entryId, mapId, fingerprint, irVersion }`, naming the 
 catalogue entry, its terrain-and-script fingerprint and the content version it was converted for;
 neither field is allowed without the other. A member without the map fetches that conversion from
 the catalogue's server when its own content version matches, verifies the fingerprint, and asks the
-creator through the relay only when the server cannot deliver it. `requestMap` sends the connected
-creator `mapRequest { from }` so a member can retry delivery. Map and initial-save requests each
+creator through the relay only when the server cannot deliver it. The relay keeps the latest map
+text the creator delivered for the room's life, replaced by the creator's next delivery. `requestMap`
+answers with that text as the same `blob { type: "map", from }` the creator sent, in the lobby while
+the creator still offers it under the same map fingerprint and after Start to any member, such as one
+that returns without the map. Otherwise, in the lobby, it sends the connected creator
+`mapRequest { from }` so a member can retry delivery; after Start it is refused with `mapNotKept`.
+Map and initial-save requests each
 have a two-second per-member cooldown to bound small-request/large-response amplification. The origin is advisory: clients must
 validate source provenance, sender identity, payload schema and the expected map fingerprint.
 Map replacement after Start is refused. A map's bytes are the clients' contract: gzip of the JSON
@@ -671,6 +676,7 @@ every return of its token, before `start` and `clock`.
 | --- | --- |
 | `MAX_CLIENT_MESSAGE_BYTES` | 513 KiB |
 | `MAX_BLOB_BYTES` (decoded) | 32 MiB |
+| kept map text per room | one delivery, up to `MAX_BLOB_BYTES` |
 | `MAX_ENVELOPE_BYTES` | 512 KiB |
 | `MAX_SEATS` (seat indices) | 16, the sim's `MAX_PLAYERS` |
 | Observer slots per room | No slot limit |

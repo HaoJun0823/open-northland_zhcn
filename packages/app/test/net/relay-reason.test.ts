@@ -45,6 +45,7 @@ const SAMPLES: { readonly [C in RelayReasonCode]: Extract<RelayReason, { code: C
   retryTooSoon: { code: 'retryTooSoon' },
   mapProviderAway: { code: 'mapProviderAway' },
   creatorHasMap: { code: 'creatorHasMap' },
+  mapNotKept: { code: 'mapNotKept' },
   lobbyFilesFixed: { code: 'lobbyFilesFixed' },
   noRecipient: { code: 'noRecipient', nick: 'Zenon' },
   alreadyLoaded: { code: 'alreadyLoaded' },

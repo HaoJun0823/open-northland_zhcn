@@ -51,6 +51,7 @@ export const chtNetworkRelay = {
     retryTooSoon: '請稍候片刻再提出請求',
     mapProviderAway: '負責分享地圖的房間建立者未連線',
     creatorHasMap: '房間建立者已經有這張地圖',
+    mapNotKept: '伺服器沒有保存這個房間地圖的副本',
     lobbyFilesFixed: '遊戲開始後就不能更換地圖或存檔',
     noRecipient: '{nick} 不在房間中',
     alreadyLoaded: '這個遊戲已經回報過它的世界',

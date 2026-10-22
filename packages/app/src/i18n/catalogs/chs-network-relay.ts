@@ -51,6 +51,7 @@ export const chsNetworkRelay = {
     retryTooSoon: '请稍候再重新请求',
     mapProviderAway: '共享地图的房间创建者未连接',
     creatorHasMap: '房间创建者已经拥有这张地图',
+    mapNotKept: '服务器没有保存该房间地图的副本',
     lobbyFilesFixed: '开始后不能更换地图或存档',
     noRecipient: '{nick} 不在房间中',
     alreadyLoaded: '本游戏已经报告过它的世界',

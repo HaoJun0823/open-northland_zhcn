@@ -68,6 +68,7 @@ const REASON_PARAMS: { readonly [C in RelayReasonCode]: ParamsOf<Extract<RelayRe
   retryTooSoon: {},
   mapProviderAway: {},
   creatorHasMap: {},
+  mapNotKept: {},
   lobbyFilesFixed: {},
   noRecipient: { nick: 'nick' },
   alreadyLoaded: {},

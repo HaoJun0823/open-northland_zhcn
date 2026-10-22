@@ -46,6 +46,7 @@ export type RelayReason =
   | { readonly code: 'retryTooSoon' }
   | { readonly code: 'mapProviderAway' }
   | { readonly code: 'creatorHasMap' }
+  | { readonly code: 'mapNotKept' }
   | { readonly code: 'lobbyFilesFixed' }
   | { readonly code: 'noRecipient'; readonly nick: string }
   | { readonly code: 'alreadyLoaded' }

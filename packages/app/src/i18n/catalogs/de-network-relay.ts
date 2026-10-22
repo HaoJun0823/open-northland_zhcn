@@ -53,6 +53,7 @@ export const deNetworkRelay = {
     retryTooSoon: 'warte einen Moment, bevor du erneut anfragst',
     mapProviderAway: 'der Raumersteller, der die Karte bereitstellt, ist nicht verbunden',
     creatorHasMap: 'der Raumersteller hat die Karte bereits',
+    mapNotKept: 'der Server hat keine Kopie der Karte dieses Raums',
     lobbyFilesFixed: 'Karte und Spielstand können nach dem Start nicht mehr geändert werden',
     noRecipient: '{nick} ist nicht im Raum',
     alreadyLoaded: 'dieses Spiel hat seine Welt bereits gemeldet',

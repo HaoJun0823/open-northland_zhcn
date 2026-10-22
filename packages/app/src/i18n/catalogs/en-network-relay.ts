@@ -52,6 +52,7 @@ export const enNetworkRelay = {
     retryTooSoon: 'wait a moment before asking again',
     mapProviderAway: 'the room creator, who shares the map, is not connected',
     creatorHasMap: 'the room creator already has the map',
+    mapNotKept: "the server keeps no copy of this room's map",
     lobbyFilesFixed: 'the map and the saved game cannot change after the start',
     noRecipient: '{nick} is not in the room',
     alreadyLoaded: 'this game has already reported its world',

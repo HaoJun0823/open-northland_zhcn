@@ -102,3 +102,57 @@ describe('catalogue maps', () => {
     expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania', bytes });
   });
 });
+describe('the kept map', () => {
+  const COOLDOWN_MS = 2000;
+  const mapText = (label: string) => Buffer.from(`map ${label}`).toString('base64');
+  function mapLobby() {
+    const s = stage();
+    const a = s.introduce(TOKEN_A, 'Ania');
+    const b = s.introduce(TOKEN_B, 'Bartek');
+    a.send({ kind: 'createRoom', settings: { ...SETTINGS, mapOrigin: 'user' }, seats: SEATS });
+    b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
+    return { ...s, a, b };
+  }
+  const deliverTo = (nick: string, bytes: string) => ({
+    kind: 'blob',
+    type: 'map',
+    tick: null,
+    to: nick,
+    bytes,
+  });
+
+  it('serves the creator text again and replaces it with the next map the creator sends', () => {
+    const { a, b, advance } = mapLobby();
+    b.send({ kind: 'requestMap' });
+    expect(a.of('mapRequest')).toHaveLength(1);
+    a.send(deliverTo('Bartek', mapText('first')));
+    advance(COOLDOWN_MS);
+    b.send({ kind: 'requestMap' });
+    expect(a.of('mapRequest')).toHaveLength(1);
+    expect(b.last('blob')).toEqual({
+      kind: 'blob',
+      type: 'map',
+      from: 'Ania',
+      tick: null,
+      bytes: mapText('first'),
+    });
+    a.send(deliverTo('Bartek', mapText('second')));
+    advance(COOLDOWN_MS);
+    b.send({ kind: 'requestMap' });
+    expect(b.of('blob')).toHaveLength(4);
+    expect(b.last('blob')?.bytes).toBe(mapText('second'));
+  });
+
+  it('asks the creator again once it reports another copy of the map, and not a creator it passed to', () => {
+    const { a, b, advance } = mapLobby();
+    a.send(deliverTo('Bartek', mapText('first')));
+    a.send({ kind: 'setCompatibility', compatibility: { ...TEST_COMPATIBILITY, map: 'c'.repeat(64) } });
+    b.send({ kind: 'requestMap' });
+    expect(a.of('mapRequest')).toHaveLength(1);
+    expect(b.of('blob')).toHaveLength(1);
+    advance(COOLDOWN_MS);
+    a.send({ kind: 'leaveRoom' });
+    b.send({ kind: 'requestMap' });
+    expect(b.last('rejected')?.reason).toEqual({ code: 'creatorHasMap' });
+  });
+});

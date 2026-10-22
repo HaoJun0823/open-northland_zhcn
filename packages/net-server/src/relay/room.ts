@@ -274,7 +274,7 @@ export class Room {
       (event, fields) => this.log(event, fields),
       () => this.responsiveness.bufferTicks,
     );
-    this.transfers.release();
+    this.transfers.start();
     this.startedSeats = this.seats.sessionSeats();
     this.startedAt = now;
     this.log('game starting', {
@@ -380,7 +380,6 @@ export class Room {
   }
 
   requestMap(member: Member, now: number): Refusal {
-    if (this.game !== null) return { code: 'gameStarted' };
     return this.transfers.requestMap(member, now);
   }
 

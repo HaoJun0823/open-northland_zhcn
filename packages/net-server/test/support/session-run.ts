@@ -91,6 +91,8 @@ export interface RoomPlan {
   readonly seatOf: (index: number) => number | null;
   /** Virtual time to let each lobby step cross the links; a link's round trip plus margin. */
   readonly settleMs: number;
+  /** A lobby step once everyone has joined, before the seats are claimed. */
+  readonly joined?: () => void;
 }
 
 /** Walk a room from `hello` to a started game: `clients[0]` creates it and the rest join. */
@@ -110,6 +112,10 @@ export async function assembleRoom(
     throw new Error(`${host.nick} created no room: ${JSON.stringify(host.rejections)}`);
   for (const guest of guests) guest.joinRoom(roomId);
   settle(stage, plan.settleMs);
+  if (plan.joined !== undefined) {
+    plan.joined();
+    settle(stage, plan.settleMs);
+  }
   clients.forEach((client, index) => {
     client.claimSeat(plan.seatOf(index));
   });

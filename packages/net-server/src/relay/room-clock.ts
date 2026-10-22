@@ -1,5 +1,6 @@
 import {
   type GovernedClock,
+  MAX_COMMAND_BYTES_PER_TICK,
   MAX_COMMANDS_PER_TICK,
   type PlayerWireEnvelope,
   type RelayWireEnvelope,
@@ -14,7 +15,6 @@ const MAX_FRAMES_PER_ADVANCE = 12;
 const TIME_EPSILON_MS = 1e-6;
 /** Bounds accepted future gestures even while paused. Unit count never changes their scheduled tick. */
 export const MAX_PENDING_COMMANDS_PER_MEMBER = 128;
-export const MAX_COMMAND_BYTES_PER_TICK = 1024 * 1024;
 export const MAX_PENDING_COMMAND_BYTES = 2 * 1024 * 1024;
 /** Conservatively charges each gesture for its sequence wrapper and a whole frame header. Empty
  * frames and trusted seat handovers use the recovery store's separate headroom. */

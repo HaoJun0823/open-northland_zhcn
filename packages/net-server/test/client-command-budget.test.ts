@@ -8,7 +8,6 @@ import { Relay } from '@open-northland/net-server';
 import { playerCommand, restoreSimulation, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import { MAX_COMMAND_BYTES_PER_TICK as RELAY_COMMAND_BYTES_PER_TICK } from '../src/relay/room-clock.js';
 import { HeadlessClient } from './support/headless-client.js';
 import { assembleRoom, relink, runFor, type Stage } from './support/session-run.js';
 import { type Link, seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';
@@ -143,7 +142,6 @@ describe('gestures past the relay per-tick budget', () => {
   });
 
   it('lands large orders over successive ticks instead of crossing the byte budget of one', async () => {
-    expect(MAX_COMMAND_BYTES_PER_TICK).toBe(RELAY_COMMAND_BYTES_PER_TICK);
     const { stage, clients } = await room();
     const [ania, bartek] = clients;
     // An id no world holds: the rename changes nothing, only its size matters.

@@ -1,7 +1,11 @@
-import { MAX_COMMANDS_PER_TICK, type PlayerWireEnvelope, TICK_MS } from '@open-northland/net-protocol';
-import { describe, expect, it } from 'vitest';
 import {
   MAX_COMMAND_BYTES_PER_TICK,
+  MAX_COMMANDS_PER_TICK,
+  type PlayerWireEnvelope,
+  TICK_MS,
+} from '@open-northland/net-protocol';
+import { describe, expect, it } from 'vitest';
+import {
   MAX_PENDING_COMMAND_BYTES,
   MAX_PENDING_COMMANDS_PER_MEMBER,
   RoomClock,

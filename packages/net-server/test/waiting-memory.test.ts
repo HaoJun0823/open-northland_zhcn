@@ -1,4 +1,4 @@
-import { TICK_MS } from '@open-northland/net-protocol';
+import { TICK_MS, type WaitedMember } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { KICK_COUNTDOWN_MS, SILENT_AFTER_MS } from '../src/index.js';
 import { WAIT_FORGIVENESS, Waiting } from '../src/relay/waiting.js';
@@ -160,7 +160,7 @@ describe('the waited set at the start of the clock', () => {
   const startNotices = (peer: Peer, from: number) =>
     peer.sent
       .slice(from)
-      .flatMap((message) =>
+      .flatMap((message): (string | readonly WaitedMember[])[] =>
         message.kind === 'clock' ? ['clock'] : message.kind === 'waiting' ? [message.for] : [],
       );
 

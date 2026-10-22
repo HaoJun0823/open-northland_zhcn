@@ -820,6 +820,11 @@ export const deContent = {
       summary:
         'Ein Siedler wird in die Kaserne geschickt, übt dort 15 Sekunden und kommt als unbewaffneter Soldat heraus. Daneben stehen ein bereits dienender Soldat, der nur übt, und ein Siedler, dem der Soldatenberuf verwehrt bleibt.',
     },
+    'barracks-exit': {
+      title: 'Auszug aus der Kaserne',
+      summary:
+        'Sechs Siedler üben gleichzeitig in einer Kaserne und kommen als unbewaffnete Soldaten heraus. Jeder tritt vom gemeinsamen Feld vor der Tür auf ein freies daneben und hält dort seinen Posten, sodass der Trupp verteilt um die Tür steht statt übereinander gestapelt.',
+    },
     armor: {
       title: 'Rüstungsparade',
       summary:

@@ -813,6 +813,11 @@ export const enContent = {
       summary:
         'A civilian sent to the barracks drills inside for 15 seconds and walks out an unarmed soldier; beside him a serving soldier who only drills, and a civilian for whom the soldier profession stays shut.',
     },
+    'barracks-exit': {
+      title: 'Barracks exit',
+      summary:
+        'Six civilians drill in one barracks at once and walk out unarmed soldiers. Each steps off the shared door node onto a free one beside it and holds that post, so the squad stands spread around the door instead of stacked on it.',
+    },
     armor: {
       title: 'Armour parade',
       summary:

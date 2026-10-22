@@ -810,6 +810,11 @@ export const plContent = {
       summary:
         'Osadnik wysłany do koszar ćwiczy w środku 15 sekund i wychodzi jako żołnierz bez broni; obok żołnierz, który tylko trenuje, i cywil, dla którego zawód żołnierza pozostaje zamknięty.',
     },
+    'barracks-exit': {
+      title: 'Wyjście z koszar',
+      summary:
+        'Sześciu osadników ćwiczy naraz w jednych koszarach i wychodzi jako żołnierze bez broni. Każdy schodzi ze wspólnego pola przed drzwiami na wolne obok i tam trzyma posterunek, więc oddział stoi rozstawiony wokół drzwi, a nie w jednym stosie.',
+    },
     armor: {
       title: 'Parada zbroi',
       summary:

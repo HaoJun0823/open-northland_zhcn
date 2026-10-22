@@ -10,6 +10,7 @@ import { armyPassageScene } from './army-passage.js';
 import { attackMoveScene } from './attack-move.js';
 import { audioMixScene } from './audio-mix.js';
 import { barracksScene } from './barracks.js';
+import { barracksExitScene } from './barracks-exit.js';
 import { battleScene } from './battle.js';
 import { battleWearyScene } from './battle-weary.js';
 import { bearHuntScene } from './bear-hunt.js';
@@ -210,6 +211,7 @@ export const SCENES: readonly SceneDefinition[] = [
   netPanelScene,
   amuletsScene,
   barracksScene,
+  barracksExitScene,
   armorScene,
   towerGarrisonScene,
   towerFinialsScene,

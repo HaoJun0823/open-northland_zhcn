@@ -39,13 +39,21 @@ vi.mock('../../src/content/lobby-identity.js', () => ({
   loadLobbyCompatibility: async () => OWN_REPORT,
 }));
 vi.mock('../../src/entries/relay/network-game.js', () => ({ renderNetworkGame: vi.fn() }));
+vi.mock('../../src/launch.js', () => ({ swapToEntry: vi.fn(async () => undefined) }));
 
 import { renderNetworkReload } from '../../src/entries/relay/network-reload.js';
 
+/** The session-storage entry holding this room's control groups across a reload. */
+const KEPT_VIEW_KEY = `open-northland.relay-view:ws://relay.test/#${ROOM_ID}`;
+
 // Test files share a document: start from an empty one and leave it so.
-beforeEach(() => document.body.replaceChildren());
+beforeEach(() => {
+  document.body.replaceChildren();
+  window.sessionStorage.setItem(KEPT_VIEW_KEY, '{}');
+});
 afterEach(() => {
   document.body.replaceChildren();
+  window.sessionStorage.clear();
   fake.dispose.mockClear();
 });
 
@@ -81,4 +89,29 @@ it('keeps the seat when the reloaded tab cannot reach the relay any more', () =>
   renderNetworkReload({} as HTMLCanvasElement, params());
   fake.listener?.({ kind: 'link', state: 'closed', reason: 'malformed', atMs: 0 } satisfies ConnectionEvent);
   expect(fake.dispose).toHaveBeenCalledExactlyOnceWith(false);
+});
+
+const buttonLabels = () => [...document.body.querySelectorAll('button')].map((button) => button.textContent);
+
+it('offers no seat back and forgets the kept groups when a refused rejoin lost the room', () => {
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.listener?.({ kind: 'failure', what: 'room', error: new Error('refused') } satisfies ConnectionEvent);
+  // The connection's synthetic `left` after the failure finds the reload already closed.
+  relay({ kind: 'left' });
+  expect(buttonLabels()).toEqual([messages().hud.returnToMenu]);
+  expect(document.body.textContent).not.toContain(messages().networkRelay.retry);
+  expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).toBeNull();
+});
+
+it('keeps the groups while the seat is held and forgets them when the player leaves it', () => {
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.listener?.({ kind: 'link', state: 'closed', reason: 'malformed', atMs: 0 } satisfies ConnectionEvent);
+  expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).not.toBeNull();
+  const leave = [...document.body.querySelectorAll('button')].find(
+    (button) => button.textContent === messages().networkRelay.leaveGame,
+  );
+  leave?.click();
+  // Settle the surrender's own connection at once.
+  fake.listener?.({ kind: 'failure', what: 'world', error: new Error('gone') } satisfies ConnectionEvent);
+  expect(window.sessionStorage.getItem(KEPT_VIEW_KEY)).toBeNull();
 });

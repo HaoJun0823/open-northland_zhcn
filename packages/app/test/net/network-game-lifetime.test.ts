@@ -409,4 +409,22 @@ describe('control groups across a relayed rebuild', () => {
     const plan = mocks.assemble.mock.calls.at(-1)?.[2] as { stagedSave: { header: { view: unknown } } };
     expect(plan.stagedSave.header.view).toEqual(GROUPS);
   });
+
+  it('forgets them once the room has no seat for this client', async () => {
+    const first = presentedGame();
+    await first.start();
+    first.presented.view = GROUPS;
+    first.relay({
+      kind: 'kicked',
+      player: LOCAL_SEAT,
+      nick: 'Ania',
+      mode: 'computer',
+      cause: 'vote',
+      tick: 2,
+    });
+    const reloaded = presentedGame();
+    await reloaded.restore();
+    const plan = mocks.assemble.mock.calls.at(-1)?.[2] as { stagedSave: { header: { view: unknown } } };
+    expect(plan.stagedSave.header.view).not.toEqual(GROUPS);
+  });
 });

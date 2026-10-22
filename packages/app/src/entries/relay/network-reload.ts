@@ -6,6 +6,7 @@ import { NetworkConnection } from '../../net/connection.js';
 import { relayCloseText, relayFailureText, relayReasonText } from '../../net/relay-reason.js';
 import { compatibilityIssuesText } from './compatibility.js';
 import { relayIdentity } from './identity.js';
+import { keptView } from './kept-view.js';
 import { mountHaltNotice } from './menu-notice.js';
 import { renderNetworkGame } from './network-game.js';
 import { wrongReconnectRoom } from './reload-message.js';
@@ -34,6 +35,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
     mountHaltNotice(messages().networkRelay.openFailed, relayFailureText(error), {
       onCard: false,
       seat: seatKept ? keptSeat(url, connection.identity, roomId) : null,
+      view: keptView(url, roomId),
     });
   };
   const unsubscribe = connection.subscribe((event) => {
@@ -42,7 +44,8 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       return;
     }
     if (event.kind === 'failure') {
-      fail(event.error);
+      // A refused rejoin lost the room, so no seat is left to offer back.
+      fail(event.error, event.what !== 'room');
       return;
     }
     if (event.kind !== 'message') return;

@@ -160,6 +160,7 @@ export function renderNetworkGame(
       {
         onCard: starting,
         seat: seatKept && roomId !== null ? keptSeat(connection.url, connection.identity, roomId) : null,
+        view: kept,
       },
     );
   }

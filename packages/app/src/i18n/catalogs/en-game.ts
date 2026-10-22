@@ -1994,6 +1994,10 @@ export const enGame = {
         computer: '{nick} left the game; a computer player takes the seat',
         idle: '{nick} left the game',
       },
+      loadingTimedOut: {
+        computer: '{nick} did not finish loading in time; a computer player takes the seat',
+        idle: '{nick} did not finish loading in time',
+      },
     },
     startRoster: {
       title: 'Players',

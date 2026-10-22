@@ -49,8 +49,9 @@ export type VacantSeatMode = Exclude<SeatMode, 'human'>;
  *  belong to the lobby, before the world starts. */
 export type DepartedSeatMode = Exclude<VacantSeatMode, 'absent' | 'map-ai'>;
 
-/** Why a member left a started game's seat: a passed kick vote or its own leave. */
-export type DepartureCause = 'vote' | 'left';
+/** Why a member left a started game's seat: a passed kick vote, its own leave, or a boot that stood
+ *  still too long before the clock ran. */
+export type DepartureCause = 'vote' | 'left' | 'loadingTimedOut';
 
 export interface RoomSeatSetup {
   readonly player: number;

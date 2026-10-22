@@ -1953,6 +1953,10 @@ export const chtGame = {
         computer: '{nick} 離開了遊戲；由電腦玩家接手席位',
         idle: '{nick} 離開了遊戲',
       },
+      loadingTimedOut: {
+        computer: '{nick} 未能及時完成載入；由電腦玩家接手席位',
+        idle: '{nick} 未能及時完成載入',
+      },
     },
     startRoster: {
       title: '玩家',

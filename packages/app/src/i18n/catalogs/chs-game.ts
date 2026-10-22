@@ -1949,6 +1949,10 @@ export const chsGame = {
         computer: '{nick} 离开了游戏，由电脑玩家接替其席位',
         idle: '{nick} 离开了游戏',
       },
+      loadingTimedOut: {
+        computer: '{nick} 未能及时完成载入，由电脑玩家接替其席位',
+        idle: '{nick} 未能及时完成载入',
+      },
     },
     startRoster: {
       title: '玩家',

@@ -2148,6 +2148,11 @@ export const deGame = {
         computer: '{nick} hat das Spiel verlassen; ein Computerspieler übernimmt den Spielerplatz',
         idle: '{nick} hat das Spiel verlassen',
       },
+      loadingTimedOut: {
+        computer:
+          '{nick} hat den Ladevorgang nicht rechtzeitig abgeschlossen; ein Computerspieler übernimmt den Spielerplatz',
+        idle: '{nick} hat den Ladevorgang nicht rechtzeitig abgeschlossen',
+      },
     },
     startRoster: {
       title: 'Spieler',

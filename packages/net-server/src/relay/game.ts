@@ -99,6 +99,11 @@ export class Game {
     return this.clock.running;
   }
 
+  /** A world has loaded, so the tick the game starts from is fixed. */
+  get worldBuilt(): boolean {
+    return this.builtTick !== null;
+  }
+
   /** The tick a chat line received now is stamped with: the clock's next one, null before it runs. */
   get chatTick(): number | null {
     return this.clock.running ? this.clock.nextTick : null;

@@ -349,7 +349,8 @@ The clock holds, emitting no frames, while any seated player is:
   client's answer to each control ping between its fragments (see
   [Public relay security boundary](#public-relay-security-boundary)) keeps a client heard while the
   relay's pings and frames wait behind a snapshot it is downloading;
-- `loading`: it has not said where its world stands, before the start or after a return;
+- `loading`: it has not said where its world stands, before the start or after a return, and is still
+  heard; a loader that went silent is waited for as `silent`;
 - `resync`: it is out of sync and its snapshot has not arrived;
 - `slow`: it has been slow for `SLOW_WAIT_AFTER_MS` (30 s) on end and has not caught up since; see
   [Pacing](#pacing).
@@ -378,12 +379,18 @@ client's `LINK_QUIET_MS` (equal to `SILENT_AFTER_MS`) without a relay message. I
 then shows that countdown on a screen that takes no order until the relay is heard again. It counts
 the whole `KICK_COUNTDOWN_MS` from the loss, while the relay carries over the waited time the member
 still owes, so the client's countdown is an upper bound: the others may be offered the vote sooner
-than its screen shows. Before the clock runs, a member that has not loaded and whose boot has not
+than its screen shows. Before the clock runs, a player that has not loaded and whose boot has not
 moved for `LOADING_STALL_MS` (2 min, counted from the start, its last `loading`, its `loaded`, or its
-drop or return) ends the room: every connected member gets `error { loadingTimedOut, nick }` and
-`left`, and the players host again. The app shows no countdown for it and offers no vote on its
-loading screen. A seated member that leaves the room before the clock runs ends it at once, with
-`error { leftBeforeStart, nick }` and `left` to the others.
+drop or return) loses its seat the way a passed kick takes it: `kicked { cause: "loadingTimedOut" }`,
+the seat follows `settings.kickedSeatMode`, and the clock starts once the others have loaded. A hidden
+or frozen tab is an absent player: it never holds the others past the stall, nor ends their room. The
+handover waits for the first `loaded`, which fixes the tick it lands on; until then every other player
+is still booting too. Only when no player is left whose boot moves does the room end: every connected
+member gets `error { loadingTimedOut, nick }` and `left`, and the players host again. Observers count
+neither way. A player kicked while its socket was down, for this or by a vote, gets that `kicked` and
+`left` once when its token next says `hello`, while the room lasts. The app shows no countdown for the
+stall and offers no vote on its loading screen. A seated member that leaves the room before the clock
+runs ends it at once, with `error { leftBeforeStart, nick }` and `left` to the others.
 
 Observers cannot issue commands, change the shared clock or responsiveness, or vote to kick a player.
 Their loading, disconnection and rendering speed never hold or pace the game. Their digests are

@@ -15,7 +15,7 @@ import {
 import { LatencyProbe } from './input-delay.js';
 import { createMember, type Member, type Refusal } from './member.js';
 import { type RelayLog, wholeSeconds } from './relay-log.js';
-import { Room } from './room.js';
+import { type Farewell, Room } from './room.js';
 import { dispatchRoomMessage } from './room-dispatch.js';
 import { retireRoomMembers } from './room-retirement.js';
 import { saveOrdersRequestId } from './save-orders.js';
@@ -75,6 +75,8 @@ export class Relay {
   private readonly rooms = new Map<string, Room>();
   /** Every member's room, connected or not, so a returning token finds its seat. */
   private readonly roomOfToken = new Map<string, Room>();
+  /** What a token kicked while its socket was down hears on its return, while its room lasts. */
+  private readonly farewells = new Map<string, { readonly room: Room; readonly notice: Farewell }>();
   private readonly emptySince = new Map<Room, number>();
   private readonly now: () => number;
   private readonly wallClock: () => number;
@@ -304,6 +306,8 @@ export class Relay {
       member.jitterMs = 0;
       room.reconnect(member, this.now());
       this.emptySince.delete(room);
+    } else {
+      this.sayFarewell(client, message.token);
     }
     this.log('hello', {
       nick: message.nick,
@@ -393,16 +397,26 @@ export class Relay {
     deliver: (member: Member, message: ServerMessage): void => {
       this.byToken.get(member.token)?.connection.send(message);
     },
-    removed: (member: Member): void => {
+    removed: (member: Member, farewell: Farewell | null): void => {
       const room = this.roomOfToken.get(member.token);
       if (room !== undefined) {
         this.detach(member.token, room);
+        if (farewell !== null) this.farewells.set(member.token, { room, notice: farewell });
         this.dropIfEmpty(room);
       }
     },
     wallClock: (): number => this.wallClock(),
     log: (event: string, fields?: Record<string, unknown>): void => this.log(event, fields),
   };
+
+  /** A kicked player's client still holds the game it was kicked from: tell it, and that it left. */
+  private sayFarewell(client: Client, token: string): void {
+    const farewell = this.farewells.get(token);
+    if (farewell === undefined) return;
+    this.farewells.delete(token);
+    client.connection.send(farewell.notice);
+    client.connection.send({ kind: 'left' });
+  }
 
   /** The token no longer belongs to `room`, nor does the connection holding it. */
   private detach(token: string, room: Room): void {
@@ -429,6 +443,7 @@ export class Relay {
     client.room = room;
     client.member = member;
     this.roomOfToken.set(member.token, room);
+    this.farewells.delete(member.token);
   }
 
   private newRoomId(): string {
@@ -447,6 +462,7 @@ export class Relay {
     room.noteMilestones(now);
     this.rooms.delete(room.id);
     this.emptySince.delete(room);
+    for (const [token, farewell] of this.farewells) if (farewell.room === room) this.farewells.delete(token);
     retireRoomMembers(room, (token) => this.detach(token, room), this.hooks.deliver, reason);
     this.log('room dropped', {
       room: room.id,

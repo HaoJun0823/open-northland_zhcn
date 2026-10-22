@@ -74,20 +74,73 @@ describe('member boot progress', () => {
     expect(a.last('rejected')?.reason).toEqual({ code: 'gameNotStarted' });
   });
 
-  it("ends the room for everyone when a member's boot stands still too long", () => {
+  it('hands over the seat of a member whose boot stands still too long, and starts without it', () => {
     const s = startingRoom();
     s.a.send({ kind: 'loaded', tick: 0, world: 0 });
     s.b.send({ kind: 'loading', progress: HALFWAY });
     s.advance(LOADING_STALL_MS - 1);
     expect(s.a.last('clock')).toBeUndefined();
-    expect(s.a.of('left')).toEqual([]);
+    expect(s.a.of('kicked')).toEqual([]);
     s.advance(1);
+    const kicked = { kind: 'kicked', player: 1, nick: 'Bartek', mode: 'idle', cause: 'loadingTimedOut' };
+    for (const peer of [s.a, s.b]) expect(peer.last('kicked')).toMatchObject(kicked);
+    expect(s.b.of('left')).toHaveLength(1);
+    expect(s.a.of('left')).toEqual([]);
+    expect(s.a.of('error')).toEqual([]);
+    expect(s.a.last('clock')?.paused).toBe(false);
+    expect(s.a.last('room')?.room.members.map(({ nick }) => nick)).toEqual(['Ania']);
+    expect(s.relay.roomCount).toBe(1);
+  });
+
+  it('ends the room for everyone when no player is left whose boot moves', () => {
+    const s = startingRoom();
+    s.a.send({ kind: 'loading', progress: NEARLY });
+    s.b.send({ kind: 'loading', progress: HALFWAY });
+    s.advance(LOADING_STALL_MS);
     for (const peer of [s.a, s.b]) {
-      expect(peer.last('error')?.reason).toEqual({ code: 'loadingTimedOut', nick: 'Bartek' });
+      expect(peer.last('error')?.reason).toEqual({ code: 'loadingTimedOut', nick: 'Ania' });
       expect(peer.of('left')).toHaveLength(1);
     }
-    expect(s.a.last('clock')).toBeUndefined();
+    expect(s.a.of('kicked')).toEqual([]);
     expect(s.relay.roomCount).toBe(0);
+  });
+
+  it('holds a stalled member until another player has built its world, then hands its seat over', () => {
+    const s = startingRoom();
+    s.b.send({ kind: 'loading', progress: HALFWAY });
+    s.advance(LOADING_STALL_MS - 1);
+    s.a.send({ kind: 'loading', progress: NEARLY });
+    s.advance(1);
+    expect(s.a.of('kicked')).toEqual([]);
+    expect(s.relay.roomCount).toBe(1);
+    s.a.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.advance(1);
+    expect(s.a.last('kicked')).toMatchObject({ nick: 'Bartek', cause: 'loadingTimedOut' });
+    expect(s.a.last('clock')?.paused).toBe(false);
+  });
+
+  it('counts an observer neither as a player left to start the game nor as a stalled one', () => {
+    const s = roomOfThreeStarting();
+    s.c.send({ kind: 'claimSeat', player: null });
+    s.b.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.advance(LOADING_STALL_MS);
+    expect(s.b.last('kicked')).toMatchObject({ nick: 'Ania', cause: 'loadingTimedOut' });
+    expect(s.b.last('clock')?.paused).toBe(false);
+    expect(s.c.of('left')).toEqual([]);
+  });
+
+  it('tells a stalled member that returns after the handover that it was kicked, once', () => {
+    const s = startingRoom();
+    s.a.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.relay.disconnect(s.b.handle);
+    s.advance(LOADING_STALL_MS);
+    const kicked = s.a.last('kicked');
+    expect(kicked).toMatchObject({ nick: 'Bartek', cause: 'loadingTimedOut' });
+    const back = s.introduce(TOKEN_B, 'Bartek');
+    expect(back.sent.map(({ kind }) => kind)).toEqual(['welcome', 'kicked', 'left']);
+    expect(back.last('kicked')).toEqual(kicked);
+    const again = s.introduce(TOKEN_B, 'Bartek');
+    expect(again.sent.map(({ kind }) => kind)).toEqual(['welcome']);
   });
 
   it('never starts without a member that dropped while loading, and starts once it returns and loads', () => {

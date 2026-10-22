@@ -1962,6 +1962,10 @@ export const plGame = {
         computer: 'Gracz {nick} opuścił grę, miejsce przejmuje gracz komputerowy',
         idle: 'Gracz {nick} opuścił grę',
       },
+      loadingTimedOut: {
+        computer: 'Gracz {nick} nie wczytał gry na czas, miejsce przejmuje gracz komputerowy',
+        idle: 'Gracz {nick} nie wczytał gry na czas',
+      },
     },
     startRoster: {
       title: 'Gracze',

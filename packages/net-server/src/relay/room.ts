@@ -30,14 +30,18 @@ import { type SeatChange, SeatTable } from './seats.js';
  *  measurement or lag moved. A load changes with nearly every acknowledgement; a view per ack would be
  *  a room broadcast per member per tick. */
 export const LOAD_VIEW_INTERVAL_MS = 1000;
-/** How long one step of a member's boot may take, or the member stay away, before the start gives up
- *  and ends the room. Generous for a slow machine, and never shown to the players as a countdown. */
+/** How long one step of a member's boot may take, or the member stay away, before the start hands its
+ *  seat over, or ends the room when no other player is left to start it. Generous for a slow machine,
+ *  and never shown to the players as a countdown. */
 export const LOADING_STALL_MS = 2 * 60 * 1000;
+
+/** The handover notice a kicked member missed while its socket was down, for its token's return. */
+export type Farewell = Extract<ServerMessage, { kind: 'kicked' }>;
 
 export interface RoomHooks {
   readonly deliver: Deliver;
   /** A member left, was dropped from the lobby, or was kicked; its token no longer belongs here. */
-  readonly removed: (member: Member) => void;
+  readonly removed: (member: Member, farewell: Farewell | null) => void;
   /** Unix epoch milliseconds. */
   readonly wallClock: () => number;
   readonly log: RelayLog;
@@ -405,8 +409,8 @@ export class Room {
   advance(elapsedMs: number, now: number): Refusal {
     if (this.leftBeforeStart !== null) return { code: 'leftBeforeStart', nick: this.leftBeforeStart };
     if (this.game !== null && !this.game.running) {
-      const stalled = this.stalledLoad(now);
-      if (stalled !== null) return stalled;
+      const ended = this.handOverStalledLoads(now);
+      if (ended !== null) return ended;
     }
     const refusal = this.game?.advance(elapsedMs, now) ?? null;
     this.noteMilestones(now);
@@ -475,26 +479,44 @@ export class Room {
     this.hooks.log(event, { room: this.id, name: this.name, ...fields });
   }
 
-  /** Before the clock runs, a member whose boot stood still for `LOADING_STALL_MS` ends the room: a
-   *  game never starts without one of its players, so the others host again. */
-  private stalledLoad(now: number): Refusal {
+  /** Before the clock runs, a player whose boot stood still for `LOADING_STALL_MS` loses its seat the
+   *  way a passed kick takes it, so the others start without it. The kick waits for the first built
+   *  world, which fixes the tick the handover lands on; until then every other player is still booting
+   *  too. With no player left whose boot moves, the room ends and the players host again. */
+  private handOverStalledLoads(now: number): Refusal {
+    const stalled: Member[] = [];
+    let players = 0;
     for (const member of this.members.values()) {
-      if (member.seat !== null && !member.loaded && now - member.progressAt >= LOADING_STALL_MS)
-        return { code: 'loadingTimedOut', nick: member.nick };
+      if (member.seat === null) continue;
+      players++;
+      if (!member.loaded && now - member.progressAt >= LOADING_STALL_MS) stalled.push(member);
     }
+    const [first] = stalled;
+    if (first === undefined) return null;
+    if (stalled.length === players) return { code: 'loadingTimedOut', nick: first.nick };
+    if (this.game === null || !this.game.worldBuilt) return null;
+    for (const member of stalled) {
+      if (member.seat !== null) this.kickOut(member, member.seat, now, 'loadingTimedOut');
+    }
+    this.carryOutKickVotes(now);
     return null;
   }
 
   /** The AI case lands on the clock through the game. */
   private kickOut(target: Member, player: number, now: number, cause: DepartureCause): void {
     const mode = this.seats.departedModeOf(player, this.lobby.settings.kickedSeatMode);
+    let farewell: Farewell | null = null;
     if (this.game !== null && mode !== null) {
       const tick = this.game.kicked(target, player, mode, cause);
-      if (tick !== null) this.broadcast({ kind: 'kicked', player, nick: target.nick, mode, cause, tick });
+      if (tick !== null) {
+        const notice: Farewell = { kind: 'kicked', player, nick: target.nick, mode, cause, tick };
+        this.broadcast(notice);
+        if (!target.connected && cause !== 'left') farewell = notice;
+      }
     }
     this.seats.standUp(target);
     if (mode !== null) this.seats.vacate(player, mode);
-    this.remove(target, cause, mode);
+    this.remove(target, cause, mode, farewell);
     this.game?.removed(now);
   }
 
@@ -514,7 +536,12 @@ export class Room {
   }
 
   /** `seatTo` is what a departed player's seat became in the running game. */
-  private remove(member: Member, cause: RemovalCause, seatTo: DepartedSeatMode | null = null): void {
+  private remove(
+    member: Member,
+    cause: RemovalCause,
+    seatTo: DepartedSeatMode | null = null,
+    farewell: Farewell | null = null,
+  ): void {
     this.game?.forget(member);
     this.seats.standUp(member);
     this.members.delete(member.token);
@@ -530,7 +557,7 @@ export class Room {
       members: this.members.size,
       ...(seatTo === null ? {} : { seatTo }),
     });
-    this.hooks.removed(member);
+    this.hooks.removed(member, farewell);
     this.deliver(member, { kind: 'left' });
     if (this.members.size > 0) this.broadcastView();
   }

@@ -65,7 +65,7 @@ export const VACANT_SEAT_MODES = keysOf<VacantSeatMode>({
   absent: true,
 });
 export const DEPARTED_SEAT_MODES = keysOf<DepartedSeatMode>({ computer: true, idle: true });
-export const DEPARTURE_CAUSES = keysOf<DepartureCause>({ vote: true, left: true });
+export const DEPARTURE_CAUSES = keysOf<DepartureCause>({ vote: true, left: true, loadingTimedOut: true });
 export const COMPUTER_DIFFICULTIES = keysOf<ComputerDifficulty>({ easy: true, medium: true, hard: true });
 
 export function parseRoomSettings(value: unknown, at: string): RoomSettings {

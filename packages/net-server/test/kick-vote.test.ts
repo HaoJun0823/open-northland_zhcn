@@ -175,3 +175,32 @@ describe('kick recount', () => {
     });
   });
 });
+
+describe('a yes cast during a long absence', () => {
+  /** Wall time the target is gone for: ten countdowns. */
+  const LONG_ABSENCE_MS = 10 * KICK_COUNTDOWN_MS;
+  /** Wall time the target plays on for after its return before its next short wait. */
+  const PLAYED_ON_MS = 60 * KICK_COUNTDOWN_MS;
+
+  it('owes at most one countdown, so the yes is gone by its next short wait an hour later', () => {
+    const { members, peers, waiting, votes, cast, target } = room(3);
+    const [, a] = peers;
+    const waited = [{ token: target.token, nick: target.nick, reason: 'gone' as const }];
+    expect(cast(a)).toMatchObject({ kicked: null });
+    waiting.update(waited, LONG_ABSENCE_MS);
+    expect(waiting.voteAfterMs(target.token, LONG_ABSENCE_MS)).toBe(0);
+
+    target.connected = true;
+    waiting.update([], LONG_ABSENCE_MS);
+    votes.follow(members, waiting);
+    const forgivenAt = LONG_ABSENCE_MS + KICK_COUNTDOWN_MS / WAIT_FORGIVENESS;
+    waiting.update([], forgivenAt);
+    expect(waiting.owes(target.token)).toBe(false);
+    votes.follow(members, waiting);
+
+    const hiccupAt = LONG_ABSENCE_MS + PLAYED_ON_MS;
+    waiting.update([{ token: target.token, nick: target.nick, reason: 'silent' }], hiccupAt);
+    expect(waiting.voteOpen(target.token, hiccupAt)).toBe(false);
+    expect(votes.follow(members, waiting)).toEqual([]);
+  });
+});

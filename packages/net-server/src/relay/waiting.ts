@@ -13,7 +13,8 @@ export interface Waited {
   readonly reason: WaitReason;
 }
 
-/** The waited time a member owes, as of `at`. */
+/** The waited time a member owes, as of `at`. It stops growing at `KICK_COUNTDOWN_MS`, so a long
+ *  absence is forgiven as fast as one that just reached the vote. */
 interface Account {
   owedMs: number;
   at: number;
@@ -115,7 +116,9 @@ export class Waiting {
 
 function owedAt(account: Account, now: number): number {
   const elapsed = now - account.at;
-  return account.waited ? account.owedMs + elapsed : Math.max(0, account.owedMs - elapsed * WAIT_FORGIVENESS);
+  return account.waited
+    ? Math.min(KICK_COUNTDOWN_MS, account.owedMs + elapsed)
+    : Math.max(0, account.owedMs - elapsed * WAIT_FORGIVENESS);
 }
 
 function sameWait(a: readonly Waited[], b: readonly Waited[]): boolean {

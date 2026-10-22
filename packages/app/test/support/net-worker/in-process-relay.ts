@@ -1,10 +1,9 @@
 import type { MessageChannel } from 'node:worker_threads';
 import type { GameSession } from '@open-northland/lockstep';
 import type { RelayLinkEvents } from '@open-northland/net-client';
-import { type ClientMessage, DESCRIPTOR_WORLD, PROTOCOL_VERSION } from '@open-northland/net-protocol';
+import { type ClientMessage, DESCRIPTOR_WORLD } from '@open-northland/net-protocol';
 import type { MapWorkerBoot, MapWorldPlacements } from '../../../src/entries/map/world-inputs.js';
 import { type HostedRelayedWorld, NetworkConnection } from '../../../src/net/connection.js';
-import { relayedSessionDriver } from '../../../src/net/net-worker-client.js';
 import { createSceneSim, SCENES } from '../../../src/scenes/index.js';
 import { type RelayLinkFactory, serveRelay } from '../../../src/session/worker/net-serve.js';
 import type { RelayedWorldBuilder } from '../../../src/session/worker/net-world-port.js';
@@ -107,28 +106,4 @@ export function inProcessConnection(channel: MessageChannel, link: ReturnType<ty
     (world) => worlds.push(world),
   );
   return { connection, worlds };
-}
-
-/** A started session whose world the display has shown once and whose `loaded` went out. */
-export async function shownWorld(channel: MessageChannel, session: GameSession = SANDBOX_SESSION) {
-  const link = testLink();
-  const { connection, worlds } = inProcessConnection(channel, link);
-  await until(() => link.state.opened);
-  link.open();
-  await until(() => connection.connected);
-  link.deliver({ kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania' });
-  link.deliver({ kind: 'start', session, snapshotTick: null });
-  await until(() => worlds.length === 1);
-  const [world] = worlds;
-  if (world === undefined) throw new Error('no world');
-  const driver = relayedSessionDriver(world.session.driver, connection.client);
-  driver.advance(0);
-  connection.worldShown(world.worldId);
-  await until(() => link.sent.some((message) => message.kind === 'loaded'));
-  const acks = (): number => link.sent.filter((message) => message.kind === 'ack').length;
-  const dispose = (): void => {
-    world.session.dispose();
-    connection.dispose();
-  };
-  return { link, connection, world, driver, acks, dispose };
 }

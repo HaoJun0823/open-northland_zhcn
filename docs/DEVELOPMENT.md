@@ -232,7 +232,7 @@ line, a failed start included. Every message it handles is exercised by the test
 through it in memory. `ON_RELAY_URL=wss://…` points the socket test at a deployed relay instead:
 
 ```bash
-ON_RELAY_URL=wss://relay.opennorthland.org npx vitest run --project core packages/net-server/test/ws-host.test.ts
+ON_RELAY_URL=wss://relay.opennorthland.org npx vitest run --project core-slow packages/net-server/test/ws-host.test.ts
 ```
 
 The main menu's **Multiplayer** screen (`?menu=multiplayer` opens it directly) accepts an editable

@@ -2,12 +2,11 @@ import type { MapText } from '@open-northland/data';
 import { MAX_NICK_LENGTH, type RoomView } from '@open-northland/net-protocol';
 import { apiBaseUrl, loadMapSources } from '../../../content/map-source/index.js';
 import type { MapVerifyNotice } from '../../../content/transfer/index.js';
-import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import { type ConnectionEvent, NetworkConnection } from '../../../net/connection.js';
 import { type RelayMapRequest, relayMapRequest } from '../../../net/map-request.js';
-import { relayCloseText, relayReasonText } from '../../../net/relay-reason.js';
+import { relayCloseText, relayFailureText, relayReasonText } from '../../../net/relay-reason.js';
 import { nextPaint } from '../../../view/next-paint.js';
 import { relayIdentity } from '../../relay/identity.js';
 import { node } from '../dom.js';
@@ -94,7 +93,8 @@ export function networkScreen(
     room?.notice(text);
     status.hidden = room !== null;
   };
-  const failure = (error: unknown): void => notice(formatMessage(copy.failed, { reason: errorText(error) }));
+  const failure = (error: unknown): void =>
+    notice(formatMessage(copy.failed, { reason: relayFailureText(error) }));
   const verifyNotice: MapVerifyNotice = {
     async show() {
       notice(copy.verifyingMap);

@@ -162,3 +162,22 @@ it('serves a started room the relay kept map when this browser lost its own', as
   await expect(delivered).resolves.toBe('map text');
   screen.dispose();
 });
+
+it('words the relay refusal of the kept map instead of showing its code', async () => {
+  const fake = fakeConnection();
+  const startGame: NetworkScreenServices['startGame'] = async (...args) => {
+    await args[5]();
+  };
+  const screen = connectedScreen(fake, startGame);
+  fake.relay({ kind: 'room', room: room('running') });
+  const rejoin = [...screen.element.querySelectorAll('button')].find(
+    (button) => button.textContent === messages().networkRoom.rejoin,
+  );
+  rejoin?.click();
+  fake.relay({ kind: 'rejected', of: 'requestMap', reason: { code: 'mapNotKept' } });
+  await vi.waitFor(() =>
+    expect(screen.element.textContent).toContain(messages().networkRelay.reasons.mapNotKept),
+  );
+  expect(screen.element.textContent).not.toContain('mapNotKept');
+  screen.dispose();
+});

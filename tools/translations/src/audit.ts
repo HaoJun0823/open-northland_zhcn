@@ -24,6 +24,7 @@ import {
 } from '@open-northland/data';
 import { type MapLanguageText, mapSourceTextDigest, selectMapOverlay } from '@open-northland/map-import';
 import {
+  diagnosticPath,
   listDirectory,
   MAP_OVERLAY_NAMING,
   MapOverlayFiling,
@@ -251,10 +252,9 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
               break;
           }
         } catch (err) {
-          errors.push({
-            file,
-            message: (err instanceof Error ? err.message : String(err)).replace(`${path}: `, ''),
-          });
+          // The loader names the file through `diagnosticPath`, not with the host's own separator.
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({ file, message: message.replace(`${diagnosticPath(path)}: `, '') });
         }
       }
     }

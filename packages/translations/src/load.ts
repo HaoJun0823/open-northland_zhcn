@@ -1,6 +1,6 @@
 import type { Dirent } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BookOverlay,
@@ -63,23 +63,30 @@ export interface TranslationOverlays {
   readonly campaigns: ReadonlyMap<Language, ReadonlyMap<string, CampaignOverlay>>;
 }
 
+/** A path as a diagnostic names it: `/`-separated on every platform, so one overlay is reported the
+ *  same whichever host produced the message. */
+export function diagnosticPath(...parts: readonly string[]): string {
+  return join(...parts).replaceAll(sep, '/');
+}
+
 /** Reads and validates one overlay file; a malformed one throws naming the path and the first issue. */
 export async function readOverlayFile<K extends OverlayKind>(
   kind: K,
   path: string,
 ): Promise<OverlayByKind[K]> {
+  const named = diagnosticPath(path);
   let raw: unknown;
   try {
     raw = JSON.parse(await readFile(path, 'utf8'));
   } catch (err) {
-    throw new Error(`${path}: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`${named}: ${err instanceof Error ? err.message : String(err)}`);
   }
   const result = SCHEMAS[kind].safeParse(raw);
   if (result.success) return result.data;
   const [issue] = result.error.issues;
   const where =
     issue === undefined || issue.path.length === 0 ? '' : ` at ${issue.path.map(String).join('.')}`;
-  throw new Error(`${path}: invalid ${kind} overlay${where}: ${issue?.message ?? 'unknown issue'}`);
+  throw new Error(`${named}: invalid ${kind} overlay${where}: ${issue?.message ?? 'unknown issue'}`);
 }
 
 /** The entries of `dir` sorted by name, or none when it does not exist. */
@@ -115,7 +122,7 @@ async function readKind<K extends OverlayKind>(
 async function readMaps(root: string, lang: Language, filing: MapOverlayFiling): Promise<void> {
   const files = await readKind(root, lang, 'maps');
   const refuse = (id: string, refusal: string): never => {
-    throw new Error(`${join(root, lang, 'maps', id)}.json: ${refusal}`);
+    throw new Error(`${diagnosticPath(root, lang, 'maps', `${id}.json`)}: ${refusal}`);
   };
   for (const [id, overlay] of files) {
     const { name, edit } = splitOverlayEdit(id);
@@ -142,11 +149,11 @@ async function readObjects(root: string, lang: Language): Promise<Map<string, Fi
     const table = tables.get(name);
     if (table === undefined)
       throw new Error(
-        `${join(root, lang, 'objects', id)}.json: an edit needs the overlay it edits beside it, ${name}.json`,
+        `${diagnosticPath(root, lang, 'objects', `${id}.json`)}: an edit needs the overlay it edits beside it, ${name}.json`,
       );
     if (table.edit !== undefined)
       throw new Error(
-        `${join(root, lang, 'objects', id)}.json: ${name}${OVERLAY_EDIT_SUFFIX}.json is filed already`,
+        `${diagnosticPath(root, lang, 'objects', `${id}.json`)}: ${name}${OVERLAY_EDIT_SUFFIX}.json is filed already`,
       );
     table.edit = overlay;
   }

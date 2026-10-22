@@ -1178,7 +1178,8 @@ export const deGame = {
       without: 'Ohne',
       lacksLabel: 'Fehlt',
       gearLabel: 'Ausrüstung',
-      anyWeapon: 'Alle',
+      free: 'Frei',
+      freeTitle: 'Soldaten außerhalb von Türmen und Fahrzeugen',
       weapons: {
         unarmed: 'Ohne',
         spear: 'Speer',

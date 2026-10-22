@@ -25,6 +25,7 @@ import {
   workFlagOf,
   workplaceOf,
 } from '../../../game/snapshot.js';
+import { vehicleLabel } from '../../../game/technology.js';
 import { messages } from '../../../i18n/index.js';
 import { buildingTitle, jobDisplayName } from '../../details-panel/model/context.js';
 import type { ProductSelection } from '../../details-panel/model/settler-work.js';
@@ -152,6 +153,17 @@ function armorOf(content: ContentSet, ent: SnapshotEntity): SoldierArmor {
   return (good === undefined ? undefined : byGood.get(good)) ?? 'none';
 }
 
+/** The vehicle `ent` rides, inside or on its way to board. */
+function riddenVehicleOf(snapshot: WorldSnapshot, ent: SnapshotEntity): SnapshotEntity | undefined {
+  const vehicle = num((ent.components.Rider as { vehicle?: unknown } | undefined)?.vehicle);
+  return vehicle === undefined ? undefined : entityById(snapshot, vehicle);
+}
+
+function vehicleName(content: ContentSet, vehicle: SnapshotEntity): string {
+  const typeId = num((vehicle.components.Vehicle as { vehicleType?: unknown } | undefined)?.vehicleType);
+  return (typeId === undefined ? undefined : vehicleLabel(content, typeId)) ?? messages().hud.vehicle;
+}
+
 /** The profession column's text: a soldier reads as its class ("Iron Spearman"), so the Profession
  *  filter can pick one class. */
 function professionOf(
@@ -203,6 +215,7 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
     const kind = residentKindOf(ctx.content, ent, jobType);
     const workplace = workplaceOf(ent);
     const workplaceEnt = workplace === undefined ? undefined : entityById(snapshot, workplace);
+    const vehicleEnt = riddenVehicleOf(snapshot, ent);
     const ageYears = childAgeYearsOf(ent, snapshot.tick);
     rows.push({
       id: ent.id,
@@ -215,7 +228,14 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
       weapon: kind === 'soldier' ? weaponFamilyOf(jobType) : null,
       armor: kind === 'soldier' ? armorOf(ctx.content, ent) : null,
       ageYears: ageYears ?? null,
-      workplace: workplaceEnt === undefined ? '' : buildingTitle(ctx.content, buildingTypeOf(workplaceEnt)),
+      // A ridden vehicle stands in for the workplace.
+      workplace:
+        workplaceEnt !== undefined
+          ? buildingTitle(ctx.content, buildingTypeOf(workplaceEnt))
+          : vehicleEnt !== undefined
+            ? vehicleName(ctx.content, vehicleEnt)
+            : '',
+      posted: workplaceEnt !== undefined || vehicleEnt !== undefined,
       products: kind === 'worker' ? (ctx.products?.(snapshot, ent) ?? null) : null,
       lacks: lacksOf(ctx, snapshot, ent, kind, jobType, postedTrades),
     });

@@ -25,6 +25,7 @@ function people(count: number): ResidentRow[] {
     products: null,
     weapon: null,
     armor: null,
+    posted: false,
     lacks: [],
   }));
 }
@@ -230,15 +231,16 @@ describe('residents list', () => {
 
   it('offers the gear row under the lacks for the soldiers group only, and drops its picks with another group', () => {
     const gear = [
-      ['spear', 'light'],
-      ['bow', 'heavy'],
-      ['spear', 'none'],
+      ['spear', 'light', true],
+      ['bow', 'heavy', false],
+      ['spear', 'none', false],
     ] as const;
     const soldiers = people(gear.length).map((row, at) => ({
       ...row,
       kind: 'soldier' as const,
       weapon: gear[at]?.[0] ?? null,
       armor: gear[at]?.[1] ?? null,
+      posted: gear[at]?.[2] ?? false,
     }));
     const { list } = openWindow(() => soldiers);
     const rows = [...document.querySelectorAll<HTMLElement>('.on-res-chips')];
@@ -263,9 +265,16 @@ describe('residents list', () => {
     expect(shownNames(list)).toEqual(['Settler 0003']);
     chipOf(gearRow, 'No armour').click(); // pressed again, it lets every armour through
     expect(shownNames(list)).toHaveLength(2);
+    chipOf(gearRow, 'Spear').click(); // and a weapon every weapon
+    expect(shownNames(list)).toHaveLength(3);
+    expect(chipOf(gearRow, 'Free').textContent).toContain('2');
+    chipOf(gearRow, 'Free').click();
+    expect(shownNames(list)).toEqual(['Settler 0002', 'Settler 0003']);
     chipOf(gearRow, 'Light armour').click();
     chipOf(groupRow, 'Everyone').click();
     expect(gearRow?.hidden).toBe(true);
+    expect(shownNames(list)).toHaveLength(3);
+    chipOf(groupRow, 'Soldiers').click(); // the gear picks went with the other group
     expect(shownNames(list)).toHaveLength(3);
   });
 

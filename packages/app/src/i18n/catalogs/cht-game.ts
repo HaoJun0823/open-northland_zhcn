@@ -1068,7 +1068,8 @@ export const chtGame = {
       without: '缺少',
       lacksLabel: '缺少',
       gearLabel: '裝備',
-      anyWeapon: '任意',
+      free: '空閒',
+      freeTitle: '不在塔樓或載具中的士兵',
       weapons: {
         unarmed: '徒手',
         spear: '矛',

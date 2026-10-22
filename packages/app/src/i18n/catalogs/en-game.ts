@@ -1089,7 +1089,8 @@ export const enGame = {
       without: 'No',
       lacksLabel: 'Lacking',
       gearLabel: 'Gear',
-      anyWeapon: 'Any',
+      free: 'Free',
+      freeTitle: 'Soldiers outside towers and vehicles',
       weapons: {
         unarmed: 'Unarmed',
         spear: 'Spear',

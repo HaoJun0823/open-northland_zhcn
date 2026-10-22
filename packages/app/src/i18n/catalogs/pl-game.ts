@@ -1073,7 +1073,8 @@ export const plGame = {
       without: 'Bez',
       lacksLabel: 'Braki',
       gearLabel: 'Uzbrojenie',
-      anyWeapon: 'Każda',
+      free: 'Wolni',
+      freeTitle: 'Żołnierze poza wieżami i pojazdami',
       weapons: {
         unarmed: 'Bez broni',
         spear: 'Włócznia',

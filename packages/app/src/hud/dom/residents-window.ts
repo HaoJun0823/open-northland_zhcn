@@ -253,6 +253,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
         group: id,
         weapon: soldiers ? state.filters.weapon : null,
         armor: soldiers ? state.filters.armor : null,
+        free: soldiers && state.filters.free,
       });
     });
     groupChips.set(id, view);
@@ -274,8 +275,9 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     lackChips.set(id, view);
     lackRow.append(view.button);
   }
-  // Under the lacks while the soldiers group is picked: their weapon, then their armour, one of each at
-  // a time. The caption is a glyph, since the word outgrows the label column in most languages.
+  // Under the lacks while the soldiers group is picked: their weapon, their armour, one of each at a
+  // time, and whether no tower or vehicle holds them. Every chip pressed again lets its pick go, as the
+  // lacks do. The caption is a glyph, since the word outgrows the label column in most languages.
   const gearRow = chipRow('', copy.gearLabel);
   gearRow.classList.add('on-res-chips--gear');
   const gearCaption = gearRow.firstElementChild;
@@ -283,17 +285,16 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     gearCaption.innerHTML = GLYPH.swords;
     gearCaption.title = copy.gearLabel;
   }
-  const weaponChips = new Map<SoldierFamily | null, { button: HTMLButtonElement; count: HTMLElement }>();
-  for (const id of [null, ...SOLDIER_FAMILIES]) {
-    const view = chip(id === null ? copy.anyWeapon : copy.weapons[id], '');
+  const weaponChips = new Map<SoldierFamily, { button: HTMLButtonElement; count: HTMLElement }>();
+  for (const id of SOLDIER_FAMILIES) {
+    const view = chip(copy.weapons[id], '');
     view.button.addEventListener('click', () => {
       deps.cue('confirm');
-      setFilters({ ...state.filters, weapon: id });
+      setFilters({ ...state.filters, weapon: state.filters.weapon === id ? null : id });
     });
     weaponChips.set(id, view);
     gearRow.append(view.button);
   }
-  // An armour chip pressed again lets every armour through.
   const armorChips = new Map<SoldierArmor, { button: HTMLButtonElement; count: HTMLElement }>();
   for (const id of SOLDIER_ARMORS) {
     const view = chip(copy.armors[id], GLYPH.armor);
@@ -304,6 +305,13 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     armorChips.set(id, view);
     gearRow.append(view.button);
   }
+  const freeChip = chip(copy.free, GLYPH.exit);
+  freeChip.button.title = copy.freeTitle;
+  freeChip.button.addEventListener('click', () => {
+    deps.cue('confirm');
+    setFilters({ ...state.filters, free: !state.filters.free });
+  });
+  gearRow.append(freeChip.button);
 
   // The parchment: the summary line, the sortable heads, the list, and the two empty notes.
   const sheet = element('div', 'on-parchment on-res-sheet');
@@ -508,6 +516,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       setAttribute(view.button, 'aria-pressed', String(id === filters.weapon));
     for (const [id, view] of armorChips)
       setAttribute(view.button, 'aria-pressed', String(id === filters.armor));
+    setAttribute(freeChip.button, 'aria-pressed', String(filters.free));
     for (const [id, view] of lackChips) {
       setAttribute(view.button, 'aria-pressed', String(filters.lacks.includes(id)));
     }
@@ -522,6 +531,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       filters.group === 'all' ? '' : copy.groups[filters.group],
       filters.weapon === null ? '' : formatMessage(copy.filterWeapon, { name: copy.weapons[filters.weapon] }),
       filters.armor === null ? '' : copy.armors[filters.armor].toLocaleLowerCase(locale),
+      filters.free ? copy.free.toLocaleLowerCase(locale) : '',
       ...filters.lacks.map((id) =>
         formatMessage(copy.lackTitle, { what: copy.lacks[id] }).toLocaleLowerCase(locale),
       ),
@@ -559,9 +569,9 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       write(view.count, String(count));
       view.button.classList.toggle('on-res-chip--zero', count === 0);
     };
-    for (const [id, view] of weaponChips)
-      showCount(view, id === null ? counts.anyWeapon : counts.weapons[id]);
+    for (const [id, view] of weaponChips) showCount(view, counts.weapons[id]);
     for (const [id, view] of armorChips) showCount(view, counts.armors[id]);
+    showCount(freeChip, counts.free);
     for (const [id, view] of lackChips) {
       const count = counts.lacks[id];
       write(view.count, String(count));

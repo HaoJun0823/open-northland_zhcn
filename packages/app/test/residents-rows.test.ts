@@ -35,6 +35,7 @@ function row(id: number, over: Partial<ResidentRow>): ResidentRow {
     products: null,
     weapon: null,
     armor: null,
+    posted: false,
     lacks: [],
     ...over,
   };
@@ -186,6 +187,7 @@ describe('residents gear filter', () => {
       profession: 'Włócznik z żel. włócznią',
       weapon: 'spear',
       armor: 'heavy',
+      posted: true,
     }),
     row(4, {
       kind: soldier,
@@ -194,6 +196,7 @@ describe('residents gear filter', () => {
       weapon: 'bow',
       armor: 'light',
       lacks: ['shoes'],
+      posted: true,
     }),
     row(5, { name: 'Arne' }),
   ];
@@ -227,7 +230,7 @@ describe('residents gear filter', () => {
     const { counts, professions } = listing({ group: 'soldiers', weapon: 'spear' });
     expect(counts.weapons).toEqual({ unarmed: 1, spear: 2, sword: 0, bow: 1 });
     expect(counts.armors).toEqual({ light: 1, none: 0, heavy: 1 });
-    expect(counts.anyWeapon).toBe(4);
+    expect(counts.free).toBe(1);
     // The soldiers chip holds the gear picks; the others drop them.
     expect(counts.groups).toMatchObject({ all: 5, soldiers: 2, workers: 1 });
     expect(professions.map((entry) => entry.profession)).toEqual(['Włócznik', 'Włócznik z żel. włócznią']);
@@ -237,6 +240,19 @@ describe('residents gear filter', () => {
       sword: 0,
       bow: 1,
     });
+  });
+
+  it('leaves out the soldiers a tower or a vehicle holds, and counts the gear among the free ones', () => {
+    expect(ids({ group: 'soldiers', free: true })).toEqual([1, 2]);
+    expect(ids({ group: 'soldiers', weapon: 'spear', free: true })).toEqual([2]);
+    expect(filtersActive({ ...NO_RESIDENT_FILTERS, free: true })).toBe(true);
+    const { counts } = listing({ group: 'soldiers', free: true });
+    expect(counts.weapons).toEqual({ unarmed: 1, spear: 1, sword: 0, bow: 0 });
+    expect(counts.armors).toEqual({ light: 1, none: 1, heavy: 0 });
+    expect(counts.free).toBe(2);
+    expect(counts.groups).toMatchObject({ all: 5, soldiers: 2 });
+    // Unpressed, the chip counts what pressing it would list.
+    expect(listing({ group: 'soldiers', armor: 'light' }).counts.free).toBe(1);
   });
 });
 

@@ -1173,7 +1173,8 @@ export const ruGame = {
       without: 'Без',
       lacksLabel: 'Не хватает',
       gearLabel: 'Снаряжение',
-      anyWeapon: 'Любое',
+      free: 'Свободные',
+      freeTitle: 'Воины вне башен и транспорта',
       weapons: {
         unarmed: 'Без оружия',
         spear: 'Копьё',

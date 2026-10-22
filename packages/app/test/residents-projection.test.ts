@@ -16,6 +16,7 @@ import {
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import {
   BUILDING_JOINERY,
+  BUILDING_WATCHTOWER,
   GOOD_ARMOR_LEATHER,
   GOOD_ARMOR_PLATE,
   GOOD_GOLD,
@@ -27,7 +28,9 @@ import {
   GOOD_STONE,
   GOOD_TOOL_WOODEN,
   GOOD_WOOD,
+  VEHICLE_CATAPULT,
 } from '../src/game/sandbox/ids/index.js';
+import { vehicleLabel } from '../src/game/technology.js';
 import { createProductSelectionCache } from '../src/hud/details-panel/model/settler-work.js';
 import { type ResidentsProjectionContext, residentRows } from '../src/hud/tool-panel/residents/projection.js';
 import type { ResidentRow } from '../src/hud/tool-panel/residents/rows.js';
@@ -156,6 +159,27 @@ describe('residents projection', () => {
     expect(rows.get(2)?.profession).toBe(classes.soldier_spear_iron);
     expect(rows.get(2)?.trade).toBe(rows.get(1)?.trade); // every class searches as the one soldier trade
     expect(rows.get(4)?.profession).toBe(classes.soldier_bow_long);
+  });
+
+  it('marks a soldier held by its tower or the vehicle it rides, and names the vehicle as its post', () => {
+    const towerId = 1;
+    const catapultId = 2;
+    const rows = rowsById([
+      buildingEntity(towerId, BUILDING_WATCHTOWER),
+      {
+        id: catapultId,
+        components: { Vehicle: { vehicleType: VEHICLE_CATAPULT }, Owner: { player: HUMAN_PLAYER } },
+      },
+      person(3, JOB_ARCHER_LONG, { JobAssignment: { workplace: towerId } }),
+      person(4, JOB_SOLDIER_SPEAR, { Rider: { vehicle: catapultId, boarding: false, leaving: null } }),
+      person(5, JOB_SOLDIER_SPEAR),
+    ]);
+    const catapult = vehicleLabel(context().content, VEHICLE_CATAPULT);
+    expect(catapult).toBeDefined();
+    expect([3, 4, 5].map((id) => rows.get(id)?.posted)).toEqual([true, true, false]);
+    expect(rows.get(3)?.workplace).not.toBe('');
+    expect(rows.get(4)?.workplace).toBe(catapult);
+    expect(rows.get(5)?.workplace).toBe('');
   });
 
   it('reads the lacks off the worn gear, the home and the family', () => {

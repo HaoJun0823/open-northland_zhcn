@@ -54,6 +54,9 @@ export interface ResidentRow {
   readonly weapon: SoldierFamily | null;
   /** What a soldier wears, which the armour chips filter by; null for anyone else. */
   readonly armor: SoldierArmor | null;
+  /** Held by a workplace, which for a soldier is a tower post, or by a vehicle it rides: the free chip
+   *  leaves such a soldier out. */
+  readonly posted: boolean;
   /** A growing child's whole years; null for an adult. */
   readonly ageYears: number | null;
   /** The workplace's name; empty without a post. */
@@ -108,6 +111,8 @@ export interface ResidentFilters {
   readonly weapon: SoldierFamily | null;
   /** The soldiers' armour to keep, picked beside the weapon; null keeps every one. */
   readonly armor: SoldierArmor | null;
+  /** Keep only the soldiers no tower or vehicle holds. */
+  readonly free: boolean;
   /** A `ResidentRow.profession` to keep; empty keeps every one. */
   readonly profession: string;
   /** The trade the listed people could take; null applies no such filter. */
@@ -120,6 +125,7 @@ export const NO_RESIDENT_FILTERS: ResidentFilters = {
   lacks: [],
   weapon: null,
   armor: null,
+  free: false,
   profession: '',
   canBecome: null,
   query: '',
@@ -131,6 +137,7 @@ export function filtersActive(filters: ResidentFilters): boolean {
     filters.lacks.length > 0 ||
     filters.weapon !== null ||
     filters.armor !== null ||
+    filters.free ||
     filters.profession !== '' ||
     filters.canBecome !== null ||
     filters.query.trim() !== ''
@@ -143,6 +150,7 @@ interface FilterVerdict {
   readonly lacks: boolean;
   readonly weapon: boolean;
   readonly armor: boolean;
+  readonly free: boolean;
   readonly profession: boolean;
   /** The can-become pick and the search text, which no chip or option swaps. */
   readonly rest: boolean;
@@ -170,6 +178,7 @@ function verdictOf(
     lacks: filters.lacks.every((lack) => row.lacks.includes(lack)),
     weapon: filters.weapon === null || row.weapon === filters.weapon,
     armor: filters.armor === null || row.armor === filters.armor,
+    free: !filters.free || !row.posted,
     profession: filters.profession === '' || row.profession === filters.profession,
     rest: takesJob && named,
   };
@@ -180,15 +189,16 @@ export interface ResidentCounts {
   readonly lacks: Readonly<Record<ResidentLack, number>>;
   readonly weapons: Readonly<Record<SoldierFamily, number>>;
   readonly armors: Readonly<Record<SoldierArmor, number>>;
-  /** What the weapon row's "any" chip would list: the soldiers under the armour pick. */
-  readonly anyWeapon: number;
+  /** What the free chip would list: the soldiers no post holds, under the weapon and armour picks. */
+  readonly free: number;
 }
 
 export interface ResidentListing {
   /** The rows passing every filter at once, in the given order. */
   readonly shown: readonly ResidentRow[];
   /** What each chip would list under the other filters: a group chip swaps the group, a lack chip
-   *  adds its lack to the picked ones, a weapon or armour chip swaps its own pick. The soldiers chip
+   *  adds its lack to the picked ones, a weapon or armour chip swaps its own pick, the free chip
+   *  leaves the posted soldiers out. The soldiers chip
    *  holds the gear picks; another group chip drops them, so it ignores them. */
   readonly counts: ResidentCounts;
   /** The professions among the rows the other filters keep, in label order: the Profession options. */
@@ -205,7 +215,7 @@ export function listResidents(
   const lacks = Object.fromEntries(RESIDENT_LACKS.map((id) => [id, 0])) as Record<ResidentLack, number>;
   const weapons = Object.fromEntries(SOLDIER_FAMILIES.map((id) => [id, 0])) as Record<SoldierFamily, number>;
   const armors = Object.fromEntries(SOLDIER_ARMORS.map((id) => [id, 0])) as Record<SoldierArmor, number>;
-  let anyWeapon = 0;
+  let free = 0;
   const professions = new Map<string, number>();
   const shown: ResidentRow[] = [];
   const compare = compareLabels(locale);
@@ -215,18 +225,19 @@ export function listResidents(
     if (!verdict.rest || !verdict.lacks) continue;
     const grouped = inGroup(row, filters.group);
     if (verdict.profession) {
-      const geared = verdict.weapon && verdict.armor;
+      const geared = verdict.weapon && verdict.armor && verdict.free;
       for (const id of RESIDENT_GROUPS) {
         if (inGroup(row, id) && (id !== 'soldiers' || geared)) groups[id] += 1;
       }
     }
     if (!grouped) continue;
-    if (verdict.profession && verdict.armor && row.kind === 'soldier') {
-      anyWeapon += 1;
-      if (row.weapon !== null) weapons[row.weapon] += 1;
+    if (verdict.profession) {
+      const { weapon, armor } = verdict;
+      if (armor && verdict.free && row.weapon !== null) weapons[row.weapon] += 1;
+      if (weapon && verdict.free && row.armor !== null) armors[row.armor] += 1;
+      if (weapon && armor && row.kind === 'soldier' && !row.posted) free += 1;
     }
-    if (verdict.profession && verdict.weapon && row.armor !== null) armors[row.armor] += 1;
-    if (!verdict.weapon || !verdict.armor) continue;
+    if (!verdict.weapon || !verdict.armor || !verdict.free) continue;
     professions.set(row.profession, (professions.get(row.profession) ?? 0) + 1);
     if (!verdict.profession) continue;
     for (const id of row.lacks) lacks[id] += 1;
@@ -234,7 +245,7 @@ export function listResidents(
   }
   return {
     shown,
-    counts: { groups, lacks, weapons, armors, anyWeapon },
+    counts: { groups, lacks, weapons, armors, free },
     professions: [...professions]
       .map(([profession, count]) => ({ profession, count }))
       .sort((a, b) => compare(a.profession, b.profession)),

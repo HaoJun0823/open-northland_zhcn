@@ -1068,7 +1068,8 @@ export const chsGame = {
       without: '缺少',
       lacksLabel: '缺少',
       gearLabel: '装备',
-      anyWeapon: '任意',
+      free: '空闲',
+      freeTitle: '不在塔楼或载具中的士兵',
       weapons: {
         unarmed: '徒手',
         spear: '矛',

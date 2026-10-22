@@ -43,6 +43,7 @@ function resident(id: number, jobType: number | null): ResidentRow {
     products: null,
     weapon: null,
     armor: null,
+    posted: false,
     lacks: [],
   };
 }

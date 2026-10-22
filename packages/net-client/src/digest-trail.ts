@@ -1,7 +1,8 @@
 import type { WireDigest } from '@open-northland/net-protocol';
+import { DISPUTE_WINDOW_TICKS } from './dispute-capture.js';
 
-/** Ticks of digests kept for a desync report: about a minute at the default speed. */
-const TRAIL_TICKS = 720;
+/** Ticks of digests kept for a desync report: as far back as a verdict can name. */
+const TRAIL_TICKS = DISPUTE_WINDOW_TICKS;
 
 export interface TickDigest {
   readonly tick: number;

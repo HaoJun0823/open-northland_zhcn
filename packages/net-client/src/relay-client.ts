@@ -40,6 +40,11 @@ import { type CompressedSave, encodeCompressedSave, encodeSnapshot } from './sna
 import { TickCost } from './tick-cost.js';
 import { WorldLoader } from './world-loader.js';
 
+/** The pacer alone refills and drains the jitter buffer, so a wait for a frame leaves no owed time
+ *  beyond the tick it waited for: debt would run each late frame the moment it lands, and run a burst
+ *  of them in one display frame. */
+const OWED_TICKS_ON_REFUSAL = 1;
+
 /** A world the client runs, and the generation its acknowledgements carry: `DESCRIPTOR_WORLD` for a
  *  world built from the descriptor, else the tick of the snapshot it was restored from. */
 export interface OpenedWorld {
@@ -521,7 +526,12 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     });
     for (const frame of this.earlyFrames) this.transport.receiveFrame(frame);
     this.earlyFrames.length = 0;
-    this.driver = new LockstepDriver({ sim, transport: this.transport, speed: session.speed });
+    this.driver = new LockstepDriver({
+      sim,
+      transport: this.transport,
+      speed: session.speed,
+      owedTicksOnRefusal: OWED_TICKS_ON_REFUSAL,
+    });
     const clock = this.clockState;
     if (clock !== null) this.driver.setSpeed(runningSpeed(clock));
     this.options.onWorld?.({ ...opened, worldId: this.adoptedWorlds });

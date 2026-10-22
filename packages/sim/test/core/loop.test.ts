@@ -72,6 +72,22 @@ describe('FixedTimestep', () => {
     expect(loop.droppedTicks).toBe(0);
   });
 
+  it('keeps only the owed ticks it is told to across a refusal, so the next frame runs one tick', () => {
+    const loop = new FixedTimestep(5, 1);
+    let accepted = false;
+    let ran = 0;
+    const step = () => {
+      if (!accepted) return false;
+      ran++;
+      return true;
+    };
+    for (let frame = 0; frame < 120; frame++) loop.advanceWhile(1000 / 60, step);
+    accepted = true;
+    loop.advanceWhile(0, step);
+    expect(ran).toBe(1);
+    expect(loop.droppedTicks).toBe(0);
+  });
+
   it('holds the alpha at one tick while a run is refused, so nothing extrapolates past it', () => {
     const loop = new FixedTimestep();
     expect(loop.advanceWhile(MS_PER_TICK * 4, () => false)).toBe(1);

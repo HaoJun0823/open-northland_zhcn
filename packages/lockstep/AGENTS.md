@@ -25,8 +25,10 @@ Every field but `localSeat` is shared by every client of a session.
 ## The driver
 
 A tick runs only once the transport has handed over its complete input frame. A refused tick is not
-skipped; the owed time is held at one frame's worth of ticks, so a short wait is made up and a long
-one is neither sprinted through nor written off as dropped ticks. Command tick and sequence come from
+skipped; by default the owed time is held at one frame's worth of ticks, so a short wait is made up
+and a long one is neither sprinted through nor written off as dropped ticks. A relayed client paces
+the elapsed time to its jitter buffer itself and keeps one tick owed, so a wait leaves no debt that
+would run late frames the moment they land. Command tick and sequence come from
 the transport, never from local arrival order, which two clients would disagree about.
 
 Single-player runs the same driver over `LoopbackTransport`. There is no separate single-player path

@@ -34,6 +34,9 @@ export interface LockstepDriverOptions {
   /** Wall-clock multiplier the session starts at; default 1. */
   readonly speed?: number;
   readonly paused?: boolean;
+  /** Owed time a refused tick keeps, in ticks; default one frame's worth. A transport that paces the
+   *  elapsed time itself keeps one, so a wait does not leave a debt that drains its buffer. */
+  readonly owedTicksOnRefusal?: number;
 }
 
 /**
@@ -59,7 +62,7 @@ export class LockstepDriver implements SessionDriver {
   constructor(options: LockstepDriverOptions) {
     this.sim = options.sim;
     this.transport = options.transport;
-    this.timestep = new FixedTimestep();
+    this.timestep = new FixedTimestep(undefined, options.owedTicksOnRefusal);
     this.pausedFlag = options.paused ?? false;
     if (options.speed !== undefined) this.setSpeed(options.speed);
   }

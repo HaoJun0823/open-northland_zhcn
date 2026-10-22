@@ -102,6 +102,20 @@ describe('lockstep driver', () => {
     expect(driven.tick).toBe(1);
   });
 
+  it('keeps one tick owed across a wait when told to, so a burst of late frames runs one by one', () => {
+    const frames = new Map<number, TickFrame>();
+    const bursty: SessionTransport = {
+      submit: () => undefined,
+      take: (tick) => frames.get(tick) ?? null,
+    };
+    const driven = sim();
+    const driver = new LockstepDriver({ sim: driven, transport: bursty, owedTicksOnRefusal: 1 });
+    driver.advance(MS_PER_TICK * 5);
+    for (let tick = 1; tick <= 5; tick++) frames.set(tick, { tick, commands: [] });
+    driver.advance(0);
+    expect(driven.tick).toBe(1);
+  });
+
   it('runs no tick while paused and scales elapsed time by the speed', () => {
     const driven = sim();
     const driver = driverOver(new LoopbackTransport(), driven);

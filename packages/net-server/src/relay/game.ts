@@ -300,7 +300,7 @@ export class Game {
     this.pacing.forget(member.token);
     if (snapshot !== null) {
       this.ledger.forget(member.token);
-      this.resync.serve(member, snapshot, now);
+      this.resync.serveReturning(member, snapshot, this.clock.tick, now);
     } else {
       this.resync.queue(member, now);
     }

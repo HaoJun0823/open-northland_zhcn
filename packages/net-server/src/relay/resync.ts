@@ -1,4 +1,4 @@
-import type { WireFrame } from '@open-northland/net-protocol';
+import { TICKS_PER_SECOND, type WireFrame } from '@open-northland/net-protocol';
 import {
   type CachedSnapshot,
   CatchUpStore,
@@ -11,6 +11,11 @@ import { type Deliver, isSilent, isSynced, type Member, type Refusal } from './m
 export const SNAPSHOT_REFRESH_MS = HISTORY_REFRESH_AGE_MS;
 /** A snapshot request unanswered this long is repeated, to the next eligible donor. */
 export const SNAPSHOT_RETRY_MS = 10_000;
+/** Seconds of play at normal speed a returning member replays from the cache rather than hold the room
+ *  for a fresh snapshot. At the 25 to 40 ms a developed map's tick costs, that is 3 to 5 s of replay,
+ *  about what a donor's export and upload hold the room for. */
+const RETURN_REPLAY_SECONDS = 10;
+export const RETURN_SNAPSHOT_MAX_TICKS = RETURN_REPLAY_SECONDS * TICKS_PER_SECOND;
 
 /**
  * The room's cached snapshot, the frames since it, and the members waiting to be brought back to
@@ -23,6 +28,9 @@ export class Resync {
   private snapshotInvalid = false;
   /** Connected members only: a dropped one leaves, and asks again with `loaded` on its return. */
   private readonly awaiting = new Set<Member>();
+  /** Returning members waiting for a snapshot fresher than the cache, and since when: each takes the
+   *  cache when none arrives within the retry window, or when no donor is left to send one. */
+  private readonly freshSince = new Map<Member, number>();
   private requestedAt: number | null = null;
   private askedDonor: string | null = null;
   private lastRefreshAt: number;
@@ -77,11 +85,24 @@ export class Resync {
    *  instead of waiting out the retry. */
   forget(member: Member): void {
     this.awaiting.delete(member);
+    this.freshSince.delete(member);
     this.triedDonors.delete(member.token);
     if (this.askedDonor === member.token) {
       this.askedDonor = null;
       this.requestedAt = null;
     }
+  }
+
+  /** Bring a member that holds no world to the present: from the cache, or from a fresh snapshot when
+   *  the cache trails `clockTick` by more than `RETURN_SNAPSHOT_MAX_TICKS` and a donor can send one.
+   *  Members returning together share the one request. */
+  serveReturning(member: Member, snapshot: CachedSnapshot, clockTick: number, now: number): void {
+    if (clockTick - snapshot.tick > RETURN_SNAPSHOT_MAX_TICKS && this.donors(now).length > 0) {
+      if (!this.freshSince.has(member)) this.freshSince.set(member, now);
+      this.queue(member, now);
+      return;
+    }
+    this.serve(member, snapshot, now);
   }
 
   /** Hand `member` the snapshot, or queue it while a held-back cache can still be replaced. */
@@ -114,6 +135,7 @@ export class Resync {
     member.outOfSync = null;
     member.loaded = true;
     this.awaiting.delete(member);
+    this.freshSince.delete(member);
   }
 
   /** Take a snapshot at `tick`; true when it is newer than the cached one. Whoever waits is served. */
@@ -128,7 +150,10 @@ export class Resync {
     // Only an upload at the cached tick vouches for it; an older one leaves an invalidated cache held.
     if (newest?.tick === tick) this.snapshotInvalid = false;
     if (newest !== null) {
-      for (const member of this.awaiting) this.serve(member, newest, now);
+      // A late upload no newer than the cache does not end a wait for a fresher one.
+      for (const member of this.awaiting) {
+        if (newer || !this.freshSince.has(member)) this.serve(member, newest, now);
+      }
     }
     return newer;
   }
@@ -137,6 +162,7 @@ export class Resync {
   advance(now: number): Refusal {
     if (this.catchUp.expired(now)) return { code: 'historyAge' };
     this.releaseUnfitDonor(now);
+    this.fallBackToCache(now);
     const refreshDue = this.catchUp.needsRefresh(now) || now - this.lastRefreshAt >= SNAPSHOT_REFRESH_MS;
     if (refreshDue && !this.refreshing) {
       this.refreshing = true;
@@ -159,11 +185,7 @@ export class Resync {
         if (member.outOfSync === null) this.deliverCache(member, cached);
       }
     }
-    const members = [...this.members.values()];
-    const hasPlayers = members.some((member) => member.seat !== null);
-    const eligible = members.filter(
-      (member) => canDonate(member, now) && (!hasPlayers || member.seat !== null),
-    );
+    const eligible = this.donors(now);
     if (eligible.length === 0) return;
     if (eligible.every((member) => this.triedDonors.has(member.token))) this.triedDonors.clear();
     let donor: Member | null = null;
@@ -177,6 +199,26 @@ export class Resync {
     this.askedDonor = donor.token;
     this.triedDonors.add(donor.token);
     this.deliver(donor, { kind: 'snapshotRequest' });
+  }
+
+  /** While any seated player remains, only seated players donate. */
+  private donors(now: number): Member[] {
+    const members = [...this.members.values()];
+    const hasPlayers = members.some((member) => member.seat !== null);
+    return members.filter((member) => canDonate(member, now) && (!hasPlayers || member.seat !== null));
+  }
+
+  /** A returning member that waited a retry window for a fresh snapshot, or has no donor left to send
+   *  one, takes the cache. */
+  private fallBackToCache(now: number): void {
+    const cached = this.catchUp.snapshot;
+    if (cached === null || this.freshSince.size === 0) return;
+    const stranded = this.donors(now).length === 0;
+    for (const [member, since] of this.freshSince) {
+      if (!stranded && now - since < SNAPSHOT_RETRY_MS) continue;
+      this.freshSince.delete(member);
+      this.serve(member, cached, now);
+    }
   }
 
   /** A donor that diverged or went silent after the request will not answer it: the request goes on

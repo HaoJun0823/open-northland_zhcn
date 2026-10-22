@@ -78,19 +78,22 @@ export interface AtlasManifestFrame {
 }
 
 /**
- * The on-disk `<name>.atlas.json` a `.bmd` atlas build writes beside its PNG, re-declared structurally
- * so `render` never imports the build tool.
+ * The served `<stem>.atlas.json` a `.bmd` atlas build writes, re-declared structurally so `render`
+ * never imports the build tool. Image names are file names in the manifest's own directory; stems
+ * with byte-identical sheets name the same file.
  */
 export interface AtlasManifest {
   readonly width: number;
   readonly height: number;
   readonly frames: readonly AtlasManifestFrame[];
-  /** `true` when the build emitted a sibling `<stem>.build.png` time sheet (the `'build-time'` bake). */
-  readonly build?: boolean;
+  /** The sheet the frames are cut from. */
+  readonly image: string;
+  /** The `'build-time'` bake's time sheet, placed like {@link image}. */
+  readonly buildImage?: string;
 }
 
 /**
- * CPU-side copy of a `<stem>.build.png` time sheet: row-major 0-255 per-pixel thresholds at atlas
+ * CPU-side copy of a build-time sheet: row-major 0-255 per-pixel thresholds at atlas
  * coordinates, where a pixel appears once construction progress reaches its threshold. Values at
  * transparent atlas pixels are meaningless.
  */

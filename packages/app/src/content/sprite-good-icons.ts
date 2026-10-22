@@ -24,6 +24,7 @@ import { vehicleAtlasStem, vehicleGraphicsRows, vehicleLook } from './vehicle-gf
 export interface ServedAtlas {
   readonly width: number;
   readonly height: number;
+  readonly image: string;
   readonly frames: readonly {
     readonly bobId: number;
     readonly rect: {

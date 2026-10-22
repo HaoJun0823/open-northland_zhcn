@@ -1,8 +1,10 @@
 import { basename, join } from 'node:path';
 import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
 import type { Bmd } from '@open-northland/formats/bmd/index';
-import { encodePng } from '@open-northland/formats/png';
-import { writeFileWithParents } from '../files.js';
+import type { RgbaImage } from '@open-northland/formats/image';
+import type { AtlasManifest } from '@open-northland/render';
+import { statIfExists, writeFileWithParents } from '../files.js';
+import { type AtlasImageAlpha, atlasImageName, encodeAtlasImage } from './atlas-image.js';
 
 // The output tree is served as static files, so each directory's name is the URL root the app fetches
 // it at, and every file inside is lower-cased because the IR's references are.
@@ -16,6 +18,9 @@ export const SOUNDS_DIR = 'sounds';
 /** Decoded map grids and their sidecars. */
 export const MAPS_DIR = 'maps';
 
+/** A stem's `<stem>.atlas.json`, the manifest the app reads first; it names the sheet files. */
+export const ATLAS_MANIFEST_SUFFIX = '.atlas.json';
+
 /**
  * Writes `value` as pretty-printed JSON (2-space indent, trailing newline) to `<outDir>/<relPath>`,
  * creating the parent directory.
@@ -26,23 +31,42 @@ export async function writeJsonFile(outDir: string, relPath: string, value: unkn
 
 /** The relative paths a bob atlas write produced (under `outDir`). */
 export interface BobAtlasFiles {
-  readonly png: string;
+  readonly image: string;
   readonly manifest: string;
 }
 
 /**
- * Writes a packed bob atlas's `<stem>.png` and `<stem>.atlas.json` under {@link BOBS_DIR}, plus
- * `<stem>.build.png` for a `'build-time'` bake's time sheet.
+ * Writes `image` under {@link BOBS_DIR} at its content-addressed name and returns that name. A sheet
+ * already written this run is not encoded again; the run clears the directory first, so a present
+ * file holds these bytes.
+ */
+async function writeAtlasImage(outDir: string, image: RgbaImage, alpha: AtlasImageAlpha): Promise<string> {
+  const name = atlasImageName(image, alpha);
+  const path = join(outDir, BOBS_DIR, name);
+  if ((await statIfExists(path)) === undefined)
+    await writeFileWithParents(path, await encodeAtlasImage(image));
+  return name;
+}
+
+/**
+ * Writes a packed bob atlas's sheet, and a `'build-time'` bake's time sheet, under {@link BOBS_DIR},
+ * then the `<stem>.atlas.json` that names them.
  */
 async function writeBobAtlas(outDir: string, stem: string, atlas: BobAtlas): Promise<BobAtlasFiles> {
-  const png = `${BOBS_DIR}/${stem}.png`;
-  const manifest = `${BOBS_DIR}/${stem}.atlas.json`;
-  await writeFileWithParents(join(outDir, png), await encodePng(atlas.image));
-  await writeFileWithParents(join(outDir, manifest), `${JSON.stringify(atlas.manifest, null, 2)}\n`);
-  if (atlas.timeImage !== undefined) {
-    await writeFileWithParents(join(outDir, BOBS_DIR, `${stem}.build.png`), await encodePng(atlas.timeImage));
-  }
-  return { png, manifest };
+  const alpha: AtlasImageAlpha = stem.endsWith(`.${INDEXED_ATLAS_SUFFIX}`) ? 'straight' : 'premultiplied';
+  const image = await writeAtlasImage(outDir, atlas.image, alpha);
+  const buildImage =
+    atlas.timeImage === undefined
+      ? undefined
+      : await writeAtlasImage(outDir, atlas.timeImage, 'premultiplied');
+  const served = {
+    ...atlas.manifest,
+    image,
+    ...(buildImage === undefined ? {} : { buildImage }),
+  } satisfies AtlasManifest;
+  const manifest = `${BOBS_DIR}/${stem}${ATLAS_MANIFEST_SUFFIX}`;
+  await writeJsonFile(outDir, manifest, served);
+  return { image: `${BOBS_DIR}/${image}`, manifest };
 }
 
 /** The two `loadLayer` stems {@link emitIndexedAndPreviewAtlas} wrote, plus the atlas frame count. */

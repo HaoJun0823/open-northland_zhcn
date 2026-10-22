@@ -2,27 +2,27 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Bmd, BOB_TYPE_1BIT, BOB_TYPE_DOUBLE8BIT, encodeBmd } from '@open-northland/formats/bmd/index';
 import type { BmdPaletteBinding, PaletteAlias } from '@open-northland/formats/ini';
-import { decodePng, encodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packLineControl, sampleBmdBytes } from '../../../packages/formats/test/fixtures/bmd.js';
 import { rampPalette, solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
+import { encodeAtlasImage } from '../src/stages/atlas-image.js';
 import { bmdToAtlas, convertBmdTree, convertShadowBmdTree } from '../src/stages/bmd/index.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 import { makeTempDir } from './support/game-tree.js';
+import { decodeAtlasImage, readServedManifest, readServedSheet } from './support/served-atlas.js';
 
 describe('bmdToAtlas', () => {
-  it('decodes a .bmd, packs an atlas, and yields a PNG-encodable image + manifest', async () => {
+  it('decodes a .bmd, packs an atlas, and yields an encodable image + manifest', async () => {
     const atlas = bmdToAtlas(sampleBmdBytes(), rampPalette());
     expect(atlas.manifest.frames).toHaveLength(1);
     const frame = atlas.manifest.frames[0];
     expect(frame?.bobId).toBe(10);
     expect(frame?.rect.width).toBe(2);
     expect(frame?.opaque).toBe(true);
-    // The atlas image round-trips through the PNG encoder (proves it is a valid RGBA sheet).
-    const png = await encodePng(atlas.image);
-    const decoded = await decodePng(png);
+    // The atlas image round-trips through the sheet encoder (proves it is a valid RGBA sheet).
+    const decoded = await decodeAtlasImage(await encodeAtlasImage(atlas.image));
     expect(decoded.width).toBe(atlas.image.width);
     expect(decoded.height).toBe(atlas.image.height);
     // Manifest dimensions must agree with the image it describes.
@@ -64,18 +64,17 @@ describe('bmdToAtlas', () => {
     expect(alphaAt(buildTime, 0)).toBe(0xff); // house colour plane replays the opaque blit
     expect(alphaAt(buildTime, 1)).toBe(0xff);
     // The second byte lands in the same-placement time sheet (grayscale threshold, alpha = written).
-    expect(buildTime.manifest.build).toBe(true);
+    expect(buildTime.timeImage).toBeDefined();
     const timeAt = (x: number, c: number): number =>
       buildTime.timeImage?.rgba[((rect?.y ?? 0) * buildTime.image.width + (rect?.x ?? 0) + x) * 4 + c] ?? -1;
     expect(timeAt(0, 0)).toBe(0x60);
     expect(timeAt(1, 0)).toBe(0xff);
     expect(timeAt(0, 3)).toBe(0xff);
     expect(graded.timeImage).toBeUndefined(); // the per-pixel bake emits no time sheet
-    expect(graded.manifest.build).toBeUndefined();
     // A landscape bob in a house `.bmd` keeps its coverage; with no house bob left, no time sheet.
     const decor = bmdToAtlas(bytes, rampPalette(), 'build-time', new Set([10]));
     expect(alphaAt(decor, 0)).toBe(0x60);
-    expect(decor.manifest.build).toBeUndefined();
+    expect(decor.timeImage).toBeUndefined();
   });
 
   it('bakes a mixed house library: the house bob on the threshold, the decor bob on its coverage', () => {
@@ -96,7 +95,7 @@ describe('bmdToAtlas', () => {
       lineControl: Uint32Array.from([packLineControl(0, 0), packLineControl(0, pairs.length)]),
     };
     const atlas = bmdToAtlas(encodeBmd(bmd), rampPalette(), 'build-time', new Set([11]));
-    expect(atlas.manifest.build).toBe(true);
+    expect(atlas.timeImage).toBeDefined();
     const [house, decor] = atlas.manifest.frames.map((f) => f.rect);
     const at = (image: typeof atlas.image | undefined, rect: typeof house, c: number): number =>
       image?.rgba[((rect?.y ?? 0) * atlas.image.width + (rect?.x ?? 0)) * 4 + c] ?? -1;
@@ -148,15 +147,16 @@ describe('convertBmdTree', () => {
     // The atlas is served flat under bobs/ at the source's lower-cased basename, so the mixed-case
     // `Data/Bobs/Body.bmd` the refs resolved to never reaches the name; the palette editname rides in
     // it as the per-creature differentiator.
-    expect(done[0]?.png).toBe(`${BOBS_DIR}/body.bear01.png`);
     expect(done[0]?.manifest).toBe(`${BOBS_DIR}/body.bear01.atlas.json`);
     expect(done[0]?.paletteName).toBe('bear01');
-    // The emitted PNG decodes (a valid RGBA sheet) and the manifest JSON round-trips its frame table.
-    const decoded = await decodePng(await readFile(join(out, BOBS_DIR, 'body.bear01.png')));
+    // The manifest names the sheet it wrote, which decodes, and round-trips its frame table.
+    const manifest = await readServedManifest(out, 'body.bear01');
+    expect(done[0]?.image).toBe(`${BOBS_DIR}/${manifest.image}`);
+    expect(manifest.image).toMatch(/^[0-9a-f]{16}\.webp$/);
+    const decoded = await readServedSheet(out, 'body.bear01');
     expect(decoded.width).toBeGreaterThan(0);
-    const manifest = JSON.parse(await readFile(join(out, BOBS_DIR, 'body.bear01.atlas.json'), 'utf8'));
     expect(manifest.frames).toHaveLength(1);
-    expect(manifest.frames[0].bobId).toBe(10);
+    expect(manifest.frames[0]?.bobId).toBe(10);
     expect(manifest.width).toBe(decoded.width);
     expect(manifest.height).toBe(decoded.height);
   });
@@ -186,23 +186,21 @@ describe('convertBmdTree', () => {
 
     expect(done).toHaveLength(2);
     // Two distinct atlas files from one shared .bmd - the palette name is the differentiator.
-    expect(new Set(done.map((c) => c.png)).size).toBe(2);
-    expect(done.map((c) => c.png).sort()).toEqual([
-      `${BOBS_DIR}/body.bear01.png`,
-      `${BOBS_DIR}/body.wolf01.png`,
+    expect(new Set(done.map((c) => c.image)).size).toBe(2);
+    expect(done.map((c) => c.manifest).sort()).toEqual([
+      `${BOBS_DIR}/body.bear01.atlas.json`,
+      `${BOBS_DIR}/body.wolf01.atlas.json`,
     ]);
     // Each atlas was coloured through its own binding's palette, not one shared pick: same geometry,
     // so any pixel difference is the palette, and the wolf's every colour is its solid-red carrier.
-    const sheetPixel = async (png: string): Promise<number[]> => {
-      const stem = png.replace(/\.png$/, '');
-      const manifest = JSON.parse(await readFile(join(out, `${stem}.atlas.json`), 'utf8'));
-      const { x, y } = manifest.frames[0].rect;
-      const img = await decodePng(await readFile(join(out, png)));
+    const sheetPixel = async (stem: string): Promise<number[]> => {
+      const { x, y } = (await readServedManifest(out, stem)).frames[0]?.rect ?? { x: 0, y: 0 };
+      const img = await readServedSheet(out, stem);
       const o = (y * img.width + x) * 4;
       return [...img.rgba.subarray(o, o + 4)];
     };
-    const bear = await sheetPixel(`${BOBS_DIR}/body.bear01.png`);
-    const wolf = await sheetPixel(`${BOBS_DIR}/body.wolf01.png`);
+    const bear = await sheetPixel('body.bear01');
+    const wolf = await sheetPixel('body.wolf01');
     expect(wolf.slice(0, 3)).toEqual([255, 0, 0]);
     expect(bear).not.toEqual(wolf);
   });
@@ -222,7 +220,7 @@ describe('convertBmdTree', () => {
       await indexSourceAssets({ data: out }),
     );
 
-    expect(done.map((c) => c.png)).toEqual([`${BOBS_DIR}/body.bear01.png`]);
+    expect(done.map((c) => c.manifest)).toEqual([`${BOBS_DIR}/body.bear01.atlas.json`]);
   });
 
   it('serves a subdirectory .bmd flat under bobs/ (the mod ships building bobs under nowe/)', async () => {
@@ -250,9 +248,9 @@ describe('convertBmdTree', () => {
       await indexSourceAssets({ data: out }),
     );
 
-    // The app asks for `/bobs/f_bakery.house.png` - the source's `nowe/` subdirectory must not reach
-    // the served name, or the mod's building bobs 404 and fall back.
-    expect(done.map((d) => d.png)).toEqual([`${BOBS_DIR}/f_bakery.house.png`]);
+    // The app asks for `/bobs/f_bakery.house.atlas.json` - the source's `nowe/` subdirectory must not
+    // reach the served name, or the mod's building bobs 404 and fall back.
+    expect(done.map((d) => d.manifest)).toEqual([`${BOBS_DIR}/f_bakery.house.atlas.json`]);
   });
 
   it('aborts when two convertible .bmd would claim one served atlas name', async () => {
@@ -297,7 +295,7 @@ describe('convertBmdTree', () => {
       await indexSourceAssets({ data: out }),
     );
 
-    expect(done.map((c) => c.png)).toEqual([`${BOBS_DIR}/body.bear01.png`]);
+    expect(done.map((c) => c.manifest)).toEqual([`${BOBS_DIR}/body.bear01.atlas.json`]);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/bmd data\/bobs\/gone\/body\.bmd not found/));
     warn.mockRestore();
   });
@@ -396,7 +394,7 @@ describe('convertShadowBmdTree', () => {
       await indexSourceAssets({ data: out }),
     );
 
-  it('writes `<shadow-basename>.shadow.{png,atlas.json}` under bobs/ - the name the app joins on', async () => {
+  it('writes `<shadow-basename>.shadow.atlas.json` under bobs/ - the name the app joins on', async () => {
     await mkdir(join(out, 'Data', 'Bobs'), { recursive: true });
     await writeFile(join(out, 'Data', 'Bobs', 'Body_s.bmd'), shadowBmdBytes());
 
@@ -404,12 +402,10 @@ describe('convertShadowBmdTree', () => {
 
     // The literal `.shadow.` filenames are the contract `servedShadowStem` (packages/app) resolves
     // against - a drift here silently degrades to shadow-less rendering.
-    expect(done).toEqual([`${BOBS_DIR}/body_s.shadow.png`]);
-    const decoded = await decodePng(await readFile(join(out, BOBS_DIR, 'body_s.shadow.png')));
+    const manifest = await readServedManifest(out, 'body_s.shadow');
+    expect(done).toEqual([`${BOBS_DIR}/${manifest.image}`]);
+    const decoded = await readServedSheet(out, 'body_s.shadow');
     expect(decoded.width).toBeGreaterThan(0);
-    const manifest = JSON.parse(await readFile(join(out, BOBS_DIR, 'body_s.shadow.atlas.json'), 'utf8')) as {
-      frames: { bobId: number }[];
-    };
     expect(manifest.frames).toHaveLength(1);
     expect(manifest.frames[0]?.bobId).toBe(10);
   });
@@ -420,7 +416,7 @@ describe('convertShadowBmdTree', () => {
 
     const done = await convert([shadowBinding('bear01'), shadowBinding('wolf01')]);
 
-    expect(done).toEqual([`${BOBS_DIR}/body_s.shadow.png`]); // deduped, not clobbered twice
+    expect(done).toHaveLength(1); // deduped, not clobbered twice
   });
 
   it('skips a missing shadow .bmd with a warning; bindings without one are not shadow work at all', async () => {
@@ -505,21 +501,22 @@ describe('convertBmdTree build-time bake', () => {
       await indexSourceAssets({ data: out }),
     );
 
-    const alphaOf = async (png: string): Promise<number> => {
-      const img = await decodePng(await readFile(join(out, BOBS_DIR, png)));
+    const alphaOf = async (stem: string): Promise<number> => {
+      const img = await readServedSheet(out, stem);
       return img.rgba[(1 * img.width + 1) * 4 + 3] ?? -1; // the 1x1 frame sits at the gutter origin
     };
-    expect(await alphaOf('house.house01.png')).toBe(255); // claimed → opaque colour plane
-    expect(await alphaOf('house.ruins01.png')).toBe(255); // ...for every recolour of that bmd
-    expect(await alphaOf('fern.house01.png')).toBe(0x40); // unclaimed → per-pixel alpha survives
+    expect(await alphaOf('house.house01')).toBe(255); // claimed → opaque colour plane
+    expect(await alphaOf('house.ruins01')).toBe(255); // ...for every recolour of that bmd
+    expect(await alphaOf('fern.house01')).toBe(0x40); // unclaimed → per-pixel alpha survives
 
-    // The claimed bmd's second byte lands in the sibling time sheet + the manifest announces it.
-    const timeSheet = await decodePng(await readFile(join(out, BOBS_DIR, 'house.house01.build.png')));
+    // The claimed bmd's second byte lands in the time sheet the manifest names.
+    const manifest = await readServedManifest(out, 'house.house01');
+    expect(manifest.buildImage).toBeDefined();
+    const timeSheet = await decodeAtlasImage(await readFile(join(out, BOBS_DIR, manifest.buildImage ?? '')));
     expect(timeSheet.rgba[(1 * timeSheet.width + 1) * 4] ?? -1).toBe(0x40); // the threshold, in R
-    const manifest = JSON.parse(await readFile(join(out, BOBS_DIR, 'house.house01.atlas.json'), 'utf8')) as {
-      build?: boolean;
-    };
-    expect(manifest.build).toBe(true);
-    await expect(readFile(join(out, BOBS_DIR, 'fern.house01.build.png'))).rejects.toThrow();
+    expect((await readServedManifest(out, 'fern.house01')).buildImage).toBeUndefined();
+    // The two recolours share one palette here, so both sheets are byte-identical: one file each.
+    const ruins = await readServedManifest(out, 'house.ruins01');
+    expect([ruins.image, ruins.buildImage]).toEqual([manifest.image, manifest.buildImage]);
   });
 });

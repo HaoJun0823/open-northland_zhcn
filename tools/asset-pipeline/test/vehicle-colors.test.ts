@@ -10,6 +10,7 @@ import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 import { convertVehiclePaletteFamilies, paletteFamilyLutFile } from '../src/stages/vehicle-colors.js';
 import { makeTempDir } from './support/game-tree.js';
+import { readServedManifest } from './support/served-atlas.js';
 
 const SHIP_BMD = 'data/bobs/ship.bmd';
 const CART_BMD = 'data/bobs/cart.bmd';
@@ -57,7 +58,8 @@ describe('convertVehiclePaletteFamilies', () => {
     );
 
     expect(result.luts).toEqual([paletteFamilyLutFile('ship01')]);
-    expect(result.indexed).toEqual([`${BOBS_DIR}/ship.indexed.png`]);
+    const { image } = await readServedManifest(out, 'ship.indexed');
+    expect(result.indexed).toEqual([`${BOBS_DIR}/${image}`]);
     const lut = await decodePng(await readFile(join(out, paletteFamilyLutFile('ship01'))));
     expect([lut.width, lut.height]).toEqual([PALETTE_ENTRIES, FAMILY.length]);
     const rowReds = FAMILY.map((_, row) => lut.rgba[row * PALETTE_ENTRIES * 4]);

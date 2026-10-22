@@ -82,21 +82,25 @@ const ir = {
   ],
 };
 
-/** An atlas holding `bobs` side by side, 10 px wide each. */
-function atlas(bobs: readonly number[]) {
+/** The sheet a stub stem's manifest names. */
+const sheetOf = (stem: string): string => `${stem}-sheet.webp`;
+
+/** The atlas of `stem` holding `bobs` side by side, 10 px wide each. */
+function atlas(stem: string, bobs: readonly number[]) {
   return {
     width: 10 * bobs.length,
     height: 20,
     frames: bobs.map((bobId, i) => ({ bobId, rect: { x: 10 * i, y: 0, width: 10, height: 20 } })),
+    image: sheetOf(stem),
   };
 }
 
 const served: Record<string, unknown> = {
   '/ir.json': ir,
-  [`/bobs/${CART_STEM}.atlas.json`]: atlas([CART_OTHER_BOB, CART_STANDING_BOB]),
-  [`/bobs/${OXCART_STEM}.atlas.json`]: atlas([CART_STANDING_BOB]),
-  [`/bobs/${COW_STEM}.atlas.json`]: atlas([COW_WAIT_START + 1, COW_STANDING_BOB]),
-  [`/bobs/${FISH_STEM}.atlas.json`]: atlas([FISH_SIDE_BOB - 1, FISH_SIDE_BOB]),
+  [`/bobs/${CART_STEM}.atlas.json`]: atlas(CART_STEM, [CART_OTHER_BOB, CART_STANDING_BOB]),
+  [`/bobs/${OXCART_STEM}.atlas.json`]: atlas(OXCART_STEM, [CART_STANDING_BOB]),
+  [`/bobs/${COW_STEM}.atlas.json`]: atlas(COW_STEM, [COW_WAIT_START + 1, COW_STANDING_BOB]),
+  [`/bobs/${FISH_STEM}.atlas.json`]: atlas(FISH_STEM, [FISH_SIDE_BOB - 1, FISH_SIDE_BOB]),
   // The data's fish pile is gold's bar in gold's palette.
   '/goods/manifest.json': {
     indexedStem: 'ls_goods.indexed',
@@ -105,7 +109,7 @@ const served: Record<string, unknown> = {
     palettes: ['goods_gold'],
     icons: { fish: { frame: GOLD_BAR_BOB, palette: 'goods_gold', fillFrames: [GOLD_BAR_BOB] } },
   },
-  '/bobs/ls_goods.goods_gold.atlas.json': atlas([GOLD_BAR_BOB]),
+  '/bobs/ls_goods.goods_gold.atlas.json': atlas('ls_goods.goods_gold', [GOLD_BAR_BOB]),
 };
 
 function stubServer(): void {
@@ -132,7 +136,7 @@ describe('a good with no pile icon', { timeout: LOADER_TIMEOUT_MS }, () => {
     const goodIconSource = await freshIconSource();
     const source = await goodIconSource('handcart', null, sandboxContent());
     expect(source).toEqual({
-      url: `/bobs/${CART_STEM}.png`,
+      url: `/bobs/${sheetOf(CART_STEM)}`,
       sheet: { width: 20, height: 20 },
       rect: { x: 10, y: 0, width: 10, height: 20 },
     });
@@ -150,7 +154,7 @@ describe('a good with no pile icon', { timeout: LOADER_TIMEOUT_MS }, () => {
       ),
     };
     const source = await goodIconSource('handcart', null, content);
-    expect(source?.url).toBe(`/bobs/${OXCART_STEM}.png`);
+    expect(source?.url).toBe(`/bobs/${sheetOf(OXCART_STEM)}`);
   });
 
   it('draws nothing when the IR is not served', async () => {
@@ -164,7 +168,7 @@ describe('a good with no pile icon', { timeout: LOADER_TIMEOUT_MS }, () => {
     const goodIconSource = await freshIconSource();
     const source = await goodIconSource('cattle', null, sandboxContent());
     expect(source).toEqual({
-      url: `/bobs/${COW_STEM}.png`,
+      url: `/bobs/${sheetOf(COW_STEM)}`,
       sheet: { width: 20, height: 20 },
       rect: { x: 10, y: 0, width: 10, height: 20 },
     });
@@ -174,7 +178,7 @@ describe('a good with no pile icon', { timeout: LOADER_TIMEOUT_MS }, () => {
     stubServer();
     const goodIconSource = await freshIconSource();
     expect(await goodIconSource('fish', null, sandboxContent())).toEqual({
-      url: `/bobs/${FISH_STEM}.png`,
+      url: `/bobs/${sheetOf(FISH_STEM)}`,
       sheet: { width: 20, height: 20 },
       rect: { x: 10, y: 0, width: 10, height: 20 },
     });

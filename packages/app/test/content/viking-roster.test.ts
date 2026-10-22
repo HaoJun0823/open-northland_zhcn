@@ -10,7 +10,7 @@ import {
   VIKING_CHARACTERS,
 } from '../../src/catalog/roster.js';
 import type { BobSeqRow } from '../../src/content/ir/rows.js';
-import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasExists } from './helpers.js';
 
 /**
  * Pins that the decoded content actually carries every body imagelib + head/body atlas the roster
@@ -83,8 +83,7 @@ describe.runIf(hasRealIr())('roster is backed by decoded content', () => {
     for (const c of VIKING_CHARACTERS) {
       const { bodyStem, headStems } = characterStems(c, DEFAULT_CHARACTER_PALETTE);
       for (const stem of [bodyStem, ...headStems]) {
-        expect(existsSync(resolve(bobs, `${stem}.atlas.json`)), `${stem}.atlas.json`).toBe(true);
-        expect(existsSync(resolve(bobs, `${stem}.png`)), `${stem}.png`).toBe(true);
+        expect(servedAtlasExists(stem), stem).toBe(true);
       }
     }
   });

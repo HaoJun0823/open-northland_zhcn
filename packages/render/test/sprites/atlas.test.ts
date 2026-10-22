@@ -81,6 +81,7 @@ describe('atlasFromManifest', () => {
       { bobId: 0, rect: { x: 1, y: 1, width: 20, height: 33 }, offsetX: -11, offsetY: -27 },
       { bobId: 1931, rect: { x: 517, y: 3063, width: 25, height: 35 }, offsetX: -12, offsetY: -27 },
     ],
+    image: '0123456789abcdef.webp',
   };
 
   it('adapts the on-disk manifest into a frame-indexed SpriteAtlas', () => {

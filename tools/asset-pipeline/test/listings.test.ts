@@ -30,8 +30,14 @@ beforeEach(async () => {
 
 afterEach(() => tmp.cleanup());
 
-async function outputWith(files: readonly string[]): Promise<void> {
-  for (const file of files) await writeFileWithParents(join(out, 'bobs', file), Uint8Array.of(1));
+/** Writes a `<stem>.atlas.json` naming each stem's sheet, and the sheet files that exist. */
+async function outputWith(
+  manifests: Readonly<Record<string, string>>,
+  sheets: readonly string[],
+): Promise<void> {
+  for (const [stem, image] of Object.entries(manifests))
+    await writeFileWithParents(join(out, 'bobs', `${stem}.atlas.json`), JSON.stringify({ image }));
+  for (const sheet of sheets) await writeFileWithParents(join(out, 'bobs', sheet), Uint8Array.of(1));
 }
 
 /** A fingerprint the listing copies through; its value is the map stage's business. */
@@ -146,31 +152,30 @@ describe('mapsIndexEntries', () => {
 
 describe('bobsIndexEntries', () => {
   it('lists viewable RGBA atlases split into base + variant, sorted', async () => {
-    await outputWith([
-      'ls_trees.tree_cypress01.atlas.json',
-      'ls_trees.tree_cypress01.png',
-      'ls_gui_window.iconsleft.atlas.json',
-      'ls_gui_window.iconsleft.png',
-    ]);
+    await outputWith(
+      {
+        'ls_trees.tree_cypress01': 'a.webp',
+        'ls_trees.tree_cypress02': 'a.webp',
+        'ls_gui_window.iconsleft': 'b.webp',
+      },
+      ['a.webp', 'b.webp'],
+    );
     expect(await bobsIndexEntries(out)).toEqual([
-      { stem: 'ls_gui_window.iconsleft', base: 'ls_gui_window', variant: 'iconsleft' },
-      { stem: 'ls_trees.tree_cypress01', base: 'ls_trees', variant: 'tree_cypress01' },
+      { stem: 'ls_gui_window.iconsleft', image: 'b.webp', base: 'ls_gui_window', variant: 'iconsleft' },
+      { stem: 'ls_trees.tree_cypress01', image: 'a.webp', base: 'ls_trees', variant: 'tree_cypress01' },
+      { stem: 'ls_trees.tree_cypress02', image: 'a.webp', base: 'ls_trees', variant: 'tree_cypress02' },
     ]);
   });
 
-  it('skips .indexed sheets (index-in-red, not viewable) and atlases with no matching png', async () => {
-    await outputWith([
-      'ls_gui_window.indexed.atlas.json',
-      'ls_gui_window.indexed.png',
-      'ls_goods.goods01.atlas.json',
-    ]);
+  it('skips .indexed sheets (index-in-red, not viewable) and atlases whose sheet is missing', async () => {
+    await outputWith({ 'ls_gui_window.indexed': 'a.webp', 'ls_goods.goods01': 'b.webp' }, ['a.webp']);
     expect(await bobsIndexEntries(out)).toEqual([]);
   });
 });
 
 describe('writeListings', () => {
   it('writes every listing at the content root in the shapes the app parses', async () => {
-    await outputWith(['body.bear01.atlas.json', 'body.bear01.png']);
+    await outputWith({ 'body.bear01': 'a.webp' }, ['a.webp']);
     await writeListings(
       out,
       [converted('arena', { script })],
@@ -182,7 +187,7 @@ describe('writeListings', () => {
       JSON.parse(await readFile(join(out, CAMPAIGNS_INDEX_FILE), 'utf8')),
     );
     expect(maps.map((entry) => entry.id)).toEqual(['arena']);
-    expect(bobs).toEqual([{ stem: 'body.bear01', base: 'body', variant: 'bear01' }]);
+    expect(bobs).toEqual([{ stem: 'body.bear01', image: 'a.webp', base: 'body', variant: 'bear01' }]);
     expect(campaigns).toEqual({ version: 3, campaigns: [] });
   });
 });

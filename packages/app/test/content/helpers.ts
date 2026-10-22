@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import type { ContentSet } from '@open-northland/data';
-import { atlasFromManifest, type SpriteLayer, type TextureSource } from '@open-northland/render';
+import {
+  type AtlasManifest,
+  atlasFromManifest,
+  type SpriteLayer,
+  type TextureSource,
+} from '@open-northland/render';
 import { ANIMAL_BODY_IMAGELIB } from '../../src/catalog/animal-roster.js';
 import { INDEXED_CHARACTER_PALETTE } from '../../src/catalog/roster.js';
 import {
@@ -33,6 +38,15 @@ export function contentDir(): string {
   const override = process.env.ON_CONTENT_DIR;
   if (override === undefined || override === '') return resolve(checkoutRoot(), 'content');
   return isAbsolute(override) ? override : resolve(checkoutRoot(), override);
+}
+
+/** Whether `stem`'s atlas manifest and the sheet it names are both served. */
+export function servedAtlasExists(stem: string): boolean {
+  const bobs = resolve(contentDir(), 'bobs');
+  const manifest = resolve(bobs, `${stem}.atlas.json`);
+  if (!existsSync(manifest)) return false;
+  const { image } = JSON.parse(readFileSync(manifest, 'utf8')) as AtlasManifest;
+  return existsSync(resolve(bobs, image));
 }
 
 export function irPath(): string {

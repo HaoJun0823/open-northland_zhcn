@@ -29,6 +29,7 @@ const HTTP_RANGE_NOT_SATISFIABLE = 416;
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.json': 'application/json',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',

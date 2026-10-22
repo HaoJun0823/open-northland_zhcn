@@ -27,9 +27,8 @@ export async function verifyPreview(url, expected) {
   );
   const mapPath = `/maps/${encodeURIComponent(map)}`;
   for (const suffix of ['.json', '.meta.json']) await get(`${mapPath}${suffix}`, 'application/json', 'HEAD');
-  const sprite = `/bobs/${encodeURIComponent(bobs[0].stem)}`;
-  await get(`${sprite}.atlas.json`, 'application/json', 'HEAD');
-  await get(`${sprite}.png`, 'image/png', 'HEAD');
+  await get(`/bobs/${encodeURIComponent(bobs[0].stem)}.atlas.json`, 'application/json', 'HEAD');
+  await get(`/bobs/${encodeURIComponent(bobs[0].image)}`, 'image/', 'HEAD');
   return identity;
 }
 

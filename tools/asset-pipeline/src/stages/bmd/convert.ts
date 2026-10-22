@@ -35,8 +35,8 @@ export interface BmdConversion {
   readonly bmd: string;
   /** The palette `editname` this atlas was recoloured with - the per-creature differentiator. */
   readonly paletteName: string;
-  /** The atlas PNG's path relative to `outDir`. */
-  readonly png: string;
+  /** The atlas sheet's path relative to `outDir`, shared by stems with identical sheets. */
+  readonly image: string;
   /** The atlas manifest JSON's path relative to `outDir`. */
   readonly manifest: string;
 }
@@ -111,24 +111,24 @@ export async function convertBmdTree(
       console.warn(`[pipeline] skipped ${binding.bmd}: source has no .bmd extension`);
       continue;
     }
-    const { png, manifest } = await writeSourceBobAtlas(
+    const { image, manifest } = await writeSourceBobAtlas(
       outDir,
       bmdSource.rel,
       paletteSlug(binding.paletteName),
       atlas,
     );
-    done.push({ bmd: binding.bmd, paletteName: binding.paletteName, png, manifest });
+    done.push({ bmd: binding.bmd, paletteName: binding.paletteName, image, manifest });
   }
   return done;
 }
 
-/** The atlas-filename suffix of a converted shadow `.bmd` (`<shadow-stem>.shadow.{png,atlas.json}`) -
+/** The atlas-filename suffix of a converted shadow `.bmd` (`<shadow-stem>.shadow.atlas.json`) -
  *  the palette slug's slot, fixed because a shadow atlas is palette-less. */
 const SHADOW_ATLAS_SUFFIX = 'shadow';
 
 /**
  * Converts the shadow `.bmd` of every binding that names one (`GfxBobLibs`/`shadowlib` second value)
- * into a packed shadow atlas at `<shadow-basename>.shadow.{png,atlas.json}`. A shadow bob set parallels
+ * into a packed shadow atlas at `<shadow-basename>.shadow.atlas.json`. A shadow bob set parallels
  * its body's bob ids (observed: `ls_trees_s.bmd` mirrors `ls_trees.bmd`'s 493 slots), so a consumer
  * looks a caster's shadow up by the body's own bob id. One atlas per shadow `.bmd`, since a shadow has
  * no palette for recolours to differ by.
@@ -157,8 +157,8 @@ export async function convertShadowBmdTree(
     }
     try {
       const atlas = packShadowBobAtlas(decodeBmd(await readFile(source.path)));
-      const { png } = await writeSourceBobAtlas(outDir, source.rel, SHADOW_ATLAS_SUFFIX, atlas);
-      done.push(png);
+      const { image } = await writeSourceBobAtlas(outDir, source.rel, SHADOW_ATLAS_SUFFIX, atlas);
+      done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped shadow ${shadowBmd}: ${errorMessage(err)}`);
     }
@@ -168,7 +168,7 @@ export async function convertShadowBmdTree(
 
 /**
  * Converts every `.bmd` a `GfxUserFXMatrix` landscape record draws from into an indexed atlas at
- * `<bmd-basename>.indexed.{png,atlas.json}`: a displacement bob's raw value in red and its written mask
+ * `<bmd-basename>.indexed.atlas.json`: a displacement bob's raw value in red and its written mask
  * in alpha, since a palette would destroy the value. Deduped per `.bmd`.
  */
 export async function convertEffectBmdTree(
@@ -187,8 +187,8 @@ export async function convertEffectBmdTree(
     }
     try {
       const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
-      const { png } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
-      done.push(png);
+      const { image } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped effect ${bmdRef}: ${errorMessage(err)}`);
     }

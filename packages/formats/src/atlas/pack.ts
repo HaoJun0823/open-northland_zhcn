@@ -29,16 +29,14 @@ export interface AtlasFrame {
   readonly opaque: boolean;
 }
 
-/** The JSON manifest emitted alongside the atlas PNG: atlas dimensions + one entry per bob, in id order. */
+/** The JSON manifest emitted alongside the atlas sheet: atlas dimensions + one entry per bob, in id order. */
 export interface AtlasManifest {
   readonly width: number;
   readonly height: number;
   readonly frames: readonly AtlasFrame[];
-  /** Present when the `'build-time'` bake also emitted the sibling `<stem>.build.png` time sheet. */
-  readonly build?: true;
 }
 
-/** A packed atlas: the RGBA sheet to PNG-encode plus its manifest to write as JSON. */
+/** A packed atlas: the RGBA sheet to encode plus its manifest to write as JSON. */
 export interface BobAtlas {
   readonly image: RgbaImage;
   readonly manifest: AtlasManifest;
@@ -152,7 +150,7 @@ function prepareFrames(bmd: Bmd, bakeFor: BakeFor): PreparedFrame[] {
   return prepared;
 }
 
-/** Where each frame lands and the sheet size that holds them (min 1×1 so an empty pack is a valid PNG). */
+/** Where each frame lands and the sheet size that holds them (min 1×1 so an empty pack is a valid image). */
 interface PackedLayout {
   /** Placement per non-empty frame, keyed by its index in the `prepared` array (not its bob id). */
   readonly placements: ReadonlyMap<number, { readonly x: number; readonly y: number }>;
@@ -237,7 +235,6 @@ function emitAtlas(
     }
   }
 
-  return timeImage === undefined
-    ? { image, manifest: { width, height, frames } }
-    : { image, manifest: { width, height, frames, build: true }, timeImage };
+  const manifest = { width, height, frames };
+  return timeImage === undefined ? { image, manifest } : { image, manifest, timeImage };
 }

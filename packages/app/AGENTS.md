@@ -52,7 +52,7 @@ The root [`AGENTS.md`](../../AGENTS.md) still applies.
   through `RelayClientMirror` (the relay messages the worker's client applied, and its facts), each
   adopted world through that world's `WorkerSession`, and matches a save to the running world by
   `worldId`.
-- Load generated content by its content path (`/ir.json`, `/bobs/<stem>.png`) through
+- Load generated content by its content path (`/ir.json`, `/bobs/<stem>.atlas.json`) through
   `src/content/net.ts` or `contentFetch`, and validate it with the `@open-northland/data` schemas. A
   build serves content under `/c/<hash>/`, so a browser API (`img.src`, a texture or audio URL) takes
   `contentUrl(path)` from `src/content/url.ts`, never a bare content path. A checkout without

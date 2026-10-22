@@ -32,7 +32,7 @@ async function readCreaturePalette(tree: SourceAssetIndex, file: string): Promis
 }
 
 /**
- * Bakes one guidepost atlas per player (`ls_guidepost.player_NN.{png,atlas.json}`), decoded through
+ * Bakes one guidepost atlas per player (`ls_guidepost.player_NN.atlas.json`), decoded through
  * that player's full source palette, which differs from a composed human palette at every index the
  * guidepost draws.
  */
@@ -59,7 +59,7 @@ export async function convertGuidepostPlayerAtlases(outDir: string, tree: Source
 }
 
 /**
- * Emits an indexed atlas (`<bmd-basename>.indexed.{png,atlas.json}`) for every human character `.bmd`
+ * Emits an indexed atlas (`<bmd-basename>.indexed.atlas.json`) for every human character `.bmd`
  * in `bindings`, deduped because many bindings share one body. A missing or malformed `.bmd` is skipped
  * with a warning.
  */
@@ -81,8 +81,8 @@ export async function convertIndexedCharacterAtlases(
     }
     try {
       const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
-      const { png } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
-      done.push(png);
+      const { image } = await writeSourceBobAtlas(outDir, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped indexed ${bmdRef}: ${errorMessage(err)}`);
     }

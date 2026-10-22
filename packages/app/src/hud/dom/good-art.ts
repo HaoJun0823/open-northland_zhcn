@@ -6,15 +6,15 @@ import {
   spriteGoodIcon,
   swarmFishIcon,
 } from '../../content/sprite-good-icons.js';
-import { contentUrl } from '../../content/url.js';
+import { atlasImagePath, contentUrl } from '../../content/url.js';
 import { diag } from '../../diag/index.js';
 import type { GoodIconSource, PresentationPack } from '../../presentation/pack.js';
 
 /**
  * A good's icon for a DOM surface, drawn as a CSS background crop of its sheet: the presentation pack's
  * icon when it has one, the swarm fish for the fish, whose pile is a copy of gold's, else the original's
- * recoloured pile atlas (`/bobs/ls_goods.<palette>.png`), the same frame the Pixi panels show, else a
- * vehicle's or an animal's own sprite for a good with no pile. `null` when nothing is served.
+ * recoloured pile atlas (`ls_goods.<palette>`), the same frame the Pixi panels show, else a vehicle's or
+ * an animal's own sprite for a good with no pile. `null` when nothing is served.
  */
 
 async function pileIcon(goodId: string): Promise<SpriteIconFrame | null> {
@@ -42,9 +42,9 @@ export async function goodIconSource(
         (await spriteGoodIcon(content, goodId)));
   const frame = icon?.atlas.frames.find((f) => f.bobId === icon.bobId);
   if (icon === null || frame === undefined) return null;
-  const { atlas, stem } = icon;
+  const { atlas } = icon;
   return {
-    url: contentUrl(`/bobs/${stem}.png`),
+    url: contentUrl(atlasImagePath(atlas.image)),
     sheet: { width: atlas.width, height: atlas.height },
     rect: frame.rect,
   };

@@ -6,7 +6,7 @@ import {
   type SpriteLayer,
 } from '@open-northland/render';
 import { fetchImageData, fetchJsonOrNull } from '../net.js';
-import { contentFetch, contentUrl } from '../url.js';
+import { atlasImagePath, contentFetch, contentUrl } from '../url.js';
 import { BODY_IMAGELIB, type BobSeqRow, type ContentIr } from './rows.js';
 
 /**
@@ -25,9 +25,9 @@ function isIndexedStem(stem: string): boolean {
 const layerBodies = new Map<string, Promise<SpriteLayer>>();
 
 /**
- * One decoded atlas body (`<stem>.{atlas.json,png}`) served at `/bobs/`. A `build: true` manifest also reads
- * the sibling `<stem>.build.png` CPU-side for the per-pixel construction-reveal thresholds, degrading to the
- * crop reveal when unreadable.
+ * One decoded atlas body (`<stem>.atlas.json` and the sheet it names) served at `/bobs/`. A manifest with a
+ * `buildImage` also reads that time sheet CPU-side for the per-pixel construction-reveal thresholds,
+ * degrading to the crop reveal when unreadable.
  */
 async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   const res = await contentFetch(`/bobs/${stem}.atlas.json`);
@@ -39,11 +39,13 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   const manifest = (await res.json()) as AtlasManifest;
   const [source, times] = await Promise.all([
     loadAtlasSource(
-      contentUrl(`/bobs/${stem}.png`),
+      contentUrl(atlasImagePath(manifest.image)),
       'nearest',
       isIndexedStem(stem) ? 'straight' : 'premultiplied',
     ),
-    manifest.build === true ? loadBuildTimeSheet(`/bobs/${stem}.build.png`) : Promise.resolve(undefined),
+    manifest.buildImage === undefined
+      ? Promise.resolve(undefined)
+      : loadBuildTimeSheet(atlasImagePath(manifest.buildImage)),
   ]);
   return { atlas: atlasFromManifest(manifest), source, ...(times !== undefined ? { times } : {}) };
 }
@@ -86,7 +88,7 @@ export async function loadLayer(stem: string, shadowStem?: string): Promise<Spri
   return shadow === undefined ? body : { ...body, shadow };
 }
 
-/** Fetch a build-time sheet PNG and keep its R channel (the 0–255 thresholds) CPU-side, or `undefined`
+/** Fetch a build-time sheet and keep its R channel (the 0–255 thresholds) CPU-side, or `undefined`
  *  when absent/unreadable. */
 async function loadBuildTimeSheet(url: string): Promise<BuildTimeSheet | undefined> {
   const img = await fetchImageData(url);

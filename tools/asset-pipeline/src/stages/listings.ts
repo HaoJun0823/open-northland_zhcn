@@ -1,9 +1,10 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { BobsIndexEntry, CampaignIndex, MapsIndexEntry } from '@open-northland/data';
 import { mapsIndexEntry } from '@open-northland/map-import';
+import type { AtlasManifest } from '@open-northland/render';
 import { statIfExists } from '../files.js';
-import { BOBS_DIR, writeJsonFile } from './content-tree.js';
+import { ATLAS_MANIFEST_SUFFIX, BOBS_DIR, INDEXED_ATLAS_SUFFIX, writeJsonFile } from './content-tree.js';
 import type { MapDatConversion } from './maps/index.js';
 
 export const MAPS_INDEX_FILE = 'maps-index.json';
@@ -22,26 +23,28 @@ export function mapsIndexEntries(maps: readonly MapDatConversion[]): MapsIndexEn
   return [...byId.values()].sort((a, b) => byCodeUnit(a.id, b.id));
 }
 
-/** Every viewable atlas under `bobs/`: a `<stem>.png` + `<stem>.atlas.json` pair, sorted by (base, variant). */
+/** Every viewable atlas under `bobs/`: a `<stem>.atlas.json` whose sheet exists, sorted by (base, variant). */
 export async function bobsIndexEntries(outDir: string): Promise<BobsIndexEntry[]> {
   const bobs = join(outDir, BOBS_DIR);
   if (!(await statIfExists(bobs))?.isDirectory()) return [];
   const names = new Set(await readdir(bobs));
-  return (
-    [...names]
-      .filter((name) => name.endsWith('.atlas.json'))
-      .map((name) => name.slice(0, -'.atlas.json'.length))
-      // An `.indexed` sheet holds a palette index in red and a mask in alpha, not a viewable image.
-      .filter((stem) => !stem.endsWith('.indexed'))
-      .filter((stem) => names.has(`${stem}.png`))
-      .map((stem) => {
-        const dot = stem.indexOf('.');
-        const base = dot === -1 ? stem : stem.slice(0, dot);
-        const variant = dot === -1 ? '' : stem.slice(dot + 1);
-        return { stem, base, variant };
-      })
-      .sort((a, b) => byCodeUnit(a.base, b.base) || byCodeUnit(a.variant, b.variant))
-  );
+  const stems = [...names]
+    .filter((name) => name.endsWith(ATLAS_MANIFEST_SUFFIX))
+    .map((name) => name.slice(0, -ATLAS_MANIFEST_SUFFIX.length))
+    // An `.indexed` sheet holds a palette index in red and a mask in alpha, not a viewable image.
+    .filter((stem) => !stem.endsWith(`.${INDEXED_ATLAS_SUFFIX}`));
+  const entries: BobsIndexEntry[] = [];
+  for (const stem of stems) {
+    const manifest = JSON.parse(
+      await readFile(join(bobs, `${stem}${ATLAS_MANIFEST_SUFFIX}`), 'utf8'),
+    ) as Pick<AtlasManifest, 'image'>;
+    if (!names.has(manifest.image)) continue;
+    const dot = stem.indexOf('.');
+    const base = dot === -1 ? stem : stem.slice(0, dot);
+    const variant = dot === -1 ? '' : stem.slice(dot + 1);
+    entries.push({ stem, image: manifest.image, base, variant });
+  }
+  return entries.sort((a, b) => byCodeUnit(a.base, b.base) || byCodeUnit(a.variant, b.variant));
 }
 
 /** Writes the listings the app reads instead of scanning the tree. */

@@ -19,6 +19,7 @@ import {
 } from '../src/stages/gui/index.js';
 import { EXPORTED_TABLES, GAME_OBJECT_TABLES, STRING_TABLES } from '../src/stages/gui/strings.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
+import { readServedManifest, readServedSheet } from './support/served-atlas.js';
 
 /**
  * GUI stage tests. No copyrighted fixtures: we synthesize the HUD sources (a `.bmd` bob sheet, palette
@@ -130,14 +131,11 @@ describe('gui stage', () => {
     expect(window?.previewStem).toBe('ls_gui_window.iconsleft');
     expect(window?.frames).toBe(2);
 
-    // Both the indexed atlas and the colour preview decode as valid RGBA sheets, and share the manifest.
-    const indexed = await decodePng(await readFile(join(out, BOBS_DIR, 'ls_gui_window.indexed.png')));
-    const preview = await decodePng(await readFile(join(out, BOBS_DIR, 'ls_gui_window.iconsleft.png')));
+    // Both the indexed atlas and the colour preview decode as valid RGBA sheets, and share the packing.
+    const indexed = await readServedSheet(out, 'ls_gui_window.indexed');
+    const preview = await readServedSheet(out, 'ls_gui_window.iconsleft');
     expect(indexed.width).toBe(preview.width);
-    const manifest = JSON.parse(
-      await readFile(join(out, BOBS_DIR, 'ls_gui_window.indexed.atlas.json'), 'utf8'),
-    );
-    expect(manifest.frames).toHaveLength(2);
+    expect((await readServedManifest(out, 'ls_gui_window.indexed')).frames).toHaveLength(2);
   });
 
   it('decodes the eight ingamegui tables per language, id→text, CP1250-decoded', async () => {

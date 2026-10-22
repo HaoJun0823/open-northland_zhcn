@@ -22,6 +22,7 @@
     "@open-northland/map-import": "*",
     "@open-northland/render": "*",
     "@open-northland/translations": "*",
+    "sharp": "^0.35.5",
     "spessasynth_core": "4.3.22",
     "wasm-media-encoders": "0.7.0"
   },

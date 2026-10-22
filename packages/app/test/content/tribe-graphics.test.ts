@@ -16,7 +16,7 @@ import {
   tribeLooks,
 } from '../../src/content/settler-gfx/index.js';
 import type { WorldTribes } from '../../src/game/world-tribes.js';
-import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
+import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasExists } from './helpers.js';
 
 /**
  * Pins that every civilization the content describes can actually be drawn: each one resolves a body and
@@ -39,12 +39,6 @@ function bobsDir(): string {
   return resolve(contentDir(), 'bobs');
 }
 
-function atlasExists(stem: string): boolean {
-  return (
-    existsSync(resolve(bobsDir(), `${stem}.atlas.json`)) && existsSync(resolve(bobsDir(), `${stem}.png`))
-  );
-}
-
 describe.runIf(hasRealIr())('every civilization is drawable', () => {
   it('extracts a [jobbasegraphics] record for each civilization', () => {
     const ir = rawIrUnderTest() as ContentIr;
@@ -64,10 +58,12 @@ describe.runIf(hasRealIr())('every civilization is drawable', () => {
         expect(chain.length, `tribe ${tribe} look '${specId}' resolves no record`).toBeGreaterThan(0);
         // The loader takes the first look whose body decoded; at least one of the chain must exist,
         // else that job draws the base tribe's body instead of this civilization's.
-        const drawn = chain.find((look) => atlasExists(`${look.bodyBmd}.${INDEXED}`));
+        const drawn = chain.find((look) => servedAtlasExists(`${look.bodyBmd}.${INDEXED}`));
         expect(drawn, `tribe ${tribe} look '${specId}' has no decoded body`).toBeDefined();
         for (const head of drawn?.headBmds ?? []) {
-          expect(atlasExists(`${head}.${INDEXED}`), `tribe ${tribe} '${specId}' head ${head}`).toBe(true);
+          expect(servedAtlasExists(`${head}.${INDEXED}`), `tribe ${tribe} '${specId}' head ${head}`).toBe(
+            true,
+          );
         }
       }
     }
@@ -82,9 +78,10 @@ describe.runIf(hasRealIr())('every civilization is drawable', () => {
       const specId = ADULT_CHARACTER_BY_JOB[row.job];
       const exact = specId === undefined ? undefined : tribeLooks(ir, row.tribe).get(specId)?.[0];
       expect(exact?.job, `tribe ${row.tribe} hero ${row.job} did not win its look chain`).toBe(row.job);
-      expect(atlasExists(`${exact?.bodyBmd}.${INDEXED}`), `hero body ${exact?.bodyBmd} is not decoded`).toBe(
-        true,
-      );
+      expect(
+        servedAtlasExists(`${exact?.bodyBmd}.${INDEXED}`),
+        `hero body ${exact?.bodyBmd} is not decoded`,
+      ).toBe(true);
     }
   });
 
@@ -103,7 +100,7 @@ describe.runIf(hasRealIr())('every civilization is drawable', () => {
       const stem = servedShadowStem(row.shadowBody);
       expect(stem, `tribe ${row.tribe} job ${row.job} names no shadow set`).toBeDefined();
       if (stem === undefined) continue;
-      expect(atlasExists(stem), `shadow set ${stem} is not decoded`).toBe(true);
+      expect(servedAtlasExists(stem), `shadow set ${stem} is not decoded`).toBe(true);
     }
   });
 
@@ -161,7 +158,7 @@ describe.runIf(hasRealIr())('every civilization is drawable', () => {
     const families = candidateFamilies(ir, CIVILIZATIONS);
     const layers = referencedFamilyLayers(buildingBinding(ir, CIVILIZATIONS, families));
     expect(layers.size).toBeGreaterThan(0);
-    for (const layer of layers) expect(atlasExists(layer), `building page ${layer}`).toBe(true);
+    for (const layer of layers) expect(servedAtlasExists(layer), `building page ${layer}`).toBe(true);
   });
 
   it('draws a building listing two palettes in either skin, by slot', () => {

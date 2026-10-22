@@ -5,9 +5,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
  * One atlas can be asked for with its shadow twin and without it, so `content/ir/load.ts` caches the atlas
  * BODY per stem and composes the shadow on top - keying on `(stem, shadowStem)` would dedupe neither call.
  *
- * Pixi's `Assets` already dedupes the `<stem>.png` upload by URL. What the cache removes is the manifest
- * fetch + frame indexing and, for a `build: true` atlas, a second CPU readback of the `<stem>.build.png`
- * time sheet - that one goes through `fetchImageData`, which nothing else caches.
+ * Pixi's `Assets` already dedupes the sheet upload by URL. What the cache removes is the manifest
+ * fetch + frame indexing and, for an atlas with a `buildImage`, a second CPU readback of that time
+ * sheet - that one goes through `fetchImageData`, which nothing else caches.
  */
 
 /**
@@ -44,15 +44,20 @@ const SHADOW_STEM = 'ls_houses_viking.house01.shadow';
 /** A palette-indexed stem, which must load straight-alpha (see `isIndexedStem`). */
 const INDEXED_STEM = 'cr_hum_body_00.indexed';
 
+/** The sheet every stub manifest names, as stems with identical sheets do. */
+const SHEET = '0123456789abcdef.webp';
+const BUILD_SHEET = 'fedcba9876543210.webp';
+
 /** The smallest manifest `atlasFromManifest` accepts: one frame, no build-time sheet. */
 const MANIFEST = {
   width: 8,
   height: 8,
   frames: [{ bobId: 1, rect: { x: 0, y: 0, width: 4, height: 4 }, offsetX: 0, offsetY: 0 }],
+  image: SHEET,
 } as const;
 
-/** The house atlases' shape: a sibling `<stem>.build.png` the loader reads back CPU-side. */
-const BUILD_MANIFEST = { ...MANIFEST, build: true } as const;
+/** The house atlases' shape: a time sheet the loader reads back CPU-side. */
+const BUILD_MANIFEST = { ...MANIFEST, buildImage: BUILD_SHEET } as const;
 
 /** A `fetch` stub recording every requested URL and serving `manifests` by stem; anything else 404s. */
 function countingFetch(manifests: Readonly<Record<string, object>>): {
@@ -97,12 +102,16 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     const [first, second] = await Promise.all([loadLayer(BODY_STEM), loadLayer(BODY_STEM)]);
 
     expect(urls).toEqual([`/bobs/${BODY_STEM}.atlas.json`]);
-    expect(uploads).toEqual([{ url: `/bobs/${BODY_STEM}.png`, alpha: 'premultiplied' }]);
+    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, alpha: 'premultiplied' }]);
     expect(second).toBe(first); // one shared instance, not two decodes of the same bytes
   });
 
   it('shares the body when the same stem is asked for with and without its shadow twin', async () => {
-    const { impl, urls } = countingFetch({ [BODY_STEM]: MANIFEST, [SHADOW_STEM]: MANIFEST });
+    const shadowSheet = 'aaaaaaaaaaaaaaaa.webp';
+    const { impl, urls } = countingFetch({
+      [BODY_STEM]: MANIFEST,
+      [SHADOW_STEM]: { ...MANIFEST, image: shadowSheet },
+    });
     vi.stubGlobal('fetch', impl);
     const { loadLayer } = await freshLoader();
 
@@ -116,7 +125,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     expect(bare.atlas).toBe(shadowed.atlas);
     // Composing the shadow must not leak back onto the bare body the other caller holds.
     expect(bare.shadow).toBeUndefined();
-    expect(shadowed.shadow?.source).toMatchObject({ label: `/bobs/${SHADOW_STEM}.png` });
+    expect(shadowed.shadow?.source).toMatchObject({ label: `/bobs/${shadowSheet}` });
   });
 
   it('reads a build-time sheet back once for two callers of the same house atlas', async () => {
@@ -126,9 +135,9 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
 
     await Promise.all([loadLayer(BODY_STEM), loadLayer(BODY_STEM, SHADOW_STEM)]);
 
-    // The readback this cache exists to remove: `<stem>.build.png` is multi-megapixel and Pixi's `Assets`
+    // The readback this cache exists to remove: the time sheet is multi-megapixel and Pixi's `Assets`
     // never sees it, so an uncached second caller paid the whole fetch + decode again.
-    expect(urls.filter((u) => u === `/bobs/${BODY_STEM}.build.png`)).toHaveLength(1);
+    expect(urls.filter((u) => u === `/bobs/${BUILD_SHEET}`)).toHaveLength(1);
   });
 
   it('loads a palette-indexed stem straight-alpha', async () => {
@@ -138,7 +147,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
 
     await loadLayer(INDEXED_STEM);
 
-    expect(uploads).toEqual([{ url: `/bobs/${INDEXED_STEM}.png`, alpha: 'straight' }]);
+    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, alpha: 'straight' }]);
   });
 
   it('degrades to a shadow-less layer when the shadow atlas is absent', async () => {

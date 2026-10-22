@@ -13,7 +13,7 @@ import {
   resolveGraphicsBindings,
 } from './stages/bmd/index.js';
 import { CAMPAIGNS_DIR, convertCampaignStage } from './stages/campaigns.js';
-import { MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
+import { BOBS_DIR, MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
 import { convertGoodsStage } from './stages/goods/index.js';
 import { convertGuiStage } from './stages/gui/index.js';
 import { HYPERTEXT_PICTURES_DIR } from './stages/gui/paths.js';
@@ -65,9 +65,12 @@ export async function runPipeline(args: Args): Promise<void> {
 
   const graphics = await resolveGraphicsBindings(roots);
   const assets = await indexSourceAssets(roots);
+  // Every atlas stage writes content-addressed sheets here and skips a name already present, so the
+  // reset belongs to the run.
+  await rm(join(args.out, BOBS_DIR), { recursive: true, force: true });
   const atlases = await convertBmdTree(graphics, args.out, assets);
   const { bindings, palettes } = graphics;
-  const distinct = new Set(atlases.map((a) => a.png)).size;
+  const distinct = new Set(atlases.map((a) => a.image)).size;
   const distinctBmd = new Set(atlases.map((a) => a.bmd)).size;
   console.log(
     `[pipeline] bmd -> atlas: ${atlases.length} of ${bindings.length} readable binding(s) -> ` +

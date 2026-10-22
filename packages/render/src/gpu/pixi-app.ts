@@ -140,7 +140,7 @@ export function leaveCursorToCss(events: { cursorStyles: Record<string, unknown>
 }
 
 /**
- * Load a decoded atlas PNG as a Pixi {@link TextureSource}. The default `nearest` keeps pixel-art bobs
+ * Load a decoded atlas sheet as a Pixi {@link TextureSource}. The default `nearest` keeps pixel-art bobs
  * crisp; ground texture pages pass `linear`.
  *
  * `alpha: 'straight'` is required for palette-indexed sheets (`<stem>.indexed`): their red channel is a

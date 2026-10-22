@@ -53,7 +53,7 @@ export interface SpriteLayer {
   readonly source: TextureSource;
   readonly atlas: SpriteAtlas;
   readonly sway?: number;
-  /** CPU copy of the atlas's build-progress time sheet (the house atlases' sibling `.build.png`),
+  /** CPU copy of the atlas's build-progress time sheet (the house atlases' `buildImage`),
    *  present only when the manifest announced one. */
   readonly times?: BuildTimeSheet;
   /** Optional shadow frames share the body's frame ids and feet anchor. */

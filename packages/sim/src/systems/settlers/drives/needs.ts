@@ -34,7 +34,7 @@ import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
 import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
 import { enterBuilding } from '../indoors.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
-import { nearestFood, nearestPrayerSite, type TargetCandidates } from '../targets/index.js';
+import { chooseMeal, nearestPrayerSite, type TargetCandidates } from '../targets/index.js';
 import { prayAtHome, sleepAtHome } from './home-errands.js';
 import { prayerStand } from './prayer-stand.js';
 import { restingCell } from './rest-spot.js';
@@ -299,7 +299,7 @@ export interface MealSearch {
 
 /**
  * The hunger rung for a settler whose `hunger` presses: carried food, its post's larder, then a walk to
- * food. False when nothing in reach feeds it.
+ * the meal {@link chooseMeal} picks. False when nothing in reach feeds it.
  */
 function seekMeal(
   world: World,
@@ -313,7 +313,7 @@ function seekMeal(
   if (seek && eatCarried(world, ctx, e, settler, load)) return true;
   if (seek && eatAtPost(world, ctx, e, settler)) return true;
   const walks = seek && (hunger >= NEED_CRITICAL_THRESHOLD || !onAlert());
-  const food = walks ? nearestFood(targets, world, ctx, supply, terrain, here, e, limit ?? undefined) : null;
+  const food = walks ? chooseMeal(targets, world, ctx, supply, terrain, here, e, limit ?? undefined) : null;
   if (food !== null) {
     const target = food.kind === 'store' ? food.store : food.bush;
     if (food.kind === 'store') {

@@ -13,8 +13,9 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type NodeId, ONE, positionOfNode, Simulation } from '../../src/index.js';
+import { HOME_ERRAND_RANGE_NODES } from '../../src/systems/family/households.js';
 import { atomicSystem, plannerSystem } from '../../src/systems/index.js';
-import { collectTargets, nearestFood } from '../../src/systems/settlers/targets/index.js';
+import { BUSH_AT_HAND_NODES, chooseMeal, collectTargets } from '../../src/systems/settlers/targets/index.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf, nextTickCtxOf } from '../fixtures/context.js';
@@ -28,6 +29,25 @@ const HOME = 90;
 const FOOD_PROCESSOR = 91;
 const SOURCES = ['store', 'ground', 'producer', 'bush', 'home'] as const;
 type Source = (typeof SOURCES)[number];
+/** The search runs from node (2, 6); a source on node (x, 6) lies `x - 2` map points off. */
+const EATER_X = 2;
+/** A home on this node lies within the home errand range of the eater. */
+const HOME_IN_RANGE = EATER_X + HOME_ERRAND_RANGE_NODES;
+/** Two spots inside the goods search reach (40 map points without signposts) and past the 10 a bush at
+ *  hand may stand. */
+const NEAR = 20;
+const FAR = 26;
+/** Two spots within arm's reach of the eater, the farther on the last point inside it. */
+const AT_HAND = EATER_X + 4;
+const AT_HAND_FAR = EATER_X + BUSH_AT_HAND_NODES - 1;
+/** The first point past arm's reach. */
+const PAST_HAND = EATER_X + BUSH_AT_HAND_NODES;
+/** Two spots past the goods search reach and the home errand range alike. */
+const BEYOND_NEAR = 70;
+const BEYOND_FAR = 76;
+/** The order the choice ranks kinds in inside the reach: stocked food, then bushes. */
+const RANK: Record<Exclude<Source, 'home'>, number> = { store: 0, ground: 0, producer: 0, bush: 1 };
+const IN_REACH = ['store', 'ground', 'producer', 'bush'] as const;
 
 function fixture() {
   const base = testContent();
@@ -87,35 +107,88 @@ function fixture() {
     return e;
   };
   const supply = collectSupplyTally(sim.world);
-  const pick = (gate?: Parameters<typeof nearestFood>[7]) =>
-    nearestFood(
+  const pick = (gate?: Parameters<typeof chooseMeal>[7]) =>
+    chooseMeal(
       collectTargets(sim.world, ctxOf(sim), terrain),
       sim.world,
       ctxOf(sim),
       supply,
       terrain,
-      terrain.nodeAt(2, 6),
+      terrain.nodeAt(EATER_X, 6),
       eater,
       gate,
     );
   return { sim, eater, terrain, add, pick, supply };
 }
 
-function sourceOf(food: ReturnType<typeof nearestFood>): Entity | undefined {
+function sourceOf(food: ReturnType<typeof chooseMeal>): Entity | undefined {
   return food?.kind === 'bush' ? food.bush : food?.store;
 }
 
-describe('one nearest-meal search', () => {
-  it.each(SOURCES.flatMap((near) => SOURCES.filter((far) => far !== near).map((far) => ({ near, far }))))(
-    'chooses nearer $near over farther $far, including beyond the former bush cap',
+describe('the meal choice', () => {
+  it.each(IN_REACH.flatMap((near) => IN_REACH.filter((far) => far !== near).map((far) => ({ near, far }))))(
+    'ranks stocked food over a bush inside the reach, nearest within a rank: nearer $near, farther $far',
     ({ near, far }) => {
       const { add, pick, sim } = fixture();
-      add(far, 76); // Create the farther source first: insertion order must not win.
-      const closer = add(near, 70);
-      expect(sourceOf(pick())).toBe(closer);
+      const farther = add(far, FAR); // Create the farther source first: insertion order must not win.
+      const closer = add(near, NEAR);
+      expect(sourceOf(pick())).toBe(RANK[far] < RANK[near] ? farther : closer);
       expect(sim.world.verifyCaches()).toEqual([]);
     },
   );
+
+  it.each([
+    { near: 'bush', far: 'store' },
+    { near: 'store', far: 'bush' },
+  ] as const)(
+    'ranks a bush at hand with the stores by distance: nearer $near, farther $far',
+    ({ near, far }) => {
+      const { add, pick } = fixture();
+      add(far, AT_HAND_FAR);
+      const closer = add(near, AT_HAND);
+      expect(sourceOf(pick())).toBe(closer);
+    },
+  );
+
+  it("eats a bush on the last point within arm's reach before a farther store in reach", () => {
+    const { add, pick } = fixture();
+    add('store', NEAR);
+    const bush = add('bush', AT_HAND_FAR);
+    expect(sourceOf(pick())).toBe(bush);
+  });
+
+  it("takes a store in reach over a nearer bush on the first point past arm's reach", () => {
+    const { add, pick } = fixture();
+    add('bush', PAST_HAND);
+    const store = add('store', NEAR);
+    expect(sourceOf(pick())).toBe(store);
+  });
+
+  it.each(SOURCES.flatMap((near) => SOURCES.filter((far) => far !== near).map((far) => ({ near, far }))))(
+    'takes the nearest meal of any kind past the reach, the far home included: nearer $near, farther $far',
+    ({ near, far }) => {
+      const { add, pick } = fixture();
+      add(far, BEYOND_FAR);
+      const closer = add(near, BEYOND_NEAR);
+      expect(sourceOf(pick())).toBe(closer);
+    },
+  );
+
+  it.each(['store', 'ground', 'producer', 'bush'] as const)(
+    'walks home within the errand range before a nearer %s',
+    (kind) => {
+      const { add, pick } = fixture();
+      add(kind, AT_HAND);
+      const home = add('home', HOME_IN_RANGE);
+      expect(pick()).toMatchObject({ kind: 'store', store: home, atHome: true });
+    },
+  );
+
+  it('walks a far home when nothing else feeds it', () => {
+    const { add, pick } = fixture();
+    const home = add('home', BEYOND_FAR);
+    expect(pick()).toMatchObject({ kind: 'store', store: home, atHome: true });
+  });
 
   it.each(SOURCES)('applies the same walking boundary to %s', (kind) => {
     const { add, pick, terrain } = fixture();
@@ -165,56 +238,58 @@ describe('one nearest-meal search', () => {
   });
 
   it('keeps the meal index current after moving, replacing and destroying sources', () => {
-    const { sim, add, pick } = fixture();
+    const { sim, add, pick, terrain } = fixture();
+    const nearby = {
+      bounds: { minX: 0, maxX: 15, minY: 0, maxY: 19 },
+      allowsNode: (cell: NodeId) => terrain.xOf(cell) <= 15,
+    };
     const store = add('store', 6);
     const bush = add('bush', 12);
-    expect(sourceOf(pick())).toBe(store);
+    expect(sourceOf(pick(nearby))).toBe(store);
     sim.world.add(store, Position, positionOfNode(20, 6));
-    expect(sourceOf(pick())).toBe(bush);
+    expect(sourceOf(pick(nearby))).toBe(bush);
     sim.world.remove(bush, BerryBush);
     sim.world.add(bush, Stockpile, { amounts: new Map([[FOOD, 1]]) });
-    expect(pick()).toMatchObject({ kind: 'store', store: bush });
+    expect(pick(nearby)).toMatchObject({ kind: 'store', store: bush });
     sim.world.destroy(bush);
+    expect(pick(nearby)).toBeNull();
     expect(sourceOf(pick())).toBe(store);
     const fresh = add('ground', 8);
-    expect(sourceOf(pick())).toBe(fresh);
+    expect(sourceOf(pick(nearby))).toBe(fresh);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it.each(['store', 'bush', 'home'] as const)(
-    'breaks equal-distance ties by cell, even against %s',
-    (kind) => {
-      const { sim, eater, add, terrain, supply } = fixture();
-      const right = add(kind, 26);
-      const left = add(kind === 'bush' ? 'store' : 'bush', 14);
-      const pick = nearestFood(
-        collectTargets(sim.world, ctxOf(sim), terrain),
-        sim.world,
-        ctxOf(sim),
-        supply,
-        terrain,
-        terrain.nodeAt(20, 6),
-        eater,
-      );
-      expect(sourceOf(pick)).toBe(left);
-      expect(sourceOf(pick)).not.toBe(right);
-    },
-  );
+  it.each(['store', 'bush'] as const)('breaks an equal-distance tie by cell within a rank (%s)', (kind) => {
+    const { sim, eater, add, terrain, supply } = fixture();
+    const right = add(kind, 26);
+    const left = add(kind === 'bush' ? 'bush' : 'ground', 14);
+    const pick = chooseMeal(
+      collectTargets(sim.world, ctxOf(sim), terrain),
+      sim.world,
+      ctxOf(sim),
+      supply,
+      terrain,
+      terrain.nodeAt(20, 6),
+      eater,
+    );
+    expect(sourceOf(pick)).toBe(left);
+    expect(sourceOf(pick)).not.toBe(right);
+  });
 
-  it.each(['store', 'bush'] as const)(
+  it.each(['store', 'ground'] as const)(
     'breaks a shared-cell tie by entity id when %s was created first',
     (kind) => {
       const { add, pick } = fixture();
       const first = add(kind, 8);
-      add(kind === 'bush' ? 'store' : 'bush', 8);
+      add(kind === 'store' ? 'ground' : 'store', 8);
       expect(sourceOf(pick())).toBe(first);
     },
   );
 
   it('keeps the nearest meal when a large mixed index switches to its spatial search', () => {
     const { sim, add, pick } = fixture();
-    const nearest = add('bush', 70);
-    add('store', 76);
+    const nearest = add('ground', BEYOND_NEAR);
+    add('store', BEYOND_FAR);
     expect(sourceOf(pick())).toBe(nearest);
     for (let i = 0; i < 80; i++) {
       add('bush', 80 + i);

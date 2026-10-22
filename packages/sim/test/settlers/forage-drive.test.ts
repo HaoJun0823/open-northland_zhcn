@@ -24,17 +24,19 @@ import {
   plannerSystem,
   stampResourceFootprintData,
 } from '../../src/systems/index.js';
+import { BUSH_AT_HAND_NODES } from '../../src/systems/settlers/targets/index.js';
 import { testContent } from '../fixtures/content.js';
 import { fixtureTick, nextTickCtxOf } from '../fixtures/context.js';
 import { needsOf } from '../fixtures/settler.js';
 import { cellOf, ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /**
- * Unit + integration tests for the FORAGE DRIVE - a hungry settler eating a wild {@link BerryBush} as the
- * eat drive's nearest-food choice (the `forage` effect on the eat animation, id 10). A bush is wild
- * food anyone grazes: no job/tool, no stored good consumed. It regrows its one serving over
- * {@link BERRY_REGROW_TICKS} ticks (the BerryGrowthSystem). The eat drive picks the NEAREST food overall,
- * so a nearer store still wins over a farther bush (and vice-versa). Source basis for the bush cycle is on
+ * Unit + integration tests for the FORAGE DRIVE - a hungry settler eating a wild {@link BerryBush} (the
+ * `forage` effect on the eat animation, id 10). A bush is wild food anyone grazes: no job/tool, no stored
+ * good consumed. It regrows its one serving over {@link BERRY_REGROW_TICKS} ticks (the
+ * BerryGrowthSystem). The meal choice feeds a settler from stocked food within its goods reach before a
+ * bush beyond arm's reach, while a bush at hand competes by distance; past the goods reach the nearest
+ * meal of either kind wins. Source basis for the bush cycle is on
  * the {@link BerryBush} component (the original's `landscapetypes.ini` bush transitions).
  */
 
@@ -119,11 +121,10 @@ describe('forageDrive - the planner choosing to forage a wild bush', () => {
     expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
   });
 
-  it('compares a bush beyond the former forage radius with farther stocked food', () => {
+  it('walks to a bush past the goods reach when no store feeds it', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
     const settler = settlerAt(sim, 0, 0, HUNGRY);
-    bushAt(sim, 33, 0); // 66 nodes: the old bush-only cap was 64.
-    storeAt(sim, 36, 0, 5);
+    bushAt(sim, 33, 0); // 66 map points: past the 40 of the goods reach
 
     plannerSystem(sim.world, ctxOf(sim));
 
@@ -131,7 +132,7 @@ describe('forageDrive - the planner choosing to forage a wild bush', () => {
   });
 });
 
-describe('eat drive - picking the NEAREST food across stores and bushes', () => {
+describe('eat drive - stocked food before bushes in reach, the nearest meal beyond it', () => {
   it.each(['loose pile', 'storehouse'] as const)(
     'chooses a nearer meal in a %s beyond goods-search reach but inside walking reach',
     (source) => {
@@ -175,7 +176,7 @@ describe('eat drive - picking the NEAREST food across stores and bushes', () => 
     expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 21, 2));
   });
 
-  it('forages a bush that is nearer than any food store', () => {
+  it('forages the bush it stands on rather than walk to a store', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
     const settler = settlerAt(sim, 0, 0, HUNGRY);
     const bush = bushAt(sim, 0, 0); // on the bush - distance 0
@@ -183,8 +184,19 @@ describe('eat drive - picking the NEAREST food across stores and bushes', () => 
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    const atomic = sim.world.get(settler, CurrentAtomic);
-    expect(atomic.effect).toEqual({ kind: 'forage', bush });
+    expect(sim.world.get(settler, CurrentAtomic).effect).toEqual({ kind: 'forage', bush });
+  });
+
+  it("walks to a store in reach past a nearer bush beyond arm's reach", () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(12, 1) });
+    const settler = settlerAt(sim, 0, 0, HUNGRY);
+    bushAt(sim, BUSH_AT_HAND_NODES / 2, 0); // two map points per cell: the first point past arm's reach
+    storeAt(sim, 10, 0, 5);
+
+    plannerSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 10, 0));
   });
 
   it('eats from a store that is nearer than any bush', () => {

@@ -47,7 +47,7 @@ class MealCells {
 
 const ledgers = new WeakMap<World, MealCells>();
 
-/** Every potential meal in one spatial search, caught up lazily when the planner needs food. */
+/** Every potential meal in one spatial index, caught up lazily when the planner needs food. */
 export function mealCells(world: World, content: ContentSet, terrain: TerrainGraph): InteractionCellIndex {
   let ledger = ledgers.get(world);
   if (ledger === undefined || ledger.content !== content || ledger.terrain !== terrain) {

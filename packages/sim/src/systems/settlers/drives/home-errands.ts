@@ -7,12 +7,11 @@ import { builtHomeType, homeUsedBy } from '../../family/households.js';
 import { atomicDuration } from '../../readviews/animations.js';
 import { ATOMIC_EVENT_CHANNEL } from '../../readviews/index.js';
 import type { NavigationLimit } from '../../signposts/index.js';
-import { hexNodeDistance } from '../../spatial/metric.js';
 import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic } from '../atomics/start.js';
 import { enterBuilding, isInside } from '../indoors.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
-import { interactionCell } from '../targets/index.js';
-import { isUnreachableGoal, unreachableGoals } from '../unreachable-goals.js';
+import { homeErrandDoor } from '../targets/index.js';
+import { unreachableGoals } from '../unreachable-goals.js';
 import { homeClipServes } from './at-home.js';
 import { prayerStand } from './prayer-stand.js';
 
@@ -23,28 +22,20 @@ import { prayerStand } from './prayer-stand.js';
 // rest counts, at home all of it, and twice that on a bed the home's furniture pays for
 // (`applyAtomicNeedEvents`). The data's `<clip>_home` and `<body>_eat_athome` clips are never played: no
 // `setatomic` binds them. The approximation is the trigger: this rung fires whenever the settler is housed
-// within HOME_ERRAND_RANGE_NODES of its door, with no time-of-day gate.
+// within the home errand range of its door, with no time-of-day gate.
 //
 // Praying at home: original behavior, a settler whose house keeps its holy fire burning prays there before
 // it looks for a temple.
 //
 // Eating at home: a meal there counts double. Approximation: the settler steps inside to eat, as it
 // does to sleep, so the at-home top-up serves its other bars after the meal. Meal selection lives in
-// targets/food: the larder competes with all other food by distance.
-
-/**
- * The farthest a settler's home door may lie, in map points ({@link hexNodeDistance}, one per walked
- * step), for it to walk home to sleep. Approximation: an unshod walker on default ground spends
- * about 10 hunger units a step (8 ticks of drain plus 2 for the step), so 50 steps cost half the 1000
- * units a meal break leaves it.
- */
-export const HOME_ERRAND_RANGE_NODES = 50;
+// targets/food: the larder comes first within the same home errand range as the bed.
 
 /**
  * Send `e` to bed in its own house: walk to the home's door, step inside and run the sleep atomic there.
  * Returns `false` when the settler has no home it uses ({@link homeUsedBy}), its home is gone or still a
- * building site, or the door lies outside its signpost area or beyond {@link HOME_ERRAND_RANGE_NODES} -
- * the caller then falls back to the open-ground rule.
+ * building site, or its door is barred or out of range ({@link homeErrandDoor}) - the caller then falls
+ * back to the open-ground rule.
  */
 export function sleepAtHome(
   world: World,
@@ -57,8 +48,8 @@ export function sleepAtHome(
 ): boolean {
   const home = homeUsedBy(world, ctx, e);
   if (home === undefined || builtHomeType(world, ctx, home) === undefined) return false;
-  const door = homeDoorFor(world, ctx, terrain, e, home, here, limit);
-  if (door === null || hexNodeDistance(terrain, here, door) > HOME_ERRAND_RANGE_NODES) return false;
+  const door = homeErrandDoor(world, ctx, terrain, home, here, limit, unreachableGoals(world, ctx, e));
+  if (door === null) return false;
   enterBuilding(world, e, home, here, door, () =>
     startAtomic(
       world,
@@ -103,25 +94,6 @@ export function prayAtHome(
     ),
   );
   return true;
-}
-
-/** The door `e` would walk in by, or null when it is barred to it. */
-function homeDoorFor(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  e: Entity,
-  home: Entity,
-  here: NodeId,
-  limit: NavigationLimit | null,
-): NodeId | null {
-  const door = interactionCell(world, ctx, terrain, home, here);
-  if (limit !== null && !limit.allowsNode(door)) return null;
-  // Give up on a door the settler's routes just failed to reach, such as a house walled in by later
-  // building: a home rung takes the whole tick, so looping on it would pin the settler at the top of its
-  // need bar forever.
-  if (isUnreachableGoal(unreachableGoals(world, ctx, e), door)) return null;
-  return door;
 }
 
 /**

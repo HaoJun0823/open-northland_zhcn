@@ -7,7 +7,7 @@ export {
   type Qualified,
   qualifiedGood,
 } from './cell-index.js';
-export { nearestFood, storedFoodGood } from './food.js';
+export { BUSH_AT_HAND_NODES, chooseMeal, homeErrandDoor, storedFoodGood } from './food.js';
 export { unreachableSiteStand, unreachableWorkCell, type WorkCellGates } from './reachability.js';
 export { nearestCollectablePileFor, nearestHarvestableFor, nearestOwnDropFor } from './resources.js';
 export {

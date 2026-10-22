@@ -1,5 +1,13 @@
 import type { BuildingType } from '@open-northland/data';
-import { Age, Building, Marriage, Residence, Settler, stockpileEntries } from '../../components/index.js';
+import {
+  Age,
+  Building,
+  Marriage,
+  Residence,
+  Settler,
+  stockpileEntries,
+  WALK_RANGE_NODES,
+} from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -7,6 +15,11 @@ import type { SystemContext } from '../context.js';
 import { isFood, jobIgnoresHomeHouse } from '../readviews/index.js';
 import { EntityReferences } from '../spatial/entity-references.js';
 import { accessibleStockAmounts, setAccessibleStockAmount } from '../stores/index.js';
+
+/** Whether `house` is a home building, built or not. */
+export function isHome(world: World, ctx: SystemContext, house: Entity): boolean {
+  return homeType(world, ctx, house) !== undefined;
+}
 
 /** The `home`-kind {@link BuildingType} of a house entity, including one still under construction. */
 function homeType(world: World, ctx: SystemContext, house: Entity): BuildingType | undefined {
@@ -16,6 +29,14 @@ function homeType(world: World, ctx: SystemContext, house: Entity): BuildingType
   const type = contentIndex(ctx.content).buildings.get(b.buildingType);
   return type?.kind === 'home' ? type : undefined;
 }
+
+/**
+ * The farthest a settler's home door may lie, in map points (hex node distance, one per walked step),
+ * for it to walk home to eat or sleep: the normal walk range. Original behavior: a home errand is a walk
+ * of that range, or along linked signposts beyond it. Owner's rule: no signpost leg, so a settler working
+ * across the map serves its needs near its work instead of crossing the map.
+ */
+export const HOME_ERRAND_RANGE_NODES = WALK_RANGE_NODES;
 
 /**
  * The house `e` goes back to for sleep, prayer and food: its residence, unless its trade is one

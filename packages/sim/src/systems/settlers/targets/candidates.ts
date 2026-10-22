@@ -45,7 +45,8 @@ export interface TargetCandidates {
    *  ring index keyed by interaction cell for the nearest-store picks. Kept across ticks and caught up
    *  here, so it holds the stockpiles standing at the pass's start. */
   readonly stockpileCells: InteractionCellIndex;
-  /** Stocks and wild fruit in one nearest-meal search, built lazily and kept across ticks. */
+  /** Stocks and wild fruit in one meal index the hunger rung searches in tiers, built lazily and kept
+   *  across ticks. */
   readonly mealCells: InteractionCellIndex;
   /** Building-keyed targets (prayer sites): entities with {@link Building} + {@link Position}. */
   readonly buildings: readonly Entity[];

@@ -17,7 +17,7 @@ import { hexagonRing } from '../../src/nav/halfcell.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import { plannerSystem, routeRegions, stampResourceFootprintData } from '../../src/systems/index.js';
 import { collectTargets } from '../../src/systems/settlers/targets/candidates.js';
-import { nearestFood } from '../../src/systems/settlers/targets/food.js';
+import { chooseMeal } from '../../src/systems/settlers/targets/food.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -55,7 +55,7 @@ function setup(walk: Array<{ dx: number; dy: number }>) {
 function food(sim: Simulation, eater: Entity, here?: NodeId) {
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('terrain missing');
-  return nearestFood(
+  return chooseMeal(
     collectTargets(sim.world, ctxOf(sim), terrain),
     sim.world,
     ctxOf(sim),
@@ -114,7 +114,7 @@ describe('forage target reachability', () => {
     expect(food(sim, eater)).toBeNull();
     const ctx = { ...ctxOf(sim), tick: 1 };
     expect(
-      nearestFood(
+      chooseMeal(
         collectTargets(sim.world, ctx, terrain),
         sim.world,
         ctx,

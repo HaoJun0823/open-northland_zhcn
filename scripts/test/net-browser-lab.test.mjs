@@ -1,19 +1,26 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import {
   chaosSchedule,
+  createRecoveryTrack,
   formatStartSummary,
   formatSummary,
+  HELD_STILL_MS,
   lobbyUrl,
   mergeTallies,
   orderStats,
   parseLabArgs,
   percentile,
+  RECOVERY_TICKS,
   roomOfUrl,
   seatContinuity,
   tallyProxyLog,
   windowStats,
 } from '../net-browser-lab/plan.mjs';
+import { createProcessSet } from '../net-browser-lab/processes.mjs';
 
 const APP = 'http://127.0.0.1:5176';
 const RELAY = 'ws://127.0.0.1:8780';
@@ -238,4 +245,69 @@ test('the summary names every player, chaos event and failure', () => {
   assert.match(summary, /command frames up 1/);
   assert.match(summary, /boom/);
   assert.match(summary, /join: timed out/);
+});
+
+const POLL = 150;
+const running = (tick) => ({ tick, connected: true, linkLost: false });
+
+/** Feed `states` one poll apart from `firedAt` 0; the first result and the poll time it came at. */
+function follow(track, states) {
+  for (const [index, state] of states.entries()) {
+    const result = track.observe(state, index * POLL);
+    if (result !== null) return { ...result, at: index * POLL };
+  }
+  return null;
+}
+
+test('a recovery counts from the first run after the loss, not from the loss wait', () => {
+  const lossWaitMs = 5000;
+  const seen = follow(createRecoveryTrack({ firedAt: 0, lossWaitMs }), [
+    running(100),
+    null,
+    { tick: 100, connected: false, linkLost: false },
+    ...Array.from({ length: RECOVERY_TICKS + 1 }, (_, step) => running(100 + step)),
+  ]);
+  assert.equal(seen.lostMs, POLL);
+  assert.equal(seen.recoveredMs, (3 + RECOVERY_TICKS) * POLL);
+
+  // The poll never saw the loss: the result waits out the loss wait but keeps the first run's time.
+  const ticks = Array.from({ length: lossWaitMs / POLL + 2 }, (_, step) => running(100 + step));
+  const unseen = follow(createRecoveryTrack({ firedAt: 0, lossWaitMs }), ticks);
+  assert.equal(unseen.lostMs, null);
+  assert.equal(unseen.recoveredMs, RECOVERY_TICKS * POLL);
+  assert.ok(unseen.at > lossWaitMs);
+});
+
+test('a connected page whose tick stands still is held, so buffered ticks are no recovery', () => {
+  const stillPolls = Math.ceil(HELD_STILL_MS / POLL) + 2;
+  const states = [
+    ...Array.from({ length: RECOVERY_TICKS + 1 }, (_, step) => running(step)),
+    ...Array.from({ length: stillPolls }, () => running(RECOVERY_TICKS)),
+    ...Array.from({ length: RECOVERY_TICKS + 1 }, (_, step) => running(RECOVERY_TICKS + 1 + step)),
+  ];
+  // The loss wait ends on the last poll, so the first run, before the hold, cannot stand.
+  const track = createRecoveryTrack({ firedAt: 0, lossWaitMs: (states.length - 2) * POLL });
+  const result = follow(track, states);
+  assert.equal(result.lostMs, null);
+  assert.equal(result.recoveredMs, (RECOVERY_TICKS + 1 + stillPolls + RECOVERY_TICKS) * POLL);
+  assert.deepEqual(createRecoveryTrack({ firedAt: 0, lossWaitMs: 0 }).unfinished(), {
+    lostMs: null,
+    recoveredMs: null,
+  });
+});
+
+test('the process set stops its children and starts none once stopping began', async () => {
+  const logDir = mkdtempSync(join(tmpdir(), 'net-browser-lab-'));
+  try {
+    const processes = createProcessSet(logDir, () => undefined);
+    const idle = ['-e', "console.log('ready'); setInterval(() => {}, 1000);"];
+    const record = await processes.start('idle', process.execPath, idle, { ready: /ready/ });
+    const stopped = await processes.stopAll();
+    assert.equal(record.exited, true);
+    assert.equal(stopped.length, 1);
+    await assert.rejects(processes.start('late', process.execPath, idle, { ready: /ready/ }), /stopping/);
+    assert.equal(processes.list().length, 1);
+  } finally {
+    rmSync(logDir, { recursive: true, force: true });
+  }
 });

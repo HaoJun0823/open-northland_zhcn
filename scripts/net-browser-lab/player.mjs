@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { boxAround, drag, worldArea } from '../bench-browser-input.mjs';
 import { repoRoot } from '../content-dir.mjs';
 import { skipOriginalGameGate } from '../original-game-gate.mjs';
-import { percentile } from './plan.mjs';
+import { createRecoveryTrack, percentile } from './plan.mjs';
 
 export const VIEWPORT = { width: 1280, height: 800 };
 const EVALUATE_TIMEOUT_MS = 15000;
@@ -25,8 +25,6 @@ const GROUND_CLEARANCE = 34;
 const ARRIVAL_REACH = 110;
 /** Settlers a marquee aims to take; a small group keeps the order and its pathing cheap. */
 const GROUP_SIZE = 5;
-/** Ticks a world must run past its recovery point to count as running again. */
-const RECOVERY_TICKS = 6;
 /** Screen offsets from the group's centre a building is tried at, farthest first: ground near the
  *  settlement's centre is the most crowded. */
 const SITE_OFFSETS = [
@@ -642,15 +640,13 @@ export async function sampleWindow(player) {
 }
 
 /**
- * Follow `player` after a chaos event fired at `firedAt`: when its link was seen lost (the socket down
- * or the lost-link screen up), and when its world ran again `RECOVERY_TICKS` past where it stood once
- * reconnected. `observer`, another page, gives the longest the room's clock stood still meanwhile.
- * `expectLoss` false skips waiting for a loss (a reload replaces the page instead).
+ * Follow `player` after a chaos event fired at `firedAt` until its world runs again
+ * (`createRecoveryTrack`). `observer`, another page, gives the longest the room's clock stood still
+ * meanwhile. `expectLoss` false reports no loss time (a reload replaces the page instead).
  */
 export async function followRecovery(player, observer, { firedAt, timeoutMs, expectLoss, lossWaitMs }) {
   const deadline = firedAt + timeoutMs;
-  let lostMs = expectLoss ? null : 0;
-  let backTick = null;
+  const track = createRecoveryTrack({ firedAt, lossWaitMs });
   let stall = { tick: null, since: Date.now(), longest: 0 };
   const watchObserver = async () => {
     if (observer === null) return;
@@ -659,23 +655,17 @@ export async function followRecovery(player, observer, { firedAt, timeoutMs, exp
     if (tick === null || tick !== stall.tick) stall = { tick, since: now, longest: stall.longest };
     stall.longest = Math.max(stall.longest, now - stall.since);
   };
+  const finish = (result) => ({
+    ...result,
+    ...(expectLoss ? {} : { lostMs: 0 }),
+    roomStallMs: stall.longest,
+  });
   while (Date.now() < deadline) {
     await watchObserver();
     const state = await worldState(player.page).catch(() => null);
-    const now = Date.now();
-    if (lostMs === null) {
-      if (state === null || state.connected === false || state.linkLost) lostMs = now - firedAt;
-      else if (now - firedAt > lossWaitMs) lostMs = -1;
-    } else if (state !== null && state.connected !== false && !state.linkLost) {
-      if (backTick === null) backTick = state.tick;
-      else if (state.tick >= backTick + RECOVERY_TICKS)
-        return { lostMs: lostMs < 0 ? null : lostMs, recoveredMs: now - firedAt, roomStallMs: stall.longest };
-    } else backTick = null;
+    const result = track.observe(state, Date.now());
+    if (result !== null) return finish(result);
     await pause(POLL_MS);
   }
-  return {
-    lostMs: lostMs !== null && lostMs >= 0 ? lostMs : null,
-    recoveredMs: null,
-    roomStallMs: stall.longest,
-  };
+  return finish(track.unfinished());
 }

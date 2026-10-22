@@ -22,7 +22,7 @@ const MAX_SPEED = 4;
 const NICKS = ['Ania', 'Bartek', 'Celina', 'Dawid', 'Ewa', 'Filip', 'Gosia', 'Henryk'];
 
 /** The chaos events, in the order they fire, and which player each hits: a cut transport on the second
- *  player, a link that stops carrying anything on the third, a reload of the room's creator. */
+ *  player, a proxy that stops carrying anything on the third, a reload of the room's creator. */
 export const CHAOS_EVENTS = [
   { kind: 'disconnect', player: 1 },
   { kind: 'halfOpen', player: 2 },
@@ -56,7 +56,7 @@ export const USAGE = `usage: node scripts/net-browser-lab.mjs [options]
   --ticks <n>             or play until the creator's world reaches this tick
   --speed <x>             room speed (default 1)
   --no-chaos              keep the proxies but fire no chaos events
-  --seed <n>              the proxies' jitter seed (default 1)
+  --seed <n>              the first proxy's jitter seed, the next ones count up (default 1)
   --headed                show the browser windows (at ON_BENCH_WINDOW_POSITION when set)
   --scenario start        instead of the play window, the start scenarios, each in a room of its own
   --cases <a,b,...>       the start scenarios to run (default all: ${START_CASE_NAMES.join(', ')})
@@ -376,6 +376,7 @@ export function formatSummary(report) {
     if (event.error) parts.push(`failed: ${event.error}`);
     if (event.lostMs !== null && event.lostMs !== undefined)
       parts.push(`link lost seen after ${event.lostMs} ms,`);
+    else if (!event.error) parts.push('link loss not seen,');
     parts.push(`back running after ${dash(event.recoveredMs)} ms`);
     if (event.roomStallMs !== null && event.roomStallMs !== undefined)
       parts.push(`(room held ${event.roomStallMs} ms)`);
@@ -406,4 +407,45 @@ export function formatSummary(report) {
   if (report.start) lines.push(formatStartSummary(report.start));
   if (report.failures.length > 0) lines.push('failures:', ...report.failures.map((text) => `  ${text}`));
   return lines.join('\n');
+}
+
+/** A page's world that runs this many ticks past where it stood counts as running again. */
+export const RECOVERY_TICKS = 6;
+/** A connected page whose tick stood still this long is held, not running: the link may be stalled
+ *  without the page noticing yet. Over ten ticks at speed 1. */
+export const HELD_STILL_MS = 1000;
+
+/**
+ * Follows one page after a chaos event fired at `firedAt`, one poll at a time. `state` is the page's
+ * `{ tick, connected, linkLost }`, or null when it could not be read (a reloading page). The first
+ * loss seen sets `lostMs`; any loss or hold restarts the running count, so the recovery is the first
+ * time the world ran `RECOVERY_TICKS` past where it stood after the last loss or hold. A loss the
+ * poll never saw leaves `lostMs` null; the recovery then stands once `lossWaitMs` passed.
+ */
+export function createRecoveryTrack({ firedAt, lossWaitMs }) {
+  let lostMs = null;
+  let backTick = null;
+  let runningMs = null;
+  let still = { tick: null, since: firedAt };
+  return {
+    /** Feed one poll; returns the result once the page runs again, else null. */
+    observe(state, now) {
+      const down = state === null || state.connected === false || state.linkLost === true;
+      if (!down && state.tick !== still.tick) still = { tick: state.tick, since: now };
+      const held = !down && now - still.since >= HELD_STILL_MS;
+      if (down || held) {
+        if (down && lostMs === null) lostMs = now - firedAt;
+        backTick = null;
+        runningMs = null;
+      } else if (backTick === null) backTick = state.tick;
+      else if (runningMs === null && state.tick >= backTick + RECOVERY_TICKS) runningMs = now - firedAt;
+      if (runningMs === null) return null;
+      if (lostMs === null && now - firedAt <= lossWaitMs) return null;
+      return { lostMs, recoveredMs: runningMs };
+    },
+    /** What is known when the time ran out. */
+    unfinished() {
+      return { lostMs, recoveredMs: null };
+    },
+  };
 }

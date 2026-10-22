@@ -57,7 +57,8 @@ const DEFENCE_TURN = 1;
 const BUILD_TURN = 2;
 /** A cut transport shows on the page within this, or the reconnect beat the poll. */
 const DISCONNECT_LOSS_WAIT_MS = 5000;
-/** A half-open link holds past the relay's 30 s silence close, so the room's wait and the rejoin both run. */
+/** A half-open link holds past the relay's 30 s silence close. It holds every connection through the
+ *  player's proxy, so the client's replacement of a quiet socket stalls too and the room waits. */
 const HALF_OPEN_HOLD_MS = 35000;
 const STEP_TIMEOUT_MS = 60000;
 const CONTROL_TIMEOUT_MS = 5000;
@@ -185,7 +186,8 @@ async function startServers() {
           '--profile',
           profile,
           '--seed',
-          String(options.seed),
+          // A seed per proxy, so the pages' first connections do not jitter in step.
+          String(options.seed + index),
           '--log-dir',
           frames,
         ],
@@ -379,13 +381,13 @@ async function fireChaos(event, players, servers) {
   } else if (event.kind === 'halfOpen') {
     const connection = await openConnection(proxy);
     if (connection === null) throw new Error('the proxy holds no connection to stall');
-    // The profile's own flapping would cut the stalled link and end the stall early; this event is
-    // about the relay noticing a member that went silent.
-    await proxyControl(proxy, { connection, set: { halfOpen: true, flap: null } });
+    // Proxy-wide, so the socket the client opens to replace the quiet one is held as well. The
+    // profile's own flapping would cut the stalled link and end the stall early.
+    await proxyControl(proxy, { set: { halfOpen: true, flap: null } });
     result.connection = connection;
     result.heldMs = HALF_OPEN_HOLD_MS;
     const lift = new Promise((done) => setTimeout(done, HALF_OPEN_HOLD_MS)).then(() =>
-      proxyControl(proxy, { connection, set: { halfOpen: false } }).catch((error) => {
+      proxyControl(proxy, { profile: proxy.profile }).catch((error) => {
         result.liftNote = error.message;
       }),
     );
@@ -539,6 +541,20 @@ async function main() {
     });
   }
   return { servers, players, roomId, chaos, playedSeconds };
+}
+
+/** Exit codes for a run ended by a signal: 128 plus the signal's number. */
+const SIGNAL_EXIT = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 };
+let stoppingOnSignal = false;
+for (const [signal, code] of Object.entries(SIGNAL_EXIT)) {
+  process.on(signal, async () => {
+    if (stoppingOnSignal) return;
+    stoppingOnSignal = true;
+    log(`${signal}: closing the browser and stopping the servers`);
+    if (browser !== null) await browser.close().catch(() => undefined);
+    await processes.stopAll();
+    process.exit(code);
+  });
 }
 
 let outcome = null;

@@ -60,12 +60,15 @@ export function ensureRelayBuild(log) {
 
 /**
  * The children this run started. `start` spawns one with its output in `logDir/<name>.log` and resolves
- * once a line matches `ready`; `stopAll` signals each recorded PID and waits for it to exit.
+ * once a line matches `ready`; `stopAll` signals each recorded PID and waits for it to exit. Once
+ * `stopAll` began, `start` refuses, so a step that timed out cannot leave a child behind.
  */
 export function createProcessSet(logDir, log) {
   const children = [];
+  let stopping = false;
 
   async function start(name, command, args, { env = {}, cwd = repoRoot, ready }) {
+    if (stopping) throw new Error(`${name} not started: the lab is stopping`);
     const logPath = join(logDir, `${name}.log`);
     const out = createWriteStream(logPath);
     const child = spawn(command, args, {
@@ -121,6 +124,7 @@ export function createProcessSet(logDir, log) {
   }
 
   async function stopAll() {
+    stopping = true;
     for (const record of [...children].reverse()) await stopOne(record);
     return children.map(({ name, pid, logPath, code }) => ({ name, pid, logPath, exit: code }));
   }

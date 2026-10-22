@@ -500,8 +500,11 @@ Unless given `--relay` or `--app`, it starts a relay on 8770-8779 (rebuilding a 
 `packages/net-server/dist` first) and an app server on 5176-5179. That server runs the checkout's
 Vite config without hot reload and without the restart on a source edit, so an edit elsewhere in the
 checkout neither reloads the pages nor splits them across client builds. `--profiles` puts a
-[chaos proxy](DEVELOPMENT.md#network-chaos-proxy) per player on 8780-8789 with that profile.
-Every process it started is stopped by its PID at the end, failures included.
+[chaos proxy](DEVELOPMENT.md#network-chaos-proxy) per player on 8780-8789 with that profile, each
+seeded `--seed` plus its index. The proxy's profiles give one-way latency and caps in Mbit/s or
+KiB/s: its `home` is 30 ms each way at 10 Mbit/s up and 50 Mbit/s down, not the load lab's `home`.
+Every process it started is stopped by its PID at the end, on a failure and on SIGINT, SIGTERM or
+SIGHUP too.
 
 A run measures, per page:
 
@@ -517,9 +520,11 @@ A run measures, per page:
 
 With proxies, three chaos events fire at 30, 50 and 70 % of the window, each followed until the page
 runs again, and every player orders again after each: a 1006 cut of the second player's link, a
-half-open link on the third (its profile's flapping off) held past the relay's 30 s silence close,
-and a reload of the creator. Each reports when the page saw its link lost, when its world ran again,
-and how long the room's clock stood still on another page. `--no-chaos` keeps the links impaired
+half-open proxy on the third (its profile's flapping off) held for 35 s, and a reload of the
+creator. The half-open proxy holds every connection, so it tests the client replacing a quiet
+socket, a replacement that stalls too, and the relay's 30 s silence close. Each reports when the
+page saw its link lost (or that the poll never saw it), when its world ran again, and how long the
+room's clock stood still on another page. `--no-chaos` keeps the links impaired
 without the events.
 
 The summary prints one line per player, the chaos events, the seat check and the distinct console

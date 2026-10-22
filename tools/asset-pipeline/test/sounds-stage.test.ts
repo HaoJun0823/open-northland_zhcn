@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SoundBanksDocument, type SoundQuality } from '@open-northland/data';
+import { emptySoundBank, SoundBanksDocument, type SoundQuality } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { statIfExists, writeFileWithParents } from '../src/files.js';
 import { FFMPEG, ffmpegEncode, flacStreamInfoOnly } from '../src/stages/sounds/encode.js';
-import { convertSoundTree, MAX_BANK_BYTES } from '../src/stages/sounds/index.js';
+import { convertSoundTree, loopedBedClips, MAX_BANK_BYTES } from '../src/stages/sounds/index.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 /** Stands in for ffmpeg: each quality's bytes are the source bytes behind a one-byte quality tag. */
@@ -16,6 +16,8 @@ const tagged = async (wav: Uint8Array, quality: SoundQuality): Promise<Uint8Arra
   out.set(wav, 1);
   return out;
 };
+
+const NO_LOOPS: ReadonlySet<string> = new Set();
 
 async function readIndex(out: string): Promise<SoundBanksDocument> {
   return SoundBanksDocument.parse(JSON.parse(await readFile(join(out, 'sounds', 'banks.json'), 'utf8')));
@@ -33,7 +35,7 @@ describe('convertSoundTree', () => {
   it('encodes each clip in every quality at the lower-cased path the IR references', async () => {
     await temp.write('Data/Engine2D/bin/Sounds/Static/Axe01.WAV', Uint8Array.of(1));
     await temp.write('data/engine2d/bin/sounds/gui/click_confirm.wav', Uint8Array.of(2));
-    const report = await convertSoundTree({ data: temp.game }, temp.out, tagged);
+    const report = await convertSoundTree({ data: temp.game }, temp.out, NO_LOOPS, tagged);
     expect(report).toMatchObject({ clips: 2, banks: 2, bytes: { lossless: 4, compact: 4 } });
     expect([...(await readFile(join(temp.out, 'sounds/static/axe01.flac')))]).toEqual([
       QUALITY_TAG.lossless,
@@ -53,9 +55,9 @@ describe('convertSoundTree', () => {
     await temp.write('data/engine2d/bin/sounds/humantalk/a.wav', Uint8Array.of(1, 1));
     await temp.write('data/engine2d/bin/sounds/humantalk/b.wav', Uint8Array.of(2, 2, 2));
     await temp.write('data/engine2d/bin/sounds/humantalk/latin/c.wav', Uint8Array.of(3));
-    await convertSoundTree({ data: temp.game }, temp.out, tagged);
+    await convertSoundTree({ data: temp.game }, temp.out, NO_LOOPS, tagged);
     const index = await readIndex(temp.out);
-    expect(index.extensions).toEqual({ lossless: 'flac', compact: 'ogg' });
+    expect(index.losslessOnly).toEqual([]);
     expect(index.clips['humantalk/b.wav']).toEqual({
       bank: 'humantalk-0',
       spans: { lossless: { offset: 3, length: 4 }, compact: { offset: 3, length: 4 } },
@@ -65,11 +67,42 @@ describe('convertSoundTree', () => {
     expect([...bank]).toEqual([QUALITY_TAG.compact, 1, 1, QUALITY_TAG.compact, 2, 2, 2]);
   });
 
+  it('fills a looped bed compact span with its lossless bytes but still writes its Opus file', async () => {
+    await temp.write('data/engine2d/bin/sounds/ambient/meadow1.wav', Uint8Array.of(1));
+    await temp.write('data/engine2d/bin/sounds/ambient/bird_01.wav', Uint8Array.of(2));
+    const beds = loopedBedClips({
+      ...emptySoundBank(),
+      ambient: [
+        {
+          name: 'Meadow Green',
+          patternGroups: ['meadow green'],
+          landscapeGroups: [],
+          sfx: [{ file: 'ambient/meadow1.wav', params: [] }],
+        },
+        {
+          name: 'All Trees',
+          patternGroups: [],
+          landscapeGroups: ['trees'],
+          sfx: [{ file: 'ambient/bird_01.wav', params: [] }],
+        },
+      ],
+    });
+    const report = await convertSoundTree({ data: temp.game }, temp.out, beds, tagged);
+    expect((await readIndex(temp.out)).losslessOnly).toEqual(['ambient/meadow1.wav']);
+    const bank = await readFile(join(temp.out, 'sounds/banks/ambient-0.compact.bin'));
+    expect([...bank]).toEqual([QUALITY_TAG.compact, 2, QUALITY_TAG.lossless, 1]);
+    expect([...(await readFile(join(temp.out, 'sounds/ambient/meadow1.ogg')))]).toEqual([
+      QUALITY_TAG.compact,
+      1,
+    ]);
+    expect(report.bytes).toEqual({ lossless: 4, compact: 4 });
+  });
+
   it('opens a new bank before one would pass the size cap', async () => {
     const half = new Uint8Array(MAX_BANK_BYTES / 2);
     for (const name of ['a', 'b', 'c'])
       await temp.write(`data/engine2d/bin/sounds/ambient/${name}.wav`, half);
-    const report = await convertSoundTree({ data: temp.game }, temp.out, tagged);
+    const report = await convertSoundTree({ data: temp.game }, temp.out, NO_LOOPS, tagged);
     const index = await readIndex(temp.out);
     expect(report.banks).toBe(3);
     expect(['a', 'b', 'c'].map((name) => index.clips[`ambient/${name}.wav`]?.bank)).toEqual([
@@ -84,7 +117,7 @@ describe('convertSoundTree', () => {
     await temp.write('Data/engine2d/bin/sounds/soundfx.cif', Uint8Array.of(1));
     await temp.write('Data/engine2d/bin/sounds/misc/thunder.wav', Uint8Array.of(1));
     await writeFileWithParents(join(temp.out, 'sounds/misc/thunder.wav'), Uint8Array.of(9));
-    const report = await convertSoundTree({ data: temp.game }, temp.out, tagged);
+    const report = await convertSoundTree({ data: temp.game }, temp.out, NO_LOOPS, tagged);
     expect(report.clips).toBe(1);
     expect(await statIfExists(join(temp.out, 'sounds/misc/thunder.wav'))).toBeUndefined();
     expect(await statIfExists(join(temp.out, 'maps/community/some_map/briefing.flac'))).toBeUndefined();

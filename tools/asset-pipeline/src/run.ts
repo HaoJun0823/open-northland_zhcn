@@ -25,7 +25,7 @@ import { createMinimapSynthesizer } from './stages/maps/synth-minimap.js';
 import { renderMusicStage } from './stages/music/index.js';
 import { composeMaskedTransitionPages, convertPcxTree } from './stages/pcx.js';
 import { convertGuidepostPlayerAtlases, convertIndexedCharacterAtlases } from './stages/player-colors.js';
-import { convertSoundTree } from './stages/sounds/index.js';
+import { convertSoundTree, loopedBedClips } from './stages/sounds/index.js';
 import { indexSourceAssets } from './stages/source-files.js';
 import { convertVehiclePaletteFamilies } from './stages/vehicle-colors.js';
 import { convertVertexPalette, VERTEX_PALETTE_FILE } from './stages/vertex-palette.js';
@@ -117,12 +117,6 @@ export async function runPipeline(args: Args): Promise<void> {
       `${goods.icons} good icon(s) into ${join(args.out, 'goods')}`,
   );
 
-  const sounds = await convertSoundTree(roots, args.out);
-  console.log(
-    `[pipeline] sounds: ${sounds.clips} clip(s) in ${sounds.banks} bank(s), ` +
-      `${sounds.bytes.lossless} lossless / ${sounds.bytes.compact} compact byte(s) into ${join(args.out, SOUNDS_DIR)}`,
-  );
-
   const ir = await writeIr(roots, args.out);
   console.log(
     `[pipeline] ini -> ir: ${ir.goods.length} goods, ${ir.jobs.length} jobs, ${ir.jobExperience.length} job-xp tracks, ` +
@@ -132,6 +126,12 @@ export async function runPipeline(args: Args): Promise<void> {
       `${ir.gatheringPipeline.length} gathering pipelines, ` +
       `${ir.humanPalettes.recipes.length} human palette recipes over ${Object.keys(ir.humanPalettes.ramps).length} ramps ` +
       `-> ${join(args.out, 'ir.json')}`,
+  );
+
+  const sounds = await convertSoundTree(roots, args.out, loopedBedClips(ir.sounds));
+  console.log(
+    `[pipeline] sounds: ${sounds.clips} clip(s) in ${sounds.banks} bank(s), ` +
+      `${sounds.bytes.lossless} lossless / ${sounds.bytes.compact} compact byte(s) into ${join(args.out, SOUNDS_DIR)}`,
   );
 
   // Needs the extracted `GfxUserFXMatrix` flags, hence after writeIr.

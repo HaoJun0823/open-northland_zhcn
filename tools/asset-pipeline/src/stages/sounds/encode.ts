@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import type { SoundQuality } from '@open-northland/data';
+import { SOUND_EXTENSIONS, type SoundQuality } from '@open-northland/data';
 
 const run = promisify(execFile);
 
@@ -26,17 +26,22 @@ const COMPACT_OPUS_BITRATE = '48k';
 const LOSSLESS_FLAC_LEVEL = '12';
 
 /**
- * The codec each served quality uses. Switching one is a change here alone: the bank index tells the
- * client each quality's extension. `.ogg` rather than `.opus` keeps the compact copy on an extension
- * CDNs and servers already treat as cacheable audio.
+ * The codec each served quality uses; the extension is `SOUND_EXTENSIONS`, which the client reads too.
+ * `.ogg` rather than `.opus` keeps the compact copy on an extension CDNs and servers already treat as
+ * cacheable audio.
+ *
+ * A looped terrain bed stays FLAC in the compact quality as well (the index's `losslessOnly`). Measured
+ * in headless Chromium on `ambient/meadow2`, `water3` and `beach2`: at a 22.05 kHz context the Opus
+ * decode has the wav's frame count, but at a 48 kHz context it runs 2 frames longer than the resampled
+ * wav or FLAC (735318 vs 735316 for meadow2), so the loop period would drift from the source's.
  */
 export const SOUND_ENCODINGS: Readonly<Record<SoundQuality, SoundEncoding>> = {
   lossless: {
-    extension: 'flac',
+    extension: SOUND_EXTENSIONS.lossless,
     ffmpegArgs: ['-c:a', 'flac', '-compression_level', LOSSLESS_FLAC_LEVEL, '-f', 'flac'],
   },
   compact: {
-    extension: 'ogg',
+    extension: SOUND_EXTENSIONS.compact,
     ffmpegArgs: ['-c:a', 'libopus', '-b:a', COMPACT_OPUS_BITRATE, '-application', 'audio', '-f', 'ogg'],
   },
 };

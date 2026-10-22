@@ -91,9 +91,10 @@ export interface AudioEngineOptions {
   readonly random?: RandomFn;
 }
 
-/** URL prefix of the content tree's encoded sound clips; every host serves the tree at the root. */
+/** The sound tree's path inside the content tree, used bare when no base is given; the app passes it
+ *  through its content URL so a hashed, immutable tree is fetched. */
 export const DEFAULT_SOUNDS_BASE_URL = '/sounds/';
-/** URL prefix of the content tree's rendered music tracks. */
+/** The music tree's path inside the content tree; see {@link DEFAULT_SOUNDS_BASE_URL}. */
 export const DEFAULT_MUSIC_BASE_URL = '/music/';
 /** A slider move ramps its bus over this many seconds - long enough to avoid a zipper click. */
 export const VOLUME_RAMP_S = 0.05;

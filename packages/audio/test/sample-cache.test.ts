@@ -1,4 +1,10 @@
-import { type SoundBanksDocument, type SoundQuality, soundBankPath } from '@open-northland/data';
+import {
+  SOUND_BANKS_FILE,
+  SOUND_QUALITIES,
+  type SoundBanksDocument,
+  type SoundQuality,
+  soundBankPath,
+} from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { DECODED_BYTES_PER_SAMPLE, type PreloadSample } from '../src/index.js';
 import { SampleCache } from '../src/web/engine/sample-cache.js';
@@ -10,9 +16,15 @@ const BYTES_PER_FRAME = 1;
 const CLIP_FRAMES = 100;
 const CLIP_BYTES = CLIP_FRAMES * DECODED_BYTES_PER_SAMPLE;
 
+/** Every byte of a compact clip or bank in the fake tree, so a decoder can tell the encodings apart. */
+const COMPACT_MARK = 0x0c;
+const isCompact = (file: string): boolean => file.endsWith('.ogg') || file.endsWith('.compact.bin');
+
 interface Harness {
   readonly cache: SampleCache;
+  /** Every URL asked for under the sounds root, `banks.json` included. */
   readonly fetched: string[];
+  readonly warnings: string[];
   /** The fetches still waiting, in the order they were asked for. */
   readonly pending: Array<{ readonly file: string; readonly release: () => void }>;
 }
@@ -25,38 +37,59 @@ function makeCache(
     missing?: string;
     banks?: SoundBanksDocument | null;
     quality?: SoundQuality;
+    /** How many `banks.json` fetches fail before one succeeds. */
+    indexFailures?: number;
+    /** The decoder rejects compact bytes, as Safari before 18.4 does Ogg Opus. */
+    noCompactDecoder?: boolean;
   } = {},
 ): Harness {
   const fetched: string[] = [];
+  const warnings: string[] = [];
   const pending: Harness['pending'] = [];
   const serve = async (url: string): Promise<ArrayBuffer> => {
     const file = url.slice('/sounds/'.length);
-    fetched.push(file);
     if (opts.held === true) await new Promise<void>((release) => pending.push({ file, release }));
     if (file === opts.missing) throw new Error('missing clip');
     // A bank holds every clip its index places in it, back to back.
-    const bankClips = Object.values(opts.banks?.clips ?? {}).filter(
-      (entry) => soundBankPath(entry.bank, opts.quality ?? 'lossless') === file,
+    const bankClips = Object.values(opts.banks?.clips ?? {}).filter((entry) =>
+      SOUND_QUALITIES.some((quality) => soundBankPath(entry.bank, quality) === file),
     ).length;
-    return new ArrayBuffer(Math.max(1, bankClips) * CLIP_FRAMES * BYTES_PER_FRAME);
+    const bytes = new Uint8Array(Math.max(1, bankClips) * CLIP_FRAMES * BYTES_PER_FRAME);
+    if (isCompact(file)) bytes.fill(COMPACT_MARK);
+    return bytes.buffer;
+  };
+  const served = opts.banks === null ? serve : servingSoundBanks(serve, opts.banks ?? NO_SOUND_BANKS);
+  let indexFailures = opts.indexFailures ?? 0;
+  const fetchBytes = async (url: string): Promise<ArrayBuffer> => {
+    const file = url.slice('/sounds/'.length);
+    fetched.push(file);
+    if (file === SOUND_BANKS_FILE && indexFailures-- > 0) throw new Error('index unavailable');
+    return served(url);
   };
   const cache = new SampleCache(
     '/sounds/',
-    opts.banks === null ? serve : servingSoundBanks(serve, opts.banks ?? NO_SOUND_BANKS),
-    async (bytes) =>
-      ({
+    fetchBytes,
+    async (bytes) => {
+      if (opts.noCompactDecoder === true && new Uint8Array(bytes)[0] === COMPACT_MARK)
+        throw new DOMException('Unable to decode audio data', 'EncodingError');
+      return {
         length: bytes.byteLength / BYTES_PER_FRAME,
         numberOfChannels: 1,
         duration: 1,
-      }) as unknown as AudioBuffer,
+      } as unknown as AudioBuffer;
+    },
     {
       ...(opts.budgetClips !== undefined ? { budgetBytes: opts.budgetClips * CLIP_BYTES } : {}),
       ...(opts.concurrency !== undefined ? { concurrency: opts.concurrency } : {}),
       ...(opts.quality !== undefined ? { quality: opts.quality } : {}),
+      warn: (message) => warnings.push(message),
     },
   );
-  return { cache, fetched, pending };
+  return { cache, fetched, warnings, pending };
 }
+
+/** The fetched clip and bank files, without the index. */
+const files = (fetched: readonly string[]): string[] => fetched.filter((file) => file !== SOUND_BANKS_FILE);
 
 const samples = (files: readonly string[], pinned: boolean): PreloadSample[] =>
   files.map((file) => ({ file, pinned }));
@@ -68,16 +101,16 @@ describe('SampleCache preload', () => {
     const { cache, fetched, pending } = makeCache({ concurrency: 2, held: true });
     const done = cache.preload(samples(['a.wav', 'b.wav', 'c.wav', 'd.wav'], true));
     await settle();
-    expect(fetched).toEqual(['a.flac', 'b.flac']);
+    expect(files(fetched)).toEqual(['a.flac', 'b.flac']);
     pending.shift()?.release();
     await settle();
-    expect(fetched).toEqual(['a.flac', 'b.flac', 'c.flac']);
+    expect(files(fetched)).toEqual(['a.flac', 'b.flac', 'c.flac']);
     while (pending.length > 0) {
       pending.shift()?.release();
       await settle();
     }
     const report = await done;
-    expect(fetched).toEqual(['a.flac', 'b.flac', 'c.flac', 'd.flac']);
+    expect(files(fetched)).toEqual(['a.flac', 'b.flac', 'c.flac', 'd.flac']);
     expect(report).toEqual({
       decoded: 4,
       failed: 0,
@@ -95,7 +128,7 @@ describe('SampleCache preload', () => {
     stopped = true;
     for (const { release } of pending.splice(0)) release();
     const report = await done;
-    expect(fetched).toEqual(['a.flac', 'b.flac']);
+    expect(files(fetched)).toEqual(['a.flac', 'b.flac']);
     expect(report.decoded).toBe(2);
   });
 
@@ -104,7 +137,7 @@ describe('SampleCache preload', () => {
     const report = await cache.preload(samples(['gone.wav', 'ok.wav'], true));
     expect(report.failed).toBe(1);
     expect(await cache.get('gone.wav')).toBeNull();
-    expect(fetched.filter((file) => file === 'gone.flac')).toHaveLength(1);
+    expect(files(fetched).filter((file) => file === 'gone.flac')).toHaveLength(1);
   });
 
   it('shares a play that is already loading instead of fetching twice', async () => {
@@ -112,7 +145,7 @@ describe('SampleCache preload', () => {
     const playing = cache.get('a.wav');
     const report = await cache.preload(samples(['a.wav'], true));
     await playing;
-    expect(fetched).toEqual(['a.flac']);
+    expect(files(fetched)).toEqual(['a.flac']);
     expect(report.decoded).toBe(0);
   });
 
@@ -122,7 +155,7 @@ describe('SampleCache preload', () => {
       ...samples(['click.wav', 'answer.wav', 'hammer.wav'], true),
       ...samples(['talk.wav', 'bed.wav'], false),
     ]);
-    expect(fetched).toEqual(['click.flac', 'answer.flac', 'hammer.flac']);
+    expect(files(fetched)).toEqual(['click.flac', 'answer.flac', 'hammer.flac']);
     expect(report.skipped).toBe(2);
     expect(report.pinnedBytes).toBe(3 * CLIP_BYTES);
   });
@@ -133,7 +166,7 @@ describe('SampleCache preload budget', () => {
     const { cache, fetched } = makeCache({ budgetClips: 2, concurrency: 3 });
     const report = await cache.preload(samples(['talk-1.wav', 'talk-2.wav', 'talk-3.wav', 'bed.wav'], false));
     // Three loads start together; the third evicts the first, so the bed is never fetched.
-    expect(fetched).toEqual(['talk-1.flac', 'talk-2.flac', 'talk-3.flac']);
+    expect(files(fetched)).toEqual(['talk-1.flac', 'talk-2.flac', 'talk-3.flac']);
     expect(report.skipped).toBe(1);
   });
 });
@@ -152,7 +185,7 @@ describe('SampleCache budget', () => {
     expect(cache.duration('talk-1.wav')).toBe(1);
     expect(cache.duration('talk-2.wav')).toBeUndefined();
     await cache.get('talk-2.wav');
-    expect(fetched.filter((file) => file === 'talk-2.flac')).toHaveLength(2);
+    expect(files(fetched).filter((file) => file === 'talk-2.flac')).toHaveLength(2);
   });
 
   it('keeps the wav it just decoded even when the pinned set alone fills the budget', async () => {
@@ -202,7 +235,7 @@ describe('SampleCache banks', () => {
     const report = await cache.preload(
       samples(['gui/click.wav', 'talk/a.wav', 'gui/fail.wav', 'talk/b.wav'], true),
     );
-    expect(fetched).toEqual(['banks/gui-0.lossless.bin', 'banks/talk-0.lossless.bin']);
+    expect(files(fetched)).toEqual(['banks/gui-0.lossless.bin', 'banks/talk-0.lossless.bin']);
     expect(report.decoded).toBe(4);
     expect(report.pinnedBytes).toBe(4 * CLIP_BYTES);
   });
@@ -211,27 +244,86 @@ describe('SampleCache banks', () => {
     const { cache, fetched } = makeCache({ banks: twoBanks(), quality: 'compact' });
     await cache.preload(samples(['gui/click.wav'], true));
     await cache.get('talk/a.wav');
-    expect(fetched).toEqual(['banks/gui-0.compact.bin', 'talk/a.ogg']);
+    expect(files(fetched)).toEqual(['banks/gui-0.compact.bin', 'talk/a.ogg']);
   });
 
   it('lets go of a bank after the preload, so a later load fetches the clip alone', async () => {
     const { cache, fetched } = makeCache({ banks: twoBanks(), budgetClips: 1 });
     await cache.preload(samples(['talk/a.wav'], false));
     await cache.get('talk/b.wav');
-    expect(fetched).toEqual(['banks/talk-0.lossless.bin', 'talk/b.flac']);
+    expect(files(fetched)).toEqual(['banks/talk-0.lossless.bin', 'talk/b.flac']);
   });
 
   it('loads a clip from its own file when its bank fails to arrive', async () => {
     const { cache, fetched } = makeCache({ banks: twoBanks(), missing: 'banks/gui-0.lossless.bin' });
     const report = await cache.preload(samples(['gui/click.wav'], true));
-    expect(fetched).toEqual(['banks/gui-0.lossless.bin', 'gui/click.flac']);
+    expect(files(fetched)).toEqual(['banks/gui-0.lossless.bin', 'gui/click.flac']);
     expect(report.decoded).toBe(1);
   });
 
-  it('stays silent without a bank index', async () => {
-    const { cache } = makeCache({ banks: null });
+  it('loads each clip from its own file while the index is missing, asking for the index again', async () => {
+    const { cache, fetched } = makeCache({ banks: null });
     const report = await cache.preload(samples(['gui/click.wav'], true));
-    expect(report.failed).toBe(1);
+    expect(report.decoded).toBe(1);
+    expect(await cache.get('talk/a.wav')).not.toBeNull();
+    expect(fetched).toEqual([
+      SOUND_BANKS_FILE,
+      SOUND_BANKS_FILE,
+      'gui/click.flac',
+      SOUND_BANKS_FILE,
+      'talk/a.flac',
+    ]);
+  });
+
+  it('recovers the banks after a transient index failure', async () => {
+    const { cache, fetched } = makeCache({ banks: twoBanks(), indexFailures: 1 });
+    await settle();
+    const report = await cache.preload(samples(['talk/a.wav', 'talk/b.wav'], true));
+    expect(report.decoded).toBe(2);
+    expect(fetched).toEqual([SOUND_BANKS_FILE, SOUND_BANKS_FILE, 'banks/talk-0.lossless.bin']);
+  });
+
+  it('serves a lossless-only clip as FLAC in the compact quality', async () => {
+    const { cache, fetched } = makeCache({
+      banks: { ...twoBanks(), losslessOnly: ['talk/a.wav'] },
+      quality: 'compact',
+    });
+    await cache.get('talk/a.wav');
+    await cache.get('talk/b.wav');
+    expect(files(fetched)).toEqual(['talk/a.flac', 'talk/b.ogg']);
+  });
+});
+
+describe('SampleCache compact fallback', () => {
+  it('moves to lossless for the session once a compact clip fails to decode, warning once', async () => {
+    const { cache, fetched, warnings } = makeCache({
+      banks: twoBanks(),
+      quality: 'compact',
+      noCompactDecoder: true,
+      concurrency: 1,
+    });
+    const report = await cache.preload(samples(['gui/click.wav', 'gui/fail.wav'], true));
+    expect(report).toMatchObject({ decoded: 2, failed: 0 });
+    expect(await cache.get('talk/a.wav')).not.toBeNull();
+    expect(files(fetched)).toEqual([
+      'banks/gui-0.compact.bin',
+      'gui/click.flac',
+      'banks/gui-0.lossless.bin',
+      'talk/a.flac',
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/lossless/);
+  });
+
+  it('stays compact when a clip fails to arrive rather than to decode', async () => {
+    const { cache, fetched, warnings } = makeCache({
+      banks: twoBanks(),
+      quality: 'compact',
+      missing: 'talk/a.ogg',
+    });
     expect(await cache.get('talk/a.wav')).toBeNull();
+    await cache.get('talk/b.wav');
+    expect(files(fetched)).toEqual(['talk/a.ogg', 'talk/b.ogg']);
+    expect(warnings).toEqual([]);
   });
 });

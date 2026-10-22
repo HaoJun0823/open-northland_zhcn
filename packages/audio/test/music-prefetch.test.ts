@@ -102,6 +102,16 @@ describe('standby prefetch timing', () => {
     expect(fetched).toEqual([`/music/${LONG.file}`, `/music/${FIGHT.file}`]);
   });
 
+  it('never fetches the standby of a cue stopped before the lead', async () => {
+    const { clock, fetched, player } = harness();
+    player.play(calmWithFight());
+    await flush();
+    player.stop();
+    clock.advanceTo(CUE_S);
+    await flush();
+    expect(fetched).toEqual([`/music/${LONG.file}`]);
+  });
+
   it('neither fetches nor drops the standby when the context closed without a stop', async () => {
     const { ctx, clock, fetched, player } = harness();
     const dropped: string[] = [];

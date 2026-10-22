@@ -1,4 +1,4 @@
-import { soundClipPath } from '@open-northland/data';
+import { SOUND_EXTENSIONS, soundClipPath } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   BUS_PREVIEWS,
@@ -16,7 +16,6 @@ import {
   type FakePanner,
   type FakeSource,
   flush,
-  NO_SOUND_BANKS,
   servingSoundBanks,
 } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
@@ -62,7 +61,7 @@ describe('bus preview', () => {
     driver.previewBus('world');
     driver.previewBus('music');
     await flush();
-    const world = soundClipPath(BUS_PREVIEWS.world?.files[0] ?? '', NO_SOUND_BANKS.extensions.lossless);
+    const world = soundClipPath(BUS_PREVIEWS.world?.files[0] ?? '', SOUND_EXTENSIONS.lossless);
     expect(fetched.filter((url) => url.endsWith(world))).toHaveLength(1);
     expect(ctx.sources).toHaveLength(1);
     const source = ctx.sources[0] as FakeSource;

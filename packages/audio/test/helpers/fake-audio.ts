@@ -220,7 +220,7 @@ export const flush = (): Promise<unknown> => new Promise((r) => setTimeout(r, 0)
 /** A sound tree that serves no banks: every clip loads from its own file, `.flac` in place of `.wav`. */
 export const NO_SOUND_BANKS: SoundBanksDocument = {
   version: SOUND_BANKS_VERSION,
-  extensions: { lossless: 'flac', compact: 'ogg' },
+  losslessOnly: [],
   clips: {},
 };
 

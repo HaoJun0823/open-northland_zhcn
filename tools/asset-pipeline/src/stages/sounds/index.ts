@@ -5,10 +5,11 @@ import {
   SOUND_BANKS_FILE,
   SOUND_BANKS_VERSION,
   SOUND_QUALITIES,
-  type SoundBankEntry,
+  type SoundBank,
   type SoundBankSpan,
   type SoundBanksDocument,
   type SoundQuality,
+  servedEncoding,
   soundBankPath,
   soundClipPath,
 } from '@open-northland/data';
@@ -29,7 +30,7 @@ const ROOT_BANK_FOLDER = 'root';
 export interface SoundStageReport {
   readonly clips: number;
   readonly banks: number;
-  /** Encoded bytes of every clip, per quality. */
+  /** Bytes every clip is served with, per quality. */
   readonly bytes: Readonly<Record<SoundQuality, number>>;
 }
 
@@ -39,14 +40,24 @@ interface EncodedClip {
   readonly encoded: Readonly<Record<SoundQuality, Uint8Array>>;
 }
 
+/** The clips a terrain bed loops: every wav of an ambient that covers pattern groups. These stay
+ *  lossless in every quality (see `SOUND_ENCODINGS`). */
+export function loopedBedClips(sounds: SoundBank): Set<string> {
+  return new Set(
+    sounds.ambient.filter((a) => a.patternGroups.length > 0).flatMap((a) => a.sfx.map((s) => s.file)),
+  );
+}
+
 /**
- * Encodes the mod's loose `.wav` tree into `sounds/`: each clip alone in every quality, the same clips
- * packed into per-folder banks, and the `banks.json` index naming each clip's span (see
- * `SoundBanksDocument`). The directory is rebuilt from scratch, so no clip of an earlier run survives.
+ * Encodes the mod's loose `.wav` tree into `sounds/`: each clip alone in every encoding, the same clips
+ * packed into per-folder banks per quality, and the `banks.json` index naming each clip's span (see
+ * `SoundBanksDocument`). A clip in `losslessOnly` fills its compact span with its lossless bytes. The
+ * directory is rebuilt from scratch, so no clip of an earlier run survives.
  */
 export async function convertSoundTree(
   roots: SourceRoots,
   outDir: string,
+  losslessOnly: ReadonlySet<string>,
   encode: SoundEncoder = ffmpegEncode,
 ): Promise<SoundStageReport> {
   const root = join(outDir, SOUNDS_DIR);
@@ -60,51 +71,51 @@ export async function convertSoundTree(
     const encoded = { lossless: await encode(wav, 'lossless'), compact: await encode(wav, 'compact') };
     return { file: rel.toLowerCase().slice(SOUNDS_SOURCE_PREFIX.length), encoded };
   });
+  const document: SoundBanksDocument = {
+    version: SOUND_BANKS_VERSION,
+    losslessOnly: clips.map((clip) => clip.file).filter((file) => losslessOnly.has(file)),
+    clips: {},
+  };
   const bytes = { lossless: 0, compact: 0 } satisfies Record<SoundQuality, number>;
   for (const clip of clips) {
     for (const quality of SOUND_QUALITIES) {
-      const data = clip.encoded[quality];
-      bytes[quality] += data.length;
+      bytes[quality] += clip.encoded[servedEncoding(document, clip.file, quality)].length;
       await writeFileWithParents(
         join(root, soundClipPath(clip.file, SOUND_ENCODINGS[quality].extension)),
-        data,
+        clip.encoded[quality],
       );
     }
   }
-  const index: Record<string, SoundBankEntry> = {};
   const banks = packBanks(clips);
   for (const [bank, members] of banks) {
-    const lossless = await writeBank(root, bank, members, 'lossless');
-    const compact = await writeBank(root, bank, members, 'compact');
+    const lossless = await writeBank(root, bank, members, 'lossless', document);
+    const compact = await writeBank(root, bank, members, 'compact', document);
     for (const [i, clip] of members.entries()) {
       const losslessSpan = lossless[i];
       const compactSpan = compact[i];
       if (losslessSpan === undefined || compactSpan === undefined)
         throw new Error(`bank ${bank} lost a span`);
-      index[clip.file] = { bank, spans: { lossless: losslessSpan, compact: compactSpan } };
+      document.clips[clip.file] = { bank, spans: { lossless: losslessSpan, compact: compactSpan } };
     }
   }
-  const document: SoundBanksDocument = {
-    version: SOUND_BANKS_VERSION,
-    extensions: { lossless: SOUND_ENCODINGS.lossless.extension, compact: SOUND_ENCODINGS.compact.extension },
-    clips: index,
-  };
   await writeFileWithParents(join(root, SOUND_BANKS_FILE), `${JSON.stringify(document)}\n`);
   return { clips: clips.length, banks: banks.size, bytes };
 }
 
-/** Writes `members` back to back as `bank`'s copy in `quality`; the span of each, in order. */
+/** Writes `members` back to back as `bank`'s copy in `quality`, each in the encoding `index` serves it
+ *  in; the span of each, in order. */
 async function writeBank(
   root: string,
   bank: string,
   members: readonly EncodedClip[],
   quality: SoundQuality,
+  index: SoundBanksDocument,
 ): Promise<SoundBankSpan[]> {
-  const packed = new Uint8Array(members.reduce((sum, clip) => sum + clip.encoded[quality].length, 0));
+  const served = members.map((clip) => clip.encoded[servedEncoding(index, clip.file, quality)]);
+  const packed = new Uint8Array(served.reduce((sum, data) => sum + data.length, 0));
   const spans: SoundBankSpan[] = [];
   let offset = 0;
-  for (const clip of members) {
-    const data = clip.encoded[quality];
+  for (const data of served) {
     packed.set(data, offset);
     spans.push({ offset, length: data.length });
     offset += data.length;

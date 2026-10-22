@@ -3,8 +3,10 @@ import { resolve } from 'node:path';
 import { UI_CUE_FILES } from '@open-northland/audio';
 import {
   SOUND_BANKS_FILE,
+  SOUND_EXTENSIONS,
   SOUND_QUALITIES,
   SoundBanksDocument,
+  servedEncoding,
   soundBankPath,
   soundClipPath,
 } from '@open-northland/data';
@@ -32,7 +34,13 @@ function unservable(files: Iterable<string>): string[] {
           : resolve(contentDir(), SOUNDS_DIR, soundBankPath(entry.bank, quality));
       const span = entry?.spans[quality];
       return (
-        existsSync(resolve(contentDir(), SOUNDS_DIR, soundClipPath(file, banks.extensions[quality]))) &&
+        existsSync(
+          resolve(
+            contentDir(),
+            SOUNDS_DIR,
+            soundClipPath(file, SOUND_EXTENSIONS[servedEncoding(banks, file, quality)]),
+          ),
+        ) &&
         bank !== undefined &&
         span !== undefined &&
         existsSync(bank) &&

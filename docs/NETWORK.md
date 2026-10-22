@@ -699,25 +699,38 @@ most one tick of owed time, so after a hold the pacer refills the buffer and a b
 runs one tick per display frame rather than five.
 
 The client sends a gesture only while fewer than `MAX_COMMANDS_PER_TICK` of its own are in flight
-(sent and not yet applied or refused); the rest wait in order in a local outbox of 100 and leave as
-earlier ones apply, so a long wall line or a run of orders given while paused lands over successive
-ticks instead of being refused with `commandBudget`. A gesture past a full outbox, an oversized one,
-and one issued with no world are refused locally with `rejected { of: "command" }` (`commandBudget`,
-`envelopeTooLarge`, `notLoaded`); one issued while disconnected waits in the outbox until the room
-admits the world again. The click-to-apply stamps of commands in flight are forgotten when a world is
-adopted or a socket is replaced, since those may never come back. A `snapshotRequest` is skipped
+(sent and not yet applied or refused) and their JSON bytes with its own stay within
+`MAX_COMMAND_BYTES_PER_TICK` (1 MiB); the rest wait in order in a local outbox of 100 and leave as
+earlier ones apply, so a long wall line, a run of orders given while paused or a few large army
+orders land over successive ticks instead of being refused with `commandBudget`. A gesture past a
+full outbox, an oversized one, and one issued with no world are refused locally with
+`rejected { of: "command" }` (`commandBudget`, `envelopeTooLarge`, `notLoaded`); one issued while
+disconnected waits in the outbox until the room admits the world again, also when the return is
+served a snapshot or a desync rebuilds the world, since the restored world is the same game further
+on. Leaving the room drops the outbox. When a socket is replaced or another world adopted, the
+commands in flight stay counted but unmeasured for click-to-apply: the relay keeps what the old
+socket delivered and lands it first, while some may be lost or inside a restored world. The outbox
+sends nothing new until they are settled, so each of this seat's commands applied, dropped or
+refused meanwhile is one of them, and the rest are forgotten once the world has run past the last
+tick the relay could land them on: the tick the next `clock` (on a new socket) or the newest frame
+(on a restored world) names, plus the input delay. An old command that lands later still, under a
+delay raised on the lost socket, takes a newer command's stamp. A `snapshotRequest` is skipped
 while the world stands behind the newest snapshot tick the client has seen the relay cache.
 
 `RelaySocket` keeps
 the connection and reopens it on the same token after a drop; a connection the relay replaced or
 refused stays closed. A connection attempt that has not opened within 10 seconds is closed and retried
 even if no socket close event arrives. An open socket that carried nothing from the relay for
-`LINK_QUIET_MS` (4 s) is reported quiet, and the player sees the lost-link screen. A browser socket
+`LINK_QUIET_MS` (4 s) is reported quiet, and the player sees the lost-link screen. A quiet poll
+that runs more than two poll intervals after the one before found its thread blocked, by a world
+build or restore for instance, with messages possibly queued behind it, so it counts the silence
+from that moment instead of judging the link. A browser socket
 reports a large message only once it is complete, so silence cannot tell a stalled route from a
 transfer still arriving; what the client awaits decides. A socket quiet for `LINK_REPLACE_MS` (8 s)
 is replaced by a new one on the same token, which rejoins within a second, while a link dropped
 without a close would otherwise hold the room until the kick vote. While the client awaits a large
-message (a map or initial save it requested, or a snapshot: after `desync`, after a `loaded
+message (a map or initial save it requested, each until that blob or a refusal of every request for
+it arrives, a `retryTooSoon` answering only the repeat; or a snapshot: after `desync`, after a `loaded
 { tick: null }`, or after a `loaded` whose tick stands behind `start`'s `snapshotTick`) the bound is
 `TRANSFER_REPLACE_MS` (5 min), within which a full 32 MiB blob (about 45 MB as base64) arrives at
 1.2 Mbit/s. The host hands the socket the client's `awaitsTransfer`; a socket without it keeps a quiet

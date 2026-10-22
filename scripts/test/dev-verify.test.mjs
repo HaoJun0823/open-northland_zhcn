@@ -10,11 +10,18 @@ async function fixture(t) {
     ['/__dev/checkout', expected],
     ['/ir.json', {}],
     ['/maps-index.json', [{ id: 'forest' }]],
-    ['/bobs-index.json', [{ stem: 'worker', image: 'c0ffee.webp' }]],
+    [
+      '/bobs-index.json',
+      [
+        { stem: 'smoke', image: 'c0ffee.png' },
+        { stem: 'worker', image: 'd00d.webp' },
+      ],
+    ],
     ['/maps/forest.json', {}],
     ['/maps/forest.meta.json', {}],
     ['/bobs/atlases.json', {}],
-    ['/bobs/c0ffee.webp', 'webp'],
+    ['/bobs/c0ffee.png', 'png'],
+    ['/bobs/d00d.webp', 'webp'],
   ]);
   const server = createServer((req, res) => {
     if (!files.has(req.url)) {
@@ -23,7 +30,12 @@ async function fixture(t) {
       res.end('<html>menu</html>');
       return;
     }
-    res.setHeader('Content-Type', req.url.endsWith('.webp') ? 'image/webp' : 'application/json');
+    const type = req.url.endsWith('.webp')
+      ? 'image/webp'
+      : req.url.endsWith('.png')
+        ? 'image/png'
+        : 'application/json';
+    res.setHeader('Content-Type', type);
     res.end(JSON.stringify(files.get(req.url)));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -59,6 +71,6 @@ test('rejects an indexed map or sprite that was not actually generated', async (
   f.files.delete('/maps/forest.json');
   await assert.rejects(verifyPreview(f.url, expected), /forest.json/);
   f.files.set('/maps/forest.json', {});
-  f.files.delete('/bobs/c0ffee.webp');
-  await assert.rejects(verifyPreview(f.url, expected), /c0ffee.webp/);
+  f.files.delete('/bobs/c0ffee.png');
+  await assert.rejects(verifyPreview(f.url, expected), /c0ffee.png/);
 });

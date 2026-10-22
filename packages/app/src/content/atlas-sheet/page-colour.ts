@@ -41,8 +41,9 @@ function sheetAt(url: string): Promise<ImageData> {
 /**
  * Colours a paletted sheet on the page, for a browser whose workers cannot decode one (no
  * `DecompressionStream`, Safari before 16.4). Approximation: the canvas stores premultiplied pixels, so
- * under graded coverage the index read back can land on a neighbouring palette entry, and a browser
- * that alters canvas reads alters the colours. Fully covered pixels read exactly.
+ * only fully covered pixels read their index back exactly; the error grows as coverage falls (about
+ * 255 / (2 * alpha) index steps, any palette entry at the faintest coverage), and a browser that alters
+ * canvas reads alters the colours.
  */
 export async function colourOnPage(url: string, palette: string): Promise<ImageBitmap> {
   const sheet = await sheetAt(url);

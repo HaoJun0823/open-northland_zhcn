@@ -30,7 +30,8 @@ function manifestOf(stem: string): { readonly palette?: string } | null {
 /**
  * Every stem the DOM shows as an `<img>` or a CSS background (the goods' icons, the tribe emblems) is
  * served as an RGBA sheet: such a picture reads the pixels as they are, so a paletted sheet would show
- * palette indices. The pipeline names those stems by hand, and this is the check on its list.
+ * palette indices. The pipeline derives those stems from the IR (`domPictureStems`); this checks that
+ * derivation against the app's own joins.
  */
 describe.runIf(hasRealIr())('DOM picture sheets on real content', () => {
   beforeAll(() => {

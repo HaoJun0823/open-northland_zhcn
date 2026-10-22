@@ -1,4 +1,4 @@
-import type { BobAtlasFrame, BobAtlasManifest } from '@open-northland/data';
+import type { BobAtlasFrame, BobAtlasManifest, BobAtlasStem } from '@open-northland/data';
 
 /** Authored ground marker in frame-local source pixels, independent of image padding. */
 export interface SelectionEllipse {
@@ -67,11 +67,12 @@ export function indexAtlasFrames(
 export type AtlasManifestFrame = BobAtlasFrame;
 
 /**
- * How a paletted sheet is stored. `index-coverage-png`: an 8-bit grey + alpha PNG (colour type 4), the
- * palette index in grey and the coverage in alpha. The app decodes it in JavaScript: a browser image
- * decode premultiplies a covered pixel's index away, and some browsers alter canvas reads.
+ * How a paletted sheet is stored, as the atlas document names it: `index-coverage-png` is an 8-bit
+ * grey + alpha PNG (colour type 4), the palette index in grey and the coverage in alpha. The app decodes
+ * it in JavaScript: a browser image decode premultiplies a covered pixel's index away, and some
+ * browsers alter canvas reads.
  */
-export type AtlasImageEncoding = 'index-coverage-png';
+export type AtlasImageEncoding = NonNullable<BobAtlasStem['imageEncoding']>;
 
 /** One stem's manifest, decoded from `bobs/atlases.json`. Image names are file names under `bobs/`;
  *  stems with byte-identical sheets name the same file. */

@@ -28,7 +28,13 @@ export async function verifyPreview(url, expected) {
   const mapPath = `/maps/${encodeURIComponent(map)}`;
   for (const suffix of ['.json', '.meta.json']) await get(`${mapPath}${suffix}`, 'application/json', 'HEAD');
   await get('/bobs/atlases.json', 'application/json', 'HEAD');
-  await get(`/bobs/${encodeURIComponent(bobs[0].image)}`, 'image/webp', 'HEAD');
+  // A recoloured stem's sheet is a grey+alpha PNG, every other sheet a lossless WebP.
+  const sheet = bobs[0].image;
+  await get(
+    `/bobs/${encodeURIComponent(sheet)}`,
+    sheet.endsWith('.png') ? 'image/png' : 'image/webp',
+    'HEAD',
+  );
   return identity;
 }
 

@@ -3,7 +3,8 @@
 **Area:** net-server · **Priority:** P3
 
 `host/socket-budget.ts` caps traffic and output queues per connection, while
-`relay/catch-up.ts` caps retained history per room. These limits multiply with the configured
+`relay/catch-up.ts` caps retained history per room, and `relay/lobby-transfers.ts` keeps a room's map
+text, up to `MAX_BLOB_MESSAGE_BYTES`, for the room's life. These limits multiply with the configured
 connection and room counts. There is no shared budget for retained snapshots, history and output
 queues, or aggregate traffic. One process can exhaust its container allowance and drop unrelated
 matches despite every connection staying within its individual budget.

@@ -490,11 +490,11 @@ their wall time. `--cases` picks some of them:
 | Case | Page condition |
 | --- | --- |
 | `uneven` | One page's main thread throttled 6x and one page's downloads slowed. |
-| `frozenLoad`, `frozenRunning`, `frozenLong` | A page frozen right after `start` for 30 s, or once it runs for 20 s or for 45 s, past the relay's silence close. Headless Chromium ignores `Page.setWebLifecycleState`, so the debugger pauses the page and its workers. |
-| `noFrame`, `hiddenRunning` | A page hidden from its first load, or once it runs for 20 s, its animation frames stopped and `document.hidden` set. |
+| `frozenLoad`, `frozenRunning`, `frozenLong` | A page frozen for 30 s right after `start`, or for 20 s or 45 s (past the relay's silence close) once the room runs. Headless Chromium ignores `Page.setWebLifecycleState`, so the debugger pauses the page and its workers. |
+| `noFrame`, `hiddenRunning` | A page hidden from its first load, or for 20 s once the room runs: its animation frames stop and `document.hidden` is set. |
 | `reload` | A page reloads right after `start`. |
 | `lateJoin` | A fourth page asks to join once it started. |
-| `speed` | The room plays at speed 3 from its start. |
+| `speed` | The room plays at speed 3 from its start, one page's main thread throttled 6x. |
 
 Each case reports, per page, when `loaded` went, its first acknowledged tick and when its display
 first ran, the room's longest hold as the creator saw it, and what each page showed meanwhile.

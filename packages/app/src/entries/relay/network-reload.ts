@@ -98,7 +98,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
       const map = await loadRoomMapDocuments(room, { delivered: mapRequest.request });
       if (closed) return;
       if (map === null) throw new Error(messages().network.mapLostOnReturn);
-      const report = await loadLobbyCompatibility(map.mapId, fetch, undefined, map);
+      const report = await loadLobbyCompatibility(map.mapId, undefined, undefined, map);
       if (closed) return;
       const members = room.members.filter((member) => member.nick !== connection.client.nick);
       const issues = compatibilityIssues(

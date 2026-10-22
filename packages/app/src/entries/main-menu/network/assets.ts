@@ -33,7 +33,7 @@ export function roomAssets(
   onMap: () => void = () => undefined,
 ) {
   const loadCompatibility =
-    services.compatibility ?? ((mapId, map) => loadLobbyCompatibility(mapId, fetch, undefined, map));
+    services.compatibility ?? ((mapId, map) => loadLobbyCompatibility(mapId, undefined, undefined, map));
   const verify = services.verifySave ?? verifyInitialSave;
   const validate = services.validateSave ?? validateNetworkSave;
   let room: RoomView | null = null;

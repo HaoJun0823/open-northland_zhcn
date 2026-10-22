@@ -26,7 +26,7 @@ export async function launchNetworkGame(
     map = await loadRoomMapDocuments(room, { delivered });
     if (!current()) return;
     if (map === null) throw new Error(messages().network.missingMap);
-    const report = await loadLobbyCompatibility(map.mapId, fetch, undefined, map);
+    const report = await loadLobbyCompatibility(map.mapId, undefined, undefined, map);
     const issues = compatibilityIssues(
       [
         ...room.members,

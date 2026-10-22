@@ -269,6 +269,73 @@ delay, the click-to-apply time and the jitter buffer's depth. The runtime has no
 world, so a forced divergence for a resync check runs in the headless multi-client harness under
 `packages/net-server/test/support/`, not from a browser console.
 
+## Network chaos proxy
+
+```bash
+node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 [--port 8780] [--host 127.0.0.1] \
+  [--profile lan|home|far|mobile|bad] [--seed 1] [--log-dir DIR] [--max-queued-bytes N]
+```
+
+A WebSocket proxy between real clients (browsers, Electron, headless Node clients) and a relay
+(`ws://` or `wss://`) that impairs the link the way a home connection does, without root. It forwards
+every frame unchanged, control pings and close codes included, and keeps each direction in order:
+jitter stretches the gaps between frames and never reorders them, and nothing is ever dropped while
+the link is up. A client's path and query are appended to the upstream URL. The client handshake
+completes only after the relay accepted the upstream one, so a dead relay fails the client's
+connect. `--log-dir` writes `connection-<id>.jsonl` per connection: time, direction, type, size,
+delay and `kind` of every frame, plus connection events; stdout gets the events without the frames.
+`--seed` fixes the jitter sequence of every connection, so a run repeats.
+
+| Profile | One-way latency | Jitter | Up / down cap | Stalls | Flapping |
+| --- | --- | --- | --- | --- | --- |
+| `lan` (default) | 1 ms | 0 | none | none | none |
+| `home` | 30 ms | ±3 ms | 10 / 50 Mbit/s | none | none |
+| `far` | 100 ms | ±20 ms | 5 / 20 Mbit/s | none | none |
+| `mobile` | 150 ms | ±80 ms | 1 / 4 Mbit/s | 1.5 s every 20 s | none |
+| `bad` | 120 ms | ±60 ms | 64 / 256 KiB/s | 3 s every 8 s | dropped after 45 s |
+
+Stall times count from a connection's opening, or from the moment the stall setting changed. A
+stall freezes both directions and then releases the held frames at once, like a TCP retransmission
+wait. Queued bytes per connection (both pipes plus unsent socket buffers) are capped at
+`--max-queued-bytes`, 96 MiB by default; past it the client is closed with 1013 `proxyQueueFull`
+and the log says so.
+
+`GET /control` on the same port returns the state: the upstream, the default profile and settings,
+the remaining unreachable time, and per open connection its `id`, settings, queued bytes and frame
+counts. `POST /control` takes one JSON object; every field is optional:
+
+| Field | Effect |
+| --- | --- |
+| `connection` | Applies the rest to that connection id only; without it, to the default for new connections and to every open one. |
+| `profile` | Replaces the settings with that profile. |
+| `set` | Merges into the settings (the profile's, when both are given): `up`, `down` or `both` as `{ latencyMs, jitterMs, bytesPerSecond }` (`null` for no cap), `stall: { everyMs, forMs } \| null`, `flap: { everyMs, code } \| null`, `halfOpen: boolean`. |
+| `disconnect` | `{ code, reason, afterMs }`: closes the client with `code` after `afterMs` and drops the relay side. `1006` (the default) drops the client without a close frame. |
+| `unreachableMs` | Refuses new connections for that long, by dropping the TCP connection; open ones are untouched. |
+
+`halfOpen: true` stops forwarding in both directions without closing either socket, which is what
+the relay's silence timeout must catch; `false` resumes and delivers what was held. `flap` drops
+each connection `everyMs` after it opened or after the setting changed, so reconnects keep
+flapping. An unknown field or a bad value answers 400 with `{ error }`. Example:
+
+```bash
+curl -s localhost:8780/control -d '{"profile":"mobile"}'
+curl -s localhost:8780/control -d '{"connection":2,"set":{"halfOpen":true}}'
+curl -s localhost:8780/control -d '{"connection":2,"disconnect":{"code":1006,"afterMs":500}}'
+```
+
+To play the developer lobby through it, run the relay and the proxy, then point the windows at the
+proxy port; each window may sit behind its own connection settings:
+
+```bash
+npm run relay
+node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 --profile home --log-dir /tmp/chaos
+```
+
+```text
+?relay=ws://127.0.0.1:8780&room=new&map=magiczny_las&players=2&nick=Ania
+?relay=ws://127.0.0.1:8780&room=<id from the first window>&nick=Bartek
+```
+
 ## API server
 
 See [API server](API.md#api-server).

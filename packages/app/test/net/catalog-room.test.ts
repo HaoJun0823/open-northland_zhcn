@@ -1,5 +1,9 @@
 import { IR_VERSION } from '@open-northland/data/ir-version';
-import type { RoomSettings, ServerMessage } from '@open-northland/net-protocol';
+import {
+  type RoomSettings,
+  type ServerMessage,
+  TRANSFER_REQUEST_COOLDOWN_MS,
+} from '@open-northland/net-protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { TEST_COMPATIBILITY } from '../../../net-server/test/support/compatibility.js';
 import {
@@ -33,8 +37,6 @@ const ROOM: RoomSettings = {
   mapOrigin: 'catalog',
   catalogMap: { entryId: MAP_ID, mapId: MAP_ID, fingerprint: TINY_FINGERPRINT, irVersion: IR_VERSION },
 };
-/** The relay answers one member's map request at most this often. */
-const REQUEST_COOLDOWN_MS = 2000;
 const SHIPPED_INDEX: typeof fetch = async (input) =>
   String(input) === '/maps-index.json' ? Response.json([]) : new Response(null, { status: 404 });
 
@@ -177,7 +179,7 @@ it('delivers a locally imported user map through the relay without consulting th
   expect(host.deposits()).toBe(1);
   expect(a.of('blob')).toEqual([]);
   const asked = a.of('mapRequest').length;
-  advance(REQUEST_COOLDOWN_MS);
+  advance(TRANSFER_REQUEST_COOLDOWN_MS);
   b.send({ kind: 'requestMap' });
   expect(a.of('mapRequest')).toHaveLength(asked);
   expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania' });

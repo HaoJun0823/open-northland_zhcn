@@ -515,13 +515,17 @@ A `map` the creator addresses to itself is a deposit: the relay keeps it and for
 creator deposits a `user` or `mod` origin map once the lobby settles on it, so a member returning to the
 started game without the map is served even when every guest already had it; a catalogue map and a map the
 page's own maps index lists are never deposited. The relay keeps the latest map text the creator delivered
-or deposited for the room's life, replaced by its next delivery or deposit. `requestMap`
-answers with that text as the same `blob { type: "map", from }` the creator sent: in the lobby while the
-creator still offers it under the same map fingerprint, and after Start to any member, such as one that
-returns without the map. Otherwise, in the lobby, it sends the connected creator `mapRequest { from }` so a
-member can retry delivery; after Start it is refused with `mapNotKept`. Map replacement after Start is
-refused. Map and initial-save requests each have a two-second cooldown per member, to bound
-small-request/large-response amplification.
+or deposited for the room's life, replaced by its next delivery or deposit. In the lobby the text counts
+only while it is the creator's current copy: the current creator sent it, and the map fingerprint that
+creator reports is the one it reported when sending. Start keeps such a text and drops any other, so a
+text another creator sent, or one the creator's report has moved past, is not served after Start.
+`requestMap` answers with the kept text as the same `blob { type: "map", from }` the creator sent: in the
+lobby while it is the creator's current copy, and after Start to any member, such as one that returns
+without the map. Otherwise, in the lobby, it sends the connected creator `mapRequest { from }` so a member
+can retry delivery; after Start it is refused with `mapNotKept`. Map replacement after Start is refused.
+The relay answers one member's map request, and separately its initial-save request, at most once per
+`TRANSFER_REQUEST_COOLDOWN_MS`, to bound small-request/large-response amplification; a client retries a
+map request refused with `retryTooSoon` once after it.
 
 A map's bytes are the clients' contract: gzip of the JSON envelope `{ version: 2, mapId, map, script }`,
 so `MAX_BLOB_BYTES` bounds the compressed map. A receiver refuses anything but a gzip stream and stops
@@ -675,6 +679,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `MAX_CLIENT_MESSAGE_BYTES` [protocol] | 513 KiB | A client message other than a blob: one envelope plus 1 KiB. |
 | `MAX_BLOB_BYTES`, `MAX_BLOB_MESSAGE_BYTES` [protocol] | 32 MiB, about 42.7 MiB | A decoded blob, also the kept map text (one delivery or deposit per room); its message, base64 plus 1 KiB. |
 | `MAX_SAVE_ORDERS_BYTES` [protocol] | 16 MiB | A `saveOrders` reply as UTF-8 JSON. |
+| `TRANSFER_REQUEST_COOLDOWN_MS` [protocol] | 2 s | Time between one member's answered `requestMap`, and between its answered `requestInitialSave`. |
 | `MAX_PENDING_COMMANDS_PER_MEMBER`, `MAX_PENDING_COMMAND_BYTES` [server] | 128, 2 MiB | Accepted future gestures per member, paused rooms included. |
 | `MAX_COMMAND_HISTORY_BYTES` [server] | 12 MiB | Retained frames plus pending input at admission, with overhead. |
 | `MAX_HISTORY_BYTES`, `MAX_HISTORY_AGE_MS` [server] | 16 MiB, 10 min | Retained replay history; a refresh is asked at half of either. |

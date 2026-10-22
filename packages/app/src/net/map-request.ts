@@ -1,9 +1,5 @@
 import { RelayRefusal } from '@open-northland/net-client';
-import type { ServerMessage } from '@open-northland/net-protocol';
-
-/** The relay answers one member's map request at most this often, and a socket replaced meanwhile
- *  is the same member to it, so a request it refused as too soon goes out once more after this. */
-export const MAP_REQUEST_COOLDOWN_MS = 2000;
+import { type ServerMessage, TRANSFER_REQUEST_COOLDOWN_MS } from '@open-northland/net-protocol';
 
 /** Why an open request settles without the map: its page or room moved on. */
 const ABANDONED = 'The map request was abandoned';
@@ -60,7 +56,8 @@ export function relayMapRequest(client: { requestMap(): void }) {
       if (message.reason.code === 'retryTooSoon' && !retried) {
         retried = true;
         clearTimeout(retry);
-        retry = setTimeout(send, MAP_REQUEST_COOLDOWN_MS);
+        // A socket replaced meanwhile is the same member to the relay, so its cooldown still holds.
+        retry = setTimeout(send, TRANSFER_REQUEST_COOLDOWN_MS);
       } else settle()?.reject(new RelayRefusal(message.reason));
       return true;
     },

@@ -32,6 +32,10 @@ export const MAX_TRIBE_ID = 0xff;
 /** The sim seeds its generator with 32 bits; a wider seed would collapse onto another. */
 export const MAX_SEED = 0xffff_ffff;
 
+/** The relay answers one member's `requestMap` or `requestInitialSave` at most this often, bounding a
+ *  small request's large response; a client retries a request refused as too soon once after it. */
+export const TRANSFER_REQUEST_COOLDOWN_MS = 2000;
+
 /** One complete group order plus its message fields; blobs have their own budget. */
 export const MAX_CLIENT_MESSAGE_BYTES = MAX_ENVELOPE_BYTES + 1024;
 /** Bytes of one relayed blob once base64-decoded, including uncompressed map documents. */

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { TRANSFER_REQUEST_COOLDOWN_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { TEST_COMPATIBILITY } from './support/compatibility.js';
 import { SEATS, SETTINGS, stage, TOKEN_A, TOKEN_B } from './support/message-stage.js';
@@ -79,7 +80,7 @@ describe('immutable lobby files', () => {
     b.send({ kind: 'requestMap' });
     expect(b.last('rejected')?.reason).toEqual({ code: 'retryTooSoon' });
     expect(a.of('mapRequest')).toHaveLength(1);
-    advance(2000);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     b.send({ kind: 'requestMap' });
     expect(a.of('mapRequest')).toHaveLength(2);
     b.send({ kind: 'blob', type: 'map', tick: null, to: null, bytes });
@@ -103,7 +104,6 @@ describe('catalogue maps', () => {
   });
 });
 describe('the kept map', () => {
-  const COOLDOWN_MS = 2000;
   const mapText = (label: string) => Buffer.from(`map ${label}`).toString('base64');
   function mapLobby() {
     const s = stage();
@@ -126,7 +126,7 @@ describe('the kept map', () => {
     b.send({ kind: 'requestMap' });
     expect(a.of('mapRequest')).toHaveLength(1);
     a.send(deliverTo('Bartek', mapText('first')));
-    advance(COOLDOWN_MS);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     b.send({ kind: 'requestMap' });
     expect(a.of('mapRequest')).toHaveLength(1);
     expect(b.last('blob')).toEqual({
@@ -137,7 +137,7 @@ describe('the kept map', () => {
       bytes: mapText('first'),
     });
     a.send(deliverTo('Bartek', mapText('second')));
-    advance(COOLDOWN_MS);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     b.send({ kind: 'requestMap' });
     expect(b.of('blob')).toHaveLength(4);
     expect(b.last('blob')?.bytes).toBe(mapText('second'));
@@ -159,7 +159,7 @@ describe('the kept map', () => {
       bytes: mapText('first'),
     });
     a.send(deliverTo('Ania', mapText('second')));
-    advance(COOLDOWN_MS);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     b.send({ kind: 'requestMap' });
     expect(b.of('blob')).toHaveLength(2);
     expect(b.last('blob')?.bytes).toBe(mapText('second'));
@@ -205,7 +205,7 @@ describe('the kept map', () => {
     const { a, b, advance } = mapLobby();
     a.send(deliverTo(to, mapText('first')));
     b.send({ kind: 'requestMap' });
-    advance(COOLDOWN_MS);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     b.send({ kind: 'requestMap' });
     const [first, ...rest] = b.of('blob');
     expect(rest.length).toBeGreaterThan(0);
@@ -219,7 +219,7 @@ describe('the kept map', () => {
     b.send({ kind: 'requestMap' });
     expect(a.of('mapRequest')).toHaveLength(1);
     expect(b.of('blob')).toHaveLength(1);
-    advance(COOLDOWN_MS);
+    advance(TRANSFER_REQUEST_COOLDOWN_MS);
     a.send({ kind: 'leaveRoom' });
     b.send({ kind: 'requestMap' });
     expect(b.last('rejected')?.reason).toEqual({ code: 'creatorHasMap' });

@@ -1,12 +1,8 @@
 import { createHash } from 'node:crypto';
-import type { RoomSettings } from '@open-northland/net-protocol';
+import { type RoomSettings, TRANSFER_REQUEST_COOLDOWN_MS } from '@open-northland/net-protocol';
 import { type BlobMessage, type BlobUpload, blobMessage, relayBlob } from './blob-relay.js';
 import type { CachedSnapshot } from './catch-up.js';
 import { broadcast, type Deliver, type Member, type Refusal } from './member.js';
-
-/** One member's map or initial-save request is answered at most this often, bounding a small
- *  request's large response. */
-const REQUEST_COOLDOWN_MS = 2000;
 
 /** The map text the creator last delivered or deposited, kept for the room's life so the relay can
  *  serve it again. Every request is answered with the one message object, which the host encodes once. */
@@ -105,7 +101,7 @@ export class LobbyTransfers {
 
   private tooSoon(requests: WeakMap<Member, number>, member: Member, now: number): boolean {
     const last = requests.get(member);
-    if (last !== undefined && now - last < REQUEST_COOLDOWN_MS) return true;
+    if (last !== undefined && now - last < TRANSFER_REQUEST_COOLDOWN_MS) return true;
     requests.set(member, now);
     return false;
   }

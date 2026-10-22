@@ -696,7 +696,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `MAX_CACHED_MAPS`, `MAX_CACHED_MAP_BYTES`, `MAX_MAP_DOCUMENT_BYTES` [app] | 4, 64 MiB, 64 MiB | Verified custom maps in browser storage; an inflated map envelope. |
 | `MAX_HELD_TICKS` [app] | 10 min at `MAX_SPEED` | Ticks the worker holds for a stopped display. |
 | `MESSAGES_PER_SECOND`, `MESSAGE_BURST`, `BYTES_PER_SECOND`, `BYTE_BURST` [server] | 256, 512, 1 MiB, two blob messages | Traffic per connection. |
-| `RECOVERY_BURST` [server] | 4, one more every 2 s | `loaded`, `saveOrders`, `requestInitialSave` per connection. |
+| `RECOVERY_BURST` [server] | 4, one more every 2 s | `loaded`, `saveOrders`, `requestInitialSave`, `requestMap` per connection. |
 | `TEXT_FRAGMENT_BYTES`, `MAX_OUTSTANDING_CONTROL_PINGS` [server] | 32 KiB, 5462 | Outgoing fragments; ping credits. |
 | `MAX_TRIBE_ID`, `MAX_SEED` [protocol] | 255, 2^32 - 1 | Seat tribe id; room seed. |
 | `MIN_TOKEN_LENGTH`, `MAX_TOKEN_LENGTH` [protocol] | 16, 128 | Token, URL-safe characters. |

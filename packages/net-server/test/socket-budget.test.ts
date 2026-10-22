@@ -7,6 +7,7 @@ import {
   ControlPings,
   encodeText,
   MAX_BUFFERED_BYTES,
+  MAX_OUTSTANDING_CONTROL_PINGS,
   MESSAGE_BURST,
   MESSAGES_PER_SECOND,
   RecoveryBudget,
@@ -20,7 +21,7 @@ describe('socket traffic budgets', () => {
     const pings = new ControlPings();
     const budget = new SocketBudget(0);
     const issued: Buffer[] = [];
-    for (let i = 0; i < MESSAGE_BURST; i++) {
+    for (let i = 0; i < MAX_OUTSTANDING_CONTROL_PINGS; i++) {
       const challenge = pings.request();
       if (challenge === null) throw new Error('missing control ping');
       issued.push(challenge);
@@ -47,19 +48,19 @@ describe('socket traffic budgets', () => {
     const pings = new ControlPings();
     let first: Buffer | null = null;
     let last: Buffer | null = null;
-    for (let i = 0; i < MESSAGE_BURST; i++) {
+    for (let i = 0; i < MAX_OUTSTANDING_CONTROL_PINGS; i++) {
       last = pings.request();
       first ??= last;
     }
     if (first === null || last === null) throw new Error('missing control ping');
     const future = Buffer.from(last);
-    future.writeBigUInt64BE(BigInt(MESSAGE_BURST + 1), future.length - 8);
+    future.writeBigUInt64BE(BigInt(MAX_OUTSTANDING_CONTROL_PINGS + 1), future.length - 8);
     expect(pings.answer(future)).toBe(false);
     expect(pings.request()).toBeNull();
     expect(pings.answer(last)).toBe(true);
     expect(pings.answer(last)).toBe(false);
     expect(pings.answer(first)).toBe(false);
-    for (let i = 0; i < MESSAGE_BURST; i++) expect(pings.request()).not.toBeNull();
+    for (let i = 0; i < MAX_OUTSTANDING_CONTROL_PINGS; i++) expect(pings.request()).not.toBeNull();
     expect(pings.request()).toBeNull();
   });
 
@@ -168,6 +169,45 @@ describe('socket traffic budgets', () => {
         server.close((error) => (error === undefined ? resolve() : reject(error)));
       });
     }
+  });
+
+  it('pings after every fragment while a maximum-size message and more fill the send buffer', () => {
+    // A recipient that has read nothing yet: every ping issued is still outstanding.
+    const pings = new ControlPings();
+    let gapBytes = 0;
+    let largestGapBytes = 0;
+    let pinged = 0;
+    const socket = {
+      OPEN: 1 as const,
+      readyState: 1 as const,
+      bufferedAmount: 0,
+      send: (data: Buffer | string) => {
+        socket.bufferedAmount += data.length;
+        gapBytes += data.length;
+      },
+      ping: vi.fn(),
+      terminate: vi.fn(),
+    };
+    const ping = (): void => {
+      if (pings.request() === null) return;
+      pinged++;
+      largestGapBytes = Math.max(largestGapBytes, gapBytes);
+      gapBytes = 0;
+    };
+    // The largest message first, then half-size ones until the buffer refuses the next.
+    const largest = encodeText('x'.repeat(MAX_BLOB_MESSAGE_BYTES));
+    const half = encodeText('x'.repeat(MAX_BLOB_MESSAGE_BYTES / 2));
+    let fragmentsBehindPings = 0;
+    for (let message = largest; socket.terminate.mock.calls.length === 0; message = half) {
+      sendBounded(socket, message, ping);
+      if (socket.terminate.mock.calls.length === 0)
+        fragmentsBehindPings += Math.ceil(message.byteLength / TEXT_FRAGMENT_BYTES) - 1;
+      largestGapBytes = Math.max(largestGapBytes, gapBytes);
+      gapBytes = 0;
+    }
+    expect(fragmentsBehindPings).toBeGreaterThan(MAX_BLOB_MESSAGE_BYTES / TEXT_FRAGMENT_BYTES);
+    expect(pinged).toBe(fragmentsBehindPings);
+    expect(largestGapBytes).toBe(TEXT_FRAGMENT_BYTES);
   });
 
   it('shares one large UTF-8 buffer among eight recipients while retaining separate framing', () => {

@@ -11,6 +11,9 @@ export const MAX_BUFFERED_BYTES = MAX_BLOB_MESSAGE_BYTES * 2;
 /** A control ping follows each fragment, and its pong keeps a slow download heard before the whole
  *  message is delivered: at 16 KiB/s one arrives every two seconds, inside the relay's silence limit. */
 export const TEXT_FRAGMENT_BYTES = 32 * 1024;
+/** One ping per fragment of a full send buffer, and as many again for pings already past it in kernel
+ *  buffers and on the wire, which hold far less than the buffer bound: every fragment gets its ping. */
+export const MAX_OUTSTANDING_CONTROL_PINGS = Math.ceil(MAX_BUFFERED_BYTES / TEXT_FRAGMENT_BYTES) * 2;
 // RFC 6455: an unmasked frame needs at most 10 header bytes; a control frame is at most 127 bytes.
 const MAX_FRAME_HEADER_BYTES = 10;
 const MAX_CONTROL_FRAME_BYTES = 127;
@@ -41,7 +44,7 @@ export class ControlPings {
   private acknowledged = 0n;
 
   request(): Buffer | null {
-    if (this.issued - this.acknowledged >= BigInt(MESSAGE_BURST)) return null;
+    if (this.issued - this.acknowledged >= BigInt(MAX_OUTSTANDING_CONTROL_PINGS)) return null;
     const payload = Buffer.alloc(this.challenge.length + 8);
     this.challenge.copy(payload);
     payload.writeBigUInt64BE(++this.issued, this.challenge.length);

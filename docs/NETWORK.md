@@ -803,9 +803,11 @@ disabled, payloads are capped, an unacknowledged close is terminated after one s
 with no incoming transport data for 30 s is closed. Incoming bytes keep a progressing upload alive
 before its complete message can be parsed, and keep its sender heard by the relay; application traffic
 is still validated and budgeted.
-Large outgoing text messages use 32 KiB WebSocket fragments with control pings between them, so a
-passive receiver can answer while downloading; at 16 KiB/s an answer comes every two seconds. Matching requested pongs spend only the byte budget;
-unsolicited or excess pongs still spend both budgets. Outstanding ping credits are capped at 512.
+Large outgoing text messages use 32 KiB WebSocket fragments with a control ping after each but the
+last, so a passive receiver answers while downloading: at 16 KiB/s an answer comes every two seconds
+for the whole message. Matching requested pongs spend only the byte budget; unsolicited or excess
+pongs still spend both budgets. Outstanding ping credits are capped at twice the fragments a full send
+buffer holds (5462), so every fragment of a message the buffer accepts gets its ping.
 Fragmentation preserves one application message and does not change the game protocol.
 
 The HTTP host caps all TCP connections at the configured WebSocket limit plus 16, including sockets

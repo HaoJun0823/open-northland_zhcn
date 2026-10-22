@@ -159,6 +159,13 @@ const LINK_OVERRIDES = {
   up: 'uploadBytesPerSecond',
   down: 'downloadBytesPerSecond',
 } as const satisfies Record<string, keyof LinkOptions>;
+/** The least each override takes: a rate of 0 would make every transfer, and so the deadline, endless. */
+const LINK_OVERRIDE_MIN: Readonly<Record<keyof typeof LINK_OVERRIDES, number>> = {
+  latencyMs: 0,
+  jitterMs: 0,
+  up: 1,
+  down: 1,
+};
 
 /** `<i>=<profile>[,key=value...]`: client `i`'s link. */
 function linkOverride(raw: string): { readonly client: number; readonly link: ClientLink } {
@@ -174,8 +181,11 @@ function linkOverride(raw: string): { readonly client: number; readonly link: Cl
         `--link override must be one of ${Object.keys(LINK_OVERRIDES).join(', ')}=<n>, got '${pair}'`,
       );
     }
-    const field = LINK_OVERRIDES[key as keyof typeof LINK_OVERRIDES];
-    link = { ...link, [field]: integerArg(`--link ${key}`, value, 0) };
+    const override = key as keyof typeof LINK_OVERRIDES;
+    link = {
+      ...link,
+      [LINK_OVERRIDES[override]]: integerArg(`--link ${key}`, value, LINK_OVERRIDE_MIN[override]),
+    };
   }
   return { client: integerArg('--link index', index, 0), link };
 }
@@ -252,6 +262,8 @@ export function parseLabArgs(argv: readonly string[]): LabConfig {
   };
   if (values.has('--map') && values.has('--save'))
     throw new Error('--map and --save exclude each other: the save names its map');
+  if (values.has('--difficulty') && values.has('--save'))
+    throw new Error("--difficulty and --save exclude each other: the save's computers keep their own");
   read('--map', 'mapId', (raw) => raw);
   read('--save', 'save', (raw) => raw);
   read('--humans', 'humans', (raw) => integerArg('--humans', raw, 1));

@@ -344,8 +344,10 @@ A held clock runs for nobody: `clock { paused: false }` changes the pause flag a
 frames resume once nobody is waited for. Every change to the waited set is broadcast as
 `waiting { for: [{ nick, reason, voteAfterMs }] }`; an empty `for` ends the wait. `voteAfterMs` is what is
 left of `KICK_COUNTDOWN_MS` after the time the room has waited for that member, counting down while it is
-waited for. Waited time is kept when the wait ends and forgiven at `WAIT_FORGIVENESS` waited millisecond
-per millisecond not waited for: a member that answered after 30 s of a wait and drops again 100 s later
+waited for. Waited time is kept when the wait ends, up to `KICK_COUNTDOWN_MS` however long the member was
+waited for, and forgiven at `WAIT_FORGIVENESS` waited millisecond per millisecond not waited for, so even a
+member that was gone for an hour has its whole countdown back after `KICK_COUNTDOWN_MS / WAIT_FORGIVENESS`
+(600 s) of play: a member that answered after 30 s of a wait and drops again 100 s later
 starts at 40 s, and 300 s later gets the whole countdown again. One that keeps ending its waits just in
 time still reaches a vote: silent 2 s of every 6, so held a third of the time, it is votable in its waits
 after about 4 minutes. The clock's start clears every member's waited time, so the load everyone was
@@ -551,8 +553,9 @@ The encoding of a snapshot or a save is the clients' contract: gzip of the sim's
 (`serializeSaveGame(exportSaveGame(sim))`), taken at a tick boundary and restored with `restoreSimulation`
 onto the world the descriptor names. A manual save contains locally queued commands and the accepted relay
 continuation obtained by `saveOrders`; an automatic snapshot contains only the simulation queue, and
-retained relay frames reconstruct accepted orders after its tick. A manual multiplayer save is written
-locally and shared through the relay as a `save` blob. What a save records of its session (the descriptor
+retained relay frames reconstruct accepted orders after its tick. A multiplayer save, manual or
+automatic, is written only on the saving player's machine; nothing is sent to the room. The protocol keeps
+the `save` blob type and the relay still forwards one, but no client sends or reads it. What a save records of its session (the descriptor
 and the public roster, never a token) is the save format's contract in [`DATA-FORMAT.md`](DATA-FORMAT.md).
 
 ## Resync and catching up
@@ -680,7 +683,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `HELLO_TIMEOUT_MS`, `SILENT_SOCKET_MS` [server] | 10 s, 30 s | Connection without `hello`; socket with no incoming transport data. |
 | `SILENT_AFTER_MS` [server] | 4 s | Nothing heard before a member is `silent`. |
 | `LOAD_VIEW_INTERVAL_MS`, `LOADING_STALL_MS` [server] | 1 s, 2 min | Views for moved figures alone; unmoved boot before the clock runs. |
-| `KICK_COUNTDOWN_MS`, `WAIT_FORGIVENESS` [server] | 60 s, 0.1 | Waited time before a vote opens; waited ms forgiven per ms not waited for. |
+| `KICK_COUNTDOWN_MS`, `WAIT_FORGIVENESS` [server] | 60 s, 0.1 | Waited time before a vote opens, and the most a member owes; waited ms forgiven per ms not waited for. |
 | `INITIAL_INPUT_DELAY_TICKS`, `MAX_INPUT_DELAY_TICKS` [server] | 2, 12 | Input delay at the start, and its cap (one second). |
 | `AUTO_INITIAL_BUFFER_TICKS`, `MAX_RESPONSIVENESS_BUFFER_TICKS` [server, protocol] | 2, 6 | Auto reserve before measurement, and its cap; manual reserves are 1, 2, 3. |
 | `LAG_BEHIND_MS`, `SLOW_GRACE_MS`, `SLOW_AT_ONCE_MS` [server] | 1 s, 4 s, 5 s | Backlog that lags; lag before slow; backlog slow at once (the sum of the two). |
@@ -755,7 +758,7 @@ later still, under a delay raised on the lost socket, takes a newer command's st
   whose tick stands behind `start`'s `snapshotTick`. The host hands the socket the client's
   `awaitsTransfer`; a socket without it keeps a quiet link open. Each new socket forgets what the old one
   awaited and is served again from its own `start`.
-- A large message nobody asked for, such as a shared save or a broadcast initial save, counts as silence,
+- A large message nobody asked for, such as a broadcast initial save, counts as silence,
   so a link slower than its size over `LINK_REPLACE_MS` loses it to a replacement; the room's state is
   served again either way.
 
@@ -806,8 +809,9 @@ Start cannot restart it.
 ## Background windows
 
 Window focus and tab visibility do not change room membership: a client that stops ticking but answers
-pings is paced for, and one that stops answering is waited for and can be voted out. Both drain their
-buffered frames when they resume. The desktop window disables Electron's background throttling so a
+pings is paced for, and is waited for as `slow` once it has stayed slow for `SLOW_WAIT_AFTER_MS`
+([Pacing](#pacing)); one that stops answering is waited for as `silent`. Either can then be voted out.
+Both drain their buffered frames when they resume. The desktop window disables Electron's background throttling so a
 minimized client keeps ticking.
 
 In a browser the network worker steps and acknowledges on its own `setTimeout` chain, so a hidden tab
@@ -823,8 +827,9 @@ tab of the same window for seven minutes (macOS):
 
 The worker's clock owes at most five ticks of wall time per firing, so a clamped 100 ms firing still
 delivers up to 50 ticks a second: derived from the clock, not measured in a browser, a hidden Chrome tab
-keeps pace up to about speed 4 and trails beyond it. The room is then paced for it, and on return it
-drains its buffered frames at the client's catch-up rate. A Safari tab suspended this way acknowledges
+keeps pace up to about speed 4 and trails beyond it. The room is then paced for it, and waits for it as
+`slow` if it stays slow for `SLOW_WAIT_AFTER_MS`; on return it drains its buffered frames at the client's
+catch-up rate. A Safari tab suspended this way acknowledges
 nothing and is `silent` after `SILENT_AFTER_MS`; nothing distinguishes it from a crashed client. Neither
 case is designed around: the desktop build is the primary target.
 

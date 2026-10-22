@@ -102,4 +102,11 @@ export function colouredBake(palette: Uint8Array, alpha: AtlasAlphaMode): BobBak
 
 export const INDEXED_BAKE: BobBake = { secondByte: 'alpha', plane: expandBobFrameIndexed };
 
+/** The indexed counterpart of {@link colouredBake}: the same mask and time plane, the index in red. */
+export function indexedBake(alpha: AtlasAlphaMode): BobBake {
+  return alpha === 'build-time'
+    ? { secondByte: 'time', plane: expandBobFrameIndexed, time: expandBobFrameTime }
+    : INDEXED_BAKE;
+}
+
 export const SHADOW_BAKE: BobBake = { secondByte: 'alpha', plane: expandBobFrameShadow };

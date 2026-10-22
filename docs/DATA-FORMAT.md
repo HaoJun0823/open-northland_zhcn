@@ -22,7 +22,8 @@ content/
     <id>.map.png          optional minimap rasterized from the terrain
     <id>.voice-<lang>-NNNN.wav  optional spoken briefing line; its maps-index row lists each one
   bobs/                   atlases and colour LUTs: <stem>.atlas.json names the lossless WebP sheet it
-                          cuts from, stored once under the hash of its pixels
+                          cuts from, stored once under the hash of its pixels; the recolours of one
+                          bob set share an indexed sheet and each carry their base64 `palette`
   textures/               ground pages and transition overlays
   sounds/                 the mod's sound clips, each as FLAC and Ogg Opus, alone and packed into
                           banks/ by folder; banks.json indexes both

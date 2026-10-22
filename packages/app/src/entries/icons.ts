@@ -1,7 +1,7 @@
 import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
+import { atlasSheetUrl } from '../content/atlas-sheet/index.js';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
-import { atlasImagePath, contentUrl } from '../content/url.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { el, mountMessage, pageInnerStyle, pageRootStyle } from '../view/overlay.js';
 
@@ -29,6 +29,7 @@ interface AtlasJson {
   readonly width: number;
   readonly height: number;
   readonly image: string;
+  readonly palette?: string;
   readonly frames: readonly AtlasFrameJson[];
 }
 
@@ -179,7 +180,7 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
         meta.textContent = formatMessage(messages().icons.loadFailed, { stem });
         return;
       }
-      grid.style.setProperty('--sheet', `url('${contentUrl(atlasImagePath(atlas.image))}')`);
+      grid.style.setProperty('--sheet', `url('${await atlasSheetUrl(atlas)}')`);
       grid.style.setProperty('--sw', String(atlas.width));
       grid.style.setProperty('--sh', String(atlas.height));
       const withName = stem.startsWith(`${GUI_BASE}.`);

@@ -25,6 +25,7 @@ export interface ServedAtlas {
   readonly width: number;
   readonly height: number;
   readonly image: string;
+  readonly palette?: string;
   readonly frames: readonly {
     readonly bobId: number;
     readonly rect: {

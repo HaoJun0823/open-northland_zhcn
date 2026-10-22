@@ -2,11 +2,11 @@ import {
   type AtlasManifest,
   atlasFromManifest,
   type BuildTimeSheet,
-  loadAtlasSource,
   type SpriteLayer,
 } from '@open-northland/render';
+import { loadAtlasSheet } from '../atlas-sheet/index.js';
 import { fetchImageData, fetchJsonOrNull } from '../net.js';
-import { atlasImagePath, contentFetch, contentUrl } from '../url.js';
+import { atlasImagePath, contentFetch } from '../url.js';
 import { BODY_IMAGELIB, type BobSeqRow, type ContentIr } from './rows.js';
 
 /**
@@ -25,7 +25,8 @@ function isIndexedStem(stem: string): boolean {
 const layerBodies = new Map<string, Promise<SpriteLayer>>();
 
 /**
- * One decoded atlas body (`<stem>.atlas.json` and the sheet it names) served at `/bobs/`. A manifest with a
+ * One decoded atlas body (`<stem>.atlas.json` and the sheet it names, coloured through the manifest's
+ * palette when it names one) served at `/bobs/`. A manifest with a
  * `buildImage` also reads that time sheet CPU-side for the per-pixel construction-reveal thresholds,
  * degrading to the crop reveal when unreadable.
  */
@@ -38,11 +39,7 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   }
   const manifest = (await res.json()) as AtlasManifest;
   const [source, times] = await Promise.all([
-    loadAtlasSource(
-      contentUrl(atlasImagePath(manifest.image)),
-      'nearest',
-      isIndexedStem(stem) ? 'straight' : 'premultiplied',
-    ),
+    loadAtlasSheet(manifest, isIndexedStem(stem)),
     manifest.buildImage === undefined
       ? Promise.resolve(undefined)
       : loadBuildTimeSheet(atlasImagePath(manifest.buildImage)),

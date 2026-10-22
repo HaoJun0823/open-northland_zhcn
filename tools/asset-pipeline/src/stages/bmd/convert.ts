@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import type { LandscapeGfx } from '@open-northland/data';
 import {
-  type AtlasAlphaMode,
   type BobAtlas,
+  type PackBobAtlasOptions,
   packBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
@@ -11,25 +11,17 @@ import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { paletteAliasMap } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
-import { assertDistinctBobBasenames, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from '../content-tree.js';
+import {
+  assertDistinctBobBasenames,
+  INDEXED_ATLAS_SUFFIX,
+  type PalettedBobAtlas,
+  writeSourceBobAtlas,
+} from '../content-tree.js';
+import { isCharacterBmd } from '../player-colors.js';
 import type { SourceAssetIndex } from '../source-files.js';
 import { bindingKey, type GraphicsBindingSet } from './bindings.js';
 
-/**
- * `.bmd` bytes plus a 768-byte RGB palette to a packed bob atlas. Throws a `bmd:`/`atlas:`-prefixed
- * error for a malformed container or a wrong-sized palette. `alpha` picks the bake mode
- * ({@link AtlasAlphaMode}); the house atlases need `'build-time'`, except for `coverageBobs`.
- */
-export function bmdToAtlas(
-  bmdBytes: Uint8Array,
-  palette: Uint8Array,
-  alpha: AtlasAlphaMode = 'per-pixel',
-  coverageBobs?: ReadonlySet<number>,
-): BobAtlas {
-  return packBobAtlas(decodeBmd(bmdBytes), palette, { alpha, ...(coverageBobs ? { coverageBobs } : {}) });
-}
-
-/** One emitted bob atlas: the binding it came from plus the relative atlas PNG / manifest JSON paths. */
+/** One emitted bob atlas: the binding it came from plus the relative sheet / manifest JSON paths. */
 export interface BmdConversion {
   /** The body `.bmd`'s path under `outDir`, normalized (forward slashes, lower-case) - the binding key. */
   readonly bmd: string;
@@ -49,14 +41,23 @@ function paletteSlug(name: string): string {
   return name.replace(/[^a-z0-9_]+/g, '_');
 }
 
+/** One binding whose palette and body `.bmd` were found, waiting for its bob set to be packed. */
+interface ResolvedBinding {
+  readonly paletteName: string;
+  readonly palette: Uint8Array;
+}
+
 /**
- * Converts the body `.bmd` of every binding into a packed atlas PNG plus a manifest JSON at its served
- * flat stem, colouring the bob frames through the palette its `editname` resolves to. Duplicate
- * `(bmd, palette)` bindings convert once, since the binding legs deliberately overlap.
+ * Converts the body `.bmd` of every binding into a packed atlas at its served flat stem, colouring
+ * the bob frames through the palette its `editname` resolves to. Duplicate `(bmd, palette)` bindings
+ * convert once, since the binding legs deliberately overlap.
  *
  * Each atlas is named `<bmd-basename>.<palette>` because many bindings share one body `.bmd` recoloured
- * per creature; naming on the `.bmd` alone would collapse them onto one last-palette-wins file. Shadow
- * `.bmd`s convert separately ({@link convertShadowBmdTree}).
+ * per creature; naming on the `.bmd` alone would collapse them onto one last-palette-wins file. A bob
+ * set served in more than one colouring (several palettes, or a character body the app also draws
+ * indexed) is written once as an indexed sheet that every stem names with its own palette
+ * ({@link PalettedBobAtlas}); a bob set with one colouring keeps its RGB sheet. Shadow `.bmd`s convert
+ * separately ({@link convertShadowBmdTree}).
  *
  * Per-binding boundary failures are warned and skipped; a basename collision is the one fatal case
  * ({@link assertDistinctBobBasenames}), having no per-binding answer.
@@ -73,9 +74,9 @@ export async function convertBmdTree(
 ): Promise<BmdConversion[]> {
   const { bindings, palettes, buildTimeBmds, coverageBobs } = graphics;
   assertDistinctBobBasenames(bindings.map((b) => b.bmd).filter((ref) => tree.has(ref)));
-  const done: BmdConversion[] = [];
   const paletteByName = paletteAliasMap(palettes);
   const seen = new Set<string>();
+  const byBmd = new Map<string, ResolvedBinding[]>();
   for (const binding of bindings) {
     const key = bindingKey(binding);
     if (seen.has(key)) continue;
@@ -92,32 +93,59 @@ export async function convertBmdTree(
       console.warn(`[pipeline] skipped ${binding.bmd}: ${missing} not found in any source layer`);
       continue;
     }
-    let atlas: BobAtlas;
-    try {
-      const palette = decodePcx(await readFile(pcxSource.path)).palette;
-      if (palette === undefined) {
-        console.warn(`[pipeline] skipped ${binding.bmd}: palette ${pcxRel} has no trailer`);
-        continue;
-      }
-      const alpha: AtlasAlphaMode = buildTimeBmds.has(binding.bmd) ? 'build-time' : 'per-pixel';
-      atlas = bmdToAtlas(await readFile(bmdSource.path), palette, alpha, coverageBobs.get(binding.bmd));
-    } catch (err) {
-      console.warn(`[pipeline] skipped ${binding.bmd}: ${errorMessage(err)}`);
-      continue;
-    }
     if (!/\.bmd$/i.test(bmdSource.rel)) {
       // The served stem is the basename minus `.bmd`, so a `.bmd`-less name would carry its own
       // extension into the atlas name. The extractor only emits `.bmd` paths, so this is a guard.
       console.warn(`[pipeline] skipped ${binding.bmd}: source has no .bmd extension`);
       continue;
     }
-    const { image, manifest } = await writeSourceBobAtlas(
-      outDir,
-      bmdSource.rel,
-      paletteSlug(binding.paletteName),
-      atlas,
-    );
-    done.push({ bmd: binding.bmd, paletteName: binding.paletteName, image, manifest });
+    let palette: Uint8Array | undefined;
+    try {
+      palette = decodePcx(await readFile(pcxSource.path)).palette;
+    } catch (err) {
+      console.warn(`[pipeline] skipped ${binding.bmd}: ${errorMessage(err)}`);
+      continue;
+    }
+    if (palette === undefined) {
+      console.warn(`[pipeline] skipped ${binding.bmd}: palette ${pcxRel} has no trailer`);
+      continue;
+    }
+    const group = byBmd.get(binding.bmd) ?? [];
+    group.push({ paletteName: binding.paletteName, palette });
+    byBmd.set(binding.bmd, group);
+  }
+  const done: BmdConversion[] = [];
+  for (const [bmd, group] of byBmd) {
+    const bmdSource = tree.get(bmd);
+    if (bmdSource === undefined) continue;
+    const coverage = coverageBobs.get(bmd);
+    const options: PackBobAtlasOptions = {
+      alpha: buildTimeBmds.has(bmd) ? 'build-time' : 'per-pixel',
+      ...(coverage === undefined ? {} : { coverageBobs: coverage }),
+    };
+    const shared = group.length > 1 || isCharacterBmd(bmd);
+    let atlasFor: (palette: Uint8Array) => BobAtlas | PalettedBobAtlas;
+    try {
+      const decoded = decodeBmd(await readFile(bmdSource.path));
+      if (shared) {
+        const indexed = packIndexedBobAtlas(decoded, options);
+        atlasFor = (palette) => ({ indexed, palette });
+      } else {
+        atlasFor = (palette) => packBobAtlas(decoded, palette, options);
+      }
+    } catch (err) {
+      console.warn(`[pipeline] skipped ${bmd}: ${errorMessage(err)}`);
+      continue;
+    }
+    for (const { paletteName, palette } of group) {
+      try {
+        const slug = paletteSlug(paletteName);
+        const { image, manifest } = await writeSourceBobAtlas(outDir, bmdSource.rel, slug, atlasFor(palette));
+        done.push({ bmd, paletteName, image, manifest });
+      } catch (err) {
+        console.warn(`[pipeline] skipped ${bmd}: ${errorMessage(err)}`);
+      }
+    }
   }
   return done;
 }

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import { packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
@@ -14,6 +14,11 @@ const CREATURES_DIR = 'Data/engine2d/bin/palettes/creatures';
 const SYNTHETIC_REFERENCE_PCX = 'player01.pcx';
 /** Human character bobs get the recolourable indexed atlas; everything else keeps its baked RGB atlas. */
 const CHARACTER_BMD_RE = /(^|\/)cr_hum_/i;
+/** Whether `bmd` is a human character body or head, which the app draws from its indexed atlas. */
+export function isCharacterBmd(bmd: string): boolean {
+  return CHARACTER_BMD_RE.test(bmd);
+}
+
 /** The guidepost bob. Its board-text indices 23-30 sit inside the `playerNN.pcx` player ramp and those
  *  palettes carry the wood ramp at indices 131-141, so the original draws it through the player's own
  *  full palette. */
@@ -32,8 +37,8 @@ async function readCreaturePalette(tree: SourceAssetIndex, file: string): Promis
 }
 
 /**
- * Bakes one guidepost atlas per player (`ls_guidepost.player_NN.atlas.json`), decoded through
- * that player's full source palette, which differs from a composed human palette at every index the
+ * Writes one guidepost atlas per player (`ls_guidepost.player_NN.atlas.json`): the shared indexed
+ * sheet coloured through that player's full source palette, which differs from a composed human palette at every index the
  * guidepost draws.
  */
 export async function convertGuidepostPlayerAtlases(outDir: string, tree: SourceAssetIndex): Promise<number> {
@@ -41,7 +46,7 @@ export async function convertGuidepostPlayerAtlases(outDir: string, tree: Source
   if (source === undefined) {
     throw new Error('guidepost atlases: ls_guidepost.bmd not found in any source layer');
   }
-  const bmd = decodeBmd(await readFile(source.path));
+  const indexed = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
   const reference = await readCreaturePalette(tree, SYNTHETIC_REFERENCE_PCX);
   let emitted = 0;
   for (const color of PLAYER_COLORS) {
@@ -52,7 +57,7 @@ export async function convertGuidepostPlayerAtlases(outDir: string, tree: Source
     // The `player_NN` suffix is a string contract with the app's `guidepostPlayerAtlas`; a drift there
     // falls back silently to bridge01.
     const suffix = `player_${String(color.id).padStart(2, '0')}`;
-    await writeSourceBobAtlas(outDir, source.rel, suffix, packBobAtlas(bmd, palette));
+    await writeSourceBobAtlas(outDir, source.rel, suffix, { indexed, palette });
     emitted++;
   }
   return emitted;
@@ -70,7 +75,7 @@ export async function convertIndexedCharacterAtlases(
 ): Promise<string[]> {
   const characterBmds = new Set<string>();
   for (const b of bindings) {
-    if (CHARACTER_BMD_RE.test(b.bmd) && /\.bmd$/i.test(b.bmd)) characterBmds.add(b.bmd);
+    if (isCharacterBmd(b.bmd) && /\.bmd$/i.test(b.bmd)) characterBmds.add(b.bmd);
   }
   const done: string[] = [];
   for (const bmdRef of characterBmds) {

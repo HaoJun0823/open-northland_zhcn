@@ -88,6 +88,11 @@ export interface AtlasManifest {
   readonly frames: readonly AtlasManifestFrame[];
   /** The sheet the frames are cut from. */
   readonly image: string;
+  /**
+   * Present when {@link image} is an indexed sheet shared by the bob set's recolours: this stem's 256 RGB
+   * entries, base64, which the loader colours the sheet through (`colourIndexedSheet`).
+   */
+  readonly palette?: string;
   /** The `'build-time'` bake's time sheet, placed like {@link image}. */
   readonly buildImage?: string;
 }

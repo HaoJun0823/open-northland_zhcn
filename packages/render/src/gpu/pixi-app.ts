@@ -1,4 +1,4 @@
-import { Application, Assets, type Texture, type TextureSource } from 'pixi.js';
+import { Application, Assets, ImageSource, type Texture, type TextureSource } from 'pixi.js';
 import { registerHumanPaletteUploader } from './human-palette-lut.js';
 import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
 import { markPixelArtSource } from './pixel-art-registry.js';
@@ -164,4 +164,15 @@ export async function loadAtlasSource(
   // A nearest-loaded page is authored pixel art and may magnify edge-aware; ground pages stay linear.
   if (scaleMode === 'nearest') markPixelArtSource(texture.source);
   return texture.source;
+}
+
+/**
+ * A pixel-art atlas page over a bitmap decoded with the platform defaults, set up as
+ * {@link loadAtlasSource} sets up a premultiplied sheet it fetched: the source owns the bitmap.
+ */
+export function atlasSourceFromBitmap(bitmap: ImageBitmap): TextureSource {
+  const source = new ImageSource({ resource: bitmap, alphaMode: 'premultiply-alpha-on-upload' });
+  source.scaleMode = 'nearest';
+  markPixelArtSource(source);
+  return source;
 }

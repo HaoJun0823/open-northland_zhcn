@@ -1,4 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
+import { atlasSheetUrl } from '../../content/atlas-sheet/index.js';
 import { loadGoodsManifest } from '../../content/goods-gfx.js';
 import {
   type SpriteIconFrame,
@@ -6,7 +7,6 @@ import {
   spriteGoodIcon,
   swarmFishIcon,
 } from '../../content/sprite-good-icons.js';
-import { atlasImagePath, contentUrl } from '../../content/url.js';
 import { diag } from '../../diag/index.js';
 import type { GoodIconSource, PresentationPack } from '../../presentation/pack.js';
 
@@ -44,7 +44,7 @@ export async function goodIconSource(
   if (icon === null || frame === undefined) return null;
   const { atlas } = icon;
   return {
-    url: contentUrl(atlasImagePath(atlas.image)),
+    url: await atlasSheetUrl(atlas),
     sheet: { width: atlas.width, height: atlas.height },
     rect: frame.rect,
   };

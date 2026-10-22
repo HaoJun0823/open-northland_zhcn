@@ -1,8 +1,9 @@
 import { basename, join } from 'node:path';
-import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import { type BobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
 import type { Bmd } from '@open-northland/formats/bmd/index';
 import type { RgbaImage } from '@open-northland/formats/image';
 import type { AtlasManifest } from '@open-northland/render';
+import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { statIfExists, writeFileWithParents } from '../files.js';
 import { type AtlasImageAlpha, atlasImageName, encodeAtlasImage } from './atlas-image.js';
 
@@ -49,19 +50,44 @@ async function writeAtlasImage(outDir: string, image: RgbaImage, alpha: AtlasIma
 }
 
 /**
- * Writes a packed bob atlas's sheet, and a `'build-time'` bake's time sheet, under {@link BOBS_DIR},
- * then the `<stem>.atlas.json` that names them.
+ * One recolour of a bob set that other recolours share: the indexed atlas
+ * (`packIndexedBobAtlas`, with the alpha options the RGB bake would take) and this stem's palette. It
+ * is served as the shared indexed sheet plus the palette, which the app colours at load, so the bob
+ * set's recolours cost one sheet.
  */
-async function writeBobAtlas(outDir: string, stem: string, atlas: BobAtlas): Promise<BobAtlasFiles> {
-  const alpha: AtlasImageAlpha = stem.endsWith(`.${INDEXED_ATLAS_SUFFIX}`) ? 'straight' : 'premultiplied';
-  const image = await writeAtlasImage(outDir, atlas.image, alpha);
+export interface PalettedBobAtlas {
+  readonly indexed: BobAtlas;
+  readonly palette: Uint8Array;
+}
+
+/**
+ * Writes a packed bob atlas's sheet, and a `'build-time'` bake's time sheet, under {@link BOBS_DIR},
+ * then the `<stem>.atlas.json` that names them. A {@link PalettedBobAtlas} writes its indexed sheet
+ * and puts the palette in the manifest.
+ */
+async function writeBobAtlas(
+  outDir: string,
+  stem: string,
+  atlas: BobAtlas | PalettedBobAtlas,
+): Promise<BobAtlasFiles> {
+  const paletted = 'indexed' in atlas;
+  if (paletted && atlas.palette.length !== ATLAS_PALETTE_BYTES) {
+    throw new Error(
+      `atlas: ${stem} palette has ${atlas.palette.length} bytes, expected ${ATLAS_PALETTE_BYTES}`,
+    );
+  }
+  const packed = paletted ? atlas.indexed : atlas;
+  const alpha: AtlasImageAlpha =
+    paletted || stem.endsWith(`.${INDEXED_ATLAS_SUFFIX}`) ? 'straight' : 'premultiplied';
+  const image = await writeAtlasImage(outDir, packed.image, alpha);
   const buildImage =
-    atlas.timeImage === undefined
+    packed.timeImage === undefined
       ? undefined
-      : await writeAtlasImage(outDir, atlas.timeImage, 'premultiplied');
+      : await writeAtlasImage(outDir, packed.timeImage, 'premultiplied');
   const served = {
-    ...atlas.manifest,
+    ...packed.manifest,
     image,
+    ...(paletted ? { palette: Buffer.from(atlas.palette).toString('base64') } : {}),
     ...(buildImage === undefined ? {} : { buildImage }),
   } satisfies AtlasManifest;
   const manifest = `${BOBS_DIR}/${stem}${ATLAS_MANIFEST_SUFFIX}`;
@@ -73,7 +99,7 @@ async function writeBobAtlas(outDir: string, stem: string, atlas: BobAtlas): Pro
 export interface IndexedAtlasStems {
   /** `<keyStem>.indexed` - the recolourable indexed atlas (palette index in red, mask in alpha). */
   readonly indexedStem: string;
-  /** `<keyStem>.<previewSuffix>` - the default-coloured RGBA preview atlas. */
+  /** `<keyStem>.<previewSuffix>` - the indexed sheet with the preview palette, coloured at load. */
   readonly previewStem: string;
   readonly frames: number;
 }
@@ -82,8 +108,8 @@ export interface IndexedAtlasStems {
 export const INDEXED_ATLAS_SUFFIX = 'indexed';
 
 /**
- * Packs a decoded bob container into an indexed atlas the app recolours at draw time plus an RGBA
- * preview coloured through `previewPalette`, written under {@link BOBS_DIR} as `<keyStem>.indexed` and
+ * Packs a decoded bob container into an indexed atlas the app recolours at draw time plus a preview
+ * coloured through `previewPalette` at load, written under {@link BOBS_DIR} as `<keyStem>.indexed` and
  * `<keyStem>.<previewSuffix>` (the naming the app-side loaders mirror).
  */
 export async function emitIndexedAndPreviewAtlas(
@@ -94,11 +120,10 @@ export async function emitIndexedAndPreviewAtlas(
   previewPalette: Uint8Array,
 ): Promise<IndexedAtlasStems> {
   const indexed = packIndexedBobAtlas(bmd);
-  const preview = packBobAtlas(bmd, previewPalette);
   const indexedStem = `${keyStem}.${INDEXED_ATLAS_SUFFIX}`;
   const previewStem = `${keyStem}.${previewSuffix}`;
   await writeBobAtlas(outDir, indexedStem, indexed);
-  await writeBobAtlas(outDir, previewStem, preview);
+  await writeBobAtlas(outDir, previewStem, { indexed, palette: previewPalette });
   return { indexedStem, previewStem, frames: indexed.manifest.frames.length };
 }
 
@@ -118,7 +143,7 @@ export async function writeSourceBobAtlas(
   outDir: string,
   bmdRel: string,
   suffix: string,
-  atlas: BobAtlas,
+  atlas: BobAtlas | PalettedBobAtlas,
 ): Promise<BobAtlasFiles> {
   return writeBobAtlas(outDir, bobAtlasStem(bmdRel, suffix), atlas);
 }

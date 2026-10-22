@@ -1,17 +1,34 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type Bmd, BOB_TYPE_1BIT, BOB_TYPE_DOUBLE8BIT, encodeBmd } from '@open-northland/formats/bmd/index';
+import { type AtlasAlphaMode, type BobAtlas, packBobAtlas } from '@open-northland/formats/atlas/index';
+import {
+  type Bmd,
+  BOB_TYPE_1BIT,
+  BOB_TYPE_DOUBLE8BIT,
+  decodeBmd,
+  encodeBmd,
+} from '@open-northland/formats/bmd/index';
 import type { BmdPaletteBinding, PaletteAlias } from '@open-northland/formats/ini';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packLineControl, sampleBmdBytes } from '../../../packages/formats/test/fixtures/bmd.js';
 import { rampPalette, solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
 import { encodeAtlasImage } from '../src/stages/atlas-image.js';
-import { bmdToAtlas, convertBmdTree, convertShadowBmdTree } from '../src/stages/bmd/index.js';
+import { convertBmdTree, convertShadowBmdTree } from '../src/stages/bmd/index.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 import { makeTempDir } from './support/game-tree.js';
 import { decodeAtlasImage, readServedManifest, readServedSheet } from './support/served-atlas.js';
+
+/** `.bmd` bytes through a palette into the RGB atlas the stage writes for a bob set with one colouring. */
+function bmdToAtlas(
+  bytes: Uint8Array,
+  palette: Uint8Array,
+  alpha: AtlasAlphaMode = 'per-pixel',
+  coverageBobs?: ReadonlySet<number>,
+): BobAtlas {
+  return packBobAtlas(decodeBmd(bytes), palette, { alpha, ...(coverageBobs ? { coverageBobs } : {}) });
+}
 
 describe('bmdToAtlas', () => {
   it('decodes a .bmd, packs an atlas, and yields an encodable image + manifest', async () => {
@@ -153,6 +170,8 @@ describe('convertBmdTree', () => {
     const manifest = await readServedManifest(out, 'body.bear01');
     expect(done[0]?.image).toBe(`${BOBS_DIR}/${manifest.image}`);
     expect(manifest.image).toMatch(/^[0-9a-f]{16}\.webp$/);
+    // A bob set with one colouring keeps its RGB sheet.
+    expect(manifest.palette).toBeUndefined();
     const decoded = await readServedSheet(out, 'body.bear01');
     expect(decoded.width).toBeGreaterThan(0);
     expect(manifest.frames).toHaveLength(1);
@@ -185,8 +204,13 @@ describe('convertBmdTree', () => {
     );
 
     expect(done).toHaveLength(2);
-    // Two distinct atlas files from one shared .bmd - the palette name is the differentiator.
-    expect(new Set(done.map((c) => c.image)).size).toBe(2);
+    // One shared indexed sheet, each stem's manifest naming it with its own palette.
+    expect(new Set(done.map((c) => c.image)).size).toBe(1);
+    const [bearManifest, wolfManifest] = await Promise.all(
+      ['body.bear01', 'body.wolf01'].map((stem) => readServedManifest(out, stem)),
+    );
+    expect(bearManifest?.palette).toBeDefined();
+    expect(wolfManifest?.palette).not.toBe(bearManifest?.palette);
     expect(done.map((c) => c.manifest).sort()).toEqual([
       `${BOBS_DIR}/body.bear01.atlas.json`,
       `${BOBS_DIR}/body.wolf01.atlas.json`,

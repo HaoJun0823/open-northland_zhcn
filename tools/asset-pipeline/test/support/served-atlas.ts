@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { AtlasFrame } from '@open-northland/formats/atlas/index';
 import type { RgbaImage } from '@open-northland/formats/image';
 import type { AtlasManifest } from '@open-northland/render';
+import { colourIndexedSheet, decodeAtlasPalette } from '@open-northland/render/data';
 import sharp from 'sharp';
 import { ATLAS_MANIFEST_SUFFIX, BOBS_DIR } from '../../src/stages/content-tree.js';
 
@@ -19,8 +20,12 @@ export async function readServedManifest(out: string, stem: string): Promise<Ser
   return JSON.parse(await readFile(join(out, BOBS_DIR, `${stem}${ATLAS_MANIFEST_SUFFIX}`), 'utf8'));
 }
 
-/** The sheet a stem's manifest names, decoded. */
+/** The sheet a stem's manifest names, decoded and coloured through the stem's palette as the app does. */
 export async function readServedSheet(out: string, stem: string): Promise<RgbaImage> {
-  const { image } = await readServedManifest(out, stem);
-  return decodeAtlasImage(await readFile(join(out, BOBS_DIR, image)));
+  const { image, palette } = await readServedManifest(out, stem);
+  const sheet = await decodeAtlasImage(await readFile(join(out, BOBS_DIR, image)));
+  if (palette === undefined) return sheet;
+  const rgba = new Uint8Array(sheet.rgba.length);
+  colourIndexedSheet(sheet.rgba, decodeAtlasPalette(palette), rgba);
+  return { ...sheet, rgba };
 }

@@ -69,6 +69,7 @@ export {
   vehicleDrawTile,
 } from './data/scene/index.js';
 export {
+  ATLAS_PALETTE_BYTES,
   type AtlasFrame,
   type AtlasManifest,
   type AtlasManifestFrame,
@@ -87,8 +88,10 @@ export {
   type ConstructionLayerRef,
   type CraftFxBinding,
   type CraftFxLoopRef,
+  colourIndexedSheet,
   DEFAULT_FACING,
   type DirectionalAnim,
+  decodeAtlasPalette,
   type FamilyEffectsBinding,
   type FishBinding,
   FLAG_WAVE_TICKS_PER_FRAME,
@@ -236,7 +239,13 @@ export {
   type PixelArtScaler,
   parsePixelArtScaler,
 } from './gpu/pixel-art-registry.js';
-export { createPixiApp, createWindowPixiApp, loadAtlasSource, windowResolutionFor } from './gpu/pixi-app.js';
+export {
+  atlasSourceFromBitmap,
+  createPixiApp,
+  createWindowPixiApp,
+  loadAtlasSource,
+  windowResolutionFor,
+} from './gpu/pixi-app.js';
 export type { PlanRoadTextures } from './gpu/plan-road.js';
 export type { PlanStakeTextures } from './gpu/plan-stake.js';
 export {

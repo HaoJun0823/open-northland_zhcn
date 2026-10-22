@@ -102,10 +102,10 @@ function lacksOf(
   kind: ResidentKind,
   jobType: number | null,
   postedTrades: ReadonlySet<number>,
+  worn: WornSlots,
 ): ResidentLack[] {
   if (kind === 'child') return [];
   const fighter = kind === 'soldier' || kind === 'hero';
-  const worn = wornSlots(ent);
   const lacks: ResidentLack[] = [];
   if (!fighter && residenceHomeOf(ent) === undefined) lacks.push('home');
   if (
@@ -135,22 +135,37 @@ function weaponFamilyOf(jobType: number | null): SoldierFamily | null {
   return (jobType === null ? undefined : SOLDIER_CLASS_OF_JOB.get(jobType)?.family) ?? null;
 }
 
-const armorByGoodByContent = new WeakMap<ContentSet, ReadonlyMap<number, SoldierArmor>>();
+interface ArmorLookup {
+  readonly byGood: ReadonlyMap<number, SoldierArmor>;
+  readonly byClass: ReadonlyMap<number, SoldierArmor>;
+}
 
-/** What a soldier wears, read off the armour good's `armortypes.ini` row. */
-function armorOf(content: ContentSet, ent: SnapshotEntity): SoldierArmor {
-  let byGood = armorByGoodByContent.get(content);
-  if (byGood === undefined) {
-    byGood = new Map(
-      content.armor.flatMap((row) => {
-        const armor = row.mainType === undefined ? undefined : SOLDIER_ARMOR_OF_MAIN_TYPE.get(row.mainType);
-        return row.goodType === undefined || armor === undefined ? [] : [[row.goodType, armor] as const];
-      }),
-    );
-    armorByGoodByContent.set(content, byGood);
+const armorLookupByContent = new WeakMap<ContentSet, ArmorLookup>();
+
+function armorLookup(content: ContentSet): ArmorLookup {
+  let lookup = armorLookupByContent.get(content);
+  if (lookup === undefined) {
+    const byGood = new Map<number, SoldierArmor>();
+    const byClass = new Map<number, SoldierArmor>();
+    for (const row of content.armor) {
+      const armor = row.mainType === undefined ? undefined : SOLDIER_ARMOR_OF_MAIN_TYPE.get(row.mainType);
+      if (armor === undefined) continue;
+      byClass.set(row.typeId, armor);
+      if (row.goodType !== undefined) byGood.set(row.goodType, armor);
+    }
+    lookup = { byGood, byClass };
+    armorLookupByContent.set(content, lookup);
   }
-  const good = wornSlots(ent).armor;
-  return (good === undefined ? undefined : byGood.get(good)) ?? 'none';
+  return lookup;
+}
+
+/** What a soldier wears, read off the armour good's `armortypes.ini` row, or off the armour class a
+ *  scene stamped without a good, as the group panel reads it. */
+function armorOf(content: ContentSet, ent: SnapshotEntity, worn: WornSlots): SoldierArmor {
+  const { byGood, byClass } = armorLookup(content);
+  if (worn.armor !== undefined) return byGood.get(worn.armor) ?? 'none';
+  const armorClass = num((ent.components.Armor as { armorClass?: unknown } | undefined)?.armorClass);
+  return (armorClass === undefined ? undefined : byClass.get(armorClass)) ?? 'none';
 }
 
 /** The vehicle `ent` rides, inside or on its way to board. */
@@ -216,6 +231,7 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
     const workplace = workplaceOf(ent);
     const workplaceEnt = workplace === undefined ? undefined : entityById(snapshot, workplace);
     const vehicleEnt = riddenVehicleOf(snapshot, ent);
+    const worn = wornSlots(ent);
     const ageYears = childAgeYearsOf(ent, snapshot.tick);
     rows.push({
       id: ent.id,
@@ -226,7 +242,7 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
       profession: professionOf(nameCtx, kind, jobType),
       trade: jobDisplayName(nameCtx, jobType ?? undefined),
       weapon: kind === 'soldier' ? weaponFamilyOf(jobType) : null,
-      armor: kind === 'soldier' ? armorOf(ctx.content, ent) : null,
+      armor: kind === 'soldier' ? armorOf(ctx.content, ent, worn) : null,
       ageYears: ageYears ?? null,
       // A ridden vehicle stands in for the workplace.
       workplace:
@@ -237,7 +253,7 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
             : '',
       posted: workplaceEnt !== undefined || vehicleEnt !== undefined,
       products: kind === 'worker' ? (ctx.products?.(snapshot, ent) ?? null) : null,
-      lacks: lacksOf(ctx, snapshot, ent, kind, jobType, postedTrades),
+      lacks: lacksOf(ctx, snapshot, ent, kind, jobType, postedTrades, worn),
     });
   }
   return rows;

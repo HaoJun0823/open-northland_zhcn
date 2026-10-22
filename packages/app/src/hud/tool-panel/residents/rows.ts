@@ -197,9 +197,9 @@ export interface ResidentListing {
   /** The rows passing every filter at once, in the given order. */
   readonly shown: readonly ResidentRow[];
   /** What each chip would list under the other filters: a group chip swaps the group, a lack chip
-   *  adds its lack to the picked ones, a weapon or armour chip swaps its own pick, the free chip
-   *  leaves the posted soldiers out. The soldiers chip
-   *  holds the gear picks; another group chip drops them, so it ignores them. */
+   *  adds its lack to the picked ones, a weapon or armour chip swaps its own pick, the free chip leaves
+   *  the posted soldiers out. The soldiers chip holds the gear picks; another group chip drops them, so
+   *  it ignores them. */
   readonly counts: ResidentCounts;
   /** The professions among the rows the other filters keep, in label order: the Profession options. */
   readonly professions: readonly { readonly profession: string; readonly count: number }[];

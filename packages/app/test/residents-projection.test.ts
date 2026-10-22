@@ -182,6 +182,13 @@ describe('residents projection', () => {
     expect(rows.get(5)?.workplace).toBe('');
   });
 
+  it('reads the armour class a scene stamped without a good, as the group panel does', () => {
+    const plateClass = context().content.armor.find((row) => row.goodType === GOOD_ARMOR_PLATE)?.typeId;
+    if (plateClass === undefined) throw new Error('the sandbox content carries plate armour');
+    const rows = rowsById([person(1, JOB_SOLDIER_SPEAR, { Armor: { armorClass: plateClass } })]);
+    expect(rows.get(1)?.armor).toBe('heavy');
+  });
+
   it('reads the lacks off the worn gear, the home and the family', () => {
     const geared = { ...NO_GEAR, boots: held(GOOD_SHOES), tool: held(GOOD_TOOL_WOODEN) };
     const rows = rowsById([

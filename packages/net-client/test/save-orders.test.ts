@@ -48,7 +48,8 @@ it('adds authoritative orders to the originally captured world even if the live 
 });
 
 it('rejects concurrent captures and expires a lost response instead of writing an incomplete save', async () => {
-  vi.useFakeTimers();
+  // The worker is shared with other files; a native timer one of them left behind must not count here.
+  vi.useFakeTimers({ shouldClearNativeTimers: true });
   const { orders, save, promise } = capture();
   await expect(orders.request(save, 0, () => undefined)).rejects.toThrow(/already/);
   const failure = expect(promise).rejects.toThrow(/Timed out/);

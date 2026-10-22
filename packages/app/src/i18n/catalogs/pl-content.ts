@@ -830,6 +830,11 @@ export const plContent = {
       summary:
         'Marsz oblężniczy AI z wytrzymałym niebieskim oddziałem na drodze fali. Katapulty ostrzeliwują go, gdy fala się zbliża, a gdy oddział jest dość blisko, cała fala szarżuje, zanim ruszy dalej na wieżę.',
     },
+    'tower-finials': {
+      title: 'Szczyty wież',
+      summary:
+        'Frankijska i saraceńska wieża obronna, każda dwa razy: lewą obsadza łucznik, prawa stoi pusta. Puste wieże zachowują własną ozdobę szczytu, frankijski proporzec i saraceński półksiężyc; na obsadzonych zastępuje ją flaga załogi, zamiast powiewać nad nią.',
+    },
     'tower-garrison': {
       title: 'Załoga wieży',
       summary:

@@ -833,6 +833,11 @@ export const enContent = {
       summary:
         'The AI siege march with a tough blue band standing across the route. The catapults shell it as the wave closes in, and once the band is near enough the whole wave charges it before marching on to the defence tower.',
     },
+    'tower-finials': {
+      title: 'Tower finials',
+      summary:
+        'A frankish and a saracen defence tower, each twice: the left one manned by an archer, the right one bare. The bare towers keep their own roof finial, the frank pennant and the saracen crescent; on the manned ones the garrison flag takes its place instead of flying over it.',
+    },
     'tower-garrison': {
       title: 'Tower garrison',
       summary:

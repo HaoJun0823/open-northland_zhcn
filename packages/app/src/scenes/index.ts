@@ -88,6 +88,7 @@ import { technologyScene } from './technology.js';
 import { templeAuraScene } from './temple-aura.js';
 import { terrainEditsScene } from './terrain-edits.js';
 import { towerDefenceScene } from './tower-defence.js';
+import { towerFinialsScene } from './tower-finials.js';
 import { towerGarrisonScene } from './tower-garrison.js';
 import { tradeScene } from './trade.js';
 import { tradeDomesticScene } from './trade-domestic.js';
@@ -211,6 +212,7 @@ export const SCENES: readonly SceneDefinition[] = [
   barracksScene,
   armorScene,
   towerGarrisonScene,
+  towerFinialsScene,
   aiDefenceScene,
   aiSiegeMarchScene,
   aiSiegeChargeScene,

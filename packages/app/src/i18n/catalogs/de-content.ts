@@ -840,6 +840,11 @@ export const deContent = {
       summary:
         'Der KI-Belagerungsmarsch trifft auf einen widerstandsfähigen blauen Trupp, der den Weg versperrt. Während die Angriffswelle näher rückt, beschießen die Katapulte den Trupp. Sobald er nah genug ist, stürmt die gesamte Welle auf ihn los, bevor sie zum Wachturm weitermarschiert.',
     },
+    'tower-finials': {
+      title: 'Turmspitzen',
+      summary:
+        'Ein fränkischer und ein sarazenischer Wehrturm, jeder zweimal: den linken besetzt ein Bogenschütze, der rechte steht leer. Die leeren Türme behalten ihren eigenen Dachschmuck, den fränkischen Wimpel und den sarazenischen Halbmond; auf den besetzten tritt die Besatzungsflagge an seine Stelle, statt über ihm zu wehen.',
+    },
     'tower-garrison': {
       title: 'Turmbesatzung',
       summary:

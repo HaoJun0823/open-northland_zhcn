@@ -810,8 +810,9 @@ export function isLoopback(address) {
 }
 
 /**
- * Starts the proxy. `upstream` is the relay's ws:// or wss:// URL; a client's request path and query
- * are appended to it. Resolves once listening, with the bound port, the control functions and `close`.
+ * Starts the proxy. `upstream` is the relay's ws:// or wss:// URL; a client's request path (unless it
+ * is `/`) and query replace its own. Resolves once listening, with the bound port, the control
+ * functions and `close`.
  */
 export async function startChaosProxy({
   upstream,

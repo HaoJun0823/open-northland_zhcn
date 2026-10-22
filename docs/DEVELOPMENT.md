@@ -278,9 +278,9 @@ node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 [--port 8780] [-
 
 A TCP proxy for the WebSocket connections between real clients (browsers, Electron, headless Node
 clients) and a relay (`ws://` or `wss://`) that impairs the link the way a home connection does,
-without root. It sends the client's upgrade request on with the relay's `Host`, the client's path and
-query appended to the upstream URL, and no extension offer, so the frames stay uncompressed; from
-then on it carries the bytes both ways unchanged. Each direction keeps its order and nothing is
+without root. It sends the client's upgrade request on with the relay's `Host`, the client's path
+(unless it is `/`) and query in place of the upstream URL's, and no extension offer, so the frames
+stay uncompressed; from then on it carries the bytes both ways unchanged. Each direction keeps its order and nothing is
 dropped while the link is up. The impairments act on bytes, not messages: a bandwidth cap releases
 them in 20 ms slices, so a message the relay sends as fragments with a control ping after each
 arrives fragment by fragment with its pings in between, and an upload shows byte progress at the

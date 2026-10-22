@@ -1973,7 +1973,7 @@ export const plGame = {
       ready: 'gotowy',
       loading: 'wczytuje',
       away: 'brak połączenia',
-      reconnecting: 'łączenie ponownie',
+      reconnecting: 'łączy się ponownie',
     },
     youWereKicked: 'Głosowanie wyrzuciło cię z gry',
     gameEndedTitle: 'Gra sieciowa się zakończyła',

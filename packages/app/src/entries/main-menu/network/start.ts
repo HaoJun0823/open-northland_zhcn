@@ -16,12 +16,14 @@ export async function launchNetworkGame(
   launch: LaunchEntry,
   current: () => boolean,
   abandoned: (error: unknown) => void,
+  /** The relay's kept copy of the room's map, for a browser that no longer has it. */
+  delivered: () => Promise<string>,
 ): Promise<void> {
   const room = connection.client.room;
   if (room?.settings.world.kind !== 'map') throw new Error('No map session');
   let map = assets.verifiedMap();
   if (map === null) {
-    map = await loadRoomMapDocuments(room);
+    map = await loadRoomMapDocuments(room, { delivered });
     if (!current()) return;
     if (map === null) throw new Error(messages().network.missingMap);
     const report = await loadLobbyCompatibility(map.mapId, fetch, undefined, map);

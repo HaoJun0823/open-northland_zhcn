@@ -1,11 +1,12 @@
 import type { MapText } from '@open-northland/data';
-import { MAX_NICK_LENGTH } from '@open-northland/net-protocol';
+import { MAX_NICK_LENGTH, type RoomView } from '@open-northland/net-protocol';
 import { apiBaseUrl, loadMapSources } from '../../../content/map-source/index.js';
 import type { MapVerifyNotice } from '../../../content/transfer/index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import { type ConnectionEvent, NetworkConnection } from '../../../net/connection.js';
+import { type RelayMapRequest, relayMapRequest } from '../../../net/map-request.js';
 import { relayCloseText, relayReasonText } from '../../../net/relay-reason.js';
 import { nextPaint } from '../../../view/next-paint.js';
 import { relayIdentity } from '../../relay/identity.js';
@@ -23,11 +24,24 @@ import { button } from './parts.js';
 import { mountNetworkRoom } from './room/index.js';
 import { launchNetworkGame } from './start.js';
 
+export interface NetworkScreenServices {
+  readonly connect: (url: string, nick: string) => NetworkConnection;
+  readonly assets: typeof roomAssets;
+  readonly startGame: typeof launchNetworkGame;
+}
+
+const SERVICES: NetworkScreenServices = {
+  connect: (url, nick) => new NetworkConnection(url, relayIdentity(url, nick)),
+  assets: roomAssets,
+  startGame: launchNetworkGame,
+};
+
 export function networkScreen(
   open: (screen: MenuScreen) => void,
   launch: LaunchEntry,
   params: URLSearchParams,
   sound: MenuSound,
+  services: NetworkScreenServices = SERVICES,
 ) {
   const copy = messages().network;
   const element = node('section', 'main-menu__screen network-menu');
@@ -50,6 +64,8 @@ export function networkScreen(
   const columns = node('div', 'network-menu__columns');
   let connection: NetworkConnection | null = null;
   let assets: ReturnType<typeof roomAssets> | null = null;
+  /** Asks the relay for a started room's map this browser no longer has. */
+  let mapRequest: RelayMapRequest | null = null;
   let room: ReturnType<typeof mountNetworkRoom> | null = null;
   let unsubscribe: () => void = () => undefined;
   let disposed = false;
@@ -100,6 +116,8 @@ export function networkScreen(
   const dropConnection = (text: string): void => {
     generation++;
     busy = false;
+    mapRequest?.cancel();
+    mapRequest = null;
     unsubscribe();
     assets?.dispose();
     assets = null;
@@ -215,8 +233,10 @@ export function networkScreen(
 
   function leaveRoom(): void {
     generation++;
+    mapRequest?.cancel();
     if (connection?.connected) connection.client.leaveRoom();
     else {
+      mapRequest = null;
       unsubscribe();
       assets?.dispose();
       assets = null;
@@ -230,7 +250,8 @@ export function networkScreen(
 
   function launchGame(): void {
     const current = connection;
-    if (current === null || assets === null || busy) return;
+    const request = mapRequest;
+    if (current === null || assets === null || request === null || busy) return;
     const mine = generation;
     busy = true;
     notice(copy.starting);
@@ -241,20 +262,55 @@ export function networkScreen(
       if (enteredStartedRoom) busy = false;
       else leaveRoom();
     };
-    void launchNetworkGame(
-      current,
-      assets,
-      (search) => {
-        handedOff = true;
-        launch(search);
-      },
-      () => !disposed && generation === mine && connection === current,
-      // The game's module never loaded: this screen holds the connection again and hears the room.
-      (error) => {
-        handedOff = false;
-        failed(error);
-      },
-    ).catch(failed);
+    void services
+      .startGame(
+        current,
+        assets,
+        (search) => {
+          handedOff = true;
+          launch(search);
+        },
+        () => !disposed && generation === mine && connection === current,
+        // The game's module never loaded: this screen holds the connection again and hears the room.
+        // Leaving now would end every player's start, since the clock has not run; the room stays
+        // up as a started one instead, to try again from or to leave on purpose.
+        (error) => {
+          handedOff = false;
+          enteredStartedRoom = true;
+          const view = current.client.room;
+          if (view !== null) showRoom(current, view);
+          failed(error);
+        },
+        request.request,
+      )
+      .catch(failed);
+  }
+
+  /** Mounts the room screen afresh, a started room's with its way back into the game. */
+  function showRoom(current: NetworkConnection, view: RoomView): void {
+    room?.dispose();
+    const shown = mountNetworkRoom({
+      client: current.client,
+      copy: messages().networkRoom,
+      savedRoster: () => assets?.savedRoster() ?? null,
+      mapSlots: () => assets?.mapSlots() ?? null,
+      mapPreview: (world) => (world.kind === 'map' ? (mapPreviews.get(world.mapId) ?? null) : null),
+      onLeave: leaveRoom,
+      rejoin: enteredStartedRoom ? launchGame : null,
+      onRetryCompatibility: () => assets?.retry(),
+      worldTitle: (world) => worldTitle(world, mapNames),
+    });
+    room = shown;
+    roomHost.replaceChildren(shown.element);
+    shown.element.tabIndex = -1;
+    shown.element.focus();
+    shown.showChat(current.client.chat);
+    browser.hidden = true;
+    head.hidden = true;
+    status.textContent = '';
+    shown.update(view, current.connected);
+    assets?.observe(view);
+    sync();
   }
 
   function observe(event: ConnectionEvent): void {
@@ -268,6 +324,7 @@ export function networkScreen(
       if (event.state === 'reconnecting') {
         generation++;
         busy = false;
+        mapRequest?.cancel();
         notice(copy.reconnecting);
       } else if (event.state === 'closed') {
         // A link that will not reopen leaves nothing to wait for, a restarted relay no room to show.
@@ -280,6 +337,7 @@ export function networkScreen(
     }
     const message = event.message;
     assets?.observeMessage(message);
+    if (mapRequest?.observe(message)) return;
     switch (message.kind) {
       case 'welcome':
         list.replaceChildren(node('p', 'network-menu__muted', copy.loadingRooms));
@@ -295,32 +353,17 @@ export function networkScreen(
         busy = false;
         if (room === null) {
           enteredStartedRoom = message.room.state !== 'lobby';
-          room = mountNetworkRoom({
-            client: current.client,
-            copy: messages().networkRoom,
-            savedRoster: () => assets?.savedRoster() ?? null,
-            mapSlots: () => assets?.mapSlots() ?? null,
-            mapPreview: (world) => (world.kind === 'map' ? (mapPreviews.get(world.mapId) ?? null) : null),
-            onLeave: leaveRoom,
-            rejoin: enteredStartedRoom ? launchGame : null,
-            onRetryCompatibility: () => assets?.retry(),
-            worldTitle: (world) => worldTitle(world, mapNames),
-          });
-          roomHost.replaceChildren(room.element);
-          room.element.tabIndex = -1;
-          room.element.focus();
-          room.showChat(current.client.chat);
-          browser.hidden = true;
-          head.hidden = true;
-          status.textContent = '';
+          showRoom(current, message.room);
+        } else {
+          room.update(message.room, current.connected);
+          assets?.observe(message.room);
+          sync();
         }
-        room.update(message.room, current.connected);
-        assets?.observe(message.room);
-        sync();
         break;
       case 'left':
         generation++;
         busy = false;
+        mapRequest?.cancel();
         assets?.observe(null);
         resetRoom();
         notice(copy.left);
@@ -375,8 +418,9 @@ export function networkScreen(
     }
     try {
       rememberAddress();
-      connection = new NetworkConnection(url, relayIdentity(url, nick.value.trim()));
-      assets = roomAssets(
+      connection = services.connect(url, nick.value.trim());
+      mapRequest = relayMapRequest(connection.client);
+      assets = services.assets(
         connection.client,
         failure,
         { verifyNotice },
@@ -392,6 +436,7 @@ export function networkScreen(
     } catch (error) {
       connection?.dispose();
       connection = null;
+      mapRequest = null;
       failure(error);
       sync();
     }
@@ -417,6 +462,7 @@ export function networkScreen(
     dispose(): void {
       disposed = true;
       generation++;
+      mapRequest?.cancel();
       unsubscribe();
       create.dispose();
       room?.dispose();

@@ -315,6 +315,22 @@ describe('a halt after the start', () => {
     backButton().click();
   });
 
+  it('offers the held seat back when the relay closes the link of a running game for good', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.link('closed', 'trafficLimit');
+    expect(game.dispose).toHaveBeenCalledExactlyOnceWith(false);
+    const labels = [...document.body.querySelectorAll('button')].map((button) => button.textContent);
+    expect(labels).toEqual([messages().networkRelay.retry, messages().networkRelay.leaveGame]);
+  });
+
+  it('leaves a link another connection took over to the in-game screen', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.link('closed', 'replaced');
+    expect(game.dispose).not.toHaveBeenCalled();
+  });
+
   it('ends a game whose room went on without it under the ended-game title', async () => {
     const game = presentedGame();
     await game.start();

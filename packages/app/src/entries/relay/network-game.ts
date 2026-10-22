@@ -182,8 +182,10 @@ export function renderNetworkGame(
     }
     if (event.kind === 'link') {
       const { kind: _kind, atMs, ...report } = event;
-      // Without a HUD (loading, or a world being rebuilt) nothing would say the link is gone for good.
-      if (hud === null && event.state === 'closed') {
+      // Without a HUD (loading, or a world being rebuilt) nothing would say the link is gone for good,
+      // and the in-game screen's one way out is the menu: a seat the relay may still hold is offered
+      // back by the halt notice instead.
+      if (event.state === 'closed' && (hud === null || closeKeepsSeat(event.reason))) {
         failClosed(event.reason);
         return;
       }

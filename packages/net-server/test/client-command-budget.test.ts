@@ -146,7 +146,9 @@ describe('gestures past the relay per-tick budget', () => {
     expect(MAX_COMMAND_BYTES_PER_TICK).toBe(RELAY_COMMAND_BYTES_PER_TICK);
     const { stage, clients } = await room();
     const [ania, bartek] = clients;
-    const renamed = (name: string) => playerCommand(0, { kind: 'renameSettler', entity: 1, name });
+    // An id no world holds: the rename changes nothing, only its size matters.
+    const entity = new Simulation({ seed: SEED, content: testContent() }).world.create();
+    const renamed = (name: string) => playerCommand(0, { kind: 'renameSettler', entity, name });
     const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
     const largest = (mark: string) =>
       renamed(mark + 'x'.repeat(MAX_ENVELOPE_BYTES - jsonBytes(renamed('')) - mark.length));

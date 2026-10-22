@@ -536,6 +536,7 @@ export const deSurfaces = {
     dismiss: 'Schließen',
   },
   loading: {
+    verify: 'Karte wird überprüft…',
     graphics: 'Grafik wird gestartet…',
     map: 'Karte wird gelesen…',
     content: 'Spielinhalte werden geladen…',

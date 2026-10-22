@@ -1,11 +1,13 @@
 import type { MapText } from '@open-northland/data';
 import { MAX_NICK_LENGTH } from '@open-northland/net-protocol';
 import { apiBaseUrl, loadMapSources } from '../../../content/map-source/index.js';
+import type { MapVerifyNotice } from '../../../content/transfer/index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import { type ConnectionEvent, NetworkConnection } from '../../../net/connection.js';
 import { relayCloseText, relayReasonText } from '../../../net/relay-reason.js';
+import { nextPaint } from '../../../view/next-paint.js';
 import { relayIdentity } from '../../relay/identity.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
@@ -77,6 +79,15 @@ export function networkScreen(
     status.hidden = room !== null;
   };
   const failure = (error: unknown): void => notice(formatMessage(copy.failed, { reason: errorText(error) }));
+  const verifyNotice: MapVerifyNotice = {
+    async show() {
+      notice(copy.verifyingMap);
+      await nextPaint();
+    },
+    hide() {
+      if (status.textContent === copy.verifyingMap) notice('');
+    },
+  };
   const resetRoom = (): void => {
     room?.dispose();
     room = null;
@@ -368,7 +379,7 @@ export function networkScreen(
       assets = roomAssets(
         connection.client,
         failure,
-        {},
+        { verifyNotice },
         () => {
           const current = connection;
           if (room && current?.client.room) room.update(current.client.room, current.connected);

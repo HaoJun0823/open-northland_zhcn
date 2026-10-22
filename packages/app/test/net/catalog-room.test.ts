@@ -70,8 +70,9 @@ async function member(
   };
   const verified: (VerifiedMapDocuments | null)[] = [];
   const errors: Error[] = [];
-  const catalogInstall = vi.fn((announced: Parameters<typeof installAnnouncedCatalogMap>[0]) =>
-    installAnnouncedCatalogMap(announced, { api: API, store, fetchImpl: options.server }),
+  const notices: ('show' | 'hide')[] = [];
+  const catalogInstall = vi.fn((...[announced, services]: Parameters<typeof installAnnouncedCatalogMap>) =>
+    installAnnouncedCatalogMap(announced, { ...services, api: API, store, fetchImpl: options.server }),
   );
   const transfer = createRoomMapTransfer({
     client: {
@@ -87,6 +88,10 @@ async function member(
     mapFetch: async (mapId, fallback) => (await source(mapId))?.fetch ?? fallback ?? SHIPPED_INDEX,
     findSource: source,
     catalogInstall,
+    verifyNotice: {
+      show: async () => void notices.push('show'),
+      hide: () => void notices.push('hide'),
+    },
   });
   let read = 0;
   /** Hands the transfer every relay message this peer received since the last pump. */
@@ -97,7 +102,7 @@ async function member(
     }
     read = peer.sent.length;
   };
-  return { transfer, verified, errors, catalogInstall, pump, store };
+  return { transfer, verified, errors, catalogInstall, pump, store, notices };
 }
 
 async function lobby(server: typeof fetch, origin: 'catalog' | 'user' = 'catalog') {
@@ -127,10 +132,12 @@ describe('a catalogue map in a lobby', () => {
     const { a, host, guest, run } = await lobby(catalogServer([ENTRY]));
     await run();
     expect(host.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
-    expect(guest.catalogInstall).toHaveBeenCalledWith(ROOM.catalogMap);
+    expect(guest.catalogInstall).toHaveBeenCalledWith(ROOM.catalogMap, expect.anything());
     expect(guest.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
     expect((await guest.store.list()).map((record) => record.mapId)).toEqual([MAP_ID]);
     expect(a.of('mapRequest')).toHaveLength(0);
+    expect(guest.notices).toEqual(['show', 'hide']);
+    expect(host.notices).toEqual([]);
     expect([...host.errors, ...guest.errors]).toEqual([]);
   });
 
@@ -143,6 +150,8 @@ describe('a catalogue map in a lobby', () => {
     expect(a.of('mapRequest')).toEqual([{ kind: 'mapRequest', from: 'Bartek' }]);
     expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania' });
     expect(guest.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
+    // The unreachable catalogue never downloaded a map, so only the relayed blob's verify shows.
+    expect(guest.notices).toEqual(['show', 'hide']);
     expect([...host.errors, ...guest.errors]).toEqual([]);
   });
 });

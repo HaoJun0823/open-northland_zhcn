@@ -43,4 +43,5 @@ export const enNetwork = {
   saveInvalid: 'This save cannot be used for this multiplayer map.',
   missingMap: 'This map is missing. Only user and mod maps can be delivered by the creator.',
   starting: 'Starting the shared game…',
+  verifyingMap: 'Verifying the map…',
 } as const;

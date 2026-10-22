@@ -529,6 +529,7 @@ export const ruSurfaces = {
     dismiss: 'Закрыть',
   },
   loading: {
+    verify: 'Проверка карты…',
     graphics: 'Запуск графики…',
     map: 'Чтение карты…',
     content: 'Загрузка ресурсов игры…',

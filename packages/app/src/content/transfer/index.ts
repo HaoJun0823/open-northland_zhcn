@@ -22,4 +22,4 @@ export {
   verifyMapDocuments,
 } from './documents.js';
 export { loadRoomMapDocuments } from './reload.js';
-export { createRoomMapTransfer, type RoomMapTransferOptions } from './room.js';
+export { createRoomMapTransfer, type MapVerifyNotice, type RoomMapTransferOptions } from './room.js';

@@ -48,4 +48,5 @@ export const deNetwork = {
   missingMap:
     'Diese Karte fehlt. Der Raumersteller kann nur benutzererstellte Karten und Mod-Karten bereitstellen.',
   starting: 'Gemeinsames Spiel wird gestartet…',
+  verifyingMap: 'Karte wird überprüft…',
 } as const;

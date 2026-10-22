@@ -44,6 +44,7 @@ export const plNetwork = {
   saveInvalid: 'Tego zapisu nie można użyć do gry wieloosobowej na tej mapie.',
   missingMap: 'Brakuje tej mapy. Twórca może przesłać tylko mapy użytkownika i moda.',
   starting: 'Uruchamianie wspólnej gry…',
+  verifyingMap: 'Weryfikowanie mapy…',
 } satisfies {
   readonly [Key in keyof typeof enNetwork]: (typeof enNetwork)[Key] extends string
     ? string

@@ -77,6 +77,8 @@ export interface InstallOptions {
   readonly onProgress?: (progress: InstallProgress) => void;
   readonly signal?: AbortSignal;
   readonly now?: () => number;
+  /** Runs before each downloaded map's verify, which blocks the page; a notice paints there first. */
+  readonly beforeVerify?: () => Promise<void>;
 }
 
 async function readCapped(response: Response, cap: number, url: string): Promise<Uint8Array> {
@@ -249,6 +251,7 @@ export async function installCatalogEntry(
     const terrain = files.get(TERRAIN);
     if (terrain === undefined) throw new CatalogInstallError('download', `${map.mapId} has no terrain`);
     const script = files.get(SCRIPT);
+    await options.beforeVerify?.();
     let fingerprint: string;
     try {
       fingerprint = verifyMapDocuments(
@@ -295,6 +298,7 @@ export interface AnnouncedMapServices {
   readonly store?: InstalledMapStore | null;
   readonly fetchImpl?: typeof fetch;
   readonly irVersion?: number;
+  readonly beforeVerify?: () => Promise<void>;
 }
 
 /**
@@ -320,6 +324,7 @@ export async function installAnnouncedCatalogMap(
     fetchImpl,
     irVersion,
     ...(services.signal === undefined ? {} : { signal: services.signal }),
+    ...(services.beforeVerify === undefined ? {} : { beforeVerify: services.beforeVerify }),
   });
   const record = records.find((item) => item.mapId === announced.mapId);
   if (record === undefined) return null;

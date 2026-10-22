@@ -10,6 +10,7 @@ import {
 import { loadLobbyCompatibility } from '../../../content/lobby-identity.js';
 import {
   createRoomMapTransfer,
+  type MapVerifyNotice,
   readVerifiedMapDocuments,
   type VerifiedMapDocuments,
 } from '../../../content/transfer/index.js';
@@ -20,6 +21,7 @@ interface AssetServices {
   readonly compatibility: (mapId: string, map: VerifiedMapDocuments | null) => Promise<LobbyCompatibility>;
   readonly verifySave: typeof verifyInitialSave;
   readonly validateSave: typeof validateNetworkSave;
+  readonly verifyNotice: MapVerifyNotice;
 }
 
 export function roomAssets(
@@ -50,6 +52,7 @@ export function roomAssets(
   let disposed = false;
   const transfer = (services.transfer ?? createRoomMapTransfer)({
     client,
+    ...(services.verifyNotice === undefined ? {} : { verifyNotice: services.verifyNotice }),
     onError(error) {
       if (!disposed) onError(error);
     },

@@ -13,6 +13,15 @@ import {
 } from './documents.js';
 
 type Upload = Omit<Extract<ClientMessage, { kind: 'blob' }>, 'kind'>;
+
+/** What the player sees while a received map is verified. The verify blocks the page, so `show`
+ *  resolves only once the notice has painted. */
+export interface MapVerifyNotice {
+  show(): Promise<void>;
+  hide(): void;
+}
+const SILENT_VERIFY_NOTICE: MapVerifyNotice = { show: async () => undefined, hide: () => undefined };
+
 export interface RoomMapTransferOptions {
   readonly client: { readonly nick: string; sendBlob(upload: Upload): void; requestMap(): void };
   readonly onVerified: (documents: VerifiedMapDocuments | null) => void;
@@ -25,6 +34,7 @@ export interface RoomMapTransferOptions {
   readonly findSource?: typeof findMapSource;
   /** Fetches the room's announced catalogue map from the catalogue server. */
   readonly catalogInstall?: typeof installAnnouncedCatalogMap;
+  readonly verifyNotice?: MapVerifyNotice;
 }
 
 /** Retains one room's validated documents until handover; asynchronous loads cannot outlive that room. */
@@ -48,6 +58,16 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
   let disposed = false;
   const pending = new Set<string>();
   const fetchImpl = options.fetchImpl ?? fetch;
+  const verifyNotice = options.verifyNotice ?? SILENT_VERIFY_NOTICE;
+  /** Verifies under way; the notice stays up until the last one returns. */
+  let verifying = 0;
+  async function beginVerify(): Promise<void> {
+    verifying++;
+    await verifyNotice.show();
+  }
+  function endVerify(): void {
+    if (verifying > 0 && --verifying === 0) verifyNotice.hide();
+  }
   const reportError = (error: unknown) =>
     options.onError(error instanceof Error ? error : new Error(String(error)));
   function expectedFingerprint(): string | null {
@@ -186,14 +206,22 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       }
       const announced = room?.settings.catalogMap;
       if (resolved === null && !creator && announced?.mapId === mapId) {
+        let downloaded = false;
+        const beforeVerify = async (): Promise<void> => {
+          if (downloaded) return;
+          downloaded = true;
+          await beginVerify();
+        };
         try {
-          resolved =
-            options.catalogInstall === undefined
-              ? await installAnnouncedCatalogMap(announced, { signal: abort?.signal })
-              : await options.catalogInstall(announced);
+          resolved = await (options.catalogInstall ?? installAnnouncedCatalogMap)(announced, {
+            ...(abort === undefined ? {} : { signal: abort.signal }),
+            beforeVerify,
+          });
         } catch (error) {
           // The relay delivery below stays the fallback when the catalogue server cannot help.
           diag.warn('content', 'catalogue server could not deliver the room map', { error: String(error) });
+        } finally {
+          if (downloaded) endVerify();
         }
         if (disposed || generation !== active) return;
       }
@@ -283,11 +311,19 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
         const active = generation;
         const current = () => !disposed && generation === active;
         decodingGeneration = active;
-        void decodeMapTransfer(message.bytes, {
-          mapId: room.settings.world.mapId,
-          fingerprint,
-          provenance: { kind: allowedOrigin },
-        })
+        const mapId = room.settings.world.mapId;
+        void (async () => {
+          await beginVerify();
+          try {
+            return await decodeMapTransfer(message.bytes, {
+              mapId,
+              fingerprint,
+              provenance: { kind: allowedOrigin },
+            });
+          } finally {
+            endVerify();
+          }
+        })()
           .then(async (handle) => {
             if (!current() || documents !== null) return;
             documents = handle;

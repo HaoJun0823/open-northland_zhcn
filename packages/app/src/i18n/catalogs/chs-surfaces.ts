@@ -487,6 +487,7 @@ export const chsSurfaces = {
   },
   // One label per `BootPhase`.
   loading: {
+    verify: '正在校验地图…',
     graphics: '正在启动图形…',
     map: '正在读取地图…',
     content: '正在载入游戏内容…',

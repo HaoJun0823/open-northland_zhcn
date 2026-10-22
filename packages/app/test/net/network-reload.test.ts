@@ -11,6 +11,8 @@ const fake = vi.hoisted(() => ({
   listener: undefined as ((event: unknown) => void) | undefined,
   dispose: vi.fn(),
   room: null as unknown,
+  /** The page's text as the map load began. */
+  textAtMapLoad: null as string | null,
 }));
 vi.mock('../../src/net/connection.js', () => ({
   NetworkConnection: class {
@@ -33,7 +35,10 @@ vi.mock('../../src/net/connection.js', () => ({
   },
 }));
 vi.mock('../../src/content/transfer/index.js', () => ({
-  loadRoomMapDocuments: async () => ({ mapId: 'forest' }),
+  loadRoomMapDocuments: async () => {
+    fake.textAtMapLoad = document.body.textContent;
+    return { mapId: 'forest' };
+  },
 }));
 vi.mock('../../src/content/lobby-identity.js', () => ({
   loadLobbyCompatibility: async () => OWN_REPORT,
@@ -83,6 +88,17 @@ it('names the differing client build instead of blaming the game files, and keep
   expect(document.body.textContent).toContain(messages().net.compatibilityKinds.client);
   const buttons = [...document.body.querySelectorAll('button')].map((button) => button.textContent);
   expect(buttons).toEqual([messages().networkRelay.retry, messages().networkRelay.leaveGame]);
+});
+
+it('shows the verify step before the blocking map load and takes it down with the halt', async () => {
+  fake.textAtMapLoad = null;
+  renderNetworkReload({} as HTMLCanvasElement, params());
+  fake.room = STARTED_ROOM;
+  relay({ kind: 'room', room: STARTED_ROOM });
+  relay({ kind: 'start' } as ServerMessage);
+  await vi.waitFor(() => expect(fake.dispose).toHaveBeenCalled());
+  expect(fake.textAtMapLoad).toContain(messages().loading.verify);
+  expect(document.body.querySelector('.boot-card')).toBeNull();
 });
 
 it('keeps the seat when the reloaded tab cannot reach the relay any more', () => {

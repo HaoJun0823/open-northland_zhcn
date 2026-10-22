@@ -487,6 +487,7 @@ export const chtSurfaces = {
   },
   // One label per `BootPhase`.
   loading: {
+    verify: '正在校驗地圖…',
     graphics: '正在啟動圖形…',
     map: '正在讀取地圖…',
     content: '正在載入遊戲內容…',

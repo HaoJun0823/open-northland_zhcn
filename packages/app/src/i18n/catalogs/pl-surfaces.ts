@@ -494,6 +494,7 @@ export const plSurfaces = {
     dismiss: 'Zamknij',
   },
   loading: {
+    verify: 'Weryfikowanie mapy…',
     graphics: 'Uruchamianie grafiki…',
     map: 'Wczytywanie mapy…',
     content: 'Wczytywanie zawartości gry…',

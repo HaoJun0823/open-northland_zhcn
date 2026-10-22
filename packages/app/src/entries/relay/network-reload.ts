@@ -4,6 +4,7 @@ import { loadRoomMapDocuments } from '../../content/transfer/index.js';
 import { messages } from '../../i18n/index.js';
 import { NetworkConnection } from '../../net/connection.js';
 import { relayCloseText, relayFailureText, relayReasonText } from '../../net/relay-reason.js';
+import { dismissBootProgress, mountBootProgress } from '../../view/boot-progress.js';
 import { compatibilityIssuesText } from './compatibility.js';
 import { relayIdentity } from './identity.js';
 import { keptView } from './kept-view.js';
@@ -32,6 +33,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
   const fail = (error: unknown, seatKept = true) => {
     if (closed) return;
     dispose();
+    dismissBootProgress();
     mountHaltNotice(messages().networkRelay.openFailed, relayFailureText(error), {
       onCard: false,
       seat: seatKept ? keptSeat(url, connection.identity, roomId) : null,
@@ -64,6 +66,9 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
     void (async () => {
       const room = connection.client.room;
       if (room === null) throw new Error('Missing reconnect room');
+      // The verify blocks the page; the world's boot then mounts its own steps over this card.
+      await mountBootProgress(['verify']).begin('verify');
+      if (closed) return;
       const map = await loadRoomMapDocuments(room);
       if (closed) return;
       if (map === null) throw new Error(messages().network.missingMap);

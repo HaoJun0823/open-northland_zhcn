@@ -3,6 +3,7 @@ import { messages } from '../i18n/index.js';
 import { BACKDROP_STILLS, lastShownStill, randomStill, rememberStill } from './backdrop-stills.js';
 import { BRAND_BACKDROP } from './brand-art.js';
 import { loadingTipPanel } from './loading-tips.js';
+import { nextPaint } from './next-paint.js';
 import { readStoredSettings } from './settings-store.js';
 
 /**
@@ -12,6 +13,7 @@ import { readStoredSettings } from './settings-store.js';
 
 /** The ordered boot steps a playable entry can report; an entry passes the ones it actually runs. */
 export const BOOT_PHASES = [
+  'verify',
   'graphics',
   'map',
   'content',
@@ -53,27 +55,6 @@ let overlay: HTMLElement | null = null;
 const KEY_EVENTS = ['keydown', 'keyup'] as const;
 const swallowKey = (event: KeyboardEvent): void => event.stopImmediatePropagation();
 
-/** Cap on a paint yield, so a tab hidden after the frame was requested cannot stall the boot. */
-const PAINT_TIMEOUT_MS = 250;
-
-/**
- * Resolve once the browser has painted what was just written, since a boot step's long synchronous
- * stretch would otherwise put its own label on screen only after finishing. Boot never depends on this
- * resolving. A hidden tab fires no rAF, so it skips the yield.
- */
-function nextPaint(): Promise<void> {
-  if (document.hidden) return Promise.resolve();
-  return new Promise((resolve) => {
-    let timer = 0;
-    const done = (): void => {
-      clearTimeout(timer);
-      resolve();
-    };
-    timer = window.setTimeout(done, PAINT_TIMEOUT_MS);
-    requestAnimationFrame(() => requestAnimationFrame(done));
-  });
-}
-
 /** A still as a CSS `<bg-image>`, or `none` when the pool has none. */
 export function bootStillImage(still: string | null): string {
   return still === null ? 'none' : `url("${still}")`;
@@ -93,17 +74,20 @@ function node(className: string, ...children: readonly HTMLElement[]): HTMLDivEl
   return div;
 }
 
-/** Mount the card for an entry's own ordered step list; `onProgress` hears each step's start fraction. */
+/** Mount the card for an entry's own ordered step list; `onProgress` hears each step's start fraction.
+ *  A card mounted over one already up keeps its still, so a boot handed between two step lists does
+ *  not flash another picture. */
 export function mountBootProgress(
   phases: readonly BootPhase[],
   onProgress?: (fraction: number) => void,
 ): BootProgress {
+  const still = overlay?.style.getPropertyValue('--boot-still') || bootStillImage(pickBootStill());
   dismissBootProgress();
   const bar = node('boot-card__bar');
   const label = node('boot-card__label');
   const root = node('boot-card', node('boot-card__frame', node('boot-card__track', bar)), label);
   root.style.setProperty('--boot-backdrop', `url("${BRAND_BACKDROP}")`);
-  root.style.setProperty('--boot-still', bootStillImage(pickBootStill()));
+  root.style.setProperty('--boot-still', still);
   root.setAttribute('role', 'status');
   label.setAttribute('aria-live', 'polite');
   const tip = loadingTipPanel(readStoredSettings().keyBindings);

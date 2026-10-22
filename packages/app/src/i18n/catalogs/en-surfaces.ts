@@ -498,6 +498,7 @@ export const enSurfaces = {
   },
   // One label per `BootPhase`.
   loading: {
+    verify: 'Verifying the map…',
     graphics: 'Starting the graphics…',
     map: 'Reading the map…',
     content: 'Loading game content…',

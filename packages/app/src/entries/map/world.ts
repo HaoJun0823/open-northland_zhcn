@@ -15,6 +15,7 @@ import {
   type Simulation,
   type TerrainMap,
   TICKS_PER_SECOND,
+  warmWorldIndexes,
 } from '@open-northland/sim';
 import type { ContentIr } from '../../content/ir/rows.js';
 import { spawnMapPalisades } from '../../content/map-palisades.js';
@@ -132,6 +133,7 @@ export function buildMapWorld(options: MapWorldOptions): MapWorld {
   applySessionRules(sim, options);
   const { harvestablePlacements, pooledPlacements } = spawnHarvestables(sim, options);
   sim.step();
+  warmWorldIndexes(sim);
   enableScript(sim, options);
   return { sim, kind, harvestablePlacements, pooledPlacements };
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { exportSaveGame, parseSaveGame, restoreSimulation, serializeSaveGame } from '../../src/index.js';
+import {
+  exportSaveGame,
+  parseSaveGame,
+  restoreSimulation,
+  serializeSaveGame,
+  warmWorldIndexes,
+} from '../../src/index.js';
 import type { Simulation } from '../../src/simulation.js';
 import { placementGridRebuilds } from '../../src/systems/footprint/placement/blocker-grid.js';
 import { workFlagBlockRebuilds } from '../../src/systems/footprint/placement/work-flag/incremental-blocks.js';
@@ -21,7 +27,7 @@ function placeHut(sim: Simulation, at: { readonly x: number; readonly y: number 
   sim.step();
 }
 
-describe('restored world warm-up', () => {
+describe('world warm-up', () => {
   it('builds both placement blocker sets in the load pause, so the first placement replays them', () => {
     const sim = mappedSim(grassMap(MAP_NODES, MAP_NODES));
     placeHut(sim, FIRST);
@@ -39,5 +45,19 @@ describe('restored world warm-up', () => {
     expect(workFlagBlockRebuilds(restored.world)).toBe(1);
     expect(restored.world.verifyCaches()).toEqual([]);
     expect(restored.hashState()).toBe(sim.hashState());
+  });
+
+  it('builds both sets on a freshly assembled world without moving its hash', () => {
+    const warmed = mappedSim(grassMap(MAP_NODES, MAP_NODES));
+    const cold = mappedSim(grassMap(MAP_NODES, MAP_NODES));
+    warmWorldIndexes(warmed);
+    expect(placementGridRebuilds(warmed.world)).toBe(1);
+    expect(workFlagBlockRebuilds(warmed.world)).toBe(1);
+
+    placeHut(warmed, FIRST);
+    placeHut(cold, FIRST);
+    expect(placementGridRebuilds(warmed.world)).toBe(1);
+    expect(warmed.world.verifyCaches()).toEqual([]);
+    expect(warmed.hashState()).toBe(cold.hashState());
   });
 });

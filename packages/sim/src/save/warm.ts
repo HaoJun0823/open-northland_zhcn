@@ -16,12 +16,14 @@ import { resourceHarvestAtomics, resourceOfGoodAtNode } from '../systems/spatial
 import { stockpilesAtNode } from '../systems/spatial/stockpiles.js';
 
 /**
- * Build a restored world's derived indexes inside the load pause, ahead of the first tick whose first
- * reader would otherwise build each one mid-tick. Each is a pure function of the world that later reads
- * catch up through its change journals, so no answer or state hash moves; `npm run bench:parity`
- * checks that against the continuous run. The answers read here are discarded.
+ * Build a loaded or freshly assembled world's derived indexes inside the load pause, ahead of the first
+ * tick whose first reader would otherwise build each one mid-tick. A map world spawns its objects outside
+ * any tick, more of them than the change journals keep, so it needs this as much as a restore. Each is a
+ * pure function of the world that later reads catch up through its change journals, so no answer or state
+ * hash moves; `npm run bench:parity` checks that against the continuous run. The answers read here are
+ * discarded.
  */
-export function warmRestoredWorld(sim: Simulation): void {
+export function warmWorldIndexes(sim: Simulation): void {
   const { world, content, terrain } = sim;
   const ctx = { content };
   StoreSinks.of(world, ctx);

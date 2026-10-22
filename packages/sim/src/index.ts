@@ -232,6 +232,7 @@ export {
   type SaveGameHeader,
   type SaveGameSection,
   serializeSaveGame,
+  warmWorldIndexes,
   withSaveContinuation,
 } from './save/index.js';
 export { scanChangedBytes } from './simulation/changed-bytes.js';

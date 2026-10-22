@@ -16,3 +16,4 @@ export {
 } from './format.js';
 export { parseSaveGame } from './parse.js';
 export { type RestoreOptions, restoreSimulation } from './restore.js';
+export { warmWorldIndexes } from './warm.js';

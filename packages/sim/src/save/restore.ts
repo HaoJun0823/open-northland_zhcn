@@ -22,7 +22,7 @@ import { syncRoadLane } from '../systems/roads/index.js';
 import { REVEALED_BYTE } from '../systems/vision/index.js';
 import { simContentFingerprint } from './content-fingerprint.js';
 import { type ComponentSection, type FogSection, SAVE_MAP_KEY, type SaveGame } from './format.js';
-import { warmRestoredWorld } from './warm.js';
+import { warmWorldIndexes } from './warm.js';
 
 export interface RestoreOptions {
   content: ContentSet;
@@ -112,7 +112,7 @@ export function restoreSimulation(save: SaveGame, opts: RestoreOptions): Simulat
   if (violations.length > 0) {
     throw new Error(`save state violates the core invariants: ${violations.join('; ')}`);
   }
-  warmRestoredWorld(sim);
+  warmWorldIndexes(sim);
   return sim;
 }
 

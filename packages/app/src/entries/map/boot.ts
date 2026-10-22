@@ -281,8 +281,9 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
     await boot.begin('sprites');
     const goods = realContent?.content.goods ?? sandboxGoods();
     // The admin panel's monster presets draw only with their looks loaded; those pages are large, so they
-    // load when the admin tools were on at game start.
-    const adminCharacterTribes = readStoredSettings().debugToolsEnabled ? [...MONSTER_TRIBES] : [];
+    // load when the admin tools were on at game start. A relayed game never mounts the panel.
+    const adminCharacterTribes =
+      readStoredSettings().debugToolsEnabled && plan.multiplayer !== true ? [...MONSTER_TRIBES] : [];
     let sheet: SpriteSheet;
     let terrain: TerrainTextureSet;
     try {

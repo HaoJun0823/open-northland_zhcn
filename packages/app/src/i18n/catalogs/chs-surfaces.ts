@@ -270,6 +270,9 @@ export const chsSurfaces = {
       unitResponses: '单位何时应答',
       unitResponsesTip: '居民是否出声回应你的命令和选择。不应答时，仅以点击本身确认命令。',
       unitResponseModes: { all: '始终', selection: '仅首次选中', off: '从不' },
+      soundQuality: '音效质量',
+      soundQualityTip: '无损保留原始录音。轻量将其压缩到几分之一，浏览器中的加载时间更短。差别很难听出。',
+      soundQualities: { lossless: '无损', compact: '轻量' },
       volumeHeading: '音量',
       volumeTest: '试听',
       volumes: {

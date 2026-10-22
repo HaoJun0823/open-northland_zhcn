@@ -276,6 +276,10 @@ export const plSurfaces = {
       unitResponsesTip:
         'Czy osadnicy odpowiadają głosem na rozkazy i na zaznaczenie. Bez odpowiedzi rozkaz potwierdza samo kliknięcie.',
       unitResponseModes: { all: 'Zawsze', selection: 'Tylko przy zaznaczeniu', off: 'Nigdy' },
+      soundQuality: 'Jakość dźwięków',
+      soundQualityTip:
+        'Bezstratne to oryginalne nagrania. Lekkie są skompresowane i ważą kilka razy mniej, co skraca wczytywanie w przeglądarce. Różnicę trudno usłyszeć.',
+      soundQualities: { lossless: 'Bezstratna', compact: 'Lekka' },
       volumeHeading: 'Głośność',
       volumeTest: 'Odsłuchaj',
       volumes: {

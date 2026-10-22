@@ -9,7 +9,7 @@ import {
   uiCueShot,
   WebAudioEngine,
 } from '@open-northland/audio';
-import { CONTENT_AUDIO_URLS } from '../../content/audio.js';
+import { contentAudioOptions } from '../../content/audio.js';
 import { loadMusicManifest } from '../../content/music.js';
 import { followPageFocus } from '../../view/sound-background.js';
 import { startSound } from '../../view/sound-start.js';
@@ -57,7 +57,10 @@ export interface MenuSound {
  */
 export function startMenuMusic(signal: AbortSignal): MenuSound {
   const settings = menuSettings();
-  const engine = new WebAudioEngine({ ...CONTENT_AUDIO_URLS, volumes: settings.volumes });
+  const engine = new WebAudioEngine({
+    ...contentAudioOptions(settings.soundQuality),
+    volumes: settings.volumes,
+  });
   engine.setEnabled(settings.soundEnabled);
   engine.setPlayInBackground(settings.soundInBackground);
   engine.setMono(settings.monoSound);

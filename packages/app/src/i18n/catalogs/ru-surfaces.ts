@@ -312,6 +312,10 @@ export const ruSurfaces = {
       unitResponsesTip:
         'Отвечают ли поселенцы голосом на приказы и на выделение. Без ответа приказ подтверждает только щелчок.',
       unitResponseModes: { all: 'Всегда', selection: 'Только при выделении', off: 'Никогда' },
+      soundQuality: 'Качество звуков',
+      soundQualityTip:
+        'Без потерь сохраняет исходные записи. Лёгкое сжимает их в несколько раз, и загрузка в браузере становится короче. Разница почти не слышна.',
+      soundQualities: { lossless: 'Без потерь', compact: 'Лёгкое' },
       volumeHeading: 'Громкость',
       volumeTest: 'Тест',
       volumes: {

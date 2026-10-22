@@ -51,8 +51,8 @@ export async function mountGamePresentation(
   signal: AbortSignal,
 ): Promise<ReturnType<typeof createSoundDriver> | null> {
   const ir = await loadIr();
-  const sound = createSoundDriver(ir);
   const settings = readStoredSettings();
+  const sound = createSoundDriver(ir, settings.soundQuality);
   renderer.setWeatherEnabled(settings.weather);
   try {
     if (sound !== null) {

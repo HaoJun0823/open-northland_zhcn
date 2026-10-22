@@ -83,6 +83,7 @@ describe('parseStoredSettings', () => {
       monoSound: true,
       jinglesEnabled: false,
       unitResponses: 'off',
+      soundQuality: 'lossless',
       language: 'eng',
       keyboardScrollSpeed: 1.25,
       edgeScrollSpeed: 2.25,
@@ -137,6 +138,15 @@ describe('parseStoredSettings', () => {
     vi.stubGlobal('window', { desktop: { fullscreen: {} } });
     expect(parseStoredSettings('{}').soundInBackground).toBe(true);
     expect(parseStoredSettings('{"soundInBackground":false}').soundInBackground).toBe(false);
+  });
+
+  it('loads lossless sounds by default only on the desktop and keeps a stored choice', () => {
+    vi.stubGlobal('window', {});
+    expect(defaultSettings().soundQuality).toBe('compact');
+    expect(parseStoredSettings('{"soundQuality":"flac"}').soundQuality).toBe('compact');
+    vi.stubGlobal('window', { desktop: { fullscreen: {} } });
+    expect(defaultSettings().soundQuality).toBe('lossless');
+    expect(parseStoredSettings('{"soundQuality":"compact"}').soundQuality).toBe('compact');
   });
 
   it('keeps the mix in stereo unless a stored boolean folds it to mono', () => {
@@ -273,6 +283,12 @@ describe('persistSettings', () => {
     expect(parseStoredSettings('{"keyBindings":{"hudToggle":"KeyH"}}').keyBindings).toEqual(
       DEFAULT_KEY_BINDINGS,
     );
+  });
+
+  it('stores the sound quality and reads it back', () => {
+    const blob = storedBlob({ ...defaultSettings(), soundQuality: 'lossless' });
+    expect(blob.soundQuality).toBe('lossless');
+    expect(parseStoredSettings(JSON.stringify(blob)).soundQuality).toBe('lossless');
   });
 
   it('clamps stored volumes into the slider range, whole steps, and defaults deformed ones', () => {

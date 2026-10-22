@@ -316,6 +316,10 @@ export const deSurfaces = {
       unitResponsesTip:
         'Ob die Siedler auf Befehle und auf die Auswahl laut antworten. Ohne Antwort bestätigt allein der Klick einen Befehl.',
       unitResponseModes: { all: 'Immer', selection: 'Nur bei Auswahl', off: 'Nie' },
+      soundQuality: 'Klangqualität',
+      soundQualityTip:
+        'Verlustfrei behält die Originalaufnahmen. Leicht komprimiert sie auf ein Vielfaches weniger, was das Laden im Browser verkürzt. Der Unterschied ist kaum hörbar.',
+      soundQualities: { lossless: 'Verlustfrei', compact: 'Leicht' },
       volumeHeading: 'Lautstärke',
       volumeTest: 'Anhören',
       volumes: {

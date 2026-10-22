@@ -278,6 +278,10 @@ export const enSurfaces = {
       unitResponsesTip:
         'Whether settlers answer your orders and your selections out loud. Without an answer, the click alone confirms an order.',
       unitResponseModes: { all: 'Always', selection: 'First selection only', off: 'Never' },
+      soundQuality: 'Sound quality',
+      soundQualityTip:
+        'Lossless keeps the original recordings. Light compresses them to a few times less, which shortens loading in the browser. The difference is hard to hear.',
+      soundQualities: { lossless: 'Lossless', compact: 'Light' },
       volumeHeading: 'Volume',
       volumeTest: 'Test',
       volumes: {

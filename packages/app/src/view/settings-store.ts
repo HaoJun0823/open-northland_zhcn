@@ -6,6 +6,7 @@ import {
   parseUnitResponses,
   type UnitResponses,
 } from '@open-northland/audio';
+import { SOUND_QUALITIES, type SoundQuality } from '@open-northland/data';
 import {
   DEFAULT_PIXEL_ART_SCALER,
   DEFAULT_SELECTION_STYLE,
@@ -108,6 +109,8 @@ export interface MenuSettings {
   readonly jinglesEnabled: boolean;
   /** Which of an order and a selection a settler's voice answers. */
   readonly unitResponses: UnitResponses;
+  /** Which sound banks a starting game loads: FLAC or the smaller Opus encoding. */
+  readonly soundQuality: SoundQuality;
   readonly language: Locale;
   readonly keyboardScrollSpeed: number;
   readonly edgeScrollSpeed: number;
@@ -135,6 +138,12 @@ export interface MenuSettings {
  *  one; a browser tab goes quiet among the player's other tabs. */
 export function defaultSoundInBackground(): boolean {
   return typeof window !== 'undefined' && window.desktop !== undefined;
+}
+
+/** The desktop reads its sounds from disk, so it takes the lossless banks; a browser downloads them,
+ *  so it takes the compact ones. */
+export function defaultSoundQuality(): SoundQuality {
+  return typeof window !== 'undefined' && window.desktop !== undefined ? 'lossless' : 'compact';
 }
 
 /** A player who never chose a language follows the browser's. */
@@ -169,6 +178,7 @@ export function defaultSettings(): MenuSettings {
     monoSound: false,
     jinglesEnabled: true,
     unitResponses: DEFAULT_UNIT_RESPONSES,
+    soundQuality: defaultSoundQuality(),
     language: defaultLocale(),
     keyboardScrollSpeed: DEFAULT_SCROLL_SPEED,
     edgeScrollSpeed: DEFAULT_SCROLL_SPEED,
@@ -317,6 +327,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     jinglesEnabled:
       typeof record.jinglesEnabled === 'boolean' ? record.jinglesEnabled : defaults.jinglesEnabled,
     unitResponses: parseUnitResponses(record.unitResponses),
+    soundQuality: SOUND_QUALITIES.find((quality) => quality === record.soundQuality) ?? defaults.soundQuality,
     language: isLocale(record.language) ? record.language : defaults.language,
     keyboardScrollSpeed: clampScrollSpeed(record.keyboardScrollSpeed),
     edgeScrollSpeed: clampScrollSpeed(record.edgeScrollSpeed),

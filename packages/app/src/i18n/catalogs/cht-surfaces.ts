@@ -270,6 +270,9 @@ export const chtSurfaces = {
       unitResponses: '單位回應時機',
       unitResponsesTip: '居民是否會出聲回應你的命令與選取。不回應時，只靠點擊本身確認命令。',
       unitResponseModes: { all: '每次', selection: '僅限首次選取', off: '從不' },
+      soundQuality: '音效品質',
+      soundQualityTip: '無損保留原始錄音。輕量將其壓縮到幾分之一，瀏覽器中的載入時間更短。差別很難聽出。',
+      soundQualities: { lossless: '無損', compact: '輕量' },
       volumeHeading: '音量',
       volumeTest: '試聽',
       volumes: {

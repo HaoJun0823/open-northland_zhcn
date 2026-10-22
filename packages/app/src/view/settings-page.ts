@@ -7,6 +7,7 @@ import {
   VOLUME_MAX,
   type VolumeChannel,
 } from '@open-northland/audio';
+import { SOUND_QUALITIES, type SoundQuality } from '@open-northland/data';
 import { LOCALE_CODES, type Locale, messages } from '../i18n/index.js';
 import {
   defaultDisplayMode,
@@ -255,12 +256,27 @@ export function createSettingsPage(opts: {
         },
       );
       markSegment(responses.root, 'unit-responses');
+      const quality = segControl<SoundQuality>(
+        SOUND_QUALITIES.map((id) => ({ id, label: text.soundQualities[id] })),
+        settings.soundQuality,
+        (soundQuality) => {
+          void opts.settings.update({ soundQuality });
+          quality.setActive(soundQuality);
+        },
+      );
+      markSegment(quality.root, 'sound-quality');
+      // The engine fetches its banks once, so a game already running keeps the ones it started with.
+      const qualityTip =
+        opts.settings.bootOwnedChangesDeferred === true
+          ? `${text.soundQualityTip} ${text.nextGameTip}`
+          : text.soundQualityTip;
       return [
         settingRow(text.soundEnabled, sound),
         choice('soundInBackground', 'sound-in-background', text.soundInBackgroundTip),
         choice('monoSound', 'mono-sound', text.monoSoundTip),
         choice('jinglesEnabled', 'jingles', text.jinglesEnabledTip),
         settingRow(text.unitResponses, responses.root, { tip: text.unitResponsesTip }),
+        settingRow(text.soundQuality, quality.root, { tip: qualityTip }),
         settingsHeading(text.volumeHeading),
         ...VOLUME_CHANNELS.map(volumeRow),
       ];

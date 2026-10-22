@@ -1,5 +1,5 @@
 import { defaultBindings, SoundDriver } from '@open-northland/audio';
-import { CONTENT_AUDIO_URLS, hasSoundContent, soundIndexOf } from '../../content/audio.js';
+import { contentAudioOptions, hasSoundContent, soundIndexOf } from '../../content/audio.js';
 import { loadIr } from '../../content/ir/load.js';
 import { loadMusicManifest } from '../../content/music.js';
 import { messages } from '../../i18n/index.js';
@@ -50,8 +50,8 @@ export async function renderSoundGallery(
   const index = soundIndexOf(ir, sounds);
   const bindings = defaultBindings();
   const model = buildSoundGalleryModel(sounds, index, bindings, (tribe) => namedTribes.get(tribe));
-  const { volumes, monoSound } = readStoredSettings();
-  const driver = new SoundDriver(index, bindings, { ...CONTENT_AUDIO_URLS, volumes });
+  const { volumes, monoSound, soundQuality } = readStoredSettings();
+  const driver = new SoundDriver(index, bindings, { ...contentAudioOptions(soundQuality), volumes });
   driver.setMono(monoSound);
   const studio = createSoundStudio(driver, index, model, music, volumes);
 

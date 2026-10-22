@@ -355,8 +355,19 @@ describe('system menu navigation', () => {
     expect(document.querySelectorAll('.main-menu__settings-test.is-placeholder')).toHaveLength(2);
     document.querySelector<HTMLButtonElement>('[data-settings-focus="jingles"]')?.click();
     document.querySelector<HTMLButtonElement>('[data-settings-focus="unit-responses:1"]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-settings-focus="sound-quality:1"]')?.click();
     await Promise.resolve();
-    expect(settings.current()).toMatchObject({ jinglesEnabled: false, unitResponses: 'selection' });
+    expect(settings.current()).toMatchObject({
+      jinglesEnabled: false,
+      unitResponses: 'selection',
+      soundQuality: 'compact',
+    });
+    // The picked segment shows at once, before any re-render of the page.
+    const pressed = (prefix: string): string[] =>
+      [...document.querySelectorAll<HTMLButtonElement>(`[data-settings-focus^="${prefix}:"]`)].map(
+        (b) => b.getAttribute('aria-pressed') ?? '',
+      );
+    expect(pressed('sound-quality')).toEqual(['false', 'true']);
   });
 
   it('leaves the sliders without test buttons when there is no sound to preview', () => {

@@ -7,7 +7,7 @@ import {
   SoundDriver,
   type SoundIndex,
 } from '@open-northland/audio';
-import type { SoundBank } from '@open-northland/data';
+import type { SoundBank, SoundQuality } from '@open-northland/data';
 import type { ContentIr } from './ir/rows.js';
 import { contentUrl } from './url.js';
 
@@ -17,10 +17,15 @@ import { contentUrl } from './url.js';
  */
 
 /** Where an audio engine of this page reads the content tree's clips and music. */
-export const CONTENT_AUDIO_URLS = {
+const CONTENT_AUDIO_URLS = {
   baseUrl: contentUrl(DEFAULT_SOUNDS_BASE_URL),
   musicBaseUrl: contentUrl(DEFAULT_MUSIC_BASE_URL),
 } as const satisfies AudioEngineOptions;
+
+/** The engine options of this page's content tree, loading its sound banks at `soundQuality`. */
+export function contentAudioOptions(soundQuality: SoundQuality): AudioEngineOptions {
+  return { ...CONTENT_AUDIO_URLS, soundQuality };
+}
 
 /**
  * True when the bank carries at least one clip in any category. The one "is there anything to play?" test,
@@ -48,8 +53,8 @@ export function soundIndexOf(ir: ContentIr, sounds: SoundBank): SoundIndex {
  * Build a {@link SoundDriver} from the fetched IR, or `null` when content is absent - the caller then
  * runs silent.
  */
-export function createSoundDriver(ir: ContentIr | null): SoundDriver | null {
+export function createSoundDriver(ir: ContentIr | null, soundQuality: SoundQuality): SoundDriver | null {
   const sounds = ir?.sounds;
   if (ir === null || !hasSoundContent(sounds)) return null;
-  return new SoundDriver(soundIndexOf(ir, sounds), defaultBindings(), CONTENT_AUDIO_URLS);
+  return new SoundDriver(soundIndexOf(ir, sounds), defaultBindings(), contentAudioOptions(soundQuality));
 }

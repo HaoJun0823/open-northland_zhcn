@@ -12,6 +12,7 @@ import {
   RecoveryBudget,
   SocketBudget,
   sendBounded,
+  TEXT_FRAGMENT_BYTES,
 } from '../src/host/socket-budget.js';
 
 describe('socket traffic budgets', () => {
@@ -199,8 +200,9 @@ describe('socket traffic budgets', () => {
       };
       sendBounded(socket, message);
       expect(Buffer.concat(fragments).toString()).toBe(text);
-      expect(endings).toEqual([false, false, false, false, true]);
-      expect(socket.ping).toHaveBeenCalledTimes(4);
+      const fragmentCount = Math.ceil(message.byteLength / TEXT_FRAGMENT_BYTES);
+      expect(endings).toEqual([...Array<boolean>(fragmentCount - 1).fill(false), true]);
+      expect(socket.ping).toHaveBeenCalledTimes(fragmentCount - 1);
       expect(socket.terminate).not.toHaveBeenCalled();
     }
     expect(backing.size).toBe(1);

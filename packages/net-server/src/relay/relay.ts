@@ -172,6 +172,15 @@ export class Relay {
     member.inboundBytes = bytes;
   }
 
+  /** `client` took another part of a large message the transport is still sending it. Its frames and
+   *  pings wait behind that message, so this progress is what keeps it heard meanwhile; a download that
+   *  stops leaves it silent as before. */
+  downloading(client: ClientHandle): void {
+    const member = client.member;
+    if (!this.clients.has(client) || member === null) return;
+    member.lastHeardAt = this.now();
+  }
+
   /** Answer a message the host will not hand over, without parsing it, as the relay refuses one. */
   refuse(client: ClientHandle, raw: unknown, reason: RelayReason): void {
     if (!this.clients.has(client)) return;

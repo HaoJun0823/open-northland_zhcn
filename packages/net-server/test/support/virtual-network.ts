@@ -1,5 +1,6 @@
 import type { ClientMessage, ServerMessage } from '@open-northland/net-protocol';
 import type { Connection, Relay } from '@open-northland/net-server';
+import { TEXT_FRAGMENT_BYTES } from '../../src/host/socket-budget.js';
 
 /** A relay client as the network reaches it: what arrives, and where it sends. */
 export interface LinkedClient {
@@ -64,7 +65,8 @@ interface Delivery {
  * In-memory links between headless clients and one relay on a virtual clock. Messages cross a link
  * after serialization, bandwidth delay and seeded jitter, in order per direction. A large message
  * blocks later messages on that direction, as it does on a TCP connection, and reports its progress
- * to the relay as the host does.
+ * to the relay as the host does: an upload's bytes as they arrive, a download's fragments as the
+ * client answers the ping after each.
  */
 export class VirtualNetwork {
   private readonly queue: Delivery[] = [];
@@ -90,9 +92,26 @@ export class VirtualNetwork {
       send: (message: ServerMessage) => {
         if (!alive || !downAlive) return;
         const text = JSON.stringify(message);
-        this.schedule(down, oneWay(), Buffer.byteLength(text), options.downloadBytesPerSecond, () => {
-          if (alive && downAlive) client.receive(JSON.parse(text));
-        });
+        const bytes = Buffer.byteLength(text);
+        const delay = oneWay();
+        this.schedule(
+          down,
+          delay,
+          bytes,
+          options.downloadBytesPerSecond,
+          () => {
+            if (alive && downAlive) client.receive(JSON.parse(text));
+          },
+          // The host pings after each fragment of a large message; the client's pong comes back up.
+          (sendAt, durationMs) => {
+            for (let read = TEXT_FRAGMENT_BYTES; read < bytes; read += TEXT_FRAGMENT_BYTES) {
+              const answeredAt = sendAt + (durationMs * read) / bytes + delay + latency / 2;
+              this.enqueue(answeredAt, () => {
+                if (alive && upAlive && downAlive) this.relay.downloading(handle);
+              });
+            }
+          },
+        );
       },
       close: () => {
         alive = false;
@@ -103,16 +122,23 @@ export class VirtualNetwork {
       if (!alive || !upAlive) return;
       const text = JSON.stringify(message);
       const bytes = Buffer.byteLength(text);
+      const delay = oneWay();
       this.schedule(
         up,
-        oneWay(),
+        delay,
         bytes,
         options.uploadBytesPerSecond,
         () => {
           if (alive && upAlive) this.relay.receive(handle, JSON.parse(text), bytes);
         },
-        (arrived) => {
-          if (alive && upAlive) this.relay.receiving(handle, arrived);
+        // The host reports the bytes of a message still arriving on each TCP read.
+        (sendAt, durationMs) => {
+          for (let sent = PROGRESS_INTERVAL_MS; sent < durationMs; sent += PROGRESS_INTERVAL_MS) {
+            const arrived = Math.floor((bytes * sent) / durationMs);
+            this.enqueue(Math.max(sendAt + sent + delay, up.lastAt), () => {
+              if (alive && upAlive) this.relay.receiving(handle, arrived);
+            });
+          }
         },
       );
     });
@@ -140,27 +166,21 @@ export class VirtualNetwork {
     }
   }
 
-  /** `progress` hears how many bytes of a message slower than the progress cadence have arrived. */
+  /** `progress` learns when the message starts crossing and how long it takes, before the delivery
+   *  after it is queued. */
   private schedule(
     direction: Direction,
     delayMs: number,
     bytes: number,
     bytesPerSecond: number | undefined,
     run: () => void,
-    progress?: (arrived: number) => void,
+    progress?: (sendAt: number, durationMs: number) => void,
   ): void {
     const duration = bytesPerSecond === undefined ? 0 : (bytes / bytesPerSecond) * 1000;
     const sendAt = Math.max(this.clock.now(), direction.availableAt);
     direction.availableAt = sendAt + duration;
     const at = Math.max(direction.availableAt + delayMs, direction.lastAt);
-    for (
-      let sent = PROGRESS_INTERVAL_MS;
-      progress !== undefined && sent < duration;
-      sent += PROGRESS_INTERVAL_MS
-    ) {
-      const arrived = Math.floor((bytes * sent) / duration);
-      this.enqueue(Math.max(sendAt + sent + delayMs, direction.lastAt), () => progress(arrived));
-    }
+    progress?.(sendAt, duration);
     direction.lastAt = at;
     this.enqueue(at, run);
   }

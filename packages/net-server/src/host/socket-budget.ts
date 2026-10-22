@@ -8,8 +8,9 @@ export const MESSAGE_BURST = MESSAGES_PER_SECOND * 2;
 export const BYTES_PER_SECOND = 1024 * 1024;
 export const BYTE_BURST = MAX_BLOB_MESSAGE_BYTES * 2;
 export const MAX_BUFFERED_BYTES = MAX_BLOB_MESSAGE_BYTES * 2;
-/** Control pongs can keep a slow download alive before its complete JSON message is delivered. */
-const TEXT_FRAGMENT_BYTES = 128 * 1024;
+/** A control ping follows each fragment, and its pong keeps a slow download heard before the whole
+ *  message is delivered: at 16 KiB/s one arrives every two seconds, inside the relay's silence limit. */
+export const TEXT_FRAGMENT_BYTES = 32 * 1024;
 // RFC 6455: an unmasked frame needs at most 10 header bytes; a control frame is at most 127 bytes.
 const MAX_FRAME_HEADER_BYTES = 10;
 const MAX_CONTROL_FRAME_BYTES = 127;

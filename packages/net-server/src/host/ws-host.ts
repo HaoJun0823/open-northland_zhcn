@@ -228,10 +228,18 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       heard();
       if (acceptTraffic(data.length)) socket.pong(data);
     });
+    // The host pings between the fragments of a large message: an answer says the client has read
+    // that far, while the relay's own pings still wait behind the rest.
     socket.on('pong', (data) => {
       frameEnded();
       heard();
-      acceptTraffic(data.length, controlPings.answer(data) ? 0 : 1);
+      const answered = controlPings.answer(data);
+      if (!acceptTraffic(data.length, answered ? 0 : 1) || !answered) return;
+      try {
+        relay.downloading(client);
+      } catch (err) {
+        log('downloading failed', { error: String(err) });
+      }
     });
     socket.on('message', (data, isBinary) => {
       frameEnded();

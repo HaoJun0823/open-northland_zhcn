@@ -209,6 +209,19 @@ describe('RelaySocket', () => {
     expect(events.slice(-2)).toEqual(['retry:1:1000', 'open']);
   });
 
+  it('does not count the time its thread was blocked as the relay being quiet', () => {
+    const { sockets, events } = harness(undefined, () => false);
+    sockets[0]?.open();
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    // A world build holds the thread past the replacement bound, while messages queue behind it.
+    vi.setSystemTime(Date.now() + LINK_REPLACE_MS * 2);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(events).toEqual(['open']);
+    expect(sockets[0]?.closedByClient).toBe(false);
+    vi.advanceTimersByTime(LINK_REPLACE_MS);
+    expect(sockets[0]?.closedByClient).toBe(true);
+  });
+
   it('counts the replacement bound from the last message', () => {
     const { sockets } = harness(undefined, () => false);
     sockets[0]?.open();

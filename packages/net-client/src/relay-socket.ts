@@ -23,6 +23,9 @@ export const LINK_REPLACE_MS = 2 * LINK_QUIET_MS;
  *  tenth of that rate. */
 export const TRANSFER_REPLACE_MS = 5 * 60_000;
 const QUIET_POLL_MS = 1000;
+/** A poll later than this after the previous one ran in a thread blocked meanwhile, such as by a world
+ *  build: socket messages that queued then may still be waiting behind it. */
+const STARVED_POLL_MS = 2 * QUIET_POLL_MS;
 const FINAL_CLOSE_CODES: readonly number[] = [CLOSE_REPLACED, CLOSE_PROTOCOL_ERROR];
 /** A restarted relay has forgotten every room, so reconnecting to one would only be refused. The
  *  reason tells the relay's own restart from a proxy's, after which the relay may still be there. */
@@ -75,6 +78,7 @@ export class RelaySocket implements RelayLink {
   private deadline: ReturnType<typeof setTimeout> | null = null;
   private quietPoll: ReturnType<typeof setInterval> | null = null;
   private quiet = false;
+  private lastPollAt = 0;
   /** When the relay was last heard on the current socket, or the attempt began. */
   private heardAt: number;
   private closed = false;
@@ -166,12 +170,18 @@ export class RelaySocket implements RelayLink {
 
   private watchQuiet(socket: WebSocket): void {
     this.stopQuietWatch();
+    this.lastPollAt = this.now();
     this.quietPoll = setInterval(() => {
       if (this.closed || this.socket !== socket) {
         this.stopQuietWatch();
         return;
       }
-      const quietMs = this.now() - this.heardAt;
+      const now = this.now();
+      const starved = now - this.lastPollAt > STARVED_POLL_MS;
+      this.lastPollAt = now;
+      // A blocked thread heard nothing because it listened to nothing; the silence counts from here.
+      if (starved) this.heardAt = now;
+      const quietMs = now - this.heardAt;
       if (quietMs < LINK_QUIET_MS) return;
       if (!this.quiet) {
         this.quiet = true;

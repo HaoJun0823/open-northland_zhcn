@@ -1,6 +1,7 @@
 import type { RoomView } from '@open-northland/net-protocol';
-import { expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createInstalledMapStore, installCatalogEntry } from '../../src/content/map-source/index.js';
+import * as documents from '../../src/content/transfer/documents.js';
 import {
   createRoomMapTransfer,
   encodeMapTransfer,
@@ -14,17 +15,20 @@ import {
   TINY_MAP,
 } from '../support/catalog-maps.js';
 
-/** What happened, in order: the notice's steps and each verify the transfer ran. */
-const steps = vi.hoisted(() => [] as string[]);
-vi.mock('../../src/content/transfer/documents.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/content/transfer/documents.js')>();
-  return {
-    ...actual,
-    verifyMapDocuments: (...args: Parameters<typeof actual.verifyMapDocuments>) => {
-      steps.push('verify');
-      return actual.verifyMapDocuments(...args);
-    },
-  };
+/** What happened, in order: the notice's steps and each verify the transfer ran. The verify is
+ *  watched through a spy on its module namespace, which the test files sharing this worker do not
+ *  keep: a `vi.mock` would be skipped once another file had loaded the transfer modules. */
+const steps: string[] = [];
+const realVerify = documents.verifyMapDocuments;
+beforeEach(() => {
+  steps.length = 0;
+  vi.spyOn(documents, 'verifyMapDocuments').mockImplementation((...args) => {
+    steps.push('verify');
+    return realVerify(...args);
+  });
+});
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 const handle = verifyMapDocuments('island', TINY_MAP, null);
@@ -83,7 +87,6 @@ it('paints the notice before a delivered map is verified and takes it down after
 it('lets a downloaded catalogue map paint its notice before the verify', async () => {
   const { storage } = memoryInstalledStorage();
   const store = createInstalledMapStore(storage, { budget: null });
-  steps.length = 0;
   await installCatalogEntry(catalogEntry('cn-zatoka'), {
     api: API,
     store,

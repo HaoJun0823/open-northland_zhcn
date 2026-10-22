@@ -1,6 +1,10 @@
 import { type LobbyCompatibility, PROTOCOL_VERSION, type RoomView } from '@open-northland/net-protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { lobbyCompatibilityReporter } from '../../src/entries/relay/compatibility.js';
+import {
+  compatibilityIssuesText,
+  lobbyCompatibilityReporter,
+} from '../../src/entries/relay/compatibility.js';
+import { messages } from '../../src/i18n/index.js';
 
 const REPORT: LobbyCompatibility = {
   content: 'a'.repeat(64),
@@ -100,4 +104,15 @@ describe('lobby compatibility reporter', () => {
     await settle();
     expect(client.setCompatibility.mock.calls).toEqual([[REPORT]]);
   });
+});
+
+it('names the member and the file that differ, so a stale build reads as one', () => {
+  const copy = messages().net;
+  const text = compatibilityIssuesText([
+    { nick: 'Ania', kind: 'client', reason: 'mismatch' },
+    { nick: 'Bartek', kind: 'map', reason: 'missing' },
+  ]);
+  expect(text).toContain(copy.compatibilityKinds.client);
+  expect(text).toContain('Ania');
+  expect(text).toContain(copy.compatibilityKinds.map);
 });

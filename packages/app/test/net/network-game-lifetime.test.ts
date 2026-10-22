@@ -7,6 +7,7 @@ import { messages } from '../../src/i18n/index.js';
 import type { FailureSource, HostedRelayedWorld, NetWorldPort } from '../../src/net/connection.js';
 import type { NetworkHandover } from '../../src/net/handover.js';
 import * as startRoster from '../../src/view/net/start-roster.js';
+import type { SavedView } from '../../src/view/runtime/save-load/view-state.js';
 
 const mocks = vi.hoisted(() => ({
   assemble: vi.fn(),
@@ -27,9 +28,14 @@ vi.mock('../../src/view/fullscreen.js', () => ({ bindDisplayMode: vi.fn() }));
 vi.mock('../../src/entries/relay/net-hud.js', () => ({ mountNetHud: mocks.mountHud }));
 
 beforeEach(() => {
+  window.sessionStorage.clear();
+  document.body.replaceChildren();
   vi.spyOn(startRoster, 'mountStartRoster').mockReturnValue({ update: vi.fn(), dispose: vi.fn() });
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  document.body.replaceChildren();
+});
 
 import { renderNetworkGame } from '../../src/entries/relay/network-game.js';
 
@@ -87,7 +93,7 @@ it('shows the link as it stands on a HUD mounted after the link changed', async 
   mocks.mountHud.mockReturnValue({ link, observe: vi.fn(), dispose: vi.fn() });
   const worker = { dispose: vi.fn(), driver: {}, host: {}, offThreadTickCost: vi.fn() };
   mocks.assemble.mockResolvedValue({ app: { destroy: vi.fn() }, loaded: {}, hosted: { worker } });
-  mocks.present.mockResolvedValue({ destroy: vi.fn() });
+  mocks.present.mockResolvedValue({ destroy: vi.fn(), viewState: () => null });
   let port: NetWorldPort | undefined;
   let onWorld: ((world: HostedRelayedWorld) => void) | undefined;
   const handover = {
@@ -123,6 +129,9 @@ it('shows the link as it stands on a HUD mounted after the link changed', async 
 });
 
 const WORLD_ID = 1;
+const RELAY_URL = 'ws://relay.test/';
+const ROOM_ID = 'room1';
+const RESTORED_TICK = 40;
 
 /** A relayed game whose world is assembled and presented behind the loading card. */
 function presentedGame() {
@@ -143,26 +152,38 @@ function presentedGame() {
   let port: NetWorldPort | undefined;
   let onWorld: ((world: HostedRelayedWorld) => void) | undefined;
   const progress = { reached: false, started: false };
-  /** Whether the presented view reports its first frame shown, or ended before it. */
-  const presented = { shown: true };
+  /** Whether the presented view reports its first frame shown, or ended before it; `view` is what its
+   *  control groups read as when it is torn down. */
+  const presented: { shown: boolean; view: SavedView | null; returnToMenu: (() => void) | null } = {
+    shown: true,
+    view: null,
+    returnToMenu: null,
+  };
   const worker = { dispose: vi.fn(), driver: {}, host: {}, offThreadTickCost: vi.fn() };
   mocks.assemble.mockResolvedValue({ app: { destroy: vi.fn() }, loaded: {}, hosted: { worker } });
   mocks.mountHud.mockReturnValue({ link: vi.fn(), observe: vi.fn(), dispose: vi.fn() });
   mocks.present.mockImplementation(
-    async (_world, runtime: { untilStart: (shown: boolean) => Promise<void> }) => {
+    async (
+      _world,
+      runtime: { untilStart: (shown: boolean) => Promise<void>; onReturnToMenu: () => void },
+    ) => {
+      presented.returnToMenu = runtime.onReturnToMenu;
       progress.reached = true;
       await runtime.untilStart(presented.shown);
       progress.started = true;
-      return { destroy: vi.fn() };
+      return { destroy: vi.fn(), viewState: () => presented.view };
     },
   );
   const worldShown = vi.fn();
+  const dispose = vi.fn();
   const handover = {
     connection: {
       client,
+      url: RELAY_URL,
+      identity: { token: 'token-of-ania', nick: 'Ania' },
       connected: true,
       linkState: { state: 'ok', atMs: 0 },
-      dispose: vi.fn(),
+      dispose,
       worldShown,
       subscribe: (next: (event: unknown) => void) => {
         listener = next;
@@ -179,13 +200,14 @@ function presentedGame() {
   const canvas = { cloneNode: vi.fn(() => ({})), replaceWith: vi.fn() };
   renderNetworkGame(
     canvas as unknown as HTMLCanvasElement,
-    new URLSearchParams(),
+    new URLSearchParams({ room: ROOM_ID }),
     handover as unknown as NetworkHandover,
   );
   /** A relay message the worker forwarded; a bare kind stands for one whose fields the game never reads. */
   const relay = (message: ServerMessage | { readonly kind: ServerMessage['kind'] }) =>
     listener?.({ kind: 'message', message });
   const fail = (what: FailureSource, error: unknown) => listener?.({ kind: 'failure', what, error });
+  const link = (state: string, reason?: string) => listener?.({ kind: 'link', state, reason, atMs: 0 });
   const show = async () => {
     await port?.open(session, null, vi.fn());
     onWorld?.({ worldId: WORLD_ID, session: worker } as unknown as HostedRelayedWorld);
@@ -200,14 +222,17 @@ function presentedGame() {
   };
   return {
     client,
+    dispose,
     relay,
     fail,
+    link,
     show,
     start,
     progress,
     worldShown,
     presented,
     open: () => port?.open(session, null, vi.fn()),
+    restore: () => port?.restore(session, { tick: RESTORED_TICK, mapId: 'forest', view: null }, vi.fn()),
   };
 }
 
@@ -291,7 +316,73 @@ describe('a halt after the start', () => {
     const notice = document.body.querySelector('.boot-notice');
     expect(notice?.textContent).toContain(messages().networkRelay.worldRefused);
     expect(notice?.textContent).not.toContain(messages().net.startFailedTitle);
-    notice?.querySelector('button')?.click();
-    expect(document.body.querySelector('.boot-notice')).toBeNull();
+  });
+});
+
+describe('the seat after a halt', () => {
+  const buttons = () => [...document.body.querySelectorAll('button')].map((button) => button.textContent);
+  const relayCopy = () => messages().networkRelay;
+
+  it('keeps the seat when a started game fails, and offers to retry or to leave', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.fail('message', new Error('a bad frame'));
+    expect(game.dispose).toHaveBeenCalledExactlyOnceWith(false);
+    expect(buttons()).toEqual([relayCopy().retry, relayCopy().leaveGame]);
+  });
+
+  it('keeps the seat when the world fails under the loading card', async () => {
+    const game = presentedGame();
+    await game.show();
+    game.fail('open', new Error('no WebGL'));
+    expect(game.dispose).toHaveBeenCalledExactlyOnceWith(false);
+    const notice = document.body.querySelector('.boot-notice');
+    expect([...(notice?.querySelectorAll('button') ?? [])].map((button) => button.textContent)).toEqual([
+      relayCopy().retry,
+      relayCopy().leaveGame,
+    ]);
+  });
+
+  it('gives the seat up when the player returns to the menu on purpose', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.presented.returnToMenu?.();
+    expect(game.dispose).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
+  it('offers only the menu once the room has no seat for this client', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.relay({
+      kind: 'kicked',
+      player: LOCAL_SEAT,
+      nick: 'Ania',
+      mode: 'computer',
+      cause: 'vote',
+      tick: 2,
+    });
+    expect(game.dispose).toHaveBeenCalledExactlyOnceWith(false);
+    expect(buttons()).toEqual([messages().hud.returnToMenu]);
+  });
+});
+
+describe('a closed link before the clock runs', () => {
+  it('ends the loading card with a way out instead of leaving it frozen', async () => {
+    const game = presentedGame();
+    await game.show();
+    game.link('closed', 'malformed');
+    const notice = document.body.querySelector('.boot-notice');
+    expect(notice?.textContent).toContain(messages().net.startFailedTitle);
+    expect(notice?.querySelectorAll('button')).toHaveLength(2);
+  });
+
+  it('offers no seat back once another connection took this token over', async () => {
+    const game = presentedGame();
+    await game.show();
+    game.link('closed', 'replaced');
+    const notice = document.body.querySelector('.boot-notice');
+    expect([...(notice?.querySelectorAll('button') ?? [])].map((button) => button.textContent)).toEqual([
+      messages().hud.returnToMenu,
+    ]);
   });
 });

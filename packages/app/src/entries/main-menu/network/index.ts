@@ -223,6 +223,13 @@ export function networkScreen(
     const mine = generation;
     busy = true;
     notice(copy.starting);
+    const failed = (error: unknown): void => {
+      if (disposed || generation !== mine) return;
+      failure(error);
+      // A seat in a started game is given up only on purpose: the room stays up with the notice.
+      if (enteredStartedRoom) busy = false;
+      else leaveRoom();
+    };
     void launchNetworkGame(
       current,
       assets,
@@ -231,13 +238,12 @@ export function networkScreen(
         launch(search);
       },
       () => !disposed && generation === mine && connection === current,
-    ).catch((error: unknown) => {
-      if (disposed || generation !== mine) return;
-      failure(error);
-      // A seat in a started game is given up only on purpose: the room stays up with the notice.
-      if (enteredStartedRoom) busy = false;
-      else leaveRoom();
-    });
+      // The game's module never loaded: this screen holds the connection again and hears the room.
+      (error) => {
+        handedOff = false;
+        failed(error);
+      },
+    ).catch(failed);
   }
 
   function observe(event: ConnectionEvent): void {

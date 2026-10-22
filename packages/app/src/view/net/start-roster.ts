@@ -7,7 +7,8 @@ import {
 import { playerSwatchHex } from '../../catalog/roster.js';
 import { messages } from '../../i18n/index.js';
 
-export type StartRosterState = 'loading' | 'ready' | 'away';
+/** `reconnecting` is this client's own row while its link to the relay is down. */
+export type StartRosterState = 'loading' | 'ready' | 'away' | 'reconnecting';
 
 export interface StartRosterRow {
   readonly nick: string;

@@ -9,7 +9,10 @@ export const plNetworkRelay = {
   openFailed: 'Nie udało się otworzyć świata',
   restoreFailed: 'Nie udało się odtworzyć świata',
   reconnectOtherRoom: 'ten gracz jest już w innym pokoju',
-  reconnectContentDiffers: 'twoje pliki gry różnią się od plików sesji',
+  retry: 'Spróbuj ponownie',
+  leaveGame: 'Opuść grę',
+  seatKept:
+    '{reason}. Pokój zachowuje twoje miejsce. Spróbuj ponownie, aby wrócić do gry, albo opuść ją, aby oddać miejsce.',
   reasons: {
     helloFirst: 'gra nie przedstawiła się na początku połączenia',
     helloOverdue: 'gra zbyt długo się nie przedstawiała',

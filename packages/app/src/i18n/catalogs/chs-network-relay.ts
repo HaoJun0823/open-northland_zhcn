@@ -9,7 +9,9 @@ export const chsNetworkRelay = {
   openFailed: '无法打开世界',
   restoreFailed: '无法恢复世界',
   reconnectOtherRoom: '该玩家已在另一个房间中',
-  reconnectContentDiffers: '你的游戏文件与本局不一致',
+  retry: '重试',
+  leaveGame: '离开游戏',
+  seatKept: '{reason}。房间会保留你的席位。重试即可回到游戏，或离开游戏以交出席位。',
   reasons: {
     helloFirst: '游戏没有先表明身份',
     helloOverdue: '游戏迟迟没有表明身份',

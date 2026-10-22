@@ -127,29 +127,37 @@ export function mountBootProgress(
   };
 }
 
-/** A boot that cannot go on, said on the card's own backdrop: a carved notice and one way out. Returns
+export interface BootNoticeAction {
+  readonly label: string;
+  readonly onClick: () => void;
+}
+
+/** A boot that cannot go on, said on the card's own backdrop: a carved notice and its ways out. Returns
  *  what removes it. */
 export function mountBootNotice(
   title: string,
   detail: string,
-  action: { readonly label: string; readonly onClick: () => void },
+  actions: readonly BootNoticeAction[],
 ): () => void {
   const heading = node('boot-notice__heading');
   heading.textContent = title;
   const text = node('boot-notice__text');
   text.textContent = detail;
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'boot-notice__button';
-  button.textContent = action.label;
-  button.addEventListener('click', action.onClick);
-  const notice = node('boot-notice', heading, text, button);
+  const buttons = actions.map((action) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'boot-notice__button';
+    button.textContent = action.label;
+    button.addEventListener('click', action.onClick);
+    return button;
+  });
+  const notice = node('boot-notice', heading, text, ...buttons);
   notice.setAttribute('role', 'alert');
   const root = node('boot-card', notice);
   root.style.setProperty('--boot-backdrop', `url("${BRAND_BACKDROP}")`);
   root.style.setProperty('--boot-still', bootStillImage(lastShownStill()));
   document.body.append(root);
-  button.focus({ preventScroll: true });
+  buttons[0]?.focus({ preventScroll: true });
   return () => root.remove();
 }
 

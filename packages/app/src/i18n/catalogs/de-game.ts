@@ -2154,6 +2154,7 @@ export const deGame = {
       ready: 'bereit',
       loading: 'lädt',
       away: 'getrennt',
+      reconnecting: 'verbinde neu',
     },
     youWereKicked: 'Du wurdest per Abstimmung aus dem Spiel ausgeschlossen',
     gameEndedTitle: 'Das Mehrspielerspiel ist beendet',

@@ -2141,6 +2141,7 @@ export const ruGame = {
       ready: 'готов',
       loading: 'загрузка',
       away: 'нет связи',
+      reconnecting: 'переподключение',
     },
     youWereKicked: 'Вас исключили из игры голосованием',
     gameEndedTitle: 'Сетевая игра завершена',

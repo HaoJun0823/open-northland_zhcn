@@ -1959,6 +1959,7 @@ export const chtGame = {
       ready: '已就緒',
       loading: '載入中',
       away: '已中斷連線',
+      reconnecting: '重新連線中',
     },
     youWereKicked: '你已被投票踢出遊戲',
     gameEndedTitle: '網路遊戲已結束',

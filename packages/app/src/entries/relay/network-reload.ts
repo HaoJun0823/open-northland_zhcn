@@ -4,10 +4,12 @@ import { loadRoomMapDocuments } from '../../content/transfer/index.js';
 import { messages } from '../../i18n/index.js';
 import { NetworkConnection } from '../../net/connection.js';
 import { relayCloseText, relayFailureText, relayReasonText } from '../../net/relay-reason.js';
+import { compatibilityIssuesText } from './compatibility.js';
 import { relayIdentity } from './identity.js';
-import { mountReturnToMenuNotice } from './menu-notice.js';
+import { mountHaltNotice } from './menu-notice.js';
 import { renderNetworkGame } from './network-game.js';
 import { wrongReconnectRoom } from './reload-message.js';
+import { closeKeepsSeat, keptSeat } from './seat-surrender.js';
 
 /** A document reload recreates the connection while the runtime still restores the relay snapshot. */
 export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearchParams): void {
@@ -18,20 +20,25 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
   let closed = false;
   let opening = false;
   let handedOff = false;
-  const dispose = (leave = true) => {
+  // Nothing here gives the seat up: the halt notice's Leave is the player's own way to.
+  const dispose = () => {
     if (closed) return;
     closed = true;
     unsubscribe();
-    if (!handedOff) connection.dispose(leave);
+    if (!handedOff) connection.dispose(false);
   };
-  const fail = (error: unknown, leave = true) => {
+  /** `seatKept` says the relay may still hold this client's seat, which the notice then offers back. */
+  const fail = (error: unknown, seatKept = true) => {
     if (closed) return;
-    dispose(leave);
-    mountReturnToMenuNotice(messages().networkRelay.openFailed, relayFailureText(error));
+    dispose();
+    mountHaltNotice(messages().networkRelay.openFailed, relayFailureText(error), {
+      onCard: false,
+      seat: seatKept ? keptSeat(url, connection.identity, roomId) : null,
+    });
   };
   const unsubscribe = connection.subscribe((event) => {
     if (event.kind === 'link' && event.state === 'closed') {
-      fail(relayCloseText(event.reason));
+      fail(relayCloseText(event.reason), closeKeepsSeat(event.reason));
       return;
     }
     if (event.kind === 'failure') {
@@ -46,7 +53,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
     }
     if (message.kind === 'welcome') connection.client.joinRoom(roomId);
     if (message.kind === 'left' || message.kind === 'error' || message.kind === 'rejected') {
-      fail(message.kind === 'left' ? messages().net.roomEnded : relayReasonText(message.reason));
+      fail(message.kind === 'left' ? messages().net.roomEnded : relayReasonText(message.reason), false);
       return;
     }
     if (message.kind !== 'start' || opening) return;
@@ -71,7 +78,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
         room.creator,
         room.settings.initialSave,
       );
-      if (issues.length > 0) throw new Error(messages().networkRelay.reconnectContentDiffers);
+      if (issues.length > 0) throw new Error(compatibilityIssuesText(issues));
       handedOff = true;
       dispose();
       try {
@@ -81,7 +88,7 @@ export function renderNetworkReload(canvas: HTMLCanvasElement, params: URLSearch
         handedOff = false;
         fail(error);
       }
-    })().catch(fail);
+    })().catch((error: unknown) => fail(error));
   });
   window.addEventListener(
     'pagehide',

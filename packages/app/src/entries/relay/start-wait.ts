@@ -1,6 +1,12 @@
 import type { RelayClientView } from '@open-northland/net-client';
 import { MAX_LOADING_PROGRESS, type ServerMessage } from '@open-northland/net-protocol';
-import { mountStartRoster, type StartRoster, startRosterRows } from '../../view/net/start-roster.js';
+import type { LinkState } from '../../session/worker/net-protocol.js';
+import {
+  mountStartRoster,
+  type StartRoster,
+  type StartRosterRow,
+  startRosterRows,
+} from '../../view/net/start-roster.js';
 
 type StartClient = Pick<RelayClientView, 'nick' | 'room' | 'clockState' | 'waitingFor'>;
 
@@ -11,6 +17,8 @@ export interface StartWait {
   observe(message: ServerMessage): void;
   /** This client's own boot progress in whole percent. */
   progress(percent: number): void;
+  /** The relay link as the worker last reported it; this client's row reads as reconnecting while it is down. */
+  link(state: LinkState): void;
   /** Settles once the room starts, or at once while `current` says the waiting world was replaced. */
   untilStart(current: () => boolean): Promise<void>;
   /** A newer world or a closed game: every pending wait settles, the roster stays. */
@@ -26,20 +34,20 @@ export function createStartWait(client: StartClient): StartWait {
   let ownProgress: number | null = null;
   let ownReady = false;
   let heardWaiting = client.waitingFor.length > 0;
+  let reconnecting = false;
 
   const started = (): boolean =>
     client.clockState !== null && !client.waitingFor.some((member) => member.reason === 'loading');
   const render = (): void => {
     if (roster === null) return;
-    roster.update(
-      startRosterRows({
-        room: client.room,
-        waitingFor: client.waitingFor,
-        heardWaiting,
-        ownNick: client.nick,
-        ownProgress,
-      }),
-    );
+    const rows = startRosterRows({
+      room: client.room,
+      waitingFor: client.waitingFor,
+      heardWaiting,
+      ownNick: client.nick,
+      ownProgress,
+    });
+    roster.update(reconnecting ? rows.map(reconnectingSelf) : rows);
   };
   const release = (): void => {
     const pending = waits;
@@ -66,6 +74,12 @@ export function createStartWait(client: StartClient): StartWait {
       ownProgress = percent;
       render();
     },
+    link(state): void {
+      const down = state === 'reconnecting';
+      if (down === reconnecting) return;
+      reconnecting = down;
+      render();
+    },
     untilStart(current): Promise<void> {
       if (!current()) return Promise.resolve();
       ownReady = true;
@@ -85,3 +99,6 @@ export function createStartWait(client: StartClient): StartWait {
     end,
   };
 }
+
+const reconnectingSelf = (row: StartRosterRow): StartRosterRow =>
+  row.self ? { ...row, state: 'reconnecting' } : row;

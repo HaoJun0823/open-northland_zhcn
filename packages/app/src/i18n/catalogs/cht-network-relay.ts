@@ -9,7 +9,9 @@ export const chtNetworkRelay = {
   openFailed: '無法開啟世界',
   restoreFailed: '無法還原世界',
   reconnectOtherRoom: '這名玩家已在另一個房間中',
-  reconnectContentDiffers: '你的遊戲檔案與本場遊戲不一致',
+  retry: '重試',
+  leaveGame: '離開遊戲',
+  seatKept: '{reason}。房間會保留你的席位。重試即可回到遊戲，或離開遊戲以交出席位。',
   reasons: {
     helloFirst: '遊戲沒有先表明身分',
     helloOverdue: '遊戲過了太久才表明身分',

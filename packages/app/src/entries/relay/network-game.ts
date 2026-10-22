@@ -24,7 +24,7 @@ import {
   worldFailureTitle,
 } from '../../net/relay-reason.js';
 import { networkSaveSession } from '../../net/save-session.js';
-import { dismissBootProgress, mountBootNotice } from '../../view/boot-progress.js';
+import { dismissBootProgress } from '../../view/boot-progress.js';
 import { bindDisplayMode } from '../../view/fullscreen.js';
 import { releaseDocument } from '../../view/navigation-guard.js';
 import { mountResyncPlaque, type ResyncPlaque } from '../../view/net/resync-plaque.js';
@@ -32,7 +32,7 @@ import { menuSearch } from '../../view/params.js';
 import type { GameViewHandle } from '../../view/runtime/game-view.js';
 import type { NetReadout } from '../../view/runtime/net-readout.js';
 import { type AssembledMapWorld, assembleMapWorld, presentMapWorld, type RestoredSave } from '../map/boot.js';
-import { mountReturnToMenuNotice } from './menu-notice.js';
+import { mountHaltNotice } from './menu-notice.js';
 import { mountNetHud, type NetHud } from './net-hud.js';
 import {
   hostRelayedWorld,
@@ -41,6 +41,7 @@ import {
   type VerifiedStart,
 } from './relayed-world.js';
 import { roomExitObserver } from './room-exit.js';
+import { closeKeepsSeat, keptSeat } from './seat-surrender.js';
 import { createStartWait } from './start-wait.js';
 
 /** Within the bundle's wait for the whole net report, so the worker's answers' own bound lands first. */
@@ -78,6 +79,7 @@ export function renderNetworkGame(
     plaque?.dispose();
     plaque = null;
   }
+  const roomId = client.room?.id ?? params.get('room');
   const released = new WeakSet<AssembledMapWorld>();
   function release(world: AssembledMapWorld<RelayedMapWorld>): void {
     if (released.has(world)) return;
@@ -118,49 +120,58 @@ export function renderNetworkGame(
     if (assembled !== null && presentingWorld !== assembled) release(assembled);
     assembled = null;
   }
-  function dispose(): void {
+  /** `leave` gives the seat up; without it the relay keeps the seat for a reconnect. */
+  function dispose(leave: boolean): void {
     if (closed) return;
     closed = true;
     revision++;
     scope.abort();
     startWait.end();
     unsubscribe();
-    connection.dispose();
+    connection.dispose(leave);
     clearWorld();
     dismissPlaque();
     dismissBootProgress();
   }
+  /** The player's own way out: the only one that gives the seat up. */
   function returnToMenu(): void {
-    void swapToEntry(menuSearch(), dispose).catch((error: unknown) => fail(error));
+    void swapToEntry(menuSearch(), () => dispose(true)).catch((error: unknown) => fail(error));
   }
   /** End the game on `error`, under `title` when the caller names one, else under where the game
-   *  stands: a start that never came, or a game that stood. */
-  function fail(error: unknown, title: string | null = null): void {
+   *  stands: a start that never came, or a game that stood. A halt never gives the seat up: while
+   *  `seatKept` says the relay may still hold it, the notice offers to retry or to leave. */
+  function fail(error: unknown, title: string | null = null, seatKept = true): void {
     if (closed) return;
     diag.warn('net', 'network game halted', { error: errorText(error) });
     const starting = startWait.pending;
-    dispose();
+    dispose(false);
     // The game is over; closing the tab on the notice loses nothing.
     releaseDocument();
-    if (starting) {
-      const remove = mountBootNotice(title ?? copy.startFailedTitle, relayFailureText(error), {
-        label: messages().hud.returnToMenu,
-        onClick: () => void swapToEntry(menuSearch(), remove),
-      });
-      return;
-    }
-    mountReturnToMenuNotice(title ?? copy.gameEndedTitle, relayFailureText(error));
+    mountHaltNotice(
+      title ?? (starting ? copy.startFailedTitle : copy.gameEndedTitle),
+      relayFailureText(error),
+      {
+        onCard: starting,
+        seat: seatKept && roomId !== null ? keptSeat(connection.url, connection.identity, roomId) : null,
+      },
+    );
   }
   const startWait = createStartWait(client);
 
-  const exit = roomExitObserver((reason) => fail(roomEndText(reason)));
+  const exit = roomExitObserver((reason) => fail(roomEndText(reason), null, false));
   const unsubscribe = connection.subscribe((event) => {
     if (event.kind === 'failure') {
-      fail(event.error, worldFailureTitle(event.what, event.error));
+      fail(event.error, worldFailureTitle(event.what, event.error), event.what !== 'room');
       return;
     }
     if (event.kind === 'link') {
       const { kind: _kind, atMs, ...report } = event;
+      // Without a HUD (loading, or a world being rebuilt) nothing would say the link is gone for good.
+      if (hud === null && event.state === 'closed') {
+        failClosed(event.reason);
+        return;
+      }
+      startWait.link(event.state);
       hud?.link(report, atMs);
       return;
     }
@@ -172,14 +183,17 @@ export function renderNetworkGame(
       showPlaque(desyncNotice(event.message.reference, event.message.tick).text);
     }
     if (event.message.kind === 'kicked' && event.message.player === client.session?.localSeat) {
-      fail(copy.youWereKicked);
+      fail(copy.youWereKicked, null, false);
       return;
     }
     startWait.observe(event.message);
     hud?.observe(event.message);
   });
+  function failClosed(reason: string | undefined): void {
+    fail(relayCloseText(reason), null, closeKeepsSeat(reason));
+  }
   // A link that closed between the handover and this subscription would otherwise never be heard of.
-  if (connection.linkState?.state === 'closed') fail(relayCloseText(connection.linkState.reason));
+  if (connection.linkState?.state === 'closed') failClosed(connection.linkState.reason);
 
   function build(
     session: GameSession,

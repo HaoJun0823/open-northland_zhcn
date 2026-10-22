@@ -2000,6 +2000,7 @@ export const enGame = {
       ready: 'ready',
       loading: 'loading',
       away: 'disconnected',
+      reconnecting: 'reconnecting',
     },
     youWereKicked: 'You were voted out of the game',
     gameEndedTitle: 'The network game has ended',

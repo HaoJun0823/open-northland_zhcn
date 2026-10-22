@@ -1955,6 +1955,7 @@ export const chsGame = {
       ready: '已就绪',
       loading: '载入中',
       away: '已断线',
+      reconnecting: '重新连接中',
     },
     youWereKicked: '你已被投票踢出游戏',
     gameEndedTitle: '网络游戏已结束',

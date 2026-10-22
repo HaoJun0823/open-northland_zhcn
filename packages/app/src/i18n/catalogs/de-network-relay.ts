@@ -8,7 +8,10 @@ export const deNetworkRelay = {
   openFailed: 'Welt konnte nicht geöffnet werden',
   restoreFailed: 'Welt konnte nicht wiederhergestellt werden',
   reconnectOtherRoom: 'dieser Spieler ist bereits in einem anderen Raum',
-  reconnectContentDiffers: 'deine Spieldateien stimmen nicht mit denen der Sitzung überein',
+  retry: 'Erneut versuchen',
+  leaveGame: 'Spiel verlassen',
+  seatKept:
+    '{reason}. Der Raum hält deinen Platz frei. Versuche es erneut, um ins Spiel zurückzukehren, oder verlasse es, um den Platz abzugeben.',
   reasons: {
     helloFirst: 'das Spiel hat nicht zuerst die Begrüßungsnachricht gesendet',
     helloOverdue: 'das Spiel hat die Begrüßungsnachricht nicht rechtzeitig gesendet',

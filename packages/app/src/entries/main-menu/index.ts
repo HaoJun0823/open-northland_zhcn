@@ -1,5 +1,6 @@
 import { messages } from '../../i18n/index.js';
 import { type LaunchEntry, swapToEntry } from '../../launch.js';
+import { abandonNetworkHandover } from '../../net/handover.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/brand-art.js';
 import { bindDisplayMode } from '../../view/fullscreen.js';
 import { servedByBrowser } from '../../view/host.js';
@@ -150,6 +151,8 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
       }
       // Save bytes the load screen staged for this entry: no boot will claim them now.
       void clearPendingLoad();
+      // Likewise a network game's connection, which goes back to the screen that staged it.
+      abandonNetworkHandover(err);
       throw err; // installCrashCapture's unhandledrejection hook owns the reporting
     });
   };

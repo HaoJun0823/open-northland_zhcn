@@ -291,11 +291,13 @@
   color: #b9d48a;
 }
 
-.boot-roster__row[data-state="away"] .boot-roster__status {
+.boot-roster__row[data-state="away"] .boot-roster__status,
+.boot-roster__row[data-state="reconnecting"] .boot-roster__status {
   color: #d99a7a;
 }
 
-.boot-roster__row[data-state="away"] {
+.boot-roster__row[data-state="away"],
+.boot-roster__row[data-state="reconnecting"] {
   opacity: 0.7;
 }
 
@@ -335,6 +337,10 @@
   letter-spacing: 0.06em;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+.boot-notice__button + .boot-notice__button {
+  margin-left: 12px;
 }
 
 .boot-notice__button:hover,

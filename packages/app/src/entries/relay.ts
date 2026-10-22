@@ -30,7 +30,8 @@ export async function renderRelayGame(canvas: HTMLCanvasElement, params: URLSear
       const { renderNetworkGame } = await import('./relay/network-game.js');
       renderNetworkGame(canvas, params, network);
     } catch (error) {
-      network.connection.dispose();
+      // The seat stays held, so a reload can take it back.
+      network.connection.dispose(false);
       throw error;
     }
     return;
@@ -101,7 +102,8 @@ export async function renderRelayGame(canvas: HTMLCanvasElement, params: URLSear
     if (stage === 'ended') return;
     stage = 'ended';
     unsubscribe();
-    connection.dispose();
+    // A started room keeps the seat for a reload; in the lobby a closed link is a leave anyway.
+    connection.dispose(false);
     // Nothing runs behind the notice; leaving it asks nothing.
     releaseDocument();
     mountReturnToMenuNotice(title, detail);

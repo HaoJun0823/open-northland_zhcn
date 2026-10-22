@@ -8,15 +8,25 @@ export interface NetworkHandover {
   readonly initialSave: { readonly identity: InitialSaveIdentity; readonly bytes: string } | null;
 }
 
-let pending: NetworkHandover | null = null;
+let pending: { readonly handover: NetworkHandover; readonly abandoned: (error: unknown) => void } | null =
+  null;
 
-export function stageNetworkHandover(handover: NetworkHandover): void {
+/** `abandoned` hears when the entry meant to take the handover failed to load, so its stager takes
+ *  the connection back. */
+export function stageNetworkHandover(handover: NetworkHandover, abandoned: (error: unknown) => void): void {
   if (pending !== null) throw new Error('A network game is already starting');
-  pending = handover;
+  pending = { handover, abandoned };
 }
 
 export function takeNetworkHandover(): NetworkHandover | null {
   const result = pending;
   pending = null;
-  return result;
+  return result?.handover ?? null;
+}
+
+/** The entry a handover was staged for never loaded: nobody will take it now. */
+export function abandonNetworkHandover(error: unknown): void {
+  const result = pending;
+  pending = null;
+  result?.abandoned(error);
 }

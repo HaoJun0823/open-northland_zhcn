@@ -9,7 +9,10 @@ export const enNetworkRelay = {
   openFailed: 'Could not open the world',
   restoreFailed: 'Could not restore the world',
   reconnectOtherRoom: 'this player is already in another room',
-  reconnectContentDiffers: 'your game files differ from the session',
+  retry: 'Try again',
+  leaveGame: 'Leave the game',
+  seatKept:
+    '{reason}. The room keeps your seat. Try again to return to the game, or leave it to hand the seat over.',
   reasons: {
     helloFirst: 'the game did not introduce itself first',
     helloOverdue: 'the game took too long to introduce itself',

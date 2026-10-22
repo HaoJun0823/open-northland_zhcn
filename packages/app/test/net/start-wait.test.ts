@@ -44,3 +44,21 @@ it('shows the local observer ready while seated players still load', async () =>
     wait.end();
   }
 });
+
+it('reads this client as reconnecting on the roster while its link is down', () => {
+  const room = {
+    members: [{ nick: 'Ania', seat: 0, connected: true, loading: 30 }],
+    seats: [],
+  } as unknown as RoomView;
+  const client = { nick: 'Ania', room, clockState: null as ClockState | null, waitingFor: [] };
+  const wait = createStartWait(client);
+  const state = () => document.querySelector('.boot-roster__row')?.getAttribute('data-state');
+  try {
+    wait.link('reconnecting');
+    expect(state()).toBe('reconnecting');
+    wait.link('ok');
+    expect(state()).toBe('loading');
+  } finally {
+    wait.end();
+  }
+});

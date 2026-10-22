@@ -42,7 +42,6 @@ export interface SaveLoadDeps {
   readonly sessionMetadata?: () => unknown;
   /** The client's view state for the header; absent or null, the save records none. */
   readonly viewState?: () => SavedView | null;
-  readonly onSaved?: (file: SaveFile) => Promise<void>;
   /** The running world's seed, which names its playthrough; null when the entry does not know it. */
   readonly worldSeed?: number | null;
   /** A small picture of the world for the save list; absent or null, the save lists without one. */
@@ -172,13 +171,6 @@ export function saveLoadSession(deps: SaveLoadDeps): SaveLoadSession {
           seed: file.header.seed,
           thumbnail,
         });
-        if (deps.onSaved !== undefined) {
-          try {
-            await deps.onSaved(file);
-          } catch (error) {
-            diag.warn('net', 'saved locally but relay snapshot upload failed', { error: String(error) });
-          }
-        }
         return { kind: 'saved' };
       } catch (err) {
         diag.warn('save', `writing slot ${JSON.stringify(name)} failed: ${String(err)}`);

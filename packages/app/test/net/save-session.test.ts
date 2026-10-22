@@ -1,12 +1,12 @@
 import { type GameSession, parseSavedSessionMetadata } from '@open-northland/lockstep';
 import { RelayClient } from '@open-northland/net-client';
 import { DESCRIPTOR_WORLD, type RoomView } from '@open-northland/net-protocol';
-import { exportSaveGame, Simulation } from '@open-northland/sim';
-import { expect, it, vi } from 'vitest';
+import { Simulation } from '@open-northland/sim';
+import { expect, it } from 'vitest';
 import { testContent } from '../../../sim/test/fixtures/content.js';
 import { networkSaveSession } from '../../src/net/save-session.js';
 
-it('captures the current public roster and does not upload an old world after resync', async () => {
+it('captures the current public roster and refuses an old world after resync', async () => {
   const sim = new Simulation({ seed: 7, content: testContent() });
   const session: GameSession = {
     world: { kind: 'map', mapId: 'test' },
@@ -107,13 +107,6 @@ it('captures the current public roster and does not upload an old world after re
     { player: 3, nick: null },
   ]);
   expect(JSON.stringify(metadata)).not.toContain(client.token);
-  const save = exportSaveGame(sim, { mapId: 'test', session: metadata });
-  const file = { header: save.header, bytes: new Uint8Array() };
-  const upload = vi.spyOn(client, 'shareSave').mockResolvedValue();
-  await hooks.onSaved?.(file);
-  expect(upload).toHaveBeenCalledWith(null, file);
   client.receive({ kind: 'left' });
-  await hooks.onSaved?.(file);
-  expect(upload).toHaveBeenCalledTimes(1);
   expect(() => hooks.sessionMetadata?.()).toThrow(/no longer active/);
 });

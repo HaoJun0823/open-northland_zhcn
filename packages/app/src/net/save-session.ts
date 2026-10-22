@@ -2,11 +2,12 @@ import { createSavedSessionMetadata } from '@open-northland/lockstep';
 import type { RelayClientView } from '@open-northland/net-client';
 import type { SaveLoadSessionOptions } from '../view/runtime/save-load/index.js';
 
-/** The save hooks of a relayed session, alive while the client runs the world numbered `worldId`. */
+/** The save header of a relayed session, alive while the client runs the world numbered `worldId`.
+ *  A save stays on the saving player's machine; nothing is sent to the room. */
 export function networkSaveSession(
-  client: Pick<RelayClientView, 'worldId' | 'session' | 'room' | 'speed' | 'shareSave'>,
+  client: Pick<RelayClientView, 'worldId' | 'session' | 'room' | 'speed'>,
   worldId: number,
-): Pick<SaveLoadSessionOptions, 'sessionMetadata' | 'onSaved'> {
+): Pick<SaveLoadSessionOptions, 'sessionMetadata'> {
   return {
     sessionMetadata() {
       const { session, room } = client;
@@ -23,9 +24,6 @@ export function networkSaveSession(
         { ...session, speed: client.speed, seats },
         room.seats.map(({ player, nick }) => ({ player, nick })),
       );
-    },
-    async onSaved(file) {
-      if (client.worldId === worldId) await client.shareSave(null, file);
     },
   };
 }

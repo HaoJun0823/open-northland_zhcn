@@ -238,9 +238,6 @@ class RelayConnection<B, E> {
         return this.client.digests.list();
       case 'dispute':
         return this.client.dispute;
-      case 'shareSave':
-        await this.client.shareSave(request.to, request.save);
-        return null;
     }
   }
 

@@ -1,4 +1,4 @@
-import { parseSaveGame, type SaveGame, type SaveGameHeader, serializeSaveGame } from '@open-northland/sim';
+import { parseSaveGame, type SaveGame, serializeSaveGame } from '@open-northland/sim';
 
 /** Bytes per `btoa` call where the platform has no `toBase64`: a multiple of three, so each chunk
  *  encodes on its own without padding, and well under the argument limit of `String.fromCharCode`. */
@@ -16,25 +16,6 @@ interface NativeBase64 {
 }
 interface NativeFromBase64 {
   fromBase64?: (text: string) => Uint8Array<ArrayBuffer>;
-}
-
-/** A save already serialized and gzipped where it was captured, with the header fields a share checks. */
-export interface CompressedSave {
-  readonly header: Pick<SaveGameHeader, 'tick' | 'mapId'>;
-  /** The gzip of the save's serialized text, the envelope `decodeSnapshot` inflates. */
-  readonly bytes: Uint8Array;
-}
-
-/** RFC 1952's two identification bytes, which open every gzip member. */
-const GZIP_ID = [0x1f, 0x8b] as const;
-
-/** The wire text of a save its host already compressed; anything but a gzip stream is refused, since
- *  every member inflates what it is sent. */
-export function encodeCompressedSave(save: CompressedSave): string {
-  const { bytes } = save;
-  if (bytes.length < GZIP_ID.length || bytes[0] !== GZIP_ID[0] || bytes[1] !== GZIP_ID[1])
-    throw new Error('A shared save must be a gzip stream');
-  return bytesToBase64(bytes);
 }
 
 export async function encodeSnapshot(save: SaveGame): Promise<string> {

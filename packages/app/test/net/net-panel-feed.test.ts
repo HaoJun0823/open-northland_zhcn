@@ -103,11 +103,7 @@ const clock = (governed: Extract<ServerMessage, { kind: 'clock' }>['governed']):
 
 /** A feed over a mirror of the client, fed the messages a test sends, on a clock the test moves. */
 function setup(messages: readonly ServerMessage[] = []) {
-  const client = new RelayClientMirror(
-    'Ania',
-    () => undefined,
-    async () => null,
-  );
+  const client = new RelayClientMirror('Ania', () => undefined);
   const time = { ms: 0 };
   const wall = { ms: 0 };
   const opening: readonly ServerMessage[] = [
@@ -347,11 +343,7 @@ describe('unseen history', () => {
 
 describe('the relayed HUD model', () => {
   it('builds once per task, so a frame’s readers share one build', async () => {
-    const client = new RelayClientMirror(
-      'Ania',
-      () => undefined,
-      async () => null,
-    );
+    const client = new RelayClientMirror('Ania', () => undefined);
     for (const message of [{ kind: 'room', room: ROOM }, clock(null)] as const) client.apply(message);
     let reads = 0;
     const hud = mountNetHud({
@@ -373,11 +365,7 @@ describe('the relayed HUD model', () => {
 
 describe('the chat line cues', () => {
   it("rings another player's line and players coming and going, never the player's own line", () => {
-    const client = new RelayClientMirror(
-      'Ania',
-      () => undefined,
-      async () => null,
-    );
+    const client = new RelayClientMirror('Ania', () => undefined);
     for (const message of [{ kind: 'room', room: ROOM }, clock(null)] as const) client.apply(message);
     const hud = mountNetHud({ client, readout: () => READOUT, relayUrl: null });
     const send = (message: ServerMessage): void => {

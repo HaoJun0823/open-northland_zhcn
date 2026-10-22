@@ -27,7 +27,6 @@ export { type ClockState, RelayState } from './relay-state.js';
 export {
   base64ToBytes,
   bytesToBase64,
-  type CompressedSave,
   decodeSnapshot,
   encodeSnapshot,
   gzipText,

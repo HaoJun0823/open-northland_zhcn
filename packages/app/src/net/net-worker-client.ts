@@ -1,7 +1,6 @@
 import type { GameSession, SessionDriver } from '@open-northland/lockstep';
 import {
   type ClockState,
-  type CompressedSave,
   type LobbyAction,
   type RelayClientView,
   type RelayLobby,
@@ -19,7 +18,7 @@ import type {
 } from '@open-northland/net-protocol';
 import { TICK_MS } from '@open-northland/net-protocol';
 import type { CommandEnvelope } from '@open-northland/sim';
-import type { RelayFacts, RelayRequest, ToNetWorker } from '../session/worker/net-protocol.js';
+import type { RelayFacts, ToNetWorker } from '../session/worker/net-protocol.js';
 
 /** The relay's last tally of the vote to kick a seat. */
 export type KickTally = Extract<ServerMessage, { kind: 'kickVote' }>;
@@ -53,7 +52,6 @@ export class RelayClientMirror implements RelayClientView {
   constructor(
     nick: string,
     private readonly post: (message: ToNetWorker<never>) => void,
-    private readonly request: (request: RelayRequest) => Promise<unknown>,
   ) {
     this.state = new RelayState(nick);
   }
@@ -167,10 +165,6 @@ export class RelayClientMirror implements RelayClientView {
   submit(envelope: CommandEnvelope): void {
     this.post({ kind: 'submit', envelope });
   }
-  async shareSave(to: string | null, save: CompressedSave): Promise<void> {
-    await this.request({ method: 'shareSave', to, save });
-  }
-
   listRooms(): void {
     this.lobby('listRooms', []);
   }

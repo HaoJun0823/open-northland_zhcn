@@ -11,7 +11,6 @@ import type {
 import type { CommandEnvelope } from '@open-northland/sim';
 import type { RelayLobby } from './lobby.js';
 import type { ClockState } from './relay-state.js';
-import type { CompressedSave } from './snapshot-codec.js';
 
 /** The lobby requests a display makes of the client, by the `RelayLobby` method that sends each. */
 const LOBBY_ACTIONS = [
@@ -71,5 +70,4 @@ export interface RelayClientView extends Pick<RelayLobby, LobbyAction> {
   setSpeed(speed: number): void;
   setResponsiveness(mode: ResponsivenessMode): void;
   submit(envelope: CommandEnvelope): void;
-  shareSave(to: string | null, save: CompressedSave): Promise<void>;
 }

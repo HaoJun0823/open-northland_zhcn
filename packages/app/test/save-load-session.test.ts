@@ -21,7 +21,6 @@ import {
   decodeSaveText,
   isGzipSave,
   type SaveBytes,
-  type SaveFile,
 } from '../src/view/runtime/save-load/codec.js';
 import type { PickedSaveFile } from '../src/view/runtime/save-load/file-access.js';
 import {
@@ -151,7 +150,6 @@ function harness(
     failWrite?: boolean;
     sessionMetadata?: () => unknown;
     viewState?: () => SavedView | null;
-    onSaved?: (file: SaveFile) => Promise<void>;
     loadOtherWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
     captureThumbnail?: () => Promise<Blob | null>;
   } = {},
@@ -167,7 +165,6 @@ function harness(
     ...(overrides.captureSave === undefined ? {} : { captureSave: overrides.captureSave }),
     ...(overrides.sessionMetadata === undefined ? {} : { sessionMetadata: overrides.sessionMetadata }),
     ...(overrides.viewState === undefined ? {} : { viewState: overrides.viewState }),
-    ...(overrides.onSaved === undefined ? {} : { onSaved: overrides.onSaved }),
     loadOtherWorld:
       overrides.loadOtherWorld ??
       ((save) => {
@@ -249,43 +246,32 @@ describe('stagedSaveFrom', () => {
 });
 
 describe('saveLoadSession save flow', () => {
-  it('automatically stores and shares a restorable session without pausing its shared clock', async () => {
+  it('automatically stores a restorable session without pausing its shared clock', async () => {
     const sim = demoSim();
-    const shared = vi.fn(async (_file: SaveFile) => undefined);
-    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania', 'Jan'] }), onSaved: shared });
+    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania', 'Jan'] }) });
     const preference = { autosaveMinutes: 5, autosaveCount: 1 } as const;
     const scheduler = createAutosave(h.session, sim.tick, preference, new AbortController().signal);
     scheduler.update(sim.tick + 5 * 60 * TICKS_PER_SECOND, preference);
-    await vi.waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
     const id = autosaveSlots(WORLD_TOKEN)[0];
     if (id === undefined) throw new Error('Missing autosave slot');
+    await vi.waitFor(() => expect(h.store.has(id)).toBe(true));
     const file = h.store.get(id);
     if (file === undefined) throw new Error('Autosave not stored');
     const restored = parseSaveGame(JSON.parse(await decodeSaveText(file.bytes)));
     expect(restored.header.session).toEqual({ roster: ['Ania', 'Jan'] });
-    expect(shared.mock.calls[0]?.[0].bytes).toEqual(file.bytes);
     expect(h.paused()).toBe(false);
     expect(await h.session.loadSave(id)).toEqual({ kind: 'loading' });
   });
 
-  it('shares the exact captured save after storage, even when simulation advances during compression', async () => {
+  it('stores the save captured at the request, even when simulation advances during compression', async () => {
     const sim = demoSim();
     const tick = sim.tick;
-    let shared: SaveFile | null = null;
-    const h = harness(sim, {
-      sessionMetadata: () => ({ roster: ['Ania'] }),
-      onSaved: async (file) => {
-        expect(h.store.has('Multi')).toBe(true);
-        shared = file;
-      },
-    });
+    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania'] }) });
     const pending = h.session.saveGame('Multi');
     sim.step();
     expect(await pending).toEqual({ kind: 'saved' });
     const stored = h.store.get('Multi');
     const document = JSON.parse(await decodeSaveText(stored?.bytes ?? new Uint8Array()));
-    // The room receives the very bytes the slot stores, not a second serialization.
-    expect(shared).toEqual({ header: document.header, bytes: stored?.bytes });
     expect(document.header).toMatchObject({ tick, session: { roster: ['Ania'] } });
   });
 
@@ -307,20 +293,6 @@ describe('saveLoadSession save flow', () => {
       vi.unstubAllGlobals();
     }
     expect(h.store.get('kept')).toBe(previous);
-  });
-
-  it('keeps a successful local save when relay upload fails, and never shares a failed local write', async () => {
-    let calls = 0;
-    const onSaved = async () => {
-      calls++;
-      throw new Error('offline');
-    };
-    const h = harness(demoSim(), { onSaved });
-    expect(await h.session.saveGame('Local')).toEqual({ kind: 'saved' });
-    expect(h.store.has('Local')).toBe(true);
-    const failed = harness(demoSim(), { onSaved, failWrite: true });
-    expect(await failed.session.saveGame('Failed')).toEqual({ kind: 'failed' });
-    expect(calls).toBe(1);
   });
 
   it('writes the gzipped live sim into the named slot with its provenance', async () => {

@@ -274,7 +274,7 @@ export interface GameViewDeps {
   /** The world seed, which with `worldToken` names the playthrough a save belongs to. */
   readonly worldSeed?: number;
   readonly saveEntrySearch?: string;
-  readonly networkSave?: Pick<SaveLoadSessionOptions, 'sessionMetadata' | 'onSaved'>;
+  readonly networkSave?: Pick<SaveLoadSessionOptions, 'sessionMetadata'>;
   /** Where the mission book's pages and goals come from; omitted, the book shows nothing. */
   readonly missionBriefSource?: MissionBriefSource;
   readonly missionPictureUrl?: (file: string) => string;

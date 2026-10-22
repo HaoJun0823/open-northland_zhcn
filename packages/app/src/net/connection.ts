@@ -119,11 +119,7 @@ export class NetworkConnection {
     });
     this.port = openPort();
     this.worlds = new RelayedWorlds((message) => this.port.post(message), workerStallReports);
-    this.client = new RelayClientMirror(
-      identity.nick,
-      (message) => this.post(message),
-      (request) => this.request(request),
-    );
+    this.client = new RelayClientMirror(identity.nick, (message) => this.post(message));
     this.rejoin = rejoinProbe(this.client);
     // A room is a relayed game to the update notice even while the menu shows it.
     this.releasePlace = holdRelayPlace(() => this.client.room !== null);

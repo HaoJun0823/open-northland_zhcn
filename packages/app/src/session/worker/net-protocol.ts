@@ -1,6 +1,5 @@
 import type { GameSession } from '@open-northland/lockstep';
 import {
-  type CompressedSave,
   type DisputeRecord,
   type LobbyAction,
   RelayRefusal,
@@ -71,10 +70,7 @@ export interface RelayedWorldAnswer<B> {
   readonly initialSaveFingerprint?: string;
 }
 
-export type RelayRequest =
-  | { readonly method: 'digests' }
-  | { readonly method: 'dispute' }
-  | { readonly method: 'shareSave'; readonly to: string | null; readonly save: CompressedSave };
+export type RelayRequest = { readonly method: 'digests' } | { readonly method: 'dispute' };
 
 /** The session protocol's messages, minus the boot a world request replaces. */
 type SessionMessage = Exclude<ToWorker<never>, { readonly kind: 'boot' }>;
@@ -136,6 +132,4 @@ export type RelayAnswer = readonly TickDigest[] | DisputeRecord | null;
 /** The answer a request's method yields; the wire carries the {@link RelayAnswer} union. */
 export type RelayAnswerFor<R extends RelayRequest> = R extends { readonly method: 'digests' }
   ? readonly TickDigest[]
-  : R extends { readonly method: 'dispute' }
-    ? DisputeRecord | null
-    : null;
+  : DisputeRecord | null;

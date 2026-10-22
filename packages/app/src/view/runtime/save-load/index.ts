@@ -15,13 +15,7 @@ export { restoredControlGroups, type SavedView, savedView } from './view-state.j
 export interface SaveLoadSessionOptions
   extends Pick<
     SaveLoadDeps,
-    | 'sessionMetadata'
-    | 'viewState'
-    | 'onSaved'
-    | 'captureSave'
-    | 'captureSaveFile'
-    | 'worldSeed'
-    | 'captureThumbnail'
+    'sessionMetadata' | 'viewState' | 'captureSave' | 'captureSaveFile' | 'worldSeed' | 'captureThumbnail'
   > {
   readonly host: SaveLoadDeps['host'];
   readonly parent?: SaveGame;

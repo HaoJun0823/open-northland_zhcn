@@ -4,7 +4,13 @@ import { errorText } from '../diag/error-text.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { NetworkConnection } from '../net/connection.js';
 import { takeNetworkHandover } from '../net/handover.js';
-import { relayCloseText, relayFailureText, relayReasonText, worldFailureTitle } from '../net/relay-reason.js';
+import {
+  ownDepartureText,
+  relayCloseText,
+  relayFailureText,
+  relayReasonText,
+  worldFailureTitle,
+} from '../net/relay-reason.js';
 import { bindDisplayMode } from '../view/fullscreen.js';
 import { releaseDocument, replaceEntryUrl } from '../view/navigation-guard.js';
 import { mountMessage } from '../view/overlay.js';
@@ -163,7 +169,7 @@ export async function renderRelayGame(canvas: HTMLCanvasElement, params: URLSear
         break;
       }
       case 'kicked':
-        if (message.player === client.session?.localSeat) halt(copy.youWereKicked, '');
+        if (message.player === client.session?.localSeat) halt(ownDepartureText(message), '');
         break;
       case 'start':
         void handOff();

@@ -1,5 +1,10 @@
 import { RelayRefusal } from '@open-northland/net-client';
-import { closingCode, type RelayReason, type RelayReasonCode } from '@open-northland/net-protocol';
+import {
+  closingCode,
+  type RelayReason,
+  type RelayReasonCode,
+  type ServerMessage,
+} from '@open-northland/net-protocol';
 import { errorText } from '../diag/error-text.js';
 import { formatMessage, type Messages, messages } from '../i18n/index.js';
 import type { FailureSource } from './connection.js';
@@ -71,6 +76,21 @@ export function rejoinRefusalText(reason: RelayReason, copy: Messages = messages
   if (reason.code === 'gameStarted') return copy.net.removedWhileAway;
   if (reason.code === 'noRoom') return copy.net.roomGoneWhileAway;
   return relayReasonText(reason, copy);
+}
+
+/** Why the room took this client's own seat, worded for the player it was taken from. Only another
+ *  connection on this token can leave the seat, and that one replaced this connection first. */
+export function ownDepartureText(
+  kicked: Extract<ServerMessage, { kind: 'kicked' }>,
+  copy: Messages = messages(),
+): string {
+  switch (kicked.cause) {
+    case 'loadingTimedOut':
+      return copy.net.youTimedOut[kicked.mode];
+    case 'vote':
+    case 'left':
+      return copy.net.youWereKicked;
+  }
 }
 
 /** The title for a world the worker's client could not open or restore; null for any other failure,

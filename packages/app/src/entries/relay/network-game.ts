@@ -1,6 +1,6 @@
 import type { GameSession } from '@open-northland/lockstep';
 import { verifyInitialSave } from '@open-northland/net-client';
-import { MAX_LOADING_PROGRESS, type RelayReason, type ServerMessage } from '@open-northland/net-protocol';
+import { MAX_LOADING_PROGRESS, type ServerMessage } from '@open-northland/net-protocol';
 import { serializeSaveGame } from '@open-northland/sim';
 import { errorText } from '../../diag/error-text.js';
 import {
@@ -18,9 +18,9 @@ import type { NetWorldPort, RelayedWorldHosting } from '../../net/connection.js'
 import type { NetworkHandover } from '../../net/handover.js';
 import { deliveredMatchEnd, inputDelayMs, relayedSessionDriver } from '../../net/net-worker-client.js';
 import {
+  ownDepartureText,
   relayCloseText,
   relayFailureText,
-  relayReasonText,
   worldFailureTitle,
 } from '../../net/relay-reason.js';
 import { networkSaveSession } from '../../net/save-session.js';
@@ -41,7 +41,7 @@ import {
   releaseRelayedWorld,
   type VerifiedStart,
 } from './relayed-world.js';
-import { roomExitObserver } from './room-exit.js';
+import { roomEndText, roomExitObserver } from './room-exit.js';
 import { closeKeepsSeat, keptSeat } from './seat-surrender.js';
 import { createStartWait } from './start-wait.js';
 
@@ -199,7 +199,7 @@ export function renderNetworkGame(
       showPlaque(desyncNotice(event.message.reference, event.message.tick).text);
     }
     if (event.message.kind === 'kicked' && event.message.player === client.session?.localSeat) {
-      fail(copy.youWereKicked, null, false);
+      fail(ownDepartureText(event.message), null, false);
       return;
     }
     startWait.observe(event.message);
@@ -365,13 +365,4 @@ export function renderNetworkGame(
         if (closed || mine !== revision) release(world);
       });
   });
-}
-
-/** Why the room ended, a start that never came worded as such. */
-function roomEndText(reason: RelayReason | null): string {
-  const copy = messages().net;
-  if (reason === null) return copy.roomEnded;
-  if (reason.code === 'loadingTimedOut') return formatMessage(copy.startTimedOut, { nick: reason.nick });
-  if (reason.code === 'leftBeforeStart') return formatMessage(copy.startLeft, { nick: reason.nick });
-  return `${copy.roomEnded}: ${relayReasonText(reason)}`;
 }

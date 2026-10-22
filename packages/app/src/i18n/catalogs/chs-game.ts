@@ -1963,6 +1963,10 @@ export const chsGame = {
       reconnecting: '重新连接中',
     },
     youWereKicked: '你已被投票踢出游戏',
+    youTimedOut: {
+      computer: '你未能及时完成载入，由电脑玩家接替了你的席位',
+      idle: '你未能及时完成载入，你的席位保持空闲',
+    },
     gameEndedTitle: '网络游戏已结束',
     removedWhileAway: '你在断线期间被投票踢出了游戏。游戏将在没有你的情况下继续。',
     roomGoneWhileAway: '你断线期间房间已关闭。',

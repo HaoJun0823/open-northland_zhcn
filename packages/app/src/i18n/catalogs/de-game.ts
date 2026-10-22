@@ -2163,6 +2163,11 @@ export const deGame = {
       reconnecting: 'verbinde neu',
     },
     youWereKicked: 'Du wurdest per Abstimmung aus dem Spiel ausgeschlossen',
+    youTimedOut: {
+      computer:
+        'Dein Spiel wurde nicht rechtzeitig geladen; ein Computerspieler hat deinen Spielerplatz übernommen',
+      idle: 'Dein Spiel wurde nicht rechtzeitig geladen; dein Spielerplatz bleibt unbesetzt',
+    },
     gameEndedTitle: 'Das Mehrspielerspiel ist beendet',
     removedWhileAway:
       'Während deine Verbindung unterbrochen war, wurdest du per Abstimmung ausgeschlossen. Die Partie läuft ohne dich weiter.',

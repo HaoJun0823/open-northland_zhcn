@@ -8,18 +8,16 @@ import type { FailureSource, HostedRelayedWorld, NetWorldPort } from '../../src/
 import type { NetworkHandover } from '../../src/net/handover.js';
 import * as startRoster from '../../src/view/net/start-roster.js';
 import type { SavedView } from '../../src/view/runtime/save-load/view-state.js';
+import { swapToEntry } from '../support/swap-to-entry.js';
 
 const mocks = vi.hoisted(() => ({
   assemble: vi.fn(),
   present: vi.fn(),
   mountHud: vi.fn(),
-  /** Leaves for the menu at once: the teardown runs as the menu's load would run it. */
-  swap: vi.fn((_search: string, teardown: () => void) => {
-    teardown();
-    return Promise.resolve();
-  }),
 }));
-vi.mock('../../src/launch.js', () => ({ swapToEntry: mocks.swap }));
+vi.mock('../../src/launch.js', async () => ({
+  swapToEntry: (await import('../support/swap-to-entry.js')).swapToEntry,
+}));
 vi.mock('../../src/entries/map/boot.js', () => ({
   assembleMapWorld: mocks.assemble,
   presentMapWorld: mocks.present,
@@ -28,6 +26,7 @@ vi.mock('../../src/view/fullscreen.js', () => ({ bindDisplayMode: vi.fn() }));
 vi.mock('../../src/entries/relay/net-hud.js', () => ({ mountNetHud: mocks.mountHud }));
 
 beforeEach(() => {
+  swapToEntry.mockClear();
   window.sessionStorage.clear();
   document.body.replaceChildren();
   vi.spyOn(startRoster, 'mountStartRoster').mockReturnValue({ update: vi.fn(), dispose: vi.fn() });
@@ -296,8 +295,24 @@ describe('a halt after the start', () => {
     expect(panel()?.textContent).toContain(messages().net.gameEndedTitle);
     expect(panel()?.textContent).toContain(messages().net.youWereKicked);
     backButton().click();
-    expect(mocks.swap).toHaveBeenCalled();
+    expect(swapToEntry).toHaveBeenCalled();
     expect(document.body.childElementCount).toBe(before);
+  });
+
+  it('tells a player whose seat the room handed over for a slow load why, not that it was voted out', async () => {
+    const game = presentedGame();
+    await game.start();
+    game.relay({
+      kind: 'kicked',
+      player: LOCAL_SEAT,
+      nick: 'Ania',
+      mode: 'idle',
+      cause: 'loadingTimedOut',
+      tick: 2,
+    });
+    expect(panel()?.textContent).toContain(messages().net.youTimedOut.idle);
+    expect(panel()?.textContent).not.toContain(messages().net.youWereKicked);
+    backButton().click();
   });
 
   it('ends a game whose room went on without it under the ended-game title', async () => {

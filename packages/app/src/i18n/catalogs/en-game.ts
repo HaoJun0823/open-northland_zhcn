@@ -2008,6 +2008,10 @@ export const enGame = {
       reconnecting: 'reconnecting',
     },
     youWereKicked: 'You were voted out of the game',
+    youTimedOut: {
+      computer: 'Your game did not finish loading in time; a computer player took your seat',
+      idle: 'Your game did not finish loading in time; your seat stays idle',
+    },
     gameEndedTitle: 'The network game has ended',
     removedWhileAway:
       'You were voted out of the game while your connection was down. The game goes on without you.',

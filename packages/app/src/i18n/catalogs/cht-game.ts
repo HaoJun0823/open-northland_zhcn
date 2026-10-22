@@ -1967,6 +1967,10 @@ export const chtGame = {
       reconnecting: '重新連線中',
     },
     youWereKicked: '你已被投票踢出遊戲',
+    youTimedOut: {
+      computer: '你未能及時完成載入；由電腦玩家接手了你的席位',
+      idle: '你未能及時完成載入；你的席位保持閒置',
+    },
     gameEndedTitle: '網路遊戲已結束',
     removedWhileAway: '你在連線中斷期間被投票踢出了遊戲。遊戲會在沒有你的情況下繼續進行。',
     roomGoneWhileAway: '房間在你連線中斷期間結束了。',

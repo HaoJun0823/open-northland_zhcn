@@ -1976,6 +1976,10 @@ export const plGame = {
       reconnecting: 'łączy się ponownie',
     },
     youWereKicked: 'Głosowanie wyrzuciło cię z gry',
+    youTimedOut: {
+      computer: 'Wczytywanie trwało zbyt długo, twoje miejsce przejął gracz komputerowy',
+      idle: 'Wczytywanie trwało zbyt długo, twoje miejsce pozostaje bez gracza',
+    },
     gameEndedTitle: 'Gra sieciowa się zakończyła',
     removedWhileAway:
       'Głosowanie wyrzuciło cię z gry, gdy nie było połączenia. Gra toczy się dalej bez ciebie.',

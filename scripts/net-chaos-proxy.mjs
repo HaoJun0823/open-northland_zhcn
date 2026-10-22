@@ -1,27 +1,37 @@
-// A WebSocket proxy that impairs the link between game clients and a relay; usage in docs/DEVELOPMENT.md.
-// It forwards every frame unchanged, control pings included, and reads only `kind` for its log.
+// A TCP proxy for WebSocket connections that impairs the link between game clients and a relay; usage
+// in docs/DEVELOPMENT.md. It shapes bytes, not messages, and parses the frames only for its log.
+import { randomBytes } from 'node:crypto';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { connect as connectTcp, isIP } from 'node:net';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { connect as connectTls } from 'node:tls';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { WebSocket, WebSocketServer } from 'ws';
 
 const DEFAULT_PORT = 8780;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PROFILE = 'lan';
 const DEFAULT_SEED = 1;
-/** Room for one maximal blob (32 MiB in base64) twice over, plus ordinary traffic. */
-const DEFAULT_MAX_QUEUED_BYTES = 96 * 1024 * 1024;
-/** Above the relay's largest message, so the proxy never refuses what the relay accepts. */
-const MAX_FRAME_BYTES = 64 * 1024 * 1024;
-const MAX_CONTROL_BODY_BYTES = 64 * 1024;
-/** A target socket holding more unsent bytes than this waits before it gets the next frame. */
-const SEND_HIGH_WATER_BYTES = 4 * 1024 * 1024;
-const BACKPRESSURE_POLL_MS = 10;
+const KIB = 1024;
+const MIB = 1024 * KIB;
+/** Past this many bytes queued one way the sender is no longer read, as a full TCP window stops it. */
+const QUEUE_HIGH_WATER_BYTES = 1 * MIB;
+const QUEUE_LOW_WATER_BYTES = 256 * KIB;
+/** A target socket holding more unsent bytes than this gets nothing more until it drains. */
+const SEND_HIGH_WATER_BYTES = 1 * MIB;
+/** Reading pauses at the marks above, so only a runaway reaches this cap. */
+const DEFAULT_MAX_QUEUED_BYTES = 16 * MIB;
+/** A capped link releases bytes in slices this long, so a large message trickles out. */
+const SHAPING_SLICE_MS = 20;
+const MIN_SLICE_BYTES = 256;
+const MAX_CONTROL_BODY_BYTES = 64 * KIB;
+const MAX_HTTP_HEAD_BYTES = 16 * KIB;
+/** A peer sent a close frame gets this long to finish the closing handshake before it is dropped. */
+const CLOSE_LINGER_MS = 1000;
 const MS_PER_SECOND = 1000;
-/** Only this much of a frame is searched for `kind`, so a large blob is never parsed. */
+/** Only this much of a text message is searched for `kind`, so a large blob is never decoded. */
 const KIND_SCAN_CHARS = 256;
 const KIND_PATTERN = /"kind"\s*:\s*"([^"\\]{1,64})"/;
 
@@ -32,11 +42,37 @@ const CLOSE_GOING_AWAY = 1001;
 const CLOSE_TRY_AGAIN_LATER = 1013;
 const QUEUE_FULL_REASON = 'proxyQueueFull';
 
+const HTTP_SWITCHING_PROTOCOLS = 101;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const HTTP_NOT_FOUND = 404;
 const HTTP_TOO_LARGE = 413;
-const HTTP_BAD_GATEWAY = 502;
+const HTTP_HEAD_END = '\r\n\r\n';
+const HTTP_DEFAULT_PORT = 80;
+const HTTPS_DEFAULT_PORT = 443;
+const JSON_MEDIA_TYPE = 'application/json';
+
+// RFC 6455 frame layout.
+const FIN_BIT = 0x80;
+const OPCODE_BITS = 0x0f;
+const MASK_BIT = 0x80;
+const LENGTH_BITS = 0x7f;
+const LENGTH_16_CODE = 126;
+const LENGTH_64_CODE = 127;
+const BASE_HEADER_BYTES = 2;
+const LENGTH_16_BYTES = 2;
+const LENGTH_64_BYTES = 8;
+const MASK_KEY_BYTES = 4;
+const MAX_FRAME_HEADER_BYTES = BASE_HEADER_BYTES + LENGTH_64_BYTES + MASK_KEY_BYTES;
+const CLOSE_CODE_BYTES = 2;
+const MAX_CLOSE_REASON_BYTES = 123;
+const OPCODE_CONTINUATION = 0x0;
+const OPCODE_TEXT = 0x1;
+const OPCODE_CLOSE = 0x8;
+const OPCODE_PING = 0x9;
+const OPCODE_PONG = 0xa;
+/** Opcodes from here up are control frames, which never fragment and carry at most 125 bytes. */
+const FIRST_CONTROL_OPCODE = OPCODE_CLOSE;
 
 const DIRECTIONS = /** @type {const} */ (['up', 'down']);
 
@@ -45,7 +81,6 @@ function link(latencyMs, jitterMs, bytesPerSecond) {
   return { latencyMs, jitterMs, bytesPerSecond };
 }
 
-const KIB = 1024;
 const MBIT_BYTES = 125_000;
 
 /** Named conditions. Round trip is twice the one-way latency; caps are typical consumer uplink/downlink. */
@@ -233,57 +268,262 @@ function sendableCloseCode(code) {
   return (code >= 1000 && code <= 1014 && !reserved) || (code >= 3000 && code <= 4999);
 }
 
-/** Closes `socket` with what the other side sent: no code, a dropped transport, or a code and reason. */
-function closeLike(socket, code, reason) {
-  if (socket.readyState === WebSocket.CLOSED) return;
-  if (code === CLOSE_ABNORMAL || !sendableCloseCode(code)) {
-    if (code === CLOSE_NO_STATUS) socket.close();
-    else socket.terminate();
-    return;
+function applyMask(bytes, mask, position) {
+  for (let index = 0; index < bytes.length; index++) {
+    bytes[index] ^= mask[(position + index) % MASK_KEY_BYTES];
   }
-  socket.close(code, reason);
 }
 
-function kindOf(data, isBinary) {
-  if (isBinary) return undefined;
-  const head = data.subarray(0, KIND_SCAN_CHARS).toString('utf8');
-  return KIND_PATTERN.exec(head)?.[1];
+/** A close frame; one toward the relay is masked, as RFC 6455 requires of a client. */
+function closeFrame(code, reason, masked) {
+  const reasonBytes = Buffer.from(reason, 'utf8').subarray(0, MAX_CLOSE_REASON_BYTES);
+  const payload = Buffer.alloc(CLOSE_CODE_BYTES + reasonBytes.length);
+  payload.writeUInt16BE(code, 0);
+  reasonBytes.copy(payload, CLOSE_CODE_BYTES);
+  const header = Buffer.from([FIN_BIT | OPCODE_CLOSE, (masked ? MASK_BIT : 0) | payload.length]);
+  if (!masked) return Buffer.concat([header, payload]);
+  const mask = randomBytes(MASK_KEY_BYTES);
+  applyMask(payload, mask, 0);
+  return Buffer.concat([header, mask, payload]);
 }
 
-/** Frames one way, in arrival order; each waits for its delivery time, a stall, or a half-open link. */
+/**
+ * Follows one direction's bytes without changing them: the HTTP response head first when `expectHttp`,
+ * then WebSocket frames. `opaque` means it lost track (a refused upgrade, a malformed frame) and stops.
+ */
+class FrameReader {
+  constructor(expectHttp) {
+    this.mode = expectHttp ? 'http' : 'frames';
+    this.httpHead = Buffer.alloc(0);
+    this.header = Buffer.alloc(MAX_FRAME_HEADER_BYTES);
+    this.headerFill = 0;
+    this.frame = null;
+    this.message = null;
+  }
+
+  /** Whether the bytes read so far end exactly between two frames. */
+  get atBoundary() {
+    return this.mode === 'frames' && this.frame === null && this.headerFill === 0;
+  }
+
+  /** Returns what completed in `chunk`: the HTTP status, whole messages and control frames. */
+  read(chunk) {
+    const records = [];
+    let offset = 0;
+    while (offset < chunk.length && this.mode !== 'opaque') {
+      if (this.mode === 'http') offset = this.readHttp(chunk, offset, records);
+      else if (this.frame === null) offset = this.readHeader(chunk, offset, records);
+      else offset = this.readPayload(chunk, offset, records);
+    }
+    return records;
+  }
+
+  readHttp(chunk, offset, records) {
+    const before = this.httpHead.length;
+    const head = Buffer.concat([this.httpHead, chunk.subarray(offset)]);
+    const end = head.indexOf(HTTP_HEAD_END);
+    if (end === -1) {
+      this.httpHead = head;
+      if (head.length > MAX_HTTP_HEAD_BYTES) this.mode = 'opaque';
+      return chunk.length;
+    }
+    const status = Number(/^HTTP\/1\.[01] (\d{3})/.exec(head.toString('latin1', 0, end))?.[1] ?? 0);
+    this.httpHead = Buffer.alloc(0);
+    this.mode = status === HTTP_SWITCHING_PROTOCOLS ? 'frames' : 'opaque';
+    records.push({ type: 'http', status });
+    return offset + end + HTTP_HEAD_END.length - before;
+  }
+
+  /** The header length the bytes so far imply: two, then the extended length and mask key once known. */
+  headerBytes() {
+    if (this.headerFill < BASE_HEADER_BYTES) return BASE_HEADER_BYTES;
+    const second = this.header[1];
+    const lengthCode = second & LENGTH_BITS;
+    const extended =
+      lengthCode === LENGTH_16_CODE ? LENGTH_16_BYTES : lengthCode === LENGTH_64_CODE ? LENGTH_64_BYTES : 0;
+    return BASE_HEADER_BYTES + extended + ((second & MASK_BIT) !== 0 ? MASK_KEY_BYTES : 0);
+  }
+
+  readHeader(chunk, offset, records) {
+    let at = offset;
+    while (at < chunk.length && this.headerFill < this.headerBytes()) {
+      this.header[this.headerFill++] = chunk[at++];
+    }
+    if (this.headerFill === this.headerBytes()) this.startFrame(records);
+    return at;
+  }
+
+  startFrame(records) {
+    const first = this.header[0];
+    const second = this.header[1];
+    const lengthCode = second & LENGTH_BITS;
+    let length = lengthCode;
+    let at = BASE_HEADER_BYTES;
+    if (lengthCode === LENGTH_16_CODE) {
+      length = this.header.readUInt16BE(at);
+      at += LENGTH_16_BYTES;
+    } else if (lengthCode === LENGTH_64_CODE) {
+      length = Number(this.header.readBigUInt64BE(at));
+      at += LENGTH_64_BYTES;
+    }
+    this.headerFill = 0;
+    if (!Number.isSafeInteger(length)) {
+      this.mode = 'opaque';
+      return;
+    }
+    const opcode = first & OPCODE_BITS;
+    const masked = (second & MASK_BIT) !== 0;
+    this.frame = {
+      fin: (first & FIN_BIT) !== 0,
+      opcode,
+      length,
+      read: 0,
+      mask: masked ? Buffer.from(this.header.subarray(at, at + MASK_KEY_BYTES)) : null,
+      kept: [],
+    };
+    if (opcode < FIRST_CONTROL_OPCODE && opcode !== OPCODE_CONTINUATION) {
+      this.message = { text: opcode === OPCODE_TEXT, bytes: 0, fragments: 0, head: [], headBytes: 0 };
+    } else if (opcode === OPCODE_CONTINUATION && this.message === null) {
+      this.message = { text: false, bytes: 0, fragments: 0, head: [], headBytes: 0 };
+    }
+    if (length === 0) this.endFrame(records);
+  }
+
+  readPayload(chunk, offset, records) {
+    const frame = this.frame;
+    const take = Math.min(frame.length - frame.read, chunk.length - offset);
+    const control = frame.opcode >= FIRST_CONTROL_OPCODE;
+    const message = this.message;
+    const keep = control
+      ? take
+      : message.text
+        ? Math.min(take, Math.max(0, KIND_SCAN_CHARS - message.headBytes))
+        : 0;
+    if (keep > 0) {
+      const part = Buffer.from(chunk.subarray(offset, offset + keep));
+      if (frame.mask !== null) applyMask(part, frame.mask, frame.read);
+      if (control) frame.kept.push(part);
+      else {
+        message.head.push(part);
+        message.headBytes += keep;
+      }
+    }
+    frame.read += take;
+    if (frame.read === frame.length) this.endFrame(records);
+    return offset + take;
+  }
+
+  endFrame(records) {
+    const frame = this.frame;
+    this.frame = null;
+    if (frame.opcode >= FIRST_CONTROL_OPCODE) {
+      const payload = Buffer.concat(frame.kept);
+      if (frame.opcode === OPCODE_CLOSE) {
+        const code = payload.length >= CLOSE_CODE_BYTES ? payload.readUInt16BE(0) : CLOSE_NO_STATUS;
+        records.push({ type: 'close', code, reason: payload.subarray(CLOSE_CODE_BYTES).toString('utf8') });
+      } else {
+        const type =
+          frame.opcode === OPCODE_PING
+            ? 'ping'
+            : frame.opcode === OPCODE_PONG
+              ? 'pong'
+              : `opcode ${frame.opcode}`;
+        records.push({ type, bytes: frame.length });
+      }
+      return;
+    }
+    const message = this.message;
+    message.bytes += frame.length;
+    message.fragments += 1;
+    if (!frame.fin) return;
+    this.message = null;
+    const record = { type: 'message', bytes: message.bytes };
+    if (message.fragments > 1) record.fragments = message.fragments;
+    const kind = message.text
+      ? KIND_PATTERN.exec(Buffer.concat(message.head).toString('utf8'))?.[1]
+      : undefined;
+    if (kind !== undefined) record.kind = kind;
+    records.push(record);
+  }
+}
+
+/** Bytes one way, in arrival order; each slice waits for its delivery time, a stall, or a half-open link. */
 class Pipe {
-  constructor(connection, direction, random) {
+  constructor(connection, direction, random, reader) {
     this.connection = connection;
     this.direction = direction;
     this.random = random;
+    this.reader = reader;
+    this.source = null;
+    this.target = null;
     this.queue = [];
     this.queuedBytes = 0;
     this.lastDeliverAt = 0;
     this.lastSentAt = 0;
     this.timer = null;
+    this.paused = false;
+    /** Whether what the target got so far ends between two frames, so a close frame may follow. */
+    this.deliveredAtBoundary = false;
     this.frames = 0;
-    this.dropped = 0;
+    this.deliveredBytes = 0;
+    this.droppedBytes = 0;
   }
 
-  push(item) {
+  attach(source, target) {
+    this.source = source;
+    this.target = target;
+    target.on('drain', () => this.pump());
+  }
+
+  /** Queues bytes read from the source; `raw` bytes are the proxy's own and bypass the frame reader. */
+  push(chunk, raw = false) {
     if (this.connection.cut) return;
     const now = performance.now();
     const settings = this.connection.settings[this.direction];
-    // The cap serialises frames: a large one holds back the frames behind it.
-    const sendStart = Math.max(now, this.lastSentAt);
-    const sendMs =
-      settings.bytesPerSecond === null ? 0 : (item.bytes / settings.bytesPerSecond) * MS_PER_SECOND;
-    this.lastSentAt = sendStart + sendMs;
     const jitter = (this.random() * 2 - 1) * settings.jitterMs;
     const delay = Math.max(0, settings.latencyMs + jitter);
-    // TCP never reorders, so jitter only stretches the gaps between frames.
+    const sliceBytes =
+      settings.bytesPerSecond === null
+        ? chunk.length
+        : Math.max(MIN_SLICE_BYTES, Math.floor((settings.bytesPerSecond * SHAPING_SLICE_MS) / MS_PER_SECOND));
+    for (let start = 0; start < chunk.length; start += sliceBytes) {
+      const data = chunk.subarray(start, start + sliceBytes);
+      const records = raw ? [] : this.reader.read(data);
+      const atBoundary = raw || this.reader.atBoundary;
+      this.enqueue({ type: 'bytes', data, bytes: data.length, records, atBoundary }, now, delay);
+    }
+    if (this.connection.overflowing()) return;
+    if (!this.paused && this.load() > QUEUE_HIGH_WATER_BYTES) {
+      this.paused = true;
+      this.source.pause();
+    }
+    this.pump();
+  }
+
+  /** Queues the end of the stream: `end` after a closed write side, `destroy` after a dropped socket. */
+  pushClose(type) {
+    if (this.connection.cut) return;
+    const settings = this.connection.settings[this.direction];
+    this.enqueue({ type, bytes: 0, records: [], atBoundary: false }, performance.now(), settings.latencyMs);
+    this.pump();
+  }
+
+  enqueue(item, now, delay) {
+    const bytesPerSecond = this.connection.settings[this.direction].bytesPerSecond;
+    // The cap serialises the bytes: a large message holds back what follows it.
+    const sendStart = Math.max(now, this.lastSentAt);
+    this.lastSentAt =
+      sendStart + (bytesPerSecond === null ? 0 : (item.bytes / bytesPerSecond) * MS_PER_SECOND);
+    // TCP never reorders, so jitter only stretches the gaps between slices.
     item.receivedAt = now;
     item.deliverAt = Math.max(this.lastSentAt + delay, this.lastDeliverAt);
     this.lastDeliverAt = item.deliverAt;
     this.queue.push(item);
     this.queuedBytes += item.bytes;
-    if (this.connection.overflowing()) return;
-    this.pump();
+  }
+
+  load() {
+    return this.queuedBytes + this.target.writableLength;
   }
 
   pump() {
@@ -291,55 +531,52 @@ class Pipe {
       clearTimeout(this.timer);
       this.timer = null;
     }
-    while (this.queue.length > 0) {
-      const now = performance.now();
-      const frozenUntil = this.connection.frozenUntil(now);
-      if (frozenUntil === Number.POSITIVE_INFINITY) return;
-      if (frozenUntil > now) return this.wake(frozenUntil - now);
-      const item = this.queue[0];
-      if (item.deliverAt > now) return this.wake(item.deliverAt - now);
-      const target = this.connection.target(this.direction);
-      if (target === null || target.readyState === WebSocket.CONNECTING) return;
-      if (item.type !== 'close' && target.bufferedAmount > SEND_HIGH_WATER_BYTES) {
-        return this.wake(BACKPRESSURE_POLL_MS);
-      }
-      this.queue.shift();
-      this.queuedBytes -= item.bytes;
-      this.deliver(target, item, now);
+    const waitMs = this.deliverDue();
+    if (this.paused && this.load() < QUEUE_LOW_WATER_BYTES) {
+      this.paused = false;
+      this.source.resume();
     }
-  }
-
-  wake(ms) {
+    if (waitMs === null) return;
     this.timer = setTimeout(() => {
       this.timer = null;
       this.pump();
-    }, ms);
+    }, waitMs);
   }
 
-  deliver(target, item, now) {
-    const record = {
-      dir: this.direction,
-      type: item.type,
-      bytes: item.bytes,
-      delayMs: round(now - item.receivedAt),
-    };
-    if (item.kind !== undefined) record.kind = item.kind;
-    if (item.type === 'close') {
-      this.connection.log({ event: 'close forwarded', ...record, code: item.code, reason: item.reason });
-      closeLike(target, item.code, item.reason);
-      this.connection.settle();
+  /** Delivers every due slice; returns the wait until the next one, or null when an event resumes it. */
+  deliverDue() {
+    while (this.queue.length > 0) {
+      const now = performance.now();
+      const frozenUntil = this.connection.frozenUntil(now);
+      if (frozenUntil === Number.POSITIVE_INFINITY) return null;
+      if (frozenUntil > now) return frozenUntil - now;
+      const item = this.queue[0];
+      if (item.deliverAt > now) return item.deliverAt - now;
+      if (this.target.writableLength > SEND_HIGH_WATER_BYTES) return null;
+      this.queue.shift();
+      this.queuedBytes -= item.bytes;
+      this.deliver(item, now);
+    }
+    return null;
+  }
+
+  deliver(item, now) {
+    const target = this.target;
+    if (item.type === 'end' || item.type === 'destroy') {
+      this.connection.log({ event: `${item.type} forwarded`, dir: this.direction });
+      if (item.type === 'end') target.end();
+      else target.destroy();
       return;
     }
-    if (target.readyState !== WebSocket.OPEN) {
-      this.dropped += 1;
-      this.connection.log({ event: 'frame dropped', ...record });
+    if (target.destroyed || target.writableEnded) {
+      this.droppedBytes += item.bytes;
       return;
     }
-    this.frames += 1;
-    this.connection.log({ event: 'frame', ...record });
-    if (item.type === 'ping') target.ping(item.data);
-    else if (item.type === 'pong') target.pong(item.data);
-    else target.send(item.data, { binary: item.isBinary });
+    target.write(item.data);
+    this.deliveredBytes += item.bytes;
+    this.deliveredAtBoundary = item.atBoundary;
+    const delayMs = round(now - item.receivedAt);
+    for (const record of item.records) this.connection.report(this, record, delayMs);
   }
 
   stop() {
@@ -347,6 +584,9 @@ class Pipe {
     this.timer = null;
     this.queue = [];
     this.queuedBytes = 0;
+    // Bytes arriving after the cut are discarded, so the socket may read again and see its end.
+    if (this.paused) this.source.resume();
+    this.paused = false;
   }
 }
 
@@ -356,11 +596,11 @@ function round(ms) {
 
 /** One client and its upstream socket, with a pipe each way and its own settings. */
 class Connection {
-  constructor(proxy, id, upstream, profile, settings) {
+  constructor(proxy, id, client, upstream, profile, settings) {
     this.proxy = proxy;
     this.id = id;
+    this.client = client;
     this.upstream = upstream;
-    this.client = null;
     this.profile = profile;
     this.settings = cloneSettings(settings);
     this.openedAt = performance.now();
@@ -368,24 +608,20 @@ class Connection {
     this.timers = new Set();
     this.flapTimer = null;
     this.ended = false;
-    /** Set once the proxy itself ends the link; frames still arriving are discarded. */
+    this.closed = { client: false, upstream: false };
+    /** Set once the proxy itself ends the link; bytes still arriving are discarded. */
     this.cut = false;
     this.pipes = {
-      up: new Pipe(this, 'up', seededRandom(proxy.seed * 7919 + id * 2)),
-      down: new Pipe(this, 'down', seededRandom(proxy.seed * 7919 + id * 2 + 1)),
+      up: new Pipe(this, 'up', seededRandom(proxy.seed * 7919 + id * 2), new FrameReader(false)),
+      down: new Pipe(this, 'down', seededRandom(proxy.seed * 7919 + id * 2 + 1), new FrameReader(true)),
     };
+    this.pipes.up.attach(client, upstream);
+    this.pipes.down.attach(upstream, client);
     this.logFile =
       proxy.logDir === null ? null : createWriteStream(join(proxy.logDir, `connection-${id}.jsonl`));
+    feed(client, 'client', this.pipes.up, this);
+    feed(upstream, 'upstream', this.pipes.down, this);
     this.scheduleFlap();
-  }
-
-  target(direction) {
-    return direction === 'up' ? this.upstream : this.client;
-  }
-
-  attachClient(client) {
-    this.client = client;
-    this.pipes.down.pump();
   }
 
   /** Infinity while half-open, the end of the current stall while one runs, otherwise 0. */
@@ -434,15 +670,49 @@ class Connection {
     this.timers.delete(timer);
   }
 
+  /** Logs what a pipe's frame reader found, once its last byte left the proxy. */
+  report(pipe, record, delayMs) {
+    if (record.type === 'http') {
+      if (record.status === HTTP_SWITCHING_PROTOCOLS) this.log({ event: 'open', profile: this.profile });
+      else this.log({ event: 'upstream refused', status: record.status });
+    } else if (record.type === 'close') {
+      this.log({
+        event: 'close forwarded',
+        dir: pipe.direction,
+        code: record.code,
+        reason: record.reason,
+        delayMs,
+      });
+    } else {
+      pipe.frames += 1;
+      this.log({ event: 'frame', dir: pipe.direction, ...record, delayMs });
+    }
+  }
+
   /** The link dies: the client gets `code` at once, the relay sees its socket drop. */
   disconnect(code, reason) {
     if (this.cut) return;
     this.cut = true;
     this.log({ event: 'disconnect', code, reason });
     for (const direction of DIRECTIONS) this.pipes[direction].stop();
-    if (this.client !== null) closeLike(this.client, code, reason);
-    this.upstream.terminate();
+    this.closeWith(this.client, 'down', code, reason);
+    this.upstream.destroy();
     this.settle();
+  }
+
+  /**
+   * Ends `socket` with a close frame when the bytes it got so far end between frames; otherwise, or for
+   * 1006, drops it, since a frame spliced into a half-sent one would corrupt the stream.
+   */
+  closeWith(socket, direction, code, reason) {
+    if (socket.destroyed) return;
+    const upgraded = this.pipes.down.reader.mode === 'frames';
+    if (code === CLOSE_ABNORMAL || !upgraded || !this.pipes[direction].deliveredAtBoundary) {
+      socket.destroy();
+      return;
+    }
+    socket.end(closeFrame(code, reason, direction === 'up'));
+    setTimeout(() => socket.destroy(), CLOSE_LINGER_MS).unref();
   }
 
   overflowing() {
@@ -451,27 +721,19 @@ class Connection {
     this.cut = true;
     this.log({ event: 'queue full', queuedBytes: queued, maxQueuedBytes: this.proxy.maxQueuedBytes });
     for (const direction of DIRECTIONS) this.pipes[direction].stop();
-    if (this.client !== null) closeLike(this.client, CLOSE_TRY_AGAIN_LATER, QUEUE_FULL_REASON);
-    closeLike(this.upstream, CLOSE_GOING_AWAY, QUEUE_FULL_REASON);
+    this.closeWith(this.client, 'down', CLOSE_TRY_AGAIN_LATER, QUEUE_FULL_REASON);
+    this.closeWith(this.upstream, 'up', CLOSE_GOING_AWAY, QUEUE_FULL_REASON);
     this.settle();
     return true;
   }
 
   queuedBytes() {
-    const buffered = (socket) => (socket === null ? 0 : socket.bufferedAmount);
-    return (
-      this.pipes.up.queuedBytes +
-      this.pipes.down.queuedBytes +
-      buffered(this.client) +
-      buffered(this.upstream)
-    );
+    return this.pipes.up.load() + this.pipes.down.load();
   }
 
-  /** Ends the connection once neither socket can carry anything more. */
+  /** Ends the connection once both sockets closed. */
   settle() {
-    if (this.ended) return;
-    const closed = (socket) => socket === null || socket.readyState === WebSocket.CLOSED;
-    if (!closed(this.client) || !closed(this.upstream)) return;
+    if (this.ended || !this.closed.client || !this.closed.upstream) return;
     this.ended = true;
     for (const timer of this.timers) clearTimeout(timer);
     this.timers.clear();
@@ -488,33 +750,55 @@ class Connection {
   }
 
   state() {
+    const each = (read) => ({ up: read(this.pipes.up), down: read(this.pipes.down) });
     return {
       id: this.id,
       profile: this.profile,
       settings: this.settings,
       ageMs: round(performance.now() - this.openedAt),
       queuedBytes: this.queuedBytes(),
-      queuedFrames: { up: this.pipes.up.queue.length, down: this.pipes.down.queue.length },
-      frames: { up: this.pipes.up.frames, down: this.pipes.down.frames },
-      dropped: { up: this.pipes.up.dropped, down: this.pipes.down.dropped },
+      queuedChunks: each((pipe) => pipe.queue.length),
+      readerPaused: each((pipe) => pipe.paused),
+      frames: each((pipe) => pipe.frames),
+      bytes: each((pipe) => pipe.deliveredBytes),
+      droppedBytes: each((pipe) => pipe.droppedBytes),
     };
   }
 }
 
-/** Wires one socket's frames and close into the pipe that carries them toward the other socket. */
-function feed(socket, pipe, connection, side) {
-  socket.on('message', (data, isBinary) => {
-    pipe.push({ type: 'message', data, isBinary, bytes: data.length, kind: kindOf(data, isBinary) });
-  });
-  socket.on('ping', (data) => pipe.push({ type: 'ping', data, bytes: data.length }));
-  socket.on('pong', (data) => pipe.push({ type: 'pong', data, bytes: data.length }));
-  socket.on('close', (code, reason) => {
-    const text = reason.toString('utf8');
-    connection.log({ event: 'closed', side, code, reason: text });
-    if (!connection.ended) pipe.push({ type: 'close', code, reason: text, bytes: 0 });
+/** Wires one socket's bytes and end into the pipe that carries them toward the other socket. */
+function feed(socket, side, pipe, connection) {
+  socket.setNoDelay(true);
+  socket.on('data', (chunk) => pipe.push(chunk));
+  socket.on('end', () => pipe.pushClose('end'));
+  socket.on('error', (err) => connection.log({ event: 'socket error', side, error: String(err) }));
+  socket.on('close', () => {
+    connection.closed[side] = true;
+    connection.log({ event: 'closed', side });
+    if (!socket.readableEnded) pipe.pushClose('destroy');
     connection.settle();
   });
-  socket.on('error', (err) => connection.log({ event: 'socket error', side, error: String(err) }));
+}
+
+/** The client's upgrade request aimed at the relay, with the relay's path and Host. */
+function upgradeRequest(request, target) {
+  const lines = [`${request.method} ${target.pathname}${target.search} HTTP/1.1`];
+  for (let index = 0; index < request.rawHeaders.length; index += 2) {
+    const name = request.rawHeaders[index];
+    const lower = name.toLowerCase();
+    if (lower === 'host') lines.push(`${name}: ${target.host}`);
+    // Without an extension offer the frames stay uncompressed, so the log can read their `kind`.
+    else if (lower !== 'sec-websocket-extensions') lines.push(`${name}: ${request.rawHeaders[index + 1]}`);
+  }
+  return Buffer.from(`${lines.join('\r\n')}${HTTP_HEAD_END}`, 'latin1');
+}
+
+function openUpstream(target) {
+  const secure = target.protocol === 'wss:';
+  const host = target.hostname.replace(/^\[|\]$/g, '');
+  const port = target.port === '' ? (secure ? HTTPS_DEFAULT_PORT : HTTP_DEFAULT_PORT) : Number(target.port);
+  if (!secure) return connectTcp({ host, port, allowHalfOpen: true });
+  return connectTls({ host, port, servername: isIP(host) === 0 ? host : undefined, allowHalfOpen: true });
 }
 
 /**
@@ -595,7 +879,7 @@ export async function startChaosProxy({
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://proxy').pathname;
     const reply = (status, value) => {
-      response.writeHead(status, { 'content-type': 'application/json' });
+      response.writeHead(status, { 'content-type': JSON_MEDIA_TYPE });
       response.end(`${JSON.stringify(value)}\n`);
     };
     if (path !== '/control') return reply(HTTP_NOT_FOUND, { error: 'only /control is served here' });
@@ -618,17 +902,10 @@ export async function startChaosProxy({
     });
   });
 
-  const clients = new WebSocketServer({
-    noServer: true,
-    maxPayload: MAX_FRAME_BYTES,
-    perMessageDeflate: false,
-    autoPong: false,
-  });
-
   server.on('upgrade', (request, socket, head) => {
-    socket.on('error', () => socket.destroy());
     const now = performance.now();
     if (now < proxy.unreachableUntil) {
+      socket.on('error', () => {});
       proxy.print({ t: round(now - proxy.startedAt), event: 'refused', reason: 'unreachable' });
       socket.destroy();
       return;
@@ -638,44 +915,24 @@ export async function startChaosProxy({
     if (requested.pathname !== '/') target.pathname = requested.pathname;
     if (requested.search !== '') target.search = requested.search;
     const id = proxy.nextId++;
-    const relay = new WebSocket(target, {
-      maxPayload: MAX_FRAME_BYTES,
-      perMessageDeflate: false,
-      autoPong: false,
-    });
-    const connection = new Connection(proxy, id, relay, proxy.profile, proxy.settings);
+    const relay = openUpstream(target);
+    const connection = new Connection(proxy, id, socket, relay, proxy.profile, proxy.settings);
     proxy.connections.set(id, connection);
     connection.log({ event: 'opening', upstream: target.href });
-    let upstreamOpen = false;
-    // The client handshake completes only once the relay answered, so a dead relay fails it the same way.
-    relay.on('unexpected-response', (_request, response) => {
-      connection.log({ event: 'upstream refused', status: response.statusCode });
-      socket.end(
-        `HTTP/1.1 ${HTTP_BAD_GATEWAY} Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
-      );
-      relay.terminate();
+    let connected = false;
+    relay.once(relay.encrypted ? 'secureConnect' : 'connect', () => {
+      connected = true;
     });
+    // A dead relay drops the client before its handshake completes, the way a direct connect fails.
     relay.once('error', (err) => {
-      if (upstreamOpen) return;
+      if (connected) return;
       connection.log({ event: 'upstream unreachable', error: String(err) });
+      connection.cut = true;
       socket.destroy();
     });
-    feed(relay, connection.pipes.down, connection, 'upstream');
-    relay.once('open', () => {
-      upstreamOpen = true;
-      if (socket.destroyed) {
-        relay.terminate();
-        return;
-      }
-      clients.handleUpgrade(request, socket, head, (client) => {
-        feed(client, connection.pipes.up, connection, 'client');
-        connection.log({ event: 'open', profile: connection.profile });
-        connection.attachClient(client);
-      });
-    });
-    socket.once('close', () => {
-      if (connection.client === null) relay.terminate();
-    });
+    connection.pipes.up.push(upgradeRequest(request, target), true);
+    connection.pipes.up.push(head);
+    socket.resume();
   });
 
   await new Promise((done, fail) => {
@@ -691,10 +948,9 @@ export async function startChaosProxy({
 
   const close = async () => {
     for (const connection of proxy.connections.values()) {
-      connection.client?.terminate();
-      connection.upstream.terminate();
+      connection.client.destroy();
+      connection.upstream.destroy();
     }
-    clients.close();
     const closed = new Promise((done) => server.close(() => done()));
     server.closeAllConnections();
     await closed;

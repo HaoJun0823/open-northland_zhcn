@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   chaosSchedule,
+  formatStartSummary,
   formatSummary,
   lobbyUrl,
   mergeTallies,
@@ -38,6 +39,53 @@ test('options default to three direct players for 90 s and cycle the profiles ov
   const ticks = parseLabArgs(['--ticks', '600']);
   assert.equal(ticks.ticks, 600);
   assert.equal(ticks.seconds, null);
+});
+
+test('the start scenario runs every start case unless named ones are asked for', () => {
+  assert.equal(parseLabArgs([]).scenario, 'play');
+  const start = parseLabArgs(['--scenario', 'start']);
+  assert.ok(start.cases.includes('noFrame') && start.cases.includes('uneven'));
+  assert.deepEqual(parseLabArgs(['--scenario', 'start', '--cases', 'noFrame,reload']).cases, [
+    'noFrame',
+    'reload',
+  ]);
+  assert.throws(() => parseLabArgs(['--scenario', 'start', '--cases', 'moon']), /Unknown start case 'moon'/);
+  assert.throws(() => parseLabArgs(['--cases', 'noFrame']), /--cases needs --scenario start/);
+  assert.throws(() => parseLabArgs(['--scenario', 'boot']), /Unknown scenario 'boot'/);
+});
+
+test('the start summary gives each player its load, first acknowledgement and run, and a room end', () => {
+  const player = (nick, loadedAt) => ({
+    nick,
+    loadedAt,
+    firstAckAt: 120,
+    firstAckTick: 3,
+    runAt: 130,
+    runTick: 3,
+  });
+  const text = formatStartSummary({
+    noFrame: {
+      roomId: 'ab12cd34',
+      runSpreadMs: 4,
+      players: [player('Ania', 90), player('Celina', null)],
+      relay: [{ at: 125, dir: 'down', kind: 'error', reason: { code: 'loadingTimedOut', nick: 'Celina' } }],
+    },
+  });
+  assert.match(text, /noFrame +Ania +90 +120@3 +130@3 \| runSpreadMs 4/);
+  assert.match(text, /Celina +- +120@3/);
+  assert.match(text, /room ended at 125 ms: .*loadingTimedOut/);
+  assert.doesNotMatch(text, /ab12cd34/);
+});
+
+test('a creator lobby address carries a room speed other than 1', () => {
+  const url = new URL(
+    lobbyUrl(APP, { relay: RELAY, roomId: null, map: 'magiczny_las', players: 3, nick: 'Ania', speed: 3 }),
+  );
+  assert.equal(url.searchParams.get('speed'), '3');
+  const plain = new URL(
+    lobbyUrl(APP, { relay: RELAY, roomId: null, map: 'magiczny_las', players: 3, nick: 'Ania' }),
+  );
+  assert.equal(plain.searchParams.has('speed'), false);
 });
 
 test('bad options are refused with the reason', () => {

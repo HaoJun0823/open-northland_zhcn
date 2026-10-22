@@ -28,6 +28,20 @@ export const CHAOS_EVENTS = [
   { kind: 'halfOpen', player: 2 },
   { kind: 'reload', player: 0 },
 ];
+/** The start scenarios `--scenario start` runs (`start-scenario.mjs`), in their order. */
+export const START_CASE_NAMES = [
+  'uneven',
+  'frozenLoad',
+  'noFrame',
+  'reload',
+  'lateJoin',
+  'speed',
+  'hiddenRunning',
+  'frozenRunning',
+  'frozenLong',
+];
+const SCENARIOS = ['play', 'start'];
+
 /** Fractions of the play window at which the chaos events fire, in {@link CHAOS_EVENTS} order. */
 const CHAOS_AT = [0.3, 0.5, 0.7];
 
@@ -44,6 +58,8 @@ export const USAGE = `usage: node scripts/net-browser-lab.mjs [options]
   --no-chaos              keep the proxies but fire no chaos events
   --seed <n>              the proxies' jitter seed (default 1)
   --headed                show the browser windows (at ON_BENCH_WINDOW_POSITION when set)
+  --scenario start        instead of the play window, the start scenarios, each in a room of its own
+  --cases <a,b,...>       the start scenarios to run (default all: ${START_CASE_NAMES.join(', ')})
   --out <file.json>       report path (default bench-out/net-browser-lab/<stamp>/report.json)`;
 
 function positiveInteger(text, name, max = Number.MAX_SAFE_INTEGER) {
@@ -84,6 +100,8 @@ export function parseLabArgs(argv) {
       seed: { type: 'string' },
       headed: { type: 'boolean' },
       out: { type: 'string' },
+      scenario: { type: 'string' },
+      cases: { type: 'string' },
       help: { type: 'boolean' },
     },
   });
@@ -98,7 +116,18 @@ export function parseLabArgs(argv) {
       throw new Error(`Unknown profile '${name}'; use ${LINK_PROFILES.join(', ')}`);
   if (profiles !== null && profiles.length === 0) throw new Error('--profiles needs at least one profile');
   const speed = values.speed === undefined ? 1 : positiveInteger(values.speed, 'speed', MAX_SPEED);
+  const scenario = values.scenario ?? 'play';
+  if (!SCENARIOS.includes(scenario))
+    throw new Error(`Unknown scenario '${scenario}'; use ${SCENARIOS.join(', ')}`);
+  if (values.cases !== undefined && scenario !== 'start') throw new Error('--cases needs --scenario start');
+  const cases =
+    values.cases === undefined ? START_CASE_NAMES : values.cases.split(',').map((name) => name.trim());
+  for (const name of cases)
+    if (!START_CASE_NAMES.includes(name))
+      throw new Error(`Unknown start case '${name}'; use ${START_CASE_NAMES.join(', ')}`);
   return {
+    scenario,
+    cases,
     help: values.help === true,
     relay: values.relay === undefined ? null : wsUrl(values.relay, 'relay'),
     app: values.app === undefined ? null : httpUrl(values.app, 'app'),
@@ -126,11 +155,12 @@ export function playerNick(index) {
 }
 
 /** The developer entry's address: the creator's `room=new` one, or a joiner's for room `roomId`. */
-export function lobbyUrl(app, { relay, roomId, map, players, nick }) {
+export function lobbyUrl(app, { relay, roomId, map, players, nick, speed = 1 }) {
   const params = new URLSearchParams({ relay, room: roomId ?? NEW_ROOM });
   if (roomId === null) {
     params.set('map', map);
     params.set('players', String(players));
+    if (speed !== 1) params.set('speed', String(speed));
   }
   params.set('nick', nick);
   // Windowed, so a stored preference never takes the screen.
@@ -266,6 +296,40 @@ export function windowStats(windows) {
 const dash = (value, digits = 0) =>
   value === null || value === undefined ? '-' : Number(value).toFixed(digits);
 
+/**
+ * The start scenarios' summary: per case and player, when its `loaded` went, when its first tick was
+ * acknowledged and at which tick, and when its display ran; times in ms after the case's room opened.
+ */
+export function formatStartSummary(start) {
+  const lines = ['start case     player   loaded   1st ack@tick  ran@tick | case figures'];
+  for (const [name, result] of Object.entries(start)) {
+    const figures = Object.entries(result)
+      .filter(
+        ([key, value]) =>
+          !['players', 'relay', 'roomId', 'lateSees', 'latePageText'].includes(key) && value !== null,
+      )
+      .map(([key, value]) => `${key} ${typeof value === 'object' ? JSON.stringify(value) : value}`)
+      .join(', ');
+    for (const [index, player] of (result.players ?? []).entries())
+      lines.push(
+        [
+          (index === 0 ? name : '').padEnd(14),
+          player.nick.padEnd(8),
+          dash(player.loadedAt).padStart(7),
+          `${dash(player.firstAckAt)}@${dash(player.firstAckTick)}`.padStart(13),
+          `${dash(player.runAt)}@${dash(player.runTick)}`.padStart(9),
+          index === 0 ? `| ${figures}` : '|',
+        ].join(' '),
+      );
+    if (result.latePageText)
+      lines.push(`${''.padEnd(14)} late join sees: ${result.latePageText.replace(/\n/g, ' / ')}`);
+    const ended = (result.relay ?? []).find((record) => record.dir === 'down' && record.kind === 'error');
+    if (ended !== undefined)
+      lines.push(`${''.padEnd(14)} room ended at ${ended.at} ms: ${JSON.stringify(ended.reason)}`);
+  }
+  return lines.join('\n');
+}
+
 /** The report's one-screen summary. */
 export function formatSummary(report) {
   const lines = [];
@@ -339,6 +403,7 @@ export function formatSummary(report) {
       `distinct errors (${errorTexts.length}):`,
       ...errorTexts.slice(0, 8).map((text) => `  ${text}`),
     );
+  if (report.start) lines.push(formatStartSummary(report.start));
   if (report.failures.length > 0) lines.push('failures:', ...report.failures.map((text) => `  ${text}`));
   return lines.join('\n');
 }

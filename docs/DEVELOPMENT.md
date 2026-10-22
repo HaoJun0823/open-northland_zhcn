@@ -276,14 +276,22 @@ node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 [--port 8780] [-
   [--profile lan|home|far|mobile|bad] [--seed 1] [--log-dir DIR] [--max-queued-bytes N]
 ```
 
-A WebSocket proxy between real clients (browsers, Electron, headless Node clients) and a relay
-(`ws://` or `wss://`) that impairs the link the way a home connection does, without root. It forwards
-every frame unchanged, control pings and close codes included, and keeps each direction in order:
-jitter stretches the gaps between frames and never reorders them, and nothing is ever dropped while
-the link is up. A client's path and query are appended to the upstream URL. The client handshake
-completes only after the relay accepted the upstream one, so a dead relay fails the client's
-connect. `--log-dir` writes `connection-<id>.jsonl` per connection: time, direction, type, size,
-delay and `kind` of every frame, plus connection events; stdout gets the events without the frames.
+A TCP proxy for the WebSocket connections between real clients (browsers, Electron, headless Node
+clients) and a relay (`ws://` or `wss://`) that impairs the link the way a home connection does,
+without root. It sends the client's upgrade request on with the relay's `Host`, the client's path and
+query appended to the upstream URL, and no extension offer, so the frames stay uncompressed; from
+then on it carries the bytes both ways unchanged. Each direction keeps its order and nothing is
+dropped while the link is up. The impairments act on bytes, not messages: a bandwidth cap releases
+them in 20 ms slices, so a message the relay sends as fragments with a control ping after each
+arrives fragment by fragment with its pings in between, and an upload shows byte progress at the
+relay before it is whole. Jitter stretches the gaps between chunks and never reorders them. A dead
+relay drops the client's connection before its handshake completes; a relay that refuses the upgrade
+gets its answer passed to the client.
+
+`--log-dir` writes `connection-<id>.jsonl` per connection. A frame reader on each direction watches
+the bytes without changing them and logs each whole message (size, fragment count, `kind` from the
+start of a text message), each ping and pong, and each close frame with its code and reason, with
+the delay through the proxy, plus the connection events; stdout gets the events without the frames.
 `--seed` fixes the jitter sequence of every connection, so a run repeats.
 
 | Profile | One-way latency | Jitter | Up / down cap | Stalls | Flapping |
@@ -295,21 +303,24 @@ delay and `kind` of every frame, plus connection events; stdout gets the events 
 | `bad` | 120 ms | ±60 ms | 64 / 256 KiB/s | 3 s every 8 s | dropped after 45 s |
 
 Stall times count from a connection's opening, or from the moment the stall setting changed. A
-stall freezes both directions and then releases the held frames at once, like a TCP retransmission
-wait. Queued bytes per connection (both pipes plus unsent socket buffers) are capped at
-`--max-queued-bytes`, 96 MiB by default; past it the client is closed with 1013 `proxyQueueFull`
-and the log says so.
+stall freezes both directions, halfway through a message too, and then releases the held bytes at
+once, like a TCP retransmission wait. When more than 1 MiB waits in one direction (queued in the
+proxy plus unsent on the target socket), the proxy stops reading the sender until less than 256 KiB
+waits, so the sender's own buffer (`bufferedAmount`) grows as behind a full TCP window. Queued bytes
+per connection are capped at `--max-queued-bytes`, 16 MiB by default, which only a runaway reaches;
+past it the client gets 1013 `proxyQueueFull`, the relay 1001, and the log says so.
 
 `GET /control` on the same port returns the state: the upstream, the default profile and settings,
-the remaining unreachable time, and per open connection its `id`, settings, queued bytes and frame
-counts. `POST /control` takes one JSON object; every field is optional:
+the remaining unreachable time, and per open connection its `id`, settings, queued bytes and chunks,
+whether each direction's reader is paused, and its frame, byte and dropped-byte counts. `POST
+/control` takes one JSON object; every field is optional:
 
 | Field | Effect |
 | --- | --- |
 | `connection` | Applies the rest to that connection id only; without it, to the default for new connections and to every open one. |
 | `profile` | Replaces the settings with that profile. |
 | `set` | Merges into the settings (the profile's, when both are given): `up`, `down` or `both` as `{ latencyMs, jitterMs, bytesPerSecond }` (`null` for no cap), `stall: { everyMs, forMs } \| null`, `flap: { everyMs, code } \| null`, `halfOpen: boolean`. |
-| `disconnect` | `{ code, reason, afterMs }`: closes the client with `code` after `afterMs` and drops the relay side. `1006` (the default) drops the client without a close frame. |
+| `disconnect` | `{ code, reason, afterMs }`: closes the client with `code` after `afterMs` and drops the relay side. `1006` (the default) drops the client without a close frame, and so does any code while the client sits halfway through a frame, since a close frame cannot be spliced into one. |
 | `unreachableMs` | Refuses new connections for that long, by dropping the TCP connection; open ones are untouched. |
 
 `halfOpen: true` stops forwarding in both directions without closing either socket, which is what

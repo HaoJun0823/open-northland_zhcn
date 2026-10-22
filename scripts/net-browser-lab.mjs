@@ -40,6 +40,7 @@ import {
   withTimeout,
 } from './net-browser-lab/player.mjs';
 import { createProcessSet, ensureRelayBuild, freePort } from './net-browser-lab/processes.mjs';
+import { runStartScenarios } from './net-browser-lab/start-scenario.mjs';
 
 const TICKS_PER_SECOND = 12;
 const MS_PER_SECOND = 1000;
@@ -60,6 +61,8 @@ const DISCONNECT_LOSS_WAIT_MS = 5000;
 const HALF_OPEN_HOLD_MS = 35000;
 const STEP_TIMEOUT_MS = 60000;
 const CONTROL_TIMEOUT_MS = 5000;
+/** One start scenario's room: two boots, a 2 min loading stall and the waits around them. */
+const START_CASE_TIMEOUT_MS = 10 * 60000;
 const HEALTH_TIMEOUT_MS = 5000;
 /** The close code a cut transport reads as: no close frame at all. */
 const CLOSE_ABNORMAL = 1006;
@@ -509,6 +512,17 @@ async function main() {
         ? [...BROWSER_ARGS, `--window-position=${process.env.ON_BENCH_WINDOW_POSITION}`]
         : BROWSER_ARGS,
   });
+  if (options.scenario === 'start') {
+    const port = await freePort(PORT_RANGES.proxy);
+    if (port === null) throw new Error('No free tap port in 8780-8789');
+    const start = await step(
+      'start scenarios',
+      () => runStartScenarios({ browser, servers, port, map: options.map, cases: options.cases, log }),
+      null,
+      options.cases.length * START_CASE_TIMEOUT_MS,
+    );
+    return { servers, players: [], roomId: null, chaos: [], playedSeconds: 0, start };
+  }
   const joined = await step('join', () => joinEveryone(servers), null, 4 * STEP_TIMEOUT_MS);
   if (joined === null) return { servers, players: [], roomId: null, chaos: [], playedSeconds: 0 };
   const { players, roomId } = joined;
@@ -565,6 +579,7 @@ const report = {
   players,
   chaos: outcome?.chaos ?? [],
   seats: seatContinuity(players),
+  start: outcome?.start ?? null,
   relayHealth: health,
   relayLog: servers?.relayLog && outcome?.roomId ? relayRecords(servers.relayLog, outcome.roomId) : [],
   processes: stopped,

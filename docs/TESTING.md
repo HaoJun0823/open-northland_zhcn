@@ -420,12 +420,16 @@ npm run bench:net-lab -- --humans 3 --ticks 900 --chaos cut@200:1:3000,freeze@40
 The main flags:
 
 - `--map`, `--humans`, `--computers` and `--difficulty` set the room. Humans take the first claimable
-  seats. Computers take the next ones, all of them unless `--computers` says how many.
+  seats. Computers take the next ones, all of them unless `--computers` says how many. A room from a
+  save refuses `--map` and `--difficulty`, which the save sets.
 - `--ticks` sets how far every client must get, and the hashes are compared there. `--speed` is the
   room speed. `--seed` seeds the session, the link jitter and the orders.
-- `--links` gives a profile per client, cycled: `lan`, `home`, `far` or `bad`. Each profile is a
-  latency, jitter and bandwidth set in `packages/app/bench/net-lab/config.ts`. `--link 2=bad,latencyMs=600`
-  overrides one client.
+- `--links` gives a profile per client, cycled: `lan`, `home`, `far` or `bad`. Each profile in
+  `packages/app/bench/net-lab/config.ts` is a round trip and a jitter in ms and an upload and download
+  rate in bytes per second; `home` is a 40 ms round trip at 1 / 6 MiB/s. They are not the
+  [chaos proxy](DEVELOPMENT.md#network-chaos-proxy)'s profiles of the same names, whose latency is one
+  way and whose `home` is a 60 ms round trip at 10 / 50 Mbit/s. `--link 2=bad,latencyMs=600`
+  overrides one client; `up` and `down` take at least 1.
 - `--orders-per-minute` and `--mix move=5,build=1,assistant=2,job=2` set each human's orders: group
   moves, building sites, assistant counters and profession changes for its own seat. Each order is
   checked against the sim's own placement, formation and profession queries before it is sent.
@@ -437,7 +441,10 @@ The main flags:
   the relay restores from the room's cached snapshot and the frames after it.
 
 The summary prints one line per client and the room's spikes. A spike is a tick ranked by its
-median wall cost across the clients, with the systems and the commands applied on that tick. A tick
+median wall cost across the clients, with the systems and the commands applied on that tick.
+`outside systems` is the part of a tick no system timer covers, such as the digest seal and the
+acknowledgement, so the shares of where a client's time went add up to its whole tick time. A spike
+whose breakdown no client kept prints `not kept`; `-` means `--systems off`. A tick
 that is slow on every client is the sim's own cost; one slow client alone is scheduling or garbage
 collection. The JSON report adds per-client worst ticks, where the sim time went, lag and buffer
 timelines, relay bytes per message kind, governor changes and the fired chaos events.
@@ -465,8 +472,8 @@ npm run bench:net-lab -- --save bench-out/net-lab/magiczny_las-hard-t40000.save.
 
 `--save` starts the room from that save as the lobby does. The creator uploads it as the
 `initialSave` blob and every member reports its fingerprint. The seats come from the save's roster,
-and humans take over the seats its computers held, in seat order. The map and the session seed are
-the save's, and `--ticks` counts from the save's tick. The summary adds the save's sizes, the decode
+and humans take over the seats its computers held, in seat order. The map, the session seed and the
+computers' difficulty are the save's, and `--ticks` counts from the save's tick. The summary adds the save's sizes, the decode
 time and one line per restore: the tick, the snapshot's size and the world build's wall time. A
 restore after a `reload` also gets the virtual time from the reload to its first tick.
 
@@ -519,6 +526,27 @@ and page errors. The JSON report, the step log, the servers' logs and the proxie
 beside `--out` (default `bench-out/net-browser-lab/<stamp>/`); with a relay it started, the report
 adds the relay's log lines about the room. Times are wall time on this machine and vary with its
 load; read them as a smoke test of the real client, and the load lab above for numbers that repeat.
+
+`--scenario start` plays no window: it runs the start scenarios, each in a room of its own of three
+players behind a relay tap that records the start path's relay messages (`start`, `loading`,
+`loaded`, `clock`, `waiting`, refusals, closes, each page's first frame and acknowledgement) with
+their wall time. `--cases` picks some of them:
+
+- `uneven`: one page's main thread throttled 6x and one page's downloads slowed;
+- `frozenLoad`, `frozenRunning`, `frozenLong`: a page frozen right after `start` for 30 s, or once it
+  runs for 20 s or for 45 s, past the relay's silence close; headless Chromium ignores
+  `Page.setWebLifecycleState`, so the debugger pauses the page and its workers;
+- `noFrame`, `hiddenRunning`: a page hidden from its first load, or once it runs for 20 s, its
+  animation frames stopped and `document.hidden` set;
+- `reload`: a page reloads right after `start`; `lateJoin`: a fourth page asks to join once it started;
+- `speed`: the room plays at speed 3 from its start.
+
+Each case reports, per page, when `loaded` went, its first acknowledged tick and when its display
+first ran, the room's longest hold as the creator saw it, and what each page showed meanwhile.
+
+```sh
+node scripts/net-browser-lab.mjs --scenario start --cases uneven,noFrame
+```
 
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.
 

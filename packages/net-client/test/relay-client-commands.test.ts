@@ -150,3 +150,28 @@ describe('the outbox under the relay per-tick budget', () => {
     expect(observed.filter((message) => message.kind === 'rejected')).toEqual([]);
   });
 });
+
+describe('snapshot requests', () => {
+  const uploads = (sent: readonly ClientMessage[]) => sent.filter((message) => message.kind === 'blob');
+
+  it('skips the export while its world is behind the snapshot the relay caches', async () => {
+    const cached = 5;
+    const { client, sent } = await runningClient();
+    // A returning client whose world stands before the cache replays the frames after it.
+    client.hello();
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: cached });
+    sent.length = 0;
+    client.receive({ kind: 'snapshotRequest' });
+    await client.settled();
+    expect(client.tick).toBeLessThan(cached);
+    expect(uploads(sent)).toHaveLength(0);
+  });
+
+  it('still answers at the cached tick, which can vouch for a held copy', async () => {
+    const cached = 5;
+    const { client, sent } = await runningClient({ snapshotTick: cached });
+    client.receive({ kind: 'snapshotRequest' });
+    await client.settled();
+    expect(uploads(sent)).toMatchObject([{ type: 'snapshot', tick: cached }]);
+  });
+});

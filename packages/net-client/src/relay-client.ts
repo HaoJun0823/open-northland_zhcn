@@ -97,6 +97,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
   sim: Simulation | null = null;
   readonly latency: CommandLatency;
   private readonly outbox = new CommandOutbox();
+  /** The newest snapshot tick this client knows the relay caches; an older upload changes nothing. */
+  private knownSnapshotTick: number | null = null;
   readonly digests = new DigestTrail();
   private readonly verdicts = new DisputeCapture();
   private driver: LockstepDriver | null = null;
@@ -311,10 +313,12 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         break;
       case 'left':
         this.awaitingResume = false;
+        this.knownSnapshotTick = null;
         this.completion.clear();
         this.dropWorld();
         break;
       case 'start':
+        this.learnSnapshotTick(message.snapshotTick);
         this.startSession(message.session, message.snapshotTick);
         break;
       case 'clock':
@@ -335,8 +339,10 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
         this.answerSnapshotRequest();
         break;
       case 'blob':
-        if (message.type === 'snapshot' && message.tick !== null)
+        if (message.type === 'snapshot' && message.tick !== null) {
+          this.learnSnapshotTick(message.tick);
           this.restoreFrom(message.bytes, message.tick);
+        }
         break;
       case 'ping':
         this.send({ kind: 'pong', t: message.t });
@@ -582,9 +588,17 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     this.outbox.clear();
   }
 
+  private learnSnapshotTick(tick: number | null): void {
+    if (tick !== null && (this.knownSnapshotTick === null || tick > this.knownSnapshotTick))
+      this.knownSnapshotTick = tick;
+  }
+
+  /** The export is synchronous on the sim's thread; a world behind the cached snapshot skips it, since
+   *  the relay keeps the newer copy. A same-tick upload still counts, as it can vouch for a held cache. */
   private answerSnapshotRequest(): void {
     const sim = this.sim;
     if (sim === null || this.snapshotInFlight !== null) return;
+    if (this.knownSnapshotTick !== null && sim.tick < this.knownSnapshotTick) return;
     const tick = sim.tick;
     const world = this.world;
     // A relay retry can arrive while compression is still running. One upload answers both requests.

@@ -173,6 +173,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     // A new socket is writable before its retained world has been admitted again. Buffered frames
     // must wait for start -> loaded, otherwise their acknowledgements arrive while not loaded.
     this.awaitingResume = this.session !== null;
+    // What the old socket carried may never come back; a stamp left for it would skew later commands.
+    this.latency.forgetInFlight();
     super.hello();
   }
 
@@ -512,7 +514,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
       send: (message) => this.send(message),
       parseEnvelope: parseCommandEnvelope,
       onDropped: (tick, reason, envelope) => {
-        if (envelope.origin === 'player' && envelope.player === seat) this.latency.refused();
+        if (envelope.origin === 'player' && envelope.player === seat) this.latency.dropped();
         this.options.onDropped?.(tick, reason);
       },
       fromTick: sim.tick,
@@ -526,6 +528,8 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
     });
     for (const frame of this.earlyFrames) this.transport.receiveFrame(frame);
     this.earlyFrames.length = 0;
+    // A restored world may already cover the frames of commands in flight, which then never apply.
+    this.latency.forgetInFlight();
     this.driver = new LockstepDriver({
       sim,
       transport: this.transport,

@@ -1,13 +1,10 @@
-import { MAX_COMMANDS_PER_TICK } from '@open-northland/net-protocol';
-
 /** Weight of the newest sample in the smoothed click-to-apply time. */
 const SMOOTHING = 0.25;
-/** Issue stamps kept while their commands are in flight; more than this is a relay that stopped answering. */
-const MAX_IN_FLIGHT = MAX_COMMANDS_PER_TICK * 4;
 
 /**
- * Click-to-apply time for this seat's own commands. The relay keeps one member's commands in order,
- * so the oldest stamp belongs to the next command of this seat to come back in a frame.
+ * Click-to-apply time for this seat's own commands, and how many of them are in flight. The relay
+ * keeps one member's commands in order, so the oldest stamp belongs to the next command of this seat
+ * to come back in a frame.
  */
 export class CommandLatency {
   private readonly issuedAt: number[] = [];
@@ -23,9 +20,14 @@ export class CommandLatency {
     return this.latestMs;
   }
 
-  issued(now: number): void {
-    if (this.issuedAt.length >= MAX_IN_FLIGHT) this.issuedAt.shift();
-    this.issuedAt.push(now);
+  /** Commands sent and not yet applied or refused. */
+  get inFlight(): number {
+    return this.issuedAt.length;
+  }
+
+  /** A command went to the relay; `clickedAt` is when the player issued it, before any outbound wait. */
+  issued(clickedAt: number): void {
+    this.issuedAt.push(clickedAt);
   }
 
   /** One of this seat's commands applied on a tick that just ran. */
@@ -37,8 +39,19 @@ export class CommandLatency {
     this.smoothedMs = this.smoothedMs === null ? ms : this.smoothedMs + SMOOTHING * (ms - this.smoothedMs);
   }
 
-  /** The relay refused the oldest command in flight, so its stamp measures nothing. */
-  refused(): void {
+  /** Every client dropped one of this seat's commands from a frame, the oldest in flight. */
+  dropped(): void {
     this.issuedAt.shift();
+  }
+
+  /** The relay refused a command. It answers on receipt, before any later command of this seat can
+   *  have come back, so the refused one is most likely the newest stamp. */
+  refused(): void {
+    this.issuedAt.pop();
+  }
+
+  /** Commands in flight for a replaced world or on a replaced socket may never come back. */
+  forgetInFlight(): void {
+    this.issuedAt.length = 0;
   }
 }

@@ -1,0 +1,94 @@
+import type { GameSession } from '@open-northland/lockstep';
+import { RelayClient } from '@open-northland/net-client';
+import { type ClientMessage, type ServerMessage, TICK_MS } from '@open-northland/net-protocol';
+import { type CommandEnvelope, playerCommand, Simulation } from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { testContent } from '../../sim/test/fixtures/content.js';
+
+const SESSION: GameSession = {
+  world: { kind: 'scene', sceneId: 'fixture' },
+  seed: 3,
+  seats: [{ player: 0, mode: 'human', color: 0 }],
+  localSeat: 0,
+  rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
+  speed: 1,
+};
+const RESTORED_TICK = 20;
+
+function order(value: number): CommandEnvelope {
+  return playerCommand(0, {
+    kind: 'setAssistantCounter',
+    player: 0,
+    counter: 'extraMen',
+    value,
+    infinite: false,
+  });
+}
+
+function fixtureWorld(ticks = 0): Simulation {
+  const sim = new Simulation({ seed: SESSION.seed, content: testContent() });
+  for (let i = 0; i < ticks; i++) sim.step();
+  return sim;
+}
+
+async function runningClient(options: { snapshotTick?: number | null; connected?: () => boolean } = {}) {
+  const clock = { now: 0 };
+  const sent: ClientMessage[] = [];
+  const observed: ServerMessage[] = [];
+  const client = new RelayClient({
+    token: 'relay-commands-0123456789',
+    nick: 'Ania',
+    now: () => clock.now,
+    ...(options.connected === undefined ? {} : { connected: options.connected }),
+    world: {
+      open: async (_session, snapshotTick) => ({
+        sim: fixtureWorld(snapshotTick ?? 0),
+        generation: snapshotTick ?? 0,
+      }),
+      restore: async () => ({ sim: fixtureWorld(RESTORED_TICK), generation: RESTORED_TICK }),
+    },
+    onMessage: (message) => observed.push(message),
+  });
+  client.attach((message) => sent.push(message));
+  client.receive({ kind: 'start', session: SESSION, snapshotTick: options.snapshotTick ?? null });
+  await client.settled();
+  sent.length = 0;
+  observed.length = 0;
+  const commandsSent = () => sent.filter((message) => message.kind === 'command');
+  return { client, clock, sent, observed, commandsSent };
+}
+
+/** Deliver the frame for the client's next tick carrying `commands`, then run it. */
+function applyNext(client: RelayClient, envelopes: readonly CommandEnvelope[]): void {
+  const tick = (client.tick ?? 0) + 1;
+  const commands = envelopes.map((envelope, sequence) => ({ envelope, sequence }));
+  client.receive({ kind: 'frame', tick, commands });
+  client.advance(TICK_MS * 2);
+}
+
+describe('click-to-apply stamps', () => {
+  it('forgets a command whose frame a restored snapshot already covers', async () => {
+    const { client, clock } = await runningClient();
+    client.submit(order(1));
+    client.receive({ kind: 'desync', tick: 1, domains: ['rng'], reference: 'Bartek' });
+    client.receive({ kind: 'blob', type: 'snapshot', from: 'Bartek', tick: RESTORED_TICK, bytes: 'AAAA' });
+    await client.settled();
+    clock.now = 60_000;
+    client.submit(order(2));
+    clock.now = 60_250;
+    applyNext(client, [order(2)]);
+    expect(client.latency.lastMs).toBe(250);
+  });
+
+  it('forgets commands sent on a socket that was replaced', async () => {
+    const { client, clock } = await runningClient();
+    client.submit(order(1));
+    client.hello();
+    client.receive({ kind: 'start', session: SESSION, snapshotTick: null });
+    clock.now = 60_000;
+    client.submit(order(2));
+    clock.now = 60_250;
+    applyNext(client, [order(2)]);
+    expect(client.latency.lastMs).toBe(250);
+  });
+});

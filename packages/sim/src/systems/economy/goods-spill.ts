@@ -1,8 +1,11 @@
-import type { ContentSet } from '@open-northland/data';
+import { BUILDING_KIND, type ContentSet } from '@open-northland/data';
 import {
+  Building,
   Carrying,
   Equipment,
   type GoodsLine,
+  isScriptedEconomySeat,
+  ownerOf,
   Position,
   Settler,
   Stockpile,
@@ -10,13 +13,14 @@ import {
   Upgrading,
   wornSlot,
 } from '../../components/index.js';
+import { contentIndex } from '../../core/content-index.js';
 import type { Fixed } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import { NEAREST_NODE_SEARCH_CAP } from '../../nav/nearest.js';
 import { ringSearch } from '../../nav/ring-search.js';
 import type { NodeId } from '../../nav/terrain/index.js';
-import type { SystemContext } from '../context.js';
+import type { ContentContext, SystemContext } from '../context.js';
 import { isWornAtMost } from '../equipment/index.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { isSoldierJob } from '../readviews/index.js';
@@ -58,16 +62,61 @@ export function spilledStockOf(
 ): SpilledStock | null {
   const pos = world.tryGet(store, Position);
   if (pos === undefined) return null;
-  const held = new Map<number, number>();
-  const add = (goodType: number, amount: number): void => {
-    if (amount > 0) held.set(goodType, (held.get(goodType) ?? 0) + amount);
-  };
-  const stock = world.tryGet(store, Stockpile);
-  if (stock !== undefined) for (const [goodType, amount] of stock.amounts) add(goodType, amount);
-  const upgrading = world.tryGet(store, Upgrading);
-  if (upgrading !== undefined) for (const [good, amount] of upgrading.savedStock) add(good, amount);
-  for (const line of salvage) add(line.goodType, line.amount);
+  const held = heldStockOf(world, store);
+  for (const line of salvage) addTo(held, line.goodType, line.amount);
   return spillOf(pos, held);
+}
+
+/**
+ * {@link spilledStockOf} for a razed building, which a map-scripted seat's building empties differently.
+ * Original behavior: such a seat's warehouse or training house keeps its contents, a warehouse leaving
+ * {@link SCRIPTED_WAREHOUSE_RATION} of plain food instead, and its other buildings spill at most
+ * {@link SCRIPTED_SLOT_SPILL_CAP} of each good. The original applies this to every machine seat; here a
+ * seat the computer player keeps spills like a human's (owner ruling).
+ */
+export function razedStockOf(
+  world: World,
+  ctx: ContentContext,
+  building: Entity,
+  salvage: readonly GoodsLine[],
+): SpilledStock | null {
+  const owner = ownerOf(world, building);
+  const pos = world.tryGet(building, Position);
+  if (owner === undefined || pos === undefined || !isScriptedEconomySeat(world, owner)) {
+    return spilledStockOf(world, building, salvage);
+  }
+  const index = contentIndex(ctx.content);
+  const kind = index.buildings.get(world.get(building, Building).buildingType)?.kind;
+  const held = new Map<number, number>();
+  if (kind === BUILDING_KIND.storage) {
+    const food = index.goodTypeBySlug.get(SCRIPTED_WAREHOUSE_RATION.good);
+    if (food !== undefined) addTo(held, food, SCRIPTED_WAREHOUSE_RATION.amount);
+  } else if (kind !== BUILDING_KIND.training) {
+    for (const [good, amount] of heldStockOf(world, building)) {
+      addTo(held, good, Math.min(amount, SCRIPTED_SLOT_SPILL_CAP));
+    }
+  }
+  for (const line of salvage) addTo(held, line.goodType, line.amount);
+  return spillOf(pos, held);
+}
+
+/** The most of one good a map-scripted seat's razed building spills. Original behavior. */
+export const SCRIPTED_SLOT_SPILL_CAP = 25;
+/** What a map-scripted seat's razed warehouse leaves in place of its contents. Original behavior. */
+export const SCRIPTED_WAREHOUSE_RATION = { good: 'food_simple', amount: 25 } as const;
+
+/** A store's own stock plus an upgrading building's stashed inventory, by good. */
+function heldStockOf(world: World, store: Entity): Map<number, number> {
+  const held = new Map<number, number>();
+  const stock = world.tryGet(store, Stockpile);
+  if (stock !== undefined) for (const [goodType, amount] of stock.amounts) addTo(held, goodType, amount);
+  const upgrading = world.tryGet(store, Upgrading);
+  if (upgrading !== undefined) for (const [good, amount] of upgrading.savedStock) addTo(held, good, amount);
+  return held;
+}
+
+function addTo(held: Map<number, number>, goodType: number, amount: number): void {
+  if (amount > 0) held.set(goodType, (held.get(goodType) ?? 0) + amount);
 }
 
 /**

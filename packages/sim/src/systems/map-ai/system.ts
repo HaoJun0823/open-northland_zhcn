@@ -4,6 +4,7 @@ import {
   Building,
   computerModuleRuns,
   isPlayerDead,
+  isScriptedEconomySeat,
   type MapAiDefaultPosition,
   type MapAiHouseRecord,
   MapAiState,
@@ -155,7 +156,7 @@ function townOrders(
   turn: number,
 ): PlayerCommand[] {
   const commands: PlayerCommand[] = [];
-  const staff = !computerModuleRuns(world, seat, 'collectResources');
+  const staff = isScriptedEconomySeat(world, seat);
   const house = !computerModuleRuns(world, seat, 'homeExpansion');
   if (turn % REBUILD_EVERY_TURNS === 0 && !computerModuleRuns(world, seat, 'houseBuild')) {
     commands.push(...rebuildOrders(world, ctx, terrain, seat, houses, raiders()));

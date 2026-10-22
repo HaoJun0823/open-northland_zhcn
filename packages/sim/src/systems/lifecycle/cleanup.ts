@@ -3,7 +3,7 @@ import { eventAt } from '../../core/events.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import { unbindWorkersOf } from '../command/placement.js';
 import type { System, SystemContext } from '../context.js';
-import { scatterSpilledStock, spilledStockOf } from '../economy/goods-spill.js';
+import { razedStockOf, scatterSpilledStock, spilledStockOf } from '../economy/goods-spill.js';
 import { evictResidentsOf } from '../family/households.js';
 import { retryFailedRoutes } from '../landscape/routes.js';
 import { removePalisade } from '../palisades/index.js';
@@ -104,7 +104,7 @@ export function razeBuilding(world: World, ctx: SystemContext, e: Entity): void 
     ...(world.has(e, Upgrading) ? { upgrading: true } : {}),
     ...(pos !== undefined ? { at: eventAt(pos.x, pos.y) } : {}),
   });
-  const spill = spilledStockOf(world, e, razeSalvageOf(world, ctx, e));
+  const spill = razedStockOf(world, ctx, e, razeSalvageOf(world, ctx, e));
   removeBuildingSilently(world, ctx, e);
   holdRuinSpill(world, ctx, spill);
 }

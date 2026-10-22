@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Building,
   Health,
+  Owner,
   Position,
   Stockpile,
   setStockAmount,
@@ -21,6 +22,7 @@ import {
 } from '../../src/index.js';
 import { nodeOfPosition } from '../../src/nav/halfcell.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
+import { SCRIPTED_SLOT_SPILL_CAP, SCRIPTED_WAREHOUSE_RATION } from '../../src/systems/economy/goods-spill.js';
 import { manhattan } from '../../src/systems/spatial/metric.js';
 import { MAX_GROUND_STACK } from '../../src/systems/stores/index.js';
 import {
@@ -287,5 +289,74 @@ describe('a razed standing building gives back half its construction bill, round
 
     expect(unitsOf(heaps(sim), WOOD)).toBe(WOOD_SALVAGE);
     expect(unitsOf(heaps(sim), PLANK)).toBe(PLANK_SALVAGE + 1);
+  });
+});
+
+describe('a razed building of a machine seat', () => {
+  const SEAT = 2;
+  const FOOD_SIMPLE = 3; // the fixture's `food_simple`
+  const HELD_WOOD = 30;
+
+  type Kind = 'storage' | 'training' | 'workplace';
+  type Controller = 'scripted' | 'computer';
+
+  /** The placement fixture with the HUT re-kinded, standing for `SEAT` under `controller`. */
+  function seatHut(kind: Kind, controller: Controller): { sim: Simulation; hut: Entity } {
+    const content = placementContent();
+    const buildings = content.buildings.map((type) => (type.typeId === HUT ? { ...type, kind } : type));
+    const sim = new Simulation({ seed: 1, content: { ...content, buildings }, map: grassMap(16, 16) });
+    // A scripted seat runs no computer player; its map AI is off too so no town pass restocks the hut.
+    sim.enqueueSetup(
+      controller === 'scripted'
+        ? { kind: 'setAiControl', player: SEAT, enabled: true, computerEnabled: false, mapAiEnabled: false }
+        : { kind: 'setAiControl', player: SEAT, enabled: true },
+    );
+    const hut = stockedHut(sim, ANCHOR, [
+      [WOOD, HELD_WOOD],
+      [PLANK, 3],
+    ]);
+    sim.world.add(hut, Owner, { player: SEAT });
+    return { sim, hut };
+  }
+
+  it("of a map-scripted seat keeps a warehouse's contents and leaves the plain-food ration", () => {
+    const { sim, hut } = seatHut('storage', 'scripted');
+
+    demolish(sim, hut);
+
+    const spilled = heaps(sim);
+    expect(unitsOf(spilled, WOOD)).toBe(0);
+    expect(unitsOf(spilled, PLANK)).toBe(0);
+    expect(unitsOf(spilled, FOOD_SIMPLE)).toBe(SCRIPTED_WAREHOUSE_RATION.amount);
+  });
+
+  it("of a map-scripted seat keeps a training house's contents", () => {
+    const { sim, hut } = seatHut('training', 'scripted');
+
+    demolish(sim, hut);
+
+    expect(heaps(sim)).toEqual([]);
+  });
+
+  it('of a map-scripted seat spills at most the cap of each good from any other building', () => {
+    const { sim, hut } = seatHut('workplace', 'scripted');
+
+    demolish(sim, hut);
+
+    const spilled = heaps(sim);
+    expect(HELD_WOOD).toBeGreaterThan(SCRIPTED_SLOT_SPILL_CAP);
+    expect(unitsOf(spilled, WOOD)).toBe(SCRIPTED_SLOT_SPILL_CAP);
+    expect(unitsOf(spilled, PLANK)).toBe(3);
+  });
+
+  it("of a computer player spills everything, like a human's", () => {
+    const { sim, hut } = seatHut('storage', 'computer');
+
+    demolish(sim, hut);
+
+    const spilled = heaps(sim);
+    expect(unitsOf(spilled, WOOD)).toBe(HELD_WOOD);
+    expect(unitsOf(spilled, PLANK)).toBe(3);
+    expect(unitsOf(spilled, FOOD_SIMPLE)).toBe(0);
   });
 });

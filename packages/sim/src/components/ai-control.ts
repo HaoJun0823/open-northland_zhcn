@@ -86,6 +86,12 @@ export function computerControllerRuns(world: World, player: number): boolean {
   return carrier !== null && world.get(carrier, AiControl).computerEnabled;
 }
 
+/** Whether `player` is a map-scripted machine seat: the computer player does not run its economy, so the
+ *  map AI's town pass holds its goods. A seat whose economy the computer player runs plays like a human. */
+export function isScriptedEconomySeat(world: World, player: number): boolean {
+  return isMachinePlayer(world, player) && !computerModuleRuns(world, player, 'collectResources');
+}
+
 /** Whether the computer player may run `module`; both master and module permission are required. */
 export function computerModuleRuns(world: World, player: number, module: ComputerModuleId): boolean {
   const carrier = aiControlEntity(world, player);

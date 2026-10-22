@@ -51,9 +51,9 @@ export class Game {
     private readonly members: ReadonlyMap<string, Member>,
     private readonly deliver: Deliver,
     now: number,
-    initialSave: CachedSnapshot | null = null,
-    onEnded: () => void = () => {},
-    private readonly log: RelayLog = () => undefined,
+    initialSave: CachedSnapshot | null,
+    onEnded: () => void,
+    private readonly log: RelayLog,
     /** The room's response reserve: the frames each client holds back before it applies one. */
     private readonly reserveTicks: () => number,
   ) {
@@ -355,8 +355,7 @@ export class Game {
   }
 
   /** Every member the room cannot run without holds the clock; a slow one paces it instead, until it
-   *  has stayed slow long enough to hold it too. */
-  /** True when it broadcast the waited set. */
+   *  has stayed slow long enough to hold it too. True when it broadcast the waited set. */
   private updateWaiting(now: number): boolean {
     const waited: Waited[] = [];
     for (const member of this.members.values()) {

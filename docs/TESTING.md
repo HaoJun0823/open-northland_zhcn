@@ -245,6 +245,10 @@ Paths are under `packages/app/test/`.
 | `net/relay-slow-display.test.ts` | Draws the runtime's frames 2 s apart: the relay governs the room to the drawn rate and releases it once the frames recover, and the mirror saw every tick. |
 | third case of `content/relay-map-parity.test.ts` | The worker client's digests and final state match the inline client's on `magiczny_las`. |
 
+The in-process tests hand the worker's messages over Node `MessageChannel` ports in one thread. Run
+them on Node 26: Node 22 loses a large port message under load now and then, and the test then waits
+out its limit instead of failing.
+
 The last two run the worker under `worker_threads` beside inline headless clients on the virtual
 relay. The worker cannot follow a virtual clock, so `PacedStage` (`test/support/net-worker/`)
 advances the network and relay by the real time each turn took.

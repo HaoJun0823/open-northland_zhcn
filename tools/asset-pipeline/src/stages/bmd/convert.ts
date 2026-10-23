@@ -222,7 +222,13 @@ export async function convertEffectBmdTree(
     }
     try {
       const atlas = packDisplacementBobAtlas(decodeBmd(await readFile(source.path)));
-      const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
+      const { image } = await writeSourceBobAtlas(
+        atlases,
+        source.rel,
+        INDEXED_ATLAS_SUFFIX,
+        atlas,
+        'displacement',
+      );
       done.push(image);
     } catch (err) {
       console.warn(`[pipeline] skipped effect ${bmdRef}: ${errorMessage(err)}`);

@@ -44,8 +44,8 @@ export interface BobAtlasFiles {
 }
 
 /**
- * Writes `image` under {@link BOBS_DIR} at its content-addressed name and returns that name: a WebP,
- * or for a `paletted` sheet an `index-coverage-png`. A sheet already written this run is not encoded
+ * Writes `image` under {@link BOBS_DIR} at its content-addressed name and returns that name: a WebP or,
+ * with graded alpha, a PNG; for a `paletted` sheet an `index-coverage-png`. A sheet already written this run is not encoded
  * again; the run clears the directory first, so a present file holds these bytes.
  */
 async function writeAtlasImage(outDir: string, image: RgbaImage, paletted = false): Promise<string> {

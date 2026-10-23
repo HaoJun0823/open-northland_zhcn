@@ -28,7 +28,7 @@ export async function verifyPreview(url, expected) {
   const mapPath = `/maps/${encodeURIComponent(map)}`;
   for (const suffix of ['.json', '.meta.json']) await get(`${mapPath}${suffix}`, 'application/json', 'HEAD');
   await get('/bobs/atlases.json', 'application/json', 'HEAD');
-  // A recoloured stem's sheet is a grey+alpha PNG, every other sheet a lossless WebP.
+  // A recoloured stem's sheet is a grey+alpha PNG, a graded-alpha sheet a PNG, any other a lossless WebP.
   const sheet = bobs[0].image;
   await get(
     `/bobs/${encodeURIComponent(sheet)}`,

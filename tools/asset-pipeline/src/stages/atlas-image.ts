@@ -6,8 +6,16 @@ import type { RgbaImage } from '@open-northland/formats/image';
 import { encodeGreyAlphaPng } from '@open-northland/formats/png';
 import sharp from 'sharp';
 
-/** The served atlas sheet format: lossless WebP, about half the bytes of our zlib-default PNG. */
+/** The served format of a sheet whose every pixel is opaque or transparent: lossless WebP, about half
+ *  the bytes of our zlib-default PNG. */
 export const ATLAS_IMAGE_EXTENSION = '.webp';
+
+/**
+ * The served format of a sheet with graded alpha. Chromium premultiplies a decoded WebP with its own
+ * rounding, unlike its PNG decoder and its `ImageData` path, so a WebP of such a sheet draws partly
+ * transparent pixels 1 level off; a PNG decodes exactly as the paletted sheets' colouring does.
+ */
+export const GRADED_ATLAS_IMAGE_EXTENSION = '.png';
 
 /** A paletted sheet's file: an `index-coverage-png` (`AtlasImageEncoding`). */
 export const PALETTED_SHEET_EXTENSION = '.png';
@@ -21,12 +29,30 @@ const NAME_HASH_HEX = 16;
  */
 const WEBP_EFFORT = 6;
 const WEBP_LOSSLESS_QUALITY = 75;
+/** zlib's smallest setting for a graded-alpha sheet's PNG. */
+const PNG_SMALLEST_LEVEL = 9;
+
+const OPAQUE = 255;
+
+/** True when some pixel is neither fully transparent nor opaque. */
+function hasGradedAlpha({ rgba }: RgbaImage): boolean {
+  for (let i = 3; i < rgba.length; i += 4) {
+    const alpha = rgba[i] ?? 0;
+    if (alpha !== 0 && alpha !== OPAQUE) return true;
+  }
+  return false;
+}
+
+/** The served file extension of an RGBA sheet: see {@link GRADED_ATLAS_IMAGE_EXTENSION}. */
+export function atlasImageExtension(image: RgbaImage): string {
+  return hasGradedAlpha(image) ? GRADED_ATLAS_IMAGE_EXTENSION : ATLAS_IMAGE_EXTENSION;
+}
 
 /**
  * The content-addressed file name of a sheet, so byte-identical sheets of different stems (a build-time
  * sheet every recolour shares, an empty bob set) are written and fetched once.
  */
-export function atlasImageName(image: RgbaImage, extension = ATLAS_IMAGE_EXTENSION): string {
+export function atlasImageName(image: RgbaImage, extension = atlasImageExtension(image)): string {
   const hash = createHash('sha256')
     .update(`${image.width}x${image.height}\n`)
     .update(image.rgba)
@@ -35,14 +61,18 @@ export function atlasImageName(image: RgbaImage, extension = ATLAS_IMAGE_EXTENSI
 }
 
 /**
- * Encodes a sheet as lossless WebP. `exact` keeps the RGB under fully transparent pixels, which libwebp
- * otherwise rewrites, so a sheet decodes to the bytes it was packed from.
+ * Encodes a sheet in the format {@link atlasImageExtension} names: lossless WebP, where `exact` keeps
+ * the RGB under fully transparent pixels, which libwebp otherwise rewrites, or PNG. Either decodes to
+ * the bytes it was packed from.
  */
 export async function encodeAtlasImage(image: RgbaImage): Promise<Uint8Array> {
   const { width, height, rgba } = image;
-  return sharp(rgba, { raw: { width, height, channels: 4 }, limitInputPixels: false })
-    .webp({ lossless: true, exact: true, effort: WEBP_EFFORT, quality: WEBP_LOSSLESS_QUALITY })
-    .toBuffer();
+  const pixels = sharp(rgba, { raw: { width, height, channels: 4 }, limitInputPixels: false });
+  return atlasImageExtension(image) === GRADED_ATLAS_IMAGE_EXTENSION
+    ? pixels.png({ compressionLevel: PNG_SMALLEST_LEVEL }).toBuffer()
+    : pixels
+        .webp({ lossless: true, exact: true, effort: WEBP_EFFORT, quality: WEBP_LOSSLESS_QUALITY })
+        .toBuffer();
 }
 
 const deflateAsync = promisify(deflate);

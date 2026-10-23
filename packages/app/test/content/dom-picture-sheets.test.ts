@@ -6,7 +6,7 @@ import { tribeEmblemRows } from '../../src/content/building-gfx/emblems.js';
 import type { GoodsManifest } from '../../src/content/goods-gfx.js';
 import { servedAtlasStem } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { spriteGoodIcon } from '../../src/content/sprite-good-icons.js';
+import { spriteGoodIcon, swarmFishIcon } from '../../src/content/sprite-good-icons.js';
 import {
   contentDir,
   hasRealIr,
@@ -50,8 +50,8 @@ describe.runIf(hasRealIr())('DOM picture sheets on real content', () => {
     for (const icon of Object.values(goods.icons)) stems.add(`${pileBase}.${icon.palette}`);
     const { real } = await loadContentUnderTest();
     for (const good of real.goods) {
-      const icon = await spriteGoodIcon(real, good.id);
-      if (icon !== null) stems.add(icon.stem);
+      for (const icon of [await spriteGoodIcon(real, good.id), await swarmFishIcon(real, good.id)])
+        if (icon !== null) stems.add(icon.stem);
     }
     for (const row of tribeEmblemRows(rawIrUnderTest() as ContentIr, CIVILIZATION_TRIBES).values()) {
       const stem = servedAtlasStem(row);

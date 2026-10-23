@@ -6,6 +6,8 @@ import { paletteSlug } from './convert.js';
 
 /** The building whose sprite stands for a civilization in the menus (the tribe emblem). */
 const EMBLEM_BUILDING = 'headquarters';
+/** The swarm fish sheet: the fish good's icon draws it, since the fish pile copies gold's bar. */
+const SWARM_FISH_STEM = 'ls_fishes.fishes';
 /** The `source.layer` of a row the base game's tables wrote. */
 const BASE_LAYER = 'base';
 
@@ -38,7 +40,8 @@ function transformChain(content: DomPictureContent, vehicleType: number): number
 
 /**
  * The stems the app's DOM shows as an `<img>` or a CSS background, which shows a sheet's pixels as they
- * are, so each must keep an RGB sheet: the goods' pile icons (`ls_goods.<palette>`), the standing
+ * are, so each must keep an RGB sheet: the goods' pile icons (`ls_goods.<palette>`), the swarm fish of
+ * the fish good, the standing
  * vehicle of a vehicle good and the animal of a species good (their good icons), and each
  * civilization's headquarters (its tribe emblem). The vehicles and animals take every row the app may
  * pick from (each tribe's vehicle row, each recolour bound to a species), so a pack that moves the pick
@@ -49,7 +52,7 @@ export function domPictureStems(
   content: DomPictureContent,
   bindings: readonly BmdPaletteBinding[],
 ): ReadonlySet<string> {
-  const stems = new Set<string>();
+  const stems = new Set<string>([SWARM_FISH_STEM]);
   for (const icon of Object.values(resolveGoodIcons(content.goods, content.landscapeGfx)))
     stems.add(`${GOODS_ATLAS_STEM}.${paletteSlug(icon.palette.toLowerCase())}`);
 

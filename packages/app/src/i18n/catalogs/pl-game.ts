@@ -150,6 +150,7 @@ export const plGame = {
     technologyForbidden: 'Niedostępne w tej misji',
     technologyRequires: 'Wymagane odkrycia:',
     technologyExperience: 'Wymaga doświadczenia lub szkolenia',
+    technologyGoodProgress: '{good} ({jobs}, doświadczenie {current}/{required})',
     signpost: 'Drogowskaz',
     demolishSignpost: 'Wyburz ten drogowskaz',
     palisade: 'Palisada',

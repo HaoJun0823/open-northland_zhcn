@@ -244,7 +244,7 @@ export function settlerWork(
   const craftGate: GoodGate = (goodType) => {
     const gate = experienceGate(goodType);
     if (gate === HIDDEN) return HIDDEN;
-    return ctx.technologyReason?.('good', goodType, tribe, owner) ?? gate;
+    return ctx.technologyReason?.(snapshot, 'good', goodType, tribe, owner) ?? gate;
   };
   return { place, production: craftProduction(ctx, def, jobType, counters, craftGate), lesson: null };
 }

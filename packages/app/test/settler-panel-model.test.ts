@@ -373,7 +373,8 @@ describe('the settler panel model', () => {
       ],
       {
         ...ctx,
-        technologyReason: (kind, typeId) => (kind === 'good' && typeId === locked ? 'Wymaga pieca' : null),
+        technologyReason: (_snapshot, kind, typeId) =>
+          kind === 'good' && typeId === locked ? 'Wymaga pieca' : null,
       },
     );
     expect(model.production?.rows.find((row) => row.goodType === locked)?.locked).toBe('Wymaga pieca');

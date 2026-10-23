@@ -153,6 +153,7 @@ export const enGame = {
     technologyForbidden: 'Unavailable in this mission',
     technologyRequires: 'Required discoveries:',
     technologyExperience: 'Requires experience or training',
+    technologyGoodProgress: '{good} ({jobs}, experience {current}/{required})',
     signpost: 'Signpost',
     demolishSignpost: 'Tear down this signpost',
     palisade: 'Stockade',

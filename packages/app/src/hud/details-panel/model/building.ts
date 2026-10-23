@@ -299,6 +299,7 @@ function hireJob(def: BuildingDef | undefined, staff: BuildingStaffModel | null)
 
 function ordersModel(
   ctx: UnitPanelModelContext,
+  snapshot: WorldSnapshot,
   def: BuildingDef | undefined,
   ent: SnapshotEntity,
   finished: boolean,
@@ -310,7 +311,7 @@ function ordersModel(
   const upgradeControl = (target: number): SeatControl =>
     !finished
       ? copy.upgradeUnfinished
-      : (ctx.technologyReason?.('house', target, tribe, ownerPlayerOf(ent)) ?? true);
+      : (ctx.technologyReason?.(snapshot, 'house', target, tribe, ownerPlayerOf(ent)) ?? true);
   const shelters = (def?.shelterCapacity ?? 0) > 0;
   return {
     upgrade: next === undefined ? null : { control: upgradeControl(next), cost: upgradeCostRows(ctx, def) },
@@ -453,7 +454,7 @@ export function buildingPanelModel(
     meta,
     health: health === undefined || health.max <= 0 ? null : health,
     status,
-    orders: foreign ? null : ordersModel(ctx, def, ent, finished, hireJob(def, staff)),
+    orders: foreign ? null : ordersModel(ctx, snapshot, def, ent, finished, hireJob(def, staff)),
     construction: construction === null || foreign ? null : { ...construction, pct: builtPct, upgrade },
     staff,
     crew,

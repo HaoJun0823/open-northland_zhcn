@@ -173,6 +173,7 @@ export const ruGame = {
     technologyForbidden: 'Недоступно в этой миссии',
     technologyRequires: 'Необходимые открытия:',
     technologyExperience: 'Требуется опыт или обучение',
+    technologyGoodProgress: '{good} ({jobs}, опыт {current}/{required})',
     signpost: 'Знак',
     demolishSignpost: 'Снести этот знак',
     palisade: 'Частокол',

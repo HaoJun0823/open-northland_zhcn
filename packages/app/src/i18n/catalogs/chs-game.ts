@@ -150,6 +150,7 @@ export const chsGame = {
     technologyForbidden: '本任务中不可用',
     technologyRequires: '所需发现：',
     technologyExperience: '需要经验或培训',
+    technologyGoodProgress: '{good}（{jobs}，经验 {current}/{required}）',
     signpost: '路标',
     demolishSignpost: '拆除这个路标',
     palisade: '木栅栏',

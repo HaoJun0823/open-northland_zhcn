@@ -316,6 +316,28 @@ export function settlersOwnedBy(snapshot: WorldSnapshot, player: number): readon
   return entitiesUnder(snapshot, SETTLERS_BY_OWNER, player);
 }
 
+/** Composite trade keys: an owner times the span, plus a job type under it. */
+const TRADE_KEY_SPAN = 1 << 16;
+
+const SETTLERS_BY_OWNER_TRADE = idsGroupedBy(
+  (e) => {
+    const owner = isSettler(e) ? ownerPlayerOf(e) : undefined;
+    const job = owner === undefined ? undefined : settlerJobType(e);
+    return owner === undefined || job === undefined ? undefined : owner * TRADE_KEY_SPAN + job;
+  },
+  'settlers by owner and trade',
+  { values: ['Owner', 'Settler'] },
+);
+
+/** The settlers of `player` whose current trade is `jobType`, ascending by id. */
+export function settlersOfTrade(
+  snapshot: WorldSnapshot,
+  player: number,
+  jobType: number,
+): readonly SnapshotEntity[] {
+  return entitiesUnder(snapshot, SETTLERS_BY_OWNER_TRADE, player * TRADE_KEY_SPAN + jobType);
+}
+
 const SHELTERERS = idsGroupedBy((e) => (isSettler(e) ? shelterOf(e) : undefined), 'shelterers', {
   values: ['Sheltering'],
   presence: ['Settler'],

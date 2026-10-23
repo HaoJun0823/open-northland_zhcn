@@ -150,6 +150,7 @@ export const chtGame = {
     technologyForbidden: '本任務中無法使用',
     technologyRequires: '需要的發現：',
     technologyExperience: '需要經驗或訓練',
+    technologyGoodProgress: '{good}（{jobs}，經驗 {current}/{required}）',
     signpost: '路標',
     demolishSignpost: '拆除這座路標',
     palisade: '木柵欄',

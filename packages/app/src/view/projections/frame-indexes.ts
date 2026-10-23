@@ -24,6 +24,7 @@ import {
   isBuilding,
   isSettler,
   needsRuleEnabled,
+  settlersOfTrade,
   staffOf,
   supplyRunsTo,
 } from '../../game/snapshot.js';
@@ -88,6 +89,8 @@ export const FRAME_INDEX_READERS: readonly AppFrameIndexReader[] = [
   // The object ambience reads it on every frame that advanced a tick.
   { name: 'landscape sound sectors', read: (snapshot) => landscapeSectorsOf(snapshot) },
   { name: 'staff', read: (snapshot) => staffOf(snapshot, NO_ENTITY) },
+  // A locked upgrade's discovery progress reads it while the building panel shows the house.
+  { name: 'settlers by trade', read: (snapshot) => settlersOfTrade(snapshot, NO_SEAT, NO_TYPE) },
   // The workshop stall sweep reads both once a second.
   { name: 'resting buildings', read: (snapshot) => restingBuildingsOf(snapshot, NO_SEAT, NO_TYPE) },
   { name: 'supply runs', read: (snapshot) => supplyRunsTo(snapshot, NO_ENTITY) },

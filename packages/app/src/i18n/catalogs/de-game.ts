@@ -173,6 +173,7 @@ export const deGame = {
     technologyForbidden: 'In dieser Mission nicht verfügbar',
     technologyRequires: 'Benötigte Entdeckungen:',
     technologyExperience: 'Erfordert Erfahrung oder Ausbildung',
+    technologyGoodProgress: '{good} ({jobs}, Erfahrung {current}/{required})',
     signpost: 'Wegweiser',
     demolishSignpost: 'Diesen Wegweiser abreißen',
     palisade: 'Palisade',

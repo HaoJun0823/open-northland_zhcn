@@ -1,9 +1,25 @@
 import type { ContentSet } from '@open-northland/data';
-import { systems, type UnlockStatus } from '@open-northland/sim';
+import { systems, type UnlockStatus, type WorldSnapshot } from '@open-northland/sim';
 import { professionDefForJob } from '../catalog/professions.js';
-import { messages, professionLabel } from '../i18n/index.js';
+import { formatMessage, messages, professionLabel } from '../i18n/index.js';
+import { settlerExperienceOf, settlersOfTrade, settlerTribeOf } from './snapshot.js';
 
-export function technologyReason(content: ContentSet, status: UnlockStatus): string | null {
+/** How far the best-trained person of the discovering trades is toward a missing good's `needforgood`
+ *  threshold, in the requirement's repeats. */
+export interface DiscoveryProgress {
+  readonly current: number;
+  readonly required: number;
+}
+
+/** A missing good's discovery progress given the trades whose work discovers it; null for a good no
+ *  experience threshold gates. */
+export type DiscoveryProgressRead = (good: number, jobs: readonly number[]) => DiscoveryProgress | null;
+
+export function technologyReason(
+  content: ContentSet,
+  status: UnlockStatus,
+  progressOf?: DiscoveryProgressRead,
+): string | null {
   if (!status.allowed) return messages().hud.technologyForbidden;
   if (status.enabled) return null;
   const jobs = (
@@ -11,16 +27,53 @@ export function technologyReason(content: ContentSet, status: UnlockStatus): str
       ? status.requiredJobs
       : status.enablingJobs
   ).flatMap((id) => technologyName(content, 'job', id) ?? []);
-  // A missing good names the trades whose work discovers it, so the player knows whom to assign.
+  // A missing good names the trades whose work discovers it, even one missing itself, so the entry never
+  // reads as a ware to deliver; a threshold adds how far their best-trained person has come.
   const goods = status.requiredGoods.flatMap(({ good, jobs: producers }) => {
     const label = technologyName(content, 'good', good);
     if (label === undefined) return [];
-    const byJobs = producers
-      .filter((id) => !status.requiredJobs.includes(id))
-      .flatMap((id) => technologyName(content, 'job', id) ?? []);
-    return byJobs.length === 0 ? label : `${label} (${byJobs.join(', ')})`;
+    const byJobs = producers.flatMap((id) => technologyName(content, 'job', id) ?? []).join(', ');
+    const progress = progressOf?.(good, producers) ?? null;
+    if (progress !== null && byJobs !== '')
+      return formatMessage(messages().hud.technologyGoodProgress, { good: label, jobs: byJobs, ...progress });
+    return byJobs === '' ? label : `${label} (${byJobs})`;
   });
   return `${messages().hud.technologyRequires} ${[...jobs, ...goods].join(', ')}`;
+}
+
+/**
+ * {@link DiscoveryProgressRead} for `player`'s people of `tribe`. The sim discovers a good when one
+ * settler whose current trade discovers it meets every `needforgood` row, so a row's progress is its best
+ * such settler's, and the first row none of them meets is the one shown.
+ */
+export function discoveryProgressOf(
+  content: Pick<ContentSet, 'tribes' | 'jobExperience'>,
+  snapshot: WorldSnapshot,
+  player: number,
+  tribe: number,
+): DiscoveryProgressRead {
+  const requirements = content.tribes.find((t) => t.typeId === tribe)?.jobRequirements ?? [];
+  return (good, jobs) => {
+    for (const requirement of requirements) {
+      if (requirement.requirement !== 'need' || requirement.target !== 'good') continue;
+      if (requirement.targetId !== good) continue;
+      let current = 0;
+      for (const job of jobs) {
+        for (const settler of settlersOfTrade(snapshot, player, job)) {
+          if (settlerTribeOf(settler) !== tribe) continue;
+          const experience = settlerExperienceOf(settler.components);
+          const repeats = systems.requirementRepeats(
+            content.jobExperience,
+            experience,
+            requirement.experienceTypes,
+          );
+          current = Math.max(current, repeats);
+        }
+      }
+      if (current < requirement.amount) return { current, required: requirement.amount };
+    }
+    return null;
+  };
 }
 
 /** A vehicle type's name: every vehicle is also a good of the same id, whose catalog entry names it. */

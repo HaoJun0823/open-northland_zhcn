@@ -3,7 +3,7 @@ import { projectNode } from '@open-northland/render';
 import { type Entity, systems, type UnlockStatus, type WorldSnapshot } from '@open-northland/sim';
 import { nodeOfId } from '../../game/node-id.js';
 import { postFlagTradeOf } from '../../game/snapshot.js';
-import { technologyReason } from '../../game/technology.js';
+import { discoveryProgressOf, technologyReason } from '../../game/technology.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import {
   createUnitPanel,
@@ -378,10 +378,11 @@ export async function createUnitChrome(
     technologyReason:
       opts.technologyStatus === undefined
         ? undefined
-        : (kind, typeId, tribe, player) =>
+        : (snapshot, kind, typeId, tribe, player) =>
             technologyReason(
               opts.content,
               opts.technologyStatus?.(kind, typeId, tribe, player) ?? UNANSWERED_STATUS,
+              player === undefined ? undefined : discoveryProgressOf(opts.content, snapshot, player, tribe),
             ),
     goodAllowed: (good, tribe, player) =>
       opts.technologyStatus === undefined ||

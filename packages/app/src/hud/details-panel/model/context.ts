@@ -39,8 +39,16 @@ export interface UnitPanelModelContext {
   /** The seat allowed to issue player-scoped orders from this panel. */
   readonly viewer?: ViewerSeat | undefined;
   readonly goodAllowed?: ((good: number, tribe: number, player?: number) => boolean) | undefined;
+  /** Why the type is locked, null when open; a house's missing goods show their discovery progress among
+   *  the snapshot's people. */
   readonly technologyReason?:
-    | ((kind: 'job' | 'house' | 'good', typeId: number, tribe: number, player?: number) => string | null)
+    | ((
+        snapshot: WorldSnapshot,
+        kind: 'job' | 'house' | 'good',
+        typeId: number,
+        tribe: number,
+        player?: number,
+      ) => string | null)
     | undefined;
   readonly buildings: readonly BuildingDef[];
   readonly goods: readonly GoodDef[];

@@ -327,7 +327,10 @@ function isRunning(pid) {
   }
 }
 
-test('SIGINT to the lab closes the browser, stops its children, then exits with 130', async () => {
+// Windows has no catchable SIGINT to send: kill('SIGINT') terminates the child without running its handler.
+test('SIGINT to the lab closes the browser, stops its children, then exits with 130', {
+  skip: process.platform === 'win32',
+}, async () => {
   const logDir = mkdtempSync(join(tmpdir(), 'net-browser-lab-'));
   const lab = spawn(process.execPath, [join(import.meta.dirname, 'support/lab-signal-child.mjs'), logDir], {
     stdio: ['ignore', 'pipe', 'inherit'],

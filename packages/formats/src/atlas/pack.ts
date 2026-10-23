@@ -22,6 +22,7 @@ export const ATLAS_GUTTER = 1;
 
 /** Default atlas width the shelf packer wraps at; frames wider than this still fit (they get their own row). */
 const DEFAULT_ATLAS_MAX_WIDTH = 1024;
+const ALPHA_CHANNEL = 3;
 
 /** One frame's placement + metadata in the atlas. Plain JSON data - no typed arrays or class instances. */
 export interface AtlasFrame {
@@ -102,7 +103,9 @@ export function packIndexedBobAtlas(bmd: Bmd, options: PackBobAtlasOptions = {})
   );
   const { rgba } = atlas.image;
   // The packer leaves the space between frames all zero; the layout's uncovered pixel is opaque.
-  for (let o = 0; o < rgba.length; o += 4) if (rgba[o + 3] === 0) writeIndexedPixel(rgba, o, 0, 0);
+  for (let o = 0; o < rgba.length; o += 4) {
+    if (rgba[o + ALPHA_CHANNEL] === 0) writeIndexedPixel(rgba, o, 0, 0);
+  }
   return atlas;
 }
 

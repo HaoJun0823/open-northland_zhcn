@@ -33,10 +33,11 @@ const WEBP_LOSSLESS_QUALITY = 75;
 const PNG_SMALLEST_LEVEL = 9;
 
 const OPAQUE = 255;
+const ALPHA_CHANNEL = 3;
 
 /** True when some pixel is neither fully transparent nor opaque. */
 function hasGradedAlpha({ rgba }: RgbaImage): boolean {
-  for (let i = 3; i < rgba.length; i += 4) {
+  for (let i = ALPHA_CHANNEL; i < rgba.length; i += 4) {
     const alpha = rgba[i] ?? 0;
     if (alpha !== 0 && alpha !== OPAQUE) return true;
   }

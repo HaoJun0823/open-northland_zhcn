@@ -16,9 +16,15 @@ import { equipErrandConfinement, type NavigationLimit } from '../../signposts/in
 import type { SupplyTally } from '../../stores/index.js';
 import { EQUIP_FETCH_UNITS, isUsed } from '../atomics/effects/goods/index.js';
 import { atOrWalk, PICKUP_ATOMIC_ID, PILEUP_ATOMIC_ID, startAtomic, startDrop } from '../atomics/start.js';
+import { owedAssistantGrants } from '../planner/assistant-grants.js';
 import { chainRecruitArmor } from '../planner/recruit-arming.js';
 import type { TargetCandidates } from '../targets/index.js';
-import { interactionCell, nearestStoreFor, nearestStoreHolding } from '../targets/index.js';
+import {
+  interactionCell,
+  nearestStoreFor,
+  nearestStoreHolding,
+  storeHoldingMayLieIn,
+} from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 
 type EquipOrderState = NonNullable<(typeof EquipOrder)['__value']>;
@@ -43,6 +49,8 @@ interface EquipErrand {
   readonly targets: TargetCandidates;
   readonly supply: SupplyTally;
   readonly fetches: { remaining: number };
+  /** The good this plan's own store search just failed to find, which a chained fetch does not repeat. */
+  failedGood?: number;
 }
 
 /**
@@ -142,7 +150,7 @@ function planTakeOff(errand: EquipErrand): boolean {
  * Nothing reachable to fetch ends the errand rather than parking the settler.
  */
 function planFetch(errand: EquipErrand, goodType: number): boolean {
-  const { world, ctx, entity, settler, order, here, owner, gate, avoid, targets, supply } = errand;
+  const { world, ctx, entity, order, here, owner, gate, avoid, targets, supply } = errand;
   const held = wornSlot(world, entity, order.group, order.slot);
   // A part-used unit is still replaced: refetching a worn pair is the swap the menu offers.
   if (held !== null && held.goodType === goodType && !isUsed(held)) return endErrand(errand);
@@ -156,7 +164,17 @@ function planFetch(errand: EquipErrand, goodType: number): boolean {
   if (errand.fetches.remaining <= 0) return true; // stands this pass, searches on the next
   errand.fetches.remaining--;
   const src = nearestStoreHolding(targets.bands, world, here, goodType, owner, supply, gate, avoid);
-  if (src === null) return endErrand(errand);
+  if (src === null) {
+    errand.failedGood = goodType;
+    return endErrand(errand);
+  }
+  fetchFrom(errand, src, goodType);
+  return true;
+}
+
+/** Claim a unit of `goodType` at `src` and walk there to lift it into the order's slot. */
+function fetchFrom(errand: EquipErrand, src: Entity, goodType: number): void {
+  const { world, ctx, entity, settler, order, supply } = errand;
   supply.stampPickupClaim(entity, { source: src, goodType, amount: EQUIP_FETCH_UNITS });
   const { group, slot } = order;
   atOrWalkTo(errand, src, () =>
@@ -169,7 +187,6 @@ function planFetch(errand: EquipErrand, goodType: number): boolean {
       src,
     ),
   );
-  return true;
 }
 
 /** The `stow` stage: a partial deposit leaves the stage in place, so the errand re-plans until the
@@ -216,6 +233,11 @@ function planReturn(errand: EquipErrand): boolean {
       return planFetch(errand, chained);
     }
   }
+  // Away from home only: back at his spot the errand ends, and the next want is the dispatch's to send.
+  if (order.issuer === 'assistant-grant' && order.returnTo !== here) {
+    const chained = chainAssistantGrant(errand);
+    if (chained !== null) return chained;
+  }
   const { returnTo } = order;
   if (
     returnTo === null ||
@@ -231,6 +253,41 @@ function planReturn(errand: EquipErrand): boolean {
     arrived = true;
   });
   return arrived ? finishEquipOrder(errand) : true;
+}
+
+/**
+ * An assistant grant errand takes the next good its grants still owe the settler from where it stands,
+ * so one outing dresses him in everything the stores in his reach hold for him before the single walk
+ * back. Authored: the original sends a separate errand per good, each on its own beat. Null sends him
+ * back: nothing owed may lie in his reach, or the searches ran out on it. True when it fetches, or stands
+ * for a pass that has no search left at all.
+ */
+function chainAssistantGrant(errand: EquipErrand): boolean | null {
+  const { world, ctx, entity, here, owner, gate, avoid, targets, supply } = errand;
+  if (owner === undefined) return null;
+  // The owed stock counts other signpost networks too: a good no store in reach lends costs no search, and
+  // nor does the one whose search just failed here.
+  const inReach = owedAssistantGrants(world, ctx, entity).filter(
+    (owed) =>
+      owed.goodType !== errand.failedGood &&
+      storeHoldingMayLieIn(targets.bands, world, owed.goodType, owner, supply, gate),
+  );
+  if (inReach.length === 0) return null;
+  if (errand.fetches.remaining <= 0) return true;
+  for (const owed of inReach) {
+    if (errand.fetches.remaining <= 0) return null;
+    errand.fetches.remaining--;
+    const src = nearestStoreHolding(targets.bands, world, here, owed.goodType, owner, supply, gate, avoid);
+    if (src === null) continue;
+    const live = writableOrder(errand);
+    live.group = owed.category;
+    live.slot = owed.slot;
+    live.goodType = owed.goodType;
+    live.stage = 'acquire';
+    fetchFrom(errand, src, owed.goodType);
+    return true;
+  }
+  return null;
 }
 
 function endErrand(errand: EquipErrand): boolean {

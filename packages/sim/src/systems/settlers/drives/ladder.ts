@@ -244,10 +244,10 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   // BARRACKS DRILL: a player errand outranking the settler's trade for as long as it lasts, and above the
   // equip errand below because the drill ends in a profession change.
   if (planTraining(world, ctx, terrain, e, settler, here, limit, pass.spacing, pass.idle)) return;
-  // EQUIP ERRAND: a player order outranking the DEFEND hold below, socialising and every economy rung,
-  // but under the needs drives and the ownership gate. A DEFEND guard walks the errand and re-holds its
-  // unchanged anchor afterwards, since the combat walk-back pass defers to a live errand. A garrison steps
-  // down from his tower first: a route cannot start inside the building's walk-blocked body.
+  // EQUIP ERRAND: the player's or the assistant's, outranking the DEFEND hold below, socialising and every
+  // economy rung, but under the needs drives and the ownership gate. A DEFEND guard walks the errand and
+  // re-holds its unchanged anchor afterwards, since the combat walk-back pass defers to a live errand. A
+  // garrison steps down from his tower first: a route cannot start inside the building's walk-blocked body.
   if (
     planEquipOrder(world, ctx, terrain, e, settler, here, limit, pass.targets, pass.supply, pass.equipFetches)
   ) {
@@ -262,8 +262,8 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
     return;
   }
   // DEFEND hold: a guard keeps its post against the company and economy rungs, and the CombatSystem walks
-  // it back when displaced. Below the equip errand on purpose: the one player order a guard still runs
-  // without dropping its stance.
+  // it back when displaced. Below the equip errand on purpose: the one errand a guard still runs without
+  // dropping its stance.
   if (world.tryGet(e, Stance)?.mode === MILITARY_MODE.DEFEND) return;
   // The company rung: a lonely settler leaves its work to find a partner, above the economy rungs on
   // purpose - the "worker downs tools to socialize" beat. Nobody walks off to chat while a battle is on

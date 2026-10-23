@@ -9,6 +9,7 @@ import {
   addPerson,
   Building,
   Carrying,
+  Engagement,
   Equipment,
   type EquipmentSlot,
   EquipOrder,
@@ -17,16 +18,19 @@ import {
   MISC_EQUIP_SLOTS,
   MoveGoal,
   Owner,
+  PickupClaim,
   Position,
   Stance,
   Stockpile,
   setNeedsEnabled,
   setSettlerJob,
+  UnreachableGoals,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, Simulation } from '../../src/index.js';
+import { fx, nodeHxOfPosition, nodeHyOfPosition, Simulation } from '../../src/index.js';
+import type { NodeId } from '../../src/nav/terrain/index.js';
 import { CHILD_MALE, CIVILIST_JOB, WOMAN_JOB } from '../../src/systems/lifecycle/ageclass.js';
-import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
+import { defaultStance } from '../../src/systems/readviews/index.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
 
@@ -45,7 +49,13 @@ const MEAD = 13;
 /** The fixture's small healing potion, and a big one of the same effect this suite appends. */
 const HEAL_SMALL = 16;
 const HEAL_BIG = 60;
+const FOOD_POTION = 14;
+const STAMINA_POTION = 15;
+const FOOD_AMULET = 23;
+const STAMINA_AMULET = 24;
 const STRENGTH_AMULET = 25;
+const DEFENSE_AMULET = 26;
+const CRIT_AMULET = 27;
 const WOOD = 1;
 const WOODCUTTER = 1;
 /** The fixture's soldier trade (`soldier_unarmed`) - what `isFighterJob` reads off the job slug. */
@@ -103,6 +113,27 @@ function pileAt(
   sim.world.add(e, Stockpile, { amounts: new Map([[goodType, amount]]) });
   if (player !== undefined) sim.world.add(e, Owner, { player });
   return e;
+}
+
+/** Make `e` a soldier the way the game does: the fighter trade and its default stance, DEFEND. */
+function enlist(sim: Simulation, e: Entity): void {
+  setSettlerJob(sim.world, e, FIGHTER_JOB);
+  sim.world.add(e, Stance, { mode: defaultStance(sim.world, sim.content, e, FIGHTER_JOB), anchorCell: null });
+}
+
+/** The node `e` stands on. */
+function nodeOf(sim: Simulation, e: Entity): NodeId {
+  const terrain = sim.terrain;
+  if (terrain === undefined) throw new Error('mapped sim expected');
+  const p = sim.world.get(e, Position);
+  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+}
+
+/** A pile of one `goodType` unit already promised to another walker: the stock ledger counts it, no
+ *  store search finds it. */
+function promisedPileAt(sim: Simulation, x: number, y: number, goodType: number): void {
+  const pile = pileAt(sim, x, y, goodType, 1);
+  sim.world.add(sim.world.create(), PickupClaim, { source: pile, goodType, amount: 1 });
 }
 
 function wearBoots(sim: Simulation, e: Entity, goodType: number): void {
@@ -541,20 +572,169 @@ describe('assistant auto-equip - dispatch and reservation', () => {
     for (const e of stuck) expect(sim.world.has(e, EquipOrder)).toBe(true);
   });
 
-  it('leaves a posted guard on its anchor', () => {
+  it('dresses a soldier in his default DEFEND stance and walks him back to his post', () => {
     const sim = freshSim();
-    const guard = ownedSettler(sim, 2, 2);
-    sim.world.add(guard, Stance, { mode: MILITARY_MODE.DEFEND, anchorCell: null });
-    const worker = ownedSettler(sim, 2, 4);
-    pileAt(sim, 12, 2, SHOES, 2);
-    grant(sim, SHOES);
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    const post = nodeOf(sim, soldier);
+    pileAt(sim, 12, 2, STRENGTH_AMULET, 1);
+    grant(sim, STRENGTH_AMULET);
+    setAudience(sim, STRENGTH_AMULET, 'soldiers');
 
     sim.run(ERRAND_TICKS);
 
-    // The equip rung outranks the DEFEND hold so the PLAYER can send a guard for gear; the assistant
-    // must not use that door.
-    expect(sim.world.tryGet(guard, Equipment)?.boots ?? null).toBeNull();
-    expect(sim.world.get(worker, Equipment).boots?.goodType).toBe(SHOES);
+    expect(sim.world.get(soldier, Equipment).misc[0]?.goodType).toBe(STRENGTH_AMULET);
+    expect(sim.world.has(soldier, EquipOrder)).toBe(false);
+    expect(nodeOf(sim, soldier)).toBe(post);
+  });
+
+  it('sends a soldier for his gear while a comrade fights beside him', () => {
+    const sim = freshSim();
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    // His own side's fight inside his rest clearance; its opponent is off the fixture.
+    const comrade = ownedSettler(sim, 4, 4);
+    enlist(sim, comrade);
+    pileAt(sim, 12, 2, SHOES, 2); // a pair each, so the comrade's errand takes none of his
+    grant(sim, SHOES);
+
+    for (let tick = 0; tick < ERRAND_TICKS; tick++) {
+      if (!sim.world.has(comrade, Engagement)) sim.world.add(comrade, Engagement, { repathAt: sim.tick });
+      sim.run(1);
+    }
+
+    expect(sim.world.get(soldier, Equipment).boots?.goodType).toBe(SHOES);
+  });
+
+  it('fetches every owed grant in one outing before the single walk back', () => {
+    const sim = freshSim();
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    const post = nodeOf(sim, soldier);
+    pileAt(sim, 12, 2, SHOES, 1);
+    pileAt(sim, 12, 3, MEAD, 1);
+    pileAt(sim, 12, 4, STRENGTH_AMULET, 1);
+    grant(sim, SHOES);
+    grant(sim, MEAD);
+    grant(sim, STRENGTH_AMULET);
+
+    // One errand, alive from the first fetch to the arrival back at the post, fetches all three.
+    const fetched = new Set<number>();
+    let errands = 0;
+    let holding = false;
+    for (let tick = 0; tick < 2 * ERRAND_TICKS; tick++) {
+      sim.run(1);
+      const order = sim.world.tryGet(soldier, EquipOrder);
+      if (order !== undefined && !holding) errands++;
+      holding = order !== undefined;
+      if (order?.goodType != null) fetched.add(order.goodType);
+    }
+
+    expect(errands).toBe(1);
+    expect([...fetched].sort((a, b) => a - b)).toEqual([SHOES, MEAD, STRENGTH_AMULET]);
+    const eq = sim.world.get(soldier, Equipment);
+    expect(eq.boots?.goodType).toBe(SHOES);
+    expect(eq.misc.flatMap((slot) => (slot === null ? [] : [slot.goodType])).sort((a, b) => a - b)).toEqual([
+      MEAD,
+      STRENGTH_AMULET,
+    ]);
+    expect(nodeOf(sim, soldier)).toBe(post);
+  });
+
+  it("chains no civilians' good onto a soldier's outing", () => {
+    const sim = freshSim();
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    pileAt(sim, 12, 2, SHOES, 1);
+    pileAt(sim, 12, 3, MEAD, 1);
+    grant(sim, SHOES);
+    grant(sim, MEAD);
+    setAudience(sim, MEAD, 'civilians');
+
+    sim.run(2 * ERRAND_TICKS);
+
+    const eq = sim.world.get(soldier, Equipment);
+    expect(eq.boots?.goodType).toBe(SHOES);
+    expect(eq.misc.every((slot) => slot === null)).toBe(true);
+  });
+
+  it('walks back with what he has when the rest of his owed stock is out of reach', () => {
+    const sim = freshSim();
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    const post = nodeOf(sim, soldier);
+    // More owed goods than a pass has store searches, all of them counted and none of them findable.
+    const promised = [
+      MEAD,
+      FOOD_POTION,
+      STAMINA_POTION,
+      HEAL_SMALL,
+      FOOD_AMULET,
+      STAMINA_AMULET,
+      STRENGTH_AMULET,
+      DEFENSE_AMULET,
+      CRIT_AMULET,
+    ];
+    promised.forEach((good, i) => {
+      promisedPileAt(sim, 14, i % 6, good);
+    });
+    pileAt(sim, 12, 2, SHOES, 1);
+    for (const good of [SHOES, ...promised]) grant(sim, good);
+    // Another man's own equip order, which a soldier stuck at the store would starve of store searches.
+    const worker = ownedSettler(sim, 3, 5);
+    wearBoots(sim, worker, SHOES);
+    pileAt(sim, 2, 5, FUR_BOOTS, 1);
+
+    sim.run(ERRAND_TICKS);
+    sim.enqueueSetup({ kind: 'equipGood', entity: worker, group: 'boots', slot: 0, goodType: FUR_BOOTS });
+    sim.run(ERRAND_TICKS);
+
+    expect(sim.world.get(soldier, Equipment).boots?.goodType).toBe(SHOES);
+    expect(sim.world.has(soldier, EquipOrder)).toBe(false);
+    expect(nodeOf(sim, soldier)).toBe(post);
+    expect(sim.world.get(worker, Equipment).boots?.goodType).toBe(FUR_BOOTS);
+  });
+
+  it('walks back when the owed stock in his reach lies where he cannot get to, more of it than a pass searches', () => {
+    const sim = freshSim();
+    const soldier = ownedSettler(sim, 2, 2);
+    enlist(sim, soldier);
+    const post = nodeOf(sim, soldier);
+    // Every owed good in one pile his reach takes in but his route never got to: each search finds it
+    // and turns it down, and there are more goods than a pass has searches.
+    const walledOff = [
+      MEAD,
+      FOOD_POTION,
+      STAMINA_POTION,
+      HEAL_SMALL,
+      FOOD_AMULET,
+      STAMINA_AMULET,
+      STRENGTH_AMULET,
+      DEFENSE_AMULET,
+      CRIT_AMULET,
+    ];
+    const pile = sim.world.create();
+    sim.world.add(pile, Position, { x: fx.fromInt(14), y: fx.fromInt(4) });
+    sim.world.add(pile, Stockpile, { amounts: new Map(walledOff.map((good) => [good, 1])) });
+    sim.world.add(soldier, UnreachableGoals, {
+      entries: [{ cell: nodeOf(sim, pile), until: Number.MAX_SAFE_INTEGER }],
+    });
+    pileAt(sim, 12, 2, SHOES, 1);
+    for (const good of [SHOES, ...walledOff]) grant(sim, good);
+    // The soldier's alone, so the civilian worker below takes none of them.
+    for (const good of walledOff) setAudience(sim, good, 'soldiers');
+    const worker = ownedSettler(sim, 3, 5);
+    wearBoots(sim, worker, SHOES);
+    pileAt(sim, 2, 5, FUR_BOOTS, 1);
+
+    sim.run(ERRAND_TICKS);
+    sim.enqueueSetup({ kind: 'equipGood', entity: worker, group: 'boots', slot: 0, goodType: FUR_BOOTS });
+    sim.run(ERRAND_TICKS);
+
+    expect(sim.world.get(soldier, Equipment).boots?.goodType).toBe(SHOES);
+    expect(sim.world.has(soldier, EquipOrder)).toBe(false);
+    expect(nodeOf(sim, soldier)).toBe(post);
+    expect(sim.world.get(worker, Equipment).boots?.goodType).toBe(FUR_BOOTS);
   });
 
   it('frozen errands of jobless settlers hold no reservation', () => {
@@ -589,7 +769,7 @@ describe('assistant auto-equip - dispatch and reservation', () => {
     const sim = freshSim();
     // The three the tool hand-out passes over, and one trade that takes it.
     const fighter = ownedSettler(sim, 2, 2);
-    setSettlerJob(sim.world, fighter, FIGHTER_JOB);
+    enlist(sim, fighter);
     const scout = ownedSettler(sim, 2, 3);
     setSettlerJob(sim.world, scout, SCOUT_JOB);
     const civilist = ownedSettler(sim, 2, 4); // the "Civilian" row's trade-less settler
@@ -612,7 +792,7 @@ describe('assistant auto-equip - dispatch and reservation', () => {
   it('keeps a soldiers-only good from civilians until its limit is lifted; the other grants still land', () => {
     const sim = freshSim();
     const fighter = ownedSettler(sim, 2, 2);
-    setSettlerJob(sim.world, fighter, FIGHTER_JOB);
+    enlist(sim, fighter);
     const woodcutter = ownedSettler(sim, 2, 4);
     pileAt(sim, 12, 2, STRENGTH_AMULET, 5);
     pileAt(sim, 12, 4, MEAD, 5);

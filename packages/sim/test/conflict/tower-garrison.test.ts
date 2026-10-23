@@ -452,6 +452,20 @@ describe('the tower garrison - fetching gear', () => {
     expect(sim.world.tryGet(soldier, Equipment)?.boots ?? null).toBeNull();
     expect(tileOf(sim, soldier)).toEqual(tileOf(sim, tower));
   });
+
+  it('is left alone by the assistant on his way up to the wall too', () => {
+    const sim = simWithTower(SOLID_BODY);
+    const tower = towerAt(sim, 6, 3);
+    const soldier = settlerAt(sim, SOLDIER_JOB, 20, 3);
+    shoesAt(sim, 21, 3); // beside him as he sets out, far from the wall
+    sim.enqueueSetup({ kind: 'setAssistantGrant', player: HUMAN, goodType: SHOES_GOOD, enabled: true });
+    sim.enqueueSetup({ kind: 'assignWorker', entity: soldier, building: tower, jobPriority: [SOLDIER_JOB] });
+
+    run(sim, GEAR_ERRAND_TICKS);
+
+    expect(sim.world.tryGet(soldier, Equipment)?.boots ?? null).toBeNull();
+    expect(sim.world.tryGet(soldier, Garrison)?.post).toBe(tower);
+  });
 });
 
 describe('garrisonReach', () => {

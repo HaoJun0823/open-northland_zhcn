@@ -13,7 +13,6 @@ import {
   Position,
   Settler,
   SiteAssignment,
-  Stance,
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
@@ -22,10 +21,11 @@ import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { SpatialGate } from '../../../nav/node-circle.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
-import { standsAtPost } from '../../conflict/tower-post.js';
+import { towerPostFor } from '../../conflict/tower-post.js';
+import type { SystemContext } from '../../context.js';
 import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
 import { CIVILIST_JOB } from '../../lifecycle/ageclass.js';
-import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../../readviews/index.js';
+import { isFighterJob, isScoutJob, mayChangeEquipment } from '../../readviews/index.js';
 import { equipFetchLimitFor } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
 import { equipFetchesHeld } from '../drives/equip-fetches.js';
@@ -37,8 +37,12 @@ import type { PlannerPass } from './pass.js';
 // The assistant's auto-equip pass sends settlers with a matching free slot to fetch a player's granted
 // goods. The manual states the intent ("you want to have shoes given out to all civilians - if there are
 // shoes available in your village"), which the dispatch matches against the player's store stock, and the
-// extras window ships per-good hoard commands (decoded `miscwindow` 503-509). Approximation: the pacing
-// is unknown; the only brake is the stock, so every unit in store has at most one fetcher after it.
+// extras window ships per-good hoard commands (decoded `miscwindow` 503-509). Original behavior: each of
+// the original's grant switches (shoes, wooden tools, iron tools and mead for civilians; shoes and mead for
+// soldiers) sends at most six random takers every thirty seconds, whatever their stance, and passes over a
+// man it sent for that good in the last three minutes. Potions and amulets are this project's additions.
+// Departure: this pass visits every settler on a short stride and brakes on the stock alone, so every unit
+// in store has at most one fetcher after it and a village is dressed in one round of errands.
 
 /** One settler's grant consideration beat, staggered by entity id, so the per-tick scan costs
  *  `settlers / period` and a freshly-freed slot is re-dressed within seconds. Approximation, shared
@@ -66,7 +70,7 @@ export interface GrantSpec {
 
 export function dispatchAssistantGrants(pass: PlannerPass): void {
   const { world, ctx, targets } = pass;
-  const grants = collectGrantSpecs(pass);
+  const grants = collectGrantSpecs(world, ctx);
   if (grants.size === 0) return; // no player granted anything: the pass costs one empty query
   // Manual orders are included, so the assistant also respects a unit the player already sent someone after.
   // Read at the first settler that passes the gates, before this pass stamps any errand, and not read again
@@ -106,11 +110,9 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     // A builder holding a road or wall site lands its one strike first: the claim keeps every other
     // builder off that site while he is away.
     if (holdsSoloSite(world, e)) continue;
-    // A DEFEND guard stays on its anchor: the player may send one for gear, but this pass does not walk
-    // one off unasked.
-    if (world.tryGet(e, Stance)?.mode === MILITARY_MODE.DEFEND) continue;
-    // Nor does it call a garrison down from his tower: the wall stays manned unless the player asks.
-    if (standsAtPost(world, e) !== null) continue;
+    // Nor does it take a tower's garrison off the wall, up there or on his way back: the wall stays manned
+    // unless the player sends him. Owner's ruling.
+    if (towerPostFor(world, ctx, e, jobType) !== null) continue;
     const toolless = !toolHelpsJob(ctx.content, jobType);
     const kept = keptFrom(owner, fighter);
 
@@ -120,9 +122,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     // Resolved once, and only when a grant has both a free slot and spare stock.
     let route: GrantRoute | undefined;
     for (const spec of wanted) {
-      if (toolless && spec.category === 'tool') continue; // its boots and misc grants still apply
-      if (kept.includes(spec.goodType)) continue; // the other group's alone
-      const slot = freeSlotFor(eq, spec);
+      const slot = grantSlotFor(spec, eq, toolless, kept);
       if (slot === null) continue;
       const underway = (heldAtStart?.get(spec.goodType) ?? 0) + stampedHere.of(owner, spec.goodType);
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
@@ -151,7 +151,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       });
       wakeIdle(world, e); // planned onto the errand this pass
       stampedHere.add(owner, spec.goodType);
-      break; // one errand per settler; the next beat considers the rest of its slots
+      break; // one errand per settler; it chains the rest of its slots from the store
     }
   }
 }
@@ -184,8 +184,7 @@ function holdsSoloSite(world: World, e: Entity): boolean {
 /** Each granting player's specs, strongest first: by content production bonus, then by rated uses (the
  *  big potion before the small one), then ascending good id (boots carry neither and sort by id). A
  *  granted id whose content lost its `equip` class is dropped. */
-function collectGrantSpecs(pass: PlannerPass): ReadonlyMap<number, readonly GrantSpec[]> {
-  const { world, ctx } = pass;
+function collectGrantSpecs(world: World, ctx: SystemContext): ReadonlyMap<number, readonly GrantSpec[]> {
   const membership = world.componentGeneration(AssistantGrants);
   const values = world.componentValueGeneration(AssistantGrants);
   const held = grantSpecMemo.get(world);
@@ -282,6 +281,55 @@ export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): num
     if (held.goodType === spec.goodType || spec.equivalents?.has(held.goodType) === true) return null;
   }
   return free;
+}
+
+/** The slot `spec` fills for a settler wearing `eq`, or null when it is not his: a tool for a `toolless`
+ *  trade, a good `kept` from his kind, or a want he already meets. */
+function grantSlotFor(
+  spec: GrantSpec,
+  eq: EquipmentData | undefined,
+  toolless: boolean,
+  kept: readonly number[],
+): number | null {
+  if (toolless && spec.category === 'tool') return null; // its boots and misc grants still apply
+  if (kept.includes(spec.goodType)) return null; // the other group's alone
+  return freeSlotFor(eq, spec);
+}
+
+/** A grant the assistant still owes one settler: the good and the slot it fills. */
+export interface OwedGrant {
+  readonly goodType: number;
+  readonly category: EquipCategory;
+  readonly slot: number;
+}
+
+/**
+ * The grants `e`'s owner still owes him, strongest first: each good his trade and kind may take, with a
+ * free slot for it and a unit of his side's stock that no errand underway holds, wherever it lies. The
+ * dispatch's rules without its beat and its walk-off gates, for an errand out at a store to chain its next
+ * fetch.
+ */
+export function owedAssistantGrants(world: World, ctx: SystemContext, e: Entity): OwedGrant[] {
+  const owner = ownerOf(world, e);
+  const jobType = world.tryGet(e, Settler)?.jobType ?? null;
+  if (owner === undefined || jobType === null || !mayChangeEquipment(world, ctx.content, e)) return [];
+  if (towerPostFor(world, ctx, e, jobType) !== null) return [];
+  const wanted = collectGrantSpecs(world, ctx).get(owner);
+  if (wanted === undefined) return [];
+  const toolless = !toolHelpsJob(ctx.content, jobType);
+  const kept = isFighterJob(ctx.content, jobType)
+    ? assistantCivilianOnlyGoods(world, owner)
+    : assistantSoldierOnlyGoods(world, owner);
+  const eq = world.tryGet(e, Equipment);
+  const stock = FetchableStock.of(world, ctx);
+  const underway = equipFetchesHeld(world).get(owner);
+  const owed: OwedGrant[] = [];
+  for (const spec of wanted) {
+    const slot = grantSlotFor(spec, eq, toolless, kept);
+    if (slot === null || !stock.exceeds(owner, spec.goodType, underway?.get(spec.goodType) ?? 0)) continue;
+    owed.push({ goodType: spec.goodType, category: spec.category, slot });
+  }
+  return owed;
 }
 
 /** Units counted per player and good, made only for the pairs counted. */

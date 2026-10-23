@@ -146,8 +146,8 @@ all package contracts or art source records for an unrelated change.
 
 Use [TESTING.md](docs/TESTING.md) as the single required-check matrix. Run focused tests during
 iteration and the applicable gates at completion. Repeat successful gates only after relevant changes;
-suites queue on a machine-wide gate, and benchmarks run alone. Keep full logs outside the conversation
-and report failures, counts and missing checks.
+benchmarks run alone. Keep full logs outside the conversation and report failures, counts and missing
+checks.
 
 Review the complete task diff for correctness, ownership, readability and useful test coverage.
 Review documentation and small changes directly. For substantial behavior changes or refactors, use

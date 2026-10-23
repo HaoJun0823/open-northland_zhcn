@@ -1,5 +1,12 @@
 import { existsSync } from 'node:fs';
+import { constants, setPriority } from 'node:os';
 import { configDefaults, defineConfig } from 'vitest/config';
+
+// Suites from several worktrees run side by side; the forked workers inherit the lowered priority,
+// so the desktop and agent CLIs stay responsive. Some hosts refuse the change; run anyway.
+try {
+  setPriority(constants.priority.PRIORITY_BELOW_NORMAL);
+} catch {}
 
 /** Bounded so several worktrees running suites at once do not oversubscribe one machine. */
 const MAX_WORKERS = 4;

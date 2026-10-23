@@ -20,11 +20,8 @@ npm test
 CI runs `npm test` and `npm run test:slow` on Ubuntu; the CI workflow's manual dispatch checkbox adds a
 Windows run. Formatting and production build checks run once on Ubuntu.
 
-`npm test`, `test:vitest`, `test:slow` and `test:content` run through `scripts/run-gated.mjs`: across
-all worktrees of the checkout at most two such runs proceed at once (`ON_GATE_SLOTS` changes it), the
-rest wait for a slot, and each runs at lowered priority. CI runs them directly. The gate starts the
-command itself, so a Windows run passes it through `cmd.exe` with the line quoted by the gate; an
-argument containing a space stays one argument.
+Every Vitest run lowers its own priority and uses at most four workers (`vitest.config.ts`), so suites
+in several worktrees run side by side without a queue.
 
 No project isolates modules: the files a worker runs share one module registry, so a test must not
 depend on being the first to import one. Name module-level fixtures uniquely and restore whatever the
@@ -42,8 +39,8 @@ npx vitest run --project='!content' packages/app/test/scenes -t 'test name'
 
 | Command | Use |
 | --- | --- |
-| `npx vitest run --project='!content' <paths>` | Excludes real-content tests and includes the slow tier, so a path selects a slow file too. A path filters files, `-t` filters test titles. Not gated, so keep it to the affected files. |
-| `npm run test:vitest -- <path>` | A whole package's test directory, through the gate. |
+| `npx vitest run --project='!content' <paths>` | Excludes real-content tests and includes the slow tier, so a path selects a slow file too. A path filters files, `-t` filters test titles. Keep it to the affected files. |
+| `npm run test:vitest -- <path>` | A whole package's test directory. |
 | `npm run test:watch -- <path>` | Watches the selected tests and their source dependencies without a separate compiler process. |
 | `npm test -- scenario` | Also filters files, but first runs every script test and the full production and test typecheck: for completion, not every edit. |
 
@@ -113,8 +110,7 @@ rather than in the expectation.
 - **Volumes.** Windows refuses `rename` across drives with `EXDEV`, and a checkout may keep `.cache/`
   and `%TEMP%` on different volumes. Stage beside the tree a rename replaces.
 - **Processes.** `npm`, `npx` and `vitest` are `.cmd` shims a direct `spawn` cannot execute, and
-  `shell: true` concatenates arguments without quoting. Run heavy commands through
-  `scripts/run-gated.mjs`, which quotes them itself.
+  `shell: true` concatenates arguments without quoting, so an argument holding a space splits in two.
 - **Names.** Case-insensitive matching, reserved names and trailing dots or spaces differ; do not
   assert a listing order the host does not guarantee.
 

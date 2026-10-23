@@ -17,6 +17,7 @@ const SHARED = { isolate: false, testTimeout: TEST_TIMEOUT_MS };
 const APP_SETUP_FILES = [
   './packages/app/test/support/silence-diag.ts',
   './packages/app/test/support/fixed-locale.ts',
+  './packages/app/test/support/dom-shims.ts',
 ];
 
 /** Real-content tests: `npm run test:content` selects them, `npm test` filters the project out. */

@@ -1,5 +1,4 @@
 import { readFile, rm } from 'node:fs/promises';
-import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import {
   SOUND_BANKS_FILE,
@@ -67,11 +66,13 @@ export async function convertSoundTree(
     roots,
     (rel) => rel.startsWith(SOUNDS_SOURCE_PREFIX) && rel.endsWith('.wav'),
   );
-  const clips = await mapConcurrently(sources, availableParallelism(), async ({ rel, path }) => {
+  // The encoders run synchronously on this thread, so clips encode one after another.
+  const clips: EncodedClip[] = [];
+  for (const { rel, path } of sources) {
     const wav = new Uint8Array(await readFile(path));
     const encoded = { lossless: await encode(wav, 'lossless'), compact: await encode(wav, 'compact') };
-    return { file: rel.toLowerCase().slice(SOUNDS_SOURCE_PREFIX.length), encoded };
-  });
+    clips.push({ file: rel.toLowerCase().slice(SOUNDS_SOURCE_PREFIX.length), encoded });
+  }
   const document: SoundBanksDocument = {
     version: SOUND_BANKS_VERSION,
     losslessOnly: clips.map((clip) => clip.file).filter((file) => losslessOnly.has(file)),
@@ -153,22 +154,4 @@ function packBanks(clips: readonly EncodedClip[]): Map<string, EncodedClip[]> {
     close();
   }
   return banks;
-}
-
-/** `work` over `items` with at most `limit` running at once, results in input order. */
-async function mapConcurrently<T, R>(
-  items: readonly T[],
-  limit: number,
-  work: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    for (let i = next++; i < items.length; i = next++) {
-      const item = items[i];
-      if (item !== undefined) results[i] = await work(item);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
-  return results;
 }

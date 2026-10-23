@@ -161,14 +161,23 @@ describe.runIf(hasRealIr())('AI opening plan against real content', () => {
     expect(linesOf('late')).toEqual({ ...lines, glut: 36 });
   });
 
-  it('keeps the small joinery on iron tools, turning to furniture only at an authored glut, the upgraded one on tools alone', () => {
+  it('keeps the small joinery on iron tools, turning to furniture only at an authored glut, the upgraded one on handcarts in turn with tools while few stand free', () => {
     const plan = CRAFT_PLANS_BY_BUILDING_ID.work_joinery_01;
     for (const seat of plan?.seats ?? []) {
       expect(seat).toMatchObject({ goods: ['tool_iron'], otherwise: ['furniture'] });
       expect('goods' in seat && seat.glut.tool_iron).toBeGreaterThan(0);
     }
     expect(plan?.seats).toHaveLength(2);
-    expect(CRAFT_PLANS_BY_BUILDING_ID.work_joinery_02?.seats).toEqual([['tool_iron']]);
+    expect(CRAFT_PLANS_BY_BUILDING_ID.work_joinery_02?.seats).toEqual([
+      {
+        fleet: 'handcart',
+        beside: ['tool_iron'],
+        freeOnly: true,
+        cap: 2,
+        resume: 1,
+        otherwise: ['tool_iron'],
+      },
+    ]);
   });
 
   it('the workforce tables name real buildings, goods, and matching worker slots', async () => {
@@ -271,7 +280,7 @@ describe.runIf(hasRealIr())('AI opening plan against real content', () => {
     /** The goods a seat may list, its fallback seats included. */
     const seatGoods = (seat: Seat): string[] => {
       if ('firstFed' in seat) return seat.firstFed.map((line) => line.good);
-      if ('fleet' in seat) return [seat.fleet, ...seatGoods(seat.otherwise)];
+      if ('fleet' in seat) return [seat.fleet, ...(seat.beside ?? []), ...seatGoods(seat.otherwise)];
       if (!('goods' in seat)) return [...seat];
       return [...seat.goods, ...(seat.otherwise === undefined ? [] : seatGoods(seat.otherwise))];
     };

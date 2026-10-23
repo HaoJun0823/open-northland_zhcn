@@ -50,6 +50,7 @@ import { tuneCraftCounters } from './craft.js';
 import { allocateFishers, fishingPlan } from './fisher.js';
 import { flagGround, type TakenFlagNodes, unsealedResourceTest } from './flag-spots.js';
 import { claimArmyFloor, garrisonArms, trainGarrison } from './garrison.js';
+import { assignHaulingCarts } from './hauling-carts.js';
 import { allocateOpeningHunter } from './hunter.js';
 import { allocateRoadCrew } from './road-crew.js';
 import {
@@ -204,6 +205,7 @@ function runWorkforce(
     ...(clearing > 0 ? [] : generic()),
     ...trainGarrison(world, ctx, player, force, armyFloor, arms, profile),
     ...tuneCraftCounters(world, ctx, player, supply, profile),
+    ...assignHaulingCarts(world, ctx, player),
   ];
 }
 

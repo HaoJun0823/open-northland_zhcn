@@ -222,6 +222,8 @@ export const DEFAULT_BUILD_ORDER: readonly BuildOrderEntry[] = [
     near: WOOD_AND_IRON,
     belowTier: 'work_joinery_03',
   },
+  // Soon after, a tier up for the carriers' handcarts (`workforce/craft.ts`).
+  { kind: 'upgrade', building: 'work_joinery_02', count: 1, belowTier: 'work_joinery_03' },
   { kind: 'collector', good: 'iron' },
   { kind: 'place', building: 'work_smithy_01', count: 1, near: IRON_AND_WOOD },
   // On the settlement's edge toward the nearest enemy, where the attacks come from; the barracks also
@@ -330,11 +332,10 @@ export const DEFAULT_BUILD_ORDER: readonly BuildOrderEntry[] = [
   // holds the lane, not the list.
   { kind: 'storeCoverage', building: 'stock_02', radius: STORE_COVERAGE_RADIUS_NODES, lane: true },
   { kind: 'towerCoverage', building: 'tower_01', radius: DENSE_TOWER_RADIUS_NODES, lane: true },
-  // The other two sites go on down the list: four more top homes, two more smithies, the tools joinery a
-  // tier up for a third joiner on iron tools, and more bakeries, breweries and druid huts.
+  // The other two sites go on down the list: four more top homes, two more smithies, and more bakeries,
+  // breweries and druid huts.
   { kind: 'place', building: 'home_level_04', count: 12 },
   { kind: 'place', building: 'work_smithy_01', count: 7, near: IRON_AND_WOOD },
-  { kind: 'upgrade', building: 'work_joinery_02', count: 1, belowTier: 'work_joinery_03' },
   druidHuts(6),
   wellBeside('work_druid_01', 13),
   { kind: 'place', building: 'work_bakery_01', count: 5, near: [{ kind: 'building', id: 'work_mill_00' }] },

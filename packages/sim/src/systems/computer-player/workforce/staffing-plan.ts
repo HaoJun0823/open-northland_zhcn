@@ -80,8 +80,9 @@ export const STAFFING_BY_BUILDING_ID: Readonly<Record<string, StaffingRow>> = {
   // The level-0 bakery offers a single baker slot, so only its carrier is planned.
   work_bakery_00: { carrierMin: 1, carrierTarget: 1 },
   work_bakery_01: { operatorTarget: 2, carrierMin: 1, carrierTarget: 1 },
-  work_joinery_01: { operatorTarget: 2 },
-  work_joinery_02: { operatorTarget: 3 },
+  // The tools joinery runs two joiners and a carrier at both tiers the seat keeps it at.
+  work_joinery_01: { operatorTarget: 2, carrierTarget: 1 },
+  work_joinery_02: { operatorTarget: 2, carrierTarget: 1 },
   work_joinery_03: { operatorTarget: 3, carrierTarget: 1 },
   // The first potter and mason work alone, so a carrier hauls for them once the builder reserve is full.
   // The upgraded tiers keep one only while their goods run short (SUPPLY_CARRIER_GOODS_BY_BUILDING_ID),

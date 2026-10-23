@@ -24,6 +24,7 @@ import type { ComputerProfile } from '../difficulty.js';
 import { type GamePhase, gamePhase } from '../game-phase.js';
 import { type JoineryRole, joineryRoles, ROLE_JOINERY_ID } from '../joinery-role.js';
 import { rivalOverSea } from '../sea-route.js';
+import { standsFree } from './hauling-carts.js';
 import type { SeatSupply, SupplyLine } from './supply.js';
 
 /**
@@ -47,12 +48,16 @@ export type CraftSeat =
 
 /**
  * A seat on a vehicle good (`fleet`) with a cap on the seat's fleet of it, counting the vehicles standing
- * and the yards still building one: the seat works `otherwise` from `cap` on, and takes the vehicle back
- * once the fleet has fallen to `resume`. In between it keeps its current selection, so no state beyond the
- * live selection is kept.
+ * and the yards still building one: the seat works `otherwise` from `cap` on, or where the content has no
+ * such good, and takes the vehicle back once the fleet has fallen to `resume`. In between it keeps its
+ * current selection, so no state beyond the live selection is kept. While it builds the vehicle it works
+ * the goods `beside` it in rotation.
  */
 export interface FleetSeat {
   readonly fleet: string;
+  readonly beside?: readonly string[];
+  /** Count only the vehicles standing free ({@link standsFree}) beside the yards. */
+  readonly freeOnly?: true;
   readonly cap: number;
   readonly resume: number;
   readonly otherwise: CraftSeat;
@@ -84,6 +89,21 @@ const JOINERY_SEAT: CraftSeat = {
   goods: ['tool_iron'],
   glut: { tool_iron: JOINERY_TOOL_GLUT_UNITS },
   otherwise: ['furniture'],
+};
+
+/** The handcarts standing free, in yards included, at which the seat stops building more (authored): a
+ *  spare one waits for the next carrier hired. */
+export const AI_FREE_HANDCARTS = 2;
+
+/** A joiner of the upgraded tools joinery: handcarts and iron tools in turn while fewer than
+ *  {@link AI_FREE_HANDCARTS} carts stand free or in a yard, iron tools alone otherwise. */
+const HANDCART_SEAT: CraftSeat = {
+  fleet: 'handcart',
+  beside: ['tool_iron'],
+  freeOnly: true,
+  cap: AI_FREE_HANDCARTS,
+  resume: AI_FREE_HANDCARTS - 1,
+  otherwise: ['tool_iron'],
 };
 
 /** The crockery in stock at which the pottery's crockery seat turns to bricks and tiles (authored). A
@@ -154,10 +174,11 @@ const DRUID_SEATS = 12;
  */
 export const CRAFT_PLANS_BY_BUILDING_ID: Readonly<Record<string, CraftPlan>> = {
   // The small joinery's joiners make iron tools and turn to furniture only while the tools pile up. The
-  // upgraded joinery's make iron tools alone, past the glut too: furniture feeds no bill or recipe, the
-  // tools wear out steadily, and resting at the glut would release the crew, as no seat stops its men.
+  // upgraded joinery's build the carriers' handcarts in turn with iron tools while few stand spare, else
+  // make the tools alone, past the glut too: furniture feeds no bill or recipe, the tools wear out steadily, and resting at the
+  // glut would release the crew, as no seat stops its men.
   work_joinery_01: { seats: [JOINERY_SEAT, JOINERY_SEAT] },
-  work_joinery_02: { seats: [['tool_iron']] },
+  work_joinery_02: { seats: [HANDCART_SEAT] },
   // The first potter works bricks and tiles, the second crockery, which doubles a stocked home's food,
   // until it piles up; a short building material takes the crockery seat, and both potters turn to
   // crockery while bricks and tiles lie at their glut lines.
@@ -323,12 +344,13 @@ export function tuneCraftCounters(
   const commands: PlayerCommand[] = [];
   const index = contentIndex(ctx.content);
   const roleOf = joineryRoles(world, ctx, player, () => rivalOverSea(world, ctx, player));
-  const fleets = new Map<number, number>();
-  const fleetOf = (good: number): number => {
-    let owned = fleets.get(good);
+  const fleets = new Map<string, number>();
+  const fleetOf = (good: number, freeOnly: boolean): number => {
+    const key = `${good}:${freeOnly}`;
+    let owned = fleets.get(key);
     if (owned === undefined) {
-      owned = seatFleet(world, ctx, player, good);
-      fleets.set(good, owned);
+      owned = seatFleet(world, ctx, player, good, freeOnly);
+      fleets.set(key, owned);
     }
     return owned;
   };
@@ -563,16 +585,16 @@ function selectedGoods(
 function seatProducts(
   ctx: SystemContext,
   supply: SeatSupply,
-  fleetOf: (good: number) => number,
+  fleetOf: (good: number, freeOnly: boolean) => number,
   current: readonly number[],
   seat: CraftSeat,
 ): readonly string[] {
   if ('fleet' in seat) {
     const good = goodTypeByContentId(ctx.content, seat.fleet);
-    if (good === undefined) return [seat.fleet];
+    if (good === undefined) return seatProducts(ctx, supply, fleetOf, current, seat.otherwise);
     const limit = current.includes(good.typeId) ? seat.cap : seat.resume + 1;
-    return fleetOf(good.typeId) < limit
-      ? [seat.fleet]
+    return fleetOf(good.typeId, seat.freeOnly === true) < limit
+      ? [seat.fleet, ...(seat.beside ?? [])]
       : seatProducts(ctx, supply, fleetOf, current, seat.otherwise);
   }
   if ('firstFed' in seat) {
@@ -596,16 +618,23 @@ function seatProducts(
     : seatProducts(ctx, supply, fleetOf, current, seat.otherwise);
 }
 
-/** How many of the vehicle made as `good` the seat owns: standing on the map or carried, and in its yards
- *  still under construction. The cost is the seat's vehicles and buildings. */
-function seatFleet(world: World, ctx: SystemContext, player: number, good: number): number {
+/** How many of the vehicle made as `good` the seat owns: standing on the map or carried, or with
+ *  `freeOnly` standing free, and in its yards still under construction. The cost is the seat's vehicles
+ *  and buildings. */
+function seatFleet(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  good: number,
+  freeOnly: boolean,
+): number {
   const house = vehicleHouseOfGood(ctx.content, good);
   const vehicleType =
     house === undefined ? undefined : contentIndex(ctx.content).buildings.get(house)?.vehicleType;
   if (house === undefined || vehicleType === undefined) return 0;
   let owned = 0;
   for (const e of vehicleIndex(world).ownedBy(player)) {
-    if (world.get(e, Vehicle).vehicleType === vehicleType) owned++;
+    if (world.get(e, Vehicle).vehicleType === vehicleType && (!freeOnly || standsFree(world, e))) owned++;
   }
   for (const e of ownedBuildings(world, player)) {
     if (world.get(e, Building).buildingType === house && world.has(e, UnderConstruction)) owned++;

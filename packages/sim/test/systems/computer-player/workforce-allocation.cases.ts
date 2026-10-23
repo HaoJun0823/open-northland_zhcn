@@ -533,9 +533,9 @@ describe('workforce module (collectResources)', () => {
     expect(posted(decide())).toEqual([MUD, STONE, WOOD]);
     expect(posted(decide())).toEqual([]); // the shortage post waits: the reserve took everyone
     expect(holdersOf(sim, WOOD)).toHaveLength(woodTarget);
-    // Three men past the reserve: the builder the joiner's post took is replaced first, then the joinery's
-    // second joiner, then the shortage post.
-    spawnMen(sim, 3);
+    // Four men past the reserve: the builder the joiner's post took is replaced first, then the joinery's
+    // second joiner and its carrier, then the shortage post.
+    spawnMen(sim, 4);
     sim.step();
     expect(posted(decide())).toEqual([WOOD]);
     expect(posted(decide())).toEqual([]);

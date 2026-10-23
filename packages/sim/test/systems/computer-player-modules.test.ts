@@ -6,6 +6,7 @@ import './computer-player/difficulty.cases.js';
 import './computer-player/experience-retention.cases.js';
 import './computer-player/fishers.cases.js';
 import './computer-player/garrison-and-craft.cases.js';
+import './computer-player/hauling-carts.cases.js';
 import './computer-player/livestock-round-up.cases.js';
 import './computer-player/loss-recovery.cases.js';
 import './computer-player/opening-hunter.cases.js';

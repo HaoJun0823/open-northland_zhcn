@@ -69,6 +69,10 @@ feet anchor, the walk cycle follows ground travel, and animals retain their head
 Original sprite movement remains tick-anchored to preserve foot contact; authored smooth clips keep
 their own interpolation.
 
+`?scene=nation-footprints` stands the viking, frank and byzantine rows of finished houses, homes to
+towers, with a resident couple at every home. Open it with `&debug=geometry` and watch the idle
+residents: each stands beside its house, never on a red walk-block cell or inside a doorway arch.
+
 `?scene=clay-gatherers` places two collectors per civilization beside a clay deposit, in rows:
 viking, frank, byzantine, saracen, egyptian. Watch both heads through the shovel cycle and the return
 to the flag, especially the byzantine collector with a hat.

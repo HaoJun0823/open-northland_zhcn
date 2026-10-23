@@ -123,8 +123,9 @@ export function claimWorkCell(
 /**
  * Claim a stand cell beside the shared `anchor` for a worker with nothing to do. The anchor itself is never
  * returned, so a loitering operator never lands on the door node the production presence count reads. A
- * worker already alone on a non-anchor yard cell stays put, and with no free yard cell it stays where it
- * is: loitering is a stance, never a refusal that must relocate someone. Source basis: authored.
+ * worker already alone on a yard cell that is neither the anchor nor a doorway stays put, and with no
+ * free yard cell it stays where it is: loitering is a stance, never a refusal that must relocate
+ * someone. Source basis: authored.
  */
 export function loiterCell(
   world: World,
@@ -136,13 +137,14 @@ export function loiterCell(
 ): NodeId {
   if (!world.has(e, Owner)) return here; // unowned fixtures never relocate
   const yard = spacing.yard(anchor);
-  if (here !== anchor && yard.has(here)) {
+  const doorways = spacing.doorways();
+  if (here !== anchor && yard.has(here) && !doorways.has(here)) {
     const hereXY = terrain.coordsOf(here);
     const bucket = spacing.occupancy.at(hereXY.x, hereXY.y);
     if (bucket.length === 0 || (bucket.length === 1 && bucket[0] === e)) return here;
   }
   for (const cell of yard) {
-    if (cell === anchor) continue; // the door node stays free
+    if (cell === anchor || doorways.has(cell)) continue; // doors and their passages stay free
     if (spacing.isClaimed(cell)) continue;
     const { x, y } = terrain.coordsOf(cell);
     if (spacing.occupancy.at(x, y).length > 0) continue;
@@ -153,16 +155,17 @@ export function loiterCell(
 }
 
 /**
- * The nearest cell to `from` that is walkable, unblocked, holds no resting occupant, and is unclaimed this
- * tick, or null when nothing free is reachable within the search cap. Blocked cells are neither entered nor
- * traversed, mirroring the pathfinder that will carry the move out.
+ * The nearest cell to `from` that is walkable, unblocked, off every doorway, holds no resting occupant,
+ * and is unclaimed this tick, or null when nothing free is reachable within the search cap. Blocked cells
+ * are neither entered nor traversed, mirroring the pathfinder that will carry the move out.
  */
 export function nearestFreeCell(terrain: TerrainGraph, from: NodeId, spacing: PlannerSpacing): NodeId | null {
   const blocked = spacing.blockedCells();
+  const doorways = spacing.doorways();
   return ringSearch(terrain, from, STAND_SEARCH_CAP, {
     traverse: (n) => !blocked.has(n),
     accept: (n) => {
-      if (spacing.isClaimed(n)) return false;
+      if (spacing.isClaimed(n) || doorways.has(n)) return false;
       const { x, y } = terrain.coordsOf(n);
       return spacing.occupancy.at(x, y).length === 0;
     },

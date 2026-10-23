@@ -14,7 +14,7 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { translatedCells } from '../../footprint/geometry.js';
-import { constructionWorkCells, dynamicBlockOverlay } from '../../footprint/index.js';
+import { buildingDoorwayNodes, constructionWorkCells, dynamicBlockOverlay } from '../../footprint/index.js';
 import { isTravelling } from '../../movement/nav-state.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../../spatial/node-moves.js';
 import { NodeBuckets } from '../../spatial/nodes.js';
@@ -69,6 +69,12 @@ export class PlannerSpacing {
   blockedCells(): BlockOverlay {
     this.blocked ??= this.buildBlockedCells();
     return this.blocked;
+  }
+
+  /** Building doors and the passages carved from them: cells a drive may route through but never
+   *  park a settler on, so nobody idles in a doorway or on a wall cell the passage opened. */
+  doorways(): ReadonlySet<NodeId> {
+    return buildingDoorwayNodes(this.world, this.ctx, this.terrain);
   }
 
   /** Whether another spacing drive has already taken `cell` this pass. Claims only accumulate. */

@@ -6,7 +6,7 @@ import { nearestUnblockedNode } from '../../nav/nearest.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { buildingDoorNodes, dynamicBlockOverlay, walkBlockedBodyOf } from '../footprint/index.js';
+import { buildingDoorwayNodes, buildingWalkBodyOf, dynamicBlockOverlay } from '../footprint/index.js';
 import { anyRouteFollowed, invalidateRoutesThrough } from '../landscape/routes.js';
 import { canonicalById, type NodeBuckets } from '../spatial/nodes.js';
 import { settlersByNode } from './settler-nodes.js';
@@ -17,20 +17,24 @@ import { dropPath, isTravelling } from './nav-state.js';
 import { settlerTraversal } from './traversal.js';
 
 /**
- * Move every settler standing inside `building`'s walk-blocked footprint, and every one the stamp just
- * sealed into a one-node nook beside it, walkers included, onto the nearest free cell, and stop every
- * walker whose route runs into the body short of it. The move is instant because an enclosed cell has no
- * walkable route out: the pathfinder exempts only a blocked start node. A walker moved off routes again
- * from where it lands. Approximation: nook eviction and the missing Owner gate (neutral fixtures and
+ * Move every settler standing inside `building`'s walk-blocked footprint or its carved door passage, and
+ * every one the stamp just sealed into a one-node nook beside it, walkers included, onto the nearest free
+ * cell, and stop every walker whose route runs into the body short of it. The move is instant because an
+ * enclosed cell has no walkable route out: the pathfinder exempts only a blocked start node. A walker
+ * moved off routes again from where it lands. Approximation: nook eviction and the missing Owner gate (neutral fixtures and
  * animals are displaced too) have no observed original counterpart.
  */
 export function evictSettlersFromFootprint(world: World, ctx: SystemContext, building: Entity): void {
   const terrain = ctx.terrain;
   if (terrain === undefined) return; // mapless sim: no cells to stand on
-  const body = walkBlockedBodyOf(world, ctx, terrain, building);
-  if (body === null) return; // nothing impassable
-  evictSettlersFromCells(world, ctx, terrain, body, 'move');
-  if (anyRouteFollowed(world)) invalidateRoutesThrough(world, terrain, body);
+  const walk = buildingWalkBodyOf(world, ctx, terrain, building);
+  if (walk === null || walk.body.size === 0) return; // nothing impassable
+  // The carved passage is ground to cross, never to stand on, so it is cleared with the body; the door
+  // node, the passage's start, is spared like every door.
+  const cleared = new Set(walk.body);
+  for (const cell of walk.passage) if (cell !== walk.door) cleared.add(cell);
+  evictSettlersFromCells(world, ctx, terrain, cleared, 'move');
+  if (anyRouteFollowed(world)) invalidateRoutesThrough(world, terrain, walk.body);
 }
 
 /** Whether an eviction also moves settlers on their way off the cells, where a route could leave them
@@ -64,8 +68,9 @@ export function evictSettlersFromCells(
   if (evicteesUnsorted.length === 0 && nookCandidates.size === 0) return;
   // The membership view, not the owning-set union: every read below is a `.has`.
   const blocked = dynamicBlockOverlay(world, ctx, terrain); // includes this building's own body
-  const doors = buildingDoorNodes(world, ctx, terrain);
-  // A door is a designated stand rather than a nook, so it is spared here as the blocked set spares it.
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
+  // A door and the passage behind it are designated ground rather than a nook, so they are spared here as
+  // the blocked set spares them.
   for (const e of nookCandidates) {
     const at = settlerNode(world, terrain, e);
     if (blocked.has(at) || doors.has(at)) continue;

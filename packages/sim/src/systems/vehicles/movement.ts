@@ -31,7 +31,7 @@ import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
 import {
-  buildingDoorNodes,
+  buildingDoorwayNodes,
   discOffsets,
   dynamicBlockOverlay,
   hexDisc,
@@ -453,7 +453,7 @@ export function startHeldDrive(
 
 /**
  * `goal`, or, when another vehicle has come to stand on it since it was chosen, the first node in ring
- * order around it this vehicle may stand on that is no house's door; `goal` itself when there is none,
+ * order around it this vehicle may stand on that is no house's doorway; `goal` itself when there is none,
  * and for a docking ship, whose goal is a node of its dock ring. Vehicles sent to one spot, such as
  * traders' carts at one house, would otherwise give up behind the no-path note as soon as the first one
  * arrives (this build's choice: the original's vehicles set no blocked bit to give up on).
@@ -467,7 +467,7 @@ export function freeGoal(
 ): NodeId {
   if (!otherVehicleCovers(world, ctx, terrain, vehicle, goal)) return goal;
   if (world.get(vehicle, Vehicle).task === 'docks') return goal;
-  const doors = buildingDoorNodes(world, ctx, terrain);
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
   const taken = (node: NodeId): boolean =>
     doors.has(node) || otherVehicleCovers(world, ctx, terrain, vehicle, node);
   return snapVehicleTarget(world, ctx, terrain, vehicle, nodeOf(terrain, goal), { exclude: taken }) ?? goal;

@@ -251,6 +251,11 @@ export const plContent = {
       title: 'Zbieracze gliny',
       summary: 'Dwaj zbieracze każdego plemienia kopią glinę i odnoszą ją do swojej flagi.',
     },
+    'nation-footprints': {
+      title: 'Obrysy domów nacji',
+      summary:
+        'Rzędy domów Wikingów, Franków i Bizantyjczyków; bezczynni mieszkańcy stoją obok domów, nigdy na komórce muru ani w drzwiach.',
+    },
     'armed-idle': {
       title: 'Uzbrojeni w bezczynności',
       summary:

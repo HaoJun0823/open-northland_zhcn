@@ -51,9 +51,13 @@ function logFlip(log: NodeId[], node: NodeId): boolean {
 const buildingBlockedCache = new WeakMap<World, BuildingBlockedCache>();
 
 /** Open the shortest passage through a building's own walk block to exterior ground.
- * Some door points are ringed by wall cells; clearing the point alone leaves the door unreachable. Open
- * ground the walls enclose is no exit: the saracen fortress's door lane zig-zags through one-node holes
- * that this lattice's steps cannot follow, so its nearest opening is a sealed pocket. */
+ * Some door points are ringed by wall cells; clearing the point alone leaves the door unreachable. The
+ * passage is carved even past a door a diagonal step already leaves, such as the frank home's: a resource
+ * on that diagonal's landing would seal the door, and a carved cell is ground to walk, never to stand on
+ * (`doorways`). The door, usually outside `body`, is the start and never the exit, or the wall cell
+ * behind it would open onto it. Open ground the walls enclose is no exit: the saracen fortress's door
+ * lane zig-zags through one-node holes that this lattice's steps cannot follow, so its nearest opening
+ * is a sealed pocket. */
 export function doorPassage(terrain: TerrainGraph, body: ReadonlySet<NodeId>, door: NodeId): NodeId[] {
   const leadsOut = exteriorTest(terrain, body, door);
   const queue: NodeId[] = [door];
@@ -66,7 +70,7 @@ export function doorPassage(terrain: TerrainGraph, body: ReadonlySet<NodeId>, do
     const steps = depth.get(cell) ?? 0;
     if (exit !== null && steps > exit.depth) break;
     for (const next of terrain.neighbours(cell)) {
-      if (!terrain.isWalkable(next) || !terrain.joined(cell, next)) continue;
+      if (next === door || !terrain.isWalkable(next) || !terrain.joined(cell, next)) continue;
       if (!body.has(next)) {
         if (!leadsOut(next)) continue;
         if (exit === null || steps < exit.depth || (steps === exit.depth && next < exit.outside))
@@ -163,6 +167,8 @@ export function walkBodyOf(
 interface BuildingCells {
   /** The building bodies, doors and their passages carved out. */
   readonly blocked: ReadonlySet<NodeId>;
+  /** Every door node and the carved passage cells behind it. */
+  readonly doorways: ReadonlySet<NodeId>;
 }
 
 /** Every building carved afresh: the verifiers' reference for {@link BuildingCellsIndex}. */
@@ -170,17 +176,19 @@ function deriveBuildingCells(world: World, content: ContentSet, terrain: Terrain
   const blocked = new Set<NodeId>();
   // The exact door point stays open even if another building's reserved margin overlaps it.
   const doors = new Set<NodeId>();
+  const doorways = new Set<NodeId>();
   for (const e of world.query(Building, Position)) {
     const b = world.get(e, Building);
     const footprint = buildingFootprintOf(content, b.buildingType, b.tribe);
     if (footprint === undefined || footprint.blocked.length === 0) continue;
     const p = world.get(e, Position);
-    const { body, door } = walkBodyOf(terrain, footprint, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
-    if (door !== null) doors.add(door);
-    for (const cell of body) blocked.add(cell);
+    const walk = walkBodyOf(terrain, footprint, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    if (walk.door !== null) doors.add(walk.door);
+    for (const cell of walk.body) blocked.add(cell);
+    for (const cell of walk.passage) doorways.add(cell);
   }
   for (const cell of doors) blocked.delete(cell);
-  return { blocked };
+  return { blocked, doorways };
 }
 
 /** Walls go in after the door subtraction, so an authored overlap cannot punch a door-shaped hole through
@@ -233,6 +241,8 @@ interface PlacedBody {
 class BuildingCellsIndex implements BuildingCells {
   /** Nodes some body covers and no door sits on. */
   readonly blocked = new Set<NodeId>();
+  /** Every door node and the carved passage cells behind it: walkable, but no stand. */
+  readonly doorways = new Set<NodeId>();
   /** Moves whenever {@link blocked} changes, and on every full re-stamp. */
   revision = 0;
   /** The nodes that entered or left {@link blocked} since {@link takeBlockedFlips} last drained them, for
@@ -243,6 +253,7 @@ class BuildingCellsIndex implements BuildingCells {
   private valueGeneration = 0;
   private readonly bodyCounts: Uint16Array;
   private readonly doorCounts: Uint16Array;
+  private readonly doorwayCounts: Uint16Array;
   private readonly placed = new Map<Entity, PlacedBody>();
 
   constructor(
@@ -251,6 +262,7 @@ class BuildingCellsIndex implements BuildingCells {
   ) {
     this.bodyCounts = new Uint16Array(terrain.nodeCount);
     this.doorCounts = new Uint16Array(terrain.nodeCount);
+    this.doorwayCounts = new Uint16Array(terrain.nodeCount);
   }
 
   /** Whether the stamps still describe the world: no building joined or left, and no value write since the
@@ -344,6 +356,13 @@ class BuildingCellsIndex implements BuildingCells {
       this.doorCounts[walk.door] = (this.doorCounts[walk.door] ?? 0) + delta;
       this.settleBlocked(walk.door);
     }
+    // The passage starts at the door, so one loop stamps both.
+    for (const cell of walk.passage) {
+      const count = (this.doorwayCounts[cell] ?? 0) + delta;
+      this.doorwayCounts[cell] = count;
+      if (count > 0) this.doorways.add(cell);
+      else this.doorways.delete(cell);
+    }
   }
 
   private settleBlocked(cell: NodeId): void {
@@ -382,7 +401,7 @@ function verifyBuildingCells(world: World): string[] {
   const index = buildingCellsIndexes.get(world);
   if (index === undefined || !index.current(world)) return [];
   const fresh = deriveBuildingCells(world, index.content, index.terrain);
-  if (sameCells(index.blocked, fresh.blocked)) return [];
+  if (sameCells(index.blocked, fresh.blocked) && sameCells(index.doorways, fresh.doorways)) return [];
   return ['buildingCells diverge from a fresh carve - a building change went unseen'];
 }
 
@@ -449,6 +468,17 @@ export function buildingBodyCells(
   terrain: TerrainGraph,
 ): ReadonlySet<NodeId> {
   return buildingCells(world, ctx.content, terrain).blocked;
+}
+
+/** Every standing building's door node and the passage carved from it through its own walls: walkable
+ *  ground, but a stand on it sits in the doorway or under the house's art, so the spacing drives and
+ *  eviction never land there. The shared cached set: membership reads only. */
+export function buildingDoorwayNodes(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+): ReadonlySet<NodeId> {
+  return buildingCells(world, ctx.content, terrain).doorways;
 }
 
 /** {@link buildingBlockedCells} with its per-node counts, for the dynamic overlay. */

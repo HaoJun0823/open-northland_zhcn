@@ -254,6 +254,11 @@ export const enContent = {
       title: 'Clay extractors',
       summary: 'Two extractors from each tribe dig clay and carry it to their flag.',
     },
+    'nation-footprints': {
+      title: 'Nation footprints',
+      summary:
+        'Viking, Frankish and Byzantine houses in rows; the idle residents stand beside their homes, never on a wall cell or in a doorway.',
+    },
     'armed-idle': {
       title: 'Armed idle',
       summary:

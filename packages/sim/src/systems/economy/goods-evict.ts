@@ -14,7 +14,7 @@ import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, SystemContext } from '../context.js';
 import {
-  buildingDoorNodes,
+  buildingDoorwayNodes,
   dynamicBlockOverlay,
   positionedStanceCells,
   routeRegions,
@@ -62,7 +62,7 @@ export function evictLooseGoodsFromCells(
   }
   if (buriedUnsorted.length === 0) return;
   const blocked = dynamicBlockOverlay(world, ctx, terrain); // includes this building's own body
-  const doors = buildingDoorNodes(world, ctx, terrain);
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
   for (const pile of canonicalById(buriedUnsorted)) {
     const pos = world.get(pile, Position);
     const n = nodeOfPosition(pos.x, pos.y);
@@ -118,8 +118,8 @@ function movePile(world: World, terrain: TerrainGraph, pile: Entity, landing: No
 }
 
 /**
- * The nearest walkable node outside every walk-block where a displaced pile may lie: unblocked and not a
- * door cell. It may traverse the evicting building's own `body`, since the pile is displaced across its plot
+ * The nearest walkable node outside every walk-block where a displaced pile may lie: unblocked and off
+ * every doorway. It may traverse the evicting building's own `body`, since the pile is displaced across its plot
  * rather than carried, but never any other blocked cell. Settler occupancy is not tested, as a pile and a
  * settler share a tile freely.
  *

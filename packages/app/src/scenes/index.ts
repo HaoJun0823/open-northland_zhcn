@@ -63,6 +63,7 @@ import { livestockYardScene } from './livestock-yard.js';
 import { mealBreakScene } from './meal-break.js';
 import { meleeFrontScene } from './melee-front.js';
 import { movementContinuityScene } from './movement-continuity.js';
+import { nationFootprintsScene } from './nation-footprints.js';
 import { netPanelScene } from './net-panel.js';
 import { openGateAttackScene } from './open-gate-attack.js';
 import { overheadIconsScene } from './overhead-icons.js';
@@ -167,6 +168,7 @@ export const SCENES: readonly SceneDefinition[] = [
   farmConstructionScene,
   upgradeScene,
   upgradeTribesScene,
+  nationFootprintsScene,
   frankConstructionScene,
   wonderLevelsScene,
   workshopProductsScene,

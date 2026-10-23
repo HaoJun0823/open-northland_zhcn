@@ -9,12 +9,13 @@
 
 export {
   buildingDoorNodes,
+  buildingWalkBodyOf,
   type ConstructionPlot,
   constructionSitePlots,
   dynamicBlockOverlay,
   walkBlockedBodyOf,
 } from './blocked.js';
-export { buildingBlockedCells } from './building-blocked-cache.js';
+export { buildingBlockedCells, buildingDoorwayNodes } from './building-blocked-cache.js';
 export {
   anchoredStanceCells,
   atInteractionNode,

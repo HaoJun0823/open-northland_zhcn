@@ -1,10 +1,11 @@
 export const BUILDING_HEADQUARTERS = 1;
 /** The base-tier residence (`home_level_00`). */
 export const BUILDING_HOME_00 = 2;
-/** The higher home tiers (`home_level_01..03`); `home_level_04` (6) is the chain's top. */
+/** The higher home tiers (`home_level_01..04`); `home_level_04` is the chain's top. */
 export const BUILDING_HOME_01 = 3;
 export const BUILDING_HOME_02 = 4;
 export const BUILDING_HOME_03 = 5;
+export const BUILDING_HOME_04 = 6;
 /** The three warehouse levels (`stock_00`/`stock_01`/`stock_02`). */
 export const BUILDING_WAREHOUSE_00 = 7;
 export const BUILDING_WAREHOUSE_01 = 8;

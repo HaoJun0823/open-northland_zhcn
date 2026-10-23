@@ -14,7 +14,7 @@ import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { buildingFlagBodyNodes, buildingFootprintOf, doorNodeOf } from '../footprint/geometry.js';
 import {
-  buildingDoorNodes,
+  buildingDoorwayNodes,
   canPlaceWorkFlag,
   nearestWorkFlagPlacement,
   workFlagPlacementTest,
@@ -140,7 +140,7 @@ export function razeSignpost(world: World, post: Entity): void {
 
 /**
  * Push every signpost under a just-placed `building`'s walls or on its door to the nearest node the erect
- * rule's ground test accepts, off every door and on the same static ground, and re-link it there. It
+ * rule's ground test accepts, off every doorway and on the same static ground, and re-link it there. It
  * prefers, in turn, a node that keeps every link in range, so the push does not split the network, and a
  * row south of the whole family body. A row merely south of the anchor can still sit behind a projecting
  * wing while the renderer paints the post over it. The post may stay in the building's reserved margin:
@@ -167,7 +167,7 @@ export function displaceSignpostsFromFootprint(world: World, ctx: SystemContext,
   for (const cell of footprint?.familyBody ?? []) {
     frontRow = Math.max(frontRow, anchor.hy + cell.dy);
   }
-  const doors = buildingDoorNodes(world, ctx, terrain);
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
   // Canonical order, and each relocation lands before the next search, so two posts never share a node.
   for (const post of canonicalById(enclosed)) {
     const from = entityNode(world, terrain, post);

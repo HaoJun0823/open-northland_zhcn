@@ -254,6 +254,11 @@ export const deContent = {
       title: 'Lehmabbau',
       summary: 'Zwei Abbauer jedes Stammes graben Lehm und tragen ihn zu ihrer Flagge.',
     },
+    'nation-footprints': {
+      title: 'Grundrisse der Völker',
+      summary:
+        'Häuser der Wikinger, Franken und Byzantiner in Reihen; die müßigen Bewohner stehen neben ihren Häusern, nie auf einer Mauerzelle oder in der Tür.',
+    },
     'armed-idle': {
       title: 'Bewaffnete im Leerlauf',
       summary:

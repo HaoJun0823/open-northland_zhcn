@@ -626,14 +626,15 @@ describe('footprint displacement - an upgrade finish never walls in a settler on
     expect(standable(sim, walker)).toBe(true);
   });
 
-  it('leaves a settler standing in the passage the walls keep open to a ringed door', () => {
+  it('moves a settler standing in the passage the walls keep open to a ringed door off it', () => {
     // The door sits one row inside the block, so the walk-block also opens the edge cell below it.
     const { sim, home } = upgradingHome({ door: { dx: 0, dy: HALF_DEPTH - 1 } });
     const passage = { x: HOME.x, y: HOME.y + HALF_DEPTH };
     const inPassage = settlerAtNode(sim, passage.x, passage.y, PLAYER);
     readyToFinish(sim, home);
     constructionSystem(sim.world, ctxOf(sim));
-    expect(nodeOf(sim, inPassage)).toEqual(passage);
+    expect(nodeOf(sim, inPassage)).not.toEqual(passage);
+    expect(insideGrownBody(sim, inPassage)).toBe(false);
     expect(standable(sim, inPassage)).toBe(true);
   });
 });

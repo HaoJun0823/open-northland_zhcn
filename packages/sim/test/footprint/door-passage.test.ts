@@ -7,7 +7,8 @@ const PROPS = new Map<number, LandscapeProps>([
   [GRASS, { walkable: true, buildable: true, plantable: true }],
 ]);
 
-/** `#` a wall node, `D` the door, `.` open ground; one string per lattice row. */
+/** `#` a wall node, `D` the door, `.` open ground; one string per lattice row. The door stays out of
+ *  the body as a footprint usually lists it: a door point beside its `blocked` cells, not among them. */
 function building(rows: readonly string[]): { terrain: TerrainGraph; body: Set<NodeId>; door: NodeId } {
   const width = rows[0]?.length ?? 0;
   const terrain = new TerrainGraph(
@@ -20,7 +21,7 @@ function building(rows: readonly string[]): { terrain: TerrainGraph; body: Set<N
   let door: NodeId | null = null;
   rows.forEach((row, y) => {
     [...row].forEach((mark, x) => {
-      if (mark === '#' || mark === 'D') body.add(terrain.nodeAt(x, y));
+      if (mark === '#') body.add(terrain.nodeAt(x, y));
       if (mark === 'D') door = terrain.nodeAt(x, y);
     });
   });
@@ -64,5 +65,43 @@ describe('doorPassage', () => {
   it('opens only the door when it already stands on the edge', () => {
     const { terrain, body, door } = building(['#####', '##D##', '.....']);
     expect(doorPassage(terrain, body, door)).toEqual([door]);
+  });
+
+  it('opens a wall cell beside the door, never the one behind it, when the door is the nearest open node', () => {
+    // The byzantine home's shape: the door ringed by walls, with the wall cell behind it enclosed on
+    // its other three sides. Were the door counted as open ground, that dead-end cell would be the
+    // passage and the loiter yard behind the door would reach nothing outside.
+    const { terrain, body, door } = building([
+      '..........',
+      '..........',
+      '..#####...',
+      '.#######..',
+      '.########.',
+      '.#######..',
+      '.########.',
+      '.#######..',
+      '.########.',
+      '..####D#..',
+      '....###...',
+      '....#.....',
+      '..........',
+    ]);
+    expect(doorPassage(terrain, body, door)).toEqual([door, terrain.nodeAt(7, 9)]);
+    expect(doorWalksOut(terrain, body, door)).toBe(true);
+  });
+
+  it('still carves past a door a diagonal step already leaves', () => {
+    // The frank home's shape: wall cells on all four sides of the door, and the way out the south-west
+    // diagonal. A resource on that diagonal's landing would seal the door, so the wall cell below it
+    // opens as well.
+    const { terrain, body, door } = building([
+      '#########',
+      '#########',
+      '####D####',
+      '###.#####',
+      '###.#####',
+      '.........',
+    ]);
+    expect(doorPassage(terrain, body, door)).toEqual([door, terrain.nodeAt(4, 3)]);
   });
 });

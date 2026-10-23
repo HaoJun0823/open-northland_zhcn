@@ -5,7 +5,7 @@ import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
-import { heldBuildingTypesStand, walkBodyOf } from './building-blocked-cache.js';
+import { heldBuildingTypesStand, type WalkBody, walkBodyOf } from './building-blocked-cache.js';
 import { ANCHOR_ONLY, buildingFootprintOf, doorNodeOf } from './geometry.js';
 import { walkBlockMask } from './walk-block-mask.js';
 
@@ -86,6 +86,22 @@ export function constructionSitePlots(world: World, content: ContentSet): readon
   return plots;
 }
 
+/** One building's {@link WalkBody} on the map, or null when the type blocks nothing. */
+export function buildingWalkBodyOf(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  building: Entity,
+): WalkBody | null {
+  const b = world.tryGet(building, Building);
+  const p = world.tryGet(building, Position);
+  if (b === undefined || p === undefined) return null;
+  const footprint = buildingFootprintOf(ctx.content, b.buildingType, b.tribe);
+  if (footprint === undefined || footprint.blocked.length === 0) return null;
+  const { hx, hy } = nodeOfPosition(p.x, p.y);
+  return walkBodyOf(terrain, footprint, hx, hy);
+}
+
 /** One building's walk-blocked body: its footprint `blocked` cells on the map minus its door passage, or
  *  null when the type blocks nothing. A displacement search may cross this body but no other blocked cell. */
 export function walkBlockedBodyOf(
@@ -94,14 +110,8 @@ export function walkBlockedBodyOf(
   terrain: TerrainGraph,
   building: Entity,
 ): Set<NodeId> | null {
-  const b = world.tryGet(building, Building);
-  const p = world.tryGet(building, Position);
-  if (b === undefined || p === undefined) return null;
-  const footprint = buildingFootprintOf(ctx.content, b.buildingType, b.tribe);
-  if (footprint === undefined || footprint.blocked.length === 0) return null;
-  const { hx, hy } = nodeOfPosition(p.x, p.y);
-  const { body } = walkBodyOf(terrain, footprint, hx, hy);
-  return body.size === 0 ? null : body;
+  const walk = buildingWalkBodyOf(world, ctx, terrain, building);
+  return walk === null || walk.body.size === 0 ? null : walk.body;
 }
 
 /** The dynamic walk-block overlay settlers route under (buildings, resources, landscapes): the world's one

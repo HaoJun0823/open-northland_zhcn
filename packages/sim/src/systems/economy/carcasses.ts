@@ -7,7 +7,7 @@ import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import {
   anchorOnlyFootprint,
-  buildingDoorNodes,
+  buildingDoorwayNodes,
   dynamicBlockOverlay,
   resourceFootprintForGood,
   stampResourceFootprintData,
@@ -72,7 +72,7 @@ export function evictCarcassesFromFootprint(world: World, ctx: SystemContext, bu
   }
   if (buried.length === 0) return;
   const blocked = dynamicBlockOverlay(world, ctx, terrain); // includes this building's own body
-  const doors = buildingDoorNodes(world, ctx, terrain);
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
   for (const carcass of canonicalById(buried)) {
     const pos = world.get(carcass, Position);
     const n = nodeOfPosition(pos.x, pos.y);

@@ -35,10 +35,8 @@ const INT16_MAX = 32767;
  * The served encodings: `lossless` is FLAC from the in-repo encoder, `compact` is Ogg Opus from
  * libopus's WebAssembly build, so building content needs nothing outside npm.
  *
- * A looped terrain bed stays FLAC in the compact quality as well (the index's `losslessOnly`). Measured
- * in headless Chromium on `ambient/meadow2`, `water3` and `beach2`: at the clip's own rate the Opus
- * decode has the wav's frame count, but at a 48 kHz context it runs 1 frame longer than the resampled
- * wav or FLAC (735317 vs 735316 for meadow2), so the loop period would drift from the source's.
+ * A looped terrain bed stays FLAC in the compact quality as well (the index's `losslessOnly`): a lossy
+ * encode does not keep the seam where the loop's end meets its start clean.
  */
 export const encodeSound: SoundEncoder = async (wav, quality) => {
   const pcm = decodeWav(wav);

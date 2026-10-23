@@ -25,7 +25,7 @@ import {
 export const BOBS_DIR = 'bobs';
 /** Ground texture pages and transition overlays. */
 export const TEXTURES_DIR = 'textures';
-/** The mod's `.wav` tree. */
+/** Sound clips as FLAC and Ogg Opus, their per-folder banks and the bank index. */
 export const SOUNDS_DIR = 'sounds';
 /** Decoded map grids and their sidecars. */
 export const MAPS_DIR = 'maps';

@@ -39,8 +39,8 @@ export type SoundBankEntry = z.infer<typeof SoundBankEntry>;
  */
 export const SoundBanksDocument = z.strictObject({
   version: z.literal(SOUND_BANKS_VERSION),
-  /** Clips every quality serves in the lossless encoding (looped beds, whose decoded length must match
-   *  the source's), by the IR's clip path. */
+  /** Clips every quality serves in the lossless encoding (looped beds, whose loop seam a lossy encode
+   *  would not keep clean), by the IR's clip path. */
   losslessOnly: z.array(z.string()),
   /** Keyed by the IR's clip path (`humantalk/f1ok01.wav`). */
   clips: z.record(z.string(), SoundBankEntry),

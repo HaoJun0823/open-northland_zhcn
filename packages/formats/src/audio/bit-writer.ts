@@ -52,9 +52,9 @@ export class BitWriter {
     if (this.pendingBits > 0) this.write(0, BYTE_BITS - this.pendingBits);
   }
 
-  /** The written bytes in `[start, end)`; a view valid until the next write. */
-  view(start: number, end = this.length): Uint8Array {
-    return this.bytes.subarray(start, end);
+  /** The bytes written from `start` on; a view valid until the next write. */
+  view(start: number): Uint8Array {
+    return this.bytes.subarray(start, this.length);
   }
 
   /** A copy of everything written; the writer must be {@link aligned}. */

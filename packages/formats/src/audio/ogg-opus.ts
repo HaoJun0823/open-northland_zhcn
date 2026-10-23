@@ -21,7 +21,16 @@ export interface OggOpusStream {
   readonly vendor: string;
 }
 
+/** OpusHead layout (RFC 7845 section 5.1); output gain at 16-17 stays zero. */
 const OPUS_HEAD_BYTES = 19;
+const HEAD_VERSION_OFFSET = 8;
+const HEAD_CHANNELS_OFFSET = 9;
+const HEAD_PRE_SKIP_OFFSET = 10;
+const HEAD_INPUT_RATE_OFFSET = 12;
+const HEAD_MAPPING_FAMILY_OFFSET = 18;
+/** OpusTags layout (section 5.2): magic, vendor length, vendor, then a zero user comment count. */
+const TAGS_MAGIC_BYTES = 8;
+const TAGS_LENGTH_FIELD_BYTES = 4;
 const OPUS_VERSION = 1;
 const MAPPING_FAMILY_RTP = 0;
 const MAX_FAMILY_0_CHANNELS = 2;
@@ -38,17 +47,17 @@ export function oggOpus(stream: OggOpusStream): Uint8Array {
   const head = new Uint8Array(OPUS_HEAD_BYTES);
   const view = new DataView(head.buffer);
   head.set(ascii('OpusHead'));
-  head[8] = OPUS_VERSION;
-  head[9] = stream.channelCount;
-  view.setUint16(10, stream.preSkip, true);
-  view.setUint32(12, stream.inputSampleRate, true);
-  // Bytes 16-17 (output gain) stay zero.
-  head[18] = MAPPING_FAMILY_RTP;
+  head[HEAD_VERSION_OFFSET] = OPUS_VERSION;
+  head[HEAD_CHANNELS_OFFSET] = stream.channelCount;
+  view.setUint16(HEAD_PRE_SKIP_OFFSET, stream.preSkip, true);
+  view.setUint32(HEAD_INPUT_RATE_OFFSET, stream.inputSampleRate, true);
+  head[HEAD_MAPPING_FAMILY_OFFSET] = MAPPING_FAMILY_RTP;
   const vendor = new TextEncoder().encode(stream.vendor);
-  const tags = new Uint8Array(8 + 4 + vendor.length + 4);
+  const vendorAt = TAGS_MAGIC_BYTES + TAGS_LENGTH_FIELD_BYTES;
+  const tags = new Uint8Array(vendorAt + vendor.length + TAGS_LENGTH_FIELD_BYTES);
   tags.set(ascii('OpusTags'));
-  new DataView(tags.buffer).setUint32(8, vendor.length, true);
-  tags.set(vendor, 12); // the user comment count after it stays zero
+  new DataView(tags.buffer).setUint32(TAGS_MAGIC_BYTES, vendor.length, true);
+  tags.set(vendor, vendorAt);
   return oggStream(stream.serial, [
     { data: head, granule: 0, flush: true },
     { data: tags, granule: 0, flush: true },

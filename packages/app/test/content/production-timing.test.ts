@@ -12,7 +12,7 @@ const VIKING = 'viking';
 
 describe.runIf(hasRealIr())('production timing over real content', () => {
   it('gives every nation the viking crafting time for each trade and good', () => {
-    const ir = rawIrUnderTest() as ContentIr & {
+    const ir = rawIrUnderTest() as Omit<ContentIr, 'goods'> & {
       readonly goods?: readonly { id: string; atomics?: { produce?: number } }[];
     };
     const lengths = new Map((ir.atomicAnimations ?? []).map((a) => [a.name, a.length]));

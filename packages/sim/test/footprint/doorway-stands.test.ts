@@ -15,6 +15,7 @@ import { Simulation } from '../../src/index.js';
 import { nodeOfPosition, positionOfNode } from '../../src/nav/halfcell.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import { buildingBlockedCells, buildingDoorwayNodes } from '../../src/systems/footprint/index.js';
+import { spawnLanding } from '../../src/systems/movement/evict.js';
 import { nearestFreeCell, stepOffHomeDoor } from '../../src/systems/settlers/drives/spacing.js';
 import { PlannerSpacing } from '../../src/systems/settlers/planner/spacing.js';
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
@@ -164,6 +165,19 @@ describe('doorway stands', () => {
     const stand = nearestFreeCell(terrainOf(sim), door, spacing);
     expect(stand).not.toBeNull();
     if (stand !== null) expect(doorways.has(stand)).toBe(false);
+  });
+
+  it.each([
+    ['sealed', SEALED_HOME],
+    ['gapped', GAPPED_HOME],
+  ])('lands a settler spawned in the %s home doorway off it', (_label, type) => {
+    const { sim, door, doorways } = fixture(type);
+    const terrain = terrainOf(sim);
+    for (const spawn of doorways) {
+      const landing = spawnLanding(sim.world, ctxOf(sim), terrain, spawn, 'land');
+      expect(landing, `spawn on ${spawn === door ? 'the door' : 'the passage'}`).not.toBeNull();
+      if (landing !== null) expect(doorways.has(landing)).toBe(false);
+    }
   });
 
   it.each([

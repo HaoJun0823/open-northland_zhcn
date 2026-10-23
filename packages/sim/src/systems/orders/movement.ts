@@ -35,7 +35,12 @@ import { nearestUnblockedNode } from '../../nav/nearest.js';
 import { ringSearch } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { System, SystemContext } from '../context.js';
-import { dynamicBlockOverlay, ROUTE_REGION_POCKET_CAP, routeRegions } from '../footprint/index.js';
+import {
+  buildingDoorwayNodes,
+  dynamicBlockOverlay,
+  ROUTE_REGION_POCKET_CAP,
+  routeRegions,
+} from '../footprint/index.js';
 import { isTravelling, onNodeCentre, stopAtNextNode } from '../movement/nav-state.js';
 import { breakThroughWall } from '../palisades/breach.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
@@ -59,8 +64,9 @@ import { breaksForMeal, suspendWalkForMeal } from './meal-break.js';
 
 /**
  * Resolve a raw clicked node to one the unit can stand on: a click on a resource footprint, a building body,
- * or unwalkable terrain snaps to the nearest walkable unblocked node, so the unit walks to the edge of what
- * was clicked.
+ * or unwalkable terrain snaps to the nearest walkable unblocked node off every doorway with an open side, or
+ * failing that a sealed one, so the unit walks to the edge of what was clicked. A click on open ground, a
+ * doorway included, is the player's own stand and is kept as given.
  *
  * Only static blockers and terrain count; re-aiming a goal off a standing unit belongs to the routing
  * surround rule.
@@ -73,7 +79,10 @@ export function reachableMoveGoal(
 ): NodeId {
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   if (terrain.isWalkable(clicked) && !blocked.has(clicked)) return clicked;
-  return nearestUnblockedNode(terrain, clicked, blocked) ?? clicked;
+  const doorways = buildingDoorwayNodes(world, ctx, terrain);
+  return (
+    nearestUnblockedNode(terrain, clicked, blocked, { avoid: doorways, sealedFallback: true }) ?? clicked
+  );
 }
 
 /**

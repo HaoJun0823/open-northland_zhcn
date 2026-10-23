@@ -248,7 +248,7 @@ describe('footprint displacement - settlers never end up standing inside walls',
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: ANCHOR.x, y: ANCHOR.y, tribe: VIKING });
     sim.step();
     // Birth point ON the walls: the leader lands on (5,5) and the first scatter offset on (6,5) - both
-    // body cells - while the second lands on the door (4,5), a legal stand that must NOT be pushed.
+    // body cells - while the second lands on the door (4,5), a doorway that is ground to cross, not a stand.
     sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: BEAR, x: ANCHOR.x, y: ANCHOR.y });
     sim.step();
     const herd = [...sim.world.query(Settler, HerdMember)].sort((a, b) => a - b);
@@ -257,11 +257,11 @@ describe('footprint displacement - settlers never end up standing inside walls',
       expect(onBody(sim, e)).toBe(false);
       expect(standable(sim, e)).toBe(true);
     }
-    // The door member kept its authored cell (ids are monotonic, so herd[2] is the second offset).
+    // The door member left the doorway too (ids are monotonic, so herd[2] is the second offset).
     const doorMember = herd[2];
     if (doorMember === undefined) throw new Error('expected three herd members');
-    expect(nodeOf(sim, doorMember)).toEqual({ x: 4, y: 5 });
-    // The two pushed members fanned onto distinct cells - the herd's shared claim set at work.
+    expect(nodeOf(sim, doorMember)).not.toEqual({ x: 4, y: 5 });
+    // The pushed members fanned onto distinct cells - the herd's shared claim set at work.
     const keys = herd.map((e) => `${nodeOf(sim, e).x},${nodeOf(sim, e).y}`);
     expect(new Set(keys).size).toBe(3);
   });
@@ -341,7 +341,7 @@ describe('footprint displacement - settlers never end up standing inside walls',
     expect(nodeOf(sim, spawnedSettler(sim))).toEqual({ x: 10, y: 10 });
   });
 
-  it('a settler spawned on the door cell stays - the door is a passable stand, not a wall', () => {
+  it('a settler spawned on the door cell is pushed off it - the doorway is ground to cross, not a stand', () => {
     const sim = mappedSim();
     const door = HUT_FOOTPRINT.door;
     const at = { x: ANCHOR.x + door.dx, y: ANCHOR.y + door.dy };
@@ -355,7 +355,9 @@ describe('footprint displacement - settlers never end up standing inside walls',
       owner: PLAYER,
     });
     sim.step();
-    expect(nodeOf(sim, spawnedSettler(sim))).toEqual(at);
+    const spawned = spawnedSettler(sim);
+    expect(nodeOf(sim, spawned)).not.toEqual(at);
+    expect(standable(sim, spawned)).toBe(true);
   });
 
   it('a home tier upgrade evicts settlers from the cells the larger footprint encloses', () => {

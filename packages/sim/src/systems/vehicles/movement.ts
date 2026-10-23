@@ -26,6 +26,7 @@ import {
   hexDistanceBetween,
   positionOfNode,
 } from '../../nav/halfcell.js';
+import { hasOpenSide } from '../../nav/nearest.js';
 import { findPath, joinCorridor } from '../../nav/pathfinding/index.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
@@ -1082,6 +1083,7 @@ function shoveSettlers(
   logicSize: number,
 ): void {
   let blocked: BlockOverlay | undefined;
+  let doorways: ReadonlySet<NodeId> | undefined;
   const enteredNode = terrain.nodeAtClamped(entered.hx, entered.hy);
   const claimed = new Set<NodeId>();
   for (const { hx, hy } of hexDisc(entered, logicSize)) {
@@ -1091,16 +1093,22 @@ function shoveSettlers(
       blocked ??= dynamicBlockOverlay(world, ctx, terrain);
       const walls = blocked;
       const index = routeIndexOf(terrain, route);
-      const free = ringSearch(terrain, from, STAND_SEARCH_CAP, {
-        accept: (n) =>
-          !walls.has(n) &&
-          !claimed.has(n) &&
-          !underRouteFootprint(terrain, n, enteredNode, index, step, logicSize),
-      });
-      if (free === null) continue; // boxed in - the settler stays
-      claimed.add(free);
+      doorways ??= buildingDoorwayNodes(world, ctx, terrain);
+      const avoid = doorways;
+      const free = (n: NodeId): boolean =>
+        !walls.has(n) &&
+        !claimed.has(n) &&
+        !avoid.has(n) &&
+        !underRouteFootprint(terrain, n, enteredNode, index, step, logicSize);
+      // A settler shoved off the route is better off on a sealed node than left under the vehicle.
+      const landing =
+        ringSearch(terrain, from, STAND_SEARCH_CAP, {
+          accept: (n) => free(n) && hasOpenSide(terrain, n, walls),
+        }) ?? ringSearch(terrain, from, STAND_SEARCH_CAP, { accept: free });
+      if (landing === null) continue; // boxed in - the settler stays
+      claimed.add(landing);
       if (world.has(settler, Chat)) endChat(world, ctx.tick, settler); // a chat would drop the walk
-      redirectRoute(world, settler, free);
+      redirectRoute(world, settler, landing);
     }
   }
 }

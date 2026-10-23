@@ -11,10 +11,11 @@ import {
 import type { Fixed } from '../core/fixed.js';
 import type { Component, DeepReadonly, Entity, World } from '../ecs/world.js';
 import { type HalfCellNode, nodeOfPosition, nodesAdjacent, positionOfNode } from '../nav/halfcell.js';
+import { hasOpenSide } from '../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../nav/terrain/index.js';
 import { worldDistance } from '../nav/world-metric.js';
 import type { SystemContext } from './context.js';
-import { dynamicBlockOverlay, routeRegions } from './footprint/index.js';
+import { buildingDoorwayNodes, dynamicBlockOverlay, routeRegions } from './footprint/index.js';
 import {
   clearNavState,
   isTravelling,
@@ -133,9 +134,12 @@ export function approachPartner(
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   const regions = routeRegions(world, ctx, terrain);
   const standing = stationaryOwnedSettlers(world);
-  // Walk beside the partner, never onto its node: the nearest such node no other settler stands on, else
-  // the nearest at all. Equal picks keep the first node in scan order.
+  const doorways = buildingDoorwayNodes(world, ctx, terrain);
+  // Walk beside the partner, never onto its node or a doorway: the nearest node with an open side no other
+  // settler stands on, then one another settler stands on, and a sealed nook only when nothing else is
+  // beside the partner, so a pair always meets. Equal picks keep the first node in scan order.
   let goal: NodeId | undefined;
+  let goalSealed = false;
   let goalTaken = false;
   let goalDistance: Fixed | undefined;
   for (let dy = -1; dy <= 1; dy++)
@@ -147,19 +151,23 @@ export function approachPartner(
       if (
         !terrain.isWalkable(node) ||
         blocked.has(node) ||
+        doorways.has(node) ||
         terrain.componentOf(from) !== terrain.componentOf(node) ||
         regions.unroutable(from, node)
       )
         continue;
+      const sealed = !hasOpenSide(terrain, node, blocked);
       const taken = standing.at(hx, hy).length > 0;
       const centre = positionOfNode(hx, hy);
       const distance = worldDistance(position.x, position.y, centre.x, centre.y);
       if (
         goalDistance === undefined ||
-        (goalTaken && !taken) ||
-        (goalTaken === taken && distance < goalDistance)
+        (goalSealed && !sealed) ||
+        (goalSealed === sealed && goalTaken && !taken) ||
+        (goalSealed === sealed && goalTaken === taken && distance < goalDistance)
       ) {
         goal = node;
+        goalSealed = sealed;
         goalTaken = taken;
         goalDistance = distance;
       }

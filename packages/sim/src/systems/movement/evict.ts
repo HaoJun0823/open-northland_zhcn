@@ -2,7 +2,7 @@ import { PathRequest, Position } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
-import { nearestUnblockedNode } from '../../nav/nearest.js';
+import { hasOpenSide, nearestUnblockedNode } from '../../nav/nearest.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
@@ -21,8 +21,8 @@ import { settlerTraversal } from './traversal.js';
  * every one the stamp just sealed into a one-node nook beside it, walkers included, onto the nearest free
  * cell, and stop every walker whose route runs into the body short of it. The move is instant because an
  * enclosed cell has no walkable route out: the pathfinder exempts only a blocked start node. A walker
- * moved off routes again from where it lands. Approximation: nook eviction and the missing Owner gate (neutral fixtures and
- * animals are displaced too) have no observed original counterpart.
+ * moved off routes again from where it lands. Approximation: nook eviction and the missing Owner gate
+ * (neutral fixtures and animals are displaced too) have no observed original counterpart.
  */
 export function evictSettlersFromFootprint(world: World, ctx: SystemContext, building: Entity): void {
   const terrain = ctx.terrain;
@@ -74,10 +74,7 @@ export function evictSettlersFromCells(
   for (const e of nookCandidates) {
     const at = settlerNode(world, terrain, e);
     if (blocked.has(at) || doors.has(at)) continue;
-    const traversal = settlerTraversal(world, e);
-    const sealed = (n: NodeId): boolean =>
-      !terrain.traversable(n, traversal) || blocked.has(n) || !terrain.joined(at, n);
-    if (terrain.neighbours(at).every(sealed)) evicteesUnsorted.push(e);
+    if (!hasOpenSide(terrain, at, blocked, settlerTraversal(world, e))) evicteesUnsorted.push(e);
   }
   if (evicteesUnsorted.length === 0) return;
   // Canonical order fixes the Position-write and claim order.
@@ -111,12 +108,12 @@ export function evictSettlersFromCells(
 }
 
 /**
- * Push a settler that spawned on walk-blocked ground off it. Authored maps enqueue every `placeBuilding`
- * before any `spawnSettler`, so humans land inside bodies the footprint eviction already passed over. This
- * crosses other buildings' bodies but never unwalkable terrain, and skips the occupancy check that would
- * cost O(settlers) per spawn; the optional `claimed` set threads one command's batch so a herd fans out
- * instead of stacking. Approximation: whether the original leaves these humans standing on a body is
- * unobserved.
+ * Push a settler that spawned on walk-blocked ground, or in a sealed one-node nook, off it. Authored maps
+ * enqueue every `placeBuilding` before any `spawnSettler`, so humans land inside bodies the footprint
+ * eviction already passed over. This crosses other buildings' bodies but never unwalkable terrain, and
+ * skips the occupancy check that would cost O(settlers) per spawn; the optional `claimed` set threads one
+ * command's batch so a herd fans out instead of stacking. Approximation: whether the original leaves
+ * these humans standing on a body, or in a nook between trees, is unobserved.
  */
 export function evictSettlerFromBlockedSpawn(
   world: World,
@@ -145,7 +142,8 @@ export function evictSettlerFromBlockedSpawn(
 
 /**
  * Where {@link evictSettlerFromBlockedSpawn} stands a settler spawned on `from`: `from` itself when it
- * is free, else the nearest unblocked node, or null when boxed in (the settler then stays on `from`).
+ * is free, off every doorway and keeps an open side, else the nearest such node, else the nearest free
+ * sealed one, or null when boxed in (the settler then stays on `from`).
  */
 export function spawnLanding(
   world: World,
@@ -156,9 +154,22 @@ export function spawnLanding(
   claimed?: ReadonlySet<NodeId>,
 ): NodeId | null {
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  const doorways = buildingDoorwayNodes(world, ctx, terrain);
   const taken = claimed?.has(from) ?? false;
-  if (terrain.traversable(from, traversal) && !blocked.has(from) && !taken) return from;
-  return nearestUnblockedNode(terrain, from, blocked, claimed, undefined, traversal);
+  if (
+    terrain.traversable(from, traversal) &&
+    !blocked.has(from) &&
+    !taken &&
+    !doorways.has(from) &&
+    hasOpenSide(terrain, from, blocked, traversal)
+  )
+    return from;
+  return nearestUnblockedNode(terrain, from, blocked, {
+    claimed,
+    traversal,
+    avoid: doorways,
+    sealedFallback: true,
+  });
 }
 
 /** The half-cell node a settler stands on, clamped into bounds. */
@@ -170,8 +181,9 @@ function settlerNode(world: World, terrain: TerrainGraph, e: Entity): NodeId {
 
 /**
  * The nearest free node outside every walk-block: the search may cross the evicting building's own `body`
- * but no other blocked cell, and the landing keeps one unblocked orthogonal side so a push never wedges
- * the settler into the next one-node pocket. Null when nothing free is reachable within the cap.
+ * but no other blocked cell, and the landing keeps an open side so a push never wedges the settler into
+ * the next one-node pocket. Null when nothing free is reachable within the cap. Its traversal rules
+ * differ from the spacing drives' `nearestFreeCell`, so only {@link hasOpenSide} is shared.
  */
 function nearestFreeCellOutside(
   terrain: TerrainGraph,
@@ -190,12 +202,9 @@ function nearestFreeCellOutside(
     {
       traverse: (n) => !blocked.has(n) || body.has(n),
       accept: (n) => {
-        if (blocked.has(n) || doors.has(n)) return false;
-        const exit = (m: NodeId): boolean =>
-          terrain.traversable(m, traversal) && !blocked.has(m) && terrain.joined(n, m);
-        if (!terrain.neighbours(n).some(exit)) return false;
-        const { x, y } = terrain.coordsOf(n);
-        return !claimed.has(n) && occupancy.at(x, y).length === 0;
+        if (blocked.has(n) || doors.has(n) || claimed.has(n)) return false;
+        if (occupancy.at(terrain.xOf(n), terrain.yOf(n)).length !== 0) return false;
+        return hasOpenSide(terrain, n, blocked, traversal);
       },
     },
     traversal,

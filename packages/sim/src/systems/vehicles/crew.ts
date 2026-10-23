@@ -17,11 +17,17 @@ import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexagonRing, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
-import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
+import { nearestUnblockedNode } from '../../nav/nearest.js';
+import { STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, MapContext, SystemContext } from '../context.js';
 import { releaseEmployment } from '../economy/jobs/binding.js';
-import { dynamicBlockOverlay, vehicleAnchor, vehicleDoorNode } from '../footprint/index.js';
+import {
+  buildingDoorwayNodes,
+  dynamicBlockOverlay,
+  vehicleAnchor,
+  vehicleDoorNode,
+} from '../footprint/index.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { anchorAtFeet } from '../orders/combat.js';
 import { isOrderableSettler } from '../orders/guards.js';
@@ -196,9 +202,10 @@ export function releaseRider(world: World, rider: Entity, vehicle: Entity): void
 
 /**
  * The node a rider boards `vehicle` from and steps out onto: the door node, or, where another blocker
- * covers it, the nearest open node around it in the walk's ring order (approximation: the original walks
- * the human onto the entry point and only its door lookup moves it). Null for a vehicle riding a
- * carrier, which has no door on the map.
+ * covers it, the nearest open node off every building doorway in the walk's ring order, one with an open
+ * side when any is in reach (approximation: the original walks the human onto the entry point and only
+ * its door lookup moves it). Null only for a vehicle riding a carrier, which has no door on the map, or
+ * one boxed in past the search cap.
  */
 export function boardingNode(
   world: World,
@@ -211,7 +218,11 @@ export function boardingNode(
   const node = terrain.nodeAtClamped(door.hx, door.hy);
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   if (terrain.isWalkable(node) && !blocked.has(node)) return node;
-  return ringSearch(terrain, node, STAND_SEARCH_CAP, { accept: (n) => !blocked.has(n) });
+  return nearestUnblockedNode(terrain, node, blocked, {
+    avoid: buildingDoorwayNodes(world, ctx, terrain),
+    sealedFallback: true,
+    cap: STAND_SEARCH_CAP,
+  });
 }
 
 /**

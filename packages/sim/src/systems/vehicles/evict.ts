@@ -2,10 +2,11 @@ import { Position, Vehicle, VehicleDrive } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { positionOfNode } from '../../nav/halfcell.js';
+import { hasOpenSide } from '../../nav/nearest.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { buildingDoorNodes, dynamicBlockOverlay, walkBlockedBodyOf } from '../footprint/index.js';
+import { buildingDoorwayNodes, dynamicBlockOverlay, walkBlockedBodyOf } from '../footprint/index.js';
 import { vehicleBlockedCells } from '../footprint/vehicle-blocked-cache.js';
 import { hexDisc, vehicleAnchor, vehicleFootprintNodes } from '../footprint/vehicle-footprint.js';
 import { settlersByNode } from '../movement/settler-nodes.js';
@@ -22,7 +23,7 @@ export function evictVehiclesFromFootprint(world: World, ctx: SystemContext, bui
   const body = walkBlockedBodyOf(world, ctx, terrain, building);
   if (body === null) return;
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
-  const doors = buildingDoorNodes(world, ctx, terrain);
+  const doors = buildingDoorwayNodes(world, ctx, terrain);
   const evictees = vehicleIndex(world).all.filter((e) => {
     const cells = vehicleFootprintNodes(world, ctx.content, terrain, e);
     if (cells.some((node) => body.has(node))) return true;
@@ -34,11 +35,7 @@ export function evictVehiclesFromFootprint(world: World, ctx: SystemContext, bui
     if (doors.has(from)) return false;
     const traversal = vehicleTraversal(type);
     const walls = vehicleWalkBlocks(world, ctx, terrain, e, type);
-    return terrain
-      .neighbours(from)
-      .every(
-        (next) => !terrain.traversable(next, traversal) || !terrain.joined(from, next) || walls.has(next),
-      );
+    return !hasOpenSide(terrain, from, walls, traversal);
   });
   if (evictees.length === 0) return;
   const settlers = settlersByNode(world);
@@ -76,12 +73,7 @@ export function evictVehiclesFromFootprint(world: World, ctx: SystemContext, bui
             )
               return false;
           }
-          return terrain
-            .neighbours(node)
-            .some(
-              (next) =>
-                terrain.traversable(next, traversal) && terrain.joined(node, next) && !blocked.has(next),
-            );
+          return hasOpenSide(terrain, node, blocked, traversal);
         },
       },
       traversal,

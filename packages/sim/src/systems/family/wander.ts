@@ -1,6 +1,7 @@
 import { MoveGoal, Owner, Position, Residence } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
+import { hasOpenSide } from '../../nav/nearest.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { routeRegions } from '../footprint/index.js';
@@ -20,8 +21,8 @@ const CHILD_WANDER_PERIOD_TICKS = 90;
 
 /**
  * Maybe send the idle child `e` on a stroll near its home. Owned children only, following the
- * {@link PlannerSpacing} Owner convention, and only onto a walkable node outside building footprints; an
- * unlucky roll simply waits for the next one.
+ * {@link PlannerSpacing} Owner convention, and only onto a walkable node outside building footprints and
+ * doorways that keeps an open side; an unlucky roll simply waits for the next one.
  */
 export function planChildWander(
   world: World,
@@ -40,7 +41,9 @@ export function planChildWander(
   const dx = ctx.rng.int(2 * CHILD_WANDER_RADIUS_NODES + 1) - CHILD_WANDER_RADIUS_NODES;
   const dy = ctx.rng.int(2 * CHILD_WANDER_RADIUS_NODES + 1) - CHILD_WANDER_RADIUS_NODES;
   const target = terrain.nodeAtClamped(anchor.hx + dx, anchor.hy + dy);
-  if (!terrain.isWalkable(target) || spacing.blockedCells().has(target)) return;
+  const blocked = spacing.blockedCells();
+  if (!terrain.isWalkable(target) || blocked.has(target) || spacing.doorways().has(target)) return;
+  if (!hasOpenSide(terrain, target, blocked)) return;
   // Checked after the rolls, so the RNG stream is identical whether or not confinement is on.
   const limit = navigationLimitFor(world, ctx.content, terrain, e);
   if (limit !== null && !limit.allowsNode(target)) return;

@@ -1,5 +1,6 @@
 import { MoveGoal, Owner, Residence, Stance } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
+import { hasOpenSide } from '../../../nav/nearest.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
@@ -123,9 +124,9 @@ export function claimWorkCell(
 /**
  * Claim a stand cell beside the shared `anchor` for a worker with nothing to do. The anchor itself is never
  * returned, so a loitering operator never lands on the door node the production presence count reads. A
- * worker already alone on a yard cell that is neither the anchor nor a doorway stays put, and with no
- * free yard cell it stays where it is: loitering is a stance, never a refusal that must relocate
- * someone. Source basis: authored.
+ * worker already alone on a yard cell that is neither the anchor nor a doorway and keeps an open side
+ * stays put, and with no free yard cell it stays where it is: loitering is a stance, never a refusal that
+ * must relocate someone. Source basis: authored.
  */
 export function loiterCell(
   world: World,
@@ -138,16 +139,17 @@ export function loiterCell(
   if (!world.has(e, Owner)) return here; // unowned fixtures never relocate
   const yard = spacing.yard(anchor);
   const doorways = spacing.doorways();
-  if (here !== anchor && yard.has(here) && !doorways.has(here)) {
-    const hereXY = terrain.coordsOf(here);
-    const bucket = spacing.occupancy.at(hereXY.x, hereXY.y);
-    if (bucket.length === 0 || (bucket.length === 1 && bucket[0] === e)) return here;
+  const blocked = spacing.blockedCells();
+  // Doors and their passages stay free, and a stand keeps an exit.
+  if (yard.has(here) && here !== anchor && !doorways.has(here)) {
+    const bucket = spacing.occupancy.at(terrain.xOf(here), terrain.yOf(here));
+    const alone = bucket.length === 0 || (bucket.length === 1 && bucket[0] === e);
+    if (alone && hasOpenSide(terrain, here, blocked)) return here;
   }
   for (const cell of yard) {
-    if (cell === anchor || doorways.has(cell)) continue; // doors and their passages stay free
-    if (spacing.isClaimed(cell)) continue;
-    const { x, y } = terrain.coordsOf(cell);
-    if (spacing.occupancy.at(x, y).length > 0) continue;
+    if (cell === anchor || doorways.has(cell) || spacing.isClaimed(cell)) continue;
+    if (spacing.occupancy.at(terrain.xOf(cell), terrain.yOf(cell)).length > 0) continue;
+    if (!hasOpenSide(terrain, cell, blocked)) continue;
     spacing.claim(cell);
     return cell;
   }
@@ -155,9 +157,10 @@ export function loiterCell(
 }
 
 /**
- * The nearest cell to `from` that is walkable, unblocked, off every doorway, holds no resting occupant,
- * and is unclaimed this tick, or null when nothing free is reachable within the search cap. Blocked cells
- * are neither entered nor traversed, mirroring the pathfinder that will carry the move out.
+ * The nearest cell to `from` that is walkable, unblocked, off every doorway, keeps an open side, holds no
+ * resting occupant, and is unclaimed this tick, or null when nothing free is reachable within the search
+ * cap. Blocked cells are neither entered nor traversed, mirroring the pathfinder that will carry the move
+ * out.
  */
 export function nearestFreeCell(terrain: TerrainGraph, from: NodeId, spacing: PlannerSpacing): NodeId | null {
   const blocked = spacing.blockedCells();
@@ -166,8 +169,8 @@ export function nearestFreeCell(terrain: TerrainGraph, from: NodeId, spacing: Pl
     traverse: (n) => !blocked.has(n),
     accept: (n) => {
       if (spacing.isClaimed(n) || doorways.has(n)) return false;
-      const { x, y } = terrain.coordsOf(n);
-      return spacing.occupancy.at(x, y).length === 0;
+      if (spacing.occupancy.at(terrain.xOf(n), terrain.yOf(n)).length > 0) return false;
+      return hasOpenSide(terrain, n, blocked);
     },
   });
 }

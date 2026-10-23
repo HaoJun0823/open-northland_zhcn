@@ -21,7 +21,7 @@ import type { NodeId } from './node-id.js';
 import { type Step, StepBuffer } from './step-buffer.js';
 
 /** The 4-connected orthogonal neighbour offsets, in canonical order. */
-const NEIGHBOUR_OFFSETS: ReadonlyArray<readonly [dx: number, dy: number]> = [
+export const NEIGHBOUR_OFFSETS: ReadonlyArray<readonly [dx: number, dy: number]> = [
   [0, -1], // N
   [1, 0], // E
   [0, 1], // S

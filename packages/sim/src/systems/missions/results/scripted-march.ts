@@ -10,12 +10,13 @@ import {
 import type { Entity, World } from '../../../ecs/world.js';
 import { pairBySpace } from '../../../nav/formation.js';
 import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../nav/halfcell.js';
-import { NEAREST_NODE_SEARCH_CAP } from '../../../nav/nearest.js';
+import { hasOpenSide, NEAREST_NODE_SEARCH_CAP } from '../../../nav/nearest.js';
 import { ringSearch } from '../../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import { HALF_COLUMN, HALF_ROW } from '../../../nav/world-metric.js';
 import type { SystemContext } from '../../context.js';
 import { dynamicBlockOverlay } from '../../footprint/blocked.js';
+import { buildingDoorwayNodes } from '../../footprint/building-blocked-cache.js';
 import { standingPostGrid, unitWalkBlocks } from '../../movement/collision/standing-posts.js';
 import { formationSlotGroups, type Occupancy } from '../../orders/formation-slots.js';
 import { sendUnit } from '../../orders/movement.js';
@@ -137,8 +138,15 @@ function formationPlaces(
     const occupied = standingStrangers(ctx, held)(world, terrain, new Set(humans));
     const blocked = dynamicBlockOverlay(world, ctx, terrain);
     const open = (node: NodeId): boolean => terrain.isWalkable(node) && !blocked.has(node) && !occupied(node);
+    const doorways = buildingDoorwayNodes(world, ctx, terrain);
     const aim = terrain.nodeAtClamped(point.hx, point.hy);
-    const node = open(aim) ? aim : ringSearch(terrain, aim, NEAREST_NODE_SEARCH_CAP, { accept: open });
+    const free = (node: NodeId): boolean => open(node) && !doorways.has(node);
+    const stand = (node: NodeId): boolean => free(node) && hasOpenSide(terrain, node, blocked);
+    // A scripted human must arrive: a sealed node beats no place at all.
+    const node = open(aim)
+      ? aim
+      : (ringSearch(terrain, aim, NEAREST_NODE_SEARCH_CAP, { accept: stand }) ??
+        ringSearch(terrain, aim, NEAREST_NODE_SEARCH_CAP, { accept: free }));
     if (node !== null) places.set(one, { hx: terrain.xOf(node), hy: terrain.yOf(node) });
     return places;
   }

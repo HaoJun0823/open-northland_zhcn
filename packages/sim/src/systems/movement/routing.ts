@@ -29,6 +29,7 @@ import { findPath, RACE_SLICE_EXPLORED, type SearchStats } from '../../nav/pathf
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { ROW_STEP, worldDistance, worldX } from '../../nav/world-metric.js';
 import type { System, SystemContext } from '../context.js';
+import { buildingDoorwayNodes } from '../footprint/index.js';
 import { type WalkBlockMask, walkBlockMask } from '../footprint/walk-block-mask.js';
 import { routeFound } from '../settlers/lost-way.js';
 import { isValidNodeId } from '../spatial/nodes.js';
@@ -310,7 +311,12 @@ export function drainPathRequests(
       drain.occupied(structures).has(goal) &&
       !structures.has(goal)
     ) {
-      const free = nearestUnblockedNode(terrain, goal, drain.occupied(structures), claimedStandIns);
+      const free = nearestUnblockedNode(terrain, goal, drain.occupied(structures), {
+        claimed: claimedStandIns,
+        walls: structures,
+        avoid: buildingDoorwayNodes(world, ctx, terrain),
+        sealedFallback: true,
+      });
       if (free !== null) {
         goal = free;
         standIn = true;

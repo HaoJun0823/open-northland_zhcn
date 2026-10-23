@@ -11,6 +11,7 @@ import {
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import type { BlockOverlay } from '../../../nav/block-overlay.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
+import { hasOpenSide } from '../../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { translatedCells } from '../../footprint/geometry.js';
@@ -86,11 +87,16 @@ export class PlannerSpacing {
     this.claims.add(cell);
   }
 
+  /** A site's perimeter stand cells that keep an open side, so no builder is parked in a nook. */
   workCells(site: Entity): readonly NodeId[] {
     this.workCellsBySite ??= new Map();
     let cells = this.workCellsBySite.get(site);
     if (cells === undefined) {
-      cells = constructionWorkCells(this.world, this.ctx, this.terrain, site, this.blockedCells());
+      const blocked = this.blockedCells();
+      const perimeter = constructionWorkCells(this.world, this.ctx, this.terrain, site, blocked);
+      const open = perimeter.filter((cell) => hasOpenSide(this.terrain, cell, blocked));
+      // A site whose every perimeter cell is wedged still gets built.
+      cells = open.length > 0 ? open : perimeter;
       if (this.world.has(site, Palisade)) cells = this.offOtherWallSites(cells);
       this.workCellsBySite.set(site, cells);
     }

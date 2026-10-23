@@ -4,7 +4,9 @@ import { MAX_UNIT_ORDER_MEMBERS } from '../../core/commands/unit-orders.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { formationNodes } from '../../nav/formation.js';
 import { type HalfCellNode, nodeOfPosition } from '../../nav/halfcell.js';
+import { hasOpenSide } from '../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
+import { buildingDoorwayNodes } from '../footprint/building-blocked-cache.js';
 import { walkBlockMask } from '../footprint/walk-block-mask.js';
 import { routeStartCell } from '../movement/route-start.js';
 import { commandedVehicleOf } from '../vehicles/commander.js';
@@ -103,10 +105,15 @@ export function formationSlotGroups(
   if (movers.size === 0) return result;
   const occupied = occupancy(world, terrain, movers);
   const blocked = walkBlockMask(world, { content }, terrain).levelled();
+  const doorways = buildingDoorwayNodes(world, { content }, terrain);
   const chosen = new Set<NodeId>();
+  const clicked = terrain.nodeAt(seat.hx, seat.hy);
   const unavailable = (hx: number, hy: number): boolean => {
     const node = terrain.nodeAt(hx, hy);
     if (chosen.has(node) || !terrain.isWalkable(node) || blocked.has(node) || occupied(node)) return true;
+    // The clicked node is the player's own stand; a slot fanned out around it never takes a doorway or
+    // seals a member in. Source basis: authored.
+    if (node !== clicked && (doorways.has(node) || !hasOpenSide(terrain, node, blocked))) return true;
     const group = groups.get(terrain.componentOf(node));
     if (group === undefined || group.remaining === 0) return true;
     group.remaining--;

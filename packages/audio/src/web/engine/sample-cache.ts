@@ -254,16 +254,25 @@ export class SampleCache {
     const quality = this.quality;
     const bytes = await this.clipBytes(file, quality, index);
     try {
-      return await this.decode(bytes);
+      return await this.decodeSamples(bytes);
     } catch (err) {
       if (servedEncoding(index, file, quality) !== 'compact' || (await this.decodesOpus())) throw err;
       this.fallBackToLossless(err);
-      return this.decode(await this.clipBytes(file, 'lossless', index));
+      return this.decodeSamples(await this.clipBytes(file, 'lossless', index));
     }
   }
 
+  /** A decoder can return an empty buffer for bytes it does not understand instead of rejecting them;
+   *  that counts as a decode failure. */
+  private async decodeSamples(bytes: ArrayBuffer): Promise<AudioBuffer> {
+    const encodedBytes = bytes.byteLength; // read first: decoding detaches the buffer
+    const buffer = await this.decode(bytes);
+    if (buffer.length === 0 && encodedBytes > 0) throw new Error('the clip decoded to no samples');
+    return buffer;
+  }
+
   private decodesOpus(): Promise<boolean> {
-    this.opusProbe ??= this.decode(opusProbeBytes()).then(
+    this.opusProbe ??= this.decodeSamples(opusProbeBytes()).then(
       () => true,
       () => false,
     );

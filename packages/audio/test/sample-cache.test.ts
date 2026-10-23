@@ -21,6 +21,8 @@ const COMPACT_MARK = 0x0c;
 const isCompact = (file: string): boolean => file.endsWith('.ogg') || file.endsWith('.compact.bin');
 /** Every byte of a clip served corrupt, which no decoder takes. */
 const CORRUPT_MARK = 0xee;
+/** Every byte of a clip the decoder turns into an empty buffer without an error. */
+const EMPTY_MARK = 0xe0;
 /** An Ogg stream's capture pattern, which opens the cache's Opus probe. */
 const OGG_CAPTURE = [0x4f, 0x67, 0x67, 0x53];
 const isOgg = (bytes: Uint8Array): boolean => OGG_CAPTURE.every((byte, i) => bytes[i] === byte);
@@ -50,6 +52,10 @@ function makeCache(
     noCompactDecoder?: boolean;
     /** A clip file served with bytes no decoder takes. */
     corrupt?: string;
+    /** A clip file the decoder answers with an empty buffer, as WebKit did a FLAC it misread. */
+    empty?: string;
+    /** The decoder answers compact bytes with an empty buffer instead of rejecting them. */
+    emptyCompactDecoder?: boolean;
   } = {},
 ): Harness {
   const fetched: string[] = [];
@@ -67,6 +73,7 @@ function makeCache(
     const bytes = new Uint8Array(Math.max(1, bankClips) * CLIP_FRAMES * BYTES_PER_FRAME);
     if (isCompact(file)) bytes.fill(COMPACT_MARK);
     if (file === opts.corrupt) bytes.fill(CORRUPT_MARK);
+    if (file === opts.empty) bytes.fill(EMPTY_MARK);
     return bytes.buffer;
   };
   const served = opts.banks === null ? serve : servingSoundBanks(serve, opts.banks ?? NO_SOUND_BANKS);
@@ -86,8 +93,9 @@ function makeCache(
       const opus = view[0] === COMPACT_MARK || isOgg(view);
       if (view[0] === CORRUPT_MARK || (opts.noCompactDecoder === true && opus))
         throw new DOMException('Unable to decode audio data', 'EncodingError');
+      const empty = view[0] === EMPTY_MARK || (opts.emptyCompactDecoder === true && opus);
       return {
-        length: bytes.byteLength / BYTES_PER_FRAME,
+        length: empty ? 0 : bytes.byteLength / BYTES_PER_FRAME,
         numberOfChannels: 1,
         duration: 1,
       } as unknown as AudioBuffer;
@@ -341,6 +349,25 @@ describe('SampleCache compact fallback', () => {
     expect(files(fetched)).toEqual(['talk/a.ogg', 'talk/b.ogg', 'gui/click.ogg']);
     expect(oggDecodes).toHaveLength(1);
     expect(warnings).toEqual([]);
+  });
+
+  it('treats an empty buffer from compact bytes as a failed decode and moves to lossless', async () => {
+    const { cache, fetched, warnings } = makeCache({
+      banks: twoBanks(),
+      quality: 'compact',
+      emptyCompactDecoder: true,
+    });
+    expect((await cache.get('talk/a.wav'))?.length).toBe(CLIP_FRAMES);
+    expect(files(fetched)).toEqual(['talk/a.ogg', 'talk/a.flac']);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('fails a clip that decodes to no samples instead of caching the empty buffer', async () => {
+    const { cache, fetched } = makeCache({ banks: twoBanks(), quality: 'lossless', empty: 'talk/a.flac' });
+    expect(await cache.get('talk/a.wav')).toBeNull();
+    expect(await cache.get('talk/a.wav')).toBeNull();
+    expect(cache.bytes).toBe(0);
+    expect(files(fetched)).toEqual(['talk/a.flac']);
   });
 
   it('stays compact when a clip fails to arrive rather than to decode', async () => {

@@ -103,6 +103,8 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
   let dirtyDots = true;
   let base = minimapLayout(bounds, app.screen.height, uiScale, size, app.screen.width);
   let layout = zoomMinimapLayout(base, bounds, zoom, center);
+  /** The shown part of the dot raster, in raster px. */
+  let visibleRaster: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   const container = new Container();
   container.zIndex = 1000;
@@ -114,7 +116,9 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
   const clip = new Graphics();
   const view = new Graphics();
   const goalGraphics = new Graphics();
-  container.addChild(backdrop, world, clip, view, goalGraphics);
+  /** Shares the world's transform but not its clip: the alarm rings reach past the frame. */
+  const unclippedWorld = new Container();
+  container.addChild(backdrop, world, clip, view, goalGraphics, unclippedWorld);
   const goalMarks = createGoalMarks(goalGraphics);
   world.mask = clip;
   app.stage.addChild(container);
@@ -159,7 +163,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
   dots.width = raster.w;
   dots.height = raster.h;
   world.addChild(dots);
-  const alarms = createAlarmLayer(world, bounds, rasterScale);
+  const alarms = createAlarmLayer(world, unclippedWorld, bounds, rasterScale);
 
   const zoomAt = (delta: number, anchor?: { x: number; y: number }): void => {
     const next = Math.max(1, Math.min(4, zoom * 2 ** (delta / 2)));
@@ -234,9 +238,18 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
       setMinimapReserve(plane, hidden ? null : base.panel, uiScale);
       dirtyDots = true;
     }
-    chrome.setLayout(base.panel, visibleMinimapRect(layout), uiScale);
+    const shown = visibleMinimapRect(layout);
+    chrome.setLayout(base.panel, shown, uiScale);
     world.position.set(layout.map.x, layout.map.y);
     world.scale.set(layout.map.w / raster.w, layout.map.h / raster.h);
+    visibleRaster = {
+      x: (shown.x - layout.map.x) / world.scale.x,
+      y: (shown.y - layout.map.y) / world.scale.y,
+      w: shown.w / world.scale.x,
+      h: shown.h / world.scale.y,
+    };
+    unclippedWorld.position.copyFrom(world.position);
+    unclippedWorld.scale.copyFrom(world.scale);
     const visible = !hidden && layout.scaleX > 0 && layout.scaleY > 0;
     container.visible = visible;
     chrome.setHidden(!visible);
@@ -316,7 +329,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
         pixels.set(plotted);
         texture.source.update();
       }
-      alarms.draw(performance.now(), stampScale());
+      alarms.draw(performance.now(), stampScale(), visibleRaster);
       const rect = viewportRectOnMinimap(
         layout,
         bounds,

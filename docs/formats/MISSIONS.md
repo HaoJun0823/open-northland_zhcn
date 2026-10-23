@@ -698,6 +698,18 @@ without acquiring another chase. This local assignment survives save/load and yi
 map orders. The autonomous computer player can mobilize its available army more widely. These
 defence boundaries are approximations, not a claim of exact original tactical behavior.
 
+The scripted AI also keeps up to 30 of the seat's vehicles. On every turn it attaches the nearest
+listed soldier or hero within 20 map points to each one without a commander, and every vehicle,
+since no map task takes one, looks 30 map points around where it stands and is sent at the nearest
+enemy catapult, else soldier or hero, else defended house (a reading); a vehicle joining the list
+gets the hold stance. Of the 537 catapults the decoded maps place, 516 have a soldier or hero of
+their seat within 20 points, most within five. This build crews every catapult of the seat, with no
+cap on how many, and only while the computer player's military module, which crews and parks its
+own, is off. A crewed catapult takes the defence stance at its spot instead of the turn's search:
+its own scan answers an enemy out to 40 map points around the spot and gives the chase up past 60,
+and once idle more than 4 points off the spot it drives back (project rule; the original's search
+from wherever the catapult stands lets it drift after its targets).
+
 Every radius below is a hex distance between map points, the radius itself included.
 
 The scripted AI mans the seat's finished towers with one free soldier of each bow class the tower

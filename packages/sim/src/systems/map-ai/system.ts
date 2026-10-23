@@ -25,6 +25,7 @@ import { mapAiSoldierClaims, releaseCampaignClaims } from '../ai-shared/military
 import { ownedBuildings, ownedSettlers } from '../ai-shared/seat-roster.js';
 import type { System, SystemContext } from '../context.js';
 import { withdrawAiEntityOrder } from '../orders/ai-lifecycle.js';
+import { type CatapultDecision, catapultOrders } from './catapults.js';
 import { CONDITION_ALWAYS, conditionsBySlot, freshConditionRecord, recheckConditions } from './conditions.js';
 import { familyOrders } from './families.js';
 import { rebuildList, rebuildOrders } from './rebuild.js';
@@ -35,9 +36,9 @@ import { holdTownGoods, townStaffingOrders } from './town.js';
 /**
  * The scripted handler's program (`docs/formats/MISSIONS.md`, AI data): on a computer seat's handler
  * turn, judge its condition slots, re-judge its tasks when a slot changed, run the one-shots, keep its
- * soldier list, hand the men to the Defend and Attack groups on every second turn and order them on
- * every turn, then keep the town ({@link townOrders}). The rows come from the map (`ctx.mapAiScript`); the
- * state is the seat's `MapAiState`.
+ * soldier list and crew its catapults, hand the men to the Defend and Attack groups on every second
+ * turn and order them on every turn, then keep the town ({@link townOrders}). The rows come from the
+ * map (`ctx.mapAiScript`); the state is the seat's `MapAiState`.
  *
  * Map tasks reserve their soldiers before autonomous decisions. Original behavior: a player's death
  * turns both handlers off, so a seat the match marked dead skips its turn (a reading, unconfirmed
@@ -70,13 +71,20 @@ export const mapAiSystem: System = (world, ctx) => {
   let raiderList: readonly Raider[] | null = null;
   const raiders = (): readonly Raider[] => (raiderList ??= seatRaiders(world, ctx, terrain, seat));
   updateSoldierList(world, ctx, seat, program.soldiers, NO_CLAIMS);
+  // The computer player's military module crews and parks its own catapults.
+  const catapults = autonomous ? NO_CATAPULT_ORDERS : catapultOrders(world, ctx, seat, program.soldiers);
+  for (const entity of catapults.drafted) {
+    if (world.tryGet(entity, AiOrder)?.source === 'map-ai') withdrawAiEntityOrder(world, ctx, entity);
+  }
   const previous = new Map(program.soldiers.map((record) => [record.entity, record.task]));
   clearInvalidTasks(defs, groups, program.soldiers);
   const defaultPosition = autonomous ? null : program.defaultPosition;
-  const commands =
-    recheck || turn % 2 === 0
-      ? assignSoldiers(world, ctx, defs, groups, program.soldiers, program.groups, defaultPosition)
-      : [];
+  const commands = [...catapults.commands];
+  if (recheck || turn % 2 === 0) {
+    commands.push(
+      ...assignSoldiers(world, ctx, defs, groups, program.soldiers, program.groups, defaultPosition),
+    );
+  }
   const claims = mapAiSoldierClaims(world, seat);
   const reassigned = new Set(
     program.soldiers
@@ -96,7 +104,9 @@ export const mapAiSystem: System = (world, ctx) => {
     ctx,
     terrain,
     ownedBuildings(world, seat),
-    takeCensus(world, ctx, seat).ready.filter((entity) => !claims.has(entity)),
+    takeCensus(world, ctx, seat).ready.filter(
+      (entity) => !claims.has(entity) && !catapults.drafted.has(entity),
+    ),
     autonomous ? 'computer-player' : 'map-ai',
     raiders,
   ).claimed;
@@ -134,6 +144,7 @@ export const mapAiSystem: System = (world, ctx) => {
 };
 
 const NO_CLAIMS: ReadonlySet<Entity> = new Set();
+const NO_CATAPULT_ORDERS: CatapultDecision = { commands: [], drafted: NO_CLAIMS };
 
 /** Handler turns between its rebuild, town and family passes. Original behavior. */
 const REBUILD_EVERY_TURNS = 3;

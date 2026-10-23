@@ -409,7 +409,8 @@ Open Northland (`packages/sim/src/systems/conflict/engage-vehicle.ts`, `projecti
 stance, guard position and attack ride on the `Vehicle` component; the guard position is set by
 the stance order and a goto's end. A chase, ordered or scanned, leaves it where it was, so a holding
 or defending vehicle that chased far scans around the old spot until a goto or stance order (original
-behavior). Approximation: the original's goto writes its goal as the drive starts, and whether its
+behavior). A chase that loses its target under way, which fell, left the map or ran the defence past
+its leash, stops on the node it is crossing and leaves the guard position too. Approximation: the original's goto writes its goal as the drive starts, and whether its
 stance order writes it is not read.
 Ranges are map points, the hexagon distance every other weapon band counts in. The four-step target
 preference is one nearest search (approximation). The stone is a `Projectile` with a ground-burst

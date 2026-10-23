@@ -131,8 +131,10 @@ export function engageVehicle(
       return;
     }
     // A plain goto in progress, or one held for the crew to board, is not hijacked by a scan; a march is.
+    // A drive that still carries a target is the chase of one that fell or was taken off the map.
     if (march === null && target === null && (world.has(e, VehicleDrive) || state.heldGoal !== null)) {
-      dropTarget(world, e);
+      if (held !== null) quitChase(world, e);
+      else dropTarget(world, e);
       return;
     }
     target = scanForTarget(world, ctx, terrain, pass, e, stance, state.guard, identity, weapon, here, target);
@@ -321,7 +323,7 @@ function actOnTarget(
   if (!ordered && stance === 'defence' && state.guard !== null) {
     const leash = hexNodeDistance(terrain, terrain.nodeAtClamped(state.guard.hx, state.guard.hy), here);
     if (leash > VEHICLE_DEFENCE_LEASH_POINTS) {
-      dropTarget(world, e);
+      quitChase(world, e);
       return;
     }
   }
@@ -549,6 +551,14 @@ function dropTarget(world: World, e: Entity): void {
   const live = world.mut(e, Vehicle);
   live.attack = null;
   if (live.task === 'attacks') live.task = 'none';
+}
+
+/** Forget the target of a chase under way: the drive stops on the node it is crossing, and its end
+ *  leaves the guard position where the chase found it (original behavior: a chase never moves it). */
+function quitChase(world: World, e: Entity): void {
+  dropTarget(world, e);
+  if (!cutRoute(world, e)) return;
+  world.mut(e, VehicleDrive).chaseLost = true;
 }
 
 /** The attack a fresh player order stands for; the target is rebuilt by kind, so a wire payload's

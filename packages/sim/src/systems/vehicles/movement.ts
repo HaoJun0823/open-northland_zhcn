@@ -411,6 +411,7 @@ function deliverRoute(
   } else {
     drive.goal = goal;
     drive.step = 0;
+    drive.chaseLost = undefined;
   }
   const held = world.tryGet(vehicle, VehicleRoute);
   if (held === undefined) world.add(vehicle, VehicleRoute, { nodes: route });
@@ -934,10 +935,11 @@ export const vehicleMovementSystem: System = (world, ctx) => {
     }
     if (next === undefined) {
       if (state.task !== 'interrupted' && settleOutOfGap(world, ctx, terrain, e)) continue;
+      const chaseLost = drive.chaseLost === true;
       endDrive(world, e); // arrived, or stopped on its node
       if (state.task === 'docks') moorVehicle(world, ctx, e);
       else moorByShore(world, ctx, terrain, e);
-      reanchorGuard(world, e);
+      if (!chaseLost) reanchorGuard(world, e);
       continue;
     }
     const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
@@ -1006,7 +1008,10 @@ function settleOutOfGap(world: World, ctx: SystemContext, terrain: TerrainGraph,
     radius: VEHICLE_SETTLE_RADIUS,
     exclude: (node) => otherVehicleCovers(world, ctx, terrain, e, node),
   });
+  const chaseLost = world.tryGet(e, VehicleDrive)?.chaseLost === true;
   if (spot === null || !startVehicleDrive(world, ctx, terrain, e, spot)) return false;
+  // The settling step finishes a lost chase, whose end still leaves the guard position.
+  if (chaseLost) world.mut(e, VehicleDrive).chaseLost = true;
   // A march that reached its goal is over, so it does not drive back onto a goal that closed.
   const march = world.get(e, Vehicle).march;
   if (march !== null && march.goal.hx === anchor.hx && march.goal.hy === anchor.hy) endMarch(world, e);
@@ -1015,7 +1020,7 @@ function settleOutOfGap(world: World, ctx: SystemContext, terrain: TerrainGraph,
 
 /** Wherever a drive ends, arrived, stopped or given up, is the new guard position a holding or
  *  defending siege vehicle scans around, unless the drive was its own chase, which must not walk the
- *  guard along with it. */
+ *  guard along with it: one still holding its target here, one that lost it by the drive's `chaseLost`. */
 function reanchorGuard(world: World, e: Entity): void {
   const state = world.get(e, Vehicle);
   const anchor = vehicleAnchor(world, e);

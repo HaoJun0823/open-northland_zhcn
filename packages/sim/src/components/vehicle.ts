@@ -177,6 +177,9 @@ export const VehicleDrive = defineComponent<{
   progress: number;
   increment: number;
   helm: ShipHelm | null;
+  /** Set once the combat pass dropped the target this drive was closing on: the drive stops on the node
+   *  it is crossing, and its end leaves the guard position where the chase found it. */
+  chaseLost?: true | undefined;
 }>('VehicleDrive', 'movement');
 
 /**

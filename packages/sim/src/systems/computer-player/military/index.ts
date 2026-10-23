@@ -68,7 +68,6 @@ export {
   PARK_RING_MIN_NODES,
   PARK_SPACING_NODES,
   parkingOrders,
-  seatCatapults,
 } from './siege-crew.js';
 
 /** Autonomous campaign, siege crews and equipment requests consume only the force left after authored

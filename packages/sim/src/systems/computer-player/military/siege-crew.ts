@@ -10,6 +10,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { type HalfCellNode, hexDistance, hexDistanceBetween } from '../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
+import { seatCatapults } from '../../ai-shared/military/catapults.js';
 import { fighterWeaponClass } from '../../ai-shared/military/census.js';
 import { garrisonSlots } from '../../ai-shared/military/defence/posts.js';
 import type { Raider } from '../../ai-shared/military/defence/threat.js';
@@ -19,11 +20,9 @@ import { isBuilt } from '../../ai-shared/seat-roster.js';
 import { VEHICLE_SCAN_RADIUS_POINTS } from '../../conflict/engage-vehicle.js';
 import type { SystemContext } from '../../context.js';
 import { vehicleAnchor } from '../../footprint/index.js';
-import { isSiegeVehicle } from '../../readviews/index.js';
 import { interactionCell } from '../../settlers/targets/index.js';
 import { canAttachToVehicle } from '../../vehicles/crew.js';
 import { VEHICLE_TARGET_SNAP_RADIUS, vehicleRestBlocks } from '../../vehicles/movement.js';
-import { vehicleIndex } from '../../vehicles/registry.js';
 import { seatBarracksOf } from '../base.js';
 
 // The seat's catapults: a soldier drives each one, and one idle at home parks on the attack stance by the
@@ -63,19 +62,6 @@ export interface SiegeCrewDecision {
 }
 
 const NO_CREW: SiegeCrewDecision = { commands: [], drafted: new Set(), parkedDrivers: [] };
-
-/** The seat's siege vehicles standing on the map, ascending id. Read off the vehicle index, so the cost
- *  is the seat's vehicles. */
-export function seatCatapults(world: World, ctx: SystemContext, player: number): Entity[] {
-  const types = contentIndex(ctx.content).vehicles;
-  return vehicleIndex(world)
-    .ownedBy(player)
-    .filter((e) => {
-      const state = world.get(e, Vehicle);
-      const type = types.get(state.vehicleType);
-      return type !== undefined && isSiegeVehicle(type) && state.carrier === null;
-    });
-}
 
 /** The seat's catapults that have a driver, ascending by vehicle id. */
 export function crewedCatapults(world: World, ctx: SystemContext, player: number): CrewedCatapult[] {

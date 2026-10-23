@@ -108,6 +108,8 @@ const BOW_VS_VEHICLE = 40;
 const MACE_VS_VEHICLE = 40;
 /** A commander this practised never scatters: the roll (0..99) can never exceed `skill + 10`. */
 const MASTER_SKILL = 100;
+/** The most map points one lattice edge, a vehicle's leg, spans. */
+const LEG_MAX_POINTS = 2;
 /** Enough ticks for a stone to be loosed and land from anywhere in the band. */
 const SHOT_TICKS = 120;
 /** A house no run of stones brings down, so a long shot series keeps its mark. */
@@ -668,6 +670,25 @@ describe('the clip and its target', () => {
     order(s, catapult, P1, houseAt(s, 22, 8, P2));
     const refused = collect(s, 1, ['vehicleMoveRefused']);
     expect(refused.map((ev) => (ev.kind === 'vehicleMoveRefused' ? ev.reason : ''))).toEqual(['noCommander']);
+  });
+
+  it('stops on its next node where a defending chase lost its mark, and keeps the guard it left', () => {
+    const s = sim(grass(40, 12));
+    const catapult = catapultAt(s, 8, 8, P1);
+    // Beyond the far reach, inside the defence scan: the catapult drives to close on it.
+    const house = houseAt(s, 8 + CATAPULT_MAX_RANGE + 12, 8, P2, TOUGH_HOUSE);
+    s.enqueue(playerCommand(P1, { kind: 'setVehicleStance', vehicle: catapult, stance: 'defence' }));
+    for (let i = 0; i < SHOT_TICKS && anchorOf(s, catapult).hx < 12; i++) s.step();
+    expect(s.world.has(catapult, VehicleDrive)).toBe(true);
+    const lostAt = anchorOf(s, catapult);
+    s.world.destroy(house);
+    s.run(SHOT_TICKS);
+    expect(s.world.has(catapult, VehicleDrive)).toBe(false);
+    expect(s.world.get(catapult, Vehicle).attack).toBeNull();
+    // At most the leg under way.
+    const stood = anchorOf(s, catapult);
+    expect(hexDistanceBetween(lostAt.hx, lostAt.hy, stood.hx, stood.hy)).toBeLessThanOrEqual(LEG_MAX_POINTS);
+    expect(s.world.get(catapult, Vehicle).guard).toEqual({ hx: 8, hy: 8 });
   });
 
   it('in the defence stance, chases within the leash and keeps its target while the drive runs', () => {

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { MapScript, mapLobbySlots, TerrainMapFile } from '@open-northland/data';
 import {
   components,
+  type Entity,
   hexDistanceBetween,
   nodeOfPosition,
   type Simulation,
@@ -42,6 +43,17 @@ const FIRST_RAIDER = 7;
 const OBJECTIVE = { x: 407, y: 263 };
 /** The men the first wave brings: the seat's three CreateCreatures lines on the flag. */
 const FIRST_WAVE = 5;
+/** The person's seat, at war with the fortress, and the tribe of its men. */
+const PERSON = 0;
+const VIKING = 1;
+/** The catapults the map stands in the keep, each with a man of the garrison beside it. */
+const KEEP_CATAPULTS = 11;
+/** Rounds enough for the keep's handler to crew its catapults and the men to step aboard. */
+const CREW_ROUNDS = 3;
+/** Where a lone viking stands from the first catapult: inside its firing band (map points). */
+const RAIDER_DISTANCE = 16;
+/** Ticks for the catapult to find the raider and loose its first stone at him. */
+const SHOT_TICKS = 120;
 
 async function fortressWorld(): Promise<{ sim: Simulation; script: MapScript }> {
   const ir = rawIrUnderTest() as ContentIr;
@@ -72,6 +84,27 @@ function programOf(sim: Simulation, seat: number) {
   const carrier = components.mapAiEntity(sim.world, seat);
   if (carrier === null) throw new Error(`seat ${seat} runs no program`);
   return sim.world.get(carrier, components.MapAiState);
+}
+
+function keepCatapults(sim: Simulation): Entity[] {
+  return [...sim.world.query(components.Vehicle, components.Owner)].filter(
+    (e) => sim.world.get(e, components.Owner).player === FORTRESS,
+  );
+}
+
+/** The first walkable node `distance` map points from `from` on its continent, scanning row by row. */
+function nodeAtDistance(sim: Simulation, from: { hx: number; hy: number }, distance: number) {
+  const terrain = sim.terrain;
+  if (terrain === undefined) throw new Error('the map world has no terrain');
+  const continent = terrain.componentOf(terrain.nodeAt(from.hx, from.hy));
+  for (let hy = from.hy - distance; hy <= from.hy + distance; hy++) {
+    for (let hx = from.hx - 2 * distance; hx <= from.hx + 2 * distance; hx++) {
+      if (!terrain.inBounds(hx, hy) || hexDistanceBetween(from.hx, from.hy, hx, hy) !== distance) continue;
+      const node = terrain.nodeAt(hx, hy);
+      if (terrain.isWalkable(node) && terrain.componentOf(node) === continent) return { hx, hy };
+    }
+  }
+  throw new Error('no walkable node at that distance');
 }
 
 function ownedSoldiers(sim: Simulation, seat: number): number {
@@ -199,5 +232,52 @@ describe.runIf(hasRealIr())('the fortress map’s authored AI seats', () => {
         hexDistanceBetween(entry.command.x, entry.command.y, OBJECTIVE.x, OBJECTIVE.y) < 5,
     );
     expect(marches.length).toBeGreaterThanOrEqual(FIRST_WAVE);
+  }, 120_000);
+
+  it('crews the keep’s catapults with the men beside them, and they shell a raider in reach', async () => {
+    const { sim } = await fortressWorld();
+    const catapults = keepCatapults(sim);
+    expect(catapults).toHaveLength(KEEP_CATAPULTS);
+    sim.run(CREW_ROUNDS * ROUND);
+    for (const e of catapults) {
+      const state = sim.world.get(e, components.Vehicle);
+      expect(components.vehicleCommander(state), `catapult ${e}`).not.toBeNull();
+      expect(components.vehiclePassengers(state).every((seat) => seat.inside)).toBe(true);
+      expect(state.stance).toBe('defence');
+    }
+    const first = catapults[0];
+    if (first === undefined) throw new Error('no catapult');
+    const at = sim.world.get(first, components.Position);
+    const spot = nodeAtDistance(sim, nodeOfPosition(at.x, at.y), RAIDER_DISTANCE);
+    const swordsman = sim.content.jobs.find((job) => job.id === 'soldier_sword_short')?.typeId;
+    if (swordsman === undefined) throw new Error('no swordsman job');
+    const before = new Set(sim.world.query(components.Settler));
+    // Invulnerable, the raider outlives the garrison's first blows; passive, he stays where he stands.
+    const { INVULNERABLE, PASSIVE } = components.MISSION_BEHAVIOUR;
+    sim.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType: swordsman,
+      x: spot.hx,
+      y: spot.hy,
+      tribe: VIKING,
+      owner: PERSON,
+      behaviourFlags: INVULNERABLE | PASSIVE,
+    });
+    sim.step();
+    if ([...sim.world.query(components.Settler)].every((e) => before.has(e))) {
+      throw new Error('the raider did not spawn');
+    }
+    // A catapult's stone is loosed by its commander.
+    const commanders = catapults.map((e) =>
+      components.vehicleCommander(sim.world.get(e, components.Vehicle)),
+    );
+    let shot = false;
+    for (let t = 0; t < SHOT_TICKS && !shot; t++) {
+      sim.step();
+      for (const e of sim.world.query(components.Projectile)) {
+        if (commanders.includes(sim.world.get(e, components.Projectile).source)) shot = true;
+      }
+    }
+    expect(shot).toBe(true);
   }, 120_000);
 });

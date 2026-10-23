@@ -21,7 +21,8 @@ const LATE_CHECK_HEARTBEATS = 2;
 /**
  * Tells a silent worker from a busy runtime: any message from the worker counts as heard, and a check
  * that itself comes late means this thread was blocked, whose queued messages have not been read yet,
- * so the silence restarts instead of being charged to the worker. Checked once per heartbeat.
+ * so the silence restarts instead of being charged to the worker. Once a silence is reported it runs
+ * on, so its recovery reports the whole of it. Checked once per heartbeat.
  */
 export class StallWatch {
   private lastHeardMs: number;
@@ -47,7 +48,9 @@ export class StallWatch {
   }
 
   check(nowMs: number): void {
-    if (nowMs - this.lastCheckMs > LATE_CHECK_HEARTBEATS * this.heartbeatMs) this.lastHeardMs = nowMs;
+    if (!this.reported && nowMs - this.lastCheckMs > LATE_CHECK_HEARTBEATS * this.heartbeatMs) {
+      this.lastHeardMs = nowMs;
+    }
     this.lastCheckMs = nowMs;
     if (this.reported || nowMs - this.lastHeardMs <= this.timeoutMs) return;
     this.reported = true;

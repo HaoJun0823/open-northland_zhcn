@@ -126,6 +126,14 @@ describe('stall watch', () => {
     watch.check(3000 + HEARTBEAT_MS);
     expect(reports).toEqual([]);
   });
+
+  it('reports the whole silence on recovery when a check came late after the stall', () => {
+    const { watch, reports } = watched();
+    for (let t = HEARTBEAT_MS; t <= 600; t += HEARTBEAT_MS) watch.check(t);
+    watch.check(1000);
+    watch.heard(1050);
+    expect(reports).toEqual(['stalled 600', 'recovered 1050']);
+  });
 });
 
 function sandbox() {

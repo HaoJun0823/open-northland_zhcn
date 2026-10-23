@@ -38,6 +38,9 @@ const MAX_WORKERS = 3;
  *  sheet spawns it again. */
 export const IDLE_WORKER_TERMINATE_MS = 10_000;
 
+/** Multiplier of the string hash that pins a sheet URL to one worker, so its stems share a decode. */
+const URL_HASH_MULTIPLIER = 31;
+
 const spawnWorker = (): PalettedSheetWorker =>
   new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
 
@@ -79,7 +82,7 @@ export function createPalettedSheetClient(
   };
   const slotFor = (url: string): Slot => {
     let hash = 0;
-    for (let i = 0; i < url.length; i++) hash = (hash * 31 + url.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < url.length; i++) hash = (hash * URL_HASH_MULTIPLIER + url.charCodeAt(i)) >>> 0;
     const index = hash % size;
     const live = slots[index];
     if (live !== undefined) return live;

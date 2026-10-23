@@ -5,6 +5,7 @@ import { loadAtlasManifest } from '../content/bob-atlases.js';
 import { GUI_FRAMES } from '../content/gui-atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
 import { atlasImagePath, contentUrl } from '../content/url.js';
+import { diag } from '../diag/log.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { el, mountMessage, pageInnerStyle, pageRootStyle } from '../view/overlay.js';
 
@@ -75,12 +76,12 @@ function installStyle(): void {
   document.head.append(s);
 }
 
-/** The object URL of the last paletted sheet the gallery coloured, revoked when the next one replaces it. */
+/** The object URL of the shown paletted sheet, revoked when the next sheet replaces it. */
 let colouredSheetUrl: string | undefined;
 
 /**
  * The sheet a stem's tiles crop from: a paletted one is coloured as the map colours it and shown through
- * an object URL, since a sheet-sized data URL passes the browser's URL length limit.
+ * an object URL (its caller revokes it), since a sheet-sized data URL passes the browser's URL length limit.
  */
 async function gallerySheetUrl(atlas: AtlasManifest): Promise<string> {
   if (atlas.palette === undefined) return contentUrl(atlasImagePath(atlas.image));
@@ -92,9 +93,7 @@ async function gallerySheetUrl(atlas: AtlasManifest): Promise<string> {
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
   if (blob === null) throw new Error(`icons: ${atlas.image} could not be encoded`);
-  if (colouredSheetUrl !== undefined) URL.revokeObjectURL(colouredSheetUrl);
-  colouredSheetUrl = URL.createObjectURL(blob);
-  return colouredSheetUrl;
+  return URL.createObjectURL(blob);
 }
 
 function groupLabel(base: string): string {
@@ -170,6 +169,8 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
     document.body.append(root);
 
     let selected: HTMLElement | null = null;
+    /** Bumped per stem switch, so a slow colouring that finishes later cannot replace a newer sheet. */
+    let selection = 0;
 
     const applyFilter = (): void => {
       const t = filter.value.trim().toLowerCase();
@@ -186,14 +187,28 @@ export function renderIconGallery(_canvas: HTMLCanvasElement, params: URLSearchP
     };
 
     const showAtlas = async (stem: string): Promise<void> => {
+      const shownSelection = ++selection;
       grid.textContent = '';
       selected = null;
-      const atlas = await loadAtlasManifest(stem);
-      if (atlas === null) {
+      const loaded = await loadAtlasManifest(stem)
+        .then(async (atlas) => (atlas === null ? null : { atlas, sheetUrl: await gallerySheetUrl(atlas) }))
+        .catch((err: unknown) => {
+          diag.warn('content', `icons: ${stem} could not be shown`, err);
+          return null;
+        });
+      const objectUrl = loaded?.atlas.palette === undefined ? undefined : loaded.sheetUrl;
+      if (shownSelection !== selection) {
+        if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      if (loaded === null) {
         meta.textContent = formatMessage(messages().icons.loadFailed, { stem });
         return;
       }
-      grid.style.setProperty('--sheet', `url('${await gallerySheetUrl(atlas)}')`);
+      if (colouredSheetUrl !== undefined) URL.revokeObjectURL(colouredSheetUrl);
+      colouredSheetUrl = objectUrl;
+      const { atlas } = loaded;
+      grid.style.setProperty('--sheet', `url('${loaded.sheetUrl}')`);
       grid.style.setProperty('--sw', String(atlas.width));
       grid.style.setProperty('--sh', String(atlas.height));
       const withName = stem.startsWith(`${GUI_BASE}.`);

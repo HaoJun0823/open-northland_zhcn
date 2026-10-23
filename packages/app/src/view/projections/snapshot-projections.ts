@@ -3,7 +3,7 @@ import { anchorTileBox, type Viewport } from '@open-northland/render/data';
 import type { SignpostReachView } from '@open-northland/sim';
 import { TILE_BUCKET_SIZE, type TileBox, type WorldSnapshot } from '@open-northland/sim';
 import type { WorkerRole } from '../../game/sandbox/index.js';
-import type { ViewerSeat } from '../../game/viewer-seat.js';
+import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import { computeConstructionSigns } from './construction-signs.js';
 import { type BuildingDoorInfoOf, computeDoorBadges, type DoorBadgeCache } from './door-badges.js';
 import { computeExperienceStars, type ExperienceStarInputs } from './experience-stars.js';
@@ -194,7 +194,7 @@ export function createSnapshotProjections(
       return fog === null ? signs : signs.filter((sign) => fogTileVisible(fog, sign.x / ONE, sign.y / ONE));
     }, viewerVersion),
     settlerBubblesFor: memoBySnapshot((snapshot) => {
-      const bubbles = computeSettlerBubbles(snapshot);
+      const bubbles = computeSettlerBubbles(snapshot, pickableSeat(viewer));
       const fog = fogGates.current();
       return fog === null ? bubbles : bubbles.filter((b) => fogTileVisible(fog, b.x / ONE, b.y / ONE));
     }, viewerVersion),

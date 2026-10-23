@@ -13,6 +13,7 @@ import { type Ent, snapshotOf } from './support/snapshot.js';
 
 const WOMAN = 5; // any adult job id - the projection keys on the components, not the trade
 const MAN = 6;
+const WHOLE_MAP = null;
 
 /** An adult settler at tile `(x, y)` carrying exactly the given extra components. */
 function settlerAt(id: number, jobType: number, x: number, y: number, extra: Record<string, unknown>): Ent {
@@ -26,7 +27,7 @@ describe('computeSettlerBubbles', () => {
   it('floats a child bubble over a woman with a make-child order, at her position', () => {
     const snap = snapshotOf([settlerAt(1, WOMAN, 4, 7, { ChildOrder: { child: 'female' } })]);
 
-    expect(computeSettlerBubbles(snap)).toEqual([
+    expect(computeSettlerBubbles(snap, WHOLE_MAP)).toEqual([
       { id: 1, x: fx.fromInt(4), y: fx.fromInt(7), kind: 'child' },
     ]);
   });
@@ -34,9 +35,9 @@ describe('computeSettlerBubbles', () => {
   it('hides the child-order bubble inside the home and restores it if she leaves before birth', () => {
     const outside = settlerAt(1, WOMAN, 4, 7, { ChildOrder: { child: 'male' } });
     const inside = { ...outside, components: { ...outside.components, Resting: { at: 9 } } };
-    expect(computeSettlerBubbles(snapshotOf([outside]))).toHaveLength(1);
-    expect(computeSettlerBubbles(snapshotOf([inside]))).toEqual([]);
-    expect(computeSettlerBubbles(snapshotOf([outside]))).toHaveLength(1);
+    expect(computeSettlerBubbles(snapshotOf([outside]), WHOLE_MAP)).toHaveLength(1);
+    expect(computeSettlerBubbles(snapshotOf([inside]), WHOLE_MAP)).toEqual([]);
+    expect(computeSettlerBubbles(snapshotOf([outside]), WHOLE_MAP)).toHaveLength(1);
   });
 
   it('floats a partner bubble over both settlers walking through a wedding', () => {
@@ -45,7 +46,7 @@ describe('computeSettlerBubbles', () => {
       settlerAt(2, MAN, 6, 4, { Wedding: { partner: 1, kissing: false } }),
     ]);
 
-    const bubbles = computeSettlerBubbles(snap);
+    const bubbles = computeSettlerBubbles(snap, WHOLE_MAP);
     expect(bubbles).toHaveLength(2);
     expect(bubbles.every((b) => b.kind === 'partner')).toBe(true);
     expect(bubbles.map((b) => b.id).sort()).toEqual([1, 2]);
@@ -57,7 +58,7 @@ describe('computeSettlerBubbles', () => {
       settlerAt(2, WOMAN, 5, 5, { ChildOrder: { child: 'male' }, Wedding: { partner: 9, kissing: true } }),
     ]);
 
-    expect(computeSettlerBubbles(snap)).toEqual([
+    expect(computeSettlerBubbles(snap, WHOLE_MAP)).toEqual([
       { id: 2, x: fx.fromInt(5), y: fx.fromInt(5), kind: 'child' },
     ]);
   });
@@ -100,7 +101,7 @@ describe('computeSettlerBubbles', () => {
       },
     ]);
 
-    expect(computeSettlerBubbles(snap).map((b) => [b.id, b.kind])).toEqual([[2, 'hungry']]);
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => [b.id, b.kind])).toEqual([[2, 'hungry']]);
   });
 
   it('floats no need bubble over a computer seat’s settler, however far its bars have climbed', () => {
@@ -117,7 +118,7 @@ describe('computeSettlerBubbles', () => {
       settlerAt(3, MAN, 2, 1, { SettlerNeeds: starving, Owner: { player: 0 } }),
     ]);
 
-    expect(computeSettlerBubbles(snap).map((b) => [b.id, b.kind])).toEqual([[3, 'hungry']]);
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => [b.id, b.kind])).toEqual([[3, 'hungry']]);
   });
 
   it('floats the family bubbles over a computer seat’s settlers like everyone’s', () => {
@@ -134,11 +135,27 @@ describe('computeSettlerBubbles', () => {
       settlerAt(4, WOMAN, 3, 1, { ChildOrder: { child: 'male' }, Owner: { player: COMPUTER_SEAT } }),
     ]);
 
-    expect(computeSettlerBubbles(snap).map((b) => [b.id, b.kind])).toEqual([
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => [b.id, b.kind])).toEqual([
       [2, 'partner'],
       [3, 'partner'],
       [4, 'child'],
     ]);
+  });
+
+  it('floats bubbles over the viewing seat’s own settlers and ownerless strays only', () => {
+    const OWN_SEAT = 0;
+    const RIVAL_SEAT = 1;
+    const starving = { hunger: ONE, fatigue: ONE, piety: 0, enjoyment: 0, asOf: 0, drain: 'none' };
+    const snap = snapshotOf([
+      settlerAt(1, MAN, 1, 1, { SettlerNeeds: starving, Owner: { player: OWN_SEAT } }),
+      settlerAt(2, MAN, 2, 1, { SettlerNeeds: starving, Owner: { player: RIVAL_SEAT } }),
+      settlerAt(3, WOMAN, 3, 1, { ChildOrder: { child: 'male' }, Owner: { player: RIVAL_SEAT } }),
+      settlerAt(4, MAN, 4, 1, { SettlerNeeds: starving }),
+    ]);
+
+    expect(computeSettlerBubbles(snap, OWN_SEAT).map((b) => b.id)).toEqual([1, 4]);
+    expect(computeSettlerBubbles(snap, RIVAL_SEAT).map((b) => b.id)).toEqual([2, 3, 4]);
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => b.id)).toEqual([1, 2, 3, 4]);
   });
 
   it('keeps the bubble trigger above the drive trigger, so acting always comes first', () => {
@@ -166,7 +183,7 @@ describe('computeSettlerBubbles', () => {
       },
     ]);
 
-    expect(computeSettlerBubbles(snap)).toEqual([]);
+    expect(computeSettlerBubbles(snap, WHOLE_MAP)).toEqual([]);
   });
 
   it('shows the sleepy bubble only past its own famine-style threshold, and hunger outranks it', () => {
@@ -206,7 +223,7 @@ describe('computeSettlerBubbles', () => {
       },
     ]);
 
-    expect(computeSettlerBubbles(snap).map((b) => [b.id, b.kind])).toEqual([
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => [b.id, b.kind])).toEqual([
       [1, 'sleepy'],
       [2, 'hungry'],
     ]);
@@ -225,6 +242,6 @@ describe('computeSettlerBubbles', () => {
       },
     ]);
 
-    expect(computeSettlerBubbles(snap).map((b) => b.kind)).toEqual(['partner']);
+    expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => b.kind)).toEqual(['partner']);
   });
 });

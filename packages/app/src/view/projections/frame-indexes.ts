@@ -83,7 +83,7 @@ export const FRAME_INDEX_READERS: readonly AppFrameIndexReader[] = [
   { name: 'minimap standing nodes', read: (snapshot) => standingNodesRevision(snapshot, NO_GOODS) },
   { name: 'construction signs', read: (snapshot) => entitiesWith(snapshot, 'UnderConstruction') },
   { name: 'assistant gear tallies', read: (snapshot) => gearTalliesOf(snapshot) },
-  { name: 'settler bubbles', read: (snapshot) => computeSettlerBubbles(snapshot) },
+  { name: 'settler bubbles', read: (snapshot) => computeSettlerBubbles(snapshot, NO_SEAT) },
   { name: 'star wearers', read: (snapshot) => indexesOf(snapshot).get(SEASONED_FIGHTERS) },
   { name: 'position buckets', read: (snapshot) => positionedWithin(snapshot, NO_TILES) },
   // The object ambience reads it on every frame that advanced a tick.

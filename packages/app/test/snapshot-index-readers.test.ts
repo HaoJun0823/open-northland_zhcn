@@ -222,7 +222,7 @@ function expectProjectionsMatchWalk(
     computeDoorBadges(walked, noDoorInfo, workerRoleOf).filter((badge) => reached.has(badge.id)),
   );
   expect(minimapMarks(live)).toEqual(minimapMarks(walked));
-  expect(computeSettlerBubbles(live)).toEqual(computeSettlerBubbles(walked));
+  expect(computeSettlerBubbles(live, null)).toEqual(computeSettlerBubbles(walked, null));
   expect(computeLifeHearts(live, hearts)).toEqual(computeLifeHearts(walked, hearts));
   expect(computeConstructionSigns(live, noDoorInfo)).toEqual(computeConstructionSigns(walked, noDoorInfo));
   expect(computeDoorBadges(live, noDoorInfo, workerRoleOf)).toEqual(

@@ -6,21 +6,25 @@ import {
   isMarrying,
   isSettler,
   ownedByComputerSeat,
+  ownerPlayerOf,
   positionOf,
   type SnapshotEntity,
   settlerNeedsOf,
   storedNeedsOf,
 } from '../../game/snapshot.js';
+import { ownedByAnotherSeat } from '../../game/viewer-seat.js';
 
 /**
- * Per-settler thought bubbles over the snapshot. The bubble thresholds sit far above the eat and sleep
- * thresholds, so a bubble marks a settler that cannot feed or rest itself rather than one merely due
- * (observed original). A computer seat's settlers float no need bubble ({@link ownedByComputerSeat}), but
- * their family bubbles show like everyone's. Departure: the original floats none over them.
+ * Per-settler thought bubbles over `seat`'s own settlers; the whole map (null) shows every seat's.
+ * Original behavior (reading, unconfirmed against the running original): a player sees bubbles over its
+ * own settlers alone. The bubble thresholds sit far above the eat and sleep thresholds, so a bubble marks
+ * a settler that cannot feed or rest itself rather than one merely due (observed original). A computer
+ * seat's settlers float family bubbles but no need bubble.
  */
-export function computeSettlerBubbles(snapshot: WorldSnapshot): SettlerBubble[] {
+export function computeSettlerBubbles(snapshot: WorldSnapshot, seat: number | null): SettlerBubble[] {
   const out: SettlerBubble[] = [];
   for (const e of indexesOf(snapshot).get(BUBBLE_CARRIERS)) {
+    if (ownedByAnotherSeat(ownerPlayerOf(e), seat)) continue;
     if (isIndoorSettler(snapshot, e.components)) continue;
     const kind =
       familyBubbleOf(e) ??

@@ -78,13 +78,44 @@ function releaseIdle(): void {
   decodedBytes.clear();
 }
 
-async function serve(request: PalettedSheetRequest): Promise<PalettedSheetReply> {
+/** One sheet's colourings in order, and the page buffer they take turns in. */
+interface SheetTurns {
+  tail: Promise<unknown>;
+  page?: Uint8ClampedArray<ArrayBuffer>;
+}
+
+/**
+ * A sheet's recolours arrive together. Coloured at once, each held its own full page buffer until its
+ * bitmap was made (11 of 21.6 MB for one bob set); in turns they share one buffer, which a made bitmap
+ * no longer reads.
+ */
+const turnsBySheet = new Map<string, SheetTurns>();
+
+function serve(request: PalettedSheetRequest): Promise<PalettedSheetReply> {
+  const { url } = request;
+  let turns = turnsBySheet.get(url);
+  if (turns === undefined) {
+    turns = { tail: Promise.resolve() };
+    turnsBySheet.set(url, turns);
+  }
+  const sheetTurns = turns;
+  const turn = sheetTurns.tail.then(() => colour(request, sheetTurns));
+  const tail = turn.catch(() => undefined);
+  sheetTurns.tail = tail;
+  void tail.then(() => {
+    if (sheetTurns.tail === tail) turnsBySheet.delete(url);
+  });
+  return turn;
+}
+
+async function colour(request: PalettedSheetRequest, turns: SheetTurns): Promise<PalettedSheetReply> {
   const sheet = await indexedSheet(request.url);
-  const rgba = new Uint8ClampedArray(sheet.width * sheet.height * 4);
-  colourIndexedSheet(sheet.pixels, GREY_ALPHA_INDEXED, decodeAtlasPalette(request.palette), rgba);
+  const bytes = sheet.width * sheet.height * 4;
+  if (turns.page?.length !== bytes) turns.page = new Uint8ClampedArray(bytes);
+  colourIndexedSheet(sheet.pixels, GREY_ALPHA_INDEXED, decodeAtlasPalette(request.palette), turns.page);
   // The default leaves premultiplication to the browser; asking for it keeps every browser's page equal
   // to a Pixi-loaded RGBA sheet.
-  const bitmap = await createImageBitmap(new ImageData(rgba, sheet.width, sheet.height), {
+  const bitmap = await createImageBitmap(new ImageData(turns.page, sheet.width, sheet.height), {
     premultiplyAlpha: 'premultiply',
   });
   return { id: request.id, bitmap };

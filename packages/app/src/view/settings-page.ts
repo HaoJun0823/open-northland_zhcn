@@ -253,6 +253,7 @@ export function createSettingsPage(opts: {
         settings.unitResponses,
         (unitResponses) => {
           void opts.settings.update({ unitResponses });
+          responses.setActive(unitResponses);
         },
       );
       markSegment(responses.root, 'unit-responses');

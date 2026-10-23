@@ -367,6 +367,7 @@ describe('system menu navigation', () => {
       [...document.querySelectorAll<HTMLButtonElement>(`[data-settings-focus^="${prefix}:"]`)].map(
         (b) => b.getAttribute('aria-pressed') ?? '',
       );
+    expect(pressed('unit-responses')).toEqual(['false', 'true', 'false']);
     expect(pressed('sound-quality')).toEqual(['false', 'true']);
   });
 

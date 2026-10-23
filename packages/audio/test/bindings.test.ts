@@ -80,6 +80,7 @@ describe('defaultBindings', () => {
         ambient: [],
         jingles: [],
         humanVoices: [],
+        attackAlerts: [],
         animalCalls: [],
       },
       [],

@@ -46,6 +46,7 @@ const bank: SoundBank = {
   ],
   jingles: [],
   humanVoices: [],
+  attackAlerts: [],
   animalCalls: [],
 };
 const MEADOW_PATTERN = 5;

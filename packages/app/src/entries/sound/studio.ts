@@ -334,6 +334,10 @@ export function createSoundStudio(
         model.animalCalls.map((row) => groupRow(row)),
       ),
       pageSection(
+        copy.attackAlerts,
+        model.attackAlerts.map((row) => groupRow(row)),
+      ),
+      pageSection(
         copy.objectAmbience,
         model.objectAmbience.map((row) => groupRow(row)),
       ),

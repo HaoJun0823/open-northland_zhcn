@@ -287,7 +287,7 @@ export const chtSurfaces = {
         responses: '居民對你的命令與選取所做的回應。',
         world: '工作、戰鬥、建築、居民的交談與叫喊，以及動物。',
         ambient: '大地、鳥兒與天氣的聲音。',
-        ui: '按鈕點擊、通知、警報號角，以及出生、死亡與建築完工的配樂。',
+        ui: '按鈕點擊、通知、遇襲警報呼喊，以及出生、死亡與建築完工的配樂。',
       },
       language: '語言',
       // Endonyms: each language names itself and is not translated per locale.
@@ -742,6 +742,8 @@ export const chtSurfaces = {
     },
     laneTally: '{lane} {started} / {offered}',
     tally: '已開始：{lanes} · 搶占 {stolen}',
+    attackAlerts: '遇襲警報',
+    attackFronts: { base: '定居點', units: '野外人員' },
     objectAmbience: '物件環境音',
     interface: '介面與通知提示音',
     music: '音樂',

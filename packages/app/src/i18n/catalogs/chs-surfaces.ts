@@ -287,7 +287,7 @@ export const chsSurfaces = {
         responses: '居民对你的命令和选择的应答。',
         world: '劳作、战斗、建筑、居民的交谈和呼喊，以及动物。',
         ambient: '大地、鸟鸣和天气的声音。',
-        ui: '按钮点击、通知、警报号角，以及出生、死亡和建筑完工的乐曲。',
+        ui: '按钮点击、通知、遇袭警报呼喊，以及出生、死亡和建筑完工的乐曲。',
       },
       language: '语言',
       // Endonyms: each language names itself and is not translated per locale.
@@ -741,6 +741,8 @@ export const chsSurfaces = {
     },
     laneTally: '{lane} {started}/{offered}',
     tally: '已开始：{lanes} · 被抢占 {stolen}',
+    attackAlerts: '遇袭警报',
+    attackFronts: { base: '定居点', units: '野外人员' },
     objectAmbience: '物体环境音',
     interface: '界面和通知提示音',
     music: '音乐',

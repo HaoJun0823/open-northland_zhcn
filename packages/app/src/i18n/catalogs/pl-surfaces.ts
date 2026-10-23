@@ -294,7 +294,7 @@ export const plSurfaces = {
         responses: 'Odpowiedzi osadników na rozkazy i na zaznaczenie.',
         world: 'Praca, walka, budynki, rozmowy i krzyki osadników oraz zwierzęta.',
         ambient: 'Odgłosy krainy, ptaki i pogoda.',
-        ui: 'Kliknięcia przycisków, powiadomienia, róg alarmu oraz melodie narodzin, śmierci i ukończonych budynków.',
+        ui: 'Kliknięcia przycisków, powiadomienia, okrzyki alarmu o ataku oraz melodie narodzin, śmierci i ukończonych budynków.',
       },
       language: 'Język',
       languageNames: {
@@ -762,6 +762,8 @@ export const plSurfaces = {
     },
     laneTally: '{lane} {started} z {offered}',
     tally: 'Zagrane: {lanes} · odebrane {stolen}',
+    attackAlerts: 'Alarm ataku',
+    attackFronts: { base: 'osada', units: 'ludzie w polu' },
     objectAmbience: 'Odgłosy obiektów',
     interface: 'Dźwięki interfejsu i powiadomień',
     music: 'Muzyka',

@@ -59,6 +59,7 @@ const bank: SoundBank = {
     { tribe: 1, voiceClass: 'female', generic: 'Generic Viking Female', respondOk: [], respondNo: [] },
     { tribe: 5, voiceClass: 'male', scream: 'Weresnake Get Hit', respondOk: [], respondNo: [] },
   ],
+  attackAlerts: [],
   animalCalls: [{ tribe: 8, minCount: 1, probability: 10, group: 'Bear Sounds' }],
 };
 

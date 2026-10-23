@@ -20,6 +20,7 @@ import {
 import type { SourceRoots } from '../../roots.js';
 import { writeJsonFile } from '../content-tree.js';
 import { decodeMapTree } from '../maps/index.js';
+import { addAttackAlerts } from './attack-alerts.js';
 import { applyBuildingGraphicsOverlays } from './building-overlays.js';
 import { fillBuildingRecipes, pairVehicleGoods } from './building-recipes.js';
 import { loadCifTable, loadIniTable } from './cif-tables.js';
@@ -107,12 +108,13 @@ export async function buildIr(roots: SourceRoots): Promise<ContentSet> {
     [],
   );
   const soundFile = 'Data/engine2d/inis/soundfx/soundfx.cif';
-  const sounds = await loadCifTable(
+  const soundBank = await loadCifTable(
     roots,
     soundFile,
     (sections) => extractSounds(sections, { humanVoices, animalCalls }),
     emptySoundBank(),
   );
+  const sounds = await addAttackAlerts(roots, soundBank, tribes, animals);
   const buildingsWithCosts = applyBuildingGraphicsOverlays(buildings, buildingGraphicsOverlays);
   const pairedGoods = pairVehicleGoods(goods, buildingsWithCosts);
   const buildingsWithRecipes = fillBuildingRecipes(buildingsWithCosts, pairedGoods, tribes);

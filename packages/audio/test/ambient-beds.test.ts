@@ -29,6 +29,7 @@ const bank: SoundBank = {
   ambient: BED_NAMES.map((name) => bed(name, `${name} group`)),
   jingles: [],
   humanVoices: [],
+  attackAlerts: [],
   animalCalls: [],
 };
 const patterns = BED_NAMES.map((name, id) => ({ id, editName: name, editGroups: [`${name} group`] }));

@@ -40,7 +40,7 @@ import { FakeContext, type FakeGain, flush, servingSoundBanks } from './helpers/
 import { mixerGraph } from './helpers/mixer-graph.js';
 
 /**
- * The attack alert and the notices' sounds: when the horn sounds (off screen only, once per place per
+ * The attack alert and the notices' sounds: when the alert sounds (off screen only, once per place per
  * interval, sooner for a new front), how the alert lane ranks it against the jingles, and the notice
  * voices and cues. Positions are half-cell nodes; one node is 34 world px across and 9.5 down at 1:1.
  */
@@ -113,10 +113,33 @@ describe('attack alerts', () => {
 
 /** The volume the data authors for the sighs. */
 const SIGH_VOLUME = 40;
+/** The volume the synthetic alert pools author: the settlement's full, the field's lower. */
+const SETTLEMENT_ALERT_VOLUME = 100;
+const FIELD_ALERT_VOLUME = 80;
+
+/** Synthetic tribe type ids: one with its own pools, one sharing the settlement pool, one without rows. */
+const LOCAL_TRIBE = 1;
+const SHARING_TRIBE = 5;
+const SILENT_TRIBE = 3;
+/** A tribe whose only row names a group the bank lacks. */
+const UNBANKED_TRIBE = 4;
+
+const SHORT_SETTLEMENT_TAKE = 'attack-alerts/local/settlement1.wav';
+const LONG_SETTLEMENT_TAKE = 'attack-alerts/local/settlement2.wav';
+const SETTLEMENT_TAKES = [SHORT_SETTLEMENT_TAKE, LONG_SETTLEMENT_TAKE];
+const FIELD_TAKES = ['attack-alerts/local/field1.wav'];
 
 const bank: SoundBank = {
   staticGroups: [
     { name: 'Magic Horn', logicSoundType: 60, sfx: [{ file: 'static/horn01.wav', params: [80] }] },
+    {
+      name: 'Alert Local Settlement',
+      sfx: SETTLEMENT_TAKES.map((file) => ({ file, params: [SETTLEMENT_ALERT_VOLUME] })),
+    },
+    {
+      name: 'Alert Local Field',
+      sfx: FIELD_TAKES.map((file) => ({ file, params: [FIELD_ALERT_VOLUME] })),
+    },
     { name: 'Yawn Man', logicSoundType: 35, sfx: [{ file: 'generic/human_yawn m 01.wav', params: [80] }] },
     {
       name: 'Yawn Woman',
@@ -141,6 +164,13 @@ const bank: SoundBank = {
   ],
   humanVoices: [],
   animalCalls: [],
+  attackAlerts: [
+    { tribe: LOCAL_TRIBE, front: 'base', group: 'Alert Local Settlement' },
+    { tribe: LOCAL_TRIBE, front: 'units', group: 'Alert Local Field' },
+    // A nation without takes of its own shouts another's; it names no field pool.
+    { tribe: SHARING_TRIBE, front: 'base', group: 'alert local settlement' },
+    { tribe: UNBANKED_TRIBE, front: 'base', group: 'Alert Missing' },
+  ],
 };
 const index = buildSoundIndex(bank, [], []);
 const bindings = defaultBindings();
@@ -161,25 +191,55 @@ const snapshot: WorldSnapshot = {
 };
 
 const dbOf = (gain: number): number => 20 * Math.log10(gain);
-/** The horn's level for an attack on the settlement, and how far under it a field attack rings, in dB. */
-const HORN_BASE_DB = 0;
-const HORN_FIELD_UNDER_DB = 4;
+/** How far under the settlement's call a field attack rings, on top of the pools' authored volumes. */
+const FIELD_UNDER_DB = 4;
+
+/** The one alert `desk` rings for an off-screen attack on `front`, heard as `tribe`. */
+const alertFor = (tribe: number | undefined, front: AttackReport['front']): OneShot[] => {
+  const desk = new AlertDesk();
+  desk.reportAttack({ front, at: OFF_SCREEN });
+  return desk.take(view, snapshot, index, bindings, 0, tribe);
+};
 
 describe('alert and notice sounds', () => {
-  it("sounds the horn on the ui lane at the front's level, ducking the world and the music", () => {
+  it("shouts the local tribe's pool for each front in the alert lane, ducking the world and the music", () => {
+    const [call] = alertFor(LOCAL_TRIBE, 'base');
+    expect(call?.files).toEqual(SETTLEMENT_TAKES);
+    expect(call?.gain).toBe(authoredVolumeGain(SETTLEMENT_ALERT_VOLUME) * ATTACK_ALERT_GAIN.base);
+    expect(call?.lane).toEqual({ kind: 'alert', alert: 'baseAttacked' });
+    expect(call?.duckWorldDb).toBe(ALERT_DUCK_DB);
+    expect(call?.duckMusicDb).toBe(VOICE_MUSIC_DUCK_DB);
+    const [field] = alertFor(LOCAL_TRIBE, 'units');
+    expect(field?.files).toEqual(FIELD_TAKES);
+    expect(field?.lane).toEqual({ kind: 'alert', alert: 'unitsAttacked' });
+    expect(field?.gain).toBe(authoredVolumeGain(FIELD_ALERT_VOLUME) * ATTACK_ALERT_GAIN.units);
+    expect(dbOf(ATTACK_ALERT_GAIN.base)).toBeCloseTo(0, 0);
+    expect(dbOf(ATTACK_ALERT_GAIN.units)).toBeCloseTo(-FIELD_UNDER_DB, 0);
+  });
+
+  it("shouts the shared pool another tribe's row names", () => {
+    expect(alertFor(SHARING_TRIBE, 'base')[0]?.files).toEqual(SETTLEMENT_TAKES);
+  });
+
+  it('stays silent for a tribe without a row, a front without one, a group the bank lacks, or no seat', () => {
+    expect(alertFor(SILENT_TRIBE, 'base')).toEqual([]);
+    expect(alertFor(SHARING_TRIBE, 'units')).toEqual([]);
+    expect(alertFor(UNBANKED_TRIBE, 'base')).toEqual([]);
+    expect(alertFor(undefined, 'base')).toEqual([]);
+  });
+
+  it('never sounds the horn as the alert: a bank without the lane keeps the alert silent', () => {
+    const hornOnly = buildSoundIndex({ ...bank, attackAlerts: [] }, [], []);
     const desk = new AlertDesk();
     desk.reportAttack(base(OFF_SCREEN));
-    const [horn] = desk.take(view, snapshot, index, bindings, 0);
-    expect(horn?.files).toEqual(['static/horn01.wav']);
-    expect(horn?.gain).toBe(ATTACK_ALERT_GAIN.base);
-    expect(horn?.lane).toEqual({ kind: 'alert', alert: 'baseAttacked' });
-    expect(horn?.duckWorldDb).toBe(ALERT_DUCK_DB);
-    expect(horn?.duckMusicDb).toBe(VOICE_MUSIC_DUCK_DB);
-    // The horn rings at full scale for the settlement, 4 dB further down for the field.
-    expect(dbOf(ATTACK_ALERT_GAIN.base)).toBeCloseTo(HORN_BASE_DB, 0);
-    expect(dbOf(ATTACK_ALERT_GAIN.units)).toBeCloseTo(HORN_BASE_DB - HORN_FIELD_UNDER_DB, 0);
-    // The reports were taken: the next frame starts empty.
-    expect(desk.take(view, snapshot, index, bindings, ATTACK_ALERT_INTERVAL_S)).toEqual([]);
+    expect(desk.take(view, snapshot, hornOnly, bindings, 0, LOCAL_TRIBE)).toEqual([]);
+  });
+
+  it('takes the reports with the frame: the next one starts empty', () => {
+    const desk = new AlertDesk();
+    desk.reportAttack(base(OFF_SCREEN));
+    expect(desk.take(view, snapshot, index, bindings, 0, LOCAL_TRIBE)).toHaveLength(1);
+    expect(desk.take(view, snapshot, index, bindings, ATTACK_ALERT_INTERVAL_S, LOCAL_TRIBE)).toEqual([]);
   });
 
   it("speaks a notice in the settler's class voice, once per interval through the arbiter, and not for a child", () => {
@@ -194,7 +254,7 @@ describe('alert and notice sounds', () => {
     const arbiter = new OneShotArbiter({ playback: { clipLengthS: () => 1 } });
     const speak = (now: number, ...settlers: number[]): OneShot[] => {
       for (const settler of settlers) desk.speak('weary', settler);
-      return arbiter.decide(desk.take(view, snapshot, index, bindings, now), now);
+      return arbiter.decide(desk.take(view, snapshot, index, bindings, now, LOCAL_TRIBE), now);
     };
     const first = speak(0, MAN, WOMAN);
     expect(first.map((s) => s.lane)).toEqual([{ kind: 'alert', alert: 'weary' }]);
@@ -205,7 +265,7 @@ describe('alert and notice sounds', () => {
     desk.speak('hungry', WOMAN);
     expect(
       arbiter.decide(
-        desk.take(view, snapshot, index, bindings, NOTICE_CUE_INTERVAL_S + 1),
+        desk.take(view, snapshot, index, bindings, NOTICE_CUE_INTERVAL_S + 1, LOCAL_TRIBE),
         NOTICE_CUE_INTERVAL_S + 1,
       ),
     ).toHaveLength(1);
@@ -353,6 +413,23 @@ describe('notice cadence', () => {
 });
 
 describe('alert lane ladder', () => {
+  it('holds the lane for the length of the take it picked', () => {
+    const lengths = new Map([
+      [SHORT_SETTLEMENT_TAKE, CLIP_S],
+      [LONG_SETTLEMENT_TAKE, 2 * CLIP_S],
+    ]);
+    const arbiter = new OneShotArbiter({
+      random: () => 0,
+      playback: { clipLengthS: (file) => lengths.get(file) },
+    });
+    const [call] = alertFor(LOCAL_TRIBE, 'base');
+    if (call === undefined) throw new Error('no alert');
+    expect(arbiter.decide([call], 0)[0]?.files).toEqual([SHORT_SETTLEMENT_TAKE]);
+    // The hungry sigh waits for the short take's end, not the default lane length.
+    expect(arbiter.decide([laneShot('hungry')], CLIP_S / 2)).toEqual([]);
+    expect(arbiter.decide([], CLIP_S).map((shot) => shot.key)).toEqual(['hungry']);
+  });
+
   it('ranks defeat over the settlement over people over a death over the economy over completions', () => {
     expect(LANE_RANK.critical).toBeGreaterThan(LANE_RANK.baseAttacked);
     expect(LANE_RANK.baseAttacked).toBeGreaterThan(LANE_RANK.unitsAttacked);
@@ -372,7 +449,7 @@ describe('alert lane ladder', () => {
     expect(keys(arbiter.decide([], 3 * CLIP_S))).toEqual(['born']);
   });
 
-  it('rings a death the moment it happens, over a horn or a sigh still holding the lane', () => {
+  it('rings a death the moment it happens, over an alert or a sigh still holding the lane', () => {
     const arbiter = new OneShotArbiter({ playback: { clipLengthS: () => CLIP_S } });
     const death: OneShot = {
       files: ['jingles/death.wav'],
@@ -401,21 +478,21 @@ describe('alert lane ladder', () => {
 });
 
 /** The fake decoder makes a wav last as many seconds as it has bytes. */
-const HORN_S = 4;
+const CALL_S = 4;
 
 describe('alert duck', () => {
   it('dips the world and ambient buses and the music under the alert wav, leaving the ui alone', async () => {
     const ctx = new FakeContext();
     const engine = new WebAudioEngine({
       createContext: () => ctx as unknown as AudioContext,
-      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(HORN_S)),
+      fetchBytes: servingSoundBanks(async () => new ArrayBuffer(CALL_S)),
     });
     await engine.resume();
     const { buses, duck: musicDuck } = mixerGraph(ctx);
     const ducks = ALERT_DUCKED_BUSES.map((bus) => buses[bus].connectedTo[0] as FakeGain);
     expect(ALERT_DUCKED_BUSES).toEqual(['world', 'ambient']);
-    const horn: OneShot = {
-      files: ['static/horn01.wav'],
+    const call: OneShot = {
+      files: FIELD_TAKES,
       gain: 1,
       pan: 0,
       key: 'alert:baseAttacked',
@@ -423,7 +500,7 @@ describe('alert duck', () => {
       duckWorldDb: ALERT_DUCK_DB,
       duckMusicDb: VOICE_MUSIC_DUCK_DB,
     };
-    engine.apply({ oneShots: [horn], ambient: [] });
+    engine.apply({ oneShots: [call], ambient: [] });
     await flush(); // the duck lands with the wav, once its load resolves
     for (const duck of ducks) expect(duck.gain.ramps[0]?.value).toBeCloseTo(10 ** (ALERT_DUCK_DB / 20), 5);
     // The jingle duck stays put; the voice duck behind it takes the music down its few dB.
@@ -431,9 +508,9 @@ describe('alert duck', () => {
     const voiceDuck = musicDuck.connectedTo[0] as FakeGain;
     expect(voiceDuck.gain.ramps[0]?.value).toBeCloseTo(10 ** (VOICE_MUSIC_DUCK_DB / 20), 5);
     expect(buses.ui.connectedTo[0]).not.toBe(ducks[0]);
-    // Each lift is scheduled for the horn's end, so it lands with no frame applied in between.
+    // Each lift is scheduled for the call's end, so it lands with no frame applied in between.
     for (const duck of ducks)
-      expect(duck.gain.ramps.at(-1)).toEqual({ value: 1, time: HORN_S + BUS_DUCK_RAMP_S });
-    expect(voiceDuck.gain.ramps.at(-1)).toEqual({ value: 1, time: HORN_S + VOICE_DUCK_RELEASE_S });
+      expect(duck.gain.ramps.at(-1)).toEqual({ value: 1, time: CALL_S + BUS_DUCK_RAMP_S });
+    expect(voiceDuck.gain.ramps.at(-1)).toEqual({ value: 1, time: CALL_S + VOICE_DUCK_RELEASE_S });
   });
 });

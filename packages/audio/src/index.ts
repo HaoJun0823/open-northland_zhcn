@@ -18,6 +18,7 @@ export {
   AttackAlerts,
   type AttackFront,
   type AttackReport,
+  attackAlertShot,
   type NoticeVoice,
 } from './data/alerts.js';
 export {

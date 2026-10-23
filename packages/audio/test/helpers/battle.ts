@@ -53,6 +53,7 @@ const bank: SoundBank = {
     },
     { tribe: VIKING, voiceClass: 'female', scream: 'Woman Get Hit', respondOk: [], respondNo: [] },
   ],
+  attackAlerts: [],
   animalCalls: [],
 };
 

@@ -1,5 +1,6 @@
 import {
   type AnimalCall,
+  type AttackFront,
   type GfxPattern,
   type HumanVoices,
   type SoundBank,
@@ -42,6 +43,9 @@ export interface SoundIndex {
   readonly heroJobs: ReadonlySet<number>;
   /** Animal tribe → its unprompted call and the roll that gates it. */
   readonly animalCalls: ReadonlyMap<number, AnimalCall>;
+  /** Tribe type id → front → the wavs its attack alert shouts from (`sounds.attackAlerts`). A row whose
+   *  group the bank lacks is left out, so that front stays silent. */
+  readonly attackAlertsByTribe: ReadonlyMap<number, ReadonlyMap<AttackFront, readonly string[]>>;
   /** Settler tribe → its murmur pools ({@link murmurPools}); a voiceless tribe in
    *  {@link BORROWED_TRIBE_VOICES} murmurs with its lender. */
   readonly murmurByTribe: ReadonlyMap<number, MurmurPools>;
@@ -287,6 +291,17 @@ export function buildSoundIndex(
   lendTribeVoices(humanVoices, tribes);
   const animalCalls = new Map<number, AnimalCall>();
   for (const call of sounds.animalCalls) animalCalls.set(call.tribe, call);
+  const attackAlertsByTribe = new Map<number, Map<AttackFront, readonly string[]>>();
+  for (const row of sounds.attackAlerts) {
+    const files = groupsByName.get(row.group.toLowerCase());
+    if (files === undefined || files.length === 0) continue;
+    let byFront = attackAlertsByTribe.get(row.tribe);
+    if (byFront === undefined) {
+      byFront = new Map<AttackFront, readonly string[]>();
+      attackAlertsByTribe.set(row.tribe, byFront);
+    }
+    byFront.set(row.front, files);
+  }
   const heroJobs = new Set<number>();
   for (const job of jobs) {
     if (job.typeId !== undefined && job.id?.startsWith('hero') === true) heroJobs.add(job.typeId);
@@ -303,6 +318,7 @@ export function buildSoundIndex(
     humanVoices,
     heroJobs,
     animalCalls,
+    attackAlertsByTribe,
     murmurByTribe: murmurPools(sounds, tribes, groupsByName, poolGains),
     landscapeAmbienceByRecord: landscapeAmbience(sounds, landscapeRecords, poolGains),
     poolGains,

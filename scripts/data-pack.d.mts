@@ -1,4 +1,4 @@
-export const DATA_PACK_VERSION: 3;
+export const DATA_PACK_VERSION: 4;
 export const DATA_PACK_FORMAT: 'open-northland-data';
 export interface DataManifest {
   readonly format: typeof DATA_PACK_FORMAT;

@@ -520,7 +520,7 @@ describe('readPackText', () => {
     const dat = buildMapDat(1, 1, [2, 2, 2, 2]);
     const manifest = {
       format: 'open-northland-data',
-      version: 3,
+      version: 4,
       base: 'base',
       components: [{ id: 'base', kind: 'base', sha256: '0'.repeat(64) }],
       campaigns: [],

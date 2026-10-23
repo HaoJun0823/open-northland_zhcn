@@ -576,3 +576,25 @@ describe('human palette references', () => {
     expect(() => parseWith(overrides)).toThrow(error);
   });
 });
+
+describe('attack alert references', () => {
+  const VIKING = 1;
+  const group = {
+    name: 'Attack Alert Viking Field',
+    sfx: [{ file: 'attack-alerts/viking/a.wav', params: [100] }],
+  };
+  const sounds = (alertGroup: string): Record<string, unknown> => ({
+    staticGroups: [group],
+    attackAlerts: [{ tribe: VIKING, front: 'units', group: alertGroup }],
+  });
+
+  it('accepts an alert naming a static group', () => {
+    expect(() => parseWith({ sounds: sounds(group.name) })).not.toThrow();
+  });
+
+  it('rejects an alert naming no static group', () => {
+    expect(() => parseWith({ sounds: sounds('Attack Alert Absent') })).toThrow(
+      /attack alert 1\/units names unknown sound group "Attack Alert Absent"/,
+    );
+  });
+});

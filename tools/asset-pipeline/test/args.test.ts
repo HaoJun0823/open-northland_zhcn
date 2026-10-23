@@ -58,7 +58,7 @@ describe('resolveDataPack', () => {
       join(base, 'manifest.json'),
       JSON.stringify({
         format: 'open-northland-data',
-        version: 3,
+        version: 4,
         base: 'base',
         components: [{ id: 'synthetic', kind: 'base', sha256: '0'.repeat(64) }],
         campaigns: [],

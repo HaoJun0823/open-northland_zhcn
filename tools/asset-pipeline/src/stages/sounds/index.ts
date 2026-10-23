@@ -14,11 +14,17 @@ import {
   soundClipPath,
 } from '@open-northland/data';
 import { writeFileWithParents } from '../../files.js';
-import { collectSourceFiles, DATA_SOUNDS_DIR, type SourceRoots } from '../../roots.js';
+import {
+  collectSourceFiles,
+  DATA_ATTACK_ALERTS_DIR,
+  DATA_SOUNDS_DIR,
+  type SourceRoots,
+} from '../../roots.js';
 import { SOUNDS_DIR } from '../content-tree.js';
 import { encodeSound, type SoundEncoder } from './encode.js';
 
 const SOUNDS_SOURCE_PREFIX = `${DATA_SOUNDS_DIR.toLowerCase()}/`;
+const ATTACK_ALERTS_SOURCE_PREFIX = `${DATA_ATTACK_ALERTS_DIR}/`;
 
 /** A bank closes before its lossless copy passes this size, so one fetch stays short on a slow link
  *  and a few banks still cover the whole tree. */
@@ -49,7 +55,8 @@ export function loopedBedClips(sounds: SoundBank): Set<string> {
 }
 
 /**
- * Encodes the mod's loose `.wav` tree into `sounds/`: each clip alone in every encoding, the same clips
+ * Encodes the mod's loose `.wav` tree, and the pack's attack alert takes under `attack-alerts/`, into
+ * `sounds/`: each clip alone in every encoding, the same clips
  * packed into per-folder banks per quality, and the `banks.json` index naming each clip's span (see
  * `SoundBanksDocument`). A clip in `losslessOnly` fills its compact span with its lossless bytes. The
  * directory is rebuilt from scratch, so no clip of an earlier run survives.
@@ -64,14 +71,18 @@ export async function convertSoundTree(
   await rm(root, { recursive: true, force: true });
   const sources = await collectSourceFiles(
     roots,
-    (rel) => rel.startsWith(SOUNDS_SOURCE_PREFIX) && rel.endsWith('.wav'),
+    (rel) =>
+      (rel.startsWith(SOUNDS_SOURCE_PREFIX) || rel.startsWith(ATTACK_ALERTS_SOURCE_PREFIX)) &&
+      rel.endsWith('.wav'),
   );
   // The encoders run synchronously on this thread, so clips encode one after another.
   const clips: EncodedClip[] = [];
   for (const { rel, path } of sources) {
     const wav = new Uint8Array(await readFile(path));
     const encoded = { lossless: await encode(wav, 'lossless'), compact: await encode(wav, 'compact') };
-    clips.push({ file: rel.toLowerCase().slice(SOUNDS_SOURCE_PREFIX.length), encoded });
+    const lower = rel.toLowerCase();
+    const file = lower.startsWith(SOUNDS_SOURCE_PREFIX) ? lower.slice(SOUNDS_SOURCE_PREFIX.length) : lower;
+    clips.push({ file, encoded });
   }
   const document: SoundBanksDocument = {
     version: SOUND_BANKS_VERSION,

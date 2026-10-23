@@ -49,6 +49,7 @@ const bank: SoundBank = {
     },
     { tribe: 1, voiceClass: 'child', generic: 'Generic Viking Children', respondOk: [], respondNo: [] },
   ],
+  attackAlerts: [],
   animalCalls: [
     { tribe: 8, minCount: 1, probability: 10, group: 'Bear Sounds' },
     { tribe: 19, minCount: 3, probability: 10, group: 'Sheep Sounds' },

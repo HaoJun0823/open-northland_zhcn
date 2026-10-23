@@ -1390,6 +1390,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       blessingRangeFor: (typeId) => templeAuraRadius(host.content, typeId),
       canPlaceSignpostAt,
       soundDriver,
+      seatTribeOf,
       presentation,
       perfReadout,
       ...(netOverlays === null ? {} : { clockHeld: () => netOverlays.clockHeld() }),

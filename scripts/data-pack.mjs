@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export const DATA_PACK_VERSION = 3;
+export const DATA_PACK_VERSION = 4;
 export const DATA_PACK_FORMAT = 'open-northland-data';
 /** The map text languages, spelled as the original's `text/<language>/` folders. */
 const LANGUAGES = ['pol', 'eng', 'ger', 'rus'];

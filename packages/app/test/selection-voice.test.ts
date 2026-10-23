@@ -36,6 +36,7 @@ const bank: SoundBank = {
     },
   ],
   animalCalls: [],
+  attackAlerts: [],
 };
 const index = buildSoundIndex(bank, [], [], [], [{ typeId: VIKING, id: 'viking' }]);
 const snapshot = snapshotOf([

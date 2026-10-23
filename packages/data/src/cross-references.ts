@@ -39,6 +39,7 @@ const CHECKS: readonly CrossReferenceCheck[] = [
   checkVehicles,
   checkHumanPalettes,
   checkPersonalNames,
+  checkAttackAlerts,
 ];
 
 /** The id-sets every `check*` resolves references against, built once from the set. */
@@ -373,4 +374,11 @@ function checkPersonalNames(set: ContentSet, { tribeIds }: IdSets): string[] {
     bindings.add(binding);
   }
   return errors;
+}
+
+function checkAttackAlerts(set: ContentSet): string[] {
+  const groups = new Set(set.sounds.staticGroups.map((group) => group.name));
+  return set.sounds.attackAlerts
+    .filter((voice) => !groups.has(voice.group))
+    .map((voice) => `attack alert ${voice.tribe}/${voice.front} names unknown sound group "${voice.group}"`);
 }

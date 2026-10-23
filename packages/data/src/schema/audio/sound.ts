@@ -95,9 +95,29 @@ export const AnimalCall = z.strictObject({
 });
 export type AnimalCall = z.infer<typeof AnimalCall>;
 
+/** The two places an attack on a seat can hit: its settlement (`base`) or its people in the field
+ *  (`units`). */
+export const ATTACK_FRONTS = ['base', 'units'] as const;
+export const AttackFront = z.enum(ATTACK_FRONTS);
+export type AttackFront = z.infer<typeof AttackFront>;
+
+/**
+ * The pool a tribe's attack alert shouts from on one front: a {@link SoundStaticGroup} the data pack's
+ * `attack-alerts/alerts.json` adds to the bank. An authored addition; the original sounds no attack
+ * alert. A tribe without a row stays silent.
+ */
+export const AttackAlertVoice = z.strictObject({
+  /** The tribe type id of the local seat whose alert this is. */
+  tribe: z.number().int().nonnegative(),
+  front: AttackFront,
+  group: z.string(),
+});
+export type AttackAlertVoice = z.infer<typeof AttackAlertVoice>;
+
 /**
  * The decoded sound bank: the `soundfx.cif` groups, beds and jingles plus the creature voice tables
- * (`humans/sounds.cif`, `animals/sounds.ini`) that name those groups. Render-binding data the pure sim
+ * (`humans/sounds.cif`, `animals/sounds.ini`) that name those groups, and the data pack's attack alert
+ * pools. Render-binding data the pure sim
  * ignores. Empty when the pipeline has not run, so the app degrades to silence rather than crashing.
  */
 export const SoundBank = z.strictObject({
@@ -106,11 +126,12 @@ export const SoundBank = z.strictObject({
   jingles: z.array(SoundJingle).default([]),
   humanVoices: z.array(HumanVoices).default([]),
   animalCalls: z.array(AnimalCall).default([]),
+  attackAlerts: z.array(AttackAlertVoice).default([]),
 });
 export type SoundBank = z.infer<typeof SoundBank>;
 
 /** The bank a set without decoded sound carries: every table empty. A fresh object per call, because
  *  zod hands every parse the same nested arrays of a plain object default. */
 export function emptySoundBank(): SoundBank {
-  return { staticGroups: [], ambient: [], jingles: [], humanVoices: [], animalCalls: [] };
+  return { staticGroups: [], ambient: [], jingles: [], humanVoices: [], animalCalls: [], attackAlerts: [] };
 }

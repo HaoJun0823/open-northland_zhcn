@@ -26,6 +26,8 @@ The base tree has these source namespaces:
 - `Data/` and `DataX/`: binary resources and base tables; their internal paths are also stored in
   resource references, so these namespaces retain their source spelling.
 - `Usermaps/`: bundled user maps; `extras/`: supplementary source pictures and legacy scenario files.
+- `attack-alerts/`: optional; the shouted attack alert takes, an addition the original does not
+  have. See [Attack alerts](#attack-alerts).
 
 The initial materials derive from CNMod 1.3.2. That is provenance, not the pack identity or an
 assumption made by the conversion stages. The pack builder translates upstream paths before
@@ -33,7 +35,7 @@ publication; the engine reads only the pack layout.
 
 The root manifest has exactly these fields:
 
-- `format`: `open-northland-data`; `version`: `2`; `base`: `base`.
+- `format`: `open-northland-data`; `version`: `4`; `base`: `base`.
 - `components`: records with a stable `id`, `kind` (`base` or `animation`) and source `sha256`.
   Exactly one component is the base. An animation is included only by an explicit release selection.
 - `campaigns`: unique campaign ids; empty until campaign sources are prepared.
@@ -92,6 +94,32 @@ A map converts as `<campaign-id>-<map-id>`, so two games' slots never share an i
 map fails the run. Its `map.cif` must name the campaign's `campaignId`, and each stage's `missionId`
 must be the slot of one of its maps. Campaign order and progression come from these fields and the
 maps' own scripts, never from sorting file names.
+
+## Attack alerts
+
+`base/attack-alerts/alerts.json` lists the alert pools; the takes sit beside it as
+`<nation>/<take>.wav`. The pipeline adds each group to the sound bank as a static group and binds
+each tribe's two fronts to groups in the IR's `sounds.attackAlerts`. Without the folder the alert
+stays silent.
+
+```json
+{
+  "version": 1,
+  "groups": [
+    { "name": "Attack Alert Viking Settlement", "volume": 100, "files": ["viking/take-1.wav"] },
+    { "name": "Attack Alert Viking Field", "volume": 100, "files": ["viking/take-1.wav", "viking/take-2.wav"] }
+  ],
+  "tribes": [
+    { "tribe": "viking", "base": "Attack Alert Viking Settlement", "units": "Attack Alert Viking Field" }
+  ]
+}
+```
+
+- `groups`: unique names that no `soundfx.cif` group uses; `volume` 0-100 as for a bank static
+  group; `files` lower-case `.wav` paths under `attack-alerts/`, one take allowed in several groups.
+- `tribes`: a settler tribe as `rules/tribes/tribetypes.ini` names it (the IR `tribes[].id`), at most
+  once, with the group for an attack on its settlement (`base`) and on its people in the field
+  (`units`). A tribe without a row has no alert.
 
 ## Publication identity
 

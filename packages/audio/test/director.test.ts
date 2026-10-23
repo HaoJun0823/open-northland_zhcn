@@ -98,6 +98,7 @@ const bank: SoundBank = {
     },
     { tribe: 1, voiceClass: 'female', scream: 'Woman Get Hit', respondOk: [], respondNo: [] },
   ],
+  attackAlerts: [],
   animalCalls: [{ tribe: 8, minCount: 1, probability: 10, group: 'Bear Sounds' }],
 };
 const gfxPatterns = [{ id: 5, editGroups: ['meadow green'] }] as unknown as GfxPattern[];

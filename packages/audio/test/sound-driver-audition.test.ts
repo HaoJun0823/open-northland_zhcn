@@ -47,6 +47,7 @@ const index: SoundIndex = {
   humanVoices: new Map<number, Map<VoiceClass, never>>(),
   heroJobs: new Set(),
   animalCalls: new Map(),
+  attackAlertsByTribe: new Map(),
   landscapeAmbienceByRecord: new Map(),
   murmurByTribe: new Map(),
   poolGains: new Map([[AXE, AXE_GAIN]]),

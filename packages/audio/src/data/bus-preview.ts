@@ -1,7 +1,7 @@
-import { ATTACK_ALERT_GAIN } from './alerts.js';
 import { authoredVolumeGain, DEFAULT_AUTHORED_VOLUME } from './bank.js';
 import type { SoundBus } from './mixer.js';
 import type { OneShot } from './types.js';
+import { UI_CUE_FILES, UI_CUE_GAIN } from './ui-cues.js';
 
 /**
  * The clip a settings page plays to let the player judge one bus's slider, since the menu has no world
@@ -23,8 +23,9 @@ export const BUS_PREVIEWS: Readonly<Partial<Record<SoundBus, BusPreview>>> = {
   world: { files: ['static/treefalling01.wav'], gain: authoredVolumeGain(DEFAULT_AUTHORED_VOLUME) },
   /** A bird in the trees. */
   ambient: { files: ['ambient/bird_01.wav'], gain: authoredVolumeGain(BIRDSONG_AUTHORED_VOLUME) },
-  /** The attack horn, the loudest thing on the bus, as it rings for the settlement. */
-  ui: { files: ['static/horn01.wav'], gain: ATTACK_ALERT_GAIN.base },
+  /** A button press's confirming click. The attack alert would be the bus's loudest clip, but the menu
+   *  has no seat whose nation shouts it. */
+  ui: { files: [UI_CUE_FILES.confirm], gain: UI_CUE_GAIN },
 };
 
 /** The centred one-shot that previews `bus`, or null for a bus without a clip. */

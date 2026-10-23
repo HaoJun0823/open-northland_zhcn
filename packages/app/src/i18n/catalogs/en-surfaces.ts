@@ -296,7 +296,7 @@ export const enSurfaces = {
         responses: 'Settlers answering your orders and your selections.',
         world: 'Work, combat, buildings, settlers chatting and crying out, and animals.',
         ambient: 'The sound of the land, its birds and the weather.',
-        ui: 'Button clicks, notifications, the alarm horn, and the jingles of births, deaths and finished buildings.',
+        ui: 'Button clicks, notifications, the attack alarm shouts, and the jingles of births, deaths and finished buildings.',
       },
       language: 'Language',
       // Endonyms: each language names itself and is not translated per locale.
@@ -762,6 +762,8 @@ export const enSurfaces = {
     },
     laneTally: '{lane} {started} of {offered}',
     tally: 'Started: {lanes} · stolen {stolen}',
+    attackAlerts: 'Attack alert',
+    attackFronts: { base: 'settlement', units: 'field' },
     objectAmbience: 'Object ambience',
     interface: 'Interface and notification cues',
     music: 'Music',

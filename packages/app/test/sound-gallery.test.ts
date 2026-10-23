@@ -1,4 +1,4 @@
-import { buildSoundIndex, defaultBindings, type SoundIndex } from '@open-northland/audio';
+import { attackAlertShot, buildSoundIndex, defaultBindings, type SoundIndex } from '@open-northland/audio';
 import { emptySoundBank, type SoundBank } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { buildSoundGalleryModel } from '../src/entries/sound/model.js';
@@ -9,6 +9,9 @@ import { buildSoundGalleryModel } from '../src/entries/sound/model.js';
  * life event reaches its jingle, that each row plays the way the game plays it, and that the data's
  * silent placeholder slots never reach the list - without a browser or an AudioContext.
  */
+
+/** A tribe the test names only by number, shouting from another nation's group. */
+const EGYPT = 7;
 
 const bank: SoundBank = {
   staticGroups: [
@@ -26,6 +29,12 @@ const bank: SoundBank = {
     { name: 'Viking male no 01', sfx: [f('humantalk/m1no01.wav')] },
     { name: 'Generic Viking Children', sfx: [f('generic/c1.wav')] },
     { name: 'Bear Sounds', sfx: [f('generic/bear1.wav')] },
+    {
+      name: 'Attack Alert Viking Settlement',
+      sfx: [f('alerts/viking_base1.wav'), f('alerts/viking_base2.wav')],
+    },
+    { name: 'Attack Alert Viking Field', sfx: [f('alerts/viking_units1.wav')] },
+    { name: 'Attack Alert Saracen Settlement', sfx: [f('alerts/saracen_base1.wav')] },
   ],
   ambient: [
     {
@@ -53,6 +62,13 @@ const bank: SoundBank = {
     { tribe: 2, voiceClass: 'male', scream: 'Man Get Hit', respondOk: [], respondNo: [] },
   ],
   animalCalls: [{ tribe: 8, minCount: 1, probability: 10, group: 'Bear Sounds' }],
+  // Out of order, a tribe borrowing another nation's group, and a row whose group the bank lacks.
+  attackAlerts: [
+    { tribe: EGYPT, front: 'base', group: 'Attack Alert Saracen Settlement' },
+    { tribe: 1, front: 'units', group: 'Attack Alert Viking Field' },
+    { tribe: 1, front: 'base', group: 'Attack Alert Viking Settlement' },
+    { tribe: EGYPT, front: 'units', group: 'Attack Alert Saracen Field' },
+  ],
 };
 
 /** A landscape typeId whose ground the test index loops the meadow bed over. */
@@ -133,6 +149,24 @@ describe('buildSoundGalleryModel', () => {
         play: { kind: 'pool', role: { kind: 'voice' } },
       },
     ]);
+  });
+
+  it('lists each tribe`s attack alert per front, playing the shot the alert fires', () => {
+    expect(model.attackAlerts.map((row) => [row.group, row.clips])).toEqual([
+      [
+        'Wikingowie · osada: Attack Alert Viking Settlement',
+        ['alerts/viking_base1.wav', 'alerts/viking_base2.wav'],
+      ],
+      ['Wikingowie · ludzie w polu: Attack Alert Viking Field', ['alerts/viking_units1.wav']],
+      ['Plemię 7 · osada: Attack Alert Saracen Settlement', ['alerts/saracen_base1.wav']],
+      ['Plemię 7 · ludzie w polu: Attack Alert Saracen Field', []],
+    ]);
+    const [vikingBase] = model.attackAlerts;
+    expect(vikingBase?.play).toEqual({ kind: 'cue', shot: attackAlertShot(index, 1, 'base') });
+    expect(vikingBase?.play.kind === 'cue' && vikingBase.play.shot.lane).toEqual({
+      kind: 'alert',
+      alert: 'baseAttacked',
+    });
   });
 
   it('lists every jingle and every bed, marking a bed no ground loops in play', () => {

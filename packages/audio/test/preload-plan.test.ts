@@ -38,6 +38,7 @@ const bank: SoundBank = {
       respondNo: ['Viking Male No'],
     },
   ],
+  attackAlerts: [],
   animalCalls: [{ tribe: DEER, minCount: 1, probability: 1, group: 'Deer Call' }],
 };
 

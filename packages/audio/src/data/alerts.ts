@@ -1,4 +1,4 @@
-import type { VoiceClass } from '@open-northland/data';
+import type { AttackFront, VoiceClass } from '@open-northland/data';
 import { type Camera, halfCellToScreen } from '@open-northland/render/data';
 import { entityById, type HalfCellNode, type WorldSnapshot } from '@open-northland/sim';
 import { groupFiles, poolGain, type SoundIndex } from './bank.js';
@@ -10,16 +10,14 @@ import { NOTICE_CUE_INTERVAL_S } from './ui-cues.js';
 
 /**
  * Attack alerts and the notices' own sounds. The original sounds no attack alert at all, only its
- * attack music, so the horn here is an authored improvement: it rings for an attack on the local seat
- * the player is not looking at, at most once per {@link ATTACK_ALERT_INTERVAL_S} per place, and sooner
- * for a new front. The horn is the bank's magic horn, which a few map scripts also play as a magic cue;
- * on those maps the two meanings share one sound, kept for its short, distinct blast. Pure: time comes
- * in as `now` (audio-clock seconds).
+ * attack music, so the alert is an authored addition: a shouted call to arms in the local seat's
+ * nation voice, from the pool the bank's `attackAlerts` lane names for its tribe and the front. It
+ * rings for an attack on the local seat the player is not looking at, at most once per
+ * {@link ATTACK_ALERT_INTERVAL_S} per place, and sooner for a new front. Pure: time comes in as `now`
+ * (audio-clock seconds); the arbiter picks the take.
  */
 
-/** Where the seat is hit: its settlement (a building, or bodies among its buildings), or its people out
- *  in the field. */
-export type AttackFront = 'base' | 'units';
+export type { AttackFront };
 
 /** One frame's hits on the seat in one fight, at the latest hit's node. */
 export interface AttackReport {
@@ -49,18 +47,19 @@ export const ATTACK_ALERT_INTERVAL_S = 30;
  *  to count as a new front that alerts at once: about one screen (a 1280 px wide view). Approximation
  *  of the same editor's minimum-range rule. */
 export const ATTACK_ALERT_NEW_FRONT_PX = 1280;
-/** Least seconds between two alerts of any front, so fronts opening together sound one horn and the
+/** Least seconds between two alerts of any front, so fronts opening together sound one call and the
  *  rest wait for the next frame past it. Approximation. */
 export const ATTACK_ALERT_MIN_GAP_S = 5;
-/** The horn's gain per front. Its wav peaks at -1 dBFS with an RMS of -10 dB, about 13 dB over an
- *  order's answer at full gain, so an attack inside the settlement rings at full scale, the loudest cue
- *  in the mix, and people hit in the field about 4 dB under that. Authored, tune by ear. */
+/** The factor per front on the pool's authored gain ({@link poolGain}). The takes come
+ *  loudness-normalised to about a full-scale alert at volume 100, so an attack inside the settlement
+ *  rings at the pool's own level and people hit in the field about 4 dB under it. Approximation, tuned
+ *  by ear. */
 export const ATTACK_ALERT_GAIN: Readonly<Record<AttackFront, number>> = {
   base: 1,
   units: 0.63,
 };
-/** dB the world and ambient buses dip while an alert rings, so the horn reads over a battle. Authored,
- *  deeper than the common "a few dB" duck because the horn must cut through a fight on screen. */
+/** dB the world and ambient buses dip while an alert rings, so the call reads over a battle. Authored,
+ *  deeper than the common "a few dB" duck because the call must cut through a fight on screen. */
 export const ALERT_DUCK_DB = -8;
 
 const FRONT_ALERT: Readonly<Record<AttackFront, AlertKind>> = {
@@ -87,7 +86,7 @@ function heard(p: { readonly x: number; readonly y: number }, view: AlertView): 
 /**
  * Which of a frame's attacks sounds the alert. A hit the player hears (on screen, or just past its edge
  * where its sounds fade out) sounds nothing and marks its place as seen, so turning away from it does
- * not sound the horn either. Any other hit alerts unless a place within {@link ATTACK_ALERT_NEW_FRONT_PX} of it was alerted or watched within
+ * not sound the alert either. Any other hit alerts unless a place within {@link ATTACK_ALERT_NEW_FRONT_PX} of it was alerted or watched within
  * {@link ATTACK_ALERT_INTERVAL_S} on a front at least as grave.
  */
 export class AttackAlerts {
@@ -127,19 +126,20 @@ export function alertLane(alert: AlertKind): Lane {
   return { kind: 'alert', alert };
 }
 
-/** The horn of an attack on `front`, centred on the ui bus, ducking the world and the music under it;
- *  null when the bindings name no alert group or the bank lacks it. */
+/** The call to arms of an attack on `front` in the voice of `tribe` (the local seat's), centred in the
+ *  alert lane, ducking the world and the music under it; null when the bank names no pool for that
+ *  tribe and front, or no tribe is given (a spectator). */
 export function attackAlertShot(
   index: SoundIndex,
-  bindings: SoundBindings,
+  tribe: number | undefined,
   front: AttackFront,
 ): OneShot | null {
-  const files = bindings.attackAlert === undefined ? undefined : groupFiles(index, bindings.attackAlert);
+  const files = tribe === undefined ? undefined : index.attackAlertsByTribe.get(tribe)?.get(front);
   if (files === undefined) return null;
   const alert = FRONT_ALERT[front];
   return {
     files,
-    gain: ATTACK_ALERT_GAIN[front],
+    gain: poolGain(index, files) * ATTACK_ALERT_GAIN[front],
     pan: 0,
     key: `alert:${alert}`,
     lane: alertLane(alert),
@@ -210,19 +210,21 @@ export class AlertDesk {
     this.spoken = [];
   }
 
-  /** This frame's alert and notice one-shots, emptying the desk. */
+  /** This frame's alert and notice one-shots, emptying the desk. `localTribe` is the local seat's tribe
+   *  type id, whose pools the attack alert shouts from; undefined keeps the alert silent. */
   take(
     view: AlertView,
     snapshot: WorldSnapshot,
     index: SoundIndex,
     bindings: SoundBindings,
     now: number,
+    localTribe: number | undefined,
   ): OneShot[] {
     const shots: OneShot[] = [];
     if (this.attacks.length > 0) {
       const alerted = this.alerts.decide(this.attacks, view, now);
       this.attacks = [];
-      const shot = alerted === null ? null : attackAlertShot(index, bindings, alerted.front);
+      const shot = alerted === null ? null : attackAlertShot(index, localTribe, alerted.front);
       if (shot !== null) shots.push(shot);
     }
     for (const { voice, settler } of this.spoken) {

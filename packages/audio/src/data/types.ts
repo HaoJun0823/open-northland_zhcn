@@ -17,7 +17,7 @@ import type { UiCue } from './ui-cues.js';
 /**
  * The arbitration lane a one-shot competes in ({@link import('./arbiter.js').OneShotArbiter}). A
  * `jingle` is a life-event stinger, identified by its `MusicType`; an `alert` shares its lane and
- * ranking (an attack horn, a settler's notice line); a `voice` is an unprompted line or a scream; `sfx`
+ * ranking (an attack alert, a settler's notice line); a `voice` is an unprompted line or a scream; `sfx`
  * is a positioned action sound; `ambience` is a landscape object's sound (a bird, a branch, a stone).
  * A shot without a lane always plays: a GUI cue answering the player's own input, or a settler
  * answering an order.
@@ -172,8 +172,6 @@ export interface SoundBindings {
   /** The original plays a kind-specific positioned lid sound in addition to the common open-chest
    *  jingle. Optional so synthetic/custom banks can leave chest opening silent. */
   readonly byChestKind?: Readonly<Record<ChestKind, EventSound>>;
-  /** The static group the attack alert sounds; absent, an attack sounds no alert. */
-  readonly attackAlert?: string;
   /** What each notice voice plays per voice class; a class left out stays silent. */
   readonly noticeVoices?: Readonly<Record<NoticeVoice, Partial<Record<VoiceClass, NoticeVoiceSound>>>>;
 }

@@ -100,9 +100,6 @@ export const GROUP_HOUSE_CRASH = 'House Crash';
  *  event sounds it. */
 export const GROUP_TREE_FALLING = 'Woodcutter TreeFalling';
 
-/** The horn the attack alert sounds (LogicSoundType 60), short and the loudest brief clip in the bank.
- *  Its data otherwise cues it only from a few map scripts. */
-export const GROUP_ALERT_HORN = 'Magic Horn';
 /** The yawns a weary settler's notice speaks with, by voice class. */
 export const GROUP_YAWN_MAN = 'Yawn Man';
 export const GROUP_YAWN_WOMAN = 'Yawn Woman';
@@ -187,7 +184,6 @@ export function defaultBindings(): SoundBindings {
       wooden: { kind: 'spatial', group: GROUP_OPEN_WOODEN_CHEST },
       magical: { kind: 'spatial', group: GROUP_OPEN_MAGICAL_CHEST },
     },
-    attackAlert: GROUP_ALERT_HORN,
     // A child's notice stays silent: the bank has no child yawn, sigh or gasp.
     noticeVoices: {
       weary: { male: { group: GROUP_YAWN_MAN }, female: { group: GROUP_YAWN_WOMAN } },

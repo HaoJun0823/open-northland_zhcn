@@ -11,6 +11,8 @@ import type { StringCorrections } from './string-corrections.js';
 export const DATA_BOBS_DIR = 'Data/engine2d/bin/bobs';
 export const DATA_TEXTURES_DIR = 'Data/engine2d/bin/textures';
 export const DATA_SOUNDS_DIR = 'Data/engine2d/bin/sounds';
+/** The pack's own attack alert pools; served under the same name inside `sounds/`. */
+export const DATA_ATTACK_ALERTS_DIR = 'attack-alerts';
 
 /** The base source tree under the validated data pack root. */
 export interface SourceRoots {

@@ -113,6 +113,8 @@ export interface FrameLoopDeps {
   readonly blessingRangeFor?: (typeId: number) => number | undefined;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
   readonly soundDriver: ReturnType<typeof createSoundDriver> | null;
+  /** Owner slot to its roster tribe: the viewer seat's tribe picks the attack alert's voice. */
+  readonly seatTribeOf: (player: number) => number;
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
   readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame' | 'steerCamera'> | null;
   readonly perfReadout: PerfReadout;
@@ -166,6 +168,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     blessingRangeFor,
     canPlaceSignpostAt,
     soundDriver,
+    seatTribeOf,
     presentation,
     perfReadout,
     pointer: pointerAt,
@@ -437,7 +440,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     // After `renderer.update`, which stepped the weather this frame.
     soundDriver?.updateWeather(renderer.weatherConditions(), (snap.tick + renderAlpha) / TICKS_PER_SECOND);
     if (soundDriver !== null) {
-      const jingleSeat = loop.viewer.seat();
+      const soundSeat = loop.viewer.seat();
       soundDriver.update({
         events: presentEvents,
         snapshot: snap,
@@ -445,8 +448,9 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
         canvasW: app.screen.width,
         canvasH: app.screen.height,
         terrain: deps.terrainGrid,
-        // Life-event jingles ring only for our own entities, not enemies or wildlife; none for nobody's seat.
-        ...(jingleSeat === null ? {} : { localPlayer: jingleSeat }),
+        // Life-event jingles ring only for our own entities, not enemies or wildlife, and the attack alert
+        // shouts in our tribe's voice; neither sounds for nobody's seat.
+        ...(soundSeat === null ? {} : { localPlayer: soundSeat, localTribe: seatTribeOf(soundSeat) }),
         // A settler's authored action cues locate their emitter off the snapshot, not off events, so
         // they need their own fog gate: a hidden enemy must not natter or hammer out of empty black.
         visibleTile: fogGates.visibleTile,

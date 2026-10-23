@@ -55,6 +55,9 @@ export interface SoundFrameInput {
   /** The local player slot - gates the life-event jingles to this player's own entities; omit → they
    *  never ring. */
   readonly localPlayer?: number;
+  /** The local seat's tribe type id - picks the attack alert's voice pools; omit (a spectator) → the
+   *  alert stays silent. */
+  readonly localTribe?: number;
   /** The viewer's fog-of-war visibility at a fractional tile - gates the settler animation cues (a
    *  settler hidden by the fog must not natter or hammer out of empty black). Omit → no fog. */
   readonly visibleTile?: (col: number, row: number) => boolean;
@@ -265,7 +268,7 @@ export class SoundDriver {
     this.engine.fire(this.decide([notificationShot(notification, rateKey)], this.engine.clock));
   }
 
-  /** The local seat was hit: the next frame, which knows the camera, decides whether the horn sounds. */
+  /** The local seat was hit: the next frame, which knows the camera, decides whether the alert sounds. */
   alertAttack(report: AttackReport): void {
     if (this.engine.audible) this.alerts.reportAttack(report);
   }
@@ -398,7 +401,7 @@ export class SoundDriver {
       ...(musicIntensity(this.mood) === 'tense' ? { tense: true } : {}),
     });
     const now = this.engine.clock;
-    const alerts = this.alerts.take(input, input.snapshot, this.index, this.bindings, now);
+    const alerts = this.alerts.take(input, input.snapshot, this.index, this.bindings, now, input.localTribe);
     const oneShots = alerts.length === 0 ? frame.oneShots : [...frame.oneShots, ...alerts];
     this.counts.frames++;
     this.engine.apply({ ...frame, oneShots: this.decide(oneShots, now) });

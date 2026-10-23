@@ -1,5 +1,6 @@
 import {
   type AuditionRole,
+  attackAlertShot,
   type EventSound,
   NOTIFICATION_SOUNDS,
   type NotificationCue,
@@ -11,7 +12,7 @@ import {
   type UiCue,
   uiCueShot,
 } from '@open-northland/audio';
-import type { HumanVoices, SoundBank, VoiceClass } from '@open-northland/data';
+import { ATTACK_FRONTS, type HumanVoices, type SoundBank, type VoiceClass } from '@open-northland/data';
 import { formatMessage, messages } from '../../i18n/index.js';
 
 /**
@@ -68,6 +69,8 @@ export interface SoundGalleryModel {
   readonly voices: readonly VoiceClassView[];
   /** Each animal tribe's unprompted call (`animals/sounds.ini`). */
   readonly animalCalls: readonly ClipList[];
+  /** Each local tribe's shouted call to arms per front (`sounds.attackAlerts`), played as the alert. */
+  readonly attackAlerts: readonly ClipList[];
   /** What placed objects sound (birds in a tree), one row per pool of equal pick weight and chance. */
   readonly objectAmbience: readonly ClipList[];
   readonly jingles: readonly ClipList[];
@@ -179,6 +182,25 @@ function interfaceCues(): ClipList[] {
   return rows;
 }
 
+/** One row per tribe and front of the attack alert lane, by tribe and then the fronts' order, each
+ *  playing the shot the alert fires for the local seat of that tribe. */
+function attackAlerts(
+  sounds: SoundBank,
+  index: SoundIndex,
+  tribeName: (tribe: number) => string,
+): ClipList[] {
+  const fronts = messages().soundGallery.attackFronts;
+  return [...sounds.attackAlerts]
+    .sort((a, b) => a.tribe - b.tribe || ATTACK_FRONTS.indexOf(a.front) - ATTACK_FRONTS.indexOf(b.front))
+    .map((row): ClipList => {
+      const group = `${tribeName(row.tribe)} · ${fronts[row.front]}: ${row.group}`;
+      const shot = attackAlertShot(index, row.tribe, row.front);
+      return shot === null
+        ? { group, clips: NO_CLIPS, play: pool(VOICE) }
+        : { group, clips: shot.files, play: { kind: 'cue', shot } };
+    });
+}
+
 /** One row per object ambience pool, named once however many landscape records share it. */
 function objectAmbience(index: SoundIndex): ClipList[] {
   const rows: ClipList[] = [];
@@ -260,6 +282,7 @@ export function buildSoundGalleryModel(
     cues,
     voices,
     animalCalls,
+    attackAlerts: attackAlerts(sounds, index, tribeName),
     objectAmbience: objectAmbience(index),
     jingles,
     interface: interfaceCues(),

@@ -29,6 +29,7 @@ const bank: SoundBank = {
   ambient: [],
   jingles: [],
   humanVoices: [{ tribe: VIKING, voiceClass: 'male', respondOk: ['Viking male ok 01'], respondNo: [] }],
+  attackAlerts: [],
   animalCalls: [],
 };
 const index = buildSoundIndex(bank, [], []);

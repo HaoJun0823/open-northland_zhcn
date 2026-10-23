@@ -40,6 +40,7 @@ const bank: SoundBank = {
   jingles: [],
   humanVoices: [],
   animalCalls: [],
+  attackAlerts: [],
 };
 const MEADOW_GROUND = 3;
 const index = {

@@ -45,6 +45,7 @@ const bank: SoundBank = {
     { name: '', musicType: JINGLE_HOUSE_BUILT, sfx: [{ file: HOUSE_FILE, params: [] }] },
   ],
   humanVoices: [],
+  attackAlerts: [],
   animalCalls: [],
 };
 const index = buildSoundIndex(bank, [], []);

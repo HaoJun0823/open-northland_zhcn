@@ -376,7 +376,7 @@ export class OneShotArbiter {
     this.ring(shot, type, now, out);
   }
 
-  /** How long a lane shot holds the lane: a jingle its music-duck hold, an alert its decoded wav. */
+  /** How long a lane shot holds the lane: a jingle its music-duck hold, an alert its picked, decoded wav. */
   private laneLengthS(shot: OneShot): number {
     if (shot.duckMusicMs !== undefined) return shot.duckMusicMs / 1000;
     const file = shot.lane?.kind === 'alert' && shot.files.length === 1 ? shot.files[0] : undefined;
@@ -385,13 +385,14 @@ export class OneShotArbiter {
   }
 
   private ring(shot: OneShot, type: LaneType, now: number, out: OneShot[]): void {
-    const length = this.laneLengthS(shot);
+    const rung = this.ledger.ring(shot, now);
+    const length = this.laneLengthS(rung);
     this.cooldowns.rang(type.key, shot.cooldownS ?? length, now);
     this.pending.delete(type.key);
     const held = now < this.laneBusyUntil;
     this.laneBusyUntil = held ? Math.max(this.laneBusyUntil, now + length) : now + length;
     this.lanePriority = held ? Math.max(this.lanePriority, type.rank) : type.rank;
-    out.push(this.ledger.ring(shot, now));
+    out.push(rung);
   }
 
   /** Once the lane is free, the highest-ranked fresh jingle still waiting rings; stale ones are dropped. */

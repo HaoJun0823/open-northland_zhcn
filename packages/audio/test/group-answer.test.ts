@@ -79,6 +79,7 @@ const bank: SoundBank = {
     { tribe: VIKING, voiceClass: 'male', respondOk: VIKING_POOLS, respondNo: ['Viking male no 01'] },
     { tribe: FRANK, voiceClass: 'male', respondOk: ['Frank male ok 01'], respondNo: [] },
   ],
+  attackAlerts: [],
   animalCalls: [],
 };
 const index = buildSoundIndex(

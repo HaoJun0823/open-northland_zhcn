@@ -28,6 +28,7 @@ const index: SoundIndex = {
   humanVoices: new Map(),
   heroJobs: new Set(),
   animalCalls: new Map(),
+  attackAlertsByTribe: new Map(),
   landscapeAmbienceByRecord: new Map([
     [TREE_RECORD, { name: 'Trees', weight: 1, pools: [{ files: BIRDS, weight: 1, chance: SURE_CHANCE }] }],
   ]),

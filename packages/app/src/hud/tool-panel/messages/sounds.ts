@@ -5,7 +5,7 @@ import { USER_MESSAGE_TYPE, type UserMessageType } from './types.js';
 
 /**
  * What a shown notice sounds. Authored throughout: the original rings no sound for a message card.
- * An attack note feeds the attack alert on every hit, which decides by the camera whether the horn
+ * An attack note feeds the attack alert on every hit, which decides by the camera whether the alert
  * sounds; any other note sounds only as a new card. A settler's weariness or hunger speaks in its own
  * voice, and one about to starve gasps, a cue of its own that outranks the hungry sighs; a note whose
  * event already rings its own sound (a finished building, a discovery) adds none; every other card rings

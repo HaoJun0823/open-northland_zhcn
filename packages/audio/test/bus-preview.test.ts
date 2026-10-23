@@ -43,7 +43,7 @@ describe('bus preview', () => {
     const fetched: string[] = [];
     const ctx = new FakeContext();
     const index = buildSoundIndex(
-      { staticGroups: [], ambient: [], jingles: [], humanVoices: [], animalCalls: [] },
+      { staticGroups: [], ambient: [], jingles: [], humanVoices: [], animalCalls: [], attackAlerts: [] },
       [],
       [],
     );

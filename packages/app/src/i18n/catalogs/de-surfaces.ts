@@ -334,7 +334,7 @@ export const deSurfaces = {
         responses: 'Die Antworten der Siedler auf Befehle und auf die Auswahl.',
         world: 'Arbeit, Kampf, Gebäude, Gespräche und Schreie der Siedler sowie Tiere.',
         ambient: 'Der Klang des Landes, seiner Vögel und des Wetters.',
-        ui: 'Klicks, Hinweise, das Alarmhorn und die Melodien für Geburten, Tode und fertige Gebäude.',
+        ui: 'Klicks, Hinweise, die Alarmrufe bei Angriffen und die Melodien für Geburten, Tode und fertige Gebäude.',
       },
       language: 'Sprache',
       languageNames: {
@@ -813,6 +813,8 @@ export const deSurfaces = {
     },
     laneTally: '{lane} {started} von {offered}',
     tally: 'Gestartet: {lanes} · verdrängt {stolen}',
+    attackAlerts: 'Angriffsalarm',
+    attackFronts: { base: 'Siedlung', units: 'Leute im Feld' },
     objectAmbience: 'Objektgeräusche',
     interface: 'Oberflächen- und Benachrichtigungsklänge',
     music: 'Musik',

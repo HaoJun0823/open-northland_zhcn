@@ -71,7 +71,14 @@ describe('extractSounds (soundfx.cif)', () => {
   });
 
   it('ignores unrecognised sections and yields an empty bank for none', () => {
-    const empty = { staticGroups: [], ambient: [], jingles: [], humanVoices: [], animalCalls: [] };
+    const empty = {
+      staticGroups: [],
+      ambient: [],
+      jingles: [],
+      humanVoices: [],
+      animalCalls: [],
+      attackAlerts: [],
+    };
     expect(extractSounds([])).toEqual(empty);
     const onlyOther: CifLine[] = [
       { level: 1, text: 'landscapetype' },
@@ -85,7 +92,13 @@ describe('extractSounds (soundfx.cif)', () => {
       humanVoices: [{ tribe: 1, voiceClass: 'male' as const, respondOk: ['ok'], respondNo: [] }],
       animalCalls: [{ tribe: 8, minCount: 1, probability: 10, group: 'Bear Sounds' }],
     };
-    expect(extractSounds([], voices)).toEqual({ staticGroups: [], ambient: [], jingles: [], ...voices });
+    expect(extractSounds([], voices)).toEqual({
+      staticGroups: [],
+      ambient: [],
+      jingles: [],
+      attackAlerts: [],
+      ...voices,
+    });
   });
 });
 

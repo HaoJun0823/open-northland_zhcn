@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { extname } from 'node:path';
-import { isForbiddenGameFile } from './game-asset-policy.mjs';
+import { isForbiddenGameFile, isReviewRequiredFile } from './game-asset-policy.mjs';
 
 const reviewedBinaryAssets = new Set([
   'docs/images/logo.webp',
@@ -106,26 +105,6 @@ const reviewedBinaryAssets = new Set([
   'packages/desktop/resources/portable-splash.bmp',
 ]);
 
-const reviewRequiredExtensions = new Set([
-  '.blend',
-  '.bmp',
-  '.exr',
-  '.fbx',
-  '.gif',
-  '.glb',
-  '.gz',
-  '.icns',
-  '.ico',
-  '.jpeg',
-  '.jpg',
-  '.otf',
-  '.png',
-  '.ttf',
-  '.webp',
-  '.woff',
-  '.woff2',
-]);
-
 // Shared cursor UI, generated without original-game input; only these reviewed deliveries are allowed.
 const cursorStates = [
   'normal',
@@ -193,7 +172,6 @@ const isCheckoutArt = existsSync(checkoutPolicy)
 
 for (const file of tracked) {
   const lower = file.toLowerCase();
-  const extension = extname(lower);
 
   if (lower.startsWith('content/') || lower.startsWith('.cache/')) {
     errors.push(`${file}: generated content must stay untracked`);
@@ -201,7 +179,7 @@ for (const file of tracked) {
   if (isForbiddenGameFile(file)) {
     errors.push(`${file}: original or decoded game-file type is not allowed`);
   }
-  if (reviewRequiredExtensions.has(extension) && !reviewedBinaryAssets.has(file) && !isCheckoutArt(file)) {
+  if (isReviewRequiredFile(file) && !reviewedBinaryAssets.has(file) && !isCheckoutArt(file)) {
     errors.push(`${file}: binary asset is not in the reviewed allowlist`);
   }
   if (blobSize.get(file) > MAX_PLAIN_BLOB_BYTES) {

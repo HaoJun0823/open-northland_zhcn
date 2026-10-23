@@ -30,7 +30,7 @@ const HQ = { hx: 147, hy: 122 };
 const COLLECTORS = [1, 2, 3];
 /** Independent workshops interleave by completion time. Page 18 follows the closing page 14:
  * both missions finish on the tailor's upgrade in one pass. */
-const PAGES = [0, 1, 12, 4, 6, 5, 2, 15, 19, 13, 16, 7, 17, 3, 8, 9, 14, 18];
+const PAGES = [0, 1, 12, 4, 6, 5, 2, 15, 13, 19, 16, 7, 17, 3, 8, 9, 14, 18];
 const TIMEOUT_MS = 900_000;
 
 function site(sim: Simulation, log: PlaytestLog, slug: string, at: { hx: number; hy: number }): void {

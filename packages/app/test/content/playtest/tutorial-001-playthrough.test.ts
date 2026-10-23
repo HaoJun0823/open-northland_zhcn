@@ -9,6 +9,7 @@ import {
   expectFired,
   humanOf,
   jobType,
+  nodeOf,
   order,
   pagesOpened,
   problems,
@@ -21,8 +22,8 @@ import {
 
 /**
  * The first tutorial played through the drive library: every lesson step through the player's own
- * orders, one forced step where the lesson's own walk needs signposts, and a save/restore in the
- * middle. The template for a per-map playtest probe, and the regression that keeps the library honest.
+ * orders, one forced step where the lesson's own walk needs signposts, one more when an idle chat has
+ * walked Ljotolf off his spawn before the send, and a save/restore in the middle. The template for a per-map playtest probe, and the regression that keeps the library honest.
  */
 
 const MAP = 'tutorial_001';
@@ -30,10 +31,13 @@ const PLAYER = 0;
 const KNUT = 1;
 const ULLA = 2;
 const ARRIVALS = [3, 4, 5, 6];
+const LJOTOLF = 6;
 /** Points and ids as the script's goals name them; `npm run mission:script -- tutorial_001` lists them. */
 const MARK = { hx: 228, hy: 135 };
 const ULLA_SPOT = { hx: 239, hy: 156 };
 const VILLAGE = { hx: 101, hy: 288 };
+/** Where mission 7 places Ljotolf. */
+const LJOTOLF_SPAWN = { hx: 223, hy: 117 };
 const FARM_ID = 1;
 const MISSION = {
   knutAtMark: 2,
@@ -41,7 +45,8 @@ const MISSION = {
   farmer: 4,
   ulla: 5,
   married: 6,
-  guestsArrive: 9,
+  guestsSent: 8,
+  goalsPage: 9,
   guides: 10,
   village: 11,
   exit: 12,
@@ -87,7 +92,14 @@ describe.runIf(hasRealIr())('tutorial_001 playthrough', () => {
       expectFired(sim, log, MISSION.married, 180, 'Knut and Ulla share a home');
       expect(eventsOfKind(log, 'marriageUnmatched')).toEqual([]);
 
-      expectFired(sim, log, MISSION.guestsArrive, 240, 'the guests walk into the camp');
+      // Mission 9 fires only while Ljotolf is still out of the camp's range, on the pass after the send.
+      // The script assumes the guests wait where they appeared; an idle chat walk can carry him close
+      // enough to reach that range within the pass, and then the goals page never comes.
+      expectFired(sim, log, MISSION.guestsSent, 150, 'the guests are sent to the camp');
+      const ljotolf = nodeOf(sim, humanOf(sim, LJOTOLF));
+      const ljotolfStrayed = ljotolf.hx !== LJOTOLF_SPAWN.hx || ljotolf.hy !== LJOTOLF_SPAWN.hy;
+      if (ljotolfStrayed) teleportHumans(sim, log, [LJOTOLF], LJOTOLF_SPAWN.hx, LJOTOLF_SPAWN.hy);
+      expectFired(sim, log, MISSION.goalsPage, 60, 'goals explained while Ljotolf is on his way');
       expectFired(sim, log, MISSION.guides, 60, 'signposts explained');
 
       sim = await saveRoundTrip(sim, log, map);
@@ -101,7 +113,7 @@ describe.runIf(hasRealIr())('tutorial_001 playthrough', () => {
       expect(eventsOfKind(log, 'missionExit')).toHaveLength(1);
       expect(pagesOpened(log)).toEqual(PAGES);
       expect(problems(log)).toEqual([]);
-      expect(log.forced).toHaveLength(1);
+      expect(log.forced).toHaveLength(ljotolfStrayed ? 2 : 1);
     },
     REAL_MAP_TIMEOUT_MS,
   );

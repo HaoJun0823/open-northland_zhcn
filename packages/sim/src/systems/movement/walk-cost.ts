@@ -19,6 +19,8 @@ import { type AgeClass, ageClassOfJobId } from '../lifecycle/ageclass.js';
 import { needLevel } from '../lifecycle/needs/levels.js';
 import { NEED_DRIVE_THRESHOLD } from '../lifecycle/needs/scale.js';
 import { isHeroJob } from '../readviews/jobs.js';
+import { cartDragTicks } from '../vehicles/drag.js';
+import { haulingCartSpeedLossPercent } from '../vehicles/hauling-cart.js';
 
 /**
  * How many ticks a human's step from one lattice node to the next takes, the original's per-step move
@@ -50,6 +52,7 @@ export function walkStepTicks(roughness: number, m: WalkStepModifiers): number {
   cost += Math.floor(m.equipmentWeight / 2);
   if (m.walksSlowly) cost *= SCRIPT_SLOW_FACTOR;
   if (m.walksFast) cost -= SCRIPT_FAST_TICKS;
+  cost += cartDragTicks(cost, m.cartSpeedLossPercent);
   return cost < MIN_STEP_TICKS ? MIN_STEP_TICKS : cost;
 }
 
@@ -61,6 +64,9 @@ export interface WalkStepModifiers {
   readonly stepTicksSaved: number;
   /** Hauling a good. */
   readonly carrying: boolean;
+  /** The drag of the laden hauling cart in hand, in percent of the step (`haulingCartSpeedLossPercent`);
+   *  zero on foot. */
+  readonly cartSpeedLossPercent: number;
   /** Fatigue at or past the drive level, the stamina the original tests against 2000. */
   readonly tired: boolean;
   readonly walksSlowly: boolean;
@@ -84,11 +90,13 @@ export const MIN_STEP_TICKS = 3;
 /** The highest roughness the owned corpus writes (`lmpr` snow). */
 const ROUGHNESS_MAX_ON_MAPS = 5;
 
-/** The longest step an ordinary human takes: barefoot, laden, due for sleep, script-slowed, off snow. */
+/** The longest step an ordinary human takes: barefoot, laden, due for sleep, script-slowed, off snow.
+ *  A hauling cart's drag lies outside it; obstruction scales by the captured leg cost anyway. */
 export const MAX_STEP_TICKS = walkStepTicks(ROUGHNESS_MAX_ON_MAPS, {
   shoes: false,
   stepTicksSaved: 0,
   carrying: true,
+  cartSpeedLossPercent: 0,
   tired: true,
   walksSlowly: true,
   walksFast: false,
@@ -102,6 +110,7 @@ export const UNMODIFIED_STEP: WalkStepModifiers = {
   shoes: false,
   stepTicksSaved: 0,
   carrying: false,
+  cartSpeedLossPercent: 0,
   tired: false,
   walksSlowly: false,
   walksFast: false,
@@ -149,6 +158,7 @@ export function walkStepModifiersOf(
   out.shoes = equipment?.boots != null && hasLiveBoots(world, e);
   out.stepTicksSaved = equipment === undefined ? 0 : carriedStepTicksSaved(world, content, e);
   out.carrying = isCarryingGood(world, e);
+  out.cartSpeedLossPercent = haulingCartSpeedLossPercent(world, content, e);
   out.tired = fatigue !== undefined && fatigue >= NEED_DRIVE_THRESHOLD;
   out.walksSlowly = (flags & MISSION_BEHAVIOUR.WALKS_SLOWLY) !== 0;
   out.walksFast = (flags & MISSION_BEHAVIOUR.WALKS_FAST) !== 0;

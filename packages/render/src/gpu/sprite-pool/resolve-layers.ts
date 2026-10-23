@@ -14,6 +14,7 @@ import type { WindSway } from '../../data/weather/climate.js';
 import type { SpriteSheet } from '../sprite-sheet.js';
 import { vegetationShear } from '../vegetation-sway.js';
 import { pushBuildingExtras, pushBuildingLayers } from './building-layers.js';
+import { cartDriveLook, pushCartDriveLayers } from './cart-drive.js';
 import { pushCharacterLayers } from './character-layers.js';
 import {
   hasLoadedFamily,
@@ -105,13 +106,17 @@ function pushLayers(
       return false;
     case 'projectile':
       return pushProjectileLayers(out, sheet, item, tick);
-    case 'settler':
+    case 'settler': {
+      // A carrier pulling its hauling cart is the cart's driving figure (`./cart-drive.ts`).
+      const pulling = cartDriveLook(sheet, item);
+      if (pulling !== undefined) return pushCartDriveLayers(out, sheet, pulling, item, tick, gaitClock);
       // Per-job settler character (the `[jobbasegraphics]` join), resolved in that body's own frame-id
       // space. A sheet with no characters falls through to the sheet-global settler path.
       if (sheet.characters !== undefined)
         return pushCharacterLayers(out, sheet, sheet.characters, item, tick, gaitClock, idleElapsed);
       bobId = resolveSpriteBobId(item, sheet.bindings, tick, gaitClock, idleElapsed);
       break;
+    }
     case 'fish': {
       const binding = sheet.bindings.fish;
       if (binding === undefined || sheet.families?.[binding.layer] === undefined) return false;

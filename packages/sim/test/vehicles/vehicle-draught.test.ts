@@ -356,6 +356,7 @@ describe('the draught animal system', () => {
       vehicleType: CART_NO_OX,
       task: 'waitsForAnimal',
       harnessed: false,
+      hauler: null,
     });
   });
 

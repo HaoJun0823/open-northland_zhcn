@@ -35,6 +35,10 @@ export type AtomicEffect =
   /** A trader sets one unit of `goodType` out of its cart onto `store`'s shelf, or onto the ground at
    *  its feet with `store` null. */
   | { readonly kind: 'cartUnload'; readonly store: Entity | null; readonly goodType: number }
+  /** A posted carrier lifts one unit of `goodType` off `from` into the hauling cart standing beside it. */
+  | { readonly kind: 'haulLoad'; readonly from: Entity; readonly goodType: number }
+  /** A posted carrier sets one unit out of the hauling cart standing beside it into `store`. */
+  | { readonly kind: 'haulUnload'; readonly store: Entity }
   /** A vehicle's carrier sets the unit on its back into `vehicle`'s hold at the door, the unit it booked
    *  there when it set out (`CargoRun`). A hold that stopped wanting it, or filled up, refuses the unit,
    *  which stays on the carrier's back with its booking dropped. */

@@ -15,6 +15,7 @@ import type { PaletteLut, SpriteSheet } from '../sprite-sheet.js';
 import type { TextureCache } from '../texture-cache.js';
 import { setVegetationShear } from '../vegetation-sway.js';
 import { worldBatched } from '../world-batcher.js';
+import { cartDriveLook } from './cart-drive.js';
 import { settlerPalette } from './character-layers.js';
 import { humanLayerRow } from './human-palette-row.js';
 import {
@@ -149,9 +150,14 @@ export class LayerBinder {
     return pe.humanRow.row(this.sheet, item) === pe.lutRow;
   }
 
+  /** A carrier pulling its cart draws as the cart's driving figure, an indexed look whatever its own
+   *  foot look is baked on. */
   private paletteFor(kind: SpriteKind, item: DrawItem): PaletteLut | undefined {
     if (kind === 'vehicle') return vehiclePalette(this.sheet, item);
-    return kind === 'settler' ? settlerPalette(this.sheet, item) : undefined;
+    if (kind !== 'settler') return undefined;
+    return cartDriveLook(this.sheet, item) !== undefined
+      ? this.sheet?.palette
+      : settlerPalette(this.sheet, item);
   }
 
   /**

@@ -1,9 +1,12 @@
 import { formatMessage, messages } from '../../../i18n/index.js';
-import type {
-  VehicleClass,
-  VehicleOrder,
-  VehicleOrderModel,
-  VehiclePanelModel,
+import {
+  type HaulingCartHold,
+  haulerStatusWords,
+  type VehicleClass,
+  type VehicleOrder,
+  type VehicleOrderModel,
+  type VehiclePanelModel,
+  vehicleSubjectEntity,
 } from '../../details-panel/model/index.js';
 import { GLYPH } from '../icons.js';
 import {
@@ -51,8 +54,15 @@ export function orderTexts(
   return { label, tooltip: armed ? formatMessage(copy.armedTooltip, { order: label }) : label };
 }
 
+/** The status words around the carrier's name, which the strip shows as a link in their place. */
+export function pulledByParts(hold: HaulingCartHold): { before: string; after: string } {
+  const [before = '', after = ''] = haulerStatusWords(hold).split('{porter}');
+  return { before, after };
+}
+
 /** The portrait block: the live vehicle's frame as the centre-view button with its wear under it, and
- *  beside it the order buttons with the status strip along the frame's floor. */
+ *  beside it the order buttons with the status strip along the frame's floor. A taken hauling cart shows
+ *  and centres on the carrier pulling it. */
 export interface PortraitSection {
   readonly element: HTMLElement;
   /** The frame the renderer paints the live vehicle through. */
@@ -71,7 +81,7 @@ export function createPortraitSection(
   const frame = button('on-portrait__frame');
   frame.addEventListener('click', () => {
     const shown = current();
-    if (shown !== null) deps.actions.centre(shown.entityId);
+    if (shown !== null) deps.actions.centre(vehicleSubjectEntity(shown));
   });
   const health = element('span', 'on-hp');
   health.setAttribute('role', 'meter');
@@ -85,13 +95,16 @@ export function createPortraitSection(
   );
   const text = status.querySelector('span > span');
   if (!(text instanceof HTMLElement)) throw new Error('vehicle portrait: status');
+  // The carrying ship after a dot, or the carrier pulling a hauling cart inside the status words.
   const carrier = button('on-ledger__link');
   carrier.addEventListener('click', () => {
-    const id = current()?.status.carrier?.id;
+    const shown = current();
+    const id = shown?.status.carrier?.id ?? shown?.hauler?.entity;
     if (id !== undefined) deps.actions.select(id);
   });
-  text.after(' · ', carrier);
-  const carrierJoint = carrier.previousSibling;
+  const carrierJoint = document.createTextNode('');
+  const carrierTail = document.createTextNode('');
+  text.after(carrierJoint, carrier, carrierTail);
   beside.append(orders, status);
   row.append(shot, beside);
 
@@ -162,15 +175,28 @@ export function createPortraitSection(
       build(model);
       setHidden(orders, buttons.length === 0);
       paintOrders(model);
-      write(text, model.status.label);
       setClass(status, 'on-status-strip--trouble', model.status.tone === 'trouble');
       setClass(status, 'on-status-strip--neutral', model.status.tone === 'neutral');
       const ship = model.status.carrier;
-      setHidden(carrier, ship === null);
-      if (carrierJoint !== null) carrierJoint.textContent = ship === null ? '' : ' · ';
+      const hauler = ship === null ? model.hauler : null;
+      setHidden(carrier, ship === null && hauler === null);
       if (ship !== null) {
+        write(text, model.status.label);
+        carrierJoint.textContent = ' · ';
+        carrierTail.textContent = '';
         write(carrier, ship.label);
         setTip(carrier, copy.carrierTooltip);
+      } else if (hauler !== null) {
+        const { before, after } = pulledByParts(hauler.hold);
+        write(text, before);
+        carrierJoint.textContent = '';
+        carrierTail.textContent = after;
+        write(carrier, hauler.name);
+        setTip(carrier, copy.haulerTooltip);
+      } else {
+        write(text, model.status.label);
+        carrierJoint.textContent = '';
+        carrierTail.textContent = '';
       }
     },
     refresh(next): void {

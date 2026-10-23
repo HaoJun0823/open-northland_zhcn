@@ -2,7 +2,6 @@ import type { ContentSet } from '@open-northland/data';
 import {
   addCurrentAtomic,
   Building,
-  CARRY_CAPACITY,
   Carrying,
   CurrentAtomic,
   MoveGoal,
@@ -20,6 +19,12 @@ import { clearNavState } from '../../movement/nav-state.js';
 import { atomicClipName, atomicDuration } from '../../readviews/animations.js';
 import { isCandyMeal } from '../../readviews/food.js';
 import { accessibleStockAmounts, refillingGoodsOf } from '../../stores/index.js';
+import {
+  beginCartLift,
+  carryCapacityOf,
+  liftsWithHaulingCart,
+  pullsHaulingCart,
+} from '../../vehicles/hauling-cart.js';
 import type { PlannerContext } from '../planner/context.js';
 import { interactionCell, unclaimedStockOf } from '../targets/index.js';
 import { atomicHoldsSettler } from './busy.js';
@@ -117,9 +122,11 @@ export const DROP_ATOMIC_ID = PICKUP_ATOMIC_ID;
 /**
  * Start a settler setting its carried load down. Clearing the nav state is what makes the drop a
  * standstill: a settler interrupted mid-walk halts and sets the load down instead of dropping on the move.
+ * A carrier pulling its hauling cart never sets the cart's load down by hand: it stays aboard until a
+ * lift unloads it or the cart is set down with it.
  */
 export function startDrop(world: World, ctx: SystemContext, settler: Entity): void {
-  if (atomicHoldsSettler(world, settler)) return;
+  if (atomicHoldsSettler(world, settler) || pullsHaulingCart(world, settler)) return;
   const s = world.tryGet(settler, Settler);
   if (s === undefined || !world.has(settler, Carrying)) return;
   clearNavState(world, settler);
@@ -198,28 +205,79 @@ export function startPickup(
   );
 }
 
-/** Walk to `from` and lift a carry-load of `goodType`, claiming the units still unclaimed there first so a
- *  settler planned after this one picks another source while it walks. */
+/**
+ * A carrier with its hauling cart lifts off the store or pile `from` beside the standing cart, one unit
+ * a clip: the cart is stood down here if still in hand, and one `haulLoad` plays; the planner's
+ * hauling-cart rung plays the next while the lift continues ({@link cartLiftContinues}).
+ */
+export function startCartLoad(
+  world: World,
+  ctx: SystemContext,
+  e: Entity,
+  settler: SettlerIdentity,
+  from: Entity,
+  goodType: number,
+  units: number,
+): void {
+  beginCartLift(world, ctx, e, { kind: 'load', from, goodType, units });
+  const atomicId = collectAtomicOf(world, ctx, from);
+  startAtomic(
+    world,
+    e,
+    atomicId,
+    { kind: 'haulLoad', from, goodType },
+    atomicDuration(ctx.content, settler, atomicId),
+    from,
+  );
+}
+
+/** The unload twin of {@link startCartLoad}: one unit out of the standing cart into `store` a clip. */
+export function startCartUnload(
+  world: World,
+  ctx: SystemContext,
+  e: Entity,
+  settler: SettlerIdentity,
+  store: Entity,
+): void {
+  beginCartLift(world, ctx, e, { kind: 'unload', store });
+  startAtomic(
+    world,
+    e,
+    PILEUP_ATOMIC_ID,
+    { kind: 'haulUnload', store },
+    atomicDuration(ctx.content, settler, PILEUP_ATOMIC_ID),
+    store,
+  );
+}
+
+/** Walk to `from` and lift a carry-load of `goodType` (the settler's hands, or its hauling cart's free
+ *  hold on top), claiming the units still unclaimed there first so a settler planned after this one picks
+ *  another source while it walks. */
 export function walkPickupBatch(plan: PlannerContext, from: Entity, goodType: number, cell?: NodeId): void {
   const { world, ctx, entity: e, supply } = plan;
-  const claimed = Math.min(CARRY_CAPACITY, unclaimedStockOf(world, ctx, supply, from, goodType));
+  const capacity = carryCapacityOf(world, ctx.content, e);
+  const claimed = Math.min(capacity, unclaimedStockOf(world, ctx, supply, from, goodType));
   if (claimed > 0) supply.stampPickupClaim(e, { source: from, goodType, amount: claimed });
-  walkThenLift(plan, from, goodType, undefined, cell);
+  walkThenLift(plan, from, goodType, capacity, undefined, cell);
 }
 
 /**
- * A workshop input fetch: {@link walkPickupBatch}, except a walk to a self-filling house of the good
- * (`refills`, the source search's verdict) claims nothing there, since the original's reservation never
- * stops a second fetcher and a far walker must not hold the refill up. The zero claim still names the
- * source for the workplace's inbound count.
+ * A workshop input fetch of up to `amount` units: {@link walkPickupBatch}, except a walk to a self-filling
+ * house of the good (`refills`, the source search's verdict) claims nothing there, since the original's
+ * reservation never stops a second fetcher and a far walker must not hold the refill up. The zero claim
+ * still names the source for the workplace's inbound count.
  */
-export function walkFetchInput(plan: PlannerContext, from: Entity, goodType: number, refills: boolean): void {
+export function walkFetchInput(
+  plan: PlannerContext,
+  from: Entity,
+  goodType: number,
+  refills: boolean,
+  amount: number,
+): void {
   const { world, ctx, entity: e, supply } = plan;
-  const claimed = refills
-    ? 0
-    : Math.min(CARRY_CAPACITY, unclaimedStockOf(world, ctx, supply, from, goodType));
+  const claimed = refills ? 0 : Math.min(amount, unclaimedStockOf(world, ctx, supply, from, goodType));
   if (claimed > 0 || refills) supply.stampPickupClaim(e, { source: from, goodType, amount: claimed });
-  walkThenLift(plan, from, goodType, refills);
+  walkThenLift(plan, from, goodType, amount, refills);
 }
 
 /** The first short idle slot (`setatomic <job> 2`), played by a fetcher waiting at an empty well or hive. */
@@ -236,6 +294,7 @@ function walkThenLift(
   plan: PlannerContext,
   from: Entity,
   goodType: number,
+  amount: number,
   refills?: boolean,
   cell?: NodeId,
 ): void {
@@ -244,8 +303,10 @@ function walkThenLift(
     const empty = (accessibleStockAmounts(world, from)?.get(goodType) ?? 0) <= 0;
     if (empty && (refills ?? refillingGoodsOf(world, ctx, from).includes(goodType))) {
       startAtomic(world, e, REFILL_WAIT_ATOMIC_ID, { kind: 'idle' }, ticksPastNextRefill(ctx.tick), null);
+    } else if (liftsWithHaulingCart(world, e)) {
+      startCartLoad(world, ctx, e, plan, from, goodType, amount);
     } else {
-      startPickup(world, ctx, e, plan, from, goodType, CARRY_CAPACITY);
+      startPickup(world, ctx, e, plan, from, goodType, amount);
     }
   });
 }

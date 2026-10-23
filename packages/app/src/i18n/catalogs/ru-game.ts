@@ -759,8 +759,12 @@ export const ruGame = {
       centre: 'Навести камеру на машину',
       health: 'Прочность {hitpoints} / {max}',
       carrierTooltip: 'Выбрать корабль',
+      haulerTooltip: 'Выбрать носильщика',
       status: {
         aboard: 'На борту корабля',
+        pulledBy: 'Тянет {porter}',
+        parkedBy: 'Оставил {porter}',
+        fetchedBy: 'За ней идёт {porter}',
         boardsShip: 'Погрузка на корабль',
         waitsForAnimal: 'Ждёт тягловое животное',
         noCommander: {
@@ -794,6 +798,7 @@ export const ruGame = {
       armedTooltip: '{order} · выбрать цель · Esc: отмена',
       refusals: {
         carried: 'Машина находится на борту корабля',
+        hauled: 'Тележку тянет носильщик',
         noCommander: {
           cart: 'У повозки нет начальника',
           ship: 'У корабля нет начальника',
@@ -845,6 +850,8 @@ export const ruGame = {
       load: 'На борту {load} · в пути {coming} · нужно {wanted} · ячеек {slots}',
       routed: 'по маршруту',
       routedTooltip: 'Загрузка определяется маршрутом купца',
+      hauled: 'у носильщика',
+      hauledTooltip: 'Тележка везёт то, что носильщик берёт в каждом рейсе',
       clear: 'Выгрузить всё',
       clearTooltip: 'Установить все целевые количества на 0: товары вернутся на склад',
       noHand: 'нет носильщика',

@@ -436,6 +436,11 @@ export const plContent = {
       summary:
         'Dwa wozy z tragarzami: wózek ręczny, dla którego gracz zamówił drewno, tragarz przynosi je sztuka po sztuce ze stert obok wozu; zaprzęg zaczyna załadowany kamieniem, którego nikt nie zamówił, więc jego tragarz wynosi go do magazynu. Wózek zmienia się w załadowany po pierwszej sztuce, zaprzęg w pusty po ostatniej.',
     },
+    'hauling-cart': {
+      title: 'Wózek tragarza',
+      summary:
+        'Dwaj tragarze magazynu dostają wozy: każdy idzie po swój, bierze go i zwozi sterty drewna z północy po całej stercie na kurs zamiast po sztuce. Tragarz z wózkiem ręcznym i tragarz z zaprzęgiem rysują się jako postać z wozem, w marszu i na postoju, a wozy znikają z miejsca, gdzie stały.',
+    },
     'vehicle-catapult': {
       title: 'Katapulta',
       summary:

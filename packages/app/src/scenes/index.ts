@@ -53,6 +53,7 @@ import { goodsCatalogScene } from './goods-catalog.js';
 import { gossipScene } from './gossip.js';
 import { groupPanelArmyScene, groupPanelScene, groupSelectionScene } from './group-panel.js';
 import { grownUpTrainingScene } from './grown-up-training.js';
+import { haulingCartScene } from './hauling-cart.js';
 import { hitAlarmScene } from './hit-alarm.js';
 import { householdGoodsScene } from './household-goods.js';
 import { huntingScene } from './hunting.js';
@@ -250,6 +251,7 @@ export const SCENES: readonly SceneDefinition[] = [
   shipWakesScene,
   vehicleShipyardScene,
   vehicleCargoScene,
+  haulingCartScene,
   vehicleCatapultScene,
   vehicleAttackMoveScene,
   vehicleTightGapScene,

@@ -48,6 +48,7 @@ import { isFighterJob, isSoldierJob } from '../../readviews/index.js';
 import { addCarry } from '../../settlers/atomics/effects/goods/carry.js';
 import { placeUnitOnTile } from '../../settlers/atomics/effects/goods/piles.js';
 import { isUsed } from '../../settlers/atomics/effects/goods/wear.js';
+import { releaseHaulingCart } from '../../vehicles/hauling-cart.js';
 import { syncWorkFlagToJob } from '../work-flag.js';
 
 /**
@@ -77,6 +78,7 @@ export function applyTradeChange(world: World, ctx: SystemContext, e: Entity, jo
     ? (world.tryGet(e, Stance)?.anchorCell ?? null)
     : null;
   const tradeChanged = world.get(e, Settler).jobType !== jobType;
+  if (tradeChanged) releaseHaulingCart(world, ctx, e); // the carrier's cart is not the new trade's
   rememberCurrentJob(world, e, jobType);
   setSettlerJob(world, e, jobType);
   // A trained unit takes its class's human form; only the map and a script field the native one.

@@ -761,8 +761,12 @@ export const deGame = {
       centre: 'Ansicht auf das Fahrzeug zentrieren',
       health: 'Haltbarkeit {hitpoints} / {max}',
       carrierTooltip: 'Schiff auswählen',
+      haulerTooltip: 'Träger auswählen',
       status: {
         aboard: 'An Bord eines Schiffs',
+        pulledBy: 'Gezogen von {porter}',
+        parkedBy: 'Abgestellt von {porter}',
+        fetchedBy: 'Wird von {porter} geholt',
         boardsShip: 'Fährt auf ein Schiff',
         waitsForAnimal: 'Wartet auf sein Zugtier',
         noCommander: {
@@ -796,6 +800,7 @@ export const deGame = {
       armedTooltip: '{order} · Ziel auswählen · Esc zum Abbrechen',
       refusals: {
         carried: 'Das Fahrzeug befindet sich auf einem Schiff',
+        hauled: 'Ein Träger zieht den Karren',
         noCommander: {
           cart: 'Der Karren hat keinen Kommandanten',
           ship: 'Das Schiff hat keinen Kommandanten',
@@ -847,6 +852,8 @@ export const deGame = {
       load: 'An Bord {load} · unterwegs {coming} · Zielmenge {wanted} · Ladeplätze {slots}',
       routed: 'gemäß Route',
       routedTooltip: 'Die Route des Händlers bestimmt die Ladung',
+      hauled: 'durch den Träger',
+      hauledTooltip: 'Der Karren fährt, was der Träger auf seinen Gängen aufnimmt',
       clear: 'Alles entladen',
       clearTooltip: 'Alle Zielmengen auf 0 setzen: Die Waren gehen zurück in ein Lagerhaus',
       noHand: 'kein Träger',

@@ -27,6 +27,7 @@ import { releaseWidowedParentsOf, settleWidowhood } from '../family/widowhood.js
 import { setLandscape } from '../landscape/edits.js';
 import { animalRecord, firstLandscapeGfxOf, isSoldierJob, MEAT_LANDSCAPE_SLUG } from '../readviews/index.js';
 import { abandonCargoRun } from '../vehicles/cargo.js';
+import { abandonHaulingCart, releaseHaulingCart } from '../vehicles/hauling-cart.js';
 import { vacateSeat } from '../vehicles/movement.js';
 import { needLevel } from './needs/levels.js';
 
@@ -53,6 +54,7 @@ export function reap(world: World, ctx: SystemContext, e: Entity): void {
   if (!animal && pos !== undefined) layBonePile(world, ctx.tick, eventAt(pos.x, pos.y));
   if (animal && pos !== undefined && settler !== undefined)
     layAnimalRemains(world, ctx, e, settler.tribe, pos);
+  releaseHaulingCart(world, ctx, e); // the cart stands where its carrier fell, the load in its hold
   const loot = droppedOnDeathOf(world, ctx.content, e);
   removeSettlerSilently(world, e);
   scatterSpilledStock(world, ctx, loot);
@@ -111,6 +113,7 @@ export function removeSettlerSilently(world: World, e: Entity): void {
   const rider = world.tryGet(e, Rider);
   if (rider !== undefined && world.has(rider.vehicle, Vehicle)) vacateSeat(world, rider.vehicle, e);
   abandonCargoRun(world, e);
+  abandonHaulingCart(world, e);
   const marriage = world.tryGet(e, Marriage);
   const wedding = world.tryGet(e, Wedding);
   const wasMinor = isMinor(world, e);

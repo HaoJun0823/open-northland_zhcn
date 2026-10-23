@@ -77,6 +77,9 @@ export const Vehicle = defineComponent<{
   harnessed: boolean;
   /** The ship carrying this vehicle, or null while it stands on the map. */
   carrier: Entity | null;
+  /** The posted carrier this cart is the hauling cart of ({@link HaulingCart}), set from the order so
+   *  nobody else takes or boards it meanwhile; null for a cart nobody pulls. */
+  hauler: Entity | null;
   passengers: (VehicleSeat | null)[];
   vehicles: (VehicleSeat | null)[];
   /** The point an order holds while the vehicle boards its crew, a goto under `waitsForHuman` or a
@@ -135,6 +138,36 @@ export const Rider = defineComponent<{ vehicle: Entity; boarding: boolean; leavi
   'Rider',
   'movement',
 );
+
+/**
+ * A lift a carrier makes with its hauling cart standing beside it, one clip a unit the way a trader loads
+ * its cart: units off `from`'s shelf or heap into the hold, or out of the hold onto `store`'s shelf.
+ */
+export type HaulingLift =
+  | {
+      readonly kind: 'load';
+      readonly from: Entity;
+      readonly goodType: number;
+      /** Units still to lift: the lift ends at zero, short of the room, so a workshop input fetch stops
+       *  at the slot's shortfall. */
+      readonly units: number;
+    }
+  | { readonly kind: 'unload'; readonly store: Entity };
+
+/**
+ * A posted carrier's hauling cart (named addition, owner's choice; the original's carrier only ever serves a
+ * cart's hold from outside): the cart it pulls on its hauls for its workplace, its lifts filling the
+ * cart's hold instead of its hands. `taken`, the cart leaves the map (no `Position`) and travels with the
+ * carrier, its load riding as the carrier's `Carrying`; `parked`, the carrier has set it down for a `lift`
+ * beside a heap or a shelf or for a break and comes back for it; neither from the order until the first
+ * take, the carrier walking to the cart where the order found it.
+ */
+export const HaulingCart = defineComponent<{
+  vehicle: Entity;
+  taken: boolean;
+  parked: boolean;
+  lift: HaulingLift | null;
+}>('HaulingCart', 'economy');
 
 /**
  * An animal a cart recruited as its draught animal, from the pick until it is consumed at the cart's

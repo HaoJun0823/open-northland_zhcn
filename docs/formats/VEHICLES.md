@@ -233,6 +233,59 @@ recovery and keeps its seat, where only a failed walk to the door drops it. The 
 whatever crew is seated (approximation: the original's rule holds only without a carrier; here the
 trader is its cart's own cargo hand, and it finds nothing of its trade cargo to fetch or flush).
 
+### Hauling cart (Open Northland addition)
+
+Owner's choice, nothing in the original: a carrier posted at a store or workshop (`JobAssignment`
+with the carrier trade) that the attach order gives a free handcart or harnessed ox cart keeps its
+post and takes the cart as its *hauling cart* instead of crewing it (`HaulingCart` in
+`components/vehicle.ts`, `systems/vehicles/hauling-cart.ts`, the planner's `planHaulingCart` and
+`planCartTopUp` rungs). The gate is the attach gate's: own cart, trade in `logicpassenger`, nobody
+pulling, commanding, riding or carrying it, door on the carrier's continent; the "Assign Vehicle"
+pick lights such carts and the cart's `hauler` field refuses crew meanwhile. The carrier walks to the
+door and takes the cart there: it leaves the map (no `Position`) and the carrier draws as the cart's
+driving figure, the figure a commander-driven cart shows (`render/.../cart-drive.ts`); the cart's
+panel then shows that figure, the load, the carrier in the commander's seat and a link to it, and
+centres on the carrier.
+
+The cart is a work tool, not a harness:
+
+- **Room.** Every lift the carrier makes for its post, a loose pile, a workshop output or a workshop
+  input, fills the cart's room and nothing in hand on top (`carryCapacityOf`: 15 for the handcart,
+  30 for the ox cart, less what is already aboard or in hand), and a workshop input fetch brings the
+  slot's whole shortfall up to that and no more (`HaulingLift.units`). In hand, the load rides as the
+  carrier's `Carrying`, one good at a time.
+- **Lifts as the trader's.** At a heap, a shelf or a store's door the carrier stands the cart down on
+  the nearest open land beside it (`beginCartLift`, `HaulingCart.lift`) and moves the units one clip
+  each, the pick-up or pile-up clip of its trade (`haulLoad` and `haulUnload` atomics, through the
+  same pick-up and pile-up rules as on foot: claims, the dish alias, storage minimums, the crockery
+  bonus), then walks back to the cart's door and takes it up, the hold's load into its hands. The cart
+  draws as itself meanwhile and the carrier as a man lifting; thirty units take thirty clips, the
+  trader's pace. A break during a lift ends it (the cart is parked where it stands).
+- **Drag.** Each step of a carrier pulling a laden cart takes the cart's speed loss longer (the
+  "Movement" section, `drag.ts`), a `walkStepModifiers` term on the whole step
+  (`haulingCartSpeedLossPercent`). The load is the cart's: a walk order moves the loaded cart along
+  instead of setting the load down, and no hand gesture sheds it (`startDrop` refuses); only a lift
+  or the cart's set-down parts the carrier from it.
+- **One yard a trip.** A store's porter whose cart has room after a lift fills it from the nearest
+  heap or finished output of the same good within `CART_TOP_UP_REACH` (12 nodes) of where it stands,
+  and only then goes home; nothing that close, or no store left that takes the good, means it delivers
+  what it has rather than crossing the village for a second heap (approximation: reach from the
+  porter, so a yard clears heap by heap).
+- **Breaks park it.** Whatever takes the carrier off its trade (a meal, a bed, a prayer, a chat, the
+  alarm, a flight from a threat, a marriage, an equipment errand) parks the cart on the nearest open
+  land where the carrier stands, the load stowed in the hold (`parkHaulingCart`, `tradeVehicleStock`,
+  so a dish in hand is booked under its edible alias like any cart cargo), and the carrier keeps the
+  cart as its own: back on its trade it walks to the cart, takes it up and lifts the parked load back
+  into its hands (`takeHaulingCart`). A parked cart refuses crew and other carriers the same as a
+  taken one.
+- **Set down for good** on the detach order, when the post ends (`unassignWorker`, crewing a vehicle,
+  a hand-over to another player, the workplace razed) or the trade changes, on the orders that take
+  the carrier off on another errand (a build site, drill, schooling, exploring, a signpost, an
+  animal, a chest; Shift-queued ones too) and where the carrier dies; a cart removed by script frees
+  its carrier with the load still in hand. A re-posting to another workplace as a carrier keeps the
+  cart: it follows its carrier to the new post. A ship never loads a cart a carrier pulls, has parked
+  or walks to. A second good already aboard stays aboard and only narrows the room.
+
 ## Movement
 
 One navigation graph. A node is passable for a vehicle when its blocked bit is clear and its
@@ -247,7 +300,11 @@ scout crosses its continent past every signpost network, since nothing extends a
 way signposts extend a settler's. Humans inside the footprint are shoved away on every node reached.
 Per node the move period is `max(3, (g*2 + 4) << catapult)` ticks with `g` the 4-bit ground speed
 class stored beside the size class in the node record, which is the map's `lmpr` roughness, re-read at
-every node reached; each tick adds `(period + 9999) / period`
+every node reached, plus a laden cart's drag (Open Northland addition, owner's feature, `drag.ts`):
+a handcart loses up to half its speed and a cart an animal draws (the harnessed form of a type
+with `draggingAnimalTribe`) up to a quarter, in proportion to how full the hold is (whole percent,
+the period lengthened by `loss / (100 - loss)` and rounded to whole ticks), whoever moves it, a
+trader, a commander or the carrier pulling it; an empty cart, a ship and the catapult lose nothing; each tick adds `(period + 9999) / period`
 to a per-node counter that completes at 10000, and the map position moves at 5000. The catapult is
 the only vehicle with the doubling; a turn costs 2 ticks per hexagon direction. Stop (task 5
 "interrupted") and returns to the current node.

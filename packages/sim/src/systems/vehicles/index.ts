@@ -35,6 +35,12 @@ export {
   harnessVehicle,
   pickDraughtAnimal,
 } from './draught.js';
+export {
+  canTakeHaulingCart,
+  orderHaulingCart,
+  releaseHaulingCart,
+  releasesHaulingCart,
+} from './hauling-cart.js';
 export { facingOfStep, VEHICLE_TURN_TICKS_PER_DIRECTION } from './helm.js';
 export {
   moveVehicle,

@@ -347,7 +347,10 @@ export type UnitOrderCommand =
        * the commander slot first, then a free ordinary slot, with no distance check. Refused with a
        * `riderRefused` event when the type's `passengerJobs` exclude the settler's trade and with
        * `vehicleCrewRefused` when every slot is taken. The settler leaves its workplace, drops its fight
-       * and walks to the vehicle's door; attaching to another vehicle detaches first.
+       * and walks to the vehicle's door; attaching to another vehicle detaches first. Named addition: a
+       * carrier posted at a workplace, given a free cart nobody crews, keeps its post and takes the cart
+       * as its hauling cart at the door instead (`HaulingCart`), lifting up to the cart's hold a trip
+       * from then on; `detachFromVehicle` sets the cart down beside it.
        */
       readonly kind: 'attachToVehicle';
       readonly entity: Entity;
@@ -357,7 +360,8 @@ export type UnitOrderCommand =
       /**
        * Free one owned settler from its vehicle: a rider aboard steps onto the door node, one still
        * walking is released where it stands, and a departing commander promotes the first ordinary
-       * passenger. Refused with `riderRefused` aboard a ship that is not moored.
+       * passenger. Refused with `riderRefused` aboard a ship that is not moored. A carrier's hauling
+       * cart stands again beside it, what the carrier had in hand in its hold.
        */
       readonly kind: 'detachFromVehicle';
       readonly entity: Entity;

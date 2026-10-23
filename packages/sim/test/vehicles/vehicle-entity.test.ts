@@ -158,6 +158,7 @@ describe('createVehicle', () => {
       tribe: VIKING,
       task: 'none',
       harnessed: false,
+      hauler: null,
       carrier: null,
     });
     expect(vehicle.passengers).toHaveLength(SHIP_PASSENGER_SLOTS + 1);

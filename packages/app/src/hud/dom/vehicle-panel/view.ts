@@ -1,10 +1,16 @@
-import type { TraderSubject, UnitPanelModel, VehiclePanelModel } from '../../details-panel/model/index.js';
+import {
+  type TraderSubject,
+  type UnitPanelModel,
+  type VehiclePanelModel,
+  vehicleSubjectEntity,
+} from '../../details-panel/model/index.js';
 import { type FigureSlot, NO_FIGURE_SLOTS } from '../../figures/live-figures.js';
 import { FigureWellSlots, markDrawnWells } from '../parts/figure-well.js';
 import type { ClientRect } from '../portrait-hole.js';
 import { createSelectionPanel } from '../selection-panel.js';
 import { NO_PEERS, PEERS_REFRESH_MS, peerAt, type TradePeers } from '../settler-panel/peers.js';
 import { createTradeSection } from '../settler-panel/trade.js';
+import type { PortraitSubject } from '../settler-panel/view.js';
 import type { VehiclePanelDeps } from './actions.js';
 import { createCrewSection } from './crew.js';
 import { vehicleHead } from './head.js';
@@ -18,8 +24,9 @@ export interface VehiclePanel {
   /** Show the model when it is a single vehicle, else hide. */
   update(model: UnitPanelModel): void;
   hide(): void;
-  /** The shown vehicle and the client box the renderer paints it into. */
-  portrait(): VehiclePortraitSubject | null;
+  /** The shown vehicle, or the carrier pulling a taken hauling cart, and the client box the renderer
+   *  paints it into. */
+  portrait(): PortraitSubject | VehiclePortraitSubject | null;
   claims(clientX: number, clientY: number): boolean;
   /** Tab and Shift+Tab: show the seat's next or previous vehicle of the class; false when there is none. */
   browse(step: 1 | -1): boolean;
@@ -171,10 +178,13 @@ export function createVehiclePanel(deps: VehiclePanelDeps): VehiclePanel {
     closePicker: () => shown !== null && hold.closePicker(),
     figureSlots: () => (shown === null ? NO_FIGURE_SLOTS : figureSlots.of(crew.wells())),
     markDrawn: (drawn) => markDrawnWells(crew.wells(), drawn),
-    portrait(): VehiclePortraitSubject | null {
+    portrait(): PortraitSubject | VehiclePortraitSubject | null {
       if (shown === null) return null;
       const rect = frame.holeClientRect();
       if (rect === null) return null;
+      const subject = vehicleSubjectEntity(shown);
+      // A taken cart stands nowhere on the map: its carrier draws as the cart's driving figure.
+      if (subject !== shown.entityId) return { entityRef: subject, kind: 'settler', rect };
       const carrier = shown.status.carrier;
       return {
         entityRef: shown.entityId,

@@ -26,6 +26,7 @@ import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { System, SystemContext } from '../context.js';
 import { wakeIdle } from '../settlers/planner/idle-replan.js';
+import { releaseHaulingCart, releasesHaulingCart } from '../vehicles/hauling-cart.js';
 import { orderOpenChest } from './chests.js';
 import { equipGood } from './equipment.js';
 import { dropOrderQueue, isOrderableSettler } from './guards.js';
@@ -137,6 +138,7 @@ function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOr
   const { aiOrder: origin, ...command } = queued;
   if (!queuedOrderAuthorized(world, ctx, command, origin)) return;
   wakeIdle(world, command.entity);
+  if (releasesHaulingCart(command)) releaseHaulingCart(world, ctx, command.entity);
   switch (command.kind) {
     case 'moveUnit':
       moveUnit(world, ctx, command, origin);

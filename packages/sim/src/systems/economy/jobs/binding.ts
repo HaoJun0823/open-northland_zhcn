@@ -11,6 +11,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
 import { isWorkplaceOperator } from '../../stores/operators.js';
+import { releaseHaulingCart } from '../../vehicles/hauling-cart.js';
 import { removeWorkFlag, syncWorkFlagToJob } from '../work-flag.js';
 
 /**
@@ -114,6 +115,7 @@ export function craftsAnyAt(
  * The counters go with this binding, so a later post never inherits them.
  */
 export function releaseEmployment(world: World, ctx: SystemContext, e: Entity): void {
+  releaseHaulingCart(world, ctx, e); // the post's cart stays behind with it
   world.remove(e, JobAssignment);
   const jobType = world.tryGet(e, Settler)?.jobType;
   if (jobType != null) syncWorkFlagToJob(world, ctx, e, jobType);

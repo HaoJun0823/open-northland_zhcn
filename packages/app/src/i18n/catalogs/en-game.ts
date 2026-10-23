@@ -712,8 +712,12 @@ export const enGame = {
       centre: 'Centre the view on the vehicle',
       health: 'Durability {hitpoints} / {max}',
       carrierTooltip: 'Select the ship',
+      haulerTooltip: 'Select the carrier',
       status: {
         aboard: 'On a ship',
+        pulledBy: 'Pulled by {porter}',
+        parkedBy: 'Parked by {porter}',
+        fetchedBy: 'Fetched by {porter}',
         boardsShip: 'Boarding a ship',
         waitsForAnimal: 'Waiting for its draught animal',
         noCommander: {
@@ -747,6 +751,7 @@ export const enGame = {
       armedTooltip: '{order} · pick the target · Esc cancels',
       refusals: {
         carried: 'The vehicle stands on a ship',
+        hauled: 'A carrier pulls this cart',
         noCommander: {
           cart: 'The cart has no commander',
           ship: 'The ship has no commander',
@@ -786,6 +791,8 @@ export const enGame = {
       load: 'Aboard {load} · on the way {coming} · target {wanted} · slots {slots}',
       routed: 'by the route',
       routedTooltip: "The merchant's route drives the load",
+      hauled: 'by the carrier',
+      hauledTooltip: 'The cart carries what the carrier lifts on his rounds',
       clear: 'Unload all',
       clearTooltip: 'Every target to 0: the goods go back to a store',
       noHand: 'no carrier',

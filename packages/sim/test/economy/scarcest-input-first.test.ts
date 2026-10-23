@@ -109,7 +109,7 @@ describe('a producer fetches the scarcest recipe input first', () => {
       ],
       [WOOD, WHEAT],
     );
-    expect(nearestMissingInputSource(plan, workplace, recipe, CARRIER_SHORTFALL)).toEqual({
+    expect(nearestMissingInputSource(plan, workplace, recipe, CARRIER_SHORTFALL)).toMatchObject({
       store: warehouse,
       goodType: WHEAT,
       refills: false,
@@ -174,7 +174,7 @@ describe('a producer fetches the scarcest recipe input first', () => {
     expect(nearestMissingInputSource(owned, workplace, recipe, CARRIER_SHORTFALL)).toBeNull();
 
     // An unowned seeker is on every side, so the rival's warehouse still supplies it.
-    expect(nearestMissingInputSource(plan, workplace, recipe, CARRIER_SHORTFALL)).toEqual({
+    expect(nearestMissingInputSource(plan, workplace, recipe, CARRIER_SHORTFALL)).toMatchObject({
       store: warehouse,
       goodType: WHEAT,
       refills: false,
@@ -183,7 +183,7 @@ describe('a producer fetches the scarcest recipe input first', () => {
     const pile = plan.world.create(); // unowned, so on the owned seeker's side too
     plan.world.add(pile, Position, { x: fx.fromInt(4), y: fx.fromInt(0) });
     plan.world.add(pile, Stockpile, { amounts: new Map([[WHEAT, 1]]) });
-    expect(nearestMissingInputSource(owned, workplace, recipe, CARRIER_SHORTFALL)).toEqual({
+    expect(nearestMissingInputSource(owned, workplace, recipe, CARRIER_SHORTFALL)).toMatchObject({
       store: pile,
       goodType: WHEAT,
       refills: false,

@@ -13,7 +13,9 @@ import {
   VehicleMarchRoute,
   VehicleRoute,
   type VehicleStateView,
+  VehicleStock,
   vehicleCommander,
+  vehicleLoad,
 } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
@@ -54,6 +56,7 @@ import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { stationaryOwnedSettlers } from '../settlers/planner/spacing.js';
 import { endChat } from '../social/index.js';
 import type { NodeBuckets } from '../spatial/nodes.js';
+import { cartDragTicks, cartSpeedLossPercent } from './drag.js';
 import {
   facingOfStep,
   restingHelm,
@@ -82,7 +85,8 @@ const LATTICE_EDGE_MAX_POINTS = 2;
 export const VEHICLE_TARGET_SNAP_RADIUS = 9;
 
 /** The move period terms: a map point takes `max(MIN_PERIOD, (g * PERIOD_PER_CLASS + PERIOD_BASE) << siege)`
- *  ticks, `g` the roughness of the node it leaves (original behavior). */
+ *  ticks, `g` the roughness of the node it leaves (original behavior), plus a laden cart's drag on top of
+ *  the whole (`drag.ts`, a named addition). */
 const MOVE_PERIOD_BASE = 4;
 const MOVE_PERIOD_PER_CLASS = 2;
 const MOVE_PERIOD_MIN = 3;
@@ -960,7 +964,10 @@ export const vehicleMovementSystem: System = (world, ctx) => {
     }
     if (outcome !== 'enter') continue; // a fresh route's first leg starts next tick
     const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
-    const period = vehicleMovePeriod(terrain.resistanceAt(here), isSiegeVehicle(type));
+    const stock = world.tryGet(e, VehicleStock);
+    const ground = vehicleMovePeriod(terrain.resistanceAt(here), isSiegeVehicle(type));
+    const drag = cartSpeedLossPercent(ctx.content, type, stock === undefined ? 0 : vehicleLoad(stock));
+    const period = ground + cartDragTicks(ground, drag);
     const facing = facingOfStep(anchor, next);
     const course = shipCourse(anchor, route, drive.step) ?? facing;
     const live = world.mut(e, VehicleDrive);

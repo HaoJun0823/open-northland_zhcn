@@ -115,12 +115,15 @@ export {
   type TradeTransferModel,
 } from './trade.js';
 export {
+  type HaulingCartHold,
+  haulerStatusWords,
   type RiderLook,
   type VehicleCargoGood,
   type VehicleCargoRow,
   type VehicleClass,
   type VehicleCrewModel,
   type VehicleDeckModel,
+  type VehicleHaulerModel,
   type VehicleHoldModel,
   type VehicleOrder,
   type VehicleOrderModel,
@@ -130,6 +133,7 @@ export {
   type VehicleStatusModel,
   type VehicleTradeModel,
   vehicleClassOf,
+  vehicleSubjectEntity,
 } from './vehicle.js';
 
 export interface EmptyPanelModel {

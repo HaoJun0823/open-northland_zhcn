@@ -693,8 +693,12 @@ export const chsGame = {
       centre: '将视角对准这辆载具',
       health: '耐久 {hitpoints} / {max}',
       carrierTooltip: '选中所在的船',
+      haulerTooltip: '选中搬运工',
       status: {
         aboard: '在船上',
+        pulledBy: '由{porter}拉车',
+        parkedBy: '由{porter}停放',
+        fetchedBy: '{porter}正前来取车',
         boardsShip: '正在登船',
         waitsForAnimal: '等待役畜',
         noCommander: {
@@ -728,6 +732,7 @@ export const chsGame = {
       armedTooltip: '{order} · 选择目标 · Esc 取消',
       refusals: {
         carried: '这辆载具在船上',
+        hauled: '这辆车由搬运工拉着',
         noCommander: {
           cart: '这辆车没有指挥官',
           ship: '这艘船没有指挥官',
@@ -767,6 +772,8 @@ export const chsGame = {
       load: '已装 {load} · 途中 {coming} · 目标 {wanted} · 货位 {slots}',
       routed: '按路线',
       routedTooltip: '装载量由商人的路线决定',
+      hauled: '由搬运工',
+      hauledTooltip: '车上装的是搬运工每趟搬起的货物',
       clear: '全部卸下',
       clearTooltip: '所有目标设为 0：物资送回仓库',
       noHand: '无搬运工',

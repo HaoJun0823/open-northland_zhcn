@@ -15,6 +15,7 @@ import { assignPalisadeFields, type PalisadeLayout } from './palisade-connection
 import type { SettlerPose } from './settler-pose.js';
 import {
   assignStaticFields,
+  readHaulingCartDriver,
   readRoadSiteClaimed,
   readVehicleDriver,
   readVehicleFields,
@@ -51,6 +52,7 @@ export function assembleItem(
   switch (kind) {
     case 'settler':
       assignSettlerFields(item, components, pose.actingAtomic, pose.targetFacing, build.snapshot.tick);
+      readHaulingCartDriver(item, components, build.snapshot);
       break;
     case 'vehicle':
       readVehicleFields(item, components); // its `state` came with the pose

@@ -17,6 +17,7 @@ import { reap } from '../lifecycle/death.js';
 import { isShipVehicle } from '../readviews/vehicles.js';
 import { releaseCarried } from './boarding.js';
 import { landingOf, landRider, placeOnNode, releaseRider } from './crew.js';
+import { dropHauler } from './hauling-cart.js';
 import { vehicleIndex } from './registry.js';
 
 /** How far a wrecked cart's or catapult's cargo scatters, in spill rings (original behavior: radius 10;
@@ -66,6 +67,7 @@ export function removeVehicle(world: World, ctx: SystemContext, e: Entity, cause
     }
   }
   if (vehicle.carrier !== null) releaseCarried(world, vehicle.carrier, e);
+  dropHauler(world, e);
 
   const wrecks = cause !== 'script' && type !== undefined && !isShipVehicle(type);
   const spill = wrecks && cause === 'destroyed' ? cargoSpillOf(world, e, anchor) : null;

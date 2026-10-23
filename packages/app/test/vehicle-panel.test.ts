@@ -230,6 +230,7 @@ describe('vehicle status', () => {
     vehicleClass: 'cart' as const,
     task: 'none' as const,
     carrier: null,
+    hauler: null,
     commanded: true,
     foreign: false,
     driving: false,
@@ -420,6 +421,7 @@ describe('vehicle hold', () => {
     goods: [1, 2, 3].map((goodType) => ({ goodType, label: `G${goodType}`, category: 0 })),
     routed: false,
     cargoHand: true,
+    hauled: false,
   });
   const row = (goodType: number, current: number, wanted: number, reserved: number) => ({
     goodType,

@@ -26,6 +26,7 @@ import { isFighterJob, isHunterJob, type MilitaryMode, stanceFights } from '../r
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { startDrop } from '../settlers/atomics/start.js';
 import { COMPASS_DIRECTIONS, entityNode } from '../spatial/nodes.js';
+import { parkHaulingCart, pullsHaulingCart } from '../vehicles/hauling-cart.js';
 import { playerSeesEntity } from '../vision/index.js';
 import type { CombatIndex } from './combat-index.js';
 import { isFleeThreat, SIGHT_RADIUS_NODES } from './targeting.js';
@@ -40,6 +41,13 @@ import { isFleeThreat, SIGHT_RADIUS_NODES } from './targeting.js';
  * (source basis "Combat flee").
  */
 const FLEE_COOLDOWN_TICKS = 40;
+
+/** A carrier pulling its cart parks it where it stands, the load stowed, since no gesture drops a cart's
+ *  load; anyone else plays the drop clip. */
+function shedLoad(world: World, ctx: SystemContext, e: Entity): void {
+  if (pullsHaulingCart(world, e)) parkHaulingCart(world, ctx, e);
+  else startDrop(world, ctx, e);
+}
 
 /**
  * FLEE stance - how many half-cell nodes a fleeing unit runs away from the threats in sight each time it
@@ -170,7 +178,7 @@ export function fleeDrive(
   // the next. Strictly after the threat scan: an unconditional drop here strips every carrying civilian each
   // tick, a pickup-drop livelock that freezes builders, porters and gatherers on multi-player maps.
   if (world.has(e, Carrying)) {
-    startDrop(world, ctx, e);
+    shedLoad(world, ctx, e);
     return;
   }
 
@@ -247,7 +255,7 @@ export function startBlowRun(world: World, ctx: SystemContext, terrain: TerrainG
     return false;
   }
   if (world.has(e, Carrying)) {
-    startDrop(world, ctx, e);
+    shedLoad(world, ctx, e);
     return true;
   }
   world.mut(e, Fleeing).blow = undefined;

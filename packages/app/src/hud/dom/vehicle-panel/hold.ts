@@ -39,13 +39,13 @@ export function cargoFlow(line: Pick<CargoLine, 'current' | 'reserved'>): {
 }
 
 /** A line's tooltip: its counts in words. */
-export function cargoLineTooltip(line: CargoLine, routed: boolean): string {
+export function cargoLineTooltip(line: CargoLine, readOnly: boolean): string {
   const copy = messages().hud.vehiclePanel;
   const { coming, leaving } = cargoFlow(line);
   const parts = [formatMessage(copy.row, { good: line.label, current: line.current })];
   if (coming > 0) parts.push(formatMessage(copy.rowComing, { count: coming }));
   if (leaving > 0) parts.push(formatMessage(copy.rowLeaving, { count: leaving }));
-  if (!routed) parts.push(formatMessage(copy.rowWanted, { count: line.wanted }));
+  if (!readOnly) parts.push(formatMessage(copy.rowWanted, { count: line.wanted }));
   return parts.join(' · ');
 }
 
@@ -220,6 +220,8 @@ export function createHoldSection(
     const cargo = model?.hold ?? null;
     if (model === null || cargo === null) return;
     const copy = messages().hud.vehiclePanel;
+    // A route or a carrier's lifts write the targets: the lines are read-only.
+    const fixed = cargo.routed || cargo.hauled;
     lines = state.lines(cargo);
     const room = cargoRoom(cargo, lines);
     let aboard = 0;
@@ -233,7 +235,7 @@ export function createHoldSection(
     aboardBar.style.width = meterFill(aboard, cargo.slots);
     comingBar.style.left = meterFill(aboard, cargo.slots);
     comingBar.style.width = meterFill(coming, cargo.slots);
-    setHidden(targetMark, cargo.routed);
+    setHidden(targetMark, fixed);
     targetMark.style.left = meterFill(target, cargo.slots);
     write(loadText, String(aboard));
     write(slotsText, ` / ${cargo.slots}`);
@@ -245,19 +247,19 @@ export function createHoldSection(
       const { coming: incoming, leaving } = cargoFlow(line);
       write(view.name, line.label);
       const flow = incoming > 0 ? ` +${incoming}` : leaving > 0 ? ` −${leaving}` : '';
-      const nowKey = `${line.current}|${flow}|${cargo.routed}`;
+      const nowKey = `${line.current}|${flow}|${fixed}`;
       if (view.now.dataset.key !== nowKey) {
         view.now.dataset.key = nowKey;
         view.now.replaceChildren(String(line.current));
         if (flow !== '') view.now.append(element('small', '', flow.trim()));
-        if (!cargo.routed) view.now.append(element('em', '', '→'));
+        if (!fixed) view.now.append(element('em', '', '→'));
       }
-      setTip(view.now, cargoLineTooltip(line, cargo.routed));
+      setTip(view.now, cargoLineTooltip(line, fixed));
       setStyleVar(view.item, '--fill', cargoFill(line));
-      setClass(view.item, 'on-cargo-row--static', cargo.routed);
-      setClass(view.item, 'on-cargo-row--leaving', !cargo.routed && line.wanted < line.current);
-      setHidden(view.counter.element, cargo.routed);
-      if (!cargo.routed) {
+      setClass(view.item, 'on-cargo-row--static', fixed);
+      setClass(view.item, 'on-cargo-row--leaving', !fixed && line.wanted < line.current);
+      setHidden(view.counter.element, fixed);
+      if (!fixed) {
         view.counter.update({
           value: line.wanted,
           lessLabel: formatMessage(copy.less, { good: line.label }),
@@ -271,9 +273,9 @@ export function createHoldSection(
       items.push(view.item);
     }
     for (const good of views.keys()) if (!lines.some((line) => line.goodType === good)) views.delete(good);
-    write(emptyText, cargo.routed ? copy.emptyRouted : copy.empty);
+    write(emptyText, fixed ? copy.emptyRouted : copy.empty);
     if (lines.length === 0) items.push(empty);
-    setHidden(addList, cargo.routed);
+    setHidden(addList, fixed);
     if (
       manifest.children.length !== items.length ||
       items.some((item, index) => manifest.children[index] !== item)
@@ -281,18 +283,18 @@ export function createHoldSection(
       manifest.replaceChildren(...items);
       paintFold();
     }
-    if (cargo.routed && picker.isOpen()) picker.close();
+    if (fixed && picker.isOpen()) picker.close();
     picker.update(cargo.goods, new Set(lines.map((line) => line.goodType)));
     paintAdd();
 
     title.update(copy.hold);
-    setHidden(flag, cargo.cargoHand || cargo.routed);
+    setHidden(flag, cargo.cargoHand || fixed);
     write(flag, copy.noHand);
     setTip(flag, copy.noHandTooltip);
-    setHidden(routed, !cargo.routed);
-    write(routed, copy.routed);
-    setTip(routed, copy.routedTooltip);
-    setHidden(clear, cargo.routed);
+    setHidden(routed, !fixed);
+    write(routed, cargo.hauled ? copy.hauled : copy.routed);
+    setTip(routed, cargo.hauled ? copy.hauledTooltip : copy.routedTooltip);
+    setHidden(clear, fixed);
     write(clear, copy.clear);
     setDisabled(clear, target === 0);
     setTip(clear, copy.clearTooltip);

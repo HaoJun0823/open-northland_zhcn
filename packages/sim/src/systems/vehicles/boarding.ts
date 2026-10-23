@@ -266,6 +266,10 @@ export function loadIntoVehicle(
   if (state === undefined || carrierState === undefined || vehicle === carrier) return false;
   dropVehicleOrderQueue(world, vehicle);
   if (state.carrier === carrier) return true;
+  if (state.hauler !== null) {
+    refuseCrew(world, ctx, vehicle, 'cannotAttach'); // a carrier's hauling cart goes nowhere without it
+    return false;
+  }
   if (state.carrier !== null && !leaveCarrier(world, ctx, { kind: 'leaveCarrier', vehicle })) return false;
   const types = contentIndex(ctx.content).vehicles;
   const type = types.get(state.vehicleType);

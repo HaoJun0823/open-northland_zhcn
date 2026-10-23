@@ -438,6 +438,11 @@ export const enContent = {
       summary:
         'Two carts and their carriers: a handcart whose player asked for wood, which its carrier fetches unit by unit from the piles beside it, and an ox cart that starts loaded with stone nobody asked for, so its carrier carries it out to the warehouse. The handcart turns loaded after the first unit, the ox cart empty after the last.',
     },
+    'hauling-cart': {
+      title: 'Hauling cart',
+      summary:
+        'Two porters of a warehouse are handed carts: each walks to its cart, takes it and clears the wood piles to the north a whole pile a trip instead of a unit. The porter pulling the handcart and the one driving the ox cart draw as the driving figures of their carts, walking and standing, and the carts are gone from where they stood.',
+    },
     'vehicle-catapult': {
       title: 'Catapult',
       summary:

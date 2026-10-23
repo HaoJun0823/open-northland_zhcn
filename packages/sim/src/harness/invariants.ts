@@ -4,11 +4,13 @@ import {
   Building,
   CurrentAtomic,
   Engagement,
+  HaulingCart,
   HuntFocus,
   MAX_BUILDING_LEVEL,
   PathFollow,
   PathRoute,
   Person,
+  Position,
   Settler,
   SettlerNeeds,
   SettlerProgress,
@@ -23,6 +25,7 @@ import { ONE } from '../core/fixed.js';
 import type { Component, World } from '../ecs/world.js';
 import { NEED_OVERFILL_FLOOR } from '../systems/lifecycle/needs/index.js';
 import { isAnimalTribe } from '../systems/readviews/index.js';
+import { isPostedCarrier } from '../systems/vehicles/hauling-cart.js';
 import { playerPlacementRulesValid } from './player-placement-invariant.js';
 
 /**
@@ -159,6 +162,39 @@ const vehicleRoutesOwned: Invariant = (world) => {
   return out;
 };
 
+/** A hauling cart and its carrier name each other, a taken cart stands nowhere and rides no ship, and a
+ *  cart nobody pulls names no hauler, so no exit path leaves a one-sided link behind. */
+const haulingCartsLinked: Invariant = (world, content) => {
+  const out: string[] = [];
+  for (const e of world.query(HaulingCart)) {
+    const held = world.get(e, HaulingCart);
+    if (!isPostedCarrier(world, content, e)) {
+      out.push(`entity ${e}: holds hauling cart ${held.vehicle} without being a posted carrier`);
+    }
+    const state = world.tryGet(held.vehicle, Vehicle);
+    if (state === undefined || state.hauler !== e) {
+      out.push(`entity ${e}: HaulingCart names vehicle ${held.vehicle}, which does not name it back`);
+      continue;
+    }
+    if (held.taken && (world.has(held.vehicle, Position) || state.carrier !== null)) {
+      out.push(`entity ${e}: taken hauling cart ${held.vehicle} stands on the map or rides a ship`);
+    }
+    if (held.taken && held.parked) {
+      out.push(`entity ${e}: hauling cart ${held.vehicle} is both in hand and parked`);
+    }
+    if (held.lift !== null && (held.taken || !world.has(held.vehicle, Position))) {
+      out.push(`entity ${e}: hauling cart ${held.vehicle} is in a lift while in hand or off the map`);
+    }
+  }
+  for (const e of world.query(Vehicle)) {
+    const hauler = world.get(e, Vehicle).hauler;
+    if (hauler !== null && world.tryGet(hauler, HaulingCart)?.vehicle !== e) {
+      out.push(`entity ${e}: hauler ${hauler} does not pull it`);
+    }
+  }
+  return out;
+};
+
 export const CORE_INVARIANTS: readonly Invariant[] = [
   stockNonNegative,
   needsInRange,
@@ -168,6 +204,7 @@ export const CORE_INVARIANTS: readonly Invariant[] = [
   splitHalvesPaired,
   atomicStandsStill,
   vehicleRoutesOwned,
+  haulingCartsLinked,
   cachesCoherent,
   playerPlacementRulesValid,
 ];

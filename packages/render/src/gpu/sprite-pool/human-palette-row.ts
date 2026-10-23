@@ -41,8 +41,9 @@ export function humanPaletteIdentity(
   const lut = sheet?.palette;
   const characters = sheet?.characters;
   if (lut === undefined || characters === undefined) return false;
-  if (item.kind === 'vehicle') {
-    const driven = cartDriveLook(sheet, item);
+  // A cart drawn as its driver, commander inside or carrier pulling it, reads the driver's identity.
+  const driven = cartDriveLook(sheet, item);
+  if (item.kind === 'vehicle' || driven !== undefined) {
     const driver = item.driver;
     if (driven === undefined || driver === undefined) return false;
     out.look = driven.character.palette ?? BASE_ONLY;

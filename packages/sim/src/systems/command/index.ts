@@ -84,6 +84,7 @@ import {
   attachToVehicle,
   attackWithVehicle,
   boardVehicle,
+  canTakeHaulingCart,
   clearVehicleWantedOrder,
   createVehicle,
   detachBeforeOrder,
@@ -96,7 +97,10 @@ import {
   leaveCarrier,
   loadIntoVehicle,
   moveVehicle,
+  orderHaulingCart,
   queueVehicleOrder,
+  releaseHaulingCart,
+  releasesHaulingCart,
   setVehicleStance,
   setVehicleWantedOrder,
   stopVehicle,
@@ -168,6 +172,7 @@ function applyCommand(
   // keeps its seat and the order is dropped.
   if (isCommanderWalkOrder(command) && driveCommandedVehicle(world, ctx, command, orders, origin)) return;
   if (forcesDetach(command) && !detachBeforeOrder(world, ctx, command.entity)) return;
+  if (releasesHaulingCart(command)) releaseHaulingCart(world, ctx, command.entity);
   switch (command.kind) {
     case 'setVehicleStanceGroup':
       if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
@@ -319,9 +324,15 @@ function applyCommand(
       stopVehicle(world, command);
       return;
     case 'attachToVehicle':
-      attachToVehicle(world, ctx, command);
+      // A seated crew member gives up its post, and its hauling cart with it (`releaseEmployment`).
+      if (canTakeHaulingCart(world, ctx, command.entity, command.vehicle)) {
+        orderHaulingCart(world, ctx, command.entity, command.vehicle);
+      } else {
+        attachToVehicle(world, ctx, command);
+      }
       return;
     case 'detachFromVehicle':
+      releaseHaulingCart(world, ctx, command.entity);
       detachFromVehicle(world, ctx, command);
       return;
     case 'boardVehicle':

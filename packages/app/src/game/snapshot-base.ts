@@ -45,12 +45,14 @@ export function positionOf(e: SnapshotEntity): { x: Fixed; y: Fixed } | undefine
   return x !== undefined && y !== undefined ? { x: x as Fixed, y: y as Fixed } : undefined;
 }
 
-/** Rider in vehicle, vehicle on ship, or settler resting in a house: the longest chain to a placed entity. */
+/** Rider in vehicle, vehicle on ship, or settler resting in a house: the longest chain to a placed entity. A
+ *  taken hauling cart is one step, to the carrier pulling it. */
 const STANDING_CHAIN_DEPTH = 3;
 
 /**
  * The entity that stands on the map for `id`: the entity itself while it has a position, else the
- * vehicle, ship or house it is inside. Undefined for an unknown id or a broken chain.
+ * vehicle, ship or house it is inside, or the carrier pulling it. Undefined for an unknown id or a broken
+ * chain.
  */
 export function standingEntity(snapshot: WorldSnapshot, id: number): SnapshotEntity | undefined {
   let next: unknown = id;
@@ -59,9 +61,11 @@ export function standingEntity(snapshot: WorldSnapshot, id: number): SnapshotEnt
     if (entity === undefined) return undefined;
     if (positionOf(entity) !== undefined) return entity;
     const c = entity.components;
+    const vehicle = c.Vehicle as { carrier?: unknown; hauler?: unknown } | undefined;
     next =
       (c.Rider as { vehicle?: unknown } | undefined)?.vehicle ??
-      (c.Vehicle as { carrier?: unknown } | undefined)?.carrier ??
+      vehicle?.carrier ??
+      vehicle?.hauler ??
       (c.Resting as { at?: unknown } | undefined)?.at;
   }
   return undefined;

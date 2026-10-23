@@ -62,14 +62,14 @@ export function canAttachToVehicle(world: World, ctx: MapContext, settler: Entit
   if (world.tryGet(settler, Rider)?.vehicle === vehicle) return true;
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
   if (type === undefined || !passengerJobAllowed(type, world.get(settler, Settler).jobType)) return false;
-  return hasFreeSeat(state) && doorReachable(world, ctx, settler, vehicle);
+  return state.hauler === null && hasFreeSeat(state) && doorReachable(world, ctx, settler, vehicle);
 }
 
 /**
  * Whether `settler` stands on the continent of `vehicle`'s door. A vehicle riding a carrier or a
  * settler aboard one is judged where it would step out. True without a map, where nothing walks.
  */
-function doorReachable(world: World, ctx: MapContext, settler: Entity, vehicle: Entity): boolean {
+export function doorReachable(world: World, ctx: MapContext, settler: Entity, vehicle: Entity): boolean {
   const terrain = ctx.terrain;
   if (terrain === undefined) return true;
   const door = landingOf(world, ctx, vehicle);
@@ -119,9 +119,11 @@ export function refuseCrew(
 }
 
 /**
- * The attach order - see the command doc. The rider gives up its workplace, its post, its fight
- * (the original's attach detaches the work house and resets the attack targets) and its
- * chat, and walks to the door through the unconfined walk order, which also sets a carried load down first.
+ * The attach order's crew half - see the command doc; the dispatcher hands a posted carrier's cart to
+ * `orderHaulingCart` instead. The rider gives up its workplace, its post, its fight (the original's attach
+ * detaches the work house and resets the attack targets) and its chat, and walks to the door through the
+ * unconfined walk order, which also sets a carried load down first. A cart a carrier pulls has no seat
+ * to offer.
  */
 export function attachToVehicle(
   world: World,
@@ -143,7 +145,7 @@ export function attachToVehicle(
     refuseRider(world, ctx, e, 'cannotEnter');
     return false;
   }
-  if (!seatPassenger(world, vehicle, e)) {
+  if (state.hauler !== null || !seatPassenger(world, vehicle, e)) {
     refuseCrew(world, ctx, vehicle, 'noRoom');
     return false;
   }

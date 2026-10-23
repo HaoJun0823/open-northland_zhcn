@@ -44,6 +44,7 @@ export {
   readStoreExchangeRef,
 } from './unit-readers.js';
 export {
+  readHaulingCartDriver,
   readVehicleDriver,
   readVehicleDriving,
   readVehicleFields,

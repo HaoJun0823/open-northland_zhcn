@@ -693,8 +693,12 @@ export const chtGame = {
       centre: '將視角置中於載具',
       health: '耐久度 {hitpoints} / {max}',
       carrierTooltip: '選取船隻',
+      haulerTooltip: '選取搬運工',
       status: {
         aboard: '在船上',
+        pulledBy: '由{porter}拉車',
+        parkedBy: '由{porter}停放',
+        fetchedBy: '{porter}正前來取車',
         boardsShip: '正在登船',
         waitsForAnimal: '等待役畜',
         noCommander: {
@@ -728,6 +732,7 @@ export const chtGame = {
       armedTooltip: '{order} · 選擇目標 · Esc 取消',
       refusals: {
         carried: '載具停在船上',
+        hauled: '這輛車由搬運工拉著',
         noCommander: {
           cart: '這輛車沒有指揮官',
           ship: '這艘船沒有指揮官',
@@ -767,6 +772,8 @@ export const chtGame = {
       load: '已裝載 {load} · 運送中 {coming} · 目標 {wanted} · 欄位 {slots}',
       routed: '依路線',
       routedTooltip: '由商人的路線決定裝載內容',
+      hauled: '由搬運工',
+      hauledTooltip: '車上裝的是搬運工每趟搬起的貨物',
       clear: '全部卸貨',
       clearTooltip: '所有目標設為 0：貨物送回倉庫',
       noHand: '沒有搬運工',

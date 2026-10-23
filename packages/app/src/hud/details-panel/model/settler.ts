@@ -197,6 +197,8 @@ const ATOMIC_STATE: Readonly<Record<AtomicEffect['kind'], SettlerState>> = {
   drop: 'working',
   cartLoad: 'working',
   cartUnload: 'working',
+  haulLoad: 'working',
+  haulUnload: 'working',
   vehicleLoad: 'working',
   vehicleUnload: 'working',
   produce: 'working',

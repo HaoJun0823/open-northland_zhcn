@@ -13,6 +13,7 @@ import { planGossipIdle } from '../../../../social/index.js';
 import { assignedWorkers } from '../../../../stores/assigned-workers.js';
 import { isWorkplaceOperator, mergedRecipeOf, presentOperators } from '../../../../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../../../../stores/workshop-workforce.js';
+import { carryCapacityOf } from '../../../../vehicles/hauling-cart.js';
 import { atOrWalk, walkFetchInput, walkPickupBatch } from '../../../atomics/start.js';
 import { enterBuilding } from '../../../indoors.js';
 import type { PlannerContext } from '../../../planner/context.js';
@@ -293,8 +294,9 @@ export function planWorkshopSupplier(
  * Send the worker to lift one carry-load of a missing input out of `source`'s store. A trip carries a
  * single unit whoever makes it, craftsman or bound carrier: the original reserves exactly one against both
  * ends of the walk before it sets off (+1 at the work house, -1 at the source), so a recipe wanting two of
- * a good is two walks. The search keeps choosing the nearest self-filling house even empty, so the worker
- * waits by its door for the refill ({@link walkFetchInput}).
+ * a good is two walks. A carrier pulling its hauling cart brings the input's whole shortfall up to the
+ * cart's room in one (named addition). The search keeps choosing the nearest self-filling house even
+ * empty, so the worker waits by its door for the refill ({@link walkFetchInput}).
  */
 function routeToInputSource(
   plan: PlannerContext,
@@ -302,10 +304,14 @@ function routeToInputSource(
   source: MissingInputSource,
   seatClaims: WorkSeatClaims,
 ): void {
-  const { entity, supply } = plan;
-  supply.stampSupplyRun(entity, { site: workplace, goodType: source.goodType, amount: CARRY_CAPACITY });
-  seatClaims.noteErrand(entity, { workplace, goodType: source.goodType, amount: CARRY_CAPACITY });
-  walkFetchInput(plan, source.store, source.goodType, source.refills);
+  const { world, ctx, entity, supply } = plan;
+  const amount = Math.max(
+    CARRY_CAPACITY,
+    Math.min(carryCapacityOf(world, ctx.content, entity), source.shortfall),
+  );
+  supply.stampSupplyRun(entity, { site: workplace, goodType: source.goodType, amount });
+  seatClaims.noteErrand(entity, { workplace, goodType: source.goodType, amount });
+  walkFetchInput(plan, source.store, source.goodType, source.refills, amount);
 }
 
 /**

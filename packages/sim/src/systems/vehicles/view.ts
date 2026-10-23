@@ -44,6 +44,8 @@ export interface VehicleView {
   readonly mooring: HalfCellNode | null;
   readonly harnessed: boolean;
   readonly carrier: Entity | null;
+  /** The posted carrier pulling this cart on its hauls, or null; a taken cart has no `at`. */
+  readonly hauler: Entity | null;
   readonly at: HalfCellNode | null;
   readonly door: HalfCellNode | null;
   /** The node the drive is headed to; null while the vehicle stands. */
@@ -91,6 +93,7 @@ export function vehicleView(world: World, ctx: MapContext, e: Entity): VehicleVi
     mooring: vehicle.mooring === null ? null : { hx: vehicle.mooring.hx, hy: vehicle.mooring.hy },
     harnessed: vehicle.harnessed,
     carrier: vehicle.carrier,
+    hauler: vehicle.hauler,
     at: anchor,
     door: type !== undefined && anchor !== null ? vehicleDoorPoint(vehicle, type, anchor, ctx.terrain) : null,
     goal: drive === undefined ? null : { hx: drive.goal.hx, hy: drive.goal.hy },

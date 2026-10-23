@@ -147,6 +147,7 @@ import {
 } from './systems/trade/index.js';
 import {
   canAttachToVehicle,
+  canTakeHaulingCart,
   type MooringProbe,
   mooringProbe,
   unloadLandingOf,
@@ -751,9 +752,14 @@ export class Simulation {
     return canAttachTradeHouse(this.world, this.mapContext(), trader, house);
   }
 
-  /** Whether the `attachToVehicle` command would seat `settler` on `vehicle` right now. */
+  /** Whether the `attachToVehicle` command would seat `settler` on `vehicle` right now, or hand it the
+   *  vehicle as its hauling cart. */
   canAttachToVehicle(settler: Entity, vehicle: Entity): boolean {
-    return canAttachToVehicle(this.world, this.mapContext(), settler, vehicle);
+    const ctx = this.mapContext();
+    return (
+      canAttachToVehicle(this.world, ctx, settler, vehicle) ||
+      canTakeHaulingCart(this.world, ctx, settler, vehicle)
+    );
   }
 
   /** Every house {@link canAttachTradeHouse} admits for `trader`, ascending by id: one answer for the
@@ -770,7 +776,11 @@ export class Simulation {
     const ctx = this.mapContext();
     return this.world
       .canonicalQuery(Vehicle)
-      .filter((vehicle) => canAttachToVehicle(this.world, ctx, settler, vehicle));
+      .filter(
+        (vehicle) =>
+          canAttachToVehicle(this.world, ctx, settler, vehicle) ||
+          canTakeHaulingCart(this.world, ctx, settler, vehicle),
+      );
   }
 
   /**

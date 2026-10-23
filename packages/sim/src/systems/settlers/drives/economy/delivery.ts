@@ -15,8 +15,9 @@ import { farmWorkGood } from '../../../economy/fields.js';
 import { clearNavState } from '../../../movement/nav-state.js';
 import { atomicDuration } from '../../../readviews/animations.js';
 import { nearestCell } from '../../../spatial/metric.js';
+import { liftsWithHaulingCart, pullsHaulingCart } from '../../../vehicles/hauling-cart.js';
 import { dropCarryAtOwnTile } from '../../atomics/effects/goods/index.js';
-import { atOrWalk, PILEUP_ATOMIC_ID, startAtomic, startDrop } from '../../atomics/start.js';
+import { atOrWalk, PILEUP_ATOMIC_ID, startAtomic, startCartUnload, startDrop } from '../../atomics/start.js';
 import { enterBuilding } from '../../indoors.js';
 import type { PlannerContext } from '../../planner/context.js';
 import type { PlannerSpacing } from '../../planner/spacing.js';
@@ -90,10 +91,12 @@ export function planDelivery(
     world.remove(entity, YardDeliveryRoute);
     const workplace = world.tryGet(entity, JobAssignment)?.workplace;
     // A settler posted to a passive store sheds an undeliverable surplus through an instant set-down that
-    // costs no atomic; producers keep their load and wait inside instead.
+    // costs no atomic; producers keep their load and wait inside instead, and so does a carrier with the
+    // load in its hauling cart, which no hand sets down.
     if (
       workplace !== undefined &&
       isBoundToStorageSink(world, ctx, entity) &&
+      !pullsHaulingCart(world, entity) &&
       farmWorkGood(world, ctx, workplace) === null &&
       dropCarryAtOwnTile(world, ctx, entity) > 0
     ) {
@@ -155,6 +158,10 @@ export function planDelivery(
   }
   atOrWalk(world, entity, here, cell, () => {
     world.remove(entity, YardDeliveryRoute);
+    if (liftsWithHaulingCart(world, entity)) {
+      startCartUnload(world, ctx, entity, worker, store);
+      return;
+    }
     startAtomic(
       world,
       entity,

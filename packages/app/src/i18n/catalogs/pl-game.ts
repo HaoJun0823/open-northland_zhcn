@@ -700,8 +700,12 @@ export const plGame = {
       centre: 'Centruj widok na wehikule',
       health: 'Wytrzymałość {hitpoints} / {max}',
       carrierTooltip: 'Zaznacz statek',
+      haulerTooltip: 'Zaznacz tragarza',
       status: {
         aboard: 'Na statku',
+        pulledBy: 'Ciągnie go {porter}',
+        parkedBy: 'Odstawił go {porter}',
+        fetchedBy: 'Idzie po niego {porter}',
         boardsShip: 'Wjeżdża na statek',
         waitsForAnimal: 'Czeka na zwierzę pociągowe',
         noCommander: { cart: 'Czeka na dowódcę', ship: 'Czeka na dowódcę', siege: 'Czeka na dowódcę' },
@@ -731,6 +735,7 @@ export const plGame = {
       armedTooltip: '{order} · wskaż cel · Esc anuluje',
       refusals: {
         carried: 'Wehikuł stoi na statku',
+        hauled: 'Wóz jest w rękach tragarza',
         noCommander: {
           cart: 'Wóz nie ma dowódcy',
           ship: 'Statek nie ma dowódcy',
@@ -770,6 +775,8 @@ export const plGame = {
       load: 'Na pokładzie {load} · w drodze {coming} · cel {wanted} · miejsc {slots}',
       routed: 'według trasy',
       routedTooltip: 'Ładunkiem steruje trasa kupca',
+      hauled: 'w rękach tragarza',
+      hauledTooltip: 'Wóz wiezie to, co tragarz podnosi w każdym kursie',
       clear: 'Rozładuj wszystko',
       clearTooltip: 'Wszystkie cele na 0: towary wracają do magazynu',
       noHand: 'bez tragarza',

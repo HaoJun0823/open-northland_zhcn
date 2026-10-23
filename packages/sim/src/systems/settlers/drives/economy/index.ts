@@ -3,12 +3,14 @@
 // their settler once entered, so they report nothing.
 
 export { builderWorkBeyondReach, planBuilder } from './builder.js';
+export { planCartTopUp } from './cart-top-up.js';
 export { ConstructionTaskClaims } from './construction-task-claims.js';
 export { planDelivery, reconcileYardRoute, yardRouteSettled } from './delivery.js';
 export { planFisher } from './fishing.js';
 export { planGatherer } from './gatherer.js';
 export { planWaitAtFieldFlag } from './haul-flag-area.js';
 export { planCarrierHaul, planPorter } from './hauling.js';
+export { planHaulingCart } from './hauling-cart.js';
 export { RepairCrews } from './repair.js';
 export { planSiteStaff } from './site-staff.js';
 export { SiteSupplyReach } from './site-supply.js';

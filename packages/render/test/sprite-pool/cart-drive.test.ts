@@ -174,6 +174,42 @@ describe('a cart driven from inside', () => {
     expect(binder.suits(driven, cart())).toBe(false);
   });
 
+  it('binds a carrier pulling its own cart through the human LUT whatever its foot look is baked on', () => {
+    const bakedCarrier: SettlerCharacter = {
+      body: { source, atlas: humanAtlas },
+      binding: { idle: 0 },
+      indexed: false,
+    };
+    const baked: SpriteSheet = {
+      ...sheet,
+      characters: {
+        byJob: { [TRADER]: trader, [CARRIER]: bakedCarrier },
+        default: { body: { source, atlas: humanAtlas }, binding: { idle: 0 } },
+      },
+    };
+    const onFoot: DrawItem = {
+      kind: 'settler',
+      ref: DRIVER,
+      x: 0,
+      y: 0,
+      depth: 0,
+      tribe: VIKING,
+      jobType: CARRIER,
+      facing: EAST,
+      state: 'idle',
+    };
+    const pulling: DrawItem = {
+      ...onFoot,
+      typeId: HANDCART,
+      driver: { ref: DRIVER, jobType: CARRIER, tribe: VIKING },
+    };
+    const binder = new LayerBinder(new TextureCache(), baked);
+    expect(binder.create('settler', onFoot).paletted).toBe(false);
+    const pulled = binder.create('settler', pulling);
+    expect(pulled.paletted && pulled.palette).toBe(lut);
+    expect(binder.suits(pulled, onFoot)).toBe(false);
+  });
+
   it('swaps the pooled cart for one of the new class when its driver boards, keeping one on screen', () => {
     // The figure's frames are absent, so the driven cart binds the placeholder: the mesh needs a DOM.
     const faceless: SpriteSheet = {

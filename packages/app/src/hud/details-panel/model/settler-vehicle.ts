@@ -4,7 +4,7 @@ import { num, type SnapshotEntity, settlerJobType } from '../../../game/snapshot
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { type Comp, goodLabel, isCarrierJob, type UnitPanelModelContext } from './context.js';
 import type { SeatControl, SettlerRole } from './settler-household.js';
-import { readStockLines, vehicleTitle } from './vehicle.js';
+import { readStockLines, vehicleTitle, withCarriedLoad } from './vehicle.js';
 
 /** The vehicle a person rides or walks to board. */
 export interface SettlerVehicleLink {
@@ -34,16 +34,20 @@ function takesVehicle(ctx: UnitPanelModelContext, jobType: number): boolean {
   return isCarrierJob(ctx, jobType) || systems.isFighterJobRow(job) || ctx.isTraderJob?.(jobType) === true;
 }
 
+/** `puller` is the person with the cart in hand: what it carries rides in the cart and counts as its load. */
 function holdLine(
   ctx: UnitPanelModelContext,
   ent: SnapshotEntity,
   type: VehicleType | undefined,
   title: string,
+  puller: SnapshotEntity | undefined,
 ): string {
   if (type === undefined || type.stockSlots === 0) return title;
   const copy = messages().hud.settlerPanel;
   const goods: string[] = [];
-  for (const line of readStockLines(ent.components.VehicleStock).values()) {
+  const own = readStockLines(ent.components.VehicleStock);
+  const lines = puller === undefined ? own : withCarriedLoad(own, puller);
+  for (const line of lines.values()) {
     if (line.current > 0) {
       goods.push(
         formatMessage(copy.vehicleLoadGood, { amount: line.current, good: goodLabel(ctx, line.good) }),
@@ -57,7 +61,8 @@ function holdLine(
 }
 
 /** The Vehicle row of an own grown person of a vehicle trade, else null. `Rider` names the vehicle from
- *  the attach on, while the person still walks to its door. */
+ *  the attach on, while the person still walks to its door, and `HaulingCart` the cart a posted carrier
+ *  pulls or walks to take. */
 export function vehicleRow(
   ctx: UnitPanelModelContext,
   snapshot: WorldSnapshot,
@@ -67,14 +72,19 @@ export function vehicleRow(
 ): SettlerVehicleRow | null {
   const jobType = settlerJobType(ent);
   if (role === 'child' || jobType === undefined || !takesVehicle(ctx, jobType)) return null;
-  const riding = num((ent.components.Rider as { vehicle?: unknown } | undefined)?.vehicle);
+  const held = ent.components.HaulingCart as { vehicle?: unknown; taken?: unknown } | undefined;
+  const riding =
+    num((ent.components.Rider as { vehicle?: unknown } | undefined)?.vehicle) ?? num(held?.vehicle);
   const vehicle = riding === undefined ? undefined : entityById(snapshot, riding);
+  const puller = held?.taken === true ? ent : undefined;
   const typeId = num((vehicle?.components.Vehicle as Comp | undefined)?.vehicleType);
   const type = typeId === undefined ? undefined : ctx.vehicles.find((v) => v.typeId === typeId);
   const label = vehicleTitle(ctx, typeId);
   return {
     target:
-      vehicle === undefined ? null : { id: vehicle.id, label, load: holdLine(ctx, vehicle, type, label) },
+      vehicle === undefined
+        ? null
+        : { id: vehicle.id, label, load: holdLine(ctx, vehicle, type, label, puller) },
     assign: control,
     remove: riding === undefined ? null : control,
   };

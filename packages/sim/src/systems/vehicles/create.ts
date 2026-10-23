@@ -70,6 +70,7 @@ export function createVehicle(
     mooring,
     harnessed: false,
     carrier: null,
+    hauler: null,
     passengers: emptySeats(commanderSlotOf(type.passengerSlots) + 1),
     vehicles: emptySeats(type.vehicleSlots),
     heldGoal: null,

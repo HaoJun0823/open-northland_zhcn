@@ -71,8 +71,9 @@ function readMoored(components: Readonly<Record<string, unknown>>): boolean {
 
 /**
  * The live vehicle fields on top of the static ones: its task, whether it lies moored, and its load. The
- * load is drawn as one good, the one with the most units aboard (approximation: the original's loaded
- * variants are palette rows of one cart body, not per-good art, so any good picks the same loaded look).
+ * load is drawn as one good, the one with the most units aboard; the readable data binds a loaded gait
+ * only for the ships, so a cart looks the same empty and full (approximation: whether the original engine
+ * draws a cart's load another way is unverified).
  */
 export function readVehicleFields(
   item: MutableDrawItem,
@@ -159,5 +160,31 @@ export function readVehicleDriver(
     jobType,
     ...(tribe !== undefined ? { tribe } : {}),
     ...('Female' in rider.components ? { female: true } : {}),
+  };
+}
+
+/**
+ * A posted carrier pulling the hauling cart it has taken (`HaulingCart.taken`) draws as that cart's
+ * driving figure: the item takes the cart's type and itself as the driver, which `cartDriveLook` reads
+ * the way it reads a cart's commander. Nothing while the carrier still walks to the cart.
+ */
+export function readHaulingCartDriver(
+  item: MutableDrawItem,
+  components: Readonly<Record<string, unknown>>,
+  snapshot: WorldSnapshot,
+): void {
+  const held = components.HaulingCart as { vehicle?: unknown; taken?: unknown } | undefined;
+  if (held === undefined || held.taken !== true || typeof held.vehicle !== 'number') return;
+  const cart = entityById(snapshot, held.vehicle);
+  const typeId = cart === undefined ? undefined : readNumField(cart.components, 'Vehicle', 'vehicleType');
+  const jobType = readJobType(components);
+  if (typeId === undefined || jobType === undefined) return;
+  const tribe = readSettlerTribe(components);
+  item.typeId = typeId;
+  item.driver = {
+    ref: item.ref,
+    jobType,
+    ...(tribe !== undefined ? { tribe } : {}),
+    ...('Female' in components ? { female: true } : {}),
   };
 }

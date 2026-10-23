@@ -375,7 +375,8 @@ export const economyContent = {
     },
   ],
   // The vehicle shapes of `vehicletypes.ini` with their real slot, size and pool values: a cart
-  // (footprint one node, cargo, the hauler and scout trades as crew, the trader as script captain), the
+  // (footprint one node, cargo, the hauler and scout trades as crew, both fixture carrier ids so a
+  // workshop's posted carrier may pull one, the trader as script captain), the
   // ox cart pair, a ship (disc radius 2, passengers, a door four steps off the bow, one carried vehicle,
   // the carrier as captain) and the catapult (radius 1, no cargo, soldiers). The carts and ship carry
   // wood, plank and food_simple; bread aliases onto food_simple the way the original's dishes do.
@@ -387,7 +388,7 @@ export const economyContent = {
       stockSlots: 15,
       logicSize: 0,
       cargoGoods: [1, 2, 3],
-      passengerJobs: [24, 25, 27],
+      passengerJobs: [24, 25, 27, 36],
       commanderJob: 25,
       hitpoints: 1000,
     },
@@ -400,7 +401,7 @@ export const economyContent = {
       stockSlots: 30,
       logicSize: 0,
       cargoGoods: [1, 2, 3],
-      passengerJobs: [24, 25, 27],
+      passengerJobs: [24, 25, 27, 36],
       commanderJob: 25,
       hitpoints: 1000,
     },

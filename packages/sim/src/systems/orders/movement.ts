@@ -50,6 +50,7 @@ import { heldIndoors, stepOut } from '../settlers/indoors.js';
 import { announceLostWay, liftLostWalk, markLostWay } from '../settlers/lost-way.js';
 import { navigationLimitFor } from '../signposts/index.js';
 import { entityNode } from '../spatial/nodes.js';
+import { pullsHaulingCart } from '../vehicles/hauling-cart.js';
 import { recordAiOrder } from './ai-lifecycle.js';
 import { moveAnchor } from './combat.js';
 import { deferOrderDuringAtomic, supersedeStandingOrders } from './guards.js';
@@ -252,8 +253,9 @@ function startPlayerWalk(
   };
 
   // Hands full: set the load down first and park the destination. CurrentAtomic was cleared above, so
-  // startDrop always takes.
-  if (world.has(e, Carrying)) {
+  // startDrop always takes. A carrier pulling its hauling cart walks with the cart and its load instead:
+  // the load is the cart's, and setting it down is a lift's work, not a hand's gesture.
+  if (world.has(e, Carrying) && !pullsHaulingCart(world, e)) {
     startDrop(world, ctx, e);
     world.add(e, PlayerOrder, { ...order, pendingGoal: goal });
     return true;

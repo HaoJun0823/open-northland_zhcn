@@ -84,6 +84,8 @@ export interface MissingInputSource {
   readonly store: Entity;
   readonly goodType: number;
   readonly refills: boolean;
+  /** The units the input is short of its target, what is already on its way counted. */
+  readonly shortfall: number;
 }
 
 /** A source verdict: `true` once the search judged it a self-filling house of the good, `false` when it
@@ -185,7 +187,7 @@ export function nearestMissingInputSource(
     if (winner !== null) {
       const store = winner.entity;
       const refills = winner.payload || refillingGoodsOf(world, ctx, store).includes(goodType);
-      return { store, goodType, refills };
+      return { store, goodType, refills, shortfall: pickTarget - pickHave };
     }
     if (supplying !== null) unsourced?.push(goodType);
     lastIndex = pick;

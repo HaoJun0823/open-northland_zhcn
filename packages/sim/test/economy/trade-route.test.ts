@@ -80,6 +80,9 @@ const MAP_H = 3;
 const WIDE_MAP_CELLS = 120;
 /** Long enough for several round trips on the fixture's short map. */
 const RUN_TICKS = 900;
+/** The wide-map drive with ten wood in a handcart of fifteen: a two-thirds load costs the cart a third
+ *  of its speed (`drag.ts`), so the run takes half as long again as an empty one. */
+const LADEN_WIDE_RUN_TICKS = 5 * RUN_TICKS;
 /** Long enough for the trader to take command of its cart. */
 const TRADE_START_TICKS = 60;
 /** Planks put into the cart's hold by hand, which no house on the route marks. */
@@ -664,7 +667,7 @@ describe('a trader between its own houses', () => {
     const trader = traderAt(sim, NEAR_X);
     woodRoute(sim, trader, near, far);
 
-    sim.run(3 * RUN_TICKS);
+    sim.run(LADEN_WIDE_RUN_TICKS);
 
     expect(sim.world.has(trader, Rider)).toBe(true);
     expect(stockOf(sim, far, WOOD)).toBeGreaterThan(0);

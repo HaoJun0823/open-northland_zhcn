@@ -440,6 +440,11 @@ export const deContent = {
       summary:
         'Zwei Karren und ihre Träger: ein Handkarren, für den der Spieler Holz angefordert hat, das sein Träger Stück für Stück von den Haufen daneben holt, und ein Ochsenkarren, der anfangs mit nicht angefordertem Bruchstein beladen ist, den sein Träger deshalb zum Lagerhaus bringt. Der Handkarren erscheint nach der ersten Einheit beladen, der Ochsenkarren nach der letzten leer.',
     },
+    'hauling-cart': {
+      title: 'Trägerkarren',
+      summary:
+        'Zwei Träger eines Lagerhauses erhalten Karren: jeder geht zu seinem Karren, nimmt ihn und räumt die Holzhaufen im Norden je Gang einen ganzen Haufen statt einer Einheit ab. Der Träger mit dem Handkarren und der mit dem Ochsenkarren erscheinen als Fahrerfigur ihres Karrens, gehend und stehend, und die Karren sind von ihrem Standplatz verschwunden.',
+    },
     'vehicle-catapult': {
       title: 'Katapult',
       summary:

@@ -23,6 +23,7 @@ import {
 import { isStrokeCountedAtomic } from '../../../readviews/index.js';
 import { erectSignpost } from '../../../signposts/index.js';
 import { loadCart, unloadCart } from '../../../trade/index.js';
+import { loadHaulingCart, unloadHaulingCart } from '../../../vehicles/hauling-cart.js';
 import { serveDrillRepetition } from '../../drives/training.js';
 import {
   consumeFood,
@@ -88,6 +89,12 @@ export function applyEffect(
       return;
     case 'cartUnload':
       unloadCart(world, ctx, settler, effect.store, effect.goodType);
+      return;
+    case 'haulLoad':
+      loadHaulingCart(world, ctx, settler, effect.from, effect.goodType);
+      return;
+    case 'haulUnload':
+      if (unloadHaulingCart(world, ctx, settler, effect.store)) grantCarryExperience(world, ctx, settler);
       return;
     case 'vehicleLoad':
       if (loadVehicleHold(world, ctx, settler, effect.vehicle)) grantCarryExperience(world, ctx, settler);

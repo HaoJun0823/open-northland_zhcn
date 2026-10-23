@@ -37,6 +37,7 @@ export function warmVehicleModel(goodIds: readonly string[]): VehiclePanelModel 
     meta: 'Warm',
     foreign: false,
     status: { label: 'Warm', tone: 'trouble', carrier: { id: 1, label: 'Warm' } },
+    hauler: null,
     health: { hitpoints: 1, max: 10 },
     orders: [
       { order: 'goTo', control: true },
@@ -74,6 +75,7 @@ export function warmVehicleModel(goodIds: readonly string[]): VehiclePanelModel 
       })),
       routed: false,
       cargoHand: false,
+      hauled: false,
     },
   };
 }

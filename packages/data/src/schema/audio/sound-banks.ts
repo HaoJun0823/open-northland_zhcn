@@ -13,7 +13,8 @@ export const SoundQuality = z.enum(SOUND_QUALITIES);
 export type SoundQuality = z.infer<typeof SoundQuality>;
 
 /** The file extension each quality's encoding is served with: FLAC for `lossless`, Ogg Opus for
- *  `compact`. A client without the bank index still finds a clip's own file through it. */
+ *  `compact`. A client without the bank index still finds a clip's own file through it. `.ogg` rather
+ *  than `.opus` keeps the compact copy on an extension CDNs and servers already cache as audio. */
 export const SOUND_EXTENSIONS: Readonly<Record<SoundQuality, string>> = { lossless: 'flac', compact: 'ogg' };
 
 /** One encoded clip's bytes inside its bank file. */

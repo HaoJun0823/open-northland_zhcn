@@ -17,6 +17,7 @@
     "start": "tsc --build && node ./dist/cli.js"
   },
   "dependencies": {
+    "@evan/opus": "1.0.3",
     "@open-northland/data": "*",
     "@open-northland/formats": "*",
     "@open-northland/map-import": "*",

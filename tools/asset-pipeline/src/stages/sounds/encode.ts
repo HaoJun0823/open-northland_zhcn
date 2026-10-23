@@ -1,115 +1,92 @@
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
-import { SOUND_EXTENSIONS, type SoundQuality } from '@open-northland/data';
+/// <reference path="./opus-wasm.d.ts" />
+import { Encoder } from '@evan/opus/wasm/index.mjs';
+import type { SoundQuality } from '@open-northland/data';
+import { encodeFlac } from '@open-northland/formats/audio/flac';
+import { oggOpus } from '@open-northland/formats/audio/ogg-opus';
+import { resample } from '@open-northland/formats/audio/resample';
+import { decodeWav } from '@open-northland/formats/wav';
 
-const run = promisify(execFile);
+/** Turns one source wav into one quality's bytes. */
+export type SoundEncoder = (wav: Uint8Array, quality: SoundQuality) => Promise<Uint8Array>;
 
-/** The ffmpeg the stage runs: `ON_FFMPEG` when set, else the one on `PATH`. */
-export const FFMPEG = process.env.ON_FFMPEG ?? 'ffmpeg';
-
-/** How one quality is encoded: the served extension and ffmpeg's output arguments. */
-export interface SoundEncoding {
-  readonly extension: string;
-  readonly ffmpegArgs: readonly string[];
-}
-
+/** Opus codes 48 kHz audio; the clips are resampled up to it. */
+const OPUS_RATE = 48000;
+/** 20 ms packets, libopus's recommended frame size for stored audio. */
+const OPUS_PACKET_SAMPLES = 960;
 /**
  * Opus bit rate for the compact copy. The source clips are 22.05 kHz mono, so they carry nothing above
  * 11 kHz; the Opus project's recommended settings place mono music at 48 kbit/s and above as
  * transparent for most listeners, and speech needs less.
  */
-const COMPACT_OPUS_BITRATE = '48k';
-/** ffmpeg's highest FLAC effort: the smallest lossless output, at an encode cost the stage can afford. */
-const LOSSLESS_FLAC_LEVEL = '12';
+const COMPACT_OPUS_BITRATE = 48_000;
+/** libopus's slowest, best encoder search. */
+const OPUS_COMPLEXITY = 10;
+/** Encoder CTL request numbers (libopus `opus_defines.h`). */
+const OPUS_SET_BITRATE = 4002;
+const OPUS_SET_COMPLEXITY = 4010;
+const OPUS_GET_LOOKAHEAD = 4027;
+/** Every compact file is its own single-stream Ogg file, so one fixed serial keeps the bytes stable. */
+const OGG_SERIAL = 0x4f4e5344;
+const OPUS_VENDOR = 'Open Northland';
+const INT16_SCALE = 32768;
+const INT16_MAX = 32767;
 
 /**
- * The codec each served quality uses; the extension is `SOUND_EXTENSIONS`, which the client reads too.
- * `.ogg` rather than `.opus` keeps the compact copy on an extension CDNs and servers already treat as
- * cacheable audio.
+ * The served encodings: `lossless` is FLAC from the in-repo encoder, `compact` is Ogg Opus from
+ * libopus's WebAssembly build, so building content needs nothing outside npm.
  *
  * A looped terrain bed stays FLAC in the compact quality as well (the index's `losslessOnly`). Measured
- * in headless Chromium on `ambient/meadow2`, `water3` and `beach2`: at a 22.05 kHz context the Opus
- * decode has the wav's frame count, but at a 48 kHz context it runs 2 frames longer than the resampled
- * wav or FLAC (735318 vs 735316 for meadow2), so the loop period would drift from the source's.
+ * in headless Chromium on `ambient/meadow2`, `water3` and `beach2`: at the clip's own rate the Opus
+ * decode has the wav's frame count, but at a 48 kHz context it runs 1 frame longer than the resampled
+ * wav or FLAC (735317 vs 735316 for meadow2), so the loop period would drift from the source's.
  */
-export const SOUND_ENCODINGS: Readonly<Record<SoundQuality, SoundEncoding>> = {
-  lossless: {
-    extension: SOUND_EXTENSIONS.lossless,
-    ffmpegArgs: ['-c:a', 'flac', '-compression_level', LOSSLESS_FLAC_LEVEL, '-f', 'flac'],
-  },
-  compact: {
-    extension: SOUND_EXTENSIONS.compact,
-    ffmpegArgs: ['-c:a', 'libopus', '-b:a', COMPACT_OPUS_BITRATE, '-application', 'audio', '-f', 'ogg'],
-  },
+export const encodeSound: SoundEncoder = async (wav, quality) => {
+  const pcm = decodeWav(wav);
+  return quality === 'lossless'
+    ? encodeFlac({ sampleRate: pcm.sampleRate, channels: pcm.channels.map(toInt16) })
+    : encodeOpus(pcm.channels, pcm.sampleRate);
 };
 
-/** Turns one source wav into one quality's bytes. */
-export type SoundEncoder = (wav: Uint8Array, quality: SoundQuality) => Promise<Uint8Array>;
-
-/** Encode through ffmpeg via temporary files: the FLAC muxer completes its stream header (length and
- *  MD5) only on seekable output. `bitexact` keeps the encoder's version string out of the bytes. */
-export async function ffmpegEncode(wav: Uint8Array, quality: SoundQuality): Promise<Uint8Array> {
-  const dir = await mkdtemp(join(tmpdir(), 'on-sound-'));
-  try {
-    const input = join(dir, 'in.wav');
-    const output = join(dir, `out.${SOUND_ENCODINGS[quality].extension}`);
-    await writeFile(input, wav);
-    await run(FFMPEG, [
-      '-nostdin',
-      '-v',
-      'error',
-      '-i',
-      input,
-      '-map_metadata',
-      '-1',
-      '-fflags',
-      '+bitexact',
-      '-flags:a',
-      '+bitexact',
-      ...SOUND_ENCODINGS[quality].ffmpegArgs,
-      output,
-    ]);
-    const bytes = new Uint8Array(await readFile(output));
-    return quality === 'lossless' ? flacStreamInfoOnly(bytes) : bytes;
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+/** Decoded wav samples (exact multiples of 1/32768) back to their 16-bit integers. */
+function toInt16(channel: Float32Array): Int16Array {
+  const out = new Int16Array(channel.length);
+  for (let i = 0; i < channel.length; i++)
+    out[i] = Math.max(-INT16_SCALE, Math.min(INT16_MAX, Math.round((channel[i] ?? 0) * INT16_SCALE)));
+  return out;
 }
 
-const FLAC_MARKER = 'fLaC';
-const FLAC_MARKER_BYTES = 4;
-const METADATA_HEADER_BYTES = 4;
-const LAST_BLOCK_FLAG = 0x80;
-const STREAMINFO_TYPE = 0;
-
-/**
- * The FLAC file with only its STREAMINFO block: ffmpeg also writes a Vorbis comment and 8 KiB of
- * padding for later tag edits, which a served clip never needs (RFC 9639 metadata block layout).
- */
-export function flacStreamInfoOnly(bytes: Uint8Array): Uint8Array {
-  if (new TextDecoder().decode(bytes.subarray(0, FLAC_MARKER_BYTES)) !== FLAC_MARKER)
-    throw new Error('flac: missing stream marker');
-  let at = FLAC_MARKER_BYTES;
-  let streamInfo: Uint8Array | null = null;
-  for (let last = false; !last; ) {
-    const header = bytes[at];
-    if (header === undefined || at + METADATA_HEADER_BYTES > bytes.length)
-      throw new Error('flac: truncated metadata');
-    last = (header & LAST_BLOCK_FLAG) !== 0;
-    const length = ((bytes[at + 1] ?? 0) << 16) | ((bytes[at + 2] ?? 0) << 8) | (bytes[at + 3] ?? 0);
-    const end = at + METADATA_HEADER_BYTES + length;
-    if ((header & ~LAST_BLOCK_FLAG) === STREAMINFO_TYPE) streamInfo = bytes.slice(at, end);
-    at = end;
+function encodeOpus(channels: readonly Float32Array[], sampleRate: number): Uint8Array {
+  const channelCount = channels.length;
+  if (channelCount !== 1 && channelCount !== 2) throw new Error(`opus: ${channelCount} channels`);
+  const resampled = channels.map((c) => toInt16(resample(c, sampleRate, OPUS_RATE)));
+  const samples = resampled[0]?.length ?? 0;
+  const encoder = new Encoder({ channels: channelCount, sample_rate: OPUS_RATE, application: 'audio' });
+  try {
+    encoder.ctl(OPUS_SET_BITRATE, COMPACT_OPUS_BITRATE);
+    encoder.ctl(OPUS_SET_COMPLEXITY, OPUS_COMPLEXITY);
+    const preSkip = encoder.ctl(OPUS_GET_LOOKAHEAD);
+    // The lookahead delays the decoded signal, so the input runs on in silence until it is flushed.
+    const packetCount = Math.ceil((preSkip + samples) / OPUS_PACKET_SAMPLES);
+    const frame = new Int16Array(OPUS_PACKET_SAMPLES * channelCount);
+    const packets: Uint8Array[] = [];
+    for (let p = 0; p < packetCount; p++) {
+      frame.fill(0);
+      const start = p * OPUS_PACKET_SAMPLES;
+      for (let i = 0; i < OPUS_PACKET_SAMPLES && start + i < samples; i++)
+        for (let c = 0; c < channelCount; c++) frame[i * channelCount + c] = resampled[c]?.[start + i] ?? 0;
+      packets.push(encoder.encode(frame));
+    }
+    return oggOpus({
+      channelCount,
+      inputSampleRate: sampleRate,
+      preSkip,
+      packetSamples: OPUS_PACKET_SAMPLES,
+      samples,
+      packets,
+      serial: OGG_SERIAL,
+      vendor: OPUS_VENDOR,
+    });
+  } finally {
+    encoder.drop();
   }
-  if (streamInfo === null) throw new Error('flac: no STREAMINFO block');
-  streamInfo[0] = LAST_BLOCK_FLAG | STREAMINFO_TYPE;
-  const audio = bytes.subarray(at);
-  const out = new Uint8Array(FLAC_MARKER_BYTES + streamInfo.length + audio.length);
-  out.set(bytes.subarray(0, FLAC_MARKER_BYTES));
-  out.set(streamInfo, FLAC_MARKER_BYTES);
-  out.set(audio, FLAC_MARKER_BYTES + streamInfo.length);
-  return out;
 }

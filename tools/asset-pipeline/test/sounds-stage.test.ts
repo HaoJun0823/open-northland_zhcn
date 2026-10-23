@@ -1,14 +1,15 @@
-import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { Decoder } from '@evan/opus/wasm/index.mjs';
 import { emptySoundBank, SoundBanksDocument, type SoundQuality } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { decodeFlac } from '../../../packages/formats/test/support/flac-decode.js';
 import { statIfExists, writeFileWithParents } from '../src/files.js';
-import { FFMPEG, ffmpegEncode, flacStreamInfoOnly } from '../src/stages/sounds/encode.js';
+import { encodeSound } from '../src/stages/sounds/encode.js';
 import { convertSoundTree, loopedBedClips, MAX_BANK_BYTES } from '../src/stages/sounds/index.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
-/** Stands in for ffmpeg: each quality's bytes are the source bytes behind a one-byte quality tag. */
+/** Stands in for the encoders: each quality's bytes are the source bytes behind a one-byte quality tag. */
 const QUALITY_TAG: Readonly<Record<SoundQuality, number>> = { lossless: 0xf1, compact: 0x0c };
 const tagged = async (wav: Uint8Array, quality: SoundQuality): Promise<Uint8Array> => {
   const out = new Uint8Array(wav.length + 1);
@@ -124,46 +125,14 @@ describe('convertSoundTree', () => {
   });
 });
 
-describe('flacStreamInfoOnly', () => {
-  /** `fLaC`, then STREAMINFO (34 bytes), a 2-byte comment and the last block, 3 bytes of padding. */
-  function flacWithTags(): Uint8Array {
-    const streamInfo = [0x00, 0, 0, 34, ...new Array<number>(34).fill(7)];
-    const comment = [0x04, 0, 0, 2, 0xaa, 0xbb];
-    const padding = [0x81, 0, 0, 3, 0, 0, 0];
-    return Uint8Array.of(0x66, 0x4c, 0x61, 0x43, ...streamInfo, ...comment, ...padding, 0xff, 0xf8);
-  }
-
-  it('keeps the marker, STREAMINFO as the last block and the audio frames', () => {
-    const out = flacStreamInfoOnly(flacWithTags());
-    expect(out.length).toBe(4 + 4 + 34 + 2);
-    expect(out[4]).toBe(0x80);
-    expect([...out.subarray(-2)]).toEqual([0xff, 0xf8]);
-  });
-
-  it('rejects a file that is no FLAC', () => {
-    expect(() => flacStreamInfoOnly(Uint8Array.of(1, 2, 3, 4))).toThrow(/marker/);
-  });
-});
-
-function ffmpegPresent(): boolean {
-  try {
-    execFileSync(FFMPEG, ['-version'], { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** A 16-bit mono PCM wav of `samples`, as the mod ships its clips. */
-function pcmWav(samples: readonly number[], sampleRate: number): Uint8Array {
-  const data = new DataView(new ArrayBuffer(samples.length * 2));
-  for (const [i, sample] of samples.entries()) data.setInt16(i * 2, sample, true);
+function pcmWav(samples: Int16Array, sampleRate: number): Uint8Array {
   const header = new DataView(new ArrayBuffer(44));
   const ascii = (at: number, text: string): void => {
     for (const [i, char] of [...text].entries()) header.setUint8(at + i, char.charCodeAt(0));
   };
   ascii(0, 'RIFF');
-  header.setUint32(4, 36 + data.byteLength, true);
+  header.setUint32(4, 36 + samples.byteLength, true);
   ascii(8, 'WAVEfmt ');
   header.setUint32(16, 16, true);
   header.setUint16(20, 1, true);
@@ -173,31 +142,79 @@ function pcmWav(samples: readonly number[], sampleRate: number): Uint8Array {
   header.setUint16(32, 2, true);
   header.setUint16(34, 16, true);
   ascii(36, 'data');
-  header.setUint32(40, data.byteLength, true);
-  return Uint8Array.from([...new Uint8Array(header.buffer), ...new Uint8Array(data.buffer)]);
+  header.setUint32(40, samples.byteLength, true);
+  const out = new Uint8Array(44 + samples.byteLength);
+  out.set(new Uint8Array(header.buffer));
+  out.set(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength), 44);
+  return out;
 }
 
-describe.runIf(ffmpegPresent())('ffmpegEncode', () => {
+/** The packets of a single-stream Ogg file, header packets included, and its last granule. */
+function oggPackets(bytes: Uint8Array): { packets: Uint8Array[]; granule: bigint } {
+  const packets: Uint8Array[] = [];
+  let partial: number[] = [];
+  let granule = 0n;
+  for (let at = 0; at < bytes.length; ) {
+    const count = bytes[at + 26] ?? 0;
+    const lacing = bytes.subarray(at + 27, at + 27 + count);
+    granule = new DataView(bytes.buffer, bytes.byteOffset + at + 6, 8).getBigInt64(0, true);
+    let body = at + 27 + count;
+    for (const length of lacing) {
+      partial.push(...bytes.subarray(body, body + length));
+      body += length;
+      if (length < 255) {
+        packets.push(Uint8Array.from(partial));
+        partial = [];
+      }
+    }
+    at = body;
+  }
+  return { packets, granule };
+}
+
+describe('encodeSound', () => {
   const SAMPLE_RATE = 22050;
+  const OPUS_RATE = 48000;
   const TONE_HZ = 440;
   const AMPLITUDE = 8000;
-  const samples = Array.from({ length: SAMPLE_RATE / 4 }, (_, i) =>
+  const samples = Int16Array.from({ length: SAMPLE_RATE / 4 }, (_, i) =>
     Math.round(AMPLITUDE * Math.sin((2 * Math.PI * TONE_HZ * i) / SAMPLE_RATE)),
   );
 
-  it('round-trips the lossless copy bit for bit and serves it without tags', async () => {
-    const wav = pcmWav(samples, SAMPLE_RATE);
-    const flac = await ffmpegEncode(wav, 'lossless');
+  it('round-trips the lossless copy bit for bit as a bare FLAC stream', async () => {
+    const flac = await encodeSound(pcmWav(samples, SAMPLE_RATE), 'lossless');
     expect(flac[4]).toBe(0x80); // STREAMINFO is the only metadata block
-    const decoded = execFileSync(FFMPEG, ['-v', 'error', '-i', 'pipe:0', '-f', 's16le', 'pipe:1'], {
-      input: flac,
-    });
-    expect(Buffer.compare(decoded, Buffer.from(wav.subarray(44)))).toBe(0);
+    const decoded = decodeFlac(flac);
+    expect(decoded.sampleRate).toBe(SAMPLE_RATE);
+    expect(decoded.channels).toEqual([samples]);
   });
 
-  it('writes the compact copy as Ogg Opus', async () => {
-    const opus = await ffmpegEncode(pcmWav(samples, SAMPLE_RATE), 'compact');
-    expect(new TextDecoder().decode(opus.subarray(0, 4))).toBe('OggS');
-    expect(new TextDecoder().decode(opus.subarray(28, 36))).toBe('OpusHead');
+  it('writes the compact copy as Ogg Opus that decodes to the tone at 48 kHz', async () => {
+    const opus = await encodeSound(pcmWav(samples, SAMPLE_RATE), 'compact');
+    const { packets, granule } = oggPackets(opus);
+    const [head, tags, ...audio] = packets;
+    expect(new TextDecoder().decode(head?.subarray(0, 8))).toBe('OpusHead');
+    expect(new TextDecoder().decode(tags?.subarray(0, 8))).toBe('OpusTags');
+    const preSkip = new DataView((head ?? new Uint8Array(12)).buffer).getUint16(10, true);
+    const length = Math.ceil((samples.length * OPUS_RATE) / SAMPLE_RATE);
+    expect(granule).toBe(BigInt(preSkip + length));
+
+    const decoder = new Decoder({ channels: 1, sample_rate: OPUS_RATE });
+    const pcm: number[] = [];
+    for (const packet of audio) {
+      const frame = decoder.decode(packet);
+      pcm.push(...new Int16Array(frame.buffer, frame.byteOffset, frame.byteLength / 2));
+    }
+    decoder.drop();
+    const decoded = pcm.slice(preSkip, preSkip + length);
+    expect(decoded).toHaveLength(length);
+    let signal = 0;
+    let error = 0;
+    for (const [i, v] of decoded.entries()) {
+      const expected = AMPLITUDE * Math.sin((2 * Math.PI * TONE_HZ * i) / OPUS_RATE);
+      signal += expected ** 2;
+      error += (v - expected) ** 2;
+    }
+    expect(10 * Math.log10(signal / error)).toBeGreaterThan(20); // dB
   });
 });

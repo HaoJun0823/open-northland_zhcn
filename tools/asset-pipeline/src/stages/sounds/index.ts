@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import {
   SOUND_BANKS_FILE,
   SOUND_BANKS_VERSION,
+  SOUND_EXTENSIONS,
   SOUND_QUALITIES,
   type SoundBank,
   type SoundBankSpan,
@@ -16,7 +17,7 @@ import {
 import { writeFileWithParents } from '../../files.js';
 import { collectSourceFiles, DATA_SOUNDS_DIR, type SourceRoots } from '../../roots.js';
 import { SOUNDS_DIR } from '../content-tree.js';
-import { ffmpegEncode, SOUND_ENCODINGS, type SoundEncoder } from './encode.js';
+import { encodeSound, type SoundEncoder } from './encode.js';
 
 const SOUNDS_SOURCE_PREFIX = `${DATA_SOUNDS_DIR.toLowerCase()}/`;
 
@@ -41,7 +42,7 @@ interface EncodedClip {
 }
 
 /** The clips a terrain bed loops: every wav of an ambient that covers pattern groups. These stay
- *  lossless in every quality (see `SOUND_ENCODINGS`). */
+ *  lossless in every quality (see `encodeSound`). */
 export function loopedBedClips(sounds: SoundBank): Set<string> {
   return new Set(
     sounds.ambient.filter((a) => a.patternGroups.length > 0).flatMap((a) => a.sfx.map((s) => s.file)),
@@ -58,7 +59,7 @@ export async function convertSoundTree(
   roots: SourceRoots,
   outDir: string,
   losslessOnly: ReadonlySet<string>,
-  encode: SoundEncoder = ffmpegEncode,
+  encode: SoundEncoder = encodeSound,
 ): Promise<SoundStageReport> {
   const root = join(outDir, SOUNDS_DIR);
   await rm(root, { recursive: true, force: true });
@@ -81,7 +82,7 @@ export async function convertSoundTree(
     for (const quality of SOUND_QUALITIES) {
       bytes[quality] += clip.encoded[servedEncoding(document, clip.file, quality)].length;
       await writeFileWithParents(
-        join(root, soundClipPath(clip.file, SOUND_ENCODINGS[quality].extension)),
+        join(root, soundClipPath(clip.file, SOUND_EXTENSIONS[quality])),
         clip.encoded[quality],
       );
     }

@@ -19,8 +19,15 @@ afterEach(() => {
 function setup(
   sharedClock: boolean,
   ranking: () => readonly MatchRank[] = () => [],
-  onLoad?: (back: () => void) => void,
-  scriptedEnding?: boolean,
+  {
+    onLoad,
+    onPlayAgain,
+    scriptedEnding,
+  }: {
+    onLoad?: (back: () => void) => void;
+    onPlayAgain?: () => void;
+    scriptedEnding?: boolean;
+  } = {},
 ) {
   vi.stubGlobal(
     'ResizeObserver',
@@ -49,6 +56,7 @@ function setup(
     onOpen: vi.fn(),
     setCameraSuspended: vi.fn(),
     ...(onLoad !== undefined ? { onLoad } : {}),
+    ...(onPlayAgain !== undefined ? { onPlayAgain } : {}),
   });
   overlays.push(overlay);
   const body = {
@@ -80,7 +88,7 @@ it('lets a defeated player watch without pausing and inspect the map after the m
 });
 
 it('defers campaign victory until the script finishes, and still reports a defeat immediately', () => {
-  const won = setup(false, () => [], undefined, true);
+  const won = setup(false, () => [], { scriptedEnding: true });
   won.overlay.onEvents([{ kind: 'playerWon', player: 0 }]);
   won.overlay.announce('victory');
   expect(won.body.children).toHaveLength(0);
@@ -99,7 +107,7 @@ it('defers campaign victory until the script finishes, and still reports a defea
   expect(won.resume).toHaveBeenCalledOnce();
   won.overlay.finish('victory');
   expect(won.overlay.isOpen()).toBe(false);
-  const lost = setup(false, () => [], undefined, true);
+  const lost = setup(false, () => [], { scriptedEnding: true });
   lost.overlay.onEvents([{ kind: 'playerDefeated', player: 0 }]);
   expect(lost.body.children).toHaveLength(1);
   expect(lost.pause).toHaveBeenCalledOnce();
@@ -110,7 +118,7 @@ it('defers campaign victory until the script finishes, and still reports a defea
 });
 
 it('returns to the campaign menu with Escape after a scripted ending', () => {
-  const h = setup(false, () => [], undefined, true);
+  const h = setup(false, () => [], { scriptedEnding: true });
   h.overlay.finish('victory');
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   expect(h.onQuit).toHaveBeenCalledOnce();
@@ -313,12 +321,12 @@ it('offers loading after a local defeat and returns to the result when the load 
   const openLoad = (back: () => void): void => {
     loadPage.back = back;
   };
-  const won = setup(false, () => [], openLoad);
+  const won = setup(false, () => [], { onLoad: openLoad });
   won.overlay.announce('victory');
   expect(won.body.buttons()).toHaveLength(2);
   won.overlay.dispose();
 
-  const h = setup(false, () => [], openLoad);
+  const h = setup(false, () => [], { onLoad: openLoad });
   h.overlay.announce('defeat');
   const copy = messages().hud;
   expect(h.body.buttons().map((button) => button.textContent)).toEqual([
@@ -335,5 +343,41 @@ it('offers loading after a local defeat and returns to the result when the load 
   expect(h.pause).toHaveBeenCalledTimes(2);
   h.overlay.dispose();
   loadPage.back?.();
+  expect(h.overlay.isOpen()).toBe(false);
+});
+
+it('offers a lost local map again behind a confirmation, and not after a victory', async () => {
+  const playAgain = vi.fn();
+  const won = setup(false, () => [], { onPlayAgain: playAgain });
+  won.overlay.announce('victory');
+  expect(won.body.buttons()).toHaveLength(2);
+  won.overlay.dispose();
+
+  const h = setup(false, () => [], { onLoad: vi.fn(), onPlayAgain: playAgain });
+  h.overlay.announce('defeat');
+  const copy = messages().hud;
+  expect(h.body.buttons().map((button) => button.textContent)).toEqual([
+    copy.matchContinue,
+    copy.playAgain,
+    copy.loadGame,
+    copy.returnToMenu,
+  ]);
+  h.body.buttons()[1]?.click();
+  const question = document.querySelector('.on-system-confirm');
+  expect(question?.textContent).toContain(copy.playAgainConfirm);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await Promise.resolve();
+  expect(playAgain).not.toHaveBeenCalled();
+  expect(h.overlay.isOpen()).toBe(true);
+
+  h.body.buttons()[1]?.click();
+  const yes = [...document.querySelectorAll<HTMLButtonElement>('.on-system-confirm button')].find(
+    (button) => button.textContent === copy.playAgain,
+  );
+  yes?.click();
+  await Promise.resolve();
+  expect(playAgain).toHaveBeenCalledOnce();
+  expect(h.onQuit).not.toHaveBeenCalled();
+  expect(h.onContinue).not.toHaveBeenCalled();
   expect(h.overlay.isOpen()).toBe(false);
 });

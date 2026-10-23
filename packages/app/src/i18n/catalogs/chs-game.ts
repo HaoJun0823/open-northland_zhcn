@@ -266,6 +266,8 @@ export const chsGame = {
     quitConfirm: '离开游戏并返回主菜单？未保存的进度将会丢失。',
     quitConfirmYes: '离开游戏',
     quitConfirmNo: '继续游戏',
+    playAgain: '再玩一次',
+    playAgainConfirm: '从头重新开始这张地图？未保存的进度将会丢失。',
     closeMenu: '关闭',
     saveGame: '保存游戏',
     loadGame: '载入游戏',

@@ -1,7 +1,13 @@
 import { isReadOnlySpectator } from '@open-northland/lockstep';
 import { FOG_MODE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { mapSession, type SessionRosterSlot, sceneSession, sessionSearch } from '../src/game/session-url.js';
+import {
+  mapSession,
+  replaySearch,
+  type SessionRosterSlot,
+  sceneSession,
+  sessionSearch,
+} from '../src/game/session-url.js';
 
 /**
  * The URL is one carrier of a session descriptor. These pin what each `?map=` parameter means and
@@ -216,5 +222,16 @@ describe('sessionSearch', () => {
     expect(sessionSearch(parsed, ROSTER).get('weathermode')).toBe('map');
     expect(session('map=zatoka&weathermode=rain').rules.weather).toBeNull();
     expect(sessionSearch(session('map=zatoka'), ROSTER).has('weathermode')).toBe(false);
+  });
+});
+
+describe('replaySearch', () => {
+  it('keeps the world, the seats and the settings, and drops the seed for the entry to draw anew', () => {
+    const params = new URLSearchParams('map=zatoka&player=1&computer=2&seed=42&fog=explored&lang=pl');
+    const replay = replaySearch(params);
+    expect(replay).toBe('?map=zatoka&player=1&computer=2&fog=explored&lang=pl');
+    expect(params.get('seed')).toBe('42');
+    const replayed = session(replay.slice(1));
+    expect({ ...replayed, seed: 0 }).toEqual({ ...session(params.toString()), seed: 0 });
   });
 });

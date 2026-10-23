@@ -3,7 +3,7 @@ import { formatMessage, messages } from '../../i18n/index.js';
 import { matchResultActions, matchResultState } from '../../view/match-result-state.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
-import { createSystemConfirm } from './system-confirm.js';
+import { createSystemConfirm, type SystemConfirmCopy } from './system-confirm.js';
 import { createHudWindow } from './window.js';
 
 export interface MatchResultDeps {
@@ -24,6 +24,8 @@ export interface MatchResultDeps {
   readonly onContinue: () => void;
   /** Opens the load page from a defeat; `back` shows the result again when it closes without loading. */
   readonly onLoad?: (back: () => void) => void;
+  /** Starts the map over from a defeat, as a new match. */
+  readonly onPlayAgain?: () => void;
 }
 
 /** What may hold the result window back: a lost link owns the page until it returns, and the
@@ -164,27 +166,37 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     };
     const resume = button(watching ? copy.matchWatch : copy.matchContinue, GLYPH.next, dismiss);
     resume.classList.add('on-result__continue');
-    const quit = button(copy.returnToMenu, GLYPH.exit, () => {
+    const leave = (ask: Omit<SystemConfirmCopy, 'cancel'>, go: () => void): void => {
       if (!actions.confirmQuit) {
         hide();
-        deps.onQuit();
+        go();
         return;
       }
-      void confirm
-        .open({
-          title: copy.returnToMenu,
-          message: copy.quitConfirm,
-          confirm: copy.quitConfirmYes,
-          cancel: copy.systemMenuDetails.cancel,
-        })
-        .then((confirmed) => {
-          if (!confirmed || scope.signal.aborted) return;
-          hide();
-          deps.onQuit();
-        });
-    });
+      void confirm.open({ ...ask, cancel: copy.systemMenuDetails.cancel }).then((confirmed) => {
+        if (!confirmed || scope.signal.aborted) return;
+        hide();
+        go();
+      });
+    };
+    const quit = button(copy.returnToMenu, GLYPH.exit, () =>
+      leave(
+        { title: copy.returnToMenu, message: copy.quitConfirm, confirm: copy.quitConfirmYes },
+        deps.onQuit,
+      ),
+    );
     const row = line('div', 'on-result__actions', '');
     if (canContinue) row.append(resume);
+    const onPlayAgain = deps.onPlayAgain;
+    if (onPlayAgain !== undefined && verdict === 'defeat') {
+      row.append(
+        button(copy.playAgain, GLYPH.replay, () =>
+          leave(
+            { title: copy.playAgain, message: copy.playAgainConfirm, confirm: copy.playAgain },
+            onPlayAgain,
+          ),
+        ),
+      );
+    }
     const onLoad = deps.onLoad;
     if (onLoad !== undefined && verdict === 'defeat') {
       row.append(

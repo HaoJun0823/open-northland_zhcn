@@ -267,6 +267,8 @@ export const plGame = {
     quitConfirm: 'Opuścić grę i wrócić do menu głównego? Niezapisany postęp przepadnie.',
     quitConfirmYes: 'Opuść grę',
     quitConfirmNo: 'Graj dalej',
+    playAgain: 'Zagraj ponownie',
+    playAgainConfirm: 'Zacząć tę mapę od początku? Niezapisany postęp przepadnie.',
     closeMenu: 'Zamknij',
     saveGame: 'Zapisz grę',
     loadGame: 'Wczytaj grę',

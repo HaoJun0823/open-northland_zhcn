@@ -266,6 +266,8 @@ export const chtGame = {
     quitConfirm: '要離開遊戲並返回主選單嗎？未儲存的進度將會遺失。',
     quitConfirmYes: '離開遊戲',
     quitConfirmNo: '繼續遊戲',
+    playAgain: '再玩一次',
+    playAgainConfirm: '要從頭重新開始這張地圖嗎？未儲存的進度將會遺失。',
     closeMenu: '關閉',
     saveGame: '儲存遊戲',
     loadGame: '載入遊戲',

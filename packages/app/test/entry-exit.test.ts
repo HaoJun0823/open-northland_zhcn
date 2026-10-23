@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createMenuExit } from '../src/view/runtime/menu-exit.js';
+import { createEntryExit } from '../src/view/runtime/entry-exit.js';
 
 const MENU = '?lang=pl';
+const REPLAY = '?map=river&lang=pl';
 
-describe('createMenuExit', () => {
-  it('swaps to the menu inside the document, so fullscreen survives the quit', async () => {
+describe('createEntryExit', () => {
+  it('swaps to the entry inside the document, so fullscreen survives the exit', async () => {
     const trace: string[] = [];
-    const quit = createMenuExit({
+    const leave = createEntryExit({
       teardown: () => trace.push('teardown'),
-      search: () => MENU,
       swap: async (search, teardown) => {
         trace.push(`swap ${search}`);
         teardown();
@@ -16,40 +16,38 @@ describe('createMenuExit', () => {
       navigate: (search) => trace.push(`navigate ${search}`),
     });
 
-    quit();
+    leave(MENU);
     await Promise.resolve();
 
     expect(trace).toEqual([`swap ${MENU}`, 'teardown']);
   });
 
-  it('starts one handover however many quit paths fire', () => {
-    let swaps = 0;
-    const quit = createMenuExit({
+  it('starts one handover however many exit paths fire', () => {
+    const swaps: string[] = [];
+    const leave = createEntryExit({
       teardown: () => undefined,
-      search: () => MENU,
-      swap: () => {
-        swaps += 1;
+      swap: (search) => {
+        swaps.push(search);
         return new Promise(() => undefined);
       },
       navigate: () => undefined,
     });
 
-    quit();
-    quit();
+    leave(REPLAY);
+    leave(MENU);
 
-    expect(swaps).toBe(1);
+    expect(swaps).toEqual([REPLAY]);
   });
 
-  it('still reaches the menu by navigating when the handover fails', async () => {
+  it('still reaches the entry by navigating when the handover fails', async () => {
     const navigations: string[] = [];
-    const quit = createMenuExit({
+    const leave = createEntryExit({
       teardown: () => undefined,
-      search: () => MENU,
       swap: () => Promise.reject(new Error('menu module failed to load')),
       navigate: (search) => navigations.push(search),
     });
 
-    quit();
+    leave(MENU);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(navigations).toEqual([MENU]);

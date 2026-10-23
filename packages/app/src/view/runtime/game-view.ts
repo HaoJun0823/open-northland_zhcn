@@ -54,6 +54,7 @@ import { mapStartFocus } from '../../game/map-start.js';
 import { type MissionBriefSource, missionReader } from '../../game/mission-brief.js';
 import type { ObserverSeatEntry } from '../../game/observer-seats.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../game/rules.js';
+import { replaySearch } from '../../game/session-url.js';
 import { technologyName, vehicleLabel } from '../../game/technology.js';
 import {
   fixedViewerSeat,
@@ -144,11 +145,11 @@ import { createWeatherFeed } from '../weather-feed.js';
 import { chestTooltipLines, createWorldHover } from '../world-hover.js';
 import { installDebugHandle } from './debug-handle.js';
 import { mountDebugOverlays } from './debug-mounts.js';
+import { createEntryExit } from './entry-exit.js';
 import { startFrameLoop } from './frame-loop.js';
 import { createLiveGameSettings } from './game-live-settings.js';
 import { mountGamePresentation } from './game-presentation.js';
 import { createHostAnswers } from './host-answers.js';
-import { createMenuExit } from './menu-exit.js';
 import { mountNetOverlays } from './net-overlays.js';
 import type { NetReadout } from './net-readout.js';
 import { orderAnswerOf } from './order-answer.js';
@@ -406,6 +407,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     if (currentDiagGameSession()?.host === host) setDiagGameSession(null);
     if (errors.length > 0) throw new AggregateError(errors, 'Game view cleanup failed');
   };
+  const leaveWorld = createEntryExit({ teardown: teardownWorld });
   const onReturnToMenu = deps.onReturnToMenu;
   const quitToMenu =
     onReturnToMenu !== undefined
@@ -413,17 +415,14 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           destroy();
           onReturnToMenu();
         }
-      : createMenuExit({
-          teardown: teardownWorld,
-          search: () => {
-            const search = new URLSearchParams(menuSearch());
-            if (deps.campaign !== undefined) {
-              search.set('menu', 'campaign');
-              search.set('campaign', deps.campaign.id);
-            }
-            return `?${search}`;
-          },
-        });
+      : (): void => {
+          const search = new URLSearchParams(menuSearch());
+          if (deps.campaign !== undefined) {
+            search.set('menu', 'campaign');
+            search.set('campaign', deps.campaign.id);
+          }
+          leaveWorld(`?${search}`);
+        };
 
   try {
     const storedSettings = readStoredSettings();
@@ -822,6 +821,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         resume: () => pauseHolds.release(PAUSE_HOLDER_VERDICT),
         onQuit: quitToMenu,
         ...(sharedClock ? {} : { onLoad: (back) => systemMenu?.openPage('load', back) }),
+        // A sub-mission starts from its parent's save, which a fresh boot of its entry would leave behind.
+        ...(sharedClock || deps.parentSave !== undefined
+          ? {}
+          : { onPlayAgain: () => leaveWorld(replaySearch(params)) }),
         onContinue: () => {
           if (sharedClock) {
             watching = true;

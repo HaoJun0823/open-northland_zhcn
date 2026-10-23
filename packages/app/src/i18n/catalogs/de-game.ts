@@ -296,6 +296,8 @@ export const deGame = {
       'Das Spiel verlassen und ins Hauptmenü zurückkehren? Nicht gespeicherter Fortschritt geht verloren.',
     quitConfirmYes: 'Spiel verlassen',
     quitConfirmNo: 'Weiterspielen',
+    playAgain: 'Erneut spielen',
+    playAgainConfirm: 'Diese Karte von vorn beginnen? Nicht gespeicherter Fortschritt geht verloren.',
     closeMenu: 'Schließen',
     saveGame: 'Spiel speichern',
     loadGame: 'Spiel laden',

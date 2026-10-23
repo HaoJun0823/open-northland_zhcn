@@ -269,6 +269,8 @@ export const enGame = {
     quitConfirm: 'Leave the game and return to the main menu? Unsaved progress will be lost.',
     quitConfirmYes: 'Leave game',
     quitConfirmNo: 'Keep playing',
+    playAgain: 'Play again',
+    playAgainConfirm: 'Start this map again from the beginning? Unsaved progress will be lost.',
     closeMenu: 'Close',
     saveGame: 'Save game',
     loadGame: 'Load game',

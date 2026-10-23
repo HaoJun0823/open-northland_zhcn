@@ -11,7 +11,7 @@ import {
   type SessionSeat,
 } from '@open-northland/lockstep';
 import { components } from '@open-northland/sim';
-import { floatParam, HUMAN_TRIBE_PARAM, intParam, seatListParam } from '../view/params.js';
+import { floatParam, formatSearch, HUMAN_TRIBE_PARAM, intParam, seatListParam } from '../view/params.js';
 import { fogModeName } from './fog.js';
 import { sessionRuleOverrides } from './session-rules.js';
 
@@ -35,6 +35,14 @@ const NO_TRIBE = -1;
 export function seedParam(params: URLSearchParams): number | null {
   const seed = intParam(params, 'seed', NO_SEED);
   return seed === NO_SEED || seed >= SEED_VALUES ? null : seed;
+}
+
+/** The search that plays a match's world again as a new match: its own search without the seed, so the
+ *  entry draws another and the new game's saves list apart from the old one's. */
+export function replaySearch(params: URLSearchParams): string {
+  const search = new URLSearchParams(params);
+  search.delete('seed');
+  return formatSearch(search);
 }
 
 /** The wall-clock multiplier a session starts at when `?speed=` names none. */

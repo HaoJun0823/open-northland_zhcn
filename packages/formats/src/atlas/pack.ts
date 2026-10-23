@@ -12,6 +12,7 @@ import {
   colouredBake,
   INDEXED_BAKE,
   indexedBake,
+  indexedToDisplacement,
   SHADOW_BAKE,
   writeIndexedPixel,
 } from './bake.js';
@@ -103,6 +104,15 @@ export function packIndexedBobAtlas(bmd: Bmd, options: PackBobAtlasOptions = {})
   // The packer leaves the space between frames all zero; the layout's uncovered pixel is opaque.
   for (let o = 0; o < rgba.length; o += 4) if (rgba[o + 3] === 0) writeIndexedPixel(rgba, o, 0, 0);
   return atlas;
+}
+
+/**
+ * Packs a displacement `.bmd` (a `GfxUserFXMatrix` effect, whose pixel bytes are values, not colours)
+ * with {@link packIndexedBobAtlas}'s placement, in the layout of `indexedToDisplacement`.
+ */
+export function packDisplacementBobAtlas(bmd: Bmd): BobAtlas {
+  const atlas = packIndexedBobAtlas(bmd);
+  return { ...atlas, image: indexedToDisplacement(atlas.image) };
 }
 
 /** The bake one bob id takes. */

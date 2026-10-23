@@ -54,6 +54,22 @@ export function writeIndexedPixel(rgba: Uint8Array, offset: number, index: numbe
   rgba[offset + ALPHA_CHANNEL] = BOB_ALPHA_OPAQUE;
 }
 
+/**
+ * An indexed-layout image in the displacement layout: the value in red where covered, the coverage in
+ * alpha, every other byte 0. A renderer uploads it straight, so the red byte reaches the shader as is.
+ */
+export function indexedToDisplacement(image: RgbaImage): RgbaImage {
+  const { width, height, rgba } = image;
+  const out = new Uint8Array(rgba.length);
+  for (let o = 0; o < rgba.length; o += 4) {
+    const coverage = rgba[o + INDEXED_COVERAGE_CHANNEL] ?? 0;
+    if (coverage === 0) continue;
+    out[o] = rgba[o + INDEXED_INDEX_CHANNEL] ?? 0;
+    out[o + ALPHA_CHANNEL] = coverage;
+  }
+  return { width, height, rgba: out };
+}
+
 /** An indexed-layout image as grey + alpha: the palette index in grey, the coverage in alpha. */
 export function indexedToGreyAlpha(image: RgbaImage): GreyAlphaImage {
   const { width, height, rgba } = image;

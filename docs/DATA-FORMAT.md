@@ -30,7 +30,8 @@ content/
                           index in grey and coverage in alpha, which the app decodes in JavaScript.
                           Every other sheet is lossless WebP, or PNG when it has graded alpha, since a
                           browser premultiplies a decoded WebP with its own rounding; a <stem>.indexed
-                          one is opaque, palette index in red, coverage in green, blue 0
+                          one is opaque, palette index in red, coverage in green, blue 0, except a
+                          shore wave's, which holds the lift in red and the written mask in alpha
   textures/               ground pages and transition overlays
   sounds/                 the mod's sound clips, each as FLAC and Ogg Opus, alone and packed into
                           banks/ by folder; banks.json indexes both

@@ -6,6 +6,7 @@ import {
   expandBobFrameIndexed,
   indexedToGreyAlpha,
   packBobAtlas,
+  packDisplacementBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
   SHADOW_ALPHA,
@@ -275,6 +276,30 @@ describe('indexedToGreyAlpha', () => {
     const image = indexedToGreyAlpha(expandBobFrameIndexed(frame));
     expect(image).toMatchObject({ width: 3, height: 1 });
     expect([...image.pixels]).toEqual([5, 255, 200, 128, 0, 0]);
+  });
+});
+
+describe('packDisplacementBobAtlas', () => {
+  it('keeps the value in red under its coverage in alpha, and zero bytes where unwritten', () => {
+    const bmd = makeBmd([
+      {
+        type: BOB_TYPE_DOUBLE8BIT,
+        width: 2,
+        height: 1,
+        packed: [0x02, 3, 0x40, 6, 0xff, 0x00],
+        lines: [{ offset: 0, xMin: 0 }],
+      },
+    ]);
+    const atlas = packDisplacementBobAtlas(bmd);
+    expect(atlas.manifest).toEqual(packIndexedBobAtlas(bmd).manifest);
+    const px = (x: number): number[] => {
+      const o = (ATLAS_GUTTER * atlas.image.width + ATLAS_GUTTER + x) * 4;
+      return [...atlas.image.rgba.subarray(o, o + 4)];
+    };
+    expect(px(0)).toEqual([3, 0, 0, 0x40]);
+    expect(px(1)).toEqual([6, 0, 0, 255]);
+    // A straight upload of a gutter must not write a lift, so every byte there is 0.
+    expect([...atlas.image.rgba.subarray(0, 4)]).toEqual([0, 0, 0, 0]);
   });
 });
 

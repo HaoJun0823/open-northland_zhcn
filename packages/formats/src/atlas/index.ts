@@ -2,6 +2,7 @@ export {
   type AtlasAlphaMode,
   expandBobFrame,
   expandBobFrameIndexed,
+  indexedToDisplacement,
   indexedToGreyAlpha,
   SHADOW_ALPHA,
 } from './bake.js';
@@ -12,6 +13,7 @@ export {
   type BobAtlas,
   type PackBobAtlasOptions,
   packBobAtlas,
+  packDisplacementBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
 } from './pack.js';

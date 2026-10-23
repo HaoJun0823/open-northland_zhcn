@@ -1,5 +1,6 @@
 import { type BobAtlasGeometry, decodeAtlasFrames } from '@open-northland/data';
 import {
+  type AtlasSheetLayout,
   type BuildTimeSheet,
   indexAtlasFrames,
   type SpriteAtlas,
@@ -24,7 +25,7 @@ function isIndexedStem(stem: string): boolean {
   return stem.endsWith('.indexed');
 }
 
-/** Every decoded atlas body in flight or settled, by served stem. */
+/** Every decoded atlas body in flight or settled, by served stem and sheet layout. */
 const layerBodies = new Map<string, Promise<SpriteLayer>>();
 
 /** Layers whose sheet could not be coloured: they draw nothing and the next caller tries again. */
@@ -55,7 +56,7 @@ function spriteAtlasOf(geometry: BobAtlasGeometry, source: TextureSource): Sprit
  * so the stem draws nothing. A stem with a `buildImage` also reads that time sheet CPU-side for the
  * per-pixel construction-reveal thresholds, degrading to the crop reveal when unreadable.
  */
-async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
+async function fetchLayerBody(stem: string, layout: AtlasSheetLayout): Promise<SpriteLayer> {
   const served = await loadServedBobAtlas(stem);
   if (served === null) {
     throw new MissingAtlasError(
@@ -64,7 +65,7 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
   }
   const { sheet, geometry } = served;
   const [source, times] = await Promise.all([
-    loadAtlasSheet(sheet, isIndexedStem(stem) ? 'indexed' : 'rgba'),
+    loadAtlasSheet(sheet, layout),
     sheet.buildImage === undefined
       ? Promise.resolve(undefined)
       : loadBuildTimeSheet(atlasImagePath(sheet.buildImage)),
@@ -80,22 +81,26 @@ async function fetchLayerBody(stem: string): Promise<SpriteLayer> {
 }
 
 /**
- * `fetchLayerBody` memoized per stem. Handing out the same instance is safe: `atlas.frames` is a
+ * `fetchLayerBody` memoized per stem and layout. Handing out the same instance is safe: `atlas.frames` is a
  * `ReadonlyMap`, nothing writes `times.values` once it is filled, and no consumer destroys an atlas page's
  * `TextureSource`.
  */
-function loadLayerBody(stem: string): Promise<SpriteLayer> {
-  const cached = layerBodies.get(stem);
+function loadLayerBody(
+  stem: string,
+  layout: AtlasSheetLayout = isIndexedStem(stem) ? 'indexed' : 'rgba',
+): Promise<SpriteLayer> {
+  const key = `${layout}:${stem}`;
+  const cached = layerBodies.get(key);
   if (cached !== undefined) return cached;
-  const pending = fetchLayerBody(stem);
+  const pending = fetchLayerBody(stem, layout);
   // Memoize only success, so a transient failure does not pin this stem to the fallback for the page's life.
   const forget = (): void => {
-    if (layerBodies.get(stem) === pending) layerBodies.delete(stem);
+    if (layerBodies.get(key) === pending) layerBodies.delete(key);
   };
   pending.then((layer) => {
     if (degradedLayers.has(layer)) forget();
   }, forget);
-  layerBodies.set(stem, pending);
+  layerBodies.set(key, pending);
   return pending;
 }
 
@@ -118,6 +123,12 @@ export async function loadLayer(stem: string, shadowStem?: string): Promise<Spri
   const body = await loadLayerBody(stem);
   const shadow = await shadowLoad;
   return shadow === undefined ? body : { ...body, shadow };
+}
+
+/** A displacement effect's layer (a shore wave's `<stem>.indexed`): values in red, the written mask in
+ *  alpha, loaded straight. */
+export function loadDisplacementLayer(stem: string): Promise<SpriteLayer> {
+  return loadLayerBody(stem, 'displacement');
 }
 
 /** Fetch a build-time sheet and keep its R channel (the 0–255 thresholds) CPU-side, or `undefined`

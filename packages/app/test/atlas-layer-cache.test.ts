@@ -154,6 +154,27 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'indexed' }]);
   });
 
+  it('loads a shore wave displacement stem straight, not in the indexed layout', async () => {
+    const { impl } = countingFetch({ 'test_effect.indexed': MANIFEST });
+    vi.stubGlobal('fetch', impl);
+    const { loadDisplacementLayer } = await freshLoader();
+
+    await loadDisplacementLayer('test_effect.indexed');
+
+    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'displacement' }]);
+  });
+
+  it('keeps a displacement body apart from the indexed body of the same stem', async () => {
+    const { impl } = countingFetch({ 'test_effect.indexed': MANIFEST });
+    vi.stubGlobal('fetch', impl);
+    const { loadLayer, loadDisplacementLayer } = await freshLoader();
+
+    await loadLayer('test_effect.indexed');
+    await loadDisplacementLayer('test_effect.indexed');
+
+    expect(uploads.map((u) => u.layout)).toEqual(['indexed', 'displacement']);
+  });
+
   it('degrades to a shadow-less layer when the shadow atlas is absent', async () => {
     const { impl } = countingFetch({ [BODY_STEM]: MANIFEST }); // shadow stem 404s
     vi.stubGlobal('fetch', impl);

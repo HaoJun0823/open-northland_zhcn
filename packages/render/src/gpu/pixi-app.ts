@@ -144,13 +144,21 @@ export function leaveCursorToCss(events: { cursorStyles: Record<string, unknown>
  * crisp; ground texture pages pass `linear`. An `indexed` sheet (palette index in red, coverage in
  * green, opaque) decodes and uploads like any other, since premultiplying an opaque image changes
  * nothing; its source is marked so the world batch reads coverage from green.
+ *
+ * A `displacement` sheet holds values in red under a graded mask in alpha, which premultiplying would
+ * scale. `data.alphaMode: 'premultiplied-alpha'` is Pixi's only hook that decodes the bitmap with
+ * `premultiplyAlpha: 'none'`, and that label also uploads the bytes raw, so the shader reads them as
+ * stored.
  */
 export async function loadAtlasSource(
   url: string,
   scaleMode: 'nearest' | 'linear' = 'nearest',
   layout: AtlasSheetLayout = 'rgba',
 ): Promise<TextureSource> {
-  const texture = (await Assets.load(url)) as Texture;
+  const texture =
+    layout === 'displacement'
+      ? ((await Assets.load({ src: url, data: { alphaMode: 'premultiplied-alpha' } })) as Texture)
+      : ((await Assets.load(url)) as Texture);
   texture.source.scaleMode = scaleMode;
   // A nearest-loaded page is authored pixel art and may magnify edge-aware; ground pages stay linear.
   if (scaleMode === 'nearest') markPixelArtSource(texture.source);

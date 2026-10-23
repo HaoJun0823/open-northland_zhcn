@@ -4,6 +4,7 @@ import {
   type BobAtlas,
   type PackBobAtlasOptions,
   packBobAtlas,
+  packDisplacementBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
 } from '@open-northland/formats/atlas/index';
@@ -201,9 +202,9 @@ export async function convertShadowBmdTree(
 }
 
 /**
- * Converts every `.bmd` a `GfxUserFXMatrix` landscape record draws from into an indexed atlas at
- * `<bmd-basename>.indexed`: a displacement bob's raw value in red and its written mask
- * in green, opaque, since a palette would destroy the value. Deduped per `.bmd`.
+ * Converts every `.bmd` a `GfxUserFXMatrix` landscape record draws from into a displacement atlas at
+ * `<bmd-basename>.indexed`: a bob's raw value in red and its written mask in alpha, which the app loads
+ * straight, since a palette or premultiplication would destroy the value. Deduped per `.bmd`.
  */
 export async function convertEffectBmdTree(
   records: readonly Pick<LandscapeGfx, 'bmd' | 'userFxMatrix'>[],
@@ -220,7 +221,7 @@ export async function convertEffectBmdTree(
       continue;
     }
     try {
-      const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
+      const atlas = packDisplacementBobAtlas(decodeBmd(await readFile(source.path)));
       const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
       done.push(image);
     } catch (err) {

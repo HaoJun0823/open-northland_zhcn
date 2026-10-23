@@ -166,9 +166,9 @@ export function isShadowTexture(texture: Texture): boolean {
   return shadowTextures.has(texture);
 }
 
-/** How a sheet's pixels read: colour with alpha, or the indexed layout (palette index in red,
- *  coverage in green, opaque). */
-export type AtlasSheetLayout = 'rgba' | 'indexed';
+/** How a sheet's pixels read: colour with alpha, the indexed layout (palette index in red, coverage in
+ *  green, opaque), or the displacement layout (a value in red, the written mask in alpha, straight). */
+export type AtlasSheetLayout = 'rgba' | 'indexed' | 'displacement';
 
 /** Pages in the indexed layout. Every texture cut from one, a cast silhouette included, takes its
  *  coverage from green in the world batch. */

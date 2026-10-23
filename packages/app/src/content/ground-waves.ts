@@ -1,13 +1,13 @@
-import type { AtlasFrame, ElevationField, GroundWave } from '@open-northland/render';
+import type { AtlasFrame, ElevationField, GroundWave, SpriteLayer } from '@open-northland/render';
 import { halfCellToScreen } from '@open-northland/render';
 import { diag } from '../diag/index.js';
 import { landscapeRecordsByName } from './ir/joins.js';
-import { loadLayer, MissingAtlasError } from './ir/load.js';
+import { loadDisplacementLayer, MissingAtlasError } from './ir/load.js';
 import type { ContentIr, LandscapeGfxRow } from './ir/rows.js';
 import { forEachPlacement } from './map-placements.js';
 import { type MapObjectsData, stateIndexForLevel } from './objects.js';
 
-/** The served `.indexed` atlas of a displacement record's bob set, where the pipeline keeps raw values. */
+/** The served displacement atlas of a record's bob set, where the pipeline keeps raw values. */
 function effectAtlasStem(record: Pick<LandscapeGfxRow, 'bmd'>): string | undefined {
   const bmd = record.bmd;
   if (bmd === undefined || bmd.trim() === '') return undefined;
@@ -36,12 +36,12 @@ export async function loadGroundWaves(
     return record?.userFxMatrix === true ? record : undefined;
   });
   const stems = new Set(effectTypes.flatMap((r) => (r === undefined ? [] : [effectAtlasStem(r)])));
-  const layers = new Map<string, Awaited<ReturnType<typeof loadLayer>>>();
+  const layers = new Map<string, SpriteLayer>();
   await Promise.all(
     [...stems].map(async (stem) => {
       if (stem === undefined) return;
       try {
-        layers.set(stem, await loadLayer(stem));
+        layers.set(stem, await loadDisplacementLayer(stem));
       } catch (err) {
         if (!(err instanceof MissingAtlasError)) throw err;
         diag.warn('content', `ground waves: effect atlas ${stem} missing`);

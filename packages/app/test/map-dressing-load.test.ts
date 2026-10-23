@@ -27,12 +27,14 @@ const FRAMES = new Map<number, AtlasFrame>([
 
 vi.mock('../src/content/ir/load.js', async () => {
   class MissingAtlasError extends Error {}
+  const layerOf = (stem: string, served: readonly string[]): Promise<SpriteLayer> =>
+    served.includes(stem)
+      ? Promise.resolve({ source: {} as TextureSource, atlas: { width: 16, height: 4, frames: FRAMES } })
+      : Promise.reject(new MissingAtlasError(stem));
   return {
     MissingAtlasError,
-    loadLayer: (stem: string): Promise<SpriteLayer> =>
-      stem === WAVE_STEM || stem === BUTTERFLY_STEM
-        ? Promise.resolve({ source: {} as TextureSource, atlas: { width: 16, height: 4, frames: FRAMES } })
-        : Promise.reject(new MissingAtlasError(stem)),
+    loadLayer: (stem: string) => layerOf(stem, [BUTTERFLY_STEM]),
+    loadDisplacementLayer: (stem: string) => layerOf(stem, [WAVE_STEM]),
   };
 });
 

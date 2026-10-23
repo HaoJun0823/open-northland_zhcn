@@ -1019,7 +1019,7 @@ export const enGame = {
       policyForeign: 'The owner sets the rules',
       minimum: 'Storage minimum',
       minimumTooltip:
-        'All your storehouses keep at least this much of the good between them. Nobody takes it below the minimum: not workshops, builders, traders or eaters. Wells and hives fill storage up first. The setting is shared by every storehouse.',
+        'Total across all your storehouses.\nNobody takes the good below it.\nWhile short, carriers of storehouses, wells and hives bring it in first.',
       minimumPick: 'Click a good in the list to set its minimum',
       minimumLess: 'Lower the minimum: {good}',
       minimumMore: 'Raise the minimum: {good}',

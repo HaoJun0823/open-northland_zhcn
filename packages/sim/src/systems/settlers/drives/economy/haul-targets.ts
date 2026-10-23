@@ -1,21 +1,42 @@
-import { Building, JobAssignment, Position, Stockpile, sameSideAs } from '../../../../components/index.js';
+import {
+  Building,
+  JobAssignment,
+  keepsStorageMinimums,
+  ownerOf,
+  Position,
+  Stockpile,
+  sameSideAs,
+  storageMinimumGoods,
+} from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { SpatialGate } from '../../../../nav/node-circle.js';
+import type { NodeId } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { WORKPLACE_COLLECT_RADIUS } from '../../../economy/haul-flag.js';
 import { buildingBlockedCells } from '../../../footprint/index.js';
+import { edibleClassOf } from '../../../readviews/food.js';
 import { entityNode } from '../../../spatial/nodes.js';
-import { buildingProduces, isLoosePile, lowestStockedGood, type SupplyTally } from '../../../stores/index.js';
+import {
+  buildingProduces,
+  isLoosePile,
+  isStorehouseType,
+  lowestStockedGood,
+  type SupplyTally,
+} from '../../../stores/index.js';
 import type { PlannerContext } from '../../planner/context.js';
 import {
   haulableOutputGood,
+  type NearestByCell,
+  nearerOf,
   type Qualified,
   qualifiedGood,
+  storageBelowMinimum,
   strandedPile,
   unclaimedGoodsAt,
+  unclaimedStockOf,
 } from '../../targets/index.js';
 import { unreachableGoalVeto } from '../../unreachable-goals.js';
-import { deliverableGoodProbe } from './delivery-targets.js';
+import { carriedGoodForm, deliverySinkProbe } from './delivery-targets.js';
 import { haulFlagArea, workAreaGate } from './haul-flag-area.js';
 import { isFarmCarrierHaulOutRole } from './store-policy.js';
 
@@ -71,6 +92,69 @@ function nearestLoosePickup(
   return best === null ? null : { from: best.entity, goodType: best.payload };
 }
 
+/**
+ * While its player's storehouses hold less of a good than the storage minimum, a porter posted at a
+ * storehouse or the headquarters fetches it first (our rule): the nearest unclaimed unit in a workplace's
+ * finished output, a self-filling house or a ground pile, a dish counting as the food it becomes. Only a
+ * load bound for the porter's own storehouse qualifies, so the delivery cannot turn elsewhere on the way.
+ * With a flag it looks inside the flag's area, without one anywhere it may fetch goods. The search walks
+ * the holders of each short good, ascending by good. A unit already on its way still counts as missing,
+ * so several porters may overshoot the minimum by a load each.
+ */
+function nearestMinimumRestock(
+  plan: PlannerContext,
+  sinkOf: (goodType: number) => Entity | null,
+): { from: Entity; goodType: number } | null {
+  const { world, ctx, entity, here, owner, targets, supply } = plan;
+  if (owner === undefined || !keepsStorageMinimums(world, owner)) return null;
+  const home = world.tryGet(entity, JobAssignment)?.workplace;
+  if (home === undefined || ownerOf(world, home) !== owner) return null;
+  const homeType = world.tryGet(home, Building)?.buildingType;
+  if (homeType === undefined || !isStorehouseType(ctx.content, homeType)) return null;
+
+  let lifted = 0;
+  const lifts = (goodType: number): boolean => goodType === lifted;
+  const accept = (e: Entity): Qualified<number> | null => {
+    if (world.has(e, Building)) return qualifiedGood(haulableOutputGood(world, ctx, supply, lifts, e));
+    return isLoosePile(world, e) && unclaimedStockOf(world, ctx, supply, e, lifted) > 0
+      ? { payload: lifted }
+      : null;
+  };
+  // Built on the first short good with holders, so a porter whose minimums are met pays for no gate.
+  let search: RestockSearch | null = null;
+  const nearestHolder = (minimumGood: number, goodType: number): NearestByCell<number> | null => {
+    if (carriedGoodForm(world, ctx, entity, goodType) !== minimumGood || sinkOf(goodType) !== home)
+      return null;
+    const holders = targets.bands.holding(goodType);
+    if (!holders.hasCandidates()) return null;
+    if (search === null) {
+      const area = haulFlagArea(plan);
+      search = {
+        gate: area?.gate ?? targets.bands.goodsGate(here, owner, plan.limit ?? undefined),
+        rank: area?.center ?? here,
+        avoid: unreachableGoalVeto(world, ctx, entity),
+      };
+    }
+    lifted = goodType;
+    return holders.nearest(here, accept, search.gate, search.avoid, sameSideAs(world, owner), search.rank);
+  };
+  let best: NearestByCell<number> | null = null;
+  for (const minimumGood of storageMinimumGoods(world, owner)) {
+    if (!storageBelowMinimum(world, ctx, owner, minimumGood)) continue;
+    const edibles = edibleClassOf(ctx.content, minimumGood);
+    if (edibles.length === 0) best = nearerOf(best, nearestHolder(minimumGood, minimumGood));
+    for (const goodType of edibles) best = nearerOf(best, nearestHolder(minimumGood, goodType));
+  }
+  return best === null ? null : { from: best.entity, goodType: best.payload };
+}
+
+/** Where a restock search looks: the flag's area or the goods reach, ranked from the flag or the porter. */
+interface RestockSearch {
+  readonly gate: SpatialGate | undefined;
+  readonly rank: NodeId;
+  readonly avoid: ((cell: NodeId) => boolean) | undefined;
+}
+
 /** The pickup area of a porter without a flag: {@link WORKPLACE_COLLECT_RADIUS} around its workplace,
  *  inside its signpost confinement. Null, so nothing is lifted, for a porter with no positioned workplace. */
 function workplaceCollectGate(plan: PlannerContext): SpatialGate | null {
@@ -118,10 +202,13 @@ export function boundProducerOutputToHaul(
 
 /**
  * The porter rung's pickup decision, side-effect-free so the dormancy verifier can re-run it without
- * mutating state: the bound producer's output out first, else the nearest deliverable loose pickup in.
+ * mutating state: the bound producer's output out first, then a good short of its storage minimum, else
+ * the nearest deliverable loose pickup in.
  */
 export function porterPickupTarget(plan: PlannerContext): { from: Entity; goodType: number } | null {
-  const deliverable = deliverableGoodProbe(plan);
+  // One routing memo for both probes.
+  const sinkOf = deliverySinkProbe(plan);
+  const deliverable = (goodType: number): boolean => sinkOf(goodType) !== null;
   const haul = boundProducerOutputToHaul(
     deliverable,
     plan.world,
@@ -131,5 +218,5 @@ export function porterPickupTarget(plan: PlannerContext): { from: Entity; goodTy
     plan.supply,
   );
   if (haul !== null) return { from: haul.home, goodType: haul.goodType };
-  return nearestLoosePickup(plan, deliverable);
+  return nearestMinimumRestock(plan, sinkOf) ?? nearestLoosePickup(plan, deliverable);
 }

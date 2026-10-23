@@ -15,6 +15,7 @@ import {
   Signpost,
   SiteAssignment,
   Stockpile,
+  StorageMinimums,
   SupplyRun,
   signpostNavigationEnabled,
   UnderConstruction,
@@ -28,6 +29,7 @@ import { nodeOfPosition } from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { liveHaulFlag } from '../../../economy/work-flag.js';
+import { roadRevision } from '../../../roads/index.js';
 import { navigationLimitFor } from '../../../signposts/index.js';
 import { GossipCandidates } from '../../../social/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
@@ -97,8 +99,11 @@ function porterScanVersion(world: World): number {
     world.componentGeneration(SupplyRun) +
     world.componentGeneration(PickupClaim) +
     world.componentGeneration(Signpost) +
+    world.componentGeneration(StorageMinimums) +
+    world.componentValueGeneration(StorageMinimums) +
     world.componentGeneration(Owner) +
-    landscapeTopologyRevision(world)
+    landscapeTopologyRevision(world) +
+    roadRevision(world) // the goods search reach floods over road resistance
   );
 }
 

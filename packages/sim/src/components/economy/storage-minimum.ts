@@ -5,10 +5,11 @@ export const STORAGE_MINIMUM_MAX = 999;
 
 /**
  * A player's storage minimums: per good, the units its storehouses and headquarters keep between them.
- * Nobody takes a good out of them below its minimum, and a self-filling house's carrier brings its good
- * to storage first while the storehouses hold less. Our own rule, not the original's. One carrier entity
- * per player, created with the first minimum and destroyed when the last returns to zero. Read by key,
- * never iterated for a decision.
+ * Nobody takes a good out of them below its minimum, and while they hold less, a self-filling house's
+ * carrier and a storehouse porter bring the good to storage first. Our own rule, not the original's. One
+ * carrier entity per player, created with the first minimum and destroyed when the last returns to zero.
+ * Read by key, or walked in ascending good order through {@link storageMinimumGoods}; the map's own order
+ * follows command history.
  */
 export const StorageMinimums = defineComponent<{
   /** The player slot the minimums belong to (`[0, MAX_PLAYERS)`). */
@@ -28,11 +29,13 @@ export function storageMinimumsEntity(world: World, player: number): Entity | nu
   return best;
 }
 
-/** Player -> that player's minimums, rebuilt only after a carrier is added, removed or written. */
+/** Player -> that player's minimums and their goods ascending, rebuilt only after a carrier is added,
+ *  removed or written. */
 interface MinimumIndex {
   readonly membership: number;
   readonly values: number;
   readonly byPlayer: ReadonlyMap<number, ReadonlyMap<number, number>>;
+  readonly goodsByPlayer: ReadonlyMap<number, readonly number[]>;
 }
 
 const indexes = new WeakMap<World, MinimumIndex>();
@@ -43,11 +46,17 @@ function minimumIndex(world: World): MinimumIndex {
   const cached = indexes.get(world);
   if (cached !== undefined && cached.membership === membership && cached.values === values) return cached;
   const byPlayer = new Map<number, ReadonlyMap<number, number>>();
+  const goodsByPlayer = new Map<number, readonly number[]>();
   for (const e of world.canonicalQuery(StorageMinimums)) {
     const { player, minimums } = world.get(e, StorageMinimums);
-    if (!byPlayer.has(player)) byPlayer.set(player, minimums);
+    if (byPlayer.has(player)) continue;
+    byPlayer.set(player, minimums);
+    goodsByPlayer.set(
+      player,
+      [...minimums.keys()].sort((a, b) => a - b),
+    );
   }
-  const index = { membership, values, byPlayer };
+  const index = { membership, values, byPlayer, goodsByPlayer };
   indexes.set(world, index);
   return index;
 }
@@ -62,6 +71,13 @@ export function anyStorageMinimum(world: World): boolean {
 export function storageMinimumOf(world: World, player: number | undefined, goodType: number): number {
   if (player === undefined) return 0;
   return minimumIndex(world).byPlayer.get(player)?.get(goodType) ?? 0;
+}
+
+const NO_GOODS: readonly number[] = [];
+
+/** The goods `player` keeps a minimum of, ascending by type id. */
+export function storageMinimumGoods(world: World, player: number): readonly number[] {
+  return minimumIndex(world).goodsByPlayer.get(player) ?? NO_GOODS;
 }
 
 /** Whether `player` keeps a minimum of any good. */

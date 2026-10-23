@@ -2,6 +2,8 @@ export { TargetBands } from './bands.js';
 export { collectTargets, type TargetCandidates } from './candidates.js';
 export {
   InteractionCellIndex,
+  type NearestByCell,
+  nearerOf,
   nearestByCell,
   QUALIFIES,
   type Qualified,

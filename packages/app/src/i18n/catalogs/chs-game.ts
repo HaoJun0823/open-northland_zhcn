@@ -997,8 +997,7 @@ export const chsGame = {
       forbidden: '{good} · 所有民居均禁止使用 · 点击：允许',
       policyForeign: '规则由所有者设定',
       minimum: '最低库存',
-      minimumTooltip:
-        '你的所有仓库合计至少保留这么多该物资。任何人都不会把它取到最低库存以下：工坊、建筑工人、商人和进食者都不会。水井和蜂房会先补满仓库。此设置由所有仓库共用。',
+      minimumTooltip: '所有仓库合计。\n低于此数量时无人取用。\n不足时，仓库、水井和蜂房的搬运工优先运来。',
       minimumPick: '点击列表中的物资以设置其最低库存',
       minimumLess: '降低最低库存：{good}',
       minimumMore: '提高最低库存：{good}',

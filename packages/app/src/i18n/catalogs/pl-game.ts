@@ -1003,7 +1003,7 @@ export const plGame = {
       policyForeign: 'Zasady ustala właściciel',
       minimum: 'Minimum w magazynach',
       minimumTooltip:
-        'Wszystkie Twoje magazyny trzymają razem co najmniej tyle tego towaru. Nikt nie weźmie go poniżej minimum: ani warsztaty, ani budowy, ani kupcy, ani jedzący. Studnie i pasieki najpierw dopełniają magazyny. Ustawienie jest wspólne dla wszystkich magazynów.',
+        'Suma we wszystkich magazynach.\nNikt nie bierze towaru poniżej tej ilości.\nGdy brakuje, tragarze magazynów, studni i pasiek najpierw go dowożą.',
       minimumPick: 'Kliknij towar na liście, aby ustawić minimum',
       minimumLess: 'Zmniejsz minimum: {good}',
       minimumMore: 'Zwiększ minimum: {good}',

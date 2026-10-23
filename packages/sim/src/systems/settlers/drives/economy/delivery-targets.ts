@@ -30,24 +30,30 @@ export function deliveryTargetFor(plan: PlannerContext, goodType: number): Entit
 }
 
 /**
- * Whether this settler's `good` could be delivered anywhere right now: the same decision the delivery rung
- * makes once the good is on its back, so a pickup rung cannot lift a load that would be shed at its feet
- * and re-lifted next tick. Probes the carried form, memoized per planner call.
+ * Where this settler's `good` would be delivered right now, or null: the same decision the delivery rung
+ * makes once the good is on its back. Probes the carried form, memoized per planner call.
  */
-export function deliverableGoodProbe(plan: PlannerContext): (goodType: number) => boolean {
-  const memo = new Map<number, boolean>();
-  return (rawGoodType: number): boolean => {
+export function deliverySinkProbe(plan: PlannerContext): (goodType: number) => Entity | null {
+  const memo = new Map<number, Entity | null>();
+  return (rawGoodType: number): Entity | null => {
     const goodType = carriedGoodForm(plan.world, plan.ctx, plan.entity, rawGoodType);
     // Tick-global precondition: when no store anywhere could take the good, skip the routing walk. It
     // deliberately ignores construction-site sinks, which builders supply through their own fetch rung.
-    if (!plan.targets.sinks.has(goodType)) return false;
+    if (!plan.targets.sinks.has(goodType)) return null;
     let known = memo.get(goodType);
     if (known === undefined) {
-      known = deliveryTargetFor(plan, goodType) !== null;
+      known = deliveryTargetFor(plan, goodType);
       memo.set(goodType, known);
     }
     return known;
   };
+}
+
+/** Whether this settler's `good` could be delivered anywhere right now, so a pickup rung cannot lift a
+ *  load that would be shed at its feet and re-lifted next tick. */
+export function deliverableGoodProbe(plan: PlannerContext): (goodType: number) => boolean {
+  const sink = deliverySinkProbe(plan);
+  return (goodType) => sink(goodType) !== null;
 }
 
 /**

@@ -997,8 +997,7 @@ export const chtGame = {
       forbidden: '{good} · 所有民居皆禁止 · 點擊：允許',
       policyForeign: '規則由擁有者設定',
       minimum: '最低庫存',
-      minimumTooltip:
-        '你所有的倉庫加起來至少會保留這麼多這項貨物。任何人都不會把它取到低於最低庫存：無論是工坊、建築工人、商人還是進食的人。水井與蜂房會優先補充倉庫。此設定由所有倉庫共用。',
+      minimumTooltip: '所有倉庫合計。\n低於此數量時無人取用。\n不足時，倉庫、水井與蜂房的搬運工優先運來。',
       minimumPick: '點擊清單中的貨物以設定其最低庫存',
       minimumLess: '降低最低庫存：{good}',
       minimumMore: '提高最低庫存：{good}',

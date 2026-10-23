@@ -1,3 +1,4 @@
+import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Carrying,
@@ -10,19 +11,32 @@ import {
 import type { Entity } from '../../src/ecs/world.js';
 import {
   exportSaveGame,
+  fx,
   parseSaveGame,
   restoreSimulation,
   Simulation,
   serializeSaveGame,
 } from '../../src/index.js';
+import { bindHaulFlag } from '../../src/systems/economy/work-flag.js';
 import { consumeFood } from '../../src/systems/settlers/atomics/effects/goods/consume.js';
 import { pickupFromStore } from '../../src/systems/settlers/atomics/effects/goods/transfer.js';
-import { buildingAt, ctxOf, FARM, grassMap, settlerAt, WHEAT } from './producer-supply/support.js';
+import {
+  BREAD,
+  buildingAt,
+  ctxOf,
+  FARM,
+  FOOD_SIMPLE,
+  grassMap,
+  pileAt,
+  settlerAt,
+  WHEAT,
+  WOOD,
+} from './producer-supply/support.js';
 import { BAKERY, CARRIER, OPERATOR, utilityContent, WAREHOUSE, WATER, WELL } from './utility-content.js';
 
 // A player's storage minimum: its storehouses keep that many units of a good between them, nobody takes
 // the good out below it, and a self-filling house's carrier brings its good to storage first while they
-// hold less.
+// hold less, and a storehouse porter fetches the good first.
 
 const PLAYER = 0;
 const MAP_WIDTH = 16;
@@ -32,8 +46,43 @@ const FETCH_TICKS = 1200;
 const DELIVERY_TICKS = 4000;
 const CARRY_LOAD = 5;
 
-function world(): Simulation {
-  return new Simulation({ seed: 1, content: utilityContent(), map: grassMap(MAP_WIDTH, 1) });
+/** Wide enough for a pile beyond a porter's collect radius around its storehouse at cell 0. */
+const WIDE_MAP_WIDTH = 24;
+const BEYOND_COLLECT_RADIUS_X = 20;
+/** The warehouse's water slot in the utility content. */
+const WAREHOUSE_WATER_CAPACITY = 150;
+/** A home with a water shelf: a store a porter may deliver to that counts toward no minimum. */
+const WATER_HUT = 90;
+const WATER_HUT_CAPACITY = 10;
+/** Ticks a porter idles through, going dormant, before a minimum is set. */
+const SETTLE_TICKS = 300;
+/** A minimum the warehouse starts short of. */
+const RESTOCK_MINIMUM = 2;
+/** A wood heap inside the porter's collect radius, nearer than the well. */
+const DOOR_PILE_X = 2;
+const DOOR_PILE_WOOD = 1;
+const WELL_X = 10;
+const WELL_WATER = 3;
+const WATER_HUT_X = 4;
+
+function world(width = MAP_WIDTH, content: ContentSet = utilityContent()): Simulation {
+  return new Simulation({ seed: 1, content, map: grassMap(width, 1) });
+}
+
+function withWaterHut(): ContentSet {
+  const base = utilityContent();
+  return parseContentSet({
+    ...base,
+    buildings: [
+      ...base.buildings,
+      {
+        typeId: WATER_HUT,
+        id: 'water_hut',
+        kind: 'home',
+        stock: [{ goodType: WATER, capacity: WATER_HUT_CAPACITY, initial: 0 }],
+      },
+    ],
+  });
 }
 
 function owned(sim: Simulation, e: Entity): Entity {
@@ -46,8 +95,14 @@ function setMinimum(sim: Simulation, goodType: number, amount: number): void {
   sim.step();
 }
 
-const waterIn = (sim: Simulation, store: Entity): number =>
-  sim.world.get(store, Stockpile).amounts.get(WATER) ?? 0;
+const unitsIn = (sim: Simulation, store: Entity, goodType: number): number =>
+  sim.world.get(store, Stockpile).amounts.get(goodType) ?? 0;
+const waterIn = (sim: Simulation, store: Entity): number => unitsIn(sim, store, WATER);
+
+/** Steps until `store` holds any of `goods` or `ticks` ran out. */
+function runUntilStocked(sim: Simulation, store: Entity, goods: readonly number[], ticks: number): void {
+  for (let t = 0; t < ticks && goods.every((g) => unitsIn(sim, store, g) === 0); t++) sim.step();
+}
 
 describe('the setStorageMinimum command', () => {
   it('sets, clamps and lifts one good’s minimum, keeping no carrier at zero', () => {
@@ -180,11 +235,77 @@ describe('a well carrier under a storage minimum', () => {
   });
 });
 
+describe('a storehouse porter under a storage minimum', () => {
+  /** What reached the warehouse first: a wood pile lies at its door, a well with water further off. */
+  function firstDelivery(minimum: number): { wood: number; water: number } {
+    const sim = world();
+    const warehouse = owned(sim, buildingAt(sim, WAREHOUSE, 0, 0));
+    pileAt(sim, DOOR_PILE_X, 0, [[WOOD, DOOR_PILE_WOOD]]);
+    owned(sim, buildingAt(sim, WELL, WELL_X, 0, [[WATER, WELL_WATER]]));
+    owned(sim, settlerAt(sim, 0, 0, CARRIER, warehouse));
+    if (minimum > 0) setMinimum(sim, WATER, minimum);
+    runUntilStocked(sim, warehouse, [WOOD, WATER], DELIVERY_TICKS);
+    return { wood: unitsIn(sim, warehouse, WOOD), water: waterIn(sim, warehouse) };
+  }
+
+  it('fetches the good first, before a nearer pile', () => {
+    expect(firstDelivery(0)).toEqual({ wood: DOOR_PILE_WOOD, water: 0 });
+    const restocked = firstDelivery(RESTOCK_MINIMUM);
+    expect(restocked.wood).toBe(0);
+    expect(restocked.water).toBeGreaterThan(0);
+  });
+
+  it('leaves the good alone while its own storehouse has no room for it', () => {
+    const sim = world(MAP_WIDTH, withWaterHut());
+    const warehouse = owned(sim, buildingAt(sim, WAREHOUSE, 0, 0, [[WATER, WAREHOUSE_WATER_CAPACITY]]));
+    pileAt(sim, DOOR_PILE_X, 0, [[WOOD, DOOR_PILE_WOOD]]);
+    const hut = owned(sim, buildingAt(sim, WATER_HUT, WATER_HUT_X, 0));
+    owned(sim, buildingAt(sim, WELL, WELL_X, 0, [[WATER, WELL_WATER]]));
+    owned(sim, settlerAt(sim, 0, 0, CARRIER, warehouse));
+    setMinimum(sim, WATER, WAREHOUSE_WATER_CAPACITY + 1);
+    for (let t = 0; t < DELIVERY_TICKS && unitsIn(sim, warehouse, WOOD) + waterIn(sim, hut) === 0; t++) {
+      sim.step();
+    }
+    expect({ wood: unitsIn(sim, warehouse, WOOD), hutWater: waterIn(sim, hut) }).toEqual({
+      wood: DOOR_PILE_WOOD,
+      hutWater: 0,
+    });
+  });
+
+  /** A porter idles beside its empty warehouse with `goodType` only beyond its collect radius, then a
+   *  minimum of `minimumGood` is set. Returns what its warehouse then holds of `minimumGood`. */
+  function restockFromAfar(goodType: number, minimumGood: number, flagged: boolean): number {
+    const sim = world(WIDE_MAP_WIDTH);
+    const warehouse = owned(sim, buildingAt(sim, WAREHOUSE, 0, 0));
+    pileAt(sim, BEYOND_COLLECT_RADIUS_X, 0, [[goodType, RESTOCK_MINIMUM]]);
+    const porter = owned(sim, settlerAt(sim, 0, 0, CARRIER, warehouse));
+    if (flagged) bindHaulFlag(sim.world, ctxOf(sim), porter, { x: fx.fromInt(0), y: fx.fromInt(0) });
+    sim.run(SETTLE_TICKS);
+    expect(unitsIn(sim, warehouse, minimumGood)).toBe(0);
+    setMinimum(sim, minimumGood, RESTOCK_MINIMUM);
+    runUntilStocked(sim, warehouse, [minimumGood], DELIVERY_TICKS);
+    return unitsIn(sim, warehouse, minimumGood);
+  }
+
+  it('wakes for the minimum and reaches past its collect radius', () => {
+    expect(restockFromAfar(WATER, WATER, false)).toBeGreaterThan(0);
+  });
+
+  it('keeps to its flag’s area', () => {
+    expect(restockFromAfar(WATER, WATER, true)).toBe(0);
+  });
+
+  it('fetches a dish for a food minimum, landing it as the food', () => {
+    expect(restockFromAfar(BREAD, FOOD_SIMPLE, false)).toBeGreaterThan(0);
+  });
+});
+
 describe('storage minimum determinism', () => {
-  it('drives the well, warehouse and baker to a byte-identical state from the same seed', () => {
+  it('drives the well, warehouse, its porter and baker to a byte-identical state from the same seed', () => {
     const run = (): string => {
       const sim = world();
-      owned(sim, buildingAt(sim, WAREHOUSE, 0, 0, [[WATER, 2]]));
+      const warehouse = owned(sim, buildingAt(sim, WAREHOUSE, 0, 0, [[WATER, 2]]));
+      owned(sim, settlerAt(sim, 0, 0, CARRIER, warehouse));
       const well = owned(sim, buildingAt(sim, WELL, 6, 0));
       const bakery = owned(sim, buildingAt(sim, BAKERY, 9, 0));
       owned(sim, settlerAt(sim, 6, 0, CARRIER, well));

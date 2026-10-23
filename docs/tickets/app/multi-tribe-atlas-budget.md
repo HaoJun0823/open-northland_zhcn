@@ -43,9 +43,14 @@ tribe-5 building at all and still upload `ls_wonders3` - 151 MB that nothing dra
 
 ## Measured page formats and residency
 
-Every bob page in the generated content is an RGBA8 PNG (PNG colour type 6): 501 full-colour pages,
-3558 MB as RGBA8, and 82 palette-indexed character and vehicle pages, 464 MB. `loadAtlasSource`
-(`packages/render/src/gpu/pixi-app.ts`) loads each through Pixi `Assets` into an RGBA8 `ImageSource`.
+`bobs/atlases.json` maps every stem to a sheet stored once per distinct pixel content, as lossless
+WebP or, where alpha is graded, PNG. The generated tree holds 388 sheets, 125 MB on disk: 172
+full-colour sheets (827 MB as RGBA8), 91 `.indexed` character and vehicle sheets (680 MB) that the
+world batch reads through the palette LUT, and 125 grey+alpha index-coverage PNGs shared by 300
+recoloured stems. `loadAtlasSource` (`packages/render/src/gpu/pixi-app.ts`) loads the first two kinds
+through Pixi `Assets` into an RGBA8 `ImageSource`. A recolour is coloured in a worker
+(`packages/app/src/content/atlas-sheet/`) into its own RGBA8 `ImageBitmap`, so the shared sheet saves
+download, not memory: all 300 recolours would take 2491 MB.
 
 - **Indexed pages carry little information.** Red holds the palette index, green the coverage (binary
   on most pages), and the page is opaque; the world batch shader already reads them through the palette

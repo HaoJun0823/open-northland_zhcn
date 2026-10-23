@@ -67,6 +67,12 @@ export function playsOnceThenRests(record: {
   );
 }
 
+/** Whether a record loops each state's frame list while it stands: `GfxLoopAnimation` set and not
+ *  `GfxStatic`. */
+export function loopsFrames(record: Pick<LandscapeGfxRow, 'loopAnimation' | 'isStatic'>): boolean {
+  return record.loopAnimation === true && record.isStatic !== true;
+}
+
 /** The `landscapeGfx` rows by `EditName`, the key a map's `objects` lane joins on; the first row of a
  *  repeated name wins. */
 export function landscapeRecordsByName(ir: ContentIr): ReadonlyMap<string, LandscapeGfxRow> {

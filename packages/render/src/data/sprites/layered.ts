@@ -1,3 +1,4 @@
+import { TILE_HALF_H, TILE_HALF_W } from '../projection/index.js';
 import type { DrawItem } from '../scene/index.js';
 import type {
   AuthoredBuildingDraw,
@@ -11,6 +12,7 @@ import type {
   CraftFxBinding,
   LayeredBobRef,
   PalisadeBinding,
+  ResourceLoopRef,
   ResourceTypeBinding,
   SignpostBinding,
   StockpileBinding,
@@ -240,16 +242,23 @@ export function resolveBuildingOverlayDraw(
   return overlay.layer === undefined ? { bob: overlay.idle } : { bob: overlay.idle, layer: overlay.layer };
 }
 
+/** A resource draw; `looping` marks a frame of a {@link ResourceLoopRef}, which changes with the tick. */
+export interface ResourceDraw extends BuildingDraw {
+  readonly looping?: true;
+}
+
 /**
  * A node's `level` indexes its good's empty-to-full frames. When `levels` differs from the record's own
  * state count the ladder is rescaled (`ceil(level*frames/levels)`), because a record-less scene carries
  * the catalog count while a full deposit must still draw its fullest authored frame. A ground drop
- * carries `fill` instead; carrying neither draws the full, last frame.
+ * carries `fill` instead; carrying neither draws the full, last frame. A looping level plays at `tick`,
+ * or holds its first frame without one.
  */
 export function resolveResourceDraw(
   binding: number | ResourceTypeBinding,
   item: DrawItem,
-): BuildingDraw | null {
+  tick?: number,
+): ResourceDraw | null {
   if (typeof binding === 'number') return { bob: binding };
   const variantFrames = item.gfxIndex !== undefined ? binding.byGfxIndex?.[item.gfxIndex] : undefined;
   const frames = variantFrames ?? (item.goodType !== undefined ? binding.byGood[item.goodType] : undefined);
@@ -265,7 +274,21 @@ export function resolveResourceDraw(
   const idx = fillFrameIndex(scaled, frames.length);
   const ref = frames[idx];
   if (ref === null) return null;
+  if (ref !== undefined && typeof ref !== 'number' && 'frames' in ref) return loopFrameAt(ref, item, tick);
   return unwrapBobRef(ref ?? binding.default);
+}
+
+/**
+ * The loop's frame at `tick`, phased by the node's half-cell `hx + hy` exactly as the map-object layer
+ * phases a placed record, so a tree the sim takes over from the map keeps its step.
+ */
+function loopFrameAt(loop: ResourceLoopRef, item: DrawItem, tick: number | undefined): ResourceDraw {
+  const n = loop.frames.length;
+  const layer = loop.layer === undefined ? {} : { layer: loop.layer };
+  if (tick === undefined || n === 1) return { bob: loop.frames[0], ...layer };
+  const phase = Math.round(item.x / TILE_HALF_W) + Math.round((2 * item.y) / TILE_HALF_H);
+  const bob = loop.frames[(((Math.floor(tick) + phase) % n) + n) % n] ?? loop.frames[0];
+  return { bob, ...layer, looping: true };
 }
 
 /** Select a wall post's durability/construction-height frame. Source rows are reversed by the app into

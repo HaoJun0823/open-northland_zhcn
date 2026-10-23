@@ -12,6 +12,7 @@ import {
   drawsAsFlatDecor,
   drawsInGroundPass,
   landscapeRecordsByName,
+  loopsFrames,
   playsOnceThenRests,
   servedAtlasStem,
   servedShadowStem,
@@ -204,7 +205,7 @@ export async function loadMapObjects(
       const paired = pairedStateFrames(layer, stateList.bobIds);
       if (paired === null) return null;
       const { frames, shadowFrames } = paired;
-      const animated = record.loopAnimation === true && record.isStatic !== true && frames.length > 1;
+      const animated = loopsFrames(record) && frames.length > 1;
       const count = animated || playsOnce ? frames.length : 1;
       const shadowSource = layer.shadow?.source;
       const hasShadow =

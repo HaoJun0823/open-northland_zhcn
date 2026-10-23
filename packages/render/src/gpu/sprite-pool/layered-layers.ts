@@ -2,6 +2,7 @@ import {
   type AtlasFrame,
   type BuildingDraw,
   lookupFrame,
+  type ResourceDraw,
   type SpriteKind,
 } from '../../data/sprites/index.js';
 import type { SpriteLayer, SpriteSheet } from '../sprite-sheet.js';
@@ -24,12 +25,12 @@ export function pushLayeredWithShadow(
   out: LayerBuffer,
   sheet: SpriteSheet,
   kind: SpriteKind,
-  draw: BuildingDraw,
+  draw: ResourceDraw,
   shear?: number,
 ): boolean {
   const layer = sourceLayerFor(sheet, kind, draw);
   if (layer === undefined) return false;
-  return pushBodyWithShadow(out, layer, draw.bob, layeredScale(sheet, kind, draw), shear);
+  return pushBodyWithShadow(out, layer, draw.bob, layeredScale(sheet, kind, draw), shear, draw.looping);
 }
 
 /**
@@ -42,13 +43,27 @@ export function pushBodyWithShadow(
   bob: number,
   scale: number,
   shear?: number,
+  looping?: true,
 ): boolean {
   const body = resolveFromLayer(layer, bob, scale);
   if (body === null) return false;
   const shadow = shadowLayerFor(layer, bob, scale);
   if (shadow !== null) out.push(shadow);
-  out.push(shear === undefined ? body : { ...body, shear });
+  if (shear !== undefined) out.push({ ...body, shear });
+  else out.push(looping === true ? clockedLayer(body) : body);
   return true;
+}
+
+/** Memoized per body record, so a looping frame keeps one identity from tick to tick like any other. */
+const clockedRecords = new WeakMap<ResolvedLayer, ResolvedLayer>();
+
+function clockedLayer(body: ResolvedLayer): ResolvedLayer {
+  let clocked = clockedRecords.get(body);
+  if (clocked === undefined) {
+    clocked = { ...body, clocked: true };
+    clockedRecords.set(body, clocked);
+  }
+  return clocked;
 }
 
 /**

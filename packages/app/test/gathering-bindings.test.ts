@@ -197,6 +197,47 @@ describe('gathering scene - per-good + stump binding resolution (each draws its 
     ).toEqual({ bob: 4000, layer: 'ls_meadows.wheat01' });
   });
 
+  it("binds a looping record's levels as their whole frame loops, and a static record's as stills", () => {
+    // `wheat mine 01`'s shape in small: the sown sentinel, then two growth states of a wind loop each.
+    const field = (gfxIndex: number, isStatic: boolean) => ({
+      ...landscapeRow(
+        gfxIndex,
+        27,
+        'wheat01',
+        [
+          { state: 1, bobIds: [4000] },
+          { state: 2, bobIds: [87, 88, 89] },
+          { state: 3, bobIds: [7, 8, 9] },
+        ],
+        'ls_meadows',
+        'wheat mine 01',
+      ),
+      loopAnimation: true,
+      isStatic,
+    });
+    const binding = (isStatic: boolean) =>
+      buildResourceBinding(
+        resolveGatheringRefs([{ typeId: 9, id: 'wheat' }], {
+          landscapeGfx: [field(20, isStatic)],
+          gatheringPipeline: [
+            { goodType: 9, goodId: 'wheat', harvest: { landscapeType: 27, gfxIndices: [20] } },
+          ],
+        }),
+        new Set(['ls_meadows.wheat01']),
+        new Map([['ls_meadows.wheat01', new Set([87, 88, 89, 7, 8, 9])]]),
+      );
+    expect(binding(false).byGood[9]).toEqual([
+      null,
+      { layer: 'ls_meadows.wheat01', frames: [87, 88, 89] },
+      { layer: 'ls_meadows.wheat01', frames: [7, 8, 9] },
+    ]);
+    expect(binding(true).byGood[9]).toEqual([
+      null,
+      { layer: 'ls_meadows.wheat01', bob: 87 },
+      { layer: 'ls_meadows.wheat01', bob: 7 },
+    ]);
+  });
+
   it('resolves each pile to its own goods atlas, growing with fill; an empty pile → the flag', () => {
     expect(resolveStockpileDraw(stockpile, pile(GOODS.wood, 1), 0)).toEqual({
       layer: 'ls_goods.goods_wood',

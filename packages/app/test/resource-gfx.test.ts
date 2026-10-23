@@ -144,13 +144,13 @@ describe('servedAtlasStem / nodeBob / firstBobsByStateAscending', () => {
 describe('resolveGatheringRefs - the good→landscape→gfx join, matched by id-slug', () => {
   it('binds each scene good (by slug) to its node + pile under the SCENE typeId', () => {
     const refs = resolveGatheringRefs(GOODS, IR);
-    // Node refs carry per-level bobs, empty→full (a mined deposit shrinks through them); a non-mined node
+    // Node refs carry per-level frames, empty→full (a mined deposit shrinks through them); a non-mined node
     // (one state) is a single-frame list. Wood: state 1 (196) then state 3 (60); stone: one state (10).
-    expect(refs.nodesByGood[1]).toEqual({ stem: 'ls_trees.tree_yew01', bobs: [196, 60] }); // wood → yew
-    expect(refs.nodesByGood[2]).toEqual({ stem: 'ls_ground.rock03', bobs: [10] }); // stone → rock
+    expect(refs.nodesByGood[1]).toEqual({ stem: 'ls_trees.tree_yew01', levels: [[196], [60]] }); // wood → yew
+    expect(refs.nodesByGood[2]).toEqual({ stem: 'ls_ground.rock03', levels: [[10]] }); // stone → rock
     expect(refs.pilesByGood[1]).toEqual({ stem: 'ls_goods.goods_wood', fillBobs: [0, 1, 2, 3, 4] });
     expect(refs.pilesByGood[2]).toEqual({ stem: 'ls_goods.goods_stone', fillBobs: [15, 16] });
-    expect(refs.trunksByGood[1]).toEqual({ stem: 'ls_goods.goods_trunk', bobs: [70] }); // wood → pickup log
+    expect(refs.trunksByGood[1]).toEqual({ stem: 'ls_goods.goods_trunk', levels: [[70]] }); // wood → pickup log
     expect(refs.trunksByGood[2]).toBeUndefined(); // stone has no pickup stage in this fixture
     // The flag is a `loopAnimation` record: its one state's whole frame list is the wave loop.
     expect(refs.flag).toEqual({ stem: 'ls_temp.human_player01', frames: [33, 34, 35] });
@@ -177,13 +177,13 @@ describe('resolveGatheringRefs - the goods-manifest pile/trunk binding (every go
     const refs = resolveGatheringRefs([{ typeId: 20, id: 'bread' }], IR, ICONS);
     // Both grow through every manifest fill state - a GroundDrop of one unit draws the single-item frame.
     expect(refs.pilesByGood[20]).toEqual({ stem: 'ls_goods.goods_bread', fillBobs: [85, 86, 87] });
-    expect(refs.trunksByGood[20]).toEqual({ stem: 'ls_goods.goods_bread', bobs: [85, 86, 87] });
+    expect(refs.trunksByGood[20]).toEqual({ stem: 'ls_goods.goods_bread', levels: [[85], [86], [87]] });
   });
 
   it('falls back to the neutral generic heap (goods01, bob 0) for a good with no manifest icon', () => {
     const refs = resolveGatheringRefs([{ typeId: 21, id: 'potion_heal_big' }], IR, ICONS);
     expect(refs.pilesByGood[21]).toEqual({ stem: 'ls_goods.goods01', fillBobs: [0] });
-    expect(refs.trunksByGood[21]).toEqual({ stem: 'ls_goods.goods01', bobs: [0] });
+    expect(refs.trunksByGood[21]).toEqual({ stem: 'ls_goods.goods01', levels: [[0]] });
   });
 
   it("does NOT override a gathered good's richer pipeline pile with the manifest frames", () => {

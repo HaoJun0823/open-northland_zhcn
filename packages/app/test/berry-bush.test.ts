@@ -53,12 +53,12 @@ function oneRef(...rows: readonly LandscapeGfxRow[]): BerryBushRef {
 }
 
 describe('resolveBerryBushRefs - the fruited-bush record + its flower/empty twins', () => {
-  it('resolves all three stages to distinct stem/bob draws, keyed by the fruited record index', () => {
+  it('resolves all three stages to distinct stem/loop draws, keyed by the fruited record index', () => {
     expect(oneRef(BUSH01_FRUITS, BUSH01_FLOWER, BUSH01_EMPTY)).toEqual({
       gfxIndex: 806,
-      ripe: { stem: RIPE_STEM, bob: 288 },
-      flowering: { stem: RIPE_STEM, bob: 279 },
-      bare: { stem: BARE_STEM, bob: 270 },
+      ripe: { stem: RIPE_STEM, frames: [288] },
+      flowering: { stem: RIPE_STEM, frames: [279] },
+      bare: { stem: BARE_STEM, frames: [270] },
     });
   });
 
@@ -100,9 +100,9 @@ describe('buildBerryBushBinding - the per-variant three-frame level list', () =>
     const binding = buildBerryBushBinding(refs, new Set([RIPE_STEM, BARE_STEM]));
     expect(binding).toBeDefined();
     expect(binding?.byGfxIndex?.[806]).toEqual([
-      { layer: BARE_STEM, bob: 270 }, // level 1
-      { layer: RIPE_STEM, bob: 279 }, // level 2 (flowering shares the bush01 stem)
-      { layer: RIPE_STEM, bob: 288 }, // level 3
+      { layer: BARE_STEM, frames: [270] }, // level 1
+      { layer: RIPE_STEM, frames: [279] }, // level 2 (flowering shares the bush01 stem)
+      { layer: RIPE_STEM, frames: [288] }, // level 3
     ]);
     expect(binding?.default).toEqual({ layer: RIPE_STEM, bob: 288 }); // the first bush's ripe frame
   });
@@ -116,17 +116,17 @@ describe('buildBerryBushBinding - the per-variant three-frame level list', () =>
     // Ripe loaded, flower + empty atlases absent → both draw the fruited frame.
     const ripeOnly = buildBerryBushBinding(distinctRefs, new Set([RIPE_STEM]));
     expect(ripeOnly?.byGfxIndex?.[806]).toEqual([
-      { layer: RIPE_STEM, bob: 288 }, // bare → flowering → ripe frame
-      { layer: RIPE_STEM, bob: 288 }, // flowering → ripe frame
-      { layer: RIPE_STEM, bob: 288 },
+      { layer: RIPE_STEM, frames: [288] }, // bare → flowering → ripe frame
+      { layer: RIPE_STEM, frames: [288] }, // flowering → ripe frame
+      { layer: RIPE_STEM, frames: [288] },
     ]);
 
     // Ripe + flower loaded, empty absent → bare reuses the flowering frame.
     const noBare = buildBerryBushBinding(distinctRefs, new Set([RIPE_STEM, FLOWER_STEM]));
     expect(noBare?.byGfxIndex?.[806]).toEqual([
-      { layer: FLOWER_STEM, bob: 279 }, // bare → flowering frame
-      { layer: FLOWER_STEM, bob: 279 }, // flowering
-      { layer: RIPE_STEM, bob: 288 }, // ripe
+      { layer: FLOWER_STEM, frames: [279] }, // bare → flowering frame
+      { layer: FLOWER_STEM, frames: [279] }, // flowering
+      { layer: RIPE_STEM, frames: [288] }, // ripe
     ]);
   });
 

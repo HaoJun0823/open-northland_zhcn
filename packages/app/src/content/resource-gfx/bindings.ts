@@ -1,9 +1,17 @@
-import type { LayeredBobRef, ResourceTypeBinding, StockpileBinding, WaveLoop } from '@open-northland/render';
+import type {
+  LayeredBobRef,
+  ResourceLevelRef,
+  ResourceTypeBinding,
+  StockpileBinding,
+  WaveLoop,
+} from '@open-northland/render';
 import { TREE_BOB } from '../building-gfx/index.js';
 import {
   bobRef,
   DEFAULT_RESOURCE_STEM,
+  firstBobs,
   type GatheringLoopRef,
+  type GatheringNodeLevelsRef,
   type GatheringRefs,
   STOCKPILE_PLACEHOLDER_BOB,
 } from './refs.js';
@@ -24,29 +32,35 @@ export function buildResourceBinding(
   loaded: ReadonlySet<string>,
   familyFrames?: ReadonlyMap<string, ReadonlySet<number>>,
 ): ResourceTypeBinding {
-  const ladder = (node: { stem: string; bobs: readonly number[] }): readonly (LayeredBobRef | null)[] => {
+  const ladder = (node: GatheringNodeLevelsRef): readonly (ResourceLevelRef | null)[] => {
     const atlasFrames = familyFrames?.get(node.stem);
-    const anyPresent = atlasFrames !== undefined && node.bobs.some((bob) => atlasFrames.has(bob));
-    return node.bobs.map((bob) =>
-      anyPresent && !(atlasFrames?.has(bob) ?? true) ? null : bobRef(node.stem, bob),
+    const anyPresent = atlasFrames !== undefined && node.levels.some(([bob]) => atlasFrames.has(bob));
+    return node.levels.map((frames) =>
+      anyPresent && !(atlasFrames?.has(frames[0]) ?? true) ? null : levelRef(node.stem, frames),
     );
   };
   const flatByGood: Record<number, boolean> = {};
   const flatByGfxIndex: Record<number, boolean> = {};
-  const byGood: Record<number, readonly (LayeredBobRef | null)[]> = {};
+  const byGood: Record<number, readonly (ResourceLevelRef | null)[]> = {};
   for (const [good, node] of Object.entries(refs.nodesByGood)) {
     if (node.stem !== DEFAULT_RESOURCE_STEM && !loaded.has(node.stem)) continue;
     byGood[Number(good)] = ladder(node);
     if (node.flat === true) flatByGood[Number(good)] = true;
   }
   // An unloaded variant family leaves the node on its per-good representative.
-  const byGfxIndex: Record<number, readonly (LayeredBobRef | null)[]> = {};
+  const byGfxIndex: Record<number, readonly (ResourceLevelRef | null)[]> = {};
   for (const [idx, node] of Object.entries(refs.nodesByGfxIndex)) {
     if (node.stem !== DEFAULT_RESOURCE_STEM && !loaded.has(node.stem)) continue;
     byGfxIndex[Number(idx)] = ladder(node);
     if (node.flat === true) flatByGfxIndex[Number(idx)] = true;
   }
   return { byGood, byGfxIndex, default: TREE_BOB, flatByGood, flatByGfxIndex };
+}
+
+/** A level's draw: its loop when the record authors more than one frame for it, else its one frame. */
+function levelRef(stem: string, frames: WaveLoop<number>): ResourceLevelRef {
+  if (frames.length === 1) return bobRef(stem, frames[0]);
+  return stem === DEFAULT_RESOURCE_STEM ? { frames } : { layer: stem, frames };
 }
 
 /**
@@ -59,7 +73,7 @@ export function buildTrunkBinding(refs: GatheringRefs, loaded: ReadonlySet<strin
   const byGood: Record<number, readonly LayeredBobRef[]> = {};
   for (const [good, trunk] of Object.entries(refs.trunksByGood)) {
     if (trunk.stem !== DEFAULT_RESOURCE_STEM && !loaded.has(trunk.stem)) continue;
-    byGood[Number(good)] = trunk.bobs.map((bob) => bobRef(trunk.stem, bob));
+    byGood[Number(good)] = firstBobs(trunk).map((bob) => bobRef(trunk.stem, bob));
   }
   return { byGood, default: TREE_BOB };
 }

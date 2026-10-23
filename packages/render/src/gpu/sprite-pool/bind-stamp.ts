@@ -110,8 +110,8 @@ export class BindStamp {
   private builtPct: number | undefined;
   private upgradePct: number | undefined;
   private player: number | undefined;
-  /** Whether a bound layer leans with the vegetation clock. */
-  private sways = false;
+  /** Whether a bound layer leans with the vegetation clock or steps a looping record. */
+  private clocked = false;
 
   /** Whether the bind reads the same item, frame-wide inputs, highlight and erased region it last read. */
   holds(
@@ -162,9 +162,9 @@ export class BindStamp {
     this.bindEpoch = RETRY_EPOCH;
   }
 
-  /** Whether the bound layers hold still with the frame clocks: none of them sways. */
+  /** Whether the bound layers hold still with the frame clocks: none of them sways or loops. */
   get clockFree(): boolean {
-    return !this.sways;
+    return !this.clocked;
   }
 
   /** Whether `item` carries the same fields, each the same value, as the item last bound or carried. */
@@ -230,7 +230,7 @@ export class BindStamp {
     this.drawX = motion.drawX;
     this.drawY = motion.drawY;
     this.drawRotation = motion.drawRotation;
-    this.sways = false;
+    this.clocked = false;
     if (layers === null) {
       this.layers = null;
       return;
@@ -241,7 +241,7 @@ export class BindStamp {
       const layer = layers[i];
       if (layer === undefined) continue;
       bound[i] = layer;
-      if (layer.shear !== undefined) this.sways = true;
+      if (layer.shear !== undefined || layer.clocked === true) this.clocked = true;
     }
     this.layers = bound;
   }

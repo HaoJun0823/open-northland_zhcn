@@ -101,6 +101,8 @@ export {
   type MunitionBinding,
   type PalisadeBinding,
   type ParticleRef,
+  type ResourceLevelRef,
+  type ResourceLoopRef,
   type ResourceTypeBinding,
   resolveBuildingDraw,
   resolveConstructionDraws,

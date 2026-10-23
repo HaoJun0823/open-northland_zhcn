@@ -1,15 +1,23 @@
-import type { LayeredBobRef, ResourceTypeBinding } from '@open-northland/render';
+import type { ResourceLevelRef, ResourceTypeBinding } from '@open-northland/render';
 import type { ContentIr, LandscapeGfxRow } from '../ir/rows.js';
 import { BUSH_WITH_FRUITS_LOGIC_TYPE } from '../map-resources.js';
-import { type GatheringNodeRef, nodeRefFrom } from './refs.js';
+import { type GatheringLoopRef, levelsRefFrom } from './refs.js';
 
 /** A resolved berry-bush draw: the fruited-record index (the `gfxIndex` join key) and its three render
- *  states, `flowering` being the regrow midpoint between foraged and fruiting. */
+ *  states, `flowering` being the regrow midpoint between foraged and fruiting. Each stage is its record's
+ *  wind loop. */
 export interface BerryBushRef {
   readonly gfxIndex: number;
-  readonly ripe: GatheringNodeRef;
-  readonly flowering: GatheringNodeRef;
-  readonly bare: GatheringNodeRef;
+  readonly ripe: GatheringLoopRef;
+  readonly flowering: GatheringLoopRef;
+  readonly bare: GatheringLoopRef;
+}
+
+/** A bush record's full-grown loop: its top state's frames when the record loops, else its one frame. */
+function bushLoopFrom(record: LandscapeGfxRow): GatheringLoopRef | undefined {
+  const ref = levelsRefFrom(record);
+  const frames = ref?.levels.at(-1);
+  return ref === undefined || frames === undefined ? undefined : { stem: ref.stem, frames };
 }
 
 /**
@@ -21,14 +29,14 @@ export function resolveBerryBushRefs(ir: ContentIr | null): BerryBushRef[] {
   const records = ir?.landscapeGfx ?? [];
   const byName = new Map<string, LandscapeGfxRow>();
   for (const g of records) if (g.editName !== undefined) byName.set(g.editName, g);
-  const twin = (editName: string, suffix: string): GatheringNodeRef | undefined => {
+  const twin = (editName: string, suffix: string): GatheringLoopRef | undefined => {
     const rec = byName.get(editName.replace(/fruits?$/i, suffix));
-    return rec !== undefined ? nodeRefFrom(rec) : undefined;
+    return rec !== undefined ? bushLoopFrom(rec) : undefined;
   };
   const out: BerryBushRef[] = [];
   for (const rec of records) {
     if (rec.logicType !== BUSH_WITH_FRUITS_LOGIC_TYPE || rec.editName === undefined) continue;
-    const ripe = nodeRefFrom(rec);
+    const ripe = bushLoopFrom(rec);
     if (ripe === undefined) continue;
     // Stage twins fall back down the cycle when a record is absent (flowering → ripe, bare → flowering).
     const flowering = twin(rec.editName, 'flower') ?? ripe;
@@ -52,29 +60,29 @@ export function berryBushAtlasStems(refs: readonly BerryBushRef[]): Set<string> 
 
 /**
  * Reduce resolved berry-bush refs to a binding keyed under each bush's fruited `gfxIndex`, with a
- * three-frame level list bare → flowering → ripe (the empty→full order `DrawItem.level` indexes straight).
+ * three-loop level list bare → flowering → ripe (the empty→full order `DrawItem.level` indexes straight).
  * A flowering or bare frame whose atlas family didn't load reuses the next-higher loaded frame; a bush
- * whose ripe family didn't load is dropped to the placeholder. `default` is the first bush's ripe frame,
+ * whose ripe family didn't load is dropped to the placeholder. `default` is the first bush's ripe still,
  * what a bush with no matching `gfxIndex` draws.
  */
 export function buildBerryBushBinding(
   refs: readonly BerryBushRef[],
   loaded: ReadonlySet<string>,
 ): ResourceTypeBinding | undefined {
-  const byGfxIndex: Record<number, readonly LayeredBobRef[]> = {};
-  let fallback: LayeredBobRef | undefined;
+  const byGfxIndex: Record<number, readonly ResourceLevelRef[]> = {};
+  let fallback: GatheringLoopRef | undefined;
   for (const r of refs) {
     if (!loaded.has(r.ripe.stem)) continue;
-    const ripeRef: LayeredBobRef = { layer: r.ripe.stem, bob: r.ripe.bob };
-    const floweringRef: LayeredBobRef = loaded.has(r.flowering.stem)
-      ? { layer: r.flowering.stem, bob: r.flowering.bob }
+    const ripeRef: ResourceLevelRef = { layer: r.ripe.stem, frames: r.ripe.frames };
+    const floweringRef: ResourceLevelRef = loaded.has(r.flowering.stem)
+      ? { layer: r.flowering.stem, frames: r.flowering.frames }
       : ripeRef;
-    const bareRef: LayeredBobRef = loaded.has(r.bare.stem)
-      ? { layer: r.bare.stem, bob: r.bare.bob }
+    const bareRef: ResourceLevelRef = loaded.has(r.bare.stem)
+      ? { layer: r.bare.stem, frames: r.bare.frames }
       : floweringRef;
     byGfxIndex[r.gfxIndex] = [bareRef, floweringRef, ripeRef];
-    fallback ??= ripeRef;
+    fallback ??= r.ripe;
   }
   if (fallback === undefined) return undefined;
-  return { byGood: {}, byGfxIndex, default: fallback };
+  return { byGood: {}, byGfxIndex, default: { layer: fallback.stem, bob: fallback.frames[0] } };
 }

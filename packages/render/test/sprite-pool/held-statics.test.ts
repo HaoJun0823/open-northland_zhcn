@@ -139,6 +139,42 @@ describe('SpritePool - held self-contained entities', () => {
   });
 });
 
+describe('SpritePool - a looping tree', () => {
+  const SWAY_BOB = 2;
+  const loopAtlas: SpriteAtlas = {
+    width: 32,
+    height: 32,
+    frames: new Map([
+      [BOB, { x: 0, y: 0, width: 16, height: 32, offsetX: -8, offsetY: -32 }],
+      [SWAY_BOB, { x: 16, y: 0, width: 16, height: 32, offsetX: -8, offsetY: -32 }],
+    ]),
+  };
+  const loopSheet: SpriteSheet = {
+    ...sheet,
+    kindLayers: { resource: { source, atlas: loopAtlas } },
+    bindings: { ...sheet.bindings, resource: { byGood: { 1: [{ frames: [BOB, SWAY_BOB] }] }, default: BOB } },
+  };
+
+  it('is never held: an untouched tree steps its loop on every tick', () => {
+    const mirror = mirrorOf([
+      entity(SETTLER, 1, 1, walker),
+      entity(TREE, 4, 1, { Resource: { goodType: 1 } }),
+    ]);
+    const layer = new Container();
+    const pool = new SpritePool(layer, new TextureCache(), loopSheet);
+    const drawnX = (): number[] =>
+      layer.children.flatMap((c) =>
+        c.children.map((s) => (s as unknown as { texture: { frame: { x: number } } }).texture.frame.x),
+      );
+    pool.reconcile(frameOf(mirror.snapshot()));
+    const before = drawnX();
+    const refs = presentedRefs();
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 2, walker)])));
+    expect(refs()).toContain(TREE);
+    expect(drawnX()).not.toEqual(before);
+  });
+});
+
 describe('SpritePool - what releases a held tree', () => {
   const start = () =>
     mirrorOf([entity(SETTLER, 1, 1, walker), entity(TREE, 4, 1, { Resource: { goodType: 1 } })]);

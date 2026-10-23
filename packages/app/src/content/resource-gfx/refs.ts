@@ -1,7 +1,7 @@
 import type { LayeredBobRef, WaveLoop } from '@open-northland/render';
 import { TREE_ATLAS } from '../building-gfx/index.js';
 import { GENERIC_GOOD_ICON, type GoodIconMap } from '../goods-gfx.js';
-import { drawsAsFlatDecor, servedAtlasStem } from '../ir/joins.js';
+import { drawsAsFlatDecor, loopsFrames, servedAtlasStem } from '../ir/joins.js';
 import type { ContentIr, GatheringPipelineRow, GatheringStageRow, LandscapeGfxRow } from '../ir/rows.js';
 import type { GoodRef } from '../settler-gfx/index.js';
 
@@ -28,11 +28,12 @@ export interface GatheringNodeRef {
   readonly bob: number;
 }
 
-/** A standing-node draw with its per-level bobs, ordered empty→full; a non-mined node has one. */
+/** A standing-node draw with its per-level frames, ordered empty→full; a non-mined node has one level.
+ *  A level of a looping record carries its state's whole frame list, any other level one frame. */
 export interface GatheringNodeLevelsRef {
   readonly flat?: boolean;
   readonly stem: string;
-  readonly bobs: readonly number[];
+  readonly levels: readonly WaveLoop<number>[];
 }
 
 /** A resolved ground-pile draw: its per-fill bob ids, ordered fewest→most units. */
@@ -99,15 +100,22 @@ export function nodeRefFrom(record: LandscapeGfxRow): GatheringNodeRef | undefin
  * higher state is always more (more units in a pile, a fuller deposit), so a 1-based `fill`/`level` indexes
  * `[value - 1]`. The `ls_goods` piles and the `ls_ground` clay/iron/gold mines carry 5 states; a non-mined
  * node has one, drawn at any level.
- *
- * Named approximation: each state contributes only its first bob, drawn as a still. The original loops the
- * state's whole frame list (e.g. "wheat mine 01" carries 16 frames per growth state, `loopAnimation true`),
- * so a field that sways in the original stands still here.
  */
 export function firstBobsByStateAscending(record: LandscapeGfxRow): readonly number[] | undefined {
+  const levels = levelsByStateAscending(record, false);
+  return levels === undefined ? undefined : levels.map(([first]) => first);
+}
+
+/** {@link firstBobsByStateAscending} with each state's whole frame list when `whole`, else its first. */
+function levelsByStateAscending(
+  record: LandscapeGfxRow,
+  whole: boolean,
+): readonly WaveLoop<number>[] | undefined {
   const byState = [...(record.frames ?? [])]
     .sort((a, b) => a.state - b.state)
-    .flatMap((f) => (f.bobIds[0] !== undefined ? [f.bobIds[0]] : []));
+    .flatMap(({ bobIds: [first, ...rest] }): WaveLoop<number>[] =>
+      first === undefined ? [] : [whole ? [first, ...rest] : [first]],
+    );
   return byState.length === 0 ? undefined : byState;
 }
 
@@ -119,14 +127,19 @@ function loopRefFrom(record: LandscapeGfxRow): GatheringLoopRef | undefined {
   return stem !== undefined && first !== undefined ? { stem, frames: [first, ...rest] } : undefined;
 }
 
-/** The levels twin of {@link nodeRefFrom}: the served atlas stem plus the per-state bob ladder. */
+/** A level ladder's first frames: what a pile or a felled trunk, which never loops, draws per level. */
+export function firstBobs(ref: GatheringNodeLevelsRef): readonly number[] {
+  return ref.levels.map(([first]) => first);
+}
+
+/** The levels twin of {@link nodeRefFrom}: the served atlas stem plus the per-state frame ladder. */
 export function levelsRefFrom(record: LandscapeGfxRow): GatheringNodeLevelsRef | undefined {
   const stem = servedAtlasStem(record);
-  const bobs = firstBobsByStateAscending(record);
-  return stem !== undefined && bobs !== undefined
+  const levels = levelsByStateAscending(record, loopsFrames(record));
+  return stem !== undefined && levels !== undefined
     ? {
         stem,
-        bobs,
+        levels,
         ...(record.walkBlockAreas !== undefined && drawsAsFlatDecor(record) ? { flat: true } : {}),
       }
     : undefined;
@@ -182,7 +195,8 @@ export function resolveGatheringRefs(
     if (trunkRef !== undefined) trunksByGood[good.typeId] = trunkRef;
     const pileRecord = representativeRecord(p.store, byIndex);
     const pileRef = pileRecord !== undefined ? levelsRefFrom(pileRecord) : undefined;
-    if (pileRef !== undefined) pilesByGood[good.typeId] = { stem: pileRef.stem, fillBobs: pileRef.bobs };
+    if (pileRef !== undefined)
+      pilesByGood[good.typeId] = { stem: pileRef.stem, fillBobs: firstBobs(pileRef) };
   }
 
   // The synthetic `plank` has no gathering pipeline and no `ls_goods` art of its own, so it draws as
@@ -192,7 +206,7 @@ export function resolveGatheringRefs(
   const plankType = goods.find((g) => g.id === 'plank')?.typeId;
   if (woodTrunk !== undefined && plankType !== undefined) {
     trunksByGood[plankType] = woodTrunk;
-    pilesByGood[plankType] = { stem: woodTrunk.stem, fillBobs: woodTrunk.bobs };
+    pilesByGood[plankType] = { stem: woodTrunk.stem, fillBobs: firstBobs(woodTrunk) };
   }
 
   // Every other good (not gathered, so absent from the pipeline) draws its recoloured `ls_goods` heap from
@@ -204,7 +218,8 @@ export function resolveGatheringRefs(
       const stem = `${GOODS_PILE_BMD_STEM}.${icon.palette}`;
       const fillBobs = icon.fillFrames.length > 0 ? icon.fillFrames : [icon.frame];
       if (pilesByGood[good.typeId] === undefined) pilesByGood[good.typeId] = { stem, fillBobs };
-      if (trunksByGood[good.typeId] === undefined) trunksByGood[good.typeId] = { stem, bobs: fillBobs };
+      if (trunksByGood[good.typeId] === undefined)
+        trunksByGood[good.typeId] = { stem, levels: fillBobs.map((bob): WaveLoop<number> => [bob]) };
     }
   }
 

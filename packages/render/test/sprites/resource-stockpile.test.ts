@@ -4,7 +4,7 @@ import {
   resolveSpriteBobId,
   resolveStockpileDraw,
 } from '../../src/data/sprites/index.js';
-import { type DrawItem, resolveResourceDraw } from '../../src/index.js';
+import { type DrawItem, resolveResourceDraw, TILE_HALF_H, TILE_HALF_W } from '../../src/index.js';
 import { drawItem } from '../support/fixtures.js';
 
 describe('resolveResourceDraw - per-good resource node binding', () => {
@@ -96,6 +96,41 @@ describe('resolveResourceDraw - per-good resource node binding', () => {
     expect(resolveResourceDraw(ore, drop(3))).toEqual({ bob: 32, layer: 'ls_goods.iron' });
     expect(resolveResourceDraw(ore, drop(99))).toEqual({ bob: 34, layer: 'ls_goods.iron' }); // clamps
     expect(resolveResourceDraw(ore, drop())).toEqual({ bob: 34, layer: 'ls_goods.iron' }); // no fill → full
+  });
+});
+
+describe('resolveResourceDraw - a looping level', () => {
+  const loop = {
+    byGood: { 7: [{ layer: 'ls_trees.beech', frames: [10, 11, 12, 13] as const }] },
+    default: 0,
+  };
+  /** A node at half-cell `(hx, hy)`, placed the way the map-object layer places the same record. */
+  const tree = (hx: number, hy: number, extra: Partial<DrawItem> = {}): DrawItem => ({
+    ...drawItem('resource'),
+    goodType: 7,
+    x: hx * TILE_HALF_W,
+    y: (hy * TILE_HALF_H) / 2,
+    ...extra,
+  });
+
+  it('steps one frame per tick from the node phase hx + hy, wrapping', () => {
+    expect(resolveResourceDraw(loop, tree(0, 0), 0)).toEqual({
+      bob: 10,
+      layer: 'ls_trees.beech',
+      looping: true,
+    });
+    expect(resolveResourceDraw(loop, tree(0, 0), 1.7)?.bob).toBe(11);
+    expect(resolveResourceDraw(loop, tree(3, 2), 0)?.bob).toBe(11); // phase 5 → frame 1 of 4
+    expect(resolveResourceDraw(loop, tree(0, 0), 5)?.bob).toBe(11);
+  });
+
+  it('holds the first frame without a clock', () => {
+    expect(resolveResourceDraw(loop, tree(3, 2))).toEqual({ bob: 10, layer: 'ls_trees.beech' });
+  });
+
+  it('plays a loop on the default layer as bare bobs', () => {
+    const yew = { byGood: { 7: [{ frames: [60, 61] as const }] }, default: 0 };
+    expect(resolveResourceDraw(yew, tree(0, 0), 1)).toEqual({ bob: 61, looping: true });
   });
 });
 

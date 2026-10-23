@@ -41,7 +41,8 @@ const CLOCKLESS_KINDS: ReadonlySet<DrawItem['kind']> = new Set<DrawItem['kind']>
 /**
  * Whether `item`'s layers resolve from the item alone, reading no clock, so a still one presents the
  * same layers on every frame: a goods pile, unlike the waving delivery flag, and the kinds above. A
- * swaying resource is the exception: its body carries a `shear` off the vegetation clock.
+ * swaying or looping node is the exception: its body carries a `shear` off the vegetation clock or a
+ * `clocked` frame, which the pool reads off the bound layers.
  */
 export function resolvesWithoutClock(item: DrawItem): boolean {
   return CLOCKLESS_KINDS.has(item.kind) || (item.kind === 'stockpile' && item.goodType !== undefined);
@@ -97,6 +98,8 @@ function pushLayers(
   if (sheet === undefined) return false;
 
   let bobId: number | null;
+  // Set by a looping resource frame drawn from the kind's own layer.
+  let looping: true | undefined;
   switch (item.kind) {
     case 'tile':
       return false;
@@ -129,10 +132,16 @@ function pushLayers(
       // A layer-qualified ref (a rock/mine `.bmd` family) draws from that family atlas; a bare ref (the
       // default yew) falls through to the `kindLayers.resource` tree layer below. A null draw is a
       // data-pinned invisible level (the original's freshly-sown field): draw nothing, not the placeholder.
-      const draw = resolveResourceDraw(sheet.bindings.resource, item);
+      // Art a presentation pack ships with its own `sway` holds its first frame and leans; the original's
+      // looping records play their frames instead.
+      const binding = sheet.bindings.resource;
+      let draw = resolveResourceDraw(binding, item, frozenTick(item, tick));
       if (draw === null) return true;
+      const sway = draw.layer === undefined ? undefined : sheet.families?.[draw.layer]?.sway;
+      const packArt =
+        sway !== undefined || (draw.layer === undefined && sheet.kindLayers?.resource?.sway !== undefined);
+      if (packArt && draw.looping === true) draw = resolveResourceDraw(binding, item) ?? draw;
       if (hasLoadedFamily(sheet, draw)) {
-        const sway = draw.layer === undefined ? undefined : sheet.families?.[draw.layer]?.sway;
         const shear =
           sway === undefined
             ? undefined
@@ -146,6 +155,7 @@ function pushLayers(
         return pushLayeredWithShadow(out, sheet, 'resource', draw, shear);
       }
       bobId = draw.bob;
+      looping = draw.looping;
       break;
     }
     case 'stockpile':
@@ -164,7 +174,7 @@ function pushLayers(
     case 'stump':
     case 'berrybush':
     case 'chest':
-      return pushDecorLayers(out, sheet, item, item.kind);
+      return pushDecorLayers(out, sheet, item, item.kind, tick);
     case 'craftfx': {
       // Every effect ref is layer-qualified, so an unloaded `ls_smoke` family draws the placeholder rather
       // than a human frame from the shared body atlas.
@@ -190,7 +200,7 @@ function pushLayers(
       pushBuildingExtras(out, sheet, item, tick);
       return true;
     }
-    return pushBodyWithShadow(out, kindLayer, bobId, scale);
+    return pushBodyWithShadow(out, kindLayer, bobId, scale, undefined, looping);
   }
 
   // Shared body atlas + overlay (head) layers, all indexed by the same resolved bob id.
@@ -353,11 +363,17 @@ function pushDecorLayers(
   sheet: SpriteSheet,
   item: DrawItem,
   kind: keyof typeof DECOR_BINDING_KEY,
+  tick: number,
 ): boolean {
   const binding = sheet.bindings[DECOR_BINDING_KEY[kind]];
   if (binding === undefined) return false;
-  const draw = resolveResourceDraw(binding, item);
+  const draw = resolveResourceDraw(binding, item, frozenTick(item, tick));
   if (draw === null) return true;
   if (draw.layer === undefined) return false;
   return pushLayeredWithShadow(out, sheet, kind, draw);
+}
+
+/** The clock a looping node plays on; a fog ghost or a frozen portrait holds its first frame. */
+function frozenTick(item: DrawItem, tick: number): number | undefined {
+  return item.ghost === true || item.frozen === true ? undefined : tick;
 }

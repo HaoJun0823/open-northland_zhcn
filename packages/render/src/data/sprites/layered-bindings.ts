@@ -96,6 +96,17 @@ export interface ConstructionLayerRef {
   readonly toPct: number;
 }
 
+/** A node level whose record loops its frames (a tree, a field, a mine in the wind), played one frame
+ *  per tick from a per-node phase, as the map-object layer plays the same record. */
+export interface ResourceLoopRef {
+  /** The family atlas, absent for the kind's default layer, as on a bare {@link LayeredBobRef}. */
+  readonly layer?: string;
+  readonly frames: WaveLoop<number>;
+}
+
+/** One level of a node's empty-to-full ladder: a still frame or a loop. */
+export type ResourceLevelRef = LayeredBobRef | ResourceLoopRef;
+
 /** Per-good bob binding for a `[GfxLandscape]` object family. */
 export interface ResourceTypeBinding {
   /** Flat landscape records stay below roads and standing sprites after harvesting starts. */
@@ -104,13 +115,13 @@ export interface ResourceTypeBinding {
   /** Node frames per `Resource.goodType`, ordered empty to full (`state 1` first). A `null` entry is a
    *  data-pinned invisible level: that level draws nothing, deliberately not the placeholder, which
    *  flags a missing binding instead. */
-  readonly byGood: Readonly<Record<number, readonly (LayeredBobRef | null)[]>>;
+  readonly byGood: Readonly<Record<number, readonly (ResourceLevelRef | null)[]>>;
   /**
    * Node frames keyed by the exact `[GfxLandscape]` record index, in the same order as {@link byGood}.
    * Wins over the per-good entry so a decoded map keeps its species variety; an unbound variant falls
    * back per-good rather than borrowing a wrong frame.
    */
-  readonly byGfxIndex?: Readonly<Record<number, readonly (LayeredBobRef | null)[]>>;
+  readonly byGfxIndex?: Readonly<Record<number, readonly (ResourceLevelRef | null)[]>>;
   /** This binding's own representative frame, drawn for a good absent from {@link byGood}. */
   readonly default: LayeredBobRef;
 }

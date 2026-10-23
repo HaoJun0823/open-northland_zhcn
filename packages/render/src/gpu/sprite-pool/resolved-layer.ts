@@ -14,6 +14,9 @@ export interface ResolvedLayer {
   readonly dx?: number;
   readonly dy?: number;
   readonly shear?: number;
+  /** A frame of a looping landscape record: the entity re-presents on every tick though its item holds
+   *  still. */
+  readonly clocked?: true;
   /** Wind through the layer's cloth pixels; a vehicle's paletted mesh only. */
   readonly cloth?: ClothWind;
   readonly atlasW?: number;

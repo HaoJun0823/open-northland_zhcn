@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PickerEntry } from '../src/catalog/professions.js';
+import { JOB_CIVILIST, JOB_POTTER } from '../src/catalog/jobs.js';
+import { type PickerEntry, pickerEntries } from '../src/catalog/professions.js';
 import { professionChoices } from '../src/hud/dom/profession-choices.js';
 
 const ENTRIES: readonly PickerEntry[] = [
@@ -44,5 +45,17 @@ describe('professionChoices', () => {
         ],
       },
     ]);
+  });
+
+  it('leads each trade with its roster good, and the civilist with none', () => {
+    const rows = professionChoices(
+      pickerEntries(),
+      () => true,
+      () => true,
+    ).flatMap((group) => group.rows);
+    expect(rows.find((row) => row.key === String(JOB_POTTER))?.goodId).toBe('crockery');
+    const civilist = rows.find((row) => row.key === String(JOB_CIVILIST));
+    expect(civilist).toBeDefined();
+    expect(civilist?.goodId).toBeUndefined();
   });
 });

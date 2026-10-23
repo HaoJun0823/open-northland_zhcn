@@ -1,6 +1,6 @@
-import type { PickerEntry } from '../../catalog/professions.js';
+import { type PickerEntry, professionDefForJob } from '../../catalog/professions.js';
 import { compareLabels, messages } from '../../i18n/index.js';
-import type { ChoiceGroup } from './choice-window.js';
+import type { ChoiceGroup, ChoiceRow } from './choice-window.js';
 
 export function professionChoices(
   professions: readonly PickerEntry[],
@@ -8,7 +8,7 @@ export function professionChoices(
   unlocked: (jobType: number) => boolean,
   reason?: (jobType: number) => string,
 ): ChoiceGroup[] {
-  const groups: { label: string; rows: { key: string; label: string; reason?: string }[] }[] = [];
+  const groups: { label: string; rows: ChoiceRow[] }[] = [];
   let group: (typeof groups)[number] = { label: messages().hud.choiceBasic, rows: [] };
   groups.push(group);
   for (const entry of professions) {
@@ -18,9 +18,11 @@ export function professionChoices(
       continue;
     }
     if (!visible(entry.jobType)) continue;
+    const icon = professionDefForJob(entry.jobType)?.icon;
     group.rows.push({
       key: String(entry.jobType),
       label: entry.label,
+      ...(icon === undefined ? {} : { goodId: icon }),
       ...(unlocked(entry.jobType)
         ? {}
         : { reason: reason?.(entry.jobType) ?? messages().hud.technologyExperience }),

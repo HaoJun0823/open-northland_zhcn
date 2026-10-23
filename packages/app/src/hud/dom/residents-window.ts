@@ -96,7 +96,8 @@ export interface ResidentsWindowDeps {
    *  window has already closed. */
   readonly onSelect: (ids: readonly number[], show: boolean) => void;
   readonly cue: (cue: UiCue) => void;
-  /** Paints the goods a worker is set to make after its profession; absent shows the profession alone. */
+  /** Paints the goods a worker is set to make after its profession and each trade's good in the
+   *  profession filters; absent shows the names alone. */
   readonly icons?: GoodIconPainter;
 }
 
@@ -170,6 +171,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       entries: [],
       active: '',
       onPick,
+      ...(deps.icons === undefined ? {} : { icons: deps.icons }),
     });
     dropdown.root.classList.add('on-res-field');
     const text = element('span', '');
@@ -201,7 +203,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       .filter((group) => group.rows.length > 0)
       .map((group) => ({
         group: group.label,
-        choices: group.rows.map((row) => ({ id: row.key, label: row.label })),
+        choices: group.rows.map((row) => ({
+          id: row.key,
+          label: row.label,
+          ...(row.goodId === undefined ? {} : { goodId: row.goodId }),
+        })),
       }));
   // Each profession row stands for the picks of its trade, in the category the picker files it under.
   canBecomeSelect.setEntries([
@@ -212,7 +218,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
         rows: group.rows.flatMap((row) =>
           deps.trades
             .filter((trade) => String(trade.pick.jobType) === row.key)
-            .map((trade) => ({ key: tradePickKey(trade.pick), label: trade.label })),
+            .map((trade) => ({
+              key: tradePickKey(trade.pick),
+              label: trade.label,
+              ...(trade.goodId === undefined ? {} : { goodId: trade.goodId }),
+            })),
         ),
       })),
     ),
@@ -610,7 +620,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
                     ? soldierClassLabels.has(entry.profession)
                     : entry.profession === row.label,
                 )
-                .map((entry) => ({ key: entry.profession, label: optionLabel(entry) })),
+                .map((entry) => ({
+                  key: entry.profession,
+                  label: optionLabel(entry),
+                  ...(row.goodId === undefined ? {} : { goodId: row.goodId }),
+                })),
             ),
           })),
         ),

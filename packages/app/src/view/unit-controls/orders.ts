@@ -28,6 +28,7 @@ import {
   vehicleSeatsOf,
   workplaceOf,
 } from '../../game/snapshot.js';
+import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import { clampTile, nodeBounds, pickNearestAt, pickTopAt, type Tile, worldToTile } from '../picking.js';
 import type { AnsweredOrders } from './answered-orders.js';
 import { createBuildingOrders } from './building-orders.js';
@@ -82,6 +83,8 @@ export interface UnitOrderDeps {
   readonly openActions: (atClient: { readonly x: number; readonly y: number }) => void;
   /** The GUI click the school dialog's buttons confirm with; absent, silent. */
   readonly cue?: (cue: UiCue) => void;
+  /** Paints the school dialog's goods; absent, it lists names alone. */
+  readonly icons?: GoodIconPainter;
   /** Answers a walk none of its movers can take; absent, the fail click does. */
   readonly refuse?: ((movers: readonly number[]) => void) | undefined;
   /** The sim's trade-stop rule, asked as the click lands; absent, a trader's right-click puts no house on
@@ -346,6 +349,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       status: deps.technologyStatus,
       answersVersion: deps.technologyVersion,
       cue: deps.cue,
+      icons: deps.icons,
       onOrderLimit,
       scale: uiScale,
     });

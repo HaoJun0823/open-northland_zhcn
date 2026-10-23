@@ -119,6 +119,9 @@ export function createChoiceWindow(opts: {
     list.replaceChildren();
     let count = 0;
     const words = searchWords(search.value);
+    // A row without a good keeps an empty icon slot beside rows that show one, so the labels line up.
+    const pictured =
+      opts.icons !== undefined && groups.some((group) => group.rows.some((row) => row.goodId !== undefined));
     for (const group of groups) {
       const rows = group.rows.filter((row) => hasWords(row.label, words));
       if (rows.length === 0) continue;
@@ -138,10 +141,11 @@ export function createChoiceWindow(opts: {
         button.className = 'on-button on-choice-row';
         button.dataset.choice = row.key;
         button.setAttribute('aria-disabled', String(row.reason !== undefined));
-        if (row.goodId !== undefined && opts.icons !== undefined) {
+        if (pictured) {
           button.insertAdjacentHTML('beforeend', goodIconMarkup(ROW_ICON_PX));
           const frame = button.querySelector('.on-good__frame');
-          if (frame instanceof HTMLElement) opts.icons(frame, row.goodId, ROW_ICON_PX);
+          if (frame instanceof HTMLElement && row.goodId !== undefined)
+            opts.icons?.(frame, row.goodId, ROW_ICON_PX);
         }
         const label = document.createElement('span');
         label.className = 'on-choice-row__label';

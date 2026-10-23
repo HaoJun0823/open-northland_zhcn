@@ -2625,10 +2625,17 @@ body.on-drag-scroll * {
   rotate: 225deg;
 }
 .on-hud .on-res-select-btn-label {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A trade's good before its name, on the button and in the list (parts/dropdown.ts). */
+.on-hud :is(.on-res-select-btn-icon, .on-res-select-option-icon) {
+  display: flex;
+  flex-shrink: 0;
+  margin-block: -3px;
 }
 /* A popover the dropdown places under its field (parts/dropdown.ts). */
 .on-hud .on-res-select-list {
@@ -2660,6 +2667,9 @@ body.on-drag-scroll * {
 .on-hud .on-res-select-option {
   all: unset;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 14px 4px 26px;
   white-space: nowrap;
   cursor: var(--cursor-pointer, pointer);
@@ -3074,6 +3084,10 @@ body.on-drag-scroll * {
   color: var(--muted);
   box-shadow: inset 0 0 0 1px #c9a26222;
   cursor: var(--cursor-help, help);
+}
+.on-hud .on-choice-row:where([aria-disabled="true"]) .on-good__frame {
+  filter: grayscale(1);
+  opacity: 0.55;
 }
 .on-hud .on-choice-empty {
   margin: 14px 0;

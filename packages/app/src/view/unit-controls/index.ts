@@ -88,6 +88,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
   };
   const answered = createAnsweredOrders();
   const controlGroups = createControlGroups(opts.controlGroups);
+  const goodIcons = createGoodIconPainter(opts.domHud.pack, opts.content);
   // Without the sim's pick-list seam the panel's equip and swap buttons stay inert.
   const equipPicker: EquipPickController | null =
     opts.requestEquipPicks === undefined || opts.requestSelectionEquipPicks === undefined
@@ -95,7 +96,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       : mountEquipPicker({
           uiString: opts.domHud.uiString,
           scale: opts.domHud.scale,
-          icons: createGoodIconPainter(opts.domHud.pack, opts.content),
+          icons: goodIcons,
           pickList: opts.requestEquipPicks,
           selectionPicks: opts.requestSelectionEquipPicks,
           content: opts.content,
@@ -327,6 +328,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     selectOwnSettler: (id) => applySelection([id], false),
     openActions: (atClient) => chrome.actions().open(atClient),
     cue,
+    icons: goodIcons,
     refuse:
       opts.voices === undefined
         ? undefined

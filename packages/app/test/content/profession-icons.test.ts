@@ -1,0 +1,34 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PROFESSIONS } from '../../src/catalog/professions.js';
+import { contentDir, hasRealIr, loadContentUnderTest } from './helpers.js';
+
+/** Serves the content under test off disk at the root-relative URLs the icon loaders fetch. */
+const serveContent: typeof fetch = async (input) => {
+  try {
+    return new Response(await readFile(resolve(contentDir(), `.${String(input)}`)));
+  } catch {
+    return new Response(null, { status: 404 });
+  }
+};
+
+describe.runIf(hasRealIr())('profession icons in the decoded content', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('cuts every trade icon from a served sheet', async () => {
+    const { merge } = await loadContentUnderTest();
+    vi.stubGlobal('fetch', serveContent);
+    // The icon loaders memoize their fetches, so they load afresh under the stub.
+    vi.resetModules();
+    const { goodIconSource } = await import('../../src/hud/dom/good-art.js');
+    const unresolved: string[] = [];
+    for (const { key, icon } of PROFESSIONS) {
+      if (icon !== undefined && (await goodIconSource(icon, null, merge.content)) === null)
+        unresolved.push(`${key}: ${icon}`);
+    }
+    expect(unresolved).toEqual([]);
+  });
+});

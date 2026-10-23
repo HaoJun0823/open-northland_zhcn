@@ -43,6 +43,9 @@ export interface ProfessionDef {
   readonly key: keyof Messages['profession'];
   readonly jobType: number;
   readonly category: ProfessionCategory;
+  /** The good whose icon stands for the trade where professions are picked, by slug: a presentation
+   *  choice of a product or tool the trade is known by. Absent where no good reads as the trade. */
+  readonly icon?: string;
   /** The `jobtypes.ini` record this row transcribes. */
   readonly source: string;
 }
@@ -55,58 +58,148 @@ export function isSoldierJob(jobType: number): boolean {
 
 /** The complete roster in picker order; `pickerEntries` inserts a header wherever the category changes. */
 export const PROFESSIONS: readonly ProfessionDef[] = [
-  { key: 'collector', jobType: JOB_COLLECTOR, category: 'gathering', source: 'jobtypes.ini 8 "collector"' },
+  {
+    key: 'collector',
+    jobType: JOB_COLLECTOR,
+    category: 'gathering',
+    icon: 'wood',
+    source: 'jobtypes.ini 8 "collector"',
+  },
   { key: 'carrier', jobType: JOB_CARRIER, category: 'transport', source: 'jobtypes.ini 24 "carrier"' },
-  { key: 'builder', jobType: JOB_BUILDER, category: 'production', source: 'jobtypes.ini 7 "builder"' },
-  { key: 'joiner', jobType: JOB_JOINER, category: 'production', source: 'jobtypes.ini 9 "joiner"' },
-  { key: 'armorer', jobType: JOB_ARMORER, category: 'production', source: 'jobtypes.ini 10 "armorer"' },
-  { key: 'potter', jobType: JOB_POTTER, category: 'production', source: 'jobtypes.ini 11 "potter"' },
-  { key: 'mason', jobType: JOB_MASON, category: 'production', source: 'jobtypes.ini 12 "mason"' },
-  { key: 'smith', jobType: JOB_SMITH, category: 'production', source: 'jobtypes.ini 13 "smith"' },
+  {
+    key: 'builder',
+    jobType: JOB_BUILDER,
+    category: 'production',
+    icon: 'tool_iron',
+    source: 'jobtypes.ini 7 "builder"',
+  },
+  {
+    key: 'joiner',
+    jobType: JOB_JOINER,
+    category: 'production',
+    icon: 'furniture',
+    source: 'jobtypes.ini 9 "joiner"',
+  },
+  {
+    key: 'armorer',
+    jobType: JOB_ARMORER,
+    category: 'production',
+    icon: 'bow_long',
+    source: 'jobtypes.ini 10 "armorer"',
+  },
+  {
+    key: 'potter',
+    jobType: JOB_POTTER,
+    category: 'production',
+    icon: 'crockery',
+    source: 'jobtypes.ini 11 "potter"',
+  },
+  {
+    key: 'mason',
+    jobType: JOB_MASON,
+    category: 'production',
+    icon: 'pillar',
+    source: 'jobtypes.ini 12 "mason"',
+  },
+  {
+    key: 'smith',
+    jobType: JOB_SMITH,
+    category: 'production',
+    icon: 'sword_long',
+    source: 'jobtypes.ini 13 "smith"',
+  },
   {
     key: 'coin_maker',
     jobType: JOB_COIN_MAKER,
     category: 'production',
+    icon: 'coin',
     source: 'jobtypes.ini 14 "coin maker"',
   },
-  { key: 'hunter', jobType: JOB_HUNTER, category: 'production', source: 'jobtypes.ini 15 "hunter"' },
-  { key: 'breeder', jobType: JOB_BREEDER, category: 'production', source: 'jobtypes.ini 16 "breeder"' },
-  { key: 'tailor', jobType: JOB_TAILOR, category: 'production', source: 'jobtypes.ini 17 "sewer"' },
-  { key: 'farmer', jobType: JOB_FARMER, category: 'production', source: 'jobtypes.ini 18 "farmer"' },
-  { key: 'miller', jobType: JOB_MILLER, category: 'production', source: 'jobtypes.ini 19 "miller"' },
+  {
+    key: 'hunter',
+    jobType: JOB_HUNTER,
+    category: 'production',
+    icon: 'meat',
+    source: 'jobtypes.ini 15 "hunter"',
+  },
+  {
+    key: 'breeder',
+    jobType: JOB_BREEDER,
+    category: 'production',
+    icon: 'sheep',
+    source: 'jobtypes.ini 16 "breeder"',
+  },
+  {
+    key: 'tailor',
+    jobType: JOB_TAILOR,
+    category: 'production',
+    icon: 'shoes',
+    source: 'jobtypes.ini 17 "sewer"',
+  },
+  {
+    key: 'farmer',
+    jobType: JOB_FARMER,
+    category: 'production',
+    icon: 'wheat',
+    source: 'jobtypes.ini 18 "farmer"',
+  },
+  {
+    key: 'miller',
+    jobType: JOB_MILLER,
+    category: 'production',
+    icon: 'flour',
+    source: 'jobtypes.ini 19 "miller"',
+  },
   {
     key: 'baker',
     jobType: JOB_BAKER,
     category: 'production',
+    icon: 'bread',
     source: 'jobtypes.ini 20 "baker"',
   },
   {
     key: 'brewer',
     jobType: JOB_BREWER,
     category: 'production',
+    icon: 'mead',
     source: 'jobtypes.ini 21 "brewer"',
   },
   {
     key: 'fisher',
     jobType: JOB_FISHER,
     category: 'production',
+    icon: 'fish',
     source: 'jobtypes.ini 22 "fisher"',
   },
   {
     key: 'herbalist',
     jobType: JOB_HERBALIST,
     category: 'production',
+    icon: 'herb',
     source: 'jobtypes.ini 29 "herb & mush guy"',
   },
-  { key: 'druid', jobType: JOB_DRUID, category: 'production', source: 'jobtypes.ini 30 "druid"' },
+  {
+    key: 'druid',
+    jobType: JOB_DRUID,
+    category: 'production',
+    icon: 'holy_oil',
+    source: 'jobtypes.ini 30 "druid"',
+  },
   { key: 'scout', jobType: JOB_SCOUT, category: 'special', source: 'jobtypes.ini 27 "scout"' },
   {
     key: 'trader',
     jobType: JOB_TRADER,
     category: 'special',
+    icon: 'handcart',
     source: 'jobtypes.ini 25 "trader"',
   },
-  { key: 'soldier', jobType: JOB_SOLDIER, category: 'military', source: 'jobtypes.ini 31 "soldier_unarmed"' },
+  {
+    key: 'soldier',
+    jobType: JOB_SOLDIER,
+    category: 'military',
+    icon: 'sword_shord',
+    source: 'jobtypes.ini 31 "soldier_unarmed"',
+  },
 ];
 
 /** The whole soldier band's label, resolved at module load so a roster edit dropping it fails loudly. */

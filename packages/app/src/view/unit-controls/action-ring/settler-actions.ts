@@ -114,6 +114,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
     const picker = createProfessionPicker({
       professions: opts.professions,
       scale: opts.uiscale,
+      ...(opts.icons === undefined ? {} : { icons: opts.icons }),
       onPick: (jobType: number): void => {
         if (selectedIds.length > 0) opts.onSetJob(selectedIds, jobType);
         // Picking commits the order, so the whole menu closes rather than stepping back to the arms.

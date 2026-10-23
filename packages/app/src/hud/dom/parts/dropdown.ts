@@ -1,9 +1,13 @@
 import { FIELD_KEYS_ATTRIBUTE } from '../../hotkeys.js';
+import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
+import { element } from './dom.js';
 
 export interface DropdownChoice<T extends string> {
   readonly id: T;
   readonly label: string;
   readonly image?: string;
+  /** A good whose icon leads the label; shown only when the dropdown has an icon painter. */
+  readonly goodId?: string;
   readonly disabled?: boolean;
   /** The button's text for this choice, where the list's label is too long for it. */
   readonly short?: string;
@@ -28,6 +32,7 @@ export interface DropdownOptions<T extends string> {
   readonly active: T;
   /** The player picked a choice; the caller shows it with `setActive` once it holds. */
   readonly onPick: (id: T) => void;
+  readonly icons?: GoodIconPainter;
 }
 
 export interface DropdownHandle<T extends string> {
@@ -41,25 +46,50 @@ export interface DropdownHandle<T extends string> {
 
 /** Viewport px between the field and its list, and the list and the window edge. */
 const LIST_GAP_PX = 4;
+/** Design px of a choice's good icon, about the list's line height. */
+const CHOICE_ICON_PX = 18;
 /** A pause in typing this long starts a new type-ahead search, as a native select does. */
 const TYPE_AHEAD_RESET_MS = 700;
 
 const isGroup = <T extends string>(entry: DropdownEntry<T>): entry is DropdownGroup<T> => 'group' in entry;
 
-function face(choice: DropdownChoice<string>, className: string, label: string): HTMLElement[] {
+/** How a face shows goods: the painter, and whether a choice without a good keeps an empty icon slot so
+ *  the list's labels line up under the pictured ones. */
+interface FaceIcons {
+  readonly paint: GoodIconPainter;
+  readonly slot: boolean;
+}
+
+function face(
+  choice: DropdownChoice<string>,
+  className: string,
+  label: string,
+  icons: FaceIcons | undefined,
+): HTMLElement[] {
   const text = document.createElement('span');
   text.className = `${className}-label`;
   text.textContent = label;
-  if (choice.image === undefined) return [text];
-  // A background, so a caller's stylesheet can frame the part of the art that tells choices apart.
-  const image = document.createElement('span');
-  image.className = `${className}-image`;
-  image.style.backgroundImage = `url("${choice.image}")`;
-  return [image, text];
+  if (choice.image !== undefined) {
+    // A background, so a caller's stylesheet can frame the part of the art that tells choices apart.
+    const image = document.createElement('span');
+    image.className = `${className}-image`;
+    image.style.backgroundImage = `url("${choice.image}")`;
+    return [image, text];
+  }
+  if (icons === undefined || (choice.goodId === undefined && !icons.slot)) return [text];
+  const icon = element('span', `${className}-icon`, goodIconMarkup(CHOICE_ICON_PX));
+  const frame = icon.querySelector('.on-good__frame');
+  if (frame instanceof HTMLElement && choice.goodId !== undefined)
+    icons.paint(frame, choice.goodId, CHOICE_ICON_PX);
+  return [icon, text];
 }
 
-function optionFace(choice: DropdownChoice<string>, className: string): HTMLElement[] {
-  const parts = face(choice, className, choice.label);
+function optionFace(
+  choice: DropdownChoice<string>,
+  className: string,
+  icons: FaceIcons | undefined,
+): HTMLElement[] {
+  const parts = face(choice, className, choice.label, icons);
   if (choice.detail === undefined) return parts;
   const detail = document.createElement('span');
   detail.className = `${className}-detail`;
@@ -96,6 +126,8 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
   let entries = options.entries;
   let current = options.active;
   const rows = new Map<T, HTMLButtonElement>();
+  const buttonIcons = options.icons === undefined ? undefined : { paint: options.icons, slot: false };
+  let rowIcons: FaceIcons | undefined;
   const choiceOf = (id: T): DropdownChoice<T> | undefined =>
     entries.flatMap((entry) => (isGroup(entry) ? entry.choices : [entry])).find((choice) => choice.id === id);
   const enabledRows = (): HTMLButtonElement[] => [...rows.values()].filter((row) => !row.disabled);
@@ -121,7 +153,7 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
     option.className = `${className}-option`;
     option.setAttribute('role', 'option');
     option.disabled = choice.disabled === true;
-    option.append(...optionFace(choice, `${className}-option`));
+    option.append(...optionFace(choice, `${className}-option`, rowIcons));
     option.addEventListener('click', () => {
       close();
       button.focus({ preventScroll: true });
@@ -130,10 +162,10 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
     rows.set(choice.id, option);
     return option;
   };
-  // The choices, whether they carry a detail, and the headings in order; entries with the same shape
-  // only relabel the rows they have.
+  // The choices, whether they carry a detail, their goods and the headings in order; entries with the
+  // same shape only relabel the rows they have.
   const keyOf = (choice: DropdownChoice<T>): string =>
-    `${choice.id}${choice.detail === undefined ? '' : '+'}`;
+    `${choice.id}${choice.detail === undefined ? '' : '+'}${choice.goodId === undefined ? '' : `@${choice.goodId}`}`;
   const shapeOf = (of: readonly DropdownEntry<T>[]): string =>
     JSON.stringify(
       of.map((entry) => (isGroup(entry) ? [entry.group, entry.choices.map(keyOf)] : keyOf(entry))),
@@ -164,6 +196,10 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
       return;
     }
     shape = nextShape;
+    const pictured = next.some((entry) =>
+      (isGroup(entry) ? entry.choices : [entry]).some((choice) => choice.goodId !== undefined),
+    );
+    rowIcons = options.icons === undefined ? undefined : { paint: options.icons, slot: pictured };
     const focused = [...rows].find(([, option]) => option === document.activeElement)?.[0];
     const scrolled = list.scrollTop;
     rows.clear();
@@ -198,12 +234,13 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
       choice !== undefined &&
       shownFace !== undefined &&
       choice.image === shownFace.image &&
+      choice.goodId === shownFace.goodId &&
       text !== null
     ) {
       if (text.textContent !== buttonText(choice)) text.textContent = buttonText(choice);
     } else if (choice !== shownFace) {
       button.replaceChildren(
-        ...(choice === undefined ? [] : face(choice, `${className}-btn`, buttonText(choice))),
+        ...(choice === undefined ? [] : face(choice, `${className}-btn`, buttonText(choice), buttonIcons)),
       );
     }
     shownFace = choice;

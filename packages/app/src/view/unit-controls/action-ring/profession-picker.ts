@@ -1,6 +1,7 @@
 import type { UiCue } from '@open-northland/audio';
 import type { PickerEntry } from '../../../catalog/professions.js';
 import { createChoiceWindow } from '../../../hud/dom/choice-window.js';
+import type { GoodIconPainter } from '../../../hud/dom/good-art.js';
 import { professionChoices } from '../../../hud/dom/profession-choices.js';
 import { uiLabel } from '../../../i18n/index.js';
 
@@ -10,6 +11,8 @@ export interface ProfessionPickerOptions {
   readonly onPick: (jobType: number) => void;
   readonly onDismiss: () => void;
   readonly cue: (cue: UiCue) => void;
+  /** Paints each trade's good before its name; absent lists the names alone. */
+  readonly icons?: GoodIconPainter;
 }
 export interface ProfessionPicker {
   show(
@@ -32,6 +35,7 @@ export function createProfessionPicker(opts: ProfessionPickerOptions): Professio
     title: uiLabel('changeProfession'),
     scale: opts.scale,
     cue: opts.cue,
+    ...(opts.icons === undefined ? {} : { icons: opts.icons }),
     onDismiss: opts.onDismiss,
     onPick: (key) => {
       const job = Number(key);

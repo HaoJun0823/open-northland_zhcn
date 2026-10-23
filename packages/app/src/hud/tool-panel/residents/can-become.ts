@@ -7,7 +7,8 @@ import type { TradePick } from './rows.js';
 /** The trades anyone may take, which a search for who could take them would list whole. */
 const OPEN_TRADES: ReadonlySet<number> = new Set([JOB_COLLECTOR, JOB_CARRIER, JOB_SCOUT]);
 
-/** The gathered goods the tribes gate behind experience (`needforgood`), each a collector pick. */
+/** The gathered goods the tribes gate behind experience (`needforgood`), each a collector pick; the key
+ *  is the good's slug. */
 const GATED_GATHER_GOODS = [
   { goodType: GOOD_IRON, key: 'iron' },
   { goodType: GOOD_GOLD, key: 'gold' },
@@ -16,6 +17,8 @@ const GATED_GATHER_GOODS = [
 export interface CanBecomeOption {
   readonly pick: TradePick;
   readonly label: string;
+  /** The good whose icon stands for the pick: the gathered good, else the trade's own. */
+  readonly goodId?: string;
 }
 
 /** What the residents window's "can become" filter offers, in picker order: every trade but the open
@@ -27,11 +30,16 @@ export function canBecomeOptions(): CanBecomeOption[] {
       return GATED_GATHER_GOODS.map(({ goodType, key }) => ({
         pick: { jobType: JOB_COLLECTOR, goodType },
         label: formatMessage(messages().hud.residentsWindow.collectorOf, { good: goods[key] }),
+        goodId: key,
       }));
     }
     if (OPEN_TRADES.has(profession.jobType)) return [];
     return [
-      { pick: { jobType: profession.jobType, goodType: null }, label: professionLabel(profession.key) },
+      {
+        pick: { jobType: profession.jobType, goodType: null },
+        label: professionLabel(profession.key),
+        ...(profession.icon === undefined ? {} : { goodId: profession.icon }),
+      },
     ];
   });
 }

@@ -6,6 +6,7 @@ import type { Application } from 'pixi.js';
 import type { PickerEntry } from '../../../catalog/professions.js';
 import type { UiString } from '../../../content/gui-gfx.js';
 import type { ActionOrderId } from '../../../hud/action-ring/index.js';
+import type { GoodIconPainter } from '../../../hud/dom/good-art.js';
 import type { SelectionCentre } from './selection-centre.js';
 
 /** Which face the menu shows: nothing, the default arms, or the profession picker. */
@@ -20,6 +21,8 @@ export interface SettlerActionsOptions {
   /** The caller memoizes the result per frame, so the open ring may ask every frame. */
   readonly selectionCentre: (snapshot: WorldSnapshot) => SelectionCentre | null;
   readonly professions: readonly PickerEntry[];
+  /** Paints the trades' goods in the profession list. */
+  readonly icons?: GoodIconPainter;
   /** Job roles are read off the running content, so buttons offer what the command accepts. */
   readonly content: ContentSet;
   /** Whether the picker should list `jobType` at all for the current selection. */

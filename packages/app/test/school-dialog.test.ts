@@ -1,14 +1,26 @@
 import { MAX_UNIT_ORDER_MEMBERS, type PlayerCommand } from '@open-northland/sim';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { JOB_COLLECTOR, JOB_JOINER } from '../src/catalog/jobs.js';
+import { professionDefForJob } from '../src/catalog/professions.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
+import type { ChoiceGroup } from '../src/hud/dom/choice-window.js';
 import { snapshotOf } from './support/snapshot.js';
 
-const choice = vi.hoisted(() => ({ pick: undefined as ((key: string) => void) | undefined }));
+const choice = vi.hoisted(() => ({
+  pick: undefined as ((key: string) => void) | undefined,
+  groups: [] as readonly ChoiceGroup[],
+}));
 vi.mock('../src/hud/dom/choice-window.js', () => ({
   createChoiceWindow: (opts: { onPick: (key: string) => void }) => {
     choice.pick = opts.onPick;
-    return { show: () => {}, update: () => {}, dispose: () => {}, setUiScale: async () => {} };
+    return {
+      show: () => {},
+      update: (groups: readonly ChoiceGroup[]) => {
+        choice.groups = groups;
+      },
+      dispose: () => {},
+      setUiScale: async () => {},
+    };
   },
 }));
 // The app tests share a module registry; an earlier projection test may have loaded the real dialog.
@@ -17,6 +29,7 @@ const { openSchoolDialog } = await import('../src/view/unit-controls/school-dial
 
 beforeEach(() => {
   choice.pick = undefined;
+  choice.groups = [];
 });
 
 function fixture(count: number) {
@@ -99,4 +112,65 @@ it('refuses oversized school selections without opening or submitting', () => {
   expect(choice.pick).toBeUndefined();
   expect(enqueue).not.toHaveBeenCalled();
   expect(onOrderLimit).toHaveBeenCalledOnce();
+});
+
+/** The fixture's students' tribe. */
+const VIKING = 1;
+
+it('leads each trade with its roster good and each method with the good it teaches', () => {
+  const f = fixture(1);
+  const methods = ['furniture', 'tool_wooden'].map((id) => {
+    const good = f.content.goods.find((row) => row.id === id);
+    if (good === undefined) throw new Error(`missing ${id}`);
+    return good;
+  });
+  // The fallback tribe schools no method, so the joiner gains two.
+  const content = {
+    ...f.content,
+    tribes: f.content.tribes.map((tribe) =>
+      tribe.typeId !== VIKING
+        ? tribe
+        : {
+            ...tribe,
+            jobRequirements: [
+              ...tribe.jobRequirements,
+              ...methods.map((good) => ({
+                requirement: 'train' as const,
+                target: 'good' as const,
+                targetId: good.typeId,
+                amount: 0,
+                experienceTypes: [],
+              })),
+            ],
+            jobEnables: [
+              ...tribe.jobEnables,
+              ...methods.map((good) => ({
+                jobType: JOB_JOINER,
+                kind: 'good' as const,
+                targetId: good.typeId,
+              })),
+            ],
+          },
+    ),
+  };
+  openSchoolDialog({
+    content,
+    snapshot: () => f.snapshot,
+    settlers: f.students.map(({ id }) => id),
+    house: f.house,
+    scale: 1,
+    enqueue: () => {},
+  });
+  const icons = (): [string, string | undefined][] =>
+    choice.groups
+      .flatMap((group) => group.rows)
+      .map((row): [string, string | undefined] => [row.key, row.goodId])
+      .sort(([a], [b]) => a.localeCompare(b));
+  expect(icons()).toEqual([[String(JOB_JOINER), professionDefForJob(JOB_JOINER)?.icon]]);
+  choice.pick?.(String(JOB_JOINER));
+  expect(icons()).toEqual(
+    methods
+      .map((good): [string, string] => [`good:${good.typeId}`, good.id])
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
 });

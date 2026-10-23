@@ -22,6 +22,7 @@ import {
 } from '../../game/snapshot.js';
 import { technologyLabel } from '../../game/technology.js';
 import { createChoiceWindow } from '../../hud/dom/choice-window.js';
+import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import { compareLabels, formatMessage, messages } from '../../i18n/index.js';
 import { orderRecipients } from './action-ring/menu-state.js';
 import { enqueueUnitSelection } from './group-orders.js';
@@ -147,6 +148,8 @@ export interface SchoolDialogOptions {
   /** Bumped when a status answer lands, so the dialog rebuilds without a new snapshot. */
   readonly answersVersion?: (() => number) | undefined;
   readonly cue?: ((cue: UiCue) => void) | undefined;
+  /** Paints each trade's and method's good before its name; absent lists the names alone. */
+  readonly icons?: GoodIconPainter | undefined;
   readonly scale: number;
 }
 
@@ -172,6 +175,11 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
   let lastAnswers = -1;
   let reasons = new Map<string, string | undefined>();
   const courseKey = (course: SchoolCourse): string => `${course.target}:${course.typeId}`;
+  // A method shows the good it teaches; the trade's own course shows the trade's good.
+  const courseIcon = (course: SchoolCourse): string | undefined =>
+    course.target === 'good'
+      ? content.goods.find((good) => good.typeId === course.typeId)?.id
+      : professionDefForJob(course.typeId)?.icon;
   const dispose = (): void => {
     closed = true;
     dialog.dispose();
@@ -180,6 +188,7 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
     title: copy.schoolTitle,
     scale: opts.scale,
     ...(cue === undefined ? {} : { cue }),
+    ...(opts.icons === undefined ? {} : { icons: opts.icons }),
     onDismiss: () => {
       if (selectedJob === undefined) dispose();
       else {
@@ -285,11 +294,14 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
     }
     const reasonProps = (reason: string | undefined): { reason?: string } =>
       reason === undefined ? {} : { reason };
+    const iconProps = (goodId: string | undefined): { goodId?: string } =>
+      goodId === undefined ? {} : { goodId };
     const rows =
       selected === undefined
         ? choices.map((group) => ({
             key: String(group.jobType),
             label: group.label,
+            ...iconProps(professionDefForJob(group.jobType)?.icon),
             ...reasonProps(
               group.courses.every((course) => reasons.get(courseKey(course)) !== undefined)
                 ? group.courses
@@ -301,6 +313,7 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
         : selected.courses.map((course) => ({
             key: courseKey(course),
             label: course.label,
+            ...iconProps(courseIcon(course)),
             ...reasonProps(reasons.get(courseKey(course))),
           }));
     dialog.update(

@@ -1535,7 +1535,7 @@ export const plGame = {
     },
     actions: {
       health: 'Ustaw zdrowie',
-      kill: 'Zabij',
+      kill: 'Zabij / zburz',
       satisfy: 'Zaspokój wszystkie potrzeby',
       starve: 'Wyczerp wszystkie potrzeby',
       fill: 'Napełnij magazyn',
@@ -1544,7 +1544,7 @@ export const plGame = {
     },
     actionHints: {
       health: 'Kliknij budynek, osadnika lub wehikuł',
-      kill: 'Kliknij osadnika',
+      kill: 'Kliknij osadnika, wehikuł lub budynek: budynek zostanie zburzony',
       satisfy: 'Kliknij osadnika: najedzony, wypoczęty, bez braków',
       starve: 'Kliknij osadnika: każda potrzeba od razu pilna',
       fill: 'Kliknij budynek: zapełnia jego magazyn',

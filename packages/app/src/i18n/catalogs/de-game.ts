@@ -1694,7 +1694,7 @@ export const deGame = {
     },
     actions: {
       health: 'Lebenspunkte setzen',
-      kill: 'Töten',
+      kill: 'Töten / abreißen',
       satisfy: 'Alle Bedürfnisse stillen',
       starve: 'Alle Bedürfnisse erschöpfen',
       fill: 'Vorräte auffüllen',
@@ -1703,7 +1703,7 @@ export const deGame = {
     },
     actionHints: {
       health: 'Gebäude, Siedler oder Fahrzeug anklicken',
-      kill: 'Siedler anklicken',
+      kill: 'Siedler, Fahrzeug oder Gebäude anklicken: ein Gebäude wird abgerissen',
       satisfy: 'Siedler anklicken: satt, ausgeruht, ohne Mangel',
       starve: 'Siedler anklicken: jedes Bedürfnis wird sofort dringend',
       fill: 'Gebäude anklicken: füllt sein Lager',

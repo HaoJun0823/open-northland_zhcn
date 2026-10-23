@@ -84,6 +84,11 @@ function settlerWithNeeds(sim: Simulation, level: Fixed): Entity {
   return e;
 }
 
+/** Whether this tick announced `building` destroyed. */
+function destroyed(sim: Simulation, building: Entity): boolean {
+  return sim.events.current().some((ev) => ev.kind === 'buildingDestroyed' && ev.entity === building);
+}
+
 describe('debugKill', () => {
   it('drains a Health pool to 0 so the CleanupSystem reaps the entity with a settlerDied event', () => {
     const sim = fresh();
@@ -110,18 +115,21 @@ describe('debugKill', () => {
     ).toBe(true);
   });
 
-  it('a target with no Health (a finished building) is an untouched no-op', () => {
+  it('razes a finished building through the demolish teardown, with a buildingDestroyed event', () => {
     const sim = fresh();
     const store = sim.world.create();
+    sim.world.add(store, Position, { x: fx.fromInt(3), y: fx.fromInt(3) });
     sim.world.add(store, Building, { buildingType: GRANARY, tribe: VIKING, built: ONE, level: 0 });
     sim.world.add(store, Stockpile, { amounts: new Map() });
 
     sim.enqueueSetup({ kind: 'debugKill', target: store });
-    expect(() => sim.step()).not.toThrow();
-    expect(sim.world.has(store, Building)).toBe(true); // still standing
+    sim.step();
+
+    expect(sim.world.isAlive(store)).toBe(false);
+    expect(destroyed(sim, store)).toBe(true);
   });
 
-  it('a construction site (a Building that DOES carry Health) survives - killable is settler or vehicle only', () => {
+  it('razes a construction site rather than draining its Health pool', () => {
     const sim = fresh();
     const site = sim.world.create();
     sim.world.add(site, Position, { x: fx.fromInt(3), y: fx.fromInt(3) });
@@ -133,12 +141,19 @@ describe('debugKill', () => {
     sim.enqueueSetup({ kind: 'debugKill', target: site });
     sim.step();
 
-    // Gated on Settler / Vehicle: the site is NOT reaped by the kill (that would bypass demolish's worker-unbind
-    // seam). It survives as a live building - its Health pool is never drained to 0. (This GRANARY has an
-    // empty construction cost, so constructionSystem also finishes it this tick; the point here is only
-    // that debugKill left it standing, not what its final HP is.)
-    expect(sim.world.has(site, Building)).toBe(true);
-    expect(sim.world.get(site, Health).hitpoints).toBeGreaterThan(0);
+    expect(sim.world.isAlive(site)).toBe(false);
+    expect(destroyed(sim, site)).toBe(true);
+    expect(sim.events.current().some((ev) => ev.kind === 'settlerDied')).toBe(false);
+  });
+
+  it('a Health pool on neither a settler, a vehicle nor a building is a no-op', () => {
+    const sim = fresh();
+    const other = healthOnlyEntity(sim, 5);
+
+    sim.enqueueSetup({ kind: 'debugKill', target: other });
+    sim.step();
+
+    expect(sim.world.get(other, Health).hitpoints).toBe(5);
   });
 });
 

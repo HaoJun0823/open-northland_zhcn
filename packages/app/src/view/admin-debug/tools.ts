@@ -222,7 +222,7 @@ export function createAdminToolCatalogue(
     ...DEBUG_ACTIONS.map((action) => ({
       ...tool({ kind: 'action', action }, labels.action(action), UNOWNED_KNOBS),
       target: copy.actionHints[action.id],
-      ...(action.targetKind === 'health' ? { percent: true } : {}),
+      ...(action.id === 'health' ? { percent: true } : {}),
     })),
     {
       ...tool({ kind: 'teleport', target: null }, copy.actions.teleport, UNOWNED_KNOBS),

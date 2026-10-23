@@ -1531,7 +1531,7 @@ export const chtGame = {
     },
     actions: {
       health: '設定生命值',
-      kill: '殺死',
+      kill: '殺死/拆毀',
       satisfy: '滿足所有需求',
       starve: '耗盡所有需求',
       fill: '填滿庫存',
@@ -1540,7 +1540,7 @@ export const chtGame = {
     },
     actionHints: {
       health: '點擊一座建築、一名居民或一輛載具',
-      kill: '點擊一名居民',
+      kill: '點擊一名居民、一輛載具或一座建築：建築會被拆毀',
       satisfy: '點擊一名居民：吃飽、休息足夠、什麼都不缺',
       starve: '點擊一名居民：所有需求立即變得急迫',
       fill: '點擊一座建築：填滿其倉儲',

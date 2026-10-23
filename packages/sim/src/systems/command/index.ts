@@ -532,7 +532,7 @@ function applyCommand(
       setAiControl(world, ctx, command);
       return;
     case 'debugKill':
-      debugKill(world, command);
+      debugKill(world, ctx, command);
       return;
     case 'debugSetHealth':
       debugSetHealth(world, command);

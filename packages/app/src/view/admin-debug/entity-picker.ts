@@ -40,7 +40,7 @@ export function createAdminEntityPicker(
       elevation: deps.elevation,
     })) {
       if (
-        kind === 'health'
+        kind === 'any'
           ? item.kind !== 'building' && item.kind !== 'settler' && item.kind !== 'vehicle'
           : item.kind !== kind
       )

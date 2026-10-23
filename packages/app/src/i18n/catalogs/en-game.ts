@@ -1558,7 +1558,7 @@ export const enGame = {
     },
     actions: {
       health: 'Set health',
-      kill: 'Kill',
+      kill: 'Kill / raze',
       satisfy: 'Satisfy all needs',
       starve: 'Exhaust all needs',
       fill: 'Fill stockpile',
@@ -1567,7 +1567,7 @@ export const enGame = {
     },
     actionHints: {
       health: 'Click a building, settler or vehicle',
-      kill: 'Click a settler',
+      kill: 'Click a settler, vehicle or building: a building is razed',
       satisfy: 'Click a settler: fed, rested, wanting nothing',
       starve: 'Click a settler: every need turns urgent at once',
       fill: 'Click a building: fills its storage',

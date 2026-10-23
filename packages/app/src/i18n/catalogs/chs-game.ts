@@ -1531,7 +1531,7 @@ export const chsGame = {
     },
     actions: {
       health: '设置生命值',
-      kill: '杀死',
+      kill: '杀死/拆毁',
       satisfy: '满足所有需求',
       starve: '耗尽所有需求',
       fill: '填满库存',
@@ -1540,7 +1540,7 @@ export const chsGame = {
     },
     actionHints: {
       health: '点击建筑、居民或载具',
-      kill: '点击居民',
+      kill: '点击居民、载具或建筑：建筑会被拆毁',
       satisfy: '点击居民：吃饱、休息充足、别无所需',
       starve: '点击居民：所有需求立即变得紧迫',
       fill: '点击建筑：填满其库存',

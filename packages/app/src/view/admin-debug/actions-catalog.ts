@@ -1,6 +1,7 @@
 import type { Command, Entity } from '@open-northland/sim';
 
-export type DebugTargetKind = 'settler' | 'building' | 'health';
+/** `any` picks a building, settler or vehicle. */
+export type DebugTargetKind = 'settler' | 'building' | 'any';
 
 export interface DebugAction {
   readonly id: 'kill' | 'satisfy' | 'starve' | 'fill' | 'finish' | 'health';
@@ -20,12 +21,12 @@ function setAllNeeds(target: Entity, rawPct: number): Command {
 export const DEBUG_ACTIONS: readonly DebugAction[] = [
   {
     id: 'health',
-    targetKind: 'health',
+    targetKind: 'any',
     command: (target, percent = 1) => ({ kind: 'debugSetHealth', target, percent }),
   },
   {
     id: 'kill',
-    targetKind: 'settler',
+    targetKind: 'any',
     command: (target) => ({ kind: 'debugKill', target }),
   },
   {

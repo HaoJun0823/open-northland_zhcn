@@ -15,6 +15,7 @@ import { type Fixed, fx, ONE } from '../../core/fixed.js';
 import type { World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
 import { clearRepairedDamage, markShortPool } from '../economy/repair.js';
+import { razeBuilding } from '../lifecycle/cleanup.js';
 import { mutNeeds } from '../lifecycle/needs/levels.js';
 import { teleportHuman } from '../orders/teleport.js';
 import { constructionBillOf } from '../stores/construction.js';
@@ -24,11 +25,18 @@ import { constructionBillOf } from '../stores/construction.js';
 
 /**
  * Kill a unit or wreck a vehicle by draining its {@link Health} pool to 0, so the CleanupSystem reaps it
- * through the real death or wreck path. Gated on {@link Settler} / {@link Vehicle} because a building
- * under construction also carries a Health pool, and reaping one that way would bypass demolish's
- * worker-unbind seam and emit a `settlerDied` cue for a non-settler.
+ * through the real death or wreck path, or raze a building through the teardown its demolish and a
+ * combat kill share. A building is not drained, since a site's pool would skip that teardown.
  */
-export function debugKill(world: World, command: Extract<Command, { kind: 'debugKill' }>): void {
+export function debugKill(
+  world: World,
+  ctx: SystemContext,
+  command: Extract<Command, { kind: 'debugKill' }>,
+): void {
+  if (world.has(command.target, Building)) {
+    razeBuilding(world, ctx, command.target);
+    return;
+  }
   if (!world.has(command.target, Settler) && !world.has(command.target, Vehicle)) return;
   const health = world.tryMut(command.target, Health);
   if (health !== undefined) health.hitpoints = 0;

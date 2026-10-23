@@ -24,8 +24,8 @@ export interface ChoiceGroup {
   readonly rows: readonly ChoiceRow[];
 }
 
-/** Design px of a row's good icon, sized to the row's height. */
-const ROW_ICON_PX = 21;
+/** Design px of a row's good icon, a little under the row's height. */
+const ROW_ICON_PX = 18;
 
 /** Shared modal choice surface for professions, school courses and equipment. The native dialog owns
  * focus and keeps pointer and keyboard input away from the world; the contents use the regular HUD plane. */

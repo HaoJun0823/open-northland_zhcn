@@ -46,8 +46,8 @@ export interface DropdownHandle<T extends string> {
 
 /** Viewport px between the field and its list, and the list and the window edge. */
 const LIST_GAP_PX = 4;
-/** Design px of a choice's good icon, about the list's line height. */
-const CHOICE_ICON_PX = 18;
+/** Design px of a choice's good icon, a little under the list's line height. */
+const CHOICE_ICON_PX = 16;
 /** A pause in typing this long starts a new type-ahead search, as a native select does. */
 const TYPE_AHEAD_RESET_MS = 700;
 

@@ -1,14 +1,19 @@
 import type { ContentSet } from '@open-northland/data';
 import { loadGoodsManifest } from '../../content/goods-gfx.js';
-import { type SpriteIconFrame, servedAtlas, spriteGoodIcon } from '../../content/sprite-good-icons.js';
+import {
+  type SpriteIconFrame,
+  servedAtlas,
+  spriteGoodIcon,
+  swarmFishIcon,
+} from '../../content/sprite-good-icons.js';
 import { diag } from '../../diag/index.js';
 import type { GoodIconSource, PresentationPack } from '../../presentation/pack.js';
 
 /**
  * A good's icon for a DOM surface, drawn as a CSS background crop of its sheet: the presentation pack's
- * icon when it has one, else the original's recoloured pile atlas (`/bobs/ls_goods.<palette>.png`), the
- * same frame the Pixi panels show, else a vehicle's or an animal's own sprite for a good with no pile.
- * `null` when nothing is served.
+ * icon when it has one, the swarm fish for the fish, whose pile is a copy of gold's, else the original's
+ * recoloured pile atlas (`/bobs/ls_goods.<palette>.png`), the same frame the Pixi panels show, else a
+ * vehicle's or an animal's own sprite for a good with no pile. `null` when nothing is served.
  */
 
 async function pileIcon(goodId: string): Promise<SpriteIconFrame | null> {
@@ -28,7 +33,12 @@ export async function goodIconSource(
 ): Promise<GoodIconSource | null> {
   const packed = pack?.goodIconSource(goodId);
   if (packed !== undefined) return packed;
-  const icon = (await pileIcon(goodId)) ?? (content === null ? null : await spriteGoodIcon(content, goodId));
+  const icon =
+    content === null
+      ? await pileIcon(goodId)
+      : ((await swarmFishIcon(content, goodId)) ??
+        (await pileIcon(goodId)) ??
+        (await spriteGoodIcon(content, goodId)));
   const frame = icon?.atlas.frames.find((f) => f.bobId === icon.bobId);
   if (icon === null || frame === undefined) return null;
   const { atlas, stem } = icon;

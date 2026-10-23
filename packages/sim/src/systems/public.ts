@@ -50,6 +50,7 @@ export {
   addFishSwarms,
   FISH_REPRODUCTION_TICKS,
   FISH_SHORE_SEARCH_RADIUS,
+  fishGoodOf,
   MAX_FISH_PER_SWARM,
   workplaceShoreSearchRadius,
 } from './economy/fish.js';

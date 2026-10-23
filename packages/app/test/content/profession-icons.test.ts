@@ -31,4 +31,12 @@ describe.runIf(hasRealIr())('profession icons in the decoded content', () => {
     }
     expect(unresolved).toEqual([]);
   });
+
+  it("draws the fisher's fish from the swarm sheet, not the gold bar its pile copies", async () => {
+    const { merge } = await loadContentUnderTest();
+    vi.stubGlobal('fetch', serveContent);
+    vi.resetModules();
+    const { goodIconSource } = await import('../../src/hud/dom/good-art.js');
+    expect((await goodIconSource('fish', null, merge.content))?.url).toBe('/bobs/ls_fishes.fishes.png');
+  });
 });

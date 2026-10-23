@@ -14,6 +14,7 @@ import {
   VIKING_TRIBE,
 } from '../building-gfx/index.js';
 import { loadedFamilyEffects, resolveFamilyEffects } from '../family-gfx.js';
+import { FISH_ATLAS, FISH_BOBS } from '../fish-gfx.js';
 import { loadGoodsIconManifest } from '../goods-gfx.js';
 import {
   HOLY_FIRE_EFFECT_NAME,
@@ -53,10 +54,6 @@ import { humanPaletteLut } from './human-palettes.js';
 /** The decoded human body + head atlases (`test_human_00` palette) served at `/bobs/<name>.*`. */
 const HUMAN_BODY_ATLAS = 'cr_hum_body_00.test_human_00';
 const HUMAN_HEAD_ATLAS = 'cr_hum_head_00.test_human_00';
-// The original's fish drawing uses the special `fishes` palette and selects one of the first 18
-// directional bobs from this BMD for every fish in the swarm.
-const FISH_ATLAS = 'ls_fishes.fishes';
-const FISH_BOBS = Array.from({ length: 18 }, (_, bob) => bob);
 
 /** The scout's guidepost atlases: bob 0 the post, bobs 1..18 the direction board in ~20° angular steps
  *  around the post top. Each owner draws its own `ls_guidepost.player_NN` bake, baked rather than

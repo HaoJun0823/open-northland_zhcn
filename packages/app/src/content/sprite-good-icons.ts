@@ -3,6 +3,7 @@ import { DEFAULT_FACING, frameOf, type SpriteFrameRef } from '@open-northland/re
 import { systems } from '@open-northland/sim';
 import { ANIMAL_BODY_IMAGELIB, ANIMAL_PALETTE_BY_TRIBE, animalBodyStem } from '../catalog/animal-roster.js';
 import { animalBinding } from './animal-gfx/bindings.js';
+import { FISH_ATLAS } from './fish-gfx.js';
 import { sequencesFor } from './ir/joins.js';
 import { loadIr } from './ir/load.js';
 import type { ContentIr } from './ir/rows.js';
@@ -10,12 +11,13 @@ import { fetchJsonOrNull } from './net.js';
 import { vehicleAtlasStem, vehicleGraphicsRows, vehicleLook } from './vehicle-gfx/bindings.js';
 
 /**
- * The picture of a good that has no `ls_goods` pile: a vehicle good draws the vehicle standing, a species
- * good the animal standing, each one frame of the served atlas the map draws it from. A vehicle cuts from
- * its baked body, never the indexed one, whose pixels are palette indices.
+ * The picture of a good without an `ls_goods` pile of its own: a vehicle good draws the vehicle standing, a
+ * species good the animal standing, the fish a swarm fish, each one frame of the served atlas the map
+ * draws it from. A vehicle cuts from its baked body, never the indexed one, whose pixels are palette
+ * indices.
  *
- * Approximation: the original draws nothing for these. A species good sits on the void landscape type
- * with no `ls_goods` record, and a vehicle good is built on a yard, never shelved.
+ * Approximation: the original draws nothing for vehicle and species goods. A species good sits on the
+ * void landscape type with no `ls_goods` record, and a vehicle good is built on a yard, never shelved.
  */
 
 /** A served atlas manifest's fields an icon reads. */
@@ -99,6 +101,21 @@ async function animalIcon(ir: ContentIr, tribe: number) {
   const atlas = await servedAtlas(stem);
   const idle: SpriteFrameRef = binding.idle;
   return atlas === null ? null : { stem, atlas, bobId: frameOf(idle, ANIMAL_ICON_FACING, 0) };
+}
+
+/** The swarm fish seen side on, head to the right. */
+const FISH_ICON_BOB = 4;
+
+/**
+ * The swarm fish for the good the swarm yields, the fish the map draws in the water. Its own pile record
+ * binds gold's bar frames in gold's palette (`landscapes.cif` "fish pile 01"), so the pile cannot stand for
+ * it; null for any other good, or when the atlas is not served.
+ */
+export async function swarmFishIcon(content: ContentSet, goodId: string): Promise<SpriteIconFrame | null> {
+  const good = content.goods.find((g) => g.id === goodId);
+  if (good === undefined || good.typeId !== systems.fishGoodOf(content)) return null;
+  const atlas = await servedAtlas(FISH_ATLAS);
+  return atlas === null ? null : { stem: FISH_ATLAS, atlas, bobId: FISH_ICON_BOB };
 }
 
 /** The sprite frame a vehicle or species good draws as its icon; null for any other good, or when the

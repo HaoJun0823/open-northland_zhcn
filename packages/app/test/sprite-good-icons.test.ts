@@ -29,6 +29,10 @@ const COW_WAIT_START = 100;
 const COW_STANDING_BOB = COW_WAIT_START + 3;
 
 const CART_STEM = 'cr_veh_body_00.goods01';
+const FISH_STEM = 'ls_fishes.fishes';
+/** The swarm fish side on; the rest of the strip turns it about. */
+const FISH_SIDE_BOB = 4;
+const GOLD_BAR_BOB = 20;
 const OXCART_STEM = 'cr_veh_body_00.oxcart';
 const COW_STEM = 'cr_ani_body_00.cattle01';
 
@@ -92,6 +96,16 @@ const served: Record<string, unknown> = {
   [`/bobs/${CART_STEM}.atlas.json`]: atlas([CART_OTHER_BOB, CART_STANDING_BOB]),
   [`/bobs/${OXCART_STEM}.atlas.json`]: atlas([CART_STANDING_BOB]),
   [`/bobs/${COW_STEM}.atlas.json`]: atlas([COW_WAIT_START + 1, COW_STANDING_BOB]),
+  [`/bobs/${FISH_STEM}.atlas.json`]: atlas([FISH_SIDE_BOB - 1, FISH_SIDE_BOB]),
+  // The data's fish pile is gold's bar in gold's palette.
+  '/goods/manifest.json': {
+    indexedStem: 'ls_goods.indexed',
+    previewStem: 'ls_goods.goods_wood',
+    paletteLutStem: 'goods-palettes-lut',
+    palettes: ['goods_gold'],
+    icons: { fish: { frame: GOLD_BAR_BOB, palette: 'goods_gold', fillFrames: [GOLD_BAR_BOB] } },
+  },
+  '/bobs/ls_goods.goods_gold.atlas.json': atlas([GOLD_BAR_BOB]),
 };
 
 function stubServer(): void {
@@ -151,6 +165,16 @@ describe('a good with no pile icon', { timeout: LOADER_TIMEOUT_MS }, () => {
     const source = await goodIconSource('cattle', null, sandboxContent());
     expect(source).toEqual({
       url: `/bobs/${COW_STEM}.png`,
+      sheet: { width: 20, height: 20 },
+      rect: { x: 10, y: 0, width: 10, height: 20 },
+    });
+  });
+
+  it('draws the fish as the swarm fish, never the gold bar its pile copies', async () => {
+    stubServer();
+    const goodIconSource = await freshIconSource();
+    expect(await goodIconSource('fish', null, sandboxContent())).toEqual({
+      url: `/bobs/${FISH_STEM}.png`,
       sheet: { width: 20, height: 20 },
       rect: { x: 10, y: 0, width: 10, height: 20 },
     });

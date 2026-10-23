@@ -89,7 +89,3 @@ export interface BuildTimeSheet {
   /** The sheet's R channel, `width * height` bytes. */
   readonly values: Uint8Array;
 }
-
-export function atlasFromManifest(manifest: AtlasManifest): SpriteAtlas {
-  return indexAtlasFrames(manifest.width, manifest.height, manifest.frames);
-}

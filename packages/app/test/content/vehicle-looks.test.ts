@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { atlasFromManifest } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import {
@@ -37,9 +36,9 @@ describe.runIf(hasRealIr())('the vehicle looks over the decoded content', () => 
       const manifest = servedAtlasManifest(stem);
       if (manifest === undefined) return [];
       loaded.add(stem);
-      const atlas = atlasFromManifest(manifest);
       const drawable = new Set<number>();
-      for (const [id, f] of atlas.frames) if (f.width > 0 && f.height > 0) drawable.add(id);
+      for (const { bobId, rect } of manifest.frames)
+        if (rect.width > 0 && rect.height > 0) drawable.add(bobId);
       return [[stem, drawable] as const];
     }),
   );

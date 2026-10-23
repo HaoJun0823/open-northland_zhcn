@@ -73,7 +73,6 @@ export {
   type AtlasImageEncoding,
   type AtlasManifest,
   type AtlasManifestFrame,
-  atlasFromManifest,
   type BuildingBobRef,
   type BuildingLandscapeOverlayRef,
   type BuildingOverlayRef,

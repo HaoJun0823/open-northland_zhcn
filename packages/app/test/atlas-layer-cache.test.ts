@@ -50,7 +50,7 @@ const INDEXED_STEM = 'cr_hum_body_00.indexed';
 const SHEET = '0123456789abcdef.webp';
 const BUILD_SHEET = 'fedcba9876543210.webp';
 
-/** The smallest manifest `atlasFromManifest` accepts: one frame, no build-time sheet. */
+/** The smallest served manifest: one frame, no build-time sheet. */
 const MANIFEST = {
   width: 8,
   height: 8,

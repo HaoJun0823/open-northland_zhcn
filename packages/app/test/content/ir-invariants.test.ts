@@ -1,5 +1,4 @@
 import { hasFieldFarmAtomics } from '@open-northland/data';
-import { atlasFromManifest } from '@open-northland/render';
 import { cadaverGoodCycle } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HARVEST_CADAVER_ATOMIC } from '../../src/catalog/atomics.js';
@@ -61,10 +60,10 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
       const manifest = servedAtlasManifest(ref.layer);
       expect(manifest, ref.layer).toBeDefined();
       if (manifest === undefined) continue;
-      const atlas = atlasFromManifest(manifest);
+      const served = new Set(manifest.frames.map((frame) => frame.bobId));
       const frames = ref.valencies[0] ?? [];
       expect(frames.length).toBeGreaterThan(1);
-      for (const bob of frames) expect(atlas.frames.has(bob), `${ref.layer}:${bob}`).toBe(true);
+      for (const bob of frames) expect(served.has(bob), `${ref.layer}:${bob}`).toBe(true);
     }
   });
 

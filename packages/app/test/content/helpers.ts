@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { BOB_ATLASES_PATH, BobAtlasSet, bobAtlasManifest, type ContentSet } from '@open-northland/data';
 import {
   type AtlasManifest,
-  atlasFromManifest,
+  indexAtlasFrames,
   type SpriteLayer,
   type TextureSource,
 } from '@open-northland/render';
@@ -135,7 +135,9 @@ export function characterTablesUnderTest(
   const source = {} as TextureSource;
   const layerFor = (stem: string): SpriteLayer | undefined => {
     const manifest = servedAtlasManifest(stem);
-    return manifest === undefined ? undefined : { source, atlas: atlasFromManifest(manifest) };
+    return manifest === undefined
+      ? undefined
+      : { source, atlas: indexAtlasFrames(manifest.width, manifest.height, manifest.frames) };
   };
   const looksByTribe = resolveLooks(ir, civilizations, INDEXED_CHARACTER_PALETTE);
   const animalJobsByTribe = resolveAnimalJobLooks(ir, civilizations);

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { indexAtlasFrames } from '../../src/data/sprites/index.js';
-import {
-  type AtlasManifest,
-  atlasFromManifest,
-  type SpriteAtlas,
-  type SpriteBindings,
-} from '../../src/index.js';
+import type { AtlasManifest, SpriteAtlas, SpriteBindings } from '../../src/index.js';
 import { drawItem, resolveSpriteFrame } from '../support/fixtures.js';
 
 /** A tiny atlas: a settler frame (bob 10), a building frame (bob 20), and an empty 0×0 bob (30). */
@@ -72,7 +67,7 @@ describe('resolveSpriteFrame', () => {
   });
 });
 
-describe('atlasFromManifest', () => {
+describe('indexAtlasFrames over a served manifest', () => {
   /** A stem's manifest as `bobs/atlases.json` decodes it. */
   const manifest: AtlasManifest = {
     width: 1024,
@@ -84,8 +79,8 @@ describe('atlasFromManifest', () => {
     image: '0123456789abcdef.webp',
   };
 
-  it('adapts the on-disk manifest into a frame-indexed SpriteAtlas', () => {
-    const atlas = atlasFromManifest(manifest);
+  it('indexes the manifest frames by bob id', () => {
+    const atlas = indexAtlasFrames(manifest.width, manifest.height, manifest.frames);
     expect(atlas.width).toBe(1024);
     expect(atlas.height).toBe(7693);
     // Frames are keyed by bobId, carrying the rect + draw offset; a non-contiguous id resolves.
@@ -93,13 +88,5 @@ describe('atlasFromManifest', () => {
     expect(idle).toEqual({ x: 517, y: 3063, width: 25, height: 35, offsetX: -12, offsetY: -27 });
     expect(atlas.frames.get(0)?.width).toBe(20);
     expect(atlas.frames.has(999)).toBe(false);
-  });
-
-  it('equals the indexAtlasFrames it wraps (same width/height/frames)', () => {
-    const direct = indexAtlasFrames(manifest.width, manifest.height, manifest.frames);
-    const wrapped = atlasFromManifest(manifest);
-    expect(wrapped.width).toBe(direct.width);
-    expect(wrapped.height).toBe(direct.height);
-    expect([...wrapped.frames]).toEqual([...direct.frames]);
   });
 });

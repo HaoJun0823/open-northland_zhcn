@@ -11,10 +11,10 @@ import type { ChoiceGroup } from '../src/hud/dom/choice-window.js';
 
 const picker = vi.hoisted(() => ({
   groups: [] as ChoiceGroup[],
-  pick: undefined as ((key: string) => void) | undefined,
+  pick: undefined as ((key: string, event: MouseEvent) => void) | undefined,
 }));
 vi.mock('../src/hud/dom/choice-window.js', () => ({
-  createChoiceWindow: (opts: { onPick: (key: string) => void }) => {
+  createChoiceWindow: (opts: { onPick: (key: string, event: MouseEvent) => void }) => {
     picker.pick = opts.onPick;
     return {
       update: (groups: ChoiceGroup[]) => {
@@ -37,6 +37,8 @@ beforeEach(() => {
 });
 
 const shell = { uiString: uiStringLookup(null), scale: () => 1, icons: () => {} };
+const plainClick = { shiftKey: false } as MouseEvent;
+const shiftClick = { shiftKey: true } as MouseEvent;
 
 function state(count: number, slot: number): WorldSnapshot {
   return {
@@ -76,7 +78,7 @@ it('asks the sim once for the selection and submits one gesture to the takers, m
   expect(selectionPicks).toHaveBeenCalledExactlyOnceWith(selected);
   expect(pickList).not.toHaveBeenCalled();
   snapshot = state(1000, 1);
-  picker.pick?.(String(good.typeId));
+  picker.pick?.(String(good.typeId), plainClick);
   expect(orders).toEqual([
     {
       kind: 'unitOrdersGroup',
@@ -141,9 +143,26 @@ it('groups the selection window by slot and equips a slot window pick into that 
 
   controller.open(2, { group: 'weapon', slot: 0 });
   await vi.waitFor(() => expect(picker.groups).toHaveLength(1));
-  picker.pick?.(String(weapon.typeId));
+  picker.pick?.(String(weapon.typeId), plainClick);
   expect(orders).toEqual([
     { kind: 'equipGood', entity: 2, group: 'weapon', slot: 0, goodType: weapon.typeId },
+  ]);
+
+  // A Shift pick queues the put-on behind the settler's current order, in either window.
+  orders.length = 0;
+  controller.open(2, { group: 'weapon', slot: 0 });
+  await vi.waitFor(() => expect(picker.groups).toHaveLength(1));
+  picker.pick?.(String(weapon.typeId), shiftClick);
+  controller.openAll([1, 2]);
+  await vi.waitFor(() => expect(picker.groups).toHaveLength(2));
+  picker.pick?.(String(weapon.typeId), shiftClick);
+  expect(orders).toMatchObject([
+    { kind: 'equipGood', entity: 2, group: 'weapon', slot: 0, goodType: weapon.typeId, queued: true },
+    {
+      kind: 'unitActionGroup',
+      members: [{ entity: 1 }, { entity: 2 }],
+      action: { kind: 'equipGood', queued: true },
+    },
   ]);
   controller.dispose();
 });

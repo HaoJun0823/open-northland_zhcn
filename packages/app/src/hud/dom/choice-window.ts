@@ -32,7 +32,8 @@ const ROW_ICON_PX = 21;
 export function createChoiceWindow(opts: {
   readonly title: string;
   readonly scale?: number;
-  readonly onPick: (key: string) => void;
+  /** `event` is the row's click, whose modifiers a caller may read (Shift queues an order). */
+  readonly onPick: (key: string, event: MouseEvent) => void;
   readonly onDismiss: () => void;
   readonly cue?: (cue: UiCue) => void;
   readonly icons?: GoodIconPainter;
@@ -157,10 +158,10 @@ export function createChoiceWindow(opts: {
           button.title = row.reason;
           button.setAttribute('aria-label', `${row.label}: ${row.reason}`);
         }
-        button.addEventListener('click', () => {
+        button.addEventListener('click', (event) => {
           if (row.reason !== undefined) return;
           opts.cue?.('confirm');
-          opts.onPick(row.key);
+          opts.onPick(row.key, event);
         });
         grid.append(button);
       }

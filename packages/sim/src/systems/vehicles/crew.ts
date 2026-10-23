@@ -119,11 +119,11 @@ export function refuseCrew(
 }
 
 /**
- * The attach order's crew half - see the command doc; the dispatcher hands a posted carrier's cart to
- * `orderHaulingCart` instead. The rider gives up its workplace, its post, its fight (the original's attach
- * detaches the work house and resets the attack targets) and its chat, and walks to the door through the
- * unconfined walk order, which also sets a carried load down first. A cart a carrier pulls has no seat
- * to offer.
+ * The attach order's crew half - see the command doc; `orderAttachToVehicle` hands a posted carrier's cart
+ * to its hauling-cart half instead. The rider gives up its workplace, its post, its fight (the original's
+ * attach detaches the work house and resets the attack targets) and its chat, and walks to the door
+ * through the unconfined walk order, which also sets a carried load down first. A cart a carrier pulls has
+ * no seat to offer.
  */
 export function attachToVehicle(
   world: World,

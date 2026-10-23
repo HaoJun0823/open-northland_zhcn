@@ -1,7 +1,7 @@
 import { type ContentSet, lastByTypeId } from '@open-northland/data';
 import type { TargetFlashTone } from '@open-northland/render';
 import type { Command, Entity, Fixed, GroupWorker, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
-import { components, fx, ONE, playerCommand, Simulation, systems } from '@open-northland/sim';
+import { components, fx, nodeOfPosition, ONE, playerCommand, Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { BUILD_HOUSE_ATOMIC } from '../src/catalog/atomics.js';
 import { JOB_ARCHER, JOB_BUILDER, JOB_JOINER, JOB_TRADER } from '../src/catalog/jobs.js';
@@ -104,9 +104,10 @@ async function rightClick(
   building: Entity,
   content: ContentSet = sim.content,
   owned = true,
-  click: 'settlers' | 'riders' = 'settlers',
+  click: 'settlers' | 'riders' | 'marker' = 'settlers',
+  shiftKey = false,
 ): Promise<Command[]> {
-  return (await pressRightClick(sim, settlers, building, content, owned, click)).issued;
+  return (await pressRightClick(sim, settlers, building, content, owned, click, shiftKey)).issued;
 }
 
 /** {@link rightClick} with the press's own verdict, which decides whether the click confirms. The orders
@@ -117,7 +118,8 @@ async function pressRightClick(
   building: Entity,
   content: ContentSet = sim.content,
   owned = true,
-  click: 'settlers' | 'riders' = 'settlers',
+  click: 'settlers' | 'riders' | 'marker' = 'settlers',
+  shiftKey = false,
 ): Promise<{ issued: Command[]; ordered: boolean; flashed: [number, TargetFlashTone][] }> {
   const issued: Command[] = [];
   const flashed: [number, TargetFlashTone][] = [];
@@ -151,13 +153,19 @@ async function pressRightClick(
       Promise.resolve(sim.canAttachTradeHouse(trader as Entity, house as Entity)),
     flashTarget: (entity, tone) => flashed.push([entity, tone]),
   });
+  const event = { ...CLICK, shiftKey } as MouseEvent;
   const ordered =
     click === 'settlers'
-      ? controller.issueRightClick(CLICK)
-      : controller.issueRiderTradeHouse(CLICK, null, () => undefined);
+      ? controller.issueRightClick(event)
+      : click === 'marker'
+        ? controller.issueRightClick(event, building)
+        : controller.issueRiderTradeHouse(event, null, () => undefined);
   await new Promise((resolve) => setTimeout(resolve, 0));
   return { issued, ordered, flashed };
 }
+
+/** How far a one-man formation may step a walk's slot off an occupied node. */
+const FORMATION_STEP_NODES = 2;
 
 /** The sandbox watchtower's short-bow seats (`logicworker 40 3`). */
 const TOWER_SHORT_BOW_POSTS = 3;
@@ -219,6 +227,78 @@ describe('right-clicking a construction site', () => {
 
     expect(await rightClick(sim, [builder], site)).toEqual([
       { kind: 'assignBuilder', entity: builder, site },
+    ]);
+  });
+
+  it('with Shift queues the builder behind its current order and walks the rest there', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const site = siteAt(sim, BUILDING_HOME_00);
+    const builder = settlerAt(sim, JOB_BUILDER);
+    const idle = settlerAt(sim, null);
+
+    expect(await rightClick(sim, [builder, idle], site, sim.content, true, 'settlers', true)).toEqual([
+      { kind: 'assignBuilder', entity: builder, site, queued: true },
+      expect.objectContaining({ kind: 'moveUnit', entity: idle, queued: true }),
+    ]);
+  });
+
+  it('with Shift walks to where a building stands when the click came from its marker', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const home = buildingAt(sim, BUILDING_HOME_00, ONE);
+    const idle = settlerAt(sim, null);
+    const { x, y } = sim.world.get(home, Position);
+    const stands = nodeOfPosition(x, y);
+
+    const [walk] = await rightClick(sim, [idle], home, sim.content, true, 'marker', true);
+    if (walk?.kind !== 'moveUnit') throw new Error('expected a queued walk');
+    expect(walk.queued).toBe(true);
+    // The formation may step the slot off the building's own node, never back to the flag's ground.
+    expect(Math.abs(walk.x - stands.hx)).toBeLessThanOrEqual(FORMATION_STEP_NODES);
+    expect(Math.abs(walk.y - stands.hy)).toBeLessThanOrEqual(FORMATION_STEP_NODES);
+  });
+
+  it('pins the builders to a road site and walks the rest there, behind the current order with Shift', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const builder = settlerAt(sim, JOB_BUILDER);
+    const idle = settlerAt(sim, null);
+    const road = 999 as Entity;
+    const snapshot = sim.snapshot();
+    const press = (shiftKey: boolean): Command[] => {
+      const issued: Command[] = [];
+      createUnitOrderController({
+        answered: createAnsweredOrders(),
+        selected: () => new Set<number>([builder, idle]),
+        targets: {
+          owned: (kind) => (kind === 'roadsite' ? [{ ref: road, x: 0, y: 0 }] : []),
+          buildings: () => [],
+          enemies: () => [],
+          flags: () => [],
+          signposts: () => [],
+          chests: () => [],
+          goods: () => [],
+          resources: () => [],
+          wildlife: () => [],
+          claimableLivestock: () => [],
+          ownedSettlersIn: () => [builder, idle].map((ref) => ({ ref, x: 0, y: 0 })),
+        },
+        snapshot: (): WorldSnapshot => snapshot,
+        content: sim.content,
+        mapSize: { width: 16, height: 16 },
+        toWorld: () => ({ x: 0, y: 0 }),
+        enqueue: (command) => issued.push(command),
+        selectOwnSettler: () => {},
+        openActions: () => {},
+      }).issueRightClick({ ...CLICK, shiftKey } as MouseEvent);
+      return issued;
+    };
+
+    expect(press(false)).toMatchObject([
+      { kind: 'assignBuilder', entity: builder, site: road },
+      { kind: 'moveUnit', entity: idle },
+    ]);
+    expect(press(true)).toMatchObject([
+      { kind: 'assignBuilder', entity: builder, site: road, queued: true },
+      { kind: 'moveUnit', entity: idle, queued: true },
     ]);
   });
 
@@ -307,6 +387,16 @@ describe('right-clicking a construction site', () => {
 
     expect(await rightClick(sim, [idle], site)).toEqual([
       { kind: 'trainSoldier', entity: idle, house: site },
+    ]);
+  });
+
+  it('with Shift queues the drill at a barracks behind the current order', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const site = siteAt(sim, BUILDING_BARRACKS);
+    const idle = settlerAt(sim, null);
+
+    expect(await rightClick(sim, [idle], site, sim.content, true, 'settlers', true)).toEqual([
+      { kind: 'trainSoldier', entity: idle, house: site, queued: true },
     ]);
   });
 
@@ -537,6 +627,16 @@ describe('right-clicking a standing house with a trader', () => {
     ]);
   });
 
+  it('with Shift walks the trader there queued, a trade stop being a standing setting', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const home = buildingAt(sim, BUILDING_HOME_00, ONE);
+    const trader = settlerAt(sim, JOB_TRADER);
+
+    expect(await rightClick(sim, [trader], home, sim.content, true, 'settlers', true)).toEqual([
+      expect.objectContaining({ kind: 'moveUnit', entity: trader, queued: true }),
+    ]);
+  });
+
   it('puts the house on the route of a trader riding inside its cart, which the cart does not drive to', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const home = buildingAt(sim, BUILDING_HOME_00, ONE);
@@ -558,6 +658,10 @@ describe('right-clicking a standing house with a trader', () => {
     expect(await rightClick(sim, [trader], home, sim.content, true, 'riders')).toEqual([
       { kind: 'attachTradeHouse', entity: trader, house: home },
     ]);
+    // Inside a house it has nowhere to walk, so Shift still toggles the stop.
+    expect(await rightClick(sim, [trader], home, sim.content, true, 'riders', true)).toEqual([
+      { kind: 'attachTradeHouse', entity: trader, house: home },
+    ]);
   });
 
   it("puts the house on the route of a selected cart's trader standing beside it", async () => {
@@ -569,6 +673,19 @@ describe('right-clicking a standing house with a trader', () => {
     expect(await rightClick(sim, [cart], home, sim.content, true, 'riders')).toEqual([
       { kind: 'attachTradeHouse', entity: trader, house: home },
     ]);
+  });
+
+  it('leaves a Shift click to the cart, which drives there queued, a trade stop being a standing setting', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const home = buildingAt(sim, BUILDING_HOME_00, ONE);
+    const trader = settlerAt(sim, JOB_TRADER);
+    const cart = riddenVehicle(sim, VEHICLE_HANDCART, trader);
+
+    expect(await pressRightClick(sim, [cart], home, sim.content, true, 'riders', true)).toEqual({
+      issued: [],
+      ordered: false,
+      flashed: [],
+    });
   });
 
   it('orders a trader selected together with its cart only once', async () => {

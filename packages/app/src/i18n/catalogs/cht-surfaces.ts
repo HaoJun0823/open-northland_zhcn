@@ -406,7 +406,7 @@ export const chtSurfaces = {
       recallSelectedTip: '在編組已被選取時按下，會將視角置中於該編組。',
       hudToggleTip: '隱藏介面以便截圖與錄影。介面隱藏時開啟的視窗仍會顯示。',
       pointerBindingRebindTip:
-        '點擊後同時按下 Ctrl、Shift、Alt 或 Cmd 與一個滑鼠按鍵。Shift + 左鍵仍為加入或移出選取，Shift + 右鍵則將行走排入佇列。按 Esc 取消。',
+        '點擊後同時按下 Ctrl、Shift、Alt 或 Cmd 與一個滑鼠按鍵。Shift + 左鍵仍為加入或移出選取，Shift + 右鍵則將命令排入佇列。按 Esc 取消。',
       autosaveNote: '變更會立即儲存。',
       restoreDefaults: '恢復預設值',
       restoreFailed: '恢復預設值失敗。沒有任何變更。',
@@ -505,7 +505,7 @@ export const chtSurfaces = {
     heading: '提示',
     tips: {
       queueOrders:
-        '{shift} + 點擊可將行走、攻擊移動、豎立路標、打開箱子、從地上穿戴裝備，以及進食、睡覺、交談與禱告的命令排入佇列，載具的行駛也可以。',
+        '{shift} + 點擊可將命令排在目前命令之後：行走、攻擊、建造工地、訓練、路標、箱子、穿戴、需求、探索、收服動物、登乘，以及載具的行駛、攻擊和裝載。',
       buildMany: '放置建築時按住 {shift}，即可每點擊一次就放置一座，連續放置多座。',
       attackMove: '{key} 是攻擊移動：單位會走向目標，並攻擊沿途遇到的一切。',
       postGraduates: '在助手視窗（{key}）中，「{graduatesOption}」會把學校剛結業的居民派往工坊。',

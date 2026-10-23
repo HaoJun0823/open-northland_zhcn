@@ -182,17 +182,34 @@ const SPOT_MODES: ReadonlySet<PickMode['kind']> = new Set<
 
 const isSpotMode = (mode: PickMode): mode is SpotMode => SPOT_MODES.has(mode.kind);
 
-/** The spot orders a Shift press queues behind each settler's or vehicle's current order (the sim's
+/** The orders a Shift press queues behind each settler's or vehicle's current order (the sim's
  *  `QUEUEABLE_ORDER_KINDS` and `QUEUEABLE_VEHICLE_ORDER_KINDS`), keeping the mode armed while Shift is
- *  held. */
-type QueueableSpotKind = 'destination' | 'attack-move' | 'signpost' | 'vehicle-destination' | 'vehicle-dock';
+ *  held. A post, a home, a trade stop and a work flag are standing settings, which apply at once. */
+type QueueableKind = Exclude<
+  PickMode['kind'],
+  'workplace' | 'workplace-or-flag' | 'home' | 'trade-house' | 'work-area'
+>;
 
-const QUEUEABLE_MODES: ReadonlySet<PickMode['kind']> = new Set<QueueableSpotKind>([
+const QUEUEABLE_MODES: ReadonlySet<PickMode['kind']> = new Set<QueueableKind>([
   'destination',
   'attack-move',
   'signpost',
+  'building-site',
+  'learning-place',
+  'attack-settler',
+  'attack-building',
+  'attack-animal',
+  'attack-vehicle',
+  'vehicle',
   'vehicle-destination',
   'vehicle-dock',
+  'vehicle-attack-position',
+  'vehicle-attack-settler',
+  'vehicle-attack-building',
+  'vehicle-attack-vehicle',
+  'vehicle-carrier',
+  'vehicle-rider',
+  'vehicle-deck',
 ]);
 
 export interface PickModeDeps {
@@ -336,10 +353,18 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return pickTopAt(candidates, w.x, w.y);
   };
 
+  /** The settlers among `settlers` that may take a course at the school `building`. */
+  const learnersAt = (building: number, settlers: readonly number[]): readonly number[] =>
+    settlers.filter((settler) =>
+      schoolPick.assignableAt(deps.snapshot(), building, settler, buildingsByType),
+    );
+
+  /** A `queued` press lines a site or a drill up behind each settler's current order. */
   const orderAtBuilding = (
     building: number,
     kind: BuildingPickKind,
     settlers: readonly number[],
+    queued = false,
   ): boolean => {
     if (settlers.length > MAX_UNIT_ORDER_MEMBERS) {
       deps.onOrderLimit?.();
@@ -347,18 +372,18 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     }
     const snapshot = deps.snapshot();
     if (kind === 'learning-place') {
-      const learners = settlers.filter((settler) =>
-        schoolPick.assignableAt(snapshot, building, settler, buildingsByType),
-      );
+      const learners = learnersAt(building, settlers);
       if (learners.length > 0) return deps.orders().openSchool(building, learners);
     }
     const pick = BUILDING_PICKS[kind].orders;
     if (pick === null) return attachTradeHouse(settlers, building);
     const orders = pick(snapshot, settlers, building, buildingsByType);
-    const selectedOrders = orders.filter(
-      (order): order is UnitSelectionCommand =>
-        order.kind === 'assignBuilder' || order.kind === 'trainSoldier',
-    );
+    const selectedOrders = orders
+      .filter(
+        (order): order is Extract<UnitSelectionCommand, { kind: 'assignBuilder' | 'trainSoldier' }> =>
+          order.kind === 'assignBuilder' || order.kind === 'trainSoldier',
+      )
+      .map((order) => (queued ? { ...order, queued } : order));
     let ordered: boolean;
     if (selectedOrders.length > 0) {
       ordered = enqueueUnitSelection(selectedOrders, deps.enqueue, deps.onOrderLimit);
@@ -374,9 +399,10 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     event: MouseEvent,
     kind: BuildingPickKind,
     settlers: readonly number[],
+    queued: boolean,
   ): boolean => {
     const building = buildingUnder(event, kind);
-    return building !== null && orderAtBuilding(building, kind, settlers);
+    return building !== null && orderAtBuilding(building, kind, settlers, queued);
   };
 
   /** Put `house` on the route of each trader the sim admits, once it answered. */
@@ -423,7 +449,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       case 'vehicle-dock':
         return deps.vehicleOrders().issueDock(mode.vehicle, target, queued);
       case 'vehicle-attack-position':
-        return deps.vehicleOrders().issueAttackPosition(mode.vehicle, target);
+        return deps.vehicleOrders().issueAttackPosition(mode.vehicle, target, queued);
       default: {
         const unreachable: never = mode;
         throw new Error(`unhandled spot pick mode: ${JSON.stringify(unreachable)}`);
@@ -491,14 +517,15 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
   const resolveFlag = (units: readonly number[], named: Tile): boolean =>
     deps.orders().issueSetWorkFlag(named, units, true);
 
-  const resolvePicked = (mode: Exclude<PickMode, SpotMode>, event: MouseEvent): boolean => {
+  /** `queued` applies to the {@link QUEUEABLE_MODES}. */
+  const resolvePicked = (mode: Exclude<PickMode, SpotMode>, event: MouseEvent, queued: boolean): boolean => {
     switch (mode.kind) {
       case 'workplace':
       case 'home':
       case 'building-site':
       case 'learning-place':
       case 'trade-house':
-        return resolveBuilding(event, mode.kind, mode.units);
+        return resolveBuilding(event, mode.kind, mode.units, queued);
       case 'workplace-or-flag': {
         // A building under the click answers for the press: one that turns the settler down refuses it,
         // and the flag goes only where no own building stands.
@@ -508,27 +535,27 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
           : orderAtBuilding(building, 'workplace', mode.units);
       }
       case 'attack-settler':
-        return deps.orders().issueAttackTarget(event, 'settler', mode.units);
+        return deps.orders().issueAttackTarget(event, 'settler', mode.units, queued);
       case 'attack-building':
-        return deps.orders().issueAttackTarget(event, ['building', 'palisade'], mode.units);
+        return deps.orders().issueAttackTarget(event, ['building', 'palisade'], mode.units, queued);
       case 'attack-animal':
-        return deps.orders().issueAttackAnimal(event, mode.units);
+        return deps.orders().issueAttackAnimal(event, mode.units, queued);
       case 'attack-vehicle':
-        return deps.orders().issueAttackTarget(event, 'vehicle', mode.units);
+        return deps.orders().issueAttackTarget(event, 'vehicle', mode.units, queued);
       case 'vehicle':
-        return deps.vehicleOrders().issueAttach(event, mode.settler);
+        return deps.vehicleOrders().issueAttach(event, mode.settler, queued);
       case 'vehicle-attack-settler':
-        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'settler');
+        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'settler', queued);
       case 'vehicle-attack-building':
-        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'building');
+        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'building', queued);
       case 'vehicle-attack-vehicle':
-        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'vehicle');
+        return deps.vehicleOrders().issueAttackTarget(event, mode.vehicle, 'vehicle', queued);
       case 'vehicle-carrier':
-        return deps.vehicleOrders().issueLoadInto(event, mode.vehicle);
+        return deps.vehicleOrders().issueLoadInto(event, mode.vehicle, queued);
       case 'vehicle-rider':
-        return deps.vehicleOrders().issueSeatRider(event, mode.vehicle);
+        return deps.vehicleOrders().issueSeatRider(event, mode.vehicle, queued);
       case 'vehicle-deck':
-        return deps.vehicleOrders().issueDeckLoad(event, mode.vehicle);
+        return deps.vehicleOrders().issueDeckLoad(event, mode.vehicle, queued);
       default: {
         const unreachable: never = mode;
         throw new Error(`unhandled pick mode: ${JSON.stringify(unreachable)}`);
@@ -546,33 +573,45 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     if (mode.kind !== 'signpost' || event.button !== 0) cancel();
     if (event.button !== 0) return 'calledOff'; // any other button just calls the mode off
     // The march engages enemies only, never game, so an attack-move pressed on a wild animal strikes it;
-    // the selected vehicles still march to the spot. A queued march only aims at the animal's spot.
+    // the selected vehicles still march to the spot.
+    const queued = queuedPress(mode, event);
     if (
-      !event.shiftKey &&
       mode.kind === 'attack-move' &&
       mode.units.length > 0 &&
-      deps.orders().issueAttackAnimal(event, mode.units)
+      deps.orders().issueAttackAnimal(event, mode.units, queued)
     ) {
       if (mode.vehicles.length > 0)
-        resolveSpot({ ...mode, units: [] }, deps.nodeAt(event.clientX, event.clientY), false);
-      return 'ordered';
+        resolveSpot({ ...mode, units: [] }, deps.nodeAt(event.clientX, event.clientY), queued);
+      return chained(mode, true, queued);
     }
     if (isSpotMode(mode))
       return resolveSpotPress(mode, deps.nodeAt(event.clientX, event.clientY), event.shiftKey);
-    return pressOutcome(resolvePicked(mode, event));
+    return chained(mode, resolvePicked(mode, event, queued), queued);
+  };
+
+  /** Whether a press queues its order: a Shift press in a queueable mode, except on a school, whose course
+   *  is chosen in its dialog, so the press opens it as a plain press does. */
+  const queuedPress = (mode: PickMode, event: MouseEvent): boolean => {
+    if (!event.shiftKey || !QUEUEABLE_MODES.has(mode.kind)) return false;
+    if (mode.kind !== 'learning-place') return true;
+    const building = buildingUnder(event, mode.kind);
+    return building === null || learnersAt(building, mode.units).length === 0;
   };
 
   /** A Shift press queues a queueable order for the units it names and keeps the mode armed while Shift
-   *  is held, so a chain of presses lays a route or a signpost line. */
-  const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean): PickPress => {
-    const queued = shift && QUEUEABLE_MODES.has(mode.kind);
-    if (mode.kind === 'signpost') return resolveSignpostPress(mode, target, queued);
-    const ordered = resolveSpot(mode, target, queued);
+   *  is held, so a chain of presses lays a route, a signpost line or a run of targets. */
+  const chained = (mode: PickMode, ordered: boolean, queued: boolean): PickPress => {
     if (ordered && queued) {
       setMode(mode);
       shiftChain = true;
     }
     return pressOutcome(ordered);
+  };
+
+  const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean): PickPress => {
+    const queued = shift && QUEUEABLE_MODES.has(mode.kind);
+    if (mode.kind === 'signpost') return resolveSignpostPress(mode, target, queued);
+    return chained(mode, resolveSpot(mode, target, queued), queued);
   };
 
   const handleOverviewPress = (button: number, target: Tile, shift = false): PickPress | null => {

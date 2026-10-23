@@ -37,7 +37,7 @@ export {
 } from './draught.js';
 export {
   canTakeHaulingCart,
-  orderHaulingCart,
+  orderAttachToVehicle,
   releaseHaulingCart,
   releasesHaulingCart,
 } from './hauling-cart.js';

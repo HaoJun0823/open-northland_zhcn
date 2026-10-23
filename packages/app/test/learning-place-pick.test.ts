@@ -47,7 +47,13 @@ const FOUNDATIONS = worldOf(false);
 function harness(
   under: number,
   world = STANDING,
-): { press: () => void; issued: Command[]; schools: number[][] } {
+): {
+  press: () => void;
+  shiftPress: () => ReturnType<ReturnType<typeof createPickModeController>['handleMouseDown']>;
+  armed: () => boolean;
+  issued: Command[];
+  schools: number[][];
+} {
   const issued: Command[] = [];
   const schools: number[][] = [];
   const orders = {
@@ -77,6 +83,11 @@ function harness(
       expect(pickMode.highlight()?.map((item) => item.id)).toEqual([BARRACKS, SCHOOL]);
       expect(pickMode.handleMouseDown({ clientX: 0, clientY: 0, button: 0 } as MouseEvent)).toBe('ordered');
     },
+    shiftPress: () => {
+      pickMode.arm({ kind: 'learning-place', units: [PUPIL] });
+      return pickMode.handleMouseDown({ clientX: 0, clientY: 0, button: 0, shiftKey: true } as MouseEvent);
+    },
+    armed: pickMode.isArmed,
     issued,
     schools,
   };
@@ -113,4 +124,19 @@ it('drills at a barracks foundation picked as the learning place', () => {
   const { press, issued } = harness(BARRACKS, FOUNDATIONS);
   press();
   expect(issued).toEqual([{ kind: 'trainSoldier', entity: PUPIL, house: BARRACKS }]);
+});
+
+it('a Shift press on a school opens the course dialog as a plain press does, and ends the pick', () => {
+  const { shiftPress, armed, issued, schools } = harness(SCHOOL);
+  expect(shiftPress()).toBe('ordered');
+  expect(schools).toEqual([[SCHOOL, PUPIL]]);
+  expect(issued).toEqual([]);
+  expect(armed()).toBe(false);
+});
+
+it('a Shift press on a barracks queues the drill and keeps the pick armed', () => {
+  const { shiftPress, armed, issued } = harness(BARRACKS);
+  expect(shiftPress()).toBe('ordered');
+  expect(issued).toEqual([{ kind: 'trainSoldier', entity: PUPIL, house: BARRACKS, queued: true }]);
+  expect(armed()).toBe(true);
 });

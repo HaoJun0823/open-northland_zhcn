@@ -224,6 +224,36 @@ describe('pending ground order intent', () => {
     expect(commands).toEqual([move([1], 30), sleep, drive]);
   });
 
+  it('Shift strikes, builds and catapult targets wait behind the pending walk, dropping replaced members', () => {
+    const { pending, commands, submit } = fixture();
+    const ticket = pending.begin([1, 2, 70], false);
+    const strike = {
+      kind: 'attackUnitGroup',
+      members: [{ entity: entity(1) }, { entity: entity(2) }],
+      target: entity(90),
+      queued: true,
+    } as const;
+    const build = { kind: 'assignBuilder', entity: entity(2), site: entity(80), queued: true } as const;
+    const shot = {
+      kind: 'attackWithVehicle',
+      vehicle: entity(70),
+      target: { kind: 'entity', entity: entity(90) },
+      queued: true,
+    } as const;
+    submit(strike);
+    submit(build);
+    submit(shot);
+    expect(commands).toEqual([]);
+    submit({ kind: 'moveUnit', entity: entity(1), x: 5, y: 5 });
+    pending.settle(ticket, () => submit(move([2], 30)));
+    expect(commands.slice(1)).toEqual([
+      move([2], 30),
+      { ...strike, members: [{ entity: entity(2) }] },
+      build,
+      shot,
+    ]);
+  });
+
   it('a new normal click discards unanswered earlier clicks and their already answered Shift tail', () => {
     const { pending, commands, submit } = fixture();
     const old = pending.begin([1], false);

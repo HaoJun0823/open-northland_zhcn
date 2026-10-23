@@ -67,7 +67,12 @@ export function enqueueArmyOrder(
       break;
     }
     case 'attackWithVehicleGroup':
-      enqueue({ kind: 'attackWithVehicle', vehicle: entity, target: command.target });
+      enqueue({
+        kind: 'attackWithVehicle',
+        vehicle: entity,
+        target: command.target,
+        ...(command.queued ? { queued: true } : {}),
+      });
       break;
     case 'moveUnitGroup':
     case 'attackMoveUnitGroup': {
@@ -84,7 +89,12 @@ export function enqueueArmyOrder(
       enqueue({ ...command.action, entity });
       break;
     case 'attackUnitGroup':
-      enqueue({ kind: 'attackUnit', entity, target: command.target });
+      enqueue({
+        kind: 'attackUnit',
+        entity,
+        target: command.target,
+        ...(command.queued ? { queued: true } : {}),
+      });
       break;
     case 'setStanceGroup':
       enqueue({ kind: 'setStance', entity, mode: command.mode });

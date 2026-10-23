@@ -8,6 +8,8 @@ import {
   DeferredOrder,
   Equipment,
   EquipOrder,
+  ExploreOrder,
+  Health,
   JobAssignment,
   MISSION_BEHAVIOUR,
   MoveGoal,
@@ -36,6 +38,7 @@ import {
   serializeSaveGame,
 } from '../../src/index.js';
 import { queueBehindCurrentOrder, sendUnit } from '../../src/systems/orders/index.js';
+import { COW, fighterAt } from '../conflict/melee-engagement/support.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
@@ -54,6 +57,9 @@ const CARPENTER = 2;
 const SAWMILL = 2; // fixture building type with one carpenter seat
 const MEAD = 13; // fixture misc goods
 const POTION_FOOD_SMALL = 14;
+const FIGHT_BUDGET = 2000;
+/** One blow fells it, so each strike ends on its first hit. */
+const FRAIL_HITPOINTS = 1;
 
 const MAP = { width: 48, height: 8 };
 
@@ -104,6 +110,14 @@ function queuedEquip(e: Entity, goodType: number, slot: number): Command {
 
 function stepUntil(sim: Simulation, done: () => boolean, budget = WALK_BUDGET): void {
   for (let t = 0; t < budget && !done(); t++) sim.step();
+}
+
+function strike(e: Entity, target: Entity, queued = false): Command {
+  return { kind: 'attackUnit', entity: e, target, ...(queued ? { queued } : {}) };
+}
+
+function felled(sim: Simulation, e: Entity): boolean {
+  return !sim.world.isAlive(e) || (sim.world.tryGet(e, Health)?.hitpoints ?? 0) <= 0;
 }
 
 describe('order queue', () => {
@@ -412,6 +426,92 @@ describe('order queue', () => {
       null,
       null,
     ]);
+  });
+
+  it('strikes the queued animals one after another, each once the one ahead has fallen', () => {
+    const sim = freshSim();
+    const e = fighterAt(sim, 2, 2, VIKING, WOODCUTTER, { owner: HUMAN_PLAYER });
+    const cows = [6, 10, 14].map((x) => fighterAt(sim, x, 2, COW, null, { hitpoints: FRAIL_HITPOINTS }));
+    for (const [i, cow] of cows.entries()) sim.enqueueSetup(strike(e, cow, i > 0));
+    sim.step();
+    expect(sim.world.get(e, AttackOrder).target).toBe(cows[0]);
+    expect(sim.world.get(e, OrderQueue).orders).toHaveLength(2);
+
+    const fellOrder: Entity[] = [];
+    for (let t = 0; t < FIGHT_BUDGET && fellOrder.length < cows.length; t++) {
+      sim.step();
+      for (const cow of cows) if (felled(sim, cow) && !fellOrder.includes(cow)) fellOrder.push(cow);
+    }
+    expect(fellOrder).toEqual(cows);
+    expect(sim.world.has(e, OrderQueue)).toBe(false);
+  });
+
+  it("a Shift group strike queues behind each member's own strike", () => {
+    const sim = freshSim();
+    const squad = [2, 4].map((x) => fighterAt(sim, x, 2, VIKING, WOODCUTTER, { owner: HUMAN_PLAYER }));
+    const first = fighterAt(sim, 6, 2, COW, null, { hitpoints: FRAIL_HITPOINTS });
+    const second = fighterAt(sim, 10, 2, COW, null, { hitpoints: FRAIL_HITPOINTS });
+    for (const e of squad) sim.enqueueSetup(strike(e, first));
+    sim.enqueueSetup({
+      kind: 'attackUnitGroup',
+      members: squad.map((entity) => ({ entity })),
+      target: second,
+      queued: true,
+    });
+    sim.step();
+    for (const e of squad) {
+      expect(sim.world.get(e, AttackOrder).target).toBe(first);
+      expect(sim.world.get(e, OrderQueue).orders).toEqual([
+        { kind: 'attackUnit', entity: e, target: second },
+      ]);
+    }
+  });
+
+  it('a queued walk waits for the strike ahead until its target falls', () => {
+    const sim = freshSim();
+    const e = fighterAt(sim, 2, 2, VIKING, WOODCUTTER, { owner: HUMAN_PLAYER });
+    const cow = fighterAt(sim, 8, 2, COW, null, { hitpoints: FRAIL_HITPOINTS });
+    sim.enqueueSetup(strike(e, cow));
+    sim.enqueueSetup(walk(e, 14, 5, true));
+    sim.step();
+    expect(sim.world.has(e, PlayerOrder)).toBe(false);
+    stepUntil(sim, () => sim.world.has(e, PlayerOrder), FIGHT_BUDGET);
+    expect(felled(sim, cow)).toBe(true);
+    stepUntil(sim, () => standsAt(sim, e, 14, 5));
+    expect(standsAt(sim, e, 14, 5)).toBe(true);
+  });
+
+  it('a queued strike on a settler with no order applies at once, and one at a fallen target is skipped', () => {
+    const sim = freshSim();
+    const e = fighterAt(sim, 2, 2, VIKING, WOODCUTTER, { owner: HUMAN_PLAYER });
+    const gone = fighterAt(sim, 6, 2, COW, null);
+    const cow = fighterAt(sim, 10, 2, COW, null);
+    sim.enqueueSetup(walk(e, 4, 2));
+    sim.enqueueSetup(strike(e, gone, true));
+    sim.enqueueSetup(strike(e, cow, true));
+    sim.step();
+    sim.world.destroy(gone);
+    stepUntil(sim, () => sim.world.has(e, AttackOrder));
+    expect(sim.world.get(e, AttackOrder).target).toBe(cow);
+    expect(sim.world.has(e, OrderQueue)).toBe(false);
+
+    const idle = fighterAt(sim, 2, 6, VIKING, WOODCUTTER, { owner: HUMAN_PLAYER });
+    sim.enqueueSetup(strike(idle, cow, true));
+    sim.step();
+    expect(sim.world.get(idle, AttackOrder).target).toBe(cow);
+    expect(sim.world.has(idle, OrderQueue)).toBe(false);
+  });
+
+  it('a queued sweep sends the scout exploring once the walk ahead has arrived', () => {
+    const sim = freshSim();
+    const scout = ownedSettler(sim, 2, 2, SCOUT);
+    sim.enqueueSetup(walk(scout, 8, 2));
+    sim.enqueueSetup({ kind: 'explore', entity: scout, queued: true });
+    sim.step();
+    expect(sim.world.has(scout, ExploreOrder)).toBe(false);
+    stepUntil(sim, () => sim.world.has(scout, ExploreOrder));
+    expect(fx.toInt(sim.world.get(scout, Position).x)).toBe(8);
+    expect(sim.world.has(scout, OrderQueue)).toBe(false);
   });
 
   it('a queued attack-move marches after the walk ahead of it', () => {

@@ -358,6 +358,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
   const overviewPress = createOverviewOrders({
     pickMode,
     orders: () => orders,
+    vehicleOrders: () => vehicleOrders,
     workFlagBinding: () => opts.bindings.workFlagOrder,
     cue,
   });

@@ -89,6 +89,7 @@ function harness(count = 4, refuse?: (movers: readonly number[]) => void) {
   };
   const overview = createOverviewOrders({
     orders: () => orders,
+    vehicleOrders: () => ({ issueDriveTo: () => false, selectedOwnVehicles: () => [] }),
     pickMode: { handleOverviewPress: () => null },
     workFlagBinding: () => null,
     cue: feedback.cue,

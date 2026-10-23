@@ -721,7 +721,7 @@ export const enContent = {
     'bear-hunt': {
       title: 'Bear hunt',
       summary:
-        'A bear grazes out of reach. Swordsmen sent at it with a right click or an attack-move strike it, civilians only walk there.',
+        'Three bears graze out of reach. Swordsmen sent at one with a right click or an attack-move strike it, civilians only walk there; Shift + right click on each bear queues the strikes one after another.',
     },
     'wolf-pack': {
       title: 'Wolf pack',

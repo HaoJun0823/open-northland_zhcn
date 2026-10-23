@@ -86,15 +86,8 @@ export function planBuilder(
   const orderedMaterials = (): MaterialResolver => constructionMaterialResolver(plan, spacing);
 
   const assigned = world.tryGet(e, SiteAssignment);
-  // A road or wall run outranks the pin and the workplace binding: the player ordered it last.
   const mode = world.tryGet(e, BuildMode)?.kind;
-  const pinned =
-    mode === undefined &&
-    assigned?.pinned === true &&
-    onOwnSide(plan, assigned.site) &&
-    (world.has(assigned.site, UnderConstruction) || needsRepair(world, assigned.site))
-      ? assigned.site
-      : null;
+  const pinned = pinnedBuildSite(world, e);
   // A segment another builder already claimed is not abandoned: the player's pin outranks the drive, so
   // this builder holds the order and does something else until the claim lapses.
   if (pinned !== null && !constructionSiteAvailableTo(world, pinned, e)) return false;
@@ -601,6 +594,16 @@ function stampAssignment(
     if (assigned?.site !== site) releaseSiteClaim(world, e);
     world.add(e, SiteAssignment, { site, pinned });
   }
+}
+
+/** The site `e`'s `assignBuilder` pin still holds it to: one on its side, unfinished or damaged. A road or
+ *  wall run outranks the pin, since the player ordered it last. */
+export function pinnedBuildSite(world: World, e: Entity): Entity | null {
+  const assigned = world.tryGet(e, SiteAssignment);
+  if (assigned?.pinned !== true || world.has(e, BuildMode)) return null;
+  const site = assigned.site;
+  if (!ownersCompatible(ownerOf(world, e), ownerOf(world, site))) return null;
+  return world.has(site, UnderConstruction) || needsRepair(world, site) ? site : null;
 }
 
 /** Whether `site` is still on the builder's side; a script can hand it away. */

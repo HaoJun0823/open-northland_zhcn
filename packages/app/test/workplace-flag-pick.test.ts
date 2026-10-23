@@ -59,7 +59,12 @@ const WORLD = snapshotOf([
 ]);
 
 function harness(under: number | null): {
-  pick: (units: readonly number[], kind?: 'workplace-or-flag' | 'work-area') => string | null;
+  pick: (
+    units: readonly number[],
+    kind?: 'workplace-or-flag' | 'work-area',
+    shiftKey?: boolean,
+  ) => string | null;
+  armed: () => boolean;
   issued: Command[];
   flags: {
     col: number;
@@ -102,11 +107,12 @@ function harness(under: number | null): {
     setArmedCursor: () => undefined,
   });
   return {
-    pick: (units, kind = 'workplace-or-flag') => {
+    pick: (units, kind = 'workplace-or-flag', shiftKey = false) => {
       pickMode.arm({ kind, units });
       expect(pickMode.flagActive()).toBe(true);
-      return pickMode.handleMouseDown({ clientX: 0, clientY: 0, button: 0 } as MouseEvent);
+      return pickMode.handleMouseDown({ clientX: 0, clientY: 0, button: 0, shiftKey } as MouseEvent);
     },
+    armed: pickMode.isArmed,
     issued,
     flags,
     flagActive: pickMode.flagActive,
@@ -127,6 +133,16 @@ it('employs the gatherer at a lit building under the click', () => {
   ]);
   expect(h.flags).toEqual([]);
   expect(h.flagActive()).toBe(false);
+});
+
+it('posts the gatherer at once on a Shift press and ends the pick, a post being no queued order', () => {
+  const h = harness(HUT);
+  expect(h.pick([GATHERER], 'workplace-or-flag', true)).toBe('ordered');
+  expect(h.issued).toMatchObject([
+    { kind: 'assignWorkerGroup', building: HUT, members: [{ entity: GATHERER }] },
+  ]);
+  expect(h.issued[0]).not.toHaveProperty('queued');
+  expect(h.armed()).toBe(false);
 });
 
 it('refuses the press on an own building that turns the gatherer down, planting no flag', () => {

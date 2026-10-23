@@ -97,7 +97,12 @@ export const Vehicle = defineComponent<{
 
 /** The vehicle order kinds a Shift-click may line up behind a vehicle's current order; each carries
  *  `queued`. */
-export const QUEUEABLE_VEHICLE_ORDER_KINDS = ['moveVehicle', 'dockVehicle'] as const;
+export const QUEUEABLE_VEHICLE_ORDER_KINDS = [
+  'moveVehicle',
+  'dockVehicle',
+  'attackWithVehicle',
+  'loadIntoVehicle',
+] as const;
 
 export type QueueableVehicleOrderCommand = Extract<
   Command,

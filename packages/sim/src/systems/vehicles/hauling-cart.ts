@@ -25,7 +25,7 @@ import { sendUnit } from '../orders/movement.js';
 import { isCarrierJobRow } from '../readviews/jobs.js';
 import { addCarry, shrinkCarry } from '../settlers/atomics/effects/goods/carry.js';
 import { pickupFromStore, pileupIntoStore } from '../settlers/atomics/effects/goods/transfer.js';
-import { doorReachable, passengerJobAllowed, placeOnNode } from './crew.js';
+import { attachToVehicle, doorReachable, passengerJobAllowed, placeOnNode } from './crew.js';
 import { cartSpeedLossPercent, isCartType } from './drag.js';
 import { endDrive, isOpenLand } from './movement.js';
 import { tradeVehicleStock, vehicleLineCap } from './stock.js';
@@ -72,11 +72,25 @@ export function canTakeHaulingCart(world: World, ctx: MapContext, settler: Entit
   return world.has(vehicle, Position) && doorReachable(world, ctx, settler, vehicle);
 }
 
+/** The attach order: a posted carrier takes a free cart as its hauling cart, anyone else crews the vehicle.
+ *  A seated crew member gives up its post, and its hauling cart with it (`releaseEmployment`). */
+export function orderAttachToVehicle(
+  world: World,
+  ctx: SystemContext,
+  command: Extract<Command, { kind: 'attachToVehicle' }>,
+): void {
+  if (canTakeHaulingCart(world, ctx, command.entity, command.vehicle)) {
+    orderHaulingCart(world, ctx, command.entity, command.vehicle);
+  } else {
+    attachToVehicle(world, ctx, command);
+  }
+}
+
 /**
  * The attach order's hauling-cart half: `settler` keeps its post and walks to the cart's door to take it
  * there; a cart it already pulls is set down first. The caller has passed {@link canTakeHaulingCart}.
  */
-export function orderHaulingCart(world: World, ctx: SystemContext, settler: Entity, vehicle: Entity): void {
+function orderHaulingCart(world: World, ctx: SystemContext, settler: Entity, vehicle: Entity): void {
   if (world.tryGet(settler, HaulingCart)?.vehicle === vehicle) return;
   releaseHaulingCart(world, ctx, settler);
   world.add(settler, HaulingCart, { vehicle, taken: false, parked: false, lift: null });

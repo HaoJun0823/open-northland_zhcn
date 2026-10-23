@@ -1,5 +1,12 @@
 import type { OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
-import { type Command, fx, MAX_UNIT_ORDER_MEMBERS, type WorldSnapshot } from '@open-northland/sim';
+import {
+  type Command,
+  type Entity,
+  fx,
+  MAX_UNIT_ORDER_MEMBERS,
+  type PlayerCommand,
+  type WorldSnapshot,
+} from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HUMAN_PLAYER } from '../src/game/rules.js';
 import {
@@ -255,17 +262,30 @@ describe('vehicle right-click defaults', () => {
     expect(cart.issued).toEqual([{ kind: 'moveVehicle', vehicle: HANDCART, x: spot.col, y: spot.row }]);
   });
 
-  it('queues a Shift drive to the ground under an enemy or a ship, alone or in a group', () => {
+  it('queues a Shift attack, load or drive behind the current order, alone or in a group', () => {
     const queuedClick = { ...rightClick, shiftKey: true } as MouseEvent;
     const spot = worldToTile(CLICK.x, CLICK.y);
     const single = harness([CATAPULT], ALL_UNDER);
     expect(single.controller.issueRightClick(queuedClick)).toBe(true);
     expect(single.issued).toEqual([
-      { kind: 'moveVehicle', vehicle: CATAPULT, x: spot.col, y: spot.row, queued: true },
+      {
+        kind: 'attackWithVehicle',
+        vehicle: CATAPULT,
+        target: { kind: 'entity', entity: ENEMY_SOLDIER },
+        queued: true,
+      },
+    ]);
+    const boarding = harness([HANDCART], ALL_UNDER);
+    expect(boarding.controller.issueRightClick(queuedClick)).toBe(true);
+    expect(boarding.issued).toEqual([
+      { kind: 'loadIntoVehicle', vehicle: HANDCART, carrier: SHIP, queued: true },
     ]);
     const group = harness([CATAPULT, HANDCART], { enemies: ENEMIES_UNDER });
     expect(group.controller.issueRightClick(queuedClick)).toBe(true);
-    expect(group.issued).toMatchObject([{ kind: 'moveVehicleGroup', queued: true }]);
+    expect(group.issued).toMatchObject([
+      { kind: 'attackWithVehicle', vehicle: CATAPULT, queued: true },
+      { kind: 'moveVehicle', vehicle: HANDCART, x: spot.col, y: spot.row, queued: true },
+    ]);
   });
 
   /** A ship controller whose first mooring answer is held back until `release`, the rest answering at once. */
@@ -350,6 +370,20 @@ describe('vehicle right-click defaults', () => {
     expect(new Set(goals).size).toBe(2);
   });
 
+  it('drives the selection to a spot named off the world view: a ship docks, a group keeps its slots', async () => {
+    const shore = { col: 4, row: 6 };
+    const ship = harness([SHIP], { canMoorAt: (_vehicle, x, y) => x === shore.col && y === shore.row });
+    expect(ship.controller.issueDriveTo(shore, true)).toBe(true);
+    await landed();
+    expect(ship.issued).toEqual([
+      { kind: 'dockVehicle', vehicle: SHIP, x: shore.col, y: shore.row, queued: true },
+    ]);
+    const group = harness([CATAPULT, HANDCART], {});
+    expect(group.controller.issueDriveTo(shore)).toBe(true);
+    expect(group.issued.map((command) => command.kind)).toEqual(['moveVehicleGroup']);
+    expect(harness([OWN_SETTLER], {}).controller.issueDriveTo(shore)).toBe(false);
+  });
+
   it('drives the vehicle for its commander selected aboard it, and nothing for a passenger aboard', () => {
     const { issued, controller } = harness([CART_COMMANDER], { enemies: ENEMIES_UNDER });
     expect(controller.issueRightClick(rightClick)).toBe(true);
@@ -375,6 +409,60 @@ describe('right-click attach', () => {
     await landed();
     expect(h.issued).toEqual([{ kind: 'attachToVehicle', entity: OWN_SETTLER, vehicle: SHIP }]);
     expect(h.flashed).toEqual([[SHIP, 'order']]);
+  });
+
+  /** An attach controller on the shared seam whose rule answers, `admits`, are held back until `release`. */
+  function heldAttach(selected: readonly number[] = [OWN_SETTLER], admits = (_settler: number) => true) {
+    const late: (() => void)[] = [];
+    const issued: Command[] = [];
+    const pending = createPendingGroundOrders();
+    const enqueue = (command: PlayerCommand): void => pending.submit(command, (sent) => issued.push(sent));
+    const controller = createVehicleOrderController({
+      answered: createAnsweredOrders(),
+      selected: () => new Set(selected),
+      targets: targetsOf({ vehicles: [under(SHIP, 'vehicle')], settlers: [...selected] }),
+      snapshot: () => WORLD,
+      content: sandboxContent(),
+      mapSize: MAP_SIZE,
+      viewer: fixedViewerSeat(HUMAN_PLAYER),
+      toWorld: (x, y) => ({ x, y }),
+      enqueue,
+      pendingGroundOrders: pending,
+      askAttachToVehicle: (settler) =>
+        new Promise<boolean>((resolve) => late.push(() => resolve(admits(settler)))),
+    });
+    const release = (): void => {
+      for (const answer of late) answer();
+    };
+    return { controller, issued, enqueue, release };
+  }
+
+  it('queues a Shift boarding ahead of a later Shift click, whichever lands first', async () => {
+    const { controller, issued, enqueue, release } = heldAttach();
+    expect(controller.issueAttachSelected({ ...rightClick, shiftKey: true } as MouseEvent, () => {})).toBe(
+      true,
+    );
+    // The settlers' next Shift click, sent at once, still waits for the boarding asked before it.
+    enqueue({ kind: 'moveUnit', entity: OWN_SETTLER as Entity, x: 3, y: 3, queued: true });
+    expect(issued).toEqual([]);
+    release();
+    await landed();
+    expect(issued).toEqual([
+      { kind: 'attachToVehicle', entity: OWN_SETTLER, vehicle: SHIP, queued: true },
+      { kind: 'moveUnit', entity: OWN_SETTLER, x: 3, y: 3, queued: true },
+    ]);
+  });
+
+  it('a plain order given before a boarding is answered calls it off without handing the click on', async () => {
+    const refused = OWN_SETTLER + 1;
+    const { controller, issued, enqueue, release } = heldAttach([OWN_SETTLER, refused], (s) => s !== refused);
+    let handedOn = 0;
+    controller.issueAttachSelected(rightClick, () => handedOn++);
+    enqueue({ kind: 'moveUnit', entity: OWN_SETTLER as Entity, x: 3, y: 3 });
+    release();
+    await landed();
+    expect(issued).toEqual([{ kind: 'moveUnit', entity: OWN_SETTLER, x: 3, y: 3 }]);
+    expect(handedOn).toBe(0);
   });
 
   it('yields to an own settler or an enemy drawn over the vehicle, the crew waiting at its door', () => {
@@ -441,6 +529,38 @@ describe('vehicle picks', () => {
       { kind: 'attackWithVehicle', vehicle: CATAPULT, target: { kind: 'entity', entity: ENEMY_HOUSE } },
       { kind: 'attackWithVehicle', vehicle: CATAPULT, target: { kind: 'ground', hx: 3, hy: 3 } },
       { kind: 'loadIntoVehicle', vehicle: HANDCART, carrier: SHIP },
+    ]);
+  });
+
+  it('keeps each window pick armed through Shift presses, each order queued', () => {
+    const { issued, pickMode } = harness([SHIP], ALL_UNDER);
+    const shiftClick = { ...leftClick, shiftKey: true } as MouseEvent;
+    const picks = [
+      { kind: 'vehicle-dock', vehicle: SHIP },
+      { kind: 'vehicle-attack-building', vehicle: CATAPULT },
+      { kind: 'vehicle-attack-position', vehicle: CATAPULT },
+      { kind: 'vehicle-carrier', vehicle: HANDCART },
+    ] as const;
+    for (const pick of picks) {
+      pickMode.arm(pick);
+      expect(pickMode.handleMouseDown(shiftClick)).toBe('ordered');
+      expect(pickMode.isArmed()).toBe(true);
+    }
+    expect(issued).toEqual([
+      { kind: 'dockVehicle', vehicle: SHIP, x: 3, y: 3, queued: true },
+      {
+        kind: 'attackWithVehicle',
+        vehicle: CATAPULT,
+        target: { kind: 'entity', entity: ENEMY_HOUSE },
+        queued: true,
+      },
+      {
+        kind: 'attackWithVehicle',
+        vehicle: CATAPULT,
+        target: { kind: 'ground', hx: 3, hy: 3 },
+        queued: true,
+      },
+      { kind: 'loadIntoVehicle', vehicle: HANDCART, carrier: SHIP, queued: true },
     ]);
   });
 

@@ -4,6 +4,7 @@ import {
   Equipment,
   JobAssignment,
   NeedOrder,
+  OrderQueue,
   Owner,
   PlayerOrder,
   Position,
@@ -12,6 +13,7 @@ import {
   StandIn,
   Vehicle,
   VehicleDrive,
+  VehicleOrderQueue,
   VehicleRoute,
   VehicleStock,
   vehicleCommander,
@@ -211,6 +213,25 @@ describe('attachToVehicle', () => {
     boardOut(s, cart, scout);
     expect(s.world.has(scout, Position)).toBe(false); // a passenger steps in unasked
     expect(s.world.get(cart, Vehicle).task).toBe('none'); // and the cart stands until ordered
+  });
+
+  it('a Shift-queued attach waits for the walk ahead, then seats the settler, whose queue lapses', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    const stop = { hx: 2, hy: 2 };
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: stop.hx, y: stop.hy }));
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: scout, vehicle: cart, queued: true }));
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 6, y: 10, queued: true }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(s.world.get(scout, OrderQueue).orders).toHaveLength(2);
+    for (let t = 0; t < CARRIER_WALK_TICKS && !s.world.has(scout, Rider); t++) s.step();
+    expect(nodeOf(s, scout)).toEqual(stop);
+    expect(seatOf(s, cart, scout)).toEqual({ entity: scout, inside: false });
+    s.step();
+    expect(s.world.has(scout, OrderQueue)).toBe(false);
+    boardOut(s, cart, scout);
   });
 
   it('keeps a carrier by the door of its cart until the cart asks it in', () => {
@@ -789,6 +810,34 @@ describe('carried vehicles', () => {
     expect(s.world.get(cart, Vehicle).carrier).toBeNull();
     expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
     expect(seatOf(s, cart, scout)?.inside).toBe(true);
+  });
+
+  it('a Shift-queued load waits for the drive ahead, then drives into the ship', () => {
+    const s = sim();
+    const { ship, cart } = loadedCart(s);
+    const stop = { hx: 6, hy: 10 };
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: stop.hx, y: stop.hy }));
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship, queued: true }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(cart, VehicleOrderQueue).orders).toHaveLength(1);
+    for (let t = 0; t < SAIL_TICKS && s.world.get(cart, Vehicle).carrier === null; t++) s.step();
+    expect(nodeOf(s, cart)).toEqual(stop);
+    s.run(SAIL_TICKS);
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: true }]);
+  });
+
+  it('skips a Shift-queued load into a ship a script handed to another player meanwhile', () => {
+    const s = sim();
+    const { ship, cart } = loadedCart(s);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 6, y: 10 }));
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship, queued: true }));
+    s.step();
+    s.world.mut(ship, Owner).player = P1;
+    for (let t = 0; t < SAIL_TICKS && s.world.has(cart, VehicleOrderQueue); t++) s.step();
+    s.run(SAIL_TICKS);
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(ship, Vehicle).vehicles.every((seat) => seat === null)).toBe(true);
   });
 
   it('drives on into the ship without a pause when its commander is removed on the way', () => {

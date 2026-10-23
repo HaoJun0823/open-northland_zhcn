@@ -76,7 +76,7 @@ export interface UnitChromeCallbacks {
   readonly armedPick: () => PickMode | null;
   /** Replace the selection with these entities; none clears it. */
   readonly selectGroup: (ids: readonly number[]) => void;
-  /** `queued` is a Shift press, which lines a need order up behind each settler's current one. */
+  /** `queued` is a Shift press, which lines a need order or a sweep up behind each settler's current one. */
   readonly ringCommand: (id: ActionOrderId, targets: readonly number[], queued?: boolean) => boolean;
   /** The GUI click feedback the ring's and the panel's buttons press with. */
   readonly cue: (cue: UiCue) => void;

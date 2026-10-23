@@ -7,34 +7,42 @@ import { spawnSettlerDirect } from '../game/sandbox/index.js';
 import type { SceneDefinition } from './types.js';
 
 /**
- * A lone bear grazes out of reach of a few swordsmen and civilians. In the browser, a right click on
- * the bear sends the swordsmen to strike it while the civilians only walk there; an attack-move
- * pressed on the bear strikes it too.
+ * Three bears graze apart, out of reach of a few swordsmen and civilians. In the browser, a right click
+ * on a bear sends the swordsmen to strike it while the civilians only walk there; an attack-move
+ * pressed on a bear strikes it too, and Shift + right click on each bear in turn queues the strikes.
  */
 
 const MAP_W = 28;
 const MAP_H = 14;
 
 const ROW = 7;
-/** Past the bear's aggro radius from the settlers, so nothing fights until the player orders it. */
-const BEAR_AT = { x: 21, y: ROW } as const;
+/** Past a bear's aggro radius from the settlers, so nothing fights until the player orders it, apart from
+ *  each other, so a queued strike reads as one bear after another, and above the settler panel a
+ *  selection opens in the bottom right corner. */
+const BEAR_CELLS: readonly { readonly x: number; readonly y: number }[] = [
+  { x: 21, y: ROW - 4 },
+  { x: 23, y: ROW - 2 },
+  { x: 21, y: ROW },
+];
 const SWORD_X = 6;
 const CIVILIAN_X = 4;
 const SWORD_ROWS: readonly number[] = [ROW - 2, ROW, ROW + 2];
 const CIVILIAN_ROWS: readonly number[] = [ROW - 1, ROW + 1];
-const BEAR_COUNT = 1;
+const BEAR_COUNT = BEAR_CELLS.length;
 
 const { Health, Owner, Settler } = components;
 
 function build(sim: Simulation): void {
-  const bear = cellAnchorNode(BEAR_AT.x, BEAR_AT.y);
-  sim.enqueueSetup({
-    kind: 'spawnAnimalHerd',
-    tribe: ANIMAL_TRIBE_BEARS,
-    x: bear.hx,
-    y: bear.hy,
-    count: BEAR_COUNT,
-  });
+  for (const cell of BEAR_CELLS) {
+    const bear = cellAnchorNode(cell.x, cell.y);
+    sim.enqueueSetup({
+      kind: 'spawnAnimalHerd',
+      tribe: ANIMAL_TRIBE_BEARS,
+      x: bear.hx,
+      y: bear.hy,
+      count: 1,
+    });
+  }
   for (const y of SWORD_ROWS) spawnSettlerDirect(sim, JOB_SOLDIER_SWORD, SWORD_X, y, HUMAN_PLAYER);
   for (const y of CIVILIAN_ROWS) spawnSettlerDirect(sim, JOB_CIVILIST, CIVILIAN_X, y, HUMAN_PLAYER);
 }
@@ -62,7 +70,7 @@ export const bearHuntScene: SceneDefinition = {
   initialZoom: 0.7,
   checks: [
     {
-      label: 'the bear lives out of reach until the player orders a strike',
+      label: 'the bears live out of reach until the player orders a strike',
       predicate: (sim) => bears(sim).length === BEAR_COUNT && settlersUnhurt(sim),
     },
   ],

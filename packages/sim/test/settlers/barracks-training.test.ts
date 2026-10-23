@@ -9,7 +9,9 @@ import {
   IdleStand,
   MISSION_BEHAVIOUR,
   MoveGoal,
+  OrderQueue,
   Owner,
+  PlayerOrder,
   Position,
   Resting,
   Settler,
@@ -218,6 +220,31 @@ describe('trainSoldier - the barracks drill', () => {
     expect(qualifiesAsSoldier(sim, recruit)).toBe(false);
     expect(sim.world.has(recruit, TrainingOrder)).toBe(false);
     expect(sim.world.has(recruit, Resting)).toBe(false); // back outside
+  });
+
+  it('a Shift-queued drill waits for the walk ahead, and the next walk waits for the drill', () => {
+    const sim = simWithBarracks();
+    const house = barracksAt(sim, 6, 3);
+    const recruit = settlerAt(sim, CIVILIST_JOB, 2, 3);
+    sim.enqueueSetup({ kind: 'moveUnit', entity: recruit, x: 2, y: 12 });
+    sim.enqueueSetup({ kind: 'trainSoldier', entity: recruit, house, queued: true });
+    sim.enqueueSetup({ kind: 'moveUnit', entity: recruit, x: 2, y: 2, queued: true });
+    sim.step();
+    expect(sim.world.has(recruit, TrainingOrder)).toBe(false);
+    expect(sim.world.get(recruit, OrderQueue).orders).toHaveLength(2);
+
+    for (let i = 0; i < WALK_TICKS && !sim.world.has(recruit, TrainingOrder); i++) sim.step();
+    expect(nodeOfPosition(sim.world.get(recruit, Position).x, sim.world.get(recruit, Position).y)).toEqual({
+      hx: 2,
+      hy: 12,
+    });
+    for (let i = 0; i < 2 * RUN_TICKS && sim.world.has(recruit, TrainingOrder); i++) {
+      sim.step();
+      expect(sim.world.has(recruit, PlayerOrder)).toBe(false);
+    }
+    expect(jobOf(sim, recruit)).toBe(SOLDIER_JOB);
+    for (let i = 0; i < WALK_TICKS && !sim.world.has(recruit, PlayerOrder); i++) sim.step();
+    expect(sim.world.has(recruit, PlayerOrder)).toBe(true);
   });
 
   it('spreads recruits leaving one barracks door onto their own nodes, each anchored where it stands', () => {

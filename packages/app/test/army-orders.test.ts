@@ -117,6 +117,7 @@ function harness(
   const overview = createOverviewOrders({
     pickMode,
     orders: () => orders,
+    vehicleOrders: () => ({ issueDriveTo: () => false, selectedOwnVehicles: () => [] }),
     workFlagBinding: () => DEFAULT_KEY_BINDINGS.workFlagOrder,
   });
   const ring = (id: Parameters<typeof issueRingCommand>[0]): boolean =>

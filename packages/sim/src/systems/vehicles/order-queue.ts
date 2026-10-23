@@ -14,6 +14,7 @@ import {
 import { assertNever } from '../../core/brand.js';
 import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
+import { ownAttackTarget } from '../conflict/engage-vehicle.js';
 import type { System, SystemContext } from '../context.js';
 import {
   pushQueuedOrder,
@@ -21,8 +22,10 @@ import {
   queuedOrderAuthorized,
   startQueuedOrders,
 } from '../orders/queued.js';
+import { loadIntoVehicle } from './boarding.js';
 import { dockVehicle } from './dock.js';
 import { moveVehicle } from './movement.js';
+import { attackWithVehicle } from './orders.js';
 
 const QUEUEABLE_KINDS: ReadonlySet<Command['kind']> = new Set(QUEUEABLE_VEHICLE_ORDER_KINDS);
 
@@ -76,7 +79,9 @@ export function queueVehicleOrder(
 /** A fresh copy without the queue flag, as the settler queue stores its orders. */
 function unqueued(command: QueueableVehicleOrderCommand, origin?: AiOrderOrigin): QueuedVehicleOrder {
   const { queued: _queued, ...order } = command;
-  return { ...order, ...(origin === undefined ? {} : { aiOrder: { ...origin } }) };
+  const own =
+    order.kind === 'attackWithVehicle' ? { ...order, target: ownAttackTarget(order.target) } : order;
+  return { ...own, ...(origin === undefined ? {} : { aiOrder: { ...origin } }) };
 }
 
 /**
@@ -98,20 +103,26 @@ export const vehicleOrderQueueSystem: System = (world, ctx) => {
       VehicleOrderQueue,
       e,
       () => holdsCurrentOrder(world, e),
-      (order) => startQueuedOrder(world, ctx, order),
+      (order, owner) => startQueuedOrder(world, ctx, order, owner),
     );
   }
 };
 
-function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedVehicleOrder): void {
+function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedVehicleOrder, owner: number): void {
   const { aiOrder: origin, ...command } = queued;
-  if (!queuedOrderAuthorized(world, ctx, command, origin)) return;
+  if (!queuedOrderAuthorized(world, ctx, command, origin, owner)) return;
   switch (command.kind) {
     case 'moveVehicle':
       moveVehicle(world, ctx, command, undefined, origin);
       return;
     case 'dockVehicle':
       dockVehicle(world, ctx, command, origin);
+      return;
+    case 'attackWithVehicle':
+      attackWithVehicle(world, ctx, command, origin);
+      return;
+    case 'loadIntoVehicle':
+      loadIntoVehicle(world, ctx, command);
       return;
     default:
       assertNever(command);

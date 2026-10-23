@@ -10,6 +10,7 @@ import { createOverviewOrders, type OverviewPress } from '../src/view/unit-contr
 import { createPickModeController, type PickModeController } from '../src/view/unit-controls/pick-mode.js';
 import { createUnitSelection } from '../src/view/unit-controls/selection.js';
 import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
+import type { VehicleOrderController } from '../src/view/unit-controls/vehicle-orders.js';
 import { type Ent, snapshotOf } from './support/snapshot.js';
 
 /**
@@ -66,9 +67,14 @@ const pressOn = (
   return press(spot.x, spot.y, event as MouseEvent);
 };
 
+/** The selection's vehicles as the overview sees them: none, unless a test drives one. */
+type OverviewVehicles = Pick<VehicleOrderController, 'issueDriveTo' | 'selectedOwnVehicles'>;
+const NO_VEHICLES: OverviewVehicles = { issueDriveTo: () => false, selectedOwnVehicles: () => [] };
+
 function harness(
   workFlagBinding = DEFAULT_KEY_BINDINGS.workFlagOrder,
   wildlife: UnitTargets['wildlife'] = () => [],
+  vehicles: OverviewVehicles = NO_VEHICLES,
 ): {
   press: OverviewPress;
   pickMode: PickModeController;
@@ -112,6 +118,7 @@ function harness(
   const press = createOverviewOrders({
     pickMode,
     orders: () => orders,
+    vehicleOrders: () => vehicles,
     workFlagBinding: () => workFlagBinding,
     cue: (cue) => {
       cues.push(cue);
@@ -137,6 +144,26 @@ describe('orders named on the map overview', () => {
     expect(issued).toEqual([
       { kind: 'moveUnit', entity: SCOUT.id, x: FAR_NODE.hx, y: FAR_NODE.hy, queued: true },
     ]);
+  });
+
+  it('drives the selected vehicles there beside the settlers, queued on a Shift press', () => {
+    const drives: { target: { col: number; row: number }; queued: boolean | undefined }[] = [];
+    const cart = 7;
+    const { press, issued, cues } = harness(DEFAULT_KEY_BINDINGS.workFlagOrder, () => [], {
+      issueDriveTo: (target, queued) => {
+        drives.push({ target, queued });
+        return true;
+      },
+      selectedOwnVehicles: () => [cart],
+    });
+
+    expect(pressOn(press, FAR_NODE, { button: 2, shiftKey: true })).toBe(true);
+
+    expect(drives).toEqual([{ target: { col: FAR_NODE.hx, row: FAR_NODE.hy }, queued: true }]);
+    expect(issued).toEqual([
+      { kind: 'moveUnit', entity: SCOUT.id, x: FAR_NODE.hx, y: FAR_NODE.hy, queued: true },
+    ]);
+    expect(cues).toEqual(['confirm']);
   });
 
   it('plants a work flag there on the same modifier the world view uses', () => {
@@ -296,14 +323,32 @@ describe('a world press on an armed pick mode', () => {
     expect(issued).toEqual([{ kind: 'moveUnit', entity: SCOUT.id, x: 0, y: 0, queued: true }]);
   });
 
-  it('marches a Shift-pressed attack-move to the spot of a wild animal instead of striking it', () => {
+  it('queues the strike at a wild animal a Shift-pressed attack-move lands on, staying armed', () => {
     const DEER = 40;
     const { pickMode, issued } = harness(DEFAULT_KEY_BINDINGS.workFlagOrder, () => [
       { ref: DEER, x: 10, y: 10, kind: 'settler' },
     ]);
     pickMode.arm({ kind: 'attack-move', units: [SCOUT.id], vehicles: [] });
-    pickMode.handleMouseDown({ ...click(0), shiftKey: true } as MouseEvent);
-    expect(issued).toEqual([{ kind: 'attackMoveUnit', entity: SCOUT.id, x: 0, y: 0, queued: true }]);
+    expect(pickMode.handleMouseDown({ ...click(0), shiftKey: true } as MouseEvent)).toBe('ordered');
+    expect(issued).toEqual([{ kind: 'attackUnit', entity: SCOUT.id, target: DEER, queued: true }]);
+    expect(pickMode.isArmed()).toBe(true);
+  });
+
+  it('queues a chain of Shift-pressed strikes in the attack-animal pick until Shift is let go', () => {
+    const DEER = 40;
+    const { pickMode, issued } = harness(DEFAULT_KEY_BINDINGS.workFlagOrder, () => [
+      { ref: DEER, x: 10, y: 10, kind: 'settler' },
+    ]);
+    pickMode.arm({ kind: 'attack-animal', units: [SCOUT.id] });
+    for (let i = 0; i < 2; i++)
+      expect(pickMode.handleMouseDown({ ...click(0), shiftKey: true } as MouseEvent)).toBe('ordered');
+    expect(issued).toEqual([
+      { kind: 'attackUnit', entity: SCOUT.id, target: DEER, queued: true },
+      { kind: 'attackUnit', entity: SCOUT.id, target: DEER, queued: true },
+    ]);
+    expect(pickMode.isArmed()).toBe(true);
+    pickMode.endShiftChain();
+    expect(pickMode.isArmed()).toBe(false);
   });
 
   it('keeps an armed mode through a middle-button drag scroll', () => {

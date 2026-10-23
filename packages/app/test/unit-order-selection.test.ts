@@ -129,12 +129,25 @@ describe('unit orders against a selection that moves under them', () => {
     ]);
   });
 
-  it('queues a walk to the ground under a Shift + right-click on a target that takes no queued order', () => {
+  it("queues the strike at an enemy under a Shift + right-click behind each settler's current order", () => {
     const ENEMY = 50;
     const { orders, issued } = harness([SCOUT.id], {
       enemies: () => {
         const p = halfCellToScreen(OPEN_GROUND.hx, OPEN_GROUND.hy);
         return [{ ref: ENEMY, x: p.x, y: p.y, kind: 'settler' }];
+      },
+    });
+
+    orders.issueRightClick({ ...clickOn(OPEN_GROUND), shiftKey: true } as MouseEvent);
+    expect(issued).toEqual([{ kind: 'attackUnit', entity: SCOUT.id, target: ENEMY, queued: true }]);
+  });
+
+  it('queues a walk to an own building under a Shift + right-click, a post or home being no queued order', () => {
+    const HOUSE = 60;
+    const { orders, issued } = harness([SCOUT.id], {
+      owned: (kind) => {
+        const p = halfCellToScreen(OPEN_GROUND.hx, OPEN_GROUND.hy);
+        return kind === 'building' ? [{ ref: HOUSE, x: p.x, y: p.y, kind: 'building' }] : [];
       },
     });
 
@@ -242,6 +255,30 @@ describe('unit orders against a selection that moves under them', () => {
     expect(issued).toEqual([{ kind: 'moveUnit', entity: SCOUT.id, x: target.at.hx, y: target.at.hy }]);
   });
 
+  it('strikes an enemy vehicle from the action-ring attack mode, queued under Shift', () => {
+    const issued: Command[] = [];
+    const target = { id: 51, at: OPEN_GROUND };
+    const p = halfCellToScreen(target.at.hx, target.at.hy);
+    const orders = createUnitOrderController({
+      answered: createAnsweredOrders(),
+      selected: () => new Set([SCOUT.id]),
+      targets: { ...targets, enemies: () => [{ ref: target.id, x: p.x, y: p.y, kind: 'vehicle' }] },
+      snapshot: () => WORLD,
+      content: CONTENT,
+      mapSize: MAP_SIZE,
+      toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
+      enqueue: (command) => issued.push(command),
+      selectOwnSettler: () => {},
+      openActions: () => {},
+    });
+
+    expect(orders.issueAttackTarget(clickOn(target.at), 'vehicle', undefined, true)).toBe(true);
+    expect(issued).toEqual([{ kind: 'attackUnit', entity: SCOUT.id, target: target.id, queued: true }]);
+    issued.length = 0;
+    expect(orders.issueAttackTarget(clickOn(target.at), 'settler')).toBe(false);
+    expect(issued).toEqual([]);
+  });
+
   it('plants a work flag for the units selected now', () => {
     const { selection, orders, issued } = harness();
 
@@ -301,6 +338,12 @@ describe('unit orders against a selection that moves under them', () => {
       { kind: 'setGatherGood', entity: SCOUT.id, goodType },
       { kind: 'moveUnit', entity: GUARD.id, x: resource.at.hx, y: resource.at.hy },
     ]);
+
+    // A gathered good is a standing setting: with Shift everyone walks there queued instead.
+    issued.length = 0;
+    expect(orders.issueRightClick({ ...clickOn(resource.at), shiftKey: true } as MouseEvent)).toBe(true);
+    expect(issued.map((command) => command.kind)).toEqual(['moveUnitGroup']);
+    expect(issued[0]).toHaveProperty('queued', true);
   });
 
   it('moves the work flag and changes the gatherer filter on Ctrl+right-click over a resource', () => {

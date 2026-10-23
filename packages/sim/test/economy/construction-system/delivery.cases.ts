@@ -7,8 +7,10 @@ import {
   Fleeing,
   JobAssignment,
   MoveGoal,
+  OrderQueue,
   Owner,
   PickupClaim,
+  PlayerOrder,
   Position,
   Settler,
   SiteAssignment,
@@ -19,7 +21,7 @@ import {
 } from '../../../src/components/index.js';
 import type { AtomicEffect } from '../../../src/core/atomic-effect.js';
 import type { Entity } from '../../../src/ecs/world.js';
-import { type Fixed, fx, ONE, positionOfNode, Simulation } from '../../../src/index.js';
+import { type Fixed, fx, nodeOfPosition, ONE, positionOfNode, Simulation } from '../../../src/index.js';
 import { housingCapacity } from '../../../src/simulation/hud.js';
 import { remainingConstructionSteps } from '../../../src/systems/economy/construction.js';
 import { plannerSystem } from '../../../src/systems/index.js';
@@ -938,6 +940,85 @@ describe('constructionSystem - material-DELIVERY dispatch (carrier path)', () =>
     }
     expect(nearLaborWhenFarFinished).toBe(0);
     expect(sim.world.get(far, Building).built).toBe(ONE);
+  });
+
+  it('a Shift-queued site waits for the pinned one to stand, then the builder raises it', () => {
+    const sim = new Simulation({ seed: 6, content: constructionContent(), map: grassMap(10, 4) });
+    const near = siteAt(sim, HOUSE, 2, 1);
+    const far = siteAt(sim, HOUSE, 8, 1);
+    for (const site of [near, far]) {
+      sim.world.mut(site, Stockpile).amounts.set(STONE, 2);
+      sim.world.mut(site, Stockpile).amounts.set(WOOD, 1);
+    }
+    const builder = builderAt(sim, 1, 2);
+    sim.world.add(builder, Owner, { player: 0 });
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: builder, site: far });
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: builder, site: near, queued: true });
+    sim.step();
+    expect(sim.world.get(builder, SiteAssignment)).toEqual({ site: far, pinned: true });
+    expect(sim.world.get(builder, OrderQueue).orders).toHaveLength(1);
+
+    for (let i = 0; i < 600 && sim.world.has(far, UnderConstruction); i++) {
+      sim.step();
+      if (sim.world.has(far, UnderConstruction)) expect(sim.world.get(near, UnderConstruction).labor).toBe(0);
+    }
+    for (let i = 0; i < 600 && sim.world.has(near, UnderConstruction); i++) sim.step();
+    expect(sim.world.get(far, Building).built).toBe(ONE);
+    expect(sim.world.get(near, Building).built).toBe(ONE);
+    expect(sim.world.has(builder, OrderQueue)).toBe(false);
+  });
+
+  it("a walk Shift-queued behind a pinned builder's plain walk goes first, and the pin waits for it", () => {
+    const sim = new Simulation({ seed: 6, content: constructionContent(), map: grassMap(10, 4) });
+    const site = siteAt(sim, HOUSE, 8, 1);
+    sim.world.mut(site, Stockpile).amounts.set(STONE, 2);
+    sim.world.mut(site, Stockpile).amounts.set(WOOD, 1);
+    const builder = builderAt(sim, 1, 2);
+    sim.world.add(builder, Owner, { player: 0 });
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: builder, site });
+    sim.step();
+    const [first, second] = [
+      { hx: 6, hy: 3 },
+      { hx: 4, hy: 1 },
+    ];
+    sim.enqueueSetup({ kind: 'moveUnit', entity: builder, x: first.hx, y: first.hy });
+    sim.enqueueSetup({ kind: 'moveUnit', entity: builder, x: second.hx, y: second.hy, queued: true });
+    const at = (node: { hx: number; hy: number }) => {
+      const p = sim.world.get(builder, Position);
+      return nodeOfPosition(p.x, p.y).hx === node.hx && nodeOfPosition(p.x, p.y).hy === node.hy;
+    };
+    for (let i = 0; i < 600 && !at(second); i++) sim.step();
+    expect(at(second)).toBe(true);
+    expect(sim.world.has(site, UnderConstruction)).toBe(true);
+    for (let i = 0; i < 1200 && sim.world.has(site, UnderConstruction); i++) sim.step();
+    expect(sim.world.get(site, Building).built).toBe(ONE);
+  });
+
+  it('a walk Shift-queued behind a queued site assignment waits for that site to stand', () => {
+    const sim = new Simulation({ seed: 6, content: constructionContent(), map: grassMap(10, 4) });
+    const site = siteAt(sim, HOUSE, 8, 1);
+    sim.world.mut(site, Stockpile).amounts.set(STONE, 2);
+    sim.world.mut(site, Stockpile).amounts.set(WOOD, 1);
+    const builder = builderAt(sim, 1, 2);
+    sim.world.add(builder, Owner, { player: 0 });
+    const stop = { hx: 6, hy: 3 };
+    sim.enqueueSetup({ kind: 'moveUnit', entity: builder, x: 4, y: 1 });
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: builder, site, queued: true });
+    sim.enqueueSetup({ kind: 'moveUnit', entity: builder, x: stop.hx, y: stop.hy, queued: true });
+    sim.step();
+    expect(sim.world.get(builder, OrderQueue).orders.map((order) => order.afterSite)).toEqual([
+      undefined,
+      site,
+    ]);
+    for (let i = 0; i < 1200 && sim.world.has(site, UnderConstruction); i++) {
+      sim.step();
+      expect(sim.world.has(builder, OrderQueue)).toBe(true);
+    }
+    expect(sim.world.get(site, Building).built).toBe(ONE);
+    for (let i = 0; i < 600 && sim.world.has(builder, OrderQueue); i++) sim.step();
+    for (let i = 0; i < 600 && sim.world.has(builder, PlayerOrder); i++) sim.step();
+    const p = sim.world.get(builder, Position);
+    expect(nodeOfPosition(p.x, p.y)).toEqual(stop);
   });
 
   it("raises its own side's foundation of another tribe, pinned or unprompted", () => {

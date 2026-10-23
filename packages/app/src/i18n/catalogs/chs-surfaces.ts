@@ -406,7 +406,7 @@ export const chsSurfaces = {
       recallSelectedTip: '编队已被选中时再次按下，会将视角对准该编队。',
       hudToggleTip: '隐藏界面，便于截图和录像。界面隐藏时打开的窗口仍会显示。',
       pointerBindingRebindTip:
-        '点击后按住 Ctrl、Shift、Alt 或 Cmd 并按下鼠标按键。Shift + 左键点击仍用于加入或移出选择，Shift + 右键点击仍用于排队行走。Esc 取消。',
+        '点击后按住 Ctrl、Shift、Alt 或 Cmd 并按下鼠标按键。Shift + 左键点击仍用于加入或移出选择，Shift + 右键点击仍用于将命令加入队列。Esc 取消。',
       autosaveNote: '更改会立即保存。',
       restoreDefaults: '恢复默认',
       restoreFailed: '恢复默认设置失败。未做任何更改。',
@@ -505,7 +505,7 @@ export const chsSurfaces = {
     heading: '提示',
     tips: {
       queueOrders:
-        '{shift} + 点击可将行走、攻击移动、竖立路标、打开箱子、从地上拾取穿戴，以及进食、睡觉、聊天和祈祷的命令加入队列，载具的行驶也可以。',
+        '{shift} + 点击可将命令排在当前命令之后：行走、攻击、建造工地、训练、路标、箱子、穿戴、需求、探索、收服动物、登乘，以及载具的行驶、攻击和装载。',
       buildMany: '放置建筑时按住 {shift}，每点击一次放置一座，可以连续放置多座。',
       attackMove: '{key} 为攻击移动：单位走向目标，并攻击沿途遇到的一切。',
       postGraduates: '在助手窗口（{key}）中，“{graduatesOption}”会把学校里刚完成学习的居民派往工坊。',

@@ -4,6 +4,7 @@ import {
   Building,
   discoverTechnology,
   Owner,
+  PlayerOrder,
   Position,
   Settler,
   SettlerProgress,
@@ -394,6 +395,17 @@ it('takes a pupil at a school foundation and teaches the lesson once the school 
   for (let i = 0; i < FOUNDATION_WAIT_TICKS; i++) sim.step();
   expect(sim.world.get(pupil, Settler).jobType).toBe(CARPENTER);
   expect(sim.world.has(pupil, TrainingOrder)).toBe(false);
+});
+
+it('keeps a walk Shift-queued behind the lesson through the trade it teaches', () => {
+  const { sim, pupil, school } = carpentrySchool(WOODCUTTER);
+  sim.world.add(pupil, Position, { x: fx.fromInt(PUPIL_START.x), y: fx.fromInt(PUPIL_START.y) });
+  learnCarpentry(sim, pupil, school);
+  sim.enqueueSetup({ kind: 'moveUnit', entity: pupil, x: 2, y: 20, queued: true });
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(pupil, TrainingOrder); i++) sim.step();
+  expect(sim.world.get(pupil, Settler).jobType).toBe(CARPENTER);
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && !sim.world.has(pupil, PlayerOrder); i++) sim.step();
+  expect(sim.world.has(pupil, PlayerOrder)).toBe(true);
 });
 
 it("starts a lesson at its own player's school of another tribe", () => {

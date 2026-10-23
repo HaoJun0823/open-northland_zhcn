@@ -114,13 +114,15 @@ describe('issueRingCommand', () => {
     ]);
   });
 
-  it("queues a Shift-pressed need behind each settler's current order", () => {
+  it("queues a Shift-pressed need or sweep behind each settler's current order", () => {
     const h = harness();
     issueRingCommand('sleep', [4], h, true);
     issueRingCommand('eat', [4], h, true);
+    issueRingCommand('explore', [4], h, true);
     expect(h.issued).toEqual([
       { kind: 'orderNeed', entity: 4, need: 'fatigue', queued: true },
       { kind: 'orderNeed', entity: 4, need: 'hunger', queued: true },
+      { kind: 'explore', entity: 4, queued: true },
     ]);
   });
 

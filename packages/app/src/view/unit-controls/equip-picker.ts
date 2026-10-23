@@ -135,8 +135,10 @@ export function mountEquipPicker(opts: EquipPickControllerOptions): EquipPickCon
     pending = null;
     dialog?.hide();
   };
-  const pick = (key: string): void => {
+  // A Shift pick queues the put-on behind each settler's current order, as a Shift click on a heap does.
+  const pick = (key: string, event: MouseEvent): void => {
     const goodType = Number(key);
+    const queued = event.shiftKey;
     const current = pending;
     hide();
     if (current?.kind === 'slot') {
@@ -146,12 +148,13 @@ export function mountEquipPicker(opts: EquipPickControllerOptions): EquipPickCon
         group: current.ref.group,
         slot: current.ref.slot,
         goodType,
+        ...(queued ? { queued } : {}),
       });
     } else if (current?.kind === 'selection') {
       const row = current.rows.find((candidate) => candidate.goodType === goodType);
       if (row === undefined) return;
       enqueueUnitSelection(
-        selectionEquipCommands(opts.snapshot(), row.takers, row),
+        selectionEquipCommands(opts.snapshot(), row.takers, row, { queued }),
         opts.enqueue,
         opts.onOrderLimit,
       );

@@ -5,6 +5,7 @@ import {
   CurrentAtomic,
   HaulingCart,
   JobAssignment,
+  OrderQueue,
   PickupClaim,
   Position,
   Rider,
@@ -71,6 +72,8 @@ const SHIP_AT = { hx: 40, hy: 40 };
 /** Headroom over a porter's walk to its cart two nodes off and a round trip to the pile and back. */
 const TAKE_TICKS = 60;
 const TRIP_TICKS = 400;
+/** How far below its spawn a porter walks before a Shift-queued order starts. */
+const QUEUED_WALK_NODES = 4;
 /** The twin mill's wood slot takes ten units; the fixture headquarters starts with ten wood. */
 const MILL_WOOD_CAPACITY = 10;
 /** The mill slot part filled, so the fetch has a shortfall smaller than the source's stock. */
@@ -185,6 +188,24 @@ describe('taking a hauling cart', () => {
     expect(s.world.has(cart, Position)).toBe(false);
     expect(s.world.has(porter, Position)).toBe(true);
     expect(s.world.get(cart, Vehicle).passengers.every((seat) => seat === null)).toBe(true);
+  });
+
+  it('hands the cart to a posted carrier from a Shift-queued attach once the walk ahead ends', () => {
+    const s = sim();
+    const hq = placeHouse(s, HQ_AT);
+    const cart = spawnCart(s);
+    const porter = spawnCarrier(s);
+    s.world.add(porter, JobAssignment, { workplace: hq });
+    const stop = { hx: PORTER_AT.hx, hy: PORTER_AT.hy + QUEUED_WALK_NODES };
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: porter, x: stop.hx, y: stop.hy }));
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: porter, vehicle: cart, queued: true }));
+    s.step();
+    expect(s.world.get(porter, OrderQueue).orders).toHaveLength(1);
+    expect(runUntil(s, TRIP_TICKS, () => s.world.has(porter, HaulingCart))).toBeGreaterThan(0);
+    expect(nodeOf(s, porter)).toEqual(stop);
+    expect(s.world.has(porter, Rider)).toBe(false);
+    expect(s.world.get(cart, Vehicle).hauler).toBe(porter);
+    expect(s.world.get(porter, JobAssignment).workplace).toBe(hq);
   });
 
   it('seats an unposted carrier as crew, as before', () => {

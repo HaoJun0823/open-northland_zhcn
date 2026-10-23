@@ -561,12 +561,15 @@ function quitChase(world: World, e: Entity): void {
   world.mut(e, VehicleDrive).chaseLost = true;
 }
 
-/** The attack a fresh player order stands for; the target is rebuilt by kind, so a wire payload's
- *  stray fields never reach the state. */
+/** A player's attack target rebuilt by kind, so a wire payload's stray fields never reach the state and
+ *  no two components share the object a group order hands every member. */
+export function ownAttackTarget(target: VehicleAttackTarget): VehicleAttackTarget {
+  return target.kind === 'entity'
+    ? { kind: 'entity', entity: target.entity }
+    : { kind: 'ground', hx: target.hx, hy: target.hy };
+}
+
+/** The attack a fresh player order stands for. */
 export function orderedAttack(target: VehicleAttackTarget): VehicleAttack {
-  const own: VehicleAttackTarget =
-    target.kind === 'entity'
-      ? { kind: 'entity', entity: target.entity }
-      : { kind: 'ground', hx: target.hx, hy: target.hy };
-  return { target: own, ordered: true, clipStart: null };
+  return { target: ownAttackTarget(target), ordered: true, clipStart: null };
 }

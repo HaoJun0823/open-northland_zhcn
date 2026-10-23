@@ -248,7 +248,7 @@ export function bindingAllowedFor(action: KeybindingAction, binding: string): bo
   const mouse = code.startsWith('Mouse');
   if (code === 'Escape') return action === ESCAPE_ACTION && parts.length === 1;
   if (action === 'workFlagOrder') {
-    // Shift + left and right click stay the selection toggle and the queued walk.
+    // Shift + left and right click stay the selection toggle and the queued order.
     return (
       mouse &&
       code !== 'Mouse1' &&

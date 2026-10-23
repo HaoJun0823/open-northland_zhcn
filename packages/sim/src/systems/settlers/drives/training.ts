@@ -21,6 +21,7 @@ import { postGraduate } from '../../assistant/graduates.js';
 import type { SystemContext } from '../../context.js';
 import { heldGatherGood, holdToGatherGood, jobGathersGood } from '../../economy/gather-goods.js';
 import { isSchoolOrFoundation, schoolMethodJob } from '../../orders/education.js';
+import { keepingOrderQueue } from '../../orders/guards.js';
 import { reidleAsJob } from '../../orders/work/index.js';
 import { typeAllowed } from '../../progression/unlocks.js';
 import { atomicDuration } from '../../readviews/animations.js';
@@ -85,7 +86,7 @@ export function planTraining(
   if (order.drillTicksLeft <= 0) {
     abandonDrill(world, e);
     if (order.lesson === undefined) {
-      const jobType = enlist(world, ctx, e);
+      const jobType = keepingOrderQueue(world, e, () => enlist(world, ctx, e));
       if (jobType !== null)
         ctx.events.emit({
           kind: 'settlerTrained',
@@ -113,7 +114,7 @@ export function planTraining(
         }
         if (s.jobType !== job) {
           world.remove(e, JobAssignment);
-          reidleAsJob(world, ctx, e, job);
+          keepingOrderQueue(world, e, () => reidleAsJob(world, ctx, e, job));
         }
         // A graduate without a workplace takes a free one if the assistant posts graduates, else waits by
         // the school.

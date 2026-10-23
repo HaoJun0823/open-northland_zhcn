@@ -1,7 +1,7 @@
 import type { AiOrderOrigin } from '../../components/ai-order.js';
 import { ORDER_QUEUE_LIMIT, ownerOf } from '../../components/index.js';
 import type { AiDecisionSource, PlayerCommand } from '../../core/commands/index.js';
-import { aiCommand } from '../../core/commands/index.js';
+import { aiCommand, playerCommand } from '../../core/commands/index.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
 import { authorizedCommand } from '../command/authority.js';
 import type { SystemContext } from '../context.js';
@@ -22,20 +22,20 @@ export interface QueueState<T extends QueuedOrder> {
 
 /**
  * Line `order` up on `e`'s queue. True when it was queued (or dropped past {@link ORDER_QUEUE_LIMIT});
- * false when `e` has no queue yet and `holdsCurrentOrder` says it has nothing to wait for, so the command
- * applies at once like an unqueued one.
+ * false when `e` has no queue yet and `holdsOrder` says it has nothing to wait for, so the command applies
+ * at once like an unqueued one.
  */
 export function pushQueuedOrder<T extends QueuedOrder>(
   world: World,
   store: Component<QueueState<T>>,
   e: Entity,
   order: T,
-  holdsCurrentOrder: () => boolean,
+  holdsOrder: (next: T) => boolean,
 ): boolean {
   const queue = world.tryMut(e, store);
   if (queue === undefined) {
     const owner = ownerOf(world, e);
-    if (owner === undefined || !holdsCurrentOrder()) return false;
+    if (owner === undefined || !holdsOrder(order)) return false;
     world.add(e, store, { orders: [order], owner });
   } else if (queue.orders.length < ORDER_QUEUE_LIMIT) {
     queue.orders.push(order);
@@ -53,39 +53,40 @@ export function queueChangedHands<T extends QueuedOrder>(
 }
 
 /**
- * Start `e`'s queued orders oldest first until one holds the unit or none is left; the rest wait again.
- * The queue is taken off first, since a started order drops the queue as any order does.
+ * Start `e`'s queued orders oldest first until the unit is held for the next one (`holdsOrder`) or none is
+ * left; the rest wait again. The queue is taken off first, since a started order drops the queue as any
+ * order does.
  */
 export function startQueuedOrders<T extends QueuedOrder>(
   world: World,
   store: Component<QueueState<T>>,
   e: Entity,
-  holdsCurrentOrder: () => boolean,
-  start: (order: T) => void,
+  holdsOrder: (next: T) => boolean,
+  start: (order: T, owner: number) => void,
 ): void {
   const { orders, owner } = world.mut(e, store);
   const pending = [...orders];
   world.remove(e, store);
-  let next = pending.shift();
-  while (next !== undefined) {
-    start(next);
-    if (holdsCurrentOrder()) break;
-    next = pending.shift();
+  for (let next = pending.shift(); next !== undefined; next = pending.shift()) {
+    start(next, owner);
+    const following = pending[0];
+    if (following !== undefined && holdsOrder(following)) break;
   }
   if (pending.length > 0) world.add(e, store, { orders: pending, owner });
 }
 
-/** Whether an AI controller that queued `command` may still issue it; a player's order always may. */
+/** Whether whoever queued `command` may still issue it as it starts: the AI controller that queued it, or
+ *  the queue's `owner`, from whose hands a script may since have taken the target or the vehicle. */
 export function queuedOrderAuthorized(
   world: World,
   ctx: SystemContext,
   command: PlayerCommand,
   origin: AiOrderOrigin | undefined,
+  owner: number,
 ): boolean {
-  return (
-    origin === undefined ||
-    authorizedCommand(world, aiCommand(origin.player, command, origin.source), ctx.terrain) !== undefined
-  );
+  const envelope =
+    origin === undefined ? playerCommand(owner, command) : aiCommand(origin.player, command, origin.source);
+  return authorizedCommand(world, envelope, ctx.terrain) !== undefined;
 }
 
 /** Drop the orders `player`'s stopped controllers queued in `store`. */

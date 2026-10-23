@@ -728,7 +728,7 @@ export const deContent = {
     'bear-hunt': {
       title: 'Bärenjagd',
       summary:
-        'Ein Bär grast außer Reichweite. Schwertkämpfer, die per Rechtsklick oder Angriffsbewegung auf ihn geschickt werden, greifen an, Zivilisten gehen nur hin.',
+        'Drei Bären grasen außer Reichweite. Schwertkämpfer, die per Rechtsklick oder Angriffsbewegung auf einen geschickt werden, greifen an, Zivilisten gehen nur hin; Shift + Rechtsklick auf jeden Bären reiht die Angriffe nacheinander ein.',
     },
     'wolf-pack': {
       title: 'Wolfsrudel',

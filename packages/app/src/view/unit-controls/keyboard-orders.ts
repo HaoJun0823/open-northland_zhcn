@@ -3,7 +3,7 @@ import type { ContentSet } from '@open-northland/data';
 import type { Camera } from '@open-northland/render';
 import type { PlayerCommand, WorldSnapshot } from '@open-northland/sim';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
-import { isActionHotkey } from '../../hud/hotkeys.js';
+import { isActionHotkey, isOrderHotkey } from '../../hud/hotkeys.js';
 import type { KeyBindings, KeybindingAction } from '../../hud/keybindings.js';
 import {
   globalDefenceOrders,
@@ -74,8 +74,9 @@ export function createKeyboardOrders(deps: KeyboardOrdersDeps): (e: KeyboardEven
       return true;
     }
     // A builder takes a building site and anyone else a work place, as the original's key offers either;
-    // only a builder's trade passes the building-site gate, so it is asked first.
-    if (pressed('assignWorkplace')) {
+    // only a builder's trade passes the building-site gate, so it is asked first. With Shift held it arms
+    // the pick for a chain of queued sites.
+    if (isOrderHotkey(e, deps.bindings, 'assignWorkplace')) {
       if (!deps.ringOrder('assignBuildingSite')) deps.ringOrder('assignWorkPlace');
       return true;
     }

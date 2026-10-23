@@ -81,6 +81,16 @@ export function dropOrderQueue(world: World, e: Entity): void {
   world.remove(e, MealBreak);
 }
 
+/** Run `change`, the trade change a served drill or course ends in, keeping the orders queued behind it:
+ *  a trade change drops them as a player's trade order does. */
+export function keepingOrderQueue<T>(world: World, e: Entity, change: () => T): T {
+  const queue = world.tryGet(e, OrderQueue);
+  const kept = queue === undefined ? undefined : { orders: [...queue.orders], owner: queue.owner };
+  const result = change();
+  if (kept !== undefined && !world.has(e, OrderQueue)) world.add(e, OrderQueue, kept);
+  return result;
+}
+
 /** Call off a builder's road or wall run, letting go of the site it had claimed for it. */
 function endBuildMode(world: World, e: Entity): void {
   if (!world.has(e, BuildMode)) return;

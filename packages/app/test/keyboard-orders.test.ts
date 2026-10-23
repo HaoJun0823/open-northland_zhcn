@@ -100,6 +100,12 @@ describe('keyboard orders', () => {
     expect(ringOrders).toEqual(['assignBuildingSite']);
   });
 
+  it('arm the building-site pick with Shift held too, so a chain of queued sites can start from the key', () => {
+    const { handle, ringOrders } = mount();
+    expect(handle(key('KeyQ', true))).toBe(true);
+    expect(ringOrders).toEqual(['assignBuildingSite']);
+  });
+
   it('fall back to the work place for anyone the building site refuses', () => {
     const asked: ActionOrderId[] = [];
     const { handle } = mount({

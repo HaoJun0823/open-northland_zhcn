@@ -12,8 +12,8 @@ import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
 
 /**
  * Right-clicking a claimable animal sends the selected scouts after it, and any wild animal the scouts
- * are not claiming the selected fighters; every other selected settler takes the usual ladder. With Shift the claim waits behind each
- * scout's current order.
+ * are not claiming the selected fighters; every other selected settler takes the usual ladder. With Shift the claim and the
+ * strike wait behind each settler's current order.
  */
 
 const { addPerson, Owner, Position } = components;
@@ -137,6 +137,16 @@ describe('right-clicking a wild animal', () => {
       target: ANIMAL,
     });
     expect(issued.slice(1).map((c) => c.kind)).toEqual(['moveUnit']);
+  });
+
+  it("with Shift queues the strike behind each fighter's current order, and a walk for the rest", () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const soldier = settlerAt(sim, JOB_SOLDIER);
+    const cutter = settlerAt(sim, WOODCUTTER);
+    expect(rightClick(sim, [soldier, cutter], { claimable: false, shiftKey: true })).toEqual([
+      { kind: 'attackUnit', entity: soldier, target: ANIMAL, queued: true },
+      expect.objectContaining({ kind: 'moveUnit', entity: cutter, queued: true }),
+    ]);
   });
 
   it('walks a selection without fighters there', () => {

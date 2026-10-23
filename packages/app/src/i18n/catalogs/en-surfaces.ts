@@ -416,7 +416,7 @@ export const enSurfaces = {
       hudToggleTip:
         'Hides the interface for screenshots and recordings. A window opened while it is hidden still shows.',
       pointerBindingRebindTip:
-        'Click, then press Ctrl, Shift, Alt, or Cmd with a mouse button. Shift + left click remains add to or remove from selection and Shift + right click queues a walk. Esc cancels.',
+        'Click, then press Ctrl, Shift, Alt, or Cmd with a mouse button. Shift + left click remains add to or remove from selection and Shift + right click queues an order. Esc cancels.',
       autosaveNote: 'Changes are saved immediately.',
       restoreDefaults: 'Restore defaults',
       restoreFailed: 'Restoring defaults failed. Nothing was changed.',
@@ -516,7 +516,7 @@ export const enSurfaces = {
     heading: 'Tip',
     tips: {
       queueOrders:
-        '{shift} + click queues walk, attack-move, signpost, open-chest and put-on-from-the-ground orders, eat, sleep, talk and pray orders, and vehicle drives.',
+        '{shift} + click lines an order up behind the current one: walks, attacks, building sites, drills, signposts, chests, put-ons, needs, scouting, claiming animals, boarding, and vehicle drives, strikes and loads.',
       buildMany: 'Hold {shift} while placing a building to place several of it, one per click.',
       attackMove: '{key} is attack-move: units walk to the target and attack everything on the way.',
       postGraduates:

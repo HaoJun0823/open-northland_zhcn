@@ -1,4 +1,6 @@
 import type { PlayerCommand } from '@open-northland/sim';
+import { diag } from '../../diag/index.js';
+import type { AnsweredOrders } from './answered-orders.js';
 
 /** A click captures the current intent of each actor, independently of later selection changes. */
 export interface GroundOrderTicket {
@@ -21,7 +23,7 @@ export interface PendingGroundOrders {
   current(ticket: GroundOrderTicket, id: number): boolean;
   /** Call also for a failed query, with an empty callback, to release its queued successors. */
   settle(ticket: GroundOrderTicket, callback: () => void): void;
-  /** The shared command seam also sequences an immediate Shift-chest behind an unanswered walk. */
+  /** The shared command seam also sequences an immediate queued order behind an unanswered click. */
   submit(command: PlayerCommand, enqueue: (command: PlayerCommand) => void): void;
   dispose(): void;
 }
@@ -150,6 +152,38 @@ export function createPendingGroundOrders(): PendingGroundOrders {
   };
 }
 
+/**
+ * Run `then` on a click's `answer` in click order among the pending clicks of the same `actors`, with
+ * whether a newer order has since replaced each actor's click. Without a seam the answer runs as it lands.
+ */
+export function afterClickAnswer<T>(
+  pending: PendingGroundOrders | undefined,
+  answered: AnsweredOrders,
+  actors: readonly number[],
+  queued: boolean,
+  answer: Promise<T>,
+  then: (value: T, current: (actor: number) => boolean) => void,
+): void {
+  if (pending === undefined) {
+    answered.after(answer, (value) => then(value, () => true));
+    return;
+  }
+  const ticket = pending.begin(actors, queued);
+  // An unanswered click still settles its ticket, so the clicks queued behind it go on.
+  const settled = answer.then(
+    (value): { readonly value: T } => ({ value }),
+    (error: unknown) => {
+      diag.warn('orders', 'a click went unanswered by the host', { error: String(error) });
+      return null;
+    },
+  );
+  answered.after(settled, (result) =>
+    pending.settle(ticket, () => {
+      if (result !== null) then(result.value, (actor) => pending.current(ticket, actor));
+    }),
+  );
+}
+
 interface OrderActor {
   readonly id: number;
   readonly queued: boolean;
@@ -168,43 +202,43 @@ function orderActors(command: PlayerCommand): OrderActor[] {
     case 'moveUnitGroup':
     case 'attackMoveUnitGroup':
     case 'moveVehicleGroup':
-      return command.members.map(({ entity }) => ({ id: entity, queued: command.queued === true }));
     case 'attackUnitGroup':
-    case 'assignWorkerGroup':
     case 'attackWithVehicleGroup':
+      return command.members.map(({ entity }) => ({ id: entity, queued: command.queued === true }));
+    case 'assignWorkerGroup':
       return command.members.map(({ entity }) => ({ id: entity, queued: false }));
     case 'moveUnit':
     case 'attackMoveUnit':
+    case 'attackUnit':
     case 'openChest':
     case 'claimAnimal':
     case 'placeSignpost':
     case 'orderNeed':
-      return [{ id: command.entity, queued: command.queued === true }];
-    case 'attackUnit':
     case 'equipGood':
+    case 'assignBuilder':
+    case 'trainSoldier':
+    case 'explore':
+    case 'attachToVehicle':
+      return [{ id: command.entity, queued: command.queued === true }];
     case 'unequipGood':
     case 'setJob':
     case 'assignWorker':
     case 'unassignWorker':
-    case 'assignBuilder':
     case 'unassignBuilder':
-    case 'trainSoldier':
     case 'cancelTraining':
     case 'learn':
-    case 'explore':
     case 'setWorkFlag':
     case 'setGatherGood':
     case 'clearHaulFlag':
     case 'marry':
-    case 'attachToVehicle':
     case 'detachFromVehicle':
       return [{ id: command.entity, queued: false }];
     case 'moveVehicle':
     case 'dockVehicle':
-      return [{ id: command.vehicle, queued: command.queued === true }];
     case 'attackWithVehicle':
-    case 'stopVehicle':
     case 'loadIntoVehicle':
+      return [{ id: command.vehicle, queued: command.queued === true }];
+    case 'stopVehicle':
     case 'unloadPeople':
       return [{ id: command.vehicle, queued: false }];
     default:
@@ -212,8 +246,8 @@ function orderActors(command: PlayerCommand): OrderActor[] {
   }
 }
 
-/** Only queued movement, chest and need envelopes reach this seam; preserve their atomic envelope while
- * dropping actors whose newer order superseded that click before its predecessor's answer arrived. */
+/** Only queued envelopes reach this seam; preserve each atomic envelope while dropping actors whose newer
+ * order superseded that click before its predecessor's answer arrived. */
 function currentActors(command: PlayerCommand, current: (id: number) => boolean): PlayerCommand | undefined {
   switch (command.kind) {
     case 'moveUnitGroup':
@@ -222,8 +256,15 @@ function currentActors(command: PlayerCommand, current: (id: number) => boolean)
       const members = command.members.filter(({ entity }) => current(entity));
       return members.length === 0 ? undefined : { ...command, members };
     }
+    case 'attackUnitGroup':
+    case 'attackWithVehicleGroup': {
+      const members = command.members.filter(({ entity }) => current(entity));
+      return members.length === 0 ? undefined : { ...command, members };
+    }
     case 'moveVehicle':
     case 'dockVehicle':
+    case 'attackWithVehicle':
+    case 'loadIntoVehicle':
       return current(command.vehicle) ? command : undefined;
     case 'unitActionGroup': {
       const members = command.members.filter(({ entity }) => current(entity));

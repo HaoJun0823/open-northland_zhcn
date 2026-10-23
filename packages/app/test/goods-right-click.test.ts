@@ -121,8 +121,9 @@ describe('right-clicking a good on the ground', () => {
       expect(await rightClick(sim, [soldier], food, false)).toEqual([
         { kind: 'orderNeed', entity: soldier, need: 'hunger' },
       ]);
-      const [walk] = await rightClick(sim, [soldier], food, false, true);
-      expect(walk).toMatchObject({ kind: 'moveUnit', entity: soldier, queued: true });
+      expect(await rightClick(sim, [soldier], food, false, true)).toEqual([
+        { kind: 'orderNeed', entity: soldier, need: 'hunger', queued: true },
+      ]);
     },
   );
 
@@ -189,6 +190,53 @@ describe('right-clicking a good on the ground', () => {
     ]);
     const [walk] = await rightClick(sim, [drinker], heap(sim, GOOD_WOOD), true, true);
     expect(walk).toMatchObject({ kind: 'moveUnit', entity: drinker, queued: true });
+  });
+
+  it("Shift keeps click order when a later click lands before the put-on's pick list answers", async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const drinker = settlerAt(sim, JOB_COLLECTOR);
+    const mead = heap(sim, GOOD_MEAD);
+    const food = heap(sim, GOOD_FOOD_SIMPLE, 2);
+    let underCursor = mead;
+    let answer: () => void = () => {};
+    const issued: Command[] = [];
+    const snapshot = sim.snapshot();
+    const controller = createUnitOrderController({
+      answered: createAnsweredOrders(),
+      requestEquipPicks: (entity, group) =>
+        new Promise((resolve) => {
+          answer = () => resolve(sim.equipPickList(entity as Entity, group));
+        }),
+      selected: () => new Set<number>([drinker]),
+      targets: {
+        owned: () => [],
+        buildings: () => [],
+        enemies: () => [],
+        flags: () => [],
+        signposts: () => [],
+        chests: () => [],
+        goods: () => [underCursor],
+        resources: () => [],
+        wildlife: () => [],
+        claimableLivestock: () => [],
+        ownedSettlersIn: () => [{ ref: drinker, x: 0, y: 0 }],
+      },
+      snapshot: (): WorldSnapshot => snapshot,
+      content: sim.content,
+      mapSize: { width: 16, height: 16 },
+      toWorld: () => ({ x: 0, y: 0 }),
+      enqueue: (command) => issued.push(command),
+      selectOwnSettler: () => {},
+      openActions: () => {},
+    });
+    const shiftClick = { clientX: 0, clientY: 0, shiftKey: true } as MouseEvent;
+    controller.issueRightClick(shiftClick);
+    underCursor = food;
+    controller.issueRightClick(shiftClick);
+    expect(issued).toEqual([]);
+    answer();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(issued.map((command) => command.kind)).toEqual(['equipGood', 'orderNeed']);
   });
 
   it('a good nobody wears, or a session without the pick-list seam, is a walk', async () => {

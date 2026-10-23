@@ -376,11 +376,16 @@ export interface AttackMoveMarch {
 export const QUEUEABLE_ORDER_KINDS = [
   'moveUnit',
   'attackMoveUnit',
+  'attackUnit',
   'placeSignpost',
   'openChest',
   'claimAnimal',
   'equipGood',
   'orderNeed',
+  'explore',
+  'assignBuilder',
+  'trainSoldier',
+  'attachToVehicle',
 ] as const;
 
 export type QueueableOrderCommand = Extract<Command, { kind: (typeof QUEUEABLE_ORDER_KINDS)[number] }>;
@@ -393,9 +398,14 @@ export const ORDER_QUEUE_LIMIT = 16;
  * The orders a settler carries out one after another once its current order is done, oldest first;
  * `orderQueueSystem` starts the next. Any order that takes the settler without queueing drops them
  * (`dropOrderQueue`), and so does a hand-over: `owner` is the settler's player when the first was queued.
+ * `afterSite` is the pinned building site an order was queued behind, which it waits out while the site
+ * stays unfinished or damaged; a pin the settler keeps through a later walk is not waited for.
  * Named addition: the original has no order queue.
  */
-export type QueuedUnitOrder = QueueableOrderCommand & { readonly aiOrder?: AiOrderOrigin };
+export type QueuedUnitOrder = QueueableOrderCommand & {
+  readonly aiOrder?: AiOrderOrigin;
+  readonly afterSite?: Entity;
+};
 export const OrderQueue = defineComponent<{ orders: QueuedUnitOrder[]; owner: number }>(
   'OrderQueue',
   'settlers',

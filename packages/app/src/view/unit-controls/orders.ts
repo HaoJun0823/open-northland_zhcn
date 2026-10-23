@@ -7,8 +7,6 @@ import {
   type EquipPickEntry,
   entityById,
   type FormationSlotGroup,
-  type GroupMember,
-  type GroupWorker,
   type HalfCellNode,
   MAX_UNIT_ORDER_MEMBERS,
   nodeOfPosition,
@@ -18,14 +16,6 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import {
-  assignmentPriorityFor,
-  canonicalJobType,
-  trainsRatherThanEmploys,
-} from '../../game/sandbox/index.js';
-import {
-  builderCrewSize,
-  buildingTypeOf,
-  buildSiteOf,
   canOpenChest,
   chestKindOf,
   commandedVehicleOf,
@@ -40,11 +30,16 @@ import {
 } from '../../game/snapshot.js';
 import { clampTile, nodeBounds, pickNearestAt, pickTopAt, type Tile, worldToTile } from '../picking.js';
 import type { AnsweredOrders } from './answered-orders.js';
+import { createBuildingOrders } from './building-orders.js';
 import { selectionEquipCommands } from './equip-picker.js';
 import { assignFormation, type FormationUnit, pairFormation } from './formation.js';
 import { enqueueArmyOrder, enqueueUnitSelection } from './group-orders.js';
 import { tradeHousePick } from './highlights/index.js';
-import { createPendingGroundOrders, type PendingGroundOrders } from './pending-ground-orders.js';
+import {
+  afterClickAnswer,
+  createPendingGroundOrders,
+  type PendingGroundOrders,
+} from './pending-ground-orders.js';
 import { openSchoolDialog, type SchoolDialog } from './school-dialog.js';
 import type { TechnologyStatusRead } from './types.js';
 import type { UnitTargetKind, UnitTargets } from './unit-targets.js';
@@ -105,12 +100,16 @@ export interface UnitOrderDeps {
 export interface UnitOrderController {
   /** `onBuilding` is a building resolved from a marker rather than the world pixel under the cursor
    *  (a garrison flag hangs far above the tower it stands for). True when the press selected a settler
-   *  or gave the selected settlers an order. With Shift, it queues a walk to the ground. */
+   *  or gave the selected settlers an order. With Shift, each settler's order waits behind its current
+   *  one; one whose order is a standing setting (a post, a home, a lesson, a gathered good or a trade
+   *  stop) walks to the spot instead. */
   issueRightClick(event: MouseEvent, onBuilding?: number | null): boolean;
   /** The trade-route toggle for the selected traders off the map (riding inside a cart, or inside a
    *  house), which the settlers' click skips, and for the crew of a selected cart, whose window shows its
    *  trader's route. True when any of them took the click; `onNoneTook` runs once the sim refused every
-   *  one asked about, so the cart can take the click instead. */
+   *  one asked about, so the cart can take the click instead. A trade stop is a standing setting, so a
+   *  Shift click leaves a cart's trader to the cart, which drives there queued; a trader inside a house
+   *  has nowhere to walk and still toggles the stop. */
   issueRiderTradeHouse(
     event: MouseEvent,
     onBuilding: number | null | undefined,
@@ -124,7 +123,13 @@ export interface UnitOrderController {
    *  narrows these orders to the selected settlers an armed order was issued for. A `queued` walk waits
    *  behind each settler's current order (shift-click). */
   issueSetWorkFlag(target: Tile, units?: readonly number[], unassignFirst?: boolean): boolean;
-  issueMoveTo(target: Tile, units?: readonly number[], queued?: boolean): boolean;
+  /** `vehicles` are the ones the same press drives itself. */
+  issueMoveTo(
+    target: Tile,
+    units?: readonly number[],
+    queued?: boolean,
+    vehicles?: readonly number[],
+  ): boolean;
   /** `vehicles` are the ones the same press marches itself. */
   issueAttackMove(
     target: Tile,
@@ -132,14 +137,16 @@ export interface UnitOrderController {
     queued?: boolean,
     vehicles?: readonly number[],
   ): boolean;
-  /** Strike one enemy of an accepted kind under the cursor; a click that hits none orders nothing. */
+  /** Strike one enemy of an accepted kind under the cursor; a click that hits none orders nothing. A
+   *  `queued` strike waits behind each settler's current order. */
   issueAttackTarget(
     event: MouseEvent,
     kind: UnitTargetKind | readonly UnitTargetKind[],
     units?: readonly number[],
+    queued?: boolean,
   ): boolean;
   /** Strike the wild creature under the cursor; a click that hits none orders nothing. */
-  issueAttackAnimal(event: MouseEvent, units?: readonly number[]): boolean;
+  issueAttackAnimal(event: MouseEvent, units?: readonly number[], queued?: boolean): boolean;
   /** Offer `units` the courses of the school `house`; false when none of them may learn there. */
   openSchool(house: number, units: readonly number[]): boolean;
   refresh(): void;
@@ -181,12 +188,19 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   let disposed = false;
   let school: SchoolDialog | undefined;
   let uiScale = deps.uiscale ?? 1;
-  const buildingsByType = lastByTypeId(deps.content.buildings);
   const goodsByType = lastByTypeId(deps.content.goods);
   const vehiclesByType = lastByTypeId(deps.content.vehicles);
   const onOrderLimit = (): void => {
     deps.onOrderLimit?.();
     deps.cue?.('fail');
+  };
+
+  const standingTile = (ref: number): Tile | undefined => {
+    const entity = entityById(deps.snapshot(), ref);
+    const position = entity === undefined ? undefined : positionOf(entity);
+    if (position === undefined) return undefined;
+    const node = nodeOfPosition(position.x, position.y);
+    return { col: node.hx, row: node.hy };
   };
 
   const occupiedTiles = (exclude: ReadonlySet<number>): ((col: number, row: number) => boolean) => {
@@ -358,31 +372,19 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     const goods = deps.targets.goods();
     const pile = pickTopAt(goods, world.x, world.y);
     const pileGood = pile === null ? undefined : goods.find((target) => target.ref === pile)?.goodType;
-    // Shift queues a chest to open, an animal to claim, a good to put on or a walk behind each settler's
-    // current order; no order on another target is queueable, so the ground under it is walked to instead.
-    if (event.shiftKey) {
-      if (chest !== null && openChest(commanded, chest, true)) return true;
-      const walkers = animal === null ? commanded : claimAnimal(commanded, animal, true);
-      if (walkers.length === 0) return true;
-      const tile = worldToTile(world.x, world.y, deps.elevation);
-      const walk = (unworn: readonly FormationUnit[]): boolean =>
-        issueWalkOrder(tile, unworn, 'moveUnit', true, new Set(deps.drivenVehicles?.()));
-      if (pile !== null && pileGood !== undefined && wearFromGround(walkers, pile, pileGood, walk, true))
-        return true;
-      return walk(walkers);
-    }
+    const queued = event.shiftKey;
     // The scouts go after a claimable animal; the rest take the ladder, which strikes an enemy's animal.
     // An animal the scouts are claiming is struck by nobody: the others take their order under it.
-    const unclaiming = animal === null ? commanded : claimAnimal(commanded, animal);
+    const unclaiming = animal === null ? commanded : claimAnimal(commanded, animal, queued);
     if (unclaiming.length === 0) return true;
     const claimed = unclaiming.length < commanded.length ? animal : null;
     const enemy = pickTopAt(deps.targets.enemies(), world.x, world.y);
-    if (enemy !== null && enemy !== claimed) return strike(unclaiming, enemy);
+    if (enemy !== null && enemy !== claimed) return strike(unclaiming, enemy, queued);
     const prey = pickTopAt(deps.targets.wildlife(), world.x, world.y);
-    const rest = prey === null || prey === claimed ? unclaiming : huntWithFighters(unclaiming, prey);
+    const rest = prey === null || prey === claimed ? unclaiming : huntWithFighters(unclaiming, prey, queued);
     if (rest.length === 0) return true;
     // A chest nobody selected may open is walked to like any ground.
-    if (chest !== null && openChest(rest, chest)) return true;
+    if (chest !== null && openChest(rest, chest, queued)) return true;
     if (
       pile !== null &&
       pileGood !== undefined &&
@@ -392,7 +394,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         {
           kind: 'unitActionGroup',
           members: rest.map((unit) => ({ entity: unit.ref as Entity })),
-          action: { kind: 'orderNeed', need: 'hunger' },
+          action: { kind: 'orderNeed', need: 'hunger', ...(queued ? { queued } : {}) },
         },
         deps.enqueue,
         onOrderLimit,
@@ -404,23 +406,31 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       house: onBuilding ?? pickTopAt(deps.targets.buildings(), world.x, world.y),
       building: onBuilding ?? pickTopAt(deps.targets.owned('building'), world.x, world.y),
       site: siteAt(world.x, world.y),
-      tile: worldToTile(world.x, world.y, deps.elevation),
+      // A marker's building is walked to where it stands, not to the ground under its flag.
+      tile:
+        (onBuilding === null || onBuilding === undefined ? undefined : standingTile(onBuilding)) ??
+        worldToTile(world.x, world.y, deps.elevation),
     };
     if (
       pile !== null &&
       pileGood !== undefined &&
-      wearFromGround(rest, pile, pileGood, (unworn) => rightClickRest(event, unworn, aim))
+      wearFromGround(rest, pile, pileGood, (unworn) => rightClickRest(event, unworn, aim, queued), queued)
     ) {
       return true;
     }
-    const others = gatherFromResource(rest, world.x, world.y);
+    // A gathered good is a standing setting, so a Shift click on a resource walks there.
+    const others = queued ? rest : gatherFromResource(rest, world.x, world.y);
     if (others.length === 0) return true;
-    return rightClickRest(event, others, aim);
+    return rightClickRest(event, others, aim, queued);
   };
 
   /** The fighters among `commanded` strike a wild animal; returns the rest for the usual ladder. Original
    *  behavior: the right click offers every settler the attack-animal order; here only fighters take it. */
-  const huntWithFighters = (commanded: readonly FormationUnit[], prey: number): readonly FormationUnit[] => {
+  const huntWithFighters = (
+    commanded: readonly FormationUnit[],
+    prey: number,
+    queued: boolean,
+  ): readonly FormationUnit[] => {
     const snapshot = deps.snapshot();
     const fighters: FormationUnit[] = [];
     const others: FormationUnit[] = [];
@@ -430,7 +440,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       (fighter ? fighters : others).push(unit);
     }
     // Fighters whose strike is refused take the click's normal order with the rest.
-    if (fighters.length === 0 || !strike(fighters, prey)) return commanded;
+    if (fighters.length === 0 || !strike(fighters, prey, queued)) return commanded;
     return others;
   };
 
@@ -467,149 +477,48 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   };
 
   /** The ladder past the goods heap: a trader's route toggle, then the building, then the walk. A trader
-   *  the sim then refuses the house to takes the rest of the ladder once the answer lands. */
+   *  the sim then refuses the house to takes the rest of the ladder once the answer lands. A route stop is
+   *  a standing setting, so a `queued` click skips the toggle. */
   const rightClickRest = (
     event: MouseEvent,
     commanded: readonly FormationUnit[],
     aim: RightClickAim,
+    queued: boolean,
   ): boolean => {
-    const routed = routeTradeHouse(commanded, aim.house, (refused) => orderPastRoute(event, refused, aim));
+    if (queued) return orderPastRoute(event, commanded, aim, true);
+    const routed = routeTradeHouse(commanded, aim.house, (refused) =>
+      orderPastRoute(event, refused, aim, false),
+    );
     const others = routed.size === 0 ? commanded : commanded.filter((unit) => !routed.has(unit.ref));
     if (others.length === 0) return true;
-    return orderPastRoute(event, others, aim) || routed.size > 0;
+    return orderPastRoute(event, others, aim, false) || routed.size > 0;
   };
 
-  const orderPastRoute = (event: MouseEvent, units: readonly FormationUnit[], aim: RightClickAim): boolean =>
-    aim.building !== null
-      ? orderAtBuilding(event, units, aim.building)
-      : aim.site !== null
-        ? orderAtSite(units, aim.site, aim.tile)
-        : issueWalkOrder(aim.tile, units, 'moveUnit');
-
-  /** An own wall segment or road site still to be built under the cursor. */
-  const siteAt = (wx: number, wy: number): number | null => {
-    const snapshot = deps.snapshot();
-    const walls = deps.targets
-      .owned('palisade')
-      .filter((target) => entityById(snapshot, target.ref)?.components.UnderConstruction !== undefined);
-    return pickTopAt([...walls, ...deps.targets.owned('roadsite')], wx, wy);
-  };
-
-  /** A wall or road site pins the builders among `commanded` to it; the rest walk there. */
-  const orderAtSite = (commanded: readonly FormationUnit[], site: number, tile: Tile): boolean => {
-    const snapshot = deps.snapshot();
-    const walkers: FormationUnit[] = [];
-    const commands: UnitSelectionCommand[] = [];
-    for (const unit of commanded) {
-      const self = entityById(snapshot, unit.ref);
-      const job = self !== undefined ? settlerJobType(self) : undefined;
-      if (job !== undefined && systems.jobCanBuild(deps.content, job)) {
-        commands.push({ kind: 'assignBuilder', entity: unit.ref as Entity, site: site as Entity });
-      } else {
-        walkers.push(unit);
-      }
-    }
-    if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(site, 'assign');
-    if (walkers.length > 0) issueWalkOrder(tile, walkers, 'moveUnit');
-    return true;
-  };
-
-  /** The right-click ladder over an own building; true when it opened the school dialog or enqueued an
-   *  order, so a building that takes none of the selection stays silent. */
-  const orderAtBuilding = (
+  const orderPastRoute = (
     event: MouseEvent,
-    commanded: readonly FormationUnit[],
-    building: number,
+    units: readonly FormationUnit[],
+    aim: RightClickAim,
+    queued: boolean,
   ): boolean => {
-    const snapshot = deps.snapshot();
-    const entity = entityById(snapshot, building);
-    const type = entity !== undefined ? buildingTypeOf(entity) : undefined;
-    const def = type !== undefined ? buildingsByType.get(type) : undefined;
-    const underConstruction = entity?.components.UnderConstruction !== undefined;
-    const damaged = entity?.components.Damaged !== undefined;
-    const slots = def?.workers;
-    const employsTrade = (jobType: number | undefined): boolean =>
-      jobType !== undefined &&
-      (slots ?? []).some((slot) => canonicalJobType(slot.jobType) === canonicalJobType(jobType));
-    const pending: UnitSelectionCommand[] = [];
-    // A foundation or damaged building takes a builder as its crew before anything else, as in the
-    // original, while a standing building's repair crew has room. A site's own worker takes a workplace
-    // post and carries materials while it is built, then keeps the seat when it stands, so only a builder
-    // without a matching workplace slot joins the crew.
-    let crewRoom =
-      entity === undefined || underConstruction
-        ? Number.POSITIVE_INFINITY
-        : systems.REPAIR_CREW_LIMIT - builderCrewSize(snapshot, building);
-    const crew = new Set<number>();
-    if (entity !== undefined && (underConstruction || damaged)) {
-      for (const target of commanded) {
-        const self = entityById(snapshot, target.ref);
-        const currentJob = self !== undefined ? settlerJobType(self) : undefined;
-        if (
-          currentJob === undefined ||
-          !systems.jobCanBuild(deps.content, currentJob) ||
-          employsTrade(currentJob)
-        ) {
-          continue;
-        }
-        const member = self !== undefined && buildSiteOf(self) === building;
-        if (!member && crewRoom <= 0) continue;
-        if (!member) crewRoom--;
-        crew.add(target.ref);
-        pending.push({ kind: 'assignBuilder', entity: target.ref as Entity, site: building as Entity });
-      }
+    if (aim.building !== null) {
+      return queued
+        ? queueAtBuilding(units, aim.building, aim.tile)
+        : orderAtBuilding(event, units, aim.building);
     }
-    // A hero takes no building: no home, post, drill or lesson.
-    const takesBuilding = (ref: number): boolean => {
-      const self = entityById(snapshot, ref);
-      return self === undefined || !systems.isHeroJob(deps.content, settlerJobType(self) ?? null);
-    };
-    const rest = commanded.filter((target) => !crew.has(target.ref) && takesBuilding(target.ref));
-    if (def !== undefined && systems.isSchoolType(def)) {
-      const ordered = enqueueUnitSelection(pending, deps.enqueue, onOrderLimit);
-      if (ordered) deps.flashTarget?.(building, 'assign');
-      if (rest.length === 0) return ordered;
-      const opened = openSchool(
-        building,
-        rest.map((t) => t.ref),
-      );
-      // The press's default would pull focus off the modal it just opened.
-      if (opened) event.preventDefault();
-      return opened || ordered;
-    }
-    // Homes and workplaces have limited room, so each goes out as one group order and the sim seats
-    // the homeless and the unemployed first.
-    const movers: GroupMember[] = [];
-    const workers: GroupWorker[] = [];
-    for (const target of rest) {
-      const self = entityById(snapshot, target.ref);
-      const currentJob = self !== undefined ? settlerJobType(self) : undefined;
-      // A home may be reserved before it stands; its household drives wait for completed construction.
-      if (def?.kind === 'home') {
-        movers.push({ entity: target.ref as Entity });
-        continue;
-      }
-      // A recruit sent to a foundation waits at its door until it stands.
-      if (trainsRatherThanEmploys(def, currentJob)) {
-        pending.push({ kind: 'trainSoldier', entity: target.ref as Entity, house: building as Entity });
-        continue;
-      }
-      // The sim gates every candidate in the priority list, so an unoffered or full trade falls through.
-      const jobPriority = assignmentPriorityFor(currentJob, slots);
-      if (jobPriority.length > 0) workers.push({ entity: target.ref as Entity, jobPriority });
-    }
-    let ordered = enqueueUnitSelection(pending, deps.enqueue, onOrderLimit);
-    if (movers.length > 0) {
-      deps.enqueue({ kind: 'assignHouseGroup', members: movers, house: building as Entity });
-      ordered = true;
-    }
-    if (workers.length > 0) {
-      deps.enqueue({ kind: 'assignWorkerGroup', building: building as Entity, members: workers });
-      ordered = true;
-    }
-    if (ordered) deps.flashTarget?.(building, 'assign');
-    return ordered;
+    if (aim.site !== null) return orderAtSite(units, aim.site, aim.tile, queued);
+    return walkTo(aim.tile, units, queued);
   };
+
+  /** A `queued` walk leaves out the commanders of the vehicles the same press drives (`issueWalkOrder`). */
+  const walkTo = (tile: Tile, units: readonly FormationUnit[], queued: boolean): boolean =>
+    issueWalkOrder(tile, units, 'moveUnit', queued, queued ? new Set(deps.drivenVehicles?.()) : undefined);
+
+  const { siteAt, orderAtSite, queueAtBuilding, orderAtBuilding } = createBuildingOrders({
+    ...deps,
+    onOrderLimit,
+    walkTo,
+    openSchool,
+  });
 
   /**
    * Original behavior: a trader's right-click on a standing house puts it on the trade route, another
@@ -660,15 +569,18 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     onBuilding: number | null | undefined,
     onNoneTook: () => void,
   ): boolean => {
+    const queued = event.shiftKey;
     const snapshot = deps.snapshot();
     const traders: { readonly ref: number }[] = [];
     for (const id of deps.selected()) {
       const e = entityById(snapshot, id);
       if (e === undefined) continue;
       if (!isVehicle(e)) {
-        if (positionOf(e) === undefined) traders.push({ ref: id });
+        const riding = e.components.Rider !== undefined;
+        if (positionOf(e) === undefined && !(queued && riding)) traders.push({ ref: id });
         continue;
       }
+      if (queued) continue;
       const v = e.components.Vehicle as { vehicleType?: unknown; passengers?: unknown };
       const type = vehiclesByType.get(num(v.vehicleType) ?? -1);
       if (type === undefined || systems.isShipVehicle(type)) continue;
@@ -768,10 +680,12 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         return self !== undefined && (group === 'misc' || !wearsGood(self.components, group, goodType));
       });
     if (candidates.length === 0) return false;
-    // The pick lists are asked as the click lands; with nobody able to wear it the click walks on.
-    deps.answered.after(Promise.all(candidates.map((ref) => request(ref, group))), (lists) => {
-      const wearers = candidates.filter((_ref, index) =>
-        lists[index]?.some((row) => row.goodType === goodType),
+    // The pick lists are asked as the click lands and answered in click order; with nobody able to wear
+    // it the click walks on.
+    const lists = Promise.all(candidates.map((ref) => request(ref, group)));
+    afterClickAnswer(pending, deps.answered, candidates, queued, lists, (answers, current) => {
+      const wearers = candidates.filter(
+        (ref, index) => current(ref) && answers[index]?.some((row) => row.goodType === goodType),
       );
       const commands = selectionEquipCommands(
         deps.snapshot(),
@@ -780,7 +694,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         { skipReturn: true, queued },
       );
       if (enqueueUnitSelection(commands, deps.enqueue, onOrderLimit)) deps.flashTarget?.(pile, 'order');
-      if (commands.length === 0) onNoneWears(commanded);
+      if (commands.length === 0)
+        onNoneWears(commanded.filter(({ ref }) => !candidates.includes(ref) || current(ref)));
     });
     return true;
   };
@@ -806,12 +721,13 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     return commanded.filter((unit) => eligible.has(unit.ref));
   };
 
-  const strike = (commanded: readonly FormationUnit[], enemy: number): boolean => {
+  const strike = (commanded: readonly FormationUnit[], enemy: number, queued = false): boolean => {
     const accepted = enqueueArmyOrder(
       {
         kind: 'attackUnitGroup',
         members: commanded.map((unit) => ({ entity: unit.ref as Entity })),
         target: enemy as Entity,
+        ...(queued ? { queued } : {}),
       },
       deps.enqueue,
       onOrderLimit,
@@ -824,6 +740,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     event: MouseEvent,
     kind: UnitTargetKind | readonly UnitTargetKind[],
     units?: readonly number[],
+    queued = false,
   ): boolean => {
     const world = deps.toWorld(event.clientX, event.clientY);
     const accepts =
@@ -834,22 +751,28 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       deps.targets
         .enemies({ neutralWalls: true })
         .filter((p) =>
-          p.kind === 'settler' || p.kind === 'building' || p.kind === 'palisade' ? accepts(p.kind) : false,
+          p.kind === 'settler' || p.kind === 'building' || p.kind === 'palisade' || p.kind === 'vehicle'
+            ? accepts(p.kind)
+            : false,
         ),
       world.x,
       world.y,
     );
-    return enemy !== null && strike(commandedAmong(units), enemy);
+    return enemy !== null && strike(commandedAmong(units), enemy, queued);
   };
 
-  const issueAttackAnimal = (event: MouseEvent, units?: readonly number[]): boolean => {
+  const issueAttackAnimal = (event: MouseEvent, units?: readonly number[], queued = false): boolean => {
     const world = deps.toWorld(event.clientX, event.clientY);
     const prey = pickTopAt(deps.targets.wildlife(), world.x, world.y);
-    return prey !== null && strike(commandedAmong(units), prey);
+    return prey !== null && strike(commandedAmong(units), prey, queued);
   };
 
-  const issueMoveTo = (target: Tile, units?: readonly number[], queued?: boolean): boolean =>
-    issueWalkOrder(target, commandedAmong(units), 'moveUnit', queued);
+  const issueMoveTo = (
+    target: Tile,
+    units?: readonly number[],
+    queued?: boolean,
+    vehicles: readonly number[] = [],
+  ): boolean => issueWalkOrder(target, commandedAmong(units), 'moveUnit', queued, new Set(vehicles));
 
   const issueAttackMove = (
     target: Tile,

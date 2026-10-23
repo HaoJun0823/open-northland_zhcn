@@ -81,10 +81,8 @@ import { wakeIdle } from '../settlers/planner/idle-replan.js';
 import { marryPlaced, parentPlacedChild, spawnAnimalHerd, spawnSettler } from '../spawn/index.js';
 import { applyTradeCommand, registerTradeAgreement } from '../trade/index.js';
 import {
-  attachToVehicle,
   attackWithVehicle,
   boardVehicle,
-  canTakeHaulingCart,
   clearVehicleWantedOrder,
   createVehicle,
   detachBeforeOrder,
@@ -97,7 +95,7 @@ import {
   leaveCarrier,
   loadIntoVehicle,
   moveVehicle,
-  orderHaulingCart,
+  orderAttachToVehicle,
   queueVehicleOrder,
   releaseHaulingCart,
   releasesHaulingCart,
@@ -204,7 +202,12 @@ function applyCommand(
         applyCommand(
           world,
           ctx,
-          { kind: 'attackWithVehicle', vehicle, target: command.target },
+          {
+            kind: 'attackWithVehicle',
+            vehicle,
+            target: command.target,
+            ...(command.queued ? { queued: true } : {}),
+          },
           orders,
           origin,
         );
@@ -247,7 +250,12 @@ function applyCommand(
       for (const { entity } of command.members) {
         const single: Command =
           command.kind === 'attackUnitGroup'
-            ? { kind: 'attackUnit', entity, target: command.target }
+            ? {
+                kind: 'attackUnit',
+                entity,
+                target: command.target,
+                ...(command.queued ? { queued: true } : {}),
+              }
             : command.kind === 'setStanceGroup'
               ? { kind: 'setStance', entity, mode: command.mode }
               : { kind: 'setRegeneration', entity, enabled: command.enabled };
@@ -324,12 +332,7 @@ function applyCommand(
       stopVehicle(world, command);
       return;
     case 'attachToVehicle':
-      // A seated crew member gives up its post, and its hauling cart with it (`releaseEmployment`).
-      if (canTakeHaulingCart(world, ctx, command.entity, command.vehicle)) {
-        orderHaulingCart(world, ctx, command.entity, command.vehicle);
-      } else {
-        attachToVehicle(world, ctx, command);
-      }
+      orderAttachToVehicle(world, ctx, command);
       return;
     case 'detachFromVehicle':
       releaseHaulingCart(world, ctx, command.entity);

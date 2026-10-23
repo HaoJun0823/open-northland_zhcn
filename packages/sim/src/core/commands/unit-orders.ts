@@ -38,7 +38,7 @@ export type UnitSelfAction =
   | { readonly kind: 'unassignWorker' }
   | { readonly kind: 'unassignHouse' }
   | { readonly kind: 'marry' }
-  | { readonly kind: 'explore' }
+  | { readonly kind: 'explore'; readonly queued?: boolean }
   | { readonly kind: 'makeChild'; readonly child: (typeof CHILD_SEXES)[number] };
 
 /** Existing selection actions carried together without changing their individual handlers. */
@@ -56,8 +56,8 @@ export type UnitSelectionAction =
     }
   | { readonly kind: 'unequipGood'; readonly group: EquipCategory; readonly slot: number }
   | { readonly kind: 'setJob'; readonly jobType: number }
-  | { readonly kind: 'assignBuilder'; readonly site: Entity }
-  | { readonly kind: 'trainSoldier'; readonly house: Entity }
+  | { readonly kind: 'assignBuilder'; readonly site: Entity; readonly queued?: boolean }
+  | { readonly kind: 'trainSoldier'; readonly house: Entity; readonly queued?: boolean }
   | {
       readonly kind: 'learn';
       readonly house: Entity;
@@ -68,7 +68,7 @@ export type UnitSelectionAction =
   | { readonly kind: 'setGatherGood'; readonly goodType: number | null }
   | { readonly kind: 'attachTradeHouse'; readonly house: Entity }
   | { readonly kind: 'detachTradeHouse'; readonly house: Entity }
-  | { readonly kind: 'attachToVehicle'; readonly vehicle: Entity };
+  | { readonly kind: 'attachToVehicle'; readonly vehicle: Entity; readonly queued?: boolean };
 
 export type UnitSelectionCommand = UnitSelectionAction & { readonly entity: Entity };
 
@@ -97,6 +97,7 @@ export type UnitOrderCommand =
       readonly kind: 'attackWithVehicleGroup';
       readonly members: readonly GroupMember[];
       readonly target: VehicleAttackTarget;
+      readonly queued?: boolean;
     }
   | {
       readonly kind: 'unitActionGroup';
@@ -123,6 +124,7 @@ export type UnitOrderCommand =
       readonly kind: 'attackUnitGroup';
       readonly members: readonly GroupMember[];
       readonly target: Entity;
+      readonly queued?: boolean;
     }
   | {
       readonly kind: 'setStanceGroup';
@@ -202,6 +204,8 @@ export type UnitOrderCommand =
       readonly kind: 'attackUnit';
       readonly entity: Entity;
       readonly target: Entity;
+      /** As `moveUnit`'s; the queue moves on once the order lapses with its target. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -226,6 +230,8 @@ export type UnitOrderCommand =
       readonly kind: 'attackWithVehicle';
       readonly vehicle: Entity;
       readonly target: VehicleAttackTarget;
+      /** As `moveVehicle`'s; a map point is battered for good, so the queue moves on at once. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -355,6 +361,8 @@ export type UnitOrderCommand =
       readonly kind: 'attachToVehicle';
       readonly entity: Entity;
       readonly vehicle: Entity;
+      /** As `moveUnit`'s; the seat is judged when the order starts, and a rider's queue lapses. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -408,6 +416,8 @@ export type UnitOrderCommand =
       readonly kind: 'loadIntoVehicle';
       readonly vehicle: Entity;
       readonly carrier: Entity;
+      /** As `moveVehicle`'s; the carrier is judged when the order starts. */
+      readonly queued?: boolean;
     }
   | {
       /** Take one owned vehicle off its carrier (`r`): a vehicle riding inside is set down on the
@@ -423,6 +433,8 @@ export type UnitOrderCommand =
        */
       readonly kind: 'explore';
       readonly entity: Entity;
+      /** As `moveUnit`'s; a queue behind the sweep waits until nothing is left unseen. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -444,6 +456,9 @@ export type UnitOrderCommand =
       readonly kind: 'assignBuilder';
       readonly entity: Entity;
       readonly site: Entity;
+      /** As `moveUnit`'s; the site is judged when the order starts, and a queue behind it waits while the
+       *  site stays unfinished or damaged, or the run lasts. */
+      readonly queued?: boolean;
     }
   | {
       /**
@@ -522,6 +537,8 @@ export type UnitOrderCommand =
       readonly kind: 'trainSoldier';
       readonly entity: Entity;
       readonly house: Entity;
+      /** As `moveUnit`'s; the barracks is judged when the order starts. */
+      readonly queued?: boolean;
     }
   | {
       readonly kind: 'learn';

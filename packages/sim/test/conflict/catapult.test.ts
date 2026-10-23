@@ -23,6 +23,7 @@ import {
   Vehicle,
   VehicleDrive,
   VehicleMarchRoute,
+  VehicleOrderQueue,
   vehicleCommander,
   wasAttackedBy,
 } from '../../src/components/index.js';
@@ -671,6 +672,53 @@ describe('the clip and its target', () => {
     order(s, catapult, P1, houseAt(s, 22, 8, P2));
     const refused = collect(s, 1, ['vehicleMoveRefused']);
     expect(refused.map((ev) => (ev.kind === 'vehicleMoveRefused' ? ev.reason : ''))).toEqual(['noCommander']);
+  });
+
+  it('takes up a Shift-queued house once the ordered one is gone', () => {
+    const s = sim(grass(40, 10));
+    const catapult = catapultAt(s, 6, 8, P1);
+    const first = houseAt(s, 22, 8, P2, TOUGH_HOUSE);
+    const second = houseAt(s, 26, 8, P2, TOUGH_HOUSE);
+    order(s, catapult, P1, first);
+    s.enqueue(
+      playerCommand(P1, {
+        kind: 'attackWithVehicle',
+        vehicle: catapult,
+        target: { kind: 'entity', entity: second },
+        queued: true,
+      }),
+    );
+    s.step();
+    expect(s.world.get(catapult, Vehicle).attack?.target).toEqual({ kind: 'entity', entity: first });
+    expect(s.world.get(catapult, VehicleOrderQueue).orders).toHaveLength(1);
+    s.world.destroy(first);
+    for (let i = 0; i < SHOT_TICKS && s.world.has(catapult, VehicleOrderQueue); i++) s.step();
+    expect(s.world.get(catapult, Vehicle).attack?.target).toEqual({ kind: 'entity', entity: second });
+  });
+
+  it('queues a Shift group strike per catapult with its own target, so the queues save and restore', () => {
+    const s = sim(grass(40, 10));
+    const catapults = [catapultAt(s, 6, 6, P1), catapultAt(s, 6, 10, P1)];
+    const first = houseAt(s, 22, 8, P2, TOUGH_HOUSE);
+    const second = houseAt(s, 26, 8, P2, TOUGH_HOUSE);
+    for (const catapult of catapults) order(s, catapult, P1, first);
+    s.enqueue(
+      playerCommand(P1, {
+        kind: 'attackWithVehicleGroup',
+        members: catapults.map((entity) => ({ entity })),
+        target: { kind: 'entity', entity: second },
+        queued: true,
+      }),
+    );
+    s.step();
+    const [a, b] = catapults.map((catapult) => s.world.get(catapult, VehicleOrderQueue).orders[0]);
+    expect(a).toMatchObject({ kind: 'attackWithVehicle', target: { kind: 'entity', entity: second } });
+    expect(b).toMatchObject({ kind: 'attackWithVehicle', target: { kind: 'entity', entity: second } });
+    const restored = restoreSimulation(parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(s)))), {
+      content: siegeContent(),
+      map: grass(40, 10),
+    });
+    expect(restored.hashState()).toBe(s.hashState());
   });
 
   it('stops on its next node where a defending chase lost its mark, and keeps the guard it left', () => {

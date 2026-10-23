@@ -3,12 +3,13 @@ import { matchesMouseBinding } from '../../hud/keybindings.js';
 import { type Tile, worldToTile } from '../picking.js';
 import type { UnitOrderController } from './orders.js';
 import { type PickModeController, pickPressCue } from './pick-mode.js';
+import type { VehicleOrderController } from './vehicle-orders.js';
 
 /**
  * Orders named on the map overview rather than the world view: it draws the map flat and its dots are
  * coarser than any sprite, so a press there names ground and never the thing standing on it. The right
- * button walks the selection to the spot; an armed spot-target mode resolves at it. Shift queues the
- * walk as on the world view.
+ * button walks the selection's settlers and drives its vehicles to the spot; an armed spot-target mode
+ * resolves at it. Shift queues the walk and the drive as on the world view.
  *
  * Named addition: the original's overview window only scrolls the view.
  */
@@ -17,6 +18,7 @@ export interface OverviewOrderDeps {
   readonly pickMode: Pick<PickModeController, 'handleOverviewPress'>;
   /** Read at press time; the order controller is built after the pick mode it resolves through. */
   readonly orders: () => UnitOrderController;
+  readonly vehicleOrders: () => Pick<VehicleOrderController, 'issueDriveTo' | 'selectedOwnVehicles'>;
   readonly workFlagBinding: () => string | null;
   /** The GUI click: an order that commanded someone confirms, a called-off pick fails. Absent, silent. */
   readonly cue?: (cue: UiCue) => void;
@@ -43,8 +45,13 @@ export function createOverviewOrders(deps: OverviewOrderDeps): OverviewPress {
       return true;
     }
     if (event.button !== 2) return false;
-    // The press is the overview's whether or not anyone was free to walk; the click follows the order.
-    confirmIf(deps.orders().issueMoveTo(target, undefined, event.shiftKey));
+    // The press is the overview's whether or not anyone was free to move; the click follows the order.
+    const vehicles = deps.vehicleOrders();
+    const walked = deps
+      .orders()
+      .issueMoveTo(target, undefined, event.shiftKey, vehicles.selectedOwnVehicles());
+    const drove = vehicles.issueDriveTo(target, event.shiftKey);
+    confirmIf(walked || drove);
     return true;
   };
 }

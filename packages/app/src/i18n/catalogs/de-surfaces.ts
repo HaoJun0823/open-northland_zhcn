@@ -454,7 +454,7 @@ export const deSurfaces = {
       hudToggleTip:
         'Blendet die Oberfläche für Bildschirmfotos und Aufnahmen aus. Ein danach geöffnetes Fenster bleibt sichtbar.',
       pointerBindingRebindTip:
-        'Anklicken und Ctrl, Shift, Alt oder Cmd zusammen mit einer Maustaste drücken. Shift + Linksklick ändert weiterhin die Auswahl, Shift + Rechtsklick reiht einen Gehauftrag ein. Esc bricht ab.',
+        'Anklicken und Ctrl, Shift, Alt oder Cmd zusammen mit einer Maustaste drücken. Shift + Linksklick ändert weiterhin die Auswahl, Shift + Rechtsklick reiht einen Auftrag ein. Esc bricht ab.',
       autosaveNote: 'Änderungen werden sofort gespeichert.',
       restoreDefaults: 'Standardwerte wiederherstellen',
       restoreFailed: 'Die Standardwerte konnten nicht wiederhergestellt werden. Es wurde nichts geändert.',
@@ -553,7 +553,7 @@ export const deSurfaces = {
     heading: 'Tipp',
     tips: {
       queueOrders:
-        '{shift} + Klick reiht Gehaufträge, Angriffsbewegungen, das Setzen von Wegweisern, das Öffnen von Kisten, das Anlegen von Gütern vom Boden, Essen, Schlafen, Reden und Beten sowie Fahrten von Fahrzeugen ein.',
+        '{shift} + Klick reiht einen Auftrag hinter den laufenden ein: Gehen, Angriffe, Baustellen, Drill, Wegweiser, Kisten, das Anlegen von Gütern, Bedürfnisse, Erkunden, das Einfangen von Tieren, Einsteigen sowie Fahrten, Angriffe und Verladen von Fahrzeugen.',
       buildMany:
         'Halte beim Platzieren eines Gebäudes {shift} gedrückt, um mehrere davon zu setzen, eines pro Klick.',
       attackMove:

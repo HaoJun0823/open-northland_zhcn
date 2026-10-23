@@ -413,7 +413,7 @@ export const plSurfaces = {
       hudToggleTip:
         'Ukrywa interfejs do zrzutów ekranu i nagrań. Okno otwarte, gdy interfejs jest ukryty, nadal się pokazuje.',
       pointerBindingRebindTip:
-        'Kliknij, potem naciśnij Ctrl, Shift, Alt lub Cmd razem z przyciskiem myszy. Shift + lewy klik pozostaje dodawaniem do zaznaczenia i usuwaniem z niego, a Shift + prawy klik kolejkuje marsz. Esc anuluje.',
+        'Kliknij, potem naciśnij Ctrl, Shift, Alt lub Cmd razem z przyciskiem myszy. Shift + lewy klik pozostaje dodawaniem do zaznaczenia i usuwaniem z niego, a Shift + prawy klik kolejkuje polecenie. Esc anuluje.',
       autosaveNote: 'Zmiany zapisują się od razu.',
       restoreDefaults: 'Przywróć domyślne',
       restoreFailed: 'Nie udało się przywrócić ustawień domyślnych. Nic nie zostało zmienione.',
@@ -512,7 +512,7 @@ export const plSurfaces = {
     heading: 'Wskazówka',
     tips: {
       queueOrders:
-        '{shift} + klik dodaje do kolejki polecenia ruchu, ataku w ruchu, stawiania drogowskazów, otwierania skrzyń, zakładania przedmiotów z ziemi, jedzenia, snu, rozmowy i modlitwy oraz jazdy pojazdów.',
+        '{shift} + klik ustawia polecenie w kolejce za bieżącym: ruch, atak, budowę, musztrę, drogowskazy, skrzynie, zakładanie przedmiotów, potrzeby, zwiad, zajmowanie zwierząt, wsiadanie oraz jazdę, atak i załadunek pojazdów.',
       buildMany: 'Przytrzymaj {shift} przy stawianiu budynku, a postawisz kilka takich, po jednym na klik.',
       attackMove: '{key} to atak w ruchu: jednostki idą do celu i atakują wszystko po drodze.',
       postGraduates:

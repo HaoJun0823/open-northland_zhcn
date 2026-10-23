@@ -1,10 +1,10 @@
 import { type Campaign, CampaignIndex } from '@open-northland/data';
 import { fetchJsonOrNull } from '../content/net.js';
-import { contentFetch } from '../content/url.js';
+import { type ContentFetch, contentFetch } from '../content/url.js';
 import { diag } from '../diag/index.js';
 
 /** The campaigns in display order. A missing, drifted or wrong-version index reads as none installed. */
-export async function loadCampaigns(fetchImpl: typeof fetch = contentFetch): Promise<readonly Campaign[]> {
+export async function loadCampaigns(fetchImpl: ContentFetch = contentFetch): Promise<readonly Campaign[]> {
   const value = await fetchJsonOrNull<unknown>('/campaigns-index.json', fetchImpl);
   if (value === null) return [];
   const parsed = CampaignIndex.safeParse(value);

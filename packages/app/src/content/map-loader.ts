@@ -7,7 +7,7 @@ import {
   type TerrainMapFile,
 } from '@open-northland/data';
 import { diag } from '../diag/index.js';
-import { contentFetch } from './url.js';
+import { type ContentFetch, contentFetch } from './url.js';
 
 /**
  * The decoded-map fetch boundary: app-layer I/O for a `content/maps/<id>.json` grid, never allowed in the
@@ -30,7 +30,7 @@ function safeMapId(id: string): string | null {
  */
 export async function loadTerrainMap(
   id: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<TerrainMapFile | null> {
   const safe = safeMapId(id);
   if (safe === null) {
@@ -62,7 +62,7 @@ export async function loadTerrainMap(
  */
 export async function loadMapMeta(
   id: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<MapMeta | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
@@ -83,7 +83,7 @@ export async function loadMapMeta(
  */
 export async function loadMapBriefing(
   id: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<MapBriefing | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
@@ -103,7 +103,7 @@ export async function loadMapBriefing(
  */
 export async function loadMapStrings(
   id: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<MapStrings | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;
@@ -124,7 +124,7 @@ export async function loadMapStrings(
  */
 export async function loadMapScript(
   id: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<MapScript | null> {
   const safe = safeMapId(id);
   if (safe === null) return null;

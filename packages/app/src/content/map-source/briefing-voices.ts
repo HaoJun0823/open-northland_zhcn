@@ -1,6 +1,7 @@
 import { NARRATION_IDLE, type NarrationState, type SoundDriver } from '@open-northland/audio';
 import type { BriefingVoice } from '@open-northland/data';
 import { diag } from '../../diag/log.js';
+import type { ContentFetch } from '../url.js';
 import { mapFilePath, voiceFileSuffix } from './files.js';
 import { findMapSource, type MapSource } from './sources.js';
 
@@ -40,7 +41,7 @@ export async function mapBriefingVoices(
 function declaredVoices(
   mapId: string,
   declared: readonly string[],
-  files: typeof fetch,
+  files: ContentFetch,
 ): BriefingVoiceLoader {
   const listed = new Set(declared);
   const clips = new Map<string, Promise<Uint8Array | null>>();
@@ -59,7 +60,7 @@ function declaredVoices(
   };
 }
 
-async function loadClip(path: string, files: typeof fetch): Promise<Uint8Array | null> {
+async function loadClip(path: string, files: ContentFetch): Promise<Uint8Array | null> {
   try {
     const response = await files(path);
     if (response.ok) return new Uint8Array(await response.arrayBuffer());

@@ -20,7 +20,7 @@ import { diag } from '../diag/index.js';
 import { EQUIP_CLASS_BY_SLUG } from '../game/sandbox/combat.js';
 import { loadIrRaw } from './ir/load.js';
 import { fetchJsonOrNull } from './net.js';
-import { contentFetch } from './url.js';
+import { type ContentFetch, contentFetch } from './url.js';
 
 let contentSetPromise: Promise<ContentSet | null> | null = null;
 
@@ -41,7 +41,7 @@ const HERO_ARMOR_BY_JOB_ID: Readonly<Record<string, number | undefined>> = {
  * throws via `parseGeneratedContentSet`. The default transport shares one memoized parse of the
  * {@link loadIrRaw} document per page, while an injected `fetchImpl` fetches and parses uncached.
  */
-export function loadRealContent(fetchImpl: typeof fetch = contentFetch): Promise<ContentSet | null> {
+export function loadRealContent(fetchImpl: ContentFetch = contentFetch): Promise<ContentSet | null> {
   if (fetchImpl !== contentFetch) return fetchContentSet(fetchImpl);
   contentSetPromise ??= parseSharedIr().then((set) => {
     // Memoize success only: a transient boot-time fetch failure must not pin the loader to null.
@@ -56,7 +56,7 @@ async function parseSharedIr(): Promise<ContentSet | null> {
   return raw === null ? null : parseGeneratedContentSet(raw);
 }
 
-async function fetchContentSet(fetchImpl: typeof fetch): Promise<ContentSet | null> {
+async function fetchContentSet(fetchImpl: ContentFetch): Promise<ContentSet | null> {
   const raw = await fetchJsonOrNull<unknown>('/ir.json', fetchImpl);
   return raw === null ? null : parseGeneratedContentSet(raw);
 }
@@ -189,7 +189,7 @@ export function mergeRealContent(real: ContentSet): RealContentMerge {
  * (no `content/ir.json`), so the interactive entries fall back to the clean-room sandbox content.
  */
 export async function loadRuntimeRealContent(
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<RealContentMerge | null> {
   const real = await loadRealContent(fetchImpl);
   return real === null ? null : mergeRealContent(real);

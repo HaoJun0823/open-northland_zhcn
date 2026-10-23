@@ -33,9 +33,12 @@ export function onContentMovedOn(listener: () => void): void {
   if (movedOn) listener();
 }
 
+/** A `fetch` over content paths only: a `URL` or `Request` would skip the content prefix. */
+export type ContentFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
 /** The page's `fetch` over content paths; an installed map's store answers the same paths itself. */
-export const contentFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(typeof input === 'string' ? contentUrl(input) : input, init);
+export const contentFetch: ContentFetch = async (path, init) => {
+  const response = await fetch(contentUrl(path), init);
   if (response.redirected && !movedOn) {
     movedOn = true;
     movedOnListener?.();

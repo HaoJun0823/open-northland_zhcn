@@ -1,6 +1,6 @@
 import { loadAtlasSource, type TextureSource } from '@open-northland/render';
 import { diag } from '../diag/log.js';
-import { contentFetch } from './url.js';
+import { type ContentFetch, contentFetch } from './url.js';
 
 /**
  * The fetch idioms this folder's optional-`content/` loaders share, kept in one place so the
@@ -15,7 +15,7 @@ import { contentFetch } from './url.js';
  */
 export async function fetchJsonOrNull<T>(
   path: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<T | null> {
   try {
     const res = await fetchImpl(path);

@@ -4,7 +4,7 @@ import { diag } from '../../diag/log.js';
 import { installAnnouncedCatalogMap } from '../map-source/install.js';
 import { findMapSource, mapFetch } from '../map-source/sources.js';
 import { MAPS_INDEX_URL, parseMapsIndex } from '../maps-index.js';
-import { contentFetch } from '../url.js';
+import { type ContentFetch, contentFetch } from '../url.js';
 import { loadPersistedMap, persistedMapOrigin, persistVerifiedMap } from './cache.js';
 import {
   type DeliverableMapOrigin,
@@ -38,7 +38,7 @@ export interface RoomMapTransferOptions {
   readonly client: { readonly nick: string; sendBlob(upload: Upload): void; requestMap(): void };
   readonly onVerified: (documents: VerifiedMapDocuments | null) => void;
   readonly onError: (error: Error) => void;
-  readonly fetchImpl?: typeof fetch;
+  readonly fetchImpl?: ContentFetch;
   readonly cacheRead?: typeof loadPersistedMap;
   readonly cacheWrite?: typeof persistVerifiedMap;
   /** Where a map's files load from: an installed catalogue map's store, else the given transport. */
@@ -194,7 +194,7 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
     const mapId = room?.settings.world.kind === 'map' ? room.settings.world.mapId : null;
     if (mapId === null) return;
     loading = true;
-    const transport: typeof fetch = (input, init) => fetchImpl(input, { ...init, signal });
+    const transport: ContentFetch = (input, init) => fetchImpl(input, { ...init, signal });
     try {
       const files = await (options.mapFetch ?? mapFetch)(mapId, transport);
       const [handle, response] = await Promise.all([

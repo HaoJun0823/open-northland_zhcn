@@ -3,7 +3,7 @@ import type { SpriteLayer, TextureSource } from '@open-northland/render';
 import { diag } from '../diag/index.js';
 import { loadLayer } from './ir/load.js';
 import { fetchJsonOrNull, loadTextureIfPresent } from './net.js';
-import { contentFetch, contentUrl } from './url.js';
+import { type ContentFetch, contentFetch, contentUrl } from './url.js';
 
 /**
  * GUI content bindings for the pipeline's `gui` stage outputs. Atlases and the palette LUT ride the
@@ -95,7 +95,7 @@ export function loadGuiStrings(lang: string): Promise<GuiStrings | null> {
 /** Load one language's rendered history tables (read in the mission book's chronicle), or `null` without them. */
 export async function loadGuiHistory(
   lang: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<HypertextBook | null> {
   const raw = await fetchJsonOrNull<unknown>(`${GUI_ROOT}/history/${lang}.json`, fetchImpl);
   if (raw === null) return null;

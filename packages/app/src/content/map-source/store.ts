@@ -6,6 +6,7 @@ import {
   type RetainedLocalSource,
 } from '../local-import/source.js';
 import { isMapId } from '../transfer/documents.js';
+import type { ContentFetch } from '../url.js';
 import { type MapFileSuffix, mapFileContentType, storedMapFetch } from './files.js';
 import {
   type InstallableMap,
@@ -50,7 +51,7 @@ export interface InstalledMapStore {
   ): Promise<void>;
   remove(entryId: string): Promise<void>;
   /** A fetch that serves the map's `/maps/` paths. */
-  fetchFor(record: InstalledMapRecord): typeof fetch;
+  fetchFor(record: InstalledMapRecord): ContentFetch;
   /** Where the map's authored picture shows from, or null when it has none. */
   pictureUrl(record: InstalledMapRecord): Promise<string | null>;
 }

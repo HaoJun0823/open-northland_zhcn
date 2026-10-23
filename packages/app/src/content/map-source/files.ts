@@ -5,6 +5,7 @@ import {
   briefingVoices,
   type MapBriefing,
 } from '@open-northland/data';
+import type { ContentFetch } from '../url.js';
 
 /** The sidecars a converted map ships under `/maps/<id><suffix>`: terrain, the four optional JSON
  *  sidecars and the authored picture. The pipeline's `.map.png` minimap is not among them, since a
@@ -68,9 +69,8 @@ export type StoredMapFileReader = (suffix: MapFileSuffix) => Promise<Uint8Array 
  * A `fetch` that answers exactly one map's `/maps/<id><suffix>` paths from a byte store, so the map
  * loaders read an installed map the way they read a served one. Every other path is a 404.
  */
-export function storedMapFetch(mapId: string, read: StoredMapFileReader): typeof fetch {
-  return async (input) => {
-    const path = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+export function storedMapFetch(mapId: string, read: StoredMapFileReader): ContentFetch {
+  return async (path) => {
     const prefix = `${MAPS_PATH}${mapId}`;
     const candidate = path.startsWith(prefix) ? path.slice(prefix.length) : null;
     const suffix = isMapFileSuffix(candidate) ? candidate : undefined;

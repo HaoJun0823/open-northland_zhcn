@@ -2,7 +2,7 @@ import type { MapsIndexEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { diag } from '../../diag/log.js';
 import { loadMapList } from '../maps-index.js';
-import { contentFetch } from '../url.js';
+import { type ContentFetch, contentFetch } from '../url.js';
 import type { InstalledMapRecord } from './installed.js';
 import { type InstalledMapStore, installedMapStore } from './store.js';
 
@@ -24,7 +24,7 @@ export interface MapSource {
   /** Converted for another content version: must be rebuilt or downloaded before playing. */
   readonly stale: boolean;
   /** Serves the map's `/maps/<id><suffix>` paths. */
-  readonly fetch: typeof fetch;
+  readonly fetch: ContentFetch;
   /** Where the authored picture shows from, when not `/maps/<id>.png`. */
   readonly pictureUrl?: string;
 }
@@ -32,7 +32,7 @@ export interface MapSource {
 /** An installed record with what its store resolved for it. */
 export interface InstalledSource {
   readonly record: InstalledMapRecord;
-  readonly fetch: typeof fetch;
+  readonly fetch: ContentFetch;
   readonly pictureUrl: string | null;
 }
 
@@ -44,7 +44,7 @@ export function mergeMapSources(
   shipped: readonly MapsIndexEntry[],
   installed: readonly InstalledSource[],
   irVersion: number,
-  shippedFetch: typeof fetch,
+  shippedFetch: ContentFetch,
 ): readonly MapSource[] {
   const ids = new Set(shipped.map((entry) => entry.id.toLowerCase()));
   const sources: MapSource[] = shipped.map((entry) => ({ entry, stale: false, fetch: shippedFetch }));
@@ -78,7 +78,7 @@ export interface MapSourceRegistry {
   sources(): Promise<readonly MapSource[]>;
   find(mapId: string): Promise<MapSource | null>;
   /** The fetch that serves `mapId`'s files: its installed store's, else `fallback` (the page origin). */
-  fetchFor(mapId: string, fallback?: typeof fetch): Promise<typeof fetch>;
+  fetchFor(mapId: string, fallback?: ContentFetch): Promise<ContentFetch>;
 }
 
 export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry {
@@ -99,7 +99,7 @@ export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry 
       return [];
     }
   };
-  const sources = async (shippedFetch: typeof fetch = contentFetch) => {
+  const sources = async (shippedFetch: ContentFetch = contentFetch) => {
     const [listed, local] = await Promise.all([deps.shipped(), installed()]);
     return mergeMapSources(listed, local, deps.irVersion, shippedFetch);
   };
@@ -130,7 +130,7 @@ const registry = createMapSourceRegistry({
 export const loadMapSources = (): Promise<readonly MapSource[]> => registry.sources();
 export const findMapSource = (mapId: string): Promise<MapSource | null> => registry.find(mapId);
 /** The fetch the map loaders read `mapId` through. */
-export const mapFetch = (mapId: string, fallback?: typeof fetch): Promise<typeof fetch> =>
+export const mapFetch = (mapId: string, fallback?: ContentFetch): Promise<ContentFetch> =>
   registry.fetchFor(mapId, fallback);
 
 /** The maps a menu may offer: every source converted for this content version. */

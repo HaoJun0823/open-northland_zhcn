@@ -1,6 +1,6 @@
 import { MapScript, mapDocumentsFingerprint, parseTerrainMap } from '@open-northland/data';
 import { MAX_BLOB_BYTES } from '@open-northland/net-protocol';
-import { contentFetch } from '../url.js';
+import { type ContentFetch, contentFetch } from '../url.js';
 
 export const MAX_MAP_TRANSFER_BYTES = MAX_BLOB_BYTES;
 // A map too large for the relay can still be verified and played locally.
@@ -81,7 +81,7 @@ export function readVerifiedMapDocuments(
   return retainedOf(handle).parsed;
 }
 
-async function readDocument(path: string, fetchImpl: typeof fetch): Promise<unknown> {
+async function readDocument(path: string, fetchImpl: ContentFetch): Promise<unknown> {
   const response = await fetchImpl(path);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Cannot read ${path}: HTTP ${response.status}`);
@@ -109,7 +109,7 @@ async function readDocument(path: string, fetchImpl: typeof fetch): Promise<unkn
 
 export async function loadVerifiedMapDocuments(
   mapId: string,
-  fetchImpl: typeof fetch = contentFetch,
+  fetchImpl: ContentFetch = contentFetch,
 ): Promise<VerifiedMapDocuments | null> {
   validMapId(mapId);
   const [map, script] = await Promise.all([

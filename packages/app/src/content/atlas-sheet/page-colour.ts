@@ -1,4 +1,5 @@
 import { CANVAS_READ_INDEXED, colourIndexedSheet, decodeAtlasPalette } from '@open-northland/render/data';
+import { readImageData } from '../net.js';
 
 /** A decoded sheet is kept this long after its last request, so a boot's recolours of one bob set read
  *  it once. */
@@ -10,20 +11,7 @@ let releaseTimer: ReturnType<typeof setTimeout> | undefined;
 async function readSheet(url: string): Promise<ImageData> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`paletted sheet: ${url} answered HTTP ${res.status}`);
-  const bitmap = await createImageBitmap(await res.blob(), { colorSpaceConversion: 'none' });
-  const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  try {
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (ctx === null) throw new Error('paletted sheet: no 2d context');
-    ctx.drawImage(bitmap, 0, 0);
-    return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-  } finally {
-    bitmap.close();
-    canvas.width = 0;
-    canvas.height = 0;
-  }
+  return readImageData(await res.blob(), { colorSpaceConversion: 'none' });
 }
 
 function sheetAt(url: string): Promise<ImageData> {

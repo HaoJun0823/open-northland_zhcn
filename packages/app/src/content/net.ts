@@ -55,29 +55,35 @@ async function isServed(url: string): Promise<boolean> {
 }
 
 /**
- * Fetch a content PNG by its content path and read it back CPU-side as pixels via a 2D canvas
- * (browser-only). `null` when the image is absent or unreadable or no 2D context can be had, so
- * callers degrade.
+ * Fetch a content PNG by its content path and read it back CPU-side as pixels. `null` when the image is
+ * absent or unreadable or no 2D context can be had, so callers degrade.
  */
 export async function fetchImageData(path: string): Promise<ImageData | null> {
   try {
     const res = await contentFetch(path);
     if (!res.ok) return null;
-    const bitmap = await createImageBitmap(await res.blob());
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    // A CPU-backed canvas: the default GPU one makes every `getImageData` a synchronous GPU readback.
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (ctx === null) {
-      bitmap.close();
-      return null;
-    }
-    ctx.drawImage(bitmap, 0, 0);
-    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-    bitmap.close();
-    return data;
+    return await readImageData(await res.blob());
   } catch {
     return null;
+  }
+}
+
+/** An image's pixels read back CPU-side through a 2D canvas (browser-only); rejects when the image
+ *  cannot be decoded or no 2D context can be had. */
+export async function readImageData(image: Blob, options?: ImageBitmapOptions): Promise<ImageData> {
+  const bitmap = await createImageBitmap(image, options);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  try {
+    // A CPU-backed canvas: the default GPU one makes every `getImageData` a synchronous GPU readback.
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (ctx === null) throw new Error('no 2d context to read an image back');
+    ctx.drawImage(bitmap, 0, 0);
+    return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  } finally {
+    bitmap.close();
+    canvas.width = 0;
+    canvas.height = 0;
   }
 }

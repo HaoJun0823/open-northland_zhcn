@@ -34,6 +34,11 @@ export interface PalettedSheetWorker {
  */
 const MAX_WORKERS = 3;
 
+/** Cores assumed when the browser does not report `hardwareConcurrency`. */
+const FALLBACK_CORES = 2;
+/** Cores left to the page's main thread. */
+const MAIN_THREAD_CORES = 1;
+
 /** A worker asked for nothing this long is terminated, so a finished boot holds no threads; the next
  *  sheet spawns it again. */
 export const IDLE_WORKER_TERMINATE_MS = 10_000;
@@ -63,7 +68,10 @@ interface Slot {
  */
 export function createPalettedSheetClient(
   spawn: () => PalettedSheetWorker = spawnWorker,
-  size = Math.max(1, Math.min(MAX_WORKERS, (globalThis.navigator?.hardwareConcurrency ?? 2) - 1)),
+  size = Math.max(
+    1,
+    Math.min(MAX_WORKERS, (globalThis.navigator?.hardwareConcurrency ?? FALLBACK_CORES) - MAIN_THREAD_CORES),
+  ),
   idleMs = IDLE_WORKER_TERMINATE_MS,
 ): (url: string, palette: string) => Promise<ImageBitmap> {
   const slots: (Slot | undefined)[] = [];

@@ -85,13 +85,13 @@ function tallyOf(world: World): FetchTally {
     tally = { feed: world.watchChanges(watched, watched), holds: new Map(), byOwner: new Map() };
     tallies.set(world, tally);
     rescan(world, tally);
-    world.registerCacheVerifier('equipFetchesUnderway', () => {
+    world.registerCacheVerifier('equipFetchesHeld', () => {
       const held = tallies.get(world);
       if (held === undefined) return [];
       if (held.feed.pending) catchUp(world, held);
       return sameTotals(held.byOwner, scanned(world))
         ? []
-        : ['equipFetchesUnderway: held totals disagree with a scan of the equip orders'];
+        : ['equipFetchesHeld: held totals disagree with a scan of the equip orders'];
     });
   } else if (tally.feed.pending) catchUp(world, tally);
   return tally;
@@ -106,16 +106,9 @@ function catchUp(world: World, tally: FetchTally): void {
  * stage holds one unit of its good from dispatch until the pickup. Every automatic dispatcher subtracts
  * these from the stock it hands out, so a man sent for a unit takes it out of the pool and no second man is
  * sent after it. A jobless settler's errand is frozen, since the ladder never plans one, so it holds
- * nothing. A fresh copy the caller may edit.
+ * nothing. The live totals, which the next read brings up to date, so a caller stamping errands keeps its
+ * own count of them until it is done reading.
  */
-export function equipFetchesUnderway(world: World): Map<number, Map<number, number>> {
-  const byOwner = new Map<number, Map<number, number>>();
-  for (const [owner, held] of tallyOf(world).byOwner) if (held.size > 0) byOwner.set(owner, new Map(held));
-  return byOwner;
-}
-
-/** {@link equipFetchesUnderway} without the copy: the live totals, which the next read of either brings up
- *  to date, so a caller stamping errands keeps its own count of them until it is done reading. */
 export function equipFetchesHeld(world: World): ReadonlyMap<number, ReadonlyMap<number, number>> {
   return tallyOf(world).byOwner;
 }

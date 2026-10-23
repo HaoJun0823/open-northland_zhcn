@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EquipOrder, Owner, setSettlerJob } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { Simulation } from '../../src/index.js';
-import { equipFetchesUnderway } from '../../src/systems/settlers/drives/equip-fetches.js';
+import { equipFetchesHeld } from '../../src/systems/settlers/drives/equip-fetches.js';
 import { testContent } from '../fixtures/content.js';
 import { settlerAt } from '../fixtures/settler.js';
 
@@ -27,9 +27,15 @@ function fetcher(sim: Simulation, goodType: number): Entity {
   return e;
 }
 
-const totals = (sim: Simulation) => equipFetchesUnderway(sim.world);
+/** The held totals copied out, owners holding nothing left out. */
+function totals(sim: Simulation): Map<number, Map<number, number>> {
+  const byOwner = new Map<number, Map<number, number>>();
+  for (const [owner, held] of equipFetchesHeld(sim.world))
+    if (held.size > 0) byOwner.set(owner, new Map(held));
+  return byOwner;
+}
 
-describe('equipFetchesUnderway', () => {
+describe('equipFetchesHeld', () => {
   it('follows the stage, job, owner and removal of each errand', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const first = fetcher(sim, AXE);
@@ -61,12 +67,5 @@ describe('equipFetchesUnderway', () => {
       ]),
     );
     expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('hands each caller its own copy', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    fetcher(sim, AXE);
-    totals(sim).get(PLAYER)?.set(AXE, 5);
-    expect(totals(sim).get(PLAYER)?.get(AXE)).toBe(1);
   });
 });

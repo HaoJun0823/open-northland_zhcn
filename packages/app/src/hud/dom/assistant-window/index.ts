@@ -129,6 +129,7 @@ const NOTE_GLYPH: Readonly<Record<StatusNoteKey, string>> = {
   fetchingWeapon: GLYPH.blade,
   needsWeapon: GLYPH.blade,
   needsMen: GLYPH.addPerson,
+  needsSoldierOrMan: GLYPH.addPerson,
 };
 /** Iron tools before wooden ones, as the assistant hands them out. */
 const GEAR_ORDER: readonly GiveSwitchId[] = ['giveBoots', 'giveIronTools', 'giveWoodenTools'];

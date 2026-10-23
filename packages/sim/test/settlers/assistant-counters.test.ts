@@ -14,6 +14,7 @@ import {
   Female,
   JobAssignment,
   Marriage,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   Owner,
   PickupClaim,
@@ -21,6 +22,7 @@ import {
   Residence,
   Settler,
   Stockpile,
+  setMissionBehaviour,
   setNeedsEnabled,
   setSettlerJob,
   TrainingOrder,
@@ -31,6 +33,7 @@ import { fx, ONE, Simulation } from '../../src/index.js';
 import { nodeOfPosition } from '../../src/nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { ASSISTANT_DECISION_PERIOD_TICKS } from '../../src/systems/assistant/index.js';
+import { WEAPON_MAIN_TYPE } from '../../src/systems/readviews/index.js';
 import { BARRACKS_DRILL_TICKS } from '../../src/systems/settlers/drives/training.js';
 import { ASSISTANT_SCAN_PERIOD_TICKS } from '../../src/systems/settlers/planner/assistant-grants.js';
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
@@ -75,6 +78,9 @@ const ARMOR_WOOL_GOOD = 61;
 const ARMOR_CHAIN_GOOD = 62;
 const SWORD_SHORT_WEAPON = 7;
 const SWORD_LONG_WEAPON = 8;
+const BOW_GOOD = 71;
+const BOW_WEAPON = 9;
+const ARCHER = 40;
 /** A dispatch beat plus slack - the counter must have acted (or provably not) within one beat. */
 const BEAT_TICKS = ASSISTANT_DECISION_PERIOD_TICKS + 2;
 /** Far beyond a recruit's own walk range (50 nodes = 25 tiles) - only a signpost chain reaches it. */
@@ -194,6 +200,30 @@ function trainSim(map = grassMap(16, 6)): Simulation {
   const sim = new Simulation({ seed: 1, content: trainContent(), map });
   setNeedsEnabled(sim.world, false);
   return sim;
+}
+
+/** {@link trainContent} plus a bow class: its good, its archer trade and the weapon row joining them. */
+function bowContent(): ContentSet {
+  const base = trainContent();
+  return parseContentSet({
+    ...base,
+    goods: [...base.goods, { typeId: BOW_GOOD, id: 'bow_short', equip: { category: 'weapon' } }],
+    jobs: [...base.jobs, { typeId: ARCHER, id: 'soldier_bow_short' }],
+    weapons: [
+      ...base.weapons,
+      {
+        typeId: BOW_WEAPON,
+        id: 'short_bow',
+        tribeType: VIKING,
+        mainType: WEAPON_MAIN_TYPE.BOW,
+        goodType: BOW_GOOD,
+        jobType: ARCHER,
+        minRange: 3,
+        maxRange: 17,
+        damage: { '0': 1200 },
+      },
+    ],
+  });
 }
 
 function settlerAt(sim: Simulation, jobType: number | null, x: number, y: number): Entity {
@@ -628,6 +658,7 @@ describe('the training queue', () => {
     const second = settlerAt(sim, SOLDIER, 3, 4);
     for (const e of [first, second])
       sim.world.add(e, AssistantRecruit, { intent: 'trainSword', armed: false, barracks });
+    setCounter(sim, 'trainSword', 2); // the counter the two bookings stand on
     const longPile = pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]]));
     const shortPile = pileAt(sim, 12, 3, new Map([[SWORD_SHORT_GOOD, 1]]));
 
@@ -673,6 +704,7 @@ describe('the training queue', () => {
     const second = settlerAt(sim, SOLDIER, 3, 4);
     for (const e of [first, second])
       sim.world.add(e, AssistantRecruit, { intent: 'trainSword', armed: false, barracks });
+    setCounter(sim, 'trainSword', 2); // the counter the two bookings stand on
     pileAt(
       sim,
       9,
@@ -687,6 +719,180 @@ describe('the training queue', () => {
     runUntil(sim, () => sim.world.get(second, Settler).jobType === SWORDSMAN_SHORT, 1500, 'second armed');
     runUntil(sim, () => !sim.world.has(second, EquipOrder), 200, 'second errand ended');
     expect(sim.world.has(second, PickupClaim)).toBe(false);
+  });
+
+  it('arms a bare-handed soldier on a class counter before it drafts a man', () => {
+    const sim = trainSim();
+    const barracks = barracksAt(sim, 6, 3);
+    const soldier = settlerAt(sim, SOLDIER, 3, 3);
+    const civilian = settlerAt(sim, CIVILIST, 2, 3);
+    pileAt(
+      sim,
+      9,
+      3,
+      new Map([
+        [SWORD_LONG_GOOD, 1],
+        [ARMOR_CHAIN_GOOD, 1],
+      ]),
+    );
+
+    setCounter(sim, 'trainSword', 1);
+    runUntil(
+      sim,
+      () => {
+        expect(sim.world.has(civilian, TrainingOrder)).toBe(false);
+        return (sim.world.tryGet(soldier, Equipment)?.armor ?? null) !== null;
+      },
+      3000,
+      'armed and armored',
+    );
+    expect(sim.world.get(soldier, Settler).jobType).toBe(SWORDSMAN_LONG);
+    expect(sim.assistantCounters(PLAYER).trainSword.value).toBe(0);
+    runUntil(sim, () => !sim.world.has(soldier, EquipOrder), 2000, 'walked back');
+    expect(nodeOf(sim, soldier)).toBe(doorOf(sim, barracks));
+    run(sim, 4 * BEAT_TICKS);
+    expect(sim.world.get(civilian, Settler).jobType).toBe(CIVILIST);
+  });
+
+  it('holds the draft for a bare-handed soldier on a walk, and arms him once he stands', () => {
+    const sim = trainSim();
+    barracksAt(sim, 6, 3);
+    const soldier = settlerAt(sim, SOLDIER, 3, 3);
+    const civilian = settlerAt(sim, CIVILIST, 2, 3);
+    pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+    sim.enqueueSetup({ kind: 'moveUnit', entity: soldier, x: 12, y: 3 });
+
+    setCounter(sim, 'trainSword', 1);
+    runUntil(
+      sim,
+      () => {
+        expect(sim.world.has(civilian, TrainingOrder)).toBe(false);
+        return sim.world.get(soldier, Settler).jobType === SWORDSMAN_LONG;
+      },
+      3000,
+      'armed after the walk',
+    );
+    expect(sim.assistantCounters(PLAYER).trainSword.value).toBe(0);
+  });
+
+  it('takes a bare-handed soldier only for a weapon he can fetch, the others holding their slots', () => {
+    const sim = trainSim();
+    barracksAt(sim, 6, 3);
+    const first = settlerAt(sim, SOLDIER, 3, 3);
+    const second = settlerAt(sim, SOLDIER, 3, 4);
+    const civilian = settlerAt(sim, CIVILIST, 2, 3);
+    pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+
+    setCounter(sim, 'trainSword', 2);
+    run(sim, BEAT_TICKS);
+    // One sword: one booking, and the other bare soldier stays in the field unbooked.
+    expect([first, second].filter((e) => sim.world.has(e, AssistantRecruit))).toHaveLength(1);
+    runUntil(
+      sim,
+      () => [first, second].some((e) => sim.world.get(e, Settler).jobType === SWORDSMAN_LONG),
+      3000,
+      'one armed',
+    );
+    run(sim, 4 * BEAT_TICKS);
+    const bare = [first, second].filter((e) => sim.world.get(e, Settler).jobType === SOLDIER);
+    expect(bare).toHaveLength(1);
+    for (const e of bare) expect(sim.world.has(e, AssistantRecruit)).toBe(false);
+    expect(sim.world.has(civilian, TrainingOrder)).toBe(false);
+    expect(sim.assistantCounters(PLAYER).trainSword.value).toBe(1);
+  });
+
+  it('drafts a man only for the slots no bare-handed soldier holds', () => {
+    const sim = trainSim();
+    barracksAt(sim, 6, 3);
+    const soldier = settlerAt(sim, SOLDIER, 3, 3);
+    const men = [settlerAt(sim, CIVILIST, 2, 2), settlerAt(sim, CIVILIST, 2, 4)];
+    pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 2]]));
+
+    setCounter(sim, 'trainSword', 2);
+    run(sim, 3 * BEAT_TICKS);
+    expect(sim.world.has(soldier, AssistantRecruit)).toBe(true);
+    expect(men.filter((e) => sim.world.has(e, TrainingOrder))).toHaveLength(1);
+  });
+
+  it('leaves a bare-handed soldier a script holds or whose trade it fixed to the draft', () => {
+    for (const behaviour of [MISSION_BEHAVIOUR.JOB_LOCKED, MISSION_BEHAVIOUR.NOT_CONTROLLABLE]) {
+      const sim = trainSim();
+      barracksAt(sim, 6, 3);
+      const held = settlerAt(sim, SOLDIER, 3, 3);
+      setMissionBehaviour(sim.world, held, behaviour, true);
+      const civilian = settlerAt(sim, CIVILIST, 2, 3);
+      pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+
+      setCounter(sim, 'trainSword', 1);
+      run(sim, 3 * BEAT_TICKS);
+      expect(sim.world.has(held, AssistantRecruit)).toBe(false);
+      expect(sim.world.has(civilian, TrainingOrder)).toBe(true);
+    }
+  });
+
+  it('arms a bare-handed soldier for the class whose weapon he can reach, whichever class has the turn', () => {
+    // Started a beat apart, the two runs hand the bow its turn on opposite beats.
+    for (const lead of [0, ASSISTANT_DECISION_PERIOD_TICKS]) {
+      const sim = new Simulation({ seed: 1, content: bowContent(), map: grassMap(16, 6) });
+      setNeedsEnabled(sim.world, false);
+      run(sim, lead);
+      barracksAt(sim, 6, 3);
+      const soldier = settlerAt(sim, SOLDIER, 3, 3);
+      const civilian = settlerAt(sim, CIVILIST, 2, 3);
+      pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]])); // no bow anywhere
+
+      setCounter(sim, 'trainSword', 1);
+      setCounter(sim, 'trainBow', 1);
+      runUntil(
+        sim,
+        () => {
+          expect(sim.world.tryGet(civilian, AssistantRecruit)?.intent).not.toBe('trainSword');
+          return sim.world.get(soldier, Settler).jobType === SWORDSMAN_LONG;
+        },
+        3000,
+        'armed with the sword',
+      );
+    }
+  });
+
+  it('leaves a bare-handed soldier unbooked while the only sword lies beyond his reach, and drafts nobody', () => {
+    const sim = trainSim(grassMap(96, 6));
+    sim.enqueueSetup({ kind: 'setSignpostNavigation', enabled: true });
+    sim.step();
+    barracksAt(sim, 6, 3);
+    const soldier = settlerAt(sim, SOLDIER, 3, 3);
+    const civilian = settlerAt(sim, CIVILIST, 2, 3);
+    pileAt(sim, FAR_TILE, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+
+    setCounter(sim, 'trainSword', 1);
+    run(sim, 4 * BEAT_TICKS);
+    expect(sim.world.has(soldier, AssistantRecruit)).toBe(false);
+    expect(sim.world.has(civilian, TrainingOrder)).toBe(false);
+
+    // A chain of posts takes his reach out to the pile, and the counter books him.
+    stampPost(sim, 12, 3, PLAYER);
+    stampPost(sim, 30, 3, PLAYER);
+    runUntil(sim, () => sim.world.get(soldier, Settler).jobType === SWORDSMAN_LONG, 6000, 'armed');
+  });
+
+  it('calls off the arming of a recruit still waiting for a weapon once his counter is lowered', () => {
+    const sim = trainSim();
+    barracksAt(sim, 6, 3);
+    const recruit = settlerAt(sim, CIVILIST, 3, 3);
+
+    setCounter(sim, 'trainSword', 1);
+    runUntil(sim, () => sim.world.get(recruit, Settler).jobType === SOLDIER, 3000, 'enlistment');
+    run(sim, 2 * BEAT_TICKS);
+    expect(sim.world.tryGet(recruit, AssistantRecruit)?.armed).toBe(false); // no sword in store
+
+    setCounter(sim, 'trainSword', 0);
+    run(sim, BEAT_TICKS);
+    expect(sim.world.has(recruit, AssistantRecruit)).toBe(false);
+    // The sword that comes in afterwards is nobody's: the counter asks for no swordsman.
+    pileAt(sim, 9, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+    run(sim, 4 * BEAT_TICKS);
+    expect(sim.world.get(recruit, Settler).jobType).toBe(SOLDIER);
+    expect(sim.world.has(recruit, EquipOrder)).toBe(false);
   });
 
   it('trains without arming ("naked") on the plain soldier counter even with weapons in store', () => {

@@ -1,10 +1,4 @@
-import {
-  Equipment,
-  Vehicle,
-  VehicleDrive,
-  vehicleCommander,
-  vehiclePassengers,
-} from '../../../components/index.js';
+import { Equipment, Vehicle, VehicleDrive, vehicleCommander } from '../../../components/index.js';
 import type { PlayerCommand } from '../../../core/commands/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
@@ -57,11 +51,9 @@ export interface SiegeCrewDecision {
   readonly commands: readonly PlayerCommand[];
   /** Men attached this decision. The attach applies next tick, so no other order may take them now. */
   readonly drafted: ReadonlySet<Entity>;
-  /** Drivers aboard a catapult parked at home: the outfit rung may call them down for an errand. */
-  readonly parkedDrivers: readonly Entity[];
 }
 
-const NO_CREW: SiegeCrewDecision = { commands: [], drafted: new Set(), parkedDrivers: [] };
+const NO_CREW: SiegeCrewDecision = { commands: [], drafted: new Set() };
 
 /** The seat's catapults that have a driver, ascending by vehicle id. */
 export function crewedCatapults(world: World, ctx: SystemContext, player: number): CrewedCatapult[] {
@@ -100,9 +92,8 @@ export function siegeCrewOrders(
   const sortie = raid === null ? [] : raidOrders(world, terrain, crewed, raid);
   const park = parkingOrders(world, ctx, terrain, player, owned, crewed, raid !== null);
   return {
-    commands: [...draft.commands, ...sortie, ...park.commands],
+    commands: [...draft.commands, ...sortie, ...park],
     drafted: draft.drafted,
-    parkedDrivers: park.parkedDrivers,
   };
 }
 
@@ -253,10 +244,9 @@ export function parkingOrders(
   owned: readonly Entity[],
   crewed: readonly CrewedCatapult[],
   raid = false,
-): { commands: PlayerCommand[]; parkedDrivers: Entity[] } {
+): PlayerCommand[] {
   const commands: PlayerCommand[] = [];
-  const parkedDrivers: Entity[] = [];
-  if (crewed.length === 0) return { commands, parkedDrivers };
+  if (crewed.length === 0) return commands;
   const doors = parkAnchors(world, ctx, terrain, player, owned);
   const taken: HalfCellNode[] = [];
   const standing: { crew: CrewedCatapult; at: HalfCellNode }[] = [];
@@ -277,7 +267,7 @@ export function parkingOrders(
     if (homing) unparkedHome.push({ crew, at });
     else standing.push({ crew, at });
   }
-  if (doors.length === 0) return { commands, parkedDrivers };
+  if (doors.length === 0) return commands;
   const unparked = [...unparkedHome];
   for (const entry of standing) {
     if (!inParkBand(entry.at, doors) || !spacedFrom(entry.at, taken)) {
@@ -285,10 +275,6 @@ export function parkingOrders(
       continue;
     }
     taken.push(entry.at);
-    const seat = vehiclePassengers(world.get(entry.crew.vehicle, Vehicle)).find(
-      (s) => s.entity === entry.crew.driver,
-    );
-    if (seat?.inside === true) parkedDrivers.push(entry.crew.driver);
   }
   for (const { crew, at } of unparked) {
     const goal = parkGoal(world, ctx, terrain, crew.vehicle, at, doors, taken);
@@ -296,7 +282,7 @@ export function parkingOrders(
     taken.push(goal);
     commands.push({ kind: 'moveVehicle', vehicle: crew.vehicle, x: goal.hx, y: goal.hy });
   }
-  return { commands, parkedDrivers };
+  return commands;
 }
 
 /**

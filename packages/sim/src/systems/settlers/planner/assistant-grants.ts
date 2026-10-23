@@ -60,7 +60,7 @@ export function toolHelpsJob(content: ContentSet, jobType: number): boolean {
 }
 
 /** One granted good, its slot group pre-resolved from content. */
-export interface GrantSpec {
+interface GrantSpec {
   readonly goodType: number;
   readonly category: EquipCategory;
   /** The misc goods whose presence in a row already satisfies the grant besides the good itself: the
@@ -265,7 +265,7 @@ function drinkEquivalents(
  * good or one of its equivalents, so a mead grant is one bottle each. Empty slots only, since the
  * assistant never swaps gear out.
  */
-export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): number | null {
+function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): number | null {
   if (spec.category !== 'misc') {
     return eq === undefined || equipSlotValue(eq, spec.category, 0) === null ? 0 : null;
   }

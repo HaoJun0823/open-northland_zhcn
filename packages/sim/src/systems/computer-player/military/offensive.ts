@@ -11,15 +11,7 @@ import { seatBarracksOf } from '../base.js';
 import { computerProfileOf } from '../difficulty.js';
 import { campaignTarget, objectiveNode } from './campaign.js';
 import { advanceWave, endMarch, launchWave } from './march/index.js';
-import {
-  formedUpAt,
-  gatherAt,
-  marchOrders,
-  meleeCoreFor,
-  musterAround,
-  rallyAt,
-  waveWorthy,
-} from './muster.js';
+import { gatherAt, marchOrders, meleeCoreFor, musterAround, rallyAt, waveWorthy } from './muster.js';
 import { abandonWave, decideWave, peaceEndsAt } from './plan.js';
 
 /** What the caller has left to spend on the campaign: the tower garrison and the band a raid takes are
@@ -31,13 +23,7 @@ export interface CampaignForce {
   readonly wave: readonly Entity[];
 }
 
-/** The campaign's orders, and the men it leaves standing at the barracks door this decision. */
-export interface CampaignDecision {
-  readonly commands: readonly PlayerCommand[];
-  readonly waiting: readonly Entity[];
-}
-
-const NO_CAMPAIGN: CampaignDecision = { commands: [], waiting: [] };
+const NO_CAMPAIGN: readonly PlayerCommand[] = [];
 
 /**
  * One strategic decision for the seat's campaign: the marching wave takes its next step
@@ -54,7 +40,7 @@ export function runOffensive(
   terrain: TerrainGraph,
   player: number,
   { army, awaitingWeapon, wave }: CampaignForce,
-): CampaignDecision {
+): readonly PlayerCommand[] {
   // No barracks, no rally point - and no army either, since its drill is the seat's only route to a
   // soldier (workforce/garrison.ts).
   const barracks = seatBarracksOf(world, ctx, player);
@@ -70,15 +56,12 @@ export function runOffensive(
     endMarch(world, barracks);
     const everyone = [...army, ...wave, ...awaitingWeapon];
     const rally = rallyAt(world, ctx, terrain, home, everyone);
-    return {
-      commands: gatherAt(world, terrain, everyone, rally),
-      waiting: army.filter((e) => !spokenFor(world, e) && formedUpAt(world, terrain, e, rally)),
-    };
+    return gatherAt(world, terrain, everyone, rally);
   }
 
   const objective = objectiveNode(world, ctx, terrain, target);
   const marchOn = advanceWave(world, ctx, terrain, barracks, player, target, objective, wave);
-  if (!atHome && (marchOn.active || wave.length === 0)) return { commands: marchOn.commands, waiting: [] };
+  if (!atHome && (marchOn.active || wave.length === 0)) return marchOn.commands;
   // A wave spent this decision hands its men back to the muster.
   const muster = marchOn.active ? army : [...army, ...wave].sort((a, b) => a - b);
   const rally = rallyAt(world, ctx, terrain, home, [...muster, ...awaitingWeapon]);
@@ -127,15 +110,12 @@ export function runOffensive(
   const waiting: Entity[] = charges ? [] : [...formed];
   if (!pressOn) waiting.push(...forward);
   waiting.push(...homing, ...awaitingWeapon);
-  return {
-    commands: [
-      ...marchOn.commands,
-      ...launch,
-      ...marchOrders(world, terrain, pressOn ? forward : [], objective),
-      ...gatherAt(world, terrain, waiting, rally),
-    ],
-    waiting: charges ? [] : formed,
-  };
+  return [
+    ...marchOn.commands,
+    ...launch,
+    ...marchOrders(world, terrain, pressOn ? forward : [], objective),
+    ...gatherAt(world, terrain, waiting, rally),
+  ];
 }
 
 interface Launch {

@@ -303,6 +303,6 @@ function ringSpots(radius: number): readonly RingOffset[] {
 
 const ASSAULT_SPOTS = ringSpots(ASSAULT_RING_RADIUS_NODES);
 
-export function formedUpAt(world: World, terrain: TerrainGraph, e: Entity, rally: Rally): boolean {
+function formedUpAt(world: World, terrain: TerrainGraph, e: Entity, rally: Rally): boolean {
   return manhattan(terrain, entityNode(world, terrain, e), rally.door) <= rally.holdRadius;
 }

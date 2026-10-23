@@ -93,7 +93,7 @@ export class PlanAlert {
 
 /**
  * Equipment errands whose store search one planner pass runs. An order handed to many settlers at once
- * (an AI decision outfitting its army, a player's mass equip) would otherwise search from every
+ * (a player's mass equip, the assistant's grants on a fresh stock) would otherwise search from every
  * settler's node in one tick; the rest stand for a tick and search on the next pass, in id order.
  * Authored throttle, not the original's.
  */

@@ -1264,11 +1264,20 @@ export const plGame = {
         extraMen: { label: 'Synowie', tip: 'Ilu jeszcze synów mają urodzić twoje pary. ∞: bez końca.' },
         trainSoldiers: {
           label: 'Żołnierze bez broni',
-          tip: 'Szkolenie w koszarach bez wydawania broni. Broń dasz im sam.',
+          tip: 'Szkolenie w koszarach bez wydawania broni. Uzbroją ich liczniki mieczników, włóczników i łuczników albo ty.',
         },
-        trainSword: { label: 'Miecznicy', tip: 'Szkolenie, potem najlepszy dostępny miecz i zbroja.' },
-        trainSpear: { label: 'Włócznicy', tip: 'Szkolenie, potem najlepsza dostępna włócznia i zbroja.' },
-        trainBow: { label: 'Łucznicy', tip: 'Szkolenie, potem najlepszy dostępny łuk i zbroja.' },
+        trainSword: {
+          label: 'Miecznicy',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepszy dostępny miecz i zbroja.',
+        },
+        trainSpear: {
+          label: 'Włócznicy',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepsza dostępna włócznia i zbroja.',
+        },
+        trainBow: {
+          label: 'Łucznicy',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepszy dostępny łuk i zbroja.',
+        },
       },
       switches: {
         giveBoots: { label: 'Buty', tip: 'Każdy dorosły mężczyzna bez butów pójdzie po parę do magazynu.' },
@@ -1383,6 +1392,15 @@ export const plGame = {
           },
           endless: 'czeka na wolnych mężczyzn',
           tip: 'Do koszar idzie dorosły mężczyzna bez zawodu i bez zajęcia. Nikt nie jest zabierany z pracy.',
+        },
+        needsSoldierOrMan: {
+          counted: {
+            one: '{count} czeka na żołnierza bez broni lub wolnego mężczyznę',
+            few: '{count} czekają na żołnierzy bez broni lub wolnych mężczyzn',
+            many: '{count} czeka na żołnierzy bez broni lub wolnych mężczyzn',
+          },
+          endless: 'czeka na żołnierzy bez broni lub wolnych mężczyzn',
+          tip: 'Najpierw broń dostaje żołnierz bez broni, gdy broń tej klasy jest w jego zasięgu. Gdy takiego nie ma, do koszar idzie dorosły mężczyzna bez zawodu i bez zajęcia.',
         },
       },
       outOfStock: 'Brak w magazynie. Polecenie zadziała, gdy towar się pojawi.',

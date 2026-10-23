@@ -1404,19 +1404,19 @@ export const deGame = {
         },
         trainSoldiers: {
           label: 'Unbewaffnete Soldaten',
-          tip: 'Ausbildung in der Kaserne ohne Waffenausgabe. Du bewaffnest sie selbst.',
+          tip: 'Ausbildung in der Kaserne ohne Waffenausgabe. Die Zähler für Schwert, Speer und Bogen bewaffnen sie, oder du.',
         },
         trainSword: {
           label: 'Schwertkämpfer',
-          tip: 'Ausbildung, danach das beste verfügbare Schwert und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Das beste verfügbare Schwert und die beste verfügbare Rüstung.',
         },
         trainSpear: {
           label: 'Speerträger',
-          tip: 'Ausbildung, danach der beste verfügbare Speer und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Der beste verfügbare Speer und die beste verfügbare Rüstung.',
         },
         trainBow: {
           label: 'Bogenschützen',
-          tip: 'Ausbildung, danach der beste verfügbare Bogen und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Der beste verfügbare Bogen und die beste verfügbare Rüstung.',
         },
       },
       switches: {
@@ -1543,6 +1543,15 @@ export const deGame = {
           },
           endless: 'wartet auf freie Männer',
           tip: 'Ein erwachsener Mann ohne Beruf und ohne Auftrag geht in die Kaserne. Niemand wird von der Arbeit abgezogen.',
+        },
+        needsSoldierOrMan: {
+          counted: {
+            one: '{count} wartet auf einen Soldaten ohne Waffe oder einen freien Mann',
+            few: '{count} warten auf Soldaten ohne Waffe oder freie Männer',
+            many: '{count} warten auf Soldaten ohne Waffe oder freie Männer',
+          },
+          endless: 'wartet auf Soldaten ohne Waffe oder freie Männer',
+          tip: 'Zuerst wird ein Soldat ohne Waffe bewaffnet, wenn eine Waffe dieser Klasse in seiner Reichweite liegt. Gibt es keinen, geht ein erwachsener Mann ohne Beruf und ohne Auftrag in die Kaserne.',
         },
       },
       outOfStock: 'Nichts vorrätig. Der Auftrag wird fortgesetzt, sobald die Waren eintreffen.',

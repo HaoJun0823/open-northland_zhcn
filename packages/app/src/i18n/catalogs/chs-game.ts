@@ -1261,11 +1261,11 @@ export const chsGame = {
         extraMen: { label: '儿子', tip: '你的夫妇还应再生几个儿子。∞：无限。' },
         trainSoldiers: {
           label: '徒手士兵',
-          tip: '在兵营训练，不发放武器。由你自己武装他们。',
+          tip: '在兵营训练，不发放武器。由剑、矛、弓计数器或你自己武装他们。',
         },
-        trainSword: { label: '剑兵', tip: '先训练，再领取库存中最好的剑和护甲。' },
-        trainSpear: { label: '矛兵', tip: '先训练，再领取库存中最好的矛和护甲。' },
-        trainBow: { label: '弓箭手', tip: '先训练，再领取库存中最好的弓和护甲。' },
+        trainSword: { label: '剑兵', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的剑和护甲。' },
+        trainSpear: { label: '矛兵', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的矛和护甲。' },
+        trainBow: { label: '弓箭手', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的弓和护甲。' },
       },
       switches: {
         giveBoots: { label: '鞋子', tip: '每个没有鞋的成年男人都会去仓库领一双。' },
@@ -1378,6 +1378,15 @@ export const chsGame = {
           },
           endless: '等待空闲男人',
           tip: '没有职业也没有差事的成年男人会去兵营。不会从工作中抽调任何人。',
+        },
+        needsSoldierOrMan: {
+          counted: {
+            one: '{count} 个在等待徒手士兵或空闲男人',
+            few: '{count} 个在等待徒手士兵或空闲男人',
+            many: '{count} 个在等待徒手士兵或空闲男人',
+          },
+          endless: '等待徒手士兵或空闲男人',
+          tip: '徒手士兵可及范围内有此类武器时，先武装他。没有这样的士兵时，没有职业也没有差事的成年男人会去兵营。',
         },
       },
       outOfStock: '库存中没有。物资到货后命令会重新生效。',

@@ -54,11 +54,11 @@ import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
 
 /**
- * The assistant's arming pass: dress each enlisted weapon-class recruit whose drill is served from any
- * reachable store. Authored: one outing, so the weapon is fetched first and the equip drive chains the
- * armor want at the store before the single walk back to the recruit's barracks (owner's ruling: armed
- * soldiers gather there, not at the store). Runs on the grants pass's stride beat with the
- * same one-errand rule. A dispatch claims its unit at once, so a recruit on the same beat shops for
+ * The assistant's arming pass: dress each enlisted weapon-class recruit, a drilled one or a bare-handed
+ * soldier its counter booked, from any reachable store. Authored: one outing, so the weapon is fetched
+ * first and the equip drive chains the armor want at the store before the single walk back to the
+ * recruit's barracks (owner's ruling: armed soldiers gather there, not at the store). Runs on the grants
+ * pass's stride beat with the same one-errand rule. A dispatch claims its unit at once, so a recruit on the same beat shops for
  * another; the recruit's own plan re-claims it.
  */
 export function dispatchRecruitArming(pass: PlannerPass): void {
@@ -375,9 +375,9 @@ const ARMOR_TIERS = [ARMOR_MAIN_TYPE.HEAVY, ARMOR_MAIN_TYPE.LIGHT] as const;
 /** The unarmored damage column (`damagevalue 0`), the strength axis the weapon preference sorts on. */
 const BARE_TARGET = 0;
 
-/** Where an arming outing ends: the door of the barracks the recruit drilled at, or where the outing
- *  leaves him (null) when that barracks is gone or another side's at dispatch. A barracks lost later still
- *  draws him to its old door. */
+/** Where an arming outing ends: the door of the booking's barracks, or where the outing leaves him (null)
+ *  when that barracks is gone or another side's at dispatch. A barracks lost later still draws him to its
+ *  old door. */
 function barracksDoor(pass: PlannerPass, e: Entity, barracks: Entity, here: NodeId): NodeId | null {
   const { world, ctx, terrain } = pass;
   if (!isBarracksOrFoundation(world, ctx, barracks) || !sameSide(world, e, barracks)) return null;

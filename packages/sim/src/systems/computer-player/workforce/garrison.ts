@@ -21,7 +21,7 @@ import {
 } from '../../ai-shared/military/census.js';
 import { isBuilt, ownedBuildings, ownedSettlers } from '../../ai-shared/seat-roster.js';
 import type { SpareForce } from '../../ai-shared/workforce/pool.js';
-import { draftableTrade } from '../../assistant/index.js';
+import { draftableTrade, isBareSoldier } from '../../assistant/index.js';
 import { towerPostFor } from '../../conflict/tower-post.js';
 import type { SystemContext } from '../../context.js';
 import { isMarried, mayMarry } from '../../family/eligibility.js';
@@ -38,18 +38,18 @@ import { peaceEndsAt, WAVE_GATHER_TICKS } from '../military/plan.js';
 import { productsOf } from './craft.js';
 
 /** The army's armed classes; publication order breaks a draft tie, leaving the odd man in reach. */
-export const GARRISON_WEAPON_INTENTS = [
+const GARRISON_WEAPON_INTENTS = [
   'trainSword',
   'trainBow',
   'trainSpear',
 ] as const satisfies readonly AssistantRecruitIntent[];
-export type GarrisonWeaponIntent = (typeof GARRISON_WEAPON_INTENTS)[number];
+type GarrisonWeaponIntent = (typeof GARRISON_WEAPON_INTENTS)[number];
 
 /** The field army's weapon mix while a store can arm every class (authored): four archers to three
  *  swordsmen and three spearmen. Over fewer armable classes the field splits evenly, so a stalled weapon
  *  line leaves the rest half and half. The archers posted to towers leave the field for good and are not
  *  counted. */
-export const FULL_FIELD_SHARES: Readonly<Record<GarrisonWeaponIntent, number>> = {
+const FULL_FIELD_SHARES: Readonly<Record<GarrisonWeaponIntent, number>> = {
   trainSword: 3,
   trainBow: 4,
   trainSpear: 3,
@@ -246,11 +246,13 @@ function weakerWeaponGoods(content: ContentSet): readonly number[] {
 }
 
 /**
- * The wanted value per counter: its own unpaid bookings ({@link bookedByIntent}) plus a share of the
- * `draftable` men (the army floor's first, then the spare), so the headroom the dispatcher sees
+ * The wanted value per counter: its own unpaid bookings ({@link bookedByIntent}) plus a share of the seat's
+ * bare-handed soldiers, whom the dispatcher arms before it drafts anyone ({@link isBareSoldier}), and of
+ * the `draftable` men (the army floor's first, then the spare), so the headroom the dispatcher sees
  * (`counter - bookings`) sums to exactly that number. Each man goes to the armable class furthest below
  * its field share ({@link fieldedByIntent}, {@link FULL_FIELD_SHARES}), the earlier class on a tie. A seat
- * that can arm none of them drafts by {@link draftingClasses}' fallback: `trainSoldiers`, or nobody.
+ * that can arm none of them leaves its bare soldiers as they stand and drafts by {@link draftingClasses}'
+ * fallback: `trainSoldiers`, or nobody.
  */
 function standingOrder(
   world: World,
@@ -267,28 +269,43 @@ function standingOrder(
   const booked = bookedByIntent(world, ctx, player);
   for (const intent of GARRISON_INTENTS) wants.set(intent, booked.get(intent) ?? 0);
 
+  const bare = ownedSettlers(world, player).filter((e) => isBareSoldier(world, ctx, e, player));
   const headroom = profile.army.draftToCap ? profile.army.cap - arms.onHand() : Number.POSITIVE_INFINITY;
   const allowance = Math.max(0, Math.min(draftable.length, arms.surplus(), headroom));
-  const next = draftable[0];
-  if (allowance === 0 || next === undefined) return wants; // nobody to draft: the classes need no probe
-  const drafting = arms.classesFor(barracks, next);
-  if (drafting.length === 0) return wants;
+  const judged = bare[0] ?? (allowance > 0 ? draftable[0] : undefined);
+  if (judged === undefined) return wants; // nobody to arm or draft: the classes need no probe
+  const classes = arms.classesFor(barracks, judged);
+  if (classes.length === 0) return wants;
   const fielded = fieldedByIntent(world, ctx, player, booked);
-  const full = GARRISON_WEAPON_INTENTS.every((intent) => drafting.includes(intent));
-  const shares = drafting.map((intent) => (full && isWeaponIntent(intent) ? FULL_FIELD_SHARES[intent] : 1));
-  const standing = drafting.map((intent) => fielded.get(intent) ?? 0);
+  shareOut(bare.length, classes.filter(isWeaponIntent), fielded, wants);
+  shareOut(allowance, classes, fielded, wants);
+  return wants;
+}
+
+/** Add `count` men to `wants`, each to the class of `classes` furthest below its field share in `fielded`,
+ *  which counts him there. Full shares apply only over all three armed classes. */
+function shareOut(
+  count: number,
+  classes: readonly AssistantRecruitIntent[],
+  fielded: Map<AssistantRecruitIntent, number>,
+  wants: Map<AssistantRecruitIntent, number>,
+): void {
+  if (count === 0 || classes.length === 0) return;
+  const full = GARRISON_WEAPON_INTENTS.every((intent) => classes.includes(intent));
+  const shares = classes.map((intent) => (full && isWeaponIntent(intent) ? FULL_FIELD_SHARES[intent] : 1));
+  const standing = classes.map((intent) => fielded.get(intent) ?? 0);
   // standing / share compared by cross-multiplication, so the pick stays in integers.
   const behind = (i: number, j: number): boolean =>
     (standing[i] ?? 0) * (shares[j] ?? 1) < (standing[j] ?? 0) * (shares[i] ?? 1);
-  for (let drafted = 0; drafted < allowance; drafted++) {
+  for (let added = 0; added < count; added++) {
     let rank = 0;
-    for (let i = 1; i < drafting.length; i++) if (behind(i, rank)) rank = i;
-    const intent = drafting[rank];
+    for (let i = 1; i < classes.length; i++) if (behind(i, rank)) rank = i;
+    const intent = classes[rank];
     if (intent === undefined) break;
     standing[rank] = (standing[rank] ?? 0) + 1;
+    fielded.set(intent, standing[rank] ?? 0);
     wants.set(intent, (wants.get(intent) ?? 0) + 1);
   }
-  return wants;
 }
 
 function isWeaponIntent(intent: AssistantRecruitIntent): intent is GarrisonWeaponIntent {

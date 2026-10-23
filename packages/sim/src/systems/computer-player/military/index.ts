@@ -1,4 +1,3 @@
-import { Vehicle, vehicleCommander } from '../../../components/index.js';
 import type { PlayerCommand } from '../../../core/commands/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { planSettlementDefence } from '../../ai-shared/military/settlement-defence.js';
@@ -8,7 +7,7 @@ import type { ComputerModule } from '../index.js';
 
 import { marchingWave } from './march/index.js';
 import { runOffensive } from './offensive.js';
-import { outfitGrantOrders, outfitOrders } from './outfit.js';
+import { outfitGrantOrders } from './outfit.js';
 import { siegeCrewOrders } from './siege-crew.js';
 
 export {
@@ -70,8 +69,11 @@ export {
   parkingOrders,
 } from './siege-crew.js';
 
-/** Autonomous campaign, siege crews and equipment requests consume only the force left after authored
- * assignments and settlement defence. The shared defence system owns the home orders. */
+/** Autonomous campaign and siege crews consume only the force left after authored assignments and
+ * settlement defence. The shared defence system owns the home orders. Owner's ruling: the assistant arms
+ * and dresses the army through the counters and grants the seat publishes, where the original's computer
+ * player drafts and outfits its soldiers itself, matching its weapons and armour to its enemies' gear and
+ * dressing armed men later. */
 function runMilitary(world: World, ctx: SystemContext, player: number): readonly PlayerCommand[] {
   const terrain = ctx.terrain;
   if (terrain === undefined) return []; // mapless sim: no ground to march over
@@ -89,36 +91,15 @@ function runMilitary(world: World, ctx: SystemContext, player: number): readonly
     raid,
   );
   const field = available.filter((e) => !siege.drafted.has(e));
-  const offensive = runOffensive(world, ctx, terrain, player, {
+  const campaign = runOffensive(world, ctx, terrain, player, {
     army: field,
     awaitingWeapon: army.awaitingWeapon,
     wave: wave === null ? [] : army.ready.filter((e) => wave.men.has(e)),
   });
-  // Drivers of the catapults a launch took this decision are the wave's now, and a raid leaves no free man
-  // to replace a driver called down.
-  const launched = marchingWave(world, ctx, player);
-  const parkedDrivers =
-    raid !== null
-      ? []
-      : siege.parkedDrivers.filter((driver) => !drivesOneOf(world, driver, launched?.catapults));
-  return [
-    ...siege.commands,
-    ...offensive.commands,
-    ...outfitOrders(world, ctx, terrain, player, [...offensive.waiting, ...parkedDrivers]),
-    ...outfitGrantOrders(world, ctx, player),
-  ];
+  return [...siege.commands, ...campaign, ...outfitGrantOrders(world, ctx, player)];
 }
 
 const NONE_MARCHING: ReadonlySet<Entity> = new Set();
-
-function drivesOneOf(world: World, driver: Entity, catapults: ReadonlySet<Entity> | undefined): boolean {
-  if (catapults === undefined) return false;
-  for (const vehicle of catapults) {
-    const state = world.tryGet(vehicle, Vehicle);
-    if (state !== undefined && vehicleCommander(state) === driver) return true;
-  }
-  return false;
-}
 
 export const militaryModule: ComputerModule = {
   id: 'military',

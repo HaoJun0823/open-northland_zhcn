@@ -153,8 +153,13 @@ export class FetchableStock {
 
   /** Whether `player` holds more than `units` of `goodType` it may give up. */
   exceeds(player: number, goodType: number, units: number): boolean {
+    return this.lendableUnits(player, goodType) > units;
+  }
+
+  /** The units of `goodType` `player` may give up. */
+  lendableUnits(player: number, goodType: number): number {
     const total = this.totals.get(goodType);
-    return total !== undefined && this.lendable(total, player, goodType) > units;
+    return total === undefined ? 0 : this.lendable(total, player, goodType);
   }
 
   /** The units of `goodType` `player`'s storehouses and headquarters hold between them. */

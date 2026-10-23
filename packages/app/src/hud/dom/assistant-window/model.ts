@@ -110,9 +110,10 @@ export type StatusNoteKey =
   | 'drilling'
   | 'fetchingWeapon'
   | 'needsWeapon'
-  | 'needsMen';
+  | 'needsMen'
+  | 'needsSoldierOrMan';
 /** The facts about what still waits to be booked, the only ones an endless counter leaves uncounted. */
-export type WaitingNoteKey = Extract<StatusNoteKey, 'needsCouple' | 'needsMen'>;
+export type WaitingNoteKey = Extract<StatusNoteKey, 'needsCouple' | 'needsMen' | 'needsSoldierOrMan'>;
 
 export type StatusNote =
   | { readonly key: StatusNoteKey; readonly count: number }
@@ -129,6 +130,7 @@ export const NOTE_TONE: Readonly<Record<StatusNoteKey, StatusTone>> = {
   fetchingWeapon: 'busy',
   needsWeapon: 'warn',
   needsMen: 'idle',
+  needsSoldierOrMan: 'idle',
 };
 
 /** What is left to book: the counter less its orders in flight, null while it never drains. */
@@ -161,8 +163,8 @@ export interface TrainingFacts {
 
 /**
  * A training counter's line: recruits in the barracks, recruits on their way to a weapon (or stuck for
- * one), then what still waits for a free man. The dispatcher counts every unarmed
- * booking against its counter, so those are what is left to book.
+ * one), then what still waits to be booked: for a class counter a bare soldier first, else a free man. The
+ * dispatcher counts every unarmed booking against its counter, so those are what is left to book.
  */
 export function trainingNotes(counter: CounterState, facts: TrainingFacts): readonly StatusNote[] {
   const notes: StatusNote[] = [];
@@ -175,7 +177,8 @@ export function trainingNotes(counter: CounterState, facts: TrainingFacts): read
   }
   const booked = facts.drilling + facts.arming;
   const left = unbooked(counter, booked);
-  if (left === null ? booked === 0 : left > 0) notes.push(waiting('needsMen', left));
+  const waits = facts.weaponStocked === null ? 'needsMen' : 'needsSoldierOrMan';
+  if (left === null ? booked === 0 : left > 0) notes.push(waiting(waits, left));
   return notes;
 }
 

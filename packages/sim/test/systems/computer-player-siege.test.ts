@@ -1,14 +1,6 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import {
-  Building,
-  Owner,
-  Rider,
-  Settler,
-  Vehicle,
-  VehicleDrive,
-  WaveMarch,
-} from '../../src/components/index.js';
+import { Building, Owner, Settler, Vehicle, VehicleDrive, WaveMarch } from '../../src/components/index.js';
 import { CommandQueue } from '../../src/core/command-queue.js';
 import type { Command, PlayerCommand } from '../../src/core/commands/index.js';
 import { PersonalNames } from '../../src/core/personal-names.js';
@@ -29,7 +21,6 @@ import {
 import { VEHICLE_SCAN_RADIUS_POINTS } from '../../src/systems/conflict/engage-vehicle.js';
 import { vehicleAnchor } from '../../src/systems/footprint/index.js';
 import type { SystemContext } from '../../src/systems/index.js';
-import { ARMOR_MAIN_TYPE } from '../../src/systems/readviews/index.js';
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
 import { boardRider, createVehicle } from '../../src/systems/vehicles/index.js';
 import { aiContent } from '../fixtures/ai-content.js';
@@ -48,9 +39,6 @@ const FIST = 31;
 const SPEARMAN = 32;
 const BOWMAN = 40;
 const CATAPULT = 5;
-/** The chain armour a waiting soldier is sent for; the potions go through the assistant's grants. */
-const CHAIN_GOOD = 60;
-const CHAIN_ARMOR = 7;
 /** A seed whose opening wave draw is its floor, so a band of that floor charges at once. */
 const EAGER_SEED = 7;
 const BARRACKS = { x: 30, y: 30 };
@@ -68,11 +56,6 @@ function siegeContent(): ContentSet {
   const base = aiContent();
   return parseContentSet({
     ...base,
-    goods: [
-      ...base.goods,
-      { typeId: CHAIN_GOOD, id: 'armor_chain', weight: 1, equip: { category: 'armor' } },
-    ],
-    armor: [{ typeId: CHAIN_ARMOR, id: 'chain', mainType: ARMOR_MAIN_TYPE.HEAVY, goodType: CHAIN_GOOD }],
     vehicles: [
       {
         typeId: CATAPULT,
@@ -394,9 +377,9 @@ describe('military module - the catapults defend the settlement', () => {
   });
 });
 
-describe('military module - the parked driver outfit', () => {
-  /** A seat whose headquarters holds one suit of armour, with one catapult and its driver aboard at `at`. */
-  function outfitSim(at: (rally: { x: number; y: number }) => { x: number; y: number }): {
+describe('military module - a parked catapult and the launching wave', () => {
+  /** A seat with its headquarters and one catapult, its driver aboard, at `at`. */
+  function parkedSim(at: (rally: { x: number; y: number }) => { x: number; y: number }): {
     sim: Simulation;
     driver: Entity;
     vehicle: Entity;
@@ -409,7 +392,6 @@ describe('military module - the parked driver outfit', () => {
       y: HQ.y,
       tribe: VIKING,
       owner: SEAT,
-      initialGoods: [{ good: CHAIN_GOOD, amount: 1 }],
     });
     sim.step();
     const spot = at(rallyOf(sim));
@@ -422,24 +404,6 @@ describe('military module - the parked driver outfit', () => {
   }
 
   const inPark = (rally: { x: number; y: number }) => ({ x: rally.x + 4, y: rally.y + 8 });
-
-  it('sends the driver of a parked catapult down for an outfit a store holds', () => {
-    const { sim, driver } = outfitSim(inPark);
-    const commands = run(sim);
-    expect(vehicleOrders(commands)).toEqual([]); // parked already
-    const errand = commands.filter((c) => c.kind === 'equipGood');
-    expect(errand).toEqual([
-      { kind: 'equipGood', entity: driver, group: 'armor', slot: 0, goodType: CHAIN_GOOD },
-    ]);
-
-    apply(sim, errand);
-    expect(sim.world.has(driver, Rider)).toBe(false);
-  });
-
-  it('keeps the driver aboard while his catapult is still on its way home', () => {
-    const { sim } = outfitSim(() => YARD);
-    expect(run(sim).some((c) => c.kind === 'equipGood')).toBe(false);
-  });
 
   /** The foe's headquarters to march on and a band formed up at the barracks door. */
   function readyToLaunch(sim: Simulation): void {
@@ -455,8 +419,8 @@ describe('military module - the parked driver outfit', () => {
     );
   }
 
-  it('keeps aboard the driver of a catapult the launching wave takes', () => {
-    const { sim, driver, vehicle } = outfitSim(inPark);
+  it('lets the launching wave take a parked catapult', () => {
+    const { sim, vehicle } = parkedSim(inPark);
     const rally = rallyOf(sim);
     for (const { x, y } of MORE_PARKS) crewedAt(sim, { x: rally.x + x, y: rally.y + y });
     readyToLaunch(sim);
@@ -464,11 +428,10 @@ describe('military module - the parked driver outfit', () => {
     expect(commands.some((c) => c.kind === 'moveVehicle' && c.vehicle === vehicle && c.attackMove)).toBe(
       true,
     );
-    expect(commands.some((c) => c.kind === 'equipGood' && c.entity === driver)).toBe(false);
   });
 
   it('keeps fewer than four catapults parked at home when the wave launches', () => {
-    const { sim, vehicle } = outfitSim(inPark);
+    const { sim, vehicle } = parkedSim(inPark);
     const rally = rallyOf(sim);
     const [spot] = MORE_PARKS;
     if (spot === undefined) throw new Error('setup');
@@ -481,11 +444,5 @@ describe('military module - the parked driver outfit', () => {
     if (barracks === undefined) throw new Error('expected a launched wave');
     expect(sim.world.get(barracks, WaveMarch).catapults).toEqual([]);
     expect(commands.some((c) => c.kind === 'moveVehicle' && c.vehicle === vehicle)).toBe(false);
-  });
-
-  it('keeps the parked driver aboard while a raid stands at the gates', () => {
-    const { sim } = outfitSim(inPark);
-    spawnOne(sim, { x: BARRACKS.x + 6, y: BARRACKS.y + 6 }, SPEARMAN, FOE);
-    expect(run(sim).some((c) => c.kind === 'equipGood')).toBe(false);
   });
 });

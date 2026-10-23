@@ -1287,11 +1287,20 @@ export const enGame = {
         extraMen: { label: 'Sons', tip: 'How many more sons your couples should have. ∞: without end.' },
         trainSoldiers: {
           label: 'Soldiers without weapons',
-          tip: 'Barracks training without handing out a weapon. You arm them yourself.',
+          tip: 'Barracks training without handing out a weapon. The sword, spear and bow counters arm them, or you do.',
         },
-        trainSword: { label: 'Sword fighters', tip: 'Training, then the best sword and armour in stock.' },
-        trainSpear: { label: 'Spearmen', tip: 'Training, then the best spear and armour in stock.' },
-        trainBow: { label: 'Archers', tip: 'Training, then the best bow and armour in stock.' },
+        trainSword: {
+          label: 'Sword fighters',
+          tip: 'Arms soldiers without weapons first, then trains new ones. The best sword and armour in stock.',
+        },
+        trainSpear: {
+          label: 'Spearmen',
+          tip: 'Arms soldiers without weapons first, then trains new ones. The best spear and armour in stock.',
+        },
+        trainBow: {
+          label: 'Archers',
+          tip: 'Arms soldiers without weapons first, then trains new ones. The best bow and armour in stock.',
+        },
       },
       switches: {
         giveBoots: { label: 'Shoes', tip: 'Every adult man without shoes fetches a pair from the store.' },
@@ -1404,6 +1413,15 @@ export const enGame = {
           },
           endless: 'waits for free men',
           tip: 'An adult man with no profession and no errand goes to the barracks. Nobody is taken from work.',
+        },
+        needsSoldierOrMan: {
+          counted: {
+            one: '{count} waits for a bare soldier or a free man',
+            few: '{count} wait for bare soldiers or free men',
+            many: '{count} wait for bare soldiers or free men',
+          },
+          endless: 'waits for bare soldiers or free men',
+          tip: 'A soldier without a weapon is armed first when a weapon of this class lies in his reach. When there is none, an adult man with no profession and no errand goes to the barracks.',
         },
       },
       outOfStock: 'None in stock. The order works again once the goods arrive.',

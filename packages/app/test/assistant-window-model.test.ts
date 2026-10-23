@@ -60,10 +60,14 @@ describe('assistant status notes', () => {
 
   it('follows recruits from the barracks to the weapon, then names what blocks the rest', () => {
     const facts = { drilling: 1, arming: 1, weaponStocked: true };
+    // A class counter's rest waits for a bare soldier before a free man.
     expect(trainingNotes(finite(4), facts)).toEqual([
       { key: 'drilling', count: 1 },
       { key: 'fetchingWeapon', count: 1 },
-      { key: 'needsMen', count: 2 },
+      { key: 'needsSoldierOrMan', count: 2 },
+    ]);
+    expect(trainingNotes(endless(), { drilling: 0, arming: 0, weaponStocked: true })).toEqual([
+      { key: 'needsSoldierOrMan', count: null },
     ]);
     expect(trainingNotes(finite(2), { ...facts, weaponStocked: false })).toEqual([
       { key: 'drilling', count: 1 },

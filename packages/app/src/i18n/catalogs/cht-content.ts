@@ -602,6 +602,10 @@ export const chtContent = {
       summary:
         '倉庫至少保留 10 份水：水井的搬運工先把倉庫補滿，再重新供應烘焙坊，而麵包師絕不會把倉庫的水取到低於最低庫存。',
     },
+    'storage-minimum-porter': {
+      title: '最低庫存：搬運工',
+      summary: '倉庫至少保留 3 份水：總部的搬運工先從水井運水，再把門口的石堆搬進來。',
+    },
     warehouse: {
       title: '倉庫物流',
       summary: '搬運工收集散落的貨物，直到每座倉庫的容量達到上限。',

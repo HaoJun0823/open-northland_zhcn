@@ -624,6 +624,11 @@ export const plContent = {
       summary:
         'Magazyny trzymają co najmniej 10 wody: tragarz studni najpierw dopełnia magazyn, potem znów zaopatruje piekarnię, a piekarz nie bierze wody z magazynu poniżej minimum.',
     },
+    'storage-minimum-porter': {
+      title: 'Minimum w magazynach: tragarz',
+      summary:
+        'Magazyny trzymają co najmniej 3 wody: tragarz kwatery głównej najpierw przynosi ją ze studni, potem zbiera kamień spod drzwi.',
+    },
     warehouse: {
       title: 'Logistyka magazynu',
       summary: 'Tragarze zbierają luźne towary, dopóki magazyn nie osiągnie pojemności.',

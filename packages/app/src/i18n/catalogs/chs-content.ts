@@ -600,6 +600,10 @@ export const chsContent = {
       summary:
         '仓库至少保留 10 份水：水井的搬运工先把仓库补满，再重新给烘焙坊供水，面包师从仓库取水时绝不会让存量低于最低值。',
     },
+    'storage-minimum-porter': {
+      title: '最低库存：搬运工',
+      summary: '仓库至少保留 3 份水：总部的搬运工先从水井运水，再把门口的石堆搬进来。',
+    },
     warehouse: {
       title: '仓库物流',
       summary: '搬运工收集散落的物资，直到各仓库达到容量上限。',

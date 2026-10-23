@@ -86,6 +86,7 @@ import { siegeScene } from './siege.js';
 import { signpostsScene } from './signposts.js';
 import { storageFullScene } from './storage-full.js';
 import { storageMinimumScene } from './storage-minimum.js';
+import { storageMinimumPorterScene } from './storage-minimum-porter.js';
 import { storeReachScene } from './store-reach.js';
 import { technologyScene } from './technology.js';
 import { templeAuraScene } from './temple-aura.js';
@@ -189,6 +190,7 @@ export const SCENES: readonly SceneDefinition[] = [
   huntingScene,
   householdGoodsScene,
   storageMinimumScene,
+  storageMinimumPorterScene,
   templeAuraScene,
   idleWorkScene,
   storeReachScene,

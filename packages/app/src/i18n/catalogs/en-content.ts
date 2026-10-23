@@ -627,6 +627,11 @@ export const enContent = {
       summary:
         'The storehouses keep at least 10 water: the well carrier fills the warehouse up first, then supplies the bakery again, and the baker never takes the warehouse water below the minimum.',
     },
+    'storage-minimum-porter': {
+      title: 'Storage minimum: porter',
+      summary:
+        'The storehouses keep at least 3 water: the headquarters porter fetches it from the well first, then brings in the stone heap at the door.',
+    },
     warehouse: {
       title: 'Warehouse logistics',
       summary: 'Carriers collect loose goods until each warehouse capacity is reached.',

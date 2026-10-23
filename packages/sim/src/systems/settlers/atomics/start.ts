@@ -302,13 +302,18 @@ function walkThenLift(
   atOrWalk(world, e, here, cell ?? interactionCell(world, ctx, terrain, from, here), () => {
     const empty = (accessibleStockAmounts(world, from)?.get(goodType) ?? 0) <= 0;
     if (empty && (refills ?? refillingGoodsOf(world, ctx, from).includes(goodType))) {
-      startAtomic(world, e, REFILL_WAIT_ATOMIC_ID, { kind: 'idle' }, ticksPastNextRefill(ctx.tick), null);
+      startRefillWait(world, ctx, e);
     } else if (liftsWithHaulingCart(world, e)) {
       startCartLoad(world, ctx, e, plan, from, goodType, amount);
     } else {
       startPickup(world, ctx, e, plan, from, goodType, amount);
     }
   });
+}
+
+/** Idle at an empty well or hive until the tick after its next refill beat, keeping the errand. */
+export function startRefillWait(world: World, ctx: SystemContext, e: Entity): void {
+  startAtomic(world, e, REFILL_WAIT_ATOMIC_ID, { kind: 'idle' }, ticksPastNextRefill(ctx.tick), null);
 }
 
 /** The wait's length from `tick`, counted: it ends on the next refill beat, `tick` included, and the refill

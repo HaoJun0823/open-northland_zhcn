@@ -1,5 +1,6 @@
 import { HaulingCart, type HaulingLift, PathRequest } from '../../../../components/index.js';
 import type { Entity } from '../../../../ecs/world.js';
+import { refillingGoodsOf } from '../../../stores/index.js';
 import { boardingNode } from '../../../vehicles/crew.js';
 import {
   cartLiftContinues,
@@ -9,7 +10,7 @@ import {
   releaseHaulingCart,
   takeHaulingCart,
 } from '../../../vehicles/hauling-cart.js';
-import { atOrWalk, startCartLoad, startCartUnload } from '../../atomics/start.js';
+import { atOrWalk, startCartLoad, startCartUnload, startRefillWait } from '../../atomics/start.js';
 import type { PlannerContext } from '../../planner/context.js';
 import { interactionCell, unclaimedStockOf } from '../../targets/index.js';
 
@@ -51,25 +52,27 @@ export function planHaulingCart(plan: PlannerContext, loaded: boolean): boolean 
 
 /** The next clip of the lift, from the cell it works at; false once there is nothing left to move. A
  *  load claims the units it still means to lift again before each clip, since the clip's pick-up ends
- *  the claim, so another carrier planned meanwhile picks another heap. */
+ *  the claim, so another carrier planned meanwhile picks another heap. At a well or hive, whose shelf
+ *  holds a unit or two, a load waits out each refill until the cart is full (named addition). */
 function continueLift(plan: PlannerContext, lift: HaulingLift): boolean {
   const { world, ctx, terrain, entity: e, here, supply } = plan;
   const offers = (from: Entity, goodType: number): number =>
     unclaimedStockOf(world, ctx, supply, from, goodType);
-  if (!cartLiftContinues(world, ctx, e, lift, offers)) return false;
+  const supplies = (from: Entity, goodType: number): boolean =>
+    offers(from, goodType) > 0 || refillingGoodsOf(world, ctx, from).includes(goodType);
+  if (!cartLiftContinues(world, ctx, e, lift, supplies)) return false;
+  const shelved = lift.kind === 'load' ? offers(lift.from, lift.goodType) : 0;
   if (lift.kind === 'load') {
-    const amount = Math.min(
-      lift.units,
-      haulingCartRoom(world, ctx.content, e),
-      offers(lift.from, lift.goodType),
-    );
+    const amount = Math.min(lift.units, haulingCartRoom(world, ctx.content, e), shelved);
     supply.stampPickupClaim(e, { source: lift.from, goodType: lift.goodType, amount });
   }
   const at = lift.kind === 'load' ? lift.from : lift.store;
   const cell = interactionCell(world, ctx, terrain, at, here);
   atOrWalk(world, e, here, cell, () => {
-    if (lift.kind === 'load') startCartLoad(world, ctx, e, plan, lift.from, lift.goodType, lift.units);
-    else startCartUnload(world, ctx, e, plan, lift.store);
+    if (lift.kind === 'unload') startCartUnload(world, ctx, e, plan, lift.store);
+    else if (shelved > 0) {
+      startCartLoad(world, ctx, e, plan, lift.from, lift.goodType, lift.units);
+    } else startRefillWait(world, ctx, e);
   });
   return true;
 }

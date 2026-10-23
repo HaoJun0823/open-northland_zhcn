@@ -1,3 +1,4 @@
+import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Building,
@@ -37,6 +38,7 @@ import {
   unloadHaulingCart,
 } from '../../src/systems/vehicles/hauling-cart.js';
 import { createVehicle, removeVehicle } from '../../src/systems/vehicles/index.js';
+import { utilityContent, WAREHOUSE, WATER, WELL } from '../economy/utility-content.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
@@ -86,6 +88,9 @@ const HANDCART_SLOTS = 15;
  *  reach but still inside the porter's collect radius around the headquarters. */
 const NEAR_PILE_AT = { hx: 28, hy: 26 };
 const FAR_PILE_AT = { hx: 46, hy: 34 };
+/** A one-unit well beside the store; a cart lift there waits out a refill a game second per unit. */
+const WELL_AT = { hx: 24, hy: 30 };
+const WELL_TRIP_TICKS = 2_000;
 /** Headroom over an ordered sleep: the walk off, the sleep clip and the walk back to the cart. */
 const BREAK_TICKS = 3_000;
 
@@ -93,6 +98,15 @@ function sim(seed = 5, needs = false): Simulation {
   const s = new Simulation({ seed, content: testContent(), map: grassNodeMap(MAP_NODES, MAP_NODES) });
   if (!needs) s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
   return s;
+}
+
+/** The utility fixture's one-unit well, with water among the carts' cargo as in the real data. */
+function wellContent(): ContentSet {
+  const base = utilityContent();
+  return parseContentSet({
+    ...base,
+    vehicles: base.vehicles.map((v) => ({ ...v, cargoGoods: [...v.cargoGoods, WATER] })),
+  });
 }
 
 function spawnCart(s: Simulation, at = CART_AT): Entity {
@@ -498,6 +512,17 @@ describe('the cart as a work tool', () => {
     expect(
       runUntil(s, 2 * TRIP_TICKS, () => stockOf(s, hq, WOOD) === HQ_INITIAL_WOOD + 3 * PILE_UNITS),
     ).toBeGreaterThan(0);
+  });
+
+  it("fills the well porter's cart one refill at a time before the trip to the store", () => {
+    const s = new Simulation({ seed: 5, content: wellContent(), map: grassNodeMap(MAP_NODES, MAP_NODES) });
+    s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
+    const warehouse = placeHouse(s, HQ_AT, WAREHOUSE);
+    const well = placeHouse(s, WELL_AT, WELL);
+    const { porter } = postedPorterWithCart(s, well);
+    expect(runUntil(s, WELL_TRIP_TICKS, () => stockOf(s, warehouse, WATER) > 0)).toBeGreaterThan(0);
+    expect(runUntil(s, TRIP_TICKS, () => s.world.get(porter, HaulingCart).lift === null)).toBeGreaterThan(0);
+    expect(stockOf(s, warehouse, WATER)).toBe(HANDCART_SLOTS);
   });
 
   it('parks the cart for a break and takes it up again after, the load riding it out in the hold', () => {

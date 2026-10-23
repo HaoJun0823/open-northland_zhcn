@@ -260,7 +260,9 @@ The cart is a work tool, not a harness:
   same pick-up and pile-up rules as on foot: claims, the dish alias, storage minimums, the crockery
   bonus), then walks back to the cart's door and takes it up, the hold's load into its hands. The cart
   draws as itself meanwhile and the carrier as a man lifting; thirty units take thirty clips, the
-  trader's pace. A break during a lift ends it (the cart is parked where it stands).
+  trader's pace. A break during a lift ends it (the cart is parked where it stands). At a well or a
+  hive, whose shelf holds a unit or two and refills one a game second, a load waits out each refill
+  beside the cart until its units are lifted (`startRefillWait`; named addition).
 - **Drag.** Each step of a carrier pulling a laden cart takes the cart's speed loss longer (the
   "Movement" section, `drag.ts`), a `walkStepModifiers` term on the whole step
   (`haulingCartSpeedLossPercent`). The load is the cart's: a walk order moves the loaded cart along

@@ -187,22 +187,23 @@ export function endCartLift(world: World, settler: Entity): void {
 
 /**
  * Whether the lift beside the standing cart has another unit to move: a load while units remain to lift,
- * the source will part with one of the good and the cart has room, an unload while the hold has a unit
- * and the store is there. The planner asks before each clip; the effects below move the unit afterwards.
+ * the source will part with one of the good (now, or on its next refill) and the cart has room, an unload
+ * while the hold has a unit and the store is there. The planner asks before each clip; the effects below
+ * move the unit afterwards.
  */
 export function cartLiftContinues(
   world: World,
   ctx: MapContext,
   settler: Entity,
   lift: HaulingLift,
-  sourceOffers: (from: Entity, goodType: number) => number,
+  sourceSupplies: (from: Entity, goodType: number) => boolean,
 ): boolean {
   const held = world.tryGet(settler, HaulingCart);
   if (held === undefined || held.taken || !world.has(held.vehicle, Position)) return false;
   if (lift.kind === 'load') {
     if (lift.units <= 0 || !world.isAlive(lift.from)) return false;
     if (haulingCartRoom(world, ctx.content, settler) <= 0) return false;
-    return sourceOffers(lift.from, lift.goodType) > 0;
+    return sourceSupplies(lift.from, lift.goodType);
   }
   if (!world.isAlive(lift.store)) return false;
   const stock = world.tryGet(held.vehicle, VehicleStock);

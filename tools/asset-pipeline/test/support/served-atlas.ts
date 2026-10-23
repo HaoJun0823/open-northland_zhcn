@@ -1,10 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BOB_ATLASES_PATH, BobAtlasSet, bobAtlasManifest } from '@open-northland/data';
+import {
+  colourIndexedSheet,
+  decodeAtlasPalette,
+  GREY_ALPHA_INDEXED,
+} from '@open-northland/formats/atlas/index';
 import type { RgbaImage } from '@open-northland/formats/image';
 import { decodeGreyAlphaPng } from '@open-northland/formats/png';
 import type { AtlasManifest } from '@open-northland/render';
-import { colourIndexedSheet, decodeAtlasPalette, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import sharp from 'sharp';
 import { BOBS_DIR, type BobAtlasCatalog } from '../../src/stages/content-tree.js';
 

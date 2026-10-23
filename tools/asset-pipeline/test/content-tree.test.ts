@@ -1,7 +1,6 @@
 import { join } from 'node:path';
-import type { BobAtlas } from '@open-northland/formats/atlas/index';
+import { ATLAS_PALETTE_BYTES, type BobAtlas } from '@open-northland/formats/atlas/index';
 import type { RgbaImage } from '@open-northland/formats/image';
-import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertDistinctBobBasenames,

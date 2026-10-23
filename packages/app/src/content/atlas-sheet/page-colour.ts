@@ -1,4 +1,8 @@
-import { CANVAS_READ_INDEXED, colourIndexedSheet, decodeAtlasPalette } from '@open-northland/render/data';
+import {
+  CANVAS_READ_INDEXED,
+  colourIndexedSheet,
+  decodeAtlasPalette,
+} from '@open-northland/formats/atlas/paletted-sheet';
 import { readImageData } from '../net.js';
 
 /** A decoded sheet is kept this long after its last request, so a boot's recolours of one bob set read

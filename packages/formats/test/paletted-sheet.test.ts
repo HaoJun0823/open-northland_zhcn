@@ -5,7 +5,7 @@ import {
   colourIndexedSheet,
   decodeAtlasPalette,
   GREY_ALPHA_INDEXED,
-} from '../../src/data/index.js';
+} from '../src/atlas/paletted-sheet.js';
 
 describe('colourIndexedSheet', () => {
   const palette = new Uint8Array(ATLAS_PALETTE_BYTES);

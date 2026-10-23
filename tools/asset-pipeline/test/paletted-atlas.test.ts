@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import {
   type AtlasAlphaMode,
   type BobAtlas,
+  colourIndexedSheet,
+  GREY_ALPHA_INDEXED,
   indexedToGreyAlpha,
   type PackBobAtlasOptions,
   packBobAtlas,
@@ -12,7 +14,6 @@ import { type Bmd, BOB_TYPE_DOUBLE8BIT, decodeBmd } from '@open-northland/format
 import { paletteAliasMap } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { decodeGreyAlphaPng } from '@open-northland/formats/png';
-import { colourIndexedSheet, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import { describe, expect, it } from 'vitest';
 import { packLineControl } from '../../../packages/formats/test/fixtures/bmd.js';
 import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';

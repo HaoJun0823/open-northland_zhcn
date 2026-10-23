@@ -17,3 +17,11 @@ export {
   packIndexedBobAtlas,
   packShadowBobAtlas,
 } from './pack.js';
+export {
+  ATLAS_PALETTE_BYTES,
+  CANVAS_READ_INDEXED,
+  colourIndexedSheet,
+  decodeAtlasPalette,
+  GREY_ALPHA_INDEXED,
+  type IndexedPixelLayout,
+} from './paletted-sheet.js';

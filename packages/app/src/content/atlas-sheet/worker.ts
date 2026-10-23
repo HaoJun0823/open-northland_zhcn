@@ -1,5 +1,9 @@
+import {
+  colourIndexedSheet,
+  decodeAtlasPalette,
+  GREY_ALPHA_INDEXED,
+} from '@open-northland/formats/atlas/paletted-sheet';
 import { decodeGreyAlphaPng, type GreyAlphaImage } from '@open-northland/formats/png';
-import { colourIndexedSheet, decodeAtlasPalette, GREY_ALPHA_INDEXED } from '@open-northland/render/data';
 import type { PalettedSheetReply, PalettedSheetRequest } from './protocol.js';
 
 const scope = globalThis as unknown as Pick<Worker, 'addEventListener' | 'postMessage'>;

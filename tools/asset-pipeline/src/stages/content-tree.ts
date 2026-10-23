@@ -6,10 +6,14 @@ import {
   encodeAtlasGeometry,
   type ServedBobAtlas,
 } from '@open-northland/data';
-import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import {
+  ATLAS_PALETTE_BYTES,
+  type BobAtlas,
+  packBobAtlas,
+  packIndexedBobAtlas,
+} from '@open-northland/formats/atlas/index';
 import type { Bmd } from '@open-northland/formats/bmd/index';
 import type { RgbaImage } from '@open-northland/formats/image';
-import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { statIfExists, writeFileWithParents } from '../files.js';
 import {
   atlasImageExtension,

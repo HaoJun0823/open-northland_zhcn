@@ -41,14 +41,6 @@ export {
   signpostOverlayIndex,
 } from './signposts.js';
 export type { AtlasFrame, SpriteAtlas } from './sprites/atlas.js';
-export {
-  ATLAS_PALETTE_BYTES,
-  CANVAS_READ_INDEXED,
-  colourIndexedSheet,
-  decodeAtlasPalette,
-  GREY_ALPHA_INDEXED,
-  type IndexedPixelLayout,
-} from './sprites/paletted-sheet.js';
 export { GFX_DIR_TO_FACING, subClipKey } from './sprites/settler.js';
 export type {
   CarryingBinding,

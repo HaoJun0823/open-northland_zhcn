@@ -12,6 +12,7 @@ import type { RgbaImage } from '@open-northland/formats/image';
 import { ATLAS_PALETTE_BYTES } from '@open-northland/render/data';
 import { statIfExists, writeFileWithParents } from '../files.js';
 import {
+  atlasImageExtension,
   atlasImageName,
   encodeAtlasImage,
   encodePalettedSheet,
@@ -49,10 +50,15 @@ export interface BobAtlasFiles {
  * again; the run clears the directory first, so a present file holds these bytes.
  */
 async function writeAtlasImage(outDir: string, image: RgbaImage, paletted = false): Promise<string> {
-  const name = paletted ? atlasImageName(image, PALETTED_SHEET_EXTENSION) : atlasImageName(image);
+  const extension = paletted ? PALETTED_SHEET_EXTENSION : atlasImageExtension(image);
+  const name = atlasImageName(image, extension);
   const path = join(outDir, BOBS_DIR, name);
-  if ((await statIfExists(path)) === undefined)
-    await writeFileWithParents(path, await (paletted ? encodePalettedSheet : encodeAtlasImage)(image));
+  if ((await statIfExists(path)) === undefined) {
+    await writeFileWithParents(
+      path,
+      await (paletted ? encodePalettedSheet(image) : encodeAtlasImage(image, extension)),
+    );
+  }
   return name;
 }
 

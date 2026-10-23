@@ -61,14 +61,17 @@ export function atlasImageName(image: RgbaImage, extension = atlasImageExtension
 }
 
 /**
- * Encodes a sheet in the format {@link atlasImageExtension} names: lossless WebP, where `exact` keeps
- * the RGB under fully transparent pixels, which libwebp otherwise rewrites, or PNG. Either decodes to
- * the bytes it was packed from.
+ * Encodes a sheet in the format `extension` ({@link atlasImageExtension}) names: lossless WebP, where
+ * `exact` keeps the RGB under fully transparent pixels, which libwebp otherwise rewrites, or PNG. Either
+ * decodes to the bytes it was packed from.
  */
-export async function encodeAtlasImage(image: RgbaImage): Promise<Uint8Array> {
+export async function encodeAtlasImage(
+  image: RgbaImage,
+  extension = atlasImageExtension(image),
+): Promise<Uint8Array> {
   const { width, height, rgba } = image;
   const pixels = sharp(rgba, { raw: { width, height, channels: 4 }, limitInputPixels: false });
-  return atlasImageExtension(image) === GRADED_ATLAS_IMAGE_EXTENSION
+  return extension === GRADED_ATLAS_IMAGE_EXTENSION
     ? pixels.png({ compressionLevel: PNG_SMALLEST_LEVEL }).toBuffer()
     : pixels
         .webp({ lossless: true, exact: true, effort: WEBP_EFFORT, quality: WEBP_LOSSLESS_QUALITY })

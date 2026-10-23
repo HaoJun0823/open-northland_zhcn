@@ -20,6 +20,25 @@ export function atlasImagePath(image: string): string {
   return `/bobs/${image}`;
 }
 
+let movedOn = false;
+let movedOnListener: (() => void) | null = null;
+
+/**
+ * Runs `listener` once when a content fetch was redirected: the host no longer serves this page's
+ * content hash and answered from another build's tree, so the page should reload before it mixes the
+ * two. A redirect before registration runs it at registration.
+ */
+export function onContentMovedOn(listener: () => void): void {
+  movedOnListener = listener;
+  if (movedOn) listener();
+}
+
 /** The page's `fetch` over content paths; an installed map's store answers the same paths itself. */
-export const contentFetch: typeof fetch = (input, init) =>
-  fetch(typeof input === 'string' ? contentUrl(input) : input, init);
+export const contentFetch: typeof fetch = async (input, init) => {
+  const response = await fetch(typeof input === 'string' ? contentUrl(input) : input, init);
+  if (response.redirected && !movedOn) {
+    movedOn = true;
+    movedOnListener?.();
+  }
+  return response;
+};

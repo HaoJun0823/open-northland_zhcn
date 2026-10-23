@@ -1,4 +1,5 @@
 import { DEV_GAME_VERSION, GAME_VERSION, RESTORE_IDENTITY } from '../build-version.js';
+import { onContentMovedOn } from '../content/url.js';
 import { diag } from '../diag/index.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { routeFor } from '../routes.js';
@@ -87,6 +88,8 @@ export function installUpdateWatcher(): void {
     if (event.persisted) requestUpdateCheck('routine');
   });
   window.addEventListener('vite:preloadError', () => requestUpdateCheck('staleCode'));
+  // Mixed content only degrades sounds and sprites, so it offers the reload a routine check would.
+  onContentMovedOn(() => requestUpdateCheck('routine'));
   window.addEventListener('error', (event) => {
     if (isStaleCodeError(event.message)) requestUpdateCheck('staleCode');
   });

@@ -1,6 +1,5 @@
 import type { BlockOverlay } from './block-overlay.js';
 import { ringSearch } from './ring-search.js';
-import { NEIGHBOUR_OFFSETS } from './terrain/edges.js';
 import type { NodeId, TerrainGraph, Traversal } from './terrain/index.js';
 
 /**
@@ -12,11 +11,14 @@ export const NEAREST_NODE_SEARCH_CAP = 64;
 
 const NO_NODES: ReadonlySet<NodeId> = new Set();
 
+/** Scratch for `TerrainGraph.neighboursInto`, so a stand test allocates no neighbour array. */
+const neighbourScratch: NodeId[] = [];
+
 /**
- * Whether `node` keeps an exit: one orthogonal neighbour it is joined to that a mover of `traversal` may
+ * Whether `node` keeps an exit: one lattice neighbour it is joined to that a mover of `traversal` may
  * stand on and `blocked` leaves open. Every stand a search returns must pass it, so nobody is parked in
- * a one-node nook between footprints. Approximation: the composed diagonal steps the pathfinder also
- * takes are not counted, so a node whose only way out is diagonal counts as sealed.
+ * a one-node nook between footprints. Exactly when the pathfinder has a step out of `node` under the
+ * same overlay, since its composed diagonals pass through such a neighbour.
  */
 export function hasOpenSide(
   terrain: TerrainGraph,
@@ -24,15 +26,9 @@ export function hasOpenSide(
   blocked: BlockOverlay,
   traversal: Traversal = 'land',
 ): boolean {
-  const x = terrain.xOf(node);
-  const y = terrain.yOf(node);
-  for (let i = 0; i < NEIGHBOUR_OFFSETS.length; i++) {
-    const offset = NEIGHBOUR_OFFSETS[i];
-    if (offset === undefined) continue;
-    const nx = x + offset[0];
-    const ny = y + offset[1];
-    if (!terrain.inBounds(nx, ny)) continue;
-    const n = terrain.nodeAt(nx, ny);
+  const count = terrain.neighboursInto(node, neighbourScratch);
+  for (let i = 0; i < count; i++) {
+    const n = neighbourScratch[i] as NodeId;
     if (terrain.traversable(n, traversal) && !blocked.has(n) && terrain.joined(node, n)) return true;
   }
   return false;

@@ -50,14 +50,15 @@ function logFlip(log: NodeId[], node: NodeId): boolean {
 
 const buildingBlockedCache = new WeakMap<World, BuildingBlockedCache>();
 
-/** Open the shortest passage through a building's own walk block to exterior ground.
- * Some door points are ringed by wall cells; clearing the point alone leaves the door unreachable. The
- * passage is carved even past a door a diagonal step already leaves, such as the frank home's: a resource
- * on that diagonal's landing would seal the door, and a carved cell is ground to walk, never to stand on
- * (`doorways`). The door, usually outside `body`, is the start and never the exit, or the wall cell
- * behind it would open onto it. Open ground the walls enclose is no exit: the saracen fortress's door
- * lane zig-zags through one-node holes that this lattice's steps cannot follow, so its nearest opening
- * is a sealed pocket. */
+/** Open the shortest passage through a building's own walk block to exterior ground, over the lattice
+ * edges. A door one of its six edges already leaves carves nothing: every extracted door opens onto
+ * such an edge, as the original's doors do. The carve sees only the building's own body, so a body stays
+ * a pure function of its footprint and anchor, and another building's body, a resource or a wall on the
+ * landing of a door's only edge seals that door. Approximation: the original carves nothing, and what it
+ * does with a door sealed that way is unconfirmed. The carve remains for a door no edge leaves, a shape
+ * the extracted footprints do not have. A carved cell is ground to walk, never to stand on (`doorways`).
+ * The door, usually outside `body`, is the start and never the exit, or the wall cell behind it would
+ * open onto it. Open ground the walls enclose is no exit. */
 export function doorPassage(terrain: TerrainGraph, body: ReadonlySet<NodeId>, door: NodeId): NodeId[] {
   const leadsOut = exteriorTest(terrain, body, door);
   const queue: NodeId[] = [door];

@@ -262,13 +262,16 @@ export class MeleeSlots {
     const bank = this.bankRanks(ranks, here, banked, chaser, weapon.maxRange + 1);
     const own = [mine.goal, mine.standingOn].filter((cell): cell is NodeId => cell !== undefined);
     const ownRanks = own.map(reach);
+    // The ranks walked out to: the asker's own, and its reserved goal's where that lies deeper, since a
+    // route to a deeper rank may pass through nearer ranks and must not drop the goal on the way.
+    const outermost = Math.max(distance, ...ownRanks);
     let firstOpen = bank.firstOpen;
     const nextRank = (start: number): number => {
       let next = Math.max(start, firstOpen);
       for (const rank of ownRanks) if (rank >= start) next = Math.min(next, rank);
       return next;
     };
-    for (let radius = nextRank(weapon.maxRange + 1); radius <= distance; radius = nextRank(radius + 1)) {
+    for (let radius = nextRank(weapon.maxRange + 1); radius <= outermost; radius = nextRank(radius + 1)) {
       let row = ranks.rows.get(radius);
       if (row === undefined) {
         row = [...this.encircleCandidates(target.entity, body, { minRange: radius, maxRange: radius })];

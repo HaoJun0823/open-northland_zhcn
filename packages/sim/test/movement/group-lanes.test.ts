@@ -21,10 +21,12 @@ function fixture() {
 }
 
 describe('army route lanes', () => {
-  it('matches the distance-oracle lane in every quadrant and both row parities', () => {
+  it.each([
+    ['odd', 35],
+    ['even', 36],
+  ])('matches the distance-oracle lane in every quadrant from an %s row', (_parity, sy) => {
     const { terrain, blocked, lanes } = fixture();
     const sx = 90,
-      sy = 35,
       start = terrain.nodeAt(sx, sy);
     const steps = new StepBuffer();
     for (let dx = -12; dx <= 12; dx++) {
@@ -90,6 +92,68 @@ describe('army route lanes', () => {
       if (previous === undefined || node === undefined) throw new Error('missing step');
       terrain.stepsInto(previous, blocked, steps);
       expect(Array.from({ length: steps.length }, (_, j) => steps.nodeAt(j))).toContain(node);
+    }
+  });
+
+  it('translates a detour with a slanted edge for followers an odd number of rows off', () => {
+    const { terrain, blocked, lanes } = fixture();
+    for (let y = 0; y <= 30; y++) blocked.set(terrain.nodeAt(80, y), true);
+    for (let x = 100; x <= 104; x++) for (let y = 30; y <= 60; y++) blocked.set(terrain.nodeAt(x, y), true);
+    const lead = findPath(terrain, terrain.nodeAt(10, 20), terrain.nodeAt(180, 20), blocked);
+    if (lead === null) throw new Error('missing lead route');
+    // The premise: the detour takes a column-shifting edge, which a row of the other parity leans away
+    // from, so a plain shift of the leader's steps is no walk for an odd offset.
+    const slanted = lead.filter((node, i) => {
+      const previous = lead[i - 1];
+      return (
+        previous !== undefined &&
+        Math.abs(terrain.xOf(node) - terrain.xOf(previous)) === 1 &&
+        Math.abs(terrain.yOf(node) - terrain.yOf(previous)) === 1
+      );
+    });
+    expect(slanted.length).toBeGreaterThan(0);
+    const leadRows = lead.map((node) => terrain.yOf(node));
+    const leadMinY = Math.min(...leadRows);
+    const leadMaxY = Math.max(...leadRows);
+    const steps = new StepBuffer();
+    for (const dy of [1, 3, 5, 7, 9]) {
+      const start = terrain.nodeAt(10, 20 + dy);
+      const goal = terrain.nodeAt(180, 20 + dy);
+      const lane = lanes.translated(blocked, lead, start, goal, fx.fromInt(2), 2 * dy);
+      if (lane === null) throw new Error(`no lane ${dy} rows off the leader`);
+      expect(lane[0]).toBe(start);
+      expect(lane.at(-1)).toBe(goal);
+      // Its own lane: the leader's rows shifted by the offset, a bridged slant adding no row, and every
+      // step one the walk may take.
+      for (const node of lane) {
+        expect(terrain.yOf(node)).toBeGreaterThanOrEqual(leadMinY + dy);
+        expect(terrain.yOf(node)).toBeLessThanOrEqual(leadMaxY + dy);
+      }
+      for (let i = 1; i < lane.length; i++) {
+        const previous = lane[i - 1];
+        const node = lane[i];
+        if (previous === undefined || node === undefined) throw new Error('missing step');
+        terrain.stepsInto(previous, blocked, steps);
+        expect(Array.from({ length: steps.length }, (_, j) => steps.nodeAt(j))).toContain(node);
+      }
+    }
+  });
+
+  it('bridges a slant on the side away from the leader, so a lane one row off shares none of its nodes', () => {
+    const { terrain, blocked, lanes } = fixture();
+    // The leader runs east along row 21, takes the SE edge from (50,21) to (51,22) and runs on along row 22.
+    const route: NodeId[] = [];
+    for (let x = 10; x <= 50; x++) route.push(terrain.nodeAt(x, 21));
+    for (let x = 51; x <= 80; x++) route.push(terrain.nodeAt(x, 22));
+    const routeNodes = new Set(route);
+    for (const dy of [1, -1]) {
+      const start = terrain.nodeAt(10, 21 + dy);
+      const goal = terrain.nodeAt(80, 22 + dy);
+      const lane = lanes.translated(blocked, route, start, goal, fx.fromInt(2), 2);
+      if (lane === null) throw new Error(`no lane ${dy} rows off the leader`);
+      expect(lane[0]).toBe(start);
+      expect(lane.at(-1)).toBe(goal);
+      expect(lane.some((node) => routeNodes.has(node))).toBe(false);
     }
   });
 

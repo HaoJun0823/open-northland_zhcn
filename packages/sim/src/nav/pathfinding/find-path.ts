@@ -1,9 +1,8 @@
 /**
  * Weighted A* pathfinding over the terrain half-cell adjacency graph. Each edge costs its real world
  * length times the entered node's route weight (its walking resistance on land), and the land heuristic
- * is {@link latticeOffsetDistance} weighed as grass, lowered near roads. A route so nearly minimises on-screen
- * distance weighed by ground, reading straight under the staggered raster on even ground. All
- * costs are fixed-point; no float enters the search.
+ * is {@link latticeOffsetDistance} weighed as grass, lowered near roads. A route so nearly minimises
+ * world distance weighed by ground. All costs are fixed-point; no float enters the search.
  *
  * Ties break on a history-independent total order, so two clients in lockstep pick byte-identical paths.
  * The line-deviation key only separates routes that already tie on `f`.
@@ -17,7 +16,6 @@ import {
   DEFAULT_NODE_ROUGHNESS,
   latticeOffsetDistance,
   type NodeId,
-  StepBuffer,
   type TerrainGraph,
   type Traversal,
 } from '../terrain/index.js';
@@ -105,12 +103,12 @@ export function findPath(
   );
   // Without an overlay a shared static component means reachable, so the search can never flood.
   if (blocked === undefined || blocked.size === 0) return pathOf(forward.advance(UNCAPPED));
-  const reverse = new GoalSide(graph, start, goal, blocked, stats, traversal);
+  const reverse = goalSideSearch(graph, start, goal, blocked, stats, traversal);
   const probe = reverse.advance(POCKET_PROBE_MAX_EXPLORED);
   if (probe === 'unreachable') return null;
   // Reverse costs are asymmetric, so a proved route still needs the forward search, with nothing left to
   // guard against.
-  if (probe === 'reachable') return pathOf(forward.advance(UNCAPPED));
+  if (probe !== 'aborted') return pathOf(forward.advance(UNCAPPED));
   // Pausing never changes a search's settle order, so every forward answer below is byte-identical to one
   // unguarded search, and a goal side exhausted first refutes the goal.
   const guarded = forward.advance(FLOOD_GUARD_MAX_EXPLORED);
@@ -120,7 +118,7 @@ export function findPath(
       Math.min(reverse.explored + goalSliceExplored, GOAL_EXHAUST_MAX_EXPLORED),
     );
     if (goalSide === 'unreachable') return null;
-    if (goalSide === 'reachable' || reverse.explored >= GOAL_EXHAUST_MAX_EXPLORED) {
+    if (goalSide !== 'aborted' || reverse.explored >= GOAL_EXHAUST_MAX_EXPLORED) {
       return pathOf(forward.advance(UNCAPPED));
     }
     const ahead = forward.advance(forward.explored + RACE_SLICE_EXPLORED);
@@ -128,95 +126,26 @@ export function findPath(
   }
 }
 
-type GoalSideVerdict = 'reachable' | 'unreachable' | 'aborted';
-
 /**
- * The goal side of {@link findPath}'s race, whose verdicts are exact for the forward search. It searches
+ * The goal side of {@link findPath}'s race, whose verdicts are exact for the forward search: a search
  * back from the goal with a blocked start re-admitted as its target, the mirror of the forward search's
- * step-off exemption. That view also opens the start as a diagonal's flank, which forward it never is, so
- * a route found that way proves reachability only when its diagonals hold with the start blocked. On the
- * first one that does not, the side restarts on the plain overlay, where the edges are symmetric: the
- * forward search reaches the goal exactly when the goal's region holds a node the start steps off to.
+ * step-off exemption. Every other edge is symmetric, and a composed diagonal through the re-admitted
+ * start joins two nodes the start reaches by a single edge each, so the side reaches the start exactly
+ * when the forward search reaches the goal.
  */
-class GoalSide {
-  private search: ResumableSearch;
-  /** Settles of the re-admitting search, once discarded. */
-  private discarded = 0;
-  /** The start's exits under the plain overlay once the side has restarted on it. */
-  private exits: StepBuffer | null = null;
-
-  constructor(
-    private readonly graph: TerrainGraph,
-    private readonly start: NodeId,
-    private readonly goal: NodeId,
-    private readonly blocked: BlockOverlay,
-    private readonly stats: SearchStats | undefined,
-    private readonly traversal: Traversal,
-  ) {
-    const readmitted: BlockOverlay = blocked.has(start)
-      ? { has: (n) => n !== start && blocked.has(n), size: blocked.size }
-      : blocked;
-    this.search = this.searchOver(readmitted);
-  }
-
-  /** Settles across both searches, which the race's caps count. */
-  get explored(): number {
-    return this.discarded + this.search.explored;
-  }
-
-  advance(maxExplored: number): GoalSideVerdict {
-    for (;;) {
-      const verdict = this.search.advance(maxExplored - this.discarded);
-      const exits = this.exits;
-      if (exits !== null) {
-        // The plain search never enters the blocked start, so it ends exhausted or capped.
-        for (let i = 0; i < exits.length; i++) {
-          if (this.search.discovered(exits.nodeAt(i))) return 'reachable';
-        }
-        return verdict === 'aborted' ? 'aborted' : 'unreachable';
-      }
-      if (typeof verdict === 'string') return verdict;
-      if (this.holdsForward(verdict)) return 'reachable';
-      this.discarded += this.search.explored;
-      this.exits = new StepBuffer();
-      this.graph.stepsInto(this.start, this.blocked, this.exits, this.traversal);
-      this.search = this.searchOver(this.blocked);
-    }
-  }
-
-  private searchOver(blocked: BlockOverlay): ResumableSearch {
-    const scratch = scratchFor(this.graph, 'reverse');
-    return new ResumableSearch(
-      scratch,
-      this.graph,
-      this.goal,
-      this.start,
-      blocked,
-      this.stats,
-      this.traversal,
-    );
-  }
-
-  /** Whether each diagonal of `path`, goal to start, is a step the forward search may take. */
-  private holdsForward(path: readonly NodeId[]): boolean {
-    const { graph, blocked } = this;
-    const steps = scratchFor(graph, 'reverse').steps;
-    for (let i = path.length - 1; i > 0; i--) {
-      const from = path[i];
-      const to = path[i - 1];
-      if (from === undefined || to === undefined) continue;
-      if (Math.abs(graph.yOf(from) - graph.yOf(to)) !== DIAGONAL_ROWS) continue;
-      graph.stepsInto(from, blocked, steps, this.traversal);
-      let open = false;
-      for (let k = 0; k < steps.length && !open; k++) open = steps.nodeAt(k) === to;
-      if (!open) return false;
-    }
-    return true;
-  }
+function goalSideSearch(
+  graph: TerrainGraph,
+  start: NodeId,
+  goal: NodeId,
+  blocked: BlockOverlay,
+  stats: SearchStats | undefined,
+  traversal: Traversal,
+): ResumableSearch {
+  const readmitted: BlockOverlay = blocked.has(start)
+    ? { has: (n) => n !== start && blocked.has(n), size: blocked.size }
+    : blocked;
+  return new ResumableSearch(scratchFor(graph, 'reverse'), graph, goal, start, readmitted, stats, traversal);
 }
-
-/** Half-rows a diagonal step spans; only a diagonal has flanks. */
-const DIAGONAL_ROWS = 2;
 
 /**
  * One capped forward A* with no pocket probe: `'unreachable'` is exact, `'aborted'` means the cap ran out
@@ -254,8 +183,8 @@ const UNCAPPED = Number.POSITIVE_INFINITY;
  * 1. A deliberately inflated heuristic (weighted A*), a named approximation trading exactness for search
  * cost: scaled by the least weight, a long route on magiczny_las settled about 40k nodes. Unweighted
  * lattice distance is consistent (no step weighs under 1), so with this term alone a route costs at most
- * this factor over the cheapest even without reopening settled nodes; measured there, 0.3 to 1.2% over on
- * average. On uniform grass it is exact.
+ * this factor over the cheapest even without reopening settled nodes; measured there with the composed
+ * diagonals as the only slanted steps, 0.3 to 1.2% over on average. On uniform grass it is exact.
  */
 const LAND_HEURISTIC_WEIGHT = fx.fromInt(DEFAULT_NODE_ROUGHNESS);
 
@@ -263,8 +192,9 @@ const LAND_HEURISTIC_WEIGHT = fx.fromInt(DEFAULT_NODE_ROUGHNESS);
  * The inflation of the road-aware estimate `d + min(d, r)`, with `d` the lattice distance to the goal and
  * `r` to the nearest road: ground (grass, 2) up to the step onto the first road (1) makes a route cost at
  * least `d + r - 1`, and `2d` without a road. The inflated term is no scaled consistent heuristic, so the
- * grass weight's bound does not cover it; its cost is measured. On magiczny_las with town streets laid:
- * uninflated, searches in and into a town settled 6 to 11 times what the grass weight does; at 3/2, 1.2 to
+ * grass weight's bound does not cover it; its cost is measured. On magiczny_las with town streets laid,
+ * the composed diagonals the only slanted steps: uninflated, searches in and into a town settled 6 to 11
+ * times what the grass weight does; at 3/2, 1.2 to
  * 1.4 times, routes cost 1.9 to 2.7% over the cheapest on average, and 93 to 98% of the routes a road
  * shortens by 2% take it (the grass weight alone: 61 to 90%). Approximation: native resistance-1 ground
  * and map-border nodes are not counted as roads.
@@ -325,11 +255,6 @@ class ResumableSearch {
     scratch.heapSize = 0;
     // The start sits on its own line.
     heapPush(scratch, start, this.heuristic(start, this.startX, this.startY), 0, 0);
-  }
-
-  /** Whether this search has reached `node`. */
-  discovered(node: NodeId): boolean {
-    return this.scratch.stamps[node] === this.query;
   }
 
   /** Settle until a verdict, or return `'aborted'` once this search has settled `maxExplored` in total. */
@@ -394,10 +319,11 @@ class ResumableSearch {
    * `g` the goal's distance to the bounding box of the network holding the nearest road: a route over
    * that network still crosses `g` of ground to the goal. Without it a road node reads 1.5d however far
    * its network lies, and a search between towns no road joins floods each town's streets. Measured on
-   * 150 routes between magiczny_las towns: 43% fewer settles, and 4.3% over the cheapest route, not 3.2%.
+   * 150 routes between magiczny_las towns with the composed diagonals as the only slanted steps: 43% fewer
+   * settles, and 4.3% over the cheapest route, not 3.2%.
    */
   private heuristic(node: NodeId, x: number, y: number): Fixed {
-    const toGoal = latticeOffsetDistance(Math.abs(this.goalX - x), Math.abs(this.goalY - y));
+    const toGoal = latticeOffsetDistance(this.goalX - x, this.goalY - y, y);
     if (this.traversal !== 'land') return toGoal;
     const overGrass = fx.mul(toGoal, LAND_HEURISTIC_WEIGHT);
     const toRoad = this.graph.roadDistanceAt(node);

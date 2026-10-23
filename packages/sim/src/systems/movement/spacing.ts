@@ -6,7 +6,7 @@ import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 export const ANIMAL_SPACING_NODES = 2;
 
 /** The offsets whose nodes sit closer than {@link ANIMAL_SPACING_NODES} to a node: itself plus the four
- *  lattice neighbours. Widening the spacing must widen this table. */
+ *  nodes one half-column or half-row off. Widening the spacing must widen this table. */
 export const SPACING_PROBES: readonly (readonly [number, number])[] = [
   [0, 0],
   [1, 0],

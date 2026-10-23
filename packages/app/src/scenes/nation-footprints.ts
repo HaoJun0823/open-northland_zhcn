@@ -1,9 +1,8 @@
 import { buildingFootprintFor, footprintCellDx } from '@open-northland/data';
 import type { Simulation } from '@open-northland/sim';
-import { components, nodeOfPosition } from '@open-northland/sim';
-import { grassTerrain, VIKING } from '../catalog/buildings.js';
+import { buildingWalkBodyOf, components, nodeOfPosition } from '@open-northland/sim';
+import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_CIVILIST, JOB_WOMAN } from '../catalog/jobs.js';
-import { BYZANTINE } from '../catalog/unit-variants.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
 import {
   BUILDING_BAKERY,
@@ -25,14 +24,13 @@ import {
   placeBuiltSandboxBuilding,
   spawnSettlerDirect,
 } from '../game/sandbox/index.js';
-import { CIVILIZATIONS, FRANK } from './civilizations.js';
+import { CIVILIZATIONS } from './civilizations.js';
 import type { SceneDefinition } from './types.js';
 
 const { Building, Chat, Marriage, MoveGoal, PathFollow, PathRequest, Position, Resting, Settler } =
   components;
 
 /** One row per civilization, one finished house per column; the leading home tiers house a couple. */
-const TRIBES = [VIKING, FRANK, BYZANTINE] as const;
 const TYPES = [
   BUILDING_HOME_00,
   BUILDING_HOME_01,
@@ -64,7 +62,7 @@ const COLUMN_STEP = 8;
 const ROW_STEP = 12;
 const FIRST = { x: 5, y: 8 } as const;
 const MAP_W = FIRST.x + COLUMN_STEP * TYPES.length;
-const MAP_H = FIRST.y + ROW_STEP * TRIBES.length;
+const MAP_H = FIRST.y + ROW_STEP * CIVILIZATIONS.length;
 /** Long enough for the residents to sleep at home once and step back out. */
 const RUN_TICKS = 6000;
 
@@ -74,7 +72,7 @@ function houseCell(row: number, column: number): { x: number; y: number } {
 }
 
 function build(sim: Simulation): void {
-  TRIBES.forEach((tribe, row) => {
+  CIVILIZATIONS.forEach((tribe, row) => {
     TYPES.forEach((type, column) => {
       const at = houseCell(row, column);
       const house = placeBuiltSandboxBuilding(sim, type, at.x, at.y, HUMAN_PLAYER, {
@@ -118,6 +116,19 @@ export function anySettlerOnWalls(sim: Simulation): boolean {
   return false;
 }
 
+/** Whether some house's walk block carved wall cells open behind its door, which it does only when no
+ *  lattice edge leaves the door; the extracted doors never need it. */
+export function anyHouseCarvesACell(sim: Simulation): boolean {
+  const terrain = sim.terrain;
+  if (terrain === undefined) return false;
+  for (const e of sim.world.query(Building)) {
+    const walk = buildingWalkBodyOf(sim.world, { content: sim.content }, terrain, e);
+    // The passage starts at the door; any node after it is a carved wall cell.
+    if (walk !== null && walk.passage.length > 1) return true;
+  }
+  return false;
+}
+
 /**
  * Every civilization's finished houses side by side, for comparing each sprite against its footprint
  * under `?debug=geometry`, and the idle residents' stands against the walls.
@@ -139,6 +150,10 @@ export const nationFootprintsScene: SceneDefinition = {
     {
       label: 'no settler outdoors stands on a wall cell of any house',
       predicate: (sim) => !anySettlerOnWalls(sim),
+    },
+    {
+      label: 'no house has a wall cell carved open: every door leaves by a lattice edge',
+      predicate: (sim) => !anyHouseCarvesACell(sim),
     },
   ],
 };

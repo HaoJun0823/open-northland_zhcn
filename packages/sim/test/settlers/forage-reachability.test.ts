@@ -1,3 +1,4 @@
+import type { FootprintCell } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   BerryBush,
@@ -13,7 +14,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { ONE, positionOfNode, type ScriptLandscapeType, Simulation } from '../../src/index.js';
-import { hexagonRing } from '../../src/nav/halfcell.js';
+import { HEX_NEIGHBOUR_OFFSETS, hexagonRing } from '../../src/nav/halfcell.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import { plannerSystem, routeRegions, stampResourceFootprintData } from '../../src/systems/index.js';
 import { collectTargets } from '../../src/systems/settlers/targets/candidates.js';
@@ -24,18 +25,9 @@ import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import { needsSettlerAt } from '../settlers/needs/support.js';
 
-const SEAL_RING = [
-  { dx: 1, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 },
-  { dx: 1, dy: 2 },
-  { dx: 1, dy: -2 },
-  { dx: -1, dy: 2 },
-  { dx: -1, dy: -2 },
-];
+const SEAL_RING = HEX_NEIGHBOUR_OFFSETS;
 
-function setup(walk: Array<{ dx: number; dy: number }>) {
+function setup(walk: readonly FootprintCell[]) {
   const sim = new Simulation({
     seed: 1,
     content: testContent(),
@@ -47,7 +39,11 @@ function setup(walk: Array<{ dx: number; dy: number }>) {
   sim.world.add(berry, BerryBush, { stage: 'ripe', nextStageAtTick: 0 });
   const blocker = sim.world.create();
   sim.world.add(blocker, Position, positionOfNode(10, 6));
-  stampResourceFootprintData(sim.world, blocker, { walk, build: [], work: [] });
+  stampResourceFootprintData(sim.world, blocker, {
+    walk: walk.map((cell) => ({ ...cell })),
+    build: [],
+    work: [],
+  });
   if (sim.terrain === undefined) throw new Error('terrain missing');
   return { sim, eater, berry, blocker, terrain: sim.terrain };
 }

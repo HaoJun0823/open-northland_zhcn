@@ -4,7 +4,7 @@ import { Simulation } from '../../../src/index.js';
 import type { BlockOverlay } from '../../../src/nav/block-overlay.js';
 import { CountedBlocks, NodeMask } from '../../../src/nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../src/nav/terrain/index.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW } from '../../../src/nav/world-metric.js';
+import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../../../src/nav/world-metric.js';
 import {
   budgetCertainBelow,
   COST_PAGE_SIZE,
@@ -13,6 +13,7 @@ import {
   walkLowerBound,
 } from '../../../src/systems/computer-player/walk-distance.js';
 import { aiContent } from '../../fixtures/ai-content.js';
+import { stepDijkstra } from '../../fixtures/step-dijkstra.js';
 import { grassNodeMap, waterColumnMap } from '../../fixtures/terrain.js';
 
 // The lazy walk flood behind the flag spot search: the same costs whatever is asked first, and a budget
@@ -138,6 +139,7 @@ describe('computer-player walk flood', () => {
     const steps: [number, number, number][] = [
       [1, 0, HALF_COLUMN],
       [0, 1, HALF_ROW],
+      [1, 1, SLANT_STEP],
       [1, 2, DIAGONAL_STEP],
     ];
     for (const [dx, dy, cost] of steps) {
@@ -152,21 +154,27 @@ describe('computer-player walk flood', () => {
     }
   });
 
-  it('certifies only costs a flood of that budget settles on open ground', () => {
-    const terrain = new Simulation({ seed: 1, content: aiContent(), map: grassNodeMap(80, 80) }).terrain;
-    if (terrain === undefined) throw new Error('mapped sim expected');
-    const seed = terrain.nodeAt(40, 40);
-    const certain = budgetCertainBelow(SMALL_BUDGET);
-    const walk = new WalkFlood(terrain, NO_BLOCKS, [seed], SMALL_BUDGET);
-    const whole = new WalkFlood(terrain, NO_BLOCKS, [seed], WHOLE_BANK);
-    for (let hy = 30; hy <= 50; hy++) {
-      for (let hx = 34; hx <= 46; hx++) {
-        const node = terrain.nodeAt(hx, hy);
-        const cost = whole.costTo(node);
-        if (cost !== undefined && cost < certain) expect(walk.costTo(node)).toBe(cost);
+  it.each([
+    ['even', 40],
+    ['odd', 41],
+  ])(
+    'certifies only costs a flood of that budget settles on open ground, seeded on an %s row',
+    (_parity, seedY) => {
+      const terrain = new Simulation({ seed: 1, content: aiContent(), map: grassNodeMap(80, 80) }).terrain;
+      if (terrain === undefined) throw new Error('mapped sim expected');
+      const seed = terrain.nodeAt(40, seedY);
+      const certain = budgetCertainBelow(SMALL_BUDGET);
+      const walk = new WalkFlood(terrain, NO_BLOCKS, [seed], SMALL_BUDGET);
+      const whole = new WalkFlood(terrain, NO_BLOCKS, [seed], WHOLE_BANK);
+      for (let hy = 30; hy <= 50; hy++) {
+        for (let hx = 34; hx <= 46; hx++) {
+          const node = terrain.nodeAt(hx, hy);
+          const cost = whole.costTo(node);
+          if (cost !== undefined && cost < certain) expect(walk.costTo(node)).toBe(cost);
+        }
       }
-    }
-  });
+    },
+  );
 
   it('answers every query exactly as the lazy flood of its budget, round walls and past the budget', () => {
     const { terrain, blocked, seed } = walledMap();
@@ -234,7 +242,7 @@ describe('computer-player walk flood', () => {
       mask.set(seed, false);
       const viaCall: BlockOverlay = { has: (node) => mask.has(node), size: mask.size };
       const budget = RANDOM_BUDGETS[trial % RANDOM_BUDGETS.length] ?? WHOLE_BANK;
-      const expected = referenceFlood(terrain, viaCall, seed, budget);
+      const expected = stepDijkstra(terrain, seed, viaCall, budget);
       const flood = new WalkFlood(terrain, mask, [seed], budget);
       const toward = { hx: draw(WALLED_MAP_NODES), hy: draw(WALLED_MAP_NODES) };
       const answers = (blocked: BlockOverlay) => {
@@ -277,37 +285,6 @@ const RANDOM_SEED = 2024;
 const LCG_MULTIPLIER = 1103515245;
 const LCG_INCREMENT = 12345;
 const LCG_MODULUS = 2 ** 31;
-
-/** The costs a Dijkstra over `blocked` settles from `seed` in ascending (cost, node id) order, the first
- *  `budget` of them: the walk flood's contract, written as plainly as it reads. */
-function referenceFlood(
-  terrain: TerrainGraph,
-  blocked: BlockOverlay,
-  seed: NodeId,
-  budget: number,
-): Map<NodeId, number> {
-  const settled = new Map<NodeId, number>();
-  const best = new Map<NodeId, number>([[seed, 0]]);
-  while (settled.size < budget) {
-    let next: NodeId | undefined;
-    let nextCost = Number.POSITIVE_INFINITY;
-    for (const [node, cost] of best) {
-      if (cost < nextCost || (cost === nextCost && next !== undefined && node < next)) {
-        next = node;
-        nextCost = cost;
-      }
-    }
-    if (next === undefined) break;
-    best.delete(next);
-    settled.set(next, nextCost);
-    for (const step of terrain.steps(next, blocked)) {
-      if (settled.has(step.node)) continue;
-      const cost = nextCost + step.cost;
-      if (cost < (best.get(step.node) ?? Number.POSITIVE_INFINITY)) best.set(step.node, cost);
-    }
-  }
-  return settled;
-}
 
 /** Open ground broken by walls of blocked nodes: every fifth column below a gap, every seventh row beside
  *  one, and a seed clear in the middle. */

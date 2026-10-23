@@ -35,6 +35,18 @@ export const DIAGONAL_STEP: Fixed = fx.isqrt(
   fx.add(fx.mul(HALF_COLUMN, HALF_COLUMN), fx.mul(ROW_STEP, ROW_STEP)),
 );
 
+/**
+ * The world length of a column-shifting lattice edge, half a column sideways and half a row up or down:
+ * sqrt(HALF_COLUMN^2 + HALF_ROW^2), about 0.5728 of ONE, 39 px. Approximation: the original's odd node
+ * rows likely sit a quarter column to +x (unverified against the running original), where this edge and
+ * the straight half-row edge are mirror images of one length; on this rectangular lattice the straight
+ * edge is the shorter, so a route leans by row parity. Under HALF_COLUMN + HALF_ROW, the two straight
+ * steps it replaces, and over half a DIAGONAL_STEP, so two slants never beat a composed diagonal.
+ */
+export const SLANT_STEP: Fixed = fx.isqrt(
+  fx.add(fx.mul(HALF_COLUMN, HALF_COLUMN), fx.mul(HALF_ROW, HALF_ROW)),
+);
+
 /** The stagger's row period. */
 const TWO: Fixed = fx.fromInt(2);
 

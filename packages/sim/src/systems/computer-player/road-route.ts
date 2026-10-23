@@ -28,9 +28,9 @@ const NODE_SCREEN_X: number = HALF_COLUMN;
 const NODE_SCREEN_Y: number = HALF_ROW;
 
 /**
- * A road route from `from` to `to` over the six-node ring a road paints across (`hexNeighboursOf`), so
- * each step joins two nodes one road triangle spans and the laid road has no gap. The walkers' eight steps
- * include a two-row diagonal that a road would leave unpaved between its ends.
+ * A road route from `from` to `to` over the six-node ring a road paints across (`hexNeighboursOf`), the
+ * walkers' own lattice edges, so each step joins two nodes one road triangle spans and the laid road has
+ * no gap; the walkers' composed two-row diagonal would leave its middle unpaved.
  *
  * A* under the hex distance at `leastStepCost` per step, a lower bound, so the route is a cheapest one
  * and a road one row aside is taken rather than paralleled. Among the predecessors that keep the found

@@ -1,3 +1,4 @@
+import type { FootprintCell } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   addPerson,
@@ -9,7 +10,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, positionOfNode, Simulation } from '../../src/index.js';
-import { nodeOfPosition } from '../../src/nav/halfcell.js';
+import { HEX_NEIGHBOUR_OFFSETS, nodeOfPosition } from '../../src/nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import {
   positionedInteractionCell,
@@ -32,34 +33,21 @@ const MINER = 5; // fixture job allowed the stone harvest atomic
 const VIKING = 1;
 const STROKE_COMPLETES_UNIT = 1;
 const ANCHOR = { x: 10, y: 6 }; // an even row, so footprint offsets stamp literally
-/** The pathfinder's eight step offsets: blocking all of them seals a node. */
-const STEP_OFFSETS = [
-  { dx: 1, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 1, dy: -2 },
-  { dx: 1, dy: 2 },
-  { dx: -1, dy: 2 },
-  { dx: -1, dy: -2 },
-  { dx: 0, dy: -1 },
-  { dx: 0, dy: 1 },
-];
-/** A cell and its four stance neighbours. */
-const CELL_AND_NEIGHBOURS = [
-  { dx: 0, dy: 0 },
-  { dx: 1, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 },
-];
+const CELL = { dx: 0, dy: 0 };
+const EAST = { dx: 1, dy: 0 };
+/** A cell and its six lattice neighbours: blocking the neighbours seals the cell. */
+const CELL_AND_NEIGHBOURS = [CELL, ...HEX_NEIGHBOUR_OFFSETS];
 
-/** The cell and three of its stance neighbours, plus every step into the fourth, `(1, 0)`: that
+const sameOffset = (a: FootprintCell, b: FootprintCell): boolean => a.dx === b.dx && a.dy === b.dy;
+/** The east neighbour's ring, shifted along the row, so the even-row frame still holds. */
+const EAST_RING = HEX_NEIGHBOUR_OFFSETS.map(({ dx, dy }) => ({ dx: dx + EAST.dx, dy: dy + EAST.dy }));
+
+/** The cell and five of its lattice neighbours, plus the rest of the ring of the sixth, `EAST`: that
  *  neighbour stays open but sealed in a one-node pocket. */
 const CELL_WITH_SEALED_EAST_NEIGHBOUR = [
-  { dx: 0, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 },
-  ...STEP_OFFSETS.map(({ dx, dy }) => ({ dx: dx + 1, dy })).filter(({ dx, dy }) => dx !== 0 || dy !== 0),
+  CELL,
+  ...HEX_NEIGHBOUR_OFFSETS.filter((c) => !sameOffset(c, EAST)),
+  ...EAST_RING.filter((c) => !sameOffset(c, CELL) && !HEX_NEIGHBOUR_OFFSETS.some((n) => sameOffset(n, c))),
 ];
 
 function mappedSim(): { sim: Simulation; terrain: TerrainGraph } {
@@ -69,10 +57,15 @@ function mappedSim(): { sim: Simulation; terrain: TerrainGraph } {
 }
 
 /** A walk-blocking body anchored at half-cell NODE (x, y), like a stone covering those cells. */
-function blockerAt(sim: Simulation, x: number, y: number, walk: Array<{ dx: number; dy: number }>): Entity {
+function blockerAt(sim: Simulation, x: number, y: number, walk: readonly FootprintCell[]): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, positionOfNode(x, y));
-  stampResourceFootprintData(sim.world, e, { walk, build: [], work: [] });
+  // Fresh cells: a component never holds a shared constant's objects.
+  stampResourceFootprintData(sim.world, e, {
+    walk: walk.map(({ dx, dy }) => ({ dx, dy })),
+    build: [],
+    work: [],
+  });
   return e;
 }
 
@@ -106,7 +99,7 @@ describe('stances no walk can enter', () => {
       ],
     });
     const sealed = { x: ANCHOR.x - 2, y: ANCHOR.y };
-    blockerAt(sim, sealed.x, sealed.y, STEP_OFFSETS);
+    blockerAt(sim, sealed.x, sealed.y, HEX_NEIGHBOUR_OFFSETS);
     const drop = stoneDropAt(sim, ANCHOR.x, ANCHOR.y);
     const from = terrain.nodeAt(2, ANCHOR.y); // nearer the sealed stance
     const open = terrain.nodeAt(ANCHOR.x + 2, ANCHOR.y);

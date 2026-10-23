@@ -1131,16 +1131,21 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
   });
 
   it('lets a band called in to the door stand still once it has formed up', () => {
-    // More men than the door's smallest hold ring has room for, walking in from beyond it, with no enemy
-    // to march on: the seat only gathers. A ring that cannot hold the band pushes its last men out, and
-    // every decision calls them in again.
+    // More men than the door's smallest hold ring has room for, walking in from beyond the ring the band
+    // itself is given, with no enemy to march on: the seat only gathers. A ring that cannot hold the
+    // band pushes its last men out, and every decision calls them in again.
     const BAND = 100;
+    const SPAWN_DISTANCE = 4 * RALLY_HOLD_RADIUS_NODES;
     const SETTLE_TICKS = 2000;
     const WATCH_TICKS = 2000;
     const sim = aiSim();
     place(sim, BARRACKS_TYPE, BARRACKS);
     const rally = rallyOf(sim);
-    const band = spawn(sim, BAND, { x: rally.x + 3 * RALLY_HOLD_RADIUS_NODES, y: rally.y });
+    const band = spawn(sim, BAND, { x: rally.x + SPAWN_DISTANCE, y: rally.y });
+    // The premise: a band this size gets a ring the nearest man still stands beyond.
+    expect(rallyAt(sim.world, ctxOf(sim), terrainOf(sim), rally.node, band).holdRadius).toBeLessThan(
+      SPAWN_DISTANCE,
+    );
     sim.enqueueSetup({ kind: 'setAiControl', player: SEAT, enabled: true });
     sim.run(SETTLE_TICKS);
     const calledIn = new Set(

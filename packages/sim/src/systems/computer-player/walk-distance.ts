@@ -1,8 +1,14 @@
 import { type Fixed, fx, ULP, ZERO } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { HalfCellNode } from '../../nav/halfcell.js';
-import { NO_COMPONENT, type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/index.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW } from '../../nav/world-metric.js';
+import {
+  NO_COMPONENT,
+  type NodeId,
+  StepBuffer,
+  slantDx,
+  type TerrainGraph,
+} from '../../nav/terrain/index.js';
+import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../../nav/world-metric.js';
 import { firstRingNode } from '../ai-shared/node-geometry.js';
 import { WalkBlockMask } from '../footprint/walk-block-mask.js';
 
@@ -306,14 +312,14 @@ export class WalkFlood implements WalkDistances {
   }
 }
 
-/** How far from a node the lattice's steps out of it read the overlay: a diagonal's target and flanks. */
+/** How far from a node the lattice's steps out of it read the overlay: a diagonal's target and middle. */
 const STEP_REACH_X = 1;
 const STEP_REACH_Y = 2;
 
 /** Per node of E/W offset and of N/S offset, a lower bound on the walk across mostly E/W ground: half
- *  columns, each pair of rows climbed by a diagonal at its cost over a half column. */
+ *  columns, each row climbed by a slant at its cost over a half column. */
 const SHALLOW_PER_COLUMN = HALF_COLUMN;
-const SHALLOW_PER_ROW = fx.div(fx.sub(DIAGONAL_STEP, HALF_COLUMN), fx.fromInt(2));
+const SHALLOW_PER_ROW = fx.sub(SLANT_STEP, HALF_COLUMN);
 /** The same up mostly N/S ground: half rows, each column crossed by a diagonal at its cost over two. */
 const STEEP_PER_COLUMN = fx.sub(DIAGONAL_STEP, fx.mulInt(HALF_ROW, 2));
 const STEEP_PER_ROW = HALF_ROW;
@@ -329,18 +335,30 @@ export function walkLowerBound(dx: number, dy: number): Fixed {
   return shallow > steep ? shallow : steep;
 }
 
-/** The unobstructed lattice's step offsets and costs: {@link TerrainGraph.stepsInto}'s edge set on open
- *  ground, where no diagonal lacks a passable flank. */
-const OPEN_STEPS: ReadonlyArray<readonly [dx: number, dy: number, cost: Fixed]> = [
-  [1, 0, HALF_COLUMN],
-  [-1, 0, HALF_COLUMN],
-  [1, -2, DIAGONAL_STEP],
-  [1, 2, DIAGONAL_STEP],
-  [-1, 2, DIAGONAL_STEP],
-  [-1, -2, DIAGONAL_STEP],
-  [0, -1, HALF_ROW],
-  [0, 1, HALF_ROW],
-];
+type OpenStep = readonly [dx: number, dy: number, cost: Fixed];
+
+/** The unobstructed lattice's step offsets and costs from a row whose slants shift `slant` columns:
+ *  {@link TerrainGraph.stepsInto}'s edge set on open ground, where every edge is open and no diagonal
+ *  lacks a passable middle. */
+function openSteps(slant: number): readonly OpenStep[] {
+  return [
+    [1, 0, HALF_COLUMN],
+    [0, 1, HALF_ROW],
+    [slant, 1, SLANT_STEP],
+    [-1, 0, HALF_COLUMN],
+    [slant, -1, SLANT_STEP],
+    [0, -1, HALF_ROW],
+    [1, 2, DIAGONAL_STEP],
+    [-1, 2, DIAGONAL_STEP],
+    [-1, -2, DIAGONAL_STEP],
+    [1, -2, DIAGONAL_STEP],
+  ];
+}
+/** Any even and any odd row: only the parity matters. */
+const EVEN_ROW = 0;
+const ODD_ROW = 1;
+const OPEN_STEPS_EVEN = openSteps(slantDx(EVEN_ROW));
+const OPEN_STEPS_ODD = openSteps(slantDx(ODD_ROW));
 /** Packs an unobstructed lattice offset into one key; offsets stay far inside the span for any budget a
  *  map flood uses. */
 const OPEN_LATTICE_SPAN = 1 << 13;
@@ -351,7 +369,9 @@ const certainBelowByBudget = new Map<number, Fixed>();
 /**
  * The walk cost under which a node always ranks within the first `budget` a {@link WalkFlood} settles:
  * the cost of the `budget + 1`-th node an open, unbounded lattice settles. A walk never undercuts the
- * open lattice's, so every node settled before one cheaper than this is one of those `budget`.
+ * open lattice's, so every node settled before one cheaper than this is one of those `budget`. The
+ * lattice from an odd row is the even row's mirror image, so one origin (on an even row) settles the
+ * same cost sequence for both.
  */
 export function budgetCertainBelow(budget: number): Fixed {
   const known = certainBelowByBudget.get(budget);
@@ -370,7 +390,8 @@ export function budgetCertainBelow(budget: number): Fixed {
     settled.add(key);
     const x = Math.floor(key / OPEN_LATTICE_SPAN);
     const y = key % OPEN_LATTICE_SPAN;
-    for (const [dx, dy, cost] of OPEN_STEPS) {
+    const steps = (y & 1) === 0 ? OPEN_STEPS_EVEN : OPEN_STEPS_ODD;
+    for (const [dx, dy, cost] of steps) {
       const next = (x + dx) * OPEN_LATTICE_SPAN + (y + dy);
       if (settled.has(next)) continue;
       const stepCost = fx.add(certain, cost);

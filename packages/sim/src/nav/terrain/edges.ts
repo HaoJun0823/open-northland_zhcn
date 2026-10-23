@@ -1,32 +1,29 @@
 /**
- * Movement steps 8 directions, one half-cell fine: E/W `(+-1, 0)`, NE/SE/SW/NW `(+-1, +-2)` for the 51 px
- * lattice edge, and N/S `(0, +-1)`. Source basis for the set: `THexagonDirection` in the shipped
- * `Data/GameSourceIncludes/logicdefines.inc`, with NORTH = 6 and SOUTH = 7.
+ * A node's edges to its six lattice neighbours: the pathfinder's single steps, and the adjacency of every
+ * search that decides where a walker can step, such as stands, evictions and door passages. The range
+ * floods (`range-search.ts`) walk the same six neighbours without the edge gate. Source basis for the set: `THexagonDirection` in the shipped `Data/GameSourceIncludes/logicdefines.inc`
+ * (E, SE, SW, W, NW, NE, then NORTH = 6 and SOUTH = 7, which no route takes). Original behavior: the
+ * route search expands only those six, each gated by the map's per-node edge lane, on a lattice whose
+ * odd rows sit half a node to +x. Here the odd-row shift is the parity rule of the row-crossing edges:
+ * from an even row NE and SE run straight up and down the column and NW and SW shift a column west,
+ * from an odd row NW and SW run straight and NE and SE shift a column east. The edges connect exactly
+ * what the original's connect.
  *
- * Original behavior: the route search expands only the first six, a node's edges to its six neighbours
- * on a lattice whose odd rows sit half a node to +x, each gated by the map's per-node edge lane. Here an
- * E/W or N/S step is one such edge and a diagonal two in one direction, each needing the lane's bit, so
- * no step skips a blocked node. Approximation: route shapes. The edges that
- * shift a column, NW/SW from an even row and NE/SE from an odd one, have no step of their own and are
- * walked only inside a diagonal.
+ * The pathfinder also takes a composed diagonal `(+-1, +-2)`: the same heading's edge twice, walked as
+ * one straight leg, because on this rectangular lattice the two edges differ in length and would be
+ * walked as a bend (`DIAGONAL_STEP` in `world-metric.ts`). It needs both edges open and its middle
+ * node passable, so it joins nothing the single edges do not. Approximation: route shapes and step
+ * lengths, not connectivity.
  *
  * Neighbours are emitted in a fixed canonical order so traversal is byte-identical across runs.
  */
-import { HEX_EDGE, HEX_EDGE_COUNT } from '@open-northland/data';
+import { HEX_EDGE, HEX_EDGE_COUNT, hexEdgeNeighbourX, hexEdgeNeighbourY } from '@open-northland/data';
 import { type BlockOverlay, NodeMask } from '../block-overlay.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW } from '../world-metric.js';
+import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../world-metric.js';
 
 import { TerrainLattice, type Traversal } from './lattice.js';
 import type { NodeId } from './node-id.js';
 import { type Step, StepBuffer } from './step-buffer.js';
-
-/** The 4-connected orthogonal neighbour offsets, in canonical order. */
-export const NEIGHBOUR_OFFSETS: ReadonlyArray<readonly [dx: number, dy: number]> = [
-  [0, -1], // N
-  [1, 0], // E
-  [0, 1], // S
-  [-1, 0], // W
-] as const;
 
 /** One bit per original edge direction, as the ground edge lane stores them. */
 const EAST = 1 << HEX_EDGE.EAST;
@@ -37,28 +34,54 @@ const NORTH_WEST = 1 << HEX_EDGE.NORTH_WEST;
 const NORTH_EAST = 1 << HEX_EDGE.NORTH_EAST;
 const ALL_EDGES = (1 << HEX_EDGE_COUNT) - 1;
 
+/** The six edges in bit order, the canonical neighbour order: E, SE, SW, W, NW, NE. */
+const EDGE_BITS: readonly number[] = [EAST, SOUTH_EAST, SOUTH_WEST, WEST, NORTH_WEST, NORTH_EAST];
+const EVEN_ROW = 0;
+const ODD_ROW = 1;
+/** Each edge's column offset from an even row and from an odd row, and its row offset. */
+const EDGE_DX_EVEN: readonly number[] = EDGE_BITS.map((_, edge) => hexEdgeNeighbourX(0, EVEN_ROW, edge));
+const EDGE_DX_ODD: readonly number[] = EDGE_BITS.map((_, edge) => hexEdgeNeighbourX(0, ODD_ROW, edge));
+const EDGE_DY: readonly number[] = EDGE_BITS.map((_, edge) => hexEdgeNeighbourY(0, edge));
+/** The column a slant edge shifts from an even row (SW and NW) and from an odd one (SE and NE). */
+const SLANT_DX_EVEN = hexEdgeNeighbourX(0, EVEN_ROW, HEX_EDGE.SOUTH_WEST);
+const SLANT_DX_ODD = hexEdgeNeighbourX(0, ODD_ROW, HEX_EDGE.SOUTH_EAST);
+
+/** The column the two slant edges of row `y` shift, up or down: -1 (west) from an even row, +1 (east)
+ *  from an odd one. A walk heading `dx` can take a slant from row `y` only when `dx * slantDx(y) > 0`. */
+export function slantDx(y: number): number {
+  return (y & 1) === 0 ? SLANT_DX_EVEN : SLANT_DX_ODD;
+}
+
 export abstract class TerrainEdges extends TerrainLattice {
-  /** The in-bounds 4-connected neighbours of a node, in canonical order. */
+  /** The in-bounds lattice neighbours of a node, in canonical order, whatever the ground between. */
   neighbours(node: NodeId): NodeId[] {
-    const x = this.xOf(node);
-    const y = this.yOf(node);
     const out: NodeId[] = [];
-    for (const [dx, dy] of NEIGHBOUR_OFFSETS) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (this.inBounds(nx, ny)) out.push(this.idAt(nx, ny));
-    }
+    this.neighboursInto(node, out);
     return out;
   }
 
+  /** {@link neighbours} written into `out` from index 0, for a loop that reuses one array; returns how
+   *  many it wrote. */
+  neighboursInto(node: NodeId, out: NodeId[]): number {
+    const x = this.xOf(node);
+    const y = this.yOf(node);
+    const dxs = (y & 1) === 0 ? EDGE_DX_EVEN : EDGE_DX_ODD;
+    let count = 0;
+    for (let i = 0; i < EDGE_BITS.length; i++) {
+      const nx = x + (dxs[i] ?? 0);
+      const ny = y + (EDGE_DY[i] ?? 0);
+      if (this.inBounds(nx, ny)) out[count++] = this.idAt(nx, ny);
+    }
+    return count;
+  }
+
   /**
-   * The walkable subset of {@link neighbours} a walkable `node` is {@link joined} to, in the same order.
-   * This is the adjacency relation for placement, not the pathfinder's edge set, which is 8-connected
-   * through {@link steps}.
+   * The walkable subset of {@link neighbours} a walkable `node` is {@link joined} to, in the same order:
+   * the nodes a walker standing on `node` can step to in one edge, the composed diagonals aside.
    */
   walkableNeighbours(node: NodeId): NodeId[] {
     const out: NodeId[] = [];
-    out.length = this.walkableNeighboursInto(node, out);
+    this.walkableNeighboursInto(node, out);
     return out;
   }
 
@@ -67,27 +90,27 @@ export abstract class TerrainEdges extends TerrainLattice {
   walkableNeighboursInto(node: NodeId, out: NodeId[]): number {
     const x = this.xOf(node);
     const y = this.yOf(node);
+    const dxs = (y & 1) === 0 ? EDGE_DX_EVEN : EDGE_DX_ODD;
     // A node no walker stands on, a trunk or a rock, borders its neighbours rather than stepping to them.
-    const fromGround = this.isWalkable(node);
+    const edges = this.isWalkable(node) ? this.edgeMaskAt(node) : ALL_EDGES;
     let count = 0;
-    for (let i = 0; i < NEIGHBOUR_OFFSETS.length; i++) {
-      const offset = NEIGHBOUR_OFFSETS[i];
-      if (offset === undefined) continue;
-      const nx = x + offset[0];
-      const ny = y + offset[1];
+    for (let i = 0; i < EDGE_BITS.length; i++) {
+      if ((edges & (EDGE_BITS[i] ?? 0)) === 0) continue;
+      const nx = x + (dxs[i] ?? 0);
+      const ny = y + (EDGE_DY[i] ?? 0);
       if (!this.inBounds(nx, ny)) continue;
       const c = this.idAt(nx, ny);
-      if (this.isWalkable(c) && (!fromGround || this.joined(node, c))) out[count++] = c;
+      if (this.isWalkable(c)) out[count++] = c;
     }
     return count;
   }
 
   /**
-   * The pathfinder's 8-direction edge set from `node`, emitted in the order pinned by the pathfinding
-   * goldens: E/W half-column steps, the four diagonals, then N/S half-row steps. A step costs the edge's
-   * world length; the pathfinder weighs it by the destination's ground. A step onto a blocked or
-   * unwalkable destination is omitted, and so is one along ground the original's edges do not join; a
-   * diagonal additionally needs the shared node of its two original edges passable.
+   * The pathfinder's edge set from `node`: the six lattice edges in canonical order, then the composed
+   * diagonals SE, SW, NW, NE. A step costs the edge's world length; the pathfinder weighs it by the
+   * destination's ground. A step onto a blocked or unwalkable destination is omitted, and so is one
+   * along ground the original's edges do not join; a diagonal additionally needs the node its two
+   * edges share passable.
    *
    * The allocating form; hot callers use {@link stepsInto}.
    */
@@ -102,12 +125,7 @@ export abstract class TerrainEdges extends TerrainLattice {
     return out;
   }
 
-  /**
-   * {@link steps} emitted into a caller-owned buffer, which is reset first. Headings in emit order: E
-   * `(+1, 0)`, W `(-1, 0)`, NE `(+1, -2)`, SE `(+1, +2)`, SW `(-1, +2)`, NW `(-1, -2)`, N `(0, -1)`,
-   * S `(0, +1)`. A diagonal's flanks are the N or S node it shares with the vertical step and the node
-   * one half-row along it on the far column.
-   */
+  /** {@link steps} emitted into a caller-owned buffer, which is reset first. */
   stepsInto(
     node: NodeId,
     blocked: BlockOverlay | undefined,
@@ -134,77 +152,89 @@ export abstract class TerrainEdges extends TerrainLattice {
     out.reset();
     const east = x + 1 < width;
     const west = x > 0;
-    const row = width;
-    const twoRows = 2 * width;
+    const up = y > 0;
+    const down = y + 1 < this.height;
     const odd = (y & 1) !== 0;
     const edges = this.edgeMaskAt(node);
-    if (east && (edges & EAST) !== 0 && this.open(node + 1, blocked, bytes, land))
+    // The edge tables unrolled, since this is the pathfinder's inner loop. The row-crossing landings by
+    // this row's parity (the module header); ids are meaningful only where the matching bound holds.
+    const northEast = odd ? node - width + 1 : node - width;
+    const northWest = odd ? node - width : node - width - 1;
+    const southEast = odd ? node + width + 1 : node + width;
+    const southWest = odd ? node + width : node + width - 1;
+    const eastwardIn = odd ? east : true;
+    const westwardIn = odd ? true : west;
+    const eastwardCost = odd ? SLANT_STEP : HALF_ROW;
+    const westwardCost = odd ? HALF_ROW : SLANT_STEP;
+    if (east && (edges & EAST) !== 0 && this.open(node + 1, blocked, bytes, land)) {
       out.push((node + 1) as NodeId, HALF_COLUMN);
-    if (west && (edges & WEST) !== 0 && this.open(node - 1, blocked, bytes, land))
+    }
+    const se = down && eastwardIn && (edges & SOUTH_EAST) !== 0 && this.open(southEast, blocked, bytes, land);
+    if (se) out.push(southEast as NodeId, eastwardCost);
+    const sw = down && westwardIn && (edges & SOUTH_WEST) !== 0 && this.open(southWest, blocked, bytes, land);
+    if (sw) out.push(southWest as NodeId, westwardCost);
+    if (west && (edges & WEST) !== 0 && this.open(node - 1, blocked, bytes, land)) {
       out.push((node - 1) as NodeId, HALF_COLUMN);
-    const north = y > 0 && this.open(node - row, blocked, bytes, land);
-    const south = y + 1 < this.height && this.open(node + row, blocked, bytes, land);
-    const northFar = y >= 2;
-    const southFar = y + 2 < this.height;
-    // A diagonal crosses one specific node of the staggered lattice. An open node beside that
-    // midpoint cannot substitute for it: that would cut through a slanted wall joint.
+    }
+    const nw = up && westwardIn && (edges & NORTH_WEST) !== 0 && this.open(northWest, blocked, bytes, land);
+    if (nw) out.push(northWest as NodeId, westwardCost);
+    const ne = up && eastwardIn && (edges & NORTH_EAST) !== 0 && this.open(northEast, blocked, bytes, land);
+    if (ne) out.push(northEast as NodeId, eastwardCost);
+    // A composed diagonal continues an open edge by the same heading's edge from its landing, which is
+    // the diagonal's middle node, already known passable. The landing two rows off is one column east
+    // for SE and NE and one column west for SW and NW, whatever the parity.
+    const twoRows = 2 * width;
+    const twoDown = y + 2 < this.height;
+    const twoUp = y >= 2;
     if (
+      se &&
+      twoDown &&
       east &&
-      northFar &&
-      this.twoEdges(edges, odd ? node + 1 - row : node - row, NORTH_EAST) &&
-      (odd ? this.open(node + 1 - row, blocked, bytes, land) : north) &&
-      this.open(node + 1 - twoRows, blocked, bytes, land)
+      this.edgeOpen(southEast, SOUTH_EAST, node + twoRows + 1, blocked, bytes, land)
     ) {
-      out.push((node + 1 - twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node + twoRows + 1) as NodeId, DIAGONAL_STEP);
     }
     if (
+      sw &&
+      twoDown &&
+      west &&
+      this.edgeOpen(southWest, SOUTH_WEST, node + twoRows - 1, blocked, bytes, land)
+    ) {
+      out.push((node + twoRows - 1) as NodeId, DIAGONAL_STEP);
+    }
+    if (
+      nw &&
+      twoUp &&
+      west &&
+      this.edgeOpen(northWest, NORTH_WEST, node - twoRows - 1, blocked, bytes, land)
+    ) {
+      out.push((node - twoRows - 1) as NodeId, DIAGONAL_STEP);
+    }
+    if (
+      ne &&
+      twoUp &&
       east &&
-      southFar &&
-      this.twoEdges(edges, odd ? node + 1 + row : node + row, SOUTH_EAST) &&
-      (odd ? this.open(node + 1 + row, blocked, bytes, land) : south) &&
-      this.open(node + 1 + twoRows, blocked, bytes, land)
+      this.edgeOpen(northEast, NORTH_EAST, node - twoRows + 1, blocked, bytes, land)
     ) {
-      out.push((node + 1 + twoRows) as NodeId, DIAGONAL_STEP);
+      out.push((node - twoRows + 1) as NodeId, DIAGONAL_STEP);
     }
-    if (
-      west &&
-      southFar &&
-      this.twoEdges(edges, odd ? node + row : node - 1 + row, SOUTH_WEST) &&
-      (odd ? south : this.open(node - 1 + row, blocked, bytes, land)) &&
-      this.open(node - 1 + twoRows, blocked, bytes, land)
-    ) {
-      out.push((node - 1 + twoRows) as NodeId, DIAGONAL_STEP);
-    }
-    if (
-      west &&
-      northFar &&
-      this.twoEdges(edges, odd ? node - row : node - 1 - row, NORTH_WEST) &&
-      (odd ? north : this.open(node - 1 - row, blocked, bytes, land)) &&
-      this.open(node - 1 - twoRows, blocked, bytes, land)
-    ) {
-      out.push((node - 1 - twoRows) as NodeId, DIAGONAL_STEP);
-    }
-    // The node straight up or down a half row is the original's NE/SE neighbour on an even row and its
-    // NW/SW one on an odd row.
-    if (north && (edges & (odd ? NORTH_WEST : NORTH_EAST)) !== 0) out.push((node - row) as NodeId, HALF_ROW);
-    if (south && (edges & (odd ? SOUTH_WEST : SOUTH_EAST)) !== 0) out.push((node + row) as NodeId, HALF_ROW);
   }
 
   /**
    * Whether the ground joins `node` to `next`, one of its {@link neighbours}: the original's edge between
-   * them is open, or the map carries no edges. A search over the orthogonal neighbours asks it between
-   * two nodes a mover stands on, so that it never crosses ground a step cannot.
+   * them is open, or the map carries no edges. False for a node that is no lattice neighbour. A search
+   * over the neighbours asks it between two nodes a mover stands on, so that it never crosses ground a
+   * step cannot.
    */
   joined(node: NodeId, next: NodeId): boolean {
-    if (this.groundEdges === undefined) return true;
-    const odd = (this.yOf(node) & 1) !== 0;
-    const offset = next - node;
-    let bit = 0;
-    if (offset === -this.width) bit = odd ? NORTH_WEST : NORTH_EAST;
-    else if (offset === this.width) bit = odd ? SOUTH_WEST : SOUTH_EAST;
-    else if (offset === 1) bit = EAST;
-    else if (offset === -1) bit = WEST;
-    return (this.edgeMaskAt(node) & bit) !== 0;
+    const y = this.yOf(node);
+    const dx = this.xOf(next) - this.xOf(node);
+    const dy = this.yOf(next) - y;
+    const dxs = (y & 1) === 0 ? EDGE_DX_EVEN : EDGE_DX_ODD;
+    for (let i = 0; i < EDGE_BITS.length; i++) {
+      if (dxs[i] === dx && EDGE_DY[i] === dy) return (this.edgeMaskAt(node) & (EDGE_BITS[i] ?? 0)) !== 0;
+    }
+    return false;
   }
 
   /** The open ground edge bits of the in-bounds node id `c`, every bit when the map carries no edges. */
@@ -212,9 +242,17 @@ export abstract class TerrainEdges extends TerrainLattice {
     return this.groundEdges === undefined ? ALL_EDGES : (this.groundEdges[c] ?? 0);
   }
 
-  /** Whether the edge `bit` leaves a node whose mask is `edges` and leaves `middle` as well. */
-  private twoEdges(edges: number, middle: number, bit: number): boolean {
-    return (edges & bit) !== 0 && (this.edgeMaskAt(middle) & bit) !== 0;
+  /** Whether the edge `bit` leaves the in-bounds node id `from` and its in-bounds landing `to` is
+   *  {@link open}. */
+  private edgeOpen(
+    from: number,
+    bit: number,
+    to: number,
+    blocked: BlockOverlay | undefined,
+    bytes: Uint8Array | undefined,
+    land: boolean,
+  ): boolean {
+    return (this.edgeMaskAt(from) & bit) !== 0 && this.open(to, blocked, bytes, land);
   }
 
   /** Whether the in-bounds node id `c` is open to a land mover (`land`) or a ship and not masked by the

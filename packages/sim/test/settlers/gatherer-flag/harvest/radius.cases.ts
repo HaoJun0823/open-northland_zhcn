@@ -88,8 +88,8 @@ describe('flag-bound gatherer - works only within its flag radius (req 3)', () =
 });
 
 describe('flag-bound gatherer - never targets a tree it cannot reach (mosty na rzece)', () => {
-  // A river of WATER nodes at columns 10,11 splits the map: left bank hx≤9, right bank hx≥12 (a single
-  // water node kills the straight step and its diagonal flanks, so the banks are separate components).
+  // A river of WATER nodes at columns 10,11 splits the map: left bank hx≤9, right bank hx≥12 (two water
+  // columns leave no lattice edge across, so the banks are separate components).
   // Tile (tx,ty) sits at node (2·tx, 2·ty); an anchor-only tree's work cell is its own anchor node.
   const RIVER = [10, 11] as const;
 

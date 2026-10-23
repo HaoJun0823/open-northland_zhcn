@@ -96,8 +96,8 @@ function ringAround(hx: number, hy: number): Array<{ hx: number; hy: number }> {
   return ring;
 }
 
-/** A wall post on every ring node around (hx, hy). Routing is 4-connected, so the ring seals the pocket; an
- *  ownerless post is never a target itself, an owned one is a plain enemy building. */
+/** A wall post on every ring node around (hx, hy). Every lattice edge out of the pocket meets a post, so
+ *  the ring seals it; an ownerless post is never a target itself, an owned one is a plain enemy building. */
 function wallIn(sim: Simulation, hx: number, hy: number, owner?: number): Entity[] {
   return ringAround(hx, hy).map((node) => {
     const e = sim.world.create();
@@ -379,8 +379,8 @@ describe('a chase whose target a ring of bodies seals off', () => {
       SEALED_TARGET_ROUTE_FAILURES,
     );
 
-    // The body on the ring's west edge steps off, opening a 4-connected passage (a corner would not): the
-    // next cadence's route resolves and the chase walks in.
+    // The body on the ring's west edge steps off, opening a passage: the next cadence's route resolves
+    // and the chase walks in.
     const ring = ringAround(scene.at.hx, scene.at.hy);
     const gap = crowd[ring.findIndex((n) => n.hx === scene.at.hx - RING_RADIUS && n.hy === scene.at.hy)];
     if (gap === undefined) throw new Error('fixture: the ring has no west edge');

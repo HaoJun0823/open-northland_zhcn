@@ -130,7 +130,8 @@ export const HEX_NEIGHBOUR_OFFSETS: readonly FootprintCell[] = [
 ];
 
 /** The six nearest lattice nodes of `(hx, hy)`, a landscape point's ring under the half-node stagger of
- *  odd rows (docs/formats/MAPDAT.md); unclamped, and not the pathfinder's 8-step relation. */
+ *  odd rows (docs/formats/MAPDAT.md) and the nodes the pathfinder's single edges reach; unclamped, and
+ *  without the ground edge gate (`nav/terrain/edges.ts`). */
 export function hexNeighboursOf(hx: number, hy: number): HalfCellNode[] {
   return HEX_NEIGHBOUR_OFFSETS.map((c) => ({ hx: hx + footprintCellDx(hy, c), hy: hy + c.dy }));
 }
@@ -141,10 +142,11 @@ export function hexNeighboursOf(hx: number, hy: number): HalfCellNode[] {
  * one further column step is free, in the direction the destination row's parity picks, so the region
  * a range selects leans to one side instead of being symmetric about its centre.
  *
- * The six nodes this makes adjacent are not the eight a unit walks (`nav/terrain/edges.ts`), and the
- * lean is not this lattice's geometry, which carries no stagger: both belong to the original's own
- * map-point grid. Original behavior: the hexagon-direction distance every range test uses
- * (`docs/formats/MISSIONS.md`, "Tokens and parameter kinds").
+ * The six nodes this makes adjacent are the edges a unit walks (`nav/terrain/edges.ts`), each counted
+ * as one step here where the walk prices them by world length; the lean is not this lattice's
+ * geometry, which carries no stagger, but the original's own map-point grid. Original behavior: the
+ * hexagon-direction distance every range test uses (`docs/formats/MISSIONS.md`, "Tokens and parameter
+ * kinds").
  */
 export function hexDistance(a: HalfCellNode, b: HalfCellNode): number {
   return hexDistanceBetween(a.hx, a.hy, b.hx, b.hy);

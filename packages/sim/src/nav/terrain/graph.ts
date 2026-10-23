@@ -91,7 +91,7 @@ export interface ComponentBox {
 }
 
 /**
- * The sim's navigation model: the half-cell node lattice with its 8-direction edge set and each node's
+ * The sim's navigation model: the half-cell node lattice with its six-edge adjacency and each node's
  * static connectivity label. Distinct from the render's triangle tessellation. Construct through
  * {@link buildTerrainGraph}.
  */
@@ -375,10 +375,10 @@ export class TerrainGraph extends TerrainEdges {
     return boxes;
   }
 
-  /** Flood-fill the static components over the pathfinder's own edge set, so the diagonal flank-seam
-   *  rule has one owner: the land components first, then the water bodies. Edges are symmetric within
-   *  one class's node set, so the BFS labelling is well-defined. Runs from the constructor, so an
-   *  override of {@link stepsInto} would see a subclass's own fields still uninitialised. */
+  /** Flood-fill the static components over the pathfinder's own edge set, so the edge rule has one
+   *  owner: the land components first, then the water bodies. Edges are symmetric within one class's
+   *  node set, so the BFS labelling is well-defined. Runs from the constructor, so an override of
+   *  {@link stepsInto} would see a subclass's own fields still uninitialised. */
   private computeComponents(): Int32Array {
     const components = new Int32Array(this.nodeCount).fill(NO_COMPONENT);
     const queue: NodeId[] = [];

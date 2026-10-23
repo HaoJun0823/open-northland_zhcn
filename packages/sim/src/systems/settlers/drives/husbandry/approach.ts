@@ -5,8 +5,8 @@ import { hexNodeDistance } from '../../../spatial/metric.js';
 import type { PlannerContext } from '../../planner/context.js';
 import { isUnreachableGoal, unreachableGoals } from '../../unreachable-goals.js';
 
-/** An animal's interpolated position can map to a blocked diagonal flank. Keep a clear target node,
- * otherwise approach within summon range; the normal routing pass verifies the longer route. */
+/** An animal's interpolated position can map to a blocked node between its steps. Keep a clear target
+ * node, otherwise approach within summon range; the normal routing pass verifies the longer route. */
 export function livestockApproach(plan: PlannerContext, animal: NodeId, range: number): NodeId {
   const { world, ctx, terrain, entity, here } = plan;
   const blocked = dynamicBlockOverlay(world, ctx, terrain);

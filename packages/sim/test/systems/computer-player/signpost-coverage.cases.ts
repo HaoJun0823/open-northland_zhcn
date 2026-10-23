@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addCurrentAtomic, Settler } from '../../../src/components/index.js';
 import { positionOfNode, Simulation } from '../../../src/index.js';
-import { hexDistanceBetween } from '../../../src/nav/halfcell.js';
+import { hexDistanceBetween, hexNeighboursOf } from '../../../src/nav/halfcell.js';
 import {
   DEFAULT_BUILD_ORDER,
   SIGNPOST_LATTICE_SPACING_NODES,
@@ -10,7 +10,7 @@ import {
   signpostLatticeOffset,
 } from '../../../src/systems/computer-player/index.js';
 import { interactionNode } from '../../../src/systems/footprint/interaction.js';
-import { signpostNetwork } from '../../../src/systems/index.js';
+import { routeRegions, signpostNetwork } from '../../../src/systems/index.js';
 import { EAT_ATOMIC_ID } from '../../../src/systems/settlers/atomics/start.js';
 import { aiContent } from '../../fixtures/ai-content.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
@@ -91,21 +91,12 @@ describe('signpost-coverage module (guideBuild)', () => {
     sim.enqueueSetup({ kind: 'spawnSettler', jobType: SCOUT, x: 10, y: 10, tribe: VIKING, owner: SEAT });
     sim.step();
 
-    // Seal the centre spot (doorway - 2, proven by the door test above) inside a ring of its eight
+    // Seal the centre spot (doorway - 2, proven by the door test above) inside a ring of its six
     // lattice neighbours, leaving the spot itself clear ground both overlays accept.
     const sealed = { x: HQ_X + HQ_DOOR.dx - 2, y: HQ_Y + HQ_DOOR.dy };
     wallOver(
       sim,
-      [
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 },
-        { dx: 1, dy: 2 },
-        { dx: 1, dy: -2 },
-        { dx: -1, dy: 2 },
-        { dx: -1, dy: -2 },
-      ].map((o) => ({ x: sealed.x + o.dx, y: sealed.y + o.dy })),
+      hexNeighboursOf(sealed.x, sealed.y).map(({ hx, hy }) => ({ x: hx, y: hy })),
     );
 
     const ctx = { ...ctxOf(sim), content: doorHqContent() };
@@ -127,23 +118,21 @@ describe('signpost-coverage module (guideBuild)', () => {
     sim.enqueueSetup({ kind: 'spawnSettler', jobType: SCOUT, x: 10, y: 10, tribe: VIKING, owner: SEAT });
     sim.step();
 
-    // Wall the door's seven open lattice neighbours (the eighth, east, is the HQ body): the door
+    // Wall the door's five open lattice neighbours (the sixth, east, is the HQ body): the door
     // becomes a one-node pocket.
     const door = { x: HQ_X + HQ_DOOR.dx, y: HQ_Y + HQ_DOOR.dy };
+    const hqBody = { x: door.x + 1, y: door.y };
     wallOver(
       sim,
-      [
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 },
-        { dx: 1, dy: 2 },
-        { dx: 1, dy: -2 },
-        { dx: -1, dy: 2 },
-        { dx: -1, dy: -2 },
-      ].map((o) => ({ x: door.x + o.dx, y: door.y + o.dy })),
+      hexNeighboursOf(door.x, door.y)
+        .map(({ hx, hy }) => ({ x: hx, y: hy }))
+        .filter(({ x, y }) => x !== hqBody.x || y !== hqBody.y),
     );
 
     const ctx = { ...ctxOf(sim), content: doorHqContent() };
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('setup: terrain missing');
+    expect(routeRegions(sim.world, ctx, terrain).pocketed(terrain.nodeAt(door.x, door.y))).toBe(true);
     const order = [...guideBuild.run(sim.world, ctx, SEAT)][0];
     if (order?.kind !== 'placeSignpost') throw new Error('expected a placeSignpost order');
     expect(hexDistanceBetween(order.x, order.y, door.x - 2, door.y) <= SIGNPOST_TARGET_TOLERANCE_NODES).toBe(

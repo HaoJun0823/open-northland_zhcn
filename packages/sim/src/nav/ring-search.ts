@@ -19,11 +19,12 @@ export interface RingSearchProbe {
 const TRAVERSE_ANY = (): boolean => true;
 
 /**
- * The nearest accepted node to `from`, breadth-first over the graph's canonical neighbours of the traversal class and
- * bounded to `cap` visited nodes. The winner is the first accepted node at the minimum ring distance in
- * neighbour order, so reordering the expansion would move the goldens. `cap` guards the outer loop, so a
- * started ring always finishes. `from` is neither tested nor returned and may be unwalkable, such as a
- * click on water, since expansion starts from its traversable neighbours.
+ * The nearest accepted node to `from`, breadth-first over the graph's lattice neighbours of the traversal
+ * class, in their canonical order, and bounded to `cap` visited nodes. The winner is the first accepted
+ * node at the minimum ring distance in neighbour order, so reordering the expansion would move the
+ * goldens. `cap` guards the outer loop, so a started ring always finishes. `from` is neither tested nor
+ * returned and may be unwalkable, such as a click on water, since expansion starts from its traversable
+ * neighbours.
  */
 export function ringSearch(
   terrain: TerrainGraph,

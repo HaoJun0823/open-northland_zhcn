@@ -21,8 +21,8 @@ import { type NodeMoveFeed, watchNodeMoves } from '../../spatial/node-moves.js';
 import { NodeBuckets } from '../../spatial/nodes.js';
 
 /**
- * The 4-connected radius of a completed workplace's loiter yard, in half-cell steps, about two visual
- * tiles. Approximation: a presentation tuning value, not extracted data.
+ * The radius of a completed workplace's loiter yard, in lattice edges, about two visual tiles.
+ * Approximation: a presentation tuning value, not extracted data.
  */
 const WORKPLACE_YARD_RADIUS_NODES = 4;
 
@@ -131,7 +131,7 @@ export class PlannerSpacing {
 
   /**
    * A workplace anchor's loiter yard: every walkable, unblocked node within
-   * {@link WORKPLACE_YARD_RADIUS_NODES} 4-connected steps of `anchor`, in canonical ring order, where
+   * {@link WORKPLACE_YARD_RADIUS_NODES} lattice edges of `anchor`, in canonical ring order, where
    * insertion order is the claim priority. Blocked cells are neither entered nor traversed, mirroring
    * the pathfinder, so a yard never spans a wall the walk could not cross.
    */

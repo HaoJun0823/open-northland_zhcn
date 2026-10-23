@@ -10,22 +10,12 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../src/index.js';
+import { HEX_NEIGHBOUR_OFFSETS } from '../../src/nav/halfcell.js';
 import { plannerSystem, routeRegions, stampResourceFootprintData } from '../../src/systems/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import { FIELD_CAP, farmAt, farmerAt, fieldAtNode, STAGES, WHEAT } from './farming/support.js';
-
-const RING = [
-  { dx: 1, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 },
-  { dx: 1, dy: 2 },
-  { dx: 1, dy: -2 },
-  { dx: -1, dy: 2 },
-  { dx: -1, dy: -2 },
-];
 
 function setup() {
   const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(30, 20) });
@@ -33,7 +23,11 @@ function setup() {
   const farmer = farmerAt(sim, 1, 3, farm);
   const wall = sim.world.create();
   sim.world.add(wall, Position, positionOfNode(10, 6));
-  stampResourceFootprintData(sim.world, wall, { walk: RING, build: [], work: [] });
+  stampResourceFootprintData(sim.world, wall, {
+    walk: HEX_NEIGHBOUR_OFFSETS.map((cell) => ({ ...cell })),
+    build: [],
+    work: [],
+  });
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('terrain missing');
   expect(

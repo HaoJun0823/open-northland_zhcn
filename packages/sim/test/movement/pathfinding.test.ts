@@ -7,7 +7,7 @@ import {
   type TerrainGraph,
   type TerrainMap,
 } from '../../src/index.js';
-import { latticeOffsetFloor, nearestCorridorStop } from '../../src/nav/pathfinding/corridor.js';
+import { nearestCorridorStop } from '../../src/nav/pathfinding/corridor.js';
 import {
   FLOOD_GUARD_MAX_EXPLORED,
   findPathWithin,
@@ -21,9 +21,9 @@ import { testContent } from '../fixtures/content.js';
 /**
  * Unit tests for A* on the terrain HALF-CELL ADJACENCY GRAPH. The fixture's landscape table has
  * typeId 0 = grass (walkable) and 1 = water (not walkable). Grids here are authored directly at
- * NODE resolution (the `2W×2H` lattice - edges: E/W (±1,0) @ ½, diagonals (±1,±2) @ ≈¾, N/S (0,±1)
- * @ ≈0.28). These pin route correctness AND the deterministic, history-independent tie-breaking the
- * lockstep replay invariant depends on.
+ * NODE resolution (the `2W×2H` lattice - edges: E/W (±1,0) @ ½, the straight row edge (0,±1) @ ≈0.28,
+ * the slanted row edge (±1,±1) @ ≈0.57, composed diagonals (±1,±2) @ ≈¾). These pin route correctness
+ * AND the deterministic, history-independent tie-breaking the lockstep replay invariant depends on.
  */
 
 const GRASS = 0;
@@ -144,7 +144,7 @@ describe('findPath - shortest route on an open grid', () => {
     for (let i = 1; i < (path?.length ?? 0); i++) {
       const prev = path?.[i - 1] as NodeId;
       const cur = path?.[i] as NodeId;
-      // steps() is the pathfinder's 8-direction half-cell edge set.
+      // steps() is the pathfinder's edge set: the six lattice edges and the composed diagonals.
       expect(g.steps(prev).map((s) => s.node)).toContain(cur);
     }
   });
@@ -263,40 +263,34 @@ describe('findPath - deterministic tie-breaking', () => {
     expect(stats.explored).toBeLessThanOrEqual(POCKET_PROBE_MAX_EXPLORED);
   });
 
-  it('refutes a goal whose only way in is a diagonal flanked by the blocked start, at pocket cost', () => {
-    // The goal's one open exit is the SE diagonal, flanked by the walker's own node and a blocked node. The
-    // goal side's re-admitted start opens that flank and reaches the start, yet the forward search may
-    // never use it, so that route proves nothing: the side must restart on the plain overlay rather than
-    // hand over to a forward flood of the whole grid.
+  it('reaches a goal whose only way in is the edge from the blocked start, at pocket cost', () => {
+    // The goal's five other edges are blocked; the one left leads to the walker's own blocked node, which
+    // the step-off exemption lets it leave. The goal side re-admits that start and proves the route at
+    // the pocket's size, so no forward flood of the grid runs first.
     const g = open(80, 80);
     const start = g.nodeAt(41, 41);
-    const goal = g.nodeAt(40, 40);
+    const goal = g.nodeAt(41, 40); // the start's NW neighbour, straight up from an odd row
     const blocked = new Set<NodeId>([start]);
     for (const [x, y] of [
-      [39, 40],
-      [41, 40],
+      [42, 40],
+      [40, 40],
+      [41, 39],
       [40, 39],
       [40, 41],
-      [39, 38],
-      [41, 38],
-      [39, 42],
     ] as const) {
       blocked.add(g.nodeAt(x, y));
     }
     const stats = { explored: 0 };
-    expect(findPath(g, start, goal, blocked, stats)).toBeNull();
+    expect(findPath(g, start, goal, blocked, stats)).toEqual([start, goal]);
     expect(stats.explored).toBeLessThanOrEqual(POCKET_PROBE_MAX_EXPLORED);
-    expect(findPathWithin(g, start, goal, blocked, { explored: 0 }, Number.POSITIVE_INFINITY)).toBe(
-      'unreachable',
-    );
   });
 
   it.each([{ gap: false }, { gap: true }])(
-    'answers as one unguarded forward search when the goal side restarts past its probe (gap $gap)',
+    'answers as one unguarded forward search when a pocket outgrows the probe (gap $gap)',
     ({ gap }) => {
-      // A walled pocket larger than the probe, its wall corner the walker's own blocked node: from inside, the
-      // re-admitted start opens a diagonal flanked by that corner, so the goal side must restart on the plain
-      // overlay and race on; with a real gap elsewhere the goal is reachable after all.
+      // A walled pocket larger than the probe, its wall corner the walker's own blocked node, which no
+      // lattice edge joins to the inside: the probe gives up at its cap and the race decides, exhausting
+      // the pocket without a gap and finding the route through one.
       const g = open(80, 80);
       const low = POCKET_LOW;
       const blocked = new Set<NodeId>();
@@ -460,27 +454,6 @@ describe('findPath - deterministic tie-breaking', () => {
   });
 });
 
-describe('latticeOffsetFloor', () => {
-  it('bounds the lattice distance of every offset at least as far on both axes', () => {
-    const span = 60;
-    const reach = 2 * span;
-    // nearest[ax][ay]: the least distance over every offset at least (ax, ay), within reach.
-    const nearest: number[][] = [];
-    for (let ax = reach; ax >= 0; ax--) {
-      const row: number[] = [];
-      for (let ay = reach; ay >= 0; ay--) {
-        const here = latticeOffsetDistance(ax, ay);
-        row[ay] = Math.min(here, row[ay + 1] ?? here, nearest[ax + 1]?.[ay] ?? here);
-      }
-      nearest[ax] = row;
-    }
-    for (let ax = 0; ax <= span; ax++) {
-      for (let ay = 0; ay <= span; ay++)
-        expect(latticeOffsetFloor(ax, ay)).toBeLessThanOrEqual(nearest[ax]?.[ay] ?? 0);
-    }
-  });
-});
-
 describe('nearestCorridorStop', () => {
   it('skips corridor blocks exactly as a linear scan picks', () => {
     const g = open(120, 120);
@@ -503,8 +476,9 @@ describe('nearestCorridorStop', () => {
         const node = corridor[index];
         if (node === undefined || blocked.has(node)) continue;
         const distance = latticeOffsetDistance(
-          Math.abs(g.xOf(target) - g.xOf(node)),
-          Math.abs(g.yOf(target) - g.yOf(node)),
+          g.xOf(node) - g.xOf(target),
+          g.yOf(node) - g.yOf(target),
+          g.yOf(target),
         );
         if (expected !== undefined && distance >= best) continue;
         expected = { index, node };

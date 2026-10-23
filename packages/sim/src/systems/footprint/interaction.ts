@@ -146,16 +146,8 @@ export function constructionWorkCells(
   return workScratch.copy();
 }
 
-/** The 4-connected neighbour offsets of `TerrainGraph.walkableNeighbours`, walked without its array. */
-const NEIGHBOUR_DX: readonly number[] = [0, 1, 0, -1];
-const NEIGHBOUR_DY: readonly number[] = [-1, 0, 1, 0];
-
-/** The node at `(x, y)` when it is on the map and walkable, else null. */
-function walkableAt(terrain: TerrainGraph, x: number, y: number): NodeId | null {
-  if (!terrain.inBounds(x, y)) return null;
-  const node = terrain.nodeAt(x, y);
-  return terrain.isWalkable(node) ? node : null;
-}
+/** Scratch for `TerrainGraph.walkableNeighboursInto`, so a scan allocates no neighbour array per node. */
+const neighbourScratch: NodeId[] = [];
 
 /** The largest box, margin included, the exterior flood scans, in nodes. The largest extracted body's
  *  box is 1102 nodes (the Artemis temple); an open gate's two posts make the sparsest real body. The cap
@@ -229,26 +221,26 @@ class ExteriorScan {
       for (let y = minY; y <= maxY; y++) this.reach(terrain, blocked, maxX, y);
     for (let index = 0; index < this.frontierLength; index++) {
       const cell = this.frontier[index] as NodeId;
-      const cx = terrain.xOf(cell);
-      const cy = terrain.yOf(cell);
-      for (let n = 0; n < NEIGHBOUR_DX.length; n++) {
-        const x = cx + (NEIGHBOUR_DX[n] ?? 0);
-        const y = cy + (NEIGHBOUR_DY[n] ?? 0);
+      const count = terrain.walkableNeighboursInto(cell, neighbourScratch);
+      for (let n = 0; n < count; n++) {
+        const next = neighbourScratch[n] as NodeId;
+        const x = terrain.xOf(next);
+        const y = terrain.yOf(next);
         if (this.inBox(x, y)) this.reach(terrain, blocked, x, y);
       }
     }
   }
 
-  /** Push the exterior cells 4-adjacent to `body` into `out`, ascending node id. */
+  /** Push the exterior cells one lattice edge off `body` into `out`, ascending node id. */
   collectWork(terrain: TerrainGraph, body: CellScratch, out: CellScratch): void {
     for (let i = 0; i < body.length; i++) {
       const cell = body.at(i);
       if (cell === undefined) continue;
-      const x = terrain.xOf(cell);
-      const y = terrain.yOf(cell);
-      for (let n = 0; n < NEIGHBOUR_DX.length; n++) {
-        const nx = x + (NEIGHBOUR_DX[n] ?? 0);
-        const ny = y + (NEIGHBOUR_DY[n] ?? 0);
+      const count = terrain.walkableNeighboursInto(cell, neighbourScratch);
+      for (let n = 0; n < count; n++) {
+        const next = neighbourScratch[n] as NodeId;
+        const nx = terrain.xOf(next);
+        const ny = terrain.yOf(next);
         if (!this.inBox(nx, ny)) continue;
         const index = this.boxIndex(nx, ny);
         const mark = this.marks[index] ?? 0;
@@ -416,18 +408,18 @@ function fillResourceApproachCells(
   }
 }
 
-/** Push `anchor`'s walkable 4-neighbours outside `resources`, in `TerrainGraph.walkableNeighbours` order. */
+/** Push `anchor`'s walkable lattice neighbours outside `resources`, in `TerrainGraph.walkableNeighbours`
+ *  order. */
 function pushFreeNeighbours(
   terrain: TerrainGraph,
   anchor: NodeId,
   resources: ReadonlySet<NodeId>,
   out: CellScratch,
 ): void {
-  const x = terrain.xOf(anchor);
-  const y = terrain.yOf(anchor);
-  for (let n = 0; n < NEIGHBOUR_DX.length; n++) {
-    const cell = walkableAt(terrain, x + (NEIGHBOUR_DX[n] ?? 0), y + (NEIGHBOUR_DY[n] ?? 0));
-    if (cell !== null && !resources.has(cell)) out.push(cell);
+  const count = terrain.walkableNeighboursInto(anchor, neighbourScratch);
+  for (let n = 0; n < count; n++) {
+    const cell = neighbourScratch[n] as NodeId;
+    if (!resources.has(cell)) out.push(cell);
   }
 }
 

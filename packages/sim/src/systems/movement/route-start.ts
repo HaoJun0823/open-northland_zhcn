@@ -16,8 +16,8 @@ function floorInt(v: Fixed): number {
 /**
  * The route-start node for a walker at fixed-point position `(x,y)`: the nearest traversable node among
  * the four that bracket the position on the half-cell lattice, by world-metric distance with ascending
- * cell id as the tie-break. The nearest bracket node alone can be unwalkable, since a diagonal leg is
- * legal with one impassable flank, and `findPath` rejects an unwalkable start outright, which would
+ * cell id as the tie-break. The nearest bracket node alone can be unwalkable, since a slanted leg runs
+ * beside nodes it never steps on, and `findPath` rejects an unwalkable start outright, which would
  * strand the walker mid-seam. Falls back to the truncated node when no bracket node is traversable.
  *
  * With `blocked`, a bracket node outside it wins over a nearer one inside: a walker beside a wall is

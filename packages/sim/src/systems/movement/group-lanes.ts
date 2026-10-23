@@ -1,4 +1,4 @@
-import type { Fixed } from '../../core/fixed.js';
+import { type Fixed, fx } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { nodeMarksOf } from '../../nav/pathfinding/index.js';
 import { latticeDistanceTo, type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/index.js';
@@ -8,6 +8,8 @@ interface LaneStep {
   readonly node: NodeId;
   readonly x: number;
   readonly y: number;
+  /** The edge's world length. */
+  readonly cost: Fixed;
   readonly weight: Fixed;
 }
 
@@ -42,11 +44,17 @@ export class GroupLanes {
         node: next,
         x: this.terrain.xOf(next),
         y: this.terrain.yOf(next),
+        cost: this.steps.costAt(index),
         weight: this.terrain.routeWeightAt(next, 'land'),
       };
     });
     nodes.set(node, edges);
     return edges;
+  }
+
+  /** Whether one of the pathfinder's steps leads from `from` to `to` under `blocked`. */
+  private joinsByStep(blocked: BlockOverlay, from: NodeId, to: NodeId): boolean {
+    return this.edgesAt(blocked, from).some((step) => step.node === to);
   }
 
   /** A shortest geometric lane, or null as soon as an obstacle requires a detour. Keeping each step
@@ -63,35 +71,17 @@ export class GroupLanes {
     const path = [start];
     let at = start;
     while (at !== goal) {
-      const x = terrain.xOf(at),
-        y = terrain.yOf(at);
-      const remainingX = Math.abs(gx - x),
-        remainingY = Math.abs(gy - y);
-      const directionX = Math.sign(gx - x),
-        directionY = Math.sign(gy - y);
+      // A step stays on a shortest open-lattice walk exactly when its length and the open distance left
+      // from its landing add up to the distance left from here.
+      const remaining = latticeDistanceTo(terrain, gx, gy, at);
       let chosen: NodeId | undefined;
       let deviation = Number.POSITIVE_INFINITY;
       for (const step of this.edgesAt(blocked, at)) {
-        const next = step.node;
         if (step.weight > maxWeight) continue;
-        const advanceX = step.x - x,
-          advanceY = step.y - y;
-        if (
-          (advanceX !== 0 && advanceX !== directionX) ||
-          (advanceY !== 0 && Math.sign(advanceY) !== directionY)
-        )
-          continue;
-        // A shortest lattice route uses min(dx,floor(dy/2)) diagonal (1,2) edges, then its remaining
-        // horizontal/vertical edges in any order. These integer conditions are exactly the old
-        // edgeCost + distance(next,goal) === distance(at,goal) test, without eight heuristics per step.
-        if (advanceX !== 0 && advanceY !== 0) {
-          if (remainingY < 2) continue;
-        } else if (advanceX !== 0) {
-          if (remainingX <= Math.floor(remainingY / 2)) continue;
-        } else if (remainingY <= 2 * remainingX && (remainingY & 1) === 0) continue;
+        if (fx.add(step.cost, latticeDistanceTo(terrain, gx, gy, step.node)) !== remaining) continue;
         const side = Math.abs((step.x - sx) * dy - (step.y - sy) * dx);
-        if (side < deviation || (side === deviation && (chosen === undefined || next < chosen))) {
-          chosen = next;
+        if (side < deviation || (side === deviation && (chosen === undefined || step.node < chosen))) {
+          chosen = step.node;
           deviation = side;
         }
       }
@@ -102,8 +92,9 @@ export class GroupLanes {
     return path;
   }
 
-  /** Translate a neighbour's detour into this unit's lane. Every edge is revalidated, including the
-   * diagonal flank rule; a wall, bank or map boundary falls back to the shared corridor. */
+  /** Translate a neighbour's detour into this unit's lane. Every edge is revalidated, the composed
+   * diagonal's middle node included, and a slanted edge the shifted row leans away from is walked as two
+   * straight edges; a wall, bank or map boundary falls back to the shared corridor. */
   translated(
     blocked: BlockOverlay,
     route: readonly NodeId[],
@@ -197,10 +188,44 @@ export class GroupLanes {
       if (!terrain.inBounds(x, y)) return null;
       const next = terrain.nodeAt(x, y);
       if (terrain.routeWeightAt(next, 'land') > maxWeight) return null;
-      if (!this.edgesAt(blocked, previous).some((step) => step.node === next)) return null;
+      if (!this.joinsByStep(blocked, previous, next)) {
+        // An odd row shift flips every node's row parity, where a slant edge leans the other way: walk it
+        // as the straight row edge and the half-column step, through whichever middle is open.
+        const slanted =
+          Math.abs(x - terrain.xOf(previous)) === 1 && Math.abs(y - terrain.yOf(previous)) === 1;
+        const middle = slanted ? this.bridge(blocked, previous, next, dy, maxWeight) : null;
+        if (middle === null) return null;
+        shifted.push(middle);
+      }
       shifted.push(next);
     }
     return shifted;
+  }
+
+  /** The open node joining `from` to `to`, one column and one row apart, by two edges, a straight row
+   *  edge and a half-column step: first through the middle on the row farther along the shift `dy`, which
+   *  keeps a lane one row off the leader off the leader's own nodes, then the other; null when neither
+   *  middle is open. */
+  private bridge(
+    blocked: BlockOverlay,
+    from: NodeId,
+    to: NodeId,
+    dy: number,
+    maxWeight: Fixed,
+  ): NodeId | null {
+    const { terrain } = this;
+    const fromX = terrain.xOf(from);
+    const fromY = terrain.yOf(from);
+    const toX = terrain.xOf(to);
+    const toY = terrain.yOf(to);
+    const onFromRow = terrain.nodeAt(toX, fromY);
+    const onToRow = terrain.nodeAt(fromX, toY);
+    const fromRowFarther = dy > 0 ? fromY > toY : fromY < toY;
+    for (const middle of fromRowFarther ? [onFromRow, onToRow] : [onToRow, onFromRow]) {
+      if (terrain.routeWeightAt(middle, 'land') > maxWeight) continue;
+      if (this.joinsByStep(blocked, from, middle) && this.joinsByStep(blocked, middle, to)) return middle;
+    }
+    return null;
   }
 
   /** Once past the obstacle, leave the shared lane towards the unit's own slot. Probing logarithmically

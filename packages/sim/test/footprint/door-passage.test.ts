@@ -55,10 +55,11 @@ describe('doorPassage', () => {
       '#########',
       '####D####',
       '#########',
-      '####.####', // a hole beside the first wall cell under the door, sealed on every step
+      '####.####', // a hole beside the first wall cell under the door, sealed on every edge
       '#########',
       '.........',
     ]);
+    expect(doorPassage(terrain, body, door).length).toBeGreaterThan(1);
     expect(doorWalksOut(terrain, body, door)).toBe(true);
   });
 
@@ -67,10 +68,9 @@ describe('doorPassage', () => {
     expect(doorPassage(terrain, body, door)).toEqual([door]);
   });
 
-  it('opens a wall cell beside the door, never the one behind it, when the door is the nearest open node', () => {
-    // The byzantine home's shape: the door ringed by walls, with the wall cell behind it enclosed on
-    // its other three sides. Were the door counted as open ground, that dead-end cell would be the
-    // passage and the loiter yard behind the door would reach nothing outside.
+  it('carves nothing for a door whose one open edge slants east from an odd row', () => {
+    // The byzantine home's shape: the door on an odd row with wall cells E, W, straight above and below
+    // and one column west below; its SE edge, one column east on the row below, is open ground.
     const { terrain, body, door } = building([
       '..........',
       '..........',
@@ -86,14 +86,13 @@ describe('doorPassage', () => {
       '....#.....',
       '..........',
     ]);
-    expect(doorPassage(terrain, body, door)).toEqual([door, terrain.nodeAt(7, 9)]);
+    expect(doorPassage(terrain, body, door)).toEqual([door]);
     expect(doorWalksOut(terrain, body, door)).toBe(true);
   });
 
-  it('still carves past a door a diagonal step already leaves', () => {
-    // The frank home's shape: wall cells on all four sides of the door, and the way out the south-west
-    // diagonal. A resource on that diagonal's landing would seal the door, so the wall cell below it
-    // opens as well.
+  it('carves nothing for a door whose one open edge slants west from an even row', () => {
+    // The frank home's shape: the door on an even row walled E, W and straight above and below; its SW
+    // edge, one column west on the row below, leads out.
     const { terrain, body, door } = building([
       '#########',
       '#########',
@@ -102,6 +101,23 @@ describe('doorPassage', () => {
       '###.#####',
       '.........',
     ]);
-    expect(doorPassage(terrain, body, door)).toEqual([door, terrain.nodeAt(4, 3)]);
+    expect(doorPassage(terrain, body, door)).toEqual([door]);
+    expect(doorWalksOut(terrain, body, door)).toBe(true);
+  });
+
+  it('carves one wall cell for a door no edge leaves', () => {
+    // The same even-row door with the south-west cell walled too: sealed on all six edges, so the
+    // nearest wall cell toward open ground opens.
+    const { terrain, body, door } = building([
+      '#########',
+      '#########',
+      '####D####',
+      '#########',
+      '.........',
+    ]);
+    const passage = doorPassage(terrain, body, door);
+    expect(passage).toHaveLength(2);
+    expect(passage[0]).toBe(door);
+    expect(doorWalksOut(terrain, body, door)).toBe(true);
   });
 });

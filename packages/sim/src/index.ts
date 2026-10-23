@@ -261,6 +261,7 @@ export {
 export type { PlayerPlacementProbe } from './systems/conflict/contested-ground.js';
 export type { GatheringTrade } from './systems/economy/gather-goods.js';
 export {
+  buildingWalkBodyOf,
   type ConstructionPlot,
   dynamicBlockOverlay,
   type PlacementProbe,

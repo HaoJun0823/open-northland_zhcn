@@ -27,11 +27,17 @@ footprints, placements) is unaffected - the parity shift fix already aligns bloc
   `halfCellToScreen`/`projectNode` only. The first keeps walking interpolation and standing
   positions consistent; the second is render-local but leaves the sim's world metric a
   parity-blind approximation.
-- Movement edge lengths (`world-metric.ts`) inherit the same question (an N/S half-row step is
-  physically diagonal on a staggered lattice); treat as a separate follow-up if confirmed. The
-  original's route search walks the six staggered edges of `lmtw` (`docs/formats/MAPDAT.md`); ours
-  steps 8 directions over those edges (`nav/terrain/edges.ts`), so the same ground connects and only
-  route shapes and step lengths differ.
+- Movement edge lengths (`world-metric.ts`) inherit the same question: the sim walks the original's
+  six edges (`nav/terrain/edges.ts`), but on the rectangular lattice the straight row-crossing edge
+  (`HALF_ROW`, 19 px) and the column-shifting one (`SLANT_STEP`, 39 px) differ, where the staggered
+  geometry makes them mirror images of one length, so routes lean by row parity. Once the shift is
+  confirmed, both edges take that one length and the composed `(+-1, +-2)` diagonal, two such edges
+  walked as one straight leg, becomes redundant and can go; treat as a separate follow-up.
+- The chosen seam also decides which node a walker reads mid-step. Today `nodeOfPosition` truncates
+  a walker halfway along a SW slant from an even row, or a NE slant from an odd row, to the flank node
+  beside the edge, which the route never steps on; separation landings, eviction and the occupancy
+  indexes then act on that flank for the whole leg. The seam should keep a mid-step node on one of the
+  step's two ends.
 
 ## Verify
 

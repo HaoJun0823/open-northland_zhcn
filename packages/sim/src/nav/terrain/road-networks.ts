@@ -1,5 +1,6 @@
 import type { Fixed } from '../../core/fixed.js';
-import { latticeOffsetDistance } from './lattice-distance.js';
+import { slantDx } from './edges.js';
+import { latticeOffsetFloor } from './lattice-distance.js';
 
 /** The network label of a node no road runs over. */
 export const NO_ROAD_NETWORK = -1;
@@ -14,9 +15,10 @@ interface NetworkBox {
 
 /**
  * The connected road networks of a half-cell grid as a union-find over its road nodes: two road nodes
- * share a network when a chain of road nodes joins them over the lattice's eight edges. Roads are only
- * added between rebuilds, so a lay only merges networks. A root is the least node id of its network, so
- * labels are a pure function of the road set; path halving on lookup changes no label.
+ * share a network when a chain of road nodes joins them over the pathfinder's steps, the six lattice
+ * edges and the composed diagonals. Roads are only added between rebuilds, so a lay only merges
+ * networks. A root is the least node id of its network, so labels are a pure function of the road set;
+ * path halving on lookup changes no label.
  */
 export class RoadNetworks {
   /** Per node, its parent in the forest, itself at a root, or {@link NO_ROAD_NETWORK} off the roads. */
@@ -49,6 +51,11 @@ export class RoadNetworks {
     if (x < width - 1) this.join(node, node + 1);
     if (y > 0) this.join(node, node - width);
     if (y < height - 1) this.join(node, node + width);
+    const slant = slantDx(y);
+    if (x + slant >= 0 && x + slant < width) {
+      if (y > 0) this.join(node, node - width + slant);
+      if (y < height - 1) this.join(node, node + width + slant);
+    }
     if (y > 1) {
       const up = node - 2 * width;
       if (x > 0) this.join(node, up - 1);
@@ -76,14 +83,13 @@ export class RoadNetworks {
     return current;
   }
 
-  /** The lattice distance from `(x, y)` to the nearest point of `network`'s bounding box, 0 inside it:
-   *  at most its distance to any road of the network, but for the lattice's odd-row quirk, which puts a
-   *  point one half-row farther off under a column step closer by a fraction of one. */
+  /** A lower bound on the lattice distance from `(x, y)` to every road of `network`: the distance to
+   *  the nearest point of its bounding box, 0 inside it. */
   gapTo(network: number, x: number, y: number): Fixed {
     const box = this.boxes.get(network);
     const dx = box === undefined ? 0 : Math.max(0, box.minX - x, x - box.maxX);
     const dy = box === undefined ? 0 : Math.max(0, box.minY - y, y - box.maxY);
-    return latticeOffsetDistance(dx, dy);
+    return latticeOffsetFloor(dx, dy);
   }
 
   private join(node: number, neighbour: number): void {

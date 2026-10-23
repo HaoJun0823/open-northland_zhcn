@@ -808,16 +808,17 @@ describe('moveVehicle', () => {
     expect([...s.world.query(VehicleDrive)]).toEqual([]);
     expect(anchorOf(s, catapult)).toEqual({ hx: 24, hy: 6 });
     expect(anchorOf(s, cart)).toEqual({ hx: 24, hy: 20 });
-    // Both bystanders were shoved off the catapult's ring as it passed, then walked together to chat.
+    // Both bystanders were shoved off the catapult's ring as it passed, side by side two rows below its
+    // road, and chat where the shove left them.
     expect(bystanders.map((e) => anchorOf(s, e))).toEqual([
-      { hx: 14, hy: 7 },
       { hx: 15, hy: 8 },
+      { hx: 16, hy: 8 },
     ]);
     const twin = run().s;
     twin.run(440);
     expect(twin.hashState()).toBe(s.hashState());
     // Includes detached settler needs and tick-derived clocks after the chat approaches finish.
-    expect(s.hashState()).toBe('9638df64');
+    expect(s.hashState()).toBe('7f5f2b9e');
   });
 });
 

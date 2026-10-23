@@ -8,7 +8,7 @@ export interface NodeBounds {
   readonly maxY: number;
 }
 
-/** Each route's node bounds, which also hold its diagonals' midpoint flanks, for the closing test that
+/** Each route's node bounds, which also hold its composed diagonals' middle nodes, for the closing test that
  *  stops walkers short of a new wall (`landscape/routes.ts`). Keyed on the stop array, which a delivery or
  *  a cut replaces rather than edits. Routing reads a route's bounds as it installs it, while its stops are
  *  fresh in memory, so a closing tests the routes in view without walking each again. Derived, never

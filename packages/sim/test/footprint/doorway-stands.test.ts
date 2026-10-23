@@ -23,10 +23,10 @@ import { TEST_MANIFEST } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
-// Two homes whose door sits in a pocket of their own walls, so the walk block carves a passage through a
-// wall cell: ground under the house's art a settler may walk, never stand on. The sealed one blocks
-// every orthogonal and diagonal step out of the door; the gapped one, the frank home's shape, leaves
-// the south-west diagonal open, a second way out an idle resident may take.
+// Two homes whose door sits in a pocket of their own walls. The sealed one blocks every lattice edge out
+// of the door, so the walk block carves a passage through a wall cell: ground under the house's art a
+// settler may walk, never stand on. The gapped one, the frank home's shape, leaves the south-west edge
+// open, the one way out the original's door has, so nothing is carved and the door alone is a doorway.
 
 const VIKING = 1;
 const PLAYER = 0;
@@ -36,7 +36,7 @@ const GAPPED_HOME = 3;
 const GRASS = 0;
 const MAP_W = 24;
 const MAP_H = 16;
-/** An even row, so the door's SW diagonal crosses `(dx - 1, dy + 1)` and lands on `(dx - 1, dy + 2)`. */
+/** An even row, so the door's SW edge lands on `(dx - 1, dy + 1)`. */
 const ANCHOR = { hx: 10, hy: 6 } as const;
 const DOOR = { dx: 0, dy: 2 } as const;
 
@@ -47,7 +47,7 @@ const SEALED_WALLS = [
   { dx: 1, dy: 2 },
   ...[-1, 0, 1].map((dx) => ({ dx, dy: 3 })),
 ];
-/** The same pocket with the cell south-west of the door open, the diagonal's midpoint. */
+/** The same pocket with the cell south-west of the door open, the SW edge's landing. */
 const GAPPED_WALLS = SEALED_WALLS.filter((cell) => !(cell.dx === -1 && cell.dy === 3));
 
 function content(): ContentSet {
@@ -135,15 +135,22 @@ function terrainOf(sim: Simulation) {
 }
 
 describe('doorway stands', () => {
-  it.each([
-    ['sealed', SEALED_HOME],
-    ['gapped', GAPPED_HOME],
-  ])('carves a passage through the %s pocket and lists it with the door as doorways', (_label, type) => {
-    const { sim, door, doorways } = fixture(type);
+  it('carves a passage through the sealed pocket and lists it with the door as doorways', () => {
+    const { sim, door, doorways } = fixture(SEALED_HOME);
     expect(doorways.has(door)).toBe(true);
     expect(doorways.size).toBeGreaterThan(1);
     const blocked = buildingBlockedCells(sim.world, ctxOf(sim), terrainOf(sim));
     for (const cell of doorways) expect(blocked.has(cell)).toBe(false);
+  });
+
+  it('carves nothing for the gapped pocket, whose door leaves by its south-west edge', () => {
+    const { sim, door, doorways } = fixture(GAPPED_HOME);
+    const terrain = terrainOf(sim);
+    expect([...doorways]).toEqual([door]);
+    const blocked = buildingBlockedCells(sim.world, ctxOf(sim), terrain);
+    const landing = terrain.nodeAt(terrain.xOf(door) - 1, terrain.yOf(door) + 1);
+    expect(blocked.has(landing)).toBe(false);
+    expect(terrain.steps(door, blocked).map((step) => step.node)).toContain(landing);
   });
 
   it.each([
@@ -180,10 +187,8 @@ describe('doorway stands', () => {
     }
   });
 
-  it.each([
-    ['sealed', SEALED_HOME],
-    ['gapped', GAPPED_HOME],
-  ])('moves a settler standing on the %s home passage off it when the home is placed', (_label, type) => {
+  it('moves a settler standing on the sealed home passage off it when the home is placed', () => {
+    const type = SEALED_HOME;
     const { door, doorways } = fixture(type);
     const passage = [...doorways].find((n) => n !== door);
     if (passage === undefined) throw new Error('setup: no carved passage');

@@ -9,7 +9,7 @@ outside the building. A settler standing there when the site is placed or finish
 - `settleFootprint` evicts only settlers on body cells, and the one-node nook rule in
   `packages/sim/src/systems/movement/evict.ts` covers single-node holes, not a courtyard;
 - `nearestFreeCellOutside` in the same file accepts a courtyard node as a landing, since it only asks
-  for one unblocked orthogonal neighbour, so a settler pushed off a wall cell can be dropped inside.
+  for one unblocked lattice neighbour, so a settler pushed off a wall cell can be dropped inside.
 
 Verified with the real footprints at anchor (130,130): the 8th wonder's pocket includes (134,132) and
 the semiramis courtyard includes (131,123).

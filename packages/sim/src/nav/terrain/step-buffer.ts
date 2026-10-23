@@ -7,8 +7,8 @@ export interface Step {
   cost: Fixed;
 }
 
-/** The most edges one node emits: the lattice's eight directions. */
-const MAX_STEPS = 8;
+/** The most edges one node emits: its six lattice edges and the four composed diagonals. */
+const MAX_STEPS = 10;
 
 /**
  * A reusable sink for {@link TerrainGraph.stepsInto}, held in typed slots so a fill writes no object.

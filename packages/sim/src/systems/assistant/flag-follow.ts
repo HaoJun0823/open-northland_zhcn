@@ -201,14 +201,15 @@ function mayWorkInside(world: World, limit: NavigationLimit, r: Entity): boolean
   return limit.mayAllowNear(ax, ay, workReachOf(footprint, ay));
 }
 
-/** A work cell's farthest fallback from its anchor: a 4-neighbour. */
-const NEIGHBOUR_REACH = 1;
+/** A work cell's farthest fallback from its anchor, in Manhattan nodes: a lattice neighbour, two off
+ *  when it slants a column. */
+const NEIGHBOUR_REACH = 2;
 
 /** Per shared footprint, its work reach on an even and an odd anchor row: a work cell's x offset
  *  shifts with the anchor row's parity, nothing else about the anchor. */
 const workReaches = new WeakMap<ResourceFootprintCells, readonly [number, number]>();
 
-/** The farthest of `footprint`'s work cells and the 4-neighbours from an anchor on row `ay`. Exported for
+/** The farthest of `footprint`'s work cells and the lattice neighbours from an anchor on row `ay`. Exported for
  *  its row-parity test, which no public path isolates: the reach only pre-filters a limit's search. */
 export function workReachOf(footprint: ResourceFootprintCells, ay: number): number {
   let reaches = workReaches.get(footprint);

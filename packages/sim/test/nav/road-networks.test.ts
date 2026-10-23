@@ -1,22 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../src/core/rng.js';
-import { latticeOffsetDistance } from '../../src/nav/terrain/index.js';
+import { latticeOffsetFloor } from '../../src/nav/terrain/index.js';
 import { NO_ROAD_NETWORK, RoadNetworks } from '../../src/nav/terrain/road-networks.js';
 
 const WIDTH = 19;
 const HEIGHT = 23;
 const RANDOM_ROADS = 120;
 
-/** The eight lattice neighbours of `node`, the edge set the networks join over. */
+/** The pathfinder's step offsets from `node`, the edge set the networks join over: the six lattice edges,
+ *  whose slants shift west from an even row and east from an odd one, and the composed diagonals. */
 function neighbours(node: number): number[] {
   const x = node % WIDTH;
   const y = (node - x) / WIDTH;
+  const slant = (y & 1) === 0 ? -1 : 1;
   const out: number[] = [];
   for (const [dx, dy] of [
     [1, 0],
     [-1, 0],
     [0, 1],
     [0, -1],
+    [slant, 1],
+    [slant, -1],
     [1, 2],
     [-1, 2],
     [1, -2],
@@ -56,7 +60,7 @@ describe('road networks', () => {
     const westLabel = networks.networkOf(west[0] ?? 0);
     expect(networks.networkOf(east[0] ?? 0)).not.toBe(westLabel);
     // East of x = 4 lies outside the west network's box, so the east end is a column's gap away.
-    expect(networks.gapTo(westLabel, 8, 10)).toBe(latticeOffsetDistance(4, 0));
+    expect(networks.gapTo(westLabel, 8, 10)).toBe(latticeOffsetFloor(4, 0));
 
     networks.add(10 * WIDTH + 5);
     for (const node of [...west, ...east]) expect(networks.networkOf(node)).toBe(westLabel);

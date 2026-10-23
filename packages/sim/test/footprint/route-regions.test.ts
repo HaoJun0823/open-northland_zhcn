@@ -5,6 +5,7 @@ import { writeLandscapeEdits } from '../../src/components/landscape.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, ONE, positionOfNode, Simulation } from '../../src/index.js';
 import { type BlockOverlay, LayeredBlocks } from '../../src/nav/block-overlay.js';
+import { HEX_NEIGHBOUR_OFFSETS } from '../../src/nav/halfcell.js';
 import { type NodeId, StepBuffer, type TerrainGraph } from '../../src/nav/terrain/index.js';
 import {
   buildingBlockedCells,
@@ -39,21 +40,13 @@ function wallAt(sim: Simulation, x: number, y: number, offsets: Array<{ dx: numb
   return e;
 }
 
-/** The 8 step-neighbour offsets of the anchor - a ring that seals the anchor node alone. */
-const SEAL_RING = [
-  { dx: 1, dy: 0 },
-  { dx: -1, dy: 0 },
-  { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 },
-  { dx: 1, dy: 2 },
-  { dx: 1, dy: -2 },
-  { dx: -1, dy: 2 },
-  { dx: -1, dy: -2 },
-];
+/** The anchor's six lattice neighbours - a ring that seals the anchor node alone. A copy, so no
+ *  component holds the sim's constant. */
+const SEAL_RING = HEX_NEIGHBOUR_OFFSETS.map(({ dx, dy }) => ({ dx, dy }));
 
 /** A rectangle wall in anchor-relative offsets: rows dy=0 and dy=height-1 span the full width, and
- *  the two side columns fill the rows between - a one-node-thick perimeter, which the 8-direction
- *  step set cannot cross (straight steps hit a blocked destination, diagonals a blocked flank pair). */
+ *  the two side columns fill the rows between - a one-node-thick closed loop of lattice neighbours,
+ *  which no lattice edge crosses. */
 function rectangleWall(width: number, height: number): Array<{ dx: number; dy: number }> {
   const offsets: Array<{ dx: number; dy: number }> = [];
   for (let dx = 0; dx < width; dx++) offsets.push({ dx, dy: 0 }, { dx, dy: height - 1 });

@@ -1,3 +1,4 @@
+import type { FootprintCell } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   CurrentAtomic,
@@ -10,6 +11,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode, type Simulation } from '../../src/index.js';
+import { HEX_NEIGHBOUR_OFFSETS } from '../../src/nav/halfcell.js';
 import { stampResourceFootprintData } from '../../src/systems/index.js';
 import { ownedWoodcutter, sim, woodAt } from '../conflict/orders/support.js';
 
@@ -22,10 +24,15 @@ import { ownedWoodcutter, sim, woodAt } from '../conflict/orders/support.js';
  */
 
 /** A walk-blocking wall entity anchored at half-cell NODE (x, y) with the given cell offsets. */
-function wallAt(s: Simulation, x: number, y: number, offsets: Array<{ dx: number; dy: number }>): Entity {
+function wallAt(s: Simulation, x: number, y: number, offsets: readonly FootprintCell[]): Entity {
   const e = s.world.create();
   s.world.add(e, Position, positionOfNode(x, y));
-  stampResourceFootprintData(s.world, e, { walk: offsets, build: [], work: [] });
+  // Fresh cells: a component never holds a shared constant's objects.
+  stampResourceFootprintData(s.world, e, {
+    walk: offsets.map(({ dx, dy }) => ({ dx, dy })),
+    build: [],
+    work: [],
+  });
   return e;
 }
 
@@ -50,18 +57,10 @@ describe('the harvest pick against enclosed resource nodes', () => {
     const s = sim();
     const e = ownedWoodcutter(s, 0, 0);
     const UNTOUCHED = 5;
-    // The near tree's tile (4, 1) sits on node (9, 2); the ring seals exactly that node.
+    // The near tree's tile (4, 1) sits on node (9, 2); the ring of its six lattice neighbours seals exactly
+    // that node.
     const near = woodAt(s, 4, 1, UNTOUCHED);
-    wallAt(s, 9, 2, [
-      { dx: 1, dy: 0 },
-      { dx: -1, dy: 0 },
-      { dx: 0, dy: 1 },
-      { dx: 0, dy: -1 },
-      { dx: 1, dy: 2 },
-      { dx: 1, dy: -2 },
-      { dx: -1, dy: 2 },
-      { dx: -1, dy: -2 },
-    ]);
+    wallAt(s, 9, 2, HEX_NEIGHBOUR_OFFSETS);
     const far = woodAt(s, 8, 0, UNTOUCHED);
 
     stepUntilWithoutRouteFailure(s, e, 400, () => harvestedResource(s, e) !== null);
@@ -71,7 +70,7 @@ describe('the harvest pick against enclosed resource nodes', () => {
 
   it('skips a hemmed deposit whose stance falls back to its own blocked anchor', () => {
     // A deposit blocking its own anchor with no work cells resolves its stance through
-    // resourceStanceCells' fallbacks; with all four anchor neighbours resource-blocked the last
+    // resourceStanceCells' fallbacks; with all six anchor neighbours resource-blocked the last
     // fallback returns the bare anchor - statically walkable but overlay-blocked, a goal findPath
     // refuses. The pick must refuse it too (the magiczny_las iron-field stall signature:
     // walkable=true, dynamically blocked, no route ever succeeds).
@@ -80,12 +79,7 @@ describe('the harvest pick against enclosed resource nodes', () => {
     const UNTOUCHED = 5;
     const near = woodAt(s, 4, 1, UNTOUCHED); // anchor node (9, 2)
     stampResourceFootprintData(s.world, near, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
-    wallAt(s, 9, 2, [
-      { dx: 1, dy: 0 },
-      { dx: -1, dy: 0 },
-      { dx: 0, dy: 1 },
-      { dx: 0, dy: -1 },
-    ]);
+    wallAt(s, 9, 2, HEX_NEIGHBOUR_OFFSETS);
     const far = woodAt(s, 8, 0, UNTOUCHED);
 
     stepUntilWithoutRouteFailure(s, e, 400, () => harvestedResource(s, e) !== null);
@@ -96,8 +90,7 @@ describe('the harvest pick against enclosed resource nodes', () => {
   it('walks past a pocket holding more enclosed trees than the failed-goal memo could remember', () => {
     // 12×4 cells = 24×8 nodes. The rectangle wall spans nodes x 3..15, y 1..5, sealing an 11×3-node
     // interior that holds 11 tree anchors - more than UNREACHABLE_GOAL_MEMO_SIZE, the count that made
-    // the memo-only pick cycle forever. Anchored on an EVEN row so the offsets stamp literally
-    // (an odd-row anchor's odd-dy rows would parity-shift one node +x and crack the seal).
+    // the memo-only pick cycle forever. Anchored on an EVEN row so the offsets stamp literally.
     const s = sim();
     const e = ownedWoodcutter(s, 0, 0);
     const UNTOUCHED = 5;
@@ -123,21 +116,12 @@ describe('the harvest pick against enclosed resource nodes', () => {
     const TRUNK_UNITS = 3;
     const WOOD = s.world.get(woodAt(s, 8, 0, UNTOUCHED), Resource).goodType;
     const far = [...s.world.query(Resource)][0];
-    // A trunk on node (9, 2), nearer than the tree, whose eight step neighbours the ring blocks.
+    // A trunk on node (9, 2), nearer than the tree, whose six lattice neighbours the ring blocks.
     const trunk = s.world.create();
     s.world.add(trunk, Position, positionOfNode(9, 2));
     s.world.add(trunk, Stockpile, { amounts: new Map([[WOOD, TRUNK_UNITS]]) });
     s.world.add(trunk, GroundDrop, { goodType: WOOD });
-    wallAt(s, 9, 2, [
-      { dx: 1, dy: 0 },
-      { dx: -1, dy: 0 },
-      { dx: 0, dy: 1 },
-      { dx: 0, dy: -1 },
-      { dx: 1, dy: 2 },
-      { dx: 1, dy: -2 },
-      { dx: -1, dy: 2 },
-      { dx: -1, dy: -2 },
-    ]);
+    wallAt(s, 9, 2, HEX_NEIGHBOUR_OFFSETS);
 
     stepUntilWithoutRouteFailure(s, e, 400, () => harvestedResource(s, e) !== null);
     expect(harvestedResource(s, e)).toBe(far);

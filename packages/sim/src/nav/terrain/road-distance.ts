@@ -1,5 +1,6 @@
 import { type Fixed, fx } from '../../core/fixed.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW } from '../world-metric.js';
+import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../world-metric.js';
+import { slantDx } from './edges.js';
 
 /** The share of the map's nodes a wavefront may settle before {@link RoadDistanceField.lower} hands
  *  over to the full rebuild. Measured on a 480 x 380 node map: the rebuild costs about as much as
@@ -35,10 +36,11 @@ const NO_NODE = -1;
  * units, over a row-major `width` x `height` half-cell grid, and `nearest` with that road node, the least
  * id among equally near ones. It is the route heuristic's lattice metric. Nodes beyond
  * {@link ROAD_DISTANCE_REACH} read {@link NO_ROAD_DISTANCE} and {@link NO_NEAREST_ROAD}. Two raster
- * passes (a chamfer transform) are exact here: a cheapest lattice walk takes diagonals and straight steps
- * of one heading each, so it reorders into a forward-pass part (down, or rightward) followed by a
- * backward-pass part (up, or leftward). O(nodes): the rebuild for a restore or a first road;
- * {@link RoadDistanceField.lower} extends the field as roads are laid.
+ * passes (a chamfer transform) are exact here: a cheapest lattice walk takes straight steps, diagonals
+ * and at most one slant, all of one heading each, and only the slant turns the row parity, so it reorders
+ * into a forward-pass part (down, or rightward) followed by a backward-pass part (up, or leftward).
+ * O(nodes): the rebuild for a restore or a first road; {@link RoadDistanceField.lower} extends the field
+ * as roads are laid.
  */
 export function fillRoadDistances(
   distances: Int32Array,
@@ -56,12 +58,18 @@ export function fillRoadDistances(
     any = true;
   }
   if (!any) return;
-  // Forward pass: each node takes over from its W, N, NW-diagonal and NE-diagonal neighbours.
+  // Forward pass: each node takes over from its W and N neighbours, both upper diagonals and its slant
+  // neighbour in the row above (the edge is symmetric, so that is the node whose slant lands here).
   for (let y = 0; y < height; y++) {
+    const slant = slantDx(y);
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       if (x > 0) offerRoad(distances, nearest, i, i - 1, HALF_COLUMN);
-      if (y > 0) offerRoad(distances, nearest, i, i - width, HALF_ROW);
+      if (y > 0) {
+        offerRoad(distances, nearest, i, i - width, HALF_ROW);
+        const slantX = x + slant;
+        if (slantX >= 0 && slantX < width) offerRoad(distances, nearest, i, i - width + slant, SLANT_STEP);
+      }
       if (y > 1) {
         const up = i - 2 * width;
         if (x > 0) offerRoad(distances, nearest, i, up - 1, DIAGONAL_STEP);
@@ -70,12 +78,18 @@ export function fillRoadDistances(
       clampToReach(distances, nearest, i);
     }
   }
-  // Backward pass: the mirror image, from the E, S and both lower diagonal neighbours.
+  // Backward pass: the mirror image, from the E and S neighbours, both lower diagonals and the slant
+  // neighbour in the row below.
   for (let y = height - 1; y >= 0; y--) {
+    const slant = slantDx(y);
     for (let x = width - 1; x >= 0; x--) {
       const i = y * width + x;
       if (x < width - 1) offerRoad(distances, nearest, i, i + 1, HALF_COLUMN);
-      if (y < height - 1) offerRoad(distances, nearest, i, i + width, HALF_ROW);
+      if (y < height - 1) {
+        offerRoad(distances, nearest, i, i + width, HALF_ROW);
+        const slantX = x + slant;
+        if (slantX >= 0 && slantX < width) offerRoad(distances, nearest, i, i + width + slant, SLANT_STEP);
+      }
       if (y < height - 2) {
         const down = i + 2 * width;
         if (x > 0) offerRoad(distances, nearest, i, down - 1, DIAGONAL_STEP);
@@ -129,9 +143,9 @@ function clampToReach(distances: Int32Array, nearest: Int32Array, i: number): vo
 /** A FIFO of node ids that grows on demand, so a field holds queue room for its largest lay so far
  *  rather than for the whole settle budget. */
 class NodeFifo {
-  items = new Int32Array(INITIAL_QUEUE_CAPACITY);
-  head = 0;
-  tail = 0;
+  private items = new Int32Array(INITIAL_QUEUE_CAPACITY);
+  private head = 0;
+  private tail = 0;
 
   reset(): void {
     this.head = 0;
@@ -146,14 +160,25 @@ class NodeFifo {
     }
     this.items[this.tail++] = node;
   }
+
+  /** The first queued node the wavefront `generation` has not settled, dropping the settled ones before
+   *  it, or {@link NO_NODE} once drained. */
+  firstUnsettled(settledIn: Uint16Array, generation: number): number {
+    while (this.head < this.tail) {
+      const node = this.items[this.head] ?? NO_NODE;
+      if (settledIn[node] !== generation) return node;
+      this.head++;
+    }
+    return NO_NODE;
+  }
 }
 
 /**
  * A map's road distance and nearest-road lanes with the scratch their incremental update reuses. Laying
  * roads only lowers distances, so {@link lower} runs a Dijkstra out of the new nodes over the chamfer
- * passes' own edge set and stops where no node improves. The lattice has three edge lengths, so the open
+ * passes' own edge set and stops where no node improves. The lattice has four edge lengths, so the open
  * set is one FIFO per length: a settled node's steps of one length join that length's queue in settle
- * order, which keeps each queue sorted, and the least of the three heads settles next. Each node settles
+ * order, which keeps each queue sorted, and the least of the four heads settles next. Each node settles
  * once, so a lay costs the nodes it brings nearer to a road (or to a lower-id road as near), and the
  * result is what a full rebuild computes, whatever the batching. A wavefront that outgrows its budget
  * finishes as a full rebuild instead, with the same result.
@@ -168,7 +193,14 @@ export class RoadDistanceField {
    *  roads. A node may sit in several; entries after its first settle are skipped. */
   private readonly rowQueue = new NodeFifo();
   private readonly columnQueue = new NodeFifo();
+  private readonly slantQueue = new NodeFifo();
   private readonly diagonalQueue = new NodeFifo();
+  private readonly queues: readonly NodeFifo[] = [
+    this.rowQueue,
+    this.columnQueue,
+    this.slantQueue,
+    this.diagonalQueue,
+  ];
   /** The {@link generation} of the wavefront that settled each node. */
   private readonly settledIn: Uint16Array;
   private generation = 0;
@@ -191,39 +223,24 @@ export class RoadDistanceField {
   /** Lower the field for `added` road nodes on top of the roads it already holds; `roads` is the whole
    *  network, `added` included, for the rebuild an outgrown wavefront falls back to. */
   lower(added: Iterable<number>, roads: Iterable<number>): void {
-    const { distances, nearest, rowQueue, columnQueue, diagonalQueue, settledIn, width, height } = this;
+    const { distances, nearest, rowQueue, columnQueue, slantQueue, diagonalQueue, settledIn, width, height } =
+      this;
     if (this.generation === MAX_GENERATION) {
       settledIn.fill(0);
       this.generation = 0;
     }
     const generation = ++this.generation;
-    rowQueue.reset();
-    columnQueue.reset();
-    diagonalQueue.reset();
+    for (const queue of this.queues) queue.reset();
     // A road reads 0, under any step, so the new ones lead the row queue.
     for (const node of added) {
       if (takeNearerRoad(distances, nearest, node, 0, node)) rowQueue.push(node);
     }
     for (let settles = 0; ; settles++) {
-      skipSettled(rowQueue, settledIn, generation);
-      skipSettled(columnQueue, settledIn, generation);
-      skipSettled(diagonalQueue, settledIn, generation);
       let node = NO_NODE;
       let nodeDistance: number = NO_ROAD_DISTANCE;
-      if (rowQueue.head < rowQueue.tail) {
-        node = rowQueue.items[rowQueue.head] ?? NO_NODE;
-        nodeDistance = distances[node] ?? NO_ROAD_DISTANCE;
-      }
-      if (columnQueue.head < columnQueue.tail) {
-        const candidate = columnQueue.items[columnQueue.head] ?? NO_NODE;
-        const distance = distances[candidate] ?? NO_ROAD_DISTANCE;
-        if (node === NO_NODE || distance < nodeDistance) {
-          node = candidate;
-          nodeDistance = distance;
-        }
-      }
-      if (diagonalQueue.head < diagonalQueue.tail) {
-        const candidate = diagonalQueue.items[diagonalQueue.head] ?? NO_NODE;
+      for (const queue of this.queues) {
+        const candidate = queue.firstUnsettled(settledIn, generation);
+        if (candidate === NO_NODE) continue;
         const distance = distances[candidate] ?? NO_ROAD_DISTANCE;
         if (node === NO_NODE || distance < nodeDistance) {
           node = candidate;
@@ -240,19 +257,29 @@ export class RoadDistanceField {
       const road = nearest[node] ?? NO_NEAREST_ROAD;
       const x = node % width;
       const y = (node - x) / width;
-      const byColumn = nodeDistance + HALF_COLUMN;
       const byRow = nodeDistance + HALF_ROW;
+      const byColumn = nodeDistance + HALF_COLUMN;
+      const bySlant = nodeDistance + SLANT_STEP;
       const byDiagonal = nodeDistance + DIAGONAL_STEP;
-      // Steps past the reach take nothing; the column and diagonal steps are longer than the row step.
+      // Steps past the reach take nothing; the lengths grow row, column, slant, diagonal.
       if (byRow >= ROAD_DISTANCE_REACH) continue;
       if (y > 0 && takeNearerRoad(distances, nearest, node - width, byRow, road)) rowQueue.push(node - width);
       if (y < height - 1 && takeNearerRoad(distances, nearest, node + width, byRow, road)) {
         rowQueue.push(node + width);
       }
-      if (byColumn < ROAD_DISTANCE_REACH) {
-        if (x > 0 && takeNearerRoad(distances, nearest, node - 1, byColumn, road)) columnQueue.push(node - 1);
-        if (x < width - 1 && takeNearerRoad(distances, nearest, node + 1, byColumn, road)) {
-          columnQueue.push(node + 1);
+      if (byColumn >= ROAD_DISTANCE_REACH) continue;
+      if (x > 0 && takeNearerRoad(distances, nearest, node - 1, byColumn, road)) columnQueue.push(node - 1);
+      if (x < width - 1 && takeNearerRoad(distances, nearest, node + 1, byColumn, road)) {
+        columnQueue.push(node + 1);
+      }
+      if (bySlant >= ROAD_DISTANCE_REACH) continue;
+      const slant = slantDx(y);
+      if (x + slant >= 0 && x + slant < width) {
+        if (y > 0 && takeNearerRoad(distances, nearest, node - width + slant, bySlant, road)) {
+          slantQueue.push(node - width + slant);
+        }
+        if (y < height - 1 && takeNearerRoad(distances, nearest, node + width + slant, bySlant, road)) {
+          slantQueue.push(node + width + slant);
         }
       }
       if (byDiagonal >= ROAD_DISTANCE_REACH) continue;
@@ -274,9 +301,4 @@ export class RoadDistanceField {
       }
     }
   }
-}
-
-/** Advance `queue` past the nodes this wavefront has already settled. */
-function skipSettled(queue: NodeFifo, settledIn: Uint16Array, generation: number): void {
-  while (queue.head < queue.tail && settledIn[queue.items[queue.head] ?? 0] === generation) queue.head++;
 }

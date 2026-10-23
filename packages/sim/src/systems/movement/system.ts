@@ -16,7 +16,7 @@ import {
 import { type Fixed, fx, ONE, ULP, ZERO } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { DEFAULT_NODE_ROUGHNESS, type NodeId, type TerrainGraph } from '../../nav/terrain/index.js';
-import { HALF_COLUMN, HALF_ROW, worldDistance } from '../../nav/world-metric.js';
+import { HALF_COLUMN, HALF_ROW, SLANT_STEP, worldDistance } from '../../nav/world-metric.js';
 import { trafficCounter } from '../computer-player/traffic.js';
 import type { System, SystemContext } from '../context.js';
 import { wearWornBoots } from '../equipment/index.js';
@@ -36,12 +36,12 @@ import {
 } from './walk-cost.js';
 
 /**
- * The most a human advances in one tick, in world-metric column units: the E/W half-column step, the
+ * The most a human advances in one tick, in world-metric column units: the column-shifting edge, the
  * longest lattice edge a single step covers, over the engine's floor on a step cost. A leg paced under it
  * never touches it, so it only bounds the catch-up after a separation push, keeping the unit-separation
  * impassability bound (`collision/separation.ts`) below the body radius.
  */
-export const MAX_STEP_PER_TICK: Fixed = fx.div(HALF_COLUMN, fx.fromInt(MIN_STEP_TICKS));
+export const MAX_STEP_PER_TICK: Fixed = fx.div(SLANT_STEP, fx.fromInt(MIN_STEP_TICKS));
 
 /**
  * The reference human pace the separation approximations scale their caps by: a rested, barefoot,

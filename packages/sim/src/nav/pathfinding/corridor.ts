@@ -1,7 +1,8 @@
-import { type Fixed, fx } from '../../core/fixed.js';
+import { fx } from '../../core/fixed.js';
 import type { BlockOverlay } from '../block-overlay.js';
 import {
   latticeOffsetDistance,
+  latticeOffsetFloor,
   type NodeId,
   nodeLatticeDistance,
   type TerrainGraph,
@@ -218,15 +219,6 @@ function manhattanOutside(lattice: CorridorLattice, x: number, y: number): numbe
 /** No corridor index: {@link nearestStop} has found no stop yet. */
 const NO_STOP = -1;
 
-/**
- * A lower bound on {@link latticeOffsetDistance} over every offset at least `ax` half-columns and `ay`
- * half-rows: the distance grows with either offset except from an odd half-row count to the next even
- * one, so the even count at or below `ay` bounds the rest.
- */
-export function latticeOffsetFloor(ax: number, ay: number): Fixed {
-  return latticeOffsetDistance(ax, ay - (ay & 1));
-}
-
 /** The unblocked corridor node at or after index `from` nearest `target`, the earliest on a tie. Only a
  *  node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. A block whose
  *  box lies no nearer than the best so far holds no such node and is skipped whole. */
@@ -253,7 +245,7 @@ function nearestStop(
         continue;
       }
     }
-    const distance = latticeOffsetDistance(Math.abs(x - (xs[index] ?? 0)), Math.abs(y - (ys[index] ?? 0)));
+    const distance = latticeOffsetDistance((xs[index] ?? 0) - x, (ys[index] ?? 0) - y, y);
     const node = corridor[index];
     index++;
     if (best !== NO_STOP && distance >= bestDistance) continue;

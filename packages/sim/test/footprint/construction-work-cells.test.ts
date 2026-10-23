@@ -53,10 +53,7 @@ function reference(
   if (bx1 < terrain.width - 1) for (let y = y0; y <= y1; y++) visit(x1, y);
   for (let i = 0; i < queue.length; i++) {
     const [x, y] = queue[i] as [number, number];
-    visit(x, y - 1);
-    visit(x + 1, y);
-    visit(x, y + 1);
-    visit(x - 1, y);
+    for (const n of terrain.neighbours(terrain.nodeAt(x, y))) visit(terrain.xOf(n), terrain.yOf(n));
   }
   const work = new Set<NodeId>();
   for (const cell of body) {

@@ -47,7 +47,7 @@ export function spawnCarcasses(world: World, ctx: SystemContext, attacker: Entit
   const n = nodeOfPosition(at.x, at.y);
   const anchor = terrain.nodeAtClamped(n.hx, n.hy);
 
-  // The kill node, or its first free walkable neighbour (canonical N,E,S,W) when something stands there.
+  // The kill node, or its first free walkable neighbour (canonical lattice order) when something stands there.
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   const slots: readonly NodeId[] = [anchor, ...terrain.walkableNeighbours(anchor)];
   const node =

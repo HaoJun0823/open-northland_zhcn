@@ -16,6 +16,7 @@ import {
   TerrainGraph,
   type TerrainMap,
 } from '../../../src/index.js';
+import { SLANT_STEP } from '../../../src/nav/world-metric.js';
 import { testContent } from '../../fixtures/content.js';
 import { crossMap, GRASS, rawGrid, WATER } from './support.js';
 
@@ -93,15 +94,30 @@ describe('walkability + per-type props resolve from the IR', () => {
   });
 });
 
-describe('neighbours are emitted in canonical N, E, S, W order', () => {
-  it('an interior node yields exactly its four in-bounds neighbours in order', () => {
+describe('neighbours are emitted in canonical E, SE, SW, W, NW, NE order', () => {
+  it('an interior odd-row node yields its six in-bounds neighbours, the slanted ones one column east', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(3, 3));
     const ns = g.neighbours(g.nodeAt(1, 1)).map((c) => g.coordsOf(c));
     expect(ns).toEqual([
-      { x: 1, y: 0 }, // N
       { x: 2, y: 1 }, // E
-      { x: 1, y: 2 }, // S
+      { x: 2, y: 2 }, // SE
+      { x: 1, y: 2 }, // SW
       { x: 0, y: 1 }, // W
+      { x: 1, y: 0 }, // NW
+      { x: 2, y: 0 }, // NE
+    ]);
+  });
+
+  it('an interior even-row node slants its NW and SW neighbours one column west', () => {
+    const g = buildTerrainGraph(testContent(), rawGrid(3, 4));
+    const ns = g.neighbours(g.nodeAt(1, 2)).map((c) => g.coordsOf(c));
+    expect(ns).toEqual([
+      { x: 2, y: 2 }, // E
+      { x: 1, y: 3 }, // SE
+      { x: 0, y: 3 }, // SW
+      { x: 0, y: 2 }, // W
+      { x: 0, y: 1 }, // NW
+      { x: 1, y: 1 }, // NE
     ]);
   });
 
@@ -110,18 +126,28 @@ describe('neighbours are emitted in canonical N, E, S, W order', () => {
     const ns = g.neighbours(g.nodeAt(0, 0)).map((c) => g.coordsOf(c));
     expect(ns).toEqual([
       { x: 1, y: 0 }, // E
-      { x: 0, y: 1 }, // S
+      { x: 0, y: 1 }, // SE
     ]);
   });
 
   it('walkableNeighbours drops a water node', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(3, 3, [[1, 1]]));
-    // From (1,0): N is off-map, E (2,0) grass, S (1,1) WATER dropped, W (0,0) grass.
+    // From even-row (1,0): E (2,0) grass, SE (1,1) WATER dropped, SW (0,1) grass, W (0,0) grass, NW and
+    // NE off-map.
     const ns = g.walkableNeighbours(g.nodeAt(1, 0)).map((c) => g.coordsOf(c));
     expect(ns).toEqual([
-      { x: 2, y: 0 }, // E grass
-      { x: 0, y: 0 }, // W grass - S is water, dropped
+      { x: 2, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: 0 },
     ]);
+  });
+
+  it('joins only lattice neighbours, so a column shift the other way is no neighbour', () => {
+    const g = buildTerrainGraph(testContent(), rawGrid(5, 5));
+    expect(g.joined(g.nodeAt(2, 2), g.nodeAt(2, 1))).toBe(true); // NE from an even row
+    expect(g.joined(g.nodeAt(2, 2), g.nodeAt(3, 1))).toBe(false);
+    expect(g.joined(g.nodeAt(2, 3), g.nodeAt(3, 2))).toBe(true); // NE from an odd row
+    expect(g.joined(g.nodeAt(2, 3), g.nodeAt(1, 2))).toBe(false);
   });
 });
 
@@ -154,36 +180,42 @@ function groundEdgesClosing(closed: readonly (readonly [number, number, number])
 }
 
 describe('steps - the pathfinder half-cell lattice edge set', () => {
-  it('emits the eight edges in canonical order with their world-length costs (parity-independent)', () => {
+  it('emits the six edges then the composed diagonals in canonical order with their world-length costs', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(5, 5));
     const steps = g.steps(g.nodeAt(2, 2)).map((s) => ({ ...g.coordsOf(s.node), cost: s.cost }));
     expect(steps).toEqual([
       { x: 3, y: 2, cost: HALF_COLUMN }, // E - one half-column (34 px)
+      { x: 2, y: 3, cost: HALF_ROW }, // SE - straight down the column from an even row (19 px)
+      { x: 1, y: 3, cost: SLANT_STEP }, // SW - one column west (39 px)
       { x: 1, y: 2, cost: HALF_COLUMN }, // W
-      { x: 3, y: 0, cost: DIAGONAL_STEP }, // NE - the 51 px lattice edge
-      { x: 3, y: 4, cost: DIAGONAL_STEP }, // SE
-      { x: 1, y: 4, cost: DIAGONAL_STEP }, // SW
-      { x: 1, y: 0, cost: DIAGONAL_STEP }, // NW
-      { x: 2, y: 1, cost: HALF_ROW }, // N - one half-row (19 px)
-      { x: 2, y: 3, cost: HALF_ROW }, // S
+      { x: 1, y: 1, cost: SLANT_STEP }, // NW
+      { x: 2, y: 1, cost: HALF_ROW }, // NE
+      { x: 3, y: 4, cost: DIAGONAL_STEP }, // SE twice - the 51 px cell diagonal
+      { x: 1, y: 4, cost: DIAGONAL_STEP }, // SW twice
+      { x: 1, y: 0, cost: DIAGONAL_STEP }, // NW twice
+      { x: 3, y: 0, cost: DIAGONAL_STEP }, // NE twice
     ]);
   });
 
-  it('emits the same offsets from an odd row - the half-cell lattice has no parity', () => {
+  it('slants the NE and SE edges one column east from an odd row, the NW and SW ones straight', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(5, 7));
-    const even = g.steps(g.nodeAt(2, 2)).map((s) => {
-      const c = g.coordsOf(s.node);
-      return { dx: c.x - 2, dy: c.y - 2, cost: s.cost };
-    });
-    const odd = g.steps(g.nodeAt(2, 3)).map((s) => {
-      const c = g.coordsOf(s.node);
-      return { dx: c.x - 2, dy: c.y - 3, cost: s.cost };
-    });
-    expect(odd).toEqual(even);
+    const steps = g.steps(g.nodeAt(2, 3)).map((s) => ({ ...g.coordsOf(s.node), cost: s.cost }));
+    expect(steps).toEqual([
+      { x: 3, y: 3, cost: HALF_COLUMN }, // E
+      { x: 3, y: 4, cost: SLANT_STEP }, // SE
+      { x: 2, y: 4, cost: HALF_ROW }, // SW
+      { x: 1, y: 3, cost: HALF_COLUMN }, // W
+      { x: 2, y: 2, cost: HALF_ROW }, // NW
+      { x: 3, y: 2, cost: SLANT_STEP }, // NE
+      { x: 3, y: 5, cost: DIAGONAL_STEP }, // SE twice lands where it does from an even row
+      { x: 1, y: 5, cost: DIAGONAL_STEP },
+      { x: 1, y: 1, cost: DIAGONAL_STEP },
+      { x: 3, y: 1, cost: DIAGONAL_STEP },
+    ]);
   });
 
-  it('drops a diagonal with an unwalkable midpoint and opposite flank', () => {
-    // From (1,1), SE lands on (2,3) through (2,2); the grass destination cannot bypass that water.
+  it('drops a composed diagonal with an unwalkable middle node', () => {
+    // From (1,1), SE twice lands on (2,3) through (2,2); the grass destination cannot bypass that water.
     const g = buildTerrainGraph(
       testContent(),
       rawGrid(4, 5, [
@@ -198,7 +230,7 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(se).toEqual([]);
   });
 
-  it('keeps a diagonal with a walkable midpoint beside an unwalkable opposite flank', () => {
+  it('keeps a composed diagonal whose middle node is walkable beside an unwalkable one', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(4, 5, [[1, 2]]));
     const se = g
       .steps(g.nodeAt(1, 1))
@@ -207,9 +239,9 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(se).toEqual([{ x: 2, y: 3 }]);
   });
 
-  it('gates the diagonal midpoint on the dynamic blocked overlay too', () => {
+  it('gates the composed diagonal middle node on the dynamic blocked overlay too', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(4, 5));
-    const blocked = new Set<NodeId>([g.nodeAt(1, 2), g.nodeAt(2, 2)]); // both flanks of (1,1)→(2,3)
+    const blocked = new Set<NodeId>([g.nodeAt(1, 2), g.nodeAt(2, 2)]); // the middle of (1,1)→(2,3) and its neighbour
     const se = g
       .steps(g.nodeAt(1, 1), blocked)
       .map((s) => g.coordsOf(s.node))
@@ -218,8 +250,8 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
   });
 
   it('omits an unwalkable destination (walkability gates the DESTINATION node)', () => {
-    // From (0,0) on a 2×2 node grid with water E: E dropped, S survives; everything else off-map.
-    // E/W and N/S connect directly adjacent nodes, so only the destination's walkability gates them.
+    // From (0,0) on a 2×2 node grid with water E: E dropped, SE survives; everything else off-map.
+    // A single edge joins adjacent nodes, so only the destination's walkability gates it.
     const g = buildTerrainGraph(testContent(), rawGrid(2, 2, [[1, 0]]));
     const steps = g.steps(g.nodeAt(0, 0)).map((s) => g.coordsOf(s.node));
     expect(steps).toEqual([{ x: 0, y: 1 }]);
@@ -230,26 +262,29 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
       ...rawGrid(EDGE_GRID_WIDTH, EDGE_GRID_HEIGHT),
       groundEdges: groundEdgesClosing([
         [2, 2, HEX_EDGE.EAST],
-        // N/S from an even row are its NE/SE edges, and from an odd row its NW/SW ones.
+        // Straight up from an even row is its NE edge, straight down from an odd row its SW one.
         [2, 2, HEX_EDGE.NORTH_EAST],
         [2, 3, HEX_EDGE.SOUTH_WEST],
-        // SE from even (2,2) runs SE to (2,3), then SE again to (3,4): the middle node's edge decides.
+        // SE twice from even (2,2) runs SE to (2,3), then SE again to (3,4): the middle node's edge decides.
         [2, 3, HEX_EDGE.SOUTH_EAST],
       ]),
     });
     const from = (x: number, y: number) => g.steps(g.nodeAt(x, y)).map((s) => g.coordsOf(s.node));
     expect(from(2, 2)).toEqual([
+      { x: 2, y: 3 }, // SE, straight down from an even row
+      { x: 1, y: 3 }, // SW
       { x: 1, y: 2 }, // W
-      { x: 1, y: 4 }, // SW, through (1,3)
-      { x: 1, y: 0 }, // NW, through (1,1)
-      { x: 2, y: 3 }, // S, the SE edge
+      { x: 1, y: 1 }, // NW
+      { x: 1, y: 4 }, // SW twice, through (1,3)
+      { x: 1, y: 0 }, // NW twice, through (1,1); SE twice is cut at (2,3), NE at this node
     ]);
     expect(from(2, 3)).toEqual([
       { x: 3, y: 3 }, // E
       { x: 1, y: 3 }, // W
-      { x: 3, y: 1 }, // NE, through (3,2)
-      { x: 1, y: 1 }, // NW, through (2,2)
-      { x: 2, y: 2 }, // N, the NW edge
+      { x: 2, y: 2 }, // NW, straight up from an odd row
+      { x: 3, y: 2 }, // NE
+      { x: 1, y: 1 }, // NW twice, through (2,2)
+      { x: 3, y: 1 }, // NE twice, through (3,2)
     ]);
   });
 
@@ -261,8 +296,10 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     expect(g.joined(g.nodeAt(2, 3), g.nodeAt(2, 2))).toBe(false);
     expect(g.walkableNeighbours(g.nodeAt(2, 3)).map((n) => g.coordsOf(n))).toEqual([
       { x: 3, y: 3 },
+      { x: 3, y: 4 },
       { x: 2, y: 4 },
       { x: 1, y: 3 },
+      { x: 3, y: 2 },
     ]);
   });
 
@@ -281,7 +318,7 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(2, 2));
     const blocked = new Set<NodeId>([g.nodeAt(1, 0)]); // dynamically block the E node
     const steps = g.steps(g.nodeAt(0, 0), blocked).map((s) => g.coordsOf(s.node));
-    // E blocked; S (0,1) survives - the SE diagonal (1,2) is off-map.
+    // E blocked; SE (0,1) survives - the composed SE diagonal (1,2) is off-map.
     expect(steps).toEqual([{ x: 0, y: 1 }]);
   });
 });

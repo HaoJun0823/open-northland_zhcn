@@ -187,9 +187,10 @@ describe('melee front - a fighter behind a full front steps along it', () => {
   const SPEAR_REACH = 2;
   /** The spearman stands a step behind the whole band around the enemy it holds. */
   const HELD: HalfCellNode = { hx: PICKER.hx + SPEAR_REACH + 1, hy: ROW };
-  /** As far off, down the map: reached in one step from the node south of the spearman. */
+  /** As far off, down the map: in reach from either lattice neighbour south of the spearman. */
   const OTHER: HalfCellNode = { hx: PICKER.hx, hy: ROW + SPEAR_REACH + 1 };
-  const SEAM: HalfCellNode = { hx: PICKER.hx, hy: ROW + 1 };
+  /** The southern neighbour the step takes: both are as near OTHER, and this one has the lower node id. */
+  const SEAM: HalfCellNode = { hx: PICKER.hx - 1, hy: ROW + 1 };
 
   /** Blue spearmen on every node within `radius` of `at`, striking it where they stand. */
   function ring(s: Simulation, at: HalfCellNode, radius: number): void {
@@ -218,8 +219,9 @@ describe('melee front - a fighter behind a full front steps along it', () => {
     const dist = (a: HalfCellNode, b: HalfCellNode) => hexDistanceBetween(a.hx, a.hy, b.hx, b.hy);
     expect(dist(PICKER, HELD)).toBe(SPEAR_REACH + 1);
     expect(dist(PICKER, OTHER)).toBe(SPEAR_REACH + 1);
+    expect(hexNeighboursOf(PICKER.hx, PICKER.hy)).toContainEqual(SEAM);
     expect(dist(SEAM, OTHER)).toBe(SPEAR_REACH);
-    expect(dist(SEAM, HELD)).toBe(SPEAR_REACH + 1); // the seam is no cell of the held enemy's band
+    expect(dist(SEAM, HELD)).toBeGreaterThan(SPEAR_REACH); // the seam is no cell of the held enemy's band
   });
 
   it('steps to the free node that brings another enemy into reach and takes that enemy up', () => {

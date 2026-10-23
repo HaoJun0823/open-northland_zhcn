@@ -1,4 +1,4 @@
-import { type ContentSet, parseContentSet } from '@open-northland/data';
+import { type ContentSet, type FootprintCell, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Building,
@@ -15,6 +15,7 @@ import {
 import { CHANGE_FEED_LIMIT } from '../../src/ecs/change-feed.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, halfCellMapFromCells, nodeOfPosition, positionOfNode, Simulation } from '../../src/index.js';
+import { hexNeighboursOf } from '../../src/nav/halfcell.js';
 import { constructionWorkCells, dynamicBlockOverlay } from '../../src/systems/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { PlannerSpacing } from '../../src/systems/settlers/planner/spacing.js';
@@ -225,14 +226,15 @@ const BUILD_HOUSE_ATOMIC = 39; // setatomic 7 39 "..._builder_build_house" (trib
 
 const WATER = 9; // walkable: false - the across-the-stream yard test's barrier
 
+/** The home's default walk-blocking body: its anchor and the node two columns east. */
+const HOME_BODY: readonly FootprintCell[] = [
+  { dx: 0, dy: 0 },
+  { dx: 2, dy: 0 },
+];
+
 /** Content with a builder trade and a home whose cost is 2× stone + 1× wood (12 hammer swings), with
  *  a walk-blocking footprint and a named door that construction work deliberately does not converge on. */
-function builderSiteContent(
-  blocked: readonly { readonly dx: number; readonly dy: number }[] | null = [
-    { dx: 0, dy: 0 },
-    { dx: 2, dy: 0 },
-  ],
-): ContentSet {
+function builderSiteContent(blocked: readonly FootprintCell[] | null = HOME_BODY): ContentSet {
   return parseContentSet({
     manifest: TEST_MANIFEST,
     goods: [
@@ -401,10 +403,13 @@ describe('builder work slots (claimWorkCell)', () => {
       terrain.coordsOf(cell),
     );
 
+    // The anchor's six lattice neighbours, ascending node id.
     expect(work).toEqual([
+      { x: 11, y: 5 },
       { x: 12, y: 5 },
       { x: 11, y: 6 },
       { x: 13, y: 6 },
+      { x: 11, y: 7 },
       { x: 12, y: 7 },
     ]);
   });
@@ -437,7 +442,12 @@ describe('builder work slots (claimWorkCell)', () => {
 
   it('keeps unowned builders on legal perimeter cells too', () => {
     const s = builderSim();
-    stockedSiteAt(s, 12, 6);
+    const site = { hx: 12, hy: 6 }; // an even row, so the body offsets stamp literally
+    stockedSiteAt(s, site.hx, site.hy);
+    // A legal cell is one lattice edge off a body node; no body node neighbours another.
+    const perimeter = HOME_BODY.flatMap(({ dx, dy }) => hexNeighboursOf(site.hx + dx, site.hy + dy)).map(
+      (n) => `${n.hx},${n.hy}`,
+    );
     const a = builderAt(s, 6, 6, null);
     const b = builderAt(s, 6, 7, null);
 
@@ -453,7 +463,7 @@ describe('builder work slots (claimWorkCell)', () => {
     expect(swingCells.size).toBeGreaterThan(0);
     expect(swingCells.has('12,8')).toBe(false); // the finished building's door is not a build position
     for (const cell of swingCells) {
-      expect(['12,5', '13,6', '12,7', '11,6', '14,5', '15,6', '14,7']).toContain(cell);
+      expect(perimeter).toContain(cell);
     }
   });
 });

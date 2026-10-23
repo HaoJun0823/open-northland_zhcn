@@ -3,7 +3,7 @@ import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import type { System } from '../context.js';
-import { dynamicBlockOverlay } from '../footprint/index.js';
+import { buildingDoorwayNodes, dynamicBlockOverlay } from '../footprint/index.js';
 import { manhattan } from '../spatial/metric.js';
 import { type GrazingFields, grazingFields } from './grazing-fields.js';
 import { nearHeld } from './spacing.js';
@@ -52,8 +52,9 @@ const LIVESTOCK_WANDER_STEP_NODES = 4;
 export const animalWanderSystem: System = (world, ctx) => {
   if (ctx.terrain === undefined) return; // mapless sim: no cells to roam over
   const terrain = ctx.terrain;
-  // Composed lazily: a map of standing wildlife never needs the overlay.
+  // Composed lazily: a map of standing wildlife never needs the overlay or the doorways.
   let blocked: BlockOverlay | undefined;
+  let doorways: ReadonlySet<NodeId> | undefined;
   // This pass's sidestep claims, made only when standers stack.
   let taken: Set<NodeId> | undefined;
 
@@ -69,8 +70,17 @@ export const animalWanderSystem: System = (world, ctx) => {
     const here = fields.nodeOf(e);
     if (fields.keeperAt(here) !== e) {
       blocked ??= dynamicBlockOverlay(world, ctx, terrain);
+      doorways ??= buildingDoorwayNodes(world, ctx, terrain);
       taken ??= new Set();
-      const spot = sidestepTarget(terrain, fields, taken, blocked, here, settlerTraversal(world, e));
+      const spot = sidestepTarget(
+        terrain,
+        fields,
+        taken,
+        blocked,
+        doorways,
+        here,
+        settlerTraversal(world, e),
+      );
       if (spot !== null) world.add(e, MoveGoal, { cell: spot });
       continue;
     }
@@ -107,19 +117,22 @@ export const animalWanderSystem: System = (world, ctx) => {
     // a half-cell shuffle rather than a graze step.
     if (fieldContested(terrain, fields, taken, target)) continue;
     blocked ??= dynamicBlockOverlay(world, ctx, terrain);
-    if (blocked.has(target)) continue;
+    doorways ??= buildingDoorwayNodes(world, ctx, terrain);
+    // A doorway is ground to cross, never a stand.
+    if (blocked.has(target) || doorways.has(target)) continue;
 
     world.add(e, MoveGoal, { cell: target });
   }
 };
 
-/** The first free {@link UNSTACK_OFFSETS} spot beside a shared field, or null when the creature is boxed
- *  in and retries next tick. */
+/** The first free {@link UNSTACK_OFFSETS} spot beside a shared field, off every doorway, or null when
+ *  the creature is boxed in and retries next tick. */
 function sidestepTarget(
   terrain: TerrainGraph,
   fields: GrazingFields,
   taken: Set<NodeId>,
   blocked: BlockOverlay,
+  doorways: ReadonlySet<NodeId>,
   from: NodeId,
   traversal: Traversal,
 ): NodeId | null {
@@ -130,7 +143,7 @@ function sidestepTarget(
     if (!terrain.traversable(node, traversal)) continue;
     if (terrain.componentOf(node) !== terrain.componentOf(from)) continue;
     if (fieldContested(terrain, fields, taken, node)) continue;
-    if (blocked.has(node)) continue;
+    if (blocked.has(node) || doorways.has(node)) continue;
     taken.add(node);
     return node;
   }

@@ -6,8 +6,7 @@
  *
  * Node `(hx, hy)` sits at world `(hx/2 column, hy/2 row)`, a 34 px by 19 px pitch under the measured
  * 68x38 px projection, and cell `(c, r)` is node `(2c + (r&1), 2r)`, so the staggered raster becomes a
- * rectangular lattice with one parity-independent neighbour table. The ground edges a step needs follow
- * the original's row parity (`edges.ts`).
+ * rectangular lattice whose six edges per node follow the original's row parity (`edges.ts`).
  */
 import {
   GROUND_WATER,

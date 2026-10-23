@@ -21,6 +21,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, nodeOfPosition, ONE, positionOfNode, Simulation } from '../../src/index.js';
+import { HEX_NEIGHBOUR_OFFSETS } from '../../src/nav/halfcell.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import {
@@ -283,21 +284,11 @@ describe('footprint displacement - settlers never end up standing inside walls',
 
   it('frees a fully enclosed spawn - the only case that is genuinely stuck', () => {
     // `findPath` exempts a blocked START, so standing on a body cell is not itself a wedge: a settler
-    // walks off as soon as ONE step is passable. Only a cell whose every `steps()` edge is blocked has
-    // no way out - 50 of the 1041 real blocked spawns. KEEP's body is exactly that: the anchor plus its
-    // eight lattice steps (E/W, the four diagonals, N/S), so a settler on the anchor is truly walled in.
+    // walks off as soon as ONE step is passable. Only a cell whose every lattice neighbour is blocked has
+    // no way out. KEEP's body is exactly that: the anchor plus its six lattice neighbours, so a settler
+    // on the anchor is truly walled in.
     const KEEP = 30;
-    const SOLID = [
-      { dx: 0, dy: 0 },
-      { dx: 1, dy: 0 },
-      { dx: -1, dy: 0 }, // E, W
-      { dx: 0, dy: -1 },
-      { dx: 0, dy: 1 }, // N, S
-      { dx: 1, dy: -2 },
-      { dx: 1, dy: 2 },
-      { dx: -1, dy: 2 },
-      { dx: -1, dy: -2 }, // NE, SE, SW, NW
-    ];
+    const SOLID = [{ dx: 0, dy: 0 }, ...HEX_NEIGHBOUR_OFFSETS.map(({ dx, dy }) => ({ dx, dy }))];
     const content = parseContentSet({
       manifest: TEST_MANIFEST,
       goods: [{ typeId: 0, id: 'none' }],
@@ -415,26 +406,25 @@ describe('footprint displacement - settlers never end up standing inside walls',
 });
 
 /**
- * The sealed-nook rule: a stamp that closes the last open orthogonal side of a still-walkable cell it
+ * The sealed-nook rule: a stamp that closes the last open lattice side of a still-walkable cell it
  * touches displaces the settler resting there (the real repro: the upgrade scene's builder hammered from
  * the one-node gap between the HQ and the home, and the finished tier-2 wall sealed it - he rested on
  * under the HQ sprite for good). The fixture: HOME_S at (5,5) upgrades to HOME_L, whose body grows to
- * (6,5); a U-shaped neighbour blocks (7,4), (8,5), (7,6), so the finish seals the nook at (7,5).
+ * (6,5); a neighbour blocks the other five lattice neighbours of the nook at (7,5), so the finish seals it.
  */
 describe('footprint displacement - a finish that seals a nook beside the body displaces its occupant', () => {
   const HOME_S = 20;
   const HOME_L = 21;
-  const U_WALLS = 22;
-  const U_WALLS_DOORED = 23; // same walls, door on its own anchor - the nook cell becomes a designated stand
+  const NOOK_WALLS = 22;
+  const NOOK_WALLS_DOORED = 23; // same walls, door on its own anchor - the nook cell becomes a designated stand
   const STONE = 1;
   const NOOK = { x: 7, y: 5 };
-  // Authored so the U anchored on the odd-row nook STAMPS (7,4), (8,5), (7,6) - the odd-dy rows
-  // carry the parity shift (`footprintCellDx`), so their authored dx is one less than the stamp.
-  const U_BODY = [
-    { dx: -1, dy: -1 },
-    { dx: 1, dy: 0 },
-    { dx: -1, dy: 1 },
-  ];
+  /** The side HOME_L's grown body closes: the nook's west neighbour (6,5). */
+  const WEST = { dx: -1, dy: 0 };
+  // Anchored on the nook, the walls stamp its lattice neighbours but the west one.
+  const NOOK_WALLS_BODY = HEX_NEIGHBOUR_OFFSETS.filter((c) => c.dx !== WEST.dx || c.dy !== WEST.dy).map(
+    ({ dx, dy }) => ({ dx, dy }),
+  );
 
   function nookContent() {
     return parseContentSet({
@@ -468,28 +458,28 @@ describe('footprint displacement - a finish that seals a nook beside the body di
             ],
           },
         },
-        { typeId: U_WALLS, id: 'u_walls', kind: 'workplace', footprint: { blocked: U_BODY } },
+        { typeId: NOOK_WALLS, id: 'nook_walls', kind: 'workplace', footprint: { blocked: NOOK_WALLS_BODY } },
         {
-          typeId: U_WALLS_DOORED,
-          id: 'u_walls_doored',
+          typeId: NOOK_WALLS_DOORED,
+          id: 'nook_walls_doored',
           kind: 'workplace',
-          footprint: { blocked: U_BODY, door: { dx: 0, dy: 0 } },
+          footprint: { blocked: NOOK_WALLS_BODY, door: { dx: 0, dy: 0 } },
         },
       ],
     });
   }
 
-  /** A built HOME_S at (5,5), a U neighbour anchored ON the nook cell, then the upgrade hammered out. */
-  function sealNook(uType: number | null): Simulation {
+  /** A built HOME_S at (5,5), the walls anchored ON the nook cell, then the upgrade hammered out. */
+  function sealNook(wallsType: number | null): Simulation {
     const sim = new Simulation({ seed: 1, content: nookContent(), map: grassNodeMap(16, 16) });
     const home = sim.world.create();
     sim.world.add(home, Position, positionOfNode(5, 5));
     sim.world.add(home, Building, { buildingType: HOME_S, tribe: VIKING, built: ONE, level: 0 });
     sim.world.add(home, Stockpile, { amounts: new Map<number, number>() });
-    if (uType !== null) {
+    if (wallsType !== null) {
       const walls = sim.world.create();
       sim.world.add(walls, Position, positionOfNode(NOOK.x, NOOK.y));
-      sim.world.add(walls, Building, { buildingType: uType, tribe: VIKING, built: ONE, level: 0 });
+      sim.world.add(walls, Building, { buildingType: wallsType, tribe: VIKING, built: ONE, level: 0 });
     }
     sim.enqueueSetup({ kind: 'upgradeBuilding', building: home });
     sim.step();
@@ -499,22 +489,22 @@ describe('footprint displacement - a finish that seals a nook beside the body di
   }
 
   it('displaces the resting settler out of the sealed nook', () => {
-    const sim = sealNook(U_WALLS);
+    const sim = sealNook(NOOK_WALLS);
     const wedged = settlerAtNode(sim, NOOK.x, NOOK.y, PLAYER);
     constructionSystem(sim.world, ctxOf(sim));
     expect(nodeOf(sim, wedged)).not.toEqual(NOOK); // pushed out…
     expect(standable(sim, wedged)).toBe(true); // …onto ground it can stand on and leave
   });
 
-  it('leaves a settler beside the body alone while any orthogonal side stays open', () => {
-    const sim = sealNook(null); // no U neighbour - (7,4), (8,5), (7,6) stay free
+  it('leaves a settler beside the body alone while any side stays open', () => {
+    const sim = sealNook(null); // no walls - the nook's other five neighbours stay free
     const beside = settlerAtNode(sim, NOOK.x, NOOK.y, PLAYER);
     constructionSystem(sim.world, ctxOf(sim));
     expect(nodeOf(sim, beside)).toEqual(NOOK);
   });
 
   it('spares a door cell even when the stamp seals it - a door is a designated stand', () => {
-    const sim = sealNook(U_WALLS_DOORED); // the nook cell is the U building's own door
+    const sim = sealNook(NOOK_WALLS_DOORED); // the nook cell is the walls' own door
     const atDoor = settlerAtNode(sim, NOOK.x, NOOK.y, PLAYER);
     constructionSystem(sim.world, ctxOf(sim));
     expect(nodeOf(sim, atDoor)).toEqual(NOOK);

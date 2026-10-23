@@ -3,8 +3,8 @@ import { halfCellMapFromCells, type TerrainMap } from '../../../src/index.js';
 /**
  * Unit tests for the terrain HALF-CELL ADJACENCY GRAPH (the sim's navigation model). The fixture's
  * landscape table has typeId 0 = grass (walkable) and 1 = water (not walkable); these tests pin the
- * deterministic addressing, neighbour order, the half-cell upsampling, and the 8-direction edge set
- * the pathfinder depends on.
+ * deterministic addressing, neighbour order, the half-cell upsampling, and the six-edge step set the
+ * pathfinder depends on.
  */
 
 export const GRASS = 0;

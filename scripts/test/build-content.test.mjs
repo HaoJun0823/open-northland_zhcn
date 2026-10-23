@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -13,6 +13,8 @@ import {
   archiveUrlFor,
   askDownloadConsent,
   buildContent,
+  cloneSettledTree,
+  cloneTree,
   contentIsCurrent,
   currentIrVersion,
   main,
@@ -369,4 +371,121 @@ test('buildContent stamps the converted tree and replaces the previous one', asy
   assert.deepEqual(JSON.parse(await readFile(join(outDir, 'build-stamp.json'), 'utf8')), stamp);
   assert.equal(existsSync(join(outDir, 'stale.txt')), false);
   assert.equal(await contentIsCurrent(outDir, stamp), true);
+});
+
+/** A tree whose bytes match on both sides, standing in for a clone where the file system cannot make one. */
+const copyTree = async (source, target) => {
+  await cp(source, target, { recursive: true });
+  return true;
+};
+
+/** A copy during which the source checkout swaps a rebuilt tree in at the same path, as its build does. */
+const copyWhileSwapped = async (source, target) => {
+  await copyTree(source, target);
+  await rename(source, `${source}-replaced`);
+  await cp(`${source}-replaced`, source, { recursive: true });
+  return true;
+};
+
+test('--if-stale in a worktree clones the primary tree built from the same inputs, else builds', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'content-primary-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const stamp = {
+    archiveSha256: pinnedSha256,
+    irVersion: await currentIrVersion(),
+    translations: await translationsDigest(),
+  };
+  const primaryOutDir = join(dir, 'primary', 'content');
+  await mkdir(primaryOutDir, { recursive: true });
+  await writeFile(join(primaryOutDir, 'ir.json'), '{}');
+  await writeFile(join(primaryOutDir, 'build-stamp.json'), JSON.stringify(stamp));
+  const options = {
+    args: ['--if-stale'],
+    env: { ON_DATA_ZIP: '' },
+    cacheDir: join(dir, 'cache'),
+    primaryOutDir,
+    fetchImpl: () => {
+      throw new Error('must not fetch');
+    },
+    convert: () => {
+      throw new Error('must not convert');
+    },
+    consent: async () => 'unattended',
+  };
+
+  const outDir = join(dir, 'worktree', 'content');
+  const logs = [];
+  await main({ ...options, outDir, log: (message) => logs.push(message), clone: copyTree });
+  assert.equal(await contentIsCurrent(outDir, stamp), true);
+  assert.equal(await contentIsCurrent(primaryOutDir, stamp), true);
+  assert.match(logs.join('\n'), /cloned from .*primary/);
+  assert.doesNotMatch(logs.join('\n'), /starting content build/);
+
+  // The swapping case runs last: it leaves a new tree at the primary's path.
+  const cases = [
+    ['a primary tree of other inputs', { ...stamp, irVersion: stamp.irVersion + 1 }, copyTree],
+    ['a file system that cannot clone', stamp, async () => false],
+    ['a primary tree swapped in during the clone', stamp, copyWhileSwapped],
+  ];
+  for (const [index, [why, primary, clone]] of cases.entries()) {
+    await writeFile(join(primaryOutDir, 'build-stamp.json'), JSON.stringify(primary));
+    const fresh = join(dir, `unbuilt-worktree-${index}`, 'content');
+    const freshLogs = [];
+    await main({ ...options, outDir: fresh, log: (message) => freshLogs.push(message), clone });
+    assert.equal(existsSync(fresh), false, why);
+    assert.match(freshLogs.join('\n'), /starting content build/, why);
+  }
+});
+
+test("a worktree clones the primary checkout's unpacked data instead of extracting the archive", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'data-primary-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const archive = join(dir, 'data.zip');
+  await writeFile(archive, 'source');
+  const expectedDigest = hash('source');
+  const primaryOutDir = join(dir, 'primary-cache');
+  await syntheticPack(join(primaryOutDir, 'unpacked'));
+  await writeFile(join(primaryOutDir, 'unpacked.sha256'), `${expectedDigest}\n`);
+
+  const logs = [];
+  const root = await obtainPinnedDataRoot(archive, (message) => logs.push(message), {
+    outDir: join(dir, 'cache'),
+    primaryOutDir,
+    expectedDigest,
+    extractImpl: () => {
+      throw new Error('must not extract');
+    },
+    clone: copyTree,
+  });
+  assert.equal(root, join(dir, 'cache', 'unpacked'));
+  assert.match(logs.join('\n'), /cloning .*primary-cache/);
+  assert.equal((await readFile(join(dir, 'cache', 'unpacked.sha256'), 'utf8')).trim(), expectedDigest);
+});
+
+test('cloneTree clones a tree or leaves nothing behind', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'clone-tree-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await mkdir(join(dir, 'source', 'nested'), { recursive: true });
+  await writeFile(join(dir, 'source', 'nested', 'file.txt'), 'bytes');
+  const target = join(dir, 'target');
+  const cloned = await cloneTree(join(dir, 'source'), target);
+  // APFS clones within one volume; a Linux file system without reflinks cannot clone at all.
+  if (process.platform === 'darwin') assert.equal(cloned, true);
+  if (cloned) assert.equal(await readFile(join(target, 'nested', 'file.txt'), 'utf8'), 'bytes');
+  else assert.equal(existsSync(target), false);
+  assert.equal(await cloneTree(join(dir, 'missing'), join(dir, 'nothing')), false);
+  assert.equal(existsSync(join(dir, 'nothing')), false);
+});
+
+test('cloneSettledTree keeps a clone of a settled tree and drops one the source swapped meanwhile', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'clone-settled-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const source = join(dir, 'source');
+  await mkdir(source);
+  await writeFile(join(source, 'file.txt'), 'bytes');
+
+  assert.equal(await cloneSettledTree(source, join(dir, 'kept'), copyTree), true);
+  assert.equal(await readFile(join(dir, 'kept', 'file.txt'), 'utf8'), 'bytes');
+  assert.equal(await cloneSettledTree(source, join(dir, 'dropped'), copyWhileSwapped), false);
+  assert.equal(existsSync(join(dir, 'dropped')), false);
 });

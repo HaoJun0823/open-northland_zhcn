@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 /** Download or reuse data.zip, validate it, and replace generated content after conversion succeeds. */
 
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createWriteStream, existsSync } from 'node:fs';
-import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
-import { repoRoot } from './content-dir.mjs';
+import { promisify } from 'node:util';
+import { primaryCheckoutRoot, repoRoot } from './content-dir.mjs';
 import { readDataPack, sha256File } from './data-pack.mjs';
 import { localDataArchive } from './local-data-env.mjs';
 import { extractZip } from './unzip.mjs';
@@ -22,6 +23,11 @@ const ARCHIVE_SHA256 = pin.sha256;
 const ARCHIVE_BASE_URL = 'https://opennorthland.org/data/';
 const OUT_DIR = resolve(repoRoot, 'content');
 const CACHE_DIR = resolve(repoRoot, '.cache', 'data');
+/** A linked worktree's stand-ins for both: the primary checkout's trees, which it clones when they were
+ *  built from the same inputs instead of keeping a converted copy of its own. */
+const PRIMARY_ROOT = primaryCheckoutRoot();
+const PRIMARY_OUT_DIR = PRIMARY_ROOT === repoRoot ? undefined : resolve(PRIMARY_ROOT, 'content');
+const PRIMARY_CACHE_DIR = PRIMARY_ROOT === repoRoot ? undefined : resolve(PRIMARY_ROOT, '.cache', 'data');
 const UNPACKED_DIR_NAME = 'unpacked';
 const UNPACKED_STAMP_NAME = 'unpacked.sha256';
 /** Records which archive and IR version a content tree was converted from; `--if-stale` compares it. */
@@ -254,8 +260,45 @@ function runPipeline(dataRoot, out) {
   return run('npm', ['run', 'pipeline', '--', '--data-root', dataRoot, '--out', out], repoRoot);
 }
 
-export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, convert = runPipeline }) {
-  const dataRoot = await obtainPinnedDataRoot(zip, log, dataRootOptions);
+/** The command that clones a tree: APFS `clonefile` through macOS `cp -c`, a reflink on Btrfs or XFS
+ *  through GNU `cp --reflink=always`. Node's own forced clone is not implemented on macOS. */
+function cloneCommand(source, target) {
+  if (process.platform === 'darwin') return { file: 'cp', args: ['-c', '-R', source, target] };
+  if (process.platform === 'linux') return { file: 'cp', args: ['-R', '--reflink=always', source, target] };
+  return null;
+}
+
+/**
+ * Copy `source` into the absent `target` as a clone that shares its bytes until either side changes
+ * them. False where no clone command is known, the two sit on different volumes (where macOS `cp -c`
+ * copies every byte instead of failing) or the command fails, leaving no partial tree.
+ */
+export async function cloneTree(source, target) {
+  const command = cloneCommand(source, target);
+  if (command === null) return false;
+  try {
+    if ((await stat(source)).dev !== (await stat(dirname(target))).dev) return false;
+    await promisify(execFile)(command.file, command.args);
+    return true;
+  } catch {
+    await rm(target, { recursive: true, force: true });
+    return false;
+  }
+}
+
+/** Clone another checkout's `source` with `clone`, discarding the result when that checkout swapped a new
+ *  tree in meanwhile (both swaps rename a fresh tree into place), which would leave a mix of the two. */
+export async function cloneSettledTree(source, target, clone) {
+  const before = await stat(source);
+  if (!(await clone(source, target))) return false;
+  const after = await stat(source).catch(() => undefined);
+  if (after?.ino === before.ino) return true;
+  await rm(target, { recursive: true, force: true });
+  return false;
+}
+
+/** Fill a fresh staging tree beside `outDir` with `fill`, then swap it in for the previous tree. */
+async function replaceContent(outDir, fill) {
   if (existsSync(outDir) && (await lstat(outDir)).isSymbolicLink())
     throw new Error('Refusing to replace content through a symlink');
   // Staged beside the output: a rename across drives (EXDEV) cannot swap the trees.
@@ -264,11 +307,7 @@ export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, c
   const staging = await mkdtemp(join(stagingRoot, 'content-'));
   const previous = `${staging}-previous`;
   try {
-    if (existsSync(join(outDir, 'music')))
-      await cp(join(outDir, 'music'), join(staging, 'music'), { recursive: true });
-    log(`running asset pipeline into ${staging}`);
-    await convert(dataRoot, staging);
-    await writeFile(join(staging, BUILD_STAMP_NAME), `${JSON.stringify(stamp, null, 2)}\n`);
+    if (!(await fill(staging))) return false;
     if (existsSync(outDir)) await rename(outDir, previous);
     try {
       await rename(staging, outDir);
@@ -277,10 +316,34 @@ export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, c
       throw error;
     }
     await rm(previous, { recursive: true, force: true });
-    log(`${outDir} built from data.zip`);
+    return true;
   } finally {
     await rm(staging, { recursive: true, force: true });
   }
+}
+
+export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, convert = runPipeline }) {
+  const dataRoot = await obtainPinnedDataRoot(zip, log, dataRootOptions);
+  await replaceContent(outDir, async (staging) => {
+    if (existsSync(join(outDir, 'music')))
+      await cp(join(outDir, 'music'), join(staging, 'music'), { recursive: true });
+    log(`running asset pipeline into ${staging}`);
+    await convert(dataRoot, staging);
+    await writeFile(join(staging, BUILD_STAMP_NAME), `${JSON.stringify(stamp, null, 2)}\n`);
+    return true;
+  });
+  log(`${outDir} built from data.zip`);
+}
+
+/** Clone the primary checkout's content tree when its stamp matches this checkout's inputs. */
+async function clonePrimaryContent(primaryOutDir, outDir, stamp, log, clone) {
+  if (!(await contentIsCurrent(primaryOutDir, stamp))) return false;
+  const cloned = await replaceContent(outDir, async (staging) => {
+    await rm(staging, { recursive: true, force: true });
+    return cloneSettledTree(primaryOutDir, staging, clone);
+  });
+  if (cloned) log(`${outDir} cloned from ${primaryOutDir}, built from the same inputs`);
+  return cloned;
 }
 
 function cachedArchivePath(outDir, archiveUrl) {
@@ -385,10 +448,12 @@ export async function obtainPinnedDataRoot(
   log,
   {
     outDir = CACHE_DIR,
+    primaryOutDir = outDir === CACHE_DIR ? PRIMARY_CACHE_DIR : undefined,
     expectedDigest = ARCHIVE_SHA256,
     archiveUrl = archiveUrlFor(expectedDigest),
     fetchImpl = fetch,
     extractImpl = extractZip,
+    clone = cloneTree,
     consent = askDownloadConsent,
   } = {},
 ) {
@@ -409,9 +474,17 @@ export async function obtainPinnedDataRoot(
   const unpackedDir = unpackedCachePath(outDir);
   const stampPath = unpackedStampPath(outDir);
   const partialDir = await mkdtemp(join(outDir, `${UNPACKED_DIR_NAME}.part-`));
-  log(`cached unpacked data missing or stale, extracting ${archive} into ${unpackedDir}`);
+  const primary =
+    primaryOutDir === undefined ? undefined : await cachedDataRoot(primaryOutDir, expectedDigest);
   try {
-    await extractImpl(archive, partialDir);
+    await rm(partialDir, { recursive: true, force: true });
+    if (primary !== undefined && (await cloneSettledTree(primary, partialDir, clone))) {
+      log(`cached unpacked data missing or stale, cloning ${primary} into ${unpackedDir}`);
+    } else {
+      log(`cached unpacked data missing or stale, extracting ${archive} into ${unpackedDir}`);
+      await mkdir(partialDir, { recursive: true });
+      await extractImpl(archive, partialDir);
+    }
     await readDataPack(partialDir);
     await rm(unpackedDir, { recursive: true, force: true });
     await rename(partialDir, unpackedDir);
@@ -426,8 +499,9 @@ export async function obtainPinnedDataRoot(
 }
 
 /**
- * Builds `content/`. With `--if-stale` a current tree is kept, and a download that is declined or
- * cannot be asked for ends with a note instead of an error, so CI and agent builds stay offline.
+ * Builds `content/`. With `--if-stale` a current tree is kept, a linked worktree clones the primary
+ * checkout's tree when it was built from the same inputs, and a download that is declined or cannot be
+ * asked for ends with a note instead of an error, so CI and agent builds stay offline.
  */
 export async function main({
   args = process.argv.slice(2),
@@ -435,9 +509,12 @@ export async function main({
   log = createLogger(),
   outDir = OUT_DIR,
   cacheDir = CACHE_DIR,
+  primaryOutDir = outDir === OUT_DIR ? PRIMARY_OUT_DIR : undefined,
+  primaryCacheDir = cacheDir === CACHE_DIR ? PRIMARY_CACHE_DIR : undefined,
   fetchImpl = fetch,
   consent = (request) => askDownloadConsent({ ...request, env }),
   convert = runPipeline,
+  clone = cloneTree,
 } = {}) {
   const ifStale = args.includes(IF_STALE_FLAG);
   if (args.some((arg) => arg !== IF_STALE_FLAG))
@@ -451,11 +528,25 @@ export async function main({
     log(`${outDir} is current`);
     return;
   }
+  if (
+    ifStale &&
+    primaryOutDir !== undefined &&
+    (await clonePrimaryContent(primaryOutDir, outDir, stamp, log, clone))
+  )
+    return;
   log('starting content build');
   try {
     await buildContent(localDataArchive(repoRoot, env), log, stamp, {
       outDir,
-      dataRootOptions: { outDir: cacheDir, fetchImpl, consent },
+      // Only a development build clones the primary's unpacked pack; an explicit build, such as a
+      // release's, extracts the archive it verified.
+      dataRootOptions: {
+        outDir: cacheDir,
+        primaryOutDir: ifStale ? primaryCacheDir : undefined,
+        fetchImpl,
+        consent,
+        clone,
+      },
       convert,
     });
   } catch (error) {

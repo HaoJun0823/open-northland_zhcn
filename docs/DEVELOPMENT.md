@@ -44,14 +44,14 @@ Automated harnesses can request `port: 0`; this searches from `5174`, never the 
 Run these commands from the **task worktree root** (replace `5175` with the chosen free port):
 
 ```bash
-primary_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
-ON_CONTENT_DIR="$primary_root/content" npm run dev -- --port 5175
+npm run dev -- --port 5175
 # In a second terminal, after the server reports ready:
 npm run dev:verify -- 'http://127.0.0.1:5175/?map=magiczny_las'
 ```
 
 Use the client's persistent terminal/background process support and keep its PID and log path.
-Give each worktree its own `node_modules`: on APFS, `cp -c -R "$primary_root/node_modules" node_modules`
+Give each worktree its own `node_modules`: on APFS,
+`cp -c -R "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/node_modules" node_modules`
 clones the primary checkout's tree without using extra disk space, then `npm install` applies any
 lockfile difference; elsewhere run `npm ci`. A shared or symlinked `node_modules` resolves workspace
 imports to another checkout. Vite rejects workspace imports outside this checkout's `src/` trees.
@@ -66,10 +66,11 @@ covers multiplayer identity inputs, not assets or every rendering module.
 
 After the last edit or rebase, run verification, open the **same URL** in a browser, inspect console
 errors and exercise the changed behavior. For real maps also check `/maps-index.json` and the chosen
-map load. The command above shares primary content for read-only use. Tasks writing content need
-their own copy and `ON_CONTENT_DIR` pointing there. If the primary content is absent, prepare it
-using [Local game content](#local-game-content); never hand off the fallback app as a real-map
-preview. Browser verification is required even when identity matches, especially for asset changes.
+map load. The worktree's `content/` starts as a clone of the primary checkout's tree when that tree
+matches this checkout's archive, IR version and translations ([Local game content](#local-game-content)),
+so a task that writes content changes only its own copy. If the primary content is absent, prepare it
+there first; never hand off the fallback app as a real-map preview. Browser verification is required
+even when identity matches, especially for asset changes.
 
 Immediately before handoff, rerun `dev:verify` and give a clickable link to the tested map/scene,
 the checkout/branch, and any remaining human checks. Before integration, keep the task preview
@@ -91,9 +92,15 @@ A release builds `content/` from the pinned source data pack and ships the conve
 installers and the web image. Player-selected local maps are converted separately in a Worker.
 
 `npm run dev` and `npm run build` start with `node scripts/build-content.mjs --if-stale`, which
-builds `content/` when the tree is missing or its `build-stamp.json` names another archive hash or
-IR version, and otherwise returns at once. The stamp does not track the converter itself: after a
-pipeline change that keeps the IR version, run `npm run build:content`, which always rebuilds.
+builds `content/` when the tree is missing or its `build-stamp.json` names another archive hash, IR
+version or translation set, and otherwise returns at once. In a Git worktree it first clones the
+primary checkout's `content/` when that tree's stamp matches, and a worktree that must convert clones
+the primary checkout's unpacked pack instead of extracting the archive again. A clone (APFS, or a
+reflink on Btrfs or XFS) shares the bytes until either tree changes them; where the two checkouts sit
+on different volumes or the file system cannot clone, the worktree builds its own copy. The stamp does
+not track the converter itself: after a pipeline change that keeps the IR version, run
+`npm run build:content`, which always rebuilds and takes the unpacked pack only from this checkout's
+cache or the archive, never from the primary checkout.
 
 Without local configuration the build downloads the pinned pack from
 `https://opennorthland.org/data/<sha256>.zip` after describing the archive and asking for
@@ -160,9 +167,9 @@ the game runs it: every mission with decoded goals and results, opcodes this bui
 goal texts, the pages its results open and, with `--pages`, every briefing page. It reads the
 generated sidecars, so corrections are included. `npm run map:convert -- <map id>` re-converts one
 base map from the unpacked pack through the corrections into this checkout's own `content/` and
-refreshes its `maps-index.json` row; it refuses a shared primary content directory, so a worktree
-first clones it (`cp -R <primary>/content content`; `cp -Rc` clones in seconds on APFS). Campaign maps need the full `build:content`.
-Both need the workspace built (`npx tsc --build`).
+refreshes its `maps-index.json` row; it refuses a shared primary content directory (`ON_CONTENT_DIR`),
+and a worktree's own `content/` is the clone `npm run dev` or `npm run build` left. Campaign maps need
+the full `build:content`. Both need the workspace built (`npx tsc --build`).
 
 ## Translation overlays
 

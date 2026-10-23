@@ -14,11 +14,10 @@
 //   --data-root  the unpacked data pack (default: ON_DATA_ROOT, else .cache/data/unpacked of this
 //                checkout, else of the primary checkout).
 // Needs the workspace built (npx tsc --build).
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { contentDir, repoRoot } from './content-dir.mjs';
+import { contentDir, primaryCheckoutRoot, repoRoot } from './content-dir.mjs';
 import { readDataPack } from './data-pack.mjs';
 
 let pipeline;
@@ -61,19 +60,6 @@ const MAPS_DIR = 'maps';
 const TEXTURES_DIR = 'textures';
 const MAPS_INDEX_FILE = 'maps-index.json';
 
-function primaryRoot() {
-  try {
-    const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-    return dirname(common);
-  } catch {
-    return repoRoot;
-  }
-}
-
 /** The content directory this run writes: it must really live inside this checkout. */
 async function ownContentDir() {
   const requested = resolve(repoRoot, flag('--content') ?? contentDir());
@@ -95,7 +81,10 @@ async function dataRoot() {
   const explicit = flag('--data-root');
   const candidates =
     explicit === undefined
-      ? [join(repoRoot, '.cache', 'data', 'unpacked'), join(primaryRoot(), '.cache', 'data', 'unpacked')]
+      ? [
+          join(repoRoot, '.cache', 'data', 'unpacked'),
+          join(primaryCheckoutRoot(), '.cache', 'data', 'unpacked'),
+        ]
       : [resolve(repoRoot, explicit)];
   const root = candidates.find((dir) => existsSync(join(dir, 'manifest.json')));
   if (root === undefined) {

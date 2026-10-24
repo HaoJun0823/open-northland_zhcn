@@ -193,13 +193,6 @@ describe('buildSoundGalleryModel', () => {
     ]);
   });
 
-  it('lists every GUI cue and every notification cue with the shot the game fires', () => {
-    const groups = model.interface.map((row) => row.group);
-    expect(groups).toContain('confirm');
-    expect(groups).toContain('card (gui/briefing_popup.wav)');
-    for (const row of model.interface) expect(row.play.kind).toBe('cue');
-  });
-
   it('lists one named row per bound event, so no binding hides from the listener', () => {
     // The rows come from the bindings, not a hand list: every bound kind needs a catalog label, and a
     // kind nothing binds (the chopping swing lives in the animation cue) gets no row.

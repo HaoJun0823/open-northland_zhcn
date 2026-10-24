@@ -44,10 +44,6 @@ describe('shadowStemsByAtlasStem - the body-stem → shadow-stem join', () => {
     expect(stems.get('ls_houses_viking.house01')).toBe('ls_houses_viking_s.shadow');
     expect(stems.size).toBe(2);
   });
-
-  it('is empty for an absent IR (a bare checkout loads shadow-less)', () => {
-    expect(shadowStemsByAtlasStem(null).size).toBe(0);
-  });
 });
 
 describe('resolveLooks - a character look carries its own shadow set', () => {

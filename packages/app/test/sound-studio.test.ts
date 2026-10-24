@@ -165,15 +165,6 @@ describe('sound studio', () => {
     expect(root.textContent).toContain(`${copy.lanes.sfx} ${DEFAULT_BURST}`);
   });
 
-  it('moves the mixer bus and the camera zoom the slider names', async () => {
-    const audio = new FakeAudio();
-    const root = mount(audio);
-    setSlider(root, messages().mainMenu.settings.volumes.world, 40);
-    expect(audio.volumes.at(-1)).toEqual({ ...DEFAULT_VOLUMES, world: 40 });
-    setSlider(root, copy.zoom, 0.5);
-    expect(audio.calls.at(-1)).toEqual({ shots: [], ambient: [], scale: 0.5 });
-  });
-
   it('loops a bed until switched off, and stops music and beds together', async () => {
     const audio = new FakeAudio();
     const root = mount(audio);

@@ -81,20 +81,18 @@ describe('signpost placement clicks', () => {
     },
   );
 
-  it.each(['cancel', 'selection change', 'new arm', 'dispose'] as const)(
-    'ignores a pending answer after %s',
-    async (action) => {
-      const { pick, issued, cues, requests, answered } = harness();
-      pick.handleMouseDown(click(3));
-      if (action === 'dispose') answered.dispose();
-      else if (action === 'new arm') pick.arm({ kind: 'signpost', scout: 2 });
-      else pick.cancel(); // Selection changes use this same controller cancellation seam.
-      requests[0]?.resolve(true);
-      await landed();
-      expect(issued).toEqual([]);
-      expect(cues).toEqual([]);
-    },
-  );
+  // A selection change cancels through the same controller seam as `cancel`.
+  it.each(['cancel', 'new arm', 'dispose'] as const)('ignores a pending answer after %s', async (action) => {
+    const { pick, issued, cues, requests, answered } = harness();
+    pick.handleMouseDown(click(3));
+    if (action === 'dispose') answered.dispose();
+    else if (action === 'new arm') pick.arm({ kind: 'signpost', scout: 2 });
+    else pick.cancel();
+    requests[0]?.resolve(true);
+    await landed();
+    expect(issued).toEqual([]);
+    expect(cues).toEqual([]);
+  });
 
   it('lets a newer nonqueued click replace an unanswered target', async () => {
     const { pick, issued, requests } = harness();

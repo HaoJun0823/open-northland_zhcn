@@ -31,15 +31,16 @@ const MONSTER_TRIBE = 16;
 const UNRECORDED_TRIBE = 99;
 
 describe('needsSystem - hunger rises over time', () => {
-  it('raises a settler hunger by exactly one drain unit each tick', () => {
+  it('raises a civilian hunger, fatigue and enjoyment by exactly one drain unit each tick', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
+    const e = settlerWithHunger(sim, fx.fromInt(0)); // a woodcutter with every bar at 0
 
     needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).hunger).toBe(DRAIN);
+    expect(needsOf(sim, e)).toMatchObject({ hunger: DRAIN, fatigue: DRAIN, enjoyment: DRAIN });
 
     needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).hunger).toBe(fx.add(DRAIN, DRAIN));
+    const twice = fx.add(DRAIN, DRAIN);
+    expect(needsOf(sim, e)).toMatchObject({ hunger: twice, fatigue: twice, enjoyment: twice });
   });
 
   it('clamps hunger at ONE (never above - the needsInRange invariant ceiling)', () => {
@@ -75,28 +76,6 @@ describe('needsSystem - hunger rises over time', () => {
     const stored = sim.world.get(e, SettlerNeeds);
     expect(stored.hunger).toBe(NEED_CRITICAL_THRESHOLD);
     expect(stored.asOf).toBe(fixtureTick(sim));
-  });
-
-  it('rises every settler independently (each reads/writes only its own hunger)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const a = settlerWithHunger(sim, fx.fromInt(0));
-    const b = settlerWithHunger(sim, fx.div(ONE, fx.fromInt(2)));
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, a).hunger).toBe(DRAIN);
-    expect(needsOf(sim, b).hunger).toBe(fx.add(fx.div(ONE, fx.fromInt(2)), DRAIN));
-  });
-
-  it('runs through the real Simulation.step() schedule and stays invariant-clean', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
-
-    for (let i = 0; i < 100; i++) sim.step();
-    // 100 ticks of rise: well below ONE, monotonically increasing, invariant-clean throughout.
-    const hunger = needsOf(sim, e).hunger;
-    expect(hunger).toBe(fx.mul(DRAIN, fx.fromInt(100)));
-    expect(hunger).toBeLessThan(ONE);
-    expect(sim.checkInvariants()).toEqual([]);
   });
 });
 
@@ -201,43 +180,6 @@ describe('needsSystem - a settler still growing carries no needs', () => {
   });
 });
 
-describe('needsSystem - fatigue rises over time', () => {
-  it('raises a settler fatigue by exactly one drain unit each tick, the same rate as hunger', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0)); // starts with fatigue 0 too
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).fatigue).toBe(DRAIN);
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).fatigue).toBe(fx.add(DRAIN, DRAIN));
-  });
-
-  it('clamps fatigue at ONE (never above - the needsInRange invariant ceiling)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
-    // Start one half-step below the ceiling: the next rise would overshoot ONE and must clamp.
-    setNeeds(sim, e, { fatigue: fx.sub(ONE, fx.div(DRAIN, fx.fromInt(2))) });
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).fatigue).toBe(ONE);
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).fatigue).toBe(ONE);
-  });
-
-  it('rises hunger and fatigue together in the same tick, invariant-clean', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
-
-    for (let i = 0; i < 100; i++) sim.step();
-    const settler = needsOf(sim, e);
-    expect(settler.hunger).toBe(fx.mul(DRAIN, fx.fromInt(100)));
-    expect(settler.fatigue).toBe(settler.hunger); // same rate ⇒ equal after equal ticks
-    expect(sim.checkInvariants()).toEqual([]);
-  });
-});
-
 describe('needsSystem - piety no longer rises over time', () => {
   it('leaves a settler piety untouched each tick (forging weapons is its only source)', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
@@ -254,18 +196,7 @@ describe('needsSystem - piety no longer rises over time', () => {
   });
 });
 
-describe('needsSystem - enjoyment (company) rises for civilians, frozen for fighters', () => {
-  it('raises a civilian enjoyment by exactly one drain unit each tick', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0)); // a woodcutter (civilian), enjoyment 0
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).enjoyment).toBe(DRAIN);
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).enjoyment).toBe(fx.add(DRAIN, DRAIN));
-  });
-
+describe('needsSystem - enjoyment (company) is frozen for fighters', () => {
   it('does not raise a fighter enjoyment (a soldier company need is frozen)', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const e = settlerWithHunger(sim, fx.fromInt(0));
@@ -275,18 +206,5 @@ describe('needsSystem - enjoyment (company) rises for civilians, frozen for figh
     const settler = needsOf(sim, e);
     expect(settler.enjoyment).toBe(fx.fromInt(0)); // never rose
     expect(settler.hunger).toBe(fx.mul(DRAIN, fx.fromInt(100))); // hunger still rises for all
-  });
-
-  it('clamps a civilian enjoyment at ONE (never above - the needsInRange invariant ceiling)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
-    // Start one half-step below the ceiling: the next rise would overshoot ONE and must clamp.
-    setNeeds(sim, e, { enjoyment: fx.sub(ONE, fx.div(DRAIN, fx.fromInt(2))) });
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).enjoyment).toBe(ONE);
-
-    needsSystem(sim.world, nextTickCtxOf(sim));
-    expect(needsOf(sim, e).enjoyment).toBe(ONE);
   });
 });

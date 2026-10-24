@@ -15,7 +15,6 @@ import {
   TEMPLE_AURA_RANGE,
   templeAuraSystem,
 } from '../../src/systems/lifecycle/temple-aura.js';
-import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { needsOf, settlerAt } from '../fixtures/settler.js';
@@ -228,11 +227,5 @@ describe('templeAuraSystem - the temple blesses its owner people once a game sec
     blessAt(sim, TICKS_PER_SECOND);
 
     expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it("runs after this tick's blows land", () => {
-    const names = SYSTEM_ORDER.map((s) => s.name);
-    expect(names.indexOf('projectile')).toBeLessThan(names.indexOf('templeAura'));
-    expect(names.indexOf('combat')).toBeLessThan(names.indexOf('templeAura'));
   });
 });

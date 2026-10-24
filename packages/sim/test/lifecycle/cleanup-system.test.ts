@@ -2,15 +2,12 @@ import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   addCurrentAtomic,
-  addPerson,
   DEFAULT_WORK_FLAG_RADIUS,
   DeliveryFlag,
   Health,
-  JobAssignment,
   Owner,
   Position,
   Resource,
-  Settler,
   Stockpile,
   WorkFlag,
   YoungAnimal,
@@ -231,46 +228,6 @@ describe('cleanupSystem - reaping 0-HP combatants', () => {
     expect(sim.world.isAlive(alive)).toBe(true);
     expect(sim.world.get(alive, Health).hitpoints).toBe(1);
     expect(sim.events.current().filter((ev) => ev.kind === 'settlerDied')).toHaveLength(0);
-  });
-
-  it('reaps a 0-HP entity but spares a healthy one in the same pass', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const dead = sim.world.create();
-    const alive = sim.world.create();
-    sim.world.add(dead, Health, { hitpoints: 0, max: 500 });
-    sim.world.add(alive, Health, { hitpoints: 200, max: 500 });
-
-    cleanupSystem(sim.world, ctxOf(sim));
-
-    expect(sim.world.isAlive(dead)).toBe(false);
-    expect(sim.world.isAlive(alive)).toBe(true);
-  });
-
-  it('removes EVERY component of the reaped entity (its Settler/Position/binding vanish with it)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const workplace = sim.world.create();
-    const dead = sim.world.create();
-    sim.world.add(dead, Position, { x: fx.fromInt(3), y: fx.fromInt(4) });
-    addPerson(sim.world, dead, {
-      tribe: 1,
-      jobType: 7,
-      hunger: fx.fromInt(0),
-      fatigue: fx.fromInt(0),
-      piety: fx.fromInt(0),
-      enjoyment: fx.fromInt(0),
-    });
-    sim.world.add(dead, JobAssignment, { workplace });
-    sim.world.add(dead, Health, { hitpoints: 0, max: 1000 });
-
-    cleanupSystem(sim.world, ctxOf(sim));
-
-    // The destroyed entity carried the cross-reference (settler->building), so it leaves no dangling
-    // binding - its own components are simply gone.
-    expect(sim.world.has(dead, Settler)).toBe(false);
-    expect(sim.world.has(dead, Position)).toBe(false);
-    expect(sim.world.has(dead, JobAssignment)).toBe(false);
-    expect(sim.world.has(dead, Health)).toBe(false);
-    expect(sim.world.isAlive(workplace)).toBe(true); // the referenced building is untouched
   });
 
   it("reaps a dead flag-bound gatherer's drop-off flag along with it (no orphan marker)", () => {

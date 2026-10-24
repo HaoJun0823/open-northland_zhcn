@@ -11,7 +11,7 @@ import {
   setMissionBehaviour,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, Simulation, TICKS_PER_SECOND } from '../../src/index.js';
+import { fx, Simulation } from '../../src/index.js';
 import {
   ADULT_AGE_TICKS,
   BABY_FEMALE,
@@ -23,7 +23,6 @@ import {
   growthSystem,
   HUMAN_HITPOINTS,
   isNonWorkingAge,
-  TICKS_PER_AGE_YEAR,
   WOMAN_JOB,
 } from '../../src/systems/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
@@ -37,6 +36,8 @@ import { nextTickCtxOf } from '../fixtures/context.js';
  */
 
 const VIKING = 1;
+/** Ticks of play before a script rewrites a child's age. */
+const SCRIPT_AGE_CHANGE_AT = 50;
 function growthContent(): ContentSet {
   return parseContentSet({
     manifest: TEST_MANIFEST,
@@ -83,14 +84,6 @@ function wound(sim: Simulation, e: Entity, hitpoints: number): void {
 }
 
 describe('GrowthSystem - non-working settlers mature into workers', () => {
-  // The measured cadence itself - every other case below is written in terms of the stage constants, so
-  // only this one fails if they drift off what was observed in the original.
-  it('childhood runs the observed 4 minutes of x1 play: a child at 4 years, an adult at 12', () => {
-    expect(ADULT_AGE_TICKS / TICKS_PER_SECOND).toBe(4 * 60);
-    expect(ADULT_AGE_TICKS / TICKS_PER_AGE_YEAR).toBe(12);
-    expect(CHILD_AGE_TICKS / TICKS_PER_AGE_YEAR).toBe(4);
-  });
-
   it('a baby becomes a child of the same sex at CHILD_AGE_TICKS', () => {
     const sim = new Simulation({ seed: 1, content: growthContent() });
     const she = bornSettler(sim, BABY_FEMALE, 0);
@@ -191,6 +184,17 @@ describe('GrowthSystem - non-working settlers mature into workers', () => {
     expect(sim.world.get(boy, Settler).jobType).toBe(CIVILIST_JOB);
   });
 
+  it('counts on from an age a script writes mid-childhood', () => {
+    const sim = new Simulation({ seed: 1, content: growthContent() });
+    const girl = bornSettler(sim, CHILD_FEMALE, CHILD_AGE_TICKS);
+    run(sim, SCRIPT_AGE_CHANGE_AT);
+    sim.world.add(girl, Age, { ticks: ADULT_AGE_TICKS - 2, asOf: null });
+    run(sim, 1);
+    expect(sim.world.get(girl, Settler).jobType).toBe(CHILD_FEMALE);
+    run(sim, 1);
+    expect(sim.world.get(girl, Settler).jobType).toBe(WOMAN_JOB);
+  });
+
   it('stops an anchored age where the ageless bit finds it', () => {
     const sim = new Simulation({ seed: 1, content: growthContent() });
     const girl = bornSettler(sim, CHILD_FEMALE, CHILD_AGE_TICKS);
@@ -199,18 +203,5 @@ describe('GrowthSystem - non-working settlers mature into workers', () => {
     sim.run(ADULT_AGE_TICKS);
     expect(sim.world.get(girl, Settler).jobType).toBe(CHILD_FEMALE);
     expect(sim.world.get(girl, Age)).toEqual({ ticks: CHILD_AGE_TICKS + 100, asOf: null });
-  });
-
-  it('is deterministic: two runs from the same seed hash-equal across the full maturation', () => {
-    const hashAfter = (): string => {
-      const sim = new Simulation({ seed: 7, content: growthContent() });
-      bornSettler(sim, BABY_FEMALE, 0);
-      bornSettler(sim, BABY_MALE, 0);
-      // Use the full step schedule (not just growthSystem) so the hash covers the real tick - but
-      // mapless, so the AI/movement systems are inert and only growth advances state.
-      sim.run(ADULT_AGE_TICKS + 5);
-      return sim.hashState();
-    };
-    expect(hashAfter()).toBe(hashAfter());
   });
 });

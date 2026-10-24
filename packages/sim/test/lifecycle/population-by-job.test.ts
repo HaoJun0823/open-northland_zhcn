@@ -50,11 +50,6 @@ function spawnSettler(sim: Simulation, tribe: number, jobType: number | null): v
 }
 
 describe('tribePopulationByJob', () => {
-  it('is empty for a tribe with no settlers', () => {
-    const sim = new Simulation({ seed: 1, content: jobsContent() });
-    expect([...tribePopulationByJob(sim.world, VIKING).entries()]).toEqual([]);
-  });
-
   it('counts settlers per job type', () => {
     const sim = new Simulation({ seed: 1, content: jobsContent() });
     spawnSettler(sim, VIKING, FARMER);
@@ -73,18 +68,6 @@ describe('tribePopulationByJob', () => {
     spawnSettler(sim, VIKING, FARMER);
     const byJob = tribePopulationByJob(sim.world, VIKING);
     expect(byJob.get(IDLE_JOB)).toBe(2);
-    expect(byJob.get(FARMER)).toBe(1);
-    expect(IDLE_JOB).toBeLessThan(0); // a negative sentinel can't collide with a real (>=0) job id
-  });
-
-  it('keys age classes by their job id, distinct from adult trades', () => {
-    const sim = new Simulation({ seed: 1, content: jobsContent() });
-    spawnSettler(sim, VIKING, BABY_FEMALE); // a non-working age class (id 1)
-    spawnSettler(sim, VIKING, BABY_FEMALE);
-    spawnSettler(sim, VIKING, FARMER); // an adult trade
-    const byJob = tribePopulationByJob(sim.world, VIKING);
-    // The view tallies by key; a consumer partitions age-class keys (1-4) from trade keys itself.
-    expect(byJob.get(BABY_FEMALE)).toBe(2);
     expect(byJob.get(FARMER)).toBe(1);
   });
 

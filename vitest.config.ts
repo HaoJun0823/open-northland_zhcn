@@ -39,7 +39,6 @@ const SLOW_APP_TESTS = [
 ];
 const SLOW_CORE_TESTS = [
   'packages/sim/test/movement/army-geometry.test.ts',
-  'packages/sim/test/lifecycle/needs-levels.test.ts',
   'packages/net-server/test/socket-recovery.test.ts',
   'packages/net-server/test/army-socket.test.ts',
   'packages/net-server/test/army-session.test.ts',

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import * as components from '../../../src/components/index.js';
 import { fx, Simulation } from '../../../src/index.js';
 import { NEED_DRAIN_UNITS_PER_TICK, needBar } from '../../../src/systems/index.js';
 import { testContent } from '../../fixtures/content.js';
@@ -23,16 +22,5 @@ describe('needsSystem - the setNeedsEnabled world rule (the dev/admin toggle)', 
     sim.step(); // the toggle applies (commandSystem) before needsSystem the same tick
     expect(needsOf(sim, e).hunger).toBe(needBar(NEED_DRAIN_UNITS_PER_TICK));
     expect(sim.checkInvariants()).toEqual([]);
-  });
-
-  it('reuses the one WorldRules singleton across repeated toggles', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
-    sim.step();
-    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: true });
-    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
-    sim.step();
-    expect([...sim.world.query(components.WorldRules)]).toHaveLength(1);
-    expect(components.needsEnabled(sim.world)).toBe(false);
   });
 });

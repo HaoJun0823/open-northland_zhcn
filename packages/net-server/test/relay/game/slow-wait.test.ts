@@ -1,4 +1,4 @@
-import { type ClientLoad, TICK_MS } from '@open-northland/net-protocol';
+import { AUTO_INITIAL_BUFFER_TICKS, type ClientLoad, TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { KICK_COUNTDOWN_MS, SILENT_AFTER_MS } from '../../../src/index.js';
 import {
@@ -8,7 +8,6 @@ import {
   SLOW_GRACE_MS,
   SLOW_WAIT_AFTER_MS,
 } from '../../../src/relay/timing/governor.js';
-import { AUTO_INITIAL_BUFFER_TICKS } from '../../../src/relay/timing/responsiveness.js';
 import {
   digest,
   LOAD,

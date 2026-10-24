@@ -1,4 +1,5 @@
 import {
+  AUTO_INITIAL_BUFFER_TICKS,
   MAX_RESPONSIVENESS_BUFFER_TICKS,
   type ResponsivenessMode,
   type ResponsivenessState,
@@ -9,8 +10,6 @@ import { isSynced, type Member } from '../member.js';
 
 /** These are room pacing choices, independent of each member's existing command delivery budget. */
 const MANUAL_TICKS = { responsive: 1, balanced: 2, smooth: 3 } as const;
-/** The automatic reserve before the room has measured its links. */
-export const AUTO_INITIAL_BUFFER_TICKS = 2;
 /** How long a lower target must persist for each tick the reserve falls. */
 const LOWER_AFTER_MS = 10_000;
 /** How long a higher target must persist for each tick the reserve rises. A link sample arrives once

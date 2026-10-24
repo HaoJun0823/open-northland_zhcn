@@ -16,6 +16,8 @@ export const MAX_ENVELOPE_BYTES = 512 * 1024;
 export const MAX_COMMAND_BYTES_PER_TICK = 1024 * 1024;
 /** Maximum shared playout reserve selected by the room's Auto mode. */
 export const MAX_RESPONSIVENESS_BUFFER_TICKS = 6;
+/** The room's Auto reserve before it has measured its links; clients start from it too. */
+export const AUTO_INITIAL_BUFFER_TICKS = 2;
 export const MAX_SPEED = 8;
 /** A reported smoothed tick cost; a client whose tick takes a minute has long been voted out. */
 export const MAX_REPORTED_TICK_MS = 60 * 1000;

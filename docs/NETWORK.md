@@ -695,7 +695,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `LOAD_VIEW_INTERVAL_MS`, `LOADING_STALL_MS` [server] | 1 s, 2 min | Views for moved figures alone; unmoved boot before the clock runs. |
 | `KICK_COUNTDOWN_MS`, `WAIT_FORGIVENESS` [server] | 60 s, 0.1 | Waited time before a vote opens, and the most a member owes; waited ms forgiven per ms not waited for. |
 | `INITIAL_INPUT_DELAY_TICKS`, `MAX_INPUT_DELAY_TICKS` [server] | 2, 12 | Input delay at the start, and its cap (one second). |
-| `AUTO_INITIAL_BUFFER_TICKS`, `MAX_RESPONSIVENESS_BUFFER_TICKS` [server, protocol] | 2, 6 | Auto reserve before measurement, and its cap; manual reserves are 1, 2, 3. |
+| `AUTO_INITIAL_BUFFER_TICKS`, `MAX_RESPONSIVENESS_BUFFER_TICKS` [protocol] | 2, 6 | Auto reserve before measurement, and its cap; manual reserves are 1, 2, 3. |
 | `LAG_BEHIND_MS`, `SLOW_GRACE_MS`, `SLOW_AT_ONCE_MS` [server] | 1 s, 4 s, 5 s | Backlog that lags; lag before slow; backlog slow at once (the sum of the two). |
 | `SLOW_WAIT_AFTER_MS`, `GOVERN_RELEASE_MS` [server] | 30 s, 0.5 s | Slow time before it is waited for; backlog that releases. |
 | `GOVERNOR_HEADROOM`, `CATCH_UP_SHARE`, `MIN_GOVERNED_SPEED` [server] | 0.8, 0.8, 0.25 | Governed speed bounds. |

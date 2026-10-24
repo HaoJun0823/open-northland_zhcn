@@ -1,5 +1,6 @@
 import type { GameSession } from '@open-northland/lockstep';
 import {
+  AUTO_INITIAL_BUFFER_TICKS,
   type ChatLine,
   MAX_CHAT_HISTORY_LINES,
   type ResponsivenessState,
@@ -11,8 +12,11 @@ import {
 
 export type ClockState = Extract<ServerMessage, { kind: 'clock' }>;
 
-/** The relay's automatic reserve before it has measured the room's links. */
-const INITIAL_RESPONSIVENESS: ResponsivenessState = { mode: 'auto', bufferTicks: 2, by: null };
+const INITIAL_RESPONSIVENESS: ResponsivenessState = {
+  mode: 'auto',
+  bufferTicks: AUTO_INITIAL_BUFFER_TICKS,
+  by: null,
+};
 
 /** What the relay's messages say about one client's lobby and session. The client and any mirror of it
  *  apply the same messages in the same order and reach the same state. */

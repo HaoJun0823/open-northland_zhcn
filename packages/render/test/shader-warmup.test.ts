@@ -177,12 +177,13 @@ describe('boot shader programs', () => {
 });
 
 /** The timers the link polls and the stall clock read, faked so no test waits out a real poll. */
-const POLL_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'performance'] } as const;
+/** The warm-up polls through these; the rest of the clock stays real. */
+const fakePollTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
 
 describe('linkPrograms', () => {
   useHeadlessShaderContext();
   beforeEach(() => {
-    vi.useFakeTimers(POLL_TIMERS);
+    fakePollTimers();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -285,7 +286,7 @@ describe('linkPrograms', () => {
 
 describe('waitForLinks', () => {
   beforeEach(() => {
-    vi.useFakeTimers(POLL_TIMERS);
+    fakePollTimers();
   });
   afterEach(() => {
     vi.useRealTimers();

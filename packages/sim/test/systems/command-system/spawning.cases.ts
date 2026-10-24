@@ -24,8 +24,10 @@ describe('CommandSystem - spawning', () => {
     const e = nthEntity(sim, 0);
     expect(sim.world.get(e, Settler)).toMatchObject({ jobType: WOODCUTTER, tribe: VIKING });
     expect(sim.world.get(e, Health)).toEqual({ hitpoints: HUMAN_HITPOINTS, max: HUMAN_HITPOINTS });
-    for (const component of [Owner, Armor, Weapon, MoveSpeed])
-      expect(sim.world.has(e, component)).toBe(false);
+    expect(sim.world.has(e, Owner)).toBe(false);
+    expect(sim.world.has(e, Armor)).toBe(false);
+    expect(sim.world.has(e, Weapon)).toBe(false);
+    expect(sim.world.has(e, MoveSpeed)).toBe(false);
     expect(sim.events.current().some((ev) => ev.kind === 'settlerBorn')).toBe(true);
   });
 
@@ -72,7 +74,9 @@ describe('CommandSystem - spawning', () => {
 
     const e = nthEntity(sim, 0);
     expect(sim.world.get(e, Health).hitpoints).toBe(HUMAN_HITPOINTS);
-    for (const component of [Armor, Weapon, MoveSpeed]) expect(sim.world.has(e, component)).toBe(false);
+    expect(sim.world.has(e, Armor)).toBe(false);
+    expect(sim.world.has(e, Weapon)).toBe(false);
+    expect(sim.world.has(e, MoveSpeed)).toBe(false);
   });
 
   it('creates nothing for an out-of-range owner, and still logs the command', () => {

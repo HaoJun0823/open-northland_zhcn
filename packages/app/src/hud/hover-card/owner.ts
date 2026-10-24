@@ -1,6 +1,6 @@
 import type { DiplomacyState } from '@open-northland/sim';
 import { playerSwatchHex } from '../../catalog/roster.js';
-import { ownerPlayerOf, type SnapshotEntity } from '../../game/snapshot.js';
+import { ownerPlayerOf, type SnapshotEntity } from '../../game/snapshot/index.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import type { HoverOwner } from './model.js';
 

@@ -5,7 +5,7 @@ import { components, nodeOfPosition, playerCommand } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
-import { mapSession } from '../../src/game/session-url.js';
+import { mapSession } from '../../src/game/match/session-url.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 
 /**

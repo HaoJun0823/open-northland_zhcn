@@ -2,7 +2,7 @@ import { terrainWorldBounds, type Viewport } from '@open-northland/render';
 import { FOG_MODE, FOG_STATE, fx } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { workerRoleOf } from '../src/game/sandbox/index.js';
-import { trainingOccupancyOf } from '../src/game/snapshot.js';
+import { trainingOccupancyOf } from '../src/game/snapshot/index.js';
 import { fixedViewerSeat, switchableViewerSeat } from '../src/game/viewer-seat.js';
 import { DEFAULT_MINIMAP_FILTERS } from '../src/hud/minimap/filters.js';
 import { createFogGates, createSnapshotProjections } from '../src/view/projections/index.js';

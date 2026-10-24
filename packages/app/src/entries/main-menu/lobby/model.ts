@@ -13,14 +13,14 @@ import {
   LOBBY_FOG_MODES,
   type LobbyFogModeName,
 } from '../../../game/fog.js';
-import { onOffParam, weatherModeParam } from '../../../game/session-rules.js';
+import { onOffParam, weatherModeParam } from '../../../game/match/session-rules.js';
 import {
   claimableLocalSeat,
   DEFAULT_SESSION_SPEED,
   isReservedMapAiSeat,
   seatMode,
   sessionSearch,
-} from '../../../game/session-url.js';
+} from '../../../game/match/session-url.js';
 import { formatSearch } from '../../../view/params.js';
 import {
   absentSeats,

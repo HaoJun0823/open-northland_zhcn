@@ -5,7 +5,7 @@ import {
   type WorkerRefusalReason,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { type ChildOrderWait, num, positionOf, type SnapshotEntity } from '../../../game/snapshot.js';
+import { type ChildOrderWait, num, positionOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { idleNoteType } from './idle-reasons.js';
 import type { MessageText, MessageTextParts, NamedSettler } from './text.js';
 import {

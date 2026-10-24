@@ -16,7 +16,7 @@ import {
   settlerJobType,
   settlerTribeOf,
   stanceModeOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { soldierWeaponFamily } from '../../../game/unit-kind.js';
 import { pickableSeat } from '../../../game/viewer-seat.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';

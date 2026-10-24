@@ -1,5 +1,5 @@
 import { playerSwatchHex } from '../../catalog/roster.js';
-import type { ObserverSeatEntry } from '../../game/observer-seats.js';
+import type { ObserverSeatEntry } from '../../game/match/observer-seats.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import { messages } from '../../i18n/index.js';
 import { GLYPH } from './icons.js';

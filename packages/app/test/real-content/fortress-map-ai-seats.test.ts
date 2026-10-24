@@ -16,8 +16,8 @@ import {
   LOBBY_COMPUTER_PEACE_TICKS,
   type MapWorldOptions,
 } from '../../src/entries/map/world.js';
-import { mapSession } from '../../src/game/session-url.js';
-import { sessionWorldOptions } from '../../src/game/session-world.js';
+import { mapSession } from '../../src/game/match/session-url.js';
+import { sessionWorldOptions } from '../../src/game/match/session-world.js';
 import { mapScriptWorld } from '../../src/game/world/mission-script.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 

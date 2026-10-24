@@ -9,7 +9,7 @@ import {
   residenceHomeOf,
   type SnapshotEntity,
   settlersIn,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 
 /** `homeSize` (the original `logichomesize`, 1..5 by level) counts FAMILIES, not settlers. */
 export interface HouseInfo {

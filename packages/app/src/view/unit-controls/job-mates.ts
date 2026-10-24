@@ -1,7 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
 import { type Camera, cameraViewport, type Viewport } from '@open-northland/render';
 import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
-import { isVehicle, num, settlerJobType } from '../../game/snapshot.js';
+import { isVehicle, num, settlerJobType } from '../../game/snapshot/index.js';
 import { soldierWeaponFamily } from '../../game/unit-kind.js';
 import type { Pickable } from '../picking.js';
 

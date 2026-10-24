@@ -1,4 +1,4 @@
-import type { MissionGoal } from '../../../game/mission-brief.js';
+import type { MissionGoal } from '../../../game/map/mission-brief.js';
 
 /** How a goal changed since the goal page last showed it. */
 export type GoalMark = 'new' | 'done';

@@ -8,7 +8,7 @@ import {
   roadShardKey,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { positionOf } from '../../game/snapshot-base.js';
+import { positionOf } from '../../game/snapshot/base.js';
 
 /** The road site count on each half-cell node, keyed `hy * NODE_SET_STRIDE + hx`, kept per change. */
 const ROAD_SITE_NODES = countedBy(

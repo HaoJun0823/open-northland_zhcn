@@ -1,5 +1,5 @@
 import { components, entitiesWith, type WorldSnapshot } from '@open-northland/sim';
-import { ownerPlayerOf } from '../game/snapshot.js';
+import { ownerPlayerOf } from '../game/snapshot/index.js';
 import { type AssistantBookings, NO_BOOKINGS, perIntent } from '../hud/dom/assistant-window/model.js';
 
 const RECRUIT_INTENTS: ReadonlySet<unknown> = new Set(components.ASSISTANT_RECRUIT_INTENTS);

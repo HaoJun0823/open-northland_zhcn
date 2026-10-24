@@ -8,6 +8,7 @@ import {
 } from '@open-northland/sim';
 import { JOB_TRADER } from '../../../catalog/jobs.js';
 import { workerRoleOf } from '../../../game/sandbox/index.js';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
 import {
   buildingTribeOf,
   buildingTypeOf,
@@ -20,8 +21,7 @@ import {
   settlerJobType,
   shelterClaimCount,
   staffOf,
-} from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+} from '../../../game/snapshot/index.js';
 import { ownedByAnotherSeat, pickableSeat } from '../../../game/viewer-seat.js';
 import { messages, tribeName } from '../../../i18n/index.js';
 import { pct } from './bars.js';

@@ -27,7 +27,7 @@ import {
   settlersOfTrade,
   staffOf,
   supplyRunsTo,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { readMinimapIndexes } from '../../hud/minimap/dots.js';
 import { standingNodesRevision } from '../../hud/minimap/live-objects.js';
 import { restingBuildingsOf } from '../../hud/tool-panel/messages/workshop-stalls.js';

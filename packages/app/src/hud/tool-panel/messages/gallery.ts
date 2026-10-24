@@ -9,7 +9,7 @@ import {
   ownerPlayerOf,
   type SnapshotEntity,
   settlerJobType,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { messages } from '../../../i18n/index.js';
 import type { MetSeat } from './from-diplomacy.js';
 import { type BuildingTrades, raiseFight, raiseUnlocks } from './from-events.js';

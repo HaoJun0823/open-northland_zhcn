@@ -14,8 +14,8 @@ import {
 } from '@open-northland/sim';
 import type { HeadlessClient } from '../../../net-server/test/support/headless-client.js';
 import type { LinkedClient } from '../../../net-server/test/support/virtual-network.js';
-import { isBuilding, isWildlife, ownerPlayerOf, settlersOwnedBy } from '../../src/game/snapshot-base.js';
-import { idsGroupedBy } from '../../src/game/snapshot-id-index.js';
+import { isBuilding, isWildlife, ownerPlayerOf, settlersOwnedBy } from '../../src/game/snapshot/base.js';
+import { idsGroupedBy } from '../../src/game/snapshot/id-index.js';
 import type { ClientLink } from './config.js';
 import { buildOrderOf, drawOrderKind, ORDER_KINDS, type OrderKind } from './orders.js';
 

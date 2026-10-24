@@ -1,5 +1,5 @@
 import type { WorkerRefusalReason } from '@open-northland/sim';
-import type { ChildOrderWait } from '../../../game/snapshot.js';
+import type { ChildOrderWait } from '../../../game/snapshot/index.js';
 import { bcp47Tag, formatMessage, type Messages, pluralForm } from '../../../i18n/index.js';
 import { shortageTradeOf } from './idle-reasons.js';
 import {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { MissionInfoRow } from '../src/game/info-lines.js';
+import type { MissionInfoRow } from '../src/game/map/info-lines.js';
 import { createBookWindow } from '../src/hud/dom/mission-book/book-window.js';
 import { GoalMarks } from '../src/hud/dom/mission-book/goal-marks.js';
 import { createGoalSlip } from '../src/hud/dom/mission-book/goal-slip.js';

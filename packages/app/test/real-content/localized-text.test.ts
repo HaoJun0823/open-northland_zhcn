@@ -4,7 +4,7 @@ import { HypertextBook, MapBriefing } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import type { GuiStrings } from '../../src/content/gui-gfx.js';
 import { originalNameOverlay } from '../../src/content/original-names.js';
-import { briefingPage } from '../../src/game/mission-brief.js';
+import { briefingPage } from '../../src/game/map/mission-brief.js';
 import { messages } from '../../src/i18n/index.js';
 import { contentDir, hasRealIr, loadContentUnderTest } from './helpers.js';
 

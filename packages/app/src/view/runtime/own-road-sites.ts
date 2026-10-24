@@ -5,8 +5,8 @@ import {
   nodeOfPosition,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { ownerPlayerOf, positionOf } from '../../game/snapshot-base.js';
-import { idsGroupedBy } from '../../game/snapshot-id-index.js';
+import { ownerPlayerOf, positionOf } from '../../game/snapshot/base.js';
+import { idsGroupedBy } from '../../game/snapshot/id-index.js';
 
 /** The road sites on each half-cell node, keyed `hy * NODE_SET_STRIDE + hx`, kept per change. A site
  *  takes its `Position` with its `RoadSite` and never moves, so only the site component places it; a

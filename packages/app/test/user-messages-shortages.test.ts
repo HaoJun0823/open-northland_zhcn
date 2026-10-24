@@ -1,6 +1,6 @@
 import { type ConstructionSupply, ONE, type WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import type { SnapshotEntity } from '../src/game/snapshot.js';
+import type { SnapshotEntity } from '../src/game/snapshot/index.js';
 import { FightAreas } from '../src/hud/tool-panel/messages/fight-areas.js';
 import {
   createSnapshotMessageSource,

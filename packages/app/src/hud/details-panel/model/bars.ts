@@ -1,5 +1,5 @@
 import { type NeedKind, ONE } from '@open-northland/sim';
-import { healthOf, type SnapshotEntity } from '../../../game/snapshot.js';
+import { healthOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { messages } from '../../../i18n/index.js';
 
 /** One stat bar in the General section. The level is satisfaction (full = content), not the sim's

@@ -7,7 +7,7 @@ import { hasRealIr, rawIrUnderTest } from './helpers.js';
  * the pipeline's real output so it cannot silently drift: every catalog entry must match ir.json's
  * building `id`, `kind`, bio-pattern, collect action and defence flags, and every catalog typeId must have a viking
  * `buildingBobs` row (a bound bob → "graphics in place"). The catalog's pure lookup tests live with the
- * fixture suite (`test/viking-buildings.test.ts`); this is their real-content half.
+ * fixture suite (`test/catalog/buildings.test.ts`); this is their real-content half.
  */
 
 interface IrBuilding {

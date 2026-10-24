@@ -16,7 +16,7 @@ import {
   serializeSaveGame,
   TICKS_PER_SECOND,
 } from '@open-northland/sim';
-import { mapIdParam } from '../../../src/game/session-url.js';
+import { mapIdParam } from '../../../src/game/match/session-url.js';
 import { realMapSessionWorld, restoreRealMapWorld } from '../real-map-world.js';
 
 /**

@@ -8,14 +8,14 @@ import {
   indexOfEntity,
   type WorldSnapshot,
 } from '@open-northland/sim';
+import { entityIdsWith } from '../../game/snapshot/id-index.js';
 import {
   isWildlife,
   ownerPlayerOf,
   type SnapshotEntity,
   settlerJobType,
   workFlagOf,
-} from '../../game/snapshot.js';
-import { entityIdsWith } from '../../game/snapshot-id-index.js';
+} from '../../game/snapshot/index.js';
 import type { MinimapFilters, MinimapScope } from './filters.js';
 import { MINIMAP_PLAYER_COLOURS, STANCE_COLOURS, STANCE_SELF_COLOUR } from './palette.js';
 import type { MinimapMark, MinimapStampPart } from './stamps.js';

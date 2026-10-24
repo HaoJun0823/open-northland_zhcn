@@ -1,7 +1,7 @@
 import type { MapText } from '@open-northland/data';
 import type { SessionWorld } from '@open-northland/lockstep';
 import { parseNick, type RoomSummary } from '@open-northland/net-protocol';
-import { localizedMapText } from '../../../game/map-strings.js';
+import { localizedMapText } from '../../../game/map/strings.js';
 import { compareLabels, currentLocale, type Locale, sceneCopy } from '../../../i18n/index.js';
 
 export { relayAddress } from '../../../net/address.js';

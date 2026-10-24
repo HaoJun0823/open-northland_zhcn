@@ -1,5 +1,5 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { buildSiteOf, siteClaimBuilderOf, workFlagOf } from '../../game/snapshot.js';
+import { buildSiteOf, siteClaimBuilderOf, workFlagOf } from '../../game/snapshot/index.js';
 
 /**
  * The work flags planted by the selected gatherers, and the flags of the wall or road sites the selected

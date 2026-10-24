@@ -5,6 +5,7 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { workerRoleOf } from '../../../game/sandbox/index.js';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
 import {
   buildingTypeOf,
   isBuilding,
@@ -13,8 +14,7 @@ import {
   settlerJobType,
   staffOf,
   supplyRunsTo,
-} from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+} from '../../../game/snapshot/index.js';
 import { type MessageNaming, type MessageRaiser, nodeOf } from './raise.js';
 import { StorageFull, type StorageLayout } from './storage-full.js';
 import { type ProductionStall, type ProductionStallReason, USER_MESSAGE_TYPE } from './types.js';

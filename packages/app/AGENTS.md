@@ -29,7 +29,7 @@ The root [`AGENTS.md`](../../AGENTS.md) still applies.
   still shows. A click never orders on a last answer: it awaits the host's answer as of now.
   A kind subset, an owner's entities, a per-key group or count and the actors come from the indexes the
   mirror maintains per change (`indexesOf`, `entitiesWith`, `groupedBy`, `countedBy` in `@open-northland/sim`;
-  `actorsOf` and the group readers in `game/snapshot-base.ts`), never from a per-tick walk over
+  `actorsOf` and the group readers in `game/snapshot/base.ts`), never from a per-tick walk over
   `snapshot.entities`. A walk is for a click, an order or a one-off setup. An index the frame reads
   joins `FRAME_INDEX_READERS` (`view/projections/frame-indexes.ts`, render's own beside its readers),
   which the mirror probe registers to measure the upkeep.

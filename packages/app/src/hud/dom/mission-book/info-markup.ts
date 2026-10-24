@@ -1,4 +1,4 @@
-import type { MissionInfoRow } from '../../../game/info-lines.js';
+import type { MissionInfoRow } from '../../../game/map/info-lines.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { escapeHtml } from '../parts/dom.js';
 

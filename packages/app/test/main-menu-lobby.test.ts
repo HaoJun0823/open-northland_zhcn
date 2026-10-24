@@ -18,8 +18,8 @@ import {
   setSlotTribe,
   setVacantMode,
 } from '../src/entries/main-menu/lobby/roster-state.js';
-import { localAlliedVision } from '../src/game/session-rules.js';
-import { mapSession } from '../src/game/session-url.js';
+import { localAlliedVision } from '../src/game/match/session-rules.js';
+import { mapSession } from '../src/game/match/session-url.js';
 
 /** `TRIBE_TYPE_HUMAN_*` codes the rosters below name. */
 const VIKING = 1;

@@ -1,6 +1,6 @@
 import { BUILDING_KIND, type ContentSet } from '@open-northland/data';
 import { stockSlotsForType, systems, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
-import { buildingTypeOf, type SnapshotEntity } from '../../../game/snapshot.js';
+import { buildingTypeOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { ownedBuildingsOfType } from '../../details-panel/model/building.js';
 import { liveAmounts } from '../../details-panel/model/building-materials.js';
 import { type MessageNaming, type MessageRaiser, nodeOf } from './raise.js';

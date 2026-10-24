@@ -23,7 +23,7 @@ import {
   VEHICLE_HANDCART,
 } from '../src/game/sandbox/ids/index.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
-import { postFlagTradeOf } from '../src/game/snapshot.js';
+import { postFlagTradeOf } from '../src/game/snapshot/index.js';
 import { vehicleLabel } from '../src/game/technology.js';
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import { goodLabel } from '../src/hud/details-panel/model/context.js';

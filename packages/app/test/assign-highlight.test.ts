@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { JOB_CARRIER, JOB_COLLECTOR } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import { canonicalJobType, rebaseSlotJob } from '../src/game/sandbox/ids/index.js';
-import { isBuilding, isSettler, ownerPlayerOf, settlerJobType } from '../src/game/snapshot.js';
+import { isBuilding, isSettler, ownerPlayerOf, settlerJobType } from '../src/game/snapshot/index.js';
 import { createSceneSim, getScene } from '../src/scenes/index.js';
 import {
   type AssignBuildingInfo,

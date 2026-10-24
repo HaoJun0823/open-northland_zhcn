@@ -5,7 +5,7 @@ import type {
   HypertextUserIcon,
 } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import type { MissionGoal } from '../src/game/mission-brief.js';
+import type { MissionGoal } from '../src/game/map/mission-brief.js';
 import {
   GoalMarks,
   goalLists,

@@ -18,7 +18,7 @@ import {
   type SnapshotEntity,
   settlerJobType,
   stanceModeOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { ownedByAnotherSeat, pickableSeat } from '../../../game/viewer-seat.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import type { PanelBar } from './bars.js';

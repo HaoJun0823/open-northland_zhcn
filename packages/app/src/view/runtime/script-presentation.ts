@@ -3,7 +3,7 @@ import { halfCellToScreen } from '@open-northland/render';
 import type { HalfCellNode, MissionPresentationView, SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
-import { goalProgressRows, infoLineRows, type MissionInfoRow } from '../../game/info-lines.js';
+import { goalProgressRows, infoLineRows, type MissionInfoRow } from '../../game/map/info-lines.js';
 import { messages } from '../../i18n/index.js';
 import { createLastAnswerCache, type SessionHost } from '../../session/index.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';

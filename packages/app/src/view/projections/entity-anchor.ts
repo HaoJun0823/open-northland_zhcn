@@ -1,6 +1,6 @@
 import { type ElevationField, projectNode, projectTile, vehicleDrawTile } from '@open-northland/render';
 import type { WorldSnapshot } from '@open-northland/sim';
-import { positionOf, standingEntity } from '../../game/snapshot.js';
+import { positionOf, standingEntity } from '../../game/snapshot/index.js';
 import type { MessageTarget } from '../../hud/tool-panel/messages/index.js';
 
 /** The world-px ground anchor an entity is drawn on: {@link projectTile} of its snapshot position, or

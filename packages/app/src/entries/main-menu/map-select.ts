@@ -1,6 +1,6 @@
 import type { MusicSilencer } from '../../campaign/movie.js';
-import { localAlliedVision } from '../../game/session-rules.js';
-import { drawSessionSeed } from '../../game/session-url.js';
+import { localAlliedVision } from '../../game/match/session-rules.js';
+import { drawSessionSeed } from '../../game/match/session-url.js';
 import { messages } from '../../i18n/index.js';
 import type { LaunchEntry } from '../../launch.js';
 import { targetSearch } from '../../view/target-search.js';

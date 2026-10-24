@@ -24,7 +24,7 @@ import {
   settlersOwnedBy,
   workFlagOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { vehicleLabel } from '../../../game/technology.js';
 import { messages } from '../../../i18n/index.js';
 import { buildingTitle, jobDisplayName } from '../../details-panel/model/context.js';

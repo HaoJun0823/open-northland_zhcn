@@ -7,8 +7,8 @@ import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
 /**
  * The gathering cycle end-to-end over the MERGED REAL content - the same geometry the sandbox twin
- * proves (`test/map-gatherer-cycle.test.ts`), but with every id resolved from whatever the pipeline
- * emitted instead of the clean-room tables. This is the net for the "sandbox green, real content
+ * proves (`test/game/sandbox/map-gatherer-cycle.test.ts`), but with every id resolved from whatever the
+ * pipeline emitted instead of the clean-room tables. This is the net for the "sandbox green, real content
  * collapses" class (raw job-id spaces, tribe-wide base atomics, zeroed balance): a stall shows up as
  * wood never banked. Skips without generated content.
  */

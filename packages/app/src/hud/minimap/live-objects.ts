@@ -9,7 +9,7 @@ import {
   type SnapshotIndexSpec,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { num, positionOf, type SnapshotEntity } from '../../game/snapshot.js';
+import { num, positionOf, type SnapshotEntity } from '../../game/snapshot/index.js';
 import { MINIMAP_OBJECT_TYPES } from './bake.js';
 
 /**

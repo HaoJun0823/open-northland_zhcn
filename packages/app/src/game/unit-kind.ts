@@ -1,5 +1,5 @@
 import type { WeaponType } from '@open-northland/data';
-import { type SnapshotEntity, settlerJobType, settlerTribeOf } from './snapshot.js';
+import { type SnapshotEntity, settlerJobType, settlerTribeOf } from './snapshot/index.js';
 
 /** UI grouping uses the extracted weapon family, so short and long bows share a selection.
  * The job is authoritative while a weapon is being changed; weapon ids are scoped by tribe. */

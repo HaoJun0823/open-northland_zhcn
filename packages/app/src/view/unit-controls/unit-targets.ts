@@ -17,7 +17,7 @@ import {
   type SnapshotEntity,
   settlerTribeOf,
   siteClaimBuilderOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import { containsTargetPoint, hitsTarget, isHitTarget, type Pickable } from '../picking.js';
 import type { FormationUnit } from './formation.js';

@@ -19,7 +19,7 @@ import {
   positionOf,
   type SnapshotEntity,
   settlerTribeOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 
 const UNKNOWN_PLAYER_HEART_COLOUR = 0xffffff;
 

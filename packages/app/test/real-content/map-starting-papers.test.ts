@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { MapScript } from '@open-northland/data';
 import { PLACING_PAPER_KINDS } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { paperOfSpecialItem } from '../../src/game/starting-papers.js';
+import { paperOfSpecialItem } from '../../src/game/map/starting-papers.js';
 import { contentDir, hasRealIr, loadContentUnderTest } from './helpers.js';
 
 /**

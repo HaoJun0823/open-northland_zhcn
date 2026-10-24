@@ -10,8 +10,8 @@ import { components, exportSaveGame, type World } from '@open-northland/sim';
 import { expect, it } from 'vitest';
 import { buildMapWorld } from '../src/entries/map/world.js';
 import { buildRelayedMapWorld } from '../src/entries/map/world-inputs.js';
-import { mapSession, sessionSearch } from '../src/game/session-url.js';
-import { sessionWorldOptions } from '../src/game/session-world.js';
+import { mapSession, sessionSearch } from '../src/game/match/session-url.js';
+import { sessionWorldOptions } from '../src/game/match/session-world.js';
 import { mapScriptWorld } from '../src/game/world/mission-script.js';
 
 const map: TerrainMapFile = { width: 8, height: 8, typeIds: new Array<number>(64).fill(0) };

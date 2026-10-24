@@ -10,7 +10,7 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { professionDefForJob } from '../../../catalog/professions.js';
-import { isFemale, isPalisade, isRoadSite, num, type SnapshotEntity } from '../../../game/snapshot.js';
+import { isFemale, isPalisade, isRoadSite, num, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../../game/viewer-seat.js';
 import { bcp47Tag, formatMessage, messages, professionLabel } from '../../../i18n/index.js';
 import type { BuildingThumbs } from '../../dom/building-thumb.js';

@@ -2,7 +2,7 @@ import type { ContentSet } from '@open-northland/data';
 import { systems, type UnlockStatus, type WorldSnapshot } from '@open-northland/sim';
 import { professionDefForJob } from '../catalog/professions.js';
 import { formatMessage, messages, professionLabel } from '../i18n/index.js';
-import { settlerExperienceOf, settlersOfTrade, settlerTribeOf } from './snapshot.js';
+import { settlerExperienceOf, settlersOfTrade, settlerTribeOf } from './snapshot/index.js';
 
 /** How far the best-trained person of the discovering trades is toward a missing good's `needforgood`
  *  threshold, in the requirement's repeats. */

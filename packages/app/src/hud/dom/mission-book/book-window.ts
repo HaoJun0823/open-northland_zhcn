@@ -6,8 +6,8 @@ import type {
   HypertextUserIcon,
 } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
-import type { MissionInfoRow } from '../../../game/info-lines.js';
-import type { MissionGoal, MissionPage } from '../../../game/mission-brief.js';
+import type { MissionInfoRow } from '../../../game/map/info-lines.js';
+import type { MissionGoal, MissionPage } from '../../../game/map/mission-brief.js';
 import { bcp47Tag, formatMessage, isLocale, messages } from '../../../i18n/index.js';
 import { navBeamRect } from '../../nav-beam.js';
 import { NOTICE_COLUMN, TOP_BAR_HEIGHT } from '../../regions.js';

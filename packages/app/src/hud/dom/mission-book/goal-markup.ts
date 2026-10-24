@@ -1,5 +1,5 @@
-import type { MissionInfoRow } from '../../../game/info-lines.js';
-import type { MissionGoal } from '../../../game/mission-brief.js';
+import type { MissionInfoRow } from '../../../game/map/info-lines.js';
+import type { MissionGoal } from '../../../game/map/mission-brief.js';
 import { messages } from '../../../i18n/index.js';
 import { escapeHtml } from '../parts/dom.js';
 import { type GoalMark, goalLists, openGoalCount } from './goal-marks.js';

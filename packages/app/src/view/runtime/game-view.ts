@@ -50,11 +50,11 @@ import {
   setDiagGameSession,
 } from '../../diag/index.js';
 import { settlerName } from '../../game/character-names/index.js';
-import { mapStartFocus } from '../../game/map-start.js';
-import { type MissionBriefSource, missionReader } from '../../game/mission-brief.js';
-import type { ObserverSeatEntry } from '../../game/observer-seats.js';
+import { type MissionBriefSource, missionReader } from '../../game/map/mission-brief.js';
+import { mapStartFocus } from '../../game/map/start.js';
+import type { ObserverSeatEntry } from '../../game/match/observer-seats.js';
+import { replaySearch } from '../../game/match/session-url.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../game/rules.js';
-import { replaySearch } from '../../game/session-url.js';
 import { technologyName, vehicleLabel } from '../../game/technology.js';
 import {
   fixedViewerSeat,

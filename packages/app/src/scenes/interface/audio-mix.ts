@@ -30,7 +30,7 @@ import {
   spawnSettlerDirect,
   staffBuildingFully,
 } from '../../game/sandbox/index.js';
-import { ownerPlayerOf, positionOf, settlerJobType } from '../../game/snapshot-base.js';
+import { ownerPlayerOf, positionOf, settlerJobType } from '../../game/snapshot/base.js';
 import { GATHERER_BY_GOOD, VILLAGE, WAREHOUSE_IDS } from '../sandbox/placements.js';
 import type { SceneDefinition, SceneStage, StageOrder } from '../types.js';
 

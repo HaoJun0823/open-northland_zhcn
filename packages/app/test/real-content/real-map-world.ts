@@ -6,9 +6,9 @@ import type { SaveGame, Simulation } from '@open-northland/sim';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { buildMapWorld, restoreMapWorld } from '../../src/entries/map/world.js';
 import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
-import { matchParticipants, neverDiesSeats } from '../../src/game/match-participants.js';
-import { onOffParam } from '../../src/game/session-rules.js';
-import { mapIdParam, mapSession } from '../../src/game/session-url.js';
+import { matchParticipants, neverDiesSeats } from '../../src/game/match/participants.js';
+import { onOffParam } from '../../src/game/match/session-rules.js';
+import { mapIdParam, mapSession } from '../../src/game/match/session-url.js';
 import { type AuthoredJoinRows, mapScriptWorld } from '../../src/game/world/index.js';
 import { contentDir, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 

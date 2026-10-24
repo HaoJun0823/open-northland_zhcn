@@ -1,8 +1,8 @@
 import type { UiCue } from '@open-northland/audio';
 import { callbackVoice, type HypertextBook } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
-import type { MissionInfoRow } from '../../../game/info-lines.js';
-import type { MissionBriefingAnswer, MissionReader } from '../../../game/mission-brief.js';
+import type { MissionInfoRow } from '../../../game/map/info-lines.js';
+import type { MissionBriefingAnswer, MissionReader } from '../../../game/map/mission-brief.js';
 import type { ToolWindow } from '../../tool-panel/window-shell.js';
 import {
   type BookReading,

@@ -1,7 +1,7 @@
 import type { LostGoalMarker } from '@open-northland/render';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
 import { nodeOfId } from '../../game/node-id.js';
-import { lostGoalOf, ownerPlayerOf } from '../../game/snapshot.js';
+import { lostGoalOf, ownerPlayerOf } from '../../game/snapshot/index.js';
 import { ownedByAnotherSeat } from '../../game/viewer-seat.js';
 
 /** One breath of a refused goal's marker. Wall-clock, so the mark keeps breathing while paused. */

@@ -10,7 +10,7 @@ import type {
 } from '@open-northland/sim';
 import { ONE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import type { MissionInfoRow } from '../src/game/info-lines.js';
+import type { MissionInfoRow } from '../src/game/map/info-lines.js';
 import { messages } from '../src/i18n/index.js';
 import type { GameToolPanelHandle } from '../src/view/game-tool-panel.js';
 import { createScriptPresentation } from '../src/view/runtime/script-presentation.js';

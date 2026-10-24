@@ -19,7 +19,7 @@ import {
   settlerTribeOf,
   trainingHouseOf,
   trainingOccupancyOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { technologyLabel } from '../../game/technology.js';
 import { createChoiceWindow } from '../../hud/dom/choice-window.js';
 import type { GoodIconPainter } from '../../hud/dom/good-art.js';

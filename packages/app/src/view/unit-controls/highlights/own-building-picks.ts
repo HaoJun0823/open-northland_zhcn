@@ -1,6 +1,7 @@
 import type { BuildingType } from '@open-northland/data';
 import type { BuildingHighlightItem } from '@open-northland/render';
 import { entitiesWith, entityById, systems, type WorldSnapshot } from '@open-northland/sim';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
 import {
   builderCrewHasRoom,
   buildingTypeOf,
@@ -13,8 +14,7 @@ import {
   type SnapshotEntity,
   settlersIn,
   trainingHouseOf,
-} from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+} from '../../../game/snapshot/index.js';
 
 /** The slice of a building type these picks read. */
 type BuildingInfo = Pick<BuildingType, 'kind' | 'workers'>;

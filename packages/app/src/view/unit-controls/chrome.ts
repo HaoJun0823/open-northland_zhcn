@@ -2,7 +2,7 @@ import type { UiCue } from '@open-northland/audio';
 import { projectNode } from '@open-northland/render';
 import { type Entity, systems, type UnlockStatus, type WorldSnapshot } from '@open-northland/sim';
 import { nodeOfId } from '../../game/node-id.js';
-import { postFlagTradeOf } from '../../game/snapshot.js';
+import { postFlagTradeOf } from '../../game/snapshot/index.js';
 import { discoveryProgressOf, technologyReason } from '../../game/technology.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import {

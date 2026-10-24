@@ -22,7 +22,7 @@ import {
   type SnapshotEntity,
   settlerJobType,
   settlersOwnedBy,
-} from '../../src/game/snapshot-base.js';
+} from '../../src/game/snapshot/base.js';
 
 export interface OrderContext {
   readonly sim: Simulation;

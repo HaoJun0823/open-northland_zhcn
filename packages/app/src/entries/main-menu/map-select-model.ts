@@ -2,7 +2,7 @@ import type { MapsIndexEntry, MapsIndexPlayerSlot, MapTextLanguage } from '@open
 import { isMultiplayerMapType, MAP_TYPE, narratedLanguages } from '@open-northland/data';
 import { catalogEntryThumbnailUrl, type MapSource } from '../../content/map-source/index.js';
 import { contentUrl } from '../../content/url.js';
-import { localizedMapText } from '../../game/map-strings.js';
+import { localizedMapText } from '../../game/map/strings.js';
 import { hasWords, searchWords } from '../../hud/dom/parts/name-search.js';
 import { compareLabels, currentLocale } from '../../i18n/index.js';
 

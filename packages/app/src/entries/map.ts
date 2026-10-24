@@ -1,7 +1,7 @@
 import { isSpectator, localPlayerOf } from '@open-northland/lockstep';
 import { hasDebugFlag } from '../diag/debug-flags.js';
 import { diag, HASH_TRACE_DEBUG_FLAG } from '../diag/index.js';
-import { drawSessionSeed, mapIdParam, mapSession, seedParam } from '../game/session-url.js';
+import { drawSessionSeed, mapIdParam, mapSession, seedParam } from '../game/match/session-url.js';
 import { endpointPort } from '../session/worker/port.js';
 import { startWorkerSession, type WorkerSession } from '../session/worker/worker-session.js';
 import { bindDisplayMode } from '../view/fullscreen.js';

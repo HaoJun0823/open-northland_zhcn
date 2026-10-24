@@ -15,7 +15,7 @@ import {
   ownerPlayerOf,
   positionOf,
   type SnapshotEntity,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile, worldToTile } from '../picking.js';
 import type { AnsweredOrders } from './answered-orders.js';

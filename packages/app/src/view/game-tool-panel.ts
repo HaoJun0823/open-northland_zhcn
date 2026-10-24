@@ -12,8 +12,8 @@ import {
 import type { Application } from 'pixi.js';
 import { localizedBuildingName } from '../catalog/building-i18n.js';
 import { vikingBuildingByTypeId } from '../catalog/buildings.js';
-import type { MissionBriefingAnswer, MissionReader } from '../game/mission-brief.js';
-import type { SnapshotEntity } from '../game/snapshot.js';
+import type { MissionBriefingAnswer, MissionReader } from '../game/map/mission-brief.js';
+import type { SnapshotEntity } from '../game/snapshot/index.js';
 import type { ViewerSeat } from '../game/viewer-seat.js';
 import type { AssistantSource } from '../hud/dom/assistant-window/index.js';
 import type { DiplomacySource } from '../hud/dom/diplomacy-window/model.js';

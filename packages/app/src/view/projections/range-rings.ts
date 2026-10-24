@@ -11,7 +11,7 @@ import {
   staffOf,
   workAreaOf,
   workplaceOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 
 /**
  * The range circle `e` shows: the ground a worker looks for work in, or the ground a building would shoot

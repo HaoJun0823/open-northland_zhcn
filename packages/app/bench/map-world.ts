@@ -11,7 +11,7 @@ import {
   serializeSaveGame,
 } from '@open-northland/sim';
 import type { FogModeName } from '../src/game/fog.js';
-import { mapIdParam, mapSession, seedParam, sessionSearch } from '../src/game/session-url.js';
+import { mapIdParam, mapSession, seedParam, sessionSearch } from '../src/game/match/session-url.js';
 import { loadContentUnderTest } from '../test/real-content/helpers.js';
 import { realMapScript, realMapWorldOfSession } from '../test/real-content/real-map-world.js';
 import { boolEnv, intEnv, intListEnv, ruleEnv, stringEnv } from './knobs.js';

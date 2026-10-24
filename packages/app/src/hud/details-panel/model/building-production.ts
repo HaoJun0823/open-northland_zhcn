@@ -6,8 +6,8 @@ import {
   type TileBox,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { num, positionOf, type SnapshotEntity } from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
+import { num, positionOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { goodName } from '../../../i18n/index.js';
 import { pctRatio } from './bars.js';
 import { liveAmounts } from './building-materials.js';

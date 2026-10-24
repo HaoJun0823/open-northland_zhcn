@@ -12,7 +12,7 @@ import {
   type VehicleSeatSnapshot,
   vehicleCommanderOf,
   vehicleSeatsOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { vehicleLabel } from '../../../game/technology.js';
 import { ownedByAnotherSeat, pickableSeat } from '../../../game/viewer-seat.js';
 import { formatMessage, messages } from '../../../i18n/index.js';

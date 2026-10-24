@@ -7,7 +7,7 @@ import {
   type TradeStopView,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { num } from '../../../game/snapshot.js';
+import { num } from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { goodCategoryTab } from '../../good-categories.js';
 import { stockRows } from './building-materials.js';

@@ -5,7 +5,7 @@ import { JOB_COLLECTOR, JOB_SCOUT } from '../../catalog/jobs.js';
 import { TERRAIN_IMPASSABLE } from '../../catalog/terrain.js';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../../game/rules.js';
 import { GATHERERS, placeResourceNode, spawnSettlerDirect } from '../../game/sandbox/index.js';
-import { positionOf, settlerJobType } from '../../game/snapshot-base.js';
+import { positionOf, settlerJobType } from '../../game/snapshot/base.js';
 import type { SceneDefinition, StageOrder } from '../types.js';
 
 const MAP_W = 128;

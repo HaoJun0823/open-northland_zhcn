@@ -5,7 +5,7 @@ import type { Command } from '@open-northland/sim';
 import type { Application } from 'pixi.js';
 import { ANIMAL_PALETTE_BY_TRIBE } from '../../catalog/animal-roster.js';
 import { hasDebugFlag, setDebugFlag } from '../../diag/index.js';
-import { bioGroundRuleWaived } from '../../game/snapshot-base.js';
+import { bioGroundRuleWaived } from '../../game/snapshot/base.js';
 import { vehicleLabel } from '../../game/technology.js';
 import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import type { StandingStructure } from '../../hud/tool-panel/placement.js';

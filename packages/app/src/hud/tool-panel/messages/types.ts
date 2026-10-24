@@ -1,5 +1,5 @@
 import type { DiplomacyState, HalfCellNode, WorkerRefusalReason } from '@open-northland/sim';
-import type { ChildOrderWait } from '../../../game/snapshot.js';
+import type { ChildOrderWait } from '../../../game/snapshot/index.js';
 import type { MessageText } from './text.js';
 
 /**

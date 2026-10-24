@@ -1,6 +1,6 @@
 import type { EquipCategory } from '@open-northland/data';
 import { components, systems } from '@open-northland/sim';
-import { num } from '../../../game/snapshot.js';
+import { num } from '../../../game/snapshot/index.js';
 import { messages } from '../../../i18n/index.js';
 import { remainingPct } from './bars.js';
 import { type Comp, goodDef, goodLabel, type UnitPanelModelContext } from './context.js';

@@ -10,7 +10,7 @@ import type {
   UnlockStatus,
   WorkStatus,
 } from '@open-northland/sim';
-import type { MissionBriefingAnswer } from '../../game/mission-brief.js';
+import type { MissionBriefingAnswer } from '../../game/map/mission-brief.js';
 import { type BuildingAvailability, OPEN_AVAILABILITY } from '../../hud/tool-panel/building-menu.js';
 import {
   type StatusAnswer,

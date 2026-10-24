@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { ownerPlayerOf } from '../../game/snapshot.js';
+import { ownerPlayerOf } from '../../game/snapshot/index.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 
 /**

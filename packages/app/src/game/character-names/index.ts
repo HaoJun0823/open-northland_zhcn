@@ -1,7 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
 import { systems } from '@open-northland/sim';
 import { messages } from '../../i18n/index.js';
-import { num, type SnapshotEntity, settlerJobType } from '../snapshot.js';
+import { num, type SnapshotEntity, settlerJobType } from '../snapshot/index.js';
 
 export interface NameContext {
   readonly jobs: readonly ContentSet['jobs'][number][];

@@ -9,7 +9,7 @@ import {
   readVerifiedMapDocuments,
   type VerifiedMapDocuments,
 } from '../../../content/transfer/index.js';
-import { assertMultiplayerMap } from '../../../game/multiplayer-map.js';
+import { assertMultiplayerMap } from '../../../game/map/multiplayer.js';
 import { mapScriptWorld } from '../../../game/world/mission-script.js';
 import { decodeSaveText, type SaveBytes } from '../../../view/runtime/save-load/codec.js';
 import { evaluateSaveDocument } from '../../../view/runtime/save-load/evaluate.js';

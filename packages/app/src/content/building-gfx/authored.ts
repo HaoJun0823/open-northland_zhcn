@@ -1,7 +1,7 @@
 import type { BuildingLandscapeOverlayRef } from '@open-northland/render';
 import { type BuildingBobRef, lookupFrame, type SpriteSheet } from '@open-northland/render';
 import { entitiesWith, nodeOfPosition, type WorldSnapshot } from '@open-northland/sim';
-import { buildingTribeOf, buildingTypeOf, positionOf } from '../../game/snapshot-base.js';
+import { buildingTribeOf, buildingTypeOf, positionOf } from '../../game/snapshot/base.js';
 import type { AuthoredPlacement } from '../../game/world/authored-placements.js';
 import { type AuthoredHolyFireVariant, holyFireLookup, servedAtlasStem } from '../ir/joins.js';
 import type { ContentIr } from '../ir/rows.js';

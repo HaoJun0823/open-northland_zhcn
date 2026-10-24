@@ -12,7 +12,7 @@ import {
   isVehicle,
   num,
   type SnapshotEntity,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { healthBar, pct } from './bars.js';
 import { type BuildingPanelModel, buildingPanelModel } from './building.js';

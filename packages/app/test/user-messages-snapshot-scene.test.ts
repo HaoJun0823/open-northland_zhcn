@@ -20,7 +20,7 @@ import {
   spawnWorkersAtDoor,
   staffBuildingFully,
 } from '../src/game/sandbox/index.js';
-import { ownerPlayerOf } from '../src/game/snapshot.js';
+import { ownerPlayerOf } from '../src/game/snapshot/index.js';
 import {
   createSnapshotMessageSource,
   IDLE_SWEEPS_BEFORE_MESSAGE,

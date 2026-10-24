@@ -27,7 +27,7 @@ import {
   settlersOwnedBy,
   workFlagOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { idleReasonOf, shortageTradeOf } from './idle-reasons.js';
 import { idleNotePending, type MessageNaming, MessageRaiser, type RaisedMessage } from './raise.js';
 import { type ShortageReader, type SiteSeam, SiteShortages } from './site-shortages.js';

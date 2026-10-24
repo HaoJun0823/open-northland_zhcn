@@ -9,7 +9,7 @@ import {
   settlerJobType,
   settlersOwnedBy,
   trainingHouseOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { ownedBuildingsOfType } from '../../hud/details-panel/model/building.js';
 import type { KeybindingAction } from '../../hud/keybindings.js';
 import { residentKindOf } from '../../hud/tool-panel/residents/projection.js';

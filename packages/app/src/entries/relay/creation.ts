@@ -2,9 +2,9 @@ import { mapLobbySlots } from '@open-northland/data';
 import { MAX_ROOM_NAME_LENGTH, type RoomSeatSetup, type RoomSettings } from '@open-northland/net-protocol';
 import { loadMapScript } from '../../content/map-loader.js';
 import { mapFetch } from '../../content/map-source/index.js';
-import { assertMultiplayerMap } from '../../game/multiplayer-map.js';
-import { sessionRuleOverrides } from '../../game/session-rules.js';
-import { DEFAULT_SESSION_SPEED, drawSessionSeed, seedParam } from '../../game/session-url.js';
+import { assertMultiplayerMap } from '../../game/map/multiplayer.js';
+import { sessionRuleOverrides } from '../../game/match/session-rules.js';
+import { DEFAULT_SESSION_SPEED, drawSessionSeed, seedParam } from '../../game/match/session-url.js';
 import { floatParam } from '../../view/params.js';
 import {
   authoredVacantMode,

@@ -20,8 +20,11 @@ import {
 import type { ContentIr } from '../../content/ir/rows.js';
 import { spawnMapPalisades } from '../../content/map-palisades.js';
 import { buildScriptLandscapeTerrain } from '../../content/script-landscape.js';
-import { resolveAiControlPolicy } from '../../game/ai-control-policy.js';
-import { playerTribe } from '../../game/map-roster.js';
+import { playerTribe } from '../../game/map/roster.js';
+import { grantStartingPapers } from '../../game/map/starting-papers.js';
+import { resolveAiControlPolicy } from '../../game/match/ai-control-policy.js';
+import type { SeatTribeRemap } from '../../game/match/seat-tribes.js';
+import { applySessionRuleOverrides, type SimSessionRules } from '../../game/match/session-rules.js';
 import { PRIMARY_TRIBE } from '../../game/rules.js';
 import {
   resolveWorldContent,
@@ -32,9 +35,6 @@ import {
   spawnMapResources,
   type WorldContentOptions,
 } from '../../game/sandbox/index.js';
-import type { SeatTribeRemap } from '../../game/seat-tribes.js';
-import { applySessionRuleOverrides, type SimSessionRules } from '../../game/session-rules.js';
-import { grantStartingPapers } from '../../game/starting-papers.js';
 import {
   authoredCatalogExtras,
   demoWorldBase,

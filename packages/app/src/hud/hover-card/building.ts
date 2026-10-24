@@ -1,5 +1,10 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { buildingTypeOf, builtFractionOf, isBuilding, type SnapshotEntity } from '../../game/snapshot.js';
+import {
+  buildingTypeOf,
+  builtFractionOf,
+  isBuilding,
+  type SnapshotEntity,
+} from '../../game/snapshot/index.js';
 import { compareLabels } from '../../i18n/index.js';
 import { healthBar, pct } from '../details-panel/model/bars.js';
 import { constructionBillRows, stockRows } from '../details-panel/model/building-materials.js';

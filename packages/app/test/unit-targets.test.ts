@@ -2,7 +2,7 @@ import { buildSpriteScene, type DrawItem, ONE } from '@open-northland/render';
 import { components, type WorldSnapshot } from '@open-northland/sim';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../src/game/rules.js';
-import { isSettler, ownerPlayerOf } from '../src/game/snapshot.js';
+import { isSettler, ownerPlayerOf } from '../src/game/snapshot/index.js';
 import { fixedViewerSeat, overseerViewerSeat } from '../src/game/viewer-seat.js';
 import { createSceneSim, SCENES } from '../src/scenes/index.js';
 import { pickInRect, pickNearestAt, pickTopAt } from '../src/view/picking.js';

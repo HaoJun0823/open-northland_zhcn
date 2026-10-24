@@ -10,7 +10,7 @@ import {
   isWildlife,
   ownerPlayerOf,
   type SnapshotEntity,
-} from '../game/snapshot.js';
+} from '../game/snapshot/index.js';
 import type { HoverCard } from '../hud/dom/hover-card.js';
 import type {
   BuildingHoverModel,

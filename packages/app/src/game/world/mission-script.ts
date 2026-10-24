@@ -11,7 +11,7 @@ import {
 import type { MissionHouseRef, MissionScript, ResolvedOp } from '@open-northland/sim';
 import { MISSION_HOUSE_NAME_FIELD, MISSION_LANDSCAPE_NAME_FIELD } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
-import { multiplayerMatchGoals, neverDiesSeats, scriptMatchParticipants } from '../match-participants.js';
+import { multiplayerMatchGoals, neverDiesSeats, scriptMatchParticipants } from '../match/participants.js';
 import type { MapScriptWorld } from './build.js';
 import type { AuthoredJoinRows, ContentJoins } from './content-joins.js';
 import { contentJoins } from './content-joins.js';

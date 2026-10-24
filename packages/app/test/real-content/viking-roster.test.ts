@@ -16,7 +16,7 @@ import { contentDir, hasRealIr, rawIrUnderTest, servedAtlasExists, servedAtlasMa
  * Pins that the decoded content actually carries every body imagelib + head/body atlas the roster
  * names, so a pipeline change that drops one is caught here, not by a headless cell or a 404 in the
  * browser. The roster's pure shape/transcription tests live with the fixture suite
- * (`test/viking-roster.test.ts`); this is their real-content half.
+ * (`test/catalog/roster.test.ts`); this is their real-content half.
  */
 
 interface Ir {

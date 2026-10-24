@@ -7,7 +7,7 @@ import {
   ownerPlayerOf,
   type SnapshotEntity,
   settlerJobType,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import {
   FIGHT_TYPE,
   type FightArea,

@@ -7,7 +7,7 @@ import {
   type UnitSelectionCommand,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { num, ownerPlayerOf } from '../../game/snapshot.js';
+import { num, ownerPlayerOf } from '../../game/snapshot/index.js';
 import { technologyReason } from '../../game/technology.js';
 import { messages } from '../../i18n/index.js';
 import { orderRecipients, type SettlerActionsOptions } from './action-ring/index.js';

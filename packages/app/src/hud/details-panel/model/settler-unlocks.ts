@@ -1,7 +1,7 @@
 import { systems } from '@open-northland/sim';
 import { professionDefForJob } from '../../../catalog/professions.js';
 import { isFighterTarget, unmetGoodRequirement } from '../../../game/profession-unlocks.js';
-import { num, settlerExperienceOf, settlerLearnedOf } from '../../../game/snapshot.js';
+import { num, settlerExperienceOf, settlerLearnedOf } from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { type Comp, goodLabel, jobDisplayName, type UnitPanelModelContext } from './context.js';
 import { experienceLabel } from './settler.js';

@@ -5,7 +5,7 @@ import {
   type SnapshotIndexSpec,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { ownerPlayerOf, workFlagOf } from '../game/snapshot.js';
+import { ownerPlayerOf, workFlagOf } from '../game/snapshot/index.js';
 import { ownedByAnotherSeat, pickableSeat, type ViewerSeat } from '../game/viewer-seat.js';
 
 interface FlagHolding {

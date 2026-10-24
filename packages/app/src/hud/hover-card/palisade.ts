@@ -1,5 +1,5 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { isPalisade, num, ownerPlayerOf, type SnapshotEntity } from '../../game/snapshot.js';
+import { isPalisade, num, ownerPlayerOf, type SnapshotEntity } from '../../game/snapshot/index.js';
 import { pickableSeat } from '../../game/viewer-seat.js';
 import { messages } from '../../i18n/index.js';
 import { healthBar, pct } from '../details-panel/model/bars.js';

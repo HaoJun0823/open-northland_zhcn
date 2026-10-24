@@ -1,5 +1,5 @@
 import { entityById, MAX_UNIT_ORDER_MEMBERS, systems, type WorldSnapshot } from '@open-northland/sim';
-import { holdsHaulFlagPost, isSettler, isVehicle, settlerJobType } from '../../game/snapshot.js';
+import { holdsHaulFlagPost, isSettler, isVehicle, settlerJobType } from '../../game/snapshot/index.js';
 import { pickableSeat } from '../../game/viewer-seat.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';

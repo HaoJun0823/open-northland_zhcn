@@ -31,5 +31,5 @@ at 25, plants only while it counted fewer, else reaps a ripe one or waters the l
   first, and each farmer stops sowing once the cap of growing fields stands within its reach, the other
   farm's fields counted.
 - `packages/sim/test/systems/economy/farming.test.ts` (reclaim cases included),
-  `packages/app/test/farm-pacing.test.ts` with its plot bands re-derived, and a save round-trip without
+  `packages/app/test/game/sandbox/farm-pacing.test.ts` with its plot bands re-derived, and a save round-trip without
   the dropped field.

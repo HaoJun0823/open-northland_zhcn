@@ -9,7 +9,12 @@ import {
 } from '@open-northland/sim';
 import { JOB_SCOUT } from '../../../catalog/jobs.js';
 import { WEAPON_XP_KEY_BY_TYPE } from '../../../catalog/weapon-experience.js';
-import { num, type SnapshotEntity, settlerExperienceOf, settlerNeedsOf } from '../../../game/snapshot.js';
+import {
+  num,
+  type SnapshotEntity,
+  settlerExperienceOf,
+  settlerNeedsOf,
+} from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { healthBar, type PanelBar, pct } from './bars.js';
 import {

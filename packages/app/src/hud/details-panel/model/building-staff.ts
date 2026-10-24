@@ -1,6 +1,7 @@
 import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
 import { settlerName } from '../../../game/character-names/index.js';
 import { workerRoleOf } from '../../../game/sandbox/index.js';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
 import {
   homeFamiliesOf,
   isAdult,
@@ -16,8 +17,7 @@ import {
   staffOf,
   supplyRunsTo,
   trainingHouseOf,
-} from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+} from '../../../game/snapshot/index.js';
 import { messages } from '../../../i18n/index.js';
 import { type BuildingDef, jobDisplayName, type UnitPanelModelContext } from './context.js';
 

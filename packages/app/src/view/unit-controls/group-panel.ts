@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { type Entity, entityById, MAX_UNIT_ORDER_MEMBERS } from '@open-northland/sim';
-import { ownerPlayerOf } from '../../game/snapshot.js';
+import { ownerPlayerOf } from '../../game/snapshot/index.js';
 import { pickableSeat } from '../../game/viewer-seat.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import type { GroupStance } from '../../hud/details-panel/model/index.js';

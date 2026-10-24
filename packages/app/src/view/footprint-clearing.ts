@@ -20,7 +20,7 @@ import {
   isBuilding,
   positionOf,
   type SnapshotEntity,
-} from '../game/snapshot.js';
+} from '../game/snapshot/index.js';
 import type { StaticDrawSurface } from './harvestable-handover.js';
 
 /** The slice of a building type the clearing reads: each tribe's walk-block cells. */

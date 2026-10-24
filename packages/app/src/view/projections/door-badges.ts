@@ -33,7 +33,7 @@ import {
   type SnapshotEntity,
   settlerJobType,
   staffOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { type DoorFootprint, workerIconNode } from './building-points.js';
 
 /**

@@ -1,7 +1,7 @@
 import type { Simulation, TerrainMap } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
+import { MAP_TRIBES, type SeatTribeRemap, seatedPlacements } from '../match/seat-tribes.js';
 import { resolveWorldContent, type WorldContentOptions } from '../sandbox/index.js';
-import { MAP_TRIBES, type SeatTribeRemap, seatedPlacements } from '../seat-tribes.js';
 import { authoredCatalogExtras } from './authored-catalog.js';
 import { type AuthoredEntities, resolveAuthoredPlacements } from './authored-placements.js';
 import { enqueueFamilyLinks, enqueuePlacements, type MapScriptWorld, newWorldSim } from './build.js';

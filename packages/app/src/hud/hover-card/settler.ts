@@ -1,6 +1,6 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
 import { settlerName } from '../../game/character-names/index.js';
-import { isSettler, isWildlife, type SnapshotEntity, settlerJobType } from '../../game/snapshot.js';
+import { isSettler, isWildlife, type SnapshotEntity, settlerJobType } from '../../game/snapshot/index.js';
 import { jobDisplayName, type UnitPanelModelContext } from '../details-panel/model/context.js';
 import { productSelectionLabel, settlerProductSelection } from '../details-panel/model/settler-work.js';
 import type { SettlerHoverModel } from './model.js';

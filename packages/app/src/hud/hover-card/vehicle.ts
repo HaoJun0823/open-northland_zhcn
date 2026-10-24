@@ -1,5 +1,5 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { isVehicle } from '../../game/snapshot.js';
+import { isVehicle } from '../../game/snapshot/index.js';
 import { compareLabels, messages } from '../../i18n/index.js';
 import { healthBar } from '../details-panel/model/bars.js';
 import type { TradeStopModel } from '../details-panel/model/trade.js';

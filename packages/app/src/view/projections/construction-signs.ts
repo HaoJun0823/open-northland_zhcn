@@ -6,7 +6,7 @@ import {
   isBuilding,
   ownerPlayerOf,
   positionOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { doorNode } from './building-points.js';
 import type { BuildingDoorInfoOf } from './door-badges.js';
 

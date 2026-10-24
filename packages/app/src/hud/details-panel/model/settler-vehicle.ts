@@ -1,6 +1,6 @@
 import type { VehicleType } from '@open-northland/data';
 import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
-import { num, type SnapshotEntity, settlerJobType } from '../../../game/snapshot.js';
+import { num, type SnapshotEntity, settlerJobType } from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { type Comp, goodLabel, isCarrierJob, type UnitPanelModelContext } from './context.js';
 import type { SeatControl, SettlerRole } from './settler-household.js';

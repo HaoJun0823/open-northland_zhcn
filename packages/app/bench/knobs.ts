@@ -1,6 +1,6 @@
 /** Env knobs shared by the benchmarks. Each throws on a malformed value rather than silently
  *  benchmarking a different world than the caller asked for. */
-import { onOffParam } from '../src/game/session-rules.js';
+import { onOffParam } from '../src/game/match/session-rules.js';
 
 /** An integer env knob of at least `min`, or `fallback` when unset/blank. */
 export function intEnv(name: string, fallback: number, min: number): number {

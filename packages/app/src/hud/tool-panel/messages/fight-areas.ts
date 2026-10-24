@@ -12,7 +12,7 @@ import {
   ownerPlayerOf,
   positionOf,
   type SnapshotEntity,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import type { MessageAddOutcome, MessageFeed, MessageFeedState } from './feed.js';
 import { messagePassesFilter, messagePriority } from './priority.js';
 import {

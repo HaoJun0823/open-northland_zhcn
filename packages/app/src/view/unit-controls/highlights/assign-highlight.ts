@@ -16,7 +16,7 @@ import {
   settlersIn,
   staffOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 
 /**
  * The pure snapshot projection behind the assign-a-workplace button and its green or red building tint.

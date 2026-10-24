@@ -1,6 +1,6 @@
 import { tileToScreen } from '@open-northland/render';
 import { entityById, ONE, type WorldSnapshot } from '@open-northland/sim';
-import { isSettler, positionOf, standingEntity } from '../../../game/snapshot.js';
+import { isSettler, positionOf, standingEntity } from '../../../game/snapshot/index.js';
 
 /** A centroid in world px, with the selected ids. */
 export interface SelectionCentre {

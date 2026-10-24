@@ -6,7 +6,7 @@ import {
   systems,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { actorsOf, ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot.js';
+import { actorsOf, ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { nodeOf } from './raise.js';
 
 /** Where the viewer sees a seat, which its first-contact, stance and defeat notes jump to; null for

@@ -27,11 +27,11 @@ import {
   type UiString,
   uiStringLookup,
 } from '../../content/gui-gfx.js';
-import type { MissionInfoRow } from '../../game/info-lines.js';
-import type { MissionBriefingAnswer, MissionReader } from '../../game/mission-brief.js';
-import type { ObserverSeatEntry } from '../../game/observer-seats.js';
+import type { MissionInfoRow } from '../../game/map/info-lines.js';
+import type { MissionBriefingAnswer, MissionReader } from '../../game/map/mission-brief.js';
+import type { ObserverSeatEntry } from '../../game/match/observer-seats.js';
 import { canonicalJobType } from '../../game/sandbox/index.js';
-import type { SnapshotEntity } from '../../game/snapshot.js';
+import type { SnapshotEntity } from '../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import { messages, professionLabel } from '../../i18n/index.js';
 import type { PresentationPack } from '../../presentation/pack.js';

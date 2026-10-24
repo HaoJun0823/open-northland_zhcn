@@ -1,7 +1,7 @@
 import { compatibilityIssues } from '@open-northland/net-protocol';
 import { loadLobbyCompatibility } from '../../../content/lobby-identity.js';
 import { loadRoomMapDocuments, readVerifiedMapDocuments } from '../../../content/transfer/index.js';
-import { assertMapRoomSeats } from '../../../game/session-roster.js';
+import { assertMapRoomSeats } from '../../../game/match/session-roster.js';
 import { messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import type { NetworkConnection } from '../../../net/connection.js';

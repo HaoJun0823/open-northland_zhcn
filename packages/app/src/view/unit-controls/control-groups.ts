@@ -1,6 +1,6 @@
 import type { ElevationField } from '@open-northland/render';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { isBuilding, isSettler, isVehicle, ownerPlayerOf } from '../../game/snapshot.js';
+import { isBuilding, isSettler, isVehicle, ownerPlayerOf } from '../../game/snapshot/index.js';
 import {
   CONTROL_GROUP_ACTIONS,
   CONTROL_GROUP_BINDING_ACTIONS,

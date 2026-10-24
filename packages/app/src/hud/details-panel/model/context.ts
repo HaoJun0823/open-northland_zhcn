@@ -13,7 +13,7 @@ import {
 import { localizedBuildingName } from '../../../catalog/building-i18n.js';
 import { vikingBuildingByTypeId } from '../../../catalog/buildings.js';
 import { professionDefForJob } from '../../../catalog/professions.js';
-import type { PostFlagTrade, SnapshotEntity } from '../../../game/snapshot.js';
+import type { PostFlagTrade, SnapshotEntity } from '../../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../../game/viewer-seat.js';
 import {
   currentLocale,

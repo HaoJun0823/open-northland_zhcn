@@ -1,7 +1,7 @@
 import { systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { JOB_ARCHER, JOB_BABY_FEMALE, JOB_CHILD_FEMALE } from '../src/catalog/jobs.js';
-import { isSettler, isVehicle, settlerJobType } from '../src/game/snapshot.js';
+import { isSettler, isVehicle, settlerJobType } from '../src/game/snapshot/index.js';
 import { jobDisplayName } from '../src/hud/details-panel/model/context.js';
 import {
   ALL_SCOPE,

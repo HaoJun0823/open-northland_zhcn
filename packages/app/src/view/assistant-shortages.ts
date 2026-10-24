@@ -7,7 +7,7 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { GIVE_SWITCH_GOODS, GIVE_SWITCH_IDS, type GiveSwitchId } from '../game/assistant-grant-ids.js';
-import { isAdult, isFemale, isSettler, num, ownerPlayerOf, settlerJobType } from '../game/snapshot.js';
+import { isAdult, isFemale, isSettler, num, ownerPlayerOf, settlerJobType } from '../game/snapshot/index.js';
 
 /** How many of a seat's men a give switch would still dress: those in the switch's pool (the working
  *  trades for a tool, every grown man otherwise) with room for its good and none of its goods carried,

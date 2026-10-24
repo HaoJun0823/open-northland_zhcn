@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
-import type { MissionInfoRow } from '../../../game/info-lines.js';
-import type { MissionGoal } from '../../../game/mission-brief.js';
+import type { MissionInfoRow } from '../../../game/map/info-lines.js';
+import type { MissionGoal } from '../../../game/map/mission-brief.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { GOAL_SLIP, TOP_BAR_HEIGHT } from '../../regions.js';
 import { escapeHtml, setHidden } from '../parts/dom.js';

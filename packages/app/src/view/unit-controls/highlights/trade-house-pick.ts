@@ -1,6 +1,6 @@
 import type { BuildingHighlightItem } from '@open-northland/render';
 import { entitiesWith, entityById, type WorldSnapshot } from '@open-northland/sim';
-import { tradeRouteHousesOf } from '../../../game/snapshot.js';
+import { tradeRouteHousesOf } from '../../../game/snapshot/index.js';
 
 /** The sim's trade-stop rule (`SessionHost.canAttachTradeHouse`): whether the trader's route takes the
  *  house. */

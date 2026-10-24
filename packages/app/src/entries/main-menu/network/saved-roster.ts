@@ -1,7 +1,7 @@
 import { parseSavedSessionMetadata, type SessionSeat, type WeatherMode } from '@open-northland/lockstep';
 import type { RoomSeatSetup } from '@open-northland/net-protocol';
 import type { SaveGame } from '@open-northland/sim';
-import { weatherModeParam } from '../../../game/session-rules.js';
+import { weatherModeParam } from '../../../game/match/session-rules.js';
 import { SAVED_COMPUTER_DIFFICULTY } from '../lobby/roster-state.js';
 
 export function savedRoster(save: SaveGame) {

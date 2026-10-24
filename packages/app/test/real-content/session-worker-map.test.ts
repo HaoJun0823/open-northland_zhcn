@@ -9,7 +9,7 @@ import {
   type MapWorkerBoot,
   type MapWorldInputs,
 } from '../../src/entries/map/world-inputs.js';
-import { mapSession } from '../../src/game/session-url.js';
+import { mapSession } from '../../src/game/match/session-url.js';
 import {
   bundleTestWorker,
   pumpUntil,

@@ -5,7 +5,7 @@ import {
   progressionGatesSettler,
   type SnapshotEntity,
   settlerLearnedOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { technologyLabel } from '../../../game/technology.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import {

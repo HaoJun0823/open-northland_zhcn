@@ -1,6 +1,6 @@
 import type { RoomSeatView, RoomView, VacantSeatMode } from '@open-northland/net-protocol';
 import { components } from '@open-northland/sim';
-import { localizedMapText } from '../../../../game/map-strings.js';
+import { localizedMapText } from '../../../../game/map/strings.js';
 import { currentLocale, formatMessage, messages, tribeName } from '../../../../i18n/index.js';
 import { memberLoadText } from '../../../../view/net/member-load.js';
 import { node } from '../../dom.js';

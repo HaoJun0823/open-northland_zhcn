@@ -27,7 +27,7 @@ import {
   settlerJobType,
   vehicleSeatsOf,
   workplaceOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import { clampTile, nodeBounds, pickNearestAt, pickTopAt, type Tile, worldToTile } from '../picking.js';
 import type { AnsweredOrders } from './answered-orders.js';

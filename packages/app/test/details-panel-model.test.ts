@@ -52,7 +52,7 @@ import {
   GOOD_WOOD,
   GOOD_WOOL,
 } from '../src/game/sandbox/ids/index.js';
-import { num } from '../src/game/snapshot.js';
+import { num } from '../src/game/snapshot/index.js';
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import {
   buildUnitPanelModel,

@@ -1,7 +1,7 @@
 import type { UiCue } from '@open-northland/audio';
 import type { ContentSet } from '@open-northland/data';
 import { type Entity, entityById, type PlayerCommand, type WorldSnapshot } from '@open-northland/sim';
-import { isVehicle, num, ownerPlayerOf } from '../../game/snapshot.js';
+import { isVehicle, num, ownerPlayerOf } from '../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import {
   type VehicleOrder,

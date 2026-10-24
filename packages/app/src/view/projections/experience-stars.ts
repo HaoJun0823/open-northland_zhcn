@@ -20,7 +20,7 @@ import {
   settlerExperienceOf,
   settlerJobType,
   settlerTribeOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 
 /**
  * The experience a star's size steps by, and the experience its largest size needs. Original behavior

@@ -1,6 +1,6 @@
 import { decodeMissionResult, type MapScript, type TerrainMapFile } from '@open-northland/data';
+import { MAP_TRIBES, type SeatTribeRemap } from './match/seat-tribes.js';
 import { PRIMARY_TRIBE } from './rules.js';
-import { MAP_TRIBES, type SeatTribeRemap } from './seat-tribes.js';
 import { type AuthoredJoinRows, contentJoins } from './world/index.js';
 
 /**

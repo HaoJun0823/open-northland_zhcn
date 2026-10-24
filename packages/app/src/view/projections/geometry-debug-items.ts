@@ -1,7 +1,7 @@
 import type { BuildingFootprint } from '@open-northland/data';
 import type { GeometryDebugItem } from '@open-northland/render';
 import { entitiesWith, nodeOfPosition, type WorldSnapshot } from '@open-northland/sim';
-import { buildingTribeOf, buildingTypeOf, positionOf } from '../../game/snapshot.js';
+import { buildingTribeOf, buildingTypeOf, positionOf } from '../../game/snapshot/index.js';
 import { workerIconNode } from './building-points.js';
 
 /** The per-building footprint diagram behind the `?debug=geometry` flag. */

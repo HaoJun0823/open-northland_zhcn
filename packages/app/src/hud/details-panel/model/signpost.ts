@@ -1,6 +1,6 @@
 import { networkInventoryOf, stockCounts } from '@open-northland/render/data';
 import type { WorldSnapshot } from '@open-northland/sim';
-import { ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot.js';
+import { ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { pickableSeat } from '../../../game/viewer-seat.js';
 import { goodCategoryTab } from '../../good-categories.js';
 import { goodDef, goodLabel, type UnitPanelModelContext } from './context.js';

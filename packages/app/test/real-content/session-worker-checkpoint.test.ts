@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { buildMapWorldFromInputs, type MapWorldInputs } from '../../src/entries/map/world-inputs.js';
-import { mapSession } from '../../src/game/session-url.js';
+import { mapSession } from '../../src/game/match/session-url.js';
 import { inlineSessionHost } from '../../src/session/index.js';
 import type { WorkerSession } from '../../src/session/worker/worker-session.js';
 import { bundleTestWorker, pumpWhile, startTestSession } from '../support/session-worker/start-worker.js';

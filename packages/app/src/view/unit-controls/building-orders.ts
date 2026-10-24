@@ -12,7 +12,7 @@ import {
   buildSiteOf,
   type SnapshotEntity,
   settlerJobType,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { pickTopAt, type Tile } from '../picking.js';
 import type { FormationUnit } from './formation.js';
 import { enqueueUnitSelection } from './group-orders.js';

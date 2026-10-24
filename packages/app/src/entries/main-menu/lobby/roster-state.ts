@@ -1,6 +1,6 @@
 import { isCivilizationTribe, type MapsIndexPlayerSlot } from '@open-northland/data';
 import type { ComputerDifficulty, LocalSeat } from '@open-northland/lockstep';
-import { isReservedMapAiSeat } from '../../../game/session-url.js';
+import { isReservedMapAiSeat } from '../../../game/match/session-url.js';
 
 /**
  * Pure roster state behind the lobby screen: seats, colours, civilizations and vacant modes over the slots

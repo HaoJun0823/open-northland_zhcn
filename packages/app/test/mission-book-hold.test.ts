@@ -1,6 +1,6 @@
 import type { BriefingVoice, HypertextCallback } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import type { MissionBriefingAnswer, MissionGoal, MissionReader } from '../src/game/mission-brief.js';
+import type { MissionBriefingAnswer, MissionGoal, MissionReader } from '../src/game/map/mission-brief.js';
 import type { BookOpening, BookWindow } from '../src/hud/dom/mission-book/book-window.js';
 import type { GoalSlip } from '../src/hud/dom/mission-book/goal-slip.js';
 import {

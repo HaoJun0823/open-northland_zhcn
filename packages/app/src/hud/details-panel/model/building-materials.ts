@@ -8,7 +8,7 @@ import {
   type SnapshotEntity,
   siteCrewOf,
   supplyRunsTo,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { goodCategoryTab } from '../../good-categories.js';
 import {
   type BuildingDef,

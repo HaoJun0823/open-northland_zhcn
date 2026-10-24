@@ -1,5 +1,5 @@
 import type { ComputerDifficulty } from '@open-northland/lockstep';
-import { localizedMapText } from '../../../game/map-strings.js';
+import { localizedMapText } from '../../../game/map/strings.js';
 import { currentLocale, formatMessage, messages, tribeName } from '../../../i18n/index.js';
 import { colorChip, colorPalette } from '../lobby-controls/color.js';
 import { difficultyControl } from '../lobby-controls/difficulty.js';

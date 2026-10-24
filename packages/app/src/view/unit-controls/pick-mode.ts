@@ -11,7 +11,7 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
-import { ownerPlayerOf } from '../../game/snapshot.js';
+import { ownerPlayerOf } from '../../game/snapshot/index.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile } from '../picking.js';
 import { memoBySnapshot } from '../projections/index.js';
 import type { AnsweredOrders } from './answered-orders.js';

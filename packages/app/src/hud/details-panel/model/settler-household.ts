@@ -17,7 +17,7 @@ import {
   trainingHouseOf,
   workFlagOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { buildingTitle, type UnitPanelModelContext } from './context.js';
 import type { SettlerPlace } from './settler-work.js';

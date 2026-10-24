@@ -15,7 +15,7 @@ import {
   vehicleSeatsOf,
   workFlagOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { type FightAreas, isFightNote } from './fight-areas.js';
 import {
   familyNoteWaitOf,

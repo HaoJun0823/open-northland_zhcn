@@ -2,7 +2,7 @@ import type { UiCue } from '@open-northland/audio';
 import { MAX_UNIT_ORDER_MEMBERS, type PlayerCommand } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HUMAN_PLAYER } from '../src/game/rules.js';
-import { isSettler, isVehicle } from '../src/game/snapshot.js';
+import { isSettler, isVehicle } from '../src/game/snapshot/index.js';
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import type { ActionOrderId } from '../src/hud/action-ring/index.js';
 import { ALL_SCOPE } from '../src/hud/details-panel/model/index.js';

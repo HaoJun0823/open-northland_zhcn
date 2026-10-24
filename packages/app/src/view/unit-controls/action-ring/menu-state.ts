@@ -21,7 +21,7 @@ import {
   trainingHouseOf,
   workAreaOf,
   workplaceOf,
-} from '../../../game/snapshot.js';
+} from '../../../game/snapshot/index.js';
 import { ACTION_COMMANDS, type ActionCommandId } from '../../../hud/action-ring/index.js';
 
 /**

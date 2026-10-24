@@ -11,7 +11,7 @@ import {
   type SnapshotEntity,
   settlerNeedsOf,
   storedNeedsOf,
-} from '../../game/snapshot.js';
+} from '../../game/snapshot/index.js';
 import { ownedByAnotherSeat } from '../../game/viewer-seat.js';
 
 /**

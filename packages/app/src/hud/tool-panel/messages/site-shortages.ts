@@ -1,6 +1,6 @@
 import { type ConstructionSupply, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
-import { isPalisade, isRoadSite, ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot.js';
-import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot-id-index.js';
+import { entitiesUnder, idsGroupedBy } from '../../../game/snapshot/id-index.js';
+import { isPalisade, isRoadSite, ownerPlayerOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import { type MessageNaming, type MessageRaiser, nodeOf } from './raise.js';
 import { USER_MESSAGE_TYPE } from './types.js';
 import type { StatusAsks, StatusRead } from './work-asks.js';

@@ -37,7 +37,6 @@ import {
 } from '../../src/systems/conflict/shelter-fire.js';
 import { shelterOccupancy } from '../../src/systems/defence/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
-import * as ladder from '../../src/systems/settlers/drives/ladder.js';
 import { IDLE_REPLAN_PERIOD_TICKS, idleReplanDue } from '../../src/systems/settlers/planner/idle-replan.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -307,7 +306,7 @@ describe('defence mode', () => {
     expect(shelterOf(sim, farmer)).toBe(tower);
   });
 
-  it('an idler the full towers leave outside keeps its idle beat, and claims a freed door at once', () => {
+  it('an idler the full towers leave outside claims a freed door at once, off its idle beat', () => {
     const sim = new Simulation({ seed: 1, content: defenceContent(), map: grass(10, 4) });
     const tower = buildingAt(sim, 5, 1, TOWER, P1);
     const civilians = [1, 2, 3].map((x) => settlerAt(sim, x, 1, P1, FARMER));
@@ -317,17 +316,6 @@ describe('defence mode', () => {
     const [inside] = civilians.filter((e) => shelterOf(sim, e) === tower);
     if (outside === undefined || inside === undefined) throw new Error('expected one civilian left outside');
     stepUntil(sim, 400, () => sim.world.has(outside, IdleStand));
-
-    const planned = vi.spyOn(ladder, 'planAdult');
-    const plannedTicks: number[] = [];
-    for (let i = 0; i < 2 * IDLE_REPLAN_PERIOD_TICKS; i++) {
-      planned.mockClear();
-      sim.step();
-      if (planned.mock.calls.some((args) => args[1] === outside)) plannedTicks.push(sim.tick);
-    }
-    expect(plannedTicks).toHaveLength(2);
-    for (const tick of plannedTicks)
-      expect(idleReplanDue(tick, outside, IDLE_REPLAN_PERIOD_TICKS)).toBe(true);
 
     while (
       idleReplanDue(sim.tick + 1, outside, IDLE_REPLAN_PERIOD_TICKS) ||

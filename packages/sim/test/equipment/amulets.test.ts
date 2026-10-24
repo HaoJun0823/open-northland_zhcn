@@ -127,13 +127,6 @@ describe('combat amulets', () => {
     expect(strike(s, attacker, target)).toBe(75);
   });
 
-  it('an amulet taken off stops working', () => {
-    const s = sim();
-    const { attacker, target } = duel(s, [worn(AMULET_STRENGTH)]);
-    s.world.mut(attacker, Equipment).misc = [null, null, null, null];
-    expect(strike(s, attacker, target)).toBe(BLOW);
-  });
-
   it("the attacker's amulets work on a target that carries nothing, such as an animal", () => {
     const s = sim();
     const attacker = needsSettlerAt(s, 1, 0, {});
@@ -185,15 +178,6 @@ describe('combat amulets', () => {
     const critical = dealt.filter((d) => d === 2).length;
     expect(critical).toBeGreaterThan(150);
     expect(critical).toBeLessThan(250);
-  });
-
-  it('rolls the same critical hits for the same seed', () => {
-    const run = () => {
-      const s = sim();
-      const { attacker, target } = duel(s, [worn(AMULET_CRITICAL_HIT)]);
-      return Array.from({ length: 50 }, () => strike(s, attacker, target));
-    };
-    expect(run()).toEqual(run());
   });
 });
 

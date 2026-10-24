@@ -1,0 +1,692 @@
+import {
+  type Entity,
+  ONE,
+  type PlayerCommand,
+  positionOfNode,
+  type SignpostReachView,
+  type WorkStatus,
+} from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { JOB_ARCHER, JOB_CARRIER, JOB_COLLECTOR, JOB_TRADER } from '../../../../src/catalog/jobs.js';
+import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../../../src/game/rules.js';
+import {
+  BUILDING_BARRACKS,
+  BUILDING_FARM,
+  BUILDING_HEADQUARTERS,
+  BUILDING_HOME_00,
+  BUILDING_JOINERY,
+  BUILDING_MILL,
+  BUILDING_WATCHTOWER,
+  BUILDING_WELL,
+  GOOD_FLOUR,
+  GOOD_STONE,
+  GOOD_WHEAT,
+  GOOD_WOOD,
+} from '../../../../src/game/sandbox/ids/index.js';
+import { workerRoleOf } from '../../../../src/game/sandbox/index.js';
+import { fixedViewerSeat } from '../../../../src/game/viewer-seat.js';
+import { buildUnitPanelModel } from '../../../../src/hud/details-panel/index.js';
+import {
+  type BuildingOrdersModel,
+  type BuildingPanelModel,
+  type BuildingStatusInputs,
+  buildingStatus,
+  raisingCrew,
+  type StaffGroup,
+  shelteringIn,
+} from '../../../../src/hud/details-panel/model/building.js';
+import { orderViews } from '../../../../src/hud/dom/building-panel/portrait.js';
+import { STAFF_WELLS_MAX, staffWells } from '../../../../src/hud/dom/building-panel/staff.js';
+import { currentLocale, formatMessage, installNameOverlay, messages } from '../../../../src/i18n/index.js';
+import { buildingPanelActions, buildingPeers } from '../../../../src/view/unit-controls/building-panel.js';
+import { buildingEntity, snapshotOf as panelSnapshotOf, sandboxCtx } from '../../../support/sandbox.js';
+import { type Ent, idLookupVisits, snapshotOf, visitCountingSnapshot } from '../../../support/snapshot.js';
+
+const BUILDING = 100;
+const OTHER = 200;
+
+/** A settler entity carrying exactly the components a case needs (bare `Settler` marks it a worker). */
+function sett(id: number, components: Record<string, unknown> = {}): Ent {
+  return { id, components: { Settler: {}, ...components } };
+}
+
+function buildingModel(
+  entities: Parameters<typeof panelSnapshotOf>[0],
+  id: number,
+  ctx = sandboxCtx(),
+): BuildingPanelModel {
+  const model = buildUnitPanelModel(panelSnapshotOf(entities), new Set([id]), ctx);
+  if (model.kind !== 'building') throw new Error('expected a building model');
+  return model;
+}
+
+describe('building staff readers', () => {
+  it('lists the crew raising a site once each: builders, hands at it, suppliers', () => {
+    const snap = snapshotOf([
+      sett(1, { SiteAssignment: { site: BUILDING } }),
+      sett(2, { CurrentAtomic: { effect: { kind: 'construct', site: BUILDING }, targetEntity: BUILDING } }),
+      sett(3, { SupplyRun: { site: BUILDING } }),
+      sett(4, { SiteAssignment: { site: BUILDING }, SupplyRun: { site: BUILDING } }),
+      sett(5, { SiteAssignment: { site: OTHER } }),
+      // A blow aimed at the site is no work on it.
+      sett(6, { CurrentAtomic: { effect: { kind: 'attack', target: BUILDING }, targetEntity: BUILDING } }),
+    ]);
+    expect(raisingCrew(snap, BUILDING).map((e) => e.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('lists the sheltering crowd, the ones already inside first', () => {
+    const hiding = (id: number, shelter: number, inside: boolean): Ent =>
+      sett(id, { Sheltering: { shelter }, ...(inside ? { Resting: { at: shelter } } : {}) });
+    const snap = snapshotOf([hiding(1, BUILDING, false), hiding(2, BUILDING, true), hiding(3, OTHER, true)]);
+    expect(shelteringIn(snap, BUILDING).map((e) => e.id)).toEqual([2, 1]);
+  });
+
+  it('reads the crew off the standing indexes, not a walk over the map', () => {
+    const SCENERY = 400;
+    const { snapshot, visits } = visitCountingSnapshot(
+      snapshotOf([
+        sett(1, { SiteAssignment: { site: BUILDING } }),
+        ...Array.from({ length: SCENERY }, (_, i) => ({
+          id: i + 10,
+          components: { Resource: { goodType: 1 } },
+        })),
+      ]),
+    );
+    expect(raisingCrew(snapshot, OTHER)).toEqual([]); // builds the indexes a mirror maintains
+    const built = visits();
+    expect(raisingCrew(snapshot, BUILDING).map((e) => e.id)).toEqual([1]);
+    expect(visits() - built).toBeLessThanOrEqual(idLookupVisits(1, SCENERY + 1));
+  });
+
+  it("groups a tower's garrison under its slot and the sheltering crowd apart", () => {
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_WATCHTOWER, { components: { DefenceMode: {} } }),
+        { id: 2, components: { Settler: { jobType: JOB_ARCHER }, JobAssignment: { workplace: 1 } } },
+        { id: 3, components: { Settler: { jobType: 0 }, Sheltering: { shelter: 1 }, Resting: { at: 1 } } },
+      ],
+      1,
+    );
+    const garrison = model.staff?.groups.find((group) => group.key === `job:${JOB_ARCHER}`);
+    expect(garrison?.people.map((person) => [person.entity, person.look])).toEqual([[2, 'soldier']]);
+    expect(
+      model.staff?.groups.find((group) => group.key === 'sheltered')?.people.map((p) => p.entity),
+    ).toEqual([3]);
+    // The seat count on the rule counts the posts, never the crowd.
+    expect(model.staff?.count?.filled).toBe(1);
+  });
+
+  it("releases a tower's posted fighters only, and offers no release on a house without tower seats", () => {
+    const tower = buildingModel(
+      [
+        buildingEntity(1, BUILDING_WATCHTOWER, { components: { DefenceMode: {} } }),
+        { id: 2, components: { Settler: { jobType: JOB_ARCHER }, JobAssignment: { workplace: 1 } } },
+        { id: 3, components: { Settler: { jobType: 0 }, Sheltering: { shelter: 1 }, Resting: { at: 1 } } },
+        { id: 4, components: { Settler: { jobType: JOB_CARRIER }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+    );
+    expect(tower.staff?.garrison).toEqual([2]);
+    const empty = buildingModel([buildingEntity(1, BUILDING_WATCHTOWER)], 1);
+    expect(empty.staff?.garrison).toEqual([]);
+    const hq = buildingModel(
+      [
+        buildingEntity(1, BUILDING_HEADQUARTERS),
+        { id: 2, components: { Settler: { jobType: JOB_CARRIER }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+    );
+    expect(hq.staff?.garrison).toBeNull();
+  });
+
+  it('lists a worker who shelters where it works on its trade line only', () => {
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_HEADQUARTERS, { components: { DefenceMode: {} } }),
+        {
+          id: 2,
+          components: {
+            Settler: { jobType: JOB_CARRIER },
+            JobAssignment: { workplace: 1 },
+            Sheltering: { shelter: 1 },
+          },
+        },
+      ],
+      1,
+    );
+    const people = model.staff?.groups.flatMap((group) => group.people.map((person) => person.entity));
+    expect(people).toEqual([2]);
+    expect(model.staff?.groups.some((group) => group.key === 'sheltered')).toBe(false);
+  });
+
+  it('reads a tower by its garrison posts, whatever its carriers do', () => {
+    const tower = (entities: Parameters<typeof panelSnapshotOf>[0]) =>
+      buildingModel([buildingEntity(1, BUILDING_WATCHTOWER), ...entities], 1).status.label;
+    const status = messages().hud.buildingPanel.status;
+    const carrier = {
+      id: 2,
+      components: { Settler: { jobType: JOB_CARRIER }, JobAssignment: { workplace: 1 } },
+    };
+    const archer = {
+      id: 3,
+      components: { Settler: { jobType: JOB_ARCHER }, JobAssignment: { workplace: 1 } },
+    };
+    expect(tower([carrier])).toBe(status.noGarrison);
+    expect(tower([carrier, archer])).toBe(status.manned);
+  });
+});
+
+describe('building status', () => {
+  const idle: BuildingStatusInputs = {
+    site: null,
+    alarm: null,
+    crafting: null,
+    seats: null,
+    garrison: null,
+    workDetail: null,
+    families: null,
+  };
+  const status = messages().hud.buildingPanel.status;
+
+  it('names the first state that holds, the site before the alarm before the work', () => {
+    expect(
+      buildingStatus({
+        ...idle,
+        site: { upgrade: true, pct: 40, stall: 'delivery-en-route' },
+        alarm: { sheltered: 1, capacity: 4 },
+      }),
+    ).toEqual({ label: status.upgrading, detail: `40% · ${status.stalls['delivery-en-route']}`, tone: 'ok' });
+    expect(buildingStatus({ ...idle, alarm: { sheltered: 1, capacity: 4 }, crafting: 'Deska' }).label).toBe(
+      status.alarm,
+    );
+    expect(buildingStatus({ ...idle, crafting: 'Deska', seats: 0 })).toEqual({
+      label: status.working,
+      detail: 'Deska',
+      tone: 'ok',
+    });
+  });
+
+  it('reads amber for missing hands and for the stall a posted worker reports', () => {
+    expect(buildingStatus({ ...idle, seats: 0 })).toMatchObject({
+      label: status.noWorkers,
+      tone: 'trouble',
+    });
+    expect(buildingStatus({ ...idle, seats: 1, garrison: 0 }).label).toBe(status.noGarrison);
+    expect(buildingStatus({ ...idle, seats: 3, garrison: 2 })).toMatchObject({
+      label: status.manned,
+      tone: 'ok',
+    });
+    expect(
+      buildingStatus({
+        ...idle,
+        seats: 1,
+        workDetail: 'Brakuje żelaza ×2 (jest 0/2)',
+      }),
+    ).toEqual({
+      label: status.idle,
+      detail: 'Brakuje żelaza ×2 (jest 0/2)',
+      tone: 'trouble',
+    });
+    expect(buildingStatus({ ...idle, seats: 1 })).toMatchObject({
+      label: status.standing,
+      tone: 'neutral',
+    });
+  });
+
+  it('says whether a home is lived in, and a house without work only stands', () => {
+    expect(buildingStatus({ ...idle, families: 0 })).toMatchObject({ label: status.empty, tone: 'neutral' });
+    expect(buildingStatus({ ...idle, families: 2 })).toMatchObject({ label: status.lived, tone: 'ok' });
+    expect(buildingStatus(idle)).toMatchObject({ label: status.standing, tone: 'neutral' });
+  });
+});
+
+describe('building panel model', () => {
+  it("shows another seat's house with its owner line and no orders, staff or stock", () => {
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_MILL, {
+          components: { Owner: { player: 1 }, Stockpile: { amounts: [[1, 3]] } },
+        }),
+      ],
+      1,
+    );
+    expect(model.foreign).toBe(true);
+    expect(model.meta).not.toBeNull();
+    expect(model.orders).toBeNull();
+    expect(model.staff).toBeNull();
+    expect(model.production).toBeNull();
+    expect(model.stock).toEqual([]);
+  });
+
+  it("reads another seat's home as lived in while a family lives there", () => {
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_HOME_00, { components: { Owner: { player: 1 } } }),
+        { id: 2, components: { Settler: { jobType: JOB_CARRIER }, Residence: { home: 1 } } },
+      ],
+      1,
+    );
+    expect(model.staff).toBeNull();
+    expect(model.status.label).toBe(messages().hud.buildingPanel.status.lived);
+  });
+
+  it('names the civilization only while the seat keeps houses of several', () => {
+    const one = buildingModel([buildingEntity(1, BUILDING_MILL), buildingEntity(2, BUILDING_MILL)], 1);
+    expect(one.meta).toBeNull();
+    const other = buildingEntity(2, BUILDING_MILL);
+    const mixed = buildingModel(
+      [
+        buildingEntity(1, BUILDING_MILL),
+        {
+          ...other,
+          components: { ...other.components, Building: { buildingType: BUILDING_MILL, tribe: 2 } },
+        },
+      ],
+      1,
+    );
+    expect(mixed.meta).not.toBeNull();
+  });
+
+  it('lists the agreements a trade house offers from the read seam', () => {
+    const model = buildUnitPanelModel(panelSnapshotOf([buildingEntity(1, BUILDING_MILL)]), new Set([1]), {
+      ...sandboxCtx(),
+      tradeOffersAt: () => [{ index: 0, giveGood: 1, giveAmount: 2, takeGood: 3, takeAmount: 4 }],
+    });
+    if (model.kind !== 'building') throw new Error('expected a building model');
+    expect(model.offers).toEqual([
+      {
+        give: expect.objectContaining({ amount: 2, goodType: 1 }),
+        take: expect.objectContaining({ amount: 4, goodType: 3 }),
+      },
+    ]);
+  });
+
+  it("browses the owner's buildings of the shown one's type, ascending", () => {
+    const snapshot = panelSnapshotOf([
+      buildingEntity(5, BUILDING_MILL),
+      buildingEntity(2, BUILDING_MILL),
+      buildingEntity(3, BUILDING_JOINERY),
+      buildingEntity(9, BUILDING_MILL, { components: { Owner: { player: 1 } } }),
+    ]);
+    expect(buildingPeers(snapshot, 5)).toEqual([2, 5]);
+    expect(buildingPeers(snapshot, 9)).toEqual([9]);
+    expect(buildingPeers(snapshot, 77)).toEqual([]);
+  });
+});
+
+describe('building panel orders and alerts', () => {
+  const millSlots = sandboxCtx().buildings.find((def) => def.typeId === BUILDING_MILL)?.workers ?? [];
+  const craft = millSlots.find((slot) => workerRoleOf(slot.jobType) !== 'carrier');
+  const carrier = millSlots.find((slot) => workerRoleOf(slot.jobType) === 'carrier');
+
+  it("looks for the house's craft even with every seat taken, never a collector, a store's traders", () => {
+    if (craft === undefined || carrier === undefined)
+      throw new Error('the mill declares a craft and a carrier');
+    expect(buildingModel([buildingEntity(1, BUILDING_MILL)], 1).orders?.hire?.jobType).toBe(craft.jobType);
+    const millers = Array.from({ length: craft.count }, (_, index) => ({
+      id: 10 + index,
+      components: { Settler: { jobType: craft.jobType }, JobAssignment: { workplace: 1 } },
+    }));
+    expect(buildingModel([buildingEntity(1, BUILDING_MILL), ...millers], 1).orders?.hire?.jobType).toBe(
+      craft.jobType,
+    );
+    // The sandbox joinery seats a collector alone: nobody to look for.
+    expect(buildingModel([buildingEntity(1, BUILDING_JOINERY)], 1).orders?.hire).toBeNull();
+    expect(buildingModel([buildingEntity(1, BUILDING_HEADQUARTERS)], 1).orders?.hire?.jobType).toBe(
+      JOB_TRADER,
+    );
+    const site = buildingModel(
+      [buildingEntity(1, BUILDING_MILL, { built: 0, components: { UnderConstruction: { labor: 0 } } })],
+      1,
+    );
+    expect(site.orders?.hire?.jobType).toBe(craft.jobType);
+    expect(site.orders?.upgrade?.control).not.toBe(true);
+    expect(buildingModel([buildingEntity(1, BUILDING_HOME_00)], 1).orders?.hire).toBeNull();
+  });
+
+  it("lists a store and the barracks under tabs and a workshop's inputs over its products", () => {
+    expect(buildingModel([buildingEntity(1, BUILDING_HEADQUARTERS)], 1).stockLayout).toBe('tabs');
+    expect(buildingModel([buildingEntity(1, BUILDING_BARRACKS)], 1).stockLayout).toBe('tabs');
+    const mill = buildingModel([buildingEntity(1, BUILDING_MILL)], 1);
+    expect(mill.stockLayout).toBe('split');
+    expect(mill.stock.map((row) => [row.goodType, row.product === true])).toEqual([
+      [GOOD_WHEAT, false],
+      [GOOD_FLOUR, true],
+    ]);
+    // No batch in flight: a folded Production shows none of the mill's lines.
+    const rows = mill.production?.kind === 'recipe' ? mill.production.rows : [];
+    expect(rows.length > 0 && rows.every((row) => !row.running)).toBe(true);
+  });
+
+  it("sets the owner's storage minimums from a store for a picked good and from a well for its own", () => {
+    const minimums = {
+      components: { StorageMinimums: { player: HUMAN_PLAYER, minimums: [[GOOD_WOOD, 30]] } },
+    };
+    const entities = [
+      buildingEntity(1, BUILDING_HEADQUARTERS),
+      buildingEntity(2, BUILDING_WELL),
+      { id: 9, ...minimums },
+    ];
+    const store = buildingModel(entities, 1).storageMinimum;
+    expect(store?.good).toBeNull();
+    expect(store?.minimums[GOOD_WOOD]).toBe(30);
+    expect(store?.control).toBe(true);
+
+    const ctx = sandboxCtx();
+    const water = ctx.buildings.find((b) => b.typeId === BUILDING_WELL)?.produces[0];
+    expect(buildingModel(entities, 2, ctx).storageMinimum?.good?.goodType).toBe(water);
+    expect(buildingModel([buildingEntity(1, BUILDING_MILL)], 1).storageMinimum).toBeNull();
+    const foreign = buildingEntity(1, BUILDING_HEADQUARTERS, { components: { Owner: { player: 1 } } });
+    expect(buildingModel([foreign], 1).storageMinimum).toBeNull();
+  });
+
+  it('names the type without its tier and counts the tier up its upgrade chain', () => {
+    const home = buildingModel([buildingEntity(1, BUILDING_HOME_00)], 1);
+    expect(home.tier).toBe(1);
+    expect(home.title).not.toMatch(/\(/);
+    expect(home.name.startsWith(home.title)).toBe(true);
+    const next = sandboxCtx().buildings.find((def) => def.typeId === BUILDING_HOME_00)?.upgradeTarget;
+    if (next === undefined) throw new Error('the first home tier upgrades');
+    // The sim stamps the rung at placement and raises it with each upgrade.
+    const raised = buildingEntity(1, next, {
+      components: { Building: { buildingType: next, tribe: PRIMARY_TRIBE, built: ONE, level: 1 } },
+    });
+    expect(buildingModel([raised], 1).tier).toBe(2);
+    const mill = buildingModel([buildingEntity(1, BUILDING_MILL)], 1);
+    expect(mill.tier).toBeNull();
+    expect(mill.title).toBe(mill.name);
+  });
+
+  it("drops the tier number the game's own tables end a tier's name with", () => {
+    installNameOverlay(currentLocale(), { building: { home_level_00: 'Fixture dwelling 1' } });
+    try {
+      const home = buildingModel([buildingEntity(1, BUILDING_HOME_00)], 1);
+      expect(home.name).toBe('Fixture dwelling 1');
+      expect(home.title).toBe('Fixture dwelling');
+      expect(home.tier).toBe(1);
+    } finally {
+      installNameOverlay(currentLocale(), {});
+    }
+  });
+
+  it('marks the input a posted worker waits for and a full product shelf', () => {
+    const flourShelf =
+      sandboxCtx()
+        .buildings.find((def) => def.typeId === BUILDING_MILL)
+        ?.stock.find((slot) => slot.goodType === GOOD_FLOUR)?.capacity ?? 0;
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_MILL, {
+          components: { Stockpile: { amounts: [[GOOD_FLOUR, flourShelf]] } },
+        }),
+        { id: 2, components: { Settler: { jobType: craft?.jobType }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+      {
+        ...sandboxCtx(),
+        workStatus: () => ({
+          kind: 'waitingInput',
+          goodType: GOOD_FLOUR,
+          missingInputs: [
+            {
+              goodType: GOOD_WHEAT,
+              available: 0,
+              required: 2,
+              missing: 2,
+              source: 'inReach',
+              gatheredBy: null,
+            },
+          ],
+        }),
+      },
+    );
+    const alert = (good: number) => model.stock.find((row) => row.goodType === good)?.alert;
+    expect(alert(GOOD_WHEAT)).toBe('waiting');
+    expect(alert(GOOD_FLOUR)).toBe('full');
+  });
+
+  it('shows a bonus yield past the shelf capacity with its banked tenths', () => {
+    const flourShelf =
+      sandboxCtx()
+        .buildings.find((def) => def.typeId === BUILDING_MILL)
+        ?.stock.find((slot) => slot.goodType === GOOD_FLOUR)?.capacity ?? 0;
+    const OVER_BY = 1;
+    const BANKED_TENTHS = 5;
+    const model = buildingModel(
+      [
+        buildingEntity(1, BUILDING_MILL, {
+          components: {
+            Stockpile: { amounts: [[GOOD_FLOUR, flourShelf + OVER_BY]] },
+            ProductionBonus: { remainders: [[GOOD_FLOUR, BANKED_TENTHS]] },
+          },
+        }),
+        { id: 2, components: { Settler: { jobType: craft?.jobType }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+    );
+    const flour = model.stock.find((row) => row.goodType === GOOD_FLOUR);
+    expect(flour?.amount).toBe(flourShelf + OVER_BY + 0.5);
+    expect(flour?.capacity).toBe(flourShelf);
+    expect(flour?.alert).toBe('full');
+  });
+
+  it('reads the diagnosis of the craftsman, not of a collector posted there with a lower id', () => {
+    if (craft === undefined) throw new Error('the mill declares a craft');
+    const MILL = 1;
+    const COLLECTOR = 2;
+    const MILLER = 3;
+    const ctx = {
+      ...sandboxCtx(),
+      workStatus: (entity: number): WorkStatus =>
+        entity === MILLER
+          ? {
+              kind: 'waitingInput',
+              goodType: GOOD_FLOUR,
+              missingInputs: [
+                {
+                  goodType: GOOD_WHEAT,
+                  available: 0,
+                  required: 2,
+                  missing: 2,
+                  source: 'inReach',
+                  gatheredBy: null,
+                },
+              ],
+            }
+          : { kind: 'noEligibleResource', goodTypes: [GOOD_WOOD], scope: 'workArea' },
+    };
+    const posted = (id: number, jobType: number) => ({
+      id,
+      components: { Settler: { jobType }, JobAssignment: { workplace: MILL } },
+    });
+    const statusWith = (staff: readonly ReturnType<typeof posted>[]) =>
+      buildingModel([buildingEntity(MILL, BUILDING_MILL), ...staff], MILL, ctx).status;
+    expect(statusWith([posted(COLLECTOR, JOB_COLLECTOR), posted(MILLER, craft.jobType)])).toEqual(
+      statusWith([posted(MILLER, craft.jobType)]),
+    );
+  });
+
+  it('marks a bill line the owner holds none of beyond the site and what is carried to it', () => {
+    const site = buildingEntity(1, BUILDING_FARM, {
+      built: 0,
+      components: { UnderConstruction: { labor: 0 }, Stockpile: { amounts: [[GOOD_WOOD, 2]] } },
+    });
+    const unsourced = (entities: Parameters<typeof panelSnapshotOf>[0]) =>
+      buildingModel(entities, 1).construction?.rows.map((row) => [row.goodType, row.unsourced]);
+    expect(unsourced([site])).toEqual([
+      [GOOD_WOOD, true],
+      [GOOD_STONE, true],
+    ]);
+    const store = buildingEntity(2, BUILDING_HEADQUARTERS, {
+      components: { Stockpile: { amounts: [[GOOD_WOOD, 5]] } },
+    });
+    expect(unsourced([site, store])).toEqual([
+      [GOOD_WOOD, false],
+      [GOOD_STONE, true],
+    ]);
+  });
+
+  it('does not subtract an uncovered site or courier from covered offsite stock', () => {
+    const site = buildingEntity(1, BUILDING_FARM, {
+      built: 0,
+      components: {
+        Position: positionOfNode(51, 20),
+        UnderConstruction: { labor: 0 },
+        Stockpile: { amounts: [[GOOD_WOOD, 1]] },
+      },
+    });
+    const pile = {
+      id: 2,
+      components: { Position: positionOfNode(49, 20), Stockpile: { amounts: [[GOOD_WOOD, 1]] } },
+    };
+    const courier = {
+      id: 3,
+      components: {
+        Owner: { player: HUMAN_PLAYER },
+        Settler: {},
+        Position: positionOfNode(51, 20),
+        SupplyRun: { site: 1, goodType: GOOD_WOOD, amount: 1 },
+        Carrying: { goodType: GOOD_WOOD, amount: 1 },
+      },
+    };
+    const reach: SignpostReachView = {
+      key: 'boundary',
+      player: HUMAN_PLAYER,
+      settlements: [],
+      doors: new Map([[1, { hx: 51, hy: 20 }]]),
+      posts: [
+        { id: 4, group: 4, area: { minX: 49, maxX: 49, minY: 20, maxY: 20, cells: new Uint8Array([1]) } },
+      ],
+    };
+    const ctx = { ...sandboxCtx(), signpostReach: () => reach };
+    const wood = (entities: Parameters<typeof panelSnapshotOf>[0]) =>
+      buildingModel(entities, 1, ctx).construction?.rows.find((row) => row.goodType === GOOD_WOOD);
+    expect(wood([site, pile, courier])).toMatchObject({ delivered: 1, inbound: 1, unsourced: false });
+    expect(wood([site, courier])).toMatchObject({ delivered: 1, inbound: 1, unsourced: true });
+  });
+});
+
+describe('building orders', () => {
+  const copy = messages().hud.buildingPanel;
+
+  const orders = (patch: Partial<BuildingOrdersModel>): BuildingOrdersModel => ({
+    upgrade: { control: true, cost: [{ goodType: 1, label: 'Drewno', amount: 4 }] },
+    cancelUpgrade: false,
+    alarm: null,
+    hire: { jobType: JOB_CARRIER, label: 'Tragarz' },
+    ...patch,
+  });
+
+  it('keeps four tiles in fixed places: Pracownicy, Wiedza, Zburz in red, then the tier with its bill', () => {
+    const views = orderViews({ orders: orders({}), name: 'Młyn' });
+    expect(views.map((view) => view.order)).toEqual(['workers', 'knowledge', 'demolish', 'upgrade']);
+    expect(views[0]).toMatchObject({
+      enabled: true,
+      tooltip: formatMessage(copy.hireTooltip, { job: 'Tragarz' }),
+    });
+    expect(views[1]?.tooltip).toBe(formatMessage(copy.knowledgeTooltip, { name: 'Młyn' }));
+    expect(views[2]).toMatchObject({ enabled: true, danger: true });
+    expect(views[3]?.tooltip).toBe(formatMessage(copy.upgradeCost, { cost: '4 Drewno' }));
+  });
+
+  it('fades a refused tile in its place with the reason, and sets Cancel where Upgrade stood', () => {
+    const refused = orderViews({
+      orders: orders({ upgrade: { control: copy.upgradeUnfinished, cost: [] }, hire: null }),
+      name: 'Dom',
+    });
+    expect(refused.map((view) => view.order)).toEqual(['workers', 'knowledge', 'demolish', 'upgrade']);
+    expect(refused[0]).toMatchObject({ enabled: false, tooltip: copy.hireNone });
+    expect(refused[3]).toMatchObject({ enabled: false, tooltip: copy.upgradeUnfinished });
+    expect(orderViews({ orders: orders({ cancelUpgrade: true }), name: 'Dom' })[3]?.order).toBe(
+      'cancelUpgrade',
+    );
+  });
+
+  it("turns the presses into the building's commands, asks before a demolition, refuses another seat's house", async () => {
+    const sent: PlayerCommand[] = [];
+    const cues: string[] = [];
+    const answers = [false, true];
+    const asked: string[] = [];
+    const selected: (readonly number[])[] = [];
+    const snapshot = panelSnapshotOf([
+      buildingEntity(1, BUILDING_HEADQUARTERS),
+      buildingEntity(2, BUILDING_HEADQUARTERS, { components: { Owner: { player: 1 } } }),
+    ]);
+    const actions = buildingPanelActions({
+      snapshot: () => snapshot,
+      viewer: fixedViewerSeat(HUMAN_PLAYER),
+      enqueue: (command) => sent.push(command),
+      cue: (cue) => cues.push(cue),
+      selectGroup: (ids) => selected.push(ids),
+      confirm: (question) => {
+        asked.push(`${question.title}: ${question.message}`);
+        return Promise.resolve(answers.shift() ?? false);
+      },
+    });
+    actions.setAlarm(1, true);
+    actions.demolish(2, 'Obca');
+    actions.demolish(1, 'Kwatera');
+    actions.demolish(1, 'Kwatera');
+    actions.setHouseholdGoodUse(HUMAN_PLAYER, 'rest', false);
+    actions.setHouseholdGoodUse(1, 'rest', false);
+    actions.setStorageMinimum(HUMAN_PLAYER, GOOD_WOOD, 30);
+    actions.setStorageMinimum(1, GOOD_WOOD, 30);
+    actions.releaseGarrison(2, [8]);
+    actions.releaseGarrison(1, [6, 7]);
+    await Promise.resolve();
+    const question = `${copy.demolishTitle}: ${formatMessage(copy.demolishQuestion, { name: 'Kwatera' })}`;
+    expect(asked).toEqual([question, question]);
+    expect(sent).toEqual([
+      { kind: 'setDefenceMode', building: 1 as Entity, enabled: true },
+      { kind: 'setHouseholdGoodUse', player: HUMAN_PLAYER, effect: 'rest', allowed: false },
+      { kind: 'setStorageMinimum', player: HUMAN_PLAYER, goodType: GOOD_WOOD, amount: 30 },
+      { kind: 'unassignWorker', entity: 6 as Entity },
+      { kind: 'unassignWorker', entity: 7 as Entity },
+      { kind: 'demolish', building: 1 as Entity },
+    ]);
+    expect(selected).toEqual([[6, 7]]);
+    expect(cues).toEqual([
+      'confirm',
+      'fail',
+      'confirm',
+      'confirm',
+      'confirm',
+      'fail',
+      'confirm',
+      'fail',
+      'fail',
+      'confirm',
+    ]);
+  });
+});
+
+describe('building staff wells', () => {
+  const person = (entity: number) => ({ entity, name: 'A', job: 'B', look: 'man' as const });
+
+  it('follows the people with the free seats, and counts the rest past the cap in the last well', () => {
+    const slot: StaffGroup = { key: 'a', label: 'Kowal', people: [person(1)], capacity: 3, jobType: 1 };
+    expect(staffWells(slot).map((well) => well.kind)).toEqual(['person', 'seat', 'seat']);
+    const crowd: StaffGroup = {
+      key: 'b',
+      label: '',
+      people: Array.from({ length: STAFF_WELLS_MAX + 4 }, (_, i) => person(i)),
+      capacity: null,
+      jobType: null,
+    };
+    const wells = staffWells(crowd);
+    expect(wells).toHaveLength(STAFF_WELLS_MAX);
+    expect(wells.at(-1)).toEqual({ kind: 'more', count: 5 });
+    // A large shelter with few inside cuts its free seats, never a person, and counts nobody extra.
+    const shelter: StaffGroup = {
+      key: 'c',
+      label: 'S',
+      people: [person(1), person(2), person(3)],
+      capacity: 30,
+      jobType: null,
+    };
+    const cut = staffWells(shelter);
+    expect(cut).toHaveLength(STAFF_WELLS_MAX);
+    expect(cut.filter((well) => well.kind === 'person')).toHaveLength(3);
+    expect(cut.some((well) => well.kind === 'more')).toBe(false);
+  });
+});

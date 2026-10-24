@@ -2,7 +2,7 @@ import type { Campaign, CampaignMovie, MapTextLanguage } from '@open-northland/d
 import { RECOMMENDED_CAMPAIGN_TRIBE } from '../../../campaign/launch.js';
 import { campaignFinale, campaignMovies } from '../../../campaign/locale.js';
 import type { CampaignProgress } from '../../../campaign/progress.js';
-import type { SystemConfirmCopy } from '../../../hud/dom/system-confirm.js';
+import type { SystemConfirmCopy } from '../../../hud/dom/system/confirm.js';
 import { formatMessage, type Messages } from '../../../i18n/index.js';
 
 type ScreenStorage = Pick<Storage, 'getItem' | 'setItem'>;

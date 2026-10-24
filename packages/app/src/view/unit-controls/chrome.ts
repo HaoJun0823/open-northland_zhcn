@@ -19,7 +19,7 @@ import { createPalisadePanel } from '../../hud/dom/palisade-panel.js';
 import type { ClientRect } from '../../hud/dom/portrait-hole.js';
 import { createSettlerPanel } from '../../hud/dom/settler-panel/view.js';
 import { createSignpostPanel } from '../../hud/dom/signpost-panel.js';
-import { createHudConfirm } from '../../hud/dom/system-confirm.js';
+import { createHudConfirm } from '../../hud/dom/system/confirm.js';
 import { createTradeWindow, type HousePortrait } from '../../hud/dom/trade-window/window.js';
 import { createVehiclePanel } from '../../hud/dom/vehicle-panel/view.js';
 import { LiveFigures } from '../../hud/figures/live-figures.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sameSpeedBarLook } from '../src/hud/dom/system-bar.js';
+import { sameSpeedBarLook } from '../src/hud/dom/system/bar.js';
 import { currentLocale, formatMessage, messages, setActiveLocale } from '../src/i18n/index.js';
 import { createShortfallLook, shortfallLook } from '../src/view/speed-shortfall.js';
 

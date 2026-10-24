@@ -4,7 +4,7 @@ import { createTooltip } from '../../../view/tooltip.js';
 import { GLYPH } from '../icons.js';
 import { button, element } from '../parts/dom.js';
 import { attachTipLayer } from '../parts/tip-layer.js';
-import type { SystemConfirmCopy } from '../system-confirm.js';
+import type { SystemConfirmCopy } from '../system/confirm.js';
 import { createHudWindow, type HudWindow } from '../window.js';
 
 export interface SaveWindowDeps {

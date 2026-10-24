@@ -53,13 +53,13 @@ import {
   NO_MISSION,
 } from '../dom/mission-book/index.js';
 import { createHudNav, type HudNavEntry } from '../dom/nav.js';
-import { createNetworkWindow } from '../dom/network-window.js';
+import { createNetworkWindow } from '../dom/network/window.js';
 import { createPlacementStrip } from '../dom/placement-strip.js';
 import { planeSize } from '../dom/plane-size.js';
 import type { ClientRect } from '../dom/portrait-hole.js';
 import { createResidentsWindow } from '../dom/residents-window.js';
 import { createStatisticsWindow } from '../dom/statistics-window.js';
-import { createHudSystemBar, type SpeedBarLook } from '../dom/system-bar.js';
+import { createHudSystemBar, type SpeedBarLook } from '../dom/system/bar.js';
 import type { CentralWindows } from '../dom/trade-window/window.js';
 import { FigureFrames } from '../figures/figure-frames.js';
 import { LiveFigures } from '../figures/live-figures.js';

@@ -68,14 +68,14 @@ import { createProductSelectionCache } from '../../hud/details-panel/model/settl
 import type { DiplomacyPanelRow } from '../../hud/dom/diplomacy-window/model.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { createHoverCard } from '../../hud/dom/hover-card.js';
-import { createLinkLostScreen, type LinkLostScreen } from '../../hud/dom/link-lost-screen.js';
 import {
   createMatchResultOverlay,
   keepsPlayingAfterResult,
   type MatchResultOverlay,
 } from '../../hud/dom/match-result.js';
+import { createLinkLostScreen, type LinkLostScreen } from '../../hud/dom/network/link-lost-screen.js';
 import { mountHudDomRoot } from '../../hud/dom/root.js';
-import { createSystemMenu } from '../../hud/dom/system-menu.js';
+import { createSystemMenu } from '../../hud/dom/system/menu.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../../hud/hover-card/building.js';
 import type { HoverOwnerContext } from '../../hud/hover-card/owner.js';
 import { palisadeHoverModel, wallHovers } from '../../hud/hover-card/palisade.js';

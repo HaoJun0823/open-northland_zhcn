@@ -1,4 +1,4 @@
-import type { SpeedBarLook } from '../hud/dom/system-bar.js';
+import type { SpeedBarLook } from '../hud/dom/system/bar.js';
 import { formatRoomSpeed } from '../hud/network/text.js';
 import { presetAtOrBelow } from '../hud/tool-panel/game-speed.js';
 import { formatMessage, type Messages, messages } from '../i18n/index.js';

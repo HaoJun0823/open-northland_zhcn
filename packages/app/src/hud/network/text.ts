@@ -1,6 +1,6 @@
 import { TICKS_PER_SECOND } from '@open-northland/net-protocol';
 import { bcp47Tag, formatMessage, messages } from '../../i18n/index.js';
-import type { SpeedBarLook } from '../dom/system-bar.js';
+import type { SpeedBarLook } from '../dom/system/bar.js';
 import { presetAtOrBelow } from '../tool-panel/game-speed.js';
 import {
   isHeldStatus,

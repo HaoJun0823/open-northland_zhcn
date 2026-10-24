@@ -3,7 +3,7 @@ import { formatMessage, messages } from '../../i18n/index.js';
 import { matchResultActions, matchResultState } from '../../view/match-result-state.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
-import { createSystemConfirm, type SystemConfirmCopy } from './system-confirm.js';
+import { createSystemConfirm, type SystemConfirmCopy } from './system/confirm.js';
 import { createHudWindow } from './window.js';
 
 export interface MatchResultDeps {

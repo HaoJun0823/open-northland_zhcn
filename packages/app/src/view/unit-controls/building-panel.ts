@@ -3,7 +3,7 @@ import { type Entity, entityById, type PlayerCommand, type WorldSnapshot } from 
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import { buildingPeersOf } from '../../hud/details-panel/model/index.js';
 import type { BuildingPanelActions } from '../../hud/dom/building-panel/actions.js';
-import type { SystemConfirmCopy } from '../../hud/dom/system-confirm.js';
+import type { SystemConfirmCopy } from '../../hud/dom/system/confirm.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 import { ownedOrder } from './owned-order.js';
 

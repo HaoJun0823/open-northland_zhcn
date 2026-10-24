@@ -1,5 +1,5 @@
 import type { NotificationCue, UiCue } from '@open-northland/audio';
-import { createNetStatusLine } from '../../hud/dom/network-status-line.js';
+import { createNetStatusLine } from '../../hud/dom/network/status-line.js';
 import { navBeamRect } from '../../hud/nav-beam.js';
 import type {
   NetClockModel,

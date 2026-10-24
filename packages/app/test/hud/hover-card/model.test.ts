@@ -1,0 +1,334 @@
+import { ONE } from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { JOB_CHILD_MALE, JOB_COLLECTOR, JOB_JOINER } from '../../../src/catalog/jobs.js';
+import { playerSwatchHex } from '../../../src/catalog/roster.js';
+import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../../src/game/rules.js';
+import {
+  BUILDING_JOINERY,
+  BUILDING_JOINERY_01,
+  BUILDING_WAREHOUSE_00,
+  BUILDING_WATCHTOWER,
+  GOOD_GOLD,
+  GOOD_IRON,
+  GOOD_MUD,
+  GOOD_MUSHROOM,
+  GOOD_STONE,
+  GOOD_WOOD,
+} from '../../../src/game/sandbox/ids/index.js';
+import {
+  fixedViewerSeat,
+  overseerViewerSeat,
+  switchableViewerSeat,
+  type ViewerSeat,
+} from '../../../src/game/viewer-seat.js';
+import { type BuildingHoverContext, buildingHoverModel } from '../../../src/hud/hover-card/building.js';
+import { palisadeHoverModel } from '../../../src/hud/hover-card/palisade.js';
+import { type SettlerHoverContext, settlerHoverModel } from '../../../src/hud/hover-card/settler.js';
+import { buildingEntity, sandboxCtx, snapshotOf } from '../../support/sandbox.js';
+
+/** A store holding these amounts, as the snapshot carries them. */
+function stockpile(amounts: readonly (readonly [number, number])[]): Record<string, unknown> {
+  return { Stockpile: { amounts: amounts.map(([goodType, amount]) => [goodType, amount]) } };
+}
+
+/** Another seat than the viewer's. */
+const OTHER_PLAYER = HUMAN_PLAYER + 1;
+
+/** The card's content, read by the human seat unless another viewer is given, at war with everyone. */
+function hoverCtx(
+  viewer: ViewerSeat = fixedViewerSeat(HUMAN_PLAYER),
+): BuildingHoverContext & SettlerHoverContext {
+  return { ...sandboxCtx(), viewer, diplomacyStance: () => 'enemy' };
+}
+
+describe('building hover card model', () => {
+  it('lists what a standing store holds, by good name, leaving its empty slots out', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([
+      buildingEntity(1, BUILDING_WAREHOUSE_00, {
+        components: stockpile([
+          [GOOD_WOOD, 4],
+          [GOOD_IRON, 0],
+          [GOOD_STONE, 2],
+        ]),
+      }),
+    ]);
+
+    const model = buildingHoverModel(snapshot, 1, ctx);
+
+    expect(model?.title).toBe('Magazyn (poziom 1)');
+    expect(model?.state).toBeNull();
+    expect(model?.rows).toEqual([
+      { goodId: 'wood', label: 'Drewno', amount: 4 },
+      { goodId: 'stone', label: 'Kamień', amount: 2 },
+    ]);
+  });
+
+  it('reads a site as its bill against what is delivered, with the built percentage', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([
+      buildingEntity(2, BUILDING_JOINERY, {
+        built: ONE / 4,
+        components: { UnderConstruction: { labor: 0 }, ...stockpile([[GOOD_WOOD, 2]]) },
+      }),
+    ]);
+
+    const model = buildingHoverModel(snapshot, 2, ctx);
+
+    expect(model?.state).toEqual({ kind: 'construction', pct: 25 });
+    expect(model?.rows).toEqual([
+      { goodId: 'wood', label: 'Drewno', amount: 2, needed: 3 },
+      { goodId: 'stone', label: 'Kamień', amount: 0, needed: 2 },
+    ]);
+  });
+
+  it('reads an upgrading building as the upgrade, against the target tier cost', () => {
+    const ctx = hoverCtx();
+    const target = ctx.buildings.find((b) => b.typeId === BUILDING_JOINERY_01);
+    const snapshot = snapshotOf([
+      buildingEntity(3, BUILDING_JOINERY, {
+        components: { UnderConstruction: { labor: 0 }, Upgrading: {} },
+      }),
+    ]);
+
+    const model = buildingHoverModel(snapshot, 3, ctx);
+
+    const goodId = (typeId: number): string | undefined => ctx.goods.find((g) => g.typeId === typeId)?.id;
+    expect(model?.state?.kind).toBe('upgrade');
+    expect(new Map(model?.rows.map((row) => [row.goodId, row.needed]))).toEqual(
+      new Map((target?.construction ?? []).map((line) => [goodId(line.goodType), line.amount])),
+    );
+  });
+
+  it('names a building that holds nothing, so every kind answers the cursor', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([buildingEntity(4, BUILDING_WATCHTOWER)]);
+
+    const model = buildingHoverModel(snapshot, 4, ctx);
+
+    expect(model?.title).toBe('Wieża obronna (poziom 1)');
+    expect(model?.rows).toEqual([]);
+  });
+
+  it("shows another seat's building by its owner and health, keeping its store and bill to the owner", () => {
+    const ctx = hoverCtx();
+    const foreign = { Owner: { player: OTHER_PLAYER }, Health: { hitpoints: 30, max: 120 } };
+    const snapshot = snapshotOf([
+      buildingEntity(6, BUILDING_WAREHOUSE_00, {
+        components: { ...foreign, ...stockpile([[GOOD_WOOD, 4]]) },
+      }),
+      buildingEntity(7, BUILDING_JOINERY, {
+        built: ONE / 2,
+        components: { ...foreign, UnderConstruction: { labor: 0 }, ...stockpile([[GOOD_WOOD, 2]]) },
+      }),
+    ]);
+
+    const store = buildingHoverModel(snapshot, 6, ctx);
+    const site = buildingHoverModel(snapshot, 7, ctx);
+
+    expect(store?.rows).toEqual([]);
+    expect(store?.owner).toEqual({
+      player: OTHER_PLAYER,
+      stance: 'enemy',
+      colour: playerSwatchHex(OTHER_PLAYER),
+    });
+    expect(store?.health).toEqual({ label: 'Zdrowie', pct: 25, hover: '30/120' });
+    expect(site?.rows).toEqual([]);
+    expect(site?.state).toEqual({ kind: 'construction', pct: 50 });
+  });
+
+  it('lists the own store beside its health, and every store on the whole map', () => {
+    const snapshot = snapshotOf([
+      buildingEntity(8, BUILDING_WAREHOUSE_00, {
+        components: { Health: { hitpoints: 30, max: 120 }, ...stockpile([[GOOD_WOOD, 4]]) },
+      }),
+      buildingEntity(9, BUILDING_WAREHOUSE_00, {
+        components: {
+          Owner: { player: OTHER_PLAYER },
+          Health: { hitpoints: 60, max: 120 },
+          ...stockpile([[GOOD_STONE, 1]]),
+        },
+      }),
+    ]);
+
+    const own = buildingHoverModel(snapshot, 8, hoverCtx());
+    const overseen = buildingHoverModel(snapshot, 9, hoverCtx(overseerViewerSeat(HUMAN_PLAYER)));
+
+    expect(own?.owner).toBeNull();
+    expect(own?.health).toEqual({ label: 'Zdrowie', pct: 25, hover: '30/120' });
+    expect(own?.rows).toEqual([{ goodId: 'wood', label: 'Drewno', amount: 4 }]);
+    expect(overseen?.owner).toBeNull();
+    expect(overseen?.health).toEqual({ label: 'Zdrowie', pct: 50, hover: '60/120' });
+    expect(overseen?.rows).toEqual([{ goodId: 'stone', label: 'Kamień', amount: 1 }]);
+  });
+
+  it("lists the store of an ownerless building, which is nobody else's", () => {
+    const ownerless = buildingEntity(10, BUILDING_WAREHOUSE_00, { components: stockpile([[GOOD_WOOD, 3]]) });
+    const { Owner: _owner, ...components } = ownerless.components;
+    const snapshot = snapshotOf([{ ...ownerless, components }]);
+
+    const model = buildingHoverModel(snapshot, 10, hoverCtx());
+
+    expect(model?.owner).toBeNull();
+    expect(model?.rows).toEqual([{ goodId: 'wood', label: 'Drewno', amount: 3 }]);
+  });
+
+  it("follows a spectator's seat switch: another seat's store hides, the watched seat's shows", () => {
+    const viewer = switchableViewerSeat(OTHER_PLAYER);
+    const snapshot = snapshotOf([
+      buildingEntity(11, BUILDING_WAREHOUSE_00, { components: stockpile([[GOOD_WOOD, 2]]) }),
+    ]);
+
+    const watchingOther = buildingHoverModel(snapshot, 11, hoverCtx(viewer));
+    viewer.watch(HUMAN_PLAYER);
+    const watchingOwner = buildingHoverModel(snapshot, 11, hoverCtx(viewer));
+
+    expect(watchingOther?.rows).toEqual([]);
+    expect(watchingOwner?.rows).toEqual([{ goodId: 'wood', label: 'Drewno', amount: 2 }]);
+  });
+
+  it('has nothing to say about an entity that is not a building', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([{ id: 5, components: { Settler: { jobType: 1 } } }]);
+
+    expect(buildingHoverModel(snapshot, 5, ctx)).toBeNull();
+    expect(buildingHoverModel(snapshot, 99, ctx)).toBeNull();
+  });
+});
+
+/** A person as the snapshot carries one: the `Settler` + `Person` preamble a name and a trade hang off. */
+function settlerEntity(id: number, jobType: number, components: Record<string, unknown> = {}) {
+  return {
+    id,
+    components: {
+      Settler: { jobType, tribe: PRIMARY_TRIBE },
+      Person: { person: true },
+      NameIdentity: { pool: 'viking-male', name: 'Erik' },
+      Owner: { player: HUMAN_PLAYER },
+      ...components,
+    },
+  };
+}
+
+describe('settler hover card model', () => {
+  it('names the settler and the trade it works', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([settlerEntity(1, JOB_JOINER)]);
+
+    const model = settlerHoverModel(snapshot, 1, ctx);
+
+    expect(model?.title).toBe('Erik');
+    expect(model?.profession).toBe('Cieśla');
+    expect(model?.owner).toBeNull();
+  });
+
+  it("adds another seat's owner, by its authored name", () => {
+    const ctx = {
+      ...hoverCtx(),
+      seatNameOf: (player: number) => (player === OTHER_PLAYER ? 'Wikingowie' : undefined),
+    };
+    const snapshot = snapshotOf([settlerEntity(5, JOB_JOINER, { Owner: { player: OTHER_PLAYER } })]);
+
+    const model = settlerHoverModel(snapshot, 5, ctx);
+
+    expect(model?.owner).toEqual({
+      player: OTHER_PLAYER,
+      name: 'Wikingowie',
+      stance: 'enemy',
+      colour: playerSwatchHex(OTHER_PLAYER),
+    });
+  });
+
+  it("names the goods the own worker is set to make, or everything, and nothing for another seat's", () => {
+    const ctx = hoverCtx();
+    const stopped = [GOOD_WOOD, GOOD_STONE, GOOD_MUD, GOOD_GOLD, GOOD_MUSHROOM].map((good) => [good, 0]);
+    const narrowed = {
+      WorkFlag: { flag: 9, radius: 24 },
+      ProductionCounters: { counters: stopped, cursor: 0 },
+    };
+    const snapshot = snapshotOf([
+      settlerEntity(6, JOB_COLLECTOR, narrowed),
+      settlerEntity(7, JOB_COLLECTOR, { WorkFlag: { flag: 9, radius: 24 } }),
+      settlerEntity(8, JOB_COLLECTOR, { ...narrowed, Owner: { player: OTHER_PLAYER } }),
+    ]);
+
+    expect(settlerHoverModel(snapshot, 6, ctx)?.products).toBe('Żelazo');
+    expect(settlerHoverModel(snapshot, 7, ctx)?.products).toBe('wszystko');
+    expect(settlerHoverModel(snapshot, 8, ctx)?.products).toBeNull();
+  });
+
+  it('calls a growing child by its life stage, which is the only trade it has', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([settlerEntity(2, JOB_CHILD_MALE, { Age: { ticks: 0 } })]);
+
+    expect(settlerHoverModel(snapshot, 2, ctx)?.profession).toBe('Chłopiec');
+  });
+
+  it('has nothing to say about an animal or a building, which draw as settlers or hold no name', () => {
+    const ctx = hoverCtx();
+    const snapshot = snapshotOf([
+      { id: 3, components: { Settler: { jobType: 0, tribe: PRIMARY_TRIBE } } },
+      buildingEntity(4, BUILDING_WATCHTOWER),
+    ]);
+
+    expect(settlerHoverModel(snapshot, 3, ctx)).toBeNull();
+    expect(settlerHoverModel(snapshot, 4, ctx)).toBeNull();
+    expect(settlerHoverModel(snapshot, 99, ctx)).toBeNull();
+  });
+});
+
+describe('palisade hover card model', () => {
+  /** A finished wall or gate of `owner` at `hitpoints` of `max`. */
+  function wall(
+    id: number,
+    owner: number,
+    hitpoints: number,
+    max: number,
+    extra: Readonly<Record<string, unknown>> = {},
+  ) {
+    return {
+      id,
+      components: {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: ONE, gate: null },
+        Health: { hitpoints, max },
+        Owner: { player: owner },
+        ...extra,
+      },
+    };
+  }
+
+  it("shows another seat's gate with its owner and health, as a building card without a store", () => {
+    const snapshot = snapshotOf([
+      wall(1, OTHER_PLAYER, 250, 500, {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: ONE, gate: { open: false } },
+      }),
+    ]);
+
+    const model = palisadeHoverModel(snapshot, 1, hoverCtx());
+
+    expect(model?.title).toBe('Brama palisady');
+    expect(model?.owner?.player).toBe(OTHER_PLAYER);
+    expect(model?.health).toEqual({ label: 'Zdrowie', pct: 50, hover: '250/500' });
+    expect(model?.rows).toEqual([]);
+  });
+
+  it("opens no card over the viewer's own wall, and every card for the whole map", () => {
+    const snapshot = snapshotOf([wall(1, HUMAN_PLAYER, 150, 150)]);
+
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx())).toBeNull();
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx(overseerViewerSeat(HUMAN_PLAYER)))?.title).toBe(
+      'Palisada',
+    );
+  });
+
+  it("reads another seat's wall site as being raised", () => {
+    const snapshot = snapshotOf([
+      wall(1, OTHER_PLAYER, 1, 150, {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: 0, gate: null },
+        UnderConstruction: { labor: 0 },
+      }),
+    ]);
+
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx())?.state).toEqual({ kind: 'construction', pct: 0 });
+  });
+});

@@ -15,7 +15,7 @@ import {
 } from '../../../campaign/progress.js';
 import { movieSubtitles } from '../../../campaign/subtitles.js';
 import { createHudPlane } from '../../../hud/dom/root.js';
-import { createSystemConfirm, type SystemConfirmCopy } from '../../../hud/dom/system-confirm.js';
+import { createSystemConfirm, type SystemConfirmCopy } from '../../../hud/dom/system/confirm.js';
 import { displayViewOf, uiScaleFor } from '../../../hud/ui-scale.js';
 import { currentLocale, mapTextLanguage, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';

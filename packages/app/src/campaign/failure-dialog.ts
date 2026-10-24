@@ -3,7 +3,7 @@ import {
   openSystemDialog,
   systemDialogBody,
   systemDialogButton,
-} from '../hud/dom/system-confirm.js';
+} from '../hud/dom/system/confirm.js';
 import { messages } from '../i18n/index.js';
 import type { CampaignFailureRecovery } from './runtime.js';
 

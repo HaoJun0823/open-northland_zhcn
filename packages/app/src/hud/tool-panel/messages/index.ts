@@ -15,13 +15,13 @@ import type { ViewerSeat } from '../../../game/viewer-seat.js';
 import { bcp47Tag, formatMessage, messages, professionLabel } from '../../../i18n/index.js';
 import type { BuildingThumbs } from '../../dom/building-thumb.js';
 import { diplomacyStanceText, playerLabel } from '../../dom/diplomacy-window/model.js';
-import { createNoticeArt, noticeTint } from '../../dom/notice-art.js';
+import { createNoticeArt, noticeTint } from '../../dom/notices/art.js';
 import {
   createNoticeColumn,
   type NoticeCardView,
   type NoticeMemberView,
   type NoticeStackView,
-} from '../../dom/notice-column.js';
+} from '../../dom/notices/column.js';
 import type { FigureFrames } from '../../figures/figure-frames.js';
 import type { PanelContext } from '../context.js';
 import { noticeThumb } from './cards.js';

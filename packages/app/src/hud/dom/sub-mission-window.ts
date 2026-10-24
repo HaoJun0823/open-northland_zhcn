@@ -1,7 +1,7 @@
 import type { SubMissionTransition } from '@open-northland/sim';
 import { messages } from '../../i18n/index.js';
 import { createHudPlane, HUD_DOM_Z } from './root.js';
-import { holdHudKeys, openSystemDialog, systemDialogBody, systemDialogButton } from './system-confirm.js';
+import { holdHudKeys, openSystemDialog, systemDialogBody, systemDialogButton } from './system/confirm.js';
 
 export interface SubMissionWindow {
   /** The handover failed: offer a retry, and staying on this map when the world is still there. */

@@ -4,7 +4,7 @@ import type { AssistantWindow } from '../dom/assistant-window/index.js';
 import type { ConstructionWindow } from '../dom/construction-window.js';
 import type { DiplomacyWindow } from '../dom/diplomacy-window/index.js';
 import type { MissionBook } from '../dom/mission-book/index.js';
-import type { NetworkWindow } from '../dom/network-window.js';
+import type { NetworkWindow } from '../dom/network/window.js';
 import type { ResidentsWindow } from '../dom/residents-window.js';
 import type { StatisticsWindow } from '../dom/statistics-window.js';
 import type { MenuBuildingEntry } from './building-menu.js';

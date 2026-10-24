@@ -4,7 +4,7 @@ import { formatMessage, messages, tribeName } from '../../../i18n/index.js';
 import type { ToolWindow } from '../../tool-panel/window-shell.js';
 import type { GoodIconPainter } from '../good-art.js';
 import { GLYPH } from '../icons.js';
-import { createNoticeArt } from '../notice-art.js';
+import { createNoticeArt } from '../notices/art.js';
 import { button, element, setAttribute, setClass, setHidden, setStyleVar, write } from '../parts/dom.js';
 import { createSection } from '../parts/section.js';
 import { attachTipLayer, type TipChip } from '../parts/tip-layer.js';

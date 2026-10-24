@@ -13,14 +13,11 @@ describe('job roles over the fallback catalog', () => {
   const content = sandboxContent();
 
   it('classifies every catalog job exactly as the deleted jobtypes.ini id bands did', () => {
-    expectJobRolesMatchTheOldBands(content);
-  });
-
-  it('covers the catalog soldiers and the scout/hunter trades (a vacuous pass would not)', () => {
     const roles = jobRoleIds(content);
     expect(roles.soldiers.length).toBeGreaterThan(1);
     expect(roles.scout).toBe(SCOUT_JOB);
     expect(roles.hunters.length).toBe(1);
+    expectJobRolesMatchTheOldBands(content);
   });
 
   it('classifies nothing for a job id the content does not declare', () => {

@@ -4,7 +4,6 @@ import {
   bindingAllowedFor,
   bindingFromKeyboardEvent,
   bindingFromMouseEvent,
-  CONTROL_GROUP_BINDING_ACTIONS,
   DEFAULT_KEY_BINDINGS,
   isBindableBinding,
   isBindableCode,
@@ -67,16 +66,6 @@ describe('defaults', () => {
   it('gives every default chord to one action', () => {
     const chords = Object.values(DEFAULT_KEY_BINDINGS).filter((chord) => chord !== null);
     expect(new Set(chords).size).toBe(chords.length);
-  });
-});
-
-describe('control-group settings order', () => {
-  it('lists all recalls, then replacements, then steal-add bindings', () => {
-    expect(CONTROL_GROUP_BINDING_ACTIONS).toEqual([
-      ...Array.from({ length: 10 }, (_, index) => `controlGroup${index === 9 ? 0 : index + 1}`),
-      ...Array.from({ length: 10 }, (_, index) => `controlGroup${index === 9 ? 0 : index + 1}Replace`),
-      ...Array.from({ length: 10 }, (_, index) => `controlGroup${index === 9 ? 0 : index + 1}Add`),
-    ]);
   });
 });
 

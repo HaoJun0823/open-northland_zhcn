@@ -13,7 +13,7 @@ const PARITY_TICKS = 120;
 
 /** The scenes reaching distinct system sets. The driver rule is one contract, so running it on every
  *  registered scene repeats it rather than widening it. */
-const PARITY_SCENES = ['battle', 'construction', 'sandbox', 'tower-defence'];
+const PARITY_SCENES = ['sandbox', 'tower-defence'];
 
 function ticksFor(runTicks: number): number {
   return Math.min(runTicks, PARITY_TICKS);

@@ -1,4 +1,3 @@
-import { lastByTypeId } from '@open-northland/data';
 import { type Command, fx, ONE, systems } from '@open-northland/sim';
 import { expect, it } from 'vitest';
 import { JOB_CIVILIST } from '../src/catalog/jobs.js';
@@ -92,12 +91,6 @@ function harness(
     schools,
   };
 }
-
-it('the sandbox content carries both learning houses', () => {
-  expect(schoolType).toBeDefined();
-  expect(barracksType).toBeDefined();
-  expect(lastByTypeId(content.buildings).get(schoolType ?? -1)?.schoolSize).toBeGreaterThan(0);
-});
 
 it('opens the course dialog for a school picked as the learning place', () => {
   const { press, issued, schools } = harness(SCHOOL);

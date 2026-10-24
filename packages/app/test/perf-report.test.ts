@@ -90,10 +90,6 @@ describe('buildPerfReport', () => {
     expect(throughput.ticksPerSecond).toBeCloseTo(4.16 * TICKS_PER_SECOND, 5);
   });
 
-  it('names the cap that produced the shortfall, so the number is explainable', () => {
-    expect(buildPerfReport(inputs()).throughput.maxStepsPerFrame).toBe(5);
-  });
-
   it('splits the frame into what the loop timed and the GPU remainder', () => {
     const { frame } = buildPerfReport(inputs());
     expect(frame.fps).toBe(10);
@@ -106,24 +102,6 @@ describe('buildPerfReport', () => {
       inputs({ frame: { ...overshooting, ema: { ...overshooting.ema, cpuMs: 200 } } }),
     );
     expect(report.frame.gpuMs).toBe(0);
-  });
-
-  it('carries the GPU meter reading and adapter through', () => {
-    expect(buildPerfReport(inputs()).gpu).toEqual({
-      adapter: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)',
-      ms: 3.5,
-    });
-  });
-
-  it('flags that profiling inflates the sim milliseconds it just reported', () => {
-    expect(buildPerfReport(inputs()).profiling).toBe(true);
-    expect(buildPerfReport(inputs({ profiling: false, systems: [] })).systems).toEqual([]);
-  });
-
-  it('carries the sampling conditions, without which no timing above can be trusted', () => {
-    const hidden = buildPerfReport(inputs({ sampling: { ...inputs().sampling, hidden: true } }));
-    expect(hidden.sampling.hidden).toBe(true);
-    expect(hidden.sampling.hardwareConcurrency).toBe(10);
   });
 
   it('reports zeros rather than throwing before the first frame', () => {

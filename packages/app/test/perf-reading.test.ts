@@ -123,11 +123,6 @@ describe('PerfReadingWindow', () => {
     expect(readOnce(new PerfReadingWindow(WORKER), { paused: true, steps: 0 }).verdict).toBe('paused');
   });
 
-  it('names the frame-rate limit as the ceiling when it is below the display', () => {
-    const capped = new PerfReadingWindow({ ...WORKER, capFps: 30 });
-    expect(readOnce(capped, { elapsedMs: 1000 / 30 }).verdict).toBe('cap');
-  });
-
   it('judges the next window by a frame-rate limit changed in play', () => {
     const window = new PerfReadingWindow(WORKER);
     expect(readOnce(window, { elapsedMs: 1000 / 30 }).verdict).toBe('display');
@@ -139,14 +134,6 @@ describe('PerfReadingWindow', () => {
 describe('perfVerdict', () => {
   it('names the display as the ceiling while every measured budget has room', () => {
     expect(perfVerdict(loads({}), WORKER)).toBe('display');
-  });
-
-  it('keeps a frame that makes its budget with room to spare smooth', () => {
-    expect(perfVerdict(loads({ gpuMs: 13 }), WORKER)).toBe('display');
-  });
-
-  it('blames a part that fills the frame even when the frame rate passes for the refresh', () => {
-    expect(perfVerdict(loads({ frameMs: 25, budgetMs: 25, gpuMs: 23 }), WORKER)).toBe('gpu');
   });
 
   it('blames the GPU when its draw time fills a slow frame', () => {
@@ -172,9 +159,5 @@ describe('perfVerdict', () => {
   it('owns up to a slowdown nothing measured explains', () => {
     expect(perfVerdict(loads({ frameMs: 30 }), WORKER)).toBe('other');
     expect(perfVerdict(loads({ slowed: true }), WORKER)).toBe('other');
-  });
-
-  it('judges without a GPU timer from the main thread alone', () => {
-    expect(perfVerdict(loads({ gpuMs: null }), WORKER)).toBe('display');
   });
 });

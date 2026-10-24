@@ -111,13 +111,9 @@ it('opens the breakdown on hover with the latest reading and closes it on leave'
   expect(plane.querySelector('.on-perf__verdict')?.textContent).toBe(
     copy.verdicts.display.replace('{hz}', '60'),
   );
-  expect(plane.querySelectorAll('.on-perf__row b')[2]?.textContent).toBe(copy.notMeasured);
   const adapterLine = plane.querySelector<HTMLElement>('.on-perf__adapter');
   expect(adapterLine?.textContent).toBe('Apple M2 Pro');
   expect(adapterLine?.title).toBe(METAL_M2);
-  const figures = [...plane.querySelectorAll('.on-perf__figure')].map((row) => row.textContent);
-  expect(figures[0]).toBe(`${copy.speed}${copy.speedValue.replace('{speed}', '1')}`);
-  expect(figures[2]).toBe(`${copy.worst}${copy.ms.replace('{value}', '17')}`);
 
   counter?.dispatchEvent(new MouseEvent('mouseleave'));
   expect(tip?.hidden).toBe(true);

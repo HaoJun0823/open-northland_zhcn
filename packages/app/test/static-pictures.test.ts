@@ -1,6 +1,10 @@
 import type { SpriteSheet } from '@open-northland/render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Transform the graph once, outside any test body: it pulls in `@open-northland/render`. Each test then
+// re-imports under a fresh registry, since the pictures are kept in module state.
+await import('../src/hud/dom/diplomacy-window/emblems.js');
+
 /** The scratch canvas every picture is drawn on: it counts the pictures drawn and names each by its count. */
 let drawn = 0;
 class FakeImageBitmap {}

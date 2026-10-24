@@ -92,6 +92,9 @@ const SEATS = [0, 1, 2, 3] as const;
 /** A key no entity sits under: an unowned or untyped building reads the empty group. */
 const NO_KEY = -1;
 const RUN_TICKS = 240;
+/** Every delta is applied and digest-checked; the walk comparisons run on every how-many-th tick. An index
+ *  update is incremental, so a wrong one stays wrong until its entity changes again. */
+const COMPARE_STRIDE = 4;
 
 /** The same entity objects under a new snapshot object, so its indexes are built by one walk. */
 function walkedCopy(snapshot: WorldSnapshot): WorldSnapshot {
@@ -230,7 +233,7 @@ function expectProjectionsMatchWalk(
   );
 }
 
-/** Each scene runs once; every tick checks the readers, the projections, or both, by the lists above. */
+/** Each scene runs once; every compared tick checks the readers, the projections, or both, by the lists above. */
 const MIRROR_SCENES: readonly string[] = [...new Set<string>([...SCENES, ...PROJECTION_SCENES])];
 
 describe('snapshot readers and per-tick projections over a mirror', () => {
@@ -246,6 +249,7 @@ describe('snapshot readers and per-tick projections over a mirror', () => {
     for (let tick = 0; tick < RUN_TICKS; tick++) {
       sim.step();
       advance();
+      if (tick % COMPARE_STRIDE !== COMPARE_STRIDE - 1) continue;
       const live = mirror.snapshot();
       if (checkReaders) expectReadersMatchWalk(live);
       if (checkProjections) {

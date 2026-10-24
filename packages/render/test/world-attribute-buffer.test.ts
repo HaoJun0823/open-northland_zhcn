@@ -1,6 +1,6 @@
 import { Buffer, BufferUsage } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { updateByteRange, WorldAttributeBuffer } from '../src/gpu/world-attribute-buffer.js';
+import { updateByteRange, WorldAttributeBuffer } from '../src/gpu/world-batch/attribute-buffer.js';
 
 /** WebGL keeps one pending upload range per buffer: a second partial update must widen it, not drop it. */
 describe('updateByteRange', () => {

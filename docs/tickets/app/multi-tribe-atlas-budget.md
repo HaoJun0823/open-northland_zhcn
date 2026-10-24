@@ -47,7 +47,7 @@ tribe-5 building at all and still upload `ls_wonders3` - 151 MB that nothing dra
 WebP or, where alpha is graded, PNG. The generated tree holds 388 sheets, 125 MB on disk: 172
 full-colour sheets (827 MB as RGBA8), 91 `.indexed` character and vehicle sheets (680 MB) that the
 world batch reads through the palette LUT, and 125 grey+alpha index-coverage PNGs shared by 300
-recoloured stems. `loadAtlasSource` (`packages/render/src/gpu/pixi-app.ts`) loads the first two kinds
+recoloured stems. `loadAtlasSource` (`packages/render/src/gpu/pixi-app/pixi-app.ts`) loads the first two kinds
 through Pixi `Assets` into an RGBA8 `ImageSource`. A recolour is coloured in a worker
 (`packages/app/src/content/atlas-sheet/`) into its own RGBA8 `ImageBitmap`, so the shared sheet saves
 download, not memory: all 300 recolours would take 2491 MB.

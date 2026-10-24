@@ -1,8 +1,8 @@
 import { Rectangle, Texture } from 'pixi.js';
-import { readable2dContext } from '../drawable-resource.js';
-import { isMagnifiedTexture, markMagnifiedTexture, markPixelArtSource } from '../pixel-art-registry.js';
+import { isMagnifiedTexture, markMagnifiedTexture, markPixelArtSource } from '../pixel-art/registry.js';
 import { invalidateAlphaMask } from '../sprite-pool/alpha-mask.js';
-import { WrittenPageSource } from '../written-page-source.js';
+import { readable2dContext } from '../textures/drawable-resource.js';
+import { WrittenPageSource } from '../textures/written-page-source.js';
 
 const SIDE = 1024;
 const CELL = 32;

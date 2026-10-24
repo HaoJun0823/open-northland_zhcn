@@ -7,7 +7,7 @@ import {
   RenderGroupPipe,
 } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
-import { inheritParentGroupUniforms } from '../src/gpu/inherited-group-uniforms.js';
+import { inheritParentGroupUniforms } from '../src/gpu/pixi-app/inherited-group-uniforms.js';
 
 const WHITE_OPAQUE = 0xffffffff;
 const HALF_ALPHA_WHITE = 0x80ffffff;

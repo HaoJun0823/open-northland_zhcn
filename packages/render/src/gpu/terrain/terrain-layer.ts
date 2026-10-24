@@ -13,8 +13,6 @@ import {
 } from '../../data/terrain/index.js';
 import { type SectorSpan, sectorSpanOf, WEATHER_SECTOR_NODES } from '../../data/weather/field.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
-import { makeWaveUniforms, WAVE_TIME_PERIOD_TICKS, type WaveUniforms } from '../shading.js';
-import type { TerrainTextureSet } from '../terrain-textures.js';
 import {
   type GroundCoverUniforms,
   makeGroundCoverTexture,
@@ -32,6 +30,8 @@ import {
 } from './geometry.js';
 import { padLaneRows } from './lane-texture.js';
 import { RoadLayer } from './road-layer.js';
+import { makeWaveUniforms, WAVE_TIME_PERIOD_TICKS, type WaveUniforms } from './shading.js';
+import type { TerrainTextureSet } from './textures.js';
 import { TerrainVertexColors } from './vertex-colors.js';
 
 /**

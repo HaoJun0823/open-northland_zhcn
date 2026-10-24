@@ -19,8 +19,7 @@ import {
   ViewContainer,
   type WebGLRenderer,
 } from 'pixi.js';
-import { worldShadowStyle } from '../pixel-art-registry.js';
-import { LUT_SLOTS } from '../world-batch-shader.js';
+import { worldShadowStyle } from '../pixel-art/registry.js';
 import {
   installWorldBatcher,
   isWorldBatched,
@@ -29,7 +28,8 @@ import {
   lutSlotOf,
   WORLD_VERTEX_SIZE,
   worldBatchGeometry,
-} from '../world-batcher.js';
+} from '../world-batch/batcher.js';
+import { LUT_SLOTS } from '../world-batch/shader.js';
 import { DrawTable, type TableQuad } from './draw-table.js';
 import { type ByteUploader, QuadStore, VERTICES_PER_QUAD } from './quad-store.js';
 

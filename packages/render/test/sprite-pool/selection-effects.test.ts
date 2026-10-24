@@ -1,12 +1,12 @@
 import { Texture, TextureSource } from 'pixi.js';
 import { expect, it, vi } from 'vitest';
 import { PalettedSprite } from '../../src/gpu/paletted-sprite/index.js';
-import { LIFT_TONE_CODE, targetFlashLight } from '../../src/gpu/selection-style.js';
+import { OutlineSprite, SelectionSprite } from '../../src/gpu/selection/sprite-effect.js';
+import { LIFT_TONE_CODE, targetFlashLight } from '../../src/gpu/selection/style.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import { SelectionEffects } from '../../src/gpu/sprite-pool/selection-effects.js';
-import { OutlineSprite, SelectionSprite } from '../../src/gpu/sprite-selection-effect.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
-import { SELECTION_TONE_BAND } from '../../src/gpu/world-batch-shader.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
+import { SELECTION_TONE_BAND } from '../../src/gpu/world-batch/shader.js';
 import { syntheticHumanLut } from '../support/human-palettes.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 

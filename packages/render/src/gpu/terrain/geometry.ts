@@ -2,8 +2,8 @@ import { type BufferImageSource, Container } from 'pixi.js';
 import { halfCellToScreen, TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import type { SceneTerrain } from '../../data/scene/index.js';
 import { type ElevationField, type NodeXY, nodeLift, type WaterField } from '../../data/terrain/index.js';
-import type { TerrainCoverBinding, WaveUniforms } from '../shading.js';
 import type { TerrainChild } from './chunk-batcher.js';
+import type { TerrainCoverBinding, WaveUniforms } from './shading.js';
 
 /**
  * Terrain is meshed in square blocks of this many tiles a side, and only blocks whose world-space box

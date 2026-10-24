@@ -1,7 +1,7 @@
 import type { HumanPalettes, RandomPaletteRecipe } from '@open-northland/data';
 import { emptyHumanPalettes } from '@open-northland/data';
 import { HumanPaletteBook } from '../../src/data/palettes/human-palettes.js';
-import { HumanPaletteLut } from '../../src/gpu/human-palette-lut.js';
+import { HumanPaletteLut } from '../../src/gpu/textures/human-palette-lut.js';
 
 /** The base every synthetic look falls back to: palette index `i` is the grey `(i, i, i)`. */
 export const TEST_BASE = 'test_base';

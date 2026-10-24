@@ -3,10 +3,10 @@ import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { type Camera, ONE, tileToScreen, type Viewport } from '../../src/data/projection/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
+import { SelectionGraphics } from '../../src/gpu/selection/sprite-effect.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
 import { SNAP_DISTANCE } from '../../src/gpu/sprite-pool/motion.js';
-import { SelectionGraphics } from '../../src/gpu/sprite-selection-effect.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 
 /**

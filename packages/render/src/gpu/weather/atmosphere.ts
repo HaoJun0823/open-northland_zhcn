@@ -8,7 +8,7 @@ import {
   UniformGroup,
 } from 'pixi.js';
 import type { PrecipitationTravel } from '../../data/weather/precipitation.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 import type { AtmosphereLook } from './atmosphere-look.js';
 import { ATMOSPHERE_NOISE_PERIOD, bakeAtmosphereNoise } from './atmosphere-noise.js';
 import { WEATHER_REACH_GLSL, type WeatherReach } from './weather-reach.js';

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawItem } from '../../src/data/scene/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { ONE, type SpriteAtlas, type SpriteSheet, type Viewport } from '../../src/index.js';
 import { entity } from '../support/fixtures.js';
 

@@ -1,6 +1,6 @@
 import { Container, type Renderer } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
-import { createReusableBaker, oversampleFor } from '../src/gpu/supersample.js';
+import { createReusableBaker, oversampleFor } from '../src/gpu/pixi-app/supersample.js';
 
 /**
  * The bake targets double the device coverage so the linear downscale ratio stays in (1, 2]: a ratio near

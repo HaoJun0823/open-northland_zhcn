@@ -11,9 +11,9 @@ import {
 } from '../src/data/effects/index.js';
 import type { Viewport } from '../src/data/projection/index.js';
 import type { ElevationField } from '../src/data/terrain/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { CollapseLayer } from '../src/gpu/overlays/collapse-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { CollapseLayer } from '../src/gpu/demolition/collapse-layer.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas, SpriteSheet } from '../src/index.js';
 
 const FLAT: ElevationField = { maxLift: 0, liftAt: () => 0, liftAtNode: () => 0 };

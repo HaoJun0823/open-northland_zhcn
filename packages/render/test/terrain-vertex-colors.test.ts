@@ -2,7 +2,7 @@ import { Mesh, Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { halfCellToScreen } from '../src/data/projection/index.js';
 import { TerrainLayer } from '../src/gpu/terrain/index.js';
-import type { TerrainTextureSet } from '../src/gpu/terrain-textures.js';
+import type { TerrainTextureSet } from '../src/gpu/terrain/textures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 useHeadlessShaderContext();

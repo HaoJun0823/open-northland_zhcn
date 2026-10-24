@@ -3,8 +3,8 @@
 // at the first draw, not at link. `scripts/test-shaders.mjs` drives it one program per call, so a
 // program that hangs the compiler is named by the caller instead of lost inside one long evaluation.
 import { GlProgram } from 'pixi.js';
-import { glProgramFor } from '../../packages/render/src/gpu/program-source.js';
-import { shaderCatalog } from '../../packages/render/src/gpu/shader-catalog.js';
+import { shaderCatalog } from '../../packages/render/src/gpu/shaders/catalog.js';
+import { glProgramFor } from '../../packages/render/src/gpu/shaders/program-source.js';
 
 export interface ProbeDevice {
   readonly renderer: string;

@@ -10,7 +10,7 @@ import {
   WRECK_LIFETIME_TICKS,
 } from '../src/data/effects/index.js';
 import { CombatEffectsLayer } from '../src/gpu/overlays/effects-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import { cameraViewport, makeElevationField } from '../src/index.js';
 import { snapshotOf } from './support/fixtures.js';
 

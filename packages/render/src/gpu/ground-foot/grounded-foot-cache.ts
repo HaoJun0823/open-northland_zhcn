@@ -1,6 +1,6 @@
 import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import { isDrawableResource, readable2dContext } from '../drawable-resource.js';
+import { isDrawableResource, readable2dContext } from '../textures/drawable-resource.js';
 import { analyseFoot, type FootAnalysis } from './foot-analysis.js';
 import { bakeFootCover, bakeGroundShade, type FootBake } from './foot-bakes.js';
 import { type FootGround, footGround, type GroundColours } from './foot-ground.js';

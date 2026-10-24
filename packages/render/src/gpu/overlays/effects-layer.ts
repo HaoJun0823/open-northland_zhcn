@@ -19,9 +19,9 @@ import {
 import { anchorTileBox } from '../../data/scene/entity-source.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { type ElevationField, terrainLiftAtNode } from '../../data/terrain/index.js';
-import { BloodSurfaceSprite } from '../blood-surface.js';
-import type { TextureCache } from '../texture-cache.js';
-import { worldBatched } from '../world-batcher.js';
+import { BloodSurfaceSprite } from '../blood/surface-sprite.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { worldBatched } from '../world-batch/batcher.js';
 import { retainOffscreen, retireUndrawn } from './retained-pool.js';
 
 /**

@@ -2,20 +2,27 @@ import { Container, type Graphics, Point, type Sprite, TextureSource } from 'pix
 import { describe, expect, it } from 'vitest';
 import { SIGN_DEPTH_EPS, screenDepth } from '../src/data/scene/index.js';
 import { type AtlasFrame, FLAG_WAVE_TICKS_PER_FRAME, type WaveLoop } from '../src/data/sprites/index.js';
-import { BadgeLayer } from '../src/gpu/overlays/badge-layer.js';
-import { type ConstructionSign, ConstructionSignLayer } from '../src/gpu/overlays/construction-sign-layer.js';
-import { badgeAnchor, type DoorBadge, FlagErasures } from '../src/gpu/overlays/door-badge.js';
-import { GARRISON_STAR_MAX, garrisonFlagLoop, hitsGarrisonFlag } from '../src/gpu/overlays/garrison-flag.js';
+import { BadgeLayer } from '../src/gpu/overlays/building-signs/badge-layer.js';
+import {
+  type ConstructionSign,
+  ConstructionSignLayer,
+} from '../src/gpu/overlays/building-signs/construction-sign-layer.js';
+import { badgeAnchor, type DoorBadge, FlagErasures } from '../src/gpu/overlays/building-signs/door-badge.js';
+import {
+  GARRISON_STAR_MAX,
+  garrisonFlagLoop,
+  hitsGarrisonFlag,
+} from '../src/gpu/overlays/building-signs/garrison-flag.js';
 import {
   type BuildingSignSheet,
   CONSTRUCTION_SIGN_DX,
   type DoorBadgeRow,
   SIGN_BASE_BELOW,
   signRowAt,
-} from '../src/gpu/overlays/sign-gfx.js';
-import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art-registry.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
-import { isWorldBatched } from '../src/gpu/world-batcher.js';
+} from '../src/gpu/overlays/building-signs/sign-gfx.js';
+import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art/registry.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
+import { isWorldBatched } from '../src/gpu/world-batch/batcher.js';
 import { makeElevationField, ONE, tileToScreen } from '../src/index.js';
 
 const workers = (craftsmen: number, carriers: number, gatherers = 0): DoorBadgeRow[] => [

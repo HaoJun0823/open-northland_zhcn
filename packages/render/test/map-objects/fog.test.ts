@@ -3,7 +3,7 @@ import { Container, type Geometry, Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { FOG_GHOST_TINT } from '../../src/data/fog/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { decorUVs, FRAME_0, FRAME_1, type TallSprite, tallSprites, WIDE } from './support.js';
 
 /** A two-frame tall object anchored at the origin, cell (0, 0). */

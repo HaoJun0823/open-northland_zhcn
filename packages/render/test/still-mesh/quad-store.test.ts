@@ -1,7 +1,7 @@
 import type { Buffer } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-mesh/quad-store.js';
-import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../../src/gpu/world-batcher.js';
+import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../../src/gpu/world-batch/batcher.js';
 
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 /** The store's block of slots of one temperature. */

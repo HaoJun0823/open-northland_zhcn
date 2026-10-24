@@ -1,7 +1,7 @@
 import type { CartRecipe } from '../../data/palettes/human-palettes.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import type { CartDriveAnim } from '../../data/sprites/index.js';
-import type { SettlerCharacter, SpriteSheet } from '../sprite-sheet.js';
+import type { SettlerCharacter, SpriteSheet } from '../textures/sprite-sheet.js';
 import { humanCharacter, pushComposedCharacterLayers } from './character-layers.js';
 import type { LayerBuffer } from './resolved-layer.js';
 

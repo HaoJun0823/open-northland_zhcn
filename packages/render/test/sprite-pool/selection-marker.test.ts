@@ -2,7 +2,7 @@ import { Texture } from 'pixi.js';
 import { expect, it } from 'vitest';
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 
 it('transforms ground geometry with the sprite offset and source scale, then clears it on fallback', () => {
   const binder = new LayerBinder(new TextureCache(), undefined);

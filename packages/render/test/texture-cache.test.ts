@@ -1,9 +1,9 @@
 import { Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AtlasFrame, BuildTimeSheet } from '../src/data/sprites/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art-registry.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art/registry.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 
 const SOURCE = new TextureSource({ width: 64, height: 64 });
 const FRAME: AtlasFrame = { x: 10, y: 20, width: 30, height: 40, offsetX: 0, offsetY: 0 };

@@ -1,8 +1,8 @@
 import { Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { type ClothIndexRanges, sailWind } from '../src/gpu/cloth-wind.js';
 import { resolveLayers } from '../src/gpu/sprite-pool/resolve-layers.js';
-import type { SpriteSheet } from '../src/gpu/sprite-sheet.js';
+import { type ClothIndexRanges, sailWind } from '../src/gpu/sway/cloth-wind.js';
+import type { SpriteSheet } from '../src/gpu/textures/sprite-sheet.js';
 
 const SAIL: ClothIndexRanges = [104, 111, 128, 159];
 const TAU = Math.PI * 2;

@@ -2,9 +2,9 @@ import { type Application, Container, type Rectangle } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import type { Camera, Viewport } from '../src/data/projection/index.js';
 import type { ElevationField } from '../src/data/terrain/index.js';
-import { type PortraitInsetFrame, PortraitInsetLayer } from '../src/gpu/overlays/portrait-inset.js';
 import { SpritePool } from '../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
+import { type PortraitInsetFrame, PortraitInsetLayer } from '../src/gpu/world-views/portrait-inset.js';
 import { entity, snapshotOf } from './support/fixtures.js';
 
 /**

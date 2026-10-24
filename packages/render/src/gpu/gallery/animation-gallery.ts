@@ -1,10 +1,10 @@
 import { type Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import { type Camera, cameraScreenX, cameraScreenY } from '../../data/projection/index.js';
 import { lookupFrame } from '../../data/sprites/index.js';
-import { HUMAN_HEAD_ROW_OFFSET } from '../human-palette-lut.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
-import type { PaletteLut, SpriteLayer } from '../sprite-sheet.js';
-import { TextureCache } from '../texture-cache.js';
+import { HUMAN_HEAD_ROW_OFFSET } from '../textures/human-palette-lut.js';
+import type { PaletteLut, SpriteLayer } from '../textures/sprite-sheet.js';
+import { TextureCache } from '../textures/texture-cache.js';
 import {
   CELL_H,
   CELL_W,

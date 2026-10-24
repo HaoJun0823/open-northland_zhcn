@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { OVERHEAD_STEP } from '../src/data/scene/overhead-column.js';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
 import { NO_WATER } from '../src/data/terrain/index.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import { WorldMarks, type WorldMarksFrame } from '../src/gpu/world-renderer/world-marks.js';
 import { cameraViewport, makeElevationField, ONE } from '../src/index.js';
 import { entity, snapshotOf } from './support/fixtures.js';

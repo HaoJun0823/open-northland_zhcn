@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { type Camera, tileToScreen } from '../../src/data/projection/index.js';
 import { drawPassDepth, screenDepth } from '../../src/data/scene/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
-import { PLOT_BOUNDS } from '../../src/gpu/plan-road.js';
+import { PLOT_BOUNDS } from '../../src/gpu/placement/plan-road.js';
 import { SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 
 const FLAT: ElevationField = { maxLift: 0, liftAt: () => 0, liftAtNode: () => 0 };

@@ -2,10 +2,10 @@ import { Container, type Mesh, Texture, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { setWorldShadowStyle } from '../../src/gpu/pixel-art-registry.js';
-import { DEFAULT_SHADOW_STYLE } from '../../src/gpu/shadow-style.js';
-import { SHADOW_BLUR_PADDING as PAD } from '../../src/gpu/soft-shadow-cache.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { setWorldShadowStyle } from '../../src/gpu/pixel-art/registry.js';
+import { SHADOW_BLUR_PADDING as PAD } from '../../src/gpu/textures/soft-shadow-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
+import { DEFAULT_SHADOW_STYLE } from '../../src/gpu/world-batch/shadow-style.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 import { decorPositions, drawnDecorQuad, FRAME_0, FRAME_1, WIDE } from './support.js';
 

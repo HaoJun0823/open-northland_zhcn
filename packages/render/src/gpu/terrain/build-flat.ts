@@ -7,7 +7,6 @@ import {
   triangleANodes,
   triangleBNodes,
 } from '../../data/terrain/index.js';
-import { makeTintedTerrainShader } from '../shading.js';
 import {
   emptyBatch,
   meshGeometry,
@@ -16,6 +15,7 @@ import {
   type TerrainChild,
 } from './chunk-batcher.js';
 import { buildChunks, flatTileColour, liftFn, positions, type TerrainChunk } from './geometry.js';
+import { makeTintedTerrainShader } from './shading.js';
 
 /**
  * The flat-tint placeholder ground: a single-type block is one draw call regardless of tile count. A

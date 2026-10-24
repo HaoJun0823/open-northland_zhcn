@@ -1,18 +1,18 @@
 import { type Renderer, SystemRunner, TextureSource, WebGLRenderer } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  hasPrescaledPages,
-  isCollectingDrawnPages,
-  noteDrawnPage,
-  prescaledPageOf,
-} from '../src/gpu/pixel-art-registry.js';
-import {
   PagePrescaler,
   PRESCALE_RECIPES,
   type PrescalableSources,
   type PrescaleLimits,
-} from '../src/gpu/prescale/page-prescaler.js';
-import { PRESCALE_FACTOR } from '../src/gpu/prescale/prescale-pass.js';
+} from '../src/gpu/pixel-art/page-prescaler.js';
+import { PRESCALE_FACTOR } from '../src/gpu/pixel-art/prescale-pass.js';
+import {
+  hasPrescaledPages,
+  isCollectingDrawnPages,
+  noteDrawnPage,
+  prescaledPageOf,
+} from '../src/gpu/pixel-art/registry.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 const MAX_TEXTURE_SIZE = 64;

@@ -4,7 +4,7 @@ import type { DrawItem } from '../../src/data/scene/index.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import { presentEntity } from '../../src/gpu/sprite-pool/present-entity.js';
 import type { PoolFrame } from '../../src/gpu/sprite-pool/sprite-pool.js';
-import type { SpriteSheet } from '../../src/gpu/sprite-sheet.js';
+import type { SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
 import { snapshotOf } from '../support/fixtures.js';
 
 const body = {

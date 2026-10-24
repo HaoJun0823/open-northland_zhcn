@@ -6,7 +6,7 @@ import {
   type SettlerBubbleFrame,
   SettlerBubbleLayer,
 } from '../src/gpu/overlays/bubble-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import { makeElevationField, ONE, tileToScreen } from '../src/index.js';
 import { drawnGeometry } from './support/fixtures.js';
 

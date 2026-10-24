@@ -2,7 +2,7 @@ import { Container, Mesh, Texture, UniformGroup } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { WEATHER_SECTOR_NODES } from '../../src/data/weather/field.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 import { FRAME_0 } from './support.js';
 

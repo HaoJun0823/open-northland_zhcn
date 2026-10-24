@@ -6,11 +6,11 @@ import {
   manualSampling,
   type TerrainCoverBinding,
   type WaveUniforms,
-} from '../shading.js';
+} from './shading.js';
 
 export type TerrainChild = Mesh<MeshGeometry, Shader>;
 
-import { PAGE_SAMPLER_SLOTS } from '../page-samplers.js';
+import { PAGE_SAMPLER_SLOTS } from './page-samplers.js';
 import { registerTerrainNodes } from './vertex-colors.js';
 
 /**

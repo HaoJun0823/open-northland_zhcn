@@ -1,6 +1,6 @@
 import { Mesh, type MeshGeometry, type Shader, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import type { ClothWind } from '../cloth-wind.js';
+import type { ClothWind } from '../sway/cloth-wind.js';
 import {
   createPalettedGeometry,
   createPalettedShader,
@@ -151,7 +151,7 @@ export class PalettedSprite extends Mesh<MeshGeometry, Shader> {
   }
 
   /**
-   * Blow wind through the frame's cloth (`gpu/cloth-wind.ts`): the pixels whose palette index falls in
+   * Blow wind through the frame's cloth (`gpu/sway/cloth-wind.ts`): the pixels whose palette index falls in
    * `wind.ranges` ripple by `wave`. `null` draws the frame rigid.
    */
   setClothWind(wind: ClothWind | null): void {

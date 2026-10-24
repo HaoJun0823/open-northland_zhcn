@@ -6,7 +6,7 @@ import {
   SNOW_SATURATING_AMOUNT,
 } from '../../data/weather/cover.js';
 import { WEATHER_SECTOR_NODES, type WeatherField, weatherFieldTexels } from '../../data/weather/field.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 import {
   type GroundBudget,
   RIPPLE_SLOTS,

@@ -15,7 +15,7 @@ import {
   triangleRoadNodes,
 } from '../src/data/terrain/index.js';
 import { TerrainLayer } from '../src/gpu/terrain/index.js';
-import type { TerrainTextureSet } from '../src/gpu/terrain-textures.js';
+import type { TerrainTextureSet } from '../src/gpu/terrain/textures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 useHeadlessShaderContext();

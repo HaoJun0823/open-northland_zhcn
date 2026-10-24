@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { Viewport } from '../../src/data/projection/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
 import { SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import type { SpriteSheet } from '../../src/gpu/sprite-sheet.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import type { SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas } from '../../src/index.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 

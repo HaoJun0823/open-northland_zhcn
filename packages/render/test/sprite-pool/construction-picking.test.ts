@@ -6,7 +6,7 @@ import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { pixelHit, siteFlagHit } from '../../src/gpu/sprite-pool/pick.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../../src/gpu/sprite-pool/resolved-layer.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { drawItem } from '../support/fixtures.js';
 
 const FRAME: AtlasFrame = { x: 2, y: 2, width: 8, height: 8, offsetX: -4, offsetY: -8 };

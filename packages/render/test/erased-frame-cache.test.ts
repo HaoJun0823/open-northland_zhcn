@@ -2,12 +2,12 @@ import { type Sprite, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawItem } from '../src/data/scene/index.js';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { ErasedFrameCache, type ErasedRegion } from '../src/gpu/erased-frame-cache.js';
 import { LayerBinder } from '../src/gpu/sprite-pool/bind-layers.js';
 import { createPooled } from '../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../src/gpu/sprite-pool/resolved-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { ErasedFrameCache, type ErasedRegion } from '../src/gpu/textures/erased-frame-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 
 afterEach(() => vi.restoreAllMocks());
 

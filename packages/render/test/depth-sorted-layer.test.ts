@@ -1,9 +1,9 @@
 import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { drawPassDepth, rowOfDepth } from '../src/data/scene/index.js';
-import { BAND_DEPTH, DepthSortedLayer } from '../src/gpu/depth-sorted-layer.js';
-import { PLOT_BOUNDS } from '../src/gpu/plan-road.js';
-import { restoreStash, stashHidden } from '../src/gpu/visibility.js';
+import { PLOT_BOUNDS } from '../src/gpu/placement/plan-road.js';
+import { BAND_DEPTH, DepthSortedLayer } from '../src/gpu/world-renderer/depth-sorted-layer.js';
+import { restoreStash, stashHidden } from '../src/gpu/world-views/visibility.js';
 
 /** Depths this far apart always file into different bands; closer ones may share one. */
 const FAR = 10_000;

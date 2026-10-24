@@ -1,7 +1,7 @@
 import type { TextureSource } from 'pixi.js';
 import type { AtlasFrame, BuildTimeSheet } from '../../data/sprites/index.js';
-import type { ClothWind } from '../cloth-wind.js';
 import type { GroundFootPart } from '../ground-foot/index.js';
+import type { ClothWind } from '../sway/cloth-wind.js';
 
 /** One resolved atlas layer to draw: which source page, which frame rect, at what scale.
  *  `atlasW`/`atlasH` are the source sheet's pixel size, needed only by a vehicle's paletted mesh, which

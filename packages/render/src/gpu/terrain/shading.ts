@@ -1,0 +1,563 @@
+import { Shader, type TextureSource, UniformGroup } from 'pixi.js';
+import { BRIGHTNESS_NEUTRAL } from '../../data/terrain/index.js';
+import {
+  DECOR_CLIP_HIDDEN_POSITION,
+  DECOR_CLIP_VERTEX_DECLARATIONS,
+  type DecorClipBinding,
+} from '../map-objects/decor-clip.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
+import {
+  COVER_FRAGMENT_DECLARATIONS,
+  COVER_VERTEX_BODY,
+  COVER_VERTEX_DECLARATIONS,
+  DECOR_COVER_FRAGMENT_DECLARATIONS,
+  DECOR_COVER_VERTEX_BODY,
+  DECOR_COVER_VERTEX_DECLARATIONS,
+  type DecorCoverUniforms,
+  type GroundCoverUniforms,
+} from '../weather/ground-cover-shading.js';
+import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page-samplers.js';
+
+/**
+ * The custom mesh shaders for the brightness-shaded ground and decor, which Pixi's built-in mesh shader
+ * cannot serve because a per-mesh `tint` cannot vary across a chunk.
+ *
+ * The explicit `#version 300 es` matters: `GlProgram` only runs its ES-300 preprocessing when the source
+ * already carries the directive.
+ */
+
+/** GLSL for `mvp` + UV pass-through shared by both variants. Pixi's `GlMeshAdaptor` binds the renderer's
+ *  global uniforms and the mesh-pipe locals onto a custom mesh shader, so declaring them loose is enough. */
+const matrixBlock = `
+  uniform mat3 uProjectionMatrix;
+  uniform mat3 uWorldTransformMatrix;
+  uniform mat3 uTransformMatrix;
+`;
+
+/** Texels per screen pixel below which the bicubic magnification runs unblended; it fades into the
+ *  sampler's bilinear by one texel per pixel. Approximation tuned by eye. */
+const BICUBIC_FULL_FOOTPRINT = 0.5;
+/** Texels per screen pixel from which the four-tap minification runs unblended. Tuned by eye. */
+const MINIFY_FULL_FOOTPRINT = 1.5;
+/** Tap offset in screen pixels: four taps a quarter pixel out cover one pixel's footprint. */
+const MINIFY_TAP_RADIUS_PX = 0.25;
+/** Footprint in texels beyond which the taps stop spreading, since four cannot cover more. */
+const MINIFY_MAX_FOOTPRINT = 4;
+
+// Original terrain gets bicubic magnification and four-tap minification, not a full mipmap substitute.
+// Existing mipmapped materials retain their hardware filtering.
+const TERRAIN_SAMPLE = `
+  flat in vec4 vSampleBounds;
+  uniform float uEnhancedSampling;
+  uniform float uManualSampling;
+  // dx and dy are vUV's derivatives, which the caller takes before any page branch (see pageChain).
+  vec4 sampleTerrain(vec2 dx, vec2 dy) {
+    // Both gates are uniforms. Returning first keeps the baseline path to a single sampler fetch.
+    if (uEnhancedSampling < 0.5 || uManualSampling < 0.5)
+      return textureGrad(uTexture, vUV, dx, dy);
+    vec2 size = vec2(textureSize(uTexture, 0));
+    float footprint = max(length(dx * size), length(dy * size));
+    vec2 centre = (vSampleBounds.xy + vSampleBounds.zw) * 0.5;
+    vec2 low = min(vSampleBounds.xy + 0.5 / size, centre);
+    vec2 high = max(vSampleBounds.zw - 0.5 / size, centre);
+    if (footprint < 1.0) {
+      // Catmull-Rom bicubic magnification (a published reconstruction filter): sharper than the
+      // sampler's bilinear, with its ringing at hard edges clamped to the premultiplied range rather
+      // than removed. Bounded to the tile so a neighbour never bleeds in; fades into bilinear as
+      // texels reach pixel size. Along each axis the two inner texels share one linear tap placed
+      // between them by their weights, so nine taps carry the sixteen-texel sum; the clamp keeps every
+      // tap on or between texel centres inside the tile, which keeps that identity at its edges.
+      vec2 p = vUV * size - 0.5;
+      vec2 f = fract(p);
+      vec2 base = floor(p) + 0.5;
+      vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+      vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+      vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+      vec2 w3 = f * f * (-0.5 + 0.5 * f);
+      vec2 inner = w1 + w2;
+      vec2 t0 = clamp((base - 1.0) / size, low, high);
+      vec2 t1 = clamp((base + w2 / inner) / size, low, high);
+      vec2 t2 = clamp((base + 2.0) / size, low, high);
+      vec4 sum = w0.y * (w0.x * textureLod(uTexture, vec2(t0.x, t0.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t0.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t0.y), 0.0))
+               + inner.y * (w0.x * textureLod(uTexture, vec2(t0.x, t1.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t1.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t1.y), 0.0))
+               + w3.y * (w0.x * textureLod(uTexture, vec2(t0.x, t2.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t2.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t2.y), 0.0));
+      vec4 bicubic = clamp(sum, vec4(0.0), vec4(1.0));
+      bicubic.rgb = min(bicubic.rgb, vec3(bicubic.a));
+      float blend = smoothstep(${BICUBIC_FULL_FOOTPRINT.toFixed(4)}, 1.0, footprint);
+      // The bilinear tap is skipped where it carries no weight; the page has one level, so an explicit
+      // level 0 samples what the implicit one did.
+      return blend > 0.0 ? mix(bicubic, textureLod(uTexture, vUV, 0.0), blend) : bicubic;
+    }
+    // Bound the footprint at strong minification: the four taps cannot represent arbitrarily many texels.
+    float radius = ${MINIFY_TAP_RADIUS_PX.toFixed(4)} * min(1.0, ${MINIFY_MAX_FOOTPRINT.toFixed(4)} / footprint);
+    vec2 a = (dx + dy) * radius;
+    vec2 b = (dx - dy) * radius;
+    vec4 filtered = 0.25 * (
+      textureLod(uTexture, clamp(vUV + a, low, high), 0.0) +
+      textureLod(uTexture, clamp(vUV - a, low, high), 0.0) +
+      textureLod(uTexture, clamp(vUV + b, low, high), 0.0) +
+      textureLod(uTexture, clamp(vUV - b, low, high), 0.0));
+    if (footprint >= ${MINIFY_FULL_FOOTPRINT.toFixed(4)}) return filtered;
+    return mix(textureLod(uTexture, vUV, 0.0), filtered, smoothstep(1.0, ${MINIFY_FULL_FOOTPRINT.toFixed(4)}, footprint));
+  }
+`;
+
+// Water-surface animation constants, an approximation tuned by eye. Time is measured in sim ticks, so
+// the phase follows the interpolated sim clock and never wall-clock time.
+/** Peak vertical bob (world px) at full wave amplitude. */
+const WAVE_AMPLITUDE_PX = 1.75;
+/** Swell angular speed: one bob cycle every 30 ticks (~2.5 s at the 12 Hz sim). */
+const WAVE_RADIANS_PER_TICK = (2 * Math.PI) / 30;
+/** Spatial phase gradient (radians per world px along x+y) - the swell travels diagonally. */
+const WAVE_PHASE_PER_PX = (2 * Math.PI) / 150;
+/** Peak brightness modulation of the water shimmer (fraction of the lane multiplier). */
+const WAVE_SHIMMER = 0.08;
+/** The shimmer's own angular speed - off the swell's so glints don't pulse in lockstep. */
+const WAVE_SHIMMER_RADIANS_PER_TICK = (2 * Math.PI) / 21;
+/** The shimmer's spatial phase runs faster than the swell's, so its bands stay finer than the swell
+ *  carrying them and the two never lock into one pulse. Tuned by eye. */
+const WAVE_SHIMMER_PHASE_SCALE = 1.7;
+// The enhanced water's crossing waves: a second swell and a second glint travelling across the first
+// pair, an artistic approximation tuned by eye.
+/** How much steeper than the main swell's diagonal the crossing swell travels (y weight per x). */
+const CROSS_SWELL_SLANT = 1.3;
+/** Spatial phase gradient of the crossing swell, radians per world px: one swell every 251 px. */
+const CROSS_SWELL_PHASE_PER_PX = 0.025;
+const CROSS_SWELL_RADIANS_PER_TICK = (2 * Math.PI) / 42;
+/** The crossing swell's share of the displacement; the main swell keeps the rest, so the peak holds. */
+const CROSS_SWELL_SHARE = 0.32;
+const CROSS_GLINT_RADIANS_PER_TICK = (2 * Math.PI) / 35;
+/** Spatial frequency of the crossing glint relative to the crossing swell's phase. */
+const CROSS_GLINT_PHASE_SCALE = 2.1;
+/** The crossed shimmer's mix: both glints and their product, summing to one so the peak holds. */
+const CROSSED_SHIMMER_WEIGHTS = { shimmer: 0.55, crossGlint: 0.3, product: 0.15 } as const;
+/** The waves' common period (lcm of 30, 21, 42 and 35 ticks; the glint is defined to take one pass per
+ *  period): the clock wraps modulo this, so the f32 `uWave.x` never grows into `sin` precision loss
+ *  over a long session. */
+export const WAVE_TIME_PERIOD_TICKS = 210;
+
+// Water depth shading. The maps split water into the painter's shallow and deep pattern families, each
+// with its own texture (data/terrain/water.ts); the amounts deepening both, the deep family more,
+// are an approximation tuned by eye and multiply the lane brightness only. The tints and the
+// saturation grade the water texel itself, also by eye: the painted green moves toward blue.
+/** Brightness loss on shallow water. */
+const WATER_SHALLOW_DARKEN = 0.12;
+/** Brightness loss on deep water. */
+const WATER_DEEP_DARKEN = 0.18;
+/** Peak brightness gain of the glint band crossing deep water. Deep only by intent: the band reads as
+ *  sun off open water, so a map painted wholly in the shallow family shows none. */
+const WATER_GLINT = 0.25;
+/** One glint pass every {@link WAVE_TIME_PERIOD_TICKS} (17.5 s at the 12 Hz sim). */
+const WATER_GLINT_RADIANS_PER_TICK = (2 * Math.PI) / WAVE_TIME_PERIOD_TICKS;
+/** Glint phase per world px along `slant * x + y`: one band every 640 px down the screen. */
+const WATER_GLINT_PHASE_PER_PX = (2 * Math.PI) / 640;
+/** The band's travel slants off the swell's diagonal so the two never align. */
+const WATER_GLINT_SLANT = 0.6;
+/** Exponent narrowing the sine into a band about a seventh of the wavelength wide. */
+const WATER_GLINT_SHARPNESS = 6;
+/** RGB multiplier on shallow water: a mild pull from green toward blue. */
+const WATER_SHALLOW_TINT = [0.86, 1.0, 1.126] as const;
+/** RGB multiplier on deep water: a stronger pull toward blue than the shallows take. */
+const WATER_DEEP_TINT = [0.734, 0.944, 1.21] as const;
+/** Saturation gain on the water surface (1 = the painted texture's own). */
+const WATER_SATURATION = 1.1;
+/** Rec. 601 luma weights, the published grey the saturation grade pivots on. */
+const LUMA_WEIGHTS = [0.299, 0.587, 0.114] as const;
+
+const glslVec3 = (rgb: readonly [number, number, number]): string =>
+  `vec3(${rgb.map((channel) => channel.toFixed(4)).join(', ')})`;
+
+/** A GLSL block whose functions read a global `uTexture`, with that sampler taken as each function's
+ *  parameter instead. */
+function withPageParameter(glsl: string): string {
+  return glsl
+    .replace(
+      'vec4 sampleTerrain(vec2 dx, vec2 dy) {',
+      'vec4 sampleTerrain(sampler2D uTexture, vec2 dx, vec2 dy) {',
+    )
+    .replace('vec3 groundNeighbourhood() {', 'vec3 groundNeighbourhood(sampler2D uTexture) {')
+    .replace(
+      'vec2 decorSnowTaps(vec2 uv, vec2 dx, vec2 dy, out vec3 above, out float sides) {',
+      'vec2 decorSnowTaps(sampler2D uTexture, vec2 uv, vec2 dx, vec2 dy, out vec3 above, out float sides) {',
+    );
+}
+
+const FIELD_VERTEX = `#version 300 es
+  in vec2 aPosition;
+  in vec4 aSampleBounds;
+  flat out vec4 vSampleBounds;
+  in float aPage;
+  flat out float vPage;
+  in vec2 aUV;
+  in vec2 aBrightnessUV;
+  in vec3 aVertexColor;
+  in float aWave;
+  in vec2 aWater;
+
+  out vec2 vUV;
+  out vec2 vBrightnessUV;
+  out vec3 vVertexColor;
+  out float vWave;
+  out float vWavePhase;
+  out float vCrossWavePhase;
+  out vec2 vWater;
+  out float vGlintPhase;
+  uniform vec2 uWave; // x = animation time (sim ticks), y = master amplitude scale (0 = still)
+  uniform float uEnhancedWater;
+  ${COVER_VERTEX_DECLARATIONS}
+  ${matrixBlock}
+  void main(void) {
+    vSampleBounds = aSampleBounds;
+    vPage = aPage;
+    ${COVER_VERTEX_BODY}
+    float phase = (aPosition.x + aPosition.y) * ${WAVE_PHASE_PER_PX.toFixed(8)};
+    vec2 pos = aPosition;
+    // Water swell: bob the vertex by its wave amplitude (0 on land and along the coast, data/terrain/water.ts).
+    float crossPhase = (aPosition.x - aPosition.y * ${CROSS_SWELL_SLANT.toFixed(4)})
+      * ${CROSS_SWELL_PHASE_PER_PX.toFixed(4)};
+    float swell = sin(uWave.x * ${WAVE_RADIANS_PER_TICK.toFixed(8)} + phase);
+    // Artistic approximation: crossing swells retain the same maximum displacement and coast mask.
+    float crossedSwell = ${(1 - CROSS_SWELL_SHARE).toFixed(4)} * swell
+      + ${CROSS_SWELL_SHARE.toFixed(4)} * sin(uWave.x * ${CROSS_SWELL_RADIANS_PER_TICK.toFixed(8)} + crossPhase);
+    pos.y -= aWave * uWave.y * ${WAVE_AMPLITUDE_PX.toFixed(4)}
+      * mix(swell, crossedSwell, uEnhancedWater);
+    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+    gl_Position = vec4((mvp * vec3(pos, 1.0)).xy, 0.0, 1.0);
+    vUV = aUV;
+    vBrightnessUV = aBrightnessUV;
+    vVertexColor = aVertexColor;
+    vWave = aWave;
+    vWavePhase = phase;
+    vCrossWavePhase = crossPhase;
+    vWater = aWater;
+    vGlintPhase = (aPosition.x * ${WATER_GLINT_SLANT.toFixed(4)} + aPosition.y) * ${WATER_GLINT_PHASE_PER_PX.toFixed(8)};
+  }
+`;
+
+// texel.r is the raw lane byte / 255 while the measured curve is byte / BRIGHTNESS_NEUTRAL, hence the
+// constant rescale. uColor is the mesh-pipe group colour (premultiplied tint·alpha).
+const FIELD_FRAGMENT = `#version 300 es
+  // The page this triangle samples, picked once per fragment below: every function reading uTexture
+  // takes it as a parameter of that name.
+  precision highp float;
+  in vec2 vUV;
+  in vec2 vBrightnessUV;
+  in vec3 vVertexColor;
+  in float vWave;
+  in float vWavePhase;
+  in float vCrossWavePhase;
+  in vec2 vWater;
+  in float vGlintPhase;
+
+${pageSamplerDeclarations()}
+  flat in float vPage;
+  uniform sampler2D uBrightnessTex;
+  uniform vec4 uColor;
+  uniform vec2 uWave;
+  uniform float uEnhancedWater;
+
+  out vec4 finalColor;
+
+  ${withPageParameter(TERRAIN_SAMPLE)}
+  ${withPageParameter(COVER_FRAGMENT_DECLARATIONS)}
+
+  // Everything that reads the fragment's page: its texel and, where snow lies, the neighbourhood the
+  // snow classifies the ground by. Only this runs inside the page chain, so the shading compiles once.
+  vec4 pageTexel(sampler2D uTexture, bool snowed, vec2 dx, vec2 dy, out vec3 near) {
+    near = snowed ? groundNeighbourhood(uTexture) : vec3(0.0);
+    return sampleTerrain(uTexture, dx, dy);
+  }
+
+  // cover is the weather cover already kept off the water; zero while the cover is off.
+  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near) {
+    float lane = texture(uBrightnessTex, vBrightnessUV).r * ${(255 / BRIGHTNESS_NEUTRAL).toFixed(8)};
+    // Water shimmer: a second travelling wave glints the shaded water surface (0 on land).
+    float shimmer = sin(uWave.x * ${WAVE_SHIMMER_RADIANS_PER_TICK.toFixed(8)}
+      + vWavePhase * ${WAVE_SHIMMER_PHASE_SCALE.toFixed(4)});
+    // Every enhanced-water term sits under its uniform, so the baseline pays for none of it and keeps
+    // the arithmetic it had before the enhancement existed. No derivative is taken inside either gate.
+    if (uEnhancedWater > 0.5) {
+      float crossGlint = sin(uWave.x * ${CROSS_GLINT_RADIANS_PER_TICK.toFixed(8)}
+        - vCrossWavePhase * ${CROSS_GLINT_PHASE_SCALE.toFixed(4)});
+      // Softer intersecting glints avoid a uniform whole-surface pulse.
+      shimmer = ${CROSSED_SHIMMER_WEIGHTS.shimmer.toFixed(4)} * shimmer
+        + ${CROSSED_SHIMMER_WEIGHTS.crossGlint.toFixed(4)} * crossGlint
+        + ${CROSSED_SHIMMER_WEIGHTS.product.toFixed(4)} * shimmer * crossGlint;
+    }
+    lane *= 1.0 + vWave * uWave.y * ${WAVE_SHIMMER.toFixed(4)} * shimmer;
+    // Water depth: shallows read darker, deep water darker still, and a narrow glint band drifts
+    // across the deep water. vWater = (water fraction, deep fraction), zero on land paint and at land
+    // nodes, so it fades out across the coast triangle. A fragment with no water takes neither the
+    // depth shading nor the colour grade, both of which are identities there.
+    if (uEnhancedWater > 0.5 && vWater.x > 0.0) {
+      float shallow = vWater.x - vWater.y;
+      float deep = vWater.y;
+      float glint = pow(max(sin(uWave.x * ${WATER_GLINT_RADIANS_PER_TICK.toFixed(8)} + vGlintPhase), 0.0),
+        ${WATER_GLINT_SHARPNESS.toFixed(1)});
+      lane *= 1.0 + (-${WATER_SHALLOW_DARKEN.toFixed(4)} * shallow
+        - ${WATER_DEEP_DARKEN.toFixed(4)} * deep + ${WATER_GLINT.toFixed(4)} * uWave.y * deep * glint);
+      // Water colour: saturate the surface and tint each depth family; the painted green moves blue.
+      float luma = dot(texel.rgb, ${glslVec3(LUMA_WEIGHTS)});
+      float saturation = mix(1.0, ${WATER_SATURATION.toFixed(4)}, vWater.x);
+      vec3 tint = mix(vec3(1.0), ${glslVec3(WATER_SHALLOW_TINT)}, shallow)
+        * mix(vec3(1.0), ${glslVec3(WATER_DEEP_TINT)}, deep);
+      texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
+    }
+    // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
+    if (uCover > 0.5 && cover.r + cover.g + cover.b > 0.0)
+      texel.rgb = weatherCover(texel.rgb, texel.a, lane, cover, near);
+    // Unclamped multiply: > 1 brightens (the lane's 128..255 half); the FB write clamps per channel.
+    return vec4(texel.rgb * lane * vVertexColor, texel.a) * uColor;
+  }
+
+  void main(void) {
+    // Weather cover keeps off the water surface; the uniform gate keeps a dry map's arithmetic as it was.
+    vec4 cover = vec4(0.0);
+    if (uCover > 0.5) {
+      cover = texture(uCoverTex, vCoverUV);
+      cover.rgb *= 1.0 - clamp(vWater.x, 0.0, 1.0);
+    }
+    vec2 uvDx = dFdx(vUV);
+    vec2 uvDy = dFdy(vUV);
+    vec4 texel;
+    vec3 near;
+${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, uvDx, uvDy, near);')}
+    finalColor = shadeGround(texel, cover, near);
+  }
+`;
+
+const VERTEX_VERTEX = `#version 300 es
+  in vec2 aPosition;
+  in vec2 aUV;
+  in float aBrightness;
+  in float aPage;
+  flat out float vPage;
+
+  out vec2 vUV;
+  out float vBrightness;
+  ${matrixBlock}
+  ${DECOR_COVER_VERTEX_DECLARATIONS}
+  ${DECOR_CLIP_VERTEX_DECLARATIONS}
+  void main(void) {
+    vec2 decorPosition = aPosition;
+    vec2 uv = aUV;
+    vec4 bounds;
+    if (aClip.y != 0.0 && !decorClipVertex(aClip, aAnchor, decorPosition, uv, bounds)) {
+      gl_Position = ${DECOR_CLIP_HIDDEN_POSITION};
+      return;
+    }
+    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+    gl_Position = vec4((mvp * vec3(decorPosition, 1.0)).xy, 0.0, 1.0);
+    vUV = uv;
+    vBrightness = aBrightness;
+    vPage = aPage;
+    ${DECOR_COVER_VERTEX_BODY}
+  }
+`;
+
+// highp: the cover noise hash needs 32-bit uint arithmetic and a 24-bit float result.
+const VERTEX_FRAGMENT = `#version 300 es
+  precision highp float;
+  precision highp int;
+  in vec2 vUV;
+  in float vBrightness;
+  flat in float vPage;
+
+${pageSamplerDeclarations()}
+  uniform vec4 uColor;
+
+  out vec4 finalColor;
+  ${withPageParameter(DECOR_COVER_FRAGMENT_DECLARATIONS)}
+
+  // Everything that reads the fragment's page, given vUV's derivatives dx and dy taken before the page
+  // chain; only this runs inside the chain, so the snow shading after it compiles once.
+  vec4 decorPage(sampler2D uTexture, vec2 dx, vec2 dy, out vec2 pageSize, out vec3 above, out float sides) {
+    pageSize = vec2(0.0);
+    above = vec3(0.0);
+    sides = 0.0;
+    // vSnow is 0 unless the cover switch is on, so a dry map keeps its single fetch.
+    if (vSnow > 0.0) pageSize = decorSnowTaps(uTexture, vUV, dx, dy, above, sides);
+    return textureGrad(uTexture, vUV, dx, dy);
+  }
+
+  void main(void) {
+    vec2 uvDx = dFdx(vUV);
+    vec2 uvDy = dFdy(vUV);
+    vec4 texel;
+    vec2 pageSize;
+    vec3 above;
+    float sides;
+${pageChain('texel = decorPage(uPage$, uvDx, uvDy, pageSize, above, sides);')}
+    // Page texels per screen px, taken after the chain; zero on a dry map.
+    vec2 footprint = fwidth(vUV * pageSize);
+    if (vSnow > 0.0) texel.rgb = decorSnow(texel.rgb, texel.a, footprint, above, sides, vBrightness);
+    finalColor = vec4(texel.rgb * vBrightness, texel.a) * uColor;
+  }
+`;
+
+/** The shaded ground mesh program; the lane multiplier is sampled per fragment. */
+export const SHADED_TERRAIN_SOURCE: GlslProgramSource = {
+  name: 'shaded-terrain',
+  vertex: FIELD_VERTEX,
+  fragment: FIELD_FRAGMENT,
+};
+/** The shaded decor quad program; one brightness per quad. */
+export const SHADED_DECOR_SOURCE: GlslProgramSource = {
+  name: 'shaded-decor',
+  vertex: VERTEX_VERTEX,
+  fragment: VERTEX_FRAGMENT,
+};
+
+/** The compiled GL programs, shared process-wide (a Shader per mesh only binds resources). */
+
+/** The map's water-animation uniform group: `uWave = [timeTicks, amplitudeScale]`, mutated in place per
+ *  frame (a `Float32Array`, because a shared program re-uploads only changed contents). One group per
+ *  map, shared by every shaded mesh, so the per-frame animation is one write instead of one per chunk. */
+export type WaveUniforms = UniformGroup & {
+  readonly uniforms: { readonly uWave: Float32Array; uEnhancedWater: number; uEnhancedSampling: number };
+};
+
+/** Make the map's shared water-animation uniform group (time 0, full amplitude). */
+export function makeWaveUniforms(): WaveUniforms {
+  return new UniformGroup({
+    uWave: { value: new Float32Array([0, 1]), type: 'vec2<f32>' },
+    uEnhancedWater: { value: 0, type: 'f32' },
+    uEnhancedSampling: { value: 0, type: 'f32' },
+  }) as WaveUniforms;
+}
+
+/**
+ * A {@link Shader} for the shaded ground mesh: the lane multiplier is sampled per fragment from
+ * `brightnessTex` (the map's `embr` bytes as an R8 texture, linear-filtered + edge-clamped), so the
+ * texture's own bilinear reproduces the original's smooth per-pixel banding instead of a per-vertex
+ * zigzag along triangle edges. WebGL-only.
+ */
+export function makeShadedTerrainShader(
+  pages: readonly TextureSource[],
+  brightnessTex: TextureSource,
+  wave: WaveUniforms,
+  cover: TerrainCoverBinding,
+): Shader {
+  const samplers = pageSamplerResources(pages);
+  const first = samplers.uPage0 as TextureSource;
+  return new Shader({
+    glProgram: glProgramFor(SHADED_TERRAIN_SOURCE),
+    resources: {
+      ...samplers,
+      uSampler: first.style,
+      uBrightnessTex: brightnessTex,
+      waveVars: wave,
+      sampling: terrainSamplingUniforms(first),
+      coverVars: cover.uniforms,
+      uCoverTex: cover.texture,
+    },
+  });
+}
+
+/** The map's weather-cover texture and switch, shared by every shaded ground mesh. */
+export interface TerrainCoverBinding {
+  readonly texture: TextureSource;
+  readonly uniforms: GroundCoverUniforms;
+}
+
+/**
+ * A {@link Shader} for a shaded decor quad batch: one constant `aBrightness` multiplier per quad, its
+ * anchor cell's value. A flat decal has no cell-space UV lattice to interpolate, so the anchor constant
+ * is the recorded approximation.
+ */
+export function makeShadedDecorShader(
+  pages: readonly TextureSource[],
+  cover: DecorCoverBinding,
+  clips: DecorClipBinding,
+): Shader {
+  const samplers = pageSamplerResources(pages);
+  return new Shader({
+    glProgram: glProgramFor(SHADED_DECOR_SOURCE),
+    resources: {
+      ...samplers,
+      uSampler: (samplers.uPage0 as TextureSource).style,
+      decorCoverVars: cover.uniforms,
+      uCoverTex: cover.texture,
+      decorClipVars: clips.uniforms,
+      uDecorFrames: clips.table.source,
+    },
+  });
+}
+
+/** The map's weather-cover texture and switch, shared by every shaded decor batch. */
+export interface DecorCoverBinding {
+  readonly texture: TextureSource;
+  readonly uniforms: DecorCoverUniforms;
+}
+
+const COLOR_VERTEX = `#version 300 es
+  in vec2 aPosition;
+  in vec4 aSampleBounds;
+  flat out vec4 vSampleBounds;
+  in vec2 aUV;
+  in vec3 aVertexColor;
+  out vec2 vUV;
+  out vec3 vVertexColor;
+  ${matrixBlock}
+  void main(void) {
+    vSampleBounds = aSampleBounds;
+    mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
+    vUV = aUV;
+    vVertexColor = aVertexColor;
+  }
+`;
+const COLOR_FRAGMENT = `#version 300 es
+  precision highp float;
+  in vec2 vUV;
+  in vec3 vVertexColor;
+  uniform sampler2D uTexture;
+  uniform vec4 uColor;
+  out vec4 finalColor;
+  ${TERRAIN_SAMPLE}
+  void main(void) {
+    vec4 texel = sampleTerrain(dFdx(vUV), dFdy(vUV));
+    finalColor = vec4(texel.rgb * vVertexColor, texel.a) * uColor;
+  }
+`;
+/** The flat-tinted ground program for a single page. */
+export const TINTED_TERRAIN_SOURCE: GlslProgramSource = {
+  name: 'tinted-terrain',
+  vertex: COLOR_VERTEX,
+  fragment: COLOR_FRAGMENT,
+};
+
+/** A mipmapped page keeps its hardware filtering, and a single texel (the flat-colour path's white
+ *  pixel) has nothing to reconstruct, so neither takes the manual filter. */
+function terrainSamplingUniforms(source: TextureSource): UniformGroup {
+  return new UniformGroup({ uManualSampling: { value: manualSampling(source) ? 1 : 0, type: 'f32' } });
+}
+
+/** Whether `source` takes the manual filter; pages one shaded mesh samples together must agree. */
+export function manualSampling(source: TextureSource): boolean {
+  return !(
+    source.autoGenerateMipmaps ||
+    source.mipLevelCount > 1 ||
+    (source.width <= 1 && source.height <= 1)
+  );
+}
+
+/** `wave` is the terrain layer's shared group. A caller passing `undefined` gets a private one that no
+ *  enhancement setting can ever reach, which suits the flat-colour placeholder and nothing else. */
+export function makeTintedTerrainShader(source: TextureSource, wave: WaveUniforms | undefined): Shader {
+  return new Shader({
+    glProgram: glProgramFor(TINTED_TERRAIN_SOURCE),
+    resources: {
+      uTexture: source,
+      uSampler: source.style,
+      waveVars: wave ?? makeWaveUniforms(),
+      sampling: terrainSamplingUniforms(source),
+    },
+  });
+}

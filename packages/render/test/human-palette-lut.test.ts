@@ -9,7 +9,7 @@ import {
   HumanPaletteLut,
   humanPaletteRowsUploader,
   TEAM_HUMANS,
-} from '../src/gpu/human-palette-lut.js';
+} from '../src/gpu/textures/human-palette-lut.js';
 import { syntheticHumanLut, TEST_BASE } from './support/human-palettes.js';
 
 /**

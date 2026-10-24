@@ -2,15 +2,15 @@ import { Sprite, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawItem } from '../src/data/scene/index.js';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
-import { sharpenBuildingInterior } from '../src/gpu/building-texture-cache.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art-registry.js';
+import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art/registry.js';
 import * as alphaMask from '../src/gpu/sprite-pool/alpha-mask.js';
 import { LayerBinder } from '../src/gpu/sprite-pool/bind-layers.js';
 import { pixelHit } from '../src/gpu/sprite-pool/pick.js';
 import { createPooled } from '../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../src/gpu/sprite-pool/resolved-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { sharpenBuildingInterior } from '../src/gpu/textures/building-texture-cache.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 
 afterEach(() => vi.restoreAllMocks());
 

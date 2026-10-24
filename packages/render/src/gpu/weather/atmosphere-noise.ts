@@ -1,5 +1,5 @@
 import { BufferImageSource, Geometry, Mesh, type Renderer, RenderTexture, Shader } from 'pixi.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 
 /**
  * The value-noise lattice behind the cloud shadows and the mist, read from a texture instead of hashed

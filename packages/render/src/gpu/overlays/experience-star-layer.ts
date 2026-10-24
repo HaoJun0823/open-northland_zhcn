@@ -2,7 +2,7 @@ import { Container, Sprite, type TextureSource } from 'pixi.js';
 import type { Viewport } from '../../data/projection/index.js';
 import { OVERHEAD_BASE_GAP, type OverheadColumn } from '../../data/scene/overhead-column.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import type { TextureCache } from '../texture-cache.js';
+import type { TextureCache } from '../textures/texture-cache.js';
 import { type MarkAnchorFrame, type MarkedEntity, markAnchor } from './entity-anchor.js';
 import { retireUndrawn } from './retained-pool.js';
 

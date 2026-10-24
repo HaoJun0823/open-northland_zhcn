@@ -3,9 +3,9 @@ import { Container, Sprite, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
 import { resolveLayers } from '../../src/gpu/sprite-pool/resolve-layers.js';
-import type { SpriteSheet } from '../../src/gpu/sprite-sheet.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
-import { castShadowShear, setVegetationShear, vegetationShear } from '../../src/gpu/vegetation-sway.js';
+import { castShadowShear, setVegetationShear, vegetationShear } from '../../src/gpu/sway/vegetation.js';
+import type { SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { WIDE } from './support.js';
 
 const frame = { x: 0, y: 0, width: 8, height: 8, offsetX: -4, offsetY: -7 };

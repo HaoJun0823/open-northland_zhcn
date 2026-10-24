@@ -7,7 +7,7 @@ import { type LightGrade, NEUTRAL_GRADE } from '../../data/lighting/types.js';
  * it, not only the ground the script could reach. A multiply quad carries the channels up to 1; the
  * channels above 1 add one quad at `OVERBRIGHT_SHARE` of their excess, about a multiply at mid-tones,
  * which cannot wash out. Screen sprites on the stage, never a `Filter` on the world layer (see
- * `post-fx.ts`).
+ * `world-renderer/post-fx.ts`).
  */
 
 /** Share of a grade channel's excess over 1 the additive quad adds. Tuned by eye. */

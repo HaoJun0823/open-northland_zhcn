@@ -2,7 +2,7 @@ import { Container, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { decorPositions, FRAME_0, FRAME_1, WIDE } from './support.js';
 
 function decorObject(x: number, frames: readonly AtlasFrame[]): MapObjectSprite {

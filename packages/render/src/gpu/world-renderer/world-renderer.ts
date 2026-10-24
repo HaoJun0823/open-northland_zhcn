@@ -18,44 +18,39 @@ import {
 } from '../../data/weather/climate.js';
 import type { WeatherField } from '../../data/weather/field.js';
 import type { WeatherConditions } from '../../data/weather/types.js';
-import { DepthSortedLayer } from '../depth-sorted-layer.js';
 import { GroundTone } from '../ground-foot/index.js';
 import { type GroundWave, GroundWaveLayer } from '../ground-waves/index.js';
 import { SceneLight } from '../lighting/scene-light.js';
 import { MapObjectLayer, type MapObjectSprite } from '../map-objects/index.js';
 import {
   type BuildingSignGfx,
-  type ConstructionPlotFrame,
-  ConstructionPlotLayer,
   type ExperienceStarGfx,
   FlagErasures,
   type GeometryDebugItem,
   HudLayer,
   type ImportMarkerGfx,
-  type MapViewFrame,
-  MapViewLayer,
-  type PlacementGhost,
-  PlacementGhostLayer,
-  type PlacementOverlayFrame,
-  PlacementOverlayLayer,
-  type PortraitInsetFrame,
-  PortraitInsetLayer,
   type SettlerBubbleGfx,
 } from '../overlays/index.js';
-import { prescaledScalerOf, setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art-registry.js';
-import { PLOT_BOUNDS } from '../plan-road.js';
-import { PagePrescaler, type PrescaleStats } from '../prescale/page-prescaler.js';
-import { DEFAULT_SELECTION_STYLE, type SelectionStyle } from '../selection-style.js';
-import { worldShaderSettings } from '../shader-warmup.js';
-import { DEFAULT_SHADOW_STYLE } from '../shadow-style.js';
+import { PagePrescaler, type PrescaleStats } from '../pixel-art/page-prescaler.js';
+import { prescaledScalerOf, setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art/registry.js';
+import { type ConstructionPlotFrame, ConstructionPlotLayer } from '../placement/construction-plot.js';
+import { type PlacementGhost, PlacementGhostLayer } from '../placement/ghost.js';
+import { type PlacementOverlayFrame, PlacementOverlayLayer } from '../placement/overlay.js';
+import { PLOT_BOUNDS } from '../placement/plan-road.js';
+import { DEFAULT_SELECTION_STYLE, type SelectionStyle } from '../selection/style.js';
+import { worldShaderSettings } from '../shaders/warmup.js';
 import { type EntityBounds, SpritePool } from '../sprite-pool/index.js';
 import { StillSpriteMesh } from '../still-mesh/still-mesh.js';
 import { TerrainLayer } from '../terrain/index.js';
-import type { TerrainTextureSet } from '../terrain-textures.js';
-import { TextureCache } from '../texture-cache.js';
+import type { TerrainTextureSet } from '../terrain/textures.js';
+import { TextureCache } from '../textures/texture-cache.js';
 import { WeatherGround } from '../weather/ground-weather.js';
 import { WeatherSky } from '../weather/weather-sky.js';
-import { bindWorldBatchPagesAndLut, installWorldBatcher, routeWorldBatches } from '../world-batcher.js';
+import { bindWorldBatchPagesAndLut, installWorldBatcher, routeWorldBatches } from '../world-batch/batcher.js';
+import { DEFAULT_SHADOW_STYLE } from '../world-batch/shadow-style.js';
+import { type MapViewFrame, MapViewLayer } from '../world-views/map-view.js';
+import { type PortraitInsetFrame, PortraitInsetLayer } from '../world-views/portrait-inset.js';
+import { DepthSortedLayer } from './depth-sorted-layer.js';
 import {
   BASELINE_ENHANCEMENTS,
   type BuildingHighlightItem,

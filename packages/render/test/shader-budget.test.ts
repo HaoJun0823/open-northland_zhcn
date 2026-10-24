@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PIXEL_ART_MAGNIFY_GLSL } from '../src/gpu/pixel-art-magnify.js';
-import { shaderCatalog } from '../src/gpu/shader-catalog.js';
+import { PIXEL_ART_MAGNIFY_GLSL } from '../src/gpu/pixel-art/magnify.js';
+import { shaderCatalog } from '../src/gpu/shaders/catalog.js';
 import { expandedSource, fragmentCost, functionDefinitions } from './support/glsl-cost.js';
 
 /**

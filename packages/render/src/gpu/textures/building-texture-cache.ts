@@ -1,0 +1,185 @@
+import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
+import type { AtlasFrame } from '../../data/sprites/index.js';
+import { isPixelArtSource, markMagnifiedTexture } from '../pixel-art/registry.js';
+import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+
+const PADDING = 2;
+const MAX_GPU_BYTES = 32 * 1024 * 1024;
+const MAX_FRAME_PIXELS = 1024 * 1024;
+
+/** Side of the opaque neighbourhood a pixel must fill before it is sharpened at all. */
+const SHARPEN_WINDOW = 5;
+const SHARPEN_WINDOW_PIXELS = SHARPEN_WINDOW * SHARPEN_WINDOW;
+/** Side of the mean the pixel is sharpened against, inside that neighbourhood. */
+const SHARPEN_MEAN_WINDOW = 3;
+const SHARPEN_MEAN_PIXELS = SHARPEN_MEAN_WINDOW * SHARPEN_MEAN_WINDOW;
+/** Share of the local contrast added back, tuned by eye. */
+const SHARPEN_STRENGTH = 0.2;
+/** Ceiling on the shift in 8-bit levels, so the filter lifts contrast without inventing an edge. */
+const MAX_SHARPEN_SHIFT = 8;
+
+/** Artistic approximation: restore a little native-size interior contrast without sharpening
+ * silhouettes. The two-pixel opaque neighbourhood excludes both alpha edges and their neighbours. */
+export function sharpenBuildingInterior(data: Uint8ClampedArray, width: number, height: number): void {
+  if (width < SHARPEN_WINDOW || height < SHARPEN_WINDOW) return;
+  const original = data.slice();
+  // RGB columns cover three rows; alpha columns count fully opaque pixels across five rows.
+  // Rolling both windows keeps work constant per pixel without allocating full-image sum tables.
+  const columns = new Uint16Array(width * 4);
+  for (let x = 0; x < width; x++) {
+    const col = x * 4;
+    for (let channel = 0; channel < 3; channel++) {
+      columns[col + channel] =
+        (original[(width + x) * 4 + channel] ?? 0) +
+        (original[(2 * width + x) * 4 + channel] ?? 0) +
+        (original[(3 * width + x) * 4 + channel] ?? 0);
+    }
+    for (let y = 0; y < SHARPEN_WINDOW; y++) {
+      if (original[(y * width + x) * 4 + 3] === 255) columns[col + 3] = (columns[col + 3] ?? 0) + 1;
+    }
+  }
+  const sums = new Uint16Array(3);
+  for (let y = 2; y < height - 2; y++) {
+    for (let channel = 0; channel < 3; channel++) {
+      sums[channel] =
+        (columns[4 + channel] ?? 0) + (columns[8 + channel] ?? 0) + (columns[12 + channel] ?? 0);
+    }
+    let opaque = 0;
+    for (let x = 0; x < SHARPEN_WINDOW; x++) opaque += columns[x * 4 + 3] ?? 0;
+    for (let x = 2; x < width - 2; x++) {
+      const i = (y * width + x) * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        const sum = sums[channel] ?? 0;
+        if (opaque === SHARPEN_WINDOW_PIXELS) {
+          const value = original[i + channel] ?? 0;
+          const shift = (value - sum / SHARPEN_MEAN_PIXELS) * SHARPEN_STRENGTH;
+          data[i + channel] = value + Math.max(-MAX_SHARPEN_SHIFT, Math.min(MAX_SHARPEN_SHIFT, shift));
+        }
+        sums[channel] = sum - (columns[(x - 1) * 4 + channel] ?? 0) + (columns[(x + 2) * 4 + channel] ?? 0);
+      }
+      opaque += (columns[(x + 3) * 4 + 3] ?? 0) - (columns[(x - 2) * 4 + 3] ?? 0);
+    }
+    if (y === height - 3) break;
+    for (let x = 0; x < width; x++) {
+      const col = x * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        columns[col + channel] =
+          (columns[col + channel] ?? 0) -
+          (original[((y - 1) * width + x) * 4 + channel] ?? 0) +
+          (original[((y + 2) * width + x) * 4 + channel] ?? 0);
+      }
+      columns[col + 3] =
+        (columns[col + 3] ?? 0) -
+        Number(original[((y - 2) * width + x) * 4 + 3] === 255) +
+        Number(original[((y + 3) * width + x) * 4 + 3] === 255);
+    }
+  }
+}
+
+function mipBytes(width: number, height: number): number {
+  let bytes = width * height * 4;
+  while (width > 1 || height > 1) {
+    width = Math.max(1, Math.floor(width / 2));
+    height = Math.max(1, Math.floor(height / 2));
+    bytes += width * height * 4;
+  }
+  return bytes;
+}
+
+/** What a building frame's bake does to its copy of the frame. */
+export interface BuildingBake {
+  /** The enhanced-sampling look: a sharpened interior, linear sampling and generated mips. Otherwise the
+   *  copy samples like its atlas page. */
+  readonly enhanced: boolean;
+  /** Reworks the frame's isolated RGBA copy, placed at `pad` px in an image `stride` wide, before the
+   *  enhancement touches it. */
+  readonly rework?: (frame: AtlasFrame, image: Uint8ClampedArray, stride: number, pad: number) => void;
+}
+
+/** Each frame is isolated before mip generation, so atlas neighbours cannot contaminate roof detail.
+ * Retained GPU pixels including mips are capped at 32 MiB per cache, plus at most 32 MiB of CPU canvas
+ * copies; a renderer holds one cache per bake it draws with, and only the ones in use fill.
+ * No eviction: even detached pooled sprites can retain a texture until they next enter the viewport. */
+export class BuildingTextureCache {
+  private readonly textures = new Map<AtlasFrame, Texture>();
+  private readonly pixelArtBakes = new WeakSet<TextureSource>();
+  private unavailable = new WeakSet<AtlasFrame>();
+  private gpuBytes = 0;
+
+  constructor(private readonly bake: BuildingBake = { enhanced: true }) {}
+
+  get(source: TextureSource, frame: AtlasFrame): Texture | null {
+    // Authored assets already have their own mip policy; never bake them again.
+    if (source.autoGenerateMipmaps || source.mipLevelCount > 1) return null;
+    const cached = this.textures.get(frame);
+    if (cached !== undefined) {
+      // A plain copy follows its page's sampling, which the zoom and the enhancement toggle flip; a flip
+      // bumps the texture revision, so every holder asks again.
+      if (!this.bake.enhanced) cached.source.scaleMode = source.scaleMode;
+      return cached;
+    }
+    if (this.unavailable.has(frame)) return null;
+    const width = frame.width + PADDING * 2;
+    const height = frame.height + PADDING * 2;
+    if (width * height > MAX_FRAME_PIXELS || frame.width <= 0 || frame.height <= 0) return null;
+    const bytes = this.bake.enhanced ? mipBytes(width, height) : width * height * 4;
+    if (this.gpuBytes + bytes > MAX_GPU_BYTES) return null;
+    const resource: unknown = source.resource;
+    if (!isDrawableResource(resource)) {
+      this.unavailable.add(frame);
+      return null;
+    }
+    const ctx = readable2dContext(width, height);
+    if (ctx === null) {
+      this.unavailable.add(frame);
+      return null;
+    }
+    try {
+      ctx.drawImage(
+        resource,
+        frame.x,
+        frame.y,
+        frame.width,
+        frame.height,
+        PADDING,
+        PADDING,
+        frame.width,
+        frame.height,
+      );
+      const image = ctx.getImageData(0, 0, width, height);
+      this.bake.rework?.(frame, image.data, width, PADDING);
+      if (this.bake.enhanced) sharpenBuildingInterior(image.data, width, height);
+      ctx.putImageData(image, 0, 0);
+      const baked = new CanvasSource({
+        resource: ctx.canvas,
+        scaleMode: this.bake.enhanced ? 'linear' : source.scaleMode,
+        autoGenerateMipmaps: this.bake.enhanced,
+      });
+      const texture = new Texture({
+        source: baked,
+        // Keep the drawn extent and pixel-picking coordinates identical to the original frame.
+        frame: new Rectangle(PADDING, PADDING, frame.width, frame.height),
+      });
+      markMagnifiedTexture(texture, source);
+      if (isPixelArtSource(source)) this.pixelArtBakes.add(baked);
+      this.textures.set(frame, texture);
+      this.gpuBytes += bytes;
+      return texture;
+    } catch {
+      this.unavailable.add(frame);
+      return null;
+    }
+  }
+
+  /** Whether `source` is a bake of this cache cut from a pixel-art page. */
+  isPixelArtBake(source: TextureSource): boolean {
+    return this.pixelArtBakes.has(source);
+  }
+
+  clear(): void {
+    for (const texture of this.textures.values()) texture.destroy(true);
+    this.textures.clear();
+    this.unavailable = new WeakSet();
+    this.gpuBytes = 0;
+  }
+}

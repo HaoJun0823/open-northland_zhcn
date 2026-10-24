@@ -1,5 +1,5 @@
 import type { DrawItem } from '../../data/scene/index.js';
-import type { ErasedRegion } from '../erased-frame-cache.js';
+import type { ErasedRegion } from '../textures/erased-frame-cache.js';
 import { planSiteOf } from './bind-layers.js';
 import type { MotionTrack } from './motion.js';
 import type { ResolvedLayer } from './resolved-layer.js';

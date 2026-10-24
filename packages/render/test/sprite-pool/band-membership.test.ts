@@ -2,9 +2,13 @@ import { Container, TextureSource } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Camera, Viewport } from '../../src/data/projection/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
-import { BAND_DEPTH, DepthSortedLayer, drawLayerOf } from '../../src/gpu/depth-sorted-layer.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
+import {
+  BAND_DEPTH,
+  DepthSortedLayer,
+  drawLayerOf,
+} from '../../src/gpu/world-renderer/depth-sorted-layer.js';
 import type { SpriteAtlas, SpriteSheet } from '../../src/index.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 

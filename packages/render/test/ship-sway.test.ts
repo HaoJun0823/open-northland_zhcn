@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shipSway } from '../src/gpu/ship-sway.js';
+import { shipSway } from '../src/gpu/sway/ship.js';
 
 const TICKS = 200;
 

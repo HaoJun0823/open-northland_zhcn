@@ -2,7 +2,6 @@ import type { WorldSnapshot } from '@open-northland/sim';
 import type { TextureSource } from 'pixi.js';
 import type { Camera } from '../../data/projection/index.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import type { GpuSpan } from '../gpu-frame-timer.js';
 import type {
   ConstructionSign,
   DoorBadge,
@@ -11,14 +10,15 @@ import type {
   LifeHeart,
   LostGoalMarker,
   OrderMarker,
-  RangeRing,
   SettlerBubble,
 } from '../overlays/index.js';
-import { DEFAULT_PIXEL_ART_SCALER, type PixelArtScaler } from '../pixel-art-registry.js';
-import type { PlanRoadTextures } from '../plan-road.js';
-import type { PlanStakeTextures } from '../plan-stake.js';
-import type { TargetFlash } from '../selection-style.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import { DEFAULT_PIXEL_ART_SCALER, type PixelArtScaler } from '../pixel-art/registry.js';
+import type { GpuSpan } from '../pixi-app/gpu-frame-timer.js';
+import type { PlanRoadTextures } from '../placement/plan-road.js';
+import type { PlanStakeTextures } from '../placement/plan-stake.js';
+import type { RangeRing } from '../selection/range-ring.js';
+import type { TargetFlash } from '../selection/style.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 
 /** One candidate building's workplace-assignment verdict: `ok` = the selected settler can take a slot there. */
 export interface BuildingHighlightItem {

@@ -2,7 +2,7 @@ import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { drawPassDepth } from '../../src/data/scene/index.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 
 const COVER = { minX: -50, minY: -50, maxX: 50, maxY: 50 };

@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { clamp01 } from '../../data/math.js';
-import { worldBatched } from '../world-batcher.js';
+import { worldBatched } from '../world-batch/batcher.js';
 import { noise } from './surface.js';
 
 export interface GroundContact {

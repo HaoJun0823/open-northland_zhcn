@@ -3,7 +3,7 @@ import { Container, type Sprite, type TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { ONE, tileToScreen } from '../src/data/projection/index.js';
 import { FamilyEffectsLayer } from '../src/gpu/overlays/family-effects-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import type { SpriteSheet } from '../src/index.js';
 import { drawnGeometry, entity, snapshotOf } from './support/fixtures.js';
 

@@ -1,7 +1,7 @@
 import { type Container, Sprite, Texture, type TextureSource } from 'pixi.js';
-import { isPixelArtSource } from '../pixel-art-registry.js';
-import { makeVignetteSprite } from '../post-fx.js';
-import type { TextureCache } from '../texture-cache.js';
+import { isPixelArtSource } from '../pixel-art/registry.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { makeVignetteSprite } from './post-fx.js';
 
 /** The chrome is screen-space, not world content: it neither rides the camera transform nor reads the
  *  snapshot. */

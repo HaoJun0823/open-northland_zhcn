@@ -24,7 +24,7 @@ export interface VehicleLook {
   readonly loadedMoving?: SpriteFrameRef;
   /** The catapult's shot (action 81), played over the attack cadence while the vehicle attacks. */
   readonly attack?: SpriteFrameRef;
-  /** A ship: it rides the swell at sea (`gpu/ship-sway.ts`) and lies still moored. */
+  /** A ship: it rides the swell at sea (`gpu/sway/ship.ts`) and lies still moored. */
   readonly afloat?: boolean;
   /** {@link layer} is the indexed body, drawn per owner through the sheet's vehicle colour LUT. */
   readonly indexed?: boolean;

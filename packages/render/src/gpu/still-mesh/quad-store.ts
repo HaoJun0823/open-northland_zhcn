@@ -1,5 +1,5 @@
 import { Buffer, BufferUsage } from 'pixi.js';
-import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../world-batcher.js';
+import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../world-batch/batcher.js';
 
 export const VERTICES_PER_QUAD = 4;
 /** A vertex's `aTextureIdAndRound` word: a uint16 pair of the round flag, then the texture slot. */

@@ -1,9 +1,9 @@
 import type { DrawItem } from '../../data/scene/index.js';
 import { resolveVehicleDraw } from '../../data/sprites/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import { sailWind } from '../cloth-wind.js';
-import { shipSway } from '../ship-sway.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import { sailWind } from '../sway/cloth-wind.js';
+import { shipSway } from '../sway/ship.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import { cartDriveLook, pushCartDriveLayers } from './cart-drive.js';
 import { hasLoadedFamily, pushLayeredWithShadow } from './layered-layers.js';
 import { LayerBuffer } from './resolved-layer.js';

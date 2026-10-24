@@ -16,8 +16,8 @@ import {
   setWorldShadowStyle,
   WORLD_MAGNIFY_MODES,
   worldShadowStyle,
-} from '../src/gpu/pixel-art-registry.js';
-import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
+} from '../src/gpu/pixel-art/registry.js';
+import { DEFAULT_SHADOW_STYLE } from '../src/gpu/world-batch/shadow-style.js';
 
 // The mode is module-global and the worker shares modules across files.
 afterEach(() => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
 import { objectFrameIndexAt } from '../../src/gpu/map-objects/map-object-sprite.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { decorUVs, FRAME_0, FRAME_1, tallSprites, WIDE } from './support.js';
 
 /** The third clip frame and the resting still, told apart from the clip's by their atlas `x`. */

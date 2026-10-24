@@ -14,16 +14,16 @@ Use the paused, GPU-bound [per-setting loop](../../PERFORMANCE.md#per-setting-gp
 interleaved. Improve only costs the new measurements justify, preserving default pictures and
 simulation behavior. Bound the implementation to one measured bottleneck:
 
-- **Paged shader compile time** (`packages/render/src/gpu/shading.ts`,
-  `gpu/map-objects/decor-shadow-shader.ts`, `gpu/page-samplers.ts`). Sampling still sits inside the
+- **Paged shader compile time** (`packages/render/src/gpu/terrain/shading.ts`,
+  `gpu/map-objects/decor-shadow-shader.ts`, `gpu/terrain/page-samplers.ts`). Sampling still sits inside the
   page chain, including the decor shadow's soft blur. A prior fresh Direct3D relink measured that
   shadow at about 2.7 seconds on an RTX 4090. Measure the current shader variants and inlined texture
   budget before reducing duplicated sampling or page slots.
-- **Grounded overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`, `gpu/map-objects/tall-blocks.ts`).
+- **Grounded overlays** (`gpu/ground-foot/`, `gpu/textures/texture-cache.ts`, `gpu/map-objects/tall-blocks.ts`).
   A prior `magiczny_las` dense-town capture at zoom 1 measured 2.0 Mpx of mostly transparent overlays
   and about 0.20 ms of a 2.4 ms GPU frame on Apple M2 Pro. Test tighter band quads or meshes only if
   the current overlays retain a material cost; preserve identical coverage and edges.
-- **Page-size queries** (`gpu/world-batch-shader.ts`). `textureSizeOf()` still walks the sampler chain
+- **Page-size queries** (`gpu/world-batch/shader.ts`). `textureSizeOf()` still walks the sampler chain
   per fragment. The page-size/derivative prologue, forced into the off variant, previously cost
   0.27 ms of a 1.9 ms GPU-bound frame: Apple M2 Pro, the densest `magiczny_las` town with six hard AI
   at tick 100000, 1920×1080, zoom 1. Compare passing size as vertex data against the current prescaled

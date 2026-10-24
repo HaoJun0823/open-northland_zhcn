@@ -154,9 +154,6 @@ export {
   waterCellFractions,
 } from './data/terrain/index.js';
 export { buildWeatherField, type WeatherField } from './data/weather/field.js';
-export type { ClothIndexRanges } from './gpu/cloth-wind.js';
-export { type DrawableResource, isDrawableResource, readable2dContext } from './gpu/drawable-resource.js';
-export type { AnchorRect, ErasedRegion } from './gpu/erased-frame-cache.js';
 export {
   AnimationGallery,
   clipDirs,
@@ -166,10 +163,7 @@ export {
   type GalleryDirection,
   type GalleryPalette,
 } from './gpu/gallery/index.js';
-export { gpuAdapterName } from './gpu/gpu-adapter.js';
-export { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from './gpu/gpu-frame-timer.js';
 export type { GroundWave } from './gpu/ground-waves/index.js';
-export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/human-palette-lut.js';
 export {
   type MapObjectSprite,
   mapObjectBounds,
@@ -204,18 +198,11 @@ export {
   LOST_GOAL_OUTLINE,
   type LostGoalMarker,
   lostGoalPose,
-  type MapViewFrame,
-  type MapViewTarget,
   makePlaceholderStack,
   makeSignStack,
   type OrderMarker,
   type OrderMarkerKind,
   orderMarkerPose,
-  type PlacementGhost,
-  type PlacementOverlayCell,
-  type PlacementOverlayFrame,
-  type PortraitInsetFrame,
-  type RangeRing,
   type SettlerBubble,
   type SettlerBubbleGfx,
   type SettlerBubbleKind,
@@ -236,16 +223,28 @@ export {
   PIXEL_ART_SCALERS,
   type PixelArtScaler,
   parsePixelArtScaler,
-} from './gpu/pixel-art-registry.js';
+} from './gpu/pixel-art/registry.js';
+export { gpuAdapterName } from './gpu/pixi-app/gpu-adapter.js';
+export { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from './gpu/pixi-app/gpu-frame-timer.js';
 export {
   atlasSourceFromBitmap,
   createPixiApp,
   createWindowPixiApp,
   loadAtlasSource,
   windowResolutionFor,
-} from './gpu/pixi-app.js';
-export type { PlanRoadTextures } from './gpu/plan-road.js';
-export type { PlanStakeTextures } from './gpu/plan-stake.js';
+} from './gpu/pixi-app/pixi-app.js';
+export {
+  bakeToSprite,
+  createReusableBaker,
+  oversampleFor,
+  type ReusableBaker,
+  type SupersampledTexture,
+} from './gpu/pixi-app/supersample.js';
+export type { PlacementGhost } from './gpu/placement/ghost.js';
+export type { PlacementOverlayCell, PlacementOverlayFrame } from './gpu/placement/overlay.js';
+export type { PlanRoadTextures } from './gpu/placement/plan-road.js';
+export type { PlanStakeTextures } from './gpu/placement/plan-stake.js';
+export type { RangeRing } from './gpu/selection/range-ring.js';
 export {
   DEFAULT_SELECTION_STYLE,
   parseSelectionStyle,
@@ -253,14 +252,14 @@ export {
   type SelectionStyle,
   type TargetFlash,
   type TargetFlashTone,
-} from './gpu/selection-style.js';
+} from './gpu/selection/style.js';
 export {
   type ShaderWarmup,
   startBackgroundShaderWarmup,
   startShaderWarmup,
   type WarmedProgram,
   type WarmupSettings,
-} from './gpu/shader-warmup.js';
+} from './gpu/shaders/warmup.js';
 export { humanPaletteIdentity } from './gpu/sprite-pool/human-palette-row.js';
 export {
   createPresentationTrack,
@@ -271,6 +270,20 @@ export {
   resolveLayers,
   vehiclePalette,
 } from './gpu/sprite-pool/index.js';
+export type { ClothIndexRanges } from './gpu/sway/cloth-wind.js';
+export { flatTileColour, TerrainLayer } from './gpu/terrain/index.js';
+export type {
+  GroundPattern,
+  TerrainTextureSet,
+  TransitionPattern,
+} from './gpu/terrain/textures.js';
+export {
+  type DrawableResource,
+  isDrawableResource,
+  readable2dContext,
+} from './gpu/textures/drawable-resource.js';
+export type { AnchorRect, ErasedRegion } from './gpu/textures/erased-frame-cache.js';
+export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/textures/human-palette-lut.js';
 export {
   type CartDriveBinding,
   type PaletteLut,
@@ -280,27 +293,14 @@ export {
   type SpriteSheet,
   type VehicleColourLut,
   vehicleLutRow,
-} from './gpu/sprite-sheet.js';
-export {
-  bakeToSprite,
-  createReusableBaker,
-  oversampleFor,
-  type ReusableBaker,
-  type SupersampledTexture,
-} from './gpu/supersample.js';
+} from './gpu/textures/sprite-sheet.js';
 export {
   createSyntheticAtlasSource,
   SYNTHETIC_BINDINGS,
   syntheticAtlasFrames,
-} from './gpu/synthetic-atlas.js';
-export { flatTileColour, TerrainLayer } from './gpu/terrain/index.js';
-export type {
-  GroundPattern,
-  TerrainTextureSet,
-  TransitionPattern,
-} from './gpu/terrain-textures.js';
-export { TextureCache } from './gpu/texture-cache.js';
-export { GLOW_PALETTE_INDEX } from './gpu/world-batcher.js';
+} from './gpu/textures/synthetic-atlas.js';
+export { TextureCache } from './gpu/textures/texture-cache.js';
+export { GLOW_PALETTE_INDEX } from './gpu/world-batch/batcher.js';
 export {
   type BuildingHighlightItem,
   SPRITE_CULL_MARGIN,
@@ -309,3 +309,5 @@ export {
   WorldRenderer,
   type WorldRendererOptions,
 } from './gpu/world-renderer/index.js';
+export type { MapViewFrame, MapViewTarget } from './gpu/world-views/map-view.js';
+export type { PortraitInsetFrame } from './gpu/world-views/portrait-inset.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SYNTHETIC_ATLAS_HEIGHT, SYNTHETIC_ATLAS_WIDTH } from '../src/gpu/synthetic-atlas.js';
+import { SYNTHETIC_ATLAS_HEIGHT, SYNTHETIC_ATLAS_WIDTH } from '../src/gpu/textures/synthetic-atlas.js';
 import { type DrawItem, SYNTHETIC_BINDINGS, syntheticAtlasFrames } from '../src/index.js';
 import { drawItem, resolveSpriteFrame } from './support/fixtures.js';
 

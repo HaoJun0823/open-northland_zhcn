@@ -12,7 +12,7 @@ import {
 } from '../../data/sprites/index.js';
 import { buildingLandscapeOverlays } from '../../data/sprites/layered.js';
 import type { BuildingLandscapeOverlayRef } from '../../data/sprites/layered-bindings.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import { hasLoadedFamily, layeredLayerFor, pushGroundedBody } from './layered-layers.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
 

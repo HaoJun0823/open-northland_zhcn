@@ -15,9 +15,9 @@ import {
 import { BloodHistory } from '../src/data/effects/blood-history.js';
 import { screenDepth } from '../src/data/scene/index.js';
 import { NO_WATER } from '../src/data/terrain/index.js';
-import { BloodSurfaceSprite, bloodSurface } from '../src/gpu/blood-surface.js';
-import { GROUND_QUAD_DATA_FLOATS, GROUND_QUAD_INDICES } from '../src/gpu/overlays/blood-ground.js';
-import { type BloodFrame, BloodLayer } from '../src/gpu/overlays/blood-layer.js';
+import { GROUND_QUAD_DATA_FLOATS, GROUND_QUAD_INDICES } from '../src/gpu/blood/ground.js';
+import { type BloodFrame, BloodLayer } from '../src/gpu/blood/layer.js';
+import { BloodSurfaceSprite, bloodSurface } from '../src/gpu/blood/surface-sprite.js';
 import * as alphaMasks from '../src/gpu/sprite-pool/alpha-mask.js';
 import { cameraViewport, makeElevationField, TILE_HALF_W } from '../src/index.js';
 import { snapshotOf } from './support/fixtures.js';

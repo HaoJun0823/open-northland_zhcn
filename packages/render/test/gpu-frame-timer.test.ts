@@ -1,6 +1,6 @@
 import type { Application } from 'pixi.js';
 import { expect, it } from 'vitest';
-import { createGpuFrameTimer } from '../src/gpu/gpu-frame-timer.js';
+import { createGpuFrameTimer } from '../src/gpu/pixi-app/gpu-frame-timer.js';
 
 const TIME_ELAPSED_EXT = 0x88bf;
 const GPU_DISJOINT_EXT = 0x8fbb;

@@ -82,7 +82,7 @@ copy of the program carries it. `packages/app/public/licenses/` ships with the w
 as `licenses/`: `THIRD-PARTY-NOTICES.txt` lists the ports with their notices and `GPL-3.0.txt` holds
 the GPL text, and the credits screen links the notices beside the AGPL license.
 
-- `packages/render/src/gpu/prescale/xbrz-2x.ts`, from `xbrz/shaders/xbrz-freescale.glsl`: Hyllian's
+- `packages/render/src/gpu/pixel-art/xbrz-2x.ts`, from `xbrz/shaders/xbrz-freescale.glsl`: Hyllian's
   xBR texel mapping, Copyright (C) 2011/2016 Hyllian, MIT license; the xBRZ rules, Copyright (C)
   Zenju, GNU General Public License version 3. The file stays under GPL-3.0. Section 13 of the GPL-3.0
   permits combining it with this AGPL-3.0 work: the combination is conveyed with the project's code
@@ -90,9 +90,9 @@ the GPL text, and the credits screen links the notices beside the AGPL license.
   applies to the combination as a whole. Distributing Open Northland under any other license, a later AGPL version included,
   requires removing or replacing this file. The file's linking exception names MAME only and gives
   this project nothing. Its modification notice carries a date, as GPL-3.0 section 5(a) asks.
-- `packages/render/src/gpu/prescale/super-xbr-2x.ts`, from
+- `packages/render/src/gpu/pixel-art/super-xbr-2x.ts`, from
   `xbr/shaders/super-xbr/super-xbr-pass{0,1,2}.glsl`: Copyright (c) 2015 Hyllian, MIT license.
-- `packages/render/src/gpu/prescale/mmpx-2x.ts`, from `scalenx/shaders/mmpx.glsl`: Copyright 2020
+- `packages/render/src/gpu/pixel-art/mmpx-2x.ts`, from `scalenx/shaders/mmpx.glsl`: Copyright 2020
   Morgan McGuire and Mara Gagiu, MIT license.
 
 The root and desktop `package.json` therefore declare `AGPL-3.0-or-later AND GPL-3.0-only`: the

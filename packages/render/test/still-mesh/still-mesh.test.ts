@@ -13,12 +13,12 @@ import {
   TextureSource,
 } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DepthSortedLayer } from '../../src/gpu/depth-sorted-layer.js';
-import { markPalettedTexture } from '../../src/gpu/pixel-art-registry.js';
+import { markPalettedTexture } from '../../src/gpu/pixel-art/registry.js';
 import type { DrawTable } from '../../src/gpu/still-mesh/draw-table.js';
 import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-mesh/quad-store.js';
 import { INDICES_PER_QUAD, quietRebuildAfter, StillSpriteMesh } from '../../src/gpu/still-mesh/still-mesh.js';
-import { installWorldBatcher, worldBatched } from '../../src/gpu/world-batcher.js';
+import { installWorldBatcher, worldBatched } from '../../src/gpu/world-batch/batcher.js';
+import { DepthSortedLayer } from '../../src/gpu/world-renderer/depth-sorted-layer.js';
 
 /**
  * The still mesh draws the still children of the depth-sorted layer in exactly the painter order Pixi's

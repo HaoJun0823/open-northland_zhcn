@@ -5,7 +5,7 @@ import { ONE, tileToScreen, type Viewport } from '../src/data/projection/index.j
 import type { ElevationField } from '../src/data/terrain/index.js';
 import { ShotLayer } from '../src/gpu/overlays/shot-layer.js';
 import { resolveLayers } from '../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas, SpriteSheet } from '../src/index.js';
 import { drawItem, drawnGeometry, entity, snapshotOf } from './support/fixtures.js';
 

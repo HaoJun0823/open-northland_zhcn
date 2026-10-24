@@ -1,8 +1,8 @@
 import { Sprite, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { isShadowTexture } from '../src/gpu/pixel-art-registry.js';
-import { DEFAULT_SHADOW_STYLE, setCastShadowTransform } from '../src/gpu/shadow-style.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { isShadowTexture } from '../src/gpu/pixel-art/registry.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
+import { DEFAULT_SHADOW_STYLE, setCastShadowTransform } from '../src/gpu/world-batch/shadow-style.js';
 
 const SOURCE = new TextureSource({ width: 64, height: 64 });
 

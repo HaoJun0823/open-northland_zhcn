@@ -6,7 +6,7 @@ import {
   fillPlotOutlines,
   plotIslands,
   plotOutlines,
-} from '../src/gpu/overlays/construction-plot.js';
+} from '../src/gpu/placement/construction-plot.js';
 
 /**
  * Outlines are built in the rotated `(u,v)` frame (`u = col+row`, `v = col−row`), where each cell diamond

@@ -1,6 +1,6 @@
 import type { DrawItem } from '../../data/scene/index.js';
 import { vehicleLookFor } from '../../data/sprites/index.js';
-import { type PaletteLut, type SpriteSheet, vehicleLutRow } from '../sprite-sheet.js';
+import { type PaletteLut, type SpriteSheet, vehicleLutRow } from '../textures/sprite-sheet.js';
 import { cartDriveLook } from './cart-drive.js';
 import type { HumanPaletteRow } from './human-palette-row.js';
 

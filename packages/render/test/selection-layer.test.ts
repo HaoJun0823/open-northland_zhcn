@@ -1,7 +1,7 @@
 import { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { mintRangeRing } from '../src/gpu/overlays/range-ring.js';
-import { SelectionLayer } from '../src/gpu/overlays/selection-layer.js';
+import { SelectionLayer } from '../src/gpu/selection/layer.js';
+import { mintRangeRing } from '../src/gpu/selection/range-ring.js';
 import { makeElevationField, tileToScreen } from '../src/index.js';
 import { entity, snapshotOf } from './support/fixtures.js';
 

@@ -5,14 +5,14 @@ import type { Camera, Viewport } from '../../src/data/projection/index.js';
 import type { SpriteDrawItem } from '../../src/data/scene/index.js';
 import type { SpriteKind } from '../../src/data/sprites/index.js';
 import type { ElevationField } from '../../src/data/terrain/index.js';
-import type { ErasedRegion } from '../../src/gpu/erased-frame-cache.js';
-import { DEFAULT_SHADOW_STYLE } from '../../src/gpu/shadow-style.js';
 import { type BindFrame, LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { BindStamp, FrameEpoch } from '../../src/gpu/sprite-pool/bind-stamp.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../../src/gpu/sprite-pool/resolved-layer.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import type { ErasedRegion } from '../../src/gpu/textures/erased-frame-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
+import { DEFAULT_SHADOW_STYLE } from '../../src/gpu/world-batch/shadow-style.js';
 import type { DrawItem, SpriteAtlas, SpriteSheet } from '../../src/index.js';
 import { drawItem, entity, snapshotOf } from '../support/fixtures.js';
 

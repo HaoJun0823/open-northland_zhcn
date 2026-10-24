@@ -1,4 +1,4 @@
-import { SelectionSprite } from '../sprite-selection-effect.js';
+import { SelectionSprite } from '../selection/sprite-effect.js';
 import type { PooledEntity } from './pooled-entity.js';
 
 export function coatBody(pe: PooledEntity, packed: number): void {

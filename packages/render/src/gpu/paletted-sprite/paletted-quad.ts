@@ -4,8 +4,8 @@ import {
   cameraScreenY,
   snapToDevicePixels,
 } from '../../data/projection/index.js';
-import { SelectionSprite } from '../sprite-selection-effect.js';
-import { type PalettedRow, worldBatched } from '../world-batcher.js';
+import { SelectionSprite } from '../selection/sprite-effect.js';
+import { type PalettedRow, worldBatched } from '../world-batch/batcher.js';
 
 /**
  * A character layer drawn through the human palette LUT as one quad of the world batch, so a crowd shares

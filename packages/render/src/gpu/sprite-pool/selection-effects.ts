@@ -1,17 +1,17 @@
 import { Container, Matrix, type ObservablePoint, type Texture } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
+import { OutlineSprite, SelectionGraphics } from '../selection/sprite-effect.js';
 import {
   LIFT_TONE_CODE,
   type SelectionStyle,
   selectionLight,
   type TargetFlash,
   targetFlashLight,
-} from '../selection-style.js';
-import { OutlineSprite, SelectionGraphics } from '../sprite-selection-effect.js';
-import type { TextureCache } from '../texture-cache.js';
-import { OUTLINE_DIRECTIONS, SELECTION_STAMP, SELECTION_TONE_BAND } from '../world-batch-shader.js';
-import { worldBatched } from '../world-batcher.js';
+} from '../selection/style.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { worldBatched } from '../world-batch/batcher.js';
+import { OUTLINE_DIRECTIONS, SELECTION_STAMP, SELECTION_TONE_BAND } from '../world-batch/shader.js';
 import type { PooledEntity } from './pooled-entity.js';
 
 const WHITE = LIFT_TONE_CODE.order;

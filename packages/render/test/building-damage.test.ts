@@ -8,8 +8,8 @@ import { DamageEffects } from '../src/gpu/building-damage/effects.js';
 import { DamagePaintCache } from '../src/gpu/building-damage/paint-cache.js';
 import { groundContacts } from '../src/gpu/building-damage/rubble.js';
 import { analyseSurface, damageLevel, scarSurface } from '../src/gpu/building-damage/surface.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { WrittenPageSource } from '../src/gpu/written-page-source.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { WrittenPageSource } from '../src/gpu/textures/written-page-source.js';
 
 const W = 96,
   H = 100;

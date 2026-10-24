@@ -1,53 +1,16 @@
 // Files inside this folder import their deps directly, not through this barrel.
-export { BadgeLayer } from './badge-layer.js';
-export { makePlaceholderStack, makeSignStack } from './badge-stack.js';
+
 export {
   type SettlerBubble,
   type SettlerBubbleGfx,
   type SettlerBubbleKind,
   SettlerBubbleLayer,
 } from './bubble-layer.js';
-export { CollapseLayer } from './collapse-layer.js';
-export { type ConstructionPlotFrame, ConstructionPlotLayer } from './construction-plot.js';
-export { type ConstructionSign, ConstructionSignLayer } from './construction-sign-layer.js';
-export { type BadgeAnchor, badgeAnchor, type DoorBadge, FlagErasures } from './door-badge.js';
-export { CombatEffectsLayer } from './effects-layer.js';
-export {
-  type ExperienceStar,
-  type ExperienceStarGfx,
-  ExperienceStarLayer,
-  STAR_TIERS,
-} from './experience-star-layer.js';
-export { FogLayer, type FogWashMask } from './fog-layer.js';
-export { hitsGarrisonFlag } from './garrison-flag.js';
-export { type GeometryDebugCell, type GeometryDebugItem, GeometryDebugLayer } from './geometry-debug.js';
-export { type GroupNumberFrame, GroupNumberLayer } from './group-number-layer.js';
-export { type LifeHeart, LifeHeartLayer } from './heart-layer.js';
-export { DEFAULT_HUD_STYLE, type HudFrame, HudLayer, type HudStyle } from './hud-layer.js';
-export { type ImportMarkerGfx, ImportMarkerLayer } from './import-marker-layer.js';
-export { type MapViewFrame, MapViewLayer, type MapViewTarget } from './map-view.js';
-export {
-  LOST_GOAL_COLOUR,
-  LOST_GOAL_OUTLINE,
-  type LostGoalMarker,
-  lostGoalPose,
-  type OrderMarker,
-  type OrderMarkerKind,
-  OrderMarkerLayer,
-  orderMarkerPose,
-} from './order-marker-layer.js';
-export { type PlacementGhost, PlacementGhostLayer } from './placement-ghost.js';
-export {
-  overlayBounds,
-  type PlacementOverlayCell,
-  type PlacementOverlayFrame,
-  PlacementOverlayLayer,
-} from './placement-overlay.js';
-export { type PortraitInsetFrame, PortraitInsetLayer } from './portrait-inset.js';
-export type { RangeMetric, RangeRing, RangeRingKind } from './range-ring.js';
-export { SelectionLayer } from './selection-layer.js';
-export { ShipWakeLayer } from './ship-wake-layer.js';
-export { type ShotFrame, ShotLayer } from './shot-layer.js';
+export { BadgeLayer } from './building-signs/badge-layer.js';
+export { makePlaceholderStack, makeSignStack } from './building-signs/badge-stack.js';
+export { type ConstructionSign, ConstructionSignLayer } from './building-signs/construction-sign-layer.js';
+export { type BadgeAnchor, badgeAnchor, type DoorBadge, FlagErasures } from './building-signs/door-badge.js';
+export { hitsGarrisonFlag } from './building-signs/garrison-flag.js';
 export {
   type BuildingSignGfx,
   type BuildingSignKind,
@@ -62,4 +25,29 @@ export {
   SIGN_HEIGHT,
   SIGN_STEP,
   signRowAt,
-} from './sign-gfx.js';
+} from './building-signs/sign-gfx.js';
+export { CombatEffectsLayer } from './effects-layer.js';
+export {
+  type ExperienceStar,
+  type ExperienceStarGfx,
+  ExperienceStarLayer,
+  STAR_TIERS,
+} from './experience-star-layer.js';
+export { FogLayer, type FogWashMask } from './fog-layer.js';
+export { type GeometryDebugCell, type GeometryDebugItem, GeometryDebugLayer } from './geometry-debug.js';
+export { type GroupNumberFrame, GroupNumberLayer } from './group-number-layer.js';
+export { type LifeHeart, LifeHeartLayer } from './heart-layer.js';
+export { DEFAULT_HUD_STYLE, type HudFrame, HudLayer, type HudStyle } from './hud-layer.js';
+export { type ImportMarkerGfx, ImportMarkerLayer } from './import-marker-layer.js';
+export {
+  LOST_GOAL_COLOUR,
+  LOST_GOAL_OUTLINE,
+  type LostGoalMarker,
+  lostGoalPose,
+  type OrderMarker,
+  type OrderMarkerKind,
+  OrderMarkerLayer,
+  orderMarkerPose,
+} from './order-marker-layer.js';
+export { ShipWakeLayer } from './ship-wake-layer.js';
+export { type ShotFrame, ShotLayer } from './shot-layer.js';

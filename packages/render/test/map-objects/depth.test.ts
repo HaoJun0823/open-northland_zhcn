@@ -4,7 +4,7 @@ import { depthKey } from '../../src/data/projection/index.js';
 import { drawPassDepth, screenDepth } from '../../src/data/scene/index.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { FRAME_0, tallSprites, WIDE } from './support.js';
 
 /**

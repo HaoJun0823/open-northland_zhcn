@@ -1,8 +1,12 @@
 import { Shader, type TextureSource, UniformGroup } from 'pixi.js';
-import { pageChain, pageSamplerDeclarations, pageSamplerResources } from '../page-samplers.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
-import { type ShadowStyle, shadowTintChannels } from '../shadow-style.js';
-import { SHADOW_BLUR_KERNEL, SHADOW_BLUR_KERNEL_SUM, SHADOW_BLUR_RADIUS } from '../soft-shadow-cache.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
+import { pageChain, pageSamplerDeclarations, pageSamplerResources } from '../terrain/page-samplers.js';
+import {
+  SHADOW_BLUR_KERNEL,
+  SHADOW_BLUR_KERNEL_SUM,
+  SHADOW_BLUR_RADIUS,
+} from '../textures/soft-shadow-cache.js';
+import { type ShadowStyle, shadowTintChannels } from '../world-batch/shadow-style.js';
 import {
   DECOR_CLIP_HIDDEN_POSITION,
   DECOR_CLIP_VERTEX_DECLARATIONS,

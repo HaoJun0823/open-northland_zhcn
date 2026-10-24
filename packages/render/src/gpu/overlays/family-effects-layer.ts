@@ -6,10 +6,10 @@ import { type ParticleRef, particleFrame } from '../../data/sprites/index.js';
 import { type ElevationField, terrainLiftAt } from '../../data/terrain/index.js';
 import type { DrawnGeometry } from '../sprite-pool/index.js';
 import { layeredLayerFor } from '../sprite-pool/layered-layers.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
-import type { TextureCache } from '../texture-cache.js';
-import { worldBatched } from '../world-batcher.js';
-import type { DoorBadge } from './door-badge.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { worldBatched } from '../world-batch/batcher.js';
+import type { DoorBadge } from './building-signs/door-badge.js';
 import { retireUndrawn } from './retained-pool.js';
 
 /** `give_birth` has the stork at 160 and birth at 235 in `atomicanimations.ini`.

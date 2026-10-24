@@ -5,7 +5,7 @@ import {
   WEATHER_NODES_PER_WORLD_Y,
 } from '../../data/weather/precipitation.js';
 import type { WeatherKind } from '../../data/weather/types.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 import { WEATHER_REACH_GLSL } from './weather-reach.js';
 
 /**

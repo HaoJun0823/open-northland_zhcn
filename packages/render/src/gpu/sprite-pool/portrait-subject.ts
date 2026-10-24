@@ -1,5 +1,5 @@
 import type { Container } from 'pixi.js';
-import { restoreStash, type StashedVisibility, stashHidden } from '../visibility.js';
+import { restoreStash, type StashedVisibility, stashHidden } from '../world-views/visibility.js';
 import type { PooledEntity } from './pooled-entity.js';
 
 /**

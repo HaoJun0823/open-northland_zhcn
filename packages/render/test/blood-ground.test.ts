@@ -7,8 +7,8 @@ import {
   GROUND_QUAD_INDICES,
   GROUND_QUAD_POSITION_FLOATS,
   GROUND_QUAD_VERTICES,
-} from '../src/gpu/overlays/blood-ground.js';
-import { BloodTextures } from '../src/gpu/overlays/blood-textures.js';
+} from '../src/gpu/blood/ground.js';
+import { BloodTextures } from '../src/gpu/blood/textures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 useHeadlessShaderContext();

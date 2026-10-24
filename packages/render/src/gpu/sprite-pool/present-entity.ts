@@ -1,5 +1,5 @@
 import type { DrawItem } from '../../data/scene/index.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import type { PooledEntity } from './pooled-entity.js';
 import { presentItem } from './present-item.js';
 import type { PoolFrame } from './sprite-pool.js';

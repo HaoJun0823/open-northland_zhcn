@@ -5,7 +5,7 @@ import { OVERHEAD_BASE_GAP, OVERHEAD_STEP, OverheadColumn } from '../../src/data
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { ExperienceStarLayer } from '../../src/gpu/overlays/experience-star-layer.js';
 import { ImportMarkerLayer } from '../../src/gpu/overlays/import-marker-layer.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { drawnGeometry } from '../support/fixtures.js';
 
 const SOLDIER = 1;

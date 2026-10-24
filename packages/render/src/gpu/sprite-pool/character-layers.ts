@@ -2,7 +2,12 @@ import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, pickByJob, resolveSettlerBobId } from '../../data/sprites/index.js';
 import { DEFAULT_FACING, movingFrameRef } from '../../data/sprites/settler.js';
 import type { DirectionalAnim } from '../../data/sprites/settler-bindings.js';
-import type { PaletteLut, SettlerCharacter, SettlerCharacterSet, SpriteSheet } from '../sprite-sheet.js';
+import type {
+  PaletteLut,
+  SettlerCharacter,
+  SettlerCharacterSet,
+  SpriteSheet,
+} from '../textures/sprite-sheet.js';
 import { layerScale, resolveFromLayer, shadowLayerFor } from './layered-layers.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
 

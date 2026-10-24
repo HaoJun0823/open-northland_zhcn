@@ -15,7 +15,7 @@ import {
   setPixelArtMagnification,
   setWorldShadowStyle,
   worldShadowStyle,
-} from '../src/gpu/pixel-art-registry.js';
+} from '../src/gpu/pixel-art/registry.js';
 import { BASELINE_ENHANCEMENTS, WorldRenderer } from '../src/gpu/world-renderer/index.js';
 import { mountPainterOrder, type WorldSceneLayers } from '../src/gpu/world-renderer/painter-order.js';
 import { entity, snapshotOf } from './support/fixtures.js';

@@ -6,7 +6,7 @@ import type { ElevationField } from '../../src/data/terrain/index.js';
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { damageScaffoldLayers } from '../../src/gpu/sprite-pool/building-layers.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas, SpriteSheet } from '../../src/index.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 

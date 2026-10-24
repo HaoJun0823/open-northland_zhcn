@@ -266,7 +266,7 @@ slow. The map workload boots the `?map=` entry, so its sim runs in the worker ho
 ## Shader compile check
 
 `npm run test:shaders` compiles and links every GL program of the shader catalogue
-(`packages/render/src/gpu/shader-catalog.ts`), after Pixi's preprocessing, in headless Chromium
+(`packages/render/src/gpu/shaders/catalog.ts`), after Pixi's preprocessing, in headless Chromium
 through one ANGLE backend, then draws one degenerate triangle with each program. It needs no game
 content. It exists for two costs the render contract describes
 ([shader size is a budget](../packages/render/AGENTS.md#shader-size-is-a-budget)): Direct3D pays for
@@ -284,7 +284,7 @@ path changes, or through the CI workflow's manual `shaders` checkbox.
 
 | Option | Effect |
 | --- | --- |
-| `--relink` | Links every program a second time in another context and prints that time beside the first. It measures the browser's program cache, which the game's shader warm-up (`gpu/shader-warmup.ts`) relies on to link the renderer's programs without a second compile, so CI passes it on Direct3D. |
+| `--relink` | Links every program a second time in another context and prints that time beside the first. It measures the browser's program cache, which the game's shader warm-up (`gpu/shaders/warmup.ts`) relies on to link the renderer's programs without a second compile, so CI passes it on Direct3D. |
 | `--dump-translated=<dir>` | Writes each program's source as the backend compiles it (HLSL on Direct3D, MSL on Metal) through `WEBGL_debug_shaders`, so a Windows run shows whether FXC got a sampler chain it must flatten. |
 | `--cdp=<endpoint>` | Drives a Chromium already running at that DevTools endpoint instead of launching one, such as Windows Chrome reached from WSL. Start it fresh for the run, with a new profile, `--use-gl=angle --use-angle=<backend> --disable-gpu-shader-disk-cache`: a browser that has compiled these programs before answers from its program cache and times nothing. |
 

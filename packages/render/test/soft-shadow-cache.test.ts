@@ -1,11 +1,11 @@
 import { Container, Sprite, type Texture, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
 import { MapObjectLayer, type MapObjectSprite } from '../src/gpu/map-objects/index.js';
-import { softenShadowAlpha } from '../src/gpu/soft-shadow-cache.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
-import { WrittenPageSource } from '../src/gpu/written-page-source.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { softenShadowAlpha } from '../src/gpu/textures/soft-shadow-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
+import { WrittenPageSource } from '../src/gpu/textures/written-page-source.js';
 import { WIDE } from './map-objects/support.js';
 
 /** A bake needs a drawable page and a readable 2d context; neither exists headless. */

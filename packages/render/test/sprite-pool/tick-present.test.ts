@@ -5,8 +5,8 @@ import type { DirectionalAnim } from '../../src/data/sprites/settler-bindings.js
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
 import { createPresentationTrack, presentItem } from '../../src/gpu/sprite-pool/present-item.js';
-import type { SettlerCharacter, SpriteSheet } from '../../src/gpu/sprite-sheet.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import type { SettlerCharacter, SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 
 /** A settler presented again in the same tick repeats its last resolve while nothing it reads moved. */

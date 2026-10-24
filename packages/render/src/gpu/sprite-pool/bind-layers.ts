@@ -4,17 +4,22 @@ import { clamp } from '../../data/math.js';
 import { cameraScreenX, cameraScreenY, snapToDevicePixels } from '../../data/projection/index.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, buildTimeThreshold, type SpriteKind } from '../../data/sprites/index.js';
-import { type BloodSurface, bloodSurface, detachBloodSurface, setBloodless } from '../blood-surface.js';
-import type { ErasedRegion } from '../erased-frame-cache.js';
+import {
+  type BloodSurface,
+  bloodSurface,
+  detachBloodSurface,
+  setBloodless,
+} from '../blood/surface-sprite.js';
 import { PalettedQuad, PalettedSprite } from '../paletted-sprite/index.js';
-import { mintPlanRoad, PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
-import { mintPlanStake, type PlanStakeTextures, STAKE_BOUNDS } from '../plan-stake.js';
-import { type ShadowStyle, setCastShadowTransform } from '../shadow-style.js';
-import { SelectionGraphics, SelectionSprite } from '../sprite-selection-effect.js';
-import type { PaletteLut, SpriteSheet } from '../sprite-sheet.js';
-import type { TextureCache } from '../texture-cache.js';
-import { setVegetationShear } from '../vegetation-sway.js';
-import { worldBatched } from '../world-batcher.js';
+import { mintPlanRoad, PLOT_BOUNDS, type PlanRoadTextures } from '../placement/plan-road.js';
+import { mintPlanStake, type PlanStakeTextures, STAKE_BOUNDS } from '../placement/plan-stake.js';
+import { SelectionGraphics, SelectionSprite } from '../selection/sprite-effect.js';
+import { setVegetationShear } from '../sway/vegetation.js';
+import type { ErasedRegion } from '../textures/erased-frame-cache.js';
+import type { PaletteLut, SpriteSheet } from '../textures/sprite-sheet.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { worldBatched } from '../world-batch/batcher.js';
+import { type ShadowStyle, setCastShadowTransform } from '../world-batch/shadow-style.js';
 import { cartDriveLook } from './cart-drive.js';
 import { settlerPalette } from './character-layers.js';
 import { humanLayerRow } from './human-palette-row.js';

@@ -1,6 +1,10 @@
 import type { TextureSource } from 'pixi.js';
-import { type DrawableResource, isDrawableResource, readable2dContext } from '../drawable-resource.js';
-import { isIndexedSource } from '../pixel-art-registry.js';
+import { isIndexedSource } from '../pixel-art/registry.js';
+import {
+  type DrawableResource,
+  isDrawableResource,
+  readable2dContext,
+} from '../textures/drawable-resource.js';
 
 /**
  * Per-atlas alpha masks refining the picker's AABB hit to the drawn texel. Pixel hit-testing is a

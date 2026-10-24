@@ -1,5 +1,5 @@
 import { Filter, type TextureSource, UniformGroup } from 'pixi.js';
-import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 
 /**
  * The ground-lift filter: each output pixel whose screen position the wave map covers reads the input

@@ -16,8 +16,6 @@ import {
   triangleUVs,
 } from '../../data/terrain/index.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
-import type { TerrainCoverBinding } from '../shading.js';
-import type { TerrainTextureSet } from '../terrain-textures.js';
 import { ChunkBatcher, rebindCoverTexture, type TerrainBatch } from './chunk-batcher.js';
 import {
   type LaneShading,
@@ -26,6 +24,8 @@ import {
   TERRAIN_CHUNK_TILES,
   type TerrainChunk,
 } from './geometry.js';
+import type { TerrainCoverBinding } from './shading.js';
+import type { TerrainTextureSet } from './textures.js';
 
 /** One resolved road texture: its page and the pattern's `coordsA`/`coordsB` point tuples, one per pair
  *  for a transition and a single pair for the ground pattern. */

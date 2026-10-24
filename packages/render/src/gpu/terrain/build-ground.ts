@@ -13,7 +13,6 @@ import {
   triangleBNodes,
   triangleUVs,
 } from '../../data/terrain/index.js';
-import type { GroundPattern, TerrainTextureSet } from '../terrain-textures.js';
 import { ChunkBatcher, type TerrainBatch, type TerrainLayerKind } from './chunk-batcher.js';
 import {
   buildChunks,
@@ -25,6 +24,7 @@ import {
   positions,
   type TerrainChunk,
 } from './geometry.js';
+import type { GroundPattern, TerrainTextureSet } from './textures.js';
 
 /**
  * The textured terrain emitters. A decoded map's 1:1 `ground` lanes take the exact path; the per-typeId

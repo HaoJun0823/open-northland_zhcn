@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { smokePuff } from '../../data/effects/smoke.js';
 import { clamp01 } from '../../data/math.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import { worldBatched } from '../world-batcher.js';
+import { worldBatched } from '../world-batch/batcher.js';
 import { type DamageEffectTextures, FIRE_FRAMES, FIRE_VARIANTS } from './effect-textures.js';
 import { DamageRubble, type GroundContact } from './rubble.js';
 import { noise } from './surface.js';

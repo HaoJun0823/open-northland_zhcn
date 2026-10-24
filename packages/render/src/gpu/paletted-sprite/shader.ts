@@ -1,7 +1,7 @@
 import { MeshGeometry, Shader, type TextureSource } from 'pixi.js';
-import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art-magnify.js';
-import type { GlslProgramSource } from '../program-source.js';
-import { LIFT_COLOURS_GLSL } from '../selection-style.js';
+import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art/magnify.js';
+import { LIFT_COLOURS_GLSL } from '../selection/style.js';
+import type { GlslProgramSource } from '../shaders/program-source.js';
 
 const VERTEX = `#version 300 es
 in vec2 aPosition; // native bob pixels (already offset by the frame's draw origin)
@@ -22,7 +22,7 @@ void main(void) {
   float clipY = 1.0 - screen.y / uScreen.y * 2.0;
   // A WebGL render texture is stored bottom-up, so a straight draw lands upside-down; uFlip negates clip Y
   // to render upright into a texture without the whole-sprite Y-flip that mixed (Pixi-native) content can't
-  // share. See gpu/supersample.ts.
+  // share. See gpu/pixi-app/supersample.ts.
   gl_Position = vec4(screen.x / uScreen.x * 2.0 - 1.0, uFlip.x > 0.5 ? -clipY : clipY, 0.0, 1.0);
   vUV = aUV;
 }`;

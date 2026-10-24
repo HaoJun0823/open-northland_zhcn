@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backingResolutionFor, windowResolutionFor } from '../src/gpu/pixi-app.js';
+import { backingResolutionFor, windowResolutionFor } from '../src/gpu/pixi-app/pixi-app.js';
 
 describe('backingResolutionFor', () => {
   it('keeps integer ratios as-is', () => {

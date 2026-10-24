@@ -5,7 +5,7 @@ import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { CLIP_TABLE_WIDTH, DecorClipTable } from '../../src/gpu/map-objects/decor-clip.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
 import { objectFrameIndexAt } from '../../src/gpu/map-objects/map-object-sprite.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 import { decorUVs as decorUVsOf, drawnDecorQuad, FRAME_0, FRAME_1, WIDE } from './support.js';
 

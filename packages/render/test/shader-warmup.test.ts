@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WEATHER_KINDS } from '../src/data/weather/types.js';
+import { BLOOD_GROUND_SOURCE } from '../src/gpu/blood/ground-shader.js';
 import { GROUND_WAVE_FILTER_SOURCE } from '../src/gpu/ground-waves/ground-wave-filter.js';
-import { BLOOD_GROUND_SOURCE } from '../src/gpu/overlays/blood-ground-shader.js';
-import { PRESCALED_SCALERS } from '../src/gpu/pixel-art-registry.js';
-import { XBRZ_2X_SOURCE } from '../src/gpu/prescale/xbrz-2x.js';
-import { bootShaderPrograms, type ShaderSelection, shaderCatalog } from '../src/gpu/shader-catalog.js';
+import { PRESCALED_SCALERS } from '../src/gpu/pixel-art/registry.js';
+import { XBRZ_2X_SOURCE } from '../src/gpu/pixel-art/xbrz-2x.js';
+import { bootShaderPrograms, type ShaderSelection, shaderCatalog } from '../src/gpu/shaders/catalog.js';
 import {
   type LinkingContext,
   type LinkResult,
@@ -13,12 +13,12 @@ import {
   type WarmupSettings,
   waitForLinks,
   worldShaderSettings,
-} from '../src/gpu/shader-warmup.js';
-import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
+} from '../src/gpu/shaders/warmup.js';
 import { WEATHER_GRADE_SOURCE, WEATHER_VEIL_SOURCE } from '../src/gpu/weather/atmosphere.js';
 import { ATMOSPHERE_NOISE_BAKE_SOURCE } from '../src/gpu/weather/atmosphere-noise.js';
 import { GROUND_REACTIONS_SOURCE } from '../src/gpu/weather/ground-reactions.js';
 import { precipitationSource } from '../src/gpu/weather/precipitation-shader.js';
+import { DEFAULT_SHADOW_STYLE } from '../src/gpu/world-batch/shadow-style.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 const COMPLETION_STATUS_KHR = 0x91b1;
@@ -346,7 +346,7 @@ describe('waitForLinks', () => {
 });
 
 describe('starting a warm-up', () => {
-  type WarmupModule = typeof import('../src/gpu/shader-warmup.js');
+  type WarmupModule = typeof import('../src/gpu/shaders/warmup.js');
   let warmup: WarmupModule;
   const settings: WarmupSettings = {
     enhancedSampling: true,
@@ -440,7 +440,7 @@ describe('starting a warm-up', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    warmup = await import('../src/gpu/shader-warmup.js');
+    warmup = await import('../src/gpu/shaders/warmup.js');
   });
   afterEach(() => {
     vi.unstubAllGlobals();

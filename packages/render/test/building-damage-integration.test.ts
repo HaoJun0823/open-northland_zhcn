@@ -3,12 +3,12 @@ import { Container, Mesh, Sprite, Texture, TextureSource } from 'pixi.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { COLLAPSE_LIFETIME_TICKS, COLLAPSE_TICKS } from '../src/data/effects/collapse.js';
 import type { ElevationField } from '../src/data/terrain/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
-import { CollapseLayer } from '../src/gpu/overlays/collapse-layer.js';
+import { CollapseLayer } from '../src/gpu/demolition/collapse-layer.js';
+import { OutlineSprite, SelectionSprite } from '../src/gpu/selection/sprite-effect.js';
 import { type PoolFrame, SpritePool } from '../src/gpu/sprite-pool/index.js';
-import { OutlineSprite, SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
-import type { SpriteSheet } from '../src/gpu/sprite-sheet.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import type { SpriteSheet } from '../src/gpu/textures/sprite-sheet.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from './support/fixtures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 

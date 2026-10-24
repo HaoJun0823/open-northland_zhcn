@@ -11,8 +11,8 @@ import {
   resolveStockpileDraw,
 } from '../../data/sprites/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
-import { vegetationShear } from '../vegetation-sway.js';
+import { vegetationShear } from '../sway/vegetation.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import { pushBuildingExtras, pushBuildingLayers } from './building-layers.js';
 import { cartDriveLook, pushCartDriveLayers } from './cart-drive.js';
 import { pushCharacterLayers } from './character-layers.js';

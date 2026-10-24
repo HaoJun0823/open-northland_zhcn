@@ -4,8 +4,8 @@ import {
   type HumanPaletteIdentity,
 } from '../../data/palettes/human-palettes.js';
 import type { DrawItem } from '../../data/scene/index.js';
-import { HUMAN_HEAD_ROW_OFFSET } from '../human-palette-lut.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import { HUMAN_HEAD_ROW_OFFSET } from '../textures/human-palette-lut.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import { cartDriveLook } from './cart-drive.js';
 import { humanCharacter } from './character-layers.js';
 import type { ResolvedLayer } from './resolved-layer.js';

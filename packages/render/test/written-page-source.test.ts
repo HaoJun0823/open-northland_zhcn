@@ -1,6 +1,6 @@
 import { CanvasSource, type GlRenderingContext, type GlTexture, glUploadImageResource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WRITTEN_PAGE_UPLOADER, WrittenPageSource } from '../src/gpu/written-page-source.js';
+import { WRITTEN_PAGE_UPLOADER, WrittenPageSource } from '../src/gpu/textures/written-page-source.js';
 
 afterEach(() => vi.restoreAllMocks());
 

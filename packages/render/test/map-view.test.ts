@@ -2,9 +2,9 @@ import { type Application, Container, type Rectangle } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { halfCellToScreen } from '../src/data/projection/index.js';
 import type { ElevationField } from '../src/data/terrain/index.js';
-import { type MapViewFrame, MapViewLayer } from '../src/gpu/overlays/map-view.js';
 import { SpritePool } from '../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
+import { type MapViewFrame, MapViewLayer } from '../src/gpu/world-views/map-view.js';
 import { entity, snapshotOf } from './support/fixtures.js';
 
 /**

@@ -1,7 +1,7 @@
 import { Container, Texture } from 'pixi.js';
 import { expect, it } from 'vitest';
 import { type PoolFrame, SpritePool } from '../../src/gpu/sprite-pool/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import type { SpriteSheet } from '../../src/index.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 

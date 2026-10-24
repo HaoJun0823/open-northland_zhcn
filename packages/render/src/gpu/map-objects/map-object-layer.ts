@@ -3,11 +3,11 @@ import { aabbIntersects, TILE_HALF_W, type Viewport } from '../../data/projectio
 import type { WindSway } from '../../data/weather/climate.js';
 import { WEATHER_SECTOR_NODES } from '../../data/weather/field.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
-import { worldShadowStyle } from '../pixel-art-registry.js';
-import type { ShadowStyle } from '../shadow-style.js';
+import { worldShadowStyle } from '../pixel-art/registry.js';
 import { TERRAIN_CHUNK_TILES } from '../terrain/index.js';
-import type { TextureCache } from '../texture-cache.js';
+import type { TextureCache } from '../textures/texture-cache.js';
 import { makeDecorCoverUniforms, makeGroundCoverTexture } from '../weather/ground-cover-shading.js';
+import type { ShadowStyle } from '../world-batch/shadow-style.js';
 import {
   animateDecorChunk,
   buildDecorChunk,

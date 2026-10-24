@@ -2,13 +2,13 @@ import { TextureSource } from 'pixi.js';
 import { expect, it } from 'vitest';
 import { BLOOD_LIFETIME_TICKS } from '../../src/data/effects/blood.js';
 import type { DrawItem } from '../../src/data/scene/index.js';
-import { isBloodless, surfaceOf } from '../../src/gpu/blood-surface.js';
-import { BloodSurfaces } from '../../src/gpu/overlays/blood-surfaces.js';
+import { isBloodless, surfaceOf } from '../../src/gpu/blood/surface-sprite.js';
+import { BloodSurfaces } from '../../src/gpu/blood/surfaces.js';
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import { resolveLayers } from '../../src/gpu/sprite-pool/resolve-layers.js';
-import type { SpriteSheet } from '../../src/gpu/sprite-sheet.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import type { SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 
 it.each([false, true])(
   'keeps wall blood and pending impacts when upgrade scaffolds shift its slot (time mask: %s)',

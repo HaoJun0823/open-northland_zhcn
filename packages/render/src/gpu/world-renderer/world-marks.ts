@@ -4,13 +4,13 @@ import type { Viewport } from '../../data/projection/index.js';
 import { type ImportMarker, importMarkersOf } from '../../data/scene/import-markers.js';
 import { OverheadColumn } from '../../data/scene/overhead-column.js';
 import type { ElevationField, WaterField } from '../../data/terrain/index.js';
+import { BloodLayer } from '../blood/layer.js';
 import type { FallenBody } from '../building-damage/building-damage.js';
-import { BloodLayer } from '../overlays/blood-layer.js';
+import { CollapseLayer } from '../demolition/collapse-layer.js';
 import { FamilyEffectsLayer } from '../overlays/family-effects-layer.js';
 import {
   BadgeLayer,
   type BuildingSignGfx,
-  CollapseLayer,
   CombatEffectsLayer,
   type ConstructionSign,
   ConstructionSignLayer,
@@ -28,18 +28,18 @@ import {
   type LostGoalMarker,
   type OrderMarker,
   OrderMarkerLayer,
-  type RangeRing,
-  SelectionLayer,
   type SettlerBubble,
   type SettlerBubbleGfx,
   SettlerBubbleLayer,
   ShipWakeLayer,
   ShotLayer,
 } from '../overlays/index.js';
-import type { SelectionStyle } from '../selection-style.js';
+import { SelectionLayer } from '../selection/layer.js';
+import type { RangeRing } from '../selection/range-ring.js';
+import type { SelectionStyle } from '../selection/style.js';
 import type { DrawnGeometry, ShipAfloat } from '../sprite-pool/index.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
-import type { TextureCache } from '../texture-cache.js';
+import type { SpriteSheet } from '../textures/sprite-sheet.js';
+import type { TextureCache } from '../textures/texture-cache.js';
 import type { CombatBonesGfx } from './frame.js';
 import type { WorldSceneLayers } from './painter-order.js';
 

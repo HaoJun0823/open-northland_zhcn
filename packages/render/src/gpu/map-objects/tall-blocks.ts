@@ -12,11 +12,11 @@ import { drawPassDepth, SHADOW_DEPTH_EPS } from '../../data/scene/index.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { scaleColour } from '../../data/terrain/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import { BloodSurfaceSprite, bloodSurface } from '../blood-surface.js';
+import { BloodSurfaceSprite, bloodSurface } from '../blood/surface-sprite.js';
 import type { GroundFootPart } from '../ground-foot/index.js';
-import type { TextureCache } from '../texture-cache.js';
-import { castShadowShear, setVegetationShear, vegetationShear } from '../vegetation-sway.js';
-import { worldBatched } from '../world-batcher.js';
+import { castShadowShear, setVegetationShear, vegetationShear } from '../sway/vegetation.js';
+import type { TextureCache } from '../textures/texture-cache.js';
+import { worldBatched } from '../world-batch/batcher.js';
 import { activeSway, type MapObjectSprite, objectFrameIndexAt } from './map-object-sprite.js';
 
 /** A grounded object's ground shade sorts under its cast shadow, and the cover over its foot one mark over

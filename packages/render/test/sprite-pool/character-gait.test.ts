@@ -8,7 +8,7 @@ import {
   humanCharacter,
 } from '../../src/gpu/sprite-pool/character-layers.js';
 import { type MotionTrack, trackMotion } from '../../src/gpu/sprite-pool/motion.js';
-import type { SettlerCharacterSet } from '../../src/gpu/sprite-sheet.js';
+import type { SettlerCharacterSet } from '../../src/gpu/textures/sprite-sheet.js';
 
 const body = { source: {} as TextureSource, atlas: { width: 0, height: 0, frames: new Map() } };
 const moving = {

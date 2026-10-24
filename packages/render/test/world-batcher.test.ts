@@ -16,7 +16,7 @@ import {
   WebGLRenderer,
 } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { bloodSurface } from '../src/gpu/blood-surface.js';
+import { bloodSurface } from '../src/gpu/blood/surface-sprite.js';
 import {
   markIndexedSource,
   markPalettedTexture,
@@ -25,9 +25,8 @@ import {
   setPixelArtMagnification,
   setPrescaledPage,
   setWorldShadowStyle,
-} from '../src/gpu/pixel-art-registry.js';
-import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
-import { OutlineSprite, SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
+} from '../src/gpu/pixel-art/registry.js';
+import { OutlineSprite, SelectionSprite } from '../src/gpu/selection/sprite-effect.js';
 import {
   bindWorldBatchPagesAndLut,
   installWorldBatcher,
@@ -40,7 +39,8 @@ import {
   WORLD_LUT_ROW_SHIFT,
   WORLD_VERTEX_SIZE,
   worldBatched,
-} from '../src/gpu/world-batcher.js';
+} from '../src/gpu/world-batch/batcher.js';
+import { DEFAULT_SHADOW_STYLE } from '../src/gpu/world-batch/shadow-style.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
 /** One page slot plus the slot each batch keeps for a palette LUT. */

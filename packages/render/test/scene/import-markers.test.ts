@@ -5,7 +5,7 @@ import { ONE } from '../../src/data/projection/index.js';
 import { type ImportMarkerExemption, importMarkersOf } from '../../src/data/scene/import-markers.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { ImportMarkerLayer } from '../../src/gpu/overlays/import-marker-layer.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { drawnGeometry, entity, snapshotOf } from '../support/fixtures.js';
 
 const IMPORTED = components.MISSION_BEHAVIOUR.IMPORTED;

@@ -1,5 +1,5 @@
 import { BatchTextureArray, type Texture, type TextureSource } from 'pixi.js';
-import { palettedLutOf } from '../pixel-art-registry.js';
+import { palettedLutOf } from '../pixel-art/registry.js';
 
 /** A quad as a table sees it: the texture its sprite draws, and that texture's LUT as last read. */
 export interface TableQuad {

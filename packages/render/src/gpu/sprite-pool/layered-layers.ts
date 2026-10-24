@@ -5,7 +5,7 @@ import {
   type ResourceDraw,
   type SpriteKind,
 } from '../../data/sprites/index.js';
-import type { SpriteLayer, SpriteSheet } from '../sprite-sheet.js';
+import type { SpriteLayer, SpriteSheet } from '../textures/sprite-sheet.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
 
 /**

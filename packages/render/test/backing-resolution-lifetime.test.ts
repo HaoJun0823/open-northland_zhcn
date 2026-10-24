@@ -20,7 +20,7 @@ vi.doMock('pixi.js', async (importOriginal) => ({
   Application: FakeApplication,
 }));
 vi.resetModules();
-const { createWindowPixiApp } = await import('../src/gpu/pixi-app.js');
+const { createWindowPixiApp } = await import('../src/gpu/pixi-app/pixi-app.js');
 afterAll(() => {
   vi.doUnmock('pixi.js');
   vi.resetModules();

@@ -1,6 +1,6 @@
 import { CanvasSource, Rectangle, Texture } from 'pixi.js';
 import { clamp01 } from '../../data/math.js';
-import { readable2dContext } from '../drawable-resource.js';
+import { readable2dContext } from '../textures/drawable-resource.js';
 import { noise } from './surface.js';
 
 export const FIRE_FRAMES = 24;

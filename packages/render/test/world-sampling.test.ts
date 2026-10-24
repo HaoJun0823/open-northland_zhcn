@@ -1,7 +1,7 @@
 import { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { markPixelArtSource } from '../src/gpu/pixel-art-registry.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import { markPixelArtSource } from '../src/gpu/pixel-art/registry.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 import { WorldChrome } from '../src/gpu/world-renderer/world-chrome.js';
 
 /** `pixelArt` marks the page the way the original's atlas loader does; own art is never marked. */

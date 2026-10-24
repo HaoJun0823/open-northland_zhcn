@@ -2,7 +2,7 @@ import { clamp01 } from '../../data/math.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { IDLE_PHASE_STAGGER_TICKS, type SpriteKind } from '../../data/sprites/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import type { SettlerCharacter, SpriteSheet } from '../sprite-sheet.js';
+import type { SettlerCharacter, SpriteSheet } from '../textures/sprite-sheet.js';
 import {
   type AtomicPoseTrack,
   atomicPose,

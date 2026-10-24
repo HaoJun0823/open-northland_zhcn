@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DrawItem } from '../../src/data/scene/index.js';
 import { type BindFrame, LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 
 const FRAME: BindFrame = { camera: { offsetX: 0, offsetY: 0 }, screenW: 800, screenH: 600 };
 const SITE: DrawItem = { kind: 'palisade', ref: 1, x: 0, y: 0, depth: 0, gfxIndex: 691 };

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ElevationField } from '../../src/data/terrain/index.js';
 import { SpritePool } from '../../src/gpu/sprite-pool/index.js';
 import { createPooled, meshablePooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas, SpriteSheet, Viewport } from '../../src/index.js';
 import { entity, snapshotOf } from '../support/fixtures.js';
 

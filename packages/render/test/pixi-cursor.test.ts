@@ -1,6 +1,6 @@
 import { EventSystem } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { leaveCursorToCss } from '../src/gpu/pixi-app.js';
+import { leaveCursorToCss } from '../src/gpu/pixi-app/pixi-app.js';
 
 /** Pixi's own `setCursor` over a stand-in canvas, with the styles a fresh event system starts with. */
 function eventSystemOnCanvas(): {

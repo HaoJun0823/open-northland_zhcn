@@ -6,8 +6,8 @@ import {
   humanLayerRow,
   humanPaletteIdentity,
 } from '../../src/gpu/sprite-pool/human-palette-row.js';
-import type { SettlerCharacterSet, SpriteSheet } from '../../src/gpu/sprite-sheet.js';
-import { vehicleLutRow } from '../../src/gpu/sprite-sheet.js';
+import type { SettlerCharacterSet, SpriteSheet } from '../../src/gpu/textures/sprite-sheet.js';
+import { vehicleLutRow } from '../../src/gpu/textures/sprite-sheet.js';
 import { syntheticHumanLut } from '../support/human-palettes.js';
 
 const CHAIN_MAIL = 35;

@@ -1,6 +1,6 @@
 import { Rectangle, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { markPalettedTexture } from '../../src/gpu/pixel-art-registry.js';
+import { markPalettedTexture } from '../../src/gpu/pixel-art/registry.js';
 import { DrawTable, type TableQuad } from '../../src/gpu/still-mesh/draw-table.js';
 
 const PAGES = 3;

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Viewport } from '../../src/data/projection/index.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/index.js';
-import { TextureCache } from '../../src/gpu/texture-cache.js';
+import { TextureCache } from '../../src/gpu/textures/texture-cache.js';
 import { FRAME_0, FRAME_1 } from './support.js';
 
 const FRAME_2: AtlasFrame = { ...FRAME_0, x: 16 };

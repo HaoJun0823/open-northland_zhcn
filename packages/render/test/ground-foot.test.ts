@@ -2,7 +2,6 @@ import { type Sprite, Texture, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawItem } from '../src/data/scene/index.js';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
-import * as drawable from '../src/gpu/drawable-resource.js';
 import { analyseFoot, type FootAnalysis } from '../src/gpu/ground-foot/foot-analysis.js';
 import {
   bakeFootCover,
@@ -18,11 +17,12 @@ import {
   groundKinds,
 } from '../src/gpu/ground-foot/foot-ground.js';
 import { GroundedFootCache } from '../src/gpu/ground-foot/grounded-foot-cache.js';
-import { SoftShadowCache } from '../src/gpu/soft-shadow-cache.js';
 import { LayerBinder } from '../src/gpu/sprite-pool/bind-layers.js';
 import { createPooled } from '../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../src/gpu/sprite-pool/resolved-layer.js';
-import { TextureCache } from '../src/gpu/texture-cache.js';
+import * as drawable from '../src/gpu/textures/drawable-resource.js';
+import { SoftShadowCache } from '../src/gpu/textures/soft-shadow-cache.js';
+import { TextureCache } from '../src/gpu/textures/texture-cache.js';
 
 afterEach(() => {
   vi.restoreAllMocks();

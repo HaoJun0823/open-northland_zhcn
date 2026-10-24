@@ -1,0 +1,152 @@
+import { Texture, TextureSource } from 'pixi.js';
+import { describe, expect, it, vi } from 'vitest';
+import type { AtlasFrame, BuildTimeSheet } from '../../../src/data/sprites/index.js';
+import { isMagnifiedTexture, markPixelArtSource } from '../../../src/gpu/pixel-art/registry.js';
+import * as drawable from '../../../src/gpu/textures/drawable-resource.js';
+import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
+
+const SOURCE = new TextureSource({ width: 64, height: 64 });
+const FRAME: AtlasFrame = { x: 10, y: 20, width: 30, height: 40, offsetX: 0, offsetY: 0 };
+
+describe('TextureCache.cropped', () => {
+  it('keeps only the bottom rows - crops hiddenTop pixels off the TOP of the frame', () => {
+    const cache = new TextureCache();
+    const tex = cache.cropped(SOURCE, FRAME, 12);
+    expect(tex.frame.x).toBe(FRAME.x);
+    expect(tex.frame.y).toBe(FRAME.y + 12);
+    expect(tex.frame.width).toBe(FRAME.width);
+    expect(tex.frame.height).toBe(FRAME.height - 12);
+  });
+
+  it('clamps hiddenTop into the frame and rounds to whole pixels', () => {
+    const cache = new TextureCache();
+    // Beyond the frame height the whole frame is hidden as a zero-height slice, never a negative one.
+    const over = cache.cropped(SOURCE, FRAME, FRAME.height + 5);
+    expect(over.frame.y).toBe(FRAME.y + FRAME.height);
+    expect(over.frame.height).toBe(0);
+    // Fractional hiddenTop rounds (12.6 → 13).
+    expect(cache.cropped(SOURCE, FRAME, 12.6).frame.y).toBe(FRAME.y + 13);
+  });
+
+  it('reuses the texture per (frame, hiddenTop) and mints a fresh one per distinct crop', () => {
+    const cache = new TextureCache();
+    expect(cache.cropped(SOURCE, FRAME, 12)).toBe(cache.cropped(SOURCE, FRAME, 12));
+    expect(cache.cropped(SOURCE, FRAME, 12)).not.toBe(cache.cropped(SOURCE, FRAME, 13));
+    // The full-frame get() cache is independent of the crop cache.
+    expect(cache.get(SOURCE, FRAME)).toBe(cache.get(SOURCE, FRAME));
+  });
+});
+
+describe('TextureCache.grownView', () => {
+  it('grows the frame on every side over the same page, keeps one view per margin and drops them with their texture', () => {
+    const cache = new TextureCache();
+    const body = cache.castSilhouette(SOURCE, FRAME);
+    const view = cache.grownView(body, 3);
+    expect(view.source).toBe(SOURCE);
+    expect([view.frame.x, view.frame.y, view.frame.width, view.frame.height]).toEqual([7, 17, 36, 46]);
+    expect(cache.grownView(body, 3)).toBe(view);
+    expect(cache.grownView(body, 4)).not.toBe(view);
+    const baked = new Texture({ source: SOURCE });
+    const bakedView = cache.grownView(baked, 1);
+    baked.destroy();
+    expect(bakedView.destroyed).toBe(true);
+    expect(cache.grownView(new Texture({ source: SOURCE }), 1)).not.toBe(bakedView);
+    cache.clear();
+    expect(view.destroyed).toBe(true);
+  });
+});
+
+describe('TextureCache.revealed', () => {
+  const TIMES: BuildTimeSheet = { width: 64, height: 64, values: new Uint8Array(64 * 64) };
+
+  it('changes cached construction sampling live without rebaking the reveal', () => {
+    const source = new TextureSource({ width: 64, height: 64, scaleMode: 'linear' });
+    const cache = new TextureCache();
+    const drawImage = vi.fn();
+    const ctx = {
+      canvas: { width: FRAME.width, height: FRAME.height },
+      drawImage,
+      getImageData: () => ({ data: new Uint8ClampedArray(FRAME.width * FRAME.height * 4) }),
+      putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const readable = vi.spyOn(drawable, 'isDrawableResource').mockReturnValue(true);
+    const context = vi.spyOn(drawable, 'readable2dContext').mockReturnValue(ctx);
+    try {
+      markPixelArtSource(source);
+      const revealed = cache.revealed(source, FRAME, TIMES, 128, 1);
+      expect(revealed?.source.scaleMode).toBe('linear');
+      expect(revealed !== null && isMagnifiedTexture(revealed)).toBe(true);
+      source.scaleMode = 'nearest';
+      expect(cache.revealed(source, FRAME, TIMES, 128, 2)).toBe(revealed);
+      expect(revealed?.source.scaleMode).toBe('nearest');
+      expect(drawImage).toHaveBeenCalledTimes(1);
+    } finally {
+      context.mockRestore();
+      readable.mockRestore();
+      cache.clear();
+      source.destroy();
+    }
+  });
+
+  it('returns the plain full frame at threshold 255 (fully revealed, no bake)', () => {
+    const cache = new TextureCache();
+    expect(cache.revealed(SOURCE, FRAME, TIMES, 255, 1)).toBe(cache.get(SOURCE, FRAME));
+  });
+
+  it('returns null when the atlas pixels are not CPU-readable (the caller falls back to the crop)', () => {
+    // A bare TextureSource has no drawable resource, so no canvas bake is possible headless.
+    expect(new TextureCache().revealed(SOURCE, FRAME, TIMES, 100, 1)).toBeNull();
+  });
+});
+
+describe('TextureCache.adopt', () => {
+  it('serves an app-loaded pixel-art texture as a world page that magnifies like the atlas sprites', () => {
+    const page = new TextureSource({ width: 24, height: 23 });
+    markPixelArtSource(page);
+    const texture = new Texture({ source: page });
+    const cache = new TextureCache();
+    cache.adopt(texture);
+    expect(cache.pageSources().has(page)).toBe(true);
+    expect(isMagnifiedTexture(texture)).toBe(true);
+    cache.clear();
+    expect(texture.destroyed).toBe(false);
+  });
+});
+
+describe('TextureCache.unmagnified', () => {
+  it('serves one twin per view, on the same page and frame, without the magnification mark', () => {
+    const page = new TextureSource({ width: 64, height: 64 });
+    markPixelArtSource(page);
+    const cache = new TextureCache();
+    const view = cache.get(page, FRAME);
+    const twin = cache.unmagnified(view);
+    expect(isMagnifiedTexture(view)).toBe(true);
+    expect(isMagnifiedTexture(twin)).toBe(false);
+    expect([twin.source, twin.frame]).toEqual([view.source, view.frame]);
+    expect(cache.unmagnified(view)).toBe(twin);
+    cache.clear();
+    expect(twin.destroyed).toBe(true);
+    expect(page.destroyed).toBe(false);
+  });
+});
+
+describe('TextureCache.clear', () => {
+  it('destroys the cached textures, not just the map entries', () => {
+    // A Pixi Texture registers a `resize` listener on its source, so the app-owned atlas page keeps every
+    // cached texture alive until `destroy` unregisters it; dropping the Map entry alone leaks them.
+    const cache = new TextureCache();
+    const full = cache.get(SOURCE, FRAME);
+    const crop = cache.cropped(SOURCE, FRAME, 12);
+    cache.clear();
+    expect(full.destroyed).toBe(true);
+    expect(crop.destroyed).toBe(true);
+  });
+
+  it('leaves the shared atlas page alive - the renderer borrows it, the app owns it', () => {
+    const page = new TextureSource({ width: 64, height: 64 });
+    const cache = new TextureCache();
+    cache.get(page, FRAME);
+    cache.clear();
+    expect(page.destroyed).toBe(false);
+  });
+});

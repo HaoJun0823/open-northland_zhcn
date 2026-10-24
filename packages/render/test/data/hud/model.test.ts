@@ -1,0 +1,380 @@
+import {
+  fx,
+  hexDistanceBetween,
+  nodeOfPosition,
+  WALK_RANGE_NODES,
+  type WorldSnapshot,
+} from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { IDLE_JOB } from '../../../src/data/hud/model.js';
+import { buildHud, type HudModel, layoutHud, placeHud } from '../../../src/index.js';
+import { snapshotOf } from '../../support/fixtures.js';
+
+const VIKING = 0;
+const SARACEN = 1;
+
+/** A snapshot person entity owned by `player`; a null `jobType` is an idle adult. */
+function settler(
+  id: number,
+  player: number,
+  jobType: number | null,
+  tribe = VIKING,
+  female = false,
+): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: {
+      Settler: { tribe, jobType },
+      Person: { person: true },
+      Owner: { player },
+      ...(female ? { Female: {} } : {}),
+    },
+  };
+}
+
+/** A snapshot creature: the same `Settler` model with no `Person` marker, as the sim clones wildlife.
+ *  Owned, because a claimed animal must stay out of the count on the marker alone. */
+function creature(id: number, player: number): WorldSnapshot['entities'][number] {
+  return { id, components: { Settler: { tribe: VIKING, jobType: null }, Owner: { player } } };
+}
+
+function store(
+  id: number,
+  player: number,
+  amounts: readonly [number, number][],
+  tribe = VIKING,
+): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: {
+      Building: { tribe, buildingType: 0, built: 1 },
+      Stockpile: { amounts },
+      Owner: { player },
+    },
+  };
+}
+
+/** A standing signpost of `player` at visual tile `(x, y)`. */
+function signpost(id: number, player: number, x: number, y: number): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: {
+      Signpost: { links: [] },
+      Position: { x: fx.fromInt(x), y: fx.fromInt(y) },
+      Owner: { player },
+    },
+  };
+}
+
+/** A heap lying on the ground at visual tile `(x, y)` with no marker: the sim's yard-heap shape. */
+function looseHeap(
+  id: number,
+  x: number,
+  y: number,
+  goodType: number,
+  amount: number,
+): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: {
+      Stockpile: { amounts: [[goodType, amount]] },
+      Position: { x: fx.fromInt(x), y: fx.fromInt(y) },
+    },
+  };
+}
+
+/** A {@link store} standing at visual tile `(x, y)`. */
+function placedStore(
+  id: number,
+  player: number,
+  x: number,
+  y: number,
+  amounts: readonly [number, number][],
+): WorldSnapshot['entities'][number] {
+  const made = store(id, player, amounts);
+  return { ...made, components: { ...made.components, Position: { x: fx.fromInt(x), y: fx.fromInt(y) } } };
+}
+
+/** A haulable ground pile at visual tile `(x, y)`: the sim's `GroundDrop` shape, which no seat owns. */
+function groundPile(
+  id: number,
+  x: number,
+  y: number,
+  goodType: number,
+  amount: number,
+): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: {
+      GroundDrop: { goodType },
+      Stockpile: { amounts: [[goodType, amount]] },
+      Position: { x: fx.fromInt(x), y: fx.fromInt(y) },
+    },
+  };
+}
+
+/** An unowned fixture: neutral scenery or wildlife, which belongs to no seat. */
+function neutralStore(id: number, amounts: readonly [number, number][]): WorldSnapshot['entities'][number] {
+  return {
+    id,
+    components: { Building: { tribe: VIKING, buildingType: 0, built: 1 }, Stockpile: { amounts } },
+  };
+}
+
+describe('buildHud', () => {
+  it('counts every settler of the player as population, regardless of job', () => {
+    const hud = buildHud(
+      snapshotOf([
+        settler(1, 0, 5),
+        settler(2, 0, null),
+        settler(3, 0, 1), // a baby, whose job id is an age class
+        settler(4, 1, 5), // other player
+      ]),
+      0,
+    );
+    expect(hud.population).toBe(3);
+    expect(hud.player).toBe(0);
+  });
+
+  it('counts a multi-tribe seat whole, and never another seat sharing its tribe', () => {
+    const hud = buildHud(
+      snapshotOf([
+        settler(1, 0, 5, SARACEN),
+        settler(2, 0, 5, VIKING),
+        settler(3, 1, 5, VIKING), // another seat, same tribe
+        store(4, 0, [[2, 10]], SARACEN),
+        store(5, 1, [[2, 99]], VIKING),
+      ]),
+      0,
+    );
+    expect(hud.population).toBe(2);
+    expect(hud.stocks).toEqual([{ goodType: 2, amount: 10 }]);
+  });
+
+  it('counts people only, keyed on the marker rather than on ownership', () => {
+    // A claimed animal is owned like a settler, so what keeps it out of the count is the `Person`
+    // marker, as it is in the sim.
+    const hud = buildHud(snapshotOf([settler(1, 0, 5), creature(2, 0), creature(3, 0)]), 0);
+    expect(hud.population).toBe(1);
+    expect(hud.jobs).toEqual([{ jobType: 5, count: 1, female: 0 }]);
+  });
+
+  it('leaves a neutral entity out: an unowned store belongs to no seat', () => {
+    const hud = buildHud(snapshotOf([store(1, 0, [[2, 4]]), neutralStore(2, [[2, 99]])]), 0);
+    expect(hud.stocks).toEqual([{ goodType: 2, amount: 4 }]);
+  });
+
+  it('breaks settlers down by jobType, idle adults under the IDLE_JOB sentinel, ascending', () => {
+    const hud = buildHud(
+      snapshotOf([settler(1, 0, 5), settler(2, 0, 5), settler(3, 0, null), settler(4, 0, 1)]),
+      0,
+    );
+    expect(hud.jobs).toEqual([
+      { jobType: IDLE_JOB, count: 1, female: 0 }, // -1 sorts first
+      { jobType: 1, count: 1, female: 0 },
+      { jobType: 5, count: 2, female: 0 },
+    ]);
+  });
+
+  it('keys job 0 (the valid `none` id) on its own bucket, never folded into idle', () => {
+    // The fold must be nullish (`??`), not `||`: a jobType of 0 is a real id.
+    const hud = buildHud(snapshotOf([settler(1, 0, 0), settler(2, 0, null)]), 0);
+    expect(hud.jobs).toEqual([
+      { jobType: IDLE_JOB, count: 1, female: 0 },
+      { jobType: 0, count: 1, female: 0 },
+    ]);
+  });
+
+  it('tallies the Female marker inside each job bucket, for the player only', () => {
+    const hud = buildHud(
+      snapshotOf([
+        settler(1, 0, 5, VIKING, true),
+        settler(2, 0, 7, VIKING, true), // a woman in a trade
+        settler(3, 0, 7),
+        settler(4, 0, 1, VIKING, true), // a baby girl
+        settler(5, 1, 5, VIKING, true), // another seat
+      ]),
+      0,
+    );
+    expect(hud.jobs).toEqual([
+      { jobType: 1, count: 1, female: 1 },
+      { jobType: 5, count: 1, female: 1 },
+      { jobType: 7, count: 2, female: 1 },
+    ]);
+  });
+
+  it('sums each good across the player stores, ascending by goodType, omitting zero totals', () => {
+    const hud = buildHud(
+      snapshotOf([
+        store(1, 0, [
+          [2, 10],
+          [5, 3],
+        ]),
+        store(2, 0, [
+          [2, 4],
+          [9, 0], // a real but empty slot
+        ]),
+        store(3, 1, [[2, 99]]), // other player
+      ]),
+      0,
+    );
+    expect(hud.stocks).toEqual([
+      { goodType: 2, amount: 14 }, // 10 + 4
+      { goodType: 5, amount: 3 },
+      // goodType 9 sums to 0
+    ]);
+  });
+
+  it('adds a ground heap strictly inside the walk range of one of the player signposts', () => {
+    const hud = buildHud(
+      snapshotOf([
+        store(1, 0, [[2, 10]]),
+        signpost(2, 0, 10, 10),
+        groundPile(3, 12, 11, 2, 4), // two tiles from the post
+        groundPile(4, 12, 12, 7, 1),
+        groundPile(5, 70, 70, 2, 99), // far beyond fifty nodes of any post
+        looseHeap(6, 11, 11, 2, 5), // a yard heap, no marker at all
+      ]),
+      0,
+    );
+    expect(hud.stocks).toEqual([
+      { goodType: 2, amount: 19 },
+      { goodType: 7, amount: 1 },
+    ]);
+  });
+
+  it('leaves ground heaps out with neither a post nor a building of the player in reach', () => {
+    const entities = [store(1, 0, [[2, 10]]), groundPile(3, 12, 11, 2, 4), looseHeap(6, 11, 11, 2, 5)];
+    expect(buildHud(snapshotOf(entities), 0).stocks).toEqual([{ goodType: 2, amount: 10 }]);
+    // Another seat's post, or an own post out of range, opens nothing.
+    expect(buildHud(snapshotOf([...entities, signpost(2, 1, 10, 10)]), 0).stocks).toEqual([
+      { goodType: 2, amount: 10 },
+    ]);
+    expect(buildHud(snapshotOf([...entities, signpost(2, 0, 70, 70)]), 0).stocks).toEqual([
+      { goodType: 2, amount: 10 },
+    ]);
+  });
+
+  it('finds the same heaps as a plain scan when the seat is spread across the map', () => {
+    // The anchors sit far apart, so a box drawn around all of them spans the whole field between
+    // them. This pins the bucketed lookup against the distance test it stands in for.
+    const posts = [
+      { x: 10, y: 10 },
+      { x: 200, y: 200 },
+    ];
+    const heaps: { readonly x: number; readonly y: number }[] = [];
+    for (let x = 0; x <= 220; x += 7) for (let y = 0; y <= 220; y += 11) heaps.push({ x, y });
+    const node = (x: number, y: number) => nodeOfPosition(fx.fromInt(x), fx.fromInt(y));
+    const inRange = heaps.filter((heap) => {
+      const h = node(heap.x, heap.y);
+      return posts.some((post) => {
+        const p = node(post.x, post.y);
+        return hexDistanceBetween(p.hx, p.hy, h.hx, h.hy) < WALK_RANGE_NODES;
+      });
+    }).length;
+    expect(inRange).toBeGreaterThan(0);
+    expect(inRange).toBeLessThan(heaps.length);
+
+    const hud = buildHud(
+      snapshotOf([
+        ...posts.map((post, i) => signpost(i + 1, 0, post.x, post.y)),
+        ...heaps.map((heap, i) => looseHeap(100 + i, heap.x, heap.y, 2, 1)),
+      ]),
+      0,
+    );
+    expect(hud.stocks).toEqual([{ goodType: 2, amount: inRange }]);
+  });
+
+  it('anchors the reach on an own building too, the collector radius of a seat without posts', () => {
+    const hud = buildHud(
+      snapshotOf([
+        placedStore(1, 0, 10, 10, [[2, 10]]),
+        groundPile(3, 12, 11, 2, 4),
+        looseHeap(6, 70, 70, 2, 5),
+      ]),
+      0,
+    );
+    expect(hud.stocks).toEqual([{ goodType: 2, amount: 14 }]);
+  });
+
+  it('counts the unit in an own settler hands, a boat hull and an upgrading building aside stash', () => {
+    const hud = buildHud(
+      snapshotOf([
+        store(1, 0, [[2, 10]]),
+        {
+          ...settler(2, 0, 5),
+          components: { ...settler(2, 0, 5).components, Carrying: { goodType: 2, amount: 1 } },
+        },
+        {
+          ...settler(3, 1, 5),
+          components: { ...settler(3, 1, 5).components, Carrying: { goodType: 2, amount: 1 } },
+        },
+        {
+          id: 4,
+          components: {
+            Vehicle: { vehicleType: 0, tribe: 0 },
+            Stockpile: { amounts: [[7, 3]] },
+            Position: { x: fx.fromInt(1), y: fx.fromInt(1) },
+            Owner: { player: 0 },
+          },
+        },
+        {
+          id: 5,
+          components: {
+            ...store(5, 0, [[2, 2]]).components,
+            Upgrading: { savedStock: [[2, 6]], seeded: [] },
+          },
+        },
+      ]),
+      0,
+    );
+    expect(hud.stocks).toEqual([
+      { goodType: 2, amount: 19 },
+      { goodType: 7, amount: 3 },
+    ]);
+  });
+
+  it('returns an empty-but-shaped model for a player with nothing', () => {
+    const hud = buildHud(snapshotOf([settler(1, 1, 5)]), 0);
+    expect(hud).toEqual({ tick: 1, player: 0, population: 0, jobs: [], stocks: [] });
+  });
+});
+
+function model(over: Partial<HudModel> = {}): HudModel {
+  return { tick: 0, player: 0, population: 0, jobs: [], stocks: [], ...over };
+}
+
+const LABELS = {
+  playerTick: (player: number | null, tick: number) => `Player ${player ?? '-'} · tick ${tick}`,
+  population: (population: number) => `Population: ${population}`,
+  jobs: 'Jobs',
+  stocks: 'Stocks',
+  idle: 'idle',
+  job: (jobType: number) => `job ${jobType}`,
+  good: (goodType: number) => `good ${goodType}`,
+};
+
+const HUD_MARGIN = 8; // mirrors the placement margin in hud.ts, kept local so a drift is caught
+
+describe('placeHud', () => {
+  const layout = layoutHud(model({ tick: 1, player: 1, population: 2 }), LABELS);
+
+  it('top-right / bottom corners anchor the panel against the matching screen edge', () => {
+    const screen = { width: 960, height: 540 };
+    const tr = placeHud(layout, 'top-right', screen);
+    expect(tr.panelX).toBe(960 - layout.width - HUD_MARGIN);
+    expect(tr.panelY).toBe(HUD_MARGIN);
+    const bl = placeHud(layout, 'bottom-left', screen);
+    expect(bl.panelX).toBe(HUD_MARGIN);
+    expect(bl.panelY).toBe(540 - layout.height - HUD_MARGIN);
+    const br = placeHud(layout, 'bottom-right', screen);
+    expect(br.panelX).toBe(960 - layout.width - HUD_MARGIN);
+    expect(br.panelY).toBe(540 - layout.height - HUD_MARGIN);
+  });
+
+  it('clamps the panel on-screen when the canvas is smaller than the panel (keeps top-left visible)', () => {
+    const placed = placeHud(layout, 'bottom-right', { width: 10, height: 10 });
+    expect(placed.panelX).toBe(0);
+    expect(placed.panelY).toBe(0);
+  });
+});

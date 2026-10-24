@@ -1,0 +1,103 @@
+import { ONE, type WorldSnapshot } from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { collectSpriteScene, type HolyFireLookup, holyFireOverlays } from '../../../src/data/scene/index.js';
+
+const HOME = 7;
+const components = {
+  Building: { buildingType: 4, tribe: 1, level: 2, built: ONE },
+  Owner: { player: 0 },
+  Position: { x: 10 * ONE, y: 10 * ONE },
+  HomeQuality: { cooking: 0, rest: 0, piety: 40 },
+};
+const TEMPLE = 37;
+const lookup: HolyFireLookup = (tribe, typeId, level) => {
+  if (tribe !== 1) return undefined;
+  if (typeId === 4 && level === 2)
+    return { name: 'fx fire incense', points: [{ x: -80, y: 24 }], perpetual: false };
+  if (typeId === TEMPLE && level === 0)
+    return { name: 'fx fire incense', points: [{ x: 5, y: 20 }], perpetual: true };
+  return undefined;
+};
+
+/** Player 0 has switched holy oil on; the default leaves it off. */
+const OIL_ON = { cooking: true, rest: true, piety: true };
+
+const snapshot = (
+  home: Readonly<Record<string, unknown>> = components,
+  policy: { cooking: boolean; rest: boolean; piety: boolean } | null = OIL_ON,
+): WorldSnapshot => ({
+  tick: 0,
+  events: [],
+  entities: [
+    { id: HOME, components: home },
+    ...(policy === null ? [] : [{ id: 99, components: { HouseholdGoodPolicy: { player: 0, ...policy } } }]),
+  ],
+});
+
+describe('home holy fire projection', () => {
+  it('stages the source-bound loop only for a finished eligible home with delivered oil even after deliveries are forbidden', () => {
+    expect(holyFireOverlays(snapshot(), HOME, components, lookup)).toEqual([
+      { name: 'fx fire incense', dx: -80, dy: 24 },
+    ]);
+    expect(
+      holyFireOverlays(
+        snapshot(components, { cooking: true, rest: true, piety: false }),
+        HOME,
+        components,
+        lookup,
+      ),
+    ).toEqual([{ name: 'fx fire incense', dx: -80, dy: 24 }]);
+    expect(holyFireOverlays(snapshot(components, null), HOME, components, lookup)).toEqual([
+      { name: 'fx fire incense', dx: -80, dy: 24 },
+    ]);
+    const empty = {
+      ...components,
+      HomeQuality: { cooking: 0, rest: 0, piety: 0 },
+    };
+    expect(holyFireOverlays(snapshot(empty), HOME, empty, lookup)).toEqual([]);
+    const site = { ...components, UnderConstruction: { labor: 0 } };
+    expect(holyFireOverlays(snapshot(site), HOME, site, lookup)).toEqual([]);
+    expect(holyFireOverlays(snapshot(), HOME, components, () => undefined)).toEqual([]);
+  });
+
+  it("keeps a prayer site's fire lit with no oil and whatever the oil policy, once it stands", () => {
+    const temple = {
+      Building: { buildingType: TEMPLE, tribe: 1, level: 0, built: ONE },
+      Owner: { player: 0 },
+      Position: { x: 10 * ONE, y: 10 * ONE },
+    };
+    const forbidden = { cooking: true, rest: true, piety: false };
+    expect(holyFireOverlays(snapshot(temple, forbidden), HOME, temple, lookup)).toEqual([
+      { name: 'fx fire incense', dx: 5, dy: 20 },
+    ]);
+    const site = { ...temple, UnderConstruction: { labor: 0 } };
+    expect(holyFireOverlays(snapshot(site), HOME, site, lookup)).toEqual([]);
+    const unfinished = { ...temple, Building: { ...temple.Building, built: ONE - 1 } };
+    expect(holyFireOverlays(snapshot(unfinished), HOME, unfinished, lookup)).toEqual([]);
+  });
+
+  it('emits retained effect refs only while the home survives the existing viewport cull', () => {
+    const visible = collectSpriteScene(snapshot(), { holyFire: lookup });
+    const building = visible.items.find((item) => item.kind === 'building');
+    const fire = visible.items.find((item) => item.kind === 'craftfx');
+    if (building === undefined || fire === undefined) throw new Error('expected home and holy fire');
+    expect(fire).toMatchObject({ fxName: 'fx fire incense', x: building.x - 80, y: building.y + 24 });
+    expect(fire === undefined ? false : visible.liveRefs.has(fire.ref)).toBe(true);
+
+    const culled = collectSpriteScene(snapshot(), {
+      holyFire: lookup,
+      viewport: { minX: 10_000, maxX: 10_100, minY: 10_000, maxY: 10_100 },
+    });
+    expect(culled.items).toEqual([]);
+  });
+
+  it('stages no fire on the map for a home drawn only for a portrait inset', () => {
+    const fogged = collectSpriteScene(snapshot(), {
+      holyFire: lookup,
+      fogVisible: () => false,
+      insetRefs: [HOME],
+    });
+    expect(fogged.items.find((item) => item.ref === HOME)?.portraitOnly).toBe(true);
+    expect(fogged.items.filter((item) => item.kind === 'craftfx')).toEqual([]);
+  });
+});

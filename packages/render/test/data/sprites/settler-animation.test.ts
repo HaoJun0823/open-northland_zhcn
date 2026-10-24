@@ -1,0 +1,504 @@
+import { describe, expect, it } from 'vitest';
+import {
+  DEFAULT_FACING,
+  indexAtlasFrames,
+  resolveSettlerBobId,
+  resolveSpriteBobId,
+  subClipKey,
+} from '../../../src/data/sprites/index.js';
+import type {
+  DirectionalAnim,
+  DrawItem,
+  FrameListAnim,
+  SettlerStateBinding,
+  SpriteAtlas,
+  SpriteBindings,
+} from '../../../src/index.js';
+import { drawItem, resolveSpriteFrame, settlerItem } from '../../support/fixtures.js';
+
+describe('subtick character clips', () => {
+  it('plays a held turn and reuses poses on the return without allocating more atlas frames', () => {
+    const idle = {
+      start: 100,
+      dirs: 8,
+      stride: 3,
+      subtick: true,
+      frameOrder: [0, 1, 2, 1],
+      frameDurations: [8, 0.5, 3, 0.5],
+    };
+    const item = settlerItem('idle', { facing: 2 });
+    for (const [clock, pose] of [
+      [0, 106],
+      [7.99, 106],
+      [8, 107],
+      [8.5, 108],
+      [11.49, 108],
+      [11.5, 107],
+      [12, 106],
+      [-0.1, 107],
+    ] as const)
+      expect(resolveSettlerBobId({ idle }, item, clock)).toBe(pose);
+  });
+  it('holds stored poses, crosses fractional boundaries and loops without adding images', () => {
+    const idle = { start: 100, dirs: 8, stride: 3, subtick: true, frameDurations: [9, 0.5, 2.5] };
+    const item = settlerItem('idle', { facing: 2 });
+    for (const [clock, pose] of [
+      [0, 106],
+      [8.99, 106],
+      [9, 107],
+      [9.49, 107],
+      [9.5, 108],
+      [11.99, 108],
+      [12, 106],
+      [-0.1, 108],
+    ] as const)
+      expect(resolveSettlerBobId({ idle }, item, clock)).toBe(pose);
+    expect(resolveSettlerBobId({ idle }, settlerItem('acting', { facing: 2, elapsed: 1 }), 9.1)).toBe(107);
+  });
+  it('keeps an unbound idle smooth across atomic wait ticks and restarts', () => {
+    const idle = { start: 0, dirs: 8, stride: 120, ticksPerFrame: 0.5, subtick: true };
+    const item = settlerItem('acting', { facing: 0, elapsed: 1, atomicId: 25 });
+    expect(resolveSettlerBobId({ idle }, item, 2)).toBe(4);
+    expect(resolveSettlerBobId({ idle }, item, 2.5)).toBe(5);
+    expect(resolveSettlerBobId({ idle }, { ...item, elapsed: 20 }, 3)).toBe(6);
+    expect(resolveSettlerBobId({ idle: { ...idle, subtick: false } }, { ...item, elapsed: 0 }, 2.5)).toBe(0);
+  });
+  it('advances a 24 fps idle twice per sim tick without changing the loop duration', () => {
+    const idle = { start: 0, dirs: 8, stride: 120, ticksPerFrame: 0.5, subtick: true };
+    const item = settlerItem('idle', { facing: 0 });
+    expect(resolveSettlerBobId({ idle }, item, 0.49)).toBe(0);
+    expect(resolveSettlerBobId({ idle }, item, 0.5)).toBe(1);
+    expect(resolveSettlerBobId({ idle }, item, 59.5)).toBe(119);
+    expect(resolveSettlerBobId({ idle }, item, 60)).toBe(0);
+    expect(resolveSettlerBobId({ idle: { ...idle, subtick: false } }, item, 0.5)).toBe(0);
+  });
+});
+
+describe('animal run gait', () => {
+  it('selects the faster clip only while the creature is moving fast', () => {
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      moving: { start: 100, dirs: 8, stride: 2 },
+      running: { start: 200, dirs: 8, stride: 3 },
+    };
+    const walking = settlerItem('moving', { facing: 4 });
+    expect(resolveSettlerBobId(binding, walking, 0, 1)).toBe(109);
+    expect(resolveSettlerBobId(binding, { ...walking, running: true }, 0, 1)).toBe(213);
+    expect(resolveSettlerBobId(binding, { ...walking, running: true, state: 'idle' }, 0)).toBe(10);
+  });
+});
+
+describe('idle gestures', () => {
+  it('keeps a rare idle wave out of movement, combat and carrying', () => {
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      moving: 20,
+      engaged: { idle: 30 },
+      idleFidgets: [{ start: 100, frameLists: [[0, 1, 2]] }],
+      idleFidgetGapTicks: 600,
+    };
+    const item = { ...settlerItem('idle', { facing: 0 }), ref: 0 };
+    const at = (elapsed: number) => resolveSettlerBobId(binding, item, elapsed, elapsed, elapsed);
+    expect([0, 180, 599, 600, 601, 602, 603].map(at)).toEqual([10, 10, 10, 100, 101, 102, 10]);
+    expect(resolveSettlerBobId(binding, { ...item, state: 'moving' }, 601, 601, 601)).toBe(20);
+    expect(resolveSettlerBobId(binding, { ...item, engaged: true }, 601, 601, 601)).toBe(30);
+    expect(resolveSettlerBobId(binding, { ...item, carrying: true }, 601, 601, 601)).toBe(10);
+  });
+  it('inserts a fidget after a complete wait schedule, then restarts the first wait', () => {
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      idleChoices: [{ start: 100, frameLists: [Array.from({ length: 47 }, (_, i) => i)] }],
+      idleFidgets: [{ start: 300, frameLists: [[0, 1, 2]] }],
+    };
+    const item = { ...settlerItem('idle', { facing: 0 }), ref: 0 };
+    const at = (elapsed: number) => resolveSettlerBobId(binding, item, elapsed, elapsed, elapsed);
+    expect([179, 180, 187, 188, 189, 190, 191, 192].map(at)).toEqual([
+      138, 139, 146, 300, 301, 302, 100, 101,
+    ]);
+  });
+
+  it('plays each authored fidget once between base waits with a stable entity offset', () => {
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      idleFidgets: [
+        { start: 300, frameLists: [[0, 1]] },
+        { start: 400, frameLists: [[0, 1, 2]] },
+      ],
+    };
+    // Entity 1 starts its order on the second fidget, 37 ticks into the schedule.
+    const item = { ...settlerItem('idle', { facing: 0 }), ref: 1 };
+    const frames = (ticks: readonly number[]) =>
+      ticks.map((tick) => resolveSettlerBobId(binding, item, tick));
+    expect(frames([142, 143, 144, 145, 146])).toEqual([10, 400, 401, 402, 10]);
+    expect(frames([325, 326, 327, 328])).toEqual([10, 300, 301, 10]);
+    expect(resolveSettlerBobId(binding, { ...item, engaged: true }, 143)).toBe(10);
+  });
+
+  it('plays a fidget longer than the base-wait gap to its end, opening each rest on the base wait', () => {
+    const LONG = 400;
+    /** The base-wait gap between two fidgets. */
+    const GAP = 180;
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      idleFidgets: [{ start: 1000, frameLists: [Array.from({ length: LONG }, (_, i) => i)] }],
+    };
+    const item = { ...settlerItem('idle', { facing: 0 }), ref: 0 };
+    const at = (elapsed: number) => resolveSettlerBobId(binding, item, 5000 + elapsed, 0, elapsed);
+    expect(at(0)).toBe(10);
+    expect(at(GAP - 1)).toBe(10);
+    expect(at(GAP)).toBe(1000);
+    expect(at(GAP + LONG - 1)).toBe(1000 + LONG - 1);
+    expect(at(GAP + LONG)).toBe(10);
+  });
+
+  it('plays each animal wait action for its authored length before the next choice', () => {
+    const binding: SettlerStateBinding = {
+      idle: 10,
+      idleChoices: [
+        { start: 300, frameLists: [[0, 1]] },
+        { start: 400, frameLists: [[0, 1, 2]] },
+      ],
+    };
+    const item = { ...settlerItem('idle', { facing: 0 }), ref: 1 };
+    expect([0, 1, 2, 3, 4].map((tick) => resolveSettlerBobId(binding, item, tick))).toEqual([
+      402, 300, 301, 400, 401,
+    ]);
+  });
+});
+
+describe('resolveSpriteFrame - per-state settler binding', () => {
+  /** An atlas with a distinct frame per state bob: idle=10, moving=11, acting=12, chop=13. */
+  function stateAtlas(): SpriteAtlas {
+    return indexAtlasFrames(64, 64, [
+      { bobId: 10, rect: { x: 0, y: 0, width: 12, height: 24 }, offsetX: -6, offsetY: -24 },
+      { bobId: 11, rect: { x: 16, y: 0, width: 12, height: 24 }, offsetX: -6, offsetY: -24 },
+      { bobId: 12, rect: { x: 32, y: 0, width: 12, height: 24 }, offsetX: -6, offsetY: -24 },
+      { bobId: 13, rect: { x: 48, y: 0, width: 12, height: 24 }, offsetX: -6, offsetY: -24 },
+    ]);
+  }
+
+  const FULL: SettlerStateBinding = {
+    idle: 10,
+    moving: 11,
+    acting: 12,
+    byAtomic: { 24: 13 }, // atomic 24 is the chop
+  };
+  const bindings = (settlerBinding: SpriteBindings['settler']): SpriteBindings => ({
+    settler: settlerBinding,
+    building: 20,
+    resource: 30,
+  });
+
+  it('picks the state-specific frame: idle/moving/acting each resolve to their own bob', () => {
+    const atlas = stateAtlas();
+    const b = bindings(FULL);
+    expect(resolveSpriteFrame(settlerItem('idle'), b, atlas)?.x).toBe(0); // bob 10
+    expect(resolveSpriteFrame(settlerItem('moving'), b, atlas)?.x).toBe(16); // bob 11
+    expect(resolveSpriteFrame(settlerItem('acting'), b, atlas)?.x).toBe(32); // bob 12
+  });
+
+  it('picks the per-atomic override for an acting settler with a bound atomic id', () => {
+    const frame = resolveSpriteFrame(settlerItem('acting', { atomicId: 24 }), bindings(FULL), stateAtlas());
+    expect(frame?.x).toBe(48); // bob 13, not the generic acting bob 12
+  });
+
+  it('falls back acting->idle and moving->idle when those states are unbound', () => {
+    const sparse: SettlerStateBinding = { idle: 10 };
+    const b = bindings(sparse);
+    const atlas = stateAtlas();
+    expect(resolveSpriteFrame(settlerItem('moving'), b, atlas)?.x).toBe(0); // idle bob 10
+    expect(resolveSpriteFrame(settlerItem('acting'), b, atlas)?.x).toBe(0); // idle bob 10
+    expect(resolveSpriteFrame(settlerItem('acting', { atomicId: 24 }), b, atlas)?.x).toBe(0); // idle bob 10
+  });
+
+  it('falls back an unlisted atomic to the generic acting frame', () => {
+    const frame = resolveSpriteFrame(settlerItem('acting', { atomicId: 99 }), bindings(FULL), stateAtlas());
+    expect(frame?.x).toBe(32); // bob 12, the generic acting frame
+  });
+
+  it('treats a stateless settler item as idle (back-compat with the flat scene)', () => {
+    const frame = resolveSpriteFrame(settlerItem(), bindings(FULL), stateAtlas());
+    expect(frame?.x).toBe(0); // bob 10
+  });
+
+  it('a plain-number settler binding draws the same frame for every state (back-compat)', () => {
+    const b = bindings(10);
+    const atlas = stateAtlas();
+    expect(resolveSpriteFrame(settlerItem('idle'), b, atlas)?.x).toBe(0);
+    expect(resolveSpriteFrame(settlerItem('moving'), b, atlas)?.x).toBe(0);
+    expect(resolveSpriteFrame(settlerItem('acting', { atomicId: 24 }), b, atlas)?.x).toBe(0);
+  });
+});
+
+describe('resolveSpriteBobId - directional animated binding', () => {
+  const WALK: DirectionalAnim = { start: 1988, dirs: 8, stride: 12 };
+  const CHOP: DirectionalAnim = { start: 5106, dirs: 8, stride: 15 };
+  const STAND: DirectionalAnim = { start: 1988, dirs: 8, stride: 12, frames: 1 };
+  // No generic `acting`: CHOP is bound only to the harvest atomic (24), as the real human binding does,
+  // so an unmapped action falls back to the idle pose rather than the woodcut swing.
+  const ANIM: SettlerStateBinding = { idle: STAND, moving: WALK, byAtomic: { 24: CHOP } };
+  const bindings: SpriteBindings = { settler: ANIM, building: 20, resource: 30 };
+
+  it('moving: start + facing*stride + tick%stride (the walk cycle for the heading)', () => {
+    expect(resolveSpriteBobId(settlerItem('moving', { facing: 3 }), bindings, 5)).toBe(1988 + 3 * 12 + 5);
+    expect(resolveSpriteBobId(settlerItem('moving', { facing: 0 }), bindings, 0)).toBe(1988);
+  });
+
+  it('acting chop (atomic 24) advances on its elapsed clock at a fixed cadence, ignoring tick', () => {
+    // frame = start + facing*stride + (elapsed % cycle), on the atomic's own elapsed-tick clock, so
+    // the tick 999 passed below must not change it, and no duration input can change the speed.
+    const swing = (elapsed: number): number | null =>
+      resolveSpriteBobId(settlerItem('acting', { facing: 4, atomicId: 24, elapsed }), bindings, 999);
+    expect(swing(0)).toBe(5106 + 4 * 15 + 0);
+    expect(swing(7)).toBe(5106 + 4 * 15 + 7);
+    expect(swing(14)).toBe(5106 + 4 * 15 + 14); // the swing's last frame
+    expect(swing(15)).toBe(5106 + 4 * 15 + 0); // a longer action loops the cycle
+  });
+
+  it('phaseStart rotates the loop start so a chop plays windup (9..14) then strike (0..8)', () => {
+    // The woodcut loop is 0..8 strike-down, 9..14 windup-rise, so frame = (phaseStart + elapsed) % 15.
+    const SWING: DirectionalAnim = { start: 5106, dirs: 8, stride: 15, phaseStart: 9 };
+    const b: SpriteBindings = { settler: { idle: STAND, byAtomic: { 24: SWING } }, building: 0, resource: 0 };
+    const at = (elapsed: number): number | null =>
+      resolveSpriteBobId(settlerItem('acting', { facing: 4, atomicId: 24, elapsed }), b, 0);
+    expect(at(0)).toBe(5106 + 4 * 15 + 9); // the windup begins
+    expect(at(5)).toBe(5106 + 4 * 15 + 14); // top of the windup
+    expect(at(6)).toBe(5106 + 4 * 15 + 0); // the strike begins
+    expect(at(14)).toBe(5106 + 4 * 15 + 8); // impact, the final frame
+  });
+
+  it('an acting atomic with no bound animation holds the idle pose (no borrowed swing)', () => {
+    // Atomic 23 is not in byAtomic and there is no generic `acting`, so it falls back to the single-pose
+    // STAND rather than the woodcut swing replayed at the wrong speed.
+    expect(
+      resolveSpriteBobId(settlerItem('acting', { facing: 2, atomicId: 23, elapsed: 3 }), bindings, 0),
+    ).toBe(1988 + 2 * 12);
+  });
+
+  it('idle holds a single planted pose per direction (frames: 1 ignores tick)', () => {
+    expect(resolveSpriteBobId(settlerItem('idle', { facing: 2 }), bindings, 99)).toBe(1988 + 2 * 12); // no phase advance
+  });
+
+  it('falls back to DEFAULT_FACING when the item carries no facing', () => {
+    expect(resolveSpriteBobId(settlerItem('moving'), bindings, 0)).toBe(1988 + DEFAULT_FACING * 12);
+  });
+
+  it('wraps an out-of-range / negative facing into 0..dirs', () => {
+    expect(resolveSpriteBobId(settlerItem('moving', { facing: 8 }), bindings, 0)).toBe(1988); // 8 % 8 == 0
+    expect(resolveSpriteBobId(settlerItem('moving', { facing: -1 }), bindings, 0)).toBe(1988 + 7 * 12); // -> dir 7
+  });
+});
+
+describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layout)', () => {
+  const ATTACK = 81;
+  const STAND: DirectionalAnim = { start: 100, dirs: 8, stride: 4, frames: 1 };
+  // Distinct per-facing lists, plus an authored hold in dir 1: the layout a uniform stride cannot encode.
+  const SWING: FrameListAnim = {
+    start: 2000,
+    frameLists: [
+      [0, 2, 4, 6], // dir 0
+      [5, 5, 7], // dir 1 - holds frame 5, and is shorter than dir 0
+    ],
+  };
+  const ANIM: SettlerStateBinding = { idle: STAND, byAtomic: { [ATTACK]: SWING } };
+  const bindings: SpriteBindings = { settler: ANIM, building: 20, resource: 30 };
+
+  it('draws start + frameLists[facing][elapsed] - the facing selects the list, elapsed indexes it', () => {
+    const at = (facing: number, elapsed: number): number | null =>
+      resolveSpriteBobId(settlerItem('acting', { facing, atomicId: ATTACK, elapsed }), bindings, 999);
+    expect(at(0, 0)).toBe(2000 + 0); // dir 0, frame 0 -> local 0
+    expect(at(0, 2)).toBe(2000 + 4); // dir 0, frame 2 -> local 4
+    expect(at(1, 0)).toBe(2000 + 5); // dir 1, frame 0 -> local 5
+    expect(at(1, 1)).toBe(2000 + 5); // dir 1, frame 1 -> local 5 again, the authored hold
+    expect(at(1, 2)).toBe(2000 + 7); // dir 1, frame 2 -> local 7
+  });
+
+  it('plays ONE-SHOT: past the CHOSEN list end the sprite shows the FIRST entry (the ready stance)', () => {
+    // dir 1 is 3 long, so elapsed 3 is one past the end, where a wrap would also give entry 0.
+    expect(
+      resolveSpriteBobId(settlerItem('acting', { facing: 1, atomicId: ATTACK, elapsed: 3 }), bindings, 0),
+    ).toBe(2000 + 5);
+    // Past dir 0's 4-entry end a wrap would give entry 1 at elapsed 5 and cycle back through the motion.
+    // The free tick passed here must not move it: the list runs on the atomic's elapsed clock.
+    expect(
+      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 5 }), bindings, 12345),
+    ).toBe(2000 + 0);
+    expect(
+      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 60 }), bindings, 0),
+    ).toBe(2000 + 0);
+  });
+
+  /** The entries a list plays over an atomic of `duration` ticks, the completion pose included. */
+  const played = (clip: FrameListAnim, duration: number): number[] => {
+    const b: SpriteBindings = {
+      settler: { idle: STAND, byAtomic: { [ATTACK]: clip } },
+      building: 0,
+      resource: 0,
+    };
+    return Array.from({ length: duration + 1 }, (_, elapsed) =>
+      resolveSpriteBobId(
+        { ...settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed }), atomicDuration: duration },
+        b,
+        0,
+      ),
+    ).map((frame) => (frame ?? 0) - clip.start);
+  };
+
+  it('plays a list naming no clip length once across the atomic, whatever its length', () => {
+    const HAMMER: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3, 4, 5]] };
+    // Entry `elapsed * entries / duration`, as the original plays a `gfxanimmode 0` list: a short atomic
+    // samples the list, a long one holds each entry, and the completion pose holds the last.
+    expect(played(HAMMER, 3)).toEqual([0, 2, 4, 5]);
+    expect(played(HAMMER, 12)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5]);
+  });
+
+  it('stretches a list over its clip ticks, a longer list sampled and a shorter one held per entry', () => {
+    const SKIP: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3, 4, 5, 6, 7]], ticks: 6 };
+    expect(played(SKIP, 6)).toEqual([0, 1, 2, 4, 5, 6, 7]);
+    const HOLD: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2]], ticks: 6 };
+    expect(played(HOLD, 6)).toEqual([0, 0, 1, 1, 2, 2, 2]);
+  });
+
+  it('replays a clip while the atomic outlasts its ticks, then holds its last entry at the end', () => {
+    const NOD: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3]], ticks: 4 };
+    // A listener bound to a 4-tick clip on a 10-tick shared chat clock nods two and a half times.
+    expect(played(NOD, 10)).toEqual([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 3]);
+    // Without a duration (a gallery clock) the replay runs on.
+    const b: SpriteBindings = {
+      settler: { idle: STAND, byAtomic: { [ATTACK]: NOD } },
+      building: 0,
+      resource: 0,
+    };
+    expect(resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 9 }), b, 0)).toBe(
+      5000 + 1,
+    );
+  });
+
+  it('keeps one entry per tick for a looping list, whatever the clip ticks or duration say', () => {
+    const WAIT: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2]], loop: true, ticks: 6 };
+    expect(played(WAIT, 4)).toEqual([0, 1, 2, 0, 1]);
+  });
+
+  it('wraps a facing beyond the list count into the available directions', () => {
+    // Only 2 lists here; facing 3 wraps 3 % 2 == 1 -> dir 1's list.
+    expect(
+      resolveSpriteBobId(settlerItem('acting', { facing: 3, atomicId: ATTACK, elapsed: 1 }), bindings, 0),
+    ).toBe(2000 + 5);
+  });
+
+  it('an empty facing list holds the pool start (never a crash / bogus id)', () => {
+    const GAPPY: FrameListAnim = { start: 3000, frameLists: [[], [1, 2]] };
+    const b: SpriteBindings = {
+      settler: { idle: STAND, byAtomic: { [ATTACK]: GAPPY } },
+      building: 0,
+      resource: 0,
+    };
+    expect(resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 5 }), b, 0)).toBe(
+      3000,
+    ); // dir 0 is empty -> start
+  });
+
+  it('loop wraps past the end instead of the one-shot return-to-first (the idle wait cycle)', () => {
+    // A facing-locked 3-entry wait program on the free tick clock: one-shot would freeze on entry 0 from
+    // step 3 on, so step 4 is where the two contracts diverge.
+    const WAIT: FrameListAnim = { start: 4000, frameLists: [[0, 5, 6]], loop: true };
+    const b: SpriteBindings = { settler: { idle: WAIT }, building: 0, resource: 0 };
+    const at = (tick: number): number | null =>
+      resolveSpriteBobId(settlerItem('idle', { facing: 5 }), b, tick);
+    expect(at(1)).toBe(4000 + 5); // entry 1 mid-list, same as one-shot
+    expect(at(3)).toBe(4000 + 0); // 3 % 3 == 0, so the cycle restarts
+    expect(at(4)).toBe(4000 + 5); // one-shot would show entry 0 here
+  });
+});
+
+describe('resolveSettlerBobId - an in-house craft sub-clip', () => {
+  it('preserves authored holds and returns when stretching a work clip', () => {
+    const binding = {
+      idle: 900,
+      byAtomic: { 47: { start: 500, dirs: 8, stride: 2, frameOrder: [0, 1, 0], frameDurations: [1, 2, 1] } },
+    };
+    for (const [progress, expected] of [
+      [0, 500],
+      [0.24, 500],
+      [0.25, 501],
+      [0.74, 501],
+      [0.75, 500],
+      [1, 500],
+    ] as const)
+      expect(
+        resolveSettlerBobId(
+          binding,
+          drawItem('settler', { state: 'acting', facing: 0, craftClip: { action: 47, subId: 0, progress } }),
+          0,
+        ),
+      ).toBe(expected);
+  });
+  const KNEAD: FrameListAnim = { start: 500, frameLists: [[0, 1, 2, 3]] };
+  const IDLE_STAND = 900;
+  const MAKE_BREAD = 47;
+  const WAIT_ACTION = 5;
+  const binding: SettlerStateBinding = {
+    idle: IDLE_STAND,
+    byAtomic: { [WAIT_ACTION]: 950 },
+    bySubClip: { [subClipKey(MAKE_BREAD, 1)]: KNEAD },
+  };
+  const crafting = (action: number, subId: number, progress: number): DrawItem =>
+    drawItem('settler', { state: 'acting', facing: 0, craftClip: { action, subId, progress } });
+
+  it('stretches the clip across its window instead of running a frame per tick', () => {
+    // Four frames over the whole window, so the quarters land on successive entries whatever the length.
+    expect(resolveSettlerBobId(binding, crafting(MAKE_BREAD, 1, 0), 0)).toBe(500);
+    expect(resolveSettlerBobId(binding, crafting(MAKE_BREAD, 1, 0.5), 0)).toBe(502);
+    expect(resolveSettlerBobId(binding, crafting(MAKE_BREAD, 1, 1), 0)).toBe(503); // holds the last frame
+  });
+
+  it('reads a sub-clip 0 as the job’s own record for that action', () => {
+    expect(resolveSettlerBobId(binding, crafting(WAIT_ACTION, 0, 0.5), 0)).toBe(950);
+  });
+
+  it('stands rather than borrowing another clip when the body binds none', () => {
+    expect(resolveSettlerBobId(binding, crafting(MAKE_BREAD, 9, 0.5), 0)).toBe(IDLE_STAND);
+    expect(resolveSettlerBobId(binding, crafting(99, 0, 0.5), 0)).toBe(IDLE_STAND);
+  });
+});
+
+describe('compatible atomic variants', () => {
+  it('keeps a swing across ticks and facing changes, but varies repeated fixed-cadence attacks', () => {
+    const binding: SettlerStateBinding = {
+      idle: 1,
+      byAtomic: { 81: 50, 10: 70 },
+      byAtomicChoices: {
+        81: [100, 200, 300, 400].map((start) => ({
+          start,
+          frameLists: [
+            [0, 1, 2],
+            [10, 11, 12],
+          ],
+        })),
+      },
+    };
+    const selected = new Set<number>();
+    for (let start = 0; start < 240; start += 12) {
+      const item = { ...settlerItem('acting', { atomicId: 81, elapsed: 1, facing: 0 }), atomicDuration: 12 };
+      const first = resolveSettlerBobId(binding, item, start + 1);
+      selected.add(first);
+      for (let elapsed = 0; elapsed < 12; elapsed++) {
+        const facing = elapsed % 2;
+        const bob = resolveSettlerBobId(binding, { ...item, elapsed, facing }, start + elapsed + 0.8);
+        expect(bob).toBe(first + facing * 10 + Math.floor(elapsed / 4));
+      }
+    }
+    expect([...selected].sort()).toEqual([100, 200, 300, 400]);
+    expect(resolveSettlerBobId(binding, settlerItem('acting', { atomicId: 10 }), 500)).toBe(70);
+    expect(resolveSettlerBobId(binding, settlerItem('idle'), 500)).toBe(1);
+  });
+});
+
+describe('missing prayer artwork', () => {
+  it('stands still instead of borrowing the generic work motion', () => {
+    const binding: SettlerStateBinding = { idle: 10, acting: 20 };
+    const prayer = settlerItem('acting', { atomicId: 12, elapsed: 50 });
+    expect(resolveSettlerBobId(binding, prayer, 500)).toBe(10);
+    expect(resolveSettlerBobId({ ...binding, byAtomic: { 12: 30 } }, prayer, 500)).toBe(30);
+  });
+});

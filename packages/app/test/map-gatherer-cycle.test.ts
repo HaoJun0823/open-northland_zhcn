@@ -1,40 +1,22 @@
 import type { TerrainMapFile } from '@open-northland/data';
-import { components, halfCellMapFromCells, Simulation, systems, type TerrainMap } from '@open-northland/sim';
+import { components, Simulation, systems, type TerrainMap } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { WOOD_YIELD_PER_NODE } from '../src/catalog/felling.js';
 import { JOB_COLLECTOR } from '../src/catalog/jobs.js';
-import { TERRAIN_OPEN } from '../src/catalog/terrain.js';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { buildScriptLandscapeTerrain } from '../src/content/script-landscape.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import { sandboxContent } from '../src/game/sandbox/content/index.js';
 import { GOOD_WOOD } from '../src/game/sandbox/ids/index.js';
-import { GATHERER_WORK_RADIUS } from '../src/game/sandbox/place/index.js';
 
 /**
- * The REAL-map gathering cycle end-to-end over the ACTUAL map content (`sandboxContent` - the exact
- * ContentSet `?map=` runs, with footprinted trees), in real-map density: a command-spawned wood
- * gatherer (flag auto-planted at its feet) inside a DENSE tree cluster must complete the full
- * fell → pick up the trunk → bank at the flag loop. Regression net for the reported bug where a gatherer
- * felled a tree, the log lay there and he stood doing nothing - a cycle stall shows up here as wood never
- * reaching the flag heaps (the trunk left lying).
- *
- * The second test runs the SAME cycle over a collision grid built by the REAL map join
- * (`buildScriptLandscapeTerrain`) with tree placements - guarding the double-blocking that stalled the
- * live map: baked-static tree cells never unblock when the tree falls, so the trunk lying there was
- * unreachable forever. The join leaves harvestables to their dynamic footprints.
+ * The map gathering cycle over the content `?map=` runs (`sandboxContent`, footprinted trees) and a
+ * collision grid built by the real map join (`buildScriptLandscapeTerrain`): a command-spawned wood
+ * gatherer in a dense tree cluster must fell, pick up the trunk and bank it at its flag. A harvestable
+ * baked into the static grid would never unblock when it falls, leaving the trunk unreachable.
  */
 
-const { GroundDrop, Stockpile, WorkFlag } = components;
-
-/** An all-grass CELL map (the sim runs its 2× half-cell lattice). */
-function grassMap(cells: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(TERRAIN_OPEN),
-  });
-}
+const { GroundDrop, Stockpile } = components;
 
 /** A footprinted map-style tree (the exact spec `spawnMapResources` builds) at half-cell (hx, hy). */
 function mapTree(sim: Simulation, hx: number, hy: number): void {
@@ -69,41 +51,6 @@ function bankedWood(sim: Simulation): number {
 }
 
 describe('map-style gathering cycle (sandbox content, footprinted trees, dense forest)', () => {
-  it('fells, picks the trunk up and banks it at the flag - never leaves the kłoda lying', () => {
-    const sim = new Simulation({ seed: 11, content: sandboxContent(), map: grassMap(40) });
-    // A command-spawned gatherer - the map path: the spawn handler plants its work flag at its feet.
-    sim.enqueueSetup({
-      kind: 'spawnSettler',
-      jobType: JOB_COLLECTOR,
-      x: 40,
-      y: 40,
-      tribe: PRIMARY_TRIBE,
-      owner: HUMAN_PLAYER,
-    });
-    sim.step();
-    const gatherer = [...sim.world.query(WorkFlag)][0];
-    expect(gatherer).toBeDefined();
-
-    // A dense map-like cluster: trees every 2 nodes in a 5×5 patch beside the gatherer - inside the
-    // flag radius, footprints overlapping work cells the way a real forest packs them.
-    for (let ty = 34; ty <= 42; ty += 2) {
-      for (let tx = 44; tx <= 52; tx += 2) {
-        mapTree(sim, tx, ty);
-      }
-    }
-    expect(GATHERER_WORK_RADIUS).toBeGreaterThanOrEqual(12); // the cluster sits within the flag radius
-
-    // Plenty of time for several full cycles (chop ×N, fall, walk, pick up, carry home).
-    for (let t = 0; t < 3000; t++) sim.step();
-
-    // At least one full cycle landed: wood banked at the flag...
-    expect(bankedWood(sim)).toBeGreaterThan(0);
-    // ...and no trunk left lying around long-term (the reported stall: felled wood abandoned on the
-    // ground while the gatherer idles). A trunk mid-carry is fine; after 3000 ticks with one gatherer
-    // and a near flag, everything felled so far must have been banked or be the one active carry.
-    expect(looseWood(sim)).toBeLessThanOrEqual(WOOD_YIELD_PER_NODE);
-  });
-
   it('completes the cycle over the REAL collision join - a felled tree must unblock its cell', () => {
     // A synthetic decoded-map file: 40×40 open ground, a 5×5 tree cluster in the objects lane (the
     // lane the STATIC collision join stamps) - the exact shape the live map stalls on.

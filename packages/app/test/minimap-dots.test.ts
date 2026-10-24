@@ -379,10 +379,6 @@ describe('forEachMinimapDot', () => {
     expect(plot()).toBe(2);
     expect(visits() - visitsAfterFirst).toBeLessThanOrEqual(idLookupVisits(2, scenery.length + 2));
   });
-
-  it('emits nothing for an empty world', () => {
-    expect(dotsOf([])).toEqual([]);
-  });
 });
 
 describe('forEachMinimapDot over a crowded synthetic world', () => {

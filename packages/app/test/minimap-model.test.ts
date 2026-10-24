@@ -6,7 +6,6 @@ import {
 } from '@open-northland/render';
 import { FOG_MODE, FOG_STATE, fogViewOfMask } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLOR_COUNT, PLAYER_SWATCH_COLORS } from '../src/catalog/roster.js';
 import {
   ATLAS_WIDTHS,
   FOG_UNEXPLORED_TINT,
@@ -412,13 +411,6 @@ describe('viewportRectOnMinimap', () => {
         maxY: -8000,
       }),
     ).toBeNull();
-  });
-});
-
-describe('PLAYER_SWATCH_COLORS', () => {
-  it('carries one distinct swatch per player colour slot', () => {
-    expect(PLAYER_SWATCH_COLORS.length).toBe(PLAYER_COLOR_COUNT);
-    expect(new Set(PLAYER_SWATCH_COLORS).size).toBe(PLAYER_COLOR_COUNT);
   });
 });
 

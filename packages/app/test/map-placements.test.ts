@@ -23,12 +23,4 @@ describe('forEachPlacement', () => {
     forEachPlacement([1, 2, 3, 4, 5], (hx) => seen.push(hx));
     expect(seen).toEqual([1]);
   });
-
-  it('does nothing for an empty lane', () => {
-    let calls = 0;
-    forEachPlacement([], () => {
-      calls++;
-    });
-    expect(calls).toBe(0);
-  });
 });

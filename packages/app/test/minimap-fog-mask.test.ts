@@ -23,30 +23,21 @@ const written = (overrides: Partial<FogMaskSource> = {}): FogMaskSource => ({
   ...overrides,
 });
 
+const { cells: _cells, ...withoutCells } = view();
+
 describe('fog mask rewrite', () => {
   it('rewrites only the changed cells under the same seat and mode, with mask copies of one length', () => {
     expect(fogMaskRewrite(written(), view())).toBe('cells');
   });
 
-  it('fills the whole mask on the first draw', () => {
-    expect(fogMaskRewrite(null, view())).toBe('whole');
-  });
-
-  it('fills the whole mask for another seat', () => {
-    expect(fogMaskRewrite(written(), view({ player: OTHER_SEAT }))).toBe('whole');
-  });
-
-  it('fills the whole mask under another mode', () => {
-    expect(fogMaskRewrite(written(), view({ mode: FOG_MODE.RECON }))).toBe('whole');
-  });
-
-  it('fills the whole mask when either view lacks its mask copy', () => {
-    expect(fogMaskRewrite(written({ cells: undefined }), view())).toBe('whole');
-    const { cells: _cells, ...live } = view();
-    expect(fogMaskRewrite(written(), live)).toBe('whole');
-  });
-
-  it('fills the whole mask when the copies differ in length', () => {
-    expect(fogMaskRewrite(written(), view({ cells: new Uint8Array(CELLS + 1) }))).toBe('whole');
+  it.each([
+    ['on the first draw', null, view()],
+    ['for another seat', written(), view({ player: OTHER_SEAT })],
+    ['under another mode', written(), view({ mode: FOG_MODE.RECON })],
+    ['when the drawn mask kept no copy', written({ cells: undefined }), view()],
+    ['when the live view carries no copy', written(), withoutCells],
+    ['when the copies differ in length', written(), view({ cells: new Uint8Array(CELLS + 1) })],
+  ] as const)('fills the whole mask %s', (_case, drawn, live) => {
+    expect(fogMaskRewrite(drawn, live)).toBe('whole');
   });
 });

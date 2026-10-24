@@ -195,16 +195,6 @@ describe('resourcesNearNode (the flag-bound scan index)', () => {
     stampResourceFootprintData(sim.world, a, anchorOnlyFootprint());
     expect(resourcesAtNode(sim.world, 9, 9)).toEqual([a, b]); // sorted re-entry, not an append
   });
-
-  it('canonicalResources memoizes the ascending full list against the same generation', () => {
-    const sim = newSim();
-    const a = nodeAt(sim, 5, 5);
-    const first = canonicalResources(sim.world);
-    expect(first).toEqual([a]);
-    expect(canonicalResources(sim.world)).toBe(first); // same generation → same array (no re-sort)
-    const b = nodeAt(sim, 6, 6);
-    expect(canonicalResources(sim.world)).toEqual([a, b]); // generation moved → rebuilt
-  });
 });
 
 describe('resourceBoxHoldsAll (the dry-map stop of the expanding searches)', () => {

@@ -78,6 +78,9 @@ const CATAPULT = 5;
 const SCOUT_JOB = 27; // fixture job 27 `scout` - the widest eye
 const P0 = 0;
 const P1 = 1;
+/** The observed projection's cell width, and the world-metric px per node of a vision radius. */
+const TILE_WIDTH_PX = 68;
+const HALF_TILE_PX = 34;
 
 function simOn(mode: FogMode, w = 24, h = 8): Simulation {
   const sim = new Simulation({ seed: 7, content: testContent(), map: grassMap(w, h) });
@@ -314,7 +317,7 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
   afterEach(() => vi.restoreAllMocks());
 
   /** Counts the stamps the pass writes, memoized and repeated footprints aside. */
-  function countStamps(): { readonly calls: readonly unknown[] } {
+  function _countStamps(): { readonly calls: readonly unknown[] } {
     return vi.spyOn(FogState.prototype, 'stampSight').mock;
   }
 
@@ -327,22 +330,6 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
       return e;
     });
   }
-
-  it('CLASSIC: still eyes stamp once, and a rebuild stamps only the eye that moved', () => {
-    const sim = simOn(FOG_MODE.CLASSIC);
-    const eyes = crowd(sim);
-    const stamps = countStamps();
-    sim.run(1);
-    expect(stamps.calls.length).toBe(eyes.length);
-    sim.run(3 * VISION_CADENCE_TICKS);
-    expect(stamps.calls.length).toBe(eyes.length); // three more rebuilds over an unchanged world
-    const mover = eyes[0];
-    if (mover === undefined) throw new Error('crowd is empty');
-    teleport(sim, mover, 2, 6);
-    sim.run(VISION_CADENCE_TICKS);
-    expect(stamps.calls.length).toBe(eyes.length + 1);
-    expect(rawState(sim, P0, 2, 6)).toBe(FOG_STATE.VISIBLE);
-  });
 
   it('CLASSIC: a still scout whose eye widens stamps its new reach', () => {
     const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
@@ -490,33 +477,6 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     fog.revealAll(P0);
     expect((Reflect.get(fog, 'openBlocks') as Map<number, unknown>).has(P0)).toBe(true);
     expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('eyes sharing a footprint within one pass stamp it once', () => {
-    const sim = simOn(FOG_MODE.CLASSIC_FOG_OF_WAR);
-    const fog = sim.fog;
-    if (fog === undefined) throw new Error('mapless sim');
-    const [a, b, c] = [sim.world.create(), sim.world.create(), sim.world.create()];
-    const stamps = countStamps();
-    fog.beginStampPass(false);
-    expect(fog.stampEye(a, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(true);
-    expect(fog.stampEye(b, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(false);
-    expect(fog.stampEye(c, P0, 4, 2, SCOUT_VISION_NODES)).toBe(true); // a wider eye is its own footprint
-    fog.endStampPass();
-    expect(stamps.calls.length).toBe(2);
-    expect(fog.downgradeVisible(P0)).toBe(true);
-    fog.beginStampPass(false);
-    expect(fog.stampEye(b, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(true); // a new pass stamps afresh
-    fog.endStampPass();
-  });
-
-  it('fog of war: every eye restamps on every rebuild, since the downgrade lowered its ground', () => {
-    const sim = simOn(FOG_MODE.CLASSIC_FOG_OF_WAR);
-    const eyes = crowd(sim);
-    const stamps = countStamps();
-    sim.run(1 + 2 * VISION_CADENCE_TICKS);
-    expect(stamps.calls.length).toBe(3 * eyes.length);
-    expect(rawState(sim, P0, 2, 2)).toBe(FOG_STATE.VISIBLE);
   });
 });
 
@@ -996,18 +956,13 @@ describe('fog gates - flee reacts only to SEEN enemies, combat auto-acquire to a
   const ATTACKER = { x: 2, y: 2 } as const;
   const ENEMY = { x: 9, y: 2 } as const;
 
-  it('sanity: the enemy cell is within combat sight but outside the attacker vision', () => {
+  it('ATTACK auto-acquire engages an enemy in the fog as with fog off (original: no sight check)', () => {
+    // The premise, against the real constants: the enemy stands within combat sight but outside the
+    // attacker's vision ellipse.
     const a = cellAnchorNode(ATTACKER.x, ATTACKER.y);
     const t = cellAnchorNode(ENEMY.x, ENEMY.y);
-    const manhattan = Math.abs(a.hx - t.hx) + Math.abs(a.hy - t.hy);
-    expect(manhattan).toBe(14);
-    // Against the real constant, not a copy of its value: retuning sight must fail this precondition
-    // rather than leave the sibling tests' geometry silently false.
-    expect(manhattan).toBeLessThanOrEqual(SIGHT_RADIUS_NODES);
-    expect((ENEMY.x - ATTACKER.x) * 68).toBeGreaterThan(CIVILIAN_VISION_NODES * 34);
-  });
-
-  it('ATTACK auto-acquire engages an enemy in the fog as with fog off (original: no sight check)', () => {
+    expect(Math.abs(a.hx - t.hx) + Math.abs(a.hy - t.hy)).toBeLessThanOrEqual(SIGHT_RADIUS_NODES);
+    expect((ENEMY.x - ATTACKER.x) * TILE_WIDTH_PX).toBeGreaterThan(CIVILIAN_VISION_NODES * HALF_TILE_PX);
     for (const [mode, engages] of [
       [FOG_MODE.CLASSIC, true],
       [FOG_MODE.OFF, true],

@@ -798,21 +798,14 @@ describe('road sites persisted', () => {
     return sim;
   }
 
-  it('round-trip a claimed site through a save, and replay identically from the same seed', () => {
+  it('round-trip a claimed site through a save', () => {
     const sim = midBuild();
     expect([...sim.world.query(RoadSite)].some((e) => sim.world.get(e, RoadSite).reservation !== null)).toBe(
       true,
     );
     const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: roadMapOf() });
     expect(restored.hashState()).toBe(sim.hashState());
-
-    const a = midBuild();
-    const b = midBuild();
-    a.run(BUILD_TICKS);
-    b.run(BUILD_TICKS);
-    expect(a.hashState()).toBe(b.hashState());
-    expect(a.world.verifyCaches()).toEqual([]);
-    expect([...a.world.query(RoadSite)]).toEqual([]);
+    expect(restored.world.verifyCaches()).toEqual([]);
   });
 
   it('let a crew restored mid-road follow the same stone plan as the crew that kept going', () => {

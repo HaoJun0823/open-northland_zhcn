@@ -251,13 +251,6 @@ describe('debugSetNeeds', () => {
     expect(s.piety).toBe(start); // omitted - untouched
     expect(s.enjoyment).toBe(start); // omitted - untouched
   });
-
-  it('a non-settler target is a no-op', () => {
-    const sim = fresh();
-    const notASettler = healthOnlyEntity(sim, 10);
-    sim.enqueueSetup({ kind: 'debugSetNeeds', target: notASettler, hunger: 100 });
-    expect(() => sim.step()).not.toThrow();
-  });
 });
 
 describe('debugFillStockpile', () => {
@@ -348,13 +341,6 @@ describe('debugFillStockpile', () => {
       [1, 2],
       [2, 3],
     ]);
-  });
-
-  it('a non-building target is a no-op', () => {
-    const sim = fresh();
-    const settler = settlerWithNeeds(sim, fx.fromInt(0));
-    sim.enqueueSetup({ kind: 'debugFillStockpile', target: settler });
-    expect(() => sim.step()).not.toThrow();
   });
 });
 

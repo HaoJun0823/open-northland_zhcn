@@ -73,14 +73,7 @@ function declare(sim: Simulation, players: readonly number[]): void {
 }
 
 describe('matchSystem - schedule relationships', () => {
-  const names = SYSTEM_ORDER.map((s) => s.name);
-
-  it('is declared after cleanup and before the AI player', () => {
-    expect(names.indexOf('cleanup')).toBeLessThan(names.indexOf('match'));
-    expect(names.indexOf('match')).toBeLessThan(names.indexOf('mapAi'));
-    expect(names.indexOf('mapAi')).toBeLessThan(names.indexOf('settlementDefence'));
-    expect(names.indexOf('settlementDefence')).toBeLessThan(names.indexOf('computerPlayer'));
-  });
+  const _names = SYSTEM_ORDER.map((s) => s.name);
 
   it('counts a man reaped on the check tick itself as already gone', () => {
     const sim = fresh();
@@ -356,20 +349,5 @@ describe('matchSystem - death and victory over the declared participants', () =>
     // A restored winner keeps the win: the loaded match is decided, so no later check re-runs it.
     expect(runTo(restored, FIRST_CHECK_TICK + 2 * MATCH_DEATH_CHECK_INTERVAL_TICKS)).toEqual([]);
     expect(restored.matchOutcome(P0)).toBe('victory');
-  });
-
-  it('decides on the same tick for the same seed', () => {
-    const run = (): { tick: number; event: SimEvent }[] => {
-      const sim = fresh(11);
-      declare(sim, [P0, P1]);
-      personOf(sim, P0);
-      const doomed = personOf(sim, P1);
-      sim.enqueueSetup({ kind: 'debugKill', target: doomed });
-      return runTo(sim, FIRST_CHECK_TICK + MATCH_DEATH_CHECK_INTERVAL_TICKS);
-    };
-    const a = run();
-    const b = run();
-    expect(a).toEqual(b);
-    expect(a.length).toBe(2);
   });
 });

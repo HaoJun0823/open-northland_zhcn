@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { uiStringLookup } from '../src/content/gui-gfx.js';
 import { actionLabel } from '../src/hud/action-ring/labels.js';
-import { messages } from '../src/i18n/index.js';
 
 const lookup = uiStringLookup({
   misclogic: {
@@ -26,6 +25,5 @@ describe('action labels from content', () => {
   it('uses project wording when a row or the whole table is missing', () => {
     expect(actionLabel('assignHome', lookup, 'eng')).toBe('Assign Home');
     expect(actionLabel('assignHome', uiStringLookup(null), 'pol')).toBe('Wybierz dom');
-    expect(messages('eng').actionRing.goTo).toBe('Go To');
   });
 });

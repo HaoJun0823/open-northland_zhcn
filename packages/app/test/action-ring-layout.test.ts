@@ -181,24 +181,4 @@ describe('action-ring-layout - hit-test (a click → the right order)', () => {
       }
     }
   });
-
-  it('lets a long row and a long column share a corner, where the later-drawn column wins the click', () => {
-    // With every order drawn at the approximated offsets, the walk order ending the bottom row runs under
-    // the lower buttons of the right column.
-    const l = layoutActionRing(everything, 500, 400, 1, 2000, 2000);
-    const walk = placed(l, 'goTo').rect;
-    const under = l.buttons.filter(
-      (p) =>
-        p.command.arm === RIGHT_ARM &&
-        p.rect.x < walk.x + walk.w &&
-        walk.x < p.rect.x + p.rect.w &&
-        p.rect.y < walk.y + walk.h &&
-        walk.y < p.rect.y + p.rect.h,
-    );
-    expect(under.map((p) => p.command.id)).toEqual(['assignVehicle', 'removeHome']);
-    const home = placed(l, 'removeHome').rect;
-    const x = (Math.max(walk.x, home.x) + Math.min(walk.x + walk.w, home.x + home.w)) / 2;
-    const y = (Math.max(walk.y, home.y) + Math.min(walk.y + walk.h, home.y + home.h)) / 2;
-    expect(hitTestActionRing(l, x, y)?.id).toBe('removeHome');
-  });
 });

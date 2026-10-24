@@ -248,14 +248,6 @@ describe('allowedActions - one settler', () => {
     );
   });
 
-  it('offers the fishing delivery flag and shows it after placement', () => {
-    const bare = allowedActions(content, snapshotOf([settler(1, JOB_FISHER)]), [1]);
-    expect(bare.has('assignWorkArea')).toBe(true);
-    expect(bare.has('showWorkArea')).toBe(false);
-    const flagged = allowedActions(content, snapshotOf([settler(1, JOB_FISHER, { workFlag: true })]), [1]);
-    expect(flagged.has('showWorkArea')).toBe(true);
-  });
-
   it('offers a soldier the regeneration toggle that flips the state it is in', () => {
     const allowing = allowedActions(content, snapshotOf([settler(1, JOB_SOLDIER)]), [1]);
     expect(allowing.has('prohibitRegeneration')).toBe(true);

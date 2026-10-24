@@ -62,13 +62,15 @@ const UNSUPPLIED_MILL: SceneWorld = {
 const DELIVERED_WHEAT = 5;
 /** Tiles east of a bakery's worker where a new store goes: well inside its walk range. */
 const NEW_STORE_OFFSET = 8;
+/** Sweeps past the chain's first bread, about 230 sweeps in: the mill and bakery wait out the farm's
+ *  first harvest, far longer than the stall grace, before any input reaches them. */
+const CHAIN_RUN_SWEEPS = 300;
 
 describe('stalled workshop notes over real runs', () => {
   it('stays silent while the chain fetches from the farm and well and hauls to the store', () => {
     const sim = createSceneSim(registeredScene('chain'));
     sim.run(2);
-    // Long enough for the mill and bakery to wait out the farm's first harvest and fill their shelves.
-    const { raised } = watchStalls(sim).run(900);
+    const { raised } = watchStalls(sim).run(CHAIN_RUN_SWEEPS);
     expect(totalOf(sim, GOOD_FLOUR)).toBeGreaterThan(0);
     expect(totalOf(sim, GOOD_BREAD)).toBeGreaterThan(0);
     expect(raised).toEqual([]);

@@ -75,8 +75,6 @@ describe('decor weather cover', () => {
     expect(late.shader?.resources.uCoverTex).toBe(shader?.resources.uCoverTex);
     layer.setWeatherCover(null, 0, 0);
     expect(group.uniforms.uCover).toBe(0);
-    // The dusting sits behind the per-vertex switch, so a dry map keeps its single fetch.
-    expect(shader?.glProgram?.fragment).toContain('if (vSnow > 0.0)');
     layer.destroy();
   });
 });

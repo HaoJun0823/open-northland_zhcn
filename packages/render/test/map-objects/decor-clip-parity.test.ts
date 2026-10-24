@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { Texture, TextureSource } from 'pixi.js';
-import { chromium } from 'playwright';
-import { describe, expect, it } from 'vitest';
+import { type Browser, chromium } from 'playwright';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { type QuadBuffers, writeObjectQuad } from '../../src/gpu/map-objects/decor-batch.js';
 import {
@@ -280,25 +280,28 @@ function cpuPlacement(frame: AtlasFrame | undefined): number[] {
 }
 
 describe.skipIf(!existsSync(chromium.executablePath()))('decor clip frame pick on the GPU', () => {
+  let browser: Browser;
+  beforeAll(async () => {
+    browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--mute-audio'] });
+  });
+  afterAll(async () => {
+    await browser.close();
+  });
+
   it('picks the frame the CPU picks for every clip, watched or not, fog on and off', async () => {
     const cases = clipCases();
-    const browser = await chromium.launch({ channel: 'chromium', headless: true });
-    try {
-      const page = await browser.newPage();
-      const picks = await page.evaluate(gpuPicks, {
-        vertex: PICK_VERTEX,
-        fragment: PICK_FRAGMENT,
-        clips: cases.flatMap((c) => [...c.clip]),
-        ticks: TICKS,
-      });
-      if (typeof picks === 'string') throw new Error(picks);
-      const expected = [false, true].flatMap((fogOn) =>
-        TICKS.flatMap((tick) => cases.map((c) => objectFrameIndexAt(c.obj, c.watched || !fogOn ? tick : 0))),
-      );
-      expect(picks).toEqual(expected);
-    } finally {
-      await browser.close();
-    }
+    const page = await browser.newPage();
+    const picks = await page.evaluate(gpuPicks, {
+      vertex: PICK_VERTEX,
+      fragment: PICK_FRAGMENT,
+      clips: cases.flatMap((c) => [...c.clip]),
+      ticks: TICKS,
+    });
+    if (typeof picks === 'string') throw new Error(picks);
+    const expected = [false, true].flatMap((fogOn) =>
+      TICKS.flatMap((tick) => cases.map((c) => objectFrameIndexAt(c.obj, c.watched || !fogOn ? tick : 0))),
+    );
+    expect(picks).toEqual(expected);
   });
 
   it('places a clip quad as the CPU writes it, from an entry past the first table row', async () => {
@@ -316,29 +319,24 @@ describe.skipIf(!existsSync(chromium.executablePath()))('decor clip frame pick o
       anchor: [...PLACE_ANCHOR],
       tick,
     }));
-    const browser = await chromium.launch({ channel: 'chromium', headless: true });
-    try {
-      const data = table.source.resource;
-      if (!(data instanceof Float32Array)) throw new Error('expected the table as floats');
-      const page = await browser.newPage();
-      const placed = await page.evaluate(gpuPlacements, {
-        vertex: PLACE_VERTEX,
-        fragment: PICK_FRAGMENT,
-        table: [...data],
-        tableHeight: table.source.height,
-        cases,
-      });
-      if (typeof placed === 'string') throw new Error(placed);
-      // A collapsed pose's outputs are not written; only its drawn flag is read.
-      const drawnOf = (quad: number[]) => quad.filter((_, i) => i % PLACED_FLOATS === PLACED_FLOATS - 1);
-      const quads = cases.map((_, c) =>
-        placed.slice(c * CORNERS * PLACED_FLOATS, (c + 1) * CORNERS * PLACED_FLOATS),
-      );
-      expect(quads[0]).toEqual(cpuPlacement(PLACE_FRAMES[0]));
-      expect(drawnOf(quads[1] ?? [])).toEqual([0, 0, 0, 0]);
-      expect(quads[2]).toEqual(cpuPlacement(PLACE_FRAMES[2]));
-    } finally {
-      await browser.close();
-    }
+    const data = table.source.resource;
+    if (!(data instanceof Float32Array)) throw new Error('expected the table as floats');
+    const page = await browser.newPage();
+    const placed = await page.evaluate(gpuPlacements, {
+      vertex: PLACE_VERTEX,
+      fragment: PICK_FRAGMENT,
+      table: [...data],
+      tableHeight: table.source.height,
+      cases,
+    });
+    if (typeof placed === 'string') throw new Error(placed);
+    // A collapsed pose's outputs are not written; only its drawn flag is read.
+    const drawnOf = (quad: number[]) => quad.filter((_, i) => i % PLACED_FLOATS === PLACED_FLOATS - 1);
+    const quads = cases.map((_, c) =>
+      placed.slice(c * CORNERS * PLACED_FLOATS, (c + 1) * CORNERS * PLACED_FLOATS),
+    );
+    expect(quads[0]).toEqual(cpuPlacement(PLACE_FRAMES[0]));
+    expect(drawnOf(quads[1] ?? [])).toEqual([0, 0, 0, 0]);
+    expect(quads[2]).toEqual(cpuPlacement(PLACE_FRAMES[2]));
   });
 });

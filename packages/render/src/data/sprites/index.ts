@@ -2,7 +2,6 @@ export {
   type AtlasFrame,
   type AtlasImageEncoding,
   type AtlasManifest,
-  type AtlasManifestFrame,
   type BuildTimeSheet,
   indexAtlasFrames,
   lookupFrame,

@@ -598,7 +598,6 @@ export function makeDecorCoverUniforms(): DecorCoverUniforms {
 
 /** Cover texels are RGBA bytes, snow in green. */
 const COVER_TEXEL_BYTES = 4;
-export const COVER_SNOW_CHANNEL = 1;
 
 /** A cover texture of `width` by `height` sectors, all clear. */
 export function makeGroundCoverTexture(width: number, height: number): BufferImageSource {

@@ -67,9 +67,6 @@ export const IDENTITY_COLOUR = (player: number): number => player;
  */
 export const SIGN_STEP = 20;
 
-/** World-px a sign's emblem tops out above its anchor (the frames author `offsetY` of about -26). */
-export const SIGN_HEIGHT = 26;
-
 /**
  * Every `ls_temp` sign frame carries a rock clump at its planted base; a chained row (above the first)
  * draws a base-cropped variant so the clump doesn't sit on the emblem below. The cut is the lowest kept

@@ -96,7 +96,6 @@ export {
   type AtlasFrame,
   type AtlasImageEncoding,
   type AtlasManifest,
-  type AtlasManifestFrame,
   type BuildingBobRef,
   type BuildingLandscapeOverlayRef,
   type BuildingOverlayRef,
@@ -214,7 +213,6 @@ export {
   type SettlerBubbleKind,
   SIGN_BASE_BELOW,
   SIGN_HALF_WIDTH,
-  SIGN_HEIGHT,
   SIGN_STEP,
   STAR_TIERS,
   signRowAt,
@@ -241,9 +239,7 @@ export {
 } from './gpu/pixi-app/pixi-app.js';
 export {
   bakeToSprite,
-  createReusableBaker,
   oversampleFor,
-  type ReusableBaker,
   type SupersampledTexture,
 } from './gpu/pixi-app/supersample.js';
 export type { PlacementGhost } from './gpu/placement/ghost.js';

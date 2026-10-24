@@ -1,4 +1,4 @@
-import { type Container, Rectangle, type Renderer, RenderTexture, Sprite, Texture } from 'pixi.js';
+import { type Container, type Renderer, RenderTexture, Sprite } from 'pixi.js';
 import { clamp } from '../../data/math.js';
 
 /**
@@ -71,88 +71,4 @@ export function bakeToSprite(
     texture?.destroy(true);
     throw error;
   }
-}
-
-/** A {@link bakeToSprite} twin that reuses one render target across bakes. */
-export interface ReusableBaker {
-  bake(source: Container, texW: number, texH: number, invScale: number): SupersampledTexture;
-  /** Free the shared render target (call once, after every outstanding bake is disposed). */
-  dispose(): void;
-}
-
-/**
- * A baker for a caller that re-bakes frequently: one grow-only {@link RenderTexture} plus one persistent
- * frame view of it, reused as the render target so a rebuild allocates no GPU texture, and reallocated
- * only when a bake outgrows the target. Single-slot, because every bake reuses the one view: `bake`
- * throws while the previous bake is undisposed, since a second live handle would be silently retargeted.
- */
-export function createReusableBaker(renderer: Renderer): ReusableBaker {
-  let target: RenderTexture | null = null;
-  let view: Texture | null = null;
-  let outstanding = false;
-  const ensure = (w: number, h: number): Texture => {
-    if (target === null || view === null || target.width < w || target.height < h) {
-      const grownW = Math.max(w, target?.width ?? 0);
-      const grownH = Math.max(h, target?.height ?? 0);
-      const nextTarget = RenderTexture.create({
-        width: grownW,
-        height: grownH,
-        resolution: 1,
-        antialias: false,
-      });
-      nextTarget.source.scaleMode = 'linear';
-      let nextView: Texture;
-      try {
-        nextView = new Texture({ source: nextTarget.source, frame: new Rectangle(0, 0, w, h) });
-      } catch (error: unknown) {
-        nextTarget.destroy(true);
-        throw error;
-      }
-      view?.destroy(false);
-      target?.destroy(true);
-      target = nextTarget;
-      view = nextView;
-    } else if (view.frame.width !== w || view.frame.height !== h) {
-      view.frame.width = w;
-      view.frame.height = h;
-      view.updateUvs();
-    }
-    return view;
-  };
-  return {
-    bake(source, texW, texH, invScale): SupersampledTexture {
-      if (outstanding) throw new Error('ReusableBaker is single-slot: dispose the previous bake first');
-      let display: Sprite | null = null;
-      try {
-        const bakeView = ensure(texW, texH);
-        outstanding = true;
-        const redraw = (): void => {
-          renderer.render({ container: source, target: bakeView, clear: true });
-        };
-        redraw();
-        display = new Sprite(bakeView);
-        display.scale.set(invScale);
-        const bakedDisplay = display;
-        return {
-          display: bakedDisplay,
-          redraw,
-          dispose(): void {
-            outstanding = false;
-            source.destroy({ children: true }); // the shared view + target stay with the baker
-          },
-        };
-      } catch (error: unknown) {
-        outstanding = false;
-        display?.destroy();
-        source.destroy({ children: true });
-        throw error;
-      }
-    },
-    dispose(): void {
-      view?.destroy(false);
-      target?.destroy(true);
-      view = null;
-      target = null;
-    },
-  };
 }

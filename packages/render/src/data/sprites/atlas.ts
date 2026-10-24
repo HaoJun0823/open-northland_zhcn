@@ -1,4 +1,4 @@
-import type { BobAtlasFrame, BobAtlasManifest, BobAtlasStem } from '@open-northland/data';
+import type { BobAtlasManifest, BobAtlasStem } from '@open-northland/data';
 
 /** Authored ground marker in frame-local source pixels, independent of image padding. */
 export interface SelectionEllipse {
@@ -62,9 +62,6 @@ export function indexAtlasFrames(
   }
   return { width, height, frames };
 }
-
-/** A manifest frame: its placement; the frame layout `bobs/atlases.json` serves per bob set. */
-export type AtlasManifestFrame = BobAtlasFrame;
 
 /**
  * How a paletted sheet is stored, as the atlas document names it: `index-coverage-png` is an 8-bit

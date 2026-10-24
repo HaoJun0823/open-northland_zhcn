@@ -22,7 +22,6 @@ export {
   type HouseholdKind,
   SIGN_BASE_BELOW,
   SIGN_HALF_WIDTH,
-  SIGN_HEIGHT,
   SIGN_STEP,
   signRowAt,
 } from './building-signs/sign-gfx.js';

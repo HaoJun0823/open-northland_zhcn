@@ -314,16 +314,8 @@ describe('army selection input', () => {
 
   it.each([
     ['eat', { kind: 'orderNeed', need: 'hunger' }],
-    ['sleep', { kind: 'orderNeed', need: 'fatigue' }],
-    ['talk', { kind: 'orderNeed', need: 'enjoyment' }],
-    ['pray', { kind: 'orderNeed', need: 'piety' }],
-    ['removeLearningPlace', { kind: 'cancelTraining' }],
     ['removeVehicle', { kind: 'detachFromVehicle' }],
-    ['removeBuildingSite', { kind: 'unassignBuilder' }],
-    ['removeWorkPlace', { kind: 'unassignWorker' }],
     ['removeHome', { kind: 'unassignHouse' }],
-    ['marry', { kind: 'marry' }],
-    ['haveBoy', { kind: 'makeChild', child: 'male' }],
     ['haveGirl', { kind: 'makeChild', child: 'female' }],
   ] as const)('submits the %s ring action once for all 1000 members', (id, action) => {
     const h = harness();

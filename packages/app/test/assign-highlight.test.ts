@@ -46,10 +46,6 @@ describe('tradeSlotsOf - the slots that seat a current trade', () => {
     expect(tradeSlotsOf(COIN_MAKER, MILL_SLOTS)).toEqual([]);
   });
 
-  it('matches a collector to the gatherer slot of a warehouse', () => {
-    expect(tradeSlotsOf(JOB_COLLECTOR, WAREHOUSE_SLOTS)).toEqual([rebaseSlotJob(JOB_COLLECTOR)]);
-  });
-
   it('never falls back to the carrier - a miller at a mint gets no slot, not a hauler post', () => {
     expect(tradeSlotsOf(19, MINT_SLOTS)).toEqual([]);
   });

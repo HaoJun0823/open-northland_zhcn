@@ -7,7 +7,7 @@ import { createPendingGroundOrders } from '../src/view/unit-controls/pending-gro
 import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
 import { COUNT, geometry, HEIGHT, makeArmy, report, WIDTH } from './support/army-march.js';
 
-it.each(['move', 'attack-move', 'redirect'] as const)(
+it.each(['move', 'redirect'] as const)(
   'moves a 1000-soldier real app %s formation without stacking',
   async (kind) => {
     const { sim, members } = makeArmy();

@@ -331,11 +331,11 @@ Paths are under `packages/app/test/`.
 
 | Tests | Check |
 | --- | --- |
-| `session-worker*.test.ts` | Run the worker host under Node's `worker_threads`. Node runs the worker as plain JavaScript, so the tests first bundle it and the workspace packages from source with esbuild. Four acceptance scenes reach the same state in the worker as inline, and the runtime's side sees every tick the worker stepped. |
-| `session-worker-idle-poll.test.ts` | In process: a worker waiting for relay frames polls at its idle period instead of spinning. |
+| `session/worker/*.test.ts` | Run the worker host under Node's `worker_threads`. Node runs the worker as plain JavaScript, so the tests first bundle it and the workspace packages from source with esbuild. Four acceptance scenes reach the same state in the worker as inline, and the runtime's side sees every tick the worker stepped. |
+| `session/worker/idle-poll.test.ts` | In process: a worker waiting for relay frames polls at its idle period instead of spinning. |
 | `real-content/session/session-worker-checkpoint.test.ts` | In `test:content`, the parity check on a late six-AI `magiczny_las` checkpoint under player orders. The checkpoint is a local `bench-out/` file, so the test skips where it was never written. `ON_WORKER_CHECKPOINT` selects a freshly generated late-game save (absolute or relative to the checkout); a selected file that is missing, malformed or in another save format fails the test instead of skipping it. |
-| `net/network-worker*.test.ts` | The page's `NetworkConnection` against the worker's `serveRelay` in process over a scripted relay link: lobby, a hosted world, relay frames, the link's lifecycle and the answers a closed worker still owes. |
-| `net/relayed-world-superseded.test.ts` | A world the client dropped before its entry hosted it. |
+| `net/net-worker-*.test.ts` | The page's `NetworkConnection` against the worker's `serveRelay` in process over a scripted relay link: lobby, a hosted world, relay frames, the link's lifecycle and the answers a closed worker still owes. |
+| `net/relayed-worlds.test.ts` | A world the client dropped before its entry hosted it. |
 | `net/relay-slow-display.test.ts` | Draws the runtime's frames 2 s apart: the relay governs the room to the drawn rate and releases it once the frames recover, and the mirror saw every tick. |
 | third case of `real-content/session/relay-map-parity.test.ts` | The worker client's digests and final state match the inline client's on `magiczny_las`. |
 

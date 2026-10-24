@@ -1,6 +1,6 @@
 /**
  * The benchmarks' pure statistics: raw per-system timing samples in, report rows out. Kept free of
- * timing and sim construction so it unit-tests without running a sim (`test/bench-report.test.ts`,
+ * timing and sim construction so it unit-tests without running a sim (`test/bench/report.test.ts`,
  * in the normal suite).
  */
 import {

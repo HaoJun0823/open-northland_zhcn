@@ -1,0 +1,593 @@
+import { MessageChannel } from 'node:worker_threads';
+import { FOG_MODE, type FogMaskAnswer, MS_PER_TICK } from '@open-northland/sim';
+import { describe, expect, it, vi } from 'vitest';
+import { createSceneSim, SCENES } from '../../../src/scenes/index.js';
+import { changedFacts, readWorldFacts } from '../../../src/session/worker/facts.js';
+import { FogPosts } from '../../../src/session/worker/fog-posts.js';
+import type { SessionPort } from '../../../src/session/worker/port.js';
+import type { FromWorker, TickBatch, ToWorker } from '../../../src/session/worker/protocol.js';
+import { ArrivalAlpha } from '../../../src/session/worker/render-alpha.js';
+import {
+  ASSUMED_FRAME_MS,
+  BROKEN_SESSION_MESSAGE,
+  leadTickLimit,
+  serveSession,
+  type WorldBuilder,
+} from '../../../src/session/worker/serve.js';
+import { StallWatch } from '../../../src/session/worker/stall-watch.js';
+import { MAX_HELD_TICKS, TickOutbox } from '../../../src/session/worker/tick-outbox.js';
+import { DISPOSED_SESSION_MESSAGE, startWorkerSession } from '../../../src/session/worker/worker-session.js';
+import { decodeSaveText, type SaveFile } from '../../../src/view/runtime/save-load/codec.js';
+import { canonicalEntities } from '../../support/session-worker/canonical-entities.js';
+import { nodeParentPort } from '../../support/session-worker/node-ports.js';
+import { DEFAULT_TEST_OPTIONS, SILENT_STALL_REPORTS } from '../../support/session-worker/start-worker.js';
+import {
+  buildTestWorld,
+  INJECTED_FAULT_MESSAGE,
+  type TestWorldBoot,
+} from '../../support/session-worker/test-world.js';
+
+const SPEED = 2;
+const HALF = 0.5;
+const PERIOD_MS = MS_PER_TICK / SPEED;
+
+describe('arrival alpha', () => {
+  it('runs from 0 at an arrival to 1 a tick period at the session speed later, and clamps there', () => {
+    const alpha = new ArrivalAlpha(SPEED, false);
+    alpha.arrived(1000);
+    expect(alpha.at(1000)).toBe(0);
+    expect(alpha.at(1000 + PERIOD_MS * HALF)).toBeCloseTo(HALF);
+    expect(alpha.at(1000 + PERIOD_MS * 3)).toBe(1);
+  });
+
+  it('holds while paused and continues from the held fraction', () => {
+    const alpha = new ArrivalAlpha(SPEED, false);
+    alpha.arrived(0);
+    alpha.setPaused(true, PERIOD_MS * HALF);
+    expect(alpha.at(PERIOD_MS * 10)).toBeCloseTo(HALF);
+    alpha.setPaused(false, PERIOD_MS * 10);
+    expect(alpha.at(PERIOD_MS * 10)).toBeCloseTo(HALF);
+    expect(alpha.at(PERIOD_MS * 10.25)).toBeCloseTo(HALF + 0.25);
+  });
+
+  it('draws a tick that lands while paused whole, and holds it until the next lands', () => {
+    const alpha = new ArrivalAlpha(SPEED, false);
+    alpha.arrived(0);
+    alpha.setPaused(true, PERIOD_MS * HALF);
+    alpha.arrived(PERIOD_MS * 2);
+    expect(alpha.at(PERIOD_MS * 3)).toBe(1);
+    alpha.setPaused(false, PERIOD_MS * 4);
+    expect(alpha.at(PERIOD_MS * 10)).toBe(1);
+  });
+
+  it('keeps its fraction across a speed change and runs the rest at the new pace', () => {
+    const alpha = new ArrivalAlpha(1, false);
+    alpha.arrived(0);
+    alpha.setSpeed(SPEED, MS_PER_TICK * HALF);
+    expect(alpha.at(MS_PER_TICK * HALF)).toBeCloseTo(HALF);
+    expect(alpha.at(MS_PER_TICK * HALF + PERIOD_MS * 0.25)).toBeCloseTo(HALF + 0.25);
+  });
+});
+
+describe('tick outbox', () => {
+  it('drops the held ticks at the cap instead of holding the clock, and rebuilds the runtime whole', () => {
+    const posted: number[][] = [];
+    let dropped = 0;
+    const outbox = new TickOutbox({
+      take: (records) => ({ ticks: records }) as unknown as TickBatch,
+      post: (batch) => posted.push(batch.ticks.map((record) => record.tick)),
+      limit: () => 1,
+      // A runtime that takes in nothing counts as stopped at once.
+      stoppedAfterMs: () => 0,
+      droppedHeld: () => dropped++,
+    });
+    const record = (tick: number) => ({ tick, events: [], simMs: 0, diagnostics: null });
+    // The first tick goes out at once and is never delivered: the page is hidden.
+    outbox.add(record(0));
+    let tick = 1;
+    for (; tick <= MAX_HELD_TICKS; tick++) outbox.add(record(tick));
+    expect(dropped).toBe(0);
+    expect(outbox.mayStep()).toBe(true);
+    outbox.add(record(tick));
+    expect(dropped).toBe(1);
+    expect(outbox.mayStep()).toBe(true);
+    outbox.delivered(1);
+    expect(posted).toEqual([[0], [tick]]);
+  });
+});
+
+describe('stall watch', () => {
+  const TIMEOUT_MS = 500;
+  const HEARTBEAT_MS = 100;
+
+  function watched() {
+    const reports: string[] = [];
+    const watch = new StallWatch(
+      { stalled: (ms) => reports.push(`stalled ${ms}`), recovered: (ms) => reports.push(`recovered ${ms}`) },
+      TIMEOUT_MS,
+      HEARTBEAT_MS,
+      0,
+    );
+    return { watch, reports };
+  }
+
+  it('reports a silence past the timeout once, and its end', () => {
+    const { watch, reports } = watched();
+    for (let t = HEARTBEAT_MS; t <= 800; t += HEARTBEAT_MS) watch.check(t);
+    watch.heard(900);
+    expect(reports).toEqual(['stalled 600', 'recovered 900']);
+  });
+
+  it('charges nothing to the worker while this thread was blocked', () => {
+    const { watch, reports } = watched();
+    watch.check(HEARTBEAT_MS);
+    // The next check comes seconds late: the worker's answers sat unread in this thread's queue.
+    watch.check(3000);
+    watch.check(3000 + HEARTBEAT_MS);
+    expect(reports).toEqual([]);
+  });
+
+  it('reports the whole silence on recovery when a check came late after the stall', () => {
+    const { watch, reports } = watched();
+    for (let t = HEARTBEAT_MS; t <= 600; t += HEARTBEAT_MS) watch.check(t);
+    watch.check(1000);
+    watch.heard(1050);
+    expect(reports).toEqual(['stalled 600', 'recovered 1050']);
+  });
+});
+
+function sandbox() {
+  const scene = SCENES.find((s) => s.id === 'sandbox');
+  if (scene === undefined) throw new Error('no sandbox scene');
+  return scene;
+}
+
+describe('world facts', () => {
+  it('posts only what changed, the plots by identity', () => {
+    const sim = createSceneSim(sandbox());
+    sim.run(2);
+    const first = readWorldFacts(sim);
+    expect(changedFacts(first, readWorldFacts(sim))).toEqual({});
+    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: !first.needsEnabled });
+    sim.step();
+    expect(changedFacts(first, readWorldFacts(sim))).toMatchObject({ needsEnabled: !first.needsEnabled });
+  });
+});
+
+/** Both ends in this thread over a `MessageChannel`, with the runtime's messages counted as they land. */
+function inProcessSession(
+  boot: TestWorldBoot,
+  speed = 1,
+  paused = true,
+  build: WorldBuilder<TestWorldBoot, null> = buildTestWorld,
+) {
+  const channel = new MessageChannel();
+  serveSession(nodeParentPort(channel.port1), build);
+  const inner = nodeParentPort(channel.port2);
+  const batches: number[] = [];
+  const failedTicks: number[] = [];
+  const port: SessionPort = {
+    post: inner.post,
+    listenFailure: inner.listenFailure,
+    close: () => {
+      channel.port1.close();
+      channel.port2.close();
+    },
+    listen: (receive) =>
+      inner.listen((message, receiveMs) => {
+        const landed = message as FromWorker<null>;
+        if (landed.kind === 'ticks') batches.push(landed.batch.ticks.length);
+        if (landed.kind === 'tickError') failedTicks.push(landed.tick);
+        receive(message, receiveMs);
+      }),
+  };
+  const session = startWorkerSession<TestWorldBoot, null>(
+    port,
+    boot,
+    { ...DEFAULT_TEST_OPTIONS, speed, paused },
+    SILENT_STALL_REPORTS,
+  );
+  return { session, batches, failedTicks };
+}
+
+/** How long past reaching its limit the hold test watches the worker. */
+const PAST_THE_LIMIT_MS = 500;
+const settle = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** A polling interval while the other end of an in-process channel works. */
+const TURN_MS = 10;
+
+/** Fake the clock both ends read. Channel messages and the session's zero-delay tasks stay real. */
+function fakeClock(): void {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+}
+
+/** One fake turn, then the real tasks it released. */
+async function fakeTurn(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(TURN_MS);
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+async function fakeElapse(ms: number): Promise<void> {
+  for (let passed = 0; passed < ms; passed += TURN_MS) await fakeTurn();
+}
+
+describe('fog posts', () => {
+  const VIEWER = 2;
+  const CELLS = 4;
+  function answer(generation: number, bytes: readonly number[], player = VIEWER): FogMaskAnswer {
+    return {
+      player,
+      mode: FOG_MODE.CLASSIC,
+      cellsWide: CELLS / 2,
+      cellsHigh: CELLS / 2,
+      generation,
+      mask: Uint8Array.from(bytes),
+    };
+  }
+
+  it('passes on a mask only when its bytes, the seat or the fog itself changed', () => {
+    const posts = new FogPosts();
+    const first = answer(1, [0, 1, 2, 3]);
+    expect(posts.changed(first)).toBe(true);
+    // A posted mask's buffer is transferred away: the copy held stands in for it.
+    structuredClone(first, { transfer: first.mask === null ? [] : [first.mask.buffer] });
+    expect(posts.changed(answer(2, [0, 1, 2, 3]))).toBe(false);
+    expect(posts.changed(answer(3, [0, 1, 2, 2]))).toBe(true);
+    expect(posts.changed(answer(4, [0, 1, 2, 2], VIEWER + 1))).toBe(true);
+    expect(posts.changed({ ...answer(5, []), mask: null })).toBe(true);
+    expect(posts.changed({ ...answer(6, []), mask: null })).toBe(false);
+    expect(posts.changed(null)).toBe(true);
+    expect(posts.changed(null)).toBe(false);
+  });
+
+  it('tells a changed byte in the word-compared body and in the tail past the last whole word', () => {
+    const posts = new FogPosts();
+    const bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    const IN_A_WORD = 5;
+    const IN_THE_TAIL = bytes.length - 1;
+    const bumped = (at: number): number[] => bytes.map((b, i) => (i === at ? b + 1 : b));
+    expect(posts.changed(answer(1, bytes))).toBe(true);
+    expect(posts.changed(answer(2, bytes))).toBe(false);
+    expect(posts.changed(answer(3, bumped(IN_A_WORD)))).toBe(true);
+    expect(posts.changed(answer(4, bytes))).toBe(true);
+    expect(posts.changed(answer(5, bumped(IN_THE_TAIL)))).toBe(true);
+    // A view into a larger buffer at an odd offset is compared byte by byte.
+    const odd = new Uint8Array(bytes.length + 1);
+    odd.set(bumped(IN_THE_TAIL), 1);
+    expect(posts.changed({ ...answer(6, []), mask: odd.subarray(1) })).toBe(false);
+  });
+
+  it('posts a seat watched again although its mask did not change meanwhile', () => {
+    const posts = new FogPosts();
+    const SEAT_A = VIEWER;
+    const SEAT_B = VIEWER + 1;
+    expect(posts.changed(answer(1, [1, 1, 0, 0], SEAT_A))).toBe(true);
+    expect(posts.changed(answer(1, [0, 0, 1, 1], SEAT_B))).toBe(true);
+    // The runtime holds B's masks now: A's unchanged ones must reach it again.
+    expect(posts.changed(answer(2, [1, 1, 0, 0], SEAT_A))).toBe(true);
+    expect(posts.changed(answer(3, [1, 1, 0, 0], SEAT_A))).toBe(false);
+  });
+});
+
+describe('lead tick limit', () => {
+  it('leaves the batch in flight a tick to step behind it at x1 on fast displays', () => {
+    for (const frameMs of [ASSUMED_FRAME_MS, 1000 / 120, 1000 / 144]) {
+      expect(leadTickLimit(1, frameMs)).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+describe('tick batch queue', () => {
+  it('keeps one batch in flight and posts every tick stepped meanwhile as one spanning batch', async () => {
+    const { session: started, batches } = inProcessSession({ kind: 'scene', id: 'sandbox' });
+    const session = await started;
+    try {
+      const RUN_TICKS = 12;
+      const start = session.host.tick;
+      const run = session.host.run(RUN_TICKS);
+      // The worker answers between the run's slices, so its tick shows how far the run got.
+      while ((await session.host.hashState()).tick < start + RUN_TICKS) await settle(TURN_MS);
+      expect(batches).toEqual([1]);
+
+      const ticks: number[] = [];
+      const onTick = () => ticks.push(session.host.tick);
+      // Delivering the first batch releases the rest as one, which the next frame delivers whole.
+      session.driver.advance(0, onTick);
+      while (batches.length < 2) await settle(TURN_MS);
+      expect(batches).toEqual([1, RUN_TICKS - 1]);
+      session.driver.advance(0, onTick);
+      await run;
+      expect(ticks).toEqual(Array.from({ length: RUN_TICKS }, (_, i) => start + 1 + i));
+      expect(session.host.tick).toBe(start + RUN_TICKS);
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it('steps nothing before the first frame', async () => {
+    /** Clock ticks a running session would have stepped meanwhile. */
+    const TICKS_WATCHED = 4;
+    fakeClock();
+    const { session: started } = inProcessSession({ kind: 'scene', id: 'sandbox' }, SPEED, false);
+    const session = await started;
+    try {
+      await fakeElapse(TICKS_WATCHED * PERIOD_MS);
+      expect((await session.host.hashState()).tick).toBe(session.host.tick);
+    } finally {
+      session.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('holds the clock once the runtime has left its lead of ticks undelivered', async () => {
+    const FAST = 16;
+    fakeClock();
+    const { session: started } = inProcessSession({ kind: 'scene', id: 'sandbox' }, FAST, false);
+    const session = await started;
+    try {
+      // One frame starts the clock; nothing is delivered after it, so at its lead the worker stops
+      // stepping instead of banking ticks. No delivery has reported a frame interval yet.
+      session.driver.advance(0);
+      const limit = leadTickLimit(FAST, ASSUMED_FRAME_MS);
+      const lead = async () => (await session.host.hashState()).tick - session.host.tick;
+      while ((await lead()) < limit) await fakeTurn();
+      await fakeElapse(PAST_THE_LIMIT_MS);
+      // The clock feeds the driver a tick at a time, so it stops exactly at the limit.
+      expect(await lead()).toBe(limit);
+    } finally {
+      session.dispose();
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('a runtime back from not drawing', () => {
+  /** The frame interval a page reports on its first frame after it was hidden for a minute. */
+  const HIDDEN_RETURN_FRAME_MS = 60_000;
+  /** Past the least stop wait, so the batch in flight counts the runtime as stopped. */
+  const HIDDEN_MS = 700;
+
+  it('reads its first frame as no frame rate and reports no drawn tick cost for it', async () => {
+    fakeClock();
+    const drawn: number[] = [];
+    const { session: started, batches } = inProcessSession(
+      { kind: 'scene', id: 'sandbox' },
+      1,
+      false,
+      (boot, options) => ({
+        ...buildTestWorld(boot, options),
+        awaitsFrames: true,
+        costs: { charge: () => undefined, drawn: (ms) => drawn.push(ms) },
+      }),
+    );
+    const session = await started;
+    try {
+      const deliveredFrame = async (frameMs: number): Promise<void> => {
+        const before = batches.length;
+        session.driver.advance(frameMs);
+        while (batches.length === before) await fakeTurn();
+      };
+      session.driver.advance(ASSUMED_FRAME_MS);
+      while (batches.length === 0) await fakeTurn();
+      await deliveredFrame(ASSUMED_FRAME_MS);
+      expect(drawn).toHaveLength(1);
+      await fakeElapse(HIDDEN_MS);
+      await deliveredFrame(HIDDEN_RETURN_FRAME_MS);
+      expect(drawn).toHaveLength(1);
+      await deliveredFrame(ASSUMED_FRAME_MS);
+      expect(drawn).toHaveLength(2);
+      expect(Math.max(...drawn)).toBeLessThan(MS_PER_TICK);
+    } finally {
+      session.dispose();
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('failures between the ends', () => {
+  it('keeps a failing tick and the ticks no batch carried yet out of the drawn world', async () => {
+    // Past the first tick, which posts at once, so the ticks between it and the fault are pending.
+    const FAULT_AFTER_TICKS = 5;
+    const direct = createSceneSim(sandbox());
+    const faultTick = direct.tick + FAULT_AFTER_TICKS;
+    const { session: started, failedTicks } = inProcessSession({
+      kind: 'scene',
+      id: 'sandbox',
+      fault: { tick: faultTick, kind: 'throwAfterWrites' },
+    });
+    const session = await started;
+    try {
+      await expect(session.host.run(FAULT_AFTER_TICKS)).rejects.toThrow(INJECTED_FAULT_MESSAGE);
+      while (failedTicks.length === 0) await settle(TURN_MS);
+      expect(failedTicks).toEqual([faultTick]);
+      expect(() => session.driver.advance(0)).toThrow(INJECTED_FAULT_MESSAGE);
+      expect(session.host.tick).toBeLessThan(faultTick);
+      direct.run(session.host.tick - direct.tick);
+      expect(canonicalEntities(session.host.snapshot())).toBe(canonicalEntities(direct.snapshot()));
+      // No tick is delivered after the failure, so a wait for one would never end.
+      await expect(session.host.run(1)).rejects.toThrow(INJECTED_FAULT_MESSAGE);
+      await expect(session.host.settled()).rejects.toThrow(INJECTED_FAULT_MESSAGE);
+      // A crash report still reads the world as it stopped.
+      await expect(session.host.commandLog()).resolves.toBeDefined();
+    } finally {
+      session.dispose();
+    }
+  });
+
+  const CALL_ID = 7;
+  const UNCLONEABLE = 'the answer could not be cloned';
+  const WORKER_GONE = 'the worker is gone';
+  const HEARTBEAT_MS = 10;
+  /** Heartbeats a stopped heartbeat would have sent while the test watches. */
+  const HEARTBEATS_WATCHED = 5;
+  const UNMEASURED_MS = 0;
+
+  it('steps and saves no further a world whose tick threw', async () => {
+    const replies = new Map<number, FromWorker<null>>();
+    let deliver: (message: ToWorker<TestWorldBoot>) => void = () => undefined;
+    const port: SessionPort = {
+      post: (message) => {
+        const posted = message as FromWorker<null>;
+        if (posted.kind === 'reply') replies.set(posted.id, posted);
+      },
+      listen: (receive) => {
+        deliver = (message) => receive(message, UNMEASURED_MS);
+      },
+      listenFailure: () => undefined,
+      close: () => undefined,
+    };
+    const answer = async (id: number): Promise<FromWorker<null>> => {
+      while (!replies.has(id)) await settle(TURN_MS);
+      const reply = replies.get(id);
+      if (reply === undefined) throw new Error(`no reply ${id}`);
+      return reply;
+    };
+    serveSession(port, buildTestWorld);
+    const faultTick = createSceneSim(sandbox()).tick + 1;
+    deliver({
+      kind: 'boot',
+      boot: { kind: 'scene', id: 'sandbox', fault: { tick: faultTick, kind: 'throwAfterWrites' } },
+      options: DEFAULT_TEST_OPTIONS,
+    });
+    deliver({ kind: 'call', id: 1, call: { method: 'run', ticks: 1 } });
+    expect(await answer(1)).toMatchObject({ ok: false, error: { message: INJECTED_FAULT_MESSAGE } });
+    deliver({ kind: 'call', id: 2, call: { method: 'run', ticks: 1 } });
+    expect(await answer(2)).toMatchObject({ ok: false, error: { message: BROKEN_SESSION_MESSAGE } });
+    deliver({ kind: 'call', id: 3, call: { method: 'hashState' } });
+    expect(await answer(3)).toMatchObject({ ok: true, value: { tick: faultTick } });
+    deliver({ kind: 'call', id: 4, call: { method: 'captureSave', options: {} } });
+    expect(await answer(4)).toMatchObject({ ok: false, error: { message: BROKEN_SESSION_MESSAGE } });
+    deliver({ kind: 'call', id: 5, call: { method: 'captureSaveFile', options: {} } });
+    expect(await answer(5)).toMatchObject({ ok: false, error: { message: BROKEN_SESSION_MESSAGE } });
+  });
+
+  it('transfers each save file it captures, two captures back to back included', async () => {
+    const replies = new Map<number, FromWorker<null>>();
+    const posted: SaveFile[] = [];
+    let deliver: (message: ToWorker<TestWorldBoot>) => void = () => undefined;
+    const port: SessionPort = {
+      // A clone with the transfer list, as postMessage makes it: a transferred buffer detaches here.
+      post: (message, transfer) => {
+        const reply = message as FromWorker<null>;
+        if (reply.kind !== 'reply') return;
+        if (reply.ok) posted.push(reply.value as SaveFile);
+        replies.set(reply.id, structuredClone(reply, { transfer: [...(transfer ?? [])] }));
+      },
+      listen: (receive) => {
+        deliver = (message) => receive(message, UNMEASURED_MS);
+      },
+      listenFailure: () => undefined,
+      close: () => undefined,
+    };
+    serveSession(port, buildTestWorld);
+    deliver({ kind: 'boot', boot: { kind: 'scene', id: 'sandbox' }, options: DEFAULT_TEST_OPTIONS });
+    deliver({ kind: 'call', id: 1, call: { method: 'captureSaveFile', options: { savedAt: 1 } } });
+    deliver({ kind: 'call', id: 2, call: { method: 'captureSaveFile', options: { savedAt: 1 } } });
+    while (replies.size < 2) await settle(TURN_MS);
+    const texts: string[] = [];
+    for (const id of [1, 2]) {
+      const reply = replies.get(id);
+      if (reply?.kind !== 'reply' || !reply.ok) throw new Error(`capture ${id} failed`);
+      texts.push(await decodeSaveText((reply.value as SaveFile).bytes));
+    }
+    expect(texts[1]).toBe(texts[0]);
+    // The worker's copies were moved, not cloned.
+    expect(posted.map((file) => file.bytes.byteLength)).toEqual([0, 0]);
+  });
+
+  it('fails a save capture still pending when the session is disposed', async () => {
+    const channel = new MessageChannel();
+    serveSession(nodeParentPort(channel.port1), buildTestWorld);
+    const inner = nodeParentPort(channel.port2);
+    const port: SessionPort = {
+      ...inner,
+      listenFailure: () => undefined,
+      close: () => {
+        channel.port1.close();
+        channel.port2.close();
+      },
+    };
+    const session = await startWorkerSession<TestWorldBoot, null>(
+      port,
+      { kind: 'scene', id: 'sandbox' },
+      DEFAULT_TEST_OPTIONS,
+      SILENT_STALL_REPORTS,
+    );
+    const capture = session.captureSaveFile({});
+    session.dispose();
+    await expect(capture).rejects.toThrow(DISPOSED_SESSION_MESSAGE);
+    await expect(session.captureSaveFile({})).rejects.toThrow(DISPOSED_SESSION_MESSAGE);
+  });
+
+  it('replies with an error when the answer itself cannot be posted', async () => {
+    const replies: FromWorker<null>[] = [];
+    let refuseReply = true;
+    let deliver: (message: ToWorker<TestWorldBoot>) => void = () => undefined;
+    const port: SessionPort = {
+      post: (message) => {
+        const posted = message as FromWorker<null>;
+        if (posted.kind !== 'reply') return;
+        if (refuseReply) {
+          refuseReply = false;
+          throw new Error(UNCLONEABLE);
+        }
+        replies.push(posted);
+      },
+      listen: (receive) => {
+        deliver = (message) => receive(message, UNMEASURED_MS);
+      },
+      listenFailure: () => undefined,
+      close: () => undefined,
+    };
+    serveSession(port, buildTestWorld);
+    deliver({ kind: 'boot', boot: { kind: 'scene', id: 'sandbox' }, options: DEFAULT_TEST_OPTIONS });
+    deliver({ kind: 'call', id: CALL_ID, call: { method: 'hashState' } });
+    while (replies.length === 0) await settle(TURN_MS);
+    expect(replies).toMatchObject([
+      { kind: 'reply', id: CALL_ID, ok: false, error: { message: UNCLONEABLE } },
+    ]);
+  });
+
+  it('rejects the pending asks and stops its heartbeat when the worker fails', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const channel = new MessageChannel();
+    serveSession(nodeParentPort(channel.port1), buildTestWorld);
+    const inner = nodeParentPort(channel.port2);
+    let failWorker: (error: Error) => void = () => undefined;
+    let pings = 0;
+    const port: SessionPort = {
+      listen: inner.listen,
+      post: (message, transfer) => {
+        if ((message as ToWorker<unknown>).kind === 'ping') pings++;
+        inner.post(message, transfer);
+      },
+      listenFailure: (fail) => {
+        failWorker = fail;
+      },
+      close: () => {
+        channel.port1.close();
+        channel.port2.close();
+      },
+    };
+    const session = await startWorkerSession<TestWorldBoot, null>(
+      port,
+      { kind: 'scene', id: 'sandbox' },
+      DEFAULT_TEST_OPTIONS,
+      SILENT_STALL_REPORTS,
+      { heartbeatMs: HEARTBEAT_MS },
+    );
+    try {
+      vi.advanceTimersByTime(HEARTBEAT_MS * HEARTBEATS_WATCHED);
+      expect(pings).toBeGreaterThan(0);
+      const pending = session.host.hashState();
+      failWorker(new Error(WORKER_GONE));
+      await expect(pending).rejects.toThrow(WORKER_GONE);
+      const pingsAtFailure = pings;
+      vi.advanceTimersByTime(HEARTBEAT_MS * HEARTBEATS_WATCHED);
+      expect(pings).toBe(pingsAtFailure);
+    } finally {
+      session.dispose();
+      vi.useRealTimers();
+    }
+  });
+});

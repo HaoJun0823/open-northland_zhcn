@@ -3,7 +3,7 @@
 **Area:** tooling, sim · **Priority:** P2
 
 A tester's diagnostics bundle (seed + command log + world id + hashes) is a full session repro, but
-the dev-side procedure currently lives only as a test pattern (`packages/app/test/diag-bundle.test.ts`:
+the dev-side procedure currently lives only as a test pattern (`packages/app/test/diag/bundle.test.ts`:
 rebuild the world with the same builder, drop pending setup enqueues, `stepReplaying` to the
 recorded tick). Operationalize it: one command a dev points at a downloaded bundle.
 

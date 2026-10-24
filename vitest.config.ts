@@ -30,11 +30,11 @@ const CONTENT_TESTS = 'packages/app/test/real-content/**/*.test.ts';
 const SLOW_APP_TESTS = [
   'packages/app/test/view/unit-controls/orders/army-march.test.ts',
   'packages/app/test/scenes/army/battle.test.ts',
-  'packages/app/test/snapshot-mirror-scenes.test.ts',
-  'packages/app/test/session-worker.test.ts',
-  'packages/app/test/session-worker-pacing.test.ts',
-  'packages/app/test/session-worker-mirror-truth.test.ts',
-  'packages/app/test/lockstep-parity.test.ts',
+  'packages/app/test/session/snapshot-mirror-scenes.test.ts',
+  'packages/app/test/session/worker/worker-session.test.ts',
+  'packages/app/test/session/worker/pacing.test.ts',
+  'packages/app/test/session/worker/mirror-truth.test.ts',
+  'packages/app/test/session/lockstep-parity.test.ts',
   'packages/app/test/net/relay-slow-display.test.ts',
 ];
 const SLOW_CORE_TESTS = [

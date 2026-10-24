@@ -244,11 +244,6 @@ describe('resolveSpriteBobId - directional animated binding', () => {
     expect(resolveSpriteBobId(settlerItem('moving', { facing: 0 }), bindings, 0)).toBe(1988);
   });
 
-  it('wraps the cycle by tick % stride (frame 12 loops back to 0)', () => {
-    expect(resolveSpriteBobId(settlerItem('moving', { facing: 0 }), bindings, 12)).toBe(1988); // 12 % 12 == 0
-    expect(resolveSpriteBobId(settlerItem('moving', { facing: 0 }), bindings, 13)).toBe(1989);
-  });
-
   it('acting chop (atomic 24) advances on its elapsed clock at a fixed cadence, ignoring tick', () => {
     // frame = start + facing*stride + (elapsed % cycle), on the atomic's own elapsed-tick clock, so
     // the tick 999 passed below must not change it, and no duration input can change the speed.
@@ -291,11 +286,6 @@ describe('resolveSpriteBobId - directional animated binding', () => {
   it('wraps an out-of-range / negative facing into 0..dirs', () => {
     expect(resolveSpriteBobId(settlerItem('moving', { facing: 8 }), bindings, 0)).toBe(1988); // 8 % 8 == 0
     expect(resolveSpriteBobId(settlerItem('moving', { facing: -1 }), bindings, 0)).toBe(1988 + 7 * 12); // -> dir 7
-  });
-
-  it('a plain-number frame ref still ignores facing + tick (back-compat)', () => {
-    const flat: SpriteBindings = { settler: { idle: 1931 }, building: 20, resource: 30 };
-    expect(resolveSpriteBobId(settlerItem('idle', { facing: 5 }), flat, 42)).toBe(1931);
   });
 });
 

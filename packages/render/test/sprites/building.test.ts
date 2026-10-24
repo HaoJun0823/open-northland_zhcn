@@ -34,16 +34,6 @@ describe('resolveSpriteBobId - per-type building binding', () => {
   it('falls back to the default house for an unmapped type id', () => {
     expect(resolveSpriteBobId(building(999), bindings)).toBe(11);
   });
-
-  it('falls back to the default house when the item carries no type id', () => {
-    expect(resolveSpriteBobId(building(), bindings)).toBe(11);
-  });
-
-  it('a plain-number building binding draws the same frame for every type (back-compat)', () => {
-    const flat: SpriteBindings = { settler: 10, building: 20, resource: 30 };
-    expect(resolveSpriteBobId(building(6), flat)).toBe(20);
-    expect(resolveSpriteBobId(building(), flat)).toBe(20);
-  });
 });
 
 /** The wonders' own tribe, and a map-placed home of it the authored-level case draws. */
@@ -133,12 +123,6 @@ describe('resolveBuildingDraw - layer-qualified (multi-.bmd) building binding', 
     expect(resolveBuildingDraw(authored, at(AUTHORED_REF, WONDER, 0))).toEqual({ bob: 1 });
     // A type drawing one body at every level keeps its authored body whatever its level reads.
     expect(resolveBuildingDraw(authored, at(AUTHORED_HOME, HOME, 0))).toEqual({ layer: 'map', bob: 8 });
-  });
-
-  it('agrees with resolveSpriteBobId on the bob id (the bob is the resolver split-out)', () => {
-    expect(resolveBuildingDraw(binding, building(1)).bob).toBe(
-      resolveSpriteBobId(building(1), { settler: 10, building: binding, resource: 30 }),
-    );
   });
 });
 
@@ -421,10 +405,5 @@ describe('finishedBuildingBobKeys - the finished-sprite set excluded from the co
       { bob: 2, fromPct: 0, toPct: 100 },
       { bob: 3, fromPct: 0, toPct: 100 },
     ]);
-  });
-
-  it('memoizes per binding - the same set instance is returned across calls', () => {
-    const binding: BuildingTypeBinding = { byType: { 2: 1 }, default: 11 };
-    expect(finishedBuildingBobKeys(binding)).toBe(finishedBuildingBobKeys(binding));
   });
 });

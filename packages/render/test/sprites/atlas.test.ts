@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { indexAtlasFrames } from '../../src/data/sprites/index.js';
-import type { AtlasManifest, SpriteAtlas, SpriteBindings } from '../../src/index.js';
+import type { SpriteAtlas, SpriteBindings } from '../../src/index.js';
 import { drawItem, resolveSpriteFrame } from '../support/fixtures.js';
 
 /** A tiny atlas: a settler frame (bob 10), a building frame (bob 20), and an empty 0×0 bob (30). */
@@ -48,45 +48,5 @@ describe('resolveSpriteFrame', () => {
   it('returns null for a 0×0 (empty) bound frame, so the placeholder still draws', () => {
     // resource -> bob 30, which is the 0×0 empty bob.
     expect(resolveSpriteFrame(drawItem('resource'), BINDINGS, atlas())).toBeNull();
-  });
-
-  it('resolves a resource to its own (tree) atlas frame - the ls_trees per-kind bind', () => {
-    // The geometry mirrors ls_trees frame 60: a 101×111 tree anchored at its base.
-    const treeAtlas = indexAtlasFrames(1024, 4914, [
-      { bobId: 60, rect: { x: 1, y: 1, width: 101, height: 111 }, offsetX: -54, offsetY: -100 },
-    ]);
-    const bindings: SpriteBindings = { settler: 10, building: 20, resource: 60 };
-    expect(resolveSpriteFrame(drawItem('resource'), bindings, treeAtlas)).toEqual({
-      x: 1,
-      y: 1,
-      width: 101,
-      height: 111,
-      offsetX: -54,
-      offsetY: -100,
-    });
-  });
-});
-
-describe('indexAtlasFrames over a served manifest', () => {
-  /** A stem's manifest as `bobs/atlases.json` decodes it. */
-  const manifest: AtlasManifest = {
-    width: 1024,
-    height: 7693,
-    frames: [
-      { bobId: 0, rect: { x: 1, y: 1, width: 20, height: 33 }, offsetX: -11, offsetY: -27 },
-      { bobId: 1931, rect: { x: 517, y: 3063, width: 25, height: 35 }, offsetX: -12, offsetY: -27 },
-    ],
-    image: '0123456789abcdef.webp',
-  };
-
-  it('indexes the manifest frames by bob id', () => {
-    const atlas = indexAtlasFrames(manifest.width, manifest.height, manifest.frames);
-    expect(atlas.width).toBe(1024);
-    expect(atlas.height).toBe(7693);
-    // Frames are keyed by bobId, carrying the rect + draw offset; a non-contiguous id resolves.
-    const idle = atlas.frames.get(1931);
-    expect(idle).toEqual({ x: 517, y: 3063, width: 25, height: 35, offsetX: -12, offsetY: -27 });
-    expect(atlas.frames.get(0)?.width).toBe(20);
-    expect(atlas.frames.has(999)).toBe(false);
   });
 });

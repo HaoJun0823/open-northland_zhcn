@@ -186,7 +186,7 @@ describe('pickByJob - the per-job character pick', () => {
     expect(pickByJob(table, 5, true)).toBe('civilian');
   });
 
-  it('an ADULT with a fixture job id colliding with an age class stays the default (dc3ef54)', () => {
+  it('an ADULT with a fixture job id colliding with an age class stays the default', () => {
     // The demo woodcutter is jobType 1, which is the real baby_female id.
     expect(pickByJob(table, 1, false)).toBe('civilian');
   });

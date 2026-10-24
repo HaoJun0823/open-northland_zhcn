@@ -1,13 +1,13 @@
-import { cadaverStageGoods } from './cadaver.js';
-import { checkHumanPalettes } from './human-palette-references.js';
-import { firstByTypeId } from './lookup.js';
+import { cadaverStageGoods } from '../cadaver.js';
+import { firstByTypeId } from '../lookup.js';
 import {
   type ContentSet,
   type JobEnablesKind,
   type JobRequirementTarget,
   LOGIC_TYPE_NONE,
-} from './schema/index.js';
-import { checkUnitVariants } from './unit-variant-references.js';
+} from '../schema/index.js';
+import { checkHumanPalettes } from './human-palettes.js';
+import { checkUnitVariants } from './unit-variants.js';
 
 /** Reject a set whose numeric references dangle, at load rather than as a crash mid-game. */
 export function validateCrossReferences(set: ContentSet): void {

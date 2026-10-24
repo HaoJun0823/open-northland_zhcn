@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { terrainGridFingerprint } from '../src/index.js';
+import { terrainGridFingerprint } from '../../src/index.js';
 
 const GRID = { width: 2, height: 2, typeIds: [1, 2, 3, 4] };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_KIND, BuildingType } from '../src/index.js';
+import { BUILDING_KIND, BuildingType } from '../../src/index.js';
 
 /**
  * `kind` accepts exactly the known classes plus the extractor's `maintype_<...>` degrade path. A

@@ -1,4 +1,4 @@
-import type { ContentSet } from './schema/content/content-set.js';
+import type { ContentSet } from '../schema/content/content-set.js';
 
 export function checkUnitVariants(content: ContentSet): string[] {
   const errors: string[] = [];

@@ -8,7 +8,7 @@ import {
   type HypertextBlock,
   type MapBriefing,
   narratedLanguages,
-} from '../src/index.js';
+} from '../../src/index.js';
 
 describe('briefing voices', () => {
   it('maps a 2000 callback in a map text language to its sfx clip, and nothing else', () => {

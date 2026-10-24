@@ -284,7 +284,7 @@ supplied; even a supplied empty program has a digest. Restore requires exact mat
 materializing state, including when a program has not initialized yet. Mission array order and all
 resolved arguments participate; object key order does not. Scripts remain external content, not
 embedded in a save.
-The shared `packages/data/src/content-fingerprint.ts` function hashes canonical JSON with SHA-256,
+The shared `packages/data/src/fingerprint/content.ts` function hashes canonical JSON with SHA-256,
 preserving table and array order while excluding installation paths, provenance, goods/job display
 names, locale, map inventory and sound data. It includes balance and content bindings as well as ids;
 the sim memoizes it per content set. A lobby folds it with the authored goods and job names, so a

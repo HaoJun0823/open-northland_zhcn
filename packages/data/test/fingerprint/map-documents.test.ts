@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapDocumentsFingerprint } from '../src/index.js';
+import { mapDocumentsFingerprint } from '../../src/index.js';
 
 const MAP = { width: 1, height: 1, typeIds: [0], entities: [{ verb: 'sethouse', x: 1, y: 2 }] };
 const scriptFrom = (file: string) => ({

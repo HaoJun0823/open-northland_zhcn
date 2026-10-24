@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { contentFingerprint, IR_VERSION, jsonFingerprint, parseContentSet } from '../src/index.js';
+import { contentFingerprint, IR_VERSION, jsonFingerprint, parseContentSet } from '../../src/index.js';
 
 function content() {
   return parseContentSet({

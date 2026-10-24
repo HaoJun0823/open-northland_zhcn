@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IR_VERSION, parseContentSet, parseGeneratedContentSet } from '../src/index.js';
+import { IR_VERSION, parseContentSet, parseGeneratedContentSet } from '../../src/index.js';
 
 function contentSet(version: unknown): Record<string, unknown> {
   return {

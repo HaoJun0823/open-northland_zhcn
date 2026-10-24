@@ -1,5 +1,5 @@
-import { jsonFingerprint } from './json-fingerprint.js';
-import type { ContentSet } from './schema/content/content-set.js';
+import type { ContentSet } from '../schema/content/content-set.js';
+import { jsonFingerprint } from './json.js';
 
 /** Installation paths, display names and render-only palettes do not identify simulation content. */
 export function contentFingerprint(content: ContentSet): string {

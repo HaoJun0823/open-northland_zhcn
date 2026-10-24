@@ -1,4 +1,4 @@
-import type { ContentSet } from './schema/index.js';
+import type { ContentSet } from '../schema/index.js';
 
 /**
  * Every recipe, ramp and base palette name the `humanPalettes` lane or a human look's base references

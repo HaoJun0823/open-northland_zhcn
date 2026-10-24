@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { jsonFingerprint } from '../../json-fingerprint.js';
+import { jsonFingerprint } from '../../fingerprint/json.js';
 import { LANGUAGES, SOURCE_LANGUAGES } from '../../languages.js';
 
 /**

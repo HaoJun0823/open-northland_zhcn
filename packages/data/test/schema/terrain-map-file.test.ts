@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { MAP_PLAYER_SLOTS, parseTerrainMap, TRANSITION_NONE, TRANSITION_PAIRS } from '../src/index.js';
+import { MAP_PLAYER_SLOTS, parseTerrainMap, TRANSITION_NONE, TRANSITION_PAIRS } from '../../src/index.js';
 
 /**
  * The cross-lane invariant table of `TerrainMapFile`, one broken lane per case, over hand-authored

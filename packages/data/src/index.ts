@@ -3,13 +3,14 @@ export * from './building-tribe.js';
 export * from './cadaver.js';
 export * from './catalog/animal-locomotion.js';
 export * from './catalog/legacy-house-names.js';
-export * from './content-fingerprint.js';
-export * from './fnv.js';
+export * from './fingerprint/content.js';
+export * from './fingerprint/fnv.js';
+export * from './fingerprint/json.js';
+export * from './fingerprint/terrain.js';
 export * from './footprint.js';
 export * from './ground-lattice.js';
 export * from './harvest-objects.js';
 export * from './job-atomics.js';
-export * from './json-fingerprint.js';
 export * from './languages.js';
 export * from './lookup.js';
 export * from './map-lobby.js';
@@ -21,9 +22,8 @@ export * from './schema/catalog/entry.js';
 export * from './schema/catalog/id.js';
 export * from './schema/index.js';
 export * from './technology.js';
-export * from './terrain-fingerprint.js';
 
-import { validateCrossReferences } from './cross-references.js';
+import { validateCrossReferences } from './cross-references/validate.js';
 import { ContentSet, TerrainMapFile } from './schema/index.js';
 
 /** Parse and validate one assembled content set; throws a zod error with a readable path. */

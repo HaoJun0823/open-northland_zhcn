@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EquipClass } from '../src/schema/actors/equipment.js';
+import { EquipClass } from '../../src/schema/actors/equipment.js';
 
 // The equip effect axis: optional integer-percent effect fields + rated uses on a good's EquipClass.
 // Magnitudes are project balance (user rule 2026-07-24); the schema only enforces their shape.

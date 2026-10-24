@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Campaign, CampaignIndex } from '../src/index.js';
+import { Campaign, CampaignIndex } from '../../src/index.js';
 
 const campaign = {
   id: 'wonder',

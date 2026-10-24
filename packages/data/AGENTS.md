@@ -15,6 +15,17 @@
   Node I/O code.
 - Any schema change bumps `IR_VERSION`, a new lane included.
 
+## Layout
+
+- `src/schema/`: zod schemas by domain (`actors/`, `economy/`, `maps/`, ...) and `IR_VERSION`.
+- `src/fingerprint/`: content and state identity hashes.
+- `src/cross-references/`: the load-time dangling-reference check and its helpers.
+- `src/missions/`: mission goal and result decoding. `src/names/`: personal-name tables.
+  `src/catalog/`: committed tables no source file supplies.
+- `src/` root: lookups and pure helpers over parsed content.
+
+Tests mirror `src/`; `test/schema/` holds the schema tests flat.
+
 ## Verification
 
 Add schema and cross-reference tests at the smallest failing path. Schema changes also run the normal

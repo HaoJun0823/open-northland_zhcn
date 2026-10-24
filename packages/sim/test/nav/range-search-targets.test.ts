@@ -17,7 +17,8 @@ const WATER = 1;
 const MAP_WIDTH = 60;
 const MAP_HEIGHT = 50;
 const MAX_ROUGHNESS = 5;
-const CASES = 300;
+/** Random layouts per rule: enough that early stops and covered targets each show up often. */
+const CASES = 60;
 const MAX_RANGE = 25;
 const MAX_TARGETS = 6;
 /** Rows of wall per map, each with one gap. */

@@ -31,6 +31,13 @@ function grid(width = WIDTH, height = HEIGHT): TerrainGraph {
   return terrain;
 }
 
+/** Whole-field equality without walking the elements through deep equality. */
+function sameBytes(a: Int32Array, b: Int32Array): boolean {
+  return Buffer.from(a.buffer, a.byteOffset, a.byteLength).equals(
+    Buffer.from(b.buffer, b.byteOffset, b.byteLength),
+  );
+}
+
 describe('road distance field', () => {
   it('holds each node the lattice distance to its nearest road and that road, the two raster passes exact', () => {
     const terrain = grid();
@@ -108,8 +115,8 @@ describe('road distance field', () => {
       roads.push(...added);
       field.lower(added, roads);
       fillRoadDistances(distances, nearestRoads, WIDE_SIDE, WIDE_SIDE, roads);
-      expect(field.distances).toEqual(distances);
-      expect(field.nearest).toEqual(nearestRoads);
+      expect(sameBytes(field.distances, distances), `lay ${lay} distances`).toBe(true);
+      expect(sameBytes(field.nearest, nearestRoads), `lay ${lay} nearest roads`).toBe(true);
     }
   });
 });

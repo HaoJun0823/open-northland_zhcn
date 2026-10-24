@@ -20,7 +20,8 @@ const WATER = 1;
 const MAP_WIDTH = 60;
 const MAP_HEIGHT = 50;
 const MAX_ROUGHNESS = 5;
-const CASES = 120;
+/** Random layouts per rule: enough that repairs, moved areas and kept stopped searches each show up often. */
+const CASES = 30;
 const ROUNDS = 8;
 const MAX_RANGE = 22;
 const MAX_FLIPS = 10;

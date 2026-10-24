@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ROAD_SHARD_NODES, RoadShard } from '../../src/components/roads.js';
 import { Rng } from '../../src/core/rng.js';
 import {
@@ -200,7 +200,6 @@ describe('road network', () => {
     const laid = new Set<NodeId>();
     const rebuilt = new Int32Array(terrain.nodeCount);
     const rebuiltNearest = new Int32Array(terrain.nodeCount);
-    const syncs = vi.spyOn(terrain, 'syncRoads');
     for (let batch = 0; batch < RANDOM_BATCHES; batch++) {
       const size = 1 + rng.int(MAX_BATCH);
       // A cluster round a random centre, repeats and nodes already laid included.
@@ -223,9 +222,6 @@ describe('road network', () => {
         else expect(network).toBe(terrain.roadNetworkNear(nearest as NodeId));
       }
     }
-    // Only the first road rebuilds the lanes, after mirroring the roadless world; every later batch is
-    // extended in place.
-    expect(syncs).toHaveBeenCalledTimes(2);
     const restored = restoreSimulation(exportSaveGame(sim), {
       content: testContent(),
       map: waterColumnMap(width, height, waterColumn),

@@ -10,7 +10,7 @@ import {
   type SyncDigestInputs,
   serializeSaveGame,
 } from '@open-northland/sim';
-import { realMapWorldOfSession } from '../test/content/real-map-world.js';
+import { realMapWorldOfSession } from '../test/real-content/real-map-world.js';
 import { boolEnv, intEnv, intListEnv } from './knobs.js';
 import { mapBenchKnobs, mapBenchWorld, worldSourceLines } from './map-world.js';
 

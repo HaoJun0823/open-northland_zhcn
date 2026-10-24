@@ -10,8 +10,8 @@
   "include": [
     "bench/**/*.ts",
     "test/support/checkout-root.ts",
-    "test/content/helpers.ts",
-    "test/content/real-map-world.ts"
+    "test/real-content/helpers.ts",
+    "test/real-content/real-map-world.ts"
   ],
   "exclude": ["bench/net-lab.ts", "bench/net-lab/**"],
   "references": [

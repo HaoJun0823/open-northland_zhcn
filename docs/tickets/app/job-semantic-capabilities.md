@@ -9,7 +9,7 @@ set whose job table is renamed or localized resolves an empty set for one of the
 silence: the load succeeds, no diagnostic fires, and the symptom is behavioural (an army that never
 auto-engages, a store nobody hauls for, a settlement that never marries).
 
-`packages/app/test/content/job-roles.test.ts` catches a rename in our own pipeline output, but not a
+`packages/app/test/real-content/job-roles.test.ts` catches a rename in our own pipeline output, but not a
 third-party content set at runtime. Reporting the miss would expose the failure but leave sim systems
 parsing source identifiers for mechanics, contrary to the content boundary: the clean-room meaning
 must be materialized once in validated content and consumed semantically.

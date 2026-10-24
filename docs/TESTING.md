@@ -15,7 +15,7 @@ npm test
 | --- | --- | --- |
 | `app`, `core` | simulation hygiene, deterministic state hashes, integration tests, headless acceptance scenes | `npm test`, `npm run test:vitest` |
 | `app-slow`, `core-slow` (listed in `vitest.config.ts`) | scale, long-run and real-time files | `npm run test:slow`; `npm test` skips them |
-| `content` | `packages/app/test/content` | only `npm run test:content`, so a checkout with generated content still gets the same fast default suite |
+| `content` | `packages/app/test/real-content` | only `npm run test:content`, so a checkout with generated content still gets the same fast default suite |
 
 CI runs `npm test` and `npm run test:slow` on Ubuntu; the CI workflow's manual dispatch checkbox adds a
 Windows run. Formatting and production build checks run once on Ubuntu.
@@ -151,7 +151,7 @@ the real pack goes to the `content` project; a whole-map playthrough is a sessio
   several periods of fake time, never by a real wait shorter than one period. A DOM test that must
   poll passes `vi.waitFor(check, { interval: 1 })`; the default 50 ms interval adds up over a file.
   A test that passes only on an idle machine is deleted or fixed, never retried.
-- A real-content twin of a synthetic test: a file under `test/content/` gates on `hasRealIr()` and
+- A real-content twin of a synthetic test: a file under `test/real-content/` gates on `hasRealIr()` and
   names the data-only fact it defends; a scene or join that a synthetic test already proves gets no
   second run over the real pack.
 
@@ -398,17 +398,17 @@ skips it unless `ON_RELAY_PARITY=on`; the release check runs it.
 
 A mission playtest drives one real map's script to its end and reports what a player would meet on
 the way: goals that do not fire, results the build cannot run, briefings that promise what the script
-does not do. The headless layer is `packages/app/test/content/playtest/drive.ts`: it boots the
+does not do. The headless layer is `packages/app/test/real-content/playtest/drive.ts`: it boots the
 `?map=` world the way the entry does, steps it, sends the player's own seat commands for what a
 playthrough plays and the replayable admin commands for what it forces (a teleport instead of a long
 walk, a spawned army instead of a trained one, a filled store instead of porters), and logs every
 forced step.
 
 A session writes its probe for one map under the gitignored
-`packages/app/test/content/playtest/local/` and runs it alone:
+`packages/app/test/real-content/playtest/local/` and runs it alone:
 
 ```bash
-npx vitest run --project=content packages/app/test/content/playtest/local/<map>.test.ts
+npx vitest run --project=content packages/app/test/real-content/playtest/local/<map>.test.ts
 ```
 
 A probe reports with `missionTable`, `pagesOpened`, `problems` and the log's `forced` list, and

@@ -10,7 +10,7 @@ The loaded collision graph places it in a 24-node region enclosed by 21 finished
 player-1 palisades. Every segment has no gate, player 1 is friendly to player 0,
 and changing that relationship is locked. Terrain alone connects the camp to the
 chest; the standing wall overlay closes that route. The real-content acceptance
-test [reproduces the failed approach](../../../packages/app/test/content/map-mission-acceptance.test.ts).
+test [reproduces the failed approach](../../../packages/app/test/real-content/map-mission-acceptance.test.ts).
 
 ## Scope
 

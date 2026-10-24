@@ -45,5 +45,5 @@ requests. The root [`AGENTS.md`](../../AGENTS.md) applies in full; the wire cont
 
 Unit tests cover the pieces with a clock or a socket behind them. The state machine is proven end
 to end by the headless client under `packages/net-server/test/support/`, which wraps `RelayClient`
-over an in-memory relay, and by the decoded-map run in `packages/app/test/content/`, which also plays
+over an in-memory relay, and by the decoded-map run in `packages/app/test/real-content/`, which also plays
 one client in the app's network worker.

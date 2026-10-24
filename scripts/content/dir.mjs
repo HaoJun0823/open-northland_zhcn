@@ -1,5 +1,5 @@
 // The content directory a manual mode runs against. Resolution rules mirror
-// packages/app/test/content/helpers.ts `contentDir()` - keep them in step.
+// packages/app/test/real-content/helpers.ts `contentDir()` - keep them in step.
 import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

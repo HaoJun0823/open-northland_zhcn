@@ -30,7 +30,7 @@ starts no animation. The sim's nonzero `DEFAULT_ATOMIC_DURATION` remains an appr
 
 - Synthetic tests resolve a soldier and hero through distinct parents, enforce parent allow flags,
   and terminate missing or cyclic chains without choosing the civilist's unrelated clip.
-- Real-content tests (`packages/app/test/content/job-atomics.test.ts`) and sandbox scenarios exercise
+- Real-content tests (`packages/app/test/real-content/job-atomics.test.ts`) and sandbox scenarios exercise
   inherited store actions. Animal attack tests retain authored cadence and timed sound cues.
 - Listen to bear and wolf attacks in `?scene=wildlife`; their existing roars and cadence must survive.
   Run the applicable gates from `docs/TESTING.md`.

@@ -36,4 +36,4 @@ seats, identities), and session settings (speed, pause), and for nothing else. T
 
 Unit tests drive `Relay` directly. The headless client under `test/support/` wraps
 `@open-northland/net-client` over an in-memory network and runs the real sim, so a relay change is
-proven against real state; the decoded-map run of that harness lives in `packages/app/test/content/`.
+proven against real state; the decoded-map run of that harness lives in `packages/app/test/real-content/`.

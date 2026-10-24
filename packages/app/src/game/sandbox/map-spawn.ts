@@ -41,7 +41,7 @@ export function authoredDepositUnits(units: number, level: number, states: numbe
  * Source basis: readable semantics, scoped. `LogicMaximumValency` is a capacity, not a stated unit
  * count, so reading it as units holds only for a record authoring one fill state per valency step.
  * Every mined record does (`maxValency === frames.length` across all 32), which
- * `test/content/ir-invariants.test.ts` pins over real content.
+ * `test/real-content/ir-invariants.test.ts` pins over real content.
  */
 export function withRecordDeposit(spec: ResourceNodeSpec, spawn: MapResourceSpawn): ResourceNodeSpec {
   const { deposit } = spec;

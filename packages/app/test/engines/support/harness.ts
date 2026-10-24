@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from 'playwright';
 import type { OpenNorthlandDebug } from '../../../src/view/runtime/debug-handle.js';
-import { contentDir } from '../../content/helpers.js';
+import { contentDir } from '../../real-content/helpers.js';
 import { type EngineWorkload, hashGrid } from './workloads.js';
 
 /** Boots the app in one JavaScript engine and reads its state hashes on a workload's tick grid. */

@@ -12,8 +12,8 @@ import {
 } from '@open-northland/sim';
 import type { FogModeName } from '../src/game/fog.js';
 import { mapIdParam, mapSession, seedParam, sessionSearch } from '../src/game/session-url.js';
-import { loadContentUnderTest } from '../test/content/helpers.js';
-import { realMapScript, realMapWorldOfSession } from '../test/content/real-map-world.js';
+import { loadContentUnderTest } from '../test/real-content/helpers.js';
+import { realMapScript, realMapWorldOfSession } from '../test/real-content/real-map-world.js';
 import { boolEnv, intEnv, intListEnv, ruleEnv, stringEnv } from './knobs.js';
 import { formatSeats } from './report/index.js';
 import { SIM_ASSERTS } from './sim-asserts.js';

@@ -27,6 +27,6 @@ near it. Not re-checked since the re-aim landed.
   its gate node, ends on the near side with no lost note. An attack-move onto an enemy gate still
   breaches it.
 - Headless content test: on `wonder-campaign_03_01`, pay tributes 1 and 2 (`payTribute` in
-  `packages/app/test/content/playtest/drive.ts`), then `moveUnit` hero 2 to (558,274). The hero stops
+  `packages/app/test/real-content/playtest/drive.ts`), then `moveUnit` hero 2 to (558,274). The hero stops
   west of the gate, such as (557,274), and mission 27 fires.
 - `npm test`, goldens unmoved unless a fixture clicks on a wall.

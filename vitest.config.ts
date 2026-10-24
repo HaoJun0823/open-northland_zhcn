@@ -21,7 +21,7 @@ const APP_SETUP_FILES = [
 ];
 
 /** Real-content tests: `npm run test:content` selects them, `npm test` filters the project out. */
-const CONTENT_TESTS = 'packages/app/test/**/content/**/*.test.ts';
+const CONTENT_TESTS = 'packages/app/test/real-content/**/*.test.ts';
 
 /**
  * The slow tier: scale, long-run and real-time files that `npm run test:slow` and CI run, and

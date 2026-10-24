@@ -6,7 +6,7 @@ Deleting `packages/app/soak/late-goods.soak.ts` removed the only automated check
 seat gets past its opening build order on a real map. Its two assertions were: standing iron in the
 map's deposits falls across the run, and at least one seat completes a smithy.
 
-Nothing cheaper covers this. `packages/app/test/content/ai-map-scenario.test.ts` runs 120 ticks, which
+Nothing cheaper covers this. `packages/app/test/real-content/ai-map-scenario.test.ts` runs 120 ticks, which
 reaches the opening orders only; the sim's AI module tests
 (`packages/sim/test/systems/computer-player/modules.test.ts`) prove the workforce rules against synthetic
 fixtures, not that a real seat's plan arrives at the gated collector entry. The property needs roughly

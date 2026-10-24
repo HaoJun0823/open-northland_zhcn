@@ -19,8 +19,8 @@ import {
 import { restoreSavedSeats, savedRoster } from '../../src/entries/main-menu/network/saved-roster.js';
 import type { MapWorkerBoot } from '../../src/entries/map/world-inputs.js';
 import { FOG_MODE_BY_NAME } from '../../src/game/fog.js';
-import { loadContentUnderTest, rawIrUnderTest } from '../../test/content/helpers.js';
-import { realMapPath, realMapScript } from '../../test/content/real-map-world.js';
+import { loadContentUnderTest, rawIrUnderTest } from '../../test/real-content/helpers.js';
+import { realMapPath, realMapScript } from '../../test/real-content/real-map-world.js';
 import type { ComputerDifficulty } from './config.js';
 import type { LabSeats } from './report.js';
 

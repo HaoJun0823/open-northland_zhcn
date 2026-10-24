@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import type { Simulation } from '@open-northland/sim';
 import { createSceneSim, getScene } from '../../../src/scenes/index.js';
-import { hasRealIr, loadContentUnderTest } from '../../content/helpers.js';
-import { realMapPath, realMapSessionWorld } from '../../content/real-map-world.js';
+import { hasRealIr, loadContentUnderTest } from '../../real-content/helpers.js';
+import { realMapPath, realMapSessionWorld } from '../../real-content/real-map-world.js';
 
 /**
  * The worlds the cross-engine determinism check runs in every JavaScript engine, each paired with the

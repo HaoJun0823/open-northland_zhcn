@@ -82,4 +82,4 @@ npm-debug.log*
 /.cache/
 
 # Per-map mission playtest probes agents write for one session (docs/TESTING.md "Mission playtests").
-/packages/app/test/content/playtest/local/
+/packages/app/test/real-content/playtest/local/

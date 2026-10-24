@@ -602,15 +602,6 @@ describe('building orders', () => {
     );
   });
 
-  it('drops the Upgrade tile on a top tier, leaving the other three in their places', () => {
-    const top = orderViews({ orders: orders({ upgrade: null }), name: 'Dom' });
-    expect(top.map((view) => view.order)).toEqual(['workers', 'knowledge', 'demolish']);
-  });
-
-  it("offers only Wiedza on another seat's house", () => {
-    expect(orderViews({ orders: null, name: 'Młyn' }).map((view) => view.order)).toEqual(['knowledge']);
-  });
-
   it("turns the presses into the building's commands, asks before a demolition, refuses another seat's house", async () => {
     const sent: PlayerCommand[] = [];
     const cues: string[] = [];

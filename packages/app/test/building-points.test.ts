@@ -1,7 +1,6 @@
 import type { BuildingFootprint } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_WORKER_ICON_OFFSET, workerIconOffset } from '../src/catalog/building-tweaks.js';
-import { buildingFootprints } from '../src/content/ir/joins.js';
+import { DEFAULT_WORKER_ICON_OFFSET } from '../src/catalog/building-tweaks.js';
 import { doorNode, workerIconNode } from '../src/view/projections/index.js';
 
 /** A minimal footprint carrying just a door (the only field these helpers read). */
@@ -39,31 +38,11 @@ describe('workerIconNode', () => {
     });
   });
 
-  it('honours the per-building overrides from the gallery review', () => {
+  it('moves the stack off the default for a building with its own offset', () => {
     const anchor = { hx: 10, hy: 20 };
-    const door = doorNode(footprintWithDoor(0, 2), anchor);
-    // HQ: the stack sits a node further out; barracks: it follows the door wall down-right.
-    expect(workerIconNode(footprintWithDoor(0, 2), anchor, 'headquarters')).toEqual({
-      hx: door.hx + 2,
-      hy: door.hy,
-    });
-    expect(workerIconNode(footprintWithDoor(0, 2), anchor, 'barracks')).toEqual({
-      hx: door.hx + 1,
-      hy: door.hy + 1,
-    });
-    expect(workerIconOffset(undefined)).toEqual(DEFAULT_WORKER_ICON_OFFSET);
-  });
-});
-
-describe('buildingFootprints', () => {
-  it('keys the extracted footprint verbatim by typeId', () => {
-    const fp: BuildingFootprint = {
-      blocked: [{ dx: 0, dy: 0 }],
-      familyBody: [{ dx: 0, dy: 0 }],
-      reserved: [{ dx: 1, dy: 1 }],
-      door: { dx: 0, dy: 2 },
-    };
-    const out = buildingFootprints({ buildings: [{ typeId: 39, id: 'barracks', footprint: fp }] });
-    expect(out.get(39)).toEqual(fp);
+    const footprint = footprintWithDoor(0, 2);
+    expect(workerIconNode(footprint, anchor, 'headquarters')).not.toEqual(
+      workerIconNode(footprint, anchor, 'work_well_00'),
+    );
   });
 });

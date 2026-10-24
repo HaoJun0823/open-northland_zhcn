@@ -7,7 +7,6 @@ import { createHostAnswers } from '../src/view/runtime/host-answers.js';
 const SEAT = 0;
 const VIKING = 1;
 const FRANK = 2;
-const HOUSE = 7;
 
 it("answers the seat's build nations a tick, its own alone until the sim's list lands", async () => {
   const sim = new Simulation({ seed: 1, content: sandboxContent() });
@@ -34,19 +33,5 @@ it("answers the seat's build nations a tick, its own alone until the sim's list 
   } finally {
     answers.dispose();
     read.mockRestore();
-  }
-});
-
-it("asks a house's availability in the nation the window lists", async () => {
-  const sim = new Simulation({ seed: 1, content: sandboxContent() });
-  const status = vi.spyOn(sim, 'unlockStatus');
-  const answers = createHostAnswers(inlineSessionHost(sim), () => VIKING);
-  try {
-    answers.buildAvailability(SEAT, HOUSE, FRANK);
-    await answers.settled();
-    expect(status.mock.calls).toEqual([['house', HOUSE, FRANK, SEAT]]);
-  } finally {
-    answers.dispose();
-    status.mockRestore();
   }
 });

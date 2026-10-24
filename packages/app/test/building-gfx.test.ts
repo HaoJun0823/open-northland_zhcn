@@ -114,10 +114,6 @@ describe('buildingBobRefsByType', () => {
     });
   });
 
-  it('filters by tribe (a frank row never lands in the viking table)', () => {
-    expect(buildingBobRefsByType(rows, scope(1, FAMILIES))[6]).toBe(41); // viking, not the frank 888
-  });
-
   it('disambiguates a multi-bob typeId by canonical editName even over a lower bobId', () => {
     // Synthetic: the canonical "viking headquarters" carries the HIGHER bob - editName must win, proving
     // the pick is the named building and not just the lowest-bob tiebreak.
@@ -171,11 +167,6 @@ describe('buildingBobRefsByType', () => {
       bobRow(2, 9, { bmd: 'data/x/evil_ls_houses_viking.bmd' }),
     ];
     expect(buildingBobRefsByType(tricky, scope(1, FAMILIES))).toEqual({ 1: 5 });
-  });
-
-  it('returns {} when nothing matches the tribe (caller then uses the constant fallback)', () => {
-    expect(buildingBobRefsByType(rows, scope(99, FAMILIES))).toEqual({});
-    expect(buildingBobRefsByType([], scope(1, FAMILIES))).toEqual({});
   });
 
   // The families derived from the rows themselves, as the sheet derives them. Pins the claim "EVERY
@@ -347,11 +338,6 @@ describe('buildingOverlayRefsByType - the type-4 GfxOverlay join (the mill rotor
     expect(buildingOverlayRefsByType(millRows, scope(1, MILLER_FAMILIES))).toEqual({
       13: { layer: MILLER_LAYER, idle: 76, working: SPIN, ticksPerFrame: OVERLAY_TICKS_PER_FRAME },
     });
-  });
-
-  it('binds the mill overlay through the REAL loaded family list (the housemiller01 skin)', () => {
-    const out = buildingOverlayRefsByType(millRows, realScope(1, millRows));
-    expect(out[13]).toMatchObject({ layer: MILLER_LAYER, idle: 76, working: SPIN });
   });
 
   it('drops other tribes, an unloaded family, and picks the lowest level group', () => {

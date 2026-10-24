@@ -52,10 +52,10 @@ the canonical legal wording.
   300 lines is a review cue, not a limit for tables, schemas or cohesive implementations.
 - Keep directories navigable. A source file lives in the folder of the feature that owns it, and its
   test lives at the same path under the package's `test/` (`src/hud/dom/notices/x.ts` is covered by
-  `test/hud/dom/notices/x.test.ts`); `test/support`, `test/fixtures` and the opt-in real-content tier
-  are the only exceptions. Name a folder after its domain, never after a layer (`utils`, `helpers`,
-  `common`). Create a folder when a feature reaches its third file and split one before it passes
-  about 30 direct children. Each package `AGENTS.md` maps its folders; a move updates the map, every
+  `test/hud/dom/notices/x.test.ts`), except `test/support`, `test/fixtures`, the real-content tier and
+  what a package `AGENTS.md` names. Name a folder after its domain, never a layer (`utils`, `helpers`).
+  Create a folder when a feature reaches its third file; split one past about 30 direct children when
+  a coherent grouping exists. Each package `AGENTS.md` maps its folders; a move updates the map, every
   importer and every path named in configs, docs, tickets and comments in the same commit.
 - Keep ownership explicit. Prefer composition and narrow domain interfaces; do not introduce a
   framework, service layer, wrapper or helper without a concrete caller and a simpler resulting API.

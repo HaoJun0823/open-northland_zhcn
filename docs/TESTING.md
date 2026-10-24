@@ -75,10 +75,9 @@ correctness from a headless test.
 
 ## Writing a test
 
-A test file sits at its subject's path under the package's `test/` directory, named after the subject
-(`packages/app/src/view/settings/store.ts` is tested by `packages/app/test/view/settings/store.test.ts`).
-Shared setup goes in `test/support/`, data in `test/fixtures/`, and real-content tests in
-`packages/app/test/real-content/`. Each package `AGENTS.md` maps its folders.
+A test file sits at its subject's path under the package's `test/`, as the
+[layout rule](../AGENTS.md#code-quality) says: `packages/app/src/view/settings/display-mode.ts` is
+tested by `packages/app/test/view/settings/display-mode.test.ts`.
 
 The suite is a budget, not a score. Every test costs a run on every change, a read on every failure
 and a rewrite on every refactor, so a test earns its place only by failing for a regression no other

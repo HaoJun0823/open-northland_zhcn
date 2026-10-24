@@ -3,6 +3,8 @@ import { createOrderMarkers, ORDER_MARKER_MS } from '../src/view/unit-controls/o
 
 const SPOT = { col: 12, row: 8 };
 const OTHER_SPOT = { col: 20, row: 4 };
+/** A Shift-click chain longer than the markers kept at once. */
+const LONG_CHAIN = 20;
 
 function clocked() {
   let nowMs = 1000;
@@ -39,9 +41,9 @@ describe('order markers', () => {
 
   it('keeps only the newest markers of a long Shift-click chain', () => {
     const { markers } = clocked();
-    for (let col = 0; col < 20; col++) markers.place({ col, row: 0 }, 'move');
+    for (let col = 0; col < LONG_CHAIN; col++) markers.place({ col, row: 0 }, 'move');
     const live = markers.live();
-    expect(live.length).toBeLessThan(20);
-    expect(live.at(-1)?.hx).toBe(19);
+    expect(live.length).toBeLessThan(LONG_CHAIN);
+    expect(live.at(-1)?.hx).toBe(LONG_CHAIN - 1);
   });
 });

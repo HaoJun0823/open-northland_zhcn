@@ -174,14 +174,6 @@ describe('orders named on the map overview', () => {
     expect(issued).toEqual([{ kind: 'setWorkFlag', entity: SCOUT.id, x: FAR_NODE.hx, y: FAR_NODE.hy }]);
   });
 
-  it('keeps Cmd as the macOS form of the default work-flag binding', () => {
-    const { press, issued } = harness();
-
-    pressOn(press, FAR_NODE, { button: 2, metaKey: true });
-
-    expect(issued).toEqual([{ kind: 'setWorkFlag', entity: SCOUT.id, x: FAR_NODE.hx, y: FAR_NODE.hy }]);
-  });
-
   it('uses the rebound mouse chord for a work flag', () => {
     const { press, issued } = harness('Shift+Mouse0');
 

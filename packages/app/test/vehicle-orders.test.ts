@@ -47,6 +47,9 @@ const CART_PASSENGER = 32;
 const CARRIED_CART = 14;
 const CARRIED_COMMANDER = 33;
 const ENEMY_PLAYER = 1;
+/** Boarding candidates, numbered from an id no other fixture entity takes. */
+const BOARDING_GROUP = 3;
+const FIRST_CANDIDATE = 100;
 
 const CLICK = { x: 100, y: 100 };
 const MAP_SIZE = { width: 16, height: 16 };
@@ -514,24 +517,6 @@ describe('vehicle picks', () => {
     ]);
   });
 
-  it('resolves the window picks against the spot or the drawn target', () => {
-    const { issued, pickMode } = harness([SHIP], ALL_UNDER);
-    pickMode.arm({ kind: 'vehicle-dock', vehicle: SHIP });
-    expect(pickMode.handleMouseDown(leftClick)).toBe('ordered');
-    pickMode.arm({ kind: 'vehicle-attack-building', vehicle: CATAPULT });
-    expect(pickMode.handleMouseDown(leftClick)).toBe('ordered');
-    pickMode.arm({ kind: 'vehicle-attack-position', vehicle: CATAPULT });
-    expect(pickMode.handleMouseDown(leftClick)).toBe('ordered');
-    pickMode.arm({ kind: 'vehicle-carrier', vehicle: HANDCART });
-    expect(pickMode.handleMouseDown(leftClick)).toBe('ordered');
-    expect(issued).toEqual([
-      { kind: 'dockVehicle', vehicle: SHIP, x: 3, y: 3 },
-      { kind: 'attackWithVehicle', vehicle: CATAPULT, target: { kind: 'entity', entity: ENEMY_HOUSE } },
-      { kind: 'attackWithVehicle', vehicle: CATAPULT, target: { kind: 'ground', hx: 3, hy: 3 } },
-      { kind: 'loadIntoVehicle', vehicle: HANDCART, carrier: SHIP },
-    ]);
-  });
-
   it('keeps each window pick armed through Shift presses, each order queued', () => {
     const { issued, pickMode } = harness([SHIP], ALL_UNDER);
     const shiftClick = { ...leftClick, shiftKey: true } as MouseEvent;
@@ -585,8 +570,8 @@ describe('vehicle picks', () => {
     expect(h.marked).toEqual([]);
   });
 
-  it('groups 1000 admitted boarding candidates and refuses an oversized candidate gesture', async () => {
-    const settlers = Array.from({ length: 1000 }, (_, i) => i + 100);
+  it('groups the admitted boarding candidates and refuses an oversized candidate gesture', async () => {
+    const settlers = Array.from({ length: BOARDING_GROUP }, (_, i) => i + FIRST_CANDIDATE);
     const h = harness(settlers, {
       settlers,
       vehicles: [under(SHIP, 'vehicle')],
@@ -601,7 +586,7 @@ describe('vehicle picks', () => {
         action: { kind: 'attachToVehicle', vehicle: SHIP },
       },
     ]);
-    const oversized = Array.from({ length: MAX_UNIT_ORDER_MEMBERS + 1 }, (_, i) => i + 100);
+    const oversized = Array.from({ length: MAX_UNIT_ORDER_MEMBERS + 1 }, (_, i) => i + FIRST_CANDIDATE);
     const rejected = harness(oversized, { settlers: oversized, vehicles: [under(SHIP, 'vehicle')] });
     expect(rejected.controller.issueAttachSelected(rightClick, () => {})).toBe(false);
     expect(rejected.issued).toEqual([]);

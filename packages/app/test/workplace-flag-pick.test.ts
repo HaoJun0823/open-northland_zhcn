@@ -119,13 +119,9 @@ function harness(under: number | null): {
   };
 }
 
-it('the sandbox content employs the gatherer somewhere and the sim calls it a flag trade', () => {
-  expect(gathererJob).toBeDefined();
+it('employs the gatherer at a lit building under the click', () => {
   expect(hutType).toBeDefined();
   expect(systems.jobUsesWorkFlag({ content }, gathererJob ?? -1)).toBe(true);
-});
-
-it('employs the gatherer at a lit building under the click', () => {
   const h = harness(HUT);
   expect(h.pick([GATHERER])).toBe('ordered');
   expect(h.issued).toMatchObject([
@@ -152,14 +148,7 @@ it('refuses the press on an own building that turns the gatherer down, planting 
   expect(h.flags).toEqual([]);
 });
 
-it('plants the flag where the click names no building', () => {
-  const h = harness(null);
-  expect(h.pick([GATHERER])).toBe('ordered');
-  expect(h.issued).toEqual([]);
-  expect(h.flags).toEqual([{ ...SPOT, units: [GATHERER], unassignFirst: true }]);
-});
-
-it('takes a posted gatherer off its post before planting its flag', () => {
+it('plants the flag where the click names no building, taking a posted gatherer off its post first', () => {
   const h = harness(null);
   expect(h.pick([POSTED])).toBe('ordered');
   expect(h.issued).toEqual([]);

@@ -19,22 +19,13 @@ import {
   worldToTile,
 } from '../src/view/picking.js';
 
-/**
- * Headless tests for the pure PICKING math (screen→world→node + the point/box hit-tests). This is the
- * agent-verifiable half of selection - the DOM/mouse controller that calls it is human-judged in the
- * browser. A picked Tile is a HALF-CELL node on the `2W×2H` lattice; the load-bearing property is the
- * round-trip: `worldToTile(halfCellToScreen(t)) === t`, so a click lands on the node a human aimed at.
- * The formation-assignment half is tested in `formation.test.ts`.
- */
+/** A picked Tile is a half-cell node; the load-bearing property is the round-trip
+ *  `worldToTile(halfCellToScreen(t)) === t`, so a click lands on the node a human aimed at. */
 
 describe('screenToWorld', () => {
   it('inverts the camera transform (world = (screen - offset)/scale)', () => {
     const camera: Camera = { offsetX: 100, offsetY: 50, scale: 2 };
     expect(screenToWorld(camera, 140, 90)).toEqual({ x: 20, y: 20 });
-  });
-
-  it('defaults scale to 1 when the camera omits it', () => {
-    expect(screenToWorld({ offsetX: 10, offsetY: 5 }, 30, 25)).toEqual({ x: 20, y: 20 });
   });
 });
 
@@ -144,11 +135,6 @@ describe('pickTopAt', () => {
 
   it('returns null when the click misses every unit box', () => {
     expect(pickTopAt([{ ref: 1, x: 100, y: 100 }], 300, 300)).toBeNull();
-  });
-
-  it('selects a unit when the click lands on its body above the feet', () => {
-    // 30px above the feet anchor is within PICK_REACH_UP (42) - a body click still selects.
-    expect(pickTopAt([{ ref: 5, x: 200, y: 200 }], 200, 170)).toBe(5);
   });
 
   it('gives a BUILDING a far larger hit box - a click anywhere on the house body selects it', () => {

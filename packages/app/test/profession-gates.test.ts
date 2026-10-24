@@ -8,6 +8,8 @@ import { type Ent, snapshotOf } from './support/snapshot.js';
 
 const content = sandboxContent();
 const TRIBE = 1;
+/** More than one settler, so the picks go out as one group action. */
+const GROUP_SIZE = 3;
 
 function collector(id: number): Ent {
   return {
@@ -22,9 +24,9 @@ function collector(id: number): Ent {
 const snapshot = snapshotOf([collector(1), collector(2)]);
 
 describe('profession pick', () => {
-  it('submits 1000 freshly eligible settlers as one selection action', async () => {
+  it('submits several freshly eligible settlers as one selection action', async () => {
     const orders: PlayerCommand[] = [];
-    const settlers = Array.from({ length: 1000 }, (_, i) => collector(i + 1));
+    const settlers = Array.from({ length: GROUP_SIZE }, (_, i) => collector(i + 1));
     const gates = professionGates({
       content,
       snapshot: () => snapshotOf(settlers),

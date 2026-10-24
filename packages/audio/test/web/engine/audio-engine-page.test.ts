@@ -1,0 +1,230 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  BACKGROUND_FADE_S,
+  CLICK_FREE_RAMP_S,
+  CLOCK_STALL_MS,
+  DEFAULT_VOLUMES,
+  MONO_SWAP_DELAY_S,
+  PRELOAD_CONCURRENCY,
+  volumeGain,
+  WebAudioEngine,
+} from '../../../src/index.js';
+import { FakeContext, servingSoundBanks } from '../../support/fake-audio.js';
+import { mixerGraph } from '../../support/mixer-graph.js';
+
+/**
+ * The engine's page-facing hooks: the preload that waits for the context, the background silence, the
+ * stalled-clock check and the mono fold.
+ */
+
+function makeEngine(): {
+  engine: WebAudioEngine;
+  ctx: FakeContext;
+  fetched: string[];
+  clock: { ms: number };
+} {
+  const ctx = new FakeContext();
+  const fetched: string[] = [];
+  const clock = { ms: 0 };
+  const engine = new WebAudioEngine({
+    createContext: () => ctx as unknown as AudioContext,
+    fetchBytes: servingSoundBanks(async (url) => {
+      fetched.push(url);
+      return new ArrayBuffer(4);
+    }),
+    now: () => clock.ms,
+  });
+  return { engine, ctx, fetched, clock };
+}
+
+describe('WebAudioEngine preload', () => {
+  it('waits for the context a gesture creates before fetching anything', async () => {
+    const { engine, fetched } = makeEngine();
+    const done = engine.preload([{ file: 'gui/click.wav', pinned: true }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetched).toEqual([]);
+    await engine.resume();
+    const report = await done;
+    expect(fetched).toEqual(['/sounds/gui/click.flac']);
+    expect(report?.decoded).toBe(1);
+  });
+
+  it('settles null when the engine closes before audio ever starts', async () => {
+    const { engine } = makeEngine();
+    const done = engine.preload([{ file: 'gui/click.wav', pinned: true }]);
+    engine.close();
+    expect(await done).toBeNull();
+  });
+
+  it('stops a preload its engine closes under, decoding nothing after the loads in flight', async () => {
+    const ctx = new FakeContext();
+    const decode = vi.spyOn(ctx, 'decodeAudioData');
+    const held: Array<() => void> = [];
+    const engine = new WebAudioEngine({
+      createContext: () => ctx as unknown as AudioContext,
+      fetchBytes: servingSoundBanks(async () => {
+        await new Promise<void>((release) => held.push(release));
+        return new ArrayBuffer(4);
+      }),
+    });
+    const files = Array.from({ length: PRELOAD_CONCURRENCY * 3 }, (_, i) => ({
+      file: `talk-${i}.wav`,
+      pinned: true,
+    }));
+    const done = engine.preload(files);
+    await engine.resume();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(held).toHaveLength(PRELOAD_CONCURRENCY);
+    engine.close();
+    for (const release of held.splice(0)) release();
+    expect(await done).toBeNull();
+    expect(held).toHaveLength(0);
+    expect(decode).toHaveBeenCalledTimes(PRELOAD_CONCURRENCY);
+  });
+
+  it('settles null on a platform with no Web Audio', async () => {
+    const engine = new WebAudioEngine({ createContext: () => null });
+    const done = engine.preload([{ file: 'gui/click.wav', pinned: true }]);
+    await engine.resume();
+    expect(await done).toBeNull();
+  });
+});
+
+describe('WebAudioEngine background silence', () => {
+  it('fades the master to silence in the background and back, without stopping the music or beds', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    const { master } = mixerGraph(ctx);
+    engine.setPlayInBackground(false);
+    engine.setPageInBackground(true);
+    expect(master.gain.ramps.at(-1)).toEqual({ value: 0, time: BACKGROUND_FADE_S });
+    expect(engine.audible).toBe(true);
+    engine.setPageInBackground(false);
+    expect(master.gain.ramps.at(-1)).toEqual({
+      value: volumeGain(DEFAULT_VOLUMES.master),
+      time: BACKGROUND_FADE_S,
+    });
+  });
+
+  it('keeps sounding in the background while the player wants sound there', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    engine.setPageInBackground(true);
+    expect(mixerGraph(ctx).master.gain.value).toBe(volumeGain(DEFAULT_VOLUMES.master));
+    engine.setPlayInBackground(false);
+    expect(mixerGraph(ctx).master.gain.value).toBe(0);
+  });
+
+  it('keeps a slider move silent while in the background', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    engine.setPlayInBackground(false);
+    engine.setPageInBackground(true);
+    engine.setVolumes({ ...DEFAULT_VOLUMES, master: DEFAULT_VOLUMES.master / 2 });
+    expect(mixerGraph(ctx).master.gain.ramps.at(-1)?.value).toBe(0);
+  });
+
+  it('starts a context created in the background silent', async () => {
+    const { engine, ctx } = makeEngine();
+    engine.setPlayInBackground(false);
+    engine.setPageInBackground(true);
+    await engine.resume();
+    expect(mixerGraph(ctx).master.gain.value).toBe(0);
+  });
+});
+
+describe('WebAudioEngine clock health', () => {
+  it('counts a running context whose clock stood still as paused and restarts it on resume', async () => {
+    const { engine, ctx, clock } = makeEngine();
+    await engine.resume();
+    expect(engine.started).toBe(true);
+    clock.ms += CLOCK_STALL_MS;
+    expect(engine.started).toBe(false);
+    await engine.resume();
+    expect(ctx.suspends).toBe(1);
+    expect(ctx.state).toBe('running');
+  });
+
+  it('keeps a moving clock started however long between checks', async () => {
+    const { engine, ctx, clock } = makeEngine();
+    await engine.resume();
+    expect(engine.started).toBe(true);
+    clock.ms += CLOCK_STALL_MS * 10;
+    ctx.currentTime += 1;
+    expect(engine.started).toBe(true);
+  });
+
+  it('reports an interrupted context as paused', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    ctx.refuseResume = true;
+    ctx.setState('interrupted' as AudioContextState);
+    expect(engine.started).toBe(false);
+  });
+});
+
+describe('WebAudioEngine mono fold', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('mixes the master down to one channel and back to what its inputs carry, faded around each flip', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    vi.useFakeTimers();
+    const { master } = mixerGraph(ctx);
+    const full = volumeGain(DEFAULT_VOLUMES.master);
+    expect(master.channelCountMode).toBe('max');
+    engine.setMono(true);
+    // The master fades out first and keeps its layout until the fade has landed.
+    expect(master.gain.ramps.at(-1)).toEqual({ value: 0, time: CLICK_FREE_RAMP_S });
+    expect(master.channelCountMode).toBe('max');
+    vi.advanceTimersByTime(MONO_SWAP_DELAY_S * 1000);
+    expect(master.channelCount).toBe(1);
+    expect(master.channelCountMode).toBe('explicit');
+    expect(master.channelInterpretation).toBe('speakers');
+    expect(master.gain.ramps.at(-1)?.value).toBe(full);
+    engine.setMono(false);
+    expect(master.gain.ramps.at(-1)?.value).toBe(0);
+    vi.advanceTimersByTime(MONO_SWAP_DELAY_S * 1000);
+    expect(master.channelCountMode).toBe('max');
+    expect(master.gain.ramps.at(-1)?.value).toBe(full);
+  });
+
+  it('keeps the master silent through the flip and takes the last choice of a quick double switch', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    vi.useFakeTimers();
+    const { master } = mixerGraph(ctx);
+    engine.setMono(true);
+    engine.setVolumes({ ...DEFAULT_VOLUMES, master: DEFAULT_VOLUMES.master / 2 });
+    expect(master.gain.ramps.at(-1)?.value).toBe(0);
+    engine.setMono(false);
+    engine.setMono(true);
+    expect(master.gain.ramps.filter((r) => r.value === 0)).toHaveLength(2);
+    vi.advanceTimersByTime(MONO_SWAP_DELAY_S * 1000);
+    expect(master.channelCount).toBe(1);
+    expect(master.gain.ramps.at(-1)?.value).toBe(volumeGain(DEFAULT_VOLUMES.master / 2));
+  });
+
+  it('leaves a closed engine silent when its pending flip lands', async () => {
+    const { engine, ctx } = makeEngine();
+    await engine.resume();
+    vi.useFakeTimers();
+    const { master } = mixerGraph(ctx);
+    engine.setMono(true);
+    engine.close();
+    vi.advanceTimersByTime(MONO_SWAP_DELAY_S * 1000);
+    expect(master.channelCountMode).toBe('max');
+    expect(master.gain.ramps.at(-1)?.value).toBe(0);
+  });
+
+  it('builds a mono master when the setting came before the context', async () => {
+    const { engine, ctx } = makeEngine();
+    engine.setMono(true);
+    await engine.resume();
+    const { master } = mixerGraph(ctx);
+    expect(master.channelCount).toBe(1);
+    expect(master.channelCountMode).toBe('explicit');
+  });
+});

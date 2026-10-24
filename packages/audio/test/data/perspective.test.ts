@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest';
+import {
+  FAR_ZOOM_SCALE,
+  MUFFLE_FAR_HZ,
+  MUFFLE_OPEN_HZ,
+  muffleCutoffHz,
+  NEAR_ZOOM_SCALE,
+  type OneShot,
+  PERSPECTIVE_CURVES,
+  perspectiveGain,
+  shotPerspectiveLayer,
+  zoomDistance,
+} from '../../src/index.js';
+
+/** Zoom as a listening perspective: a zoom distance from the camera scale, and per-layer gains on it. */
+describe('zoomDistance', () => {
+  it('is 0 at 1:1 and closer, 1 at the widest zoom and past it', () => {
+    expect(zoomDistance(NEAR_ZOOM_SCALE)).toBe(0);
+    expect(zoomDistance(4)).toBe(0);
+    expect(zoomDistance(FAR_ZOOM_SCALE)).toBeCloseTo(1, 9);
+    expect(zoomDistance(FAR_ZOOM_SCALE / 2)).toBe(1);
+  });
+
+  it('reads a missing or degenerate scale as 1:1', () => {
+    expect(zoomDistance(undefined)).toBe(0);
+    expect(zoomDistance(0)).toBe(0);
+    expect(zoomDistance(Number.NaN)).toBe(0);
+  });
+
+  it('moves alike for each equal zoom step (log scale)', () => {
+    const mid = Math.sqrt(NEAR_ZOOM_SCALE * FAR_ZOOM_SCALE);
+    expect(zoomDistance(mid)).toBeCloseTo(0.5, 9);
+  });
+});
+
+describe('perspectiveGain', () => {
+  it('holds every layer at full gain at 1:1', () => {
+    expect(perspectiveGain('detail', 0)).toBe(1);
+    expect(perspectiveGain('impact', 0)).toBe(1);
+    expect(perspectiveGain('bed', 0)).toBe(1);
+  });
+
+  it('fades detail fastest, impacts slowest, and lets the beds hold or rise when zoomed out', () => {
+    const detail = perspectiveGain('detail', 1);
+    const impact = perspectiveGain('impact', 1);
+    const bed = perspectiveGain('bed', 1);
+    expect(detail).toBeCloseTo(10 ** (PERSPECTIVE_CURVES.detail.farGainDb / 20), 9);
+    expect(detail).toBeLessThan(impact);
+    expect(impact).toBeLessThan(1);
+    expect(bed).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('muffleCutoffHz', () => {
+  it('is open at 1:1, at its gentle far corner when zoomed out, and falls steadily between', () => {
+    expect(muffleCutoffHz(0)).toBe(MUFFLE_OPEN_HZ);
+    expect(muffleCutoffHz(1)).toBeCloseTo(MUFFLE_FAR_HZ, 6);
+    expect(muffleCutoffHz(0.5)).toBeCloseTo(Math.sqrt(MUFFLE_OPEN_HZ * MUFFLE_FAR_HZ), 6);
+  });
+});
+
+const shot = (over: Partial<OneShot>): OneShot => ({
+  files: ['a.wav'],
+  gain: 1,
+  pan: 0,
+  key: 'k',
+  ...over,
+});
+
+describe('shotPerspectiveLayer', () => {
+  it('puts object ambience in the bed layer, a world shot in its shot layer, and a ui shot in none', () => {
+    expect(shotPerspectiveLayer(shot({ lane: { kind: 'ambience' } }))).toBe('bed');
+    expect(shotPerspectiveLayer(shot({ lane: { kind: 'sfx' }, layer: 'impact' }))).toBe('impact');
+    expect(shotPerspectiveLayer(shot({ lane: { kind: 'voice' } }))).toBe('detail');
+    expect(shotPerspectiveLayer(shot({ bus: 'responses', layer: 'impact' }))).toBeNull();
+    expect(shotPerspectiveLayer(shot({ lane: { kind: 'jingle', musicType: 1 } }))).toBeNull();
+    expect(shotPerspectiveLayer(shot({}))).toBeNull();
+  });
+});

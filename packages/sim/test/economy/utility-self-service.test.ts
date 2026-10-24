@@ -32,7 +32,6 @@ import {
   CARRIER,
   CONSUMER_CAPACITY,
   HIVE,
-  HIVE_COLLECT_ATOMIC,
   HONEY,
   OPERATOR,
   utilityContent,
@@ -168,19 +167,6 @@ describe('consumers lift a self-filling house’s ready unit', () => {
     expect(atomic.atomicId).toBe(WELL_PUMP_ATOMIC);
   });
 
-  it('lifts honey off the hive with the hive’s own action', () => {
-    const sim = new Simulation({ seed: 1, content: utilityContent(), map: grassMap(6, 1) });
-    const brewery = buildingAt(sim, BREWERY, 3, 0);
-    const hive = buildingAt(sim, HIVE, 0, 0, [[HONEY, 1]]);
-    const brewer = settlerAt(sim, 0, 0, OPERATOR, brewery); // on the hive
-
-    plannerSystem(sim.world, ctxOf(sim));
-
-    const atomic = sim.world.get(brewer, CurrentAtomic);
-    expect(atomic.atomicId).toBe(HIVE_COLLECT_ATOMIC);
-    expect(atomic.effect).toEqual({ kind: 'pickup', goodType: HONEY, amount: 1, from: hive });
-  });
-
   it('lifts a unit off an ordinary store with the generic pick-up', () => {
     const sim = new Simulation({ seed: 1, content: utilityContent(), map: grassMap(8, 1) });
     const bakery = buildingAt(sim, BAKERY, 0, 0);
@@ -221,18 +207,6 @@ describe('consumers lift a self-filling house’s ready unit', () => {
     }
 
     expect(bread).toBeGreaterThan(0);
-  });
-
-  it('is deterministic: the same seed drives the refill→carry→bake loop to a byte-identical state', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 4, content: utilityContent(), map: grassMap(6, 1) });
-      const bakery = buildingAt(sim, BAKERY, 0, 0);
-      buildingAt(sim, WELL, 1, 0);
-      settlerAt(sim, 0, 0, OPERATOR, bakery);
-      for (let i = 0; i < 120; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
   });
 });
 

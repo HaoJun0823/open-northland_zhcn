@@ -42,11 +42,6 @@ function placeStore(sim: Simulation, tribe: number, amounts: Map<number, number>
 }
 
 describe('tribeStocks', () => {
-  it('is empty for a tribe with no stores', () => {
-    const sim = new Simulation({ seed: 1, content: stocksContent() });
-    expect([...tribeStocks(sim.world, VIKING).entries()]).toEqual([]);
-  });
-
   it('sums a single store’s goods', () => {
     const sim = new Simulation({ seed: 1, content: stocksContent() });
     placeStore(

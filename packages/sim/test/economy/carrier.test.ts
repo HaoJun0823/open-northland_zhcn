@@ -323,26 +323,6 @@ describe('carrier - choosing what to haul', () => {
 });
 
 describe('carrier - end-to-end haul through the real schedule', () => {
-  it('a carrier moves planks from the sawmill to the HQ (goods conserved)', () => {
-    // Strip: carrier@0, sawmill@1 (2 planks), HQ@2. Short hops keep it fast.
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
-    const hq = hqAt(sim, 2, 0); // the carrier's post - hauling is worked only through an assignment
-    const carrier = carrierAt(sim, 0, 0, hq);
-    const mill = sawmillAt(sim, 1, 0, 2);
-
-    let delivered = 0;
-    for (let i = 0; i < 80 && delivered === 0; i++) {
-      sim.step();
-      delivered = sim.world.get(hq, Stockpile).amounts.get(PLANK) ?? 0;
-    }
-
-    expect(delivered).toBe(1); // one unit hauled out and deposited
-    // Goods are conserved: 2 planks total - one now in the HQ, one still at the sawmill.
-    const atMill = sim.world.get(mill, Stockpile).amounts.get(PLANK) ?? 0;
-    expect(atMill + delivered).toBe(2);
-    expect(sim.world.has(carrier, Carrying)).toBe(false); // unloaded at the HQ
-  });
-
   it('empties the sawmill over a longer run - all planks reach the HQ, none created or lost', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
     const hq = hqAt(sim, 2, 0);

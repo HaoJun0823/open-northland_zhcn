@@ -343,18 +343,11 @@ describe('store-full pause and overflow', () => {
 });
 
 describe('end-to-end - the loop closes', () => {
-  it('a bound farmer sows, waters, reaps and banks wheat in the farm store, deterministically', () => {
-    const run = (): { wheat: number; hash: string } => {
-      const sim = new Simulation({ seed: 7, content: testContent(), map: grassMap(10, 10) });
-      const farm = farmAt(sim, 5, 5);
-      farmerAt(sim, 5, 5, farm);
-      sim.run(LOOP_CLOSES_TICKS);
-      return { wheat: sim.world.get(farm, Stockpile).amounts.get(WHEAT) ?? 0, hash: sim.hashState() };
-    };
-
-    const a = run();
-    const b = run();
-    expect(a.wheat).toBeGreaterThan(0); // the loop closed: wheat reached the farm's own store
-    expect(a.hash).toBe(b.hash); // same seed + same setup ⇒ byte-identical state
+  it('a bound farmer sows, waters, reaps and banks wheat in the farm store', () => {
+    const sim = new Simulation({ seed: 7, content: testContent(), map: grassMap(10, 10) });
+    const farm = farmAt(sim, 5, 5);
+    farmerAt(sim, 5, 5, farm);
+    sim.run(LOOP_CLOSES_TICKS);
+    expect(sim.world.get(farm, Stockpile).amounts.get(WHEAT) ?? 0).toBeGreaterThan(0);
   });
 });

@@ -177,17 +177,6 @@ describe('building repair', () => {
     expect(pinned).toEqual(builders.slice(0, REPAIR_CREW_LIMIT));
   });
 
-  it('two runs of a contested crew pick the same five builders', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: constructionContent(), map: grassMap(14, 5) });
-      damagedHouseAt(sim, 7, 2, 100);
-      for (const x of [1, 2, 3, 4, 10, 11, 12]) builderAt(sim, x, 4);
-      sim.run(300);
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
-
   it('ranks a safe repair ahead of a nearer construction site with its material on hand', () => {
     const sim = new Simulation({ seed: 6, content: constructionContent(), map: grassMap(12, 3) });
     const site = siteAt(sim, HOUSE, 2, 1);

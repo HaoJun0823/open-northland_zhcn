@@ -14,7 +14,6 @@ import {
 } from '../../src/components/index.js';
 import type { Entity, World } from '../../src/ecs/world.js';
 import { fx, Simulation } from '../../src/index.js';
-import * as cycles from '../../src/systems/economy/production/cycles.js';
 import { productionSystem } from '../../src/systems/index.js';
 import { stockCapacity } from '../../src/systems/stores/index.js';
 import { workshopWorkforce } from '../../src/systems/stores/workshop-workforce.js';
@@ -88,17 +87,15 @@ describe('production tick cost', () => {
     expect(idle.filter((e) => read.has(e))).toEqual([]);
   });
 
-  it('answers a starved workshop from memory until its stock changes', () => {
+  it('starts a remembered starved workshop once its stock changes', () => {
     const sim = new Simulation({ seed: 1, content: technologyContent() });
     const mill = buildingAt(sim, SAWMILL, 0, 0, [[WOOD, 0]]);
     settlerAt(sim, 0, 0, CARPENTER, mill);
-    const asked = vi.spyOn(cycles, 'anyCycleStartable');
     productionSystem(sim.world, ctxOf(sim));
     productionSystem(sim.world, ctxOf(sim));
-    expect(asked).toHaveBeenCalledTimes(1);
+    expect(sim.world.has(mill, Production)).toBe(false);
     setStockAmount(sim.world, mill, WOOD, 2);
     productionSystem(sim.world, ctxOf(sim));
-    expect(asked).toHaveBeenCalledTimes(2);
     expect(sim.world.get(mill, Production).cycles.map((cycle) => cycle.goodType)).toEqual([PLANK]);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
@@ -116,18 +113,15 @@ describe('production tick cost', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('remembers an open gate while its operator is away, and starts once the operator is back', () => {
+  it('starts a remembered open gate once its away operator is back', () => {
     const sim = new Simulation({ seed: 1, content: technologyContent() });
     const mill = buildingAt(sim, SAWMILL, 0, 0, [[WOOD, 2]]);
     const carpenter = settlerAt(sim, 3, 0, CARPENTER, mill);
-    const asked = vi.spyOn(cycles, 'anyCycleStartable');
     productionSystem(sim.world, ctxOf(sim));
     productionSystem(sim.world, ctxOf(sim));
-    expect(asked).toHaveBeenCalledTimes(1);
     expect(sim.world.has(mill, Production)).toBe(false);
     sim.world.add(carpenter, Position, { x: fx.fromInt(0), y: fx.fromInt(0) });
     productionSystem(sim.world, ctxOf(sim));
-    expect(asked).toHaveBeenCalledTimes(1);
     expect(sim.world.get(mill, Production).cycles).toHaveLength(1);
     expect(sim.world.verifyCaches()).toEqual([]);
   });

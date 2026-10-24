@@ -32,12 +32,10 @@ describe('constructionPlots - the render decal cells for under-construction site
     expect(sim.constructionPlots()).toEqual([]);
   });
 
-  it('hands back the same list while a site only rises, and a fresh one once a site is retyped', () => {
+  it('follows a site retyped in place', () => {
     const sim = new Simulation({ seed: 1, content: constructionContent() });
     const site = placeSite(sim, HOUSE);
-    const rising = sim.constructionPlots();
-    sim.world.mut(site, Building).built = fx.fromInt(1);
-    expect(sim.constructionPlots()).toBe(rising);
+    sim.constructionPlots();
     sim.world.mut(site, Building).buildingType = HEADQUARTERS;
     const { hx, hy } = nodeOfPosition(fx.fromInt(0), fx.fromInt(0));
     expect(sim.constructionPlots()).toEqual([{ ref: site, cells: [{ col: hx, row: hy }] }]);

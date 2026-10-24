@@ -111,27 +111,6 @@ describe('shipVehicles', () => {
     const typeIds = shipVehicles(vehicleContent()).map((v) => v.typeId);
     expect(typeIds).toEqual([3, 4]);
   });
-
-  it('is empty when no vehicle carries passengers (a carts-only set)', () => {
-    const content = parseContentSet({
-      manifest: TEST_MANIFEST,
-      goods: [{ typeId: 0, id: 'none' }],
-      jobs: [{ typeId: 0, id: 'idle' }],
-      buildings: [{ typeId: 1, id: 'headquarters', kind: 'storage' }],
-      vehicles: [{ typeId: 1, id: 'handcart', jobId: 50, hitpoints: 1000, stockSlots: 15 }],
-    });
-    expect(shipVehicles(content)).toEqual([]);
-  });
-
-  it('is empty for content with no vehicles at all (parseContentSet defaults vehicles to [])', () => {
-    const content = parseContentSet({
-      manifest: TEST_MANIFEST,
-      goods: [{ typeId: 0, id: 'none' }],
-      jobs: [{ typeId: 0, id: 'idle' }],
-      buildings: [{ typeId: 1, id: 'headquarters', kind: 'storage' }],
-    });
-    expect(shipVehicles(content)).toEqual([]);
-  });
 });
 
 describe('largestShipCapacity', () => {

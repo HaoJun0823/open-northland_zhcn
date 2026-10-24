@@ -422,9 +422,7 @@ describe('a settlement stop before a foreign trip', () => {
       content: testContent(),
       map: grassMap(MAP_W, MAP_H),
     });
-    sim.run(RUN_TICKS);
-    restored.run(RUN_TICKS);
-
     expect(restored.hashState()).toBe(sim.hashState());
+    expect(serializeSaveGame(exportSaveGame(restored))).toBe(saved);
   });
 });

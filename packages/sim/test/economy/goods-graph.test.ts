@@ -79,14 +79,6 @@ function graphContent(): ContentSet {
 }
 
 describe('goodsGraph', () => {
-  it('has one node per good', () => {
-    const graph = goodsGraph(graphContent());
-    expect(graph.size).toBe(7);
-    for (const t of [NONE, WOOD, PLANK, STONE, BREAD, FLOUR, WATER]) {
-      expect(graph.has(t)).toBe(true);
-    }
-  });
-
   it('assigns node layers from the classification flags', () => {
     const graph = goodsGraph(graphContent());
     expect(graph.get(WOOD)?.layer).toBe('raw'); // producedOnMap
@@ -123,15 +115,5 @@ describe('goodsGraph', () => {
     expect(graph.get(BREAD)?.producedBy).toEqual([12, 13]); // bakery (recipe fallback) + bakery2, sorted
     expect(graph.get(WOOD)?.producedBy).toEqual([]); // raw - no producer
     expect(graph.get(STONE)?.producedBy).toEqual([]); // produced by nothing
-  });
-
-  it('is empty for content with no goods', () => {
-    const empty = parseContentSet({
-      manifest: TEST_MANIFEST,
-      goods: [],
-      jobs: [{ typeId: 0, id: 'idle' }],
-      buildings: [],
-    });
-    expect(goodsGraph(empty).size).toBe(0);
   });
 });

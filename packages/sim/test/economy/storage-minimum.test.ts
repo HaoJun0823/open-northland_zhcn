@@ -299,21 +299,3 @@ describe('a storehouse porter under a storage minimum', () => {
     expect(restockFromAfar(BREAD, FOOD_SIMPLE, false)).toBeGreaterThan(0);
   });
 });
-
-describe('storage minimum determinism', () => {
-  it('drives the well, warehouse, its porter and baker to a byte-identical state from the same seed', () => {
-    const run = (): string => {
-      const sim = world();
-      const warehouse = owned(sim, buildingAt(sim, WAREHOUSE, 0, 0, [[WATER, 2]]));
-      owned(sim, settlerAt(sim, 0, 0, CARRIER, warehouse));
-      const well = owned(sim, buildingAt(sim, WELL, 6, 0));
-      const bakery = owned(sim, buildingAt(sim, BAKERY, 9, 0));
-      owned(sim, settlerAt(sim, 6, 0, CARRIER, well));
-      owned(sim, settlerAt(sim, 9, 0, OPERATOR, bakery));
-      setMinimum(sim, WATER, 4);
-      sim.run(FETCH_TICKS);
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
-});

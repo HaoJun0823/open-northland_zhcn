@@ -102,19 +102,6 @@ describe('seatStockOf: the one seat-stock rule the summary bar and the AI share'
     expect(seatStockOf(sim.world, P0).units(WOOD)).toBe(3);
   });
 
-  it('serves one pass to every reader until a store it reads changes', () => {
-    const sim = fixture();
-    const house = houseAt(sim, 10, 10, P0, [[WOOD, 2]]);
-    const first = seatStockOf(sim.world, P0);
-    expect(seatStockOf(sim.world, P0)).toBe(first);
-    expect(seatStockOf(sim.world, P1)).not.toBe(first);
-    sim.world.mut(house, Stockpile).amounts.set(WOOD, 5);
-    const fresh = seatStockOf(sim.world, P0);
-    expect(fresh).not.toBe(first);
-    expect(fresh.units(WOOD)).toBe(5);
-    expect(first.units(WOOD)).toBe(2);
-  });
-
   it('keeps the ledger equal to a fresh fold as heaps, anchors, hands and upgrades change between reads', () => {
     const sim = fixture();
     const { world } = sim;

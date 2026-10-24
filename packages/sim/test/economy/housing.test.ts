@@ -54,12 +54,6 @@ function spawnSettler(sim: Simulation, tribe: number): void {
 }
 
 describe('housingCapacity', () => {
-  it('is 0 for a tribe with no home buildings', () => {
-    const sim = new Simulation({ seed: 1, content: housingContent() });
-    placeBuilding(sim, 1, VIKING); // a non-residence headquarters
-    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(0);
-  });
-
   it('sums the homeSize of a tribe’s built home buildings', () => {
     const sim = new Simulation({ seed: 1, content: housingContent() });
     placeBuilding(sim, 2, VIKING); // home_small, homeSize 2

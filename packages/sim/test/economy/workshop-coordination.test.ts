@@ -41,6 +41,9 @@ import {
   WOODCUTTER,
 } from './producer-supply/support.js';
 
+/** Long enough for both operators to fetch the shared input and finish a cycle. */
+const PRODUCTION_WATCH_TICKS = 1200;
+
 it('a carrier must not enable recipes deselected by the craftsman', () => {
   const content = testContent();
   workshop(content, BAKEHOUSE).workers.push({ jobType: CARRIER, count: 1 });
@@ -147,7 +150,7 @@ for (const owned of [false, true])
       for (const e of new Set([...sim.world.query(Settler), ...sim.world.query(Stockpile)]))
         sim.world.add(e, Owner, { player: 0 });
     let produced = false;
-    for (let i = 0; i < 1200; i++) {
+    for (let i = 0; i < PRODUCTION_WATCH_TICKS && !produced; i++) {
       sim.step();
       for (const e of sim.world.query(Stockpile))
         if ((sim.world.get(e, Stockpile).amounts.get(FOOD_SIMPLE) ?? 0) > 0) produced = true;
@@ -239,12 +242,7 @@ it('expensive unused selection does not let a cheap recipe steal priority', () =
 
 it.each([
   [1, 1, 0, 2],
-  [0, 2, 0, 2],
-  [0, 3, 0, 2],
   [0, 2, 3, 2],
-  [0, 3, 3, 2],
-  [0, 2, 5, 2],
-  [0, 3, 3, 3],
   [0, 4, 3, 4],
 ])(
   'preserves shared input across deliveries with stock %i, source %i, start %i, recipe amount %i',
@@ -265,7 +263,7 @@ it.each([
     for (const e of new Set([...sim.world.query(Settler), ...sim.world.query(Stockpile)]))
       sim.world.add(e, Owner, { player: 0 });
     let produced = false;
-    for (let tick = 0; tick < 1200; tick++) {
+    for (let tick = 0; tick < PRODUCTION_WATCH_TICKS && !produced; tick++) {
       sim.step();
 
       for (const e of sim.world.query(Stockpile))

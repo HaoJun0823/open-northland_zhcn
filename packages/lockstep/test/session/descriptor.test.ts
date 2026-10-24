@@ -9,7 +9,7 @@ import {
   parseGameSession,
   seatColourOf,
   WEATHER_MODES,
-} from '../src/index.js';
+} from '../../src/index.js';
 
 /**
  * The descriptor is what a relay broadcasts and a menu builds a world from, so it has to survive a

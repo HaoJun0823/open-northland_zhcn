@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSavedSessionMetadata, type GameSession, parseSavedSessionMetadata } from '../src/index.js';
+import { createSavedSessionMetadata, type GameSession, parseSavedSessionMetadata } from '../../src/index.js';
 
 const descriptor: GameSession = {
   world: { kind: 'map', mapId: 'fixture' },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseClientMessage, parseServerMessage } from '../src/index.js';
+import { parseClientMessage, parseServerMessage } from '../../src/index.js';
 
 const parseServer = (value: unknown) =>
   parseServerMessage(value, () => {

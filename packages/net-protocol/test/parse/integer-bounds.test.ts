@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseClientMessage } from '../src/index.js';
+import { parseClientMessage } from '../../src/index.js';
 
 describe('wire integer precision', () => {
   it.each([2 ** 53, 1e100])('rejects a loaded tick that cannot advance exactly: %s', (tick) => {

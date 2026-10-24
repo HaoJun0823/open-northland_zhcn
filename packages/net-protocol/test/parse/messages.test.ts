@@ -17,7 +17,7 @@ import {
   type RoomSettings,
   type ServerMessage,
   type WireDigest,
-} from '../src/index.js';
+} from '../../src/index.js';
 
 /**
  * Both parsers face another machine: everything they accept must survive a JSON round trip unchanged,

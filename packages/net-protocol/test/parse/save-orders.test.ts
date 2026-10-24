@@ -4,7 +4,7 @@ import {
   parseClientMessage,
   parseServerMessage,
   saveOrdersText,
-} from '../src/index.js';
+} from '../../src/index.js';
 
 const command = {
   sequence: 0,

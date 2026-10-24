@@ -11,17 +11,9 @@ function vehicle(content: ContentSet, id: string): VehicleType {
 }
 
 /**
- * The ship-vehicle read view - `shipVehicles`/`isShipVehicle`/`largestShipCapacity` classify the
- * `vehicle_ship` rows out of `content.vehicles` *by the data alone* (a vehicle that carries passengers,
- * `passengerSlots > 0`), the seed the Sea/Northland slice (water travel, boats as mobile stores) builds
- * on - never by a hardcoded name. A pure read over content; no world, no mechanic added.
- *
- * The fixture mirrors the real `vehicletypes.ini` shape: two land carts (`handcart`/`oxcart`,
- * `passengerslots 0`), a `catapult` (a siege engine, also `passengerslots 0`), and the two ships
- * (`ship small` `passengerslots 19` / `ship big` `passengerslots 9`) - declared OUT of typeId order so
- * the sort is exercised. The `stockSlots`/`logicSize` values are the real ones (carts 15/30, catapult 0,
- * ships 50/200; ship `logicsize 2` vs cart `0`/catapult `1`), so the classification rests on the same
- * params the pipeline pins.
+ * `isShipVehicle` classifies a vehicle as a ship by the data alone (it carries passengers,
+ * `passengerSlots > 0`), never by name. The fixture mirrors the real `vehicletypes.ini` rows: two
+ * land carts and a catapult with no passenger slots, and two ships.
  */
 function vehicleContent(): ContentSet {
   return parseContentSet({
@@ -30,7 +22,7 @@ function vehicleContent(): ContentSet {
     jobs: [{ typeId: 0, id: 'idle' }],
     buildings: [{ typeId: 1, id: 'headquarters', kind: 'storage' }],
     vehicles: [
-      // ship big (typeId 4) declared first - a ship: passengerSlots > 0. Proves the sort, not order.
+      // ship big (typeId 4) - a ship: passengerSlots > 0.
       // cargoGoods mirrors the real ships' full haulable-goods enumeration (sampled to a few ids here).
       {
         typeId: 4,
@@ -53,7 +45,6 @@ function vehicleContent(): ContentSet {
         logicSize: 0,
         cargoGoods: [16, 17],
       },
-      // ship small (typeId 3) declared after the big ship - proves the sort puts it first.
       {
         typeId: 3,
         id: 'ship_small',

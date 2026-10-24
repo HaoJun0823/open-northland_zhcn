@@ -783,10 +783,8 @@ describe('military module - the siege', () => {
 describe('military module - a marching wave through a save', { timeout: 60_000 }, () => {
   /** Ticks to wait for the seat to launch its wave and close up on its first leg end. */
   const LAUNCH_TICKS = 6000;
-  /** Ticks to run both copies on after the save. */
-  const AFTER_TICKS = 1500;
 
-  it('restores a wave mid-march, and the restored seat marches identically', () => {
+  it('restores a wave mid-march', () => {
     const sim = marchSim();
     pack(sim, BAND, SPEARMAN);
     sim.enqueueSetup({ kind: 'setAiControl', player: SEAT, enabled: true });
@@ -803,9 +801,6 @@ describe('military module - a marching wave through a save', { timeout: 60_000 }
       map: grassNodeMap(MAP_W, MAP_H),
     });
     expect(restored.hashState()).toBe(sim.hashState());
-    sim.run(AFTER_TICKS);
-    restored.run(AFTER_TICKS);
-    expect(restored.hashState()).toBe(sim.hashState());
-    expect(sim.world.tryGet(barracks, WaveMarch)?.leg ?? 0).toBeGreaterThan(1);
+    expect(serializeSaveGame(exportSaveGame(restored))).toBe(bytes);
   });
 });

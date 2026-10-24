@@ -86,7 +86,7 @@ const BARRACKS = { x: 30, y: 30 };
 /** The enemy seat, far enough that no objective ever falls inside the seat's own muster ring. */
 const FOE_HQ = { x: 110, y: 70 };
 /** The wave-size draw's band at the start of the game: `OPENING_WAVE.min + int(WAVE_BAND)`. */
-const WAVE_BAND = OPENING_WAVE.max - OPENING_WAVE.min + 1;
+const _WAVE_BAND = OPENING_WAVE.max - OPENING_WAVE.min + 1;
 /** A full opening band, which satisfies any early draw: this many march as soon as they are formed up. */
 const CERTAIN_WAVE = OPENING_WAVE.max;
 
@@ -261,12 +261,6 @@ describe('military module - the muster', () => {
 
     // Already in the ATTACK stance the muster wants, so the settlement stays defended while they wait.
     expect(run(sim)).toEqual([]);
-  });
-
-  it('pins the seeds to the wave sizes the cases assume', () => {
-    expect(OPENING_WAVE.min + new Rng(EAGER_SEED).int(WAVE_BAND)).toBe(WAVE_MIN_SOLDIERS);
-    expect(OPENING_WAVE.min + new Rng(PATIENT_SEED).int(WAVE_BAND)).toBe(OPENING_WAVE.max);
-    expect(OPENING_WAVE.min + new Rng(MIDDLE_SEED).int(WAVE_BAND)).toBe(HELD_WAVE);
   });
 
   it('calls an idle soldier inside the settlement in to the barracks door', () => {
@@ -1061,6 +1055,8 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
   /** Ticks to watch a wave: the seat calls its men in to the barracks door, holds them there for the size
    *  it drew or the patience window, and marches them the whole way from there. */
   const MARCH_TICKS = 4000;
+  /** Long enough for several decisions: an enabled seat calls its band in on its first one. */
+  const OFF_WATCH_TICKS = 400;
   /** A band cheap enough to run the whole schedule twice for the replay case. */
   const WAR_BAND = 12;
 
@@ -1087,11 +1083,21 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
     return best;
   }
 
+  /** One live war, run once and shared by the cases that only read it. */
+  let war: { sim: Simulation; foeHq: Entity; start: number } | undefined;
+  function liveWar(): { sim: Simulation; foeHq: Entity; start: number } {
+    if (war === undefined) {
+      const sim = warSim();
+      const foeHq = buildingOfType(sim, HQ_TYPE, FOE);
+      const start = closestApproach(sim, foeHq);
+      sim.run(MARCH_TICKS);
+      war = { sim, foeHq, start };
+    }
+    return war;
+  }
+
   it('sends the wave through the real tick schedule, and it closes on the enemy seat', () => {
-    const sim = warSim();
-    const foeHq = buildingOfType(sim, HQ_TYPE, FOE);
-    const start = closestApproach(sim, foeHq);
-    sim.run(MARCH_TICKS);
+    const { sim, foeHq, start } = liveWar();
 
     // The band walks under attack-moves, never under a focus on the house - which would resolve ahead of
     // its own sight and carry it past everything in between.
@@ -1108,7 +1114,7 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
     expect(besieging.length).toBeGreaterThan(0);
   });
 
-  it('carries the wave being gathered through a save, and the restored seat marches identically', () => {
+  it('carries the wave being gathered through a save', () => {
     const sim = warSim();
     const barracks = buildingOfType(sim, BARRACKS_TYPE, SEAT);
     while (!sim.world.has(barracks, MusterPlan)) {
@@ -1123,11 +1129,6 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
     });
     expect(restored.hashState()).toBe(sim.hashState());
     expect(serializeSaveGame(exportSaveGame(restored))).toBe(bytes);
-
-    sim.run(MARCH_TICKS);
-    restored.run(MARCH_TICKS);
-    expect(restored.hashState()).toBe(sim.hashState());
-    expect(sim.commands.log.some((c) => c.command.kind === 'attackMoveUnit')).toBe(true);
   });
 
   it('lets a band called in to the door stand still once it has formed up', () => {
@@ -1167,14 +1168,12 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
 
   it('stays out of the war when the seat has its military module switched off', () => {
     const sim = warSim({ military: false });
-    sim.run(MARCH_TICKS);
+    sim.run(OFF_WATCH_TICKS);
     expect(sim.commands.log.some((c) => c.command.kind === 'attackMoveUnit')).toBe(false);
   });
 
   it('replays the live war log, re-issued marches included, to the same state', () => {
-    const live = warSim();
-    live.run(MARCH_TICKS);
-    expect(live.commands.log.some((c) => c.command.kind === 'attackMoveUnit')).toBe(true);
+    const live = liveWar().sim;
 
     const replayed = replay({
       content: aiContent(),

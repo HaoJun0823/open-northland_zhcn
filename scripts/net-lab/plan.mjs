@@ -23,7 +23,7 @@ const NICKS = ['Ania', 'Bartek', 'Celina', 'Dawid', 'Ewa', 'Filip', 'Gosia', 'He
 
 /** The chaos events, in the order they fire, and which player each hits: a cut transport on the second
  *  player, a proxy that stops carrying anything on the third, a reload of the room's creator. */
-export const CHAOS_EVENTS = [
+const CHAOS_EVENTS = [
   { kind: 'disconnect', player: 1 },
   { kind: 'halfOpen', player: 2 },
   { kind: 'reload', player: 0 },

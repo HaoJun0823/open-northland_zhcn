@@ -5,7 +5,7 @@ export const MAX_INSTALLED_MAP_RECORD_BYTES = 1024 * 1024;
 const INSTALLED_MAP_ID = /^[a-z0-9_-]{1,128}$/i;
 
 /** The sidecars a converted map ships, longest first so `.meta.json` is not read as `.json`. */
-export const INSTALLED_MAP_SUFFIXES = [
+const INSTALLED_MAP_SUFFIXES = [
   '.briefing.json',
   '.strings.json',
   '.script.json',

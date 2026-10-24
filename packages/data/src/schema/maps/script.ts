@@ -367,7 +367,7 @@ export const MapMultiplayerGoal = z.discriminatedUnion('kind', [
 export type MapMultiplayerGoal = z.infer<typeof MapMultiplayerGoal>;
 
 /** The weather kinds a map's `[misc_weather]` section can lay down; scripts write only rain and snow. */
-export const MAP_WEATHER_KINDS = ['rain', 'snow', 'sand'] as const;
+const MAP_WEATHER_KINDS = ['rain', 'snow', 'sand'] as const;
 /** The original's full weather density; an authored value outside `0..` this is clamped where it applies. */
 export const MAP_WEATHER_DENSITY_FULL = 10000;
 

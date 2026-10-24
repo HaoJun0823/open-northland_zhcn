@@ -65,7 +65,7 @@ const tagOf = (view: DataView, offset: number): string =>
 
 /** The untransformed cmap table of a WOFF2 font. WOFF2 transforms only glyf, loca and hmtx; the
  *  decompressed stream holds every table back to back in directory order. */
-export function woff2Cmap(bytes: Uint8Array): DataView {
+function woff2Cmap(bytes: Uint8Array): DataView {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (view.getUint32(0) !== WOFF2_SIGNATURE) throw new Error('woff2: not a WOFF2 file');
   if (view.getUint32(4) === COLLECTION_FLAVOR) throw new Error('woff2: font collections are not read');
@@ -146,7 +146,7 @@ function addFormat12(cmap: DataView, at: number, into: Set<number>): void {
 }
 
 /** Every code point the cmap's format 4 and 12 subtables map to a glyph. */
-export function cmapCodePoints(cmap: DataView): ReadonlySet<number> {
+function cmapCodePoints(cmap: DataView): ReadonlySet<number> {
   const covered = new Set<number>();
   const records = cmap.getUint16(2);
   const seen = new Set<number>();

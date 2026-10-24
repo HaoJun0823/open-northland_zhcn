@@ -11,7 +11,7 @@ export interface FullScreenWindow {
 }
 
 /** A transition that never reports its end (a refused macOS Space) stops being awaited. */
-export const FULLSCREEN_TRANSITION_TIMEOUT_MS = 3000;
+const FULLSCREEN_TRANSITION_TIMEOUT_MS = 3000;
 
 /** Resolves once the window reports the requested mode, or after the timeout. */
 export function setFullScreen(

@@ -44,7 +44,7 @@ export function detectArchiveFormat(bytes: Uint8Array): ArchiveFormat | undefine
 }
 
 /** The format a nested entry's extension names, or undefined for a plain file. */
-export function nestedFormat(path: string): ArchiveFormat | undefined {
+function nestedFormat(path: string): ArchiveFormat | undefined {
   const dot = path.lastIndexOf('.');
   return dot < 0 ? undefined : NESTED_EXTENSIONS[path.slice(dot).toLowerCase()];
 }

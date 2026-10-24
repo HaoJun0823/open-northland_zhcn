@@ -1,7 +1,7 @@
 import type { LandscapeType } from './schema/index.js';
 
 /** `landscapetypes.ini` type 79 `cadaver_leather`: the body a hunter's bow kill lays. */
-export const CADAVER_LANDSCAPE_SLUG = 'cadaver_leather';
+const CADAVER_LANDSCAPE_SLUG = 'cadaver_leather';
 
 // `transition` tuple fields: the event, the landscape type it turns into, and the good it yields.
 const TRANSITION_EVENT = 0;

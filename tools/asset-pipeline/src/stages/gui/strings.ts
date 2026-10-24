@@ -43,7 +43,7 @@ export const STRING_TABLES = [
 export const GAME_OBJECT_TABLES = ['goods', 'houses', 'jobs', 'experiences', 'tribes'] as const;
 
 /** The game-object tables whose plurals are exported too, each beside its singulars under this key. */
-export const PLURAL_TABLES: Readonly<Partial<Record<(typeof GAME_OBJECT_TABLES)[number], string>>> = {
+const PLURAL_TABLES: Readonly<Partial<Record<(typeof GAME_OBJECT_TABLES)[number], string>>> = {
   jobs: 'jobsPlural',
 };
 

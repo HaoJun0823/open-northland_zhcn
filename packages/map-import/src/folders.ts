@@ -2,7 +2,7 @@ import { MAP_DAT_FILE, STRING_TABLE_DIR } from './layout.js';
 import type { MapTree } from './tree.js';
 
 /** The folder part of a `/`-separated path, `''` at the root. */
-export function parentOf(path: string): string {
+function parentOf(path: string): string {
   const slash = path.lastIndexOf('/');
   return slash < 0 ? '' : path.slice(0, slash);
 }

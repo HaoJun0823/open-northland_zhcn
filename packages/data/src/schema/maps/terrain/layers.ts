@@ -17,7 +17,7 @@ export const TintLane = z.array(
  * The widest walking-roughness value a node can carry: the engine reads the `lmpr` byte back out of a
  * 4-bit field of its packed node word (`(word >> 3) & 0xf`). The owned corpus uses 0..5.
  */
-export const ROUGHNESS_MAX = 15;
+const ROUGHNESS_MAX = 15;
 
 /** A row-major per-node roughness lane (`lmpr`), one value per half-cell node (length = width*height*4). */
 export const RoughnessLane = z.array(z.number().int().min(0).max(ROUGHNESS_MAX));

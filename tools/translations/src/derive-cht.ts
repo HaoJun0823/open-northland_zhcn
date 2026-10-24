@@ -39,7 +39,7 @@ type Convert = (text: string) => string;
 
 /** Phrases OpenCC's `cn` to `twp` conversion gets wrong in our text (a wrong word split, a computing
  *  term, a name, the HUD's wording), each with the Traditional text it must become. */
-export const PHRASE_OVERRIDES: readonly (readonly [string, string])[] = [
+const PHRASE_OVERRIDES: readonly (readonly [string, string])[] = [
   // Word splits and computing vocabulary.
   ['的士兵', '的士兵'],
   ['的士气', '的士氣'],
@@ -148,7 +148,7 @@ function convertedValues(record: Readonly<Record<string, string>>, convert: Conv
 }
 
 /** The Traditional twin of a map overlay. */
-export function deriveTraditional(source: MapOverlay, convert: Convert): MapOverlay {
+function deriveTraditional(source: MapOverlay, convert: Convert): MapOverlay {
   return MapOverlay.parse({
     version: source.version,
     map: source.map,
@@ -160,7 +160,7 @@ export function deriveTraditional(source: MapOverlay, convert: Convert): MapOver
 }
 
 /** The Traditional twin of an object table overlay or edit. */
-export function deriveTraditionalTable(source: ObjectTableOverlay, convert: Convert): ObjectTableOverlay {
+function deriveTraditionalTable(source: ObjectTableOverlay, convert: Convert): ObjectTableOverlay {
   return ObjectTableOverlay.parse({
     version: source.version,
     basis: source.basis,

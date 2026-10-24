@@ -19,7 +19,7 @@ const PIXEL_PROBE_STRIDE = 4;
 const MIN_DISTINCT_COLOURS = 8;
 const BOOT_PHASE_LINE = /^\[boot\] phase \{phase: (\w+)\}/;
 
-export function bootQuery(mapId, seed) {
+function bootQuery(mapId, seed) {
   // `intro=off` keeps the briefing window off the pixel probe; `fullscreen=off` stores nothing.
   return `map=${mapId}&player=0&seed=${seed}&sound=off&intro=off&fullscreen=off`;
 }

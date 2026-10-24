@@ -20,7 +20,7 @@ export interface FlacOptions {
 }
 
 /** Of 2304, 4096 and 4608 samples, the smallest output over the mod's 22.05 kHz clips (by 0.1-0.4%). */
-export const DEFAULT_FLAC_BLOCK_SIZE = 2304;
+const DEFAULT_FLAC_BLOCK_SIZE = 2304;
 const BITS_PER_SAMPLE = 16;
 /** The subset's caps for streams up to 48 kHz. */
 const SUBSET_MAX_LPC_ORDER = 12;

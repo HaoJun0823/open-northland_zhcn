@@ -6,7 +6,7 @@ const MEGAPIXEL = 1024 * 1024;
 
 /** The largest checked campaign consumes 1,283,400 characters including picture discovery.
  * Four per-map budgets leave room for larger packs without allowing unlimited include expansion. */
-export const DEFAULT_TOTAL_HYPERTEXT_CHARACTERS = 4 * DEFAULT_HYPERTEXT_CHARACTERS;
+const DEFAULT_TOTAL_HYPERTEXT_CHARACTERS = 4 * DEFAULT_HYPERTEXT_CHARACTERS;
 
 /** Upper bounds on one untrusted import, checked before and while it unpacks. */
 export interface ImportLimits {

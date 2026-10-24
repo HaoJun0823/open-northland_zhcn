@@ -38,7 +38,7 @@ export const GOOD_SLOTS_PER_TRACK = 2;
 /** The strokes-per-unit count a track record without `baserepeatcounter` loads with. Original behavior. */
 export const DEFAULT_BASE_REPEAT_COUNTER = 10;
 /** The learning rate a track record without `experiencefactor` loads with. Original behavior. */
-export const DEFAULT_EXPERIENCE_FACTOR = 100;
+const DEFAULT_EXPERIENCE_FACTOR = 100;
 
 /**
  * One `[humanjobexperiencetype]` record (`Data/logic/humanjobexperiencetypes.ini`): a per-specialization

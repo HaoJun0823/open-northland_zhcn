@@ -142,7 +142,7 @@ export async function askDownloadConsent({
   }
 }
 
-export class DownloadNotAccepted extends Error {
+class DownloadNotAccepted extends Error {
   constructor(reason) {
     super(
       reason === 'declined'

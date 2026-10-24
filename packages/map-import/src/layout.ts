@@ -4,9 +4,9 @@ import { MAP_TEXT_LANGUAGES } from '@open-northland/data';
  *  filter that keeps an archive's map files agree on what a map folder holds. */
 export const MAP_DAT_FILE = 'map.dat';
 export const MAP_CIF_FILE = 'map.cif';
-export const MAP_INI_FILE = 'map.ini';
-export const MISC_INC_FILE = 'misc.inc';
-export const STATIC_OBJECTS_INC_FILE = 'staticobjects.inc';
+const MAP_INI_FILE = 'map.ini';
+const MISC_INC_FILE = 'misc.inc';
+const STATIC_OBJECTS_INC_FILE = 'staticobjects.inc';
 
 /**
  * Where an unpacked map (no `map.cif`) keeps its `[StaticObjects]` placements, in lookup order: the
@@ -39,7 +39,7 @@ export const BRIEFINGS_FILE = 'briefings.txt';
 /** The dir a page's `$local$\graphics\<file>` argument resolves against, beside its text files. */
 export const HYPERTEXT_GRAPHICS_DIR = 'graphics';
 /** The window opens cutscene `id` as the page `%4.4d.hlt`, which includes its text from `briefings.txt`. */
-export const HLT_PAGE_DIGITS = 4;
+const HLT_PAGE_DIGITS = 4;
 const HLT_EXTENSION = '.hlt';
 /** A briefing's spoken lines, `sfx/<lang>/NNNN.wav` beside `text/`. */
 export const VOICE_DIR = 'sfx';

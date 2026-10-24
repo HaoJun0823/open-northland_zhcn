@@ -27,7 +27,7 @@ export interface OriginalGameRecord {
   readonly recognize: (folder: string) => Promise<DetectedInstall | undefined>;
 }
 
-export function originalGameStateFor(found: DetectedInstall): OriginalGameState {
+function originalGameStateFor(found: DetectedInstall): OriginalGameState {
   return {
     version: ORIGINAL_GAME_STATE_VERSION,
     path: found.path,

@@ -6,7 +6,7 @@ export function jsonFingerprint(value: unknown): string {
   return bytesToHex(sha256(utf8ToBytes(canonicalJson(value))));
 }
 
-export function canonicalJson(value: unknown): string {
+function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
     return JSON.stringify(value);
   }

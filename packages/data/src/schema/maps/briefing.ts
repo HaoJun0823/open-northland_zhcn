@@ -13,7 +13,7 @@ export type MapBriefing = z.infer<typeof MapBriefing>;
 
 /** `<onscreencallback:2000,a,_>` speaks the map's `sfx/<lang>/<a as 4 digits>.wav` (readable `.hlt`
  *  pages and the shipped per-map `sfx/` folders). */
-export const BRIEFING_VOICE_CALLBACK = 2000;
+const BRIEFING_VOICE_CALLBACK = 2000;
 const VOICE_FILE_DIGITS = 4;
 
 /** One spoken line a briefing names: the page language's `sfx/<lang>/` folder and the clip number. */

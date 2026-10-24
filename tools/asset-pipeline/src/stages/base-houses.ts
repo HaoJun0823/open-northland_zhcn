@@ -11,10 +11,7 @@ function editNameOf(record: RuleSection): string | undefined {
  * name both tables define; a name only the base defines (a house the mod dropped that original maps
  * still place) keeps its base record, whose `LogicType` the mod may give a different house.
  */
-export function baseOnlyHouseRecords(
-  base: readonly RuleSection[],
-  rules: readonly RuleSection[],
-): RuleSection[] {
+function baseOnlyHouseRecords(base: readonly RuleSection[], rules: readonly RuleSection[]): RuleSection[] {
   const ruled = new Set<string>();
   for (const record of gfxHouseRecords(rules)) {
     const name = editNameOf(record);

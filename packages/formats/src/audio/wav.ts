@@ -20,9 +20,9 @@ const INT16_SCALE = 32768;
 const MAX_WAV_FRAMES = 1 << 26;
 /** The rates and channel counts every Web Audio context must hold in a buffer (W3C Web Audio API,
  *  `createBuffer`); a wav outside them could not play anyway. */
-export const MIN_WAV_SAMPLE_RATE = 3000;
-export const MAX_WAV_SAMPLE_RATE = 768000;
-export const MAX_WAV_CHANNELS = 32;
+const MIN_WAV_SAMPLE_RATE = 3000;
+const MAX_WAV_SAMPLE_RATE = 768000;
+const MAX_WAV_CHANNELS = 32;
 /** `fmt `'s common fields, through `wBitsPerSample`. */
 const FMT_MIN_BYTES = 16;
 const FACT_BYTES = 4;

@@ -86,7 +86,7 @@ function link(latencyMs, jitterMs, bytesPerSecond) {
 const MBIT_BYTES = 125_000;
 
 /** Named conditions. Round trip is twice the one-way latency; caps are typical consumer uplink/downlink. */
-export const PROFILES = Object.freeze({
+const PROFILES = Object.freeze({
   lan: { up: link(1, 0, null), down: link(1, 0, null), stall: null, flap: null, halfOpen: false },
   home: {
     up: link(30, 3, 10 * MBIT_BYTES),

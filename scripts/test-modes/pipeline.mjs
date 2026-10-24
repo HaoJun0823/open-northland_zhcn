@@ -9,9 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { repoRoot } from '../content/dir.mjs';
 
-const repoRoot = resolve(fileURLToPath(import.meta.url), '../../..');
 const dataRoot = process.env.ON_DATA_ROOT ?? resolve(repoRoot, '.cache/data/unpacked');
 
 if (!existsSync(dataRoot)) {

@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { repoRoot } from './content/dir.mjs';
 
-const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const ticketsRoot = join(repoRoot, 'docs', 'tickets');
 const priorityRank = { P1: 1, P2: 2, P3: 3 };
 const stateRank = { ready: 1, blocked: 2, 'needs-user': 3 };

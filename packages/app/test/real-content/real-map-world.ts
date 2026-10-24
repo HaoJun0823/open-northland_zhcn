@@ -5,7 +5,7 @@ import type { GameSession, SessionRules } from '@open-northland/lockstep';
 import type { SaveGame, Simulation } from '@open-northland/sim';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { buildMapWorld, restoreMapWorld } from '../../src/entries/map/world.js';
-import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
+import { buildMapWorldFromInputs, type MapWorldInputs } from '../../src/entries/map/world-inputs.js';
 import { matchParticipants, neverDiesSeats } from '../../src/game/match/participants.js';
 import { onOffParam } from '../../src/game/match/session-rules.js';
 import { mapIdParam, mapSession } from '../../src/game/match/session-url.js';
@@ -170,4 +170,22 @@ export async function restoreRealMapWorld(mapId: string, save: SaveGame): Promis
     },
     save,
   ).sim;
+}
+
+/** What the map entry hands its world builder for a `?map=` search, before any save is staged. */
+export async function realMapWorldInputs(search: string): Promise<MapWorldInputs> {
+  const params = new URLSearchParams(search);
+  const mapId = mapIdParam(params);
+  if (mapId === null) throw new Error(`the search names no map: ${search}`);
+  const script = realMapScript(mapId);
+  const { merge } = await loadContentUnderTest();
+  return {
+    map: JSON.parse(readFileSync(realMapPath(mapId), 'utf8')),
+    ir: rawIrUnderTest() as ContentIr,
+    script,
+    content: merge.content,
+    session: mapSession(params, script === null ? [] : mapLobbySlots(script)),
+    missions: null,
+    save: null,
+  };
 }

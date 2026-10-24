@@ -1,10 +1,9 @@
-import { components, type Entity, halfCellMapFromCells, systems } from '@open-northland/sim';
+import { components, type Entity, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { TERRAIN_OPEN } from '../../../src/catalog/terrain.js';
 import { HUMAN_PLAYER } from '../../../src/game/rules.js';
 import { GATHERERS, resourceSpecFor } from '../../../src/game/sandbox/index.js';
 import { runAuthoredMap } from '../../../src/game/world/index.js';
-import { hasRealIr, loadContentUnderTest } from '../helpers.js';
+import { hasRealIr, loadContentUnderTest, uniformMap } from '../helpers.js';
 
 const { GroundDrop, Resource, Settler, SettlerProgress, Stockpile } = components;
 
@@ -19,14 +18,6 @@ const GATED_TICKS = 800;
 /** Long enough for the earned collector to dig and bank ore at its flag. */
 const EARNED_TICKS = 2500;
 
-function grassMap(cells: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(TERRAIN_OPEN),
-  });
-}
-
 /**
  * Decoded-map apprenticeship rule: authored humans spawn with NO experience, so real content's
  * `needforgood` gates (iron/gold behind clay/stone-digging repeats, `needforgood 6/7 10` over
@@ -36,7 +27,7 @@ function grassMap(cells: number) {
 describe.runIf(hasRealIr())('authored decoded-map humans - gathering XP gates', () => {
   it('a fresh authored collector cannot dig iron until it earns the clay/stone repeats', async () => {
     const { merge } = await loadContentUnderTest();
-    const map = grassMap(MAP_CELLS);
+    const map = uniformMap(MAP_CELLS);
     // One authored human, the shape a decoded map's `sethuman` resolves to (job by name).
     const entities = {
       buildings: [],

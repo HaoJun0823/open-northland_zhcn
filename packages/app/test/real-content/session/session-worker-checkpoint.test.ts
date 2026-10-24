@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mapLobbySlots } from '@open-northland/data';
 import { LOOPBACK_DELAY_TICKS, LockstepDriver, LoopbackTransport } from '@open-northland/lockstep';
 import {
   components,
@@ -13,14 +12,12 @@ import {
   type Simulation,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import type { ContentIr } from '../../../src/content/ir/rows.js';
-import { buildMapWorldFromInputs, type MapWorldInputs } from '../../../src/entries/map/world-inputs.js';
-import { mapSession } from '../../../src/game/match/session-url.js';
+import { buildMapWorldFromInputs } from '../../../src/entries/map/world-inputs.js';
 import { inlineSessionHost } from '../../../src/session/index.js';
 import type { WorkerSession } from '../../../src/session/worker/worker-session.js';
 import { bundleTestWorker, pumpWhile, startTestSession } from '../../support/session-worker/start-worker.js';
-import { hasRealIr, loadContentUnderTest, rawIrUnderTest } from '../helpers.js';
-import { realMapPath, realMapScript } from '../real-map-world.js';
+import { hasRealIr } from '../helpers.js';
+import { realMapPath, realMapWorldInputs } from '../real-map-world.js';
 
 /**
  * The worker host on a late, heavy world: a six-AI magiczny_las benchmark checkpoint,
@@ -56,20 +53,6 @@ function checkpointReadable(): boolean {
   return head.header?.formatVersion === SAVE_FORMAT_VERSION;
 }
 
-async function checkpointInputs(): Promise<MapWorldInputs> {
-  const script = realMapScript(MAP_ID);
-  const { merge } = await loadContentUnderTest();
-  return {
-    map: JSON.parse(readFileSync(realMapPath(MAP_ID), 'utf8')),
-    ir: rawIrUnderTest() as ContentIr,
-    script,
-    content: merge.content,
-    session: mapSession(new URLSearchParams(SEARCH), script === null ? [] : mapLobbySlots(script)),
-    missions: null,
-    save: null,
-  };
-}
-
 /** The seat's settlers in id order, so both sides pick the same ones from the same state. */
 function seatSettlers(sim: Simulation): readonly Entity[] {
   const settlers: Entity[] = [];
@@ -98,7 +81,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))(
       { timeout: CHECKPOINT_TIMEOUT_MS },
       async () => {
         const saveText = readFileSync(CHECKPOINT, 'utf8');
-        const [bundle, inputs] = await Promise.all([bundleTestWorker(), checkpointInputs()]);
+        const [bundle, inputs] = await Promise.all([bundleTestWorker(), realMapWorldInputs(SEARCH)]);
         let session: WorkerSession<null> | null = null;
         try {
           const { save: _none, ...bootInputs } = inputs;

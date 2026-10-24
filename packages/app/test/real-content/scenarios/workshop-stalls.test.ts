@@ -1,4 +1,4 @@
-import { cellAnchorNode, components, type Simulation } from '@open-northland/sim';
+import { cellAnchorNode, components } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { grassTerrain } from '../../../src/catalog/buildings.js';
 import { JOB_CARRIER, JOB_COLLECTOR } from '../../../src/catalog/jobs.js';
@@ -19,7 +19,7 @@ import { SNAPSHOT_SWEEP_INTERVAL_TICKS } from '../../../src/hud/tool-panel/messa
 import { PRODUCTION_STALL_GRACE_TICKS } from '../../../src/hud/tool-panel/messages/workshop-stalls.js';
 import { createSceneSim } from '../../../src/scenes/runtime.js';
 import type { SceneWorld } from '../../../src/scenes/types.js';
-import { watchStalls } from '../../support/stall-watch.js';
+import { totalOf, watchStalls } from '../../support/stall-watch.js';
 import { hasRealIr, loadContentUnderTest } from '../helpers.js';
 
 /** The real goods the run checks (`goods.ini` typeIds). */
@@ -156,14 +156,6 @@ function animalFarm(sheep: number): SceneWorld {
 
 /** Sweeps past the stall grace and the first ask's answer. */
 const BLOCKED_SWEEPS = PRODUCTION_STALL_GRACE_TICKS / SNAPSHOT_SWEEP_INTERVAL_TICKS + 2;
-
-function totalOf(sim: Simulation, goodType: number): number {
-  let total = 0;
-  for (const e of sim.world.query(components.Stockpile)) {
-    total += sim.world.get(e, components.Stockpile).amounts.get(goodType) ?? 0;
-  }
-  return total;
-}
 
 describe.runIf(hasRealIr())('stalled workshop notes on real content', () => {
   it('stay silent while the joinery collector fells the wood the joiner needs', async () => {

@@ -1,9 +1,4 @@
-import type {
-  CatalogConvertedMap,
-  CatalogEntry,
-  MapsIndexPlayerSlot,
-  MapTextLanguage,
-} from '@open-northland/data';
+import type { CatalogConvertedMap, CatalogEntry, MapTextLanguage } from '@open-northland/data';
 import { catalogBrowseEntry } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
@@ -37,6 +32,7 @@ import {
   queryRows,
 } from '../../../../src/entries/main-menu/catalogue/query.js';
 import { catalogEntry, TINY_FINGERPRINT } from '../../../support/catalog-maps.js';
+import { seats } from '../../../support/mock-catalogue-api.js';
 
 const catalogueRow = (
   entry: CatalogEntry,
@@ -83,20 +79,6 @@ function installed(
     size: KIB,
     suffixes: ['.json'],
   };
-}
-
-function seats(count: number): MapsIndexPlayerSlot[] {
-  return Array.from({ length: count }, (_, player) => ({
-    player,
-    type: 'human',
-    tribeId: 1,
-    colorId: player,
-    claimable: true,
-    hidden: false,
-    aiAllowed: true,
-    noneAllowed: true,
-    hasComputerControl: true,
-  }));
 }
 
 /** A converted single-map entry with the map's seats, languages and size set. */

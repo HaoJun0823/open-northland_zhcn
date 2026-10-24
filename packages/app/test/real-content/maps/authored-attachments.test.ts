@@ -1,9 +1,8 @@
-import { components, type Entity, halfCellMapFromCells } from '@open-northland/sim';
+import { components, type Entity } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { TERRAIN_OPEN } from '../../../src/catalog/terrain.js';
 import { HUMAN_PLAYER } from '../../../src/game/rules.js';
 import { runAuthoredMap } from '../../../src/game/world/index.js';
-import { hasRealIr, loadContentUnderTest } from '../helpers.js';
+import { hasRealIr, loadContentUnderTest, uniformMap } from '../helpers.js';
 
 const { Building, JobAssignment, Residence, Settler } = components;
 
@@ -15,14 +14,6 @@ const TOWER = 'viking tower';
 const SMITH = 'smith';
 const ARCHER = 'soldier_bow_short';
 const VIKING = 'viking';
-
-function grassMap(cells: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(TERRAIN_OPEN),
-  });
-}
 
 type Merged = Awaited<ReturnType<typeof loadContentUnderTest>>['merge'];
 
@@ -106,7 +97,7 @@ describe.runIf(hasRealIr())('authored decoded-map settlers - the attachtohouse t
       ],
       animals: [],
     };
-    const sim = runAuthoredMap(7, 1, grassMap(MAP_CELLS), entities, joinRows(merge), {
+    const sim = runAuthoredMap(7, 1, uniformMap(MAP_CELLS), entities, joinRows(merge), {
       content: merge.content,
     });
     expect(sim).not.toBeNull();
@@ -152,7 +143,7 @@ describe.runIf(hasRealIr())('authored decoded-map settlers - the attachtohouse t
       animals: [],
     };
 
-    const sim = runAuthoredMap(7, 1, grassMap(MAP_CELLS), entities, joinRows(merge), {
+    const sim = runAuthoredMap(7, 1, uniformMap(MAP_CELLS), entities, joinRows(merge), {
       content: merge.content,
     });
     expect(sim).not.toBeNull();

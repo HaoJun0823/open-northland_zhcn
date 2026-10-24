@@ -1,4 +1,4 @@
-import type { Entity, Simulation } from '@open-northland/sim';
+import { components, type Entity, type Simulation } from '@open-northland/sim';
 import { HUMAN_PLAYER } from '../../src/game/rules.js';
 import { createMessageFeed, takeRaised } from '../../src/hud/tool-panel/messages/feed.js';
 import { FightAreas } from '../../src/hud/tool-panel/messages/fight-areas.js';
@@ -70,4 +70,13 @@ export function watchStalls(sim: Simulation): { run(sweeps: number): StallWatchR
       };
     },
   };
+}
+
+/** Total `goodType` across every stockpile: building stores, yard heaps and loose piles. */
+export function totalOf(sim: Simulation, goodType: number): number {
+  let total = 0;
+  for (const e of sim.world.query(components.Stockpile)) {
+    total += sim.world.get(e, components.Stockpile).amounts.get(goodType) ?? 0;
+  }
+  return total;
 }

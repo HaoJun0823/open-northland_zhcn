@@ -303,7 +303,8 @@ const tinyTerrain = (revision: number) => ({ width: 1, height: 1, typeIds: [revi
 
 const iso = (day: string): string => `${day}T12:00:00.000Z`;
 
-function seats(count: number): MapsIndexPlayerSlot[] {
+/** `count` claimable human seats, one colour each. */
+export function seats(count: number): MapsIndexPlayerSlot[] {
   return Array.from({ length: count }, (_, player) => ({
     player,
     type: 'human',

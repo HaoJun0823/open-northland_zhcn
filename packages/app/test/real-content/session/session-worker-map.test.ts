@@ -1,23 +1,20 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { mapLobbySlots } from '@open-northland/data';
+import { existsSync } from 'node:fs';
 import { LOOPBACK_DELAY_TICKS, LockstepDriver, LoopbackTransport } from '@open-northland/lockstep';
 import { adminCommand, exportSaveGame, serializeSaveGame } from '@open-northland/sim';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ContentIr } from '../../../src/content/ir/rows.js';
 import {
   buildMapWorldFromInputs,
   type MapWorkerBoot,
   type MapWorldInputs,
 } from '../../../src/entries/map/world-inputs.js';
-import { mapSession } from '../../../src/game/match/session-url.js';
 import {
   bundleTestWorker,
   pumpUntil,
   pumpWhile,
   startTestSession,
 } from '../../support/session-worker/start-worker.js';
-import { hasRealIr, loadContentUnderTest, rawIrUnderTest } from '../helpers.js';
-import { realMapPath, realMapScript } from '../real-map-world.js';
+import { hasRealIr } from '../helpers.js';
+import { realMapPath, realMapWorldInputs } from '../real-map-world.js';
 
 /**
  * The worker host on the map a session is played on: six AI seats push their own commands through the
@@ -35,20 +32,6 @@ const SAVE_AT_TICKS = 150;
 const AFTER_RESTORE_TICKS = 30;
 const MAP_TIMEOUT_MS = 240_000;
 
-async function mapInputs(): Promise<MapWorldInputs> {
-  const script = realMapScript(MAP_ID);
-  const { merge } = await loadContentUnderTest();
-  return {
-    map: JSON.parse(readFileSync(realMapPath(MAP_ID), 'utf8')),
-    ir: rawIrUnderTest() as ContentIr,
-    script,
-    content: merge.content,
-    session: mapSession(new URLSearchParams(SEARCH), script === null ? [] : mapLobbySlots(script)),
-    missions: null,
-    save: null,
-  };
-}
-
 /** The boot the map entry posts: the inputs with the staged save as its text. */
 function workerBoot({ save: _parsed, ...inputs }: MapWorldInputs, saveText: string | null): MapWorkerBoot {
   return { ...inputs, saveText };
@@ -58,7 +41,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('session worker h
   let bundle: Awaited<ReturnType<typeof bundleTestWorker>>;
   let inputs: MapWorldInputs;
   beforeAll(async () => {
-    [bundle, inputs] = await Promise.all([bundleTestWorker(), mapInputs()]);
+    [bundle, inputs] = await Promise.all([bundleTestWorker(), realMapWorldInputs(SEARCH)]);
   }, MAP_TIMEOUT_MS);
   afterAll(() => bundle.dispose());
 

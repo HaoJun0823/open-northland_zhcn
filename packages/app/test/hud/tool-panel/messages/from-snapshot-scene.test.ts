@@ -32,8 +32,9 @@ import type { MessageNaming } from '../../../../src/hud/tool-panel/messages/rais
 import type { MessageText } from '../../../../src/hud/tool-panel/messages/text.js';
 import { USER_MESSAGE_TYPE } from '../../../../src/hud/tool-panel/messages/types.js';
 import { PRODUCTION_STALL_GRACE_TICKS } from '../../../../src/hud/tool-panel/messages/workshop-stalls.js';
-import { createSceneSim, SCENES } from '../../../../src/scenes/index.js';
+import { createSceneSim } from '../../../../src/scenes/index.js';
 import type { SceneWorld } from '../../../../src/scenes/types.js';
+import { registeredScene } from '../../../support/sandbox.js';
 
 const plain = (full: string): MessageText => ({ short: full, full });
 const naming: MessageNaming = {
@@ -173,12 +174,6 @@ function watchWorkers(
     }
   }
   return { chatted, workedAfterChat, idleNotes };
-}
-
-function registeredScene(id: string): SceneWorld {
-  const scene = SCENES.find((s) => s.id === id);
-  if (scene === undefined) throw new Error(`${id} scene missing`);
-  return scene;
 }
 
 function adultsOf(snapshot: WorldSnapshot): number[] {

@@ -12,7 +12,6 @@ import {
   components,
   type Entity,
   fx,
-  halfCellMapFromCells,
   ONE,
   positionOfNode,
   Simulation,
@@ -22,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { TERRAIN_BARREN, TERRAIN_OPEN } from '../../../src/catalog/terrain.js';
 import type { ContentIr } from '../../../src/content/ir/rows.js';
 import { doorNode } from '../../../src/view/projections/building-points.js';
-import { hasRealIr, loadContentUnderTest, rawIrUnderTest } from '../helpers.js';
+import { hasRealIr, loadContentUnderTest, rawIrUnderTest, uniformMap } from '../helpers.js';
 import { realMapWorld } from '../real-map-world.js';
 
 /**
@@ -55,14 +54,6 @@ const HERB_REAP_BUDGET_TICKS = 1_200;
 
 /** The two goods the clean-room farming block completes on real content. */
 const FARMED_GOOD_IDS = ['wheat', 'herb'] as const;
-
-function flatMap(cells: number, terrain: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(terrain),
-  });
-}
 
 /** Resolve a farmed good + the trade granted both its plant and harvest atomics + a workplace housing that
  *  trade and storing the good + a playable tribe. The harvest atomic tells the farmer (29) and the herb
@@ -110,7 +101,7 @@ function buildScenario(
   terrain: number = TERRAIN_OPEN,
 ): { sim: Simulation; workplaceEntity: Entity } {
   const { worker, workplace, tribe } = resolveActors(content, goodId);
-  const sim = new Simulation({ seed: SEED, content, map: flatMap(MAP_CELLS, terrain) });
+  const sim = new Simulation({ seed: SEED, content, map: uniformMap(MAP_CELLS, terrain) });
   const anchor = cellAnchorNode(FARM_AT.x, FARM_AT.y);
   const door = doorNode(workplace.footprint, anchor);
   const workplaceEntity = sim.world.create();

@@ -7,8 +7,10 @@ import {
   type SpriteLayer,
   type TextureSource,
 } from '@open-northland/render';
+import { halfCellMapFromCells } from '@open-northland/sim';
 import { ANIMAL_BODY_IMAGELIB } from '../../src/catalog/animal-roster.js';
 import { INDEXED_CHARACTER_PALETTE } from '../../src/catalog/roster.js';
+import { TERRAIN_OPEN } from '../../src/catalog/terrain.js';
 import {
   bodySequences,
   gfxAtomicProgramsByAction,
@@ -196,4 +198,14 @@ export function characterTablesUnderTest(
     tables.set(tribe, table);
   }
   return tables;
+}
+
+/** A square CELL map of one terrain class, open ground by default; the merge injects the sim nav
+ *  classes, so the sandbox terrain ids resolve on real content. */
+export function uniformMap(cells: number, terrain: number = TERRAIN_OPEN) {
+  return halfCellMapFromCells({
+    width: cells,
+    height: cells,
+    typeIds: new Array(cells * cells).fill(terrain),
+  });
 }

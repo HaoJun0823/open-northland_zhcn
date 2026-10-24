@@ -24,26 +24,13 @@ import {
   idleWorkBakeryDefinition,
   idleWorkWorker,
 } from '../../../../src/scenes/economy/idle-work.js';
-import { createSceneSim, SCENES } from '../../../../src/scenes/index.js';
+import { createSceneSim } from '../../../../src/scenes/index.js';
 import type { SceneWorld } from '../../../../src/scenes/types.js';
-import { watchStalls } from '../../../support/stall-watch.js';
+import { registeredScene } from '../../../support/sandbox.js';
+import { totalOf, watchStalls } from '../../../support/stall-watch.js';
 
 const SWEEPS_TO_GRACE = PRODUCTION_STALL_GRACE_TICKS / SNAPSHOT_SWEEP_INTERVAL_TICKS;
 const SWEEPS_TO_STORAGE_GRACE = STORAGE_FULL_GRACE_TICKS / SNAPSHOT_SWEEP_INTERVAL_TICKS;
-
-function registeredScene(id: string): SceneWorld {
-  const scene = SCENES.find((s) => s.id === id);
-  if (scene === undefined) throw new Error(`${id} scene missing`);
-  return scene;
-}
-
-function totalOf(sim: Simulation, goodType: number): number {
-  let total = 0;
-  for (const e of sim.world.query(components.Stockpile)) {
-    total += sim.world.get(e, components.Stockpile).amounts.get(goodType) ?? 0;
-  }
-  return total;
-}
 
 /** A staffed mill beside an empty warehouse: no store holds wheat and no farm grows it. */
 const MILL_AT = { x: 10, y: 10 } as const;

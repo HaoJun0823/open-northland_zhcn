@@ -5,7 +5,6 @@ import {
   components,
   type Entity,
   fx,
-  halfCellMapFromCells,
   ONE,
   PRODUCTION_UNLIMITED,
   playerCommand,
@@ -17,7 +16,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { TERRAIN_OPEN } from '../../../src/catalog/terrain.js';
 import { doorNode } from '../../../src/view/projections/building-points.js';
-import { hasRealIr, loadContentUnderTest } from '../helpers.js';
+import { hasRealIr, loadContentUnderTest, uniformMap } from '../helpers.js';
 
 /**
  * The breeder's cycle over the MERGED REAL content: a farm with its own crew breeds the herd it was
@@ -73,14 +72,6 @@ function resolveActors(content: ContentSet, speciesId: string): Actors {
   return { species, breeder, farm, tribe, animalTribe };
 }
 
-function flatMap(cells: number, terrain: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(terrain),
-  });
-}
-
 /** A built farm with its full breeder crew on the door and `herdSize` claimed adults beside it - the
  *  shape a settlement reaches once its scouts have rounded up a herd. */
 function buildScenario(
@@ -89,7 +80,7 @@ function buildScenario(
   herdSize: number,
 ): { sim: Simulation; farm: Entity; actors: Actors } {
   const actors = resolveActors(content, speciesId);
-  const sim = new Simulation({ seed: SEED, content, map: flatMap(MAP_CELLS, TERRAIN_OPEN) });
+  const sim = new Simulation({ seed: SEED, content, map: uniformMap(MAP_CELLS, TERRAIN_OPEN) });
   const anchor = cellAnchorNode(FARM_AT.x, FARM_AT.y);
   const door = doorNode(actors.farm.footprint, anchor);
   const farm = sim.world.create();

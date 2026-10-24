@@ -1,9 +1,8 @@
 import type { ContentSet, GoodType, JobType, TribeType } from '@open-northland/data';
-import { checkInvariants, components, halfCellMapFromCells, Simulation, systems } from '@open-northland/sim';
+import { checkInvariants, components, Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { TERRAIN_OPEN } from '../../../src/catalog/terrain.js';
 import { HUMAN_PLAYER } from '../../../src/game/rules.js';
-import { hasRealIr, loadContentUnderTest } from '../helpers.js';
+import { hasRealIr, loadContentUnderTest, uniformMap } from '../helpers.js';
 
 /**
  * The gathering cycle end-to-end over the MERGED REAL content - the same geometry the sandbox twin
@@ -22,15 +21,6 @@ const MAP_CELLS = 40;
 /** Spawn node + tree cluster in half-cell coords - the exact proven layout of the sandbox twin. */
 const SPAWN = { x: 40, y: 40 } as const;
 const CLUSTER = { x0: 44, x1: 52, y0: 34, y1: 42, step: 2 } as const;
-
-/** An all-grass CELL map; the merge injects the sim nav classes so `TERRAIN_OPEN` resolves on real content. */
-function grassMap(cells: number) {
-  return halfCellMapFromCells({
-    width: cells,
-    height: cells,
-    typeIds: new Array(cells * cells).fill(TERRAIN_OPEN),
-  });
-}
 
 /** Resolve wood + a trade granted its harvest + a playable tribe from the content, never from pinned ids. */
 function resolveActors(content: ContentSet): {
@@ -57,7 +47,7 @@ function resolveActors(content: ContentSet): {
 /** Build the scenario sim: one wood gatherer (flag auto-planted at its feet) beside a dense tree cluster. */
 function buildScenario(content: ContentSet): Simulation {
   const { wood, gathering, harvest, gatherer, tribe } = resolveActors(content);
-  const sim = new Simulation({ seed: SEED, content, map: grassMap(MAP_CELLS) });
+  const sim = new Simulation({ seed: SEED, content, map: uniformMap(MAP_CELLS) });
   sim.enqueueSetup({
     kind: 'spawnSettler',
     jobType: gatherer.typeId,

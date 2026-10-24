@@ -2,8 +2,9 @@ import { type EntitySnapshot, ONE, type Simulation, systems, type WorldSnapshot 
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../src/game/rules.js';
 import { fixedViewerSeat } from '../../src/game/viewer-seat.js';
 import type { UnitPanelModelContext } from '../../src/hud/details-panel/index.js';
-import { createSceneSim } from '../../src/scenes/index.js';
+import { createSceneSim, SCENES } from '../../src/scenes/index.js';
 import { sandboxScene } from '../../src/scenes/sandbox/index.js';
+import type { SceneDefinition } from '../../src/scenes/types.js';
 
 /** The details-panel model context a sim's content provides - the content half every
  *  `buildUnitPanelModel` assertion runs against, livestock seams wired like `unit-controls`. */
@@ -53,4 +54,11 @@ export function buildingEntity(
       ...opts.components,
     },
   };
+}
+
+/** A registered acceptance scene by id; throws when the registry lacks it. */
+export function registeredScene(id: string): SceneDefinition {
+  const scene = SCENES.find((s) => s.id === id);
+  if (scene === undefined) throw new Error(`${id} scene missing`);
+  return scene;
 }

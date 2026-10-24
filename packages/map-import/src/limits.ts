@@ -38,21 +38,21 @@ export interface ImportLimits {
 
 /** Defaults sized from the culturesnation catalogue: its largest archive unpacks to 20 MB, its largest
  *  entry is 5.7 MB, one archive lists at most 2367 entries, and a map folder sits at most three deep. */
-export const DEFAULT_ARCHIVE_BYTES = 64 * MIB;
-export const DEFAULT_UNPACKED_BYTES = 128 * MIB;
-export const DEFAULT_ENTRY_BYTES = 16 * MIB;
-export const DEFAULT_ENTRIES = 5000;
-export const DEFAULT_DEPTH = 8;
+const DEFAULT_ARCHIVE_BYTES = 64 * MIB;
+const DEFAULT_UNPACKED_BYTES = 128 * MIB;
+const DEFAULT_ENTRY_BYTES = 16 * MIB;
+const DEFAULT_ENTRIES = 5000;
+const DEFAULT_DEPTH = 8;
 /** The largest known map is 500x500 cells. About four times its area leaves room for bigger custom
  *  maps while the per-cell arrays a decode builds, several at four half-cells per cell, stay in the
  *  low hundreds of megabytes. */
-export const DEFAULT_CELLS = 1024 * 1024;
+const DEFAULT_CELLS = 1024 * 1024;
 /** Four maximum-size maps, or sixteen 500x500 maps, per pack. This bounds retained terrain lanes
  *  across a campaign independently of the highly compressible input bytes; it is not a byte cap. */
-export const DEFAULT_TOTAL_CELLS = 4 * DEFAULT_CELLS;
+const DEFAULT_TOTAL_CELLS = 4 * DEFAULT_CELLS;
 /** Map and briefing pictures are menu-sized; 16 Mpx is far above them and bounds one picture's
  *  RGBA expansion at 64 MiB. */
-export const DEFAULT_PICTURE_PIXELS = 16 * MEGAPIXEL;
+const DEFAULT_PICTURE_PIXELS = 16 * MEGAPIXEL;
 
 export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   archiveBytes: DEFAULT_ARCHIVE_BYTES,

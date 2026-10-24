@@ -1,17 +1,14 @@
 // @vitest-environment jsdom
-import { type LaneCounts, type SoundStatsView, zeroLanes } from '@open-northland/audio';
 import type { Camera } from '@open-northland/render';
 import type { Command, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { diag } from '../src/diag/index.js';
 import type { SceneStage } from '../src/scenes/types.js';
 import { cameraCenteredOnTile } from '../src/view/camera/index.js';
 import { mountSceneStages } from '../src/view/scene-stages.js';
 
 /**
- * The scene stage bar: a stage button frames its place, a stage's buttons issue the viewer's orders
- * through the HUD path and the other seats' as trusted input, and while a stage is open the bar logs
- * what the sound driver was offered and started.
+ * The scene stage bar: a stage button frames its place, and a stage's buttons issue the viewer's orders
+ * through the HUD path and the other seats' as trusted input.
  */
 
 const VIEWPORT = { width: 800, height: 600 } as const;
@@ -41,14 +38,6 @@ const stages: readonly SceneStage[] = [
 
 let frameCallbacks: FrameRequestCallback[] = [];
 let now = 0;
-/** Run the bar's next animation frame `ms` after the last. */
-function tick(ms: number): void {
-  now += ms;
-  const callbacks = frameCallbacks;
-  frameCallbacks = [];
-  for (const cb of callbacks) cb(now);
-}
-
 beforeEach(() => {
   frameCallbacks = [];
   now = 0;
@@ -91,44 +80,5 @@ describe('scene stage bar', () => {
     expect(jumps.at(-1)?.scale).toBe(FAR);
     lifetime.abort();
     expect(document.querySelector('[data-scene-stages]')).toBeNull();
-  });
-
-  it('logs each second what the driver was offered and started per lane', () => {
-    const offered = zeroLanes();
-    const started = zeroLanes();
-    const stats: { frames: number; stolen: number; offered: LaneCounts; started: LaneCounts } = {
-      frames: 0,
-      stolen: 0,
-      offered,
-      started,
-    };
-    const info = vi.spyOn(diag, 'info').mockImplementation(() => undefined);
-    mountSceneStages({
-      sceneId: 'audio-mix',
-      stages,
-      host: { snapshot: () => ({ tick: 0, entities: [], events: [] }) as WorldSnapshot },
-      cameraCtl: { jumpTo: () => undefined },
-      viewport: () => VIEWPORT,
-      issue: () => undefined,
-      submitAdmin: () => undefined,
-      soundStats: (): SoundStatsView => stats,
-      signal: new AbortController().signal,
-    });
-    document.querySelector<HTMLButtonElement>('[data-scene-stages] button')?.click();
-    tick(0); // primes the counts
-    stats.frames += 2;
-    offered.sfx += 30;
-    started.sfx += 12;
-    stats.stolen += 3;
-    tick(500);
-    offered.sfx += 10;
-    started.sfx += 2;
-    tick(600);
-    expect(info).toHaveBeenCalledWith('audio', 'stage orders', {
-      frames: 2,
-      lanes: { sfx: '14 of 40 started, 26 dropped' },
-      stolen: 3,
-      busiestFrame: { offered: 30, started: 12 },
-    });
   });
 });

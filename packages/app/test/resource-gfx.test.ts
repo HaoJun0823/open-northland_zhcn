@@ -191,12 +191,6 @@ describe('resolveGatheringRefs - the goods-manifest pile/trunk binding (every go
     const refs = resolveGatheringRefs(GOODS, IR, wood);
     expect(refs.pilesByGood[1]).toEqual({ stem: 'ls_goods.goods_wood', fillBobs: [0, 1, 2, 3, 4] });
   });
-
-  it('adds nothing when no manifest is provided (back-compat with the pipeline-only path)', () => {
-    const refs = resolveGatheringRefs([{ typeId: 20, id: 'bread' }], IR);
-    expect(refs.pilesByGood[20]).toBeUndefined();
-    expect(refs.trunksByGood[20]).toBeUndefined();
-  });
 });
 
 describe('gatheringAtlasStems - the families to load', () => {

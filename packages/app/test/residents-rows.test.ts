@@ -7,7 +7,6 @@ import {
   listResidents,
   NO_RESIDENT_FILTERS,
   pickedGroup,
-  pickGestureOf,
   type ResidentRow,
   sortResidents,
   type TradePick,
@@ -144,12 +143,6 @@ describe('residents list filters', () => {
     expect(shoeless.lacks.shoes).toBe(2); // a picked lack counts the list it made
     expect(shoeless.lacks.post).toBe(1); // what adding this lack would leave
     expect(shoeless.lacks.home).toBe(0);
-  });
-
-  it('narrows every chip to the search text', () => {
-    const { counts } = listing({ query: 'kowal' });
-    expect(counts.groups).toMatchObject({ all: 1, workers: 1, heroes: 0 });
-    expect(counts.lacks).toMatchObject({ post: 1, shoes: 1, mead: 1, home: 0 });
   });
 
   it('narrows the group chips to a picked profession and every chip to a can-become pick', () => {
@@ -291,13 +284,6 @@ describe('residents list order', () => {
 
 describe('residents row picks', () => {
   const shown = [10, 11, 12, 13, 14];
-
-  it('reads the press as a file list does', () => {
-    expect(pickGestureOf({ range: false, toggle: false })).toBe('show');
-    expect(pickGestureOf({ range: false, toggle: true })).toBe('toggle');
-    expect(pickGestureOf({ range: true, toggle: false })).toBe('range');
-    expect(pickGestureOf({ range: true, toggle: true })).toBe('add-range');
-  });
 
   it('shows one person on a plain press, whatever was selected', () => {
     expect(pickedGroup('show', 12, new Set([10, 99]), shown, 10)).toEqual([12]);

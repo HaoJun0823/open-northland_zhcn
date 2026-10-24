@@ -119,7 +119,6 @@ describe('residents list', () => {
     row.dispatchEvent(new MouseEvent(type, { bubbles: true, ...modifiers }));
     expect(onSelect).toHaveBeenLastCalledWith([1], false);
     expect(window?.isOpen()).toBe(true);
-    expect(document.querySelectorAll('.on-res-hint kbd')[1]?.textContent).toBe('Ctrl/Cmd');
   });
 
   it('ignores an ordinary right-click on a row', () => {

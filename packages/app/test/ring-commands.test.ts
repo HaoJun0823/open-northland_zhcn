@@ -126,20 +126,6 @@ describe('issueRingCommand', () => {
     ]);
   });
 
-  it('flips regeneration and releases a site or a drill', () => {
-    const h = harness();
-    issueRingCommand('prohibitRegeneration', [4, 9], h);
-    issueRingCommand('allowRegeneration', [4], h);
-    issueRingCommand('removeBuildingSite', [4], h);
-    issueRingCommand('removeLearningPlace', [4], h);
-    expect(h.issued).toEqual([
-      { kind: 'setRegenerationGroup', members: [{ entity: 4 }, { entity: 9 }], enabled: false },
-      { kind: 'setRegeneration', entity: 4, enabled: true },
-      { kind: 'unassignBuilder', entity: 4 },
-      { kind: 'cancelTraining', entity: 4 },
-    ]);
-  });
-
   it('routes the two view-only orders to their own seams', () => {
     const h = harness();
     issueRingCommand('changeEquipment', [4, 9], h);

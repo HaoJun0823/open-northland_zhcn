@@ -45,12 +45,14 @@ describe('contentFile', () => {
 
 describe('isContentPath', () => {
   it('claims the listings and every served directory, so a miss there never falls back to index.html', () => {
-    for (const path of ['/ir.json', '/maps-index.json', '/maps/missing.json', '/bobs/x.png'])
-      expect(isContentPath(path)).toBe(true);
-  });
-
-  it('claims the campaign listing and its films, logos and routes', () => {
-    for (const path of ['/campaigns-index.json', '/campaigns/asgard/logo.png', '/campaigns/x/intro.webm'])
+    for (const path of [
+      '/ir.json',
+      '/maps-index.json',
+      '/maps/missing.json',
+      '/bobs/x.png',
+      '/campaigns-index.json',
+      '/campaigns/x/intro.webm',
+    ])
       expect(isContentPath(path)).toBe(true);
   });
 

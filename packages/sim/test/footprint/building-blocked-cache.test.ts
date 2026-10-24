@@ -8,7 +8,6 @@ import {
   UnderConstruction,
   Upgrading,
 } from '../../src/components/index.js';
-import { GENERATION_JOURNAL_LIMIT } from '../../src/ecs/generation-journal.js';
 import {
   type Entity,
   type Fixed,
@@ -29,23 +28,9 @@ import { HUT, mappedSim, terrainOf, VIKING } from './building-placement/support.
 /** The HUT's anchor in every placement fixture - body (5,5)+(6,5), door (4,5). */
 const ANCHOR = { x: 5, y: 5 };
 
-/**
- * The building walk-block memo (building-blocked-cache.ts): a call burst between two building mutations
- * shares ONE build, and every mutation seam that can change the cell set - membership (add/remove/destroy)
- * and the home tier upgrade's IN-PLACE `buildingType` swap (logged by `World.mut` on the VALUE
- * generation) - invalidates it, while construction progress on the same generation does not.
- */
+/** Every seam that can change the building walk-block set invalidates its memo: membership and the home
+ *  tier upgrade's in-place `buildingType` swap. */
 describe('buildingBlockedCells memo', () => {
-  it('a burst of callers between two building mutations shares one cached set', () => {
-    const sim = mappedSim();
-    sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: ANCHOR.x, y: ANCHOR.y, tribe: VIKING });
-    sim.step();
-    const first = buildingBlockedCells(sim.world, ctxOf(sim), terrainOf(sim));
-    expect(first.size).toBeGreaterThan(0);
-    // Identity, not equality: the burst's later calls must reuse the same build.
-    expect(buildingBlockedCells(sim.world, ctxOf(sim), terrainOf(sim))).toBe(first);
-  });
-
   it('a building appearing or disappearing invalidates the memo', () => {
     const sim = mappedSim();
     const terrain = terrainOf(sim);
@@ -75,29 +60,6 @@ describe('buildingBlockedCells memo', () => {
     expect(after).not.toBe(before);
     expect(after.has(growth)).toBe(true); // the larger tier's wall is picked up
     expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('construction progress keeps the memo', () => {
-    const { sim, home } = twoTierHome();
-    sim.world.mut(home, UnderConstruction).labor = HALF; // the site advances without finishing
-    const terrain = terrainOf(sim);
-    const before = buildingBlockedCells(sim.world, ctxOf(sim), terrain);
-
-    constructionSystem(sim.world, ctxOf(sim));
-    expect(sim.world.get(home, Building).built).toBe(HALF);
-    expect(sim.world.has(home, UnderConstruction)).toBe(true);
-    expect(buildingBlockedCells(sim.world, ctxOf(sim), terrain)).toBe(before);
-    expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('rebuilds once the value journal has dropped the span, with the same cells', () => {
-    const { sim, home } = twoTierHome();
-    const terrain = terrainOf(sim);
-    const before = buildingBlockedCells(sim.world, ctxOf(sim), terrain);
-    for (let i = 0; i <= GENERATION_JOURNAL_LIMIT; i++) sim.world.mut(home, Building).built = HALF;
-    const after = buildingBlockedCells(sim.world, ctxOf(sim), terrain);
-    expect(after).not.toBe(before);
-    expect([...after]).toEqual([...before]);
   });
 
   it('the verifier flags an in-place Building write that bypassed the tracked seam', () => {

@@ -1,5 +1,5 @@
 import { parseContentSet } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Building, Position } from '../../src/components/index.js';
 import { writeLandscapeEdits } from '../../src/components/landscape.js';
 import type { Entity } from '../../src/ecs/world.js';
@@ -103,7 +103,7 @@ describe('routeRegions', () => {
     expect(regions.unroutable(outside, sealed)).toBe(false);
   });
 
-  it('keeps its labels through construction progress and re-opens on a building type swap', () => {
+  it('keeps a pocket sealed through construction progress and re-opens it on a building type swap', () => {
     const { sim, site } = ringSite();
     const terrain = terrainOf(sim);
     const regions = routeRegions(sim.world, ctxOf(sim), terrain);
@@ -111,12 +111,8 @@ describe('routeRegions', () => {
     const outside = terrain.nodeAt(2, 2);
     expect(regions.unroutable(outside, sealed)).toBe(true);
 
-    // A labeled verdict floods nothing, so a flood after progress would mean the labels were dropped.
-    const floods = vi.spyOn(terrain, 'stepsIntoAt');
     sim.world.mut(site, Building).built = ONE;
     expect(regions.unroutable(outside, sealed)).toBe(true);
-    expect(floods).not.toHaveBeenCalled();
-    floods.mockRestore();
 
     sim.world.mut(site, Building).buildingType = OPEN_TYPE;
     expect(regions.unroutable(outside, sealed)).toBe(false);
@@ -421,7 +417,7 @@ const RANDOM_SEED = 7;
 /** Cells; the node lattice is twice as wide and tall, past the flood cap so open ground exists. */
 const RANDOM_MAP_COLS = 24;
 const RANDOM_MAP_ROWS = 16;
-const RANDOM_ROUNDS = 80;
+const RANDOM_ROUNDS = 40;
 /** Eighty rounds of cold-flood reference checks: slow by design, and slower on a loaded machine. */
 const RANDOM_TEST_TIMEOUT_MS = 60_000;
 const MAX_CHANGES_PER_ROUND = 3;

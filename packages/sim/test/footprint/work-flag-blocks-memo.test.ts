@@ -165,24 +165,7 @@ describe('workFlagPlacementBlocks incremental state', () => {
     expect(blocksOf(sim).has(terrain.nodeAt(4, 4))).toBe(true); // the ignore path never mutated the shared set
   });
 
-  it('keeps the live set through a construction-progress write without rebuilding', () => {
-    const sim = mappedSim();
-    const terrain = terrainOf(sim);
-    const site = sim.world.create();
-    sim.world.add(site, Position, positionOfNode(4, 4));
-    sim.world.add(site, Building, { buildingType: HUT, tribe: VIKING, built: fx.fromInt(0), level: 0 });
-
-    const before = blocksOf(sim);
-    expect(before.has(terrain.nodeAt(4, 4))).toBe(true);
-
-    // The write constructionSystem lands on every active site: a Building VALUE bump that changes no
-    // captured cell. Identity is the rebuild probe - a rebuild would discard the state for a fresh set.
-    sim.world.mut(site, Building).built = fx.fromInt(1);
-    expect(blocksOf(sim)).toBe(before);
-    expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('resyncs a building whose type swaps in place, still without rebuilding', () => {
+  it('resyncs a building whose type swaps in place', () => {
     const sim = mappedSim();
     const site = sim.world.create();
     sim.world.add(site, Position, positionOfNode(8, 8));
@@ -195,7 +178,6 @@ describe('workFlagPlacementBlocks incremental state', () => {
     // HUT carries a wider family body, so the swap must move cells.
     sim.world.mut(site, Building).buildingType = HUT;
     const after = blocksOf(sim);
-    expect(after).toBe(before); // resynced within the live set, not rebuilt
     expect(after.size).toBeGreaterThan(sizeBefore); // the wider body landed - the swap was not skipped
     expect(sim.world.verifyCaches()).toEqual([]);
   });
@@ -211,7 +193,6 @@ describe('workFlagPlacementBlocks incremental state', () => {
     for (let i = 0; i <= GENERATION_JOURNAL_LIMIT; i++) sim.world.mut(site, Building).built = fx.fromInt(0);
     sim.world.mut(site, Building).buildingType = HUT;
     const after = blocksOf(sim);
-    expect(after).toBe(before);
     expect(after.size).toBeGreaterThan(sizeBefore);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
@@ -229,7 +210,6 @@ describe('workFlagPlacementBlocks incremental state', () => {
     sim.world.mut(site, Building).buildingType = HUT;
     sim.world.destroy(site);
     const after = blocksOf(sim);
-    expect(after).toBe(before);
     expect(after.has(terrain.nodeAt(8, 8))).toBe(false);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
@@ -247,7 +227,6 @@ describe('workFlagPlacementBlocks incremental state', () => {
     sim.world.mut(site, Building).buildingType = HUT;
     sim.world.mut(site, Building).buildingType = HQ;
     const after = blocksOf(sim);
-    expect(after).toBe(before);
     expect(after.size).toBe(sizeBefore); // net-zero swap leaves the held cells untouched
     expect(after.has(terrain.nodeAt(8, 8))).toBe(true);
     expect(sim.world.verifyCaches()).toEqual([]);

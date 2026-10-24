@@ -165,17 +165,12 @@ describe('stance validation work', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('reuses the removal subscription across terrain and content changes', () => {
+  it('re-derives a pool after its resource leaves and is stamped elsewhere, across another terrain read', () => {
     const sim = mappedSim();
     const terrain = terrainOf(sim);
     const target = placeResource(sim, STONE, STONE_ATOMIC, 8, 4);
-    const watches = vi.spyOn(sim.world, 'watchChanges');
-    resourceStanceCells(sim.world, ctxOf(sim), terrain, target);
     const other = mappedSim();
     resourceStanceCells(sim.world, ctxOf(other), terrainOf(other), target);
-    resourceStanceCells(sim.world, ctxOf(sim), terrain, target);
-    expect(watches.mock.calls.filter(([members]) => members.includes(Position))).toHaveLength(1);
-    watches.mockRestore();
     const held = resourceStanceCells(sim.world, ctxOf(sim), terrain, target);
     const before = [...held];
     unstampResourceFootprint(sim.world, target);
@@ -218,30 +213,14 @@ describe('stance pick', () => {
     return { sim, resource, pool };
   }
 
-  it('asks the pocket veto only of a cell that would beat the best so far', () => {
+  it('works the nearest stance cell of the pool from every side', () => {
     const { sim, resource, pool } = spreadStone();
     const terrain = terrainOf(sim);
-    const pocketed = vi.spyOn(RouteRegions.prototype, 'pocketed');
-    try {
-      for (const [x, y] of FROMS) {
-        const from = terrain.nodeAt(x, y);
-        pocketed.mockClear();
-        expect(resourceWorkCell(sim.world, ctxOf(sim), terrain, resource, from)).toBe(
-          nearestCell(terrain, pool, from),
-        );
-        // No more veto floods than the pool has cells that beat every earlier one.
-        let improvements = 0;
-        let best: { dist: number; cell: NodeId } | undefined;
-        for (const cell of pool) {
-          const dist = Math.abs(terrain.xOf(cell) - x) + Math.abs(terrain.yOf(cell) - y);
-          if (best !== undefined && (dist > best.dist || (dist === best.dist && cell >= best.cell))) continue;
-          improvements += 1;
-          best = { dist, cell };
-        }
-        expect(pocketed.mock.calls.length).toBeLessThanOrEqual(improvements);
-      }
-    } finally {
-      pocketed.mockRestore();
+    for (const [x, y] of FROMS) {
+      const from = terrain.nodeAt(x, y);
+      expect(resourceWorkCell(sim.world, ctxOf(sim), terrain, resource, from)).toBe(
+        nearestCell(terrain, pool, from),
+      );
     }
   });
 

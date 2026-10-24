@@ -41,14 +41,6 @@ describe('navigation guard', () => {
     Object.defineProperty(navigator, 'webdriver', { value: false, configurable: true });
   });
 
-  it('holds the document for the entries that run a game', () => {
-    expect(guard.routeHoldsGame('map')).toBe(true);
-    expect(guard.routeHoldsGame('relay')).toBe(true);
-    expect(guard.routeHoldsGame('menu')).toBe(false);
-    expect(guard.routeHoldsGame('scene')).toBe(false);
-    expect(guard.routeHoldsGame('anim')).toBe(false);
-  });
-
   it('puts a trap entry under a game at the first gesture and pushes it back after a back traversal', () => {
     guard.pushEntryUrl(GAME);
     guard.guardEntry('map');

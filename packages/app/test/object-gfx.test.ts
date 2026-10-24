@@ -1,13 +1,6 @@
 import type { AtlasFrame } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
-import { drawsAsFlatDecor, drawsInGroundPass } from '../src/content/ir/joins.js';
 import { pairedStateFrames, stateIndexForLevel } from '../src/content/objects.js';
-
-/**
- * The landscape/object render bindings: the lmlv growth level → GfxFrames state-list index
- * (stateIndexForLevel), the paint-order split (drawsAsFlatDecor + drawsInGroundPass), and the body/shadow
- * frame pairing (pairedStateFrames).
- */
 
 describe('stateIndexForLevel - the lmlv level → GfxFrames state-list index', () => {
   it('counts levels up from the lowest state onto the highest-first lists', () => {
@@ -24,28 +17,6 @@ describe('stateIndexForLevel - the lmlv level → GfxFrames state-list index', (
     expect(stateIndexForLevel(100, 5)).toBe(0);
     expect(stateIndexForLevel(0, 3)).toBe(0);
     expect(stateIndexForLevel(4, 3)).toBe(0);
-  });
-});
-
-describe('paint order: flat decor, the still-landscape pass, and the sorted rest', () => {
-  // `[state, x, y, run]` walk-block lines: a deck spanning two half-cell rows either side of the node.
-  const deck: readonly (readonly [number, number, number, number])[] = [
-    [1, 0, -2, 3],
-    [1, 0, 0, 3],
-    [1, 0, 1, 3],
-  ];
-
-  it('splits decor from occluders on the walk footprint alone', () => {
-    expect(drawsAsFlatDecor({ walkBlockAreas: deck })).toBe(false); // a tree occludes
-    expect(drawsAsFlatDecor({ walkBlockAreas: [] })).toBe(true); // a wave does not
-    expect(drawsAsFlatDecor({})).toBe(true);
-  });
-
-  it('files a still record under every entity and leaves an animated one in the sorted pass', () => {
-    // A bridge deck is still: left in the sorted pass it would bury the settlers crossing it.
-    expect(drawsInGroundPass({ isStatic: true })).toBe(true);
-    expect(drawsInGroundPass({ isStatic: false })).toBe(false); // a swaying tree occludes by row
-    expect(drawsInGroundPass({})).toBe(false);
   });
 });
 

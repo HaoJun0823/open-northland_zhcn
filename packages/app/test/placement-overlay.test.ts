@@ -30,35 +30,25 @@ function roadProbe(): NodeGridProbe {
 }
 
 describe('the line tool wash', () => {
-  it('tints upgrade ground apart from the plain refusals it dims', () => {
+  it('tints upgrade ground apart from the plain refusals it dims, lit by the line or not', () => {
     const probe = roadProbe();
     const wash = makeLitOverlaySource(
       { road: () => probe, palisade: () => probe },
       { fogView: () => null },
       MAP,
     );
-    const refused = (col: number, row: number): boolean =>
-      (col === GROWTH.col && row === GROWTH.row) || (col === ROCK.col && row === ROCK.row);
-    const lit = { key: 'lit', has: (col: number, row: number) => !refused(col, row) };
+    const isRock = (col: number, row: number): boolean => col === ROCK.col && row === ROCK.row;
+    const isGrowth = (col: number, row: number): boolean => col === GROWTH.col && row === GROWTH.row;
+    const unlitGrowth = {
+      key: 'lit',
+      has: (col: number, row: number) => !isRock(col, row) && !isGrowth(col, row),
+    };
+    const litGrowth = { key: 'lit-over', has: (col: number, row: number) => !isRock(col, row) };
 
-    const frame = wash(lit, { tool: 'road' }, camera, SCREEN.width, SCREEN.height);
-
-    expect(frame?.reserved).toEqual([GROWTH]);
-    expect(frame?.blocked).toEqual([ROCK]);
-  });
-
-  it('keeps tinting upgrade ground a line switched over it lights', () => {
-    const probe = roadProbe();
-    const wash = makeLitOverlaySource(
-      { road: () => probe, palisade: () => probe },
-      { fogView: () => null },
-      MAP,
-    );
-    const lit = { key: 'lit-over', has: (col: number, row: number) => col !== ROCK.col || row !== ROCK.row };
-
-    const frame = wash(lit, { tool: 'road' }, camera, SCREEN.width, SCREEN.height);
-
-    expect(frame?.reserved).toEqual([GROWTH]);
-    expect(frame?.blocked).toEqual([ROCK]);
+    for (const lit of [unlitGrowth, litGrowth]) {
+      const frame = wash(lit, { tool: 'road' }, camera, SCREEN.width, SCREEN.height);
+      expect(frame?.reserved).toEqual([GROWTH]);
+      expect(frame?.blocked).toEqual([ROCK]);
+    }
   });
 });

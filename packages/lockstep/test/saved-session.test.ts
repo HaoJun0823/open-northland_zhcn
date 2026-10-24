@@ -38,7 +38,7 @@ describe('persisted session metadata', () => {
     expect(JSON.stringify(parsed)).not.toContain('secret');
     expect(parsed?.descriptor).not.toBe(descriptor);
   });
-  it('distinguishes null legacy from malformed or inconsistent saved metadata', () => {
+  it('reads absent metadata as null and refuses malformed, inconsistent or other-version metadata', () => {
     expect(parseSavedSessionMetadata(null)).toBeNull();
     const valid = createSavedSessionMetadata(descriptor, roster);
     for (const value of [

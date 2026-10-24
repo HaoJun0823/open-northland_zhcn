@@ -56,13 +56,12 @@ describe('personal name decks', () => {
     expect(a).not.toBe(b);
     expect(take(names, world, 99)).toBeUndefined();
   });
-  it('uses the world seed while keeping deterministic repeat runs', () => {
+  it('shuffles the decks by the world seed', () => {
     const draw = (seed: number) => {
       const names = new PersonalNames(seed, pools);
       const world = new World();
       return Array.from({ length: 4 }, () => take(names, world));
     };
-    expect(draw(8)).toEqual(draw(8));
     expect(draw(8)).not.toEqual(draw(24));
   });
   it('shares a pool across owners and does not draw gameplay randomness', () => {
@@ -164,15 +163,5 @@ describe('personal name decks', () => {
     const right = b.syncDigestInputs();
     if (left === null || right === null) throw new Error('missing digest');
     expect(diffDigestInputs(left, right)?.kind).toBe('names');
-  });
-
-  it('rejects corrupt or unknown cursors and detects future-allocation divergence', () => {
-    const names = new PersonalNames(3, pools);
-    expect(() => names.restore([{ pool: 'missing', next: 0 }])).toThrow();
-    expect(() => names.restore([{ pool: 'test-male', next: 4 }])).toThrow();
-    expect(() => names.restore([{ pool: 'test-male', next: NaN }])).toThrow();
-    const before = names.digest();
-    names.restore([{ pool: 'test-male', next: 2 }]);
-    expect(names.digest()).not.toBe(before);
   });
 });

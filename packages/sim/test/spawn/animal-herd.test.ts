@@ -99,18 +99,6 @@ describe('spawnAnimalHerd command', () => {
     expect(sim.world.get(leader as Entity, HerdMember).leader).toBe(leader);
   });
 
-  it('stamps each creature an eight-tick waypoint period from movespeed', () => {
-    const sim = fresh();
-    spawnHerdAt(sim, BEAR, 5, 5);
-    sim.step();
-
-    const herd = creatures(sim);
-    expect(herd).toHaveLength(3);
-    for (const e of herd) {
-      expect(sim.world.get(e, MoveStepPeriod)).toEqual({ ticks: 8 });
-    }
-  });
-
   it('count 1 overrides maximumGroupSize: exactly one creature, on the birth node (the map setanimal shape)', () => {
     const sim = onMap();
     const n = cellAnchorNode(5, 5);

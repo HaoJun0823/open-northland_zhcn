@@ -28,14 +28,7 @@ function contentWithChildStage() {
 }
 
 describe('createSettler - spawn hitpoints', () => {
-  it('gives an adult the 5000-point pool', () => {
-    const world = new World();
-    const e = createSettler(world, testContent(), new Rng(1), spec(VIKING), new PersonalNames(1, []));
-    if (e === null) throw new Error('spawn failed');
-    expect(world.get(e, Health)).toEqual({ hitpoints: HUMAN_HITPOINTS, max: HUMAN_HITPOINTS });
-  });
-
-  it('gives a child the same pool', () => {
+  it('gives an adult and a child the 5000-point pool', () => {
     const world = new World();
     const e = createSettler(
       world,
@@ -47,8 +40,10 @@ describe('createSettler - spawn hitpoints', () => {
       },
       new PersonalNames(1, []),
     );
-    if (e === null) throw new Error('spawn failed');
+    const adult = createSettler(world, testContent(), new Rng(1), spec(VIKING), new PersonalNames(1, []));
+    if (e === null || adult === null) throw new Error('spawn failed');
     expect(world.get(e, Health)).toEqual({ hitpoints: HUMAN_HITPOINTS, max: HUMAN_HITPOINTS });
+    expect(world.get(adult, Health)).toEqual({ hitpoints: HUMAN_HITPOINTS, max: HUMAN_HITPOINTS });
   });
 
   it('an explicit positive command pool wins', () => {

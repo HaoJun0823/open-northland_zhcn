@@ -1,4 +1,4 @@
-/** Public surface of the `ini/` modules: importers outside `decoders/` use this specifier. */
+/** Public surface of the `ini/` modules: importers use this specifier. */
 
 export type {
   BmdPaletteBinding,

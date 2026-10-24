@@ -59,21 +59,29 @@ Converted content is ignored by Git. Never commit it; it remains the property of
 
 ```text
 packages/
+  api/               Map catalogue API: upstream sync and archive conversion
   app/               Browser shell, input, menus, HUD, and scenes
   art-contracts/     Shape contract of the delivered HUD chrome
   audio/             Sound selection and Web Audio playback
   data/              Validated schemas and content loaders
   desktop/           Electron shell serving the app and the converted content
+  formats/           Byte decoders for the original file formats
   lockstep/          Session driver: when a tick runs and which commands it carries
+  map-import/        Converts a community map archive or folder into served content
   net-client/        One client of a relayed session
   net-protocol/      Lockstep wire protocol
   net-server/        Multiplayer relay
+  ownership/         Recognizes an installed original game
   render/            PixiJS isometric renderer
   sim/               Deterministic simulation
+  translations/      Loads the translation overlays
 tools/
   asset-pipeline/    Converts the Open Northland data pack into the served content tree
+  brand/             Generates icons, logos and web-manifest assets
+  translations/      Commands for the translation overlays
+translations/        Translation overlays by language
 deploy/web/          nginx image of the built app and the converted content
-scripts/             Repository checks, content build, benchmarks
+scripts/             Repository checks, content build, test runners, benchmarks
 content/             Converted locally, ignored by Git
 docs/                Design notes, format research, and open tickets
 ```

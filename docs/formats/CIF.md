@@ -72,6 +72,6 @@ Central European characters are converted from CP1250 at the content layer.
 
 ## Tests
 
-`tools/asset-pipeline/test/cif.test.ts` builds synthetic stored objects, encrypts their memory blocks,
+`packages/formats/test/cif.test.ts` builds synthetic stored objects, encrypts their memory blocks,
 and verifies the decoded header, holes, levels, text, and malformed boundaries. No captured `.cif`
 file is committed.

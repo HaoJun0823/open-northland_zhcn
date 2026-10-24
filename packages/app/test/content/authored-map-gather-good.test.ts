@@ -28,7 +28,7 @@ function grassMap(cells: number) {
  * A decoded map authors each human's produced good as a `setproducedgood` in its `sethuman` block (819
  * across the decoded corpus). This covers the half after the decoder - the name→typeId join and the
  * `spawnSettler` command - holding the settler's production counters to the pick (the
- * decoder's own half is pinned in `tools/asset-pipeline/test/ini-maps.test.ts`). The real-content twin
+ * decoder's own half is pinned in `packages/formats/test/ini/maps.test.ts`). The real-content twin
  * of the synthetic sim cases: same rule, but over the real goodtype/jobtype name join, so a renamed or
  * rescoped id surfaces here instead of silently reverting every imported collector to gather-everything.
  */

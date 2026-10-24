@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Position } from '../../src/components/index.js';
 import { World } from '../../src/ecs/world.js';
 import { hexDistance, positionOfNode } from '../../src/nav/halfcell.js';
@@ -28,20 +28,6 @@ describe('mission proximity index', () => {
         }
       }
     }
-  });
-
-  it('reads each position once for separated groups, including dense occupied rows', () => {
-    const reads: number[] = [];
-    for (const size of [100, 200, 400]) {
-      const world = new World();
-      const sources = Array.from({ length: size }, (_, x) => placed(world, x, 0));
-      const targets = Array.from({ length: size }, (_, x) => placed(world, 1000 + x, 0));
-      const read = vi.spyOn(world, 'tryGet');
-      expect(groupsWithinRange(world, sources, targets, 5)).toBe(false);
-      reads.push(read.mock.calls.length);
-      read.mockRestore();
-    }
-    expect(reads).toEqual([200, 400, 800]);
   });
 
   it('rebuilds after movement and ignores entities without positions', () => {

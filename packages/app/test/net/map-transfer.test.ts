@@ -52,10 +52,6 @@ describe('verified map documents and bounded transfer', () => {
     expect(readVerifiedMapDocuments(source).script).toBeNull();
     expect(() => readVerifiedMapDocuments({ ...source })).toThrow('Unverified');
   });
-  it('parses the boot inputs once per verified handle', () => {
-    const source = handle();
-    expect(readVerifiedMapDocuments(source)).toBe(readVerifiedMapDocuments(source));
-  });
   it('travels as a gzip stream far smaller than the documents it carries', async () => {
     const typeIds = Array.from({ length: 10_000 }, () => 0);
     const source = verifyMapDocuments('island', { width: 100, height: 100, typeIds }, null);

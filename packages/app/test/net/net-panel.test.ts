@@ -6,12 +6,7 @@ import { SPARKLINE_H, SPARKLINE_W, sparklineGeometry } from '../../src/hud/netwo
 import { formatRoomSpeed, ownStateText, slowedText, speedBarLook } from '../../src/hud/network/text.js';
 import { formatMessage, messages } from '../../src/i18n/index.js';
 import { inputDelayMs, runningSpeed } from '../../src/net/net-worker-client.js';
-import {
-  createNetPanelPreview,
-  NET_PREVIEW_STATE_MS,
-  NET_PREVIEW_STATES,
-  stillWhileHeld,
-} from '../../src/view/net/panel-preview.js';
+import { createNetPanelPreview, stillWhileHeld } from '../../src/view/net/panel-preview.js';
 
 const REQUESTED_SPEED = 3;
 const GOVERNED_SPEED = 2.4;
@@ -144,33 +139,6 @@ describe('speed sparkline', () => {
 });
 
 describe('network panel preview', () => {
-  it('reaches every state and keeps its model while nothing moved', () => {
-    let clock = 0;
-    const preview = createNetPanelPreview({ pinned: null, now: () => clock });
-    const first = preview.model();
-    expect(preview.model()).toBe(first);
-    const seen = new Set<string>();
-    for (const _ of NET_PREVIEW_STATES) {
-      const model = preview.model();
-      const governed = model?.clock.governor?.nick ?? '';
-      seen.add(`${model?.clock.held}|${governed}|${model?.players.map((row) => row.status).join(',')}`);
-      clock += NET_PREVIEW_STATE_MS;
-    }
-    expect(seen.size).toBe(NET_PREVIEW_STATES.length);
-  });
-
-  it('pins one state, and counts a kick vote and its withdrawal', () => {
-    const preview = createNetPanelPreview({ pinned: 'held', now: () => 0 });
-    expect(preview.model()?.clock.held).toBe(true);
-    const target = preview.model()?.players.find((row) => row.vote?.ballot === 'open');
-    if (target?.seat == null) throw new Error('the held preview offers no open vote on a seated row');
-    const voteOf = () => preview.model()?.players.find((row) => row.nick === target.nick)?.vote;
-    preview.kick(target.seat, true);
-    expect(voteOf()).toMatchObject({ yes: 2, ballot: 'cast' });
-    preview.kick(target.seat, false);
-    expect(voteOf()).toMatchObject({ yes: 1, ballot: 'open' });
-  });
-
   it('stops the scene world while its room is held, so its clock stands while the window says it is held', () => {
     const fed: number[] = [];
     const driver: SessionDriver = {

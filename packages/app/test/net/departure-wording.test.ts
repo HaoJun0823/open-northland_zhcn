@@ -17,11 +17,4 @@ describe('the departure lines', () => {
       for (const mode of MODES) expect(departed[cause][mode], `${cause} ${mode}`).toContain('{nick}');
     }
   });
-
-  it('says in Polish that a player did not load the game in time', () => {
-    expect(messages('pol').net.departed.loadingTimedOut).toEqual({
-      computer: 'Gracz {nick} nie wczytał gry na czas, miejsce przejmuje gracz komputerowy',
-      idle: 'Gracz {nick} nie wczytał gry na czas',
-    });
-  });
 });

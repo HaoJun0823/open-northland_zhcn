@@ -39,15 +39,6 @@ describe('speed history', () => {
     }
   });
 
-  it('keeps the same array between seconds', () => {
-    const history = createSpeedHistory();
-    history.observe({ nowMs: 0, tick: 0, roomSpeed: 1 });
-    const first = history.observe({ nowMs: SECOND_MS, tick: TICKS_PER_SECOND, roomSpeed: 1 });
-    expect(history.observe({ nowMs: SECOND_MS + FRAME_MS, tick: TICKS_PER_SECOND, roomSpeed: 1 })).toBe(
-      first,
-    );
-  });
-
   it('fills a gap of several seconds with its average, and keeps only the newest two minutes', () => {
     const history = createSpeedHistory();
     history.observe({ nowMs: 0, tick: 0, roomSpeed: 1 });

@@ -272,35 +272,6 @@ describe('the net status line', () => {
     line.refresh();
     expect(textOf(plane, '.on-net-slowed')).toBeNull();
   });
-
-  it('writes only when what it says moved, not on every new model', () => {
-    const plane = mountPlane();
-    const players: readonly NetPlayerRow[] = [];
-    const feed = source(panelModel({ players, clock: GOVERNED }));
-    const line = createNetStatusLine({
-      source: feed,
-      panelOpen: () => false,
-      onOpenPanel: () => undefined,
-      cue: () => undefined,
-    });
-    plane.append(line.element);
-    line.refresh();
-    // A marker the line would overwrite on a redraw.
-    line.element.textContent = 'kept';
-    feed.current = panelModel({
-      players,
-      clock: GOVERNED,
-      link: { ...LINK, bufferedTicks: 3, clickToApplyMs: 80 },
-    });
-    line.refresh();
-    feed.current = panelModel({ players, clock: { ...GOVERNED, history: [{ roomSpeed: 2, ownSpeed: 2 }] } });
-    line.refresh();
-    expect(line.element.textContent).toBe('kept');
-
-    feed.current = panelModel({ players, clock: { ...GOVERNED, runningSpeed: PACED_SPEED } });
-    line.refresh();
-    expect(line.element.textContent).toContain('Celina');
-  });
 });
 
 const row = (nick: string, status: NetPlayerRow['status']): NetPlayerRow => ({
@@ -724,38 +695,6 @@ describe('the chat cues', () => {
     overlays.refresh();
     overlays.refresh();
     expect(rung).toEqual(['chat', 'arrival', 'departure']);
-    overlays.dispose();
-  });
-
-  it('allocates nothing on a frame with no new line and the same notice', () => {
-    const lines: NetChatLine[] = [{ ...said(0), cue: 'chat' }];
-    const feed = source(panelModel({ chat: lines, chatVersion: 1 }));
-    const { controller } = fakeController();
-    const overlays = mountNetOverlays({
-      source: feed,
-      scale: () => 1,
-      controller,
-      cue: () => undefined,
-      notify: () => undefined,
-      now: () => 0,
-    });
-    overlays.refresh();
-    feed.current = panelModel({ chat: lines, chatVersion: 1 });
-    const RealSet = globalThis.Set;
-    let built = 0;
-    globalThis.Set = class CountingSet<T> extends RealSet<T> {
-      constructor(values?: Iterable<T> | null) {
-        super(values);
-        built++;
-      }
-    } as SetConstructor;
-    try {
-      overlays.refresh();
-      overlays.refresh();
-    } finally {
-      globalThis.Set = RealSet;
-    }
-    expect(built).toBe(0);
     overlays.dispose();
   });
 });

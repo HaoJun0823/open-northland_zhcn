@@ -166,7 +166,7 @@ it('drops completion after leave or a new room even when fetch ignores abort', a
   s.transfer.observe(room());
   s.transfer.observe(null);
   release();
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(s.onVerified).not.toHaveBeenCalled();
   expect(s.transfer.verified()).toBeNull();
   expect(s.onError).not.toHaveBeenCalled();

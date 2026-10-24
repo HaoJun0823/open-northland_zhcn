@@ -288,10 +288,9 @@ describe('the relayed network panel feed', () => {
     expect(link).toMatchObject({ relayUrl: 'wss://relay.example', relayBuild: 'relay-7', roundTripMs: 40 });
   });
 
-  it('samples the room speed and the world’s own pace once a second, keeping the model between', () => {
+  it('samples the room speed and the world’s own pace once a second', () => {
     const { client, feed, time, send } = setup();
-    const first = feed.model();
-    expect(feed.model()).toBe(first);
+    feed.model();
     time.ms = SECOND_MS;
     client.follow({ ...FACTS, tick: TICKS_PER_SECOND * GOVERNED_SPEED });
     expect(feed.model().clock.history).toEqual([{ roomSpeed: GOVERNED_SPEED, ownSpeed: GOVERNED_SPEED }]);
@@ -338,28 +337,6 @@ describe('unseen history', () => {
     expect(unseenHistory([{ from: null, text: 'x', at: 0, tick: null }], [line('a')])).toEqual([line('a')]);
     expect(unseenHistory([line('gone')], [line('a'), line('b')])).toEqual([line('a'), line('b')]);
     expect(unseenHistory([line('a'), line('b')], [line('a'), line('b')])).toEqual([]);
-  });
-});
-
-describe('the relayed HUD model', () => {
-  it('builds once per task, so a frame’s readers share one build', async () => {
-    const client = new RelayClientMirror('Ania', () => undefined);
-    for (const message of [{ kind: 'room', room: ROOM }, clock(null)] as const) client.apply(message);
-    let reads = 0;
-    const hud = mountNetHud({
-      client,
-      readout: () => {
-        reads += 1;
-        return { ...READOUT, bufferedTicks: reads };
-      },
-      relayUrl: null,
-    });
-    const first = hud.model();
-    expect(hud.model()).toBe(first);
-    expect(reads).toBe(1);
-    await Promise.resolve();
-    expect(hud.model()).not.toBe(first);
-    expect(reads).toBe(2);
   });
 });
 

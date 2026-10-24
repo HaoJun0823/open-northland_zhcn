@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leavePromptFor } from '../src/leave-prompt.js';
+import { leavePromptFor } from '../../src/window/leave-prompt.js';
 
 const PAGE = 'app://game/index.html';
 

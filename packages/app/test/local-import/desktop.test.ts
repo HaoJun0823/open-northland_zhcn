@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { zipSync } from 'fflate';
 import { expect, it } from 'vitest';
-import { createDesktopMapStore } from '../../../desktop/src/map-store.js';
+import { createDesktopMapStore } from '../../../desktop/src/maps/store.js';
 import { plaintextMap } from '../../../map-import/test/support/maps.js';
 import { prepareLocalImport } from '../../src/content/local-import/convert.js';
 import { localInputFromDesktop, localInputToDesktop } from '../../src/content/local-import/desktop.js';

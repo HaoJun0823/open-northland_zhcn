@@ -17,10 +17,10 @@ import {
   writeOriginalGameState,
 } from './original-game/state.js';
 import { CONTENT_DIR_ENV, installedMapsRoot, resolveShellRoots } from './paths.js';
-import { GAME_URL, handleAppProtocol, registerAppScheme } from './protocol.js';
-import { API_URL_ENV, initialGameUrl } from './protocol-routing.js';
-import { createWindow } from './window.js';
-import { WINDOW_STATE_FILE } from './window-state.js';
+import { API_URL_ENV, initialGameUrl } from './protocol/routing.js';
+import { GAME_URL, handleAppProtocol, registerAppScheme } from './protocol/scheme.js';
+import { createWindow } from './window/create.js';
+import { WINDOW_STATE_FILE } from './window/state.js';
 
 // scripts/bundle.mjs emits main.cjs into dist/.
 const packageRoot = resolve(__dirname, '..');

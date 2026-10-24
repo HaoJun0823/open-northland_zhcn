@@ -11,7 +11,7 @@ import {
   WINDOW_STATE_VERSION,
   type WindowState,
   writeWindowState,
-} from '../src/window-state.js';
+} from '../../src/window/state.js';
 
 const PRIMARY = { x: 0, y: 25, width: 3840, height: 2110 };
 const SIDE = { x: 3840, y: 0, width: 3440, height: 1415 };

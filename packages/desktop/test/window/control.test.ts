@@ -6,7 +6,7 @@ import {
   type KeyInput,
   maximizedAfter,
   setFullScreen,
-} from '../src/window-control.js';
+} from '../../src/window/control.js';
 
 type FullScreenEvent = 'enter-full-screen' | 'leave-full-screen';
 

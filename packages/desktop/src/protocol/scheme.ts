@@ -1,8 +1,8 @@
 import { extname } from 'node:path';
 import { protocol } from 'electron';
+import type { ShellRoots } from '../paths.js';
 import { fileResponse } from './file-response.js';
-import type { ShellRoots } from './paths.js';
-import { APP_ORIGIN_PREFIX, APP_SCHEME, GAME_HOST, routePathOf } from './protocol-routing.js';
+import { APP_ORIGIN_PREFIX, APP_SCHEME, GAME_HOST, routePathOf } from './routing.js';
 import { servedFile } from './static-files.js';
 
 /** The `app://` scheme the shell serves the game from: the packaged stand-in for the Vite dev server. */

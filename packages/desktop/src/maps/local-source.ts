@@ -5,8 +5,8 @@ import {
   INSTALLED_MAP_GENERATION,
   MAX_INSTALLED_MAP_RECORD_BYTES,
   parseInstalledMapId,
-} from './installed-maps.js';
-import { type LocalMapBytes, localPath, parseLocalMapBytes, readBoundedFile } from './local-map-input.js';
+} from './installed.js';
+import { type LocalMapBytes, localPath, parseLocalMapBytes, readBoundedFile } from './local-input.js';
 
 const LOCAL_SOURCE_RECORD_VERSION = 1;
 

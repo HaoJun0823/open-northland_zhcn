@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_IMPORT_LIMITS } from '@open-northland/map-import/input';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { createLocalMapPicker, parseLocalMapBytes, readPickedMap } from '../src/local-map-input.js';
+import { createLocalMapPicker, parseLocalMapBytes, readPickedMap } from '../../src/maps/local-input.js';
 
 let root: string;
 beforeEach(async () => {

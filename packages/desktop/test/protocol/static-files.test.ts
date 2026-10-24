@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fileUnderRoot, servedFile } from '../src/static-files.js';
+import { fileUnderRoot, servedFile } from '../../src/protocol/static-files.js';
 
 /** The boundary between a crafted `app://` path and the rest of the user's disk. */
 describe('fileUnderRoot', () => {

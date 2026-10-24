@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_INSTALLED_MAP_FILE_BYTES, parseInstalledMapFileWrite } from '../src/installed-maps.js';
+import { MAX_INSTALLED_MAP_FILE_BYTES, parseInstalledMapFileWrite } from '../../src/maps/installed.js';
 
 const BYTES = new TextEncoder().encode('{}');
 

@@ -7,7 +7,7 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 
 - The web app stays shell-agnostic and never imports desktop code. The shell owns its window: it
   opens fullscreen on a packaged profile's first launch and reopens in the mode, bounds and display it
-  closed with (`src/window-state.ts`). Development always starts in a normal window, preserving bounds;
+  closed with (`src/window/state.ts`). Development always starts in a normal window, preserving bounds;
   `ON_DESKTOP_RESTORE_WINDOW=1` opts into the packaged startup behavior for explicit window-mode checks.
   Its preload exposes only `window.desktop.fullscreen` (read, set,
   subscribe), `window.desktop.originalGame` (status, pick a folder) and `window.desktop.maps`
@@ -19,7 +19,7 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 - Serve the app and generated content through `app://` as read-only static files. Installed maps
   use the snapshot IPC: the app's map-source store serves their logical `/maps/` URLs from those
   bytes. The shell owns both installed records and immutable file generations in the profile's
-  `maps/` directory (`src/map-store.ts`). One atomic manifest replacement publishes a complete pack;
+  `maps/` directory (`src/maps/store.ts`). One atomic manifest replacement publishes a complete pack;
   failed writes preserve the previous manifest. Reads and commits share one queue, and cleanup
   follows publication. Original input paths are metadata; retained bytes use numeric file slots in
   immutable generations. Native picks enforce shared import limits before reading and refuse symlinks.
@@ -32,14 +32,26 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   runs detection (or checks only the folder `ON_ORIGINAL_GAME_DIR` names) and records a hit. The
   window opens either way; while the record is missing, the app shows its gate screen, whose pick
   button opens the shell's folder dialog. `src/original-game/` imports nothing from `electron`;
-  `window.ts` binds its handlers to IPC and the dialog.
+  `window/create.ts` binds its handlers to IPC and the dialog.
 - `src/paths.ts` owns where the trees are: the packaged app's `resources/app` and
   `resources/content` (the `extraResources` of `electron-builder.yml`), else the checkout's
   `packages/app/dist` and `content/` with `ON_CONTENT_DIR` honoured like Vite does, and the
   profile's `maps/` for installed maps. Do not duplicate that choice elsewhere.
-- Keep `main.ts` and `window.ts` free of logic worth a unit test; routing, containment and path
-  rules live in `protocol-routing.ts`, `static-files.ts`, `file-response.ts`, `installed-maps.ts`, `map-store.ts`, `paths.ts`,
-  `window-state.ts` and `window-control.ts`, which import nothing from `electron`.
+- Keep `main.ts` and `window/create.ts` free of logic worth a unit test; routing, containment and
+  path rules live in `protocol/routing.ts`, `protocol/static-files.ts`, `protocol/file-response.ts`,
+  `maps/installed.ts`, `maps/store.ts`, `paths.ts`, `window/state.ts` and `window/control.ts`, which
+  import nothing from `electron`.
+
+## Layout
+
+- `src/` root: the bundle entries `main.ts` and `preload.ts`, `paths.ts`, `gpu-info.ts`,
+  `application-menu.ts`.
+- `src/maps/`: installed-map IPC channels, storage and native local-map input.
+- `src/protocol/`: the `app://` scheme, its routing and static-file responses.
+- `src/window/`: the game window, its saved state, fullscreen control and leave prompt.
+- `src/original-game/`: original-game detection, its record and IPC channels.
+
+Unit tests mirror `src/` under `test/`; `test-e2e/` drives the built shell.
 
 ## Build and verification
 

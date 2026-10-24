@@ -10,13 +10,6 @@ import {
   shell,
 } from 'electron';
 import {
-  FULLSCREEN_CHANGED_CHANNEL,
-  IS_FULLSCREEN_CHANNEL,
-  SET_FULLSCREEN_CHANNEL,
-} from './fullscreen-channels.js';
-import { leavePromptFor } from './leave-prompt.js';
-import { createLocalMapPicker } from './local-map-input.js';
-import {
   CANCEL_LOCAL_MAP_PICK_CHANNEL,
   COMMIT_MAPS_CHANNEL,
   DROP_LOCAL_MAP_CHANNEL,
@@ -25,25 +18,32 @@ import {
   READ_MAP_CHANNEL,
   READ_MAP_FILE_CHANNEL,
   READ_MAP_SOURCE_CHANNEL,
-} from './map-channels.js';
-import { createDesktopMapStore } from './map-store.js';
+} from '../maps/channels.js';
+import { createLocalMapPicker } from '../maps/local-input.js';
+import { createDesktopMapStore } from '../maps/store.js';
+import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from '../original-game/channels.js';
 import {
   folderPickProperties,
   type OriginalGamePick,
   type OriginalGameRecord,
   originalGameStatus,
   pickOriginalGame,
-} from './original-game/gate.js';
-import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game-channels.js';
-import { externalPageUrl, isAppUrl } from './protocol-routing.js';
-import { isFullscreenChord, isGameSender, maximizedAfter, setFullScreen } from './window-control.js';
+} from '../original-game/gate.js';
+import { externalPageUrl, isAppUrl } from '../protocol/routing.js';
+import { isFullscreenChord, isGameSender, maximizedAfter, setFullScreen } from './control.js';
+import {
+  FULLSCREEN_CHANGED_CHANNEL,
+  IS_FULLSCREEN_CHANNEL,
+  SET_FULLSCREEN_CHANNEL,
+} from './fullscreen-channels.js';
+import { leavePromptFor } from './leave-prompt.js';
 import {
   placeWindow,
   readWindowState,
   startupWindowState,
   WINDOW_STATE_VERSION,
   writeWindowState,
-} from './window-state.js';
+} from './state.js';
 
 /** Button order of the leave dialog; staying is the default and what Escape picks. */
 const LEAVE_BUTTON = 0;

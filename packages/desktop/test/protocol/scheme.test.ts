@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { handleAppProtocol } from '../src/protocol.js';
-import { externalPageUrl, initialGameUrl, isAppUrl, routePathOf } from '../src/protocol-routing.js';
+import { externalPageUrl, initialGameUrl, isAppUrl, routePathOf } from '../../src/protocol/routing.js';
+import { handleAppProtocol } from '../../src/protocol/scheme.js';
 
 type AppHandler = (request: Request) => Promise<Response>;
 const installed = vi.hoisted(() => ({ handler: undefined as AppHandler | undefined }));

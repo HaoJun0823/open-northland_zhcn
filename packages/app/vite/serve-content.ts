@@ -42,7 +42,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
  * The content file a request pathname names under `contentRoot`, or undefined: a missing file, a
  * directory, a malformed percent sequence and any path that would leave the root all read the same
  * way. `contentRoot` is absolute and never request input. The desktop shell keeps the same rule in
- * `packages/desktop/src/static-files.ts`; a change here applies there too.
+ * `packages/desktop/src/protocol/static-files.ts`; a change here applies there too.
  */
 export async function contentFile(contentRoot: string, rawPathname: string): Promise<string | undefined> {
   let pathname: string;

@@ -1,4 +1,4 @@
-import { isAppUrl } from './protocol-routing.js';
+import { isAppUrl } from '../protocol/routing.js';
 
 /** The slice of a `BrowserWindow` the fullscreen wait needs. */
 export interface FullScreenWindow {

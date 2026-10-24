@@ -1,10 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
-  FULLSCREEN_CHANGED_CHANNEL,
-  IS_FULLSCREEN_CHANNEL,
-  SET_FULLSCREEN_CHANNEL,
-} from './fullscreen-channels.js';
-import {
   CANCEL_LOCAL_MAP_PICK_CHANNEL,
   COMMIT_MAPS_CHANNEL,
   DROP_LOCAL_MAP_CHANNEL,
@@ -13,9 +8,14 @@ import {
   READ_MAP_CHANNEL,
   READ_MAP_FILE_CHANNEL,
   READ_MAP_SOURCE_CHANNEL,
-} from './map-channels.js';
+} from './maps/channels.js';
+import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game/channels.js';
 import type { OriginalGamePick, OriginalGameStatus } from './original-game/gate.js';
-import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game-channels.js';
+import {
+  FULLSCREEN_CHANGED_CHANNEL,
+  IS_FULLSCREEN_CHANNEL,
+  SET_FULLSCREEN_CHANNEL,
+} from './window/fullscreen-channels.js';
 
 // The app reads the mode synchronously, so the preload mirrors it: asked once, then kept by the events.
 let active = ipcRenderer.sendSync(IS_FULLSCREEN_CHANNEL) === true;

@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
-import type { ShellRoots } from './paths.js';
+import type { ShellRoots } from '../paths.js';
 
 /**
  * The file a request pathname names under `root`, or undefined: a missing file, a directory, a

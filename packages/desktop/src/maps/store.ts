@@ -7,7 +7,7 @@ import {
   parseInstalledMapFileWrite,
   parseInstalledMapId,
   parseInstalledMapSuffix,
-} from './installed-maps.js';
+} from './installed.js';
 
 import {
   parseSourceRecord,
@@ -16,7 +16,7 @@ import {
   readSource,
   type StoredSource,
   writeSource,
-} from './local-map-source.js';
+} from './local-source.js';
 
 const MANIFEST_VERSION = 2;
 const MANIFEST = 'installed.json';

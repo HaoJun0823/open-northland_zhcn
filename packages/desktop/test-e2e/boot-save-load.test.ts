@@ -8,7 +8,7 @@ import { test } from 'vitest';
 import { ORIGINAL_GAME_CHECK_ENV, ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
 import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { resolveShellRoots } from '../src/paths.js';
-import { FIRST_RUN_WINDOW_STATE, WINDOW_STATE_FILE } from '../src/window-state.js';
+import { FIRST_RUN_WINDOW_STATE, WINDOW_STATE_FILE } from '../src/window/state.js';
 import { libraryHead } from '../test/original-game/fixture.js';
 import { installedMapFixture } from './installed-map.js';
 

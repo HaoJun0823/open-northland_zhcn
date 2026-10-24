@@ -1,3 +1,4 @@
+import { smoothstep } from '../math.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../projection/iso.js';
 import type { WeatherKind } from './types.js';
 
@@ -37,11 +38,6 @@ export const WEATHER_STORM_RANGE: Readonly<
   snow: { start: 0.25, full: 0.5 },
   sand: { start: 0.045, full: 0.085 },
 };
-
-export function smoothstep(lo: number, hi: number, v: number): number {
-  const t = Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
-  return t * t * (3 - 2 * t);
-}
 
 /** 0..1 storm strength of `amount` of `kind`. */
 export function stormOf(kind: WeatherKind, amount: number): number {

@@ -1,6 +1,6 @@
+import { smoothstep } from '../../data/math.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import type { FootAnalysis } from './foot-analysis.js';
-import { smoothstep } from './noise.js';
 
 const CHANNEL_MAX = 0xff;
 const CHANNEL_BITS = 8;

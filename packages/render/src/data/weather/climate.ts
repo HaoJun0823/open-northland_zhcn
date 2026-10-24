@@ -1,8 +1,8 @@
 import { frac } from '../effects/random.js';
+import { smoothstep } from '../math.js';
 import type { Viewport } from '../projection/viewport.js';
 import { type WeatherField, weatherAmountAt } from './field.js';
 import {
-  smoothstep,
   stormOf,
   WEATHER_NODES_PER_WORLD_X,
   WEATHER_NODES_PER_WORLD_Y,

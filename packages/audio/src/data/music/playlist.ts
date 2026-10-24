@@ -1,4 +1,5 @@
 import type { DiplomacyState } from '@open-northland/sim';
+import { lerp } from '../math.js';
 import type { MusicManifest, MusicTrack } from './manifest.js';
 import { ownCalmStem, ownTenseStem } from './mood.js';
 import type { MapMusic, MusicIntensity } from './pools.js';
@@ -71,11 +72,6 @@ export interface PlaylistMood {
 
 function randomInt(min: number, max: number, random: MusicRandom): number {
   return min + Math.floor(random() * (max - min + 1));
-}
-
-/** `from` moved toward `to` by `share` of the way. */
-function lerp(from: number, to: number, share: number): number {
-  return from + (to - from) * share;
 }
 
 function shuffled<T>(items: readonly T[], random: MusicRandom): T[] {

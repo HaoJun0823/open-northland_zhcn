@@ -11,3 +11,9 @@ export function clamp01(v: number): number {
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
+
+/** Hermite ease of `v` from 0 at `lo` to 1 at `hi`, clamped outside that range. */
+export function smoothstep(lo: number, hi: number, v: number): number {
+  const t = clamp01((v - lo) / (hi - lo));
+  return t * t * (3 - 2 * t);
+}

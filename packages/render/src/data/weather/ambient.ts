@@ -1,6 +1,6 @@
 import { frac } from '../effects/random.js';
+import { smoothstep } from '../math.js';
 import type { WeatherField } from './field.js';
-import { smoothstep } from './precipitation.js';
 import { WEATHER_KINDS, type WeatherKind } from './types.js';
 
 // The game's own weather, laid where a map authors none. An OpenNorthland addition (the original

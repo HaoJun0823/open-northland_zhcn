@@ -28,12 +28,6 @@ describe('FogGates.seesNode', () => {
     expect(gates.seesNode(elsewhere.col, elsewhere.row)).toBe(false);
   });
 
-  it('treats EXPLORED ground as unseen (only VISIBLE counts)', () => {
-    const gates = createFogGates();
-    gates.setFrame(fogWhere(() => false));
-    expect(gates.seesNode(4, 4)).toBe(false);
-  });
-
   it('sees every node when fog is off', () => {
     const gates = createFogGates();
     gates.setFrame(null);

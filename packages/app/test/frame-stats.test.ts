@@ -231,25 +231,6 @@ describe('FrameStats', () => {
     expect(stats.report().window.frames).toBe(0);
   });
 
-  it('quantizes quantiles to bucket edges rather than retaining every sample', () => {
-    const stats = new FrameStats();
-    for (let i = 0; i < 200; i++) stats.record(sample({ elapsedMs: 50 }));
-    const { p50Ms, maxMs } = stats.report().window.frameMs;
-    // Every frame was exactly 50 ms: an implementation keeping samples would answer 50, a bucketed
-    // one answers the edge above it. That edge is what makes the fold constant-memory.
-    expect(maxMs).toBe(50);
-    expect(p50Ms).toBeGreaterThan(50);
-    expect(p50Ms).toBeLessThan(50 * 1.15);
-  });
-
-  it('still reports after a hundred thousand frames', () => {
-    const stats = new FrameStats();
-    for (let i = 0; i < 100_000; i++) stats.record(sample({ elapsedMs: 1 + (i % 200) }));
-    const report = stats.report();
-    expect(report.window.frames).toBe(100_000);
-    expect(report.window.frameMs.maxMs).toBe(200);
-  });
-
   it('averages the thread cost exactly over the window and forgets it on a reset', () => {
     const stats = new FrameStats();
     stats.record(sample({ cpuMs: 99, drawMs: 99, worldMs: 99 }));

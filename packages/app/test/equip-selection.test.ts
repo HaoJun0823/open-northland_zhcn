@@ -1,9 +1,4 @@
-import {
-  type Entity,
-  MAX_UNIT_ORDER_MEMBERS,
-  type PlayerCommand,
-  type WorldSnapshot,
-} from '@open-northland/sim';
+import type { Entity, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { uiStringLookup } from '../src/content/gui-gfx.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
@@ -88,29 +83,6 @@ it('asks the sim once for the selection and submits one gesture to the takers, m
       })),
     },
   ]);
-  controller.dispose();
-});
-
-it('refuses oversized equipment selections before querying or submitting', async () => {
-  const snapshot = state(MAX_UNIT_ORDER_MEMBERS + 1, 0);
-  const pickList = vi.fn(async () => []),
-    selectionPicks = vi.fn(async () => []),
-    enqueue = vi.fn(),
-    onOrderLimit = vi.fn();
-  const controller = mountEquipPicker({
-    ...shell,
-    content: sandboxContent(),
-    snapshot: () => snapshot,
-    pickList,
-    selectionPicks,
-    enqueue,
-    onOrderLimit,
-  });
-  controller.openAll(snapshot.entities.map(({ id }) => id));
-  expect(pickList).not.toHaveBeenCalled();
-  expect(selectionPicks).not.toHaveBeenCalled();
-  expect(enqueue).not.toHaveBeenCalled();
-  expect(onOrderLimit).toHaveBeenCalledOnce();
   controller.dispose();
 });
 

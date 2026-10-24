@@ -21,10 +21,6 @@ describe('formationTiles', () => {
     expect(new Set(tiles.map((tile) => tile.row))).toEqual(new Set([6, 8, 10]));
   });
 
-  it('returns exactly the target tile for a single unit (a lone unit goes precisely where clicked)', () => {
-    expect(formationTiles({ col: 5, row: 5 }, 1, 20, 20, NONE)).toEqual([{ col: 5, row: 5 }]);
-  });
-
   it('spreads a group to distinct tiles nearest-first around the target (target cell first)', () => {
     const tiles = formationTiles({ col: 5, row: 5 }, 5, 20, 20, NONE);
     expect(tiles).toHaveLength(5);

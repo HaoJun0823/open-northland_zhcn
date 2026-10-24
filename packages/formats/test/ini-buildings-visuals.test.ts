@@ -49,10 +49,6 @@ describe('extractConstructionLayers', () => {
     expect(layers.filter((l) => l.paletteName === 'house02')).toHaveLength(5);
     expect(level0[0]?.bmd).toBe('data/engine2d/bin/bobs/ls_houses_viking.bmd');
   });
-
-  it('returns an empty array for sources with no [GfxHouse] records', () => {
-    expect(extractConstructionLayers(parseIniSections(HOUSES_INI), src)).toEqual([]);
-  });
 });
 
 // Mirrors the real mill record's overlay grammar: a type-4 `GfxOverlay <sizeIdx> 4 <state> <x> <y>
@@ -91,10 +87,6 @@ describe('extractBuildingOverlays', () => {
       editName: 'viking mill',
     });
     expect(working?.frames).toEqual([85, 84, 83, 82, 81]);
-  });
-
-  it('returns an empty array for sources with no [GfxHouse] records', () => {
-    expect(extractBuildingOverlays(parseIniSections(HOUSES_INI), src)).toEqual([]);
   });
 });
 
@@ -143,10 +135,6 @@ describe('extractBuildingFlagPoints', () => {
     expect(points.filter((p) => p.tribeId === 5)).toEqual([
       { tribeId: 5, typeId: 40, level: 0, x: 17, y: 72, editName: 'Egypt Tower', source: src },
     ]);
-  });
-
-  it('returns an empty array for sources with no [GfxHouse] records', () => {
-    expect(extractBuildingFlagPoints(parseIniSections(HOUSES_INI), src)).toEqual([]);
   });
 });
 
@@ -240,10 +228,6 @@ GfxHolyFirePoint 1 99 99
       },
       // Level 1 has no LogicType row in this fixture, so the orphan anchor is omitted.
     ]);
-  });
-
-  it('returns an empty array for logic-only house tables', () => {
-    expect(extractBuildingHolyFirePoints(parseIniSections(HOUSES_INI), src)).toEqual([]);
   });
 });
 
@@ -366,10 +350,6 @@ GfxBobId 0 9
       src,
     );
     expect(bobs).toEqual([]);
-  });
-
-  it('returns an empty array for sources with no [GfxHouse] records (the logic-only tables)', () => {
-    expect(extractBuildingBobs(parseIniSections(HOUSES_INI), src)).toEqual([]);
   });
 
   // The real saracen/egypt blocks pack MANY houses under ONE `[GfxHouse]` bracket, each delimited only
@@ -547,4 +527,17 @@ describe('extractBuildingGraphics', () => {
       },
     ]);
   });
+});
+
+it('reads no house graphics from the logic-only house tables', () => {
+  const src = { file: 'budynki12/houses/houses.ini', block: 'GfxHouse', layer: 'mod' as const };
+  const sections = parseIniSections(HOUSES_INI);
+  for (const extract of [
+    extractConstructionLayers,
+    extractBuildingOverlays,
+    extractBuildingFlagPoints,
+    extractBuildingHolyFirePoints,
+    extractBuildingBobs,
+  ])
+    expect(extract(sections, src)).toEqual([]);
 });

@@ -333,7 +333,7 @@ does not do. The headless layer is `packages/app/test/content/playtest/drive.ts`
 `?map=` world the way the entry does, steps it, sends the player's own seat commands for what a
 playthrough plays and the replayable admin commands for what it forces (a teleport instead of a long
 walk, a spawned army instead of a trained one, a filled store instead of porters), and logs every
-forced step. `tutorial-001-playthrough.test.ts` beside it is the template and the regression.
+forced step.
 
 A session writes its probe for one map under the gitignored
 `packages/app/test/content/playtest/local/` and runs it alone:
@@ -348,11 +348,11 @@ handling of it, not the fidelity of a mechanic or what the screen shows; the bro
 [BROWSER-DEVELOPMENT.md](BROWSER-DEVELOPMENT.md#mission-playtest-preparation) owns those. Sub-mission
 transitions are not driven headlessly yet; play them in the browser.
 
+Probes are session tools, not committed tests: a full playthrough takes minutes, breaks on every
+script or balance change, and its findings become tickets or fixes with their own narrow tests.
 `npm run mission:script -- <map id>` prints the map's script, and `npm run map:convert -- <map id>`
 re-converts the map to check a correction to it ([DEVELOPMENT.md](DEVELOPMENT.md#local-game-content)).
-A probe that proves a map worth keeping as a regression moves out of `local/` into the playtest
-folder with a name of its own. [PLAYTESTS.md](PLAYTESTS.md) lists every map's status and when a
-session updates its row.
+[PLAYTESTS.md](PLAYTESTS.md) lists every map's status and when a session updates its row.
 
 ## Visual and audio checks
 

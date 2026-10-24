@@ -7,17 +7,17 @@ Method and tools: [TESTING.md](TESTING.md#mission-playtests).
 Status values: `–` not tested, `wip` session in progress, `ok` reached the map's end with every
 main objective through ordinary play or a logged forced step, `issues` reached the end but left
 tickets (link them in Notes), `blocked` could not reach the end (say why). **Headless** is the
-drive-library probe; **Browser** is a played session in the real app. A sub-mission map is driven
+drive-library probe a session ran (probes are not committed); **Browser** is a played session in the real app. A sub-mission map is driven
 from its parent and takes the parent's row unless it fails on its own.
 
 ## Tutorials (8)
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `tutorial_001` | 1) STEROWANIE | 3h/1ai | ok (`tutorial-001-playthrough.test.ts`) | ok | played in Polish; four-language briefing review; family and signpost text corrections |
+| `tutorial_001` | 1) STEROWANIE | 3h/1ai | ok | ok | played in Polish; four-language briefing review; family and signpost text corrections |
 | `tutorial_002` | 2) KAŻDY WIKING JEST UNIKALNY! | 3h/0ai | – | ok | played in Polish, death/retry covered; open: [family goal specificity](tickets/sim/mission-family-goal-specificity.md) |
-| `tutorial_003` | 3) ŁAŃCUCH POKARMOWY | 2h/0ai | ok (`tutorial-003-playthrough.test.ts`) | ok | played in Polish, no forced step; clay-collector goal text shown, page 1 wording correction; build menu relists under pause; a refused worker order names its reason |
-| `tutorial_004` | 4) TECHNOLOGIE | 1h/0ai | ok (`tutorial-004-playthrough.test.ts`) | issues | played in Polish, no forced step; handcart goal counts the cart as a vehicle (correction); open: [portrait shows HUD behind](tickets/app/portrait-hole-shows-hud-behind.md), [camera past map edge](tickets/app/camera-stops-at-map-edge.md) |
+| `tutorial_003` | 3) ŁAŃCUCH POKARMOWY | 2h/0ai | ok | ok | played in Polish, no forced step; clay-collector goal text shown, page 1 wording correction; build menu relists under pause; a refused worker order names its reason |
+| `tutorial_004` | 4) TECHNOLOGIE | 1h/0ai | ok | issues | played in Polish, no forced step; handcart goal counts the cart as a vehicle (correction); open: [portrait shows HUD behind](tickets/app/portrait-hole-shows-hud-behind.md), [camera past map edge](tickets/app/camera-stops-at-map-edge.md) |
 | `tutorial_005` | 5) HANDEL I STATKI | 2h/2ai | – | – |  |
 | `tutorial_006` | 6) WALKA I SYSTEM DYPLOMACJI  | 2h/3ai | – | – |  |
 | `tutorial_007` | 7) DODATKOWE BRONIE I PRZEDMIOTY | 2h/3ai | – | – |  |
@@ -32,7 +32,7 @@ does not reach them.
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `asgard-campaign_01_01` | GRENLANDIA | 3h/3ai | ok (`asgard-01-01-playthrough.test.ts`) | ok | played in Polish, mead economy by ordinary orders, voyage and Normandy unlock; Bjarni's death covered; briefing typo corrections; Build window refreshes while paused |
+| `asgard-campaign_01_01` | GRENLANDIA | 3h/3ai | ok | ok | played in Polish, mead economy by ordinary orders, voyage and Normandy unlock; Bjarni's death covered; briefing typo corrections; Build window refreshes while paused |
 | `asgard-campaign_01_02_sub` | NORMANDIA - zadanie dodatkowe | 2h/5ai | ok | ok | sub-mission; escort in hops under the civilian walk range, valley battle partly forced; catapult capture, reinforcements and princess death covered; Polish typo corrections |
 | `asgard-campaign_01_02` | NORMANDIA | 1h/8ai | ok | ok | played in Polish: informant, both letter orders, valley entry, sub-mission and return, ransom and battle endings, unlock of England; Bjarni's death covered; tribute stock and the last of the battle forced; script corrections (informant goal, early victory page, waiting-princess reminder), briefing fixes (prince east of the town, Papers tab); the cave mouth's floor is sealed by the map's own stones, so the valley entry is reached in front of the rocks |
 | `asgard-campaign_01_03` | ANGLIA | 2h/7ai | – | – |  |

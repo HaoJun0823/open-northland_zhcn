@@ -1,0 +1,126 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { MapScript, mapLobbySlots, TerrainMapFile } from '@open-northland/data';
+import { components, exportSaveGame, type SaveGame, type Simulation } from '@open-northland/sim';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ContentIr } from '../../../src/content/ir/rows.js';
+import * as mapLoader from '../../../src/content/map/loader.js';
+import * as mapIndex from '../../../src/content/map/maps-index.js';
+import { mapSubMissionLoader, validateSavedMap } from '../../../src/entries/map/sub-missions.js';
+import { buildMapWorldFromInputs } from '../../../src/entries/map/world-inputs.js';
+import { sessionSeating } from '../../../src/game/match/seat-tribes.js';
+import { mapSession } from '../../../src/game/match/session-url.js';
+import { worldTribes } from '../../../src/game/world-tribes.js';
+import { TINY_FINGERPRINT } from '../../support/catalog-maps.js';
+import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from '../helpers.js';
+
+/** The main map's script opens this sub-mission (`StartSubMission 0 59504`) and it ends back home. */
+const PARENT = 'wilczy_lad';
+const CHILD = 'wilczy_lad_sub';
+const CHILD_CAMPAIGN = { campaignId: 0, missionId: 59504 };
+const HUMAN_SEAT = 0;
+const VIKING = 1;
+const FRANK = 2;
+const BYZANTINE = 3;
+/** The heroes by their `sethuman` mission ids; Siegfried joins in the sub-mission only. */
+const BJARNI = 100;
+const XENA = 101;
+const SIEGFRIED = 102;
+const OPENING_TICKS = 5;
+
+function readMap(mapId: string): { map: TerrainMapFile; script: MapScript } {
+  const root = resolve(contentDir(), 'maps');
+  return {
+    map: TerrainMapFile.parse(JSON.parse(readFileSync(resolve(root, `${mapId}.json`), 'utf8'))),
+    script: MapScript.parse(JSON.parse(readFileSync(resolve(root, `${mapId}.script.json`), 'utf8'))),
+  };
+}
+
+function heroTribes(sim: Simulation): ReadonlyMap<number, number> {
+  const { MissionObjectId, Settler } = components;
+  const tribes = new Map<number, number>();
+  for (const e of sim.world.query(Settler, MissionObjectId)) {
+    tribes.set(sim.world.get(e, MissionObjectId).id, sim.world.get(e, Settler).tribe);
+  }
+  return tribes;
+}
+
+function seatSettlerTribes(sim: Simulation, player: number): ReadonlySet<number> {
+  const { Owner, Settler } = components;
+  return new Set(
+    [...sim.world.query(Settler, Owner)]
+      .filter((e) => sim.world.get(e, Owner).player === player)
+      .map((e) => sim.world.get(e, Settler).tribe),
+  );
+}
+
+describe.runIf(hasRealIr())(`${PARENT} played as franks through its sub-mission`, () => {
+  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.spyOn(mapIndex, 'loadMapList').mockResolvedValue([
+      { id: CHILD, fingerprint: TINY_FINGERPRINT, picture: true, minimap: true, campaign: CHILD_CAMPAIGN },
+    ]);
+    vi.spyOn(mapLoader, 'loadTerrainMap').mockImplementation(async (id) => readMap(id).map);
+    vi.spyOn(mapLoader, 'loadMapScript').mockImplementation(async (id) => readMap(id).script);
+  });
+
+  it('carries the chosen civilization into the sub-mission and back, heroes keeping their own', async () => {
+    const ir = rawIrUnderTest() as ContentIr;
+    const { merge } = await loadContentUnderTest();
+    const entry = `map=${PARENT}&player=${HUMAN_SEAT}&tribes=${HUMAN_SEAT}:${FRANK}`;
+    const params = new URLSearchParams(entry);
+    const build = (mapId: string, search: URLSearchParams, save: SaveGame | null) => {
+      const { map, script } = readMap(mapId);
+      return buildMapWorldFromInputs({
+        map,
+        ir,
+        script,
+        content: merge.content,
+        session: mapSession(search, mapLobbySlots(script)),
+        missions: null,
+        save,
+      }).sim;
+    };
+    const sim = build(PARENT, params, null);
+    sim.run(OPENING_TICKS);
+    const parentSave = exportSaveGame(sim, { mapId: PARENT, entry: `?${entry}` });
+
+    const inputs = { ir, content: { content: sim.content }, params };
+    // Loading a save from the in-game panel checks it against the script its own entry seats.
+    await expect(validateSavedMap(inputs, parentSave)).resolves.toBeUndefined();
+    const load = mapSubMissionLoader(inputs);
+    const child = await load(
+      { kind: 'start', ...CHILD_CAMPAIGN, mapId: CHILD_CAMPAIGN.missionId, mission: 0 },
+      parentSave,
+    );
+    const childEntry = child.header.entry ?? '';
+    const childSearch = new URLSearchParams(childEntry.slice(1));
+    expect(childSearch.get('map')).toBe(CHILD);
+    expect(childSearch.get('tribes')).toBe(`${HUMAN_SEAT}:${FRANK}`);
+    // The relaunch restores the child from its save and loads the art its entry's seats field.
+    const childSim = build(CHILD, childSearch, child);
+    expect(heroTribes(childSim)).toEqual(
+      new Map([
+        [XENA, BYZANTINE],
+        [BJARNI, VIKING],
+        [SIEGFRIED, FRANK],
+      ]),
+    );
+    const { map: childMap, script: childScript } = readMap(CHILD);
+    const seating = sessionSeating(mapSession(childSearch, mapLobbySlots(childScript)), childScript, ir);
+    expect(seating.players.find((row) => row.player === HUMAN_SEAT)?.tribeId).toBe(FRANK);
+    expect(worldTribes(seating, childMap.entities, ir, seating.remap)).toEqual(
+      expect.arrayContaining([VIKING, FRANK, BYZANTINE]),
+    );
+
+    const returned = await load(
+      { kind: 'end', mission: 1 },
+      exportSaveGame(childSim, { mapId: CHILD, entry: childEntry, parent: parentSave }),
+    );
+    expect(returned.header.entry).toBe(`?${entry}`);
+    const home = build(PARENT, params, returned);
+    expect(seatSettlerTribes(home, HUMAN_SEAT)).toEqual(new Set([FRANK, VIKING, BYZANTINE]));
+    expect(heroTribes(home).get(BJARNI)).toBe(VIKING);
+    expect(home.hashState()).toBe(sim.hashState());
+  });
+});

@@ -133,7 +133,7 @@ so save/load uses the real map identity. Explicit mission and fog overrides rema
 
 Real-map scenes live in `scenes/map-scenes.ts`, separately from synthetic `SceneDefinition` worlds.
 Their headless checks require owned content and run under `npm run test:content`:
-`packages/app/test/real-content/map-mission-acceptance.test.ts` exercises the untouched script's opening,
+`packages/app/test/real-content/missions/mission-acceptance.test.ts` exercises the untouched script's opening,
 the hero's ordinary move order to reinforcements, and identical continuation after save/load.
 `packages/app/test/scenes/map-scenes.test.ts` checks routing and the execution-log projection without
 owned content.

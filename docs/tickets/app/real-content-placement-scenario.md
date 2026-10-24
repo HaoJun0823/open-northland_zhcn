@@ -2,7 +2,7 @@
 
 **Area:** app · **Priority:** P3
 
-`packages/app/test/real-content/build-site-crew-latency.test.ts` sends a real-content `placeBuilding`
+`packages/app/test/real-content/scenarios/build-site-crew-latency.test.ts` sends a real-content `placeBuilding`
 command and checks crew recruitment, but stops before completion. The production scenarios assemble
 ready buildings directly or force-place them, as in `shipyard-scenario.test.ts`. No focused scenario
 covers an ordinary building's command placement, construction bill, completion, staffing and first

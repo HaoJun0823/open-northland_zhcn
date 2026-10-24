@@ -3,7 +3,7 @@
 **Area:** sim, data · **Priority:** P2
 
 Nine buildings the decoded maps place have no way out of their door under the walk block, so their
-residents and workers can never enter or leave. `packages/app/test/real-content/map-door-exits.test.ts`
+residents and workers can never enter or leave. `packages/app/test/real-content/maps/door-exits.test.ts`
 floods from every map-placed door and pins them in `KNOWN_SEALED_DOORS`:
 
 - `mroczny_swiat` `home_level_02` (tribe 3), door (472,95): its only open edge, SE, lands on the body of

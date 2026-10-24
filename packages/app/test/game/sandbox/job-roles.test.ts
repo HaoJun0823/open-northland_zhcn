@@ -7,7 +7,7 @@ import { expectJobRolesMatchTheOldBands, jobRoleIds, SCOUT_JOB } from '../../sup
  * The sim classifies soldier/hero/scout/hunter off the content's job id slugs
  * (`core/content-index/jobs.ts`). That replaced hardcoded numeric bands in the sim systems; this pins the
  * replacement against the committed fallback catalog, so the bands can never come back through a renamed
- * catalog job. The real-IR twin is `test/real-content/job-roles.test.ts`.
+ * catalog job. The real-IR twin is `test/real-content/catalog/job-roles.test.ts`.
  */
 describe('job roles over the fallback catalog', () => {
   const content = sandboxContent();

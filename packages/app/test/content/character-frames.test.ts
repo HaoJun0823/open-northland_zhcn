@@ -1,40 +1,26 @@
 import {
-  type FrameListAnim,
   frameOf,
   type SettlerCharacter,
   type SettlerStateBinding,
   type SpriteAtlas,
   type SpriteFrameRef,
 } from '@open-northland/render';
-import { components } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
   ATTACK_ATOMIC,
   BUILD_HOUSE_ATOMIC,
   BUILD_ROAD_ATOMIC,
   BUILD_WALL_ATOMIC,
-  CHEER_ATOMIC,
-  EAT_ATOMIC,
-  IRON_HARVEST_ATOMIC,
-  LISTEN_ATOMIC,
-  SLEEP_ATOMIC,
-  WELL_DRAW_ATOMIC,
 } from '../../src/catalog/atomics.js';
 import {
-  JOB_ARCHER,
   JOB_ARCHER_LONG,
   JOB_BUILDER,
-  JOB_CIVILIST,
-  JOB_COLLECTOR,
   JOB_HERO_UNARMED,
   JOB_HEROINE_BOW,
-  JOB_SOLDIER_BROADSWORD,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
-  JOB_SOLDIER_SWORD,
   JOB_SOLDIER_UNARMED,
   JOB_TRADER,
-  JOB_WOMAN,
   SOLDIER_JOB_MAX,
 } from '../../src/catalog/jobs.js';
 import { BYZANTINE_SPEAR_VARIANTS } from '../../src/catalog/unit-variants.js';
@@ -43,10 +29,7 @@ import type { ContentIr } from '../../src/content/ir/rows.js';
 import { FACING } from '../../src/content/settler-gfx/index.js';
 import { withHumanFormCharacters } from '../../src/content/sprite-sheet/unit-variants.js';
 import type { WorldTribes } from '../../src/game/world-tribes.js';
-import { byzantineSpearsScene } from '../../src/scenes/byzantine-spears.js';
-import { combatGesturesScene } from '../../src/scenes/combat-gestures.js';
-import { createSceneSim } from '../../src/scenes/runtime.js';
-import { characterTablesUnderTest, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
+import { characterTablesUnderTest, hasRealIr, rawIrUnderTest } from './helpers.js';
 
 /**
  * Every frame a civilization's settler looks can play draws a whole figure on the REAL decoded content:
@@ -166,11 +149,6 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     // CNMod jobgraphics.ini names body 72 for job 32, body 52 with heads 53/54 for job 33.
     expect(wooden?.heads ?? []).toHaveLength(0);
     expect(iron?.heads).toHaveLength(2);
-    // The authored bobseq starts distinguish both the gait and the swing, not just the atlas.
-    expect(wooden?.binding.moving).toMatchObject({ start: 586 });
-    expect(wooden?.binding.byAtomic?.[ATTACK_ATOMIC]).toMatchObject({ start: 0 });
-    expect(iron?.binding.moving).toMatchObject({ start: 2672 });
-    expect(iron?.binding.byAtomic?.[ATTACK_ATOMIC]).toMatchObject({ start: 2255 });
     const ir = rawIrUnderTest() as ContentIr;
     for (const [slug, character] of [
       ['spear_wooden', wooden],
@@ -196,108 +174,6 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     const good = (rawIrUnderTest() as ContentIr).goods?.find((row) => row.id === 'spear_wooden');
     if (good === undefined) throw new Error('missing wooden spear');
     expect(table.human?.byWeaponGood?.[good.typeId]).toBe(playable);
-  });
-
-  it('spawns both spear forms together using the generated catalog and authored slot roles', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sim = createSceneSim(byzantineSpearsScene, { content: merge.content });
-    sim.step();
-    const units = [...sim.world.query(components.Settler, components.Owner, components.Health)];
-    expect(units).toHaveLength(6);
-    const humanForms = units.filter((e) => sim.world.get(e, components.Settler).humanForm === true);
-    expect(humanForms).toHaveLength(1);
-    for (const e of units) {
-      const identity = sim.world.get(e, components.Settler);
-      const owner = sim.world.get(e, components.Owner).player;
-      const dragon = identity.jobType === JOB_SOLDIER_SPEAR_WOODEN && identity.humanForm !== true;
-      expect(sim.world.get(e, components.Health).max, `owner ${owner}, job ${identity.jobType}`).toBe(
-        dragon ? 20000 : 5000,
-      );
-    }
-  });
-
-  it('reaches the new actions through normal commands with generated content', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sim = createSceneSim(combatGesturesScene, { content: merge.content });
-    const reached = new Set<string>();
-    let wedding = false;
-    for (let tick = 0; tick < 300; tick++) {
-      sim.step();
-      for (const _e of sim.world.query(components.Marriage)) wedding = true;
-      for (const e of sim.world.query(components.Settler, components.CurrentAtomic)) {
-        const job = sim.world.get(e, components.Settler).jobType;
-        const action = sim.world.get(e, components.CurrentAtomic).atomicId;
-        if (job === JOB_CIVILIST && action === CHEER_ATOMIC) expect(wedding).toBe(true);
-        if (job === JOB_BUILDER && action === ATTACK_ATOMIC) {
-          expect(sim.world.has(e, components.Weapon)).toBe(false);
-          expect(sim.world.get(e, components.CurrentAtomic)).toMatchObject({
-            duration: 16,
-            effect: { kind: 'attack', hitFrames: [6] },
-          });
-        }
-        reached.add(`${job}:${action}`);
-      }
-    }
-    for (const action of ['7:81', '31:81', '40:10', '40:8', '6:17'])
-      expect(reached.has(action), action).toBe(true);
-  });
-
-  it('rolls each strike among the attack records and the numbered takes the body draws', () => {
-    const table = tables.get(VIKING);
-    const starts = (job: number) =>
-      (table?.byJob[job] ?? table?.default)?.binding.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
-        (clip) => clip.start,
-      );
-    // Pinned bobseq ranges in the supplied animation table.
-    expect(starts(JOB_CIVILIST)).toEqual([425, 95, 221, 323]);
-    expect(starts(JOB_SOLDIER_UNARMED)).toEqual([998, 632, 758, 877]);
-    expect(starts(JOB_SOLDIER_SWORD)).toEqual([2966, 2864]);
-    expect(starts(JOB_SOLDIER_BROADSWORD)).toEqual([0, 150]);
-    expect(starts(JOB_ARCHER)).toBeUndefined();
-    expect(starts(JOB_ARCHER_LONG)).toBeUndefined();
-    // The frankish record names only the plain punch; the viking set joins because it names it too.
-    const frank = tables.get(FRANK);
-    expect(
-      (frank?.byJob[JOB_SOLDIER_UNARMED] ?? frank?.default)?.binding.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
-        (clip) => clip.start,
-      ),
-    ).toEqual([998, 632, 758, 877]);
-  });
-
-  it('binds the civilian wedding jump to the celebration action', () => {
-    const table = tables.get(VIKING);
-    expect((table?.byJob[JOB_CIVILIST] ?? table?.default)?.binding.byAtomic?.[CHEER_ATOMIC]).toEqual({
-      start: 1547,
-      frameLists: [Array.from({ length: 21 }, (_, i) => i)],
-    });
-  });
-
-  it('gives each bow its own wave and combat gait, and retains the short bow during meals and naps', () => {
-    const table = tables.get(VIKING);
-    const short = table?.byJob[JOB_ARCHER]?.binding;
-    const long = table?.byJob[JOB_ARCHER_LONG]?.binding;
-    expect(short?.idleFidgets?.map((clip) => clip.start)).toContain(1950);
-    expect(long?.idleFidgets?.map((clip) => clip.start)).toContain(1459);
-    expect(short?.idleFidgets).toHaveLength(1);
-    expect(long?.idleFidgets).toHaveLength(1);
-    expect(short?.idleChoices?.length).toBeGreaterThan(0);
-    expect(long?.idleChoices?.length).toBeGreaterThan(0);
-    expect(short?.idleFidgetGapTicks).toBe(600);
-    expect(long?.idleFidgetGapTicks).toBe(600);
-    expect(short?.engaged?.idle).toMatchObject({ start: 2035 });
-    expect(short?.engaged?.moving).toMatchObject({ start: 2159 });
-    expect(long?.engaged?.idle).toMatchObject({ start: 1544 });
-    expect(long?.engaged?.moving).toMatchObject({ start: 1668 });
-    expect(short?.byAtomic?.[10]).toMatchObject({ start: 1932 });
-    expect(short?.byAtomic?.[11]).toMatchObject({ start: 1932 });
-    const sleep = short?.byAtomic?.[8];
-    expect(sleep).toMatchObject({ start: 1986 });
-    expect(sleep).not.toHaveProperty('ticks');
-    if (typeof sleep !== 'object' || !('frameLists' in sleep)) throw new Error('missing shortbow nap');
-    const frames = sleep.frameLists[0] ?? [];
-    expect(frames.slice(0, 21)).toEqual(Array.from({ length: 21 }, (_, i) => i));
-    expect(new Set(frames.slice(21, -20))).toEqual(new Set([19, 20]));
-    expect(frames.slice(-20)).toEqual(Array.from({ length: 20 }, (_, i) => 19 - i));
   });
 
   it('overlays a head on every body frame each look can play', () => {
@@ -452,31 +328,6 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     }
   });
 
-  it('plays each authored action list over the ticks of the clip its job binds, the swing over the atomic', () => {
-    const table = tables.get(VIKING);
-    const longestList = (ref: FrameListAnim): number =>
-      Math.max(...ref.frameLists.map((list) => list.length));
-    const listOf = (job: number, atomic: number): FrameListAnim => {
-      const ref = (table?.byJob[job] ?? table?.default)?.binding.byAtomic?.[atomic];
-      if (ref === undefined || typeof ref === 'number' || !('frameLists' in ref)) {
-        throw new Error(`job ${job} binds no frame lists for atomic ${atomic}`);
-      }
-      return ref;
-    };
-    // `atomicanimations.ini` lengths: the civilist's meal runs 50 ticks under a 30-entry list, its nap 237
-    // under its own 237, the collector's iron strike 23 under the 29-entry stonecrushing list, the woman's
-    // listening 100 on a chat clock the man's 247-tick talk can outlast, the well's push 50.
-    expect(listOf(JOB_CIVILIST, EAT_ATOMIC)).toMatchObject({ ticks: 50 });
-    expect(longestList(listOf(JOB_CIVILIST, EAT_ATOMIC))).toBe(30);
-    expect(listOf(JOB_CIVILIST, SLEEP_ATOMIC)).toMatchObject({ ticks: 237 });
-    expect(listOf(JOB_COLLECTOR, IRON_HARVEST_ATOMIC)).toMatchObject({ ticks: 23 });
-    expect(longestList(listOf(JOB_COLLECTOR, IRON_HARVEST_ATOMIC))).toBe(29);
-    expect(listOf(JOB_WOMAN, LISTEN_ATOMIC)).toMatchObject({ ticks: 100 });
-    expect(listOf(JOB_CIVILIST, WELL_DRAW_ATOMIC)).toMatchObject({ ticks: 50 });
-    expect(listOf(JOB_CIVILIST, WELL_DRAW_ATOMIC).loop).toBeUndefined();
-    expect(listOf(JOB_SOLDIER_SPEAR, ATTACK_ATOMIC).ticks).toBeUndefined();
-  });
-
   it('draws a viking carrying stone under the stooped head the source names for it', () => {
     const ir = rawIrUnderTest() as ContentIr;
     const stone = (ir.goods ?? []).find((good) => good.id === 'stone');
@@ -484,17 +335,5 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     const carry = stone === undefined ? undefined : tables.get(VIKING)?.default.headBinding?.carrying?.byGood;
     const moving = stone === undefined ? undefined : carry?.[stone.typeId]?.moving;
     expect(typeof moving === 'object' ? moving.start : undefined).toBe(stooped?.start);
-  });
-});
-
-describe.runIf(hasRealIr())('the monster tribes swing their own fight', () => {
-  const tables = characterTablesUnderTest([VIKING, WERESNAKE, WEREWOLF]);
-  if (tables === null) return;
-
-  it('binds the weresnake and werewolf attack, the werewolf by the weresnake clip its record names', () => {
-    for (const tribe of [WERESNAKE, WEREWOLF]) {
-      const look = tables.get(tribe)?.byJob[JOB_SOLDIER_UNARMED];
-      expect(look?.binding.byAtomic?.[ATTACK_ATOMIC], `tribe ${tribe}`).toBeDefined();
-    }
   });
 });

@@ -13,6 +13,19 @@ import { everydayGesturesScene } from '../../src/scenes/everyday-gestures.js';
 import { createSceneSim } from '../../src/scenes/runtime.js';
 import { characterTablesUnderTest, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 
+/** The druid's brewing strip and the fisher's rod walk in the viking body's bob pool (`[bobseq]`). */
+const BREWING_BOBS = { start: 661, end: 677 } as const;
+const ROD_WALK_BOBS = { start: 959, end: 1055 } as const;
+/** The baby body's gesture strip. */
+const BABY_GESTURE_BOBS = { start: 146, end: 185 } as const;
+/** The druid's brewing program action and the sub-clip its first step plays. */
+const BREW_ACTION = 4;
+const BREW_SUB_CLIP = 0;
+const SCENE_TICKS = 900;
+
+const inStrip = (bob: number, strip: { readonly start: number; readonly end: number }): boolean =>
+  bob >= strip.start && bob < strip.end;
+
 describe.runIf(hasRealIr())('everyday animation playback', () => {
   const table = characterTablesUnderTest([1])?.get(1);
   if (table === undefined) return;
@@ -21,31 +34,11 @@ describe.runIf(hasRealIr())('everyday animation playback', () => {
     const look = table.byJob[JOB_DRUID];
     expect(look?.heads).toHaveLength(4);
     for (const head of look?.heads ?? []) {
-      for (let bob = 661; bob < 677; bob++) {
+      for (let bob = BREWING_BOBS.start; bob < BREWING_BOBS.end; bob++) {
         const frame = head.atlas.frames.get(bob);
         expect(frame?.width, `brewing head ${bob}`).toBeGreaterThan(0);
         expect(frame?.height, `brewing head ${bob}`).toBeGreaterThan(0);
       }
-    }
-  });
-
-  it('plays each baby pose as an occasional idle gesture and stops it on movement', () => {
-    for (const job of [JOB_BABY_FEMALE, JOB_BABY_MALE]) {
-      const binding = table.youngByJob?.[job]?.binding;
-      if (binding === undefined) throw new Error('missing baby look');
-      expect(binding.idleFidgets?.map((clip) => clip.start)).toContain(146);
-      const frames = new Set<number>();
-      for (let facing = 0; facing < 8; facing++) {
-        for (let tick = 0; tick < 900; tick++) {
-          const item = { kind: 'settler', ref: 1, x: 0, y: 0, depth: 0, facing, state: 'idle' } as const;
-          const bob = resolveSettlerBobId(binding, item, tick, tick, tick);
-          if (bob >= 146 && bob < 185) {
-            frames.add(bob);
-            expect(resolveSettlerBobId(binding, { ...item, state: 'moving' }, tick)).toBeLessThan(104);
-          }
-        }
-      }
-      expect([...frames].sort((a, b) => a - b)).toEqual(Array.from({ length: 39 }, (_, i) => 146 + i));
     }
   });
 
@@ -54,11 +47,13 @@ describe.runIf(hasRealIr())('everyday animation playback', () => {
     const sim = createSceneSim(everydayGesturesScene, { content: merge.content });
     const lookup = inHouseProgramLookup(rawIrUnderTest() as ContentIr, sim.content.goods);
     const druid = table.byJob[JOB_DRUID]?.binding;
-    expect(druid?.bySubClip?.[subClipKey(4, 0)]).toMatchObject({ start: 661 });
-    expect(table.byJob[JOB_FISHER]?.binding.moving).toMatchObject({ start: 959, dirs: 8, stride: 12 });
+    expect(druid?.bySubClip?.[subClipKey(BREW_ACTION, BREW_SUB_CLIP)]).toMatchObject({
+      start: BREWING_BOBS.start,
+    });
+    expect(table.byJob[JOB_FISHER]?.binding.moving).toMatchObject({ start: ROD_WALK_BOBS.start });
     const reached = new Set<string>();
     const brewingFrames = new Set<number>();
-    for (let tick = 0; tick < 900; tick++) {
+    for (let tick = 0; tick < SCENE_TICKS; tick++) {
       sim.step();
       const jobs = new Map<number, number | null>(
         [...sim.world.query(components.Settler)].map((e) => [
@@ -75,22 +70,24 @@ describe.runIf(hasRealIr())('everyday animation playback', () => {
         else if (job === JOB_DRUID || job === JOB_FISHER) binding = table.byJob[job]?.binding;
         if (binding === undefined) continue;
         const bob = resolveSettlerBobId(binding, item, sim.tick, sim.tick, tick);
-        if (job === JOB_DRUID && item.craftClip !== undefined && bob >= 661 && bob < 677) {
+        if (job === JOB_DRUID && item.craftClip !== undefined && inStrip(bob, BREWING_BOBS)) {
           reached.add('brewing');
           brewingFrames.add(bob);
         }
         if (job === JOB_FISHER && item.state === 'moving') {
-          if (!item.carrying && bob >= 959 && bob < 1055) reached.add('rod walk');
+          if (!item.carrying && inStrip(bob, ROD_WALK_BOBS)) reached.add('rod walk');
           if (item.carrying) {
-            expect(bob < 959 || bob >= 1055).toBe(true);
+            expect(inStrip(bob, ROD_WALK_BOBS)).toBe(false);
             reached.add('carrying catch');
           }
         }
-        if ((job === JOB_BABY_FEMALE || job === JOB_BABY_MALE) && bob >= 146 && bob < 185)
+        if ((job === JOB_BABY_FEMALE || job === JOB_BABY_MALE) && inStrip(bob, BABY_GESTURE_BOBS))
           reached.add('baby gesture');
       }
     }
-    expect([...brewingFrames].sort((a, b) => a - b)).toEqual(Array.from({ length: 16 }, (_, i) => 661 + i));
+    expect([...brewingFrames].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: BREWING_BOBS.end - BREWING_BOBS.start }, (_, i) => BREWING_BOBS.start + i),
+    );
     expect(reached).toEqual(new Set(['brewing', 'rod walk', 'carrying catch', 'baby gesture']));
   });
 });

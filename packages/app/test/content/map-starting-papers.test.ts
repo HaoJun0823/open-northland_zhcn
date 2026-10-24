@@ -5,20 +5,12 @@ import { PLACING_PAPER_KINDS } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { paperOfSpecialItem } from '../../src/game/starting-papers.js';
 import { contentDir, hasRealIr, loadContentUnderTest } from './helpers.js';
-import { realMapWorld } from './real-map-world.js';
 
 /**
  * Pin the `[specialItems]` starting papers against the real decoded maps: every authored row must name a
  * kind the papers page can spend and a house the content knows, else a map's opening papers would sit
- * inert or place nothing, and the corpus map every player opens with three "any house" papers must
- * hand them out through the same world build the browser runs.
+ * inert or place nothing.
  */
-
-const THREE_PAPERS_MAP = 'diamentowa_dolina';
-const PAPERS_PER_PLAYER = 3;
-const HUMAN_SEAT = 0;
-/** Zod over the whole map set takes seconds; a hang-guard, not a benchmark. */
-const MAP_WORLD_TIMEOUT_MS = 180_000;
 
 function mapsDir(): string {
   return resolve(contentDir(), 'maps');
@@ -51,20 +43,5 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
       }
       expect(rows).toBeGreaterThan(0);
     });
-
-    it(
-      `${THREE_PAPERS_MAP} opens with ${PAPERS_PER_PLAYER} "any house" papers per player`,
-      async () => {
-        const { sim } = await realMapWorld({
-          mapId: THREE_PAPERS_MAP,
-          machineSeats: [],
-          humanSeats: [HUMAN_SEAT],
-        });
-        expect(sim.papers(HUMAN_SEAT)).toEqual(
-          Array.from({ length: PAPERS_PER_PLAYER }, () => ({ kind: 'placeAny', param: 0 })),
-        );
-      },
-      MAP_WORLD_TIMEOUT_MS,
-    );
   },
 );

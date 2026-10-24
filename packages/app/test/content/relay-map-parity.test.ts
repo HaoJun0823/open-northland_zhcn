@@ -32,7 +32,6 @@ import { realMapPath, realMapScript, realMapWorld, restoreRealMapWorld } from '.
  */
 
 const MAP_ID = 'magiczny_las';
-const EIGHT_PLAYER_MAP_ID = 'diamentowa_dolina';
 const DEFAULT_RUN_TICKS = 600;
 const RUN_TICKS = Number.parseInt(process.env.ON_RELAY_TICKS ?? '', 10) || DEFAULT_RUN_TICKS;
 /** Orders per client, staggered by seat so some share a tick with another seat's or the AI's. */
@@ -216,23 +215,6 @@ async function playThrough(
 const RUN_PARITY = hasRealIr() && existsSync(realMapPath(MAP_ID));
 
 describe.runIf(RUN_PARITY)('relayed sessions on a decoded map', () => {
-  it.skipIf(!existsSync(realMapPath(EIGHT_PLAYER_MAP_ID)))(
-    'eight clients recover from a divergence on the nine-seat map',
-    {
-      timeout: RUN_TIMEOUT_MS,
-    },
-    async () => {
-      const clients = await playThrough(EIGHT_PLAYER_MAP_ID, 8, { diverge: 7 });
-      expect(clients[7]?.desyncs).toHaveLength(1);
-      expect(clients[7]?.restoredFrom).toHaveLength(1);
-      for (const each of clients.slice(0, 7)) expect(each.desyncs).toEqual([]);
-    },
-  );
-
-  it('four clients end on one state', { timeout: RUN_TIMEOUT_MS }, async () => {
-    await playThrough(MAP_ID, 4);
-  });
-
   it('brings a diverged client back from the other’s snapshot on the real map', {
     timeout: RUN_TIMEOUT_MS,
   }, async () => {

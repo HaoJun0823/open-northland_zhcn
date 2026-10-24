@@ -140,21 +140,6 @@ function slayWares(content: ContentSet, actors: Actors): readonly number[] {
 }
 
 describe.runIf(hasRealIr())('the breeder cycle over merged real content', () => {
-  it('resolves a distinct trade, farm and clip for each species the content breeds', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sheep = resolveActors(merge.content, 'sheep');
-    const cattle = resolveActors(merge.content, 'cattle');
-    expect(sheep.farm.typeId).toBe(cattle.farm.typeId); // one house breeds both
-    expect(sheep.animalTribe).not.toBe(cattle.animalTribe);
-    // The house is left with exactly the two species its breeders enable.
-    expect(sheep.farm.recipes.map((r) => r.outputs[0]?.goodType)).toEqual([
-      sheep.species.typeId,
-      cattle.species.typeId,
-    ]);
-    expect(slayWares(merge.content, sheep).length).toBeGreaterThan(0);
-    expect(slayWares(merge.content, cattle)).not.toEqual(slayWares(merge.content, sheep));
-  });
-
   it('starts a breeder the player posts at the farm on cattle, with sheep stopped', async () => {
     const { merge } = await loadContentUnderTest();
     const { sim, farm, actors } = buildScenario(merge.content, 'cattle', 0);

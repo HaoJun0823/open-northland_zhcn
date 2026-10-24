@@ -2,27 +2,41 @@ import { footprintCellDx } from '@open-northland/data';
 import { isIndoorSettler } from '@open-northland/render';
 import { components, nodeOfPosition } from '@open-northland/sim';
 import { expect, it } from 'vitest';
+import { hasRealIr } from './helpers.js';
 import { realMapWorld } from './real-map-world.js';
 
-it('loads the ripe fields around the starting farm as workable crops', async () => {
-  const { sim, content } = await realMapWorld({ mapId: 'wilczy_lad', machineSeats: [], humanSeats: [0] });
+const MAP_ID = 'wilczy_lad';
+/** The human seat's starting farm, its door one row south, and two cells its footprint reserves. */
+const FARM = { hx: 162, hy: 249 } as const;
+const FARM_DOOR = { hx: 162, hy: 250 } as const;
+const RESERVED_NODES = ['160,250', '161,250'] as const;
+/** Map points around the farm the authored starting fields lie within. */
+const FIELD_RADIUS = 16;
+/** The crop stage the map authors its starting fields at: ripe, one harvest each. */
+const RIPE_STAGE = 5;
+const RIPE_YIELD = 1;
+/** Long enough for the farmer to reap, sow and bank wheat at the door. */
+const RUN_TICKS = 2_000;
+
+it.runIf(hasRealIr())('loads the ripe fields around the starting farm as workable crops', async () => {
+  const { sim, content } = await realMapWorld({ mapId: MAP_ID, machineSeats: [], humanSeats: [0] });
   const at = [...sim.world.query(components.Crop, components.Position)].filter((entity) => {
     const pos = sim.world.get(entity, components.Position);
     const node = nodeOfPosition(pos.x, pos.y);
-    return Math.abs(node.hx - 162) + Math.abs(node.hy - 249) <= 16;
+    return Math.abs(node.hx - FARM.hx) + Math.abs(node.hy - FARM.hy) <= FIELD_RADIUS;
   });
   expect(at.length).toBeGreaterThan(0);
-  const startingField = at.find((entity) => sim.world.get(entity, components.Crop).stage === 5);
+  const startingField = at.find((entity) => sim.world.get(entity, components.Crop).stage === RIPE_STAGE);
   expect(startingField).toBeDefined();
   if (startingField === undefined) return;
-  expect(sim.world.get(startingField, components.Crop)).toMatchObject({ farm: null, stage: 5 });
-  expect(sim.world.get(startingField, components.Resource).remaining).toBe(1);
+  expect(sim.world.get(startingField, components.Crop)).toMatchObject({ farm: null, stage: RIPE_STAGE });
+  expect(sim.world.get(startingField, components.Resource).remaining).toBe(RIPE_YIELD);
   expect(sim.world.has(startingField, components.LandscapeResource)).toBe(true);
 
   const farm = [...sim.world.query(components.Building, components.Position)].find((entity) => {
     const pos = sim.world.get(entity, components.Position);
     const node = nodeOfPosition(pos.x, pos.y);
-    return node.hx === 162 && node.hy === 249;
+    return node.hx === FARM.hx && node.hy === FARM.hy;
   });
   const wheat = content.goods.find((good) => good.id === 'wheat')?.typeId;
   expect(farm).toBeDefined();
@@ -34,10 +48,9 @@ it('loads the ripe fields around the starting farm as workable crops', async () 
   expect(footprint).toBeDefined();
   if (footprint === undefined) return;
   const farmZone = new Set(
-    footprint.reserved.map((cell) => `${162 + footprintCellDx(249, cell)},${249 + cell.dy}`),
+    footprint.reserved.map((cell) => `${FARM.hx + footprintCellDx(FARM.hy, cell)},${FARM.hy + cell.dy}`),
   );
-  expect(farmZone.has('160,250')).toBe(true);
-  expect(farmZone.has('161,250')).toBe(true);
+  for (const node of RESERVED_NODES) expect(farmZone.has(node), node).toBe(true);
   const cropNodes = [...sim.world.query(components.Crop, components.Position)].map((entity) => {
     const position = sim.world.get(entity, components.Position);
     const node = nodeOfPosition(position.x, position.y);
@@ -52,7 +65,7 @@ it('loads the ripe fields around the starting farm as workable crops', async () 
 
   let doorDeposit = false;
   let sowCount = 0;
-  for (let tick = 0; tick < 2_000; tick++) {
+  for (let tick = 0; tick < RUN_TICKS; tick++) {
     sim.step();
     const atomic = sim.world.tryGet(farmer, components.CurrentAtomic);
     if (atomic?.effect.kind === 'sow') {
@@ -67,7 +80,7 @@ it('loads the ripe fields around the starting farm as workable crops', async () 
     if (atomic?.effect.kind === 'pileup' && atomic.effect.store === farm) {
       const position = sim.world.get(farmer, components.Position);
       const node = nodeOfPosition(position.x, position.y);
-      doorDeposit ||= node.hx === 162 && node.hy === 250;
+      doorDeposit ||= node.hx === FARM_DOOR.hx && node.hy === FARM_DOOR.hy;
       const snapshot = sim.snapshot();
       const drawn = snapshot.entities.find((entity) => entity.id === farmer);
       expect(drawn).toBeDefined();

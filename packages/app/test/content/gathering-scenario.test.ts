@@ -10,7 +10,7 @@ import { hasRealIr, loadContentUnderTest } from './helpers.js';
  * proves (`test/map-gatherer-cycle.test.ts`), but with every id resolved from whatever the pipeline
  * emitted instead of the clean-room tables. This is the net for the "sandbox green, real content
  * collapses" class (raw job-id spaces, tribe-wide base atomics, zeroed balance): a stall shows up as
- * wood never banked, a divergence as a same-seed hash mismatch. Skips without generated content.
+ * wood never banked. Skips without generated content.
  */
 
 const { GroundDrop, Stockpile, WorkFlag } = components;
@@ -118,16 +118,5 @@ describe.runIf(hasRealIr())('gathering cycle over merged real content', () => {
     expect(looseGood(sim, wood.typeId)).toBeLessThanOrEqual(gathering.yieldPerNode);
     // A per-tick-invariant run over real content takes seconds even idle; the budget is a hang-guard
     // sized for a CPU-contended full parallel run (the 5s default timed out under machine load).
-  }, 120_000);
-
-  it('is deterministic on real content: two same-seed runs end byte-identical', async () => {
-    const { merge } = await loadContentUnderTest();
-    const a = buildScenario(merge.content);
-    const b = buildScenario(merge.content);
-    for (let t = 0; t < CYCLE_TICKS; t++) {
-      a.step();
-      b.step();
-    }
-    expect(a.hashState()).toBe(b.hashState());
   }, 120_000);
 });

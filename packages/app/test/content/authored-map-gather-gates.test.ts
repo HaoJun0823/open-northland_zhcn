@@ -14,6 +14,10 @@ const JOB_COLLECTOR = 8;
 const GOOD_IRON = 6;
 
 const MAP_CELLS = 40;
+/** Long enough for an ungated collector to have dug several times. */
+const GATED_TICKS = 800;
+/** Long enough for the earned collector to dig and bank ore at its flag. */
+const EARNED_TICKS = 2500;
 
 function grassMap(cells: number) {
   return halfCellMapFromCells({
@@ -66,7 +70,7 @@ describe.runIf(hasRealIr())('authored decoded-map humans - gathering XP gates', 
     if (node === null) return;
     sim.enqueueSetup({ kind: 'setWorkFlag', entity: collector, x: 22 * 2, y: 22 * 2 });
     const before = sim.world.get(node, Resource).remaining;
-    sim.run(800);
+    sim.run(GATED_TICKS);
     expect(sim.world.get(node, Resource).remaining).toBe(before); // gated: a fresh collector digs no iron
 
     // Earn the gate the way play would (clay/stone repeats), seeded directly onto the settler: the
@@ -86,7 +90,7 @@ describe.runIf(hasRealIr())('authored decoded-map humans - gathering XP gates', 
       .mut(collector, SettlerProgress)
       .experience.set(trackId, systems.rawXpForRepeats(track, ironNeed.amount));
 
-    sim.run(2500);
+    sim.run(EARNED_TICKS);
     // Earned: the deposit is mined (a fully exhausted node dies, so a dead node counts as zero).
     const after = sim.world.isAlive(node) ? sim.world.get(node, Resource).remaining : 0;
     expect(after).toBeLessThan(before);

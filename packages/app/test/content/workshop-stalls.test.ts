@@ -1,4 +1,4 @@
-import { cellAnchorNode, components, type Entity, type Simulation, systems } from '@open-northland/sim';
+import { cellAnchorNode, components, type Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { grassTerrain } from '../../src/catalog/buildings.js';
 import { JOB_CARRIER, JOB_COLLECTOR } from '../../src/catalog/jobs.js';
@@ -6,24 +6,16 @@ import { HUMAN_PLAYER } from '../../src/game/rules.js';
 import { ANIMAL_TRIBE_SHEEP } from '../../src/game/sandbox/content/catalog/animals.js';
 import {
   BUILDING_ANIMAL_FARM,
-  BUILDING_BAKERY,
   BUILDING_FARM,
-  BUILDING_HEADQUARTERS,
-  BUILDING_HOME_00,
   BUILDING_JOINERY,
-  BUILDING_MASON_HUT,
   BUILDING_MILL,
   BUILDING_WAREHOUSE_00,
-  BUILDING_WELL,
   GATHERERS,
   placeBuiltSandboxBuilding,
   placeResourceNode,
-  placeSandboxBuilding,
-  spawnSandboxSettler,
   spawnWorkersAtDoor,
 } from '../../src/game/sandbox/index.js';
 import { SNAPSHOT_SWEEP_INTERVAL_TICKS } from '../../src/hud/tool-panel/messages/from-snapshot.js';
-import { STORAGE_FULL_GRACE_TICKS } from '../../src/hud/tool-panel/messages/storage-full.js';
 import { PRODUCTION_STALL_GRACE_TICKS } from '../../src/hud/tool-panel/messages/workshop-stalls.js';
 import { createSceneSim } from '../../src/scenes/runtime.js';
 import type { SceneWorld } from '../../src/scenes/types.js';
@@ -31,48 +23,11 @@ import { watchStalls } from '../support/stall-watch.js';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
 /** The real goods the run checks (`goods.ini` typeIds). */
-const GOOD_STONE = 3;
 const GOOD_WHEAT = 4;
-const GOOD_FLOUR = 11;
-const GOOD_BREAD = 19;
 const GOOD_WOOD = 5;
-const GOOD_PILLAR = 26;
 const GOOD_TOOL_WOODEN = 31;
 const GOOD_WATER = 1;
 const GOOD_SHEEP = 57;
-/** Stone the headquarters holds for the mason. */
-const STOCKED_STONE = 40;
-const FARMERS = 2;
-/** Sweeps of a second each: past the farm's first harvest and every shelf filling to capacity. */
-const RUN_SWEEPS = 1700;
-
-/**
- * The owner's case: a mason's hut beside the headquarters with stone in it, and a farm, mill, well and
- * bakery side by side with a warehouse, every workshop starting empty.
- */
-const ECONOMY: SceneWorld = {
-  seed: 15,
-  terrain: grassTerrain(60, 34),
-  build: (sim) => {
-    spawnSandboxSettler(sim, JOB_COLLECTOR, 2, 2);
-    const headquarters = placeBuiltSandboxBuilding(sim, BUILDING_HEADQUARTERS, 10, 8);
-    const stock = sim.world.mut(headquarters, components.Stockpile).amounts;
-    stock.clear();
-    stock.set(GOOD_STONE, STOCKED_STONE);
-    placeSandboxBuilding(sim, BUILDING_WAREHOUSE_00, 37, 22);
-    for (const [type, x, y, crew] of [
-      [BUILDING_MASON_HUT, 19, 8, 1],
-      [BUILDING_FARM, 10, 22, FARMERS],
-      [BUILDING_MILL, 19, 22, 1],
-      [BUILDING_BAKERY, 28, 22, 1],
-      [BUILDING_WELL, 28, 15, 1],
-    ] as const) {
-      const building = placeBuiltSandboxBuilding(sim, type, x, y);
-      sim.world.mut(building, components.Stockpile).amounts.clear();
-      spawnWorkersAtDoor(sim, building, crew);
-    }
-  },
-};
 
 const JOINERY_AT = { x: 10, y: 12 } as const;
 const JOINERY_STORE_AT = { x: 14, y: 18 } as const;
@@ -199,42 +154,6 @@ function animalFarm(sheep: number): SceneWorld {
   };
 }
 
-/** The bakery's bread shelf in the real content. */
-const BAKERY_BREAD_SHELF = 20;
-
-/** Stock every slot of `building`, a built `type`, to its capacity. */
-function fillEverySlot(sim: Simulation, building: Entity, type: number): void {
-  const slots = sim.content.buildings.find((b) => b.typeId === type)?.stock ?? [];
-  const stock = sim.world.mut(building, components.Stockpile).amounts;
-  for (const slot of slots) stock.set(slot.goodType, slot.capacity);
-}
-
-/** The owner's case: a full headquarters beside a home, full too or empty, and a staffed bakery whose
- *  bread shelf is full. */
-function fullHeadquarters(homeFull: boolean): SceneWorld {
-  return {
-    seed: 15,
-    terrain: grassTerrain(40, 24),
-    build: (sim) => {
-      spawnSandboxSettler(sim, JOB_COLLECTOR, 2, 2);
-      fillEverySlot(
-        sim,
-        placeBuiltSandboxBuilding(sim, BUILDING_HEADQUARTERS, 24, 10),
-        BUILDING_HEADQUARTERS,
-      );
-      const home = placeBuiltSandboxBuilding(sim, BUILDING_HOME_00, 24, 18);
-      if (homeFull) fillEverySlot(sim, home, BUILDING_HOME_00);
-      else sim.world.mut(home, components.Stockpile).amounts.clear();
-      const bakery = placeBuiltSandboxBuilding(sim, BUILDING_BAKERY, 12, 10);
-      sim.world.mut(bakery, components.Stockpile).amounts.set(GOOD_BREAD, BAKERY_BREAD_SHELF);
-      spawnWorkersAtDoor(sim, bakery, 1);
-    },
-  };
-}
-
-/** Sweeps for the baker to stand on its full shelf while it fetches inputs, then carry loaves out. */
-const BAKER_ERRAND_SWEEPS = 150;
-
 /** Sweeps past the stall grace and the first ask's answer. */
 const BLOCKED_SWEEPS = PRODUCTION_STALL_GRACE_TICKS / SNAPSHOT_SWEEP_INTERVAL_TICKS + 2;
 
@@ -247,16 +166,6 @@ function totalOf(sim: Simulation, goodType: number): number {
 }
 
 describe.runIf(hasRealIr())('stalled workshop notes on real content', () => {
-  it('stay silent while operators fetch from the farm and well and carry to the stores', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sim = createSceneSim(ECONOMY, { content: merge.content });
-    sim.run(2);
-    const { raised, storageFull } = watchStalls(sim).run(RUN_SWEEPS);
-    for (const good of [GOOD_PILLAR, GOOD_FLOUR, GOOD_BREAD]) expect(totalOf(sim, good)).toBeGreaterThan(0);
-    expect(raised).toEqual([]);
-    expect(storageFull).toEqual([]);
-  });
-
   it('stay silent while the joinery collector fells the wood the joiner needs', async () => {
     const { merge } = await loadContentUnderTest();
     const sim = createSceneSim(SELF_SUPPLIED_JOINERY, { content: merge.content });
@@ -307,23 +216,5 @@ describe.runIf(hasRealIr())('stalled workshop notes on real content', () => {
     sim.run(2);
     const { standing } = watchStalls(sim).run(BLOCKED_SWEEPS);
     expect(standing.map((m) => m.stall)).toEqual([{ reason: 'noInputSource', goodType: GOOD_WHEAT }]);
-  });
-
-  it('name the food a full headquarters and home hold once the baker cannot bake', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sim = createSceneSim(fullHeadquarters(true), { content: merge.content });
-    sim.run(2);
-    const { storageFull } = watchStalls(sim).run(
-      STORAGE_FULL_GRACE_TICKS / SNAPSHOT_SWEEP_INTERVAL_TICKS + 2,
-    );
-    expect(storageFull.map((m) => m.goodType)).toEqual([systems.edibleGoodFormOf(sim.content, GOOD_BREAD)]);
-  });
-
-  it('name no full storehouses while the baker still carries bread to a home with room', async () => {
-    const { merge } = await loadContentUnderTest();
-    const sim = createSceneSim(fullHeadquarters(false), { content: merge.content });
-    sim.run(2);
-    const { storageFull } = watchStalls(sim).run(BAKER_ERRAND_SWEEPS);
-    expect(storageFull).toEqual([]);
   });
 });

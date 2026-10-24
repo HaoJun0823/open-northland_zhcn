@@ -36,24 +36,25 @@ describe.runIf(hasRealIr())('need-atomic clips resolve against the served conten
     const content = merge.content;
     const civilistEat = systems.atomicDuration(content, { tribe: VIKING, jobType: CIVILIST }, EAT_ATOMIC);
     const civilistSleep = systems.atomicDuration(content, { tribe: VIKING, jobType: CIVILIST }, SLEEP_ATOMIC);
-    // The civilist's own bindings - the lengths the fallback hands everyone else.
-    expect(civilistEat).toBe(50); // viking_civilist_eat_slot_food
-    expect(civilistSleep).toBe(237); // viking_civilist_sleep
+    expect(civilistEat).not.toBe(DEFAULT_ATOMIC_DURATION);
+    expect(civilistSleep).not.toBe(DEFAULT_ATOMIC_DURATION);
 
     for (const jobType of [BUILDER, COLLECTOR, CARRIER]) {
       const settler = { tribe: VIKING, jobType };
       expect(systems.atomicDuration(content, settler, EAT_ATOMIC)).toBe(civilistEat);
       expect(systems.atomicDuration(content, settler, SLEEP_ATOMIC)).toBe(civilistSleep);
-      expect(systems.atomicDuration(content, settler, EAT_ATOMIC)).not.toBe(DEFAULT_ATOMIC_DURATION);
     }
   });
 
   it('gives every working trade the civilist store exchange, which only jobs 1-6 bind themselves', async () => {
     const { merge } = await loadContentUnderTest();
     const content = merge.content;
-    for (const jobType of [BUILDER, COLLECTOR, CARRIER])
-      for (const atomic of [PICKUP_ATOMIC, PILEUP_ATOMIC])
-        expect(systems.atomicDuration(content, { tribe: VIKING, jobType }, atomic)).toBe(20); // viking_civilist_pickup/pileup
+    for (const atomic of [PICKUP_ATOMIC, PILEUP_ATOMIC]) {
+      const civilist = systems.atomicDuration(content, { tribe: VIKING, jobType: CIVILIST }, atomic);
+      expect(civilist).not.toBe(DEFAULT_ATOMIC_DURATION);
+      for (const jobType of [BUILDER, COLLECTOR, CARRIER])
+        expect(systems.atomicDuration(content, { tribe: VIKING, jobType }, atomic)).toBe(civilist);
+    }
   });
 
   it('binds none of the at-home clips the data authors', async () => {

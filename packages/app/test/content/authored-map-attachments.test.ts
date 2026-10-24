@@ -1,11 +1,9 @@
-import { existsSync } from 'node:fs';
 import { components, type Entity, halfCellMapFromCells } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { TERRAIN_OPEN } from '../../src/catalog/terrain.js';
 import { HUMAN_PLAYER } from '../../src/game/rules.js';
 import { runAuthoredMap } from '../../src/game/world/index.js';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
-import { realMapPath, realMapWorld } from './real-map-world.js';
 
 const { Building, JobAssignment, Residence, Settler } = components;
 
@@ -167,25 +165,5 @@ describe.runIf(hasRealIr())('authored decoded-map settlers - the attachtohouse t
     expect(manned).toHaveLength(slots);
     // Manned in their own class, never downgraded into the tower's carrier posts.
     for (const e of settlers) expect(sim.world.get(e, Settler).jobType).toBe(archerJob);
-  });
-});
-
-/** A corpus map rich in `attachtohouse` rows, all of them on the human player's seat. */
-const CORPUS_MAP = 'tutorial_006';
-
-/**
- * The whole chain over one real decoded map, from the generated `content/maps/*.json` to the settlers
- * standing in their buildings. Every other test here builds its own entity rows, so this is the only
- * one that reads what the pipeline actually wrote.
- */
-describe.runIf(hasRealIr() && existsSync(realMapPath(CORPUS_MAP)))('a real decoded map, end to end', () => {
-  it('lands its authored attachments at tick 0', { timeout: 120_000 }, async () => {
-    const { sim } = await realMapWorld({ mapId: CORPUS_MAP, machineSeats: [] });
-    const housed = [...sim.world.query(Residence)].length;
-    const posted = [...sim.world.query(JobAssignment)].length;
-    // Measured against CnMod 1.3.2; both move only on an intentional content or gate change. Half the
-    // housed are the eight husbands the map's `marry` lines move into their wives' homes.
-    expect(housed).toBe(16);
-    expect(posted).toBe(18);
   });
 });

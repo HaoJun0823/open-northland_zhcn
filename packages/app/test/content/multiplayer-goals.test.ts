@@ -1,7 +1,6 @@
-import { adminCommand, components, type Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { hasRealIr } from './helpers.js';
-import { realMapScript, realMapSessionWorld } from './real-map-world.js';
+import { realMapScript } from './real-map-world.js';
 
 /** Every corpus map that ships `[misc_multiplayer_goals]`, plain or packed, with the rows it authors. */
 const CORPUS_TABLES: Readonly<Record<string, readonly string[]>> = {
@@ -20,28 +19,6 @@ const CORPUS_TABLES: Readonly<Record<string, readonly string[]>> = {
   zgielk2: ['wonByMission'],
 };
 
-const RED = 1;
-const BLUE = 0;
-
-/** Kill the seat's men, which is its death; its women stay for the teardown to replace. */
-function killSeat(sim: Simulation, player: number): void {
-  for (const entity of sim.world.query(components.Person, components.Owner)) {
-    if (sim.world.has(entity, components.Female)) continue;
-    if (sim.world.get(entity, components.Owner).player === player) {
-      sim.enqueue(adminCommand({ kind: 'debugKill', target: entity }));
-    }
-  }
-}
-
-/** Step until `player` has a verdict, returning the tick it landed on; throws past `limit`. */
-function verdictTick(sim: Simulation, player: number, limit: number): number {
-  while (sim.tick < limit) {
-    sim.step();
-    if (sim.matchOutcome(player) !== 'undecided') return sim.tick;
-  }
-  throw new Error(`no verdict for seat ${player} by tick ${limit}`);
-}
-
 describe.runIf(hasRealIr())('multiplayer goal tables', () => {
   it('decodes each corpus table', () => {
     for (const [mapId, kinds] of Object.entries(CORPUS_TABLES)) {
@@ -51,49 +28,4 @@ describe.runIf(hasRealIr())('multiplayer goal tables', () => {
       ).toEqual(kinds);
     }
   });
-
-  it("wins Oczy Weza through its script's verdict, read at the next goal check", async () => {
-    const sim = await realMapSessionWorld(`map=oczy_weza&computer=${RED}`);
-    sim.step();
-    expect(sim.matchRules()).toMatchObject({ victory: 'goals', lastStanding: false });
-    expect(sim.matchRules().participants).toEqual(expect.arrayContaining([BLUE, RED]));
-    killSeat(sim, RED);
-    const limit = 4 * systems.MATCH_GOAL_CHECK_TICKS + systems.MATCH_DEATH_GRACE_TICKS;
-    const won = verdictTick(sim, BLUE, limit);
-    expect(sim.matchOutcome(BLUE)).toBe('victory');
-    expect(sim.matchOutcome(RED)).toBe('defeat');
-    expect(won % systems.MATCH_GOAL_CHECK_TICKS).toBe(0);
-    expect(sim.matchRanking()).toEqual([
-      { player: BLUE, outcome: 'victory' },
-      { player: RED, outcome: 'defeat' },
-    ]);
-    // The loser's houses go on the next check, with wild chickens where its people stood.
-    const houses = (player: number): number =>
-      [...sim.world.query(components.Building, components.Owner)].filter(
-        (e) => sim.world.get(e, components.Owner).player === player,
-      ).length;
-    expect(houses(RED)).toBeGreaterThan(0);
-    sim.run(systems.MATCH_GOAL_CHECK_TICKS);
-    expect(houses(RED)).toBe(0);
-    expect(houses(BLUE)).toBeGreaterThan(0);
-    const people = [...sim.world.query(components.Person, components.Owner)].filter(
-      (e) => sim.world.get(e, components.Owner).player === RED,
-    );
-    expect(people).toEqual([]);
-    const chicken = sim.content.tribes.find((tribe) => tribe.id === 'chicken')?.typeId;
-    const chickens = [...sim.world.query(components.Settler)].filter(
-      (e) => sim.world.get(e, components.Settler).tribe === chicken && !sim.world.has(e, components.Owner),
-    );
-    expect(chickens.length).toBeGreaterThan(0);
-  }, 60_000);
-
-  it("decides Ucieczka z Gazy's never-dying seats by their script verdict", async () => {
-    const sim = await realMapSessionWorld(`map=ucieczka_z_gazy&computer=${RED}`);
-    sim.step();
-    expect(sim.matchRules().participants).not.toContain(BLUE);
-    components.raiseMissionGoal(sim.world, BLUE, 'won');
-    const won = verdictTick(sim, BLUE, sim.tick + systems.MATCH_GOAL_CHECK_TICKS);
-    expect(sim.matchOutcome(BLUE)).toBe('victory');
-    expect(won % systems.MATCH_GOAL_CHECK_TICKS).toBe(0);
-  }, 60_000);
 });

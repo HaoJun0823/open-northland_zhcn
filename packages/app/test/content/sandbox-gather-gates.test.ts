@@ -7,6 +7,9 @@ import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
 const { Resource } = components;
 
+/** Five minutes of game time: several dig cycles per camp. */
+const DIG_TICKS = 3600;
+
 /** Total units still standing in `good`'s resource nodes. */
 function remaining(sim: ReturnType<typeof createSceneSim>, good: number): number {
   let total = 0;
@@ -22,7 +25,7 @@ function remaining(sim: ReturnType<typeof createSceneSim>, good: number): number
  * collector's mud/stone tracks) - a gate the synthetic sandbox content doesn't carry, so only this
  * real-content twin can prove the sandbox camps still work under it. The scene's collectors spawn as
  * veterans (`gatherMasteryExperience`); without that stamp a fresh collector pinned to an iron camp
- * fails `settlerMeetsNeed` forever and stands idle beside its deposit (the 2026-07-16 regression).
+ * fails `settlerMeetsNeed` forever and stands idle beside its deposit.
  */
 describe.runIf(hasRealIr())('sandbox scene on real content - gathering XP gates', () => {
   it('the iron and gold camps are actually mined (veteran collectors pass needforgood)', async () => {
@@ -30,10 +33,9 @@ describe.runIf(hasRealIr())('sandbox scene on real content - gathering XP gates'
     const sim = createSceneSim(sandboxScene, { content: merge.content });
     const iron = remaining(sim, GOOD_IRON);
     const gold = remaining(sim, GOOD_GOLD);
-    sim.run(3600); // 5 min of game time at 1× - several dig cycles per camp
+    sim.run(DIG_TICKS);
     expect(remaining(sim, GOOD_IRON)).toBeLessThan(iron);
     expect(remaining(sim, GOOD_GOLD)).toBeLessThan(gold);
-    // A 3600-tick real-content run is tens of seconds alone; the budget is a hang-guard sized for a
-    // CPU-contended full parallel run (observed timing out at 120s under multi-session machine load).
+    // Tens of seconds alone; the budget is a hang guard for a CPU-contended parallel run.
   }, 300_000);
 });

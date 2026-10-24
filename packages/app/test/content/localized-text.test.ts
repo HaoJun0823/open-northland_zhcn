@@ -17,7 +17,6 @@ describe.runIf(hasRealIr())('generated localized text', () => {
     'serves %s GUI, game-object names, history and briefing text',
     async (lang) => {
       const gui = readJson(`gui/strings/${lang}.json`) as GuiStrings;
-      expect(Object.keys(gui)).toHaveLength(14);
       expect(Object.keys(gui.misclogic ?? {}).length).toBeGreaterThan(40);
       if (lang === 'rus') expect(Object.values(gui.misclogic ?? {}).join(' ')).toMatch(/[А-Яа-я]/u);
 

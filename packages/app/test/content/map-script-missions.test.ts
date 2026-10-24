@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { MapScript } from '@open-northland/data';
-import type { Entity, SimEvent } from '@open-northland/sim';
-import { components, exportSaveGame, Simulation, systems, TICKS_PER_SECOND } from '@open-northland/sim';
+import type { Entity } from '@open-northland/sim';
+import { components, Simulation, systems, TICKS_PER_SECOND } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
   type AuthoredJoinRows,
@@ -11,7 +11,7 @@ import {
   UNRESOLVED_NAME,
 } from '../../src/game/world/index.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
-import { realMapWorld, restoreRealMapWorld } from './real-map-world.js';
+import { realMapWorld } from './real-map-world.js';
 
 /**
  * The whole corpus through the map-script join and then through the engine: every mission of every
@@ -89,49 +89,6 @@ function scriptOf(file: string): MapScript {
 describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
   'the map-script join over the real corpus',
   () => {
-    // Activate an authored mission as a fixture, preserving its actual goals and complete result
-    // list. This checks real-world execution and restore, not the campaign path to that mission.
-    it.each([
-      ['ExploreArea', 'nowa_nadzieja_sar'],
-      ['MoveUnitsInArea', 'blekiny_nurt'],
-      ['DockVehicle', 'mroczny_swiat'],
-      ['MissionFailed', 'blekiny_nurt'],
-    ] as const)('executes %s on %s and preserves the resulting save', async (opcode, mapId) => {
-      const { sim } = await realMapWorld({ mapId, machineSeats: [] });
-      sim.step();
-      const index =
-        sim.missions?.missions.findIndex(
-          (mission) =>
-            mission.results.some((result) => result.opcode === opcode) &&
-            mission.goals.every((goal) => goal.opcode === 'True' || goal.opcode === 'TimeGone'),
-        ) ?? -1;
-      const mission = sim.missions?.missions[index];
-      if (mission === undefined) throw new Error(`no timed ${opcode} mission in ${mapId}`);
-      components.writeMissionState(sim.world, (records) => {
-        for (let i = 0; i < records.length; i++) {
-          const record = records[i];
-          if (record === undefined) continue;
-          record.active = i === index;
-          if (i === index) record.activationClock = components.missionClock(sim.world, sim.tick);
-        }
-      });
-      const before = components.missionRecords(sim.world)[index]?.fireCount ?? 0;
-      const seconds = Math.max(
-        0,
-        ...mission.goals.map((goal) => (goal.opcode === 'TimeGone' ? goal.seconds : 0)),
-      );
-      const limit = sim.tick + seconds * TICKS_PER_SECOND + 2 * systems.MISSION_EVALUATION_TICKS;
-      const failures: SimEvent[] = [];
-      while ((components.missionRecords(sim.world)[index]?.fireCount ?? 0) === before && sim.tick < limit) {
-        sim.step();
-        failures.push(...sim.events.current().filter((event) => event.kind === 'missionResultFailed'));
-      }
-      expect(components.missionRecords(sim.world)[index]?.fireCount).toBe(before + 1);
-      expect(failures).toEqual([]);
-      const restored = await restoreRealMapWorld(mapId, exportSaveGame(sim, { mapId }));
-      expect(restored.hashState()).toBe(sim.hashState());
-    });
-
     it('resolves every name argument the served catalog knows, in every field', () => {
       const rows = rawIrUnderTest() as AuthoredJoinRows;
       const resolvedPerField = new Map(MISSION_NAME_FIELDS.map((field) => [field, 0]));

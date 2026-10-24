@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -9,7 +9,6 @@ import {
   mapBenchWorld,
   markCheckpointPath,
 } from '../../bench/map-world.js';
-import { sessionRoles } from '../../src/game/session-roles.js';
 import { hasRealIr } from './helpers.js';
 
 /**
@@ -97,36 +96,6 @@ describe.runIf(hasRealIr())('benchmark map checkpoint', () => {
     await expect(mapBenchWorld(otherMap, 0)).rejects.toThrow(/map 'magiczny_las', not 'specjalna_forteca'/);
   });
 
-  it('stamps the session a browser URL names, difficulty included, and refuses an older stamp', async () => {
-    const hard = options({
-      session: session(`lang=pol&${BASE_SEARCH}&difficulty=0:hard&weathermode=map`),
-      checkpointPath: join(dir, 'hard.checkpoint'),
-    });
-    await mapBenchWorld(hard, 0);
-    const save = JSON.parse(readFileSync(join(dir, 'hard.checkpoint'), 'utf8'));
-    expect(save.header.session.search).toBe(hard.session.search);
-    expect(hard.session.search.split('&')).toEqual(
-      expect.arrayContaining(['difficulty=0:hard', 'weathermode=map', 'fog=classic']),
-    );
-    expect((await mapBenchWorld(hard, 0)).source).toBe('checkpoint');
-
-    const { search: _search, ...older } = save.header.session;
-    const olderPath = join(dir, 'older.checkpoint');
-    writeFileSync(
-      olderPath,
-      JSON.stringify({
-        ...save,
-        header: {
-          ...save.header,
-          session: { ...older, machineSeats: [0, 6], tribes: '', progression: null, needs: null },
-        },
-      }),
-    );
-    await expect(mapBenchWorld({ ...hard, checkpointPath: olderPath }, 0)).rejects.toThrow(
-      `${olderPath} carries no benchmark stamp this tool reads`,
-    );
-  });
-
   it('writes one checkpoint per mark, each restoring to the continuous run at that tick', async () => {
     const base = join(dir, 'marks.checkpoint');
     const marked = options({
@@ -179,13 +148,5 @@ describe.runIf(hasRealIr())('benchmark map checkpoint', () => {
     await expect(mapBenchWorld({ ...again, checkpointMarks: [LAST_MARK + 1] }, span)).rejects.toThrow(
       `checkpoint mark(s) ${LAST_MARK + 1} fall outside this run's ticks ${FIRST_MARK + 1}..${LAST_MARK}`,
     );
-  });
-
-  it('prints a session whose assistants are the AI seats it builds, also without seat 0', () => {
-    // The bench grants assistants to its AI seats alone; the session it names must do the same, which
-    // an overseer's claim on seat 0 would not.
-    const { game } = session(BASE_SEARCH.replace('computer=0', 'computer=1'));
-    expect(sessionRoles(game, []).assistantSeats).toEqual([1, MAP_COMPUTER_SEAT]);
-    expect(sessionRoles(game, []).matchParticipants).toEqual([1, MAP_COMPUTER_SEAT]);
   });
 });

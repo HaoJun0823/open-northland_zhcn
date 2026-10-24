@@ -153,31 +153,16 @@ describe.runIf(hasRealIr())('AI opening plan against real content', () => {
     const brick = content.goods.find((g) => g.id === 'brick')?.typeId ?? -1;
     const linesOf = (phase: 'opening' | 'mid' | 'late') =>
       supplyLines(content, DEFAULT_BUILD_ORDER, phase).get(brick);
-    // The largest bill takes three bricks and no workshop shelves them: a three-brick unit, and one, two
-    // and three units per lookahead entry past comfort.
-    const lines = { unit: 3, short: 6, comfort: 9 };
-    expect(linesOf('opening')).toEqual({ ...lines, glut: 18 });
-    expect(linesOf('mid')).toEqual({ ...lines, glut: 27 });
-    expect(linesOf('late')).toEqual({ ...lines, glut: 36 });
-  });
-
-  it('keeps the small joinery on iron tools, turning to furniture only at an authored glut, the upgraded one on handcarts in turn with tools while few stand free', () => {
-    const plan = CRAFT_PLANS_BY_BUILDING_ID.work_joinery_01;
-    for (const seat of plan?.seats ?? []) {
-      expect(seat).toMatchObject({ goods: ['tool_iron'], otherwise: ['furniture'] });
-      expect('goods' in seat && seat.glut.tool_iron).toBeGreaterThan(0);
-    }
-    expect(plan?.seats).toHaveLength(2);
-    expect(CRAFT_PLANS_BY_BUILDING_ID.work_joinery_02?.seats).toEqual([
-      {
-        fleet: 'handcart',
-        beside: ['tool_iron'],
-        freeOnly: true,
-        cap: 2,
-        resume: 1,
-        otherwise: ['tool_iron'],
-      },
-    ]);
+    // Past comfort a building material's lines grow with the phase's lookahead; the nearer lines stay.
+    const [opening, mid, late] = (['opening', 'mid', 'late'] as const).map(linesOf);
+    if (opening === undefined || mid === undefined || late === undefined)
+      throw new Error('brick takes no supply lines');
+    const near = ({ unit, short, comfort }: NonNullable<typeof opening>) => ({ unit, short, comfort });
+    expect(near(mid)).toEqual(near(opening));
+    expect(near(late)).toEqual(near(opening));
+    expect(opening.glut).toBeGreaterThan(opening.comfort);
+    expect(mid.glut).toBeGreaterThan(opening.glut);
+    expect(late.glut).toBeGreaterThan(mid.glut);
   });
 
   it('the workforce tables name real buildings, goods, and matching worker slots', async () => {

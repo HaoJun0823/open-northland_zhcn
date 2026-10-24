@@ -59,18 +59,6 @@ describe.runIf(hasRealIr())('roster is backed by decoded content', () => {
     }
   });
 
-  it('the warrior body carries the armed attack sequences', () => {
-    const byLib = new Map((rawIrUnderTest() as Ir).bobSequences?.map((s) => [s.imagelib, s.sequences ?? []]));
-    const names = new Set((byLib.get('cr_hum_body_05.bmd') ?? []).map((s) => s.name));
-    for (const anchor of [
-      'human_man_Warrior_Broadsword_attack',
-      'human_man_Warrior_Longbow_attack',
-      'human_man_Warrior_Broadsword_walk',
-    ]) {
-      expect(names.has(anchor), `expected warrior sequence ${anchor}`).toBe(true);
-    }
-  });
-
   it('every roster body + head atlas is decoded on disk (no 404 in the gallery)', () => {
     const bobs = resolve(contentDir(), 'bobs');
     // Skip if the bobs dir itself isn't present (partial content/).

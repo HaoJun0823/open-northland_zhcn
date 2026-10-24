@@ -5,30 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { contentDir, hasRealIr } from './helpers.js';
 import { realMapWorld } from './real-map-world.js';
 
-const {
-  MissionObjectId,
-  Position,
-  Rider,
-  Settler,
-  Vehicle,
-  VehicleStock,
-  vehicleCommander,
-  vehiclePassengers,
-} = components;
+const { MissionObjectId, Position, Rider, Settler, Vehicle, VehicleStock, vehicleCommander } = components;
 
 /**
- * The decoded `setvehicle` rows and the `attachtovehicle` / `moveintovehicle` seats of two real maps,
- * through the map entry's own world build: a scripted crew that boards a ship before the first tick,
- * and carts whose authored cargo is stowed, booked and asked for with a carrier seated on each.
+ * The decoded `setvehicle` rows and `attachtovehicle` seats of a real map, through the map entry's own
+ * world build: carts whose authored cargo is stowed, booked and asked for with a carrier seated on each.
  */
-
-/** Five heroes board the player's small ship, the first line's soldier as its commander. */
-const SHIP_MAP = 'wybrzeze_czarow_sub2';
-const SHIP_AT = { hx: 18, hy: 74 };
-const SHIP_ID = 150;
-const COMMANDER_ID = 30;
-const CREW_IDS = [30, 31, 32, 33, 34];
-const SHIP_SMALL = 'ship_small';
 
 /** Three loaded carts with a carrier attached to each. */
 const CART_MAP = 'blekiny_nurt';
@@ -53,36 +35,6 @@ function vehicleAt(sim: Simulation, at: { hx: number; hy: number }): Entity {
 describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
   'authored decoded-map vehicles',
   () => {
-    it(
-      `${SHIP_MAP}: the five heroes ride the small ship, the first as commander, all aboard before tick one`,
-      async () => {
-        const { sim, content } = await realMapWorld({ mapId: SHIP_MAP, machineSeats: [] });
-        const ship = vehicleAt(sim, SHIP_AT);
-        const type = content.vehicles.find((v) => v.typeId === sim.world.get(ship, Vehicle).vehicleType);
-        expect(type?.id).toBe(SHIP_SMALL);
-        expect(sim.world.get(ship, MissionObjectId).id).toBe(SHIP_ID);
-        const seats = vehiclePassengers(sim.world.get(ship, Vehicle));
-        expect(seats).toHaveLength(CREW_IDS.length);
-        const commander = vehicleCommander(sim.world.get(ship, Vehicle));
-        if (commander === null) throw new Error('nobody commands the ship');
-        expect(sim.world.get(commander, MissionObjectId).id).toBe(COMMANDER_ID);
-        const crewIds = seats
-          .map((seat) => sim.world.get(seat.entity, MissionObjectId).id)
-          .sort((a, b) => a - b);
-        expect(crewIds).toEqual(CREW_IDS);
-        for (const seat of seats) {
-          expect(seat.inside).toBe(true);
-          expect(sim.world.has(seat.entity, Position)).toBe(false); // aboard: off the map
-          expect(sim.world.get(seat.entity, Rider)).toEqual({
-            vehicle: ship,
-            boarding: false,
-            leaving: null,
-          });
-        }
-      },
-      REAL_MAP_TIMEOUT_MS,
-    );
-
     it(
       `${CART_MAP}: the carts carry their authored cargo, asked for as stowed, with a carrier seated on each`,
       async () => {

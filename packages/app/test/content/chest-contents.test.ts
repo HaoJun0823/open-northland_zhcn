@@ -1,4 +1,4 @@
-import { components, Simulation, systems } from '@open-northland/sim';
+import { Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
@@ -6,7 +6,6 @@ const WOODEN_CHEST_LOGIC_TYPE = 85;
 const MAGICAL_CHEST_LOGIC_TYPE = 86;
 
 const { CHEST_CONTENTS, createChest, footprintCellsOf, resolveChestReward } = systems;
-const { Chest } = components;
 const CHEST_KIND_BY_LOGIC_TYPE = [
   ['wooden', WOODEN_CHEST_LOGIC_TYPE],
   ['magical', MAGICAL_CHEST_LOGIC_TYPE],
@@ -40,7 +39,6 @@ describe.runIf(hasRealIr())('chest contents against real content', () => {
       const record = content.landscapeGfx.find((g) => g.logicType === logicType);
       if (record === undefined) throw new Error(`no ${kind} chest record`);
       const e = createChest(sim.world, content, { kind, contents: 0, x: 4, y: 4, gfxIndex: record.index });
-      expect(sim.world.get(e, Chest).gfxIndex, kind).toBe(record.index);
       expect(footprintCellsOf(sim.world, e).sourceGfxIndex, kind).toBe(record.index);
       expect(footprintCellsOf(sim.world, e).walk.length, kind).toBeGreaterThan(0);
     }

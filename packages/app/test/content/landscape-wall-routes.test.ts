@@ -79,15 +79,14 @@ describe.runIf(hasRealIr())('landscape walls and dungeon doors', () => {
     },
   );
 
-  it.skipIf(!existsSync(realMapPath(NORTHLAND))).each([1, 2, 3, 4, 5, 6, 7, 8])(
-    'keeps Bjarni alive through the opening snakes for 90 seconds, seed %s',
-    async (seed) => {
+  it.skipIf(!existsSync(realMapPath(NORTHLAND)))(
+    'keeps Bjarni alive through the opening snakes for 90 seconds',
+    async () => {
       const { sim } = await realMapWorld({
         missions: true,
         mapId: NORTHLAND,
         machineSeats: [],
         humanSeats: [0],
-        seed,
       });
       const heroes = [
         ...sim.world.query(

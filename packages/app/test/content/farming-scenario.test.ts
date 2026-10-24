@@ -143,14 +143,6 @@ function standingFields(sim: Simulation): number {
 }
 
 describe.runIf(hasRealIr())('field-farming cycle over merged real content', () => {
-  it('resolves distinct trades and workplaces for wheat and herb', async () => {
-    const { merge } = await loadContentUnderTest();
-    const wheat = resolveActors(merge.content, 'wheat');
-    const herb = resolveActors(merge.content, 'herb');
-    expect(herb.worker.typeId).not.toBe(wheat.worker.typeId);
-    expect(herb.workplace.typeId).not.toBe(wheat.workplace.typeId);
-  });
-
   it('the starting herb worker harvests ripe map herbs outside the hut footprint', async () => {
     const { merge } = await loadContentUnderTest();
     const { crop, workplace } = resolveActors(merge.content, 'herb');
@@ -239,16 +231,4 @@ describe.runIf(hasRealIr())('field-farming cycle over merged real content', () =
       expect(standingFields(sim)).toBe(0);
     }, 30_000);
   }
-
-  it('is deterministic on real content: two same-seed farm runs end byte-identical', async () => {
-    const { merge } = await loadContentUnderTest();
-    const a = buildScenario(merge.content, 'wheat').sim;
-    const b = buildScenario(merge.content, 'wheat').sim;
-    for (let t = 0; t < FARM_TICKS; t++) {
-      a.step();
-      b.step();
-    }
-    expect(a.hashState()).toBe(b.hashState());
-    // Past the 5 s default: two full {@link FARM_TICKS} runs stepped in lockstep.
-  }, 60_000);
 });

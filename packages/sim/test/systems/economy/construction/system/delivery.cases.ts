@@ -22,7 +22,6 @@ import {
 import type { AtomicEffect } from '../../../../../src/core/atomic-effect.js';
 import type { Entity } from '../../../../../src/ecs/world.js';
 import { type Fixed, fx, nodeOfPosition, ONE, positionOfNode, Simulation } from '../../../../../src/index.js';
-import { housingCapacity } from '../../../../../src/simulation/hud.js';
 import { remainingConstructionSteps } from '../../../../../src/systems/economy/construction.js';
 import { plannerSystem } from '../../../../../src/systems/index.js';
 import { pickupFromStore } from '../../../../../src/systems/settlers/atomics/effects/goods/index.js';
@@ -31,6 +30,7 @@ import {
   collectSupplyTally,
   deliveredConstructionFraction,
 } from '../../../../../src/systems/stores/index.js';
+import { housingCapacity } from '../../../../fixtures/housing.js';
 
 import {
   BUILD_HOUSE_ATOMIC,

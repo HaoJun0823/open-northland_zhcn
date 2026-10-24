@@ -9,8 +9,9 @@ import {
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { adminCommand, nodeOfPosition, ONE, positionOfNode } from '../../../src/index.js';
+import type { NodeId, TerrainGraph } from '../../../src/nav/terrain/index.js';
+import { buildingFootprintOf, doorNodeOf } from '../../../src/systems/footprint/geometry.js';
 import {
-  buildingDoorNodes,
   canPlaceBuilding,
   canPlaceWorkFlag,
   dynamicBlockOverlay,
@@ -61,10 +62,22 @@ function anchor(sim: ReturnType<typeof mappedSim>, e: Entity) {
   return nodeOfPosition(p.x, p.y);
 }
 
+/** Every standing building's door node. */
+function buildingDoorNodes(sim: ReturnType<typeof mappedSim>, terrain: TerrainGraph): Set<NodeId> {
+  const doors = new Set<NodeId>();
+  for (const e of sim.world.query(Building, Position)) {
+    const { buildingType, tribe } = sim.world.get(e, Building);
+    const { hx, hy } = anchor(sim, e);
+    const door = doorNodeOf(terrain, buildingFootprintOf(sim.content, buildingType, tribe), hx, hy);
+    if (door !== null) doors.add(door);
+  }
+  return doors;
+}
+
 function expectClear(sim: ReturnType<typeof mappedSim>, vehicles: readonly Entity[]): void {
   const terrain = terrainOf(sim);
   const blocked = dynamicBlockOverlay(sim.world, ctxOf(sim), terrain);
-  const doors = buildingDoorNodes(sim.world, ctxOf(sim), terrain);
+  const doors = buildingDoorNodes(sim, terrain);
   const claimed = new Set<number>();
   for (const e of vehicles) {
     for (const node of vehicleFootprintNodes(sim.world, sim.content, terrain, e)) {

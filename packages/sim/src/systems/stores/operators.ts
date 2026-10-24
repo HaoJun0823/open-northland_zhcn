@@ -81,20 +81,13 @@ export function presentOperatorsInto(
   return into;
 }
 
-/** {@link presentOperators} counted through {@link operatorCountOf}, listing nobody. */
-export function presentOperatorCount(world: World, ctx: SystemContext, building: Entity): number {
-  const jobs = operatorJobsOf(world, ctx, building);
-  if (jobs.size === 0) return UNSTAFFED_OPERATOR_COUNT;
-  return scanPresent(world, ctx, building, jobs, undefined);
-}
-
-/** How many operators stand on station, each written into `present` when given. */
+/** How many operators stand on station, each written into `present`. */
 function scanPresent(
   world: World,
   ctx: SystemContext,
   building: Entity,
   jobs: ReadonlySet<number>,
-  present: Entity[] | undefined,
+  present: Entity[],
 ): number {
   const cap = operatorSlotHeadcount(world, ctx, building, jobs);
   const workers = assignedWorkers(world, building);
@@ -112,7 +105,7 @@ function scanPresent(
       !atInteractionNode(world, ctx, building, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))
     )
       continue;
-    if (present !== undefined) present[count] = e;
+    present[count] = e;
     count++;
   }
   return count;

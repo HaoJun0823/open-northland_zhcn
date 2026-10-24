@@ -1,6 +1,6 @@
 import { type ContentSet, parseContentSet, type WeaponType } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { isRangedWeapon, isSiegeWeapon, weaponsForJob } from '../../../../src/systems/index.js';
+import { isRangedWeapon, isSiegeWeapon } from '../../../../src/systems/index.js';
 import { TEST_MANIFEST } from '../../../fixtures/content.js';
 
 const SWORDSMAN = 6;
@@ -57,12 +57,5 @@ describe('weapon classes', () => {
       ['bow_short', true, false],
       ['catapult', true, true],
     ]);
-  });
-
-  it('lists the weapons a job wields in source order, and none for a job no weapon names', () => {
-    const content = weaponContent();
-    expect(weaponsForJob(content, SWORDSMAN).map((w) => w.id)).toEqual(['sword_short', 'mace']);
-    expect(weaponsForJob(content, FIGHTER).map((w) => w.id)).toEqual(['fist']);
-    expect(weaponsForJob(content, 0)).toEqual([]);
   });
 });

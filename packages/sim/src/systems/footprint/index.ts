@@ -8,7 +8,6 @@
 // with on its anchor tile. While under construction, every type instead uses its legal work perimeter.
 
 export {
-  buildingDoorNodes,
   buildingWalkBodyOf,
   type ConstructionPlot,
   constructionSitePlots,

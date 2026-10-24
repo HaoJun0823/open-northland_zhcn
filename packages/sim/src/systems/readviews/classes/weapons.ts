@@ -1,5 +1,4 @@
-import type { ContentSet, WeaponType } from '@open-northland/data';
-import { groupByKey } from './group.js';
+import type { WeaponType } from '@open-northland/data';
 
 /** A present `munitionType` (`1` = arrow, `2` = catapult projectile) marks the rows that fire ammunition. */
 export function isRangedWeapon(weapon: WeaponType): boolean {
@@ -23,27 +22,8 @@ export function isSiegeWeapon(weapon: WeaponType): boolean {
   return weapon.damageType !== undefined;
 }
 
-/** In `content.weapons` source order rather than keyed: an `id` and a `typeId` both recur across tribes,
- *  so a keyed collection would drop records. */
-export function rangedWeapons(content: ContentSet): WeaponType[] {
-  return content.weapons.filter(isRangedWeapon);
-}
-
 /** The extracted `mainType`: 1 fist, 2 spear, 3 sword, 6 bow, 7 catapult. The saber rows carry 4 and the
  *  hero axe 5, which the sim gives no class and no fight bucket. */
 export function weaponClassOf(weapon: WeaponType): number | undefined {
   return weapon.mainType;
-}
-
-/**
- * The data-defined soldier-class roster: each `[weapontype]` carries a `jobtype` naming the job that
- * fights with it. Many-to-one, since one job wields several weapons across tribes.
- */
-export function weaponsByJob(content: ContentSet): Map<number, WeaponType[]> {
-  return groupByKey(content.weapons, (weapon) => weapon.jobType);
-}
-
-/** The per-job slice of {@link weaponsByJob}, as a fresh source-order array. */
-export function weaponsForJob(content: ContentSet, job: number): WeaponType[] {
-  return content.weapons.filter((w) => w.jobType === job);
 }

@@ -16,9 +16,9 @@ import {
 import type { ChangeFeed } from '../../../../../src/ecs/change-feed.js';
 import type { Entity } from '../../../../../src/ecs/world.js';
 import { fx, ONE, Simulation } from '../../../../../src/index.js';
-import { housingCapacity } from '../../../../../src/simulation/hud.js';
 import { assembleBuilding } from '../../../../../src/systems/command/placement.js';
 import { constructionSystem, stockCapacity } from '../../../../../src/systems/index.js';
+import { housingCapacity } from '../../../../fixtures/housing.js';
 
 import {
   ctxOf,

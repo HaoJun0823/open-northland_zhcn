@@ -9,8 +9,6 @@ export {
   atomicEventChannelDelta,
   atomicEventFrame,
   atomicEventFrames,
-  atomicHasExtendedEvents,
-  atomicStartDirection,
   boundAnimalAtomicAnimation,
   eventTick,
   isInterruptibleAtomic,
@@ -37,10 +35,7 @@ export {
   isAreaWeapon,
   isRangedWeapon,
   isSiegeWeapon,
-  rangedWeapons,
   weaponClassOf,
-  weaponsByJob,
-  weaponsForJob,
 } from './classes/index.js';
 export {
   ARMOR_MATERIAL,
@@ -85,13 +80,7 @@ export {
 } from './jobs.js';
 export {
   firstLandscapeGfxOf,
-  isLandLayerType,
-  isUniversalLayerType,
-  isWaterLayerType,
-  landLayerLandscape,
   MEAT_LANDSCAPE_SLUG,
-  universalLayerLandscape,
-  waterLayerLandscape,
 } from './landscape.js';
 export { productionAtomic } from './production-atomic.js';
 export {
@@ -132,7 +121,5 @@ export {
 export {
   isShipVehicle,
   isSiegeVehicle,
-  largestShipCapacity,
-  shipVehicles,
   vehicleHouseOfGood,
 } from './vehicles.js';

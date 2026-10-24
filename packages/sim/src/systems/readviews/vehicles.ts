@@ -41,23 +41,6 @@ export function awaitsDraughtAnimal(vehicle: VehicleType, state: { readonly harn
   return vehicle.draggingAnimalTribe !== undefined && !state.harnessed;
 }
 
-/** Sorted ascending by `typeId`, so enumeration does not depend on declaration order. */
-export function shipVehicles(content: ContentSet): VehicleType[] {
-  return content.vehicles.filter(isShipVehicle).sort((a, b) => a.typeId - b.typeId);
-}
-
-/**
- * The maximum `stockslots` over the ship rows, or 0 when content ships none. Static content capacity, not
- * gated on a tribe's tech graph.
- */
-export function largestShipCapacity(content: ContentSet): number {
-  let best = 0;
-  for (const vehicle of content.vehicles) {
-    if (isShipVehicle(vehicle) && vehicle.stockSlots > best) best = vehicle.stockSlots;
-  }
-  return best;
-}
-
 /**
  * The `vehicle`-kind house a workshop raises to make `goodType`, or undefined for an ordinary ware. A
  * vehicle good is never crafted as a recipe cycle or shelved: its production is a hidden construction

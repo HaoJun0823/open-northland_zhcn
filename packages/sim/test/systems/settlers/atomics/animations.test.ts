@@ -4,8 +4,6 @@ import {
   ATOMIC_EVENT_CHANNEL,
   atomicAnimationByName,
   atomicEventChannelDelta,
-  atomicHasExtendedEvents,
-  atomicStartDirection,
   isInterruptibleAtomic,
   isStrokeCountedAtomic,
 } from '../../../../src/systems/index.js';
@@ -19,11 +17,8 @@ import { TEST_MANIFEST } from '../../../fixtures/content.js';
 
 /**
  * The atomic-animation read views - `atomicAnimationByName` (the canonical name→record resolver the
- * `atomicDuration`/combat-cadence lookups spell out inline), `isInterruptibleAtomic`,
- * `atomicStartDirection` (the two `atomicanimations.ini` scalars no sim system reads yet), and
- * `atomicEventChannelDelta` (the net per-channel delta over the `events` array), and
- * `atomicHasExtendedEvents` (whether the animation carries any `eventx` line - the last unread
- * per-event `AtomicEvent.extended` field). These are genuinely extracted (245/896 animations carry
+ * `atomicDuration`/combat-cadence lookups spell out inline), `isInterruptibleAtomic`, and
+ * `atomicEventChannelDelta` (the net per-channel delta over the `events` array). These are genuinely extracted (245/896 animations carry
  * `interruptible=true`, 89/896 a `startDirection`, 695/896 ≥1 `event`, and 43 of the ~2900 event lines
  * are `eventx` clustering on `*_produce_*` in the real IR), so the fixture sets non-default values on a
  * couple of entries to exercise a real read, not just the schema defaults.
@@ -70,8 +65,8 @@ function animationContent(): ContentSet {
       },
       // A produce: the real `*_produce_*` two-stream shape - plain `event` good yields alongside
       // `eventx` lines (the worker's own need-drains while labouring + the production start/end
-      // brackets). Exercises `atomicHasExtendedEvents` and confirms the channel-delta sum spans both
-      // streams (it sums by `type`, not by `extended`).
+      // brackets). Confirms the channel-delta sum spans both streams (it sums by `type`, not by
+      // `extended`).
       {
         id: 'viking_produce',
         name: 'viking_produce',
@@ -148,16 +143,6 @@ describe('isInterruptibleAtomic', () => {
   });
 });
 
-describe('atomicStartDirection', () => {
-  it('returns the pinned facing, and undefined (not facing 0) when none is pinned or the name is unknown', () => {
-    const content = animationContent();
-    expect(atomicStartDirection(content, 'viking_chop')).toBe(2);
-    expect(atomicStartDirection(content, 'viking_idle')).toBeUndefined();
-    expect(atomicStartDirection(content, 'viking_walk')).toBeUndefined();
-    expect(atomicStartDirection(content, 'nonexistent_anim')).toBeUndefined();
-  });
-});
-
 describe('atomicEventChannelDelta', () => {
   it('sums every event on the channel, across both the plain and the eventx stream', () => {
     const content = animationContent();
@@ -174,17 +159,6 @@ describe('atomicEventChannelDelta', () => {
     expect(atomicEventChannelDelta(content, 'viking_eat', 34)).toBe(0); // the cue carries no value
     expect(atomicEventChannelDelta(content, 'viking_walk', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0);
     expect(atomicEventChannelDelta(content, 'nonexistent_anim', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0);
-  });
-});
-
-describe('atomicHasExtendedEvents', () => {
-  it('is true only when the animation carries an eventx line', () => {
-    const content = animationContent();
-    expect(atomicHasExtendedEvents(content, 'viking_produce')).toBe(true);
-    expect(atomicHasExtendedEvents(content, 'viking_eat')).toBe(false);
-    expect(atomicHasExtendedEvents(content, 'viking_sleep')).toBe(false);
-    expect(atomicHasExtendedEvents(content, 'viking_walk')).toBe(false); // no events at all
-    expect(atomicHasExtendedEvents(content, 'nonexistent_anim')).toBe(false);
   });
 });
 

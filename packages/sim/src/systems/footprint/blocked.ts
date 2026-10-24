@@ -6,24 +6,11 @@ import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { heldBuildingTypesStand, type WalkBody, walkBodyOf } from './building-blocked-cache.js';
-import { ANCHOR_ONLY, buildingFootprintOf, doorNodeOf } from './geometry.js';
+import { ANCHOR_ONLY, buildingFootprintOf } from './geometry.js';
 import { walkBlockMask } from './walk-block-mask.js';
 
 // Walk-block overlays for routing and render, over the memoized building cells and the incrementally
 // cached resource cells. Derived state, never hashed.
-
-/** Every standing building's door node - the passable gates the building walk-block carves out. */
-export function buildingDoorNodes(world: World, ctx: ContentContext, terrain: TerrainGraph): Set<NodeId> {
-  const doors = new Set<NodeId>();
-  for (const e of world.query(Building, Position)) {
-    const { buildingType, tribe } = world.get(e, Building);
-    const p = world.get(e, Position);
-    const { hx, hy } = nodeOfPosition(p.x, p.y);
-    const door = doorNodeOf(terrain, buildingFootprintOf(ctx.content, buildingType, tribe), hx, hy);
-    if (door !== null) doors.add(door);
-  }
-  return doors;
-}
 
 /** One under-construction building's ground plot, for the render's construction-site decal. Cells are
  *  `(col, row)` half-cell nodes, the coords `halfCellToScreen` projects. */

@@ -11,7 +11,8 @@ import { findPath, fx, positionOfNode, Simulation } from '../../../../src/index.
 import {
   buildingBlockedCells,
   interactionNode,
-  presentOperatorCount,
+  operatorCountOf,
+  presentOperators,
 } from '../../../../src/systems/index.js';
 
 import {
@@ -55,9 +56,9 @@ describe('door cell - settlers interact with a house at its entry point', () => 
     });
     sim.world.add(worker, JobAssignment, { workplace: hut });
     sim.world.add(worker, Position, positionOfNode(5, 5)); // ON the walls (the anchor node) - not at work
-    expect(presentOperatorCount(sim.world, ctxOf(sim), hut)).toBe(0);
+    expect(operatorCountOf(presentOperators(sim.world, ctxOf(sim), hut))).toBe(0);
     Object.assign(sim.world.get(worker, Position), positionOfNode(4, 5)); // at the door node (4,5)
-    expect(presentOperatorCount(sim.world, ctxOf(sim), hut)).toBe(1);
+    expect(operatorCountOf(presentOperators(sim.world, ctxOf(sim), hut))).toBe(1);
   });
 });
 

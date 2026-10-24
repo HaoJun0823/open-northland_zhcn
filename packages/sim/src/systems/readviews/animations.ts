@@ -331,15 +331,6 @@ export function isInterruptibleAtomic(content: ContentSet, name: string): boolea
 }
 
 /**
- * The facing-direction index the named atomic animation pins (`atomicanimations.ini` `startdirection`), or
- * `undefined` when it pins none (only ~10% of base animations carry one). Not coerced to `0`, since "no
- * pinned facing" differs from "face north".
- */
-export function atomicStartDirection(content: ContentSet, name: string): number | undefined {
-  return atomicAnimationByName(content, name)?.startDirection;
-}
-
-/**
  * The net signed delta the named atomic animation contributes to one {@link ATOMIC_EVENT_CHANNEL} - the sum
  * of `event.value` over every `event`/`eventx` of that `type`. A restoring animation totals positive
  * (`..._eat_slot_food` over `HUNGER` is `+4000`), a draining one negative; a bare cue carrying no `value`
@@ -353,15 +344,6 @@ export function atomicEventChannelDelta(content: ContentSet, name: string, chann
     if (event.type === channel) total += event.value ?? 0;
   }
   return total;
-}
-
-/**
- * Whether the named atomic animation carries any `eventx` event - the second event stream the source spells
- * with that key. In the real data `eventx` lines cluster on `*_produce_*` clips, bracketing the run and
- * draining the worker's rest and hunger bars, so this doubles as the self-draining-production marker.
- */
-export function atomicHasExtendedEvents(content: ContentSet, name: string): boolean {
-  return atomicAnimationByName(content, name)?.events.some((e) => e.extended) ?? false;
 }
 
 /** The frame (`at`) of the named animation's first `event`/`eventx` of `eventType`, or `undefined` when it

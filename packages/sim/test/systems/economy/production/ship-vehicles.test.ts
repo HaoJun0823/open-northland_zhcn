@@ -1,6 +1,6 @@
 import { type ContentSet, parseContentSet, type VehicleType } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { isShipVehicle, largestShipCapacity, shipVehicles } from '../../../../src/systems/index.js';
+import { isShipVehicle } from '../../../../src/systems/index.js';
 import { TEST_MANIFEST } from '../../../fixtures/content.js';
 
 /** Resolve a vehicle by its `id` from a content set (throws if absent - a test-fixture programmer error). */
@@ -97,37 +97,5 @@ describe('isShipVehicle', () => {
     expect(isShipVehicle(vehicle(content, 'handcart'))).toBe(false); // a cart - no passengers
     expect(isShipVehicle(vehicle(content, 'oxcart'))).toBe(false);
     expect(isShipVehicle(vehicle(content, 'catapult'))).toBe(false); // siege engine - passengerSlots 0
-  });
-});
-
-describe('shipVehicles', () => {
-  it('returns only the passenger-carrying vehicles (the ships)', () => {
-    const ids = shipVehicles(vehicleContent()).map((v) => v.id);
-    expect(ids).toEqual(['ship_small', 'ship_big']); // carts/catapult excluded
-  });
-
-  it('sorts ascending by typeId regardless of declaration order', () => {
-    // Declared ship_big(4) before ship_small(3); the view must still put ship_small first.
-    const typeIds = shipVehicles(vehicleContent()).map((v) => v.typeId);
-    expect(typeIds).toEqual([3, 4]);
-  });
-});
-
-describe('largestShipCapacity', () => {
-  it('returns the max stockSlots over the ships (the biggest mobile store), ignoring carts', () => {
-    // ship_big (200) beats ship_small (50); the oxcart's 30 and handcart's 15 are not ships, so even
-    // though the catapult/carts exist the capacity is the largest SHIP hold, not the largest vehicle.
-    expect(largestShipCapacity(vehicleContent())).toBe(200);
-  });
-
-  it('is 0 when no ship exists (a carts-only set, or no vehicles at all)', () => {
-    const cartsOnly = parseContentSet({
-      manifest: TEST_MANIFEST,
-      goods: [{ typeId: 0, id: 'none' }],
-      jobs: [{ typeId: 0, id: 'idle' }],
-      buildings: [{ typeId: 1, id: 'headquarters', kind: 'storage' }],
-      vehicles: [{ typeId: 1, id: 'handcart', jobId: 50, hitpoints: 1000, stockSlots: 15 }],
-    });
-    expect(largestShipCapacity(cartsOnly)).toBe(0);
   });
 });

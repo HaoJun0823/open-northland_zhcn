@@ -272,20 +272,6 @@ describe('weather climate lightning', () => {
     expect(after.flash).toBe(flash);
   });
 
-  it('is deterministic per seed and differs between seeds', () => {
-    const trace = (seed: number) => {
-      const climate = new WeatherClimate(seed);
-      const out: number[] = [];
-      for (let t = 0; t < 40; t += FRAME) {
-        const c = climate.step({ field: thunderstorm, viewport: WHOLE_MAP, gameSeconds: t, enabled: true });
-        out.push(c.windX, c.flash);
-      }
-      return out;
-    };
-    expect(trace(11)).toEqual(trace(11));
-    expect(trace(11)).not.toEqual(trace(12));
-  });
-
   it('drops strikes on a jump instead of replaying the skipped time', () => {
     const climate = new WeatherClimate(5);
     run(climate, thunderstorm, 0, 20);

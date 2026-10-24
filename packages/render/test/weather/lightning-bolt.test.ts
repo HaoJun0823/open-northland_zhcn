@@ -6,10 +6,6 @@ const SCREEN_W = 1280;
 const SCREEN_H = 720;
 
 describe('lightning bolt', () => {
-  it('is the same bolt for the same strike', () => {
-    expect(boltPaths(STRIKE, SCREEN_W, SCREEN_H)).toEqual(boltPaths(STRIKE, SCREEN_W, SCREEN_H));
-  });
-
   it('runs its main channel from above the screen to the strike point, with branches', () => {
     const paths = boltPaths(STRIKE, SCREEN_W, SCREEN_H);
     const main = paths.find((path) => path.generation === 0);

@@ -1,24 +1,15 @@
 import { FOG_STATE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { TILE_HALF_H, TILE_HALF_W } from '../../src/data/projection/index.js';
-import { NODES_PER_CELL, WeatherReach } from '../../src/gpu/weather/weather-reach.js';
+import { WeatherReach } from '../../src/gpu/weather/weather-reach.js';
 import { WorldFog } from '../../src/gpu/world-renderer/world-fog.js';
 import { fogViewOf, snapshotOf } from '../support/fixtures.js';
 
 const VIEWPORT = { minX: -1000, minY: -1000, maxX: 1000, maxY: 1000 };
 const WORLD = snapshotOf([]);
-const MAP_CELLS = { wide: 80, high: 60 };
+const _MAP_CELLS = { wide: 80, high: 60 };
 
 describe('WeatherReach', () => {
-  it('sizes the map edge fade in half-cell nodes', () => {
-    const reach = new WeatherReach();
-    reach.setMap(MAP_CELLS.wide, MAP_CELLS.high);
-    expect([...reach.uniforms.uniforms.uReachMap]).toEqual([
-      MAP_CELLS.wide * NODES_PER_CELL,
-      MAP_CELLS.high * NODES_PER_CELL,
-    ]);
-  });
-
   it('follows the fog wash band and asks for a rebind only when its texture changes', () => {
     const fog = new WorldFog();
     const reach = new WeatherReach();

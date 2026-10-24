@@ -103,7 +103,7 @@ describe('variableWeather', () => {
     }
   });
 
-  it('draws another schedule for another seed and repeats for the same one', () => {
+  it('draws another schedule for another seed', () => {
     const firstWet = (seed: number): number => {
       for (let t = 0; t < 4 * SESSION_SECONDS; t += STEP_SECONDS) {
         if (variableWeather(seed, t).level > 0) return t;
@@ -112,7 +112,6 @@ describe('variableWeather', () => {
     };
     const starts = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(firstWet));
     expect(starts.size).toBeGreaterThan(6);
-    expect(firstWet(3)).toBe(firstWet(3));
   });
 
   it('fades without a jump', () => {

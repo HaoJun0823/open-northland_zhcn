@@ -28,6 +28,8 @@ const TEXEL_BYTES = 4;
 const BYTE_MAX = 255;
 /** Long enough for a light rain to melt the snow and the ground to settle. */
 const MELT_RUN_SECONDS = 1800;
+/** A frame between cover steps, so a long run still sees the frames that step nothing. */
+const HALF_STEP = COVER_STEP_SECONDS / 2;
 
 /** Advance `cover` from `from` to `to` game seconds in steps of `step`. */
 function runSteps(cover: WeatherCover, from: number, to: number, step: number): void {
@@ -222,7 +224,8 @@ describe('weather cover', () => {
     alone.advance(0);
     pair.setField(gridOf([LIGHT_RAIN, 0, 0, 0, 0, 0]));
     alone.setField(fieldOf(LIGHT_RAIN, 0, 0));
-    for (let t = 1 / 60; t <= MELT_RUN_SECONDS; t += 1 / 60) expect(pair.advance(t)).toBe(alone.advance(t));
+    for (let t = HALF_STEP; t <= MELT_RUN_SECONDS; t += HALF_STEP)
+      expect(pair.advance(t)).toBe(alone.advance(t));
     expect(pair.sector(0)).toEqual(alone.sector(0));
     expect([...pair.texels().subarray(0, TEXEL_BYTES)]).toEqual([...alone.texels()]);
     expect([...pair.texels().subarray(TEXEL_BYTES)]).toEqual([0, 0, 0, 0]);
@@ -236,7 +239,7 @@ describe('weather cover', () => {
     let shown = cover.texels().slice();
     let any = cover.any;
     let reported = 0;
-    for (let t = 1 / 60, phase = 0; t <= MELT_RUN_SECONDS; t += 1 / 60) {
+    for (let t = HALF_STEP, phase = 0; t <= MELT_RUN_SECONDS; t += HALF_STEP) {
       if (t > (phase + 1) * (MELT_RUN_SECONDS / rains.length)) {
         phase++;
         cover.setField(gridOf([rains[phase] ?? 0, 0, 0, 0, 0, 0.1]));

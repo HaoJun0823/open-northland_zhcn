@@ -6,7 +6,7 @@ import { testFolder } from './support/folder.js';
  * The per-folder script resolution (`script.ts`): plaintext `player.inc`/`mission.inc` → one
  * MapScript, with roster names resolved through the map's string table. Fixtures are plain ASCII
  * (windows-1250 decodes ASCII 1:1); the reducer grammar itself is pinned in the formats package's
- * `ini-map-script.test.ts`.
+ * `ini/map-script.test.ts`.
  */
 describe('resolveMapScript', () => {
   let dir = testFolder();

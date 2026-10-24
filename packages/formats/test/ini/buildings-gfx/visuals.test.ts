@@ -1,0 +1,543 @@
+import { describe, expect, it } from 'vitest';
+import {
+  extractBuildingBobs,
+  extractBuildingFlagPoints,
+  extractBuildingGraphics,
+  extractBuildingHolyFirePoints,
+  extractBuildingOverlays,
+  extractBuildingSoldierFlagPoints,
+  extractConstructionLayers,
+  parseIniSections,
+} from '../../../src/ini.js';
+import { HOUSES_INI } from '../../fixtures/ini-sources.js';
+
+const GFXHOUSE_LAYERS_INI = `[GfxHouse]
+EditName "viking hut"
+LogicTribeType 1
+LogicType 0 2
+LogicType 1 3
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxPalette "house01" "house02"
+GfxBobId 0 1
+GfxBobId 1 11
+GfxBobConstructionLayer 0 0 3 -1 10 70
+GfxBobConstructionLayer 0 0 2 5 0 50
+GfxBobConstructionLayer 0 0 1 -1 20 100
+GfxBobConstructionLayer 0 1 11 -1 0 100
+GfxBobConstructionLayer 1 0 13 -1 10 70
+`;
+
+describe('extractConstructionLayers', () => {
+  const src = { file: 'budynki12/houses/houses.ini', layer: 'mod' as const };
+
+  it('joins layers to typeIds by level, keeping file order as stackIdx and fanning out per palette', () => {
+    const layers = extractConstructionLayers(parseIniSections(GFXHOUSE_LAYERS_INI), src);
+    const level0 = layers.filter((l) => l.typeId === 2 && l.paletteName === 'house01');
+    expect(level0.map((l) => ({ bob: l.bobId, up: l.upgrade, i: l.stackIdx }))).toEqual([
+      { bob: 3, up: false, i: 0 },
+      { bob: 2, up: false, i: 1 },
+      { bob: 1, up: false, i: 2 },
+      { bob: 11, up: true, i: 3 }, // the upgrade-overlay row is kept but flagged
+    ]);
+    // `-1` shadow → absent; a real shadow id is kept.
+    expect(level0[0]?.shadowBobId).toBeUndefined();
+    expect(level0[1]?.shadowBobId).toBe(5);
+    expect(level0[1]?.fromPct).toBe(0);
+    expect(level0[1]?.toPct).toBe(50);
+    // Level 1's layer lands on typeId 3; both palettes get every row.
+    expect(layers.filter((l) => l.typeId === 3)).toHaveLength(2);
+    expect(layers.filter((l) => l.paletteName === 'house02')).toHaveLength(5);
+    expect(level0[0]?.bmd).toBe('data/engine2d/bin/bobs/ls_houses_viking.bmd');
+  });
+});
+
+// Mirrors the real mill record's overlay grammar: a type-4 `GfxOverlay <sizeIdx> 4 <state> <x> <y>
+// <step> <bobId…>` pair (state 0 = the still blade frame, state 1 = the spin cycle) beside a type-3
+// row (a different, undecoded shape) that must be skipped, joined to typeIds via `LogicType`.
+const GFXHOUSE_OVERLAYS_INI = `[GfxHouse]
+EditName "viking mill"
+LogicTribeType 1
+LogicType 0 13
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxPalette "houseMiller01"
+GfxBobId 0 70
+GfxOverlay 0 4 0 0 0 1 76
+GfxOverlay 0 4 1 0 0 1 85 84 83 82 81
+GfxOverlay 0 3 1 3 -103 0
+`;
+
+describe('extractBuildingOverlays', () => {
+  const src = { file: 'budynki12/houses/houses.ini', layer: 'mod' as const };
+
+  it('extracts the two type-4 state rows, skipping the undecoded type-3 row', () => {
+    const overlays = extractBuildingOverlays(parseIniSections(GFXHOUSE_OVERLAYS_INI), src);
+    expect(overlays).toHaveLength(2);
+    const idle = overlays.find((o) => o.state === 0);
+    const working = overlays.find((o) => o.state === 1);
+    expect(idle).toMatchObject({
+      tribeId: 1,
+      typeId: 13,
+      level: 0,
+      x: 0,
+      y: 0,
+      step: 1,
+      frames: [76],
+      bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+      paletteName: 'housemiller01',
+      editName: 'viking mill',
+    });
+    expect(working?.frames).toEqual([85, 84, 83, 82, 81]);
+  });
+});
+
+// Mirrors the real viking-tower record's sign-post grammar (`GfxFlagPoint <sizeIdx> <x> <y>`, pixel
+// offsets from the bob draw anchor). The second record probes the repeated-level policy: the real
+// source repeats level lines in several records (two with differing values), and the extractor
+// resolves them last-wins - the fixture repeats with differing values so the policy is observable.
+const GFXHOUSE_FLAGPOINTS_INI = `[GfxHouse]
+EditName "viking tower"
+LogicTribeType 1
+LogicType 0 40
+LogicType 1 41
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking3.bmd"
+GfxPalette "house01"
+GfxBobId 0 15
+GfxBobId 1 20
+GfxFlagPoint 0 -6 29
+GfxFlagPoint 1 -4 38
+GfxFlagPoint 2 9 9
+gfxsoldierflagpoint 0 -6 -239
+gfxsoldierflagpoint 1 -6 -255
+EditName "Egypt Tower"
+LogicTribeType 5
+LogicType 0 40
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_egypt.bmd"
+GfxPalette "pyramid01"
+GfxBobId 0 3
+GfxFlagPoint 0 17 70
+GfxFlagPoint 0 17 72
+`;
+
+describe('extractBuildingFlagPoints', () => {
+  const src = { file: 'budynki12/houses/houses.ini', block: 'GfxHouse', layer: 'mod' as const };
+
+  it('joins flag points to typeIds by level, keeping the pixel offsets verbatim', () => {
+    const points = extractBuildingFlagPoints(parseIniSections(GFXHOUSE_FLAGPOINTS_INI), src);
+    expect(points.filter((p) => p.editName === 'viking tower')).toEqual([
+      { tribeId: 1, typeId: 40, level: 0, x: -6, y: 29, editName: 'viking tower', source: src },
+      { tribeId: 1, typeId: 41, level: 1, x: -4, y: 38, editName: 'viking tower', source: src },
+      // The level-2 line has no LogicType pairing → dropped, not guessed.
+    ]);
+  });
+
+  it('resolves a repeated level line last-wins (the chosen policy for the source duplicates)', () => {
+    const points = extractBuildingFlagPoints(parseIniSections(GFXHOUSE_FLAGPOINTS_INI), src);
+    expect(points.filter((p) => p.tribeId === 5)).toEqual([
+      { tribeId: 5, typeId: 40, level: 0, x: 17, y: 72, editName: 'Egypt Tower', source: src },
+    ]);
+  });
+});
+
+describe('extractBuildingSoldierFlagPoints', () => {
+  const src = { file: 'budynki12/houses/houses.ini', block: 'GfxHouse', layer: 'mod' as const };
+
+  it("reads the garrison mast off its own key - the tower's, not its sign post's", () => {
+    const points = extractBuildingSoldierFlagPoints(parseIniSections(GFXHOUSE_FLAGPOINTS_INI), src);
+    // The source spells this key all-lowercase while its siblings are CamelCase; the real viking-tower
+    // values are these, high above the anchor, where `GfxFlagPoint` is 29/38 px BELOW it.
+    expect(points).toEqual([
+      { tribeId: 1, typeId: 40, level: 0, x: -6, y: -239, editName: 'viking tower', source: src },
+      { tribeId: 1, typeId: 41, level: 1, x: -6, y: -255, editName: 'viking tower', source: src },
+    ]);
+  });
+
+  it('leaves a record that declares no mast out - only a garrison building has one', () => {
+    const points = extractBuildingSoldierFlagPoints(parseIniSections(GFXHOUSE_FLAGPOINTS_INI), src);
+    expect(points.some((p) => p.editName === 'Egypt Tower')).toBe(false);
+    expect(extractBuildingSoldierFlagPoints(parseIniSections(HOUSES_INI), src)).toEqual([]);
+  });
+});
+
+describe('extractBuildingHolyFirePoints', () => {
+  const src = { file: 'budynki12/houses/houses.ini', layer: 'mod' as const };
+
+  it('joins every repeated flame anchor to its level-specific building type in source order', () => {
+    const points = extractBuildingHolyFirePoints(
+      parseIniSections(`[GfxHouse]
+EditName "viking home"
+LogicTribeType 1
+LogicType 0 2
+LogicType 2 4
+LogicType 3 5
+LogicType 4 6
+GfxHolyFirePoint 2 -80 24
+GfxHolyFirePoint 3 -79 25
+GfxHolyFirePoint 3 -3 45
+GfxHolyFirePoint 4 -100 40
+GfxHolyFirePoint 4 -11 66
+GfxHolyFirePoint 1 99 99
+`),
+      src,
+    );
+
+    expect(points).toEqual([
+      {
+        tribeId: 1,
+        typeId: 4,
+        level: 2,
+        editName: 'viking home',
+        x: -80,
+        y: 24,
+        source: { ...src, block: 'GfxHouse' },
+      },
+      {
+        tribeId: 1,
+        typeId: 5,
+        level: 3,
+        editName: 'viking home',
+        x: -79,
+        y: 25,
+        source: { ...src, block: 'GfxHouse' },
+      },
+      {
+        tribeId: 1,
+        typeId: 5,
+        level: 3,
+        editName: 'viking home',
+        x: -3,
+        y: 45,
+        source: { ...src, block: 'GfxHouse' },
+      },
+      {
+        tribeId: 1,
+        typeId: 6,
+        level: 4,
+        editName: 'viking home',
+        x: -100,
+        y: 40,
+        source: { ...src, block: 'GfxHouse' },
+      },
+      {
+        tribeId: 1,
+        typeId: 6,
+        level: 4,
+        editName: 'viking home',
+        x: -11,
+        y: 66,
+        source: { ...src, block: 'GfxHouse' },
+      },
+      // Level 1 has no LogicType row in this fixture, so the orphan anchor is omitted.
+    ]);
+  });
+});
+
+// Mirrors DataCnmd/budynki12/houses/houses.ini for the bob join: a `[GfxHouse]` record pairs a per-level
+// `LogicType <level> <typeId>` table with a `GfxBobId <level> <bobId>` table, names the body `.bmd`
+// (`GfxBobLibs[0]`) recoloured by one-or-more palette skins, and is keyed to a tribe. A "home" spans
+// several levels (rising typeId + bob); a "well" is one level with TWO palette skins; the "headquarters"
+// has a `LogicType` but no `GfxBobId` (a free stage → no bob row).
+const GFXHOUSE_BOBS_INI = `[GfxHouse]
+EditName "viking home"
+LogicTribeType 1
+LogicType 0 2
+LogicType 1 3
+LogicType 4 6
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd" "data\\engine2d\\bin\\bobs\\ls_houses_viking_s.bmd"
+GfxPalette "house01"
+GfxBobId 0 1
+GfxBobId 1 11
+GfxBobId 4 41
+[GfxHouse]
+EditName "viking well"
+LogicTribeType 1
+LogicType 0 10
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxPalette "house01" "house02"
+GfxBobId 0 131
+[GfxHouse]
+EditName "headquarters"
+LogicTribeType 1
+LogicType 0 1
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxPalette "house01"
+`;
+
+describe('extractBuildingBobs', () => {
+  const src = { file: 'budynki12/houses/houses.ini', block: 'GfxHouse', layer: 'mod' as const };
+
+  it('pairs LogicType and GfxBobId by level, emitting one row per (typeId, level) → bob', () => {
+    const bobs = extractBuildingBobs(parseIniSections(GFXHOUSE_BOBS_INI), src);
+    // The home's three paired levels each resolve to their own typeId + bob (the top tier is the
+    // transcribed `6: 41`; the lower tiers are the growth stages the transcribed table omitted).
+    expect(bobs.filter((b) => b.editName === 'viking home')).toEqual([
+      {
+        tribeId: 1,
+        typeId: 2,
+        level: 0,
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house01',
+        bobId: 1,
+        editName: 'viking home',
+        source: src,
+      },
+      {
+        tribeId: 1,
+        typeId: 3,
+        level: 1,
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house01',
+        bobId: 11,
+        editName: 'viking home',
+        source: src,
+      },
+      {
+        tribeId: 1,
+        typeId: 6,
+        level: 4,
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house01',
+        bobId: 41,
+        editName: 'viking home',
+        source: src,
+      },
+    ]);
+  });
+
+  it('omits shadowBmd when GfxBobLibs names no shadow lib (the well)', () => {
+    const well = extractBuildingBobs(parseIniSections(GFXHOUSE_BOBS_INI), src).filter((b) => b.typeId === 10);
+    expect(well.length).toBeGreaterThan(0);
+    for (const b of well) expect(b.shadowBmd).toBeUndefined();
+  });
+
+  it('emits one row per palette skin (the same bob recoloured into each `GfxPalette` value)', () => {
+    const well = extractBuildingBobs(parseIniSections(GFXHOUSE_BOBS_INI), src).filter((b) => b.typeId === 10);
+    // `GfxPalette "house01" "house02"` → two rows, the same `(typeId 10 → bob 131)` in each recolour,
+    // so a render that loaded either atlas finds its row.
+    expect(well.map((b) => b.paletteName)).toEqual(['house01', 'house02']);
+    expect(new Set(well.map((b) => b.bobId))).toEqual(new Set([131]));
+  });
+
+  it('omits a level with a LogicType but no matching GfxBobId (the free headquarters stage)', () => {
+    const bobs = extractBuildingBobs(parseIniSections(GFXHOUSE_BOBS_INI), src);
+    expect(bobs.some((b) => b.typeId === 1)).toBe(false);
+  });
+
+  it('skips a record missing a body `.bmd`, any palette, or a LogicTribeType (never throws)', () => {
+    // No GfxBobLibs, no GfxPalette, no LogicTribeType - each alone disqualifies the record.
+    const bobs = extractBuildingBobs(
+      parseIniSections(`[GfxHouse]
+EditName "no bmd"
+LogicTribeType 1
+LogicType 0 2
+GfxPalette "house01"
+GfxBobId 0 9
+[GfxHouse]
+EditName "no palette"
+LogicTribeType 1
+LogicType 0 3
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxBobId 0 9
+[GfxHouse]
+EditName "no tribe"
+LogicType 0 4
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd"
+GfxPalette "house01"
+GfxBobId 0 9
+`),
+      src,
+    );
+    expect(bobs).toEqual([]);
+  });
+
+  // The real saracen/egypt blocks pack MANY houses under ONE `[GfxHouse]` bracket, each delimited only
+  // by a fresh `EditName` (no new bracket) - so `parseIniSections` lumps them into one section. Two
+  // houses with DIFFERENT bmd/palette/typeId/bob under one header; each must be recovered intact (a
+  // naive one-house-per-section read staples house A's bmd+palette to house B's last-wins type/bob).
+  const GFXHOUSE_LUMPED_INI = `[GfxHouse]
+EditName "saracen residence 06"
+LogicTribeType 4
+LogicType 0 6
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_saracen.bmd"
+GfxPalette "caves"
+GfxBobId 0 90
+EditName "saracen well"
+LogicTribeType 4
+LogicType 0 10
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_beduines.bmd"
+GfxPalette "rock03"
+GfxBobId 0 12
+`;
+
+  it('splits a lumped [GfxHouse] block (many houses, one bracket) into per-house records', () => {
+    const bobs = extractBuildingBobs(parseIniSections(GFXHOUSE_LUMPED_INI), src);
+    // Both houses survive, each with its OWN bmd + palette + bob (not house A's bmd stapled to B's bob).
+    expect(bobs).toEqual([
+      {
+        tribeId: 4,
+        typeId: 6,
+        level: 0,
+        bmd: 'data/engine2d/bin/bobs/ls_houses_saracen.bmd',
+        paletteName: 'caves',
+        bobId: 90,
+        editName: 'saracen residence 06',
+        source: src,
+      },
+      {
+        tribeId: 4,
+        typeId: 10,
+        level: 0,
+        bmd: 'data/engine2d/bin/bobs/ls_houses_beduines.bmd',
+        paletteName: 'rock03',
+        bobId: 12,
+        editName: 'saracen well',
+        source: src,
+      },
+    ]);
+  });
+
+  it('de-duplicates byte-identical rows (a literally-duplicated source record) but keeps variants', () => {
+    // Three records under one bracket: an exact duplicate (same type/bmd/palette/bob/editName → ONE row)
+    // and a same-typeId VARIANT (different editName + bob → KEPT, the join is multi-valued).
+    const bobs = extractBuildingBobs(
+      parseIniSections(`[GfxHouse]
+EditName "frank ship small"
+LogicTribeType 2
+LogicType 0 44
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_vehicles.bmd"
+GfxPalette "caves"
+GfxBobId 0 4
+EditName "frank ship small"
+LogicTribeType 2
+LogicType 0 44
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_vehicles.bmd"
+GfxPalette "caves"
+GfxBobId 0 4
+EditName "frank ship small front"
+LogicTribeType 2
+LogicType 0 44
+GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_vehicles.bmd"
+GfxPalette "caves"
+GfxBobId 0 5
+`),
+      src,
+    );
+    // One row for the duplicated record + one for the bob-5 variant = 2 (not 3).
+    expect(bobs.map((b) => ({ bob: b.bobId, edit: b.editName }))).toEqual([
+      { bob: 4, edit: 'frank ship small' },
+      { bob: 5, edit: 'frank ship small front' },
+    ]);
+  });
+});
+
+describe('extractBuildingGraphics', () => {
+  // Mirrors the real DataCnmd/budynki12/houses/houses.ini [GfxHouse] grammar (CamelCase keys, as the .ini
+  // parser yields it): a "viking home" that recolours one body bob into TWO skins on a single
+  // GfxPalette line (house01 + house02), and a "viking stock" (the warehouse) on house02 alone - the
+  // record whose missing atlas left the warehouse a placeholder box. A third record is a logic-only
+  // marker (no GfxBobLibs) and must be skipped.
+  const sections = parseIniSections(
+    [
+      '[GfxHouse]',
+      'EditName "viking home"',
+      'GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd" "data\\engine2d\\bin\\bobs\\ls_houses_viking_s.bmd"',
+      'GfxPalette "house01" "house02"',
+      'GfxBobId 0 11',
+      '[GfxHouse]',
+      'EditName "viking stock"',
+      'GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_viking.bmd" "data\\engine2d\\bin\\bobs\\ls_houses_viking_s.bmd"',
+      'GfxPalette "house02"',
+      'GfxBobId 0 53',
+      '[GfxHouse]', // logic-only marker: no GfxBobLibs -> dropped
+      'EditName "abstract group"',
+      'GfxPalette "house01"',
+    ].join('\n'),
+  );
+
+  it('emits one (bmd, palette) binding per GfxPalette value, normalizing path + lower-casing the name, carrying EditName', () => {
+    expect(extractBuildingGraphics(sections)).toEqual([
+      {
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house01',
+        tribeId: undefined,
+        jobId: undefined,
+        editName: 'viking home',
+      },
+      {
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house02',
+        tribeId: undefined,
+        jobId: undefined,
+        editName: 'viking home',
+      },
+      {
+        bmd: 'data/engine2d/bin/bobs/ls_houses_viking.bmd',
+        shadowBmd: 'data/engine2d/bin/bobs/ls_houses_viking_s.bmd',
+        paletteName: 'house02',
+        tribeId: undefined,
+        jobId: undefined,
+        editName: 'viking stock',
+      },
+    ]);
+  });
+
+  it('skips a record with no body bob (logic-only marker)', () => {
+    const noBob = parseIniSections(
+      ['[GfxHouse]', 'EditName "unbindable"', 'GfxPalette "house01"'].join('\n'),
+    );
+    expect(extractBuildingGraphics(noBob)).toEqual([]);
+  });
+
+  it('splits a lumped [GfxHouse] bracket so every sub-house binds its own (bmd, palette)', () => {
+    // The real saracen/egypt lumping: the second house is introduced by an annotated
+    // `[GfxHouse] - <name>` line (not a valid `[...]` header) plus a fresh EditName. Its distinct
+    // bmd+palette must emit; an unsplit read binds only the bracket's first pair.
+    const lumped = parseIniSections(
+      [
+        '[GfxHouse]',
+        'EditName "saracen residence 06"',
+        'GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_saracen.bmd"',
+        'GfxPalette "caves"',
+        '[GfxHouse] - Dom 1',
+        'EditName "saracen tent 01"',
+        'GfxBobLibs "data\\engine2d\\bin\\bobs\\ls_houses_beduines.bmd"',
+        'GfxPalette "rock03"',
+      ].join('\n'),
+    );
+    expect(extractBuildingGraphics(lumped)).toEqual([
+      {
+        bmd: 'data/engine2d/bin/bobs/ls_houses_saracen.bmd',
+        shadowBmd: undefined,
+        paletteName: 'caves',
+        tribeId: undefined,
+        jobId: undefined,
+        editName: 'saracen residence 06',
+      },
+      {
+        bmd: 'data/engine2d/bin/bobs/ls_houses_beduines.bmd',
+        shadowBmd: undefined,
+        paletteName: 'rock03',
+        tribeId: undefined,
+        jobId: undefined,
+        editName: 'saracen tent 01',
+      },
+    ]);
+  });
+});
+
+it('reads no house graphics from the logic-only house tables', () => {
+  const src = { file: 'budynki12/houses/houses.ini', block: 'GfxHouse', layer: 'mod' as const };
+  const sections = parseIniSections(HOUSES_INI);
+  for (const extract of [
+    extractConstructionLayers,
+    extractBuildingOverlays,
+    extractBuildingFlagPoints,
+    extractBuildingHolyFirePoints,
+    extractBuildingBobs,
+  ])
+    expect(extract(sections, src)).toEqual([]);
+});

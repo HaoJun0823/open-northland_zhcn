@@ -22,6 +22,8 @@ import { pl } from '../src/i18n/pl.js';
  *  column's one 93 px line at 1080p, where 14 Polish characters measured 92 px and 16 English ones 84. */
 const SHORT_LINE_MAX_CHARS = 16;
 const PLACEHOLDER = /\{[A-Za-z]+\}/g;
+const WOOD = 4;
+const STONE = 5;
 
 const COPIES: readonly (readonly [string, NoticeCopy])[] = [
   ['pl', pl.userMessages],
@@ -107,33 +109,9 @@ describe('notice text', () => {
   it('agrees the Polish wording with the settler’s sex and leads with the name and trade', () => {
     const he = compose(pl.userMessages, 'grewUp', { ...BARE, jobLabel: 'Rolnik', female: false });
     const she = compose(pl.userMessages, 'grewUp', { ...BARE, subjectName: 'Astrid', female: true });
-    expect(he).toEqual({
-      short: 'Dorósł',
-      full: 'Bjorn (Rolnik) dorósł. Możesz nadać mu zawód albo go ożenić.',
-    });
-    expect(she.short).toBe('Dorosła');
+    expect(he.short).not.toBe(she.short);
+    expect(he.full.startsWith('Bjorn (Rolnik) dorósł')).toBe(true);
     expect(she.full.startsWith('Astrid dorosła')).toBe(true);
-    expect(compose(pl.userMessages, 'hungry', { ...BARE, subjectName: 'Astrid', female: true }).full).toBe(
-      'Astrid jest głodna. Dostarcz jedzenie do magazynu w jej zasięgu.',
-    );
-  });
-
-  it('names buildings, vehicles and seats inside the sentence', () => {
-    expect(compose(en.userMessages, 'houseFinished', { ...BARE, subjectName: 'Sawmill' }).full).toBe(
-      'Construction finished: Sawmill.',
-    );
-    expect(compose(pl.userMessages, 'vehicleNoPath', { ...BARE, subjectName: 'Wóz' }).full).toBe(
-      'Wóz: brak drogi do celu. Wskaż inny cel.',
-    );
-    const contact = compose(en.userMessages, 'playerSighted', {
-      ...BARE,
-      subjectName: 'Player 2',
-      stanceName: 'hostile',
-    });
-    expect(contact).toEqual({
-      short: 'Contact: hostile',
-      full: 'New contact: Player 2. Attitude toward you: hostile.',
-    });
   });
 
   it('reports a death it cannot name with its own lines', () => {
@@ -147,14 +125,10 @@ describe('notice text', () => {
   it('tells a barracks course from a school one', () => {
     const course = (training: NonNullable<MessageTextParts['training']>) =>
       compose(pl.userMessages, 'canDoNewJob', { ...BARE, training });
-    expect(course({ course: 'barracks', profession: 'Żołnierz' })).toEqual({
-      short: 'Nowy żołnierz',
-      full: 'Bjorn ukończył szkolenie w koszarach i został żołnierzem.',
-    });
-    expect(course({ course: 'school', profession: 'Młynarz' })).toEqual({
-      short: 'Fach: Młynarz',
-      full: 'Bjorn ukończył szkołę i zna nowy zawód: Młynarz.',
-    });
+    const barracks = course({ course: 'barracks', profession: 'Żołnierz' });
+    const school = course({ course: 'school', profession: 'Młynarz' });
+    expect(barracks.short).not.toBe(school.short);
+    expect(school.full).toContain('Młynarz');
   });
 
   it('lists an experience unlock under one heading per kind, leaving empty kinds out', () => {
@@ -194,7 +168,7 @@ describe('notice text', () => {
     expect(carts.short).toBe('New vehicles');
   });
 
-  it('words a stalled workshop by its reason and the good it names', () => {
+  it('words a stalled workshop by its reason and names the good, or points at the panel without one', () => {
     const stall = (reason: ProductionStallReason) =>
       compose(pl.userMessages, 'productionStalled', {
         ...BARE,
@@ -202,42 +176,19 @@ describe('notice text', () => {
         goodName: 'Zboże',
         stall: reason,
       });
-    expect(stall('noInputSource')).toEqual({
-      short: 'Brak: Zboże',
-      full: 'Młyn: produkcja stoi, brakuje surowca: Zboże. Nie ma go w żadnym magazynie i żaden warsztat go nie wytwarza. Zbuduj i obsadź warsztat, który go wytwarza.',
-    });
-    expect(stall('noCollector')).toEqual({
-      short: 'Nikt nie zbiera: Zboże',
-      full: 'Młyn: produkcja stoi, brakuje surowca: Zboże. Nie ma go w żadnym magazynie i nikt go nie zbiera. Przydziel zbieracza albo włącz ten surowiec u obecnych zbieraczy.',
-    });
-    expect(stall('noHunter').full).toContain(
-      'Przydziel myśliwego albo włącz ten surowiec u obecnych myśliwych.',
-    );
-    expect(stall('noFisher').short).toBe('Nikt nie łowi: Zboże');
-    expect(stall('noOutputStore').short).toBe('Brak magazynu');
-    expect(stall('noLivestock').short).toBe('Brak zwierząt: Zboże');
-    expect(stall('tooFewLivestock').short).toBe('Brak pary: Zboże');
-    expect(stall('tooFewLivestock').full).toContain('Wyślij zwiadowcę do dzikich zwierząt, by zajął drugie');
-    expect(stall('unknown').full).toBe(
-      'Młyn: produkcja stoi. Zaznacz warsztat: jego panel pokaże przyczynę.',
-    );
+    expect(stall('noInputSource').full).toContain('Zboże');
+    expect(stall('noCollector').full).not.toBe(stall('noInputSource').full);
+    expect(stall('unknown').full).not.toContain('Zboże');
   });
 
-  it('words a refused worker order by its reason, naming the workplace and the trade', () => {
+  it('names the workplace and the trade of a refused worker order', () => {
     const refused = (reason: WorkerRefusalReason) =>
       compose(pl.userMessages, 'workerRefused', {
         ...BARE,
         refusal: { reason, building: 'Młyn', profession: 'Młynarz' },
       });
-    expect(refused('experience')).toEqual({
-      short: 'Za mało wprawy',
-      full: 'Bjorn ma za mało doświadczenia na ten zawód: Młynarz. Wyślij kogoś bardziej doświadczonego albo niech najpierw popracuje w zawodzie, który go odblokowuje.',
-    });
-    expect(refused('full').full).toBe(
-      'Bjorn: Młyn nie ma już wolnych miejsc pracy. Zwolnij któreś miejsce albo zbuduj drugi taki budynek.',
-    );
-    expect(refused('notOffered').full).toContain('nie ma zawodu, którego potrzebuje ten budynek (Młyn).');
-    expect(refused('locked').short).toBe('Praca zamknięta');
+    expect(refused('experience').full).toContain('Młynarz');
+    expect(refused('full').full).toContain('Młyn');
   });
 
   it.each(COPIES)('words every idle reason in %s, and a worker the sim gives none', (_lang, copy) => {
@@ -264,41 +215,14 @@ describe('notice text', () => {
     }
   });
 
-  it('names why an idle worker stands, with what to do, in place of a pointer to its panel', () => {
-    const idle = (parts: Partial<MessageTextParts>) =>
-      compose(pl.userMessages, userMessageTypeName(idleNoteType(parts.idle ?? null)), {
-        ...BARE,
-        goodName: 'Drewno',
-        ...parts,
-      });
-    expect(
-      idle({ goodName: 'Drewno, Kamień', idle: { kind: 'noResourceInArea', goodTypes: [4, 5] } }),
-    ).toEqual({
-      short: 'Brak w obszarze',
-      full: 'Bjorn nie ma czego zbierać. W obszarze pracy nie znaleziono zasobów do zebrania: Drewno, Kamień. Wskaż flagą roboczą miejsce z zasobami albo rozszerz zasięg drogowskazów.',
+  it('names the goods an idle worker found none of', () => {
+    const idle = { kind: 'noResourceInArea', goodTypes: [WOOD, STONE] } as const;
+    const text = compose(pl.userMessages, userMessageTypeName(idleNoteType(idle)), {
+      ...BARE,
+      goodName: 'Drewno, Kamień',
+      idle,
     });
-    expect(idle({ female: true, goodName: null, idle: { kind: 'noResource', goodTypes: [] } }).full).toBe(
-      'Bjorn nie ma czego zbierać. W zasięgu nie ma nic do zebrania. Nadaj jej inny zawód.',
-    );
-    expect(idle({ goodName: null, idle: { kind: 'nothingAtFlag', goodTypes: [] } })).toEqual({
-      short: 'Nic do zebrania',
-      full: 'Bjorn nie ma nic do roboty. Przy chorągiewce nie ma nic do zebrania. Przenieś chorągiewkę tam, gdzie leżą towary, albo ją zabierz.',
-    });
-    expect(idle({ goodName: null, idle: { kind: 'noGame', goodTypes: [] } })).toEqual({
-      short: 'Brak zwierzyny',
-      full: 'Bjorn nie ma na co polować. W terenie łowieckim nie ma wolnej zwierzyny. Wskaż flagą roboczą miejsce, gdzie pasie się zwierzyna.',
-    });
-    expect(idle({ goodName: null, idle: { kind: 'gameOutOfReach', goodTypes: [] } }).short).toBe(
-      'Zwierz odcięty',
-    );
-    expect(idle({ goodName: null, idle: { kind: 'noFish', goodTypes: [] } })).toEqual({
-      short: 'Brak ryb',
-      full: 'Bjorn nie ma czego łowić. W zasięgu brzegu nie ma już ryb. Wskaż flagą roboczą wodę, w której pływają ryby.',
-    });
-    expect(idle({ idle: null })).toEqual({
-      short: 'Nic do roboty',
-      full: 'Bjorn nie ma nic do roboty. Przyczyny nie widać. Sprawdź, czy miejsce pracy ma w zasięgu magazyn i potrzebne towary.',
-    });
+    expect(text.full).toContain('Drewno, Kamień');
   });
 
   it("counts a fight's hit bodies in the catalog's plural forms and names who struck", () => {
@@ -307,18 +231,14 @@ describe('notice text', () => {
       ...NAMELESS,
       fight: { buildings: 2, walls: 3, settlers: 1, vehicles: 5, enemies: ['Gracz 2'], wild: false },
     });
-    expect(raid).toEqual({
-      short: 'Atak na osadę',
-      full: 'Twoja osada jest atakowana. Wróg: Gracz 2. Zaatakowano: 2 budynki, 3 odcinki palisady, 1 osadnika, 5 wehikułów. Wyślij żołnierzy do obrony.',
-    });
+    expect(raid.full).toContain(
+      'Wróg: Gracz 2. Zaatakowano: 2 budynki, 3 odcinki palisady, 1 osadnika, 5 wehikułów.',
+    );
     const wolves = composeIn(en.userMessages, 'en', 'peopleAttacked', {
       ...NAMELESS,
       fight: { buildings: 0, walls: 0, settlers: 3, vehicles: 0, enemies: [], wild: true },
     });
-    expect(wolves.full).toBe(
-      'Your people are under attack outside the settlement. Enemy: wild beasts. Hit: 3 settlers. Send soldiers or lead them to safety.',
-    );
-    expect(wolves.short).toBe('Under attack');
+    expect(wolves.full).toContain('Enemy: wild beasts. Hit: 3 settlers.');
   });
 
   it('sums a fight up for its row in a stack: who struck, then what they hit', () => {

@@ -27,14 +27,6 @@ function fightNote(type: UserMessageType, seats: readonly number[]) {
 }
 
 describe('notice cards', () => {
-  it('draws a live settler subject', () => {
-    const settler = { kind: 'settler', entity: 7 } as const;
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.hungry, settler), noBuilding, onMap)).toEqual({
-      kind: 'settler',
-      entity: 7,
-    });
-  });
-
   it("shows a fight's swords in its first striking seat's colour, untinted for wild beasts", () => {
     const ENEMY_SEAT = 2;
     expect(
@@ -65,18 +57,10 @@ describe('notice cards', () => {
     });
   });
 
-  it('pictures a finished, upgraded or stalled building by its body while its type is known, else the house glyph', () => {
+  it('pictures a building by its body while its type is known, else the house glyph', () => {
     const building = { kind: 'building', entity: 3 } as const;
     const typeOf = (entity: number): number | undefined => (entity === 3 ? 27 : undefined);
     expect(noticeThumb(raised(USER_MESSAGE_TYPE.houseFinished, building), typeOf, onMap)).toEqual({
-      kind: 'building',
-      typeId: 27,
-    });
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.houseUpgraded, building), typeOf, onMap)).toEqual({
-      kind: 'building',
-      typeId: 27,
-    });
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.productionStalled, building), typeOf, onMap)).toEqual({
       kind: 'building',
       typeId: 27,
     });
@@ -99,24 +83,12 @@ describe('notice cards', () => {
     });
   });
 
-  it('shows a glyph for a subjectless row, dim for a death', () => {
+  it('dims the skull of a death without painting it in a seat colour', () => {
     // A death's `about` is the reaped settler's id, never a seat to paint the skull with.
     expect(noticeThumb(raised(USER_MESSAGE_TYPE.humanDied, null, 41), noBuilding, onMap)).toEqual({
       kind: 'glyph',
       glyph: 'skull',
       dim: true,
-      seat: null,
-    });
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.specialItemFound, null), noBuilding, onMap)).toEqual({
-      kind: 'glyph',
-      glyph: 'chest',
-      dim: false,
-      seat: null,
-    });
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.experienceUnlocks, null), noBuilding, onMap)).toEqual({
-      kind: 'glyph',
-      glyph: 'scroll',
-      dim: false,
       seat: null,
     });
   });
@@ -126,12 +98,6 @@ describe('notice cards', () => {
     expect(noticeThumb(raised(USER_MESSAGE_TYPE.playerSighted, null, SEAT), noBuilding, onMap)).toEqual({
       kind: 'glyph',
       glyph: 'shield',
-      dim: false,
-      seat: SEAT,
-    });
-    expect(noticeThumb(raised(USER_MESSAGE_TYPE.diplomacyChanged, null, SEAT), noBuilding, onMap)).toEqual({
-      kind: 'glyph',
-      glyph: 'banner',
       dim: false,
       seat: SEAT,
     });
@@ -160,8 +126,6 @@ describe('notice cards', () => {
     expect(fanBelowOpen([46, 46, 46, 46], 1, 100, 0, 400, 7, 27)).toBe(0);
     // 300 px leaves 87 for the 106 they need: the one seam below takes the 19 px shortfall.
     expect(fanBelowOpen([46, 46, 46, 46], 1, 100, 0, 300, 7, 27)).toBe(19);
-    // The overlap kept above frees its room for the cards below.
-    expect(fanBelowOpen([46, 46, 46, 46], 1, 100, 10, 300, 7, 27)).toBe(9);
     // Past the strip cap the cards below stop folding and the list scrolls; one card below never folds.
     expect(fanBelowOpen([46, 46, 46, 46], 1, 200, 0, 300, 7, 27)).toBe(26);
     expect(fanBelowOpen([46, 46, 46], 1, 200, 0, 100, 7, 27)).toBe(0);

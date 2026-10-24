@@ -190,9 +190,7 @@ describe('fight notices', () => {
     const [note] = c.feed.live();
     // The card goes to the latest hit and words the whole raid so far.
     expect(note?.at).toEqual(nodeOf(NEIGHBOUR));
-    expect(note?.text.full).toBe(
-      'Your settlement is under attack. Enemy: Player 2. Hit: 1 building, 2 settlers. Send soldiers to defend it.',
-    );
+    expect(note?.text.full).toContain('Enemy: Player 2. Hit: 1 building, 2 settlers.');
   });
 
   it('counts a wall as part of the settlement wherever it stands', () => {

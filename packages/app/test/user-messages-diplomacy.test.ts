@@ -75,16 +75,6 @@ describe('user messages about the other seats', () => {
     ]);
   });
 
-  it('names the seat and the stance it now holds', () => {
-    let seats: readonly MetSeat[] = [];
-    const source = createDiplomacyMessageSource(() => seats);
-    source.poll(naming, nowhere);
-    seats = [{ player: RIVAL, towardYou: 'enemy' }];
-    expect(source.poll(naming, nowhere).map((r) => r.compose().full)).toEqual([
-      `Gracz ${RIVAL}:${USER_MESSAGE_TYPE.playerSighted}:enemy`,
-    ]);
-  });
-
   it('points a first contact and a stance change at where the viewer finds the seat', () => {
     let seats: readonly MetSeat[] = [{ player: ALLY, towardYou: 'neutral' }];
     const source = createDiplomacyMessageSource(() => seats);

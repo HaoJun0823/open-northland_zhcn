@@ -20,7 +20,7 @@ import {
   spawnWorkersAtDoor,
   staffBuildingFully,
 } from '../src/game/sandbox/index.js';
-import { ownerPlayerOf, workplaceOf } from '../src/game/snapshot.js';
+import { ownerPlayerOf } from '../src/game/snapshot.js';
 import {
   createSnapshotMessageSource,
   IDLE_SWEEPS_BEFORE_MESSAGE,
@@ -245,16 +245,6 @@ describe('user messages read off real scene snapshots', () => {
     expect(raised).toEqual([USER_MESSAGE_TYPE.starving, USER_MESSAGE_TYPE.tired]);
   });
 
-  it('raises no card for the carriers of a store with nothing to haul, however long they idle', () => {
-    const { firstAt, last } = firstIdleNotes(IDLE_CREW, 4 * IDLE_SWEEPS_BEFORE_MESSAGE);
-    const carriers = adultsOf(last).filter((id) => {
-      const e = last.entities.find((x) => x.id === id);
-      return e !== undefined && workplaceOf(e) !== undefined;
-    });
-    expect(carriers.length).toBeGreaterThan(0);
-    expect(firstAt.size).toBe(0);
-  });
-
   it('leaves the warehouse crew alone while it is hauling', () => {
     const { firstAt } = firstIdleNotes(registeredScene('warehouse'), 8 * IDLE_SWEEPS_BEFORE_MESSAGE);
     expect(firstAt.size).toBe(0);
@@ -286,7 +276,7 @@ describe('user messages read off real scene snapshots', () => {
     expect(idleReasonsIn(FAR_GAME_HUNTER)).toEqual(['noGame']);
   });
 
-  it('names why a store carrier has nothing to haul on its panel only', () => {
+  it('raises no card for the carriers of a store with nothing to haul, naming why on the panel only', () => {
     expect(idleReasonsIn(IDLE_CREW)).toEqual([]);
     const sim = createSceneSim(IDLE_CREW);
     sim.run(IDLE_SWEEPS_BEFORE_MESSAGE * SNAPSHOT_SWEEP_INTERVAL_TICKS);

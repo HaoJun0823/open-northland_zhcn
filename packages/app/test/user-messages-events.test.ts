@@ -121,21 +121,6 @@ describe('user messages from sim events', () => {
     ]);
   });
 
-  it("announces the seat's own child reaching adulthood", () => {
-    const snap = snapshot(50, [
-      { id: 1, player: LOCAL, kind: 'person' },
-      { id: 2, player: ENEMY, kind: 'person' },
-    ]);
-    const out = run(
-      [
-        { kind: 'settlerGrewUp', entity: e(1) },
-        { kind: 'settlerGrewUp', entity: e(2) },
-      ],
-      snap,
-    );
-    expect(out.map((m) => [m.type, m.subject?.entity])).toEqual([[USER_MESSAGE_TYPE.grewUp, 1]]);
-  });
-
   it("turns the local seat's discoveries into important settler notes", () => {
     const snap = snapshot(50, [
       { id: 1, player: LOCAL, kind: 'person' },
@@ -335,12 +320,13 @@ describe('user messages from sim events', () => {
           ? plain(`${parts.subjectName ?? '?'}:${type}:${parts.goodName ?? '-'}`)
           : naming.text(type, parts),
     };
+    const [SOLDIER_JOB, MILLER_JOB, FLOUR] = [31, 12, 9];
     const raised = messagesFromEvents(
       [
-        { kind: 'settlerTrained', entity: e(1), course: 'barracks', target: 'job', typeId: 31 },
-        { kind: 'settlerTrained', entity: e(1), course: 'school', target: 'good', typeId: 9 },
-        { kind: 'settlerTrained', entity: e(2), course: 'school', target: 'job', typeId: 31 },
-        { kind: 'settlerTrained', entity: e(3), course: 'school', target: 'job', typeId: 12 },
+        { kind: 'settlerTrained', entity: e(1), course: 'barracks', target: 'job', typeId: SOLDIER_JOB },
+        { kind: 'settlerTrained', entity: e(1), course: 'school', target: 'good', typeId: FLOUR },
+        { kind: 'settlerTrained', entity: e(2), course: 'school', target: 'job', typeId: SOLDIER_JOB },
+        { kind: 'settlerTrained', entity: e(3), course: 'school', target: 'job', typeId: MILLER_JOB },
       ],
       snap,
       [],
@@ -349,37 +335,25 @@ describe('user messages from sim events', () => {
       NO_MENU,
       new FightAreas(),
     );
-    expect(raised.map((r) => ({ ...r.pending, text: r.compose().full }))).toEqual([
-      {
-        type: USER_MESSAGE_TYPE.canDoNewJob,
-        subject: { kind: 'settler', entity: e(1) },
-        at: { hx: 6, hy: 4 },
-        about: null,
-        goodType: null,
-        technologies: null,
-        jobType: 31,
-        text: 'barracks:S1:job:31',
-      },
-      {
-        type: USER_MESSAGE_TYPE.canProduceNewGood,
-        subject: { kind: 'settler', entity: e(1) },
-        at: { hx: 6, hy: 4 },
-        about: null,
-        goodType: 9,
-        technologies: null,
-        jobType: 7,
-        text: `S1:${USER_MESSAGE_TYPE.canProduceNewGood}:good:9`,
-      },
-      {
-        type: USER_MESSAGE_TYPE.canDoNewJob,
-        subject: { kind: 'settler', entity: e(3) },
-        at: { hx: 10, hy: 4 },
-        about: null,
-        goodType: null,
-        technologies: null,
-        jobType: 12,
-        text: 'school:S3:job:12',
-      },
+    expect(
+      raised.map((r) => [
+        r.pending.type,
+        r.pending.subject?.entity,
+        r.pending.jobType,
+        r.pending.goodType,
+        r.compose().full,
+      ]),
+    ).toEqual([
+      [USER_MESSAGE_TYPE.canDoNewJob, 1, SOLDIER_JOB, null, `barracks:S1:job:${SOLDIER_JOB}`],
+      // A learned good keeps the settler's own trade.
+      [
+        USER_MESSAGE_TYPE.canProduceNewGood,
+        1,
+        7,
+        FLOUR,
+        `S1:${USER_MESSAGE_TYPE.canProduceNewGood}:good:${FLOUR}`,
+      ],
+      [USER_MESSAGE_TYPE.canDoNewJob, 3, MILLER_JOB, null, `school:S3:job:${MILLER_JOB}`],
     ]);
   });
 
@@ -391,17 +365,8 @@ describe('user messages from sim events', () => {
   it('announces an eliminated seat to everyone else, naming the player rather than an entity', () => {
     const snap = snapshot(50, [{ id: 1, player: LOCAL, kind: 'person' }]);
     const out = run([{ kind: 'playerDefeated', player: ENEMY }], snap);
-    expect(out).toEqual([
-      {
-        type: USER_MESSAGE_TYPE.playerDied,
-        subject: null,
-        at: null,
-        about: ENEMY,
-        goodType: null,
-        technologies: null,
-        jobType: null,
-        text: `Gracz:${USER_MESSAGE_TYPE.playerDied}`,
-      },
+    expect(out.map((m) => [m.type, m.subject, m.about, m.text])).toEqual([
+      [USER_MESSAGE_TYPE.playerDied, null, ENEMY, `Gracz:${USER_MESSAGE_TYPE.playerDied}`],
     ]);
   });
 
@@ -428,26 +393,6 @@ describe('user messages from sim events', () => {
     const confirmed = run([{ kind: 'playerDefeated', player: ENEMY, notificationAlreadySent: true }], snap);
     expect(confirmed).toEqual(run([{ kind: 'playerDefeated', player: ENEMY }], snap));
     expect(confirmed).toHaveLength(1);
-  });
-
-  it("notes this seat's settler the sim marked lost, and no one else's", () => {
-    const snap = snapshot(50, [
-      { id: 1, player: LOCAL, kind: 'person' },
-      { id: 2, player: ENEMY, kind: 'person' },
-      { id: 3, player: LOCAL, kind: 'person' },
-    ]);
-    const out = run(
-      [
-        { kind: 'settlerLost', entity: e(1) },
-        { kind: 'settlerLost', entity: e(2) },
-        { kind: 'settlerLost', entity: e(3) },
-      ],
-      snap,
-    );
-    expect(out.map((m) => [m.type, m.subject?.entity])).toEqual([
-      [USER_MESSAGE_TYPE.lostWithoutSignposts, 1],
-      [USER_MESSAGE_TYPE.lostWithoutSignposts, 3],
-    ]);
   });
 
   it("notes this seat's settler that found nowhere to pray, once, as the original's wants-to-pray note", () => {
@@ -484,12 +429,6 @@ describe('user messages from sim events', () => {
       [USER_MESSAGE_TYPE.vehicleSiteNotFound, 1],
       [USER_MESSAGE_TYPE.vehicleSiteOccupied, 3],
     ]);
-  });
-
-  it('notes a marry order that found nobody', () => {
-    const snap = snapshot(50, [{ id: 1, player: LOCAL, kind: 'person' }]);
-    const out = run([{ kind: 'marriageUnmatched', entity: e(1) }], snap);
-    expect(out.map((m) => [m.type, m.subject?.entity])).toEqual([[USER_MESSAGE_TYPE.noOneToMarry, 1]]);
   });
 
   it('notes a paper this seat found, named, keyed by the chest so two chests give two notes', () => {

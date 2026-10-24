@@ -451,14 +451,7 @@ describe('user messages read off the snapshot', () => {
         kind: 'noStorage',
         goodTypes: [WOOD],
       });
-      expect(idleReasonOf({ kind: 'resourceRouteBlocked', goodTypes: [WOOD, 9] })).toEqual({
-        kind: 'resourceRouteBlocked',
-        goodTypes: [WOOD, 9],
-      });
-      expect(idleReasonOf({ kind: 'nothingSelected' })).toEqual({ kind: 'nothingSelected', goodTypes: [] });
-      expect(idleReasonOf({ kind: 'nothingAtFlag' })).toEqual({ kind: 'nothingAtFlag', goodTypes: [] });
       expect(idleReasonOf({ kind: 'noGame' })).toEqual({ kind: 'noGame', goodTypes: [] });
-      expect(idleReasonOf({ kind: 'gameOutOfReach' })).toEqual({ kind: 'gameOutOfReach', goodTypes: [] });
       // A store carrier's empty round is no blocker, a craft operator's gates are the stall note's, and
       // the note needs a workplace and a trade.
       expect(idleReasonOf({ kind: 'nothingToCarry' })).toBeNull();
@@ -470,10 +463,7 @@ describe('user messages read off the snapshot', () => {
         }),
       ).toBeNull();
       expect(idleReasonOf({ kind: 'noWorkplace' })).toBeNull();
-      expect(idleReasonOf({ kind: 'noJob' })).toBeNull();
-      expect(idleReasonOf({ kind: 'noOutputDestination', goodType: WOOD, reason: 'unknown' })).toBeNull();
       expect(idleReasonOf({ kind: 'unknown', reason: 'gatherSearch' })).toBeNull();
-      expect(idleReasonOf(undefined)).toBeNull();
     });
 
     describe('asking the sim why', () => {

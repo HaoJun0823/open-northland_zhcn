@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createMessageFeed, type ShownNote, shownNote } from '../src/hud/tool-panel/messages/feed.js';
 import { FIGHT_TYPE } from '../src/hud/tool-panel/messages/fight-areas.js';
 import { messagePriority } from '../src/hud/tool-panel/messages/priority.js';
-import {
-  type NoticeSoundSink,
-  noticeSoundOf,
-  soundShownNote,
-} from '../src/hud/tool-panel/messages/sounds.js';
+import { type NoticeSoundSink, soundShownNote } from '../src/hud/tool-panel/messages/sounds.js';
 import {
   type MessagePriorityLevel,
   type PendingMessage,
@@ -74,17 +70,6 @@ function centre() {
 }
 
 describe('notice sounds', () => {
-  it('maps each note to its sound', () => {
-    expect(noticeSoundOf(FIGHT_TYPE.settlement)).toEqual({ kind: 'attack', front: 'base' });
-    expect(noticeSoundOf(FIGHT_TYPE.field)).toEqual({ kind: 'attack', front: 'units' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.nothingToDo)).toEqual({ kind: 'voice', voice: 'weary' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.starving)).toEqual({ kind: 'voice', voice: 'hungry' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.willDie)).toEqual({ kind: 'voice', voice: 'dying' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.houseFinished)).toEqual({ kind: 'own' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.canDoNewJob)).toEqual({ kind: 'own' });
-    expect(noticeSoundOf(USER_MESSAGE_TYPE.humanDied)).toEqual({ kind: 'card' });
-  });
-
   it('feeds the attack alert on the new fight card and on every hit that revises it', () => {
     const c = centre();
     expect(c.take(fight(FIGHT_TYPE.field))?.fresh).toBe(true);

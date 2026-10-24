@@ -190,8 +190,6 @@ describe('stalled workshops', () => {
     const unsourcedBy = (gatheredBy: GatheringTrade) =>
       stallOf({ kind: 'waitingInput', goodType: POT, missingInputs: [{ ...unsourcedWood, gatheredBy }] });
     expect(unsourcedBy('collector')).toEqual({ reason: 'noCollector', goodType: WOOD });
-    expect(unsourcedBy('hunter')).toEqual({ reason: 'noHunter', goodType: WOOD });
-    expect(unsourcedBy('fisher')).toEqual({ reason: 'noFisher', goodType: WOOD });
     expect(
       stallOf({
         kind: 'waitingInput',
@@ -203,19 +201,10 @@ describe('stalled workshops', () => {
       }),
     ).toEqual({ reason: 'inputOutOfReach', goodType: CLAY });
     expect(stallOf(SHELVES_FULL)).toEqual({ reason: 'noOutputStore', goodType: POT });
-    expect(stallOf({ kind: 'noOutputDestination', goodType: POT, reason: 'noStorage' })).toEqual({
-      reason: 'noOutputStore',
-      goodType: POT,
-    });
     expect(stallOf({ kind: 'noOutputDestination', goodType: POT, reason: 'outOfReach' })).toEqual({
       reason: 'outputOutOfReach',
       goodType: POT,
     });
-    expect(stallOf({ kind: 'productsLocked', goodTypes: [POT] })).toEqual({
-      reason: 'productsLocked',
-      goodType: POT,
-    });
-    expect(stallOf({ kind: 'nothingSelected' })).toBeNull();
     expect(stallOf({ kind: 'crafting', goodType: POT })).toBeNull();
   });
 

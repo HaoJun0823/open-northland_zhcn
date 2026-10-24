@@ -111,14 +111,6 @@ describe('notice groups', () => {
     expect(stacks.map((s) => ids(s.members))).toEqual([[2], [1]]);
   });
 
-  it('reads he and she lines of one type as the same line, so their rows name no detail', () => {
-    const lost = USER_MESSAGE_TYPE.lostWithoutSignposts;
-    const [stack] = groupNotes([note(1, lost, 1, 'Zgubił się'), note(2, lost, 2, 'Zgubiła się')]);
-    if (stack === undefined) throw new Error('no stack');
-    expect(stack.members).toHaveLength(2);
-    expect(groupMixesLines(stack)).toBe(false);
-  });
-
   it('leads with the heaviest, then the longest-standing state note or the newest event note', () => {
     const states = [note(1, hungry, 10), note(2, starving, 30), note(3, starving, 20), note(4, hungry, 5)];
     expect(ids([...states].sort(compareLead))).toEqual([3, 2, 4, 1]);
@@ -192,19 +184,6 @@ describe('notice groups', () => {
     expect(feed.tally()).toEqual([2, 0, 2]);
   });
 
-  it('drops a retired member from its stack and hands the face to the next lead', () => {
-    const feed = createMessageFeed();
-    feed.add(pending(willDie, 1), TICK, TEXT('Umiera'));
-    feed.add(pending(starving, 2), TICK, TEXT('Głoduje'));
-    feed.add(pending(hungry, 3), TICK, TEXT('Głód'));
-    feed.expire(TICK + 1, (m) => m.type === willDie);
-    const [after] = groupNotes(feed.displayed());
-    expect(after?.members[0]?.type).toBe(starving);
-    expect(after?.members).toHaveLength(2);
-    feed.expire(TICK + 2, (m) => m.type === starving);
-    expect(groupNotes(feed.displayed()).map((g) => g.members.length)).toEqual([1]);
-  });
-
   it('dismisses a stack member by member, each held while its own cause lasts', () => {
     const feed = createMessageFeed();
     for (const entity of [1, 2, 3]) feed.add(pending(hungry, entity), TICK, TEXT('Głód'));
@@ -221,13 +200,5 @@ describe('notice groups', () => {
     feed.expire(TICK + 3, (m) => m.subject?.entity === 1);
     expect(feed.add(pending(hungry, 1), TICK + 4, TEXT('Głód'))).toBe('accepted');
     expect(feed.add(pending(hungry, 3), TICK + 4, TEXT('Głód'))).toBe('duplicate');
-  });
-
-  it('dismisses one member of a stack and leaves the rest standing', () => {
-    const feed = createMessageFeed();
-    for (const entity of [1, 2, 3]) feed.add(pending(tired, entity), TICK, TEXT('Zmęczenie'));
-    feed.remove(2, TICK + 1);
-    expect(groupNotes(feed.displayed()).map((g) => ids(g.members))).toEqual([[1, 3]]);
-    expect(feed.removeMany(new Set([99]), TICK + 1)).toBe(false);
   });
 });

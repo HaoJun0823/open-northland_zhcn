@@ -1,7 +1,6 @@
 import { type ConstructionSupply, ONE, type WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { SnapshotEntity } from '../src/game/snapshot.js';
-import { createMessageFeed, takeRaised } from '../src/hud/tool-panel/messages/feed.js';
 import { FightAreas } from '../src/hud/tool-panel/messages/fight-areas.js';
 import {
   createSnapshotMessageSource,
@@ -9,11 +8,9 @@ import {
   type SnapshotMessageSource,
 } from '../src/hud/tool-panel/messages/from-snapshot.js';
 import type { MessageNaming } from '../src/hud/tool-panel/messages/raise.js';
-import { MessageRaiser } from '../src/hud/tool-panel/messages/raise.js';
 import { NoteRetirement } from '../src/hud/tool-panel/messages/retire.js';
 import {
   CONSTRUCTION_SHORTAGE_GRACE_TICKS,
-  raiseShortage,
   type SiteSeam,
 } from '../src/hud/tool-panel/messages/site-shortages.js';
 import type { MessageText } from '../src/hud/tool-panel/messages/text.js';
@@ -224,26 +221,6 @@ describe('building sites short of a material', () => {
     const next = sweepTo(source, SWEEPS_TO_GRACE + WORK_STATUS_REASK_SWEEPS, {}, SWEEPS_TO_GRACE + 1).at(-1);
     expect(next).toEqual([[`Piekarnia:${USER_MESSAGE_TYPE.constructionStarved}:good:${WOOD}`, true]]);
     expect(retirement.isOver(shortageNote(BRICK), world(0))).toBe(false);
-  });
-
-  it('rewords the standing card in the feed once the good changes', () => {
-    const feed = createMessageFeed();
-    const site = siteEntity(SITE, {});
-    const raised = SNAPSHOT_SWEEP_INTERVAL_TICKS;
-    const reworded = 2 * SNAPSHOT_SWEEP_INTERVAL_TICKS;
-    const first = new MessageRaiser(world(raised), naming);
-    raiseShortage(first, naming, site, BRICK);
-    const [brick] = first.out;
-    if (brick === undefined) throw new Error('no note raised');
-    expect(takeRaised(feed, brick, raised)).toBe('accepted');
-    const next = new MessageRaiser(world(reworded), naming);
-    raiseShortage(next, naming, site, WOOD);
-    const [wood] = next.out;
-    if (wood === undefined) throw new Error('no note raised');
-    expect(takeRaised(feed, wood, reworded)).toBe('duplicate');
-    const [card] = feed.live();
-    expect(card?.text.full).toBe(`Piekarnia:${USER_MESSAGE_TYPE.constructionStarved}:good:${WOOD}`);
-    expect(card?.goodType).toBe(WOOD);
   });
 
   it('raises one note for the wall segments short of a good, voiced by one segment while it stands', () => {

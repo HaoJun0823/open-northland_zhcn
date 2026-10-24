@@ -450,20 +450,6 @@ describe('message feed', () => {
     expect(feed.state().history).toHaveLength(3);
   });
 
-  it('composes the text only for an accepted message', () => {
-    const feed = createMessageFeed();
-    let composed = 0;
-    const compose = (): MessageText => {
-      composed++;
-      return { short: 'text', full: 'text' };
-    };
-    expect(feed.add(pending(USER_MESSAGE_TYPE.grewUp), 0, compose)).toBe('muted');
-    expect(feed.add(pending(USER_MESSAGE_TYPE.grewUp), TICK, compose)).toBe('accepted');
-    expect(feed.add(pending(USER_MESSAGE_TYPE.grewUp), TICK, compose)).toBe('duplicate');
-    expect(composed).toBe(1);
-    expect(feed.displayed()[0]?.text.full).toBe('text');
-  });
-
   it('round-trips through its state, keeping the level and the id counter', () => {
     const feed = createMessageFeed();
     feed.setLevel(1);

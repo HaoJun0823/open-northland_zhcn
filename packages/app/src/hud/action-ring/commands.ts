@@ -1,4 +1,4 @@
-import type { GuiFrameName } from '../../content/gui-atlas-map.js';
+import type { GuiFrameName } from '../../content/gui/atlas-map.js';
 import { type ActionArm, BOTTOM_ARM, INNER_LEFT_ARM, LEFT_ARM, RIGHT_ARM, TOP_ARM } from './layout.js';
 
 /**

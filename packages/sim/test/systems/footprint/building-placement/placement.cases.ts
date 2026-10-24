@@ -303,7 +303,7 @@ describe('placementBlockerVersion - the overlay memo key that decouples the bloc
 
 describe('buildable terrain channel - walkable ground that rejects building', () => {
   /** A margin landscape class: walkable for navigation, NOT buildable (a real map's exclusion ring
-   *  around a tree/rock - content/collision.ts's TERRAIN_MARGIN resolves to exactly these flags). */
+   *  around a tree/rock - content/map/collision.ts's TERRAIN_MARGIN resolves to exactly these flags). */
   const MARGIN = 2;
 
   function marginContent(): ContentSet {

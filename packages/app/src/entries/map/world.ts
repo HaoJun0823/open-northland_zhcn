@@ -18,8 +18,8 @@ import {
   warmWorldIndexes,
 } from '@open-northland/sim';
 import type { ContentIr } from '../../content/ir/rows.js';
-import { spawnMapPalisades } from '../../content/map-palisades.js';
-import { buildScriptLandscapeTerrain } from '../../content/script-landscape.js';
+import { spawnMapPalisades } from '../../content/map/palisades.js';
+import { buildScriptLandscapeTerrain } from '../../content/map/script-landscape.js';
 import { playerTribe } from '../../game/map/roster.js';
 import { grantStartingPapers } from '../../game/map/starting-papers.js';
 import { resolveAiControlPolicy } from '../../game/match/ai-control-policy.js';

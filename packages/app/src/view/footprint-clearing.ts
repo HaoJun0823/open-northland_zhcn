@@ -13,7 +13,7 @@ import {
   type SimEvent,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { forEachPlacement } from '../content/map-placements.js';
+import { forEachPlacement } from '../content/map/placements.js';
 import {
   buildingTribeOf,
   buildingTypeOf,

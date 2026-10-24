@@ -1,6 +1,6 @@
 import type { GroundWave, MapObjectSprite } from '@open-northland/render';
 import type { LandscapeEditView, SimEvent } from '@open-northland/sim';
-import type { ScriptLandscapeSprite } from '../../content/script-landscape-sprites.js';
+import type { ScriptLandscapeSprite } from '../../content/map/script-landscape-sprites.js';
 import type { SessionHost } from '../../session/index.js';
 
 interface LandscapeSurface {

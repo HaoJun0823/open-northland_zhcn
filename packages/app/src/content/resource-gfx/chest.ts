@@ -1,6 +1,6 @@
 import type { LayeredBobRef, ResourceTypeBinding } from '@open-northland/render';
 import type { ContentIr } from '../ir/rows.js';
-import { chestKindByLogicType } from '../map-resources.js';
+import { chestKindByLogicType } from '../map/resources.js';
 import { type GatheringNodeRef, nodeRefFrom } from './refs.js';
 
 /** A resolved chest draw: the record index a spawned chest carries as its `gfxIndex`, and its one frame. */

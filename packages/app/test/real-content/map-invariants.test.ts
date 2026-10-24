@@ -11,9 +11,9 @@ import {
 } from '@open-northland/data';
 import { buildTerrainGraph, components, findPath, type NodeId, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { buildCollisionTerrain } from '../../src/content/collision.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { mapChestSpawns } from '../../src/content/map-resources.js';
+import { buildCollisionTerrain } from '../../src/content/map/collision.js';
+import { mapChestSpawns } from '../../src/content/map/resources.js';
 import { newWorldSim } from '../../src/game/world/build.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 

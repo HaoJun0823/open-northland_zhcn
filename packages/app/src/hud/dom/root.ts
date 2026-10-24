@@ -1,4 +1,4 @@
-import { uiFoundationArt } from '../../content/ui-foundation.js';
+import { uiFoundationArt } from '../../content/gui/ui-foundation.js';
 import './foundation.css';
 import { forgetPlane } from './plane-size.js';
 import { HUD_SYMBOLS } from './symbols.js';

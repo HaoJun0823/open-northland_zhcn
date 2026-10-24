@@ -2,7 +2,7 @@
 import type { ElevationField, SpriteSheet, TerrainTextureSet } from '@open-northland/render';
 import type { Renderer } from 'pixi.js';
 import type { ContentIr } from '../content/ir/rows.js';
-import type { LoadedMapObjects, MapObjectsData } from '../content/objects.js';
+import type { LoadedMapObjects, MapObjectsData } from '../content/object-gfx/objects.js';
 import type { GoodRef } from '../content/settler-gfx/index.js';
 
 /** A good's icon as a DOM surface draws it: the sheet URL and the icon's rect on it. */

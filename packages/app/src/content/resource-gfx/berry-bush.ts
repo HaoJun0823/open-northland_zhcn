@@ -1,6 +1,6 @@
 import type { ResourceLevelRef, ResourceTypeBinding } from '@open-northland/render';
 import type { ContentIr, LandscapeGfxRow } from '../ir/rows.js';
-import { BUSH_WITH_FRUITS_LOGIC_TYPE } from '../map-resources.js';
+import { BUSH_WITH_FRUITS_LOGIC_TYPE } from '../map/resources.js';
 import { type GatheringLoopRef, levelsRefFrom } from './refs.js';
 
 /** A resolved berry-bush draw: the fruited-record index (the `gfxIndex` join key) and its three render

@@ -14,7 +14,6 @@ import {
   TREE_ATLAS,
   VIKING_TRIBE,
 } from '../building-gfx/index.js';
-import { loadedFamilyEffects, resolveFamilyEffects } from '../family-gfx.js';
 import { FISH_ATLAS, FISH_BOBS } from '../fish-gfx.js';
 import { loadGoodsIconManifest } from '../goods-gfx.js';
 import {
@@ -26,8 +25,9 @@ import {
 } from '../ir/joins.js';
 import { loadIr, loadLayer, MissingAtlasError } from '../ir/load.js';
 import { BODY_IMAGELIB } from '../ir/rows.js';
-import { buildMunitionBinding, munitionAtlasStems, resolveMunitionRefs } from '../munition-gfx.js';
-import { buildPalisadeBinding, palisadeAtlasStems, resolvePalisadeGfxRefs } from '../palisade-gfx.js';
+import { loadedFamilyEffects, resolveFamilyEffects } from '../object-gfx/family-effects.js';
+import { buildMunitionBinding, munitionAtlasStems, resolveMunitionRefs } from '../object-gfx/munitions.js';
+import { buildPalisadeBinding, palisadeAtlasStems, resolvePalisadeGfxRefs } from '../object-gfx/palisades.js';
 import {
   berryBushAtlasStems,
   buildBerryBushBinding,

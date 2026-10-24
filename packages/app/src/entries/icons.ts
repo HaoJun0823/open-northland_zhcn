@@ -2,7 +2,7 @@ import { BobsIndex, type BobsIndexEntry } from '@open-northland/data';
 import type { AtlasManifest } from '@open-northland/render';
 import { palettedSheetBitmap } from '../content/atlas-sheet/index.js';
 import { loadAtlasManifest } from '../content/bob-atlases.js';
-import { GUI_FRAMES } from '../content/gui-atlas-map.js';
+import { GUI_FRAMES } from '../content/gui/atlas-map.js';
 import { fetchJsonOrNull } from '../content/net.js';
 import { atlasImagePath, contentUrl } from '../content/url.js';
 import { diag } from '../diag/log.js';

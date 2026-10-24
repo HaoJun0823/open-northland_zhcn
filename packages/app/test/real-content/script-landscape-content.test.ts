@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { MapScript, VertexPalette } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { scriptLandscapeTypes } from '../../src/content/script-landscape.js';
+import { scriptLandscapeTypes } from '../../src/content/map/script-landscape.js';
 import { resolveMissionScript } from '../../src/game/world/mission-script.js';
 import { contentDir, hasRealIr, rawIrUnderTest } from './helpers.js';
 

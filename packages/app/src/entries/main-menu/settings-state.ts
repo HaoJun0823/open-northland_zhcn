@@ -1,4 +1,4 @@
-import { installOriginalTribeNames } from '../../content/original-names.js';
+import { installOriginalTribeNames } from '../../content/gui/original-names.js';
 import { defaultLocale, localeParam, setActiveLocale } from '../../i18n/index.js';
 import { replaceEntryUrl } from '../../view/navigation-guard.js';
 import { type MenuSettings, persistSettings, readStoredSettings } from '../../view/settings-store.js';

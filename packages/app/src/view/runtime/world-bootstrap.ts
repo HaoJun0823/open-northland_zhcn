@@ -1,10 +1,10 @@
 import type { SpriteSheet, TerrainTextureSet } from '@open-northland/render';
 import { WorldRenderer } from '@open-northland/render';
 import type { Application } from 'pixi.js';
-import { loadGuiStrings } from '../../content/gui-gfx.js';
-import { installOriginalNames } from '../../content/original-names.js';
-import { loadPlanRoadArt } from '../../content/plan-road-art.js';
-import { loadPlanStakeArt } from '../../content/plan-stake-art.js';
+import { loadGuiStrings } from '../../content/gui/gfx.js';
+import { installOriginalNames } from '../../content/gui/original-names.js';
+import { loadPlanRoadArt } from '../../content/gui/plan-road-art.js';
+import { loadPlanStakeArt } from '../../content/gui/plan-stake-art.js';
 import {
   loadRuntimeRealContent,
   logRealContentGaps,

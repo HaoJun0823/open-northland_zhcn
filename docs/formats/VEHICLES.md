@@ -354,8 +354,8 @@ shove happens on entering a node only and sends a settler outside the discs of t
 route. Open Northland shoves only owned settlers standing still (the planner's kept occupancy): one
 already walking passes on, and an unowned animal's next wander leg steps it off the disc
 (approximation). A real map's water is the nodes every ground triangle touching which is an
-`isWater` pattern type, the original's per-node rule (`MAPDAT.md`, "How `content/collision.ts` uses
-it"); a border or void pattern is never water and an unknown one counts as land, so a ship never
+`isWater` pattern type, the original's per-node rule (`MAPDAT.md`, "How `content/map/collision.ts`
+uses it"); a border or void pattern is never water and an unknown one counts as land, so a ship never
 sails onto the map edge.
 
 ## Ships and docking

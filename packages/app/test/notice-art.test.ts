@@ -51,12 +51,12 @@ describe('noticeTint', () => {
 describe('notice art painting', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.doUnmock('../src/content/ui-foundation.js');
+    vi.doUnmock('../src/content/gui/ui-foundation.js');
   });
 
   it('reads back and recolours a glyph once per tint, then shows the kept picture', async () => {
     vi.resetModules();
-    vi.doMock('../src/content/ui-foundation.js', () => ({
+    vi.doMock('../src/content/gui/ui-foundation.js', () => ({
       uiFoundationArt: () => ({
         manifest: { notices: { names: ['skull', 'sword'], columns: 2, cell: 2 } },
         noticesUrl: 'notices.png',

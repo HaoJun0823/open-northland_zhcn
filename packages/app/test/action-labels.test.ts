@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { uiStringLookup } from '../src/content/gui-gfx.js';
+import { uiStringLookup } from '../src/content/gui/gfx.js';
 import { actionLabel } from '../src/hud/action-ring/labels.js';
 
 const lookup = uiStringLookup({

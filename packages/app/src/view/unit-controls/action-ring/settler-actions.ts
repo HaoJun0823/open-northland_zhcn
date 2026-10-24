@@ -1,6 +1,6 @@
 import { type Camera, cameraScreenX, cameraScreenY } from '@open-northland/render';
 import type { WorldSnapshot } from '@open-northland/sim';
-import { loadGuiArt } from '../../../content/gui-art.js';
+import { loadGuiArt } from '../../../content/gui/art.js';
 import {
   ACTION_COMMANDS,
   type ActionGroup,

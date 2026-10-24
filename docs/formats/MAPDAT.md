@@ -185,7 +185,7 @@ land node. The 124 decoded maps paint 58738 cells with exactly one walkable tria
 with water, 7733 with moor, 7341 with `border`, which is also the interior void filler and not only
 the frame band), so shoreline and void margins drawn out of them walk in the original.
 
-### How `content/collision.ts` uses it
+### How `content/map/collision.ts` uses it
 
 `groundLattice` (`packages/data`) replays the rule from each cell's two triangle kinds, and over the
 123 mod maps the pipeline converts with their ground lane its edge masks equal `lmtw` byte for byte.

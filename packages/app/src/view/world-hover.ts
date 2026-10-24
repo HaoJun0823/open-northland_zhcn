@@ -1,7 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
 import type { Camera, EntityBounds, WorldRenderer } from '@open-northland/render';
 import { type ChestKind, entityById, type WorldSnapshot } from '@open-northland/sim';
-import type { UiString } from '../content/gui-gfx.js';
+import type { UiString } from '../content/gui/gfx.js';
 import {
   canOpenChest,
   chestKindOf,

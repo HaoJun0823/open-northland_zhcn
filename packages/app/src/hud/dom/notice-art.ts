@@ -1,5 +1,5 @@
 import { PLAYER_SWATCH_COLORS } from '../../catalog/roster.js';
-import { uiFoundationArt } from '../../content/ui-foundation.js';
+import { uiFoundationArt } from '../../content/gui/ui-foundation.js';
 import type { NoticeGlyph } from '../tool-panel/messages/cards.js';
 import { createStaticPictures, showPicture } from './static-picture.js';
 

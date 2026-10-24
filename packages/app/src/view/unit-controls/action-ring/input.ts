@@ -1,5 +1,5 @@
 import type { UiCue } from '@open-northland/audio';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import {
   type ActionCommand,
   type ActionOrderId,

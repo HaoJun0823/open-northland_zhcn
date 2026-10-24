@@ -2,7 +2,7 @@ import { type MapScript, mapLobbySlots } from '@open-northland/data';
 import { localPlayerOf } from '@open-northland/lockstep';
 import { exportSaveGame, type SaveGame, type SimEvent } from '@open-northland/sim';
 import { campaignForMap, loadCampaigns } from '../../campaign/catalog.js';
-import { loadMapScript, loadTerrainMap } from '../../content/map-loader.js';
+import { loadMapScript, loadTerrainMap } from '../../content/map/loader.js';
 import { loadMapSources, type MapSource, mapFetch } from '../../content/map-source/index.js';
 import { type SessionMapScript, sessionMapScript } from '../../game/match/seat-tribes.js';
 import { onOffParam } from '../../game/match/session-rules.js';

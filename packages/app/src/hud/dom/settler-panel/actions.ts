@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import type { NeedKind } from '@open-northland/sim';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import type { EquipSlotRef } from '../../details-panel/model/index.js';
 import type { BuildingHoverModel } from '../../hover-card/model.js';
 import type { ResidentRow } from '../../tool-panel/residents/rows.js';

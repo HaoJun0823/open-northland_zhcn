@@ -1,7 +1,7 @@
 import type { ContentSet, TerrainObjects } from '@open-northland/data';
 import { type Entity, type ResourceNodeSpec, type Simulation, systems } from '@open-northland/sim';
 import type { ContentIr } from '../../content/ir/rows.js';
-import { mapPalisadeSpawns } from '../../content/map-palisades.js';
+import { mapPalisadeSpawns } from '../../content/map/palisades.js';
 import {
   type MapResourceSpawn,
   mapBerryBushSpawns,
@@ -9,7 +9,7 @@ import {
   mapFieldSpawns,
   mapGroundGoodsSpawns,
   mapResourceSpawns,
-} from '../../content/map-resources.js';
+} from '../../content/map/resources.js';
 import { diag } from '../../diag/index.js';
 import { GATHERERS, type GathererSpec } from './ids/index.js';
 import { resourceSpecFor } from './place/index.js';

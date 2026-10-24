@@ -6,7 +6,7 @@
 `PalettedQuad`s; the sprite pool uses only `setFrame`, `place`, `player`, `shear`, `sampling`, the tint
 and the cloth wind). App HUD code has since
 bolted on `colorKey`, `silhouette`, `flipY`, and `stretchToRect`, all driven from
-`packages/app/src/hud/**` and `content/gui-art.ts`. Two concrete accretion symptoms:
+`packages/app/src/hud/**` and `content/gui/art.ts`. Two concrete accretion symptoms:
 
 - `GuiColorKey` packs a geometric disc clip into the colour-key uniform slot (shader comment:
   ".y: near-black mode (0 off / 1 full band / 2 round corners)", with a `length(...) > 1.0 →

@@ -1,6 +1,6 @@
 import { mapLobbySlots } from '@open-northland/data';
 import { MAX_ROOM_NAME_LENGTH, type RoomSeatSetup, type RoomSettings } from '@open-northland/net-protocol';
-import { loadMapScript } from '../../content/map-loader.js';
+import { loadMapScript } from '../../content/map/loader.js';
 import { mapFetch } from '../../content/map-source/index.js';
 import { assertMultiplayerMap } from '../../game/map/multiplayer.js';
 import { sessionRuleOverrides } from '../../game/match/session-rules.js';

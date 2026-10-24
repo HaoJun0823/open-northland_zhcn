@@ -16,20 +16,20 @@ import type { Application } from 'pixi.js';
 import { MONSTER_TRIBES } from '../../catalog/creatures.js';
 import { loadAmbientCreatures } from '../../content/animal-gfx/index.js';
 import { authoredBuildingSheet } from '../../content/building-gfx/authored.js';
-import { loadGroundWaves } from '../../content/ground-waves.js';
 import { loadIr } from '../../content/ir/load.js';
 import type { ContentIr } from '../../content/ir/rows.js';
+import { loadGroundWaves } from '../../content/map/ground-waves.js';
 import {
   loadMapBriefing,
   loadMapMeta,
   loadMapScript,
   loadMapStrings,
   loadTerrainMap,
-} from '../../content/map-loader.js';
+} from '../../content/map/loader.js';
+import { loadRealTerrain, MissingTerrainError } from '../../content/map/terrain.js';
 import { mapFetch } from '../../content/map-source/index.js';
-import { loadMapObjects } from '../../content/objects.js';
+import { loadMapObjects } from '../../content/object-gfx/objects.js';
 import { resolveSpriteSheet } from '../../content/sprite-sheet/index.js';
-import { loadRealTerrain, MissingTerrainError } from '../../content/terrain.js';
 import { readVerifiedMapDocuments, type VerifiedMapDocuments } from '../../content/transfer/index.js';
 import { contentFetch } from '../../content/url.js';
 import { diag, hashTraceFor, setDiagGameSession } from '../../diag/index.js';

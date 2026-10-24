@@ -10,12 +10,12 @@ import {
 import type { Camera } from '@open-northland/render';
 import type { SaveGame } from '@open-northland/sim';
 import { campaignForMap, loadCampaigns } from '../../campaign/catalog.js';
-import { loadFellingClips } from '../../content/felling-clips.js';
+import { soundScenery } from '../../content/audio/scenery.js';
+import { loadMinimapCellColours } from '../../content/map/minimap-ground.js';
+import { loadScriptLandscapeSprites } from '../../content/map/script-landscape-sprites.js';
 import { mapBriefingPictures } from '../../content/map-source/briefing-pictures.js';
 import { mapBriefingVoices } from '../../content/map-source/briefing-voices.js';
-import { loadMinimapCellColours } from '../../content/minimap-ground.js';
-import { loadScriptLandscapeSprites } from '../../content/script-landscape-sprites.js';
-import { soundScenery } from '../../content/sound-scenery.js';
+import { loadFellingClips } from '../../content/object-gfx/felling-clips.js';
 import { briefingMatchObjectives, briefingPage, mapBriefFallback } from '../../game/map/mission-brief.js';
 import { playerNameMap, playerTribe } from '../../game/map/roster.js';
 import { mapStartFocus } from '../../game/map/start.js';

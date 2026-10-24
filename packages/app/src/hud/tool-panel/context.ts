@@ -1,5 +1,5 @@
 import type { UiCue } from '@open-northland/audio';
-import type { UiString } from '../../content/gui-gfx.js';
+import type { UiString } from '../../content/gui/gfx.js';
 
 /** What the tool panel's controllers need from the mounted panel. */
 export interface PanelContext {

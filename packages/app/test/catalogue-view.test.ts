@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { catalogBrowseEntry } from '@open-northland/data';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import * as mapList from '../src/content/map/maps-index.js';
 import * as sources from '../src/content/map-source/index.js';
-import * as mapList from '../src/content/maps-index.js';
 import { CARDS_PER_BATCH } from '../src/entries/main-menu/catalogue/card-batches.js';
 import { catalogueView, initialCatalogueMemory } from '../src/entries/main-menu/catalogue/view.js';
 import { messages } from '../src/i18n/index.js';

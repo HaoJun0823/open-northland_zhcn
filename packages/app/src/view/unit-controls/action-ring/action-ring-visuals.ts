@@ -1,6 +1,6 @@
 import type { Application } from 'pixi.js';
-import type { GuiArt } from '../../../content/gui-art.js';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { GuiArt } from '../../../content/gui/art.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import type { ActionCommand, ActionRingLayout } from '../../../hud/action-ring/index.js';
 import { actionLabel } from '../../../hud/action-ring/labels.js';
 import { setHidden } from '../../../hud/dom/parts/dom.js';

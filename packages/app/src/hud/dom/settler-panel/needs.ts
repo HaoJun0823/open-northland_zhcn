@@ -1,5 +1,5 @@
 import type { NeedKind } from '@open-northland/sim';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { actionLabel } from '../../action-ring/labels.js';
 import type { PanelBar, SettlerPanelModel } from '../../details-panel/model/index.js';

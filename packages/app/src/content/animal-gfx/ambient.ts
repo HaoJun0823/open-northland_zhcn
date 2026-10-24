@@ -6,7 +6,7 @@ import { contentJoins } from '../../game/world/content-joins.js';
 import { GFX_ANIM_MODE_LOOP } from '../ir/joins.js';
 import { loadLayer, MissingAtlasError } from '../ir/load.js';
 import type { ContentIr } from '../ir/rows.js';
-import { pairedStateFrames } from '../objects.js';
+import { pairedStateFrames } from '../object-gfx/objects.js';
 import { ADULT_ANIMAL_JOB } from './bindings.js';
 
 type AuthoredAnimals = NonNullable<TerrainMapFile['entities']>['animals'];

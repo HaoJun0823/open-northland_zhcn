@@ -1,7 +1,7 @@
 import type { MapsIndexEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { diag } from '../../diag/log.js';
-import { loadMapList } from '../maps-index.js';
+import { loadMapList } from '../map/maps-index.js';
 import { type ContentFetch, contentFetch } from '../url.js';
 import type { InstalledMapRecord } from './installed.js';
 import { type InstalledMapStore, installedMapStore } from './store.js';

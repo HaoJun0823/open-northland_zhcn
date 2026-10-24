@@ -4,7 +4,7 @@ import type { Camera } from '@open-northland/render';
 import type { WorldSnapshot } from '@open-northland/sim';
 import type { Application } from 'pixi.js';
 import type { PickerEntry } from '../../../catalog/professions.js';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import type { ActionOrderId } from '../../../hud/action-ring/index.js';
 import type { GoodIconPainter } from '../../../hud/dom/good-art.js';
 import type { SelectionCentre } from './selection-centre.js';

@@ -3,7 +3,7 @@ import { resolveResourceDraw } from '@open-northland/render';
 import { components, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../../src/content/ir/rows.js';
-import { mapChestSpawns } from '../../../src/content/map-resources.js';
+import { mapChestSpawns } from '../../../src/content/map/resources.js';
 import { buildChestBinding, resolveChestRefs } from '../../../src/content/resource-gfx/chest.js';
 import { sandboxContent } from '../../../src/game/sandbox/content/index.js';
 import { harvestablePlacementOrdinals, spawnMapChests } from '../../../src/game/sandbox/map-spawn.js';

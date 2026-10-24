@@ -1,7 +1,7 @@
 import { bakeToSprite, oversampleFor } from '@open-northland/render';
 import { type Application, Container } from 'pixi.js';
-import { type GuiArt, makeGuiSprite } from '../../../content/gui-art.js';
-import { type GuiFrameName, guiFrameIndex } from '../../../content/gui-atlas-map.js';
+import { type GuiArt, makeGuiSprite } from '../../../content/gui/art.js';
+import { type GuiFrameName, guiFrameIndex } from '../../../content/gui/atlas-map.js';
 
 /** Oversample bounds for the order discs: the floor keeps the rim smooth at small scales, the cap
  *  bounds the page. */

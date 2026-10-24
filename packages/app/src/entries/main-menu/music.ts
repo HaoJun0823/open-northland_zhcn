@@ -9,8 +9,8 @@ import {
   uiCueShot,
   WebAudioEngine,
 } from '@open-northland/audio';
-import { contentAudioOptions } from '../../content/audio.js';
-import { loadMusicManifest } from '../../content/music.js';
+import { loadMusicManifest } from '../../content/audio/music.js';
+import { contentAudioOptions } from '../../content/audio/sound-driver.js';
 import { followPageFocus } from '../../view/sound-background.js';
 import { startSound } from '../../view/sound-start.js';
 import { rotationOrder } from './rotation.js';

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as originalNames from '../src/content/original-names.js';
+import * as originalNames from '../src/content/gui/original-names.js';
 import { diag } from '../src/diag/index.js';
 import { runEntry } from '../src/launch.js';
 import * as routes from '../src/routes.js';

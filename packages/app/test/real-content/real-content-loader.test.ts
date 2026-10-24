@@ -5,7 +5,7 @@ import { hasRealIr, irPath } from './helpers.js';
 /**
  * The memoization half of `loadRealContent`'s contract over the REAL ir.json. Every suite here parses
  * the full IR through `loadContentUnderTest`; the degrade and malformed paths run over synthetic
- * responses in `test/real-content.test.ts`.
+ * responses in `test/content/real-content.test.ts`.
  */
 
 describe.runIf(hasRealIr())('loadRealContent over the real IR', () => {

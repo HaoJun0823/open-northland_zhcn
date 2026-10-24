@@ -23,8 +23,8 @@ vi.mock('../src/view/settings-store.js', async (original) => ({
 }));
 vi.mock('../src/content/ir/load.js', () => ({ loadIr: async () => null }));
 vi.mock('../src/content/sprite-sheet/index.js', () => ({ resolveSpriteSheet: mocks.sprites }));
-vi.mock('../src/content/terrain.js', async (original) => ({
-  ...(await original<typeof import('../src/content/terrain.js')>()),
+vi.mock('../src/content/map/terrain.js', async (original) => ({
+  ...(await original<typeof import('../src/content/map/terrain.js')>()),
   loadRealTerrain: mocks.terrain,
 }));
 vi.mock('../src/view/runtime/world-bootstrap.js', () => ({
@@ -36,7 +36,7 @@ vi.mock('../src/view/runtime/world-bootstrap.js', () => ({
   haltOnFailedRestore: mocks.haltOnFailedRestore,
 }));
 
-import { MissingTerrainError } from '../src/content/terrain.js';
+import { MissingTerrainError } from '../src/content/map/terrain.js';
 import { assembleMapWorld } from '../src/entries/map/boot.js';
 
 const SESSION: GameSession = {

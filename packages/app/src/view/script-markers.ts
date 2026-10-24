@@ -6,7 +6,7 @@ import {
 } from '@open-northland/render';
 import type { HalfCellNode, SimEvent } from '@open-northland/sim';
 import { Container, Graphics } from 'pixi.js';
-import { type GuiArt, makeGuiSprite } from '../content/gui-art.js';
+import { type GuiArt, makeGuiSprite } from '../content/gui/art.js';
 
 /**
  * The markers a map script puts on the ground: the ten GUI marker slots, the area rings and the

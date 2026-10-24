@@ -38,9 +38,9 @@ import { createCampaignRuntime } from '../../campaign/runtime.js';
 import { movieSubtitles } from '../../campaign/subtitles.js';
 import { pickerEntries } from '../../catalog/professions.js';
 import { emblemBuildingType } from '../../content/building-gfx/emblems.js';
-import type { FellingClips } from '../../content/felling-clips.js';
-import { loadGuiArt } from '../../content/gui-art.js';
+import { loadGuiArt } from '../../content/gui/art.js';
 import { type BriefingVoiceLoader, briefingVoicePlayer } from '../../content/map-source/briefing-voices.js';
+import type { FellingClips } from '../../content/object-gfx/felling-clips.js';
 import { hasDebugFlag } from '../../diag/debug-flags.js';
 import {
   currentDiagGameSession,

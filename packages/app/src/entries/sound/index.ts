@@ -1,7 +1,7 @@
 import { defaultBindings, SoundDriver } from '@open-northland/audio';
-import { contentAudioOptions, hasSoundContent, soundIndexOf } from '../../content/audio.js';
+import { loadMusicManifest } from '../../content/audio/music.js';
+import { contentAudioOptions, hasSoundContent, soundIndexOf } from '../../content/audio/sound-driver.js';
 import { loadIr } from '../../content/ir/load.js';
-import { loadMusicManifest } from '../../content/music.js';
 import { messages } from '../../i18n/index.js';
 import { el, pageInnerStyle, pageRootStyle } from '../../view/overlay.js';
 import { readStoredSettings } from '../../view/settings-store.js';

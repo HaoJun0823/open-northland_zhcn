@@ -1,5 +1,5 @@
 import type { Paper, PaperKind } from '@open-northland/sim';
-import type { UiString } from '../../content/gui-gfx.js';
+import type { UiString } from '../../content/gui/gfx.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 
 /** The ingamegui table the paper names live in. */

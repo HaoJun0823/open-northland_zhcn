@@ -1,7 +1,7 @@
 import { ONE, tileToScreenX, tileToScreenY, type WorldBounds } from '@open-northland/render';
 import { type HalfCellNode, positionOfNode } from '@open-northland/sim';
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
-import { uiFoundationArt } from '../../content/ui-foundation.js';
+import { uiFoundationArt } from '../../content/gui/ui-foundation.js';
 import type { Rect } from '../geometry.js';
 import { MARKER_RIM_COLOUR } from './palette.js';
 

@@ -1,6 +1,6 @@
 import type { Entity, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { uiStringLookup } from '../src/content/gui-gfx.js';
+import { uiStringLookup } from '../src/content/gui/gfx.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
 import type { ChoiceGroup } from '../src/hud/dom/choice-window.js';
 

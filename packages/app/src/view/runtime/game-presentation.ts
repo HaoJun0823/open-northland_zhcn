@@ -1,12 +1,16 @@
 import type { SoundDriver } from '@open-northland/audio';
 import type { JobType } from '@open-northland/data';
 import type { WorldRenderer } from '@open-northland/render';
-import { createSoundDriver } from '../../content/audio.js';
-import { loadExperienceStarGfx, loadImportMarkerGfx, loadSettlerBubbleGfx } from '../../content/bubbles.js';
-import { loadBuildingSignGfx } from '../../content/building-signs.js';
+import { loadMusicManifest } from '../../content/audio/music.js';
+import { createSoundDriver } from '../../content/audio/sound-driver.js';
+import { loadBuildingSignGfx } from '../../content/building-gfx/signs.js';
+import {
+  loadExperienceStarGfx,
+  loadImportMarkerGfx,
+  loadSettlerBubbleGfx,
+} from '../../content/gui/bubbles.js';
 import { loadIr } from '../../content/ir/load.js';
-import { loadMusicManifest } from '../../content/music.js';
-import { loadCombatBones, loadWreckDebris } from '../../content/objects.js';
+import { loadCombatBones, loadWreckDebris } from '../../content/object-gfx/objects.js';
 import { diag } from '../../diag/index.js';
 import { presentationPack } from '../../presentation/pack.js';
 import { readStoredSettings } from '../settings-store.js';

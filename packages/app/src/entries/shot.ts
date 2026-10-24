@@ -7,10 +7,10 @@ import {
   WorldRenderer,
 } from '@open-northland/render';
 import { halfCellMapFromCells } from '@open-northland/sim';
-import { loadTerrainMap } from '../content/map-loader.js';
+import { loadTerrainMap } from '../content/map/loader.js';
+import { loadRealTerrain } from '../content/map/terrain.js';
 import { mapFetch } from '../content/map-source/index.js';
 import { loadHumanSpriteSheet, syntheticSpriteSheet } from '../content/sprite-sheet/index.js';
-import { loadRealTerrain } from '../content/terrain.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
 import { runDemoWorld, terrainSceneFor } from '../game/world/index.js';
 import { cameraFor } from '../view/camera/index.js';

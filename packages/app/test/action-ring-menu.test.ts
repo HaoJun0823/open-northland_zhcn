@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guiFrameIndex } from '../src/content/gui-atlas-map.js';
+import { guiFrameIndex } from '../src/content/gui/atlas-map.js';
 import { ACTION_COMMANDS, actionRingMenu, BOTTOM_ARM, LEFT_ARM } from '../src/hud/action-ring/index.js';
 import { en } from '../src/i18n/en.js';
 import { pl } from '../src/i18n/pl.js';

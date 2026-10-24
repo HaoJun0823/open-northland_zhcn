@@ -11,7 +11,7 @@ import {
   type UnitSelectionCommand,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import type { UiString } from '../../content/gui-gfx.js';
+import type { UiString } from '../../content/gui/gfx.js';
 import { actionLabel } from '../../hud/action-ring/labels.js';
 import type { EquipSlotRef } from '../../hud/details-panel/index.js';
 import { type ChoiceGroup, type ChoiceRow, createChoiceWindow } from '../../hud/dom/choice-window.js';

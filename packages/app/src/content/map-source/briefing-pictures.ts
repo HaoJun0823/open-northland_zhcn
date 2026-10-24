@@ -1,5 +1,5 @@
 import type { MapBriefing } from '@open-northland/data';
-import { hypertextPictureUrl } from '../gui-gfx.js';
+import { hypertextPictureUrl } from '../gui/gfx.js';
 import { briefingPictureSuffixes, mapFilePath } from './files.js';
 import { findMapSource } from './sources.js';
 

@@ -1,9 +1,9 @@
 # Keep blank frames as pauses in looping map objects
 
-**Area:** app · **Focus:** content/objects · **Priority:** P3
+**Area:** app · **Focus:** content/object-gfx/objects · **Priority:** P3
 
-`pairedStateFrames` (`packages/app/src/content/objects.ts`) drops every 0×0 bob from a state's frame
-list. Some records use a blank bob as a pause. The swamp records (`swamp 01`, `swamp 02`,
+`pairedStateFrames` (`packages/app/src/content/object-gfx/objects.ts`) drops every 0×0 bob from a
+state's frame list. Some records use a blank bob as a pause. The swamp records (`swamp 01`, `swamp 02`,
 `ls_water.bmd`) pad with blank bobs 56 and 89. Their state 5 runs 56..89, and their quieter states
 are mostly bob 56. With the blanks dropped, every swamp bubbles nonstop and all states look alike.
 `fx star` loses 5 of its 16 frames the same way. Maps place about 6300 swamps (68 maps) and 509 stars

@@ -1,9 +1,9 @@
 import type { MapProvenance } from '@open-northland/data';
 import type { ClientMessage, RoomView, ServerMessage } from '@open-northland/net-protocol';
 import { diag } from '../../diag/log.js';
+import { MAPS_INDEX_URL, parseMapsIndex } from '../map/maps-index.js';
 import { installAnnouncedCatalogMap } from '../map-source/install.js';
 import { findMapSource, mapFetch } from '../map-source/sources.js';
-import { MAPS_INDEX_URL, parseMapsIndex } from '../maps-index.js';
 import { type ContentFetch, contentFetch } from '../url.js';
 import { loadPersistedMap, persistedMapOrigin, persistVerifiedMap } from './cache.js';
 import {

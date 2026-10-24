@@ -1,4 +1,4 @@
-import type { UiString } from '../../content/gui-gfx.js';
+import type { UiString } from '../../content/gui/gfx.js';
 import { currentLocale, type Locale, messages } from '../../i18n/index.js';
 import type { ActionCommandId } from './commands.js';
 

@@ -25,7 +25,7 @@ function gameCanvas(): HTMLCanvasElement {
 /** `locale`'s original tribe names. They are optional: a failed load keeps the authored ones and never
  *  fails the entry. */
 function loadTribeNames(locale: Locale): Promise<NameOverlay> {
-  return import('./content/original-names.js')
+  return import('./content/gui/original-names.js')
     .then((names) => names.originalTribeNameOverlay(locale))
     .catch((err: unknown) => {
       diag.warn('content', 'launch: original tribe names failed to load; the authored names stay', err);

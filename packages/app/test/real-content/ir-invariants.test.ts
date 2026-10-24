@@ -9,10 +9,10 @@ import {
   soldierFlagPointByType,
   VIKING_TRIBE,
 } from '../../src/content/building-gfx/index.js';
-import { resolveBuildingSignRefs } from '../../src/content/building-signs.js';
-import { resolveFamilyEffects } from '../../src/content/family-gfx.js';
+import { resolveBuildingSignRefs } from '../../src/content/building-gfx/signs.js';
 import { playsOnceThenRests } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
+import { resolveFamilyEffects } from '../../src/content/object-gfx/family-effects.js';
 import { WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG } from '../../src/content/settler-gfx/index.js';
 import { BUILDING_WATCHTOWER, WEAPON_GOOD_SLUG_BY_JOB } from '../../src/game/sandbox/ids/index.js';
 import { HIDDEN_GOODS, SUMMARY_CATEGORIES } from '../../src/hud/summary/model.js';

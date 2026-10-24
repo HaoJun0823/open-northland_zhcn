@@ -8,7 +8,7 @@ import { components, type Entity, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { MINE_LEVELS, STONE_DEPOSIT_UNITS } from '../../../src/catalog/mining.js';
 import type { ContentIr } from '../../../src/content/ir/rows.js';
-import { stateIndexForLevel } from '../../../src/content/objects.js';
+import { stateIndexForLevel } from '../../../src/content/object-gfx/objects.js';
 import { sandboxContent } from '../../../src/game/sandbox/content/index.js';
 import { GOOD_GOLD, GOOD_STONE } from '../../../src/game/sandbox/ids/index.js';
 import { spawnMapResources } from '../../../src/game/sandbox/map-spawn.js';

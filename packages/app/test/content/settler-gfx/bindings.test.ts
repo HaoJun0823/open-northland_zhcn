@@ -1,0 +1,772 @@
+import { indexAtlasFrames, type SpriteAtlas } from '@open-northland/render';
+import { describe, expect, it } from 'vitest';
+import {
+  ATTACK_ATOMIC,
+  EAT_ATOMIC,
+  EAT_CANDY_ATOMIC,
+  HERB_HARVEST_ATOMIC,
+  OPEN_CHEST_ATOMIC,
+  STORE_PICKUP_ATOMIC,
+  STORE_PILEUP_ATOMIC,
+  WELL_DRAW_ATOMIC,
+  WHEAT_HARVEST_ATOMIC,
+} from '../../../src/catalog/atomics.js';
+import { JOB_SOLDIER_UNARMED } from '../../../src/catalog/jobs.js';
+import { SOLDIER_CLASS_OF_JOB } from '../../../src/catalog/soldier-classes.js';
+import {
+  ADULT_CHARACTER_BY_JOB,
+  buildHumanBindings,
+  CHARACTER_SPECS,
+  carryAnimsByGood,
+  characterBinding,
+  directionalAnimFromSeq,
+  frameListsByFacing,
+  HERO_JOBS,
+  WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG,
+  YOUNG_CHARACTER_BY_JOB,
+} from '../../../src/content/settler-gfx/index.js';
+import { WEAPON_GOOD_SLUG_BY_JOB } from '../../../src/game/sandbox/ids/index.js';
+
+/**
+ * The settler/character render bindings: the seq→frame-range math behind `?atlas=real` (the self-verifiable
+ * half of consuming the decoded `bobSequences`), the per-good carry looks, the per-character warrior
+ * bindings and the [jobbasegraphics] job→character transcription. The browser half (do the pixels animate
+ * right?) is the `sandbox` acceptance scene; this proves the derivation + graceful fallback without a browser.
+ */
+
+const FALLBACK = { start: 1, dirs: 8, stride: 99 } as const;
+
+describe('directionalAnimFromSeq', () => {
+  it('derives start + stride (= length / DIRS) from a named sequence', () => {
+    const seqs = new Map([['walk', { name: 'walk', start: 1988, length: 96 }]]);
+    expect(directionalAnimFromSeq(seqs, 'walk', {}, FALLBACK)).toEqual({ start: 1988, dirs: 8, stride: 12 });
+  });
+
+  it('applies the render-taste overrides (frames / phaseStart) on top of the extracted range', () => {
+    const seqs = new Map([['chop', { name: 'chop', start: 5106, length: 120 }]]);
+    expect(directionalAnimFromSeq(seqs, 'chop', { phaseStart: 9 }, FALLBACK)).toEqual({
+      start: 5106,
+      dirs: 8,
+      stride: 15,
+      phaseStart: 9,
+    });
+    const walk = new Map([['walk', { name: 'walk', start: 1988, length: 96 }]]);
+    expect(directionalAnimFromSeq(walk, 'walk', { frames: 1 }, FALLBACK)).toEqual({
+      start: 1988,
+      dirs: 8,
+      stride: 12,
+      frames: 1,
+    });
+  });
+
+  it('falls back verbatim when the sequence is absent or zero-length (a partial/old manifest)', () => {
+    const empty = new Map<string, { name: string; start: number; length: number }>();
+    expect(directionalAnimFromSeq(empty, 'walk', {}, FALLBACK)).toBe(FALLBACK);
+    const zero = new Map([['walk', { name: 'walk', start: 1988, length: 0 }]]);
+    expect(directionalAnimFromSeq(zero, 'walk', {}, FALLBACK)).toBe(FALLBACK);
+  });
+});
+
+describe('buildHumanBindings', () => {
+  it('derives the settler walk/chop/carry anims from the decoded sequences', () => {
+    // Starts off the committed fallback ranges, so a binding that ignored the manifest would fail.
+    const seqs = new Map([
+      ['human_man_generic_walk', { name: 'human_man_generic_walk', start: 2988, length: 96 }],
+      // Idle is the WAIT sequence played SINGLE-direction (57 isn't ×8) - the full loop, not a frozen hold.
+      ['human_man_generic_wait', { name: 'human_man_generic_wait', start: 2931, length: 57 }],
+      [
+        'human_man_woodcutter_work_woodcutting',
+        { name: 'human_man_woodcutter_work_woodcutting', start: 6106, length: 120 },
+      ],
+      ['human_man_generic_walk_wood', { name: 'human_man_generic_walk_wood', start: 5580, length: 96 }],
+    ]);
+    const bindings = buildHumanBindings(seqs);
+    expect(bindings.settler).toEqual({
+      idle: { start: 2931, dirs: 1, stride: 57 },
+      moving: { start: 2988, dirs: 8, stride: 12 },
+      byAtomic: { 24: { start: 6106, dirs: 8, stride: 15, phaseStart: 9 } },
+      carrying: {
+        idle: { start: 5580, dirs: 8, stride: 12, frames: 1 },
+        moving: { start: 5580, dirs: 8, stride: 12 },
+      },
+    });
+  });
+});
+
+describe('carryAnimsByGood', () => {
+  const seqs = new Map([
+    ['walk_wood', { name: 'walk_wood', start: 4580, length: 96 }],
+    ['walk_stone', { name: 'walk_stone', start: 4100, length: 96 }],
+    ['walk_grain', { name: 'walk_grain', start: 2852, length: 96 }],
+    ['walk_iron_gold', { name: 'walk_iron_gold', start: 3044, length: 96 }],
+    ['walk_potion', { name: 'walk_potion', start: 7200, length: 96 }],
+    ['walk_flour', { name: 'walk_flour', start: 6100, length: 96 }],
+    ['walk_odd', { name: 'walk_odd', start: 9000, length: 17 }], // not ×8 - must be skipped
+  ]);
+
+  /** The `[gfxwalkatomic]` answer for the civilist: honey rides the potion cycle, wool the flour sack. */
+  const carrySeqs = new Map([
+    ['wood', 'walk_wood'],
+    ['honey', 'walk_potion'],
+    ['wool', 'walk_flour'],
+    ['odd', 'walk_odd'],
+    ['ghost', 'walk_absent'], // named by the table, unauthored by this body
+  ]);
+
+  it('binds the cycle the walk table names for a good', () => {
+    const table = carryAnimsByGood(seqs, carrySeqs, [{ typeId: 5, id: 'wood' }]);
+    expect(table[5]).toEqual({
+      moving: { start: 4580, dirs: 8, stride: 12 },
+      idle: { start: 4580, dirs: 8, stride: 12, frames: 1 },
+    });
+  });
+
+  it('binds a good onto a cycle its own name would never find (honey → the potion walk)', () => {
+    const table = carryAnimsByGood(seqs, carrySeqs, [
+      { typeId: 12, id: 'honey' },
+      { typeId: 10, id: 'wool' },
+    ]);
+    expect(table[12]?.moving).toMatchObject({ start: 7200 });
+    expect(table[10]?.moving).toMatchObject({ start: 6100 });
+  });
+
+  it('omits a good the table does not list - the source says that job shows no load', () => {
+    const table = carryAnimsByGood(seqs, carrySeqs, [{ typeId: 57, id: 'sheep' }]);
+    expect(table[57]).toBeUndefined();
+  });
+
+  it('omits a named cycle the body lacks or that is not a clean ×8 strip', () => {
+    const table = carryAnimsByGood(seqs, carrySeqs, [
+      { typeId: 90, id: 'ghost' },
+      { typeId: 11, id: 'odd' },
+    ]);
+    expect(table[90]).toBeUndefined();
+    expect(table[11]).toBeUndefined();
+  });
+});
+
+describe('characterBinding', () => {
+  const WARRIOR_SEQS = new Map([
+    ['human_man_warrior_empty_wait', { name: 'human_man_warrior_empty_wait', start: 1120, length: 57 }],
+    ['human_man_warrior_empty_walk', { name: 'human_man_warrior_empty_walk', start: 1177, length: 96 }],
+    ['human_man_Warrior_Sword_Walk', { name: 'human_man_Warrior_Sword_Walk', start: 3283, length: 96 }],
+  ]);
+
+  it('builds a loop-wait character: idle plays the whole strip facing-locked, moving the ×8 walk', () => {
+    const spec = {
+      gfxJobs: [31],
+      walkSeq: 'human_man_warrior_empty_walk',
+      waitSeq: 'human_man_warrior_empty_wait',
+    } as const;
+    expect(characterBinding(spec, WARRIOR_SEQS, [])).toEqual({
+      idle: { start: 1120, dirs: 1, stride: 57 },
+      moving: { start: 1177, dirs: 8, stride: 12 },
+    });
+  });
+
+  it('falls back to a walk-hold idle (frame 0 per facing) when the spec names no wait strip', () => {
+    const spec = {
+      gfxJobs: [31],
+      walkSeq: 'human_man_Warrior_Sword_Walk',
+    } as const;
+    expect(characterBinding(spec, WARRIOR_SEQS, [])).toEqual({
+      idle: { start: 3283, dirs: 8, stride: 12, frames: 1 },
+      moving: { start: 3283, dirs: 8, stride: 12 },
+    });
+  });
+
+  it('binds a non-x8 action strip facing-locked (eat/sleep/pick_up - the clipDirs reading)', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['eat', { name: 'eat', start: 1530, length: 17 }],
+    ]);
+    const spec = {
+      gfxJobs: [6],
+      waitSeq: 'wait',
+      atomics: { 10: { seq: 'eat' } },
+    } as const;
+    expect(characterBinding(spec, seqs, [])?.byAtomic?.[EAT_ATOMIC]).toEqual({
+      start: 1530,
+      dirs: 1,
+      stride: 17,
+    });
+  });
+
+  it('plays the candy meal on the plain meal clip, which no gfxAtomics record splits from it', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['eat', { name: 'eat', start: 1530, length: 17 }],
+    ]);
+    const spec = { gfxJobs: [6], waitSeq: 'wait', atomics: { [EAT_ATOMIC]: { seq: 'eat' } } } as const;
+    const byAtomic = characterBinding(spec, seqs, [])?.byAtomic;
+    expect(byAtomic?.[EAT_CANDY_ATOMIC]).toEqual({ start: 1530, dirs: 1, stride: 17 });
+  });
+
+  it('resolves the spec atomics into byAtomic (the setatomic join) with the phase override', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['chop', { name: 'chop', start: 5106, length: 120 }],
+    ]);
+    const spec = {
+      gfxJobs: [6],
+      waitSeq: 'wait',
+      atomics: { 24: { seq: 'chop', phaseStart: 9 } },
+    } as const;
+    expect(characterBinding(spec, seqs, [])?.byAtomic).toEqual({
+      24: { start: 5106, dirs: 8, stride: 15, phaseStart: 9 },
+    });
+  });
+
+  it('binds a cart-driving figure per vehicle type: standing on its action frames, driving the ×8 cycle', () => {
+    const OX_CART = 2;
+    const HANDCART = 1;
+    const OX_STAND_ACTION = 3;
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['ox_drive', { name: 'ox_drive', start: 5322, length: 96 }],
+    ]);
+    const spec = {
+      gfxJobs: [25],
+      waitSeq: 'wait',
+      cartDrive: {
+        [OX_CART]: { seq: 'ox_drive', standAction: OX_STAND_ACTION, headShifts: [] },
+        [HANDCART]: { seq: 'absent_drive', standAction: 2, headShifts: [] },
+      },
+    } as const;
+    const standFrames = [[55], [70], [0], [15], [24], [41], [88], [75]];
+    const programsByAction = new Map([
+      [OX_STAND_ACTION, new Map([['ox_drive', { dirFrames: standFrames }]])],
+    ]);
+    expect(characterBinding(spec, seqs, [], { programsByAction })?.cartDrive).toEqual({
+      [OX_CART]: {
+        idle: { start: 5322, frameLists: frameListsByFacing(standFrames) },
+        moving: { start: 5322, dirs: 8, stride: 12 },
+      },
+    });
+  });
+
+  it('binds the attack swing as a FrameListAnim from the gfxAtomics frame lists (start from the bobseq)', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['spear_attack', { name: 'spear_attack', start: 2255, length: 108 }],
+    ]);
+    const spec = {
+      gfxJobs: [31],
+      waitSeq: 'wait',
+      attack: 'spear_attack',
+    } as const;
+    const programsByAction = new Map([
+      [
+        ATTACK_ATOMIC,
+        new Map([
+          [
+            'spear_attack',
+            {
+              dirFrames: [
+                [79, 79, 80],
+                [97, 97, 98],
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    // The swing pool `start` comes from the [bobseq] row, its per-direction layout from the gfxAtomics
+    // map. A PARTIAL multi-list table is still a <dir>-space table: dir 0 (E) lands on facing 4, dir 1
+    // (SE) on facing 5, and the unauthored facings hold empty lists (frameOf pins the pool's first
+    // frame there) - never an unremapped pass-through.
+    expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic).toEqual({
+      81: {
+        start: 2255,
+        frameLists: [[], [], [], [], [79, 79, 80], [97, 97, 98], [], []],
+      },
+    });
+  });
+
+  it("rolls a strike among the job's attack records and the numbered takes the body draws", () => {
+    const row = (name: string, start: number) => [name, { name, start, length: 8 }] as const;
+    const seqs = new Map([
+      row('wait', 0),
+      row('sword_attack', 100),
+      row('sword_lunge', 200),
+      row('sword_attack_2', 300),
+      row('spear_attack', 400),
+    ]);
+    const spec = { gfxJobs: [34], waitSeq: 'wait', attack: 'sword_attack' } as const;
+    const program = (frame: number) => ({ dirFrames: [[frame]] });
+    const tribeSeqs = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: ['sword_lunge'],
+      attacks: [
+        { seq: 'sword_lunge', program: program(1) },
+        { seq: 'sword_attack', program: program(0) },
+      ],
+      atomics: new Map(),
+      heads: new Map(),
+    };
+    // Only another tribe's record lays out the second take; the spear strip is another weapon's swing.
+    const attackPrograms = new Map([
+      ['sword_attack_2', program(2)],
+      ['spear_attack', program(3)],
+    ]);
+    const choices = characterBinding(spec, seqs, [], { tribeSeqs, attackPrograms })?.byAtomicChoices?.[
+      ATTACK_ATOMIC
+    ];
+    // Each take spans the one-hit atomic: none carries clip ticks of its own.
+    expect(choices?.map((clip) => [clip.start, clip.frameLists[0], clip.ticks])).toEqual([
+      [100, [0], undefined],
+      [200, [1], undefined],
+      [300, [2], undefined],
+    ]);
+  });
+
+  it("adds the base tribe's attack records only where they name the bound swing", () => {
+    const row = (name: string, start: number) => [name, { name, start, length: 8 }] as const;
+    const seqs = new Map([row('wait', 0), row('punch', 100), row('kick', 200), row('bite', 300)]);
+    const spec = { gfxJobs: [31], waitSeq: 'wait', attack: 'punch' } as const;
+    const clip = (seq: string, frame: number) => ({ seq, program: { dirFrames: [[frame]] } });
+    const tribeSeqs = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: ['punch'],
+      attacks: [clip('punch', 0)],
+      atomics: new Map(),
+      heads: new Map(),
+    };
+    const starts = (baseAttacks: readonly ReturnType<typeof clip>[]) =>
+      characterBinding(spec, seqs, [], { tribeSeqs, baseAttacks })?.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
+        (choice) => choice.start,
+      );
+    expect(starts([clip('punch', 1), clip('kick', 2)])).toEqual([100, 200]);
+    expect(starts([clip('bite', 3)])).toBeUndefined();
+  });
+
+  it('reorders a full 8-dir frame-list table from the source <dir> space into facing order', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['spear_attack', { name: 'spear_attack', start: 2255, length: 108 }],
+    ]);
+    const spec = { gfxJobs: [31], waitSeq: 'wait', attack: 'spear_attack' } as const;
+    // Source <dir> order: 0 E, 1 SE, 2 SW, 3 W, 4 NW, 5 NE, 6 N, 7 S (each list tagged by its dir).
+    const programsByAction = new Map([
+      [ATTACK_ATOMIC, new Map([['spear_attack', { dirFrames: [[0], [1], [2], [3], [4], [5], [6], [7]] }]])],
+    ]);
+    const swing = characterBinding(spec, seqs, [], { programsByAction })?.byAtomic?.[ATTACK_ATOMIC];
+    // Facing order is the strip-block compass (0 SW, 1 W, 2 NW, 3 NE, 4 E, 5 SE, 6 S, 7 N): the
+    // east-facing swing (facing 4) must play the source dir-0 (E) list, and so on around the ring -
+    // GFX_DIR_TO_BLOCK = [4,5,0,1,2,3,7,6], data-pinned by the 123 human-body [gfxanimatomic] records.
+    expect(swing).toEqual({
+      start: 2255,
+      frameLists: [[2], [3], [4], [5], [0], [1], [7], [6]],
+    });
+  });
+
+  it('plays an atomic through its gfxAtomics program when one exists, looping only mode-1 records', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['eat', { name: 'eat', start: 1530, length: 17 }],
+      ['pray', { name: 'pray', start: 1647, length: 120 }],
+      ['hammer', { name: 'hammer', start: 1800, length: 42 }],
+    ]);
+    const spec = {
+      gfxJobs: [6],
+      waitSeq: 'wait',
+      atomics: {
+        10: { seq: 'eat' },
+        12: { seq: 'pray', ticksPerFrame: 2 },
+        41: { seq: 'hammer', spansAtomic: true },
+      },
+    } as const;
+    const programsByAction = new Map([
+      [10, new Map([['eat', { dirFrames: [[0, 1, 1, 2]], mode: 1, ticks: 50 }]])],
+      [12, new Map([['pray', { dirFrames: [[3, 4, 4, 5]], mode: 0, ticks: 100 }]])],
+      [41, new Map([['hammer', { dirFrames: [[6, 7, 8]], mode: 0, ticks: 15 }]])],
+    ]);
+    // The authored list replaces the strip reading entirely, and `ticksPerFrame` with it. A mode-0 record
+    // plays once over its clip's ticks, a mode-1 record wraps, and an action that spans its atomic drops
+    // the clip's ticks for whatever the simulation runs.
+    expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic).toEqual({
+      10: { start: 1530, frameLists: [[0, 1, 1, 2]], loop: true },
+      [EAT_CANDY_ATOMIC]: { start: 1530, frameLists: [[0, 1, 1, 2]], loop: true },
+      12: { start: 1647, frameLists: [[3, 4, 4, 5]], ticks: 100 },
+      41: { start: 1800, frameLists: [[6, 7, 8]] },
+    });
+  });
+
+  it("plays the base tribe's program for a clip without facing blocks the tribe authors none for", () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 100, length: 8 }],
+      ['kiss', { name: 'kiss', start: 106, length: 60 }],
+      ['talk', { name: 'talk', start: 200, length: 16 }],
+    ]);
+    const spec = {
+      gfxJobs: [5],
+      waitSeq: 'wait',
+      atomics: { 20: { seq: 'kiss' }, 14: { seq: 'talk' } },
+    } as const;
+    const basePrograms = new Map([
+      [20, new Map([['kiss', { dirFrames: [[40, 41, 49]] }]])],
+      [14, new Map([['talk', { dirFrames: [[0, 1]] }]])],
+    ]);
+    // The 60-frame kiss would otherwise sweep every facing as one strip; the 16-frame talk splits into
+    // eight facings and keeps its own reading.
+    expect(characterBinding(spec, seqs, [], { basePrograms })?.byAtomic).toEqual({
+      20: { start: 106, frameLists: [[40, 41, 49]] },
+      14: { start: 200, dirs: 8, stride: 2 },
+    });
+  });
+
+  it('uses the tribe-authored pickup variant when its well action has no fountain program', () => {
+    const seqs = new Map([
+      ['human_man_generic_wait', { name: 'human_man_generic_wait', start: 100, length: 8 }],
+      ['human_man_fountain_push', { name: 'human_man_fountain_push', start: 200, length: 16 }],
+      ['human_man_generic_pick_up', { name: 'human_man_generic_pick_up', start: 300, length: 16 }],
+    ]);
+    const programsByAction = new Map([
+      [WELL_DRAW_ATOMIC, new Map([['human_man_generic_pick_up', { dirFrames: [[0, 1, 2]], mode: 0 }]])],
+    ]);
+
+    expect(
+      characterBinding(CHARACTER_SPECS.civilian, seqs, [], { programsByAction })?.byAtomic?.[
+        WELL_DRAW_ATOMIC
+      ],
+    ).toEqual({ start: 300, frameLists: [[0, 1, 2]] });
+  });
+
+  it('binds the atomics the tribe authors for the job, behind the transcribed clips', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 100, length: 8 }],
+      ['sword_pick_up', { name: 'sword_pick_up', start: 200, length: 16 }],
+      ['empty_pick_up', { name: 'empty_pick_up', start: 300, length: 16 }],
+      ['sword_eat', { name: 'sword_eat', start: 400, length: 9 }],
+    ]);
+    const spec = {
+      gfxJobs: [34],
+      waitSeq: 'wait',
+      atomics: { 10: { seq: 'sword_eat' }, 22: { seq: 'sword_pick_up' } },
+    } as const;
+    // The tribe-wide `(action, seq)` table carries another job's list for the shared pick-up clip.
+    const programsByAction = new Map([
+      [22, new Map([['empty_pick_up', { dirFrames: [[0, 1, 2, 2]], mode: 0 }]])],
+    ]);
+    const tribeSeqs = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: [],
+      attacks: [],
+      heads: new Map(),
+      atomics: new Map([
+        [10, [{ seq: 'empty_eat', program: { dirFrames: [[0, 1]] } }]],
+        [22, [{ seq: 'empty_pick_up', program: { dirFrames: [[0, 1, 2]] } }]],
+        [
+          91,
+          [
+            { seq: 'sword_walk', program: { dirFrames: [[91]] } },
+            { seq: 'empty_pick_up', program: { dirFrames: [[0, 1, 2]], ticks: 20 } },
+          ],
+        ],
+      ]),
+    };
+    expect(characterBinding(spec, seqs, [], { programsByAction, tribeSeqs })?.byAtomic).toEqual({
+      // The transcribed strip stays ahead of a tribe clip this body does not draw.
+      10: { start: 400, dirs: 1, stride: 9 },
+      [EAT_CANDY_ATOMIC]: { start: 400, dirs: 1, stride: 9 },
+      // A program-backed tribe record beats a transcribed strip the source authors no frame list for, and
+      // plays its own frame lists, not the tribe-wide table's.
+      22: { start: 300, frameLists: [[0, 1, 2]] },
+      // An action the spec leaves unnamed binds through the tribe's records, the first drawn one, over the
+      // ticks of the clip the record's job binds.
+      91: { start: 300, frameLists: [[0, 1, 2]], ticks: 20 },
+    });
+    // Without the tribe's rows the spec-less action is simply absent.
+    expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic?.[91]).toBeUndefined();
+  });
+
+  it('reaps herb with the wheat scythe program, the clip the source binds to the herb guy', () => {
+    const seqs = new Map([
+      ['human_man_generic_wait', { name: 'human_man_generic_wait', start: 100, length: 8 }],
+      [
+        'human_man_farmer_work_reap_grain',
+        { name: 'human_man_farmer_work_reap_grain', start: 400, length: 88 },
+      ],
+    ]);
+    // One program per action: `[gfxanimatomic]` job 18 action 29 and job 29 action 31 both name the reap.
+    const reap = new Map([['human_man_farmer_work_reap_grain', { dirFrames: [[51, 50, 49]], mode: 0 }]]);
+    const programsByAction = new Map([
+      [WHEAT_HARVEST_ATOMIC, reap],
+      [HERB_HARVEST_ATOMIC, reap],
+    ]);
+    const byAtomic = characterBinding(CHARACTER_SPECS.civilian, seqs, [], { programsByAction })?.byAtomic;
+    expect(byAtomic?.[HERB_HARVEST_ATOMIC]).toEqual({ start: 400, frameLists: [[51, 50, 49]] });
+    expect(byAtomic?.[HERB_HARVEST_ATOMIC]).toEqual(byAtomic?.[WHEAT_HARVEST_ATOMIC]);
+  });
+
+  it('idles on the wait seq gfxAtomics program (looped) instead of cycling the raw wait strip', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['walk', { name: 'walk', start: 1988, length: 96 }],
+    ]);
+    const spec = { gfxJobs: [6], walkSeq: 'walk', waitSeq: 'wait' } as const;
+    const waitBySeq = new Map([['wait', { dirFrames: [[34, 34, 35, 36, 36, 35]], mode: 1 }]]);
+    expect(characterBinding(spec, seqs, [], { waitBySeq })?.idle).toEqual({
+      start: 1931,
+      frameLists: [[34, 34, 35, 36, 36, 35]],
+      loop: true,
+    });
+  });
+
+  it('cuts the walk cycle to the gfxwalkframelist run (the baby crawl plays 12 of each 13-frame block)', () => {
+    const run = (from: number, n: number): number[] => Array.from({ length: n }, (_, i) => from + i);
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 10, length: 42 }],
+      ['crawl', { name: 'crawl', start: 500, length: 104 }],
+    ]);
+    const spec = { gfxJobs: [6], walkSeq: 'crawl', waitSeq: 'wait' } as const;
+    // <dir> space: each dir indexes its GFX_DIR_TO_BLOCK block ([4,5,0,1,2,3,7,6]), 12 of 13 frames.
+    const blocks = [4, 5, 0, 1, 2, 3, 7, 6];
+    const walkLists = new Map([['crawl', blocks.map((b) => run(b * 13, 12))]]);
+    expect(characterBinding(spec, seqs, [], { walkLists })?.moving).toEqual({
+      start: 500,
+      dirs: 8,
+      stride: 13,
+      frames: 12,
+    });
+  });
+
+  it('keeps the whole-block walk reading when the walk list is not a contiguous block run', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 10, length: 42 }],
+      ['walk', { name: 'walk', start: 100, length: 96 }],
+    ]);
+    const spec = { gfxJobs: [6], walkSeq: 'walk', waitSeq: 'wait' } as const;
+    // A list with a hold is not a block cut - the reduction must refuse it rather than mis-slice.
+    const walkLists = new Map([['walk', [[0, 0, 1, 2]]]]);
+    expect(characterBinding(spec, seqs, [], { walkLists })?.moving).toEqual({
+      start: 100,
+      dirs: 8,
+      stride: 12,
+    });
+  });
+
+  it('omits the attack swing when the frame lists are absent (no gfxAtomics for the seq)', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['spear_attack', { name: 'spear_attack', start: 2255, length: 108 }],
+    ]);
+    const spec = { gfxJobs: [31], waitSeq: 'wait', attack: 'spear_attack' } as const;
+    // No map passed → no attack animation bound (never a bogus uniform 108/8 slice).
+    expect(characterBinding(spec, seqs, [])?.byAtomic).toBeUndefined();
+  });
+
+  it('binds an engaged gait only where the tribe authors it', () => {
+    const seqs = new Map([
+      ['wait', { name: 'wait', start: 1931, length: 57 }],
+      ['aggr_walk', { name: 'aggr_walk', start: 536, length: 96 }],
+      ['aggr_wait', { name: 'aggr_wait', start: 418, length: 22 }],
+    ]);
+    const spec = {
+      gfxJobs: [31],
+      waitSeq: 'wait',
+      engaged: { moving: 'aggr_walk', idle: 'aggr_wait' },
+    } as const;
+    const tribeSeqs = {
+      walk: [],
+      gaits: ['aggr_walk'],
+      wait: [],
+      attack: [],
+      attacks: [],
+      atomics: new Map(),
+      heads: new Map(),
+    };
+    const waitBySeq = new Map([['aggr_wait', { dirFrames: [[0, 1, 2]] }]]);
+    expect(characterBinding(spec, seqs, [], { tribeSeqs, waitBySeq })?.engaged).toEqual({
+      moving: { start: 536, dirs: 8, stride: 12 },
+      idle: { start: 418, frameLists: [[0, 1, 2]], loop: true },
+    });
+    // Unauthored, the drawn strips stay unbound: a bare stance strip would play as a facing-less fidget.
+    const unauthored = { ...tribeSeqs, gaits: [] };
+    expect(characterBinding(spec, seqs, [], { tribeSeqs: unauthored })?.engaged).toBeUndefined();
+  });
+
+  const CARRY_SEQS = new Map([
+    ['w_wait', { name: 'w_wait', start: 10, length: 30 }],
+    ['w_walk', { name: 'w_walk', start: 100, length: 96 }],
+    ['w_walk_wood', { name: 'w_walk_wood', start: 200, length: 96 }],
+    ['w_walk_stone', { name: 'w_walk_stone', start: 300, length: 96 }],
+  ]);
+  const CARRY_SPEC = {
+    gfxJobs: [6],
+    walkSeq: 'w_walk',
+    waitSeq: 'w_wait',
+    carryPrefix: 'w_walk_',
+  } as const;
+  const CARRY_GOODS = [
+    { typeId: 3, id: 'stone' },
+    { typeId: 10, id: 'wool' },
+  ];
+
+  it('binds only what the walk table names - no generic gait to mask the goods it omits', () => {
+    // wool is absent from the table, so it must stay absent from the binding: a generic fallback here
+    // is what put a wood log in a honey-hauler's hands.
+    const binding = characterBinding(CARRY_SPEC, CARRY_SEQS, CARRY_GOODS, {
+      carrySeqBySlug: new Map([['stone', 'w_walk_stone']]),
+    });
+    expect(binding?.carrying).toEqual({
+      byGood: {
+        3: {
+          moving: { start: 300, dirs: 8, stride: 12 },
+          idle: { start: 300, dirs: 8, stride: 12, frames: 1 },
+        },
+      },
+    });
+  });
+
+  it('falls back to the carryPrefix wood gait only when the IR carries no walk table', () => {
+    const binding = characterBinding(CARRY_SPEC, CARRY_SEQS, CARRY_GOODS);
+    expect(binding?.carrying).toEqual({
+      moving: { start: 200, dirs: 8, stride: 12 },
+      idle: { start: 200, dirs: 8, stride: 12, frames: 1 },
+    });
+  });
+
+  it('a walk-less character (the baby) idles its wait and never binds moving', () => {
+    const seqs = new Map([['baby_wait', { name: 'baby_wait', start: 104, length: 42 }]]);
+    const spec = { gfxJobs: [6], waitSeq: 'baby_wait' } as const;
+    expect(characterBinding(spec, seqs, [])).toEqual({
+      idle: { start: 104, dirs: 1, stride: 42 },
+    });
+  });
+
+  it('returns null when neither the walk nor a loop wait resolves (an IR without this body)', () => {
+    const empty = new Map<string, { name: string; start: number; length: number }>();
+    expect(characterBinding({ gfxJobs: [31], walkSeq: 'missing' } as const, empty, [])).toBeNull();
+    expect(characterBinding({ gfxJobs: [6], waitSeq: 'missing' } as const, empty, [])).toBeNull();
+  });
+});
+
+describe('the job → character tables (the [jobbasegraphics] transcription)', () => {
+  it('maps every soldier class onto the armoured warrior looks, per weapon class', () => {
+    for (const job of SOLDIER_CLASS_OF_JOB.keys()) {
+      const specId = ADULT_CHARACTER_BY_JOB[job];
+      expect(specId, `job ${job}`).toBeDefined();
+      expect(specId?.startsWith('warrior'), `job ${job} → ${specId}`).toBe(true);
+      // Every referenced spec exists and degrades to the plain soldier record, which is the body every
+      // tribe authors for the class (the skin the job change swaps in).
+      expect(specId !== undefined && CHARACTER_SPECS[specId].gfxJobs.at(-1)).toBe(JOB_SOLDIER_UNARMED);
+    }
+  });
+
+  it('binds each mutable warrior look to its authored pickup gesture, the chest bend included', () => {
+    for (const id of [
+      'warrior',
+      'warrior-spear',
+      'warrior-spear-iron',
+      'warrior-sword',
+      'warrior-broadsword',
+      'warrior-shortbow',
+      'warrior-longbow',
+    ] as const) {
+      const atomics = CHARACTER_SPECS[id].atomics;
+      expect(atomics?.[STORE_PICKUP_ATOMIC]?.seq, id).toMatch(/pick_up/i);
+      expect(atomics?.[STORE_PILEUP_ATOMIC]?.seq, id).toBe(atomics?.[STORE_PICKUP_ATOMIC]?.seq);
+      // A soldier sent to a chest plays the same bend (`[gfxanimatomic]` action 91 names the pick_up
+      // strip for every soldier job); unbound, the atomic would stand still.
+      expect(atomics?.[OPEN_CHEST_ATOMIC]?.seq, id).toBe(atomics?.[STORE_PICKUP_ATOMIC]?.seq);
+    }
+  });
+
+  it('arming a mutable warrior draws the same body its job does (the three weapon tables agree)', () => {
+    // `pickByJob` prefers the equipped-weapon body (`WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG`) over the job
+    // body (`ADULT_CHARACTER_BY_JOB`), so for every soldier/hero job that spawns with a weapon good
+    // (`WEAPON_GOOD_SLUG_BY_JOB`), the armed look MUST equal the job's own look - otherwise arming a
+    // warrior would silently reskin it. This locks the composite the render relies on across all three
+    // tables.
+    for (const [jobStr, slug] of Object.entries(WEAPON_GOOD_SLUG_BY_JOB)) {
+      const job = Number(jobStr);
+      if (HERO_JOBS.includes(job)) continue;
+      const armed = WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG[slug];
+      const byJob = ADULT_CHARACTER_BY_JOB[job];
+      expect(armed, `weapon good ${slug} (job ${job})`).toBeDefined();
+      expect(armed, `job ${job}: armed body must match its job body`).toBe(byJob);
+    }
+  });
+
+  it('keeps the age-class ids out of the adult table, so an adult fixture job there stays the default', () => {
+    const ageClasses = Object.keys(YOUNG_CHARACTER_BY_JOB).map(Number);
+    expect(ageClasses.length).toBeGreaterThan(0);
+    for (const id of ageClasses) expect(ADULT_CHARACTER_BY_JOB[id]).toBeUndefined();
+  });
+});
+
+/**
+ * The out-of-row guard on an authored frame list. The werewolf's attack record names the weresnake's
+ * 256-frame row and lays its facings out over its own longer fight, whose frames past the row are drawn, so
+ * the bound is the body's bob pool, not the declared length.
+ */
+describe('characterBinding out-of-row frame lists', () => {
+  const PUNCH = { name: 'punch', start: 425, length: 102 } as const;
+  const seqs = new Map([['punch', PUNCH]]);
+  const spec = { gfxJobs: [JOB_SOLDIER_UNARMED], waitSeq: 'punch', attack: 'punch' } as const;
+  // Two facings addressed past the row, the layout the source authors.
+  const programsByAction = new Map([
+    [ATTACK_ATOMIC, new Map([['punch', { dirFrames: [[0, 1], [102, 103], [0], [0], [0], [0], [0], [0]] }]])],
+  ]);
+
+  function atlas(bobIds: readonly number[], blank: readonly number[] = []): SpriteAtlas {
+    return indexAtlasFrames(64, 64, [
+      ...bobIds.map((bobId) => ({
+        bobId,
+        rect: { x: 0, y: 0, width: 10, height: 10 },
+        offsetX: 0,
+        offsetY: 0,
+      })),
+      ...blank.map((bobId) => ({
+        bobId,
+        rect: { x: 0, y: 0, width: 0, height: 0 },
+        offsetX: 0,
+        offsetY: 0,
+      })),
+    ]);
+  }
+
+  it('binds the swing when the body draws the frames past the row', () => {
+    // Source `<dir>` order remaps to facing order (GFX_DIR_TO_BLOCK), so dir 0 lands on facing 4.
+    const bodyAtlas = atlas([425, 426, 527, 528]);
+    const swing = characterBinding(spec, seqs, [], { programsByAction, bodyAtlas })?.byAtomic?.[
+      ATTACK_ATOMIC
+    ];
+    expect(swing).toEqual({
+      start: 425,
+      frameLists: [[0], [0], [0], [0], [0, 1], [102, 103], [0], [0]],
+    });
+  });
+
+  it('drops the swing when an out-of-row frame is a blank bob', () => {
+    // A tribe naming a clip a shorter body carries runs off the pool; the renderer would draw the
+    // missing-sprite placeholder, so the whole program is refused and the slot falls back.
+    const bodyAtlas = atlas([425, 426], [527, 528]);
+    const binding = characterBinding(spec, seqs, [], { programsByAction, bodyAtlas });
+    expect(binding?.byAtomic?.[ATTACK_ATOMIC]).toBeUndefined();
+  });
+
+  it('drops the swing when the frame is absent from the pool entirely', () => {
+    const binding = characterBinding(spec, seqs, [], { programsByAction, bodyAtlas: atlas([425, 426]) });
+    expect(binding?.byAtomic?.[ATTACK_ATOMIC]).toBeUndefined();
+  });
+
+  it('keeps the declared row as the bound when no atlas is supplied', () => {
+    // Without a pool to ask, an in-row offset is drawable by construction and an out-of-row one is not
+    // provable, so the conservative answer stands.
+    expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic?.[ATTACK_ATOMIC]).toBeUndefined();
+  });
+
+  it('binds a program that stays inside the row without consulting the pool', () => {
+    const inRow = new Map([[ATTACK_ATOMIC, new Map([['punch', { dirFrames: [[0, 1]] }]])]]);
+    const swing = characterBinding(spec, seqs, [], { programsByAction: inRow })?.byAtomic?.[ATTACK_ATOMIC];
+    expect(swing).toEqual({ start: 425, frameLists: [[0, 1]] });
+  });
+});

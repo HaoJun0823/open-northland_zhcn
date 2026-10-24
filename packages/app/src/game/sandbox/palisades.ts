@@ -6,7 +6,7 @@ import {
   scaledWallRules,
   WALL_LOGIC_ID,
   wallStrengthScale,
-} from '../../content/palisade-rows.js';
+} from '../../content/map/palisade-rows.js';
 import { GOOD_WOOD } from './ids/index.js';
 
 export const PALISADE_WALL_GFX_INDEX = 691;

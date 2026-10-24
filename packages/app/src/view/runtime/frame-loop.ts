@@ -8,7 +8,7 @@ import {
   type Viewport,
 } from '@open-northland/render';
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
-import type { createSoundDriver } from '../../content/audio.js';
+import type { createSoundDriver } from '../../content/audio/sound-driver.js';
 import {
   type FrameSample,
   type FrameStats,

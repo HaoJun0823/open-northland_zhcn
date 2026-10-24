@@ -29,7 +29,7 @@ import type {
 } from '@open-northland/sim';
 import type { Application } from 'pixi.js';
 import type { PickerEntry } from '../../catalog/professions.js';
-import type { UiString } from '../../content/gui-gfx.js';
+import type { UiString } from '../../content/gui/gfx.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { PortraitBox, UnitPanelModelContext } from '../../hud/details-panel/index.js';
 import type { DiplomacyStance, SettlerWorkStatus } from '../../hud/details-panel/model/index.js';

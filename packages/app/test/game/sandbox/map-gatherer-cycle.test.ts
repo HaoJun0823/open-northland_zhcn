@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { WOOD_YIELD_PER_NODE } from '../../../src/catalog/felling.js';
 import { JOB_COLLECTOR } from '../../../src/catalog/jobs.js';
 import type { ContentIr } from '../../../src/content/ir/rows.js';
-import { buildScriptLandscapeTerrain } from '../../../src/content/script-landscape.js';
+import { buildScriptLandscapeTerrain } from '../../../src/content/map/script-landscape.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../../src/game/rules.js';
 import { sandboxContent } from '../../../src/game/sandbox/content/index.js';
 import { GOOD_WOOD } from '../../../src/game/sandbox/ids/index.js';

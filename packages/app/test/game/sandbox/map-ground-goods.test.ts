@@ -1,8 +1,8 @@
 import { components, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../../src/content/ir/rows.js';
-import { groundGoodByObjectName, mapGroundGoodsSpawns } from '../../../src/content/map-resources.js';
-import { scriptLandscapeTypes } from '../../../src/content/script-landscape.js';
+import { groundGoodByObjectName, mapGroundGoodsSpawns } from '../../../src/content/map/resources.js';
+import { scriptLandscapeTypes } from '../../../src/content/map/script-landscape.js';
 import { GOOD_SHOES, GOOD_SWORD_SHORT, sandboxContent } from '../../../src/game/sandbox/index.js';
 import { harvestablePlacementOrdinals, spawnMapGroundGoods } from '../../../src/game/sandbox/map-spawn.js';
 

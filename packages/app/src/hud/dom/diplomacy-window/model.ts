@@ -1,5 +1,5 @@
 import type { DiplomacyState } from '@open-northland/sim';
-import type { UiString } from '../../../content/gui-gfx.js';
+import type { UiString } from '../../../content/gui/gfx.js';
 import { messages } from '../../../i18n/index.js';
 
 export interface DiplomacyGood {

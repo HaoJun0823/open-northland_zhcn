@@ -1,6 +1,7 @@
 import type { CatalogBrowseEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { LocalSourceRecord } from '../../../content/local-import/source.js';
+import { loadMapList } from '../../../content/map/maps-index.js';
 import {
   apiBaseUrl,
   catalogFileUrl,
@@ -12,7 +13,6 @@ import {
   installCatalogEntry,
   installedMapStore,
 } from '../../../content/map-source/index.js';
-import { loadMapList } from '../../../content/maps-index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { menuConfirm } from '../confirm.js';

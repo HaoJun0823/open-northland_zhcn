@@ -26,7 +26,7 @@ import {
   loadGuiStrings,
   type UiString,
   uiStringLookup,
-} from '../../content/gui-gfx.js';
+} from '../../content/gui/gfx.js';
 import type { MissionInfoRow } from '../../game/map/info-lines.js';
 import type { MissionBriefingAnswer, MissionReader } from '../../game/map/mission-brief.js';
 import type { ObserverSeatEntry } from '../../game/match/observer-seats.js';

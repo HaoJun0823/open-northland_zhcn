@@ -5,7 +5,7 @@ import {
   oneShotEndTick,
 } from '@open-northland/render';
 import type { SimEvent } from '@open-northland/sim';
-import type { FellingClips } from '../content/felling-clips.js';
+import type { FellingClips } from '../content/object-gfx/felling-clips.js';
 
 /** The renderer seams a falling clip plays through. */
 export interface FellingSurface {

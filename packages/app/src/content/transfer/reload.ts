@@ -1,8 +1,8 @@
 import type { RoomView } from '@open-northland/net-protocol';
 import { diag } from '../../diag/log.js';
+import { loadMapList } from '../map/maps-index.js';
 import { installAnnouncedCatalogMap } from '../map-source/install.js';
 import { mapFetch } from '../map-source/sources.js';
-import { loadMapList } from '../maps-index.js';
 import { loadPersistedMap, persistVerifiedMap } from './cache.js';
 import { decodeMapTransfer, mapDeliveryAllowed } from './codec.js';
 import { loadVerifiedMapDocuments, type VerifiedMapDocuments } from './documents.js';

@@ -9,6 +9,11 @@ mutates the simulation or calls back into it. The root [`AGENTS.md`](../../AGENT
 - `src/web/` owns Web Audio, clocks, fetches, sample caching, fades, and playback state.
 - Platform seams such as context creation, byte fetching, and randomness stay injectable for tests.
 
+`src/data/` holds `director/` (per-frame audible decisions), `arbitration/` (which one-shots sound),
+`bank/` (sound groups, event bindings, preload, voice rows), `cues/` (alerts, UI cues, previews, audition),
+`music/`, `weather/`, plus shared types, mixer and spatial math at its root. `src/web/` holds the driver and
+`engine/`. Tests mirror this under `test/data/` and `test/web/`; fakes live in `test/support/`.
+
 Bindings from sim events or content rows to sounds are data. Add or override a binding instead of
 hardcoding content ids into playback control flow.
 

@@ -4,6 +4,29 @@
 never mutate the simulation or read live component stores. The root
 [`AGENTS.md`](../../AGENTS.md) also applies.
 
+## Layout
+
+`src/data/` is Pixi-free and backs `@open-northland/render/data`; `src/gpu/` draws with Pixi. Tests mirror
+src under `test/data/` and `test/gpu/`; shared helpers live in `test/support/`.
+
+| Folder | Holds |
+| --- | --- |
+| `data/projection/`, `data/snapshot/` | iso projection, camera, viewport; snapshot component access |
+| `data/scene/` | draw items, depth bands, per-feature placement; `build/` the incremental sprite-scene build, `snapshot-readers/`, `palisades/`, `projectiles/` |
+| `data/sprites/`, `data/palettes/` | sprite bindings; human palettes |
+| `data/terrain/`, `data/minimap/` | ground mesh math; minimap raster |
+| `data/effects/`, `data/fog/`, `data/weather/`, `data/lighting/`, `data/hud/` | effect, fog, weather, scene-grade and HUD models |
+| `gpu/pixi-app/` | Pixi application setup, GL patches, adapter name, GPU frame timer, HUD supersampling |
+| `gpu/world-renderer/` | the renderer, pass order, depth-sorted layer, post effects |
+| `gpu/world-batch/` | batched world sprites, their shader and attribute buffer |
+| `gpu/textures/`, `gpu/shaders/`, `gpu/pixel-art/` | texture caches and atlas pages; program catalog and warm-up; magnifiers and page prescalers |
+| `gpu/sprite-pool/` | pooled entity sprites; `layers/` atlas layer resolution, `picking/` hit tests, `presentation/` inter-tick motion |
+| `gpu/terrain/`, `gpu/map-objects/`, `gpu/still-mesh/`, `gpu/paletted-sprite/` | ground layers and shading; decor batch; still meshes; paletted sprites |
+| `gpu/overlays/` | marker layers over the world; `building-signs/` badges, flags and construction signs |
+| `gpu/placement/`, `gpu/selection/`, `gpu/world-views/` | placement ghost and planned nodes; selection styles and rings; portrait insets and map views |
+| `gpu/blood/`, `gpu/building-damage/`, `gpu/demolition/` | blood stains; damage paint, rubble, fire; collapse and dismantle |
+| `gpu/sway/`, `gpu/weather/`, `gpu/lighting/`, `gpu/ground-foot/`, `gpu/ground-waves/`, `gpu/gallery/` | cloth, vegetation and ship motion; weather; scene light; grounded feet; shore waves; animation gallery |
+
 ## Screen-bounded cost
 
 Per-frame draw cost must follow the viewport, not total map size.

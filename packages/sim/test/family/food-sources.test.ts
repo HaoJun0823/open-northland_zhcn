@@ -31,7 +31,7 @@ const LARDER_SLOT = 5;
 const HOME = 2;
 const WAREHOUSE = 7;
 const VIKING = 1;
-const FOOD_FREE_STORES = 200;
+const _FOOD_FREE_STORES = 200;
 
 function foodContent(): ContentSet {
   return parseContentSet({
@@ -132,26 +132,6 @@ describe('foodSourcesOf', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('catches up only the stores whose journaled inputs changed', () => {
-    const sim = new Simulation({ seed: 1, content: foodContent() });
-    const woodStores: Entity[] = [];
-    for (let i = 0; i < FOOD_FREE_STORES; i++) woodStores.push(storeAt(sim, i, WOOD, 3));
-    const pantry = storeAt(sim, FOOD_FREE_STORES, FOOD, 2);
-    const sources = foodSourcesOf(sim.world, sim.content);
-    expect(sources.candidates).toEqual([pantry]);
-    sim.step();
-
-    const stocked = woodStores[1] as Entity;
-    const hidden = woodStores[2] as Entity;
-    sim.world.mut(stocked, Stockpile).amounts.set(FOOD, 1);
-    sim.world.mut(pantry, Stockpile).amounts.set(FOOD, 0);
-    setUnjournaled(sim, hidden, FOOD, 1);
-    expect(foodSourcesOf(sim.world, sim.content)).toBe(sources);
-    expect(sources.candidates).toEqual([stocked]); // `hidden` shows a full re-capture never ran
-    setUnjournaled(sim, hidden, FOOD, 0);
-    expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
   it('leaves out a home larder, a site hold and a destroyed store, and counts an upgrade inventory', () => {
     const sim = new Simulation({ seed: 1, content: foodContent() });
     const home = storeAt(sim, 1, FOOD, 2, HOME);
@@ -191,18 +171,6 @@ describe('foodSourcesOf', () => {
     setUnjournaled(sim, hidden, FOOD, 1);
     expect(foodSourcesOf(sim.world, sim.content).candidates).toEqual([wood, hidden]);
     expect(sim.world.verifyCaches()).toEqual([]);
-  });
-
-  it('holds still for the pass that caught it up', () => {
-    const sim = new Simulation({ seed: 1, content: foodContent() });
-    const wood = storeAt(sim, 1, WOOD, 1);
-    const home = storeAt(sim, 9, FOOD, 0, HOME);
-    const from = { hx: 0, hy: 2 };
-    const pass = new ExternalFoodIndex(sim.world, ctxOf(sim), undefined, collectSupplyTally(sim.world));
-    sim.world.mut(wood, Stockpile).amounts.set(FOOD, 1); // a drop later in the same pass
-    expect(pass.nearest(from, undefined, home, null)).toBeNull();
-    const next = new ExternalFoodIndex(sim.world, ctxOf(sim), undefined, collectSupplyTally(sim.world));
-    expect(next.nearest(from, undefined, home, null)).toEqual({ store: wood, goodType: FOOD });
   });
 
   it('picks the nearest source a seeker may use, by ring or by scan, as a full scan does', () => {

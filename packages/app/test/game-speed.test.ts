@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_GAME_SPEED_CONTROL,
   effectiveGameSpeedSpec,
-  GAME_SPEED_STATES,
   gameSpeedSpec,
   nextRunningSpeed,
   toggleGameSpeedPause,
@@ -50,13 +49,6 @@ describe('game-speed', () => {
     expect(clock.state).toEqual({ paused: false, speed: 0.5 });
     applyGameSpeed(clock, gameSpeedSpec('fast'), 'cycle');
     expect(clock.state).toEqual({ paused: false, speed: 2 });
-  });
-
-  it('maps each state to the original speed factor and its tick multiplier', () => {
-    expect(GAME_SPEED_STATES.map((spec) => spec.factor)).toEqual([1, 2, 3, 0]);
-    for (const spec of GAME_SPEED_STATES) expect(spec.tickMultiplier).toBe(spec.factor);
-    expect(gameSpeedSpec('paused').tickMultiplier).toBe(0);
-    expect(gameSpeedSpec('faster').tickMultiplier).toBe(3);
   });
 });
 

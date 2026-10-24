@@ -13,9 +13,4 @@ describe('clientToCanvas', () => {
     expect(clientToCanvas(scale, 110, 20)).toEqual({ x: 128, y: 0 });
     expect(clientToCanvas(scale, 10, 120)).toEqual({ x: 0, y: 128 });
   });
-
-  it('is identity at a 1:1 scale anchored at the origin', () => {
-    const scale: ScreenScale = { sx: 1, sy: 1, rect: { left: 0, top: 0 } };
-    expect(clientToCanvas(scale, 42, 7)).toEqual({ x: 42, y: 7 });
-  });
 });

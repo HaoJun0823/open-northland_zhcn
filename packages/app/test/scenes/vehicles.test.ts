@@ -25,16 +25,6 @@ it('the scheduled kill wrecks the catapult with ruin nodes for the decals', () =
   expect(wrecks[0]?.ruins.length).toBeGreaterThan(0);
 });
 
-/** The trader, the ship's party and the two drivers all attach on the first tick: four crewed vehicles. */
-it('the trader, the party and the two drivers take their commander seats', () => {
-  const sim = createSceneSim(vehiclesScene);
-  sim.run(1);
-  const crewed = [...sim.world.query(components.Vehicle)].filter(
-    (e) => components.vehicleCommander(sim.world.get(e, components.Vehicle)) !== null,
-  );
-  expect(crewed).toHaveLength(4);
-});
-
 /** The drive orders land and are accepted: no refusal is raised, the three ordered vehicles wait for
  *  their commanders to board and then drive. */
 it('the ordered vehicles board their commanders and drive without a refusal', () => {

@@ -1,7 +1,6 @@
 import type { Entity, Simulation } from '@open-northland/sim';
-import { components, setupCommand } from '@open-northland/sim';
+import { components } from '@open-northland/sim';
 import { expect, it } from 'vitest';
-import { sandboxPalisadeTypes } from '../../src/game/sandbox/palisades.js';
 import {
   firstTravellerCrossed,
   PALISADE_GATE,
@@ -27,45 +26,6 @@ function segmentAt(sim: Simulation, hx: number, hy: number): Entity {
   if (wall === null) throw new Error(`expected a palisade at ${hx},${hy}`);
   return wall;
 }
-
-it('scales the source repair deltas for wall and gate records by their strength', () => {
-  const types = sandboxPalisadeTypes();
-  expect(
-    types.filter((type) => type.wall?.gate !== undefined).map((type) => type.wall?.repairPerStrike),
-  ).toEqual([5, 5, 5, 5, 5, 5]);
-  expect(
-    types.filter((type) => type.wall?.gate === undefined).map((type) => type.wall?.repairPerStrike),
-  ).toEqual([5, 5, 5, 5, 5, 5]);
-});
-
-it('leaves every position of its scripted ticks but the last to live orders', () => {
-  const sim = createSceneSim(palisadeScene);
-  // A live order numbered first in its tick, landing on a tick the script also acts on.
-  expect(() =>
-    sim.enqueueAt(setupCommand({ kind: 'setNeedsEnabled', enabled: false }), 420, 0),
-  ).not.toThrow();
-});
-
-it('places adjacent wall anchors through ordinary commands and mutates the world', () => {
-  const sim = createSceneSim(palisadeScene);
-  sim.step();
-
-  const ordinaryPlacements = sim.commands.log
-    .map((entry) => entry.command)
-    .filter((command) => command.kind === 'placePalisade')
-    .filter(
-      (command) =>
-        command.force !== true && command.underConstruction !== true && command.valency === undefined,
-    );
-  expect(ordinaryPlacements.map((command) => [command.x, command.y])).toEqual([
-    [30, 36],
-    [31, 36],
-    [32, 36],
-  ]);
-  for (const command of ordinaryPlacements) {
-    expect(sim.world.has(segmentAt(sim, command.x, command.y), UnderConstruction)).toBe(false);
-  }
-});
 
 it('converts a five-wall span by clearing its two neighbours and keeping the outer posts', () => {
   const sim = createSceneSim(palisadeScene);

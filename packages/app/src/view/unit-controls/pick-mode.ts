@@ -14,8 +14,6 @@ import { diag } from '../../diag/index.js';
 import { ownerPlayerOf } from '../../game/snapshot/index.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile } from '../picking.js';
 import { memoBySnapshot } from '../projections/index.js';
-import type { AnsweredOrders } from './answered-orders.js';
-import { enqueueUnitSelection } from './group-orders.js';
 import {
   computeAssignHighlight,
   computeHouseHighlight,
@@ -27,9 +25,11 @@ import {
   tradeHousePick,
   workerGroupAt,
 } from './highlights/index.js';
-import type { UnitOrderController } from './orders.js';
+import type { AnsweredOrders } from './orders/answered.js';
+import type { UnitOrderController } from './orders/controller.js';
+import { enqueueUnitSelection } from './orders/group.js';
+import type { VehicleOrderController } from './orders/vehicle.js';
 import type { UnitTargets } from './unit-targets.js';
-import type { VehicleOrderController } from './vehicle-orders.js';
 
 const MIDDLE_BUTTON = 1;
 

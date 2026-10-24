@@ -11,8 +11,6 @@ import { nodeBounds, pickInRect, pickTopAt, screenToWorld, type Tile, worldToTil
 import { entityAnchor } from '../projections/entity-anchor.js';
 import { memoBySnapshot, rangeRingsOf } from '../projections/index.js';
 import { orderRecipients } from './action-ring/index.js';
-import { createAnsweredOrders } from './answered-orders.js';
-import { createUnitChrome } from './chrome.js';
 import { createClickHits } from './click-hits.js';
 import {
   controlGroupCommand,
@@ -21,27 +19,29 @@ import {
   groupRecallEffect,
   isControlGroupMember,
 } from './control-groups.js';
-import { type EquipPickController, mountEquipPicker } from './equip-picker.js';
 import { jobMateArea, jobMatesIn } from './job-mates.js';
-import { createKeyboardOrders } from './keyboard-orders.js';
 import { createLostGoals } from './lost-goals.js';
 import { createSelectionMarquee } from './marquee.js';
-import { createOrderFeedback } from './order-feedback.js';
-import { createOrderLimitNotice } from './order-limit-notice.js';
-import { createOrderMarkers } from './order-markers.js';
-import { createUnitOrderController } from './orders.js';
-import { createOverviewOrders } from './overview-orders.js';
-import { createPendingGroundOrders } from './pending-ground-orders.js';
+import { createAnsweredOrders } from './orders/answered.js';
+import { createUnitOrderController } from './orders/controller.js';
+import { createOrderFeedback } from './orders/feedback.js';
+import { createKeyboardOrders } from './orders/keyboard.js';
+import { createOrderLimitNotice } from './orders/limit-notice.js';
+import { createOrderMarkers } from './orders/markers.js';
+import { createOverviewOrders } from './orders/overview.js';
+import { createPendingGroundOrders } from './orders/pending-ground.js';
+import { issueRingCommand } from './orders/ring-commands.js';
+import { createTargetFlashes } from './orders/target-flashes.js';
+import { createVehicleOrderController } from './orders/vehicle.js';
+import { createUnitChrome } from './panels/chrome.js';
+import { type EquipPickController, mountEquipPicker } from './panels/equip-picker.js';
 import { pickCursor } from './pick-cursor.js';
 import { createPickModeController, pickPressCue } from './pick-mode.js';
-import { issueRingCommand } from './ring-commands.js';
 import { createUnitSelection } from './selection.js';
 import { createSelectionCursor } from './selection-cursor.js';
 import { createSelectionVoice } from './selection-voice.js';
-import { createTargetFlashes } from './target-flashes.js';
 import type { UnitControls, UnitControlsOptions } from './types.js';
 import { createUnitTargets } from './unit-targets.js';
-import { createVehicleOrderController } from './vehicle-orders.js';
 import { createWorkAreaOverlay } from './work-area.js';
 
 export type { UnitControls, UnitControlsOptions } from './types.js';

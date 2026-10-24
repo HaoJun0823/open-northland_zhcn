@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { bcp47Tag } from '../../../src/i18n/index.js';
-import { schoolChoices, schoolGroups } from '../../../src/view/unit-controls/school-dialog.js';
+import { schoolChoices, schoolGroups } from '../../../src/view/unit-controls/panels/school-dialog.js';
 import { hasRealIr, loadContentUnderTest } from '../helpers.js';
 
 it.skipIf(!hasRealIr())('lists discovered-capable methods under the profession that uses them', async () => {

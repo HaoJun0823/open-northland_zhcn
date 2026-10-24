@@ -9,7 +9,7 @@ import {
   type Simulation,
   systems,
 } from '@open-northland/sim';
-import { pairFormation } from '../src/view/unit-controls/formation.js';
+import { pairFormation } from '../src/view/unit-controls/orders/formation.js';
 import { intEnv } from './knobs.js';
 import type { Measurement } from './measure.js';
 import { summarizeSegment } from './report/index.js';

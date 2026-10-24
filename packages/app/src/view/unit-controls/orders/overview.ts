@@ -1,0 +1,57 @@
+import type { UiCue } from '@open-northland/audio';
+import { matchesMouseBinding } from '../../../hud/keybindings.js';
+import { type Tile, worldToTile } from '../../picking.js';
+import { type PickModeController, pickPressCue } from '../pick-mode.js';
+import type { UnitOrderController } from './controller.js';
+import type { VehicleOrderController } from './vehicle.js';
+
+/**
+ * Orders named on the map overview rather than the world view: it draws the map flat and its dots are
+ * coarser than any sprite, so a press there names ground and never the thing standing on it. The right
+ * button walks the selection's settlers and drives its vehicles to the spot; an armed spot-target mode
+ * resolves at it. Shift queues the walk and the drive as on the world view.
+ *
+ * Named addition: the original's overview window only scrolls the view.
+ */
+
+export interface OverviewOrderDeps {
+  readonly pickMode: Pick<PickModeController, 'handleOverviewPress'>;
+  /** Read at press time; the order controller is built after the pick mode it resolves through. */
+  readonly orders: () => UnitOrderController;
+  readonly vehicleOrders: () => Pick<VehicleOrderController, 'issueDriveTo' | 'selectedOwnVehicles'>;
+  readonly workFlagBinding: () => string | null;
+  /** The GUI click: an order that commanded someone confirms, a called-off pick fails. Absent, silent. */
+  readonly cue?: (cue: UiCue) => void;
+}
+
+/** True when the press became an order, so the overview must not also scroll the view to it. */
+export type OverviewPress = (worldX: number, worldY: number, event: MouseEvent) => boolean;
+
+export function createOverviewOrders(deps: OverviewOrderDeps): OverviewPress {
+  const confirmIf = (ordered: boolean): void => {
+    if (ordered) deps.cue?.('confirm');
+  };
+  return (worldX, worldY, event) => {
+    // The flat inverse: the overview plots the map without the world view's terrain lift.
+    const target: Tile = worldToTile(worldX, worldY);
+    const pick = deps.pickMode.handleOverviewPress(event.button, target, event.shiftKey);
+    if (pick !== null) {
+      const cue = pickPressCue(pick);
+      if (cue !== null) deps.cue?.(cue);
+      return true;
+    }
+    if (matchesMouseBinding(event, deps.workFlagBinding())) {
+      confirmIf(deps.orders().issueSetWorkFlag(target));
+      return true;
+    }
+    if (event.button !== 2) return false;
+    // The press is the overview's whether or not anyone was free to move; the click follows the order.
+    const vehicles = deps.vehicleOrders();
+    const walked = deps
+      .orders()
+      .issueMoveTo(target, undefined, event.shiftKey, vehicles.selectedOwnVehicles());
+    const drove = vehicles.issueDriveTo(target, event.shiftKey);
+    confirmIf(walked || drove);
+    return true;
+  };
+}

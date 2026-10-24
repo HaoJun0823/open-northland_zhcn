@@ -11,7 +11,7 @@ import { holdCounts } from '../../../../src/hud/dom/group-panel/military.js';
 import { scopePress } from '../../../../src/hud/dom/group-panel/tabs.js';
 import { createSceneSim } from '../../../../src/scenes/index.js';
 import { groupPanelScene } from '../../../../src/scenes/interface/group-panel.js';
-import { groupPanelActions } from '../../../../src/view/unit-controls/group-panel.js';
+import { groupPanelActions } from '../../../../src/view/unit-controls/panels/group.js';
 import { snapshotOf } from '../../../support/snapshot.js';
 
 const ENEMY_SEAT = 2;

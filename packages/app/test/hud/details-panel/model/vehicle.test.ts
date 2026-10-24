@@ -36,13 +36,13 @@ import { orderTexts } from '../../../../src/hud/dom/vehicle-panel/portrait.js';
 import { messages } from '../../../../src/i18n/index.js';
 import { createSceneSim } from '../../../../src/scenes/index.js';
 import { vehiclesScene } from '../../../../src/scenes/vehicles/vehicles.js';
-import type { PickMode } from '../../../../src/view/unit-controls/pick-mode.js';
 import {
   armedVehiclePick,
   orderPick,
   vehiclePanelActions,
   vehiclePeersOf,
-} from '../../../../src/view/unit-controls/vehicle-panel.js';
+} from '../../../../src/view/unit-controls/panels/vehicle.js';
+import type { PickMode } from '../../../../src/view/unit-controls/pick-mode.js';
 import { ctxOf } from '../../../support/sandbox.js';
 
 /** The panel context with the sim's trader seam, which the Trade section reads. */

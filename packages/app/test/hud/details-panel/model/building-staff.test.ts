@@ -38,7 +38,7 @@ import {
 import { orderViews } from '../../../../src/hud/dom/building-panel/portrait.js';
 import { STAFF_WELLS_MAX, staffWells } from '../../../../src/hud/dom/building-panel/staff.js';
 import { currentLocale, formatMessage, installNameOverlay, messages } from '../../../../src/i18n/index.js';
-import { buildingPanelActions, buildingPeers } from '../../../../src/view/unit-controls/building-panel.js';
+import { buildingPanelActions, buildingPeers } from '../../../../src/view/unit-controls/panels/building.js';
 import { buildingEntity, snapshotOf as panelSnapshotOf, sandboxCtx } from '../../../support/sandbox.js';
 import { type Ent, idLookupVisits, snapshotOf, visitCountingSnapshot } from '../../../support/snapshot.js';
 

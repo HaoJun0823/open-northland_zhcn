@@ -28,7 +28,7 @@ const CONTENT_TESTS = 'packages/app/test/real-content/**/*.test.ts';
  * `npm test` skips. docs/TESTING.md says which changes run them before integration.
  */
 const SLOW_APP_TESTS = [
-  'packages/app/test/army-march.test.ts',
+  'packages/app/test/view/unit-controls/orders/army-march.test.ts',
   'packages/app/test/scenes/army/battle.test.ts',
   'packages/app/test/snapshot-mirror-scenes.test.ts',
   'packages/app/test/session-worker.test.ts',

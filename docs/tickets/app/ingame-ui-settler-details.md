@@ -11,7 +11,7 @@ target does not exist yet.
 
 - **Knowledge link.** The upcoming-unlock rows (`settler-panel/experience.ts`) show a lock and a
   tooltip but lead nowhere. Once Knowledge has entries, open the unlocked good's or trade's entry from
-  the row, as the building panel's `knowledge` order does (`view/unit-controls/chrome.ts`).
+  the row, as the building panel's `knowledge` order does (`view/unit-controls/panels/chrome.ts`).
 - **Wear minutes.** A worn item's socket tooltip (`settler-panel/equipment.ts`) gives the life left as
   a percent only. Add the minutes it buys at the wearer's current pace, which needs a sim read seam for
   the wear an item takes per game minute of its wearer's current work; add it only if it is cheap for

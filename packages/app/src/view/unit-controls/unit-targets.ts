@@ -20,7 +20,7 @@ import {
 } from '../../game/snapshot/index.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import { containsTargetPoint, hitsTarget, isHitTarget, type Pickable } from '../picking.js';
-import type { FormationUnit } from './formation.js';
+import type { FormationUnit } from './orders/formation.js';
 
 /** What the pickable target sets need from the unit-controls options (a subset threaded through). */
 export interface UnitTargetsDeps {

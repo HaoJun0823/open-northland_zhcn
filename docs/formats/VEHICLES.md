@@ -532,7 +532,7 @@ boarding node standing in for the cart's own node, and the pool handling on tran
 original's animal list order and transform details are not read.
 
 Open Northland (`packages/app/src/hud/details-panel/model/vehicle.ts`,
-`view/unit-controls/vehicle-orders.ts`): a vehicle is selected by a click on its drawn sprite (solid
+`view/unit-controls/orders/vehicle.ts`): a vehicle is selected by a click on its drawn sprite (solid
 pixels), after the door markers, flags, settlers and buildings under the same point and before a
 signpost. A marquee takes every own vehicle whose drawn bounds it touches along with the settlers
 (an addition); the panel opens for one vehicle alone, and a group, or vehicles boxed with settlers,

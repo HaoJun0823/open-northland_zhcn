@@ -1,6 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import type { PlayerCommand, WorldSnapshot } from '@open-northland/sim';
-import { createAnsweredOrders } from '../../src/view/unit-controls/answered-orders.js';
+import { createAnsweredOrders } from '../../src/view/unit-controls/orders/answered.js';
 import { createPickModeController, type PickModeController } from '../../src/view/unit-controls/pick-mode.js';
 import type { UnitTargets } from '../../src/view/unit-controls/unit-targets.js';
 

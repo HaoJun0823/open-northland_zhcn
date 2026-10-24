@@ -40,7 +40,7 @@ import type { KeyBindings } from '../../hud/keybindings.js';
 import type { ResidentRow } from '../../hud/tool-panel/residents/rows.js';
 import type { PresentationPack } from '../../presentation/pack.js';
 import type { ControlGroupMembers } from './control-groups.js';
-import type { OverviewPress } from './overview-orders.js';
+import type { OverviewPress } from './orders/overview.js';
 
 /** The sim's technology read (`SessionHost.unlockStatus`) as its last answer; undefined until one
  *  landed. */

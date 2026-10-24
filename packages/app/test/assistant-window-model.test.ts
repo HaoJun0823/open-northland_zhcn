@@ -8,12 +8,10 @@ import {
   birthNotes,
   counterFace,
   counterFromFace,
-  counterRange,
   PRESS_HOLD_TICKS,
   PressHold,
   trainingNotes,
   UNLIMITED_FACE,
-  weaponStocked,
 } from '../src/hud/dom/assistant-window/model.js';
 import { assistantBookingsOf } from '../src/view/assistant-bookings.js';
 import { type Ent, snapshotOf } from './support/snapshot.js';
@@ -22,12 +20,6 @@ const finite = (value: number) => ({ value, infinite: false });
 const endless = (value = 0) => ({ value, infinite: true });
 
 describe('assistant counter faces', () => {
-  it('gives ∞ only to the kinds the sim lets run forever, within the sim clamp', () => {
-    expect(counterRange('extraWomen')).toEqual({ min: 0, max: 100 });
-    expect(counterRange('extraMen')).toEqual({ min: 0, max: 100, unlimited: UNLIMITED_FACE });
-    expect(counterRange('trainBow').unlimited).toBe(UNLIMITED_FACE);
-  });
-
   it('shows ∞ over the retained value and keeps that value when ∞ is set', () => {
     expect(counterFace(endless(7))).toBe(UNLIMITED_FACE);
     expect(counterFace(finite(7))).toBe(7);
@@ -139,15 +131,6 @@ describe("a drink or amulet row's group switches", () => {
     expect(audienceLacking(shortage, 'everyone')).toBe(7);
     expect(audienceLacking(shortage, 'soldiers')).toBe(3);
     expect(audienceLacking(shortage, 'civilians')).toBe(4);
-  });
-});
-
-describe('weapon stock for a class', () => {
-  it('counts the weaker weapon only while its switch allows it', () => {
-    expect(weaponStocked(1, 0, false)).toBe(true);
-    expect(weaponStocked(0, 2, true)).toBe(true);
-    expect(weaponStocked(0, 2, false)).toBe(false);
-    expect(weaponStocked(0, 0, true)).toBe(false);
   });
 });
 

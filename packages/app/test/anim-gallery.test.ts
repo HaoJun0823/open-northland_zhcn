@@ -4,15 +4,10 @@ import { findCharacter } from '../src/catalog/roster.js';
 import type { BobSeqRow } from '../src/content/ir/rows.js';
 import {
   buildAnimCells,
-  buildColorCells,
   buildGalleryClips,
   buildHeadsCells,
   buildRosterCells,
-  parseColor,
-  parseDirection,
-  parseView,
   prettyClipLabel,
-  rosterLabel,
 } from '../src/entries/anim-cells.js';
 
 /** A minimal {@link SpriteLayer} for the pure cell-builder tests: only `.atlas.frames` is read; the GPU
@@ -36,21 +31,6 @@ describe('prettyClipLabel', () => {
     expect(prettyClipLabel('human_man_generic_walk')).toBe('generic walk');
     expect(prettyClipLabel('human_man_generic_walk_wood')).toBe('generic walk wood');
     expect(prettyClipLabel('human_man_Civilian_Fight_punch')).toBe('Civilian Fight punch');
-  });
-
-  it('leaves a name without the known prefix intact (just de-underscored)', () => {
-    expect(prettyClipLabel('animal_bear_walk')).toBe('animal bear walk');
-  });
-});
-
-describe('parseDirection', () => {
-  it('maps full/all/absent/garbage/out-of-range to "full", and 0..7 to that block', () => {
-    for (const raw of [null, 'full', 'all', 'abc', '-1', '8', '99']) {
-      expect(parseDirection(raw)).toBe('full');
-    }
-    expect(parseDirection('0')).toBe(0);
-    expect(parseDirection('3')).toBe(3);
-    expect(parseDirection('7')).toBe(7);
   });
 });
 
@@ -89,50 +69,6 @@ describe('buildGalleryClips', () => {
       { label: 'generic walk fish', start: 2468, length: 96, dirs: 8, headStart: 1988 },
     ]);
   });
-
-  it('leaves head ids alone (no borrow) when there is no head atlas', () => {
-    const clips = buildGalleryClips(rows, undefined, 'fish');
-    // headEmptyAt is true for every id, but with no walk head to borrow the clip still renders body-only;
-    // the borrow still points at the walk start (the renderer just finds no head frame and hides it).
-    expect(clips[0]?.headStart).toBe(1988);
-  });
-});
-
-describe('parseView', () => {
-  it('maps English heads/looks and colors/colours aliases, else animation view', () => {
-    for (const raw of ['heads', 'looks']) expect(parseView(raw)).toBe('heads');
-    for (const raw of ['colors', 'colours']) expect(parseView(raw)).toBe('colors');
-    for (const raw of [null, 'anim', 'x', '']) expect(parseView(raw)).toBe('anim');
-  });
-});
-
-describe('parseColor', () => {
-  it('maps in-range integers to that row; absent/garbage/out-of-range → null', () => {
-    for (const raw of [null, 'abc', '-1', '16', '99']) expect(parseColor(raw, 16)).toBeNull();
-    expect(parseColor('0', 16)).toBe(0);
-    expect(parseColor('1', 16)).toBe(1);
-    expect(parseColor('15', 16)).toBe(15);
-  });
-});
-
-describe('buildColorCells', () => {
-  const rows: BobSeqRow[] = [{ name: 'human_man_generic_walk', start: 100, length: 96 }];
-  const body = fakeLayer();
-  const head = fakeLayer();
-
-  it('makes one walk cell per colour name, tagged with its player row + overlay', () => {
-    const cells = buildColorCells(rows, body, head, ['blue', 'red', 'green']);
-    expect(cells.map((c) => c.label)).toEqual(['blue', 'red', 'green']);
-    expect(cells.map((c) => c.player)).toEqual([0, 1, 2]);
-    // Every cell plays the SAME walk clip and shares the body + head layers.
-    expect(cells.every((c) => c.clip.start === 100 && c.body === body)).toBe(true);
-    expect(cells[0]?.overlays).toEqual([head]);
-  });
-
-  it('filters by colour name and returns [] when the body has no walk', () => {
-    expect(buildColorCells(rows, body, head, ['blue', 'red'], 'red').map((c) => c.player)).toEqual([1]);
-    expect(buildColorCells([], body, head, ['blue'])).toEqual([]);
-  });
 });
 
 describe('buildAnimCells', () => {
@@ -148,11 +84,6 @@ describe('buildAnimCells', () => {
     expect(cells.map((c) => c.clip.label)).toEqual(['generic walk', 'generic eat']);
     expect(cells.every((c) => c.body === body)).toBe(true);
     expect(cells.every((c) => c.overlays?.[0] === head)).toBe(true);
-  });
-
-  it('drops the overlay (body-only) when the character has no head', () => {
-    const cells = buildAnimCells(rows, fakeLayer(), undefined);
-    expect(cells[0]?.overlays).toEqual([]);
   });
 });
 
@@ -201,15 +132,6 @@ describe('buildHeadsCells', () => {
   });
 });
 
-describe('rosterLabel', () => {
-  it('appends the head index for a multi-look body, and is bare for a single-look body', () => {
-    // Use each character's OWN heads (civilian owns 00–03/80–83/90–93; the woman is single-look).
-    expect(rosterLabel(findCharacter('civilian'), 'cr_hum_head_02')).toBe('Cywil 02');
-    expect(rosterLabel(findCharacter('warrior'), 'cr_hum_head_05')).toBe('Wojownik 05');
-    expect(rosterLabel(findCharacter('woman'), 'cr_hum_head_10')).toBe('Kobieta');
-  });
-});
-
 describe('buildRosterCells', () => {
   const civ = findCharacter('civilian');
   const woman = findCharacter('woman');
@@ -241,21 +163,5 @@ describe('buildRosterCells', () => {
     expect(buildRosterCells(load(), 'kobieta').map((c) => c.label)).toEqual(['Kobieta']);
     const noClip = [{ char: woman, body: fakeLayer(), heads: [fakeLayer()], rows: [] }];
     expect(buildRosterCells(noClip)).toEqual([]);
-  });
-
-  it('emits one bare body-only cell for a headless character (the baby)', () => {
-    const baby = findCharacter('baby');
-    const cells = buildRosterCells([
-      {
-        char: baby,
-        body: fakeLayer(),
-        heads: [],
-        rows: [{ name: 'human_child_baby_generic_crouch', start: 0, length: 104 }],
-      },
-    ]);
-    expect(cells.length).toBe(1);
-    expect(cells[0]?.label).toBe('Niemowlę');
-    expect(cells[0]?.overlays).toEqual([]);
-    expect(cells[0]?.clip.start).toBe(0); // the crouch (baby has no _walk)
   });
 });

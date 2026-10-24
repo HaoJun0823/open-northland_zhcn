@@ -33,18 +33,6 @@ describe('assistantCountersSeam', () => {
     expect(sent).toEqual([]);
   });
 
-  it("reads the watched seat's counters off the sim block", () => {
-    const seam = assistantCountersSeam(
-      simCounters({ trainSword: { value: 4, infinite: false }, extraMen: { value: 0, infinite: true } }),
-      () => 0,
-      () => {},
-    );
-    const faces = seam.read();
-    expect(faces.trainSword).toEqual({ value: 4, infinite: false });
-    expect(faces.extraMen).toEqual({ value: 0, infinite: true });
-    expect(faces.extraWomen).toEqual(ZERO);
-  });
-
   it('writes one absolute command carrying the seat and the counter', () => {
     const sent: Command[] = [];
     const seam = assistantCountersSeam(

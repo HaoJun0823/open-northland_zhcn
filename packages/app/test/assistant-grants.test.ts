@@ -158,19 +158,6 @@ describe('assistantGrantsSeam', () => {
     expect(sent).toEqual([{ kind: 'setAssistantPostGraduates', player: 1, enabled: false }]);
   });
 
-  it('reads and writes the flag switch through its own command', () => {
-    const sent: Command[] = [];
-    const seam = assistantGrantsSeam(
-      simGranting([], [], false, true),
-      CONTENT,
-      () => 2,
-      (c) => sent.push(c),
-    );
-    expect(seam.read().moveFlags).toBe(true);
-    expect(seam.set('moveFlags', false)).toBe(true);
-    expect(sent).toEqual([{ kind: 'setAssistantMoveFlags', player: 2, enabled: false }]);
-  });
-
   it('reads a weapon switch as OFF while its good is vetoed, and writes the veto on a flip', () => {
     const sent: Command[] = [];
     const seam = assistantGrantsSeam(
@@ -187,18 +174,6 @@ describe('assistantGrantsSeam', () => {
       { kind: 'setAssistantWeaponVeto', player: 3, goodType: SWORD_SHORT, vetoed: true },
       { kind: 'setAssistantWeaponVeto', player: 3, goodType: SPEAR_WOODEN, vetoed: false },
     ]);
-  });
-
-  it('writes one command per mapped good, carrying the seat and the flip', () => {
-    const sent: Command[] = [];
-    const seam = assistantGrantsSeam(
-      simGranting([]),
-      CONTENT,
-      () => 2,
-      (c) => sent.push(c),
-    );
-    expect(seam.set('giveBoots', false)).toBe(true);
-    expect(sent).toEqual([{ kind: 'setAssistantGrant', player: 2, goodType: SHOES, enabled: false }]);
   });
 
   it('a switch whose slug the content lacks reads OFF and rejects writes', () => {

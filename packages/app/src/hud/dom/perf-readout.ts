@@ -1,6 +1,7 @@
 import { heapMb } from '../../diag/heap.js';
 import type { PerfReading, PerfVerdict } from '../../diag/perf-reading.js';
 import { formatMessage, messages } from '../../i18n/index.js';
+import { write } from './parts/dom.js';
 
 /** The frame rate on the top bar, with a breakdown that opens on hover, focus or a click like the bar's
  *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU with the
@@ -54,10 +55,6 @@ function loadHealth(load: number): Health {
   return load >= LOAD_WARN ? 'warn' : 'good';
 }
 
-function setText(element: HTMLElement, text: string): void {
-  if (element.textContent !== text) element.textContent = text;
-}
-
 function decimal(ms: number): string {
   return ms.toFixed(1);
 }
@@ -86,7 +83,7 @@ function meterRow(label: string): Meter {
 function showMeter(meter: Meter, load: number | null, text: string): void {
   meter.fill.style.width = `${Math.min(1, load ?? 0) * PERCENT}%`;
   meter.row.dataset.health = load === null ? 'none' : loadHealth(load);
-  setText(meter.value, text);
+  write(meter.value, text);
 }
 
 interface Figure {
@@ -106,7 +103,7 @@ function figureRow(label: string): Figure {
 
 /** `health` null shows the figure plain. */
 function showFigure(figure: Figure, text: string, health: Health | null): void {
-  setText(figure.value, text);
+  write(figure.value, text);
   if (health === null) delete figure.row.dataset.health;
   else figure.row.dataset.health = health;
 }
@@ -214,7 +211,7 @@ export function createPerfReadoutView(adapter: string | null): PerfReadoutView {
 
   const fillTip = (reading: PerfReading, frameTimes: ArrayLike<number>): void => {
     tip.dataset.health = VERDICT_HEALTH[reading.verdict];
-    setText(
+    write(
       verdict,
       formatMessage(copy.verdicts[reading.verdict], {
         hz: Math.round(reading.displayHz),
@@ -223,7 +220,7 @@ export function createPerfReadoutView(adapter: string | null): PerfReadoutView {
     );
     const hintText = reading.verdict === 'other' ? copy.otherHint : '';
     hint.hidden = hintText === '';
-    setText(hint, hintText);
+    write(hint, hintText);
     showMeter(sim, reading.simLoad, reading.simMsPerTick === null ? '-' : ms(reading.simMsPerTick));
     showMeter(cpu, reading.drawMs / reading.budgetMs, ms(reading.drawMs));
     showMeter(
@@ -285,7 +282,7 @@ export function createPerfReadoutView(adapter: string | null): PerfReadoutView {
     element,
     show(reading, frameTimes): void {
       last = { reading, frameTimes };
-      setText(fpsValue, String(Math.round(reading.fps)));
+      write(fpsValue, String(Math.round(reading.fps)));
       button.dataset.health = reading.verdict === 'paused' ? 'good' : frameHealth(reading);
       button.setAttribute('aria-label', formatMessage(copy.label, { fps: Math.round(reading.fps) }));
       if (open) fillTip(reading, frameTimes);

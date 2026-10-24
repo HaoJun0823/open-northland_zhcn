@@ -12,7 +12,7 @@ import {
 } from '../../../game/snapshot/index.js';
 import { messages } from '../../../i18n/index.js';
 import type { MetSeat } from './from-diplomacy.js';
-import { type BuildingTrades, raiseFight, raiseUnlocks } from './from-events.js';
+import { type BuildingTrades, isPerson, raiseFight, raiseUnlocks } from './from-events.js';
 import { type MessageNaming, MessageRaiser, nodeOf, type RaisedMessage } from './raise.js';
 import { settingsRestartNote } from './settings-restart.js';
 import { raiseShortage } from './site-shortages.js';
@@ -66,10 +66,6 @@ const WOMEN_ROWS: ReadonlySet<UserMessageTypeName> = new Set<UserMessageTypeName
 const GALLERY_OPENED_BUILDINGS = 3;
 
 const NO_PARTS = { jobLabel: null, goodName: null, stanceName: null } as const;
-
-function isPerson(e: SnapshotEntity): boolean {
-  return e.components.Person !== undefined;
-}
 
 /**
  * One raised message per type. Settler rows walk the seat's people in turn, so the cards show different

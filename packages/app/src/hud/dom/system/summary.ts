@@ -9,6 +9,7 @@ import {
 } from '../../summary/model.js';
 import { GOOD_ICON_BOX_PX, type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { FIGURE } from '../icons.js';
+import { write } from '../parts/dom.js';
 
 export interface HudSummaryDeps {
   /** Paints the counters' and the breakdown rows' good icons in the art this game draws with. */
@@ -57,10 +58,6 @@ interface Group {
   readonly root: HTMLElement;
   readonly buttons: readonly CountButton[];
   readonly tip: HTMLElement;
-}
-
-function setText(element: HTMLElement, text: string): void {
-  if (element.textContent !== text) element.textContent = text;
 }
 
 function tipRow(label: string, className = ''): { row: HTMLElement; figure: HTMLElement } {
@@ -160,7 +157,7 @@ export function createHudSummary(deps: HudSummaryDeps): HudSummary {
     count.button.setAttribute('aria-label', formatMessage(copy.count, { name: count.name, count: value }));
   };
   const setRow = (row: { row: HTMLElement; figure: HTMLElement }, value: number): void => {
-    setText(row.figure, String(value));
+    write(row.figure, String(value));
     row.row.classList.toggle('on-tip__row--zero', value === 0);
   };
 

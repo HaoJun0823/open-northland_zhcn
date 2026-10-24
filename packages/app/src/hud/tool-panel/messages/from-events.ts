@@ -212,7 +212,7 @@ function fightVictimKind(e: SnapshotEntity): FightVictimKind | undefined {
   return isPerson(e) ? 'settler' : undefined;
 }
 
-function isPerson(e: SnapshotEntity): boolean {
+export function isPerson(e: SnapshotEntity): boolean {
   return e.components.Person !== undefined;
 }
 

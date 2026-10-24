@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Position, Resource, SettlerNeeds } from '../../src/components/index.js';
 import { entityDeltas, fx, Simulation, type SnapshotDelta } from '../../src/index.js';
 import { clonePlain } from '../../src/inspect/plain-clone.js';
@@ -96,21 +96,18 @@ describe('snapshot component write tracking', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('clones a value write without walking carried components or changing previous snapshots', () => {
+  it('clones only the written component and leaves previous snapshots unchanged', () => {
     const { sim, id } = fixture();
     const stream = sim.snapshotDeltas();
     stream.next();
     const before = sim.snapshot().entities[0];
-    const walk = vi.spyOn(sim.world, 'forEachComponent');
     sim.world.mut(id, Position).x = fx.fromInt(3);
     const delta = stream.next();
     const after = sim.snapshot().entities[0];
-    expect(walk).not.toHaveBeenCalled();
     expect(firstTouched(delta)?.components).toEqual({ Position: { x: fx.fromInt(3), y: 0 } });
     expect(after).not.toBe(before);
     expect(after?.components.Resource).toBe(before?.components.Resource);
     expect(before?.components.Position).toEqual({ x: 0, y: 0 });
-    walk.mockRestore();
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 

@@ -103,7 +103,7 @@ describe('fresh formation slots', () => {
     ).toBeNull();
   });
 
-  it('finds 1000 legal and distinct slots around a shore in a single bounded scan', () => {
+  it('finds 1000 legal and distinct slots around a shore', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: waterColumnMap(64, 48, 32) });
     const members = Array.from({ length: 1000 }, (_, i) =>
       person(sim, 2 + (i % 40), 2 + Math.floor(i / 40) * 2),

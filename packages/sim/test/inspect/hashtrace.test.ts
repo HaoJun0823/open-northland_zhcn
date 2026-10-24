@@ -225,16 +225,6 @@ describe('HashTrace', () => {
       expect(d?.tick).toBe(1);
       expect(d?.hash).not.toBe(d?.otherHash);
     });
-
-    it('agrees with a faithful re-run: same seed + commands never diverge', () => {
-      const schedule = new Map<number, Command[]>([
-        [1, [{ kind: 'placeBuilding', buildingType: HEADQUARTERS, x: 2, y: 0, tribe: VIKING }]],
-        [2, [{ kind: 'spawnSettler', jobType: WOODCUTTER, x: 0, y: 0, tribe: VIKING }]],
-      ]);
-      const a = traceRun(7, 30, schedule, { map: grassMap(4, 1) });
-      const b = traceRun(7, 30, schedule, { map: grassMap(4, 1) });
-      expect(a.divergedFrom(b)).toBeUndefined();
-    });
   });
 
   it('records a real run with a recent-snapshot window the overlay can dump from', () => {

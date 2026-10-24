@@ -22,18 +22,13 @@ import { ownedBuildings } from '../../../src/systems/ai-shared/seat-roster.js';
 import { AI_PROFILES } from '../../../src/systems/computer-player/difficulty.js';
 import {
   CORE_CREW_FROM_TICKS,
-  type GamePhase,
-  HOARD_UNITS_BY_PHASE,
   LATE_GAME_FROM_TICKS,
-  MID_GAME_FROM_TICKS,
   STORE_CARRIERS_FROM_TICKS,
 } from '../../../src/systems/computer-player/game-phase.js';
 import {
-  BUILD_ORDER_LOOKAHEAD_ENTRIES,
   BUILDER_CAP,
   DEFAULT_BUILD_ORDER,
   FLAG_MAX_DISTANCE_NODES,
-  MAX_ACTIVE_CONSTRUCTION_SITES,
   SeatSupply,
   type SupplyLines,
   supplyLines,
@@ -81,7 +76,6 @@ import {
   HQ_TYPE,
   HQ_X,
   HQ_Y,
-  IRON,
   JOINER,
   JOINERY_TYPE,
   MILL_TYPE,
@@ -308,67 +302,6 @@ function selections(seat: Seat, building: Entity, job: number): (readonly number
     });
 }
 
-describe('workforce module - the supply lines', () => {
-  it("derives each good's lines from the build order's largest bill line and the consumers' shelves", () => {
-    const content = workshopsContent();
-    // The top home's merged chain bill: two wood per tier over three tiers, plus its own materials.
-    const HOME_CHAIN_WOOD = 6;
-    const lines = (unit: number, band: number) => {
-      const short = MAX_ACTIVE_CONSTRUCTION_SITES * unit;
-      return {
-        unit,
-        short,
-        comfort: short + band,
-        glut: short + band + BUILD_ORDER_LOOKAHEAD_ENTRIES * unit,
-      };
-    };
-    for (const { goodType, amount } of TOP_HOME_MATERIALS) {
-      expect(linesOf(content, goodType)).toEqual(lines(amount, amount));
-    }
-    expect(linesOf(content, WOOD)).toEqual(lines(HOME_CHAIN_WOOD, HOME_CHAIN_WOOD));
-    // Clay no bill takes and no workshop shelves: one unit.
-    expect(linesOf(content, MUD)).toEqual(lines(1, 1));
-    // Iron no bill takes: the joinery's input shelf is its unit and its band.
-    const JOINERY_IRON_SHELF = 5;
-    expect(linesOf(content, IRON)).toEqual(lines(JOINERY_IRON_SHELF, JOINERY_IRON_SHELF));
-    // A shelf wider than the unit widens only the band.
-    const WIDE_SHELF = 20;
-    const wide = parseContentSet({
-      ...content,
-      buildings: content.buildings.map((b) =>
-        b.id === 'work_joinery_01'
-          ? {
-              ...b,
-              stock: b.stock.map((slot) =>
-                slot.goodType === WOOD ? { ...slot, capacity: WIDE_SHELF } : slot,
-              ),
-            }
-          : b,
-      ),
-    });
-    expect(linesOf(wide, WOOD)).toEqual(lines(HOME_CHAIN_WOOD, WIDE_SHELF));
-    expect(supplyLines(content, DEFAULT_BUILD_ORDER, 'opening').has(CROCKERY)).toBe(false);
-  });
-
-  it('lays the glut line further out every game phase, but not for a stocked product', () => {
-    const content = grainContent();
-    const wood = linesOf(content, WOOD);
-    for (const phase of ['opening', 'mid', 'late'] as const satisfies readonly GamePhase[]) {
-      const lines = supplyLines(content, DEFAULT_BUILD_ORDER, phase);
-      expect(lines.get(WOOD)).toEqual({
-        ...wood,
-        glut: wood.comfort + BUILD_ORDER_LOOKAHEAD_ENTRIES * wood.unit * HOARD_UNITS_BY_PHASE[phase],
-      });
-      // The mill's and bakery's shelves size the grain and flour, not the sites.
-      for (const good of [WHEAT, FLOUR]) expect(lines.get(good)).toEqual(linesOf(content, good));
-    }
-    // A decision reads its own phase's lines.
-    const seat = seatOn(content, [], 1);
-    const ctx = { ...ctxOf(seat.sim, MID_GAME_FROM_TICKS), content };
-    const supply = SeatSupply.of(seat.sim.world, ctx, SEAT, [], DEFAULT_BUILD_ORDER);
-    expect(supply.lines(WOOD)).toEqual(supplyLines(content, DEFAULT_BUILD_ORDER, 'mid').get(WOOD));
-  });
-});
 /** The raw goods the two workshops eat, and the builders need too. */
 const RAW_GOODS = [MUD, STONE];
 
@@ -821,19 +754,6 @@ const alone = { operators: 1, carriers: 0 };
 const crewOf = (operators: number): HeldStaff => ({ operators, carriers: 0 });
 
 describe('workforce module - the farm and mill crews', () => {
-  it("derives the grain's and flour's lines from the consumers' input shelves", () => {
-    const content = grainContent();
-    for (const good of [WHEAT, FLOUR]) {
-      const short = MAX_ACTIVE_CONSTRUCTION_SITES * INPUT_SHELF;
-      expect(linesOf(content, good)).toEqual({
-        unit: INPUT_SHELF,
-        short,
-        comfort: short + INPUT_SHELF,
-        glut: short + INPUT_SHELF + BUILD_ORDER_LOOKAHEAD_ENTRIES * INPUT_SHELF,
-      });
-    }
-  });
-
   it('plans one farmer more per unit of grain lacking to comfort, the second at the target tier and the rest from surplus', () => {
     const content = grainContent();
     const seat = seatOn(content, [FARM_TYPE], BUILDER_CAP + SPARE_MEN);

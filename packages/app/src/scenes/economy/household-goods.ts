@@ -14,7 +14,7 @@ import {
   spawnSettlerDirect,
   spawnWorkersAtDoor,
 } from '../../game/sandbox/index.js';
-import { buildingOfType, goodBySlug } from '../sandbox-queries.js';
+import { buildingOfType, buildingStock, goodBySlug } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 const MAP_W = 42;
@@ -27,16 +27,10 @@ const JOINERY = { x: 8, y: 18 } as const;
 const DRUID_HUT = { x: 36, y: 13 } as const;
 const RUN_TICKS = 3600;
 
-const { HomeQuality, Residence, Stockpile, setStockAmount } = components;
+const { HomeQuality, Residence, setStockAmount } = components;
 
 function seed(sim: Simulation, building: Entity, slug: string, amount: number): void {
   setStockAmount(sim.world, building, goodBySlug(sim, slug), amount);
-}
-
-function output(sim: Simulation, buildingType: number, slug: string): number {
-  const building = buildingOfType(sim, buildingType);
-  if (building === null) return 0;
-  return sim.world.get(building, Stockpile).amounts.get(goodBySlug(sim, slug)) ?? 0;
 }
 
 function quality(sim: Simulation, effect: 'cooking' | 'rest' | 'piety'): number {
@@ -85,15 +79,17 @@ export const householdGoodsScene: SceneDefinition = {
   checks: [
     {
       label: 'the upgraded pottery fired crockery from clay and wood',
-      predicate: (sim) => output(sim, BUILDING_POTTERY_01, 'crockery') > 0 || quality(sim, 'cooking') > 0,
+      predicate: (sim) =>
+        buildingStock(sim, BUILDING_POTTERY_01, 'crockery') > 0 || quality(sim, 'cooking') > 0,
     },
     {
       label: 'the upgraded joinery made furniture from two wood',
-      predicate: (sim) => output(sim, BUILDING_JOINERY_01, 'furniture') > 0 || quality(sim, 'rest') > 0,
+      predicate: (sim) =>
+        buildingStock(sim, BUILDING_JOINERY_01, 'furniture') > 0 || quality(sim, 'rest') > 0,
     },
     {
       label: 'the druid brewed holy oil from mushrooms',
-      predicate: (sim) => output(sim, BUILDING_DRUID_HUT, 'holy_oil') > 0 || quality(sim, 'piety') > 0,
+      predicate: (sim) => buildingStock(sim, BUILDING_DRUID_HUT, 'holy_oil') > 0 || quality(sim, 'piety') > 0,
     },
     {
       label: 'the homemaker stocked all three durable quality pools in the mature home',

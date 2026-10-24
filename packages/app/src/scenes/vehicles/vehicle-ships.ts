@@ -12,6 +12,7 @@ import { JOB_SOLDIER, JOB_SOLDIER_SWORD } from '../../catalog/jobs.js';
 import { TERRAIN_IMPASSABLE, TERRAIN_OPEN } from '../../catalog/terrain.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import { spawnSettlerDirect, spawnVehicleDirect, VEHICLE_SHIP_SMALL } from '../../game/sandbox/index.js';
+import { smallShipDoorDistance } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 /**
@@ -86,11 +87,6 @@ function theShip(sim: Simulation): VehicleView | undefined {
   return sim.vehiclesOf(HUMAN_PLAYER).find((v) => v.vehicleType === VEHICLE_SHIP_SMALL);
 }
 
-/** The ship's door distance, the ring the mooring lies on. */
-function doorDistance(sim: Simulation): number | undefined {
-  return sim.content.vehicles.find((t) => t.typeId === VEHICLE_SHIP_SMALL)?.passengerVector?.distance;
-}
-
 /** Every soldier of the party stands free on the east island beside the landing point. */
 function partyLanded(sim: Simulation): boolean {
   const landing = cellAnchorNode(LANDING.x, LANDING.y);
@@ -118,7 +114,9 @@ export const vehicleShipsScene: SceneDefinition = {
         const ship = theShip(sim);
         const landing = cellAnchorNode(LANDING.x, LANDING.y);
         if (ship === undefined || !ship.moored || ship.at === null) return false;
-        return hexDistanceBetween(ship.at.hx, ship.at.hy, landing.hx, landing.hy) === doorDistance(sim);
+        return (
+          hexDistanceBetween(ship.at.hx, ship.at.hy, landing.hx, landing.hy) === smallShipDoorDistance(sim)
+        );
       },
     },
     {

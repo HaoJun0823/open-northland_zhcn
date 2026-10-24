@@ -17,6 +17,7 @@ import {
   ANIMAL_TRIBE_WOLVES,
   buildSandboxAnimals,
 } from '../../game/sandbox/content/catalog/animals.js';
+import { settlersOfTribe } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 const MAP_W = 26;
@@ -45,14 +46,6 @@ function build(sim: Simulation): void {
     const node = cellAnchorNode(herd.x, herd.y);
     sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: herd.tribe, x: node.hx, y: node.hy });
   }
-}
-
-function membersOf(sim: Simulation, tribe: number): Entity[] {
-  const members: Entity[] = [];
-  for (const e of sim.world.query(Settler)) {
-    if (sim.world.get(e, Settler).tribe === tribe) members.push(e);
-  }
-  return members;
 }
 
 /** A margin under what this scene reaches, so a shift in the rng stream cannot flip the check. */
@@ -95,7 +88,7 @@ export const wildlifeScene: SceneDefinition = {
     {
       label: 'ducks swim off their spawn points and remain in the pond',
       predicate: (sim) => {
-        const ducks = membersOf(sim, ANIMAL_TRIBE_DUCKS);
+        const ducks = settlersOfTribe(sim, ANIMAL_TRIBE_DUCKS);
         return (
           ducks.length > 0 &&
           countOffBirthNode(sim, ducks) > 0 &&
@@ -109,12 +102,15 @@ export const wildlifeScene: SceneDefinition = {
     },
     {
       label: 'every herd spawned at full group size',
-      predicate: (sim) => EXPECTED_COUNTS.every(({ tribe, count }) => membersOf(sim, tribe).length >= count),
+      predicate: (sim) =>
+        EXPECTED_COUNTS.every(({ tribe, count }) => settlersOfTribe(sim, tribe).length >= count),
     },
     {
       label: 'wildlife is jobless (an animal is a settler outside every trade)',
       predicate: (sim) =>
-        HERDS.every((h) => membersOf(sim, h.tribe).every((e) => sim.world.get(e, Settler).jobType === null)),
+        HERDS.every((h) =>
+          settlersOfTribe(sim, h.tribe).every((e) => sim.world.get(e, Settler).jobType === null),
+        ),
     },
     {
       label: 'wildlife is unowned (no player claims an animal)',
@@ -129,7 +125,7 @@ export const wildlifeScene: SceneDefinition = {
     {
       label: 'the wolves walk at their data-pinned movespeed pace',
       predicate: (sim) => {
-        const wolves = membersOf(sim, ANIMAL_TRIBE_WOLVES);
+        const wolves = settlersOfTribe(sim, ANIMAL_TRIBE_WOLVES);
         const paced = new Set(sim.world.query(Settler, MoveStepPeriod));
         return wolves.length > 0 && wolves.every((e) => paced.has(e));
       },

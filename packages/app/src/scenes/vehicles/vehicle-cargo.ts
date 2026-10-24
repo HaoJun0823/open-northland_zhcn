@@ -1,11 +1,4 @@
-import {
-  cellAnchorNode,
-  components,
-  type Entity,
-  playerCommand,
-  type Simulation,
-  systems,
-} from '@open-northland/sim';
+import { cellAnchorNode, type Entity, playerCommand, type Simulation, systems } from '@open-northland/sim';
 import { grassTerrain } from '../../catalog/buildings.js';
 import { JOB_CARRIER } from '../../catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../game/rules.js';
@@ -17,7 +10,7 @@ import {
   VEHICLE_HANDCART,
   VEHICLE_OXCART,
 } from '../../game/sandbox/index.js';
-import { goodBySlug } from '../sandbox-queries.js';
+import { goodBySlug, storedInBuildings } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 /**
@@ -47,8 +40,6 @@ const CARRIER_OFFSET_X = -1;
 /** Headroom over the measured run: seed 17 fills the handcart by tick 900 and empties the ox cart, its
  *  last unit shelved, by 1000. */
 const RUN_TICKS = 1_300;
-
-const { Building, Stockpile } = components;
 
 /** A cart at `at` with a carrier spawned one cell behind it and attached as its crew. */
 function crewedCart(sim: Simulation, type: number, at: { readonly x: number; readonly y: number }): Entity {
@@ -91,14 +82,6 @@ function cartOfType(sim: Simulation, type: number): ReturnType<Simulation['vehic
   return sim.vehiclesOf(HUMAN_PLAYER).find((v) => v.vehicleType === type);
 }
 
-function depotAmount(sim: Simulation, good: number): number {
-  let total = 0;
-  for (const e of sim.world.query(Stockpile, Building)) {
-    total += sim.world.get(e, Stockpile).amounts.get(good) ?? 0;
-  }
-  return total;
-}
-
 export const vehicleCargoScene: SceneDefinition = {
   id: 'vehicle-cargo',
   seed: 17,
@@ -121,7 +104,7 @@ export const vehicleCargoScene: SceneDefinition = {
       label: 'the ox cart was emptied into the warehouse',
       predicate: (sim) =>
         cartOfType(sim, VEHICLE_OXCART)?.load === 0 &&
-        depotAmount(sim, goodBySlug(sim, 'stone')) === LOADED_STONE,
+        storedInBuildings(sim, goodBySlug(sim, 'stone')) === LOADED_STONE,
     },
     {
       label: 'both carriers still crew their carts',

@@ -1,5 +1,6 @@
 import { components, type Entity, type Simulation, systems } from '@open-northland/sim';
 import { HUMAN_PLAYER } from '../game/rules.js';
+import { VEHICLE_SHIP_SMALL } from '../game/sandbox/index.js';
 
 const { Building, GroundDrop, Health, Owner, Position, Settler, Stockpile } = components;
 
@@ -69,4 +70,34 @@ export function enemyBuildings(sim: Simulation): Entity[] {
       out.push(e);
   }
   return out;
+}
+
+/** Every settler of `tribe`, a species for animals. */
+export function settlersOfTribe(sim: Simulation, tribe: number): Entity[] {
+  const members: Entity[] = [];
+  for (const e of sim.world.query(Settler)) {
+    if (sim.world.get(e, Settler).tribe === tribe) members.push(e);
+  }
+  return members;
+}
+
+/** Total `good` stored in every building. */
+export function storedInBuildings(sim: Simulation, good: number): number {
+  let total = 0;
+  for (const e of sim.world.query(Stockpile, Building)) {
+    total += sim.world.get(e, Stockpile).amounts.get(good) ?? 0;
+  }
+  return total;
+}
+
+/** The good `slug` in the store of the placed building of `buildingType`, 0 before its placement. */
+export function buildingStock(sim: Simulation, buildingType: number, slug: string): number {
+  const building = buildingOfType(sim, buildingType);
+  if (building === null) return 0;
+  return sim.world.get(building, Stockpile).amounts.get(goodBySlug(sim, slug)) ?? 0;
+}
+
+/** The small ship's door distance, the ring the mooring lies on. */
+export function smallShipDoorDistance(sim: Simulation): number | undefined {
+  return sim.content.vehicles.find((t) => t.typeId === VEHICLE_SHIP_SMALL)?.passengerVector?.distance;
 }

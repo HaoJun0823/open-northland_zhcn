@@ -6,6 +6,7 @@ import { JOB_HUNTER } from '../../catalog/jobs.js';
 import { buildSandboxAnimals } from '../../game/sandbox/content/catalog/animals.js';
 import { spawnSandboxSettler } from '../../game/sandbox/index.js';
 import { createSceneSim } from '../runtime.js';
+import { settlersOfTribe } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 const MAP_W = 26;
@@ -42,14 +43,6 @@ function build(sim: Simulation): void {
   }
 }
 
-function membersOf(sim: Simulation, tribe: number): Entity[] {
-  const members: Entity[] = [];
-  for (const e of sim.world.query(Settler)) {
-    if (sim.world.get(e, Settler).tribe === tribe) members.push(e);
-  }
-  return members;
-}
-
 function hunters(sim: Simulation): Entity[] {
   return [...sim.world.query(Settler)].filter((e) => sim.world.get(e, Settler).jobType === JOB_HUNTER);
 }
@@ -64,8 +57,8 @@ function deathOrder(): { lastHare: number | null; firstSheep: number | null } {
   let sheep = new Set<Entity>();
   for (let tick = 0; tick < RUN_TICKS; tick++) {
     sim.step();
-    const haresNow = new Set(membersOf(sim, ANIMAL_TRIBE_HARES));
-    const sheepNow = new Set(membersOf(sim, ANIMAL_TRIBE_SHEEP));
+    const haresNow = new Set(settlersOfTribe(sim, ANIMAL_TRIBE_HARES));
+    const sheepNow = new Set(settlersOfTribe(sim, ANIMAL_TRIBE_SHEEP));
     if ([...hares].some((e) => !haresNow.has(e))) lastHare = tick;
     if (firstSheep === null && [...sheep].some((e) => !sheepNow.has(e))) firstSheep = tick;
     hares = haresNow;
@@ -105,7 +98,7 @@ export const huntingScene: SceneDefinition = {
     },
     {
       label: 'every hare was hunted down (the weakest game is picked first)',
-      predicate: (sim) => membersOf(sim, ANIMAL_TRIBE_HARES).length === 0,
+      predicate: (sim) => settlersOfTribe(sim, ANIMAL_TRIBE_HARES).length === 0,
     },
     {
       label: 'no sheep fell before the last hare (the weaker hares are picked first)',

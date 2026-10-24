@@ -13,7 +13,7 @@ import {
   VEHICLE_HANDCART,
   VEHICLE_OXCART,
 } from '../../game/sandbox/index.js';
-import { goodBySlug } from '../sandbox-queries.js';
+import { goodBySlug, storedInBuildings } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 /**
@@ -53,7 +53,7 @@ const ATTACH_SEQUENCE = 1_000_000;
  *  clip a unit each way and the sleep included, by tick 1600. */
 const RUN_TICKS = 2_400;
 
-const { Building, HaulingCart, Stockpile } = components;
+const { HaulingCart } = components;
 
 /** A porter posted to `warehouse` beside a cart of `type` at `at`, the cart handed to it on tick two. */
 function porterWithCart(
@@ -90,14 +90,6 @@ function build(sim: Simulation): void {
   );
 }
 
-function warehouseAmount(sim: Simulation, good: number): number {
-  let total = 0;
-  for (const e of sim.world.query(Stockpile, Building)) {
-    total += sim.world.get(e, Stockpile).amounts.get(good) ?? 0;
-  }
-  return total;
-}
-
 export const haulingCartScene: SceneDefinition = {
   id: 'hauling-cart',
   seed: 11,
@@ -115,7 +107,7 @@ export const haulingCartScene: SceneDefinition = {
     },
     {
       label: 'the wood piles were cleared into the warehouse',
-      predicate: (sim) => warehouseAmount(sim, goodBySlug(sim, 'wood')) === WOOD_PILES.length * PILE_UNITS,
+      predicate: (sim) => storedInBuildings(sim, goodBySlug(sim, 'wood')) === WOOD_PILES.length * PILE_UNITS,
     },
   ],
 };

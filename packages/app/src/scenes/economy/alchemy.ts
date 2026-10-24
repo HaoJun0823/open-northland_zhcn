@@ -7,7 +7,7 @@ import {
   placeBuiltSandboxBuilding,
   spawnWorkersAtDoor,
 } from '../../game/sandbox/index.js';
-import { buildingOfType, goodBySlug } from '../sandbox-queries.js';
+import { buildingStock, goodBySlug } from '../sandbox-queries.js';
 import type { SceneDefinition } from '../types.js';
 
 const MAP_W = 40;
@@ -28,7 +28,7 @@ const RUN_TICKS = 1500;
 /** Not 1, so `cameraFor` frames both huts. */
 const INITIAL_ZOOM = 0.7;
 
-const { Stockpile, setStockAmount } = components;
+const { setStockAmount } = components;
 
 const POTION_SLUGS = [
   'potion_food_small',
@@ -52,12 +52,6 @@ function build(sim: Simulation): void {
   spawnWorkersAtDoor(sim, hut01, DRUIDS_01);
 }
 
-function stocked(sim: Simulation, buildingType: number, slug: string): number {
-  const building = buildingOfType(sim, buildingType);
-  if (building === null) return 0;
-  return sim.world.get(building, Stockpile).amounts.get(goodBySlug(sim, slug)) ?? 0;
-}
-
 export const alchemyScene: SceneDefinition = {
   id: 'alchemy',
   seed: 30,
@@ -71,11 +65,11 @@ export const alchemyScene: SceneDefinition = {
   checks: [
     {
       label: 'the level-1 hut brewed holy oil from its mushrooms',
-      predicate: (sim) => stocked(sim, BUILDING_DRUID_HUT, 'holy_oil') > 0,
+      predicate: (sim) => buildingStock(sim, BUILDING_DRUID_HUT, 'holy_oil') > 0,
     },
     {
       label: 'the level-2 hut brewed at least one potion from water, mushroom, herb and coin',
-      predicate: (sim) => POTION_SLUGS.some((slug) => stocked(sim, BUILDING_DRUID_HUT_01, slug) > 0),
+      predicate: (sim) => POTION_SLUGS.some((slug) => buildingStock(sim, BUILDING_DRUID_HUT_01, slug) > 0),
     },
   ],
 };

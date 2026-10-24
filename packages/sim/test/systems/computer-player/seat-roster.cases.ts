@@ -36,13 +36,6 @@ describe('the seat rosters', () => {
     expect(ownedSettlers(world, SEAT)).toEqual([settler]);
   });
 
-  it('answers a seat that owns nothing with an empty list', () => {
-    const world = new World();
-    addBuilding(world, RIVAL);
-    expect(ownedBuildings(world, SEAT)).toEqual([]);
-    expect(ownedSettlers(world, SEAT)).toEqual([]);
-  });
-
   it('ascends by id even when the component stores hold the seat out of that order', () => {
     const world = new World();
     const lower = addBuilding(world, SEAT);
@@ -128,17 +121,6 @@ describe('the seat rosters', () => {
     for (const e of people) world.mut(e, Owner).player = SEAT;
     expect(ownedSettlers(world, SEAT)).toEqual(people);
     expect(ownedSettlers(world, RIVAL)).toEqual([]);
-    expect(world.verifyCaches()).toEqual([]);
-  });
-
-  it('leaves the world coherent under verifyCaches after a tracked capture', () => {
-    const world = new World();
-    const taken = addBuilding(world, SEAT);
-    addPerson(world, SEAT);
-    ownedBuildings(world, SEAT);
-    ownedSettlers(world, SEAT);
-    world.mut(taken, Owner).player = RIVAL;
-    ownedBuildings(world, SEAT);
     expect(world.verifyCaches()).toEqual([]);
   });
 

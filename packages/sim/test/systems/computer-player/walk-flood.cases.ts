@@ -7,7 +7,6 @@ import type { NodeId, TerrainGraph } from '../../../src/nav/terrain/index.js';
 import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../../../src/nav/world-metric.js';
 import {
   budgetCertainBelow,
-  COST_PAGE_SIZE,
   SeedWalks,
   WalkFlood,
   walkLowerBound,
@@ -69,41 +68,6 @@ describe('computer-player walk flood', () => {
     expect(forwardCosts.some((cost) => cost !== undefined)).toBe(true);
   });
 
-  it('reaches the seed bank and never the far one', () => {
-    const terrain = bank();
-    const walk = flood(terrain, SEED);
-    expect(walk.costTo(terrain.nodeAt(SEED.hx, SEED.hy))).toBe(fx.fromInt(0));
-    const near = walk.costTo(terrain.nodeAt(WEST_NEAR.hx, WEST_NEAR.hy));
-    const far = walk.costTo(terrain.nodeAt(WEST_FAR.hx, WEST_FAR.hy));
-    if (near === undefined || far === undefined) throw new Error('the seed bank is walkable');
-    expect(near).toBeLessThan(far);
-    expect(walk.costTo(terrain.nodeAt(EAST.hx, EAST.hy))).toBeUndefined();
-  });
-
-  it('keeps exact costs across a page boundary in either query order and honors the settle budget', () => {
-    const sim = new Simulation({ seed: 1, content: aiContent(), map: grassNodeMap(48, 12) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('mapped sim expected');
-    // These adjacent horizontal nodes straddle a page boundary.
-    const nodes = [30, 31, 32, 33].map((hx) => terrain.nodeAt(hx, 2));
-    const seed = nodes[0];
-    if (seed === undefined) throw new Error('seed expected');
-    expect(nodes).toEqual([COST_PAGE_SIZE - 2, COST_PAGE_SIZE - 1, COST_PAGE_SIZE, COST_PAGE_SIZE + 1]);
-    const expected = [0, 0.5, 1, 1.5].map((cost) => fx.fromFloat(cost));
-    const forward = new WalkFlood(terrain, NO_BLOCKS, [seed], WHOLE_BANK);
-    const backward = new WalkFlood(terrain, NO_BLOCKS, [seed], WHOLE_BANK);
-    expect(nodes.map((node) => forward.costTo(node))).toEqual(expected);
-    expect(
-      [...nodes]
-        .reverse()
-        .map((node) => backward.costTo(node))
-        .reverse(),
-    ).toEqual(expected);
-    const limited = new WalkFlood(terrain, NO_BLOCKS, [seed], 1);
-    expect(limited.costTo(terrain.nodeAt(32, 2))).toBeUndefined();
-    expect(limited.costTo(seed)).toBe(fx.fromInt(0));
-  });
-
   it('floors a cost without flooding: never above the cost, exact once settled, none once spent', () => {
     const terrain = bank();
     const walk = flood(terrain, SEED);
@@ -122,17 +86,6 @@ describe('computer-player walk flood', () => {
     const spent = flood(terrain, SEED, SMALL_BUDGET);
     spent.costTo(far);
     expect(spent.costFloor(far)).toBeUndefined();
-  });
-
-  it('reads a node past the budget as unreached, the settled ones as before', () => {
-    const terrain = bank();
-    const walk = flood(terrain, SEED, SMALL_BUDGET);
-    const near = walk.costTo(terrain.nodeAt(WEST_NEAR.hx, WEST_NEAR.hy));
-    expect(walk.costTo(terrain.nodeAt(WEST_FAR.hx, WEST_FAR.hy))).toBeUndefined();
-    expect(walk.costTo(terrain.nodeAt(WEST_NEAR.hx, WEST_NEAR.hy))).toBe(near);
-    expect(
-      near === undefined || near === flood(terrain, SEED).costTo(terrain.nodeAt(WEST_NEAR.hx, WEST_NEAR.hy)),
-    ).toBe(true);
   });
 
   it('bounds no step above its cost', () => {

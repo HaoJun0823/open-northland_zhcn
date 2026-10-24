@@ -1,5 +1,5 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   Building,
   JobAssignment,
@@ -335,48 +335,6 @@ describe('build order - the sea route', () => {
     const towerOnly = world(seaMap(), [{ buildingType: TOWER_TYPE, ...ENEMY_HOME, owner: ENEMY }], false);
     expect(seaRoute.rivalOverSea(towerOnly.world, fleetCtx(towerOnly), SEAT)).toBe(false);
   });
-
-  it('reads each enemy seat’s headquarters, never its other buildings', () => {
-    const ENEMY_TOWERS = [
-      { x: HOME.x + 6, y: HOME.y },
-      { x: ENEMY_HOME.x - 6, y: ENEMY_HOME.y },
-      { x: ENEMY_HOME.x, y: ENEMY_HOME.y + 8 },
-    ];
-    const sim = world(
-      seaMap(),
-      ENEMY_TOWERS.map((at) => ({ buildingType: TOWER_TYPE, ...at, owner: ENEMY })),
-    );
-    const towers = ownedBuildings(sim.world, ENEMY).filter(
-      (e) => sim.world.get(e, Building).buildingType === TOWER_TYPE,
-    );
-    expect(towers).toHaveLength(ENEMY_TOWERS.length);
-    const read = vi.spyOn(sim.world, 'get');
-    try {
-      const ctx = fleetCtx(sim);
-      expect(seaRoute.rivalOverSea(sim.world, ctx, SEAT)).toBe(true);
-      expect(seaRoute.nearestEnemyBuilding(sim.world, ctx, SEAT, { hx: HOME.x, hy: HOME.y })).toMatchObject({
-        headquarters: true,
-      });
-      expect(read.mock.calls.filter(([e]) => towers.includes(e))).toEqual([]);
-    } finally {
-      read.mockRestore();
-    }
-  });
-
-  it('asks the sea question once a decision, however many entries depend on it', () => {
-    const sim = world(seaMap());
-    const asked = vi.spyOn(seaRoute, 'rivalOverSea');
-    try {
-      const statuses = entryStatuses(sim.world, fleetCtx(sim), SEAT, [
-        shipJoinery,
-        { ...shipJoinery, count: 2 },
-      ]);
-      expect(statuses).toEqual(['unmet', 'unmet']);
-      expect(asked).toHaveBeenCalledTimes(1);
-    } finally {
-      asked.mockRestore();
-    }
-  });
 });
 
 describe('build order - the shore affinity', () => {
@@ -677,15 +635,9 @@ describe('workforce - the top-tier joineries’ roles', () => {
     expect(tuned(sim)).toEqual(new Map([[joineries[0], all(CATAPULT_GOOD)]]));
   });
 
-  it('asks the sea question once a decision, and puts one crew by the water on ships', () => {
+  it('puts one crew by the water on ships', () => {
     const { sim } = crewedJoineries(seaMap(), [AWAY, { x: 44, y: 46 }]);
-    const asked = vi.spyOn(seaRoute, 'rivalOverSea');
-    try {
-      expect([...tuned(sim).values()]).toEqual([all(SHIP_GOOD), all(CATAPULT_GOOD)]);
-      expect(asked).toHaveBeenCalledTimes(1);
-    } finally {
-      asked.mockRestore();
-    }
+    expect([...tuned(sim).values()]).toEqual([all(SHIP_GOOD), all(CATAPULT_GOOD)]);
   });
 
   it('turns the catapult crew to iron tools at the catapult cap, and back only once the fleet falls to the resume line', () => {

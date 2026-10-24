@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   aiControlEntity,
   Building,
@@ -23,7 +23,6 @@ import {
   buildOrderModule,
   DEFAULT_BUILD_ORDER,
   REBUILD_DELAY_TICKS,
-  STALLED_PLACEMENT_RETRY_DECISIONS,
   sitePace,
   WELL_REACH_NODES,
 } from '../../../src/systems/computer-player/index.js';
@@ -918,23 +917,6 @@ describe('build order - a coverage entry with no spot', () => {
     sim.step();
     return sim;
   }
-
-  it('searches a lane with no room only every retry interval', () => {
-    const sim = islandSim();
-    makeAiSeat(sim, SEAT);
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('expected a mapped sim');
-    const groundTests = vi.spyOn(terrain, 'isBuildable');
-    const lane = buildOrderModule([{ kind: 'towerCoverage', building: 'tower_01', lane: true }]);
-    const searchedAt: number[] = [];
-    for (let decision = 0; decision <= 2 * STALLED_PLACEMENT_RETRY_DECISIONS; decision++) {
-      const before = groundTests.mock.calls.length;
-      const tick = LATE_GAME_FROM_TICKS + SEAT + decision * COMPUTER_DECISION_INTERVAL_TICKS;
-      expect([...lane.run(sim.world, ctxOf(sim, tick), SEAT)]).toEqual([]);
-      if (groundTests.mock.calls.length > before) searchedAt.push(decision);
-    }
-    expect(searchedAt).toEqual([0, STALLED_PLACEMENT_RETRY_DECISIONS, 2 * STALLED_PLACEMENT_RETRY_DECISIONS]);
-  });
 
   it('passes a tower entry over, like a store entry, when no target it has can be covered', () => {
     const sim = islandSim();

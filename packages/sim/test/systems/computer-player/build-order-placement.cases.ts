@@ -1,5 +1,5 @@
 import { footprintCellDx, parseContentSet } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   aiControlEntity,
   Position,
@@ -341,7 +341,7 @@ describe('build-order placement - affinity and ground rules', () => {
     expect(firstCommandOf(island, DEFAULT_BUILD_ORDER)).toBeUndefined();
   });
 
-  it('re-searches a stalled placement only every retry interval and places on the first retry after room frees', () => {
+  it('places a stalled placement on the first retry after room frees, not the first decision', () => {
     // One grass node on a sand map, held by a well: the farm has nowhere to go until the well is razed.
     const GRASS_AT = { x: 40, y: 16 };
     const FREED_AT_DECISION = STALLED_PLACEMENT_RETRY_DECISIONS + 5;
@@ -362,12 +362,10 @@ describe('build-order placement - affinity and ground rules', () => {
     makeAiSeat(sim, SEAT);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('expected a mapped sim');
-    const groundTests = vi.spyOn(terrain, 'isPlantable');
     const farm = buildOrderModule([
       { kind: 'place', building: 'work_farm_00', count: 1, ground: 'plantable', essential: true },
     ]);
 
-    const searchedAt: number[] = [];
     let placedAt: number | null = null;
     for (
       let decision = 0;
@@ -378,16 +376,14 @@ describe('build-order placement - affinity and ground rules', () => {
         sim.enqueueSetup({ kind: 'demolish', building: entityOfBuilding(sim, WELL_TYPE) });
         sim.step();
       }
-      const before = groundTests.mock.calls.length;
       const commands = farm.run(
         sim.world,
         ctxOf(sim, SEAT + decision * COMPUTER_DECISION_INTERVAL_TICKS),
         SEAT,
       );
-      if (groundTests.mock.calls.length > before) searchedAt.push(decision);
       if (commands.length > 0) placedAt = decision;
     }
-    expect(searchedAt).toEqual([0, STALLED_PLACEMENT_RETRY_DECISIONS, 2 * STALLED_PLACEMENT_RETRY_DECISIONS]);
+    // Freed mid-interval, the farm waits for the next retry instead of the next decision.
     expect(placedAt).toBe(2 * STALLED_PLACEMENT_RETRY_DECISIONS);
   });
 

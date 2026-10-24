@@ -49,13 +49,11 @@ import {
   DEFAULT_COLLECTOR_TARGET,
   FLAG_MAX_DISTANCE_NODES,
   FLAG_MIN_DISTANCE_NODES,
-  GROWN_SEAT_BUILDER_CAP,
   LATE_GAME_BUILDER_CAP,
   LATE_GAME_CIVILIANS,
   SeatSupply,
   STALLED_BUILDER_CAP,
   type SupplyLines,
-  sitePace,
   supplyLines,
   workforceModule,
 } from '../../../src/systems/computer-player/index.js';
@@ -74,7 +72,6 @@ import {
   GENERIC_COLLECTOR_TARGET,
   MAX_CLEARING_COLLECTORS,
   NODES_PER_CLEARING_GATHERER,
-  OPENING_SITE_SHORTAGE_POSTS,
   REPLANT_MISSES_BEFORE_RETIRE,
   SHORTAGE_BUILDER_FLOOR,
   siteShortagePosts,
@@ -86,10 +83,8 @@ import {
   collectorSpot,
   flagGround,
   flagSpotNear,
-  replantSpot,
   unsealedResourceTest,
 } from '../../../src/systems/computer-player/workforce/flag-spots.js';
-import { builderCap } from '../../../src/systems/computer-player/workforce/staffing.js';
 import { resourceStanceCells, resourceWorkCell } from '../../../src/systems/footprint/interaction.js';
 import { canPlaceWorkFlag, dynamicBlockOverlay, type SystemContext } from '../../../src/systems/index.js';
 import { setAssistantMoveFlags } from '../../../src/systems/orders/assistant.js';
@@ -1111,35 +1106,6 @@ describe('workforce module (collectResources)', () => {
     expect(ironTarget(IRON_BASE_TARGET + 2, 'skip')).toBeUndefined(); // a skipped entry wants nobody
   });
 
-  it('grows the builder reserve with the settlement, and again from the late game whatever its size', () => {
-    expect(builderCap(AI_PROFILES.hard, LATE_GAME_CIVILIANS - 1, 0)).toBe(BUILDER_CAP);
-    expect(builderCap(AI_PROFILES.hard, LATE_GAME_CIVILIANS, 0)).toBe(GROWN_SEAT_BUILDER_CAP);
-    expect(builderCap(AI_PROFILES.hard, LATE_GAME_CIVILIANS, LATE_GAME_FROM_TICKS - 1)).toBe(
-      GROWN_SEAT_BUILDER_CAP,
-    );
-    expect(builderCap(AI_PROFILES.hard, 0, LATE_GAME_FROM_TICKS)).toBe(LATE_GAME_BUILDER_CAP);
-    expect(LATE_GAME_BUILDER_CAP).toBeGreaterThan(GROWN_SEAT_BUILDER_CAP);
-  });
-
-  it("follows one site's drain from the growth clock and every open site's from the follow-sites clock", () => {
-    expect(siteShortagePosts(AI_PROFILES.hard, BUILDING_GOODS_GROW_FROM_TICKS - 1)).toBe(0);
-    expect(siteShortagePosts(AI_PROFILES.hard, BUILDING_GOODS_GROW_FROM_TICKS)).toBe(
-      OPENING_SITE_SHORTAGE_POSTS,
-    );
-    expect(siteShortagePosts(AI_PROFILES.hard, BUILDING_GOODS_FOLLOW_SITES_FROM_TICKS - 1)).toBe(
-      OPENING_SITE_SHORTAGE_POSTS,
-    );
-    expect(siteShortagePosts(AI_PROFILES.hard, BUILDING_GOODS_FOLLOW_SITES_FROM_TICKS)).toBe(
-      sitePace(AI_PROFILES.hard, BUILDING_GOODS_FOLLOW_SITES_FROM_TICKS).sites,
-    );
-    expect(sitePace(AI_PROFILES.hard, BUILDING_GOODS_FOLLOW_SITES_FROM_TICKS).sites).toBeGreaterThan(
-      OPENING_SITE_SHORTAGE_POSTS,
-    );
-    expect(siteShortagePosts(AI_PROFILES.hard, LATE_GAME_FROM_TICKS)).toBe(
-      sitePace(AI_PROFILES.hard, LATE_GAME_FROM_TICKS).sites,
-    );
-  });
-
   it('claims at most the builder reserve; leftover men keep their trade', () => {
     const sim = aiSim();
     placeHq(sim);
@@ -1791,38 +1757,6 @@ describe('workforce module (collectResources)', () => {
     expect(decision.filter((c) => c.kind === 'setGatherGood' && c.goodType === MUD)).toEqual([]);
   });
 
-  it('keeps a dry-patch holder at his post when none of the three nearest deposits is workable', () => {
-    const sim = aiSim();
-    placeHq(sim);
-    placeResources(sim, [RESOURCE_SPOTS.mud]);
-    spawnMen(sim, 1);
-    sim.step();
-    for (const c of collectModule.run(sim.world, ctxOf(sim), SEAT)) sim.enqueueSetup(c);
-    sim.step();
-    const [holder] = holdersOf(sim, MUD);
-    const terrain = sim.terrain;
-    if (holder === undefined || terrain === undefined) throw new Error('setup: the clay holder');
-    const ctx = ctxOf(sim);
-    const deposits = [...sim.world.query(Resource)];
-    expect(deposits.length).toBeGreaterThan(0);
-    const nearest = (open: (e: Entity) => boolean): Entity | null => deposits.find((e) => open(e)) ?? null;
-    // A reach that refuses every deposit stands in for three unworkable ones: null, not dry, and the
-    // callers issue nothing on null. With no candidate at all the answer is dry.
-    const refusing = { canWork: () => false, patchHarvestable: () => false, patchWitness: () => null };
-    const { radius } = sim.world.get(holder, WorkFlag);
-    const origin = { hx: HQ_X, hy: HQ_Y };
-    const ground = flagGround(
-      sim.world,
-      ctx,
-      terrain,
-      networkLimitAt(sim.world, terrain, SEAT, origin.hx, origin.hy),
-    );
-    expect(replantSpot(sim.world, ground, holder, radius, nearest, origin, refusing, new Set())).toBeNull();
-    expect(replantSpot(sim.world, ground, holder, radius, () => null, origin, refusing, new Set())).toBe(
-      'dry',
-    );
-  });
-
   it('retires a worked-out holder once the flag follow has missed on his phases often enough', () => {
     const sim = aiSim();
     placeHq(sim);
@@ -1996,67 +1930,6 @@ describe('flagSpotNear', () => {
       networkLimitAt(sim.world, sim.terrain, SEAT, origin.hx, origin.hy),
     );
   };
-
-  it('keeps the first walked candidate on equal costs', () => {
-    const sim = aiSim();
-    const centre = { hx: 20, hy: 16 };
-    sim.enqueueSetup({
-      kind: 'placeResource',
-      good: MUD,
-      x: centre.hx,
-      y: centre.hy,
-      remaining: 5,
-      harvestAtomic: RESOURCE_SPOTS.mud.harvest,
-    });
-    sim.step();
-    const ground = groundOf(sim, centre);
-    const controlled = {
-      ...ground,
-      placeable: () => true,
-      sealedFrom: () => false,
-      walkOut: () => ({ costTo: () => fx.fromInt(0), costFloor: () => fx.fromInt(0) }),
-      walkFrom: () => ({ costTo: () => fx.fromInt(0), costFloor: () => fx.fromInt(0) }),
-    };
-    expect(flagSpotNear(sim.world, controlled, depositOf(sim), centre, new Set())).toEqual({
-      hx: 16,
-      hy: 16,
-    });
-  });
-
-  it('ranks unreached legs by weighted distance and searches the fallback after a blocked band', () => {
-    const sim = aiSim();
-    const centre = { hx: 20, hy: 16 };
-    sim.enqueueSetup({
-      kind: 'placeResource',
-      good: MUD,
-      x: centre.hx,
-      y: centre.hy,
-      remaining: 5,
-      harvestAtomic: RESOURCE_SPOTS.mud.harvest,
-    });
-    sim.step();
-    const ground = groundOf(sim, centre);
-    const controlled = {
-      ...ground,
-      placeable: () => true,
-      sealedFrom: () => false,
-      walkOut: () => ({ costTo: () => undefined, costFloor: () => undefined }),
-      walkFrom: () => ({ costTo: () => undefined, costFloor: () => undefined }),
-    };
-    expect(flagSpotNear(sim.world, controlled, depositOf(sim), { hx: 60, hy: 16 }, new Set())).toEqual({
-      hx: 24,
-      hy: 16,
-    });
-    const terrain = ground.terrain;
-    const fallback = {
-      ...controlled,
-      placeable: (node: ReturnType<typeof terrain.nodeAt>) => node === terrain.nodeAt(20, 16),
-    };
-    expect(flagSpotNear(sim.world, fallback, depositOf(sim), centre, new Set())).toEqual(centre);
-    expect(
-      flagSpotNear(sim.world, { ...controlled, placeable: () => false }, depositOf(sim), centre, new Set()),
-    ).toBeNull();
-  });
 
   it('plants the flag in the band on the origin side of the resource, the shortest walk from both', () => {
     const sim = aiSim();

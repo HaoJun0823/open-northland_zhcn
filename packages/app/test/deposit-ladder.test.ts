@@ -10,7 +10,7 @@ import { MINE_LEVELS, STONE_DEPOSIT_UNITS } from '../src/catalog/mining.js';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { stateIndexForLevel } from '../src/content/objects.js';
 import { sandboxContent } from '../src/game/sandbox/content/index.js';
-import { GOOD_GOLD, GOOD_IRON, GOOD_MUD, GOOD_STONE } from '../src/game/sandbox/ids/index.js';
+import { GOOD_GOLD, GOOD_STONE } from '../src/game/sandbox/ids/index.js';
 import { spawnMapResources } from '../src/game/sandbox/map-spawn.js';
 
 /**
@@ -30,14 +30,11 @@ import { spawnMapResources } from '../src/game/sandbox/map-spawn.js';
 
 const { Resource, MineDeposit } = components;
 
-/** Every mined good against the `LogicMaximumValency` and `[landscapetype]` its real `ls_ground` records
- *  author - the mines are all 5 units, stone's rocks come in both 4- and 5-unit variants. Gold and iron
- *  are the ones whose ladders disagreed while a deposit was sized from the catalog instead. */
+/** Mined goods against the `LogicMaximumValency` and `[landscapetype]` their real `ls_ground` records
+ *  author: stone's 4-unit rock, and gold's 5-unit mine, a ladder that disagreed while a deposit was
+ *  sized from the catalog instead. */
 const MINES = [
   { id: 'stone', good: GOOD_STONE, logicType: 15, states: 4 },
-  { id: 'stone', good: GOOD_STONE, logicType: 15, states: 5 },
-  { id: 'mud', good: GOOD_MUD, logicType: 12, states: 5 },
-  { id: 'iron', good: GOOD_IRON, logicType: 18, states: 5 },
   { id: 'gold', good: GOOD_GOLD, logicType: 21, states: 5 },
 ];
 

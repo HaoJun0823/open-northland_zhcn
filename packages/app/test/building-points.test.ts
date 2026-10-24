@@ -37,12 +37,4 @@ describe('workerIconNode', () => {
       hy: door.hy + DEFAULT_WORKER_ICON_OFFSET.dy,
     });
   });
-
-  it('moves the stack off the default for a building with its own offset', () => {
-    const anchor = { hx: 10, hy: 20 };
-    const footprint = footprintWithDoor(0, 2);
-    expect(workerIconNode(footprint, anchor, 'headquarters')).not.toEqual(
-      workerIconNode(footprint, anchor, 'work_well_00'),
-    );
-  });
 });

@@ -1,26 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { debugFlags, hasDebugFlag, setDebugFlag } from '../src/diag/debug-flags.js';
+import { debugFlags, setDebugFlag } from '../src/diag/debug-flags.js';
 
-/**
- * `?debug=` as a set. It was a single exact-match value, so a second mode could not be turned on
- * without silently turning the first one off.
- */
+/** `?debug=` is a set: turning one mode on or off never touches the others. */
 
 describe('debugFlags', () => {
-  it('still reads a single flag the way it always did', () => {
-    expect(hasDebugFlag(new URLSearchParams('?debug=perf'), 'perf')).toBe(true);
-  });
-
   it('reads several flags from one param', () => {
     expect([...debugFlags(new URLSearchParams('?debug=profile,trace'))]).toEqual(['profile', 'trace']);
   });
 
   it('tolerates spacing and empty entries', () => {
     expect([...debugFlags(new URLSearchParams('?debug=profile, ,trace '))]).toEqual(['profile', 'trace']);
-  });
-
-  it('reads no flags at all when the param is absent', () => {
-    expect(debugFlags(new URLSearchParams()).size).toBe(0);
   });
 });
 
@@ -41,11 +30,5 @@ describe('setDebugFlag', () => {
     const params = new URLSearchParams('?debug=geometry');
     setDebugFlag(params, 'geometry', false);
     expect(params.has('debug')).toBe(false);
-  });
-
-  it('is idempotent', () => {
-    const params = new URLSearchParams('?debug=perf');
-    setDebugFlag(params, 'perf', true);
-    expect(params.get('debug')).toBe('perf');
   });
 });

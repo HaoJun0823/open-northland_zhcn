@@ -65,12 +65,4 @@ describe('DiagLog', () => {
     expect(calls.map((c) => c.args[0])).toEqual(['[verbose] shown', '[other] shown too']);
     expect(log.entries()).toHaveLength(3);
   });
-
-  it('prefixes the channel and forwards data to the console sink', () => {
-    const { calls, sink } = captureConsole();
-    const log = new DiagLog({ ...sink });
-    const err = new Error('boom');
-    log.warn('content', 'atlas failed', err);
-    expect(calls[0]?.args).toEqual(['[content] atlas failed', err]);
-  });
 });

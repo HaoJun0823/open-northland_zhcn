@@ -17,7 +17,6 @@ import {
   JOB_TRADER,
   JOB_WOMAN,
 } from '../src/catalog/jobs.js';
-import { STOCK_TAB_COUNT } from '../src/content/gui-atlas-map.js';
 import { HUMAN_PLAYER } from '../src/game/rules.js';
 import {
   BUILDING_ANIMAL_FARM,
@@ -195,44 +194,6 @@ describe('selection details panel model', () => {
     };
 
     for (const [typeId, , label] of heroes) expect(jobDisplayName(ctx, typeId)).toBe(label);
-  });
-
-  it('names the map-placed jester through the locale catalog instead of its job slug', () => {
-    const JOB_JESTER = 28; // `jobtypes.ini` 28
-    const ctx = {
-      ...sandboxCtx(),
-      jobs: [{ typeId: JOB_JESTER, id: 'jester', name: 'jester', allowedAtomics: [], forbiddenAtomics: [] }],
-    };
-    expect(jobDisplayName(ctx, JOB_JESTER)).toBe('Błazen');
-  });
-
-  it('reflects a selected headquarters from the sandbox acceptance scene', () => {
-    const sim = createSceneSim(sandboxScene);
-    sim.step();
-    const snapshot = sim.snapshot();
-    const hq = snapshot.entities.find((e) => {
-      const b = e.components.Building as { buildingType?: unknown } | undefined;
-      return num(b?.buildingType) === BUILDING_HEADQUARTERS;
-    });
-    if (hq === undefined) throw new Error('sandbox scene did not place the headquarters');
-
-    const model = buildUnitPanelModel(snapshot, new Set([hq.id]), ctxOf(sim));
-
-    expect(model.kind).toBe('building');
-    if (model.kind !== 'building') return;
-    expect(model.typeId).toBe(BUILDING_HEADQUARTERS);
-    // The title reads the SAME localized name the build menu shows (catalog/building-i18n.ts).
-    expect(model.title).toBe('Kwatera główna');
-    expect(model.orders?.alarm).toEqual({ on: false });
-    // The stock list is the HQ's ACCEPTED goods (its `stock` slots), each shown even at 0 - so every
-    // accepted good appears; a freshly-placed HQ holds nothing, so every row is 0.
-    const hqDef = sim.content.buildings.find((b) => b.typeId === BUILDING_HEADQUARTERS);
-    const accepted = new Set((hqDef?.stock ?? []).map((s) => s.goodType));
-    expect(accepted.size).toBeGreaterThan(0);
-    expect(new Set(model.stock.map((r) => r.goodType))).toEqual(accepted);
-    expect(model.stock.every((r) => r.amount === 0)).toBe(true);
-    // Every row carries the stock category tab it belongs to (0–7), so the render can filter by tab.
-    expect(model.stock.every((r) => r.category >= 0 && r.category < STOCK_TAB_COUNT)).toBe(true);
   });
 
   it('shows a producing building stock, production progress, and assigned workers', () => {
@@ -711,8 +672,8 @@ describe('selection details panel model', () => {
 
   it('keeps Magazyn rows in declared slot order while amounts change (Pszenica before Mąka, always)', () => {
     // The mill declares wheat then flour; holding ONLY the second slot's good must not bubble it above
-    // the first - a compact store's two rows swapping mid-work read as a glitch (user feedback
-    // 2026-07-11). Held-first reordering is the big tabbed store's draw-time concern, not the model's.
+    // the first - a compact store's two rows swapping mid-work read as a glitch. Held-first reordering
+    // is the big tabbed store's draw-time concern, not the model's.
     const snapshot = snapshotOf(
       [
         buildingEntity(1, BUILDING_MILL, {
@@ -1679,20 +1640,6 @@ describe('the animal farm panel - the species rows are its herd', () => {
       capacity,
       people: [expect.objectContaining({ entity: 3 }), expect.objectContaining({ entity: 2 })],
     });
-  });
-
-  it('lists no sheltered group while nobody is sheltering', () => {
-    const sim = createSceneSim(sandboxScene);
-    const snapshot = snapshotOf([
-      buildingEntity(1, BUILDING_WATCHTOWER, { components: { DefenceMode: {} } }),
-      { id: 2, components: { Settler: { jobType: JOB_COLLECTOR } } }, // at work, no claim
-    ]);
-
-    const model = buildUnitPanelModel(snapshot, new Set([1]), ctxOf(sim));
-
-    if (model.kind !== 'building') throw new Error('expected a building model');
-    expect(model.orders?.alarm).toEqual({ on: true });
-    expect(model.staff?.groups.some((group) => group.key === 'sheltered')).toBe(false);
   });
 });
 

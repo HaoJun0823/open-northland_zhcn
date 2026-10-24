@@ -65,7 +65,7 @@ export interface PlannerPass {
 }
 
 /** The battle alert of the settler being planned, memoized per plan; one function serves the pass. */
-export class PlanAlert {
+class PlanAlert {
   private entity: Entity | undefined;
   private answer: boolean | undefined;
 

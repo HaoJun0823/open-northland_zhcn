@@ -82,7 +82,7 @@ export function strandedWorkplaceDoor(
 }
 
 /** The cell of `e`'s own work or haul flag when `limit` does not reach it, else null. */
-export function strandedFlagCell(
+function strandedFlagCell(
   world: World,
   terrain: TerrainGraph,
   e: Entity,

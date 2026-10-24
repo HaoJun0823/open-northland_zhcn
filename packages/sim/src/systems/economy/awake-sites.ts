@@ -26,7 +26,7 @@ const ascending = (a: Entity, b: Entity): number => a - b;
  * outcome hangs on another entity (a claim whose builder may lapse, a struck wall waiting for its cells
  * to clear).
  */
-export class AwakeSites {
+class AwakeSites {
   private readonly awake = new Set<Entity>();
   private readonly feed: ChangeFeed;
   private readonly wake = (e: Entity): void => {

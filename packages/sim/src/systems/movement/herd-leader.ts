@@ -5,7 +5,7 @@ import { herdEligible } from './herd-roster.js';
 
 /** Whether `e` can lead a herd: it stands on the map and follows no other animal. A reaped leader has no
  *  position; a claimed one has left its wild herd. */
-export function leadsHerd(world: World, e: Entity): boolean {
+function leadsHerd(world: World, e: Entity): boolean {
   if (!world.has(e, Position)) return false;
   const leader = world.tryGet(e, HerdMember)?.leader;
   return leader === undefined || leader === e;

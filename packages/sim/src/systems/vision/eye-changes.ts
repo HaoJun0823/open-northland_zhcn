@@ -29,7 +29,7 @@ const EYE_VALUES: readonly Component<unknown>[] = [Settler, Building, Vehicle, O
  * write to a store the footprint reads. A memoizing rebuild visits only these while the fog's eye memo
  * still holds every other eye; another rebuild drains them unread.
  */
-export class EyeChanges {
+class EyeChanges {
   private readonly identity: ChangeFeed;
   private readonly moves: NodeMoveFeed;
   /** The fog's {@link FogState.eyeMemo} at the last memoizing rebuild, -1 before one. */

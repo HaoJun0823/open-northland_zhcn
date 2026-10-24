@@ -175,7 +175,7 @@ interface OverlappedDisc {
 const NO_DISCS: readonly OverlappedDisc[] = [];
 
 /** Whether `vehicle`'s anchor stands inside another vehicle's disc: more than its own disc covers it. */
-export function standsInAnotherVehicle(
+function standsInAnotherVehicle(
   world: World,
   ctx: ContentContext,
   terrain: TerrainGraph,
@@ -724,7 +724,7 @@ function commanderAboard(state: VehicleStateView): boolean {
 
 /** A dock drive that lost its way forgets the shore it aimed at, the way the original's task 1 falls
  *  back to idle behind its `vehicleNoPath` note. */
-export function abandonDock(world: World, vehicle: Entity): void {
+function abandonDock(world: World, vehicle: Entity): void {
   const state = world.get(vehicle, Vehicle);
   if (state.task !== 'docks') return;
   const live = world.mut(vehicle, Vehicle);

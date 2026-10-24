@@ -8,7 +8,7 @@ const MAX_MARK = 0x7fffffff;
  * map. A node holds a value only while its stamp equals the current mark. Users run synchronously and
  * never hold marks across another user's call, so every user of a terrain shares them.
  */
-export class NodeMarks {
+class NodeMarks {
   readonly stamps: Int32Array;
   readonly values: Int32Array;
   private mark = 0;

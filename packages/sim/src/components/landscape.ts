@@ -26,7 +26,7 @@ const edits = defineWorldSingleton<LandscapeEditState>('LandscapeEdits', 'moveme
   forbidden: new Map(),
   tints: new Map(),
 }));
-export const LandscapeEdits = edits.component;
+const LandscapeEdits = edits.component;
 export const landscapeEditState = (world: World) => edits.read(world);
 export function writeLandscapeEdits(world: World, apply: (state: LandscapeEditState) => void): void {
   edits.write(world, apply);

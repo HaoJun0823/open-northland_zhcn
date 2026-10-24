@@ -34,7 +34,7 @@ export function isMissionAnimal(world: World, e: Entity): boolean {
   return isWildlife(world, e);
 }
 
-export function isMissionVehicle(world: World, e: Entity): boolean {
+function isMissionVehicle(world: World, e: Entity): boolean {
   return world.has(e, Vehicle);
 }
 

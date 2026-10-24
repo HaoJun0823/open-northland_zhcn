@@ -95,7 +95,7 @@ export function isShipAtSea(ctx: ContentContext, vehicle: { vehicleType: number;
   return type !== undefined && isShipVehicle(type) && !vehicle.moored;
 }
 
-export function refuseRider(
+function refuseRider(
   world: World,
   ctx: SystemContext,
   rider: Entity,
@@ -288,7 +288,7 @@ export function landRider(world: World, ctx: SystemContext, rider: Entity, point
 }
 
 /** Put a rider back on the map at `point`, its seat now outside. */
-export function setDownRider(world: World, rider: Entity, point: HalfCellNode): void {
+function setDownRider(world: World, rider: Entity, point: HalfCellNode): void {
   placeOnNode(world, rider, point);
   const seat = world.tryGet(rider, Rider);
   if (seat !== undefined && world.has(seat.vehicle, Vehicle))

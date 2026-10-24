@@ -25,7 +25,7 @@ const headquartersByRoster = new WeakMap<readonly Entity[], Entity | null>();
  * is walked once per such change: a headquarters sits on no upgrade chain, so no type change in place
  * makes or unmakes one.
  */
-export function seatHeadquartersOf(world: World, ctx: SystemContext, player: number): Entity | null {
+function seatHeadquartersOf(world: World, ctx: SystemContext, player: number): Entity | null {
   const roster = ownedBuildings(world, player);
   const held = headquartersByRoster.get(roster);
   if (held !== undefined) return held;

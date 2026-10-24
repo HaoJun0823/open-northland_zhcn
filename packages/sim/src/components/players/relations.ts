@@ -3,17 +3,15 @@ import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 import { playerBit } from '../match.js';
 import { isValidPlayer } from './ownership.js';
 
-const diplomacyLocks = defineWorldSingleton<{
-  /** player → the slots its stance toward is locked, a bitmask held in both rows of a pair. */
-  locked: Map<number, number>;
-}>('DiplomacyLocks', 'players', () => ({ locked: new Map() }));
-
 /**
  * The pairs whose stances no seat may change: a map's `relationnotchangeable` and `relationhide` rows
  * and the script's `SetDiplomacyNotChangeableFlag`. Only a seat's `declareDiplomacy` reads it; a
  * script, a blow and a computer seat's answer write through a lock, as the original's setter does.
  */
-export const DiplomacyLocks = diplomacyLocks.component;
+const diplomacyLocks = defineWorldSingleton<{
+  /** player → the slots its stance toward is locked, a bitmask held in both rows of a pair. */
+  locked: Map<number, number>;
+}>('DiplomacyLocks', 'players', () => ({ locked: new Map() }));
 
 export function diplomacyLocked(world: World, a: number, b: number): boolean {
   if (!isValidPlayer(a) || !isValidPlayer(b)) return false;

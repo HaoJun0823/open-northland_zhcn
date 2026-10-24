@@ -20,7 +20,7 @@ const ABSENT = -1;
 
 /** The map's authored placements, indexed once per terrain: the input is immutable. A placement is
  *  named by its file position, which also orders an area match whatever node order found it. */
-export class AuthoredLandscapes {
+class AuthoredLandscapes {
   readonly types: ReadonlyMap<number, ScriptLandscapeType>;
   readonly placements: LandscapePlacements;
   /** One past the highest authored id, where the script's own ids start. */

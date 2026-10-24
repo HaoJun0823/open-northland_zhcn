@@ -15,7 +15,7 @@ import { settlerMovementNode } from './traversal.js';
 
 /** Original behavior: an animal without a leader looks for a herd, and gathers its own, within 40 map
  *  points. */
-export const LEADER_SEARCH_RANGE = 40;
+const LEADER_SEARCH_RANGE = 40;
 
 const idOf = (e: Entity): number => e;
 

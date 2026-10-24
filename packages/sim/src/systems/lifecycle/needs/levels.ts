@@ -64,7 +64,7 @@ export function needLevels(needs: SettlerNeedsView, drainedThrough: number): Nee
 }
 
 /** Store the bars as they stand at `drainedThrough` in a component already acquired for writing. */
-export function rebaseNeeds(s: SettlerNeedsState, drainedThrough: number): void {
+function rebaseNeeds(s: SettlerNeedsState, drainedThrough: number): void {
   if (drainedThrough <= s.asOf) return;
   s.hunger = needLevel(s, 'hunger', drainedThrough);
   s.fatigue = needLevel(s, 'fatigue', drainedThrough);

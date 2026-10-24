@@ -40,11 +40,11 @@ import { AI_STOCK_REFILL_LEVEL } from '../trade/partner-stock.js';
 
 /** How close an enemy fighter keeps the handler from staffing, housing or mending a building, in map
  *  points. Original behavior (it also counts enemy vehicles, which this build leaves out). */
-export const TOWN_ENEMY_NEAR_POINTS = 40;
+const TOWN_ENEMY_NEAR_POINTS = 40;
 /** How far the handler looks for a man to take a post or a woman to take a home. Original behavior. */
-export const TOWN_HIRE_RADIUS_POINTS = 80;
+const TOWN_HIRE_RADIUS_POINTS = 80;
 /** How far it looks for a man to turn builder. Original behavior. */
-export const TOWN_BUILDER_RADIUS_POINTS = 400;
+const TOWN_BUILDER_RADIUS_POINTS = 400;
 /** Builders the handler sends to mend one damaged building a pass, a wall's own crew limit below it.
  *  Original behavior. */
 export const TOWN_REPAIR_BUILDERS = 2;

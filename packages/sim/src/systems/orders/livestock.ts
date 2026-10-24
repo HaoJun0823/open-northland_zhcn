@@ -22,7 +22,7 @@ import { moveUnit, reachableMoveGoal } from './movement.js';
 
 /** How often a scout's walk may be re-aimed at the animal it follows, in ticks. Approximation, tuned so a
  *  grazing animal's steps re-route about once a second rather than every tick. */
-export const CLAIM_RETARGET_TICKS = TICKS_PER_SECOND;
+const CLAIM_RETARGET_TICKS = TICKS_PER_SECOND;
 
 /** Whether `scout` may go after `animal`: an owned scout with a position, and an animal its player may
  *  claim. Signposts never confine a scout, so the walk needs no navigation-limit check of its own. */

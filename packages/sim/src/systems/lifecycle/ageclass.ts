@@ -36,7 +36,7 @@ export const WOMAN_JOB = 5;
  * civilian the player re-trades, not an auto-employed jobless idler. */
 export const CIVILIST_JOB = 6;
 
-export function isBaby(jobType: number | null): boolean {
+function isBaby(jobType: number | null): boolean {
   return jobType === BABY_FEMALE || jobType === BABY_MALE;
 }
 

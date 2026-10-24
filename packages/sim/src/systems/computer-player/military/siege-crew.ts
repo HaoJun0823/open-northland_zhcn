@@ -36,7 +36,7 @@ export const PARK_SPACING_NODES = 6;
 /** How far around a catapult the AI looks for a parking spot, and how far it sends one per goto: a
  *  farther goal is reached in hops, each judged again from where the catapult then stands. The
  *  original's vehicle walk range. */
-export const CATAPULT_REACH_NODES = 60;
+const CATAPULT_REACH_NODES = 60;
 
 /** The longest drive toward a goal beyond {@link CATAPULT_REACH_NODES}: short enough that the target
  *  snap cannot carry the goal past that reach. */

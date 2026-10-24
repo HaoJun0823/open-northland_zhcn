@@ -10,7 +10,7 @@ import { mayBearChild } from '../orders/family.js';
 import { isFighterJob } from '../readviews/index.js';
 
 /** The civilian men a seat breeds towards when its script sets no `AI_UnitLimit`. Original behavior. */
-export const DEFAULT_UNIT_LIMIT = 80;
+const DEFAULT_UNIT_LIMIT = 80;
 /** The good a home must hold more than {@link HOME_FOOD_FOR_CHILD} of before its wife has a child. */
 const HOME_FOOD_GOOD_ID = 'food_simple';
 const HOME_FOOD_FOR_CHILD = 2;

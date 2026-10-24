@@ -35,7 +35,7 @@ import { nodeOf } from './geometry.js';
 // they stand in.
 
 /** How near his place a man counts as standing on it: he is neither re-ordered nor re-anchored. */
-export const SLOT_SLACK_NODES = 2;
+const SLOT_SLACK_NODES = 2;
 
 /** The wave as one decision reads it. */
 export interface Wave {

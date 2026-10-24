@@ -84,7 +84,7 @@ export const BUILDER_CAP = 12;
 
 /** A hard seat's reserve once it has grown (`LATE_GAME_CIVILIANS`, `workforce/staffing-plan.ts`)
  *  (authored). */
-export const GROWN_SEAT_BUILDER_CAP = 14;
+const GROWN_SEAT_BUILDER_CAP = 14;
 
 /** A hard seat's reserve from the late game on, whatever the head count (authored): the build order then
  *  keeps four sites open (`build-order/entries.ts`). */

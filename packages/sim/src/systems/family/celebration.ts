@@ -25,7 +25,7 @@ import { stationaryOwnedSettlers } from '../settlers/planner/spacing.js';
 import { isAdultSettler } from './eligibility.js';
 
 /** `tribetypes.ini` civilian enjoyment slot. */
-export const CHEER_ATOMIC_ID = 17;
+const CHEER_ATOMIC_ID = 17;
 /** Approximation: wedding guests within four visual tiles celebrate once, without abandoning tasks. */
 const WEDDING_CHEER_RADIUS_NODES = 8;
 

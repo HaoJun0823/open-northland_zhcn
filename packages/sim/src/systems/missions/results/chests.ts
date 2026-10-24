@@ -29,7 +29,7 @@ type RandomChestDraw =
   | { readonly kind: 'invalid' };
 
 /** Draw the chest category, then its contents, consuming both RNG draws even for a one-row span. */
-export function randomChestContents(pass: MissionPass, mask: number): RandomChestDraw {
+function randomChestContents(pass: MissionPass, mask: number): RandomChestDraw {
   const enabled = RANDOM_CHEST_GROUPS.filter((group) => (mask & group.bit) !== 0);
   if (enabled.length === 0) return { kind: 'invalid' };
   const group = enabled[pass.ctx.rng.int(enabled.length)];

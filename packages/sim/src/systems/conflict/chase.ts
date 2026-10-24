@@ -58,8 +58,8 @@ export interface ApproachBand extends WeaponBand {
 
 /** How far from itself (map points) a melee attacker looks for a contact slot, and among how many of the
  *  free slots at the nearest distance it finds one it draws. Original behavior. */
-export const CONTACT_SLOT_RADIUS = 5;
-export const CONTACT_SLOT_CHOICES = 6;
+const CONTACT_SLOT_RADIUS = 5;
+const CONTACT_SLOT_CHOICES = 6;
 
 /**
  * How many ticks a chaser follows its current path toward an enemy before re-issuing a fresh one. A per-tick

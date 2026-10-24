@@ -287,7 +287,7 @@ function launchVehicle(world: World, ctx: SystemContext, site: Entity): void {
  * larger tier's reserved zone can grow over decor the smaller placement never covered. Work flags need no
  * re-pass: flag legality is family-body-wide from the moment the Building appears.
  */
-export function settleFootprint(world: World, ctx: SystemContext, e: Entity): void {
+function settleFootprint(world: World, ctx: SystemContext, e: Entity): void {
   evictSettlersFromFootprint(world, ctx, e);
   evictVehiclesFromFootprint(world, ctx, e);
   evictLooseGoodsFromFootprint(world, ctx, e);

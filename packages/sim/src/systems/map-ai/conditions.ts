@@ -252,7 +252,7 @@ function isSoldier(world: World, ctx: SystemContext, e: Entity): boolean {
 }
 
 /** The soldiers a player fields, as its statistics count them. */
-export function soldierCount(world: World, ctx: SystemContext, player: number): number {
+function soldierCount(world: World, ctx: SystemContext, player: number): number {
   let count = 0;
   for (const e of ownedSettlers(world, player)) if (isSoldier(world, ctx, e)) count++;
   return count;

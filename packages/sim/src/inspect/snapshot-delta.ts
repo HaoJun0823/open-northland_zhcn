@@ -59,7 +59,7 @@ const INT16_MIN = -0x8000;
 const INT16_MAX = 0x7fff;
 
 /** A {@link SnapshotDelta.valueKinds} entry for a value carried whole in `values`. */
-export const WHOLE_VALUE = -1;
+const WHOLE_VALUE = -1;
 
 /** How a scalar record's field travels: a number or a boolean (0 or 1) in `numbers`, a string in
  *  `strings`, a null in neither. */

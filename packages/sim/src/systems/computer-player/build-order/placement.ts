@@ -208,12 +208,7 @@ function stockedStoreNode(
 }
 
 /** The seat's buildings of the content id or a tier above it, canonical ascending; none for an unknown id. */
-export function anchorsOfId(
-  world: World,
-  index: ContentIndex,
-  owned: readonly Entity[],
-  id: string,
-): Entity[] {
+function anchorsOfId(world: World, index: ContentIndex, owned: readonly Entity[], id: string): Entity[] {
   const typeId = index.buildingTypeBySlug.get(id);
   const type = typeId === undefined ? undefined : index.buildings.get(typeId);
   if (type === undefined) return [];

@@ -58,7 +58,7 @@ import { entityNode } from '../../../../../spatial/nodes.js';
  * animal fight back until it lapses; a re-strike refreshes it, so harassment keeps the animal angry.
  * Original behavior: `angryGameTime` counts down once per game tick, the unit of this sim's tick.
  */
-export function provokeAnger(world: World, ctx: SystemContext, target: Entity): void {
+function provokeAnger(world: World, ctx: SystemContext, target: Entity): void {
   const settler = world.tryGet(target, Settler);
   if (settler === undefined) return;
   if (!isProvokableAnimal(ctx.content, settler.tribe)) return;

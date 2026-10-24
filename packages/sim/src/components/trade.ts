@@ -8,7 +8,7 @@ import { MAX_PLAYERS, ownerOf } from './players/ownership.js';
 export const TRADE_ROUTE_HOUSES = 2;
 
 /** The most agreements one map registers (reading: the merchant array holds 60). */
-export const TRADE_AGREEMENT_LIMIT = 60;
+const TRADE_AGREEMENT_LIMIT = 60;
 
 /** The limit value that sets no limit: a mark whose `upTo` holds it fills the destination without a
  *  ceiling, one whose `keep` holds it leaves nothing behind. */
@@ -43,7 +43,7 @@ export function isForeignHouse(world: World, trader: Entity, house: Entity): boo
 }
 
 /** The route's stop at another player's house, or undefined for a route between the trader's own houses. */
-export function foreignStopOf(
+function foreignStopOf(
   world: World,
   trader: Entity,
   route: DeepReadonly<{ stops: TradeStop[] }>,
@@ -80,7 +80,7 @@ export function tradeRouteOf(world: World, e: Entity): TradeRouteView | undefine
 }
 
 /** Ensure the trader carries a route record; a fresh one has no stops. */
-export function ensureTradeRoute(world: World, e: Entity): void {
+function ensureTradeRoute(world: World, e: Entity): void {
   if (world.has(e, TradeRoute)) return;
   world.add(e, TradeRoute, {
     stops: [],
@@ -276,6 +276,7 @@ export interface TradeAgreement {
   readonly takeAmount: number;
 }
 
+/** The map's agreement table in authored order; an index into it is what a trader's route names. */
 const agreementTable = defineWorldSingleton<{ agreements: TradeAgreement[] }>(
   'TradeAgreements',
   'economy',
@@ -283,9 +284,6 @@ const agreementTable = defineWorldSingleton<{ agreements: TradeAgreement[] }>(
     agreements: [],
   }),
 );
-
-/** The map's agreement table in authored order; an index into it is what a trader's route names. */
-export const TradeAgreements = agreementTable.component;
 
 export function tradeAgreements(world: World): DeepReadonly<TradeAgreement[]> {
   return agreementTable.read(world).agreements;
@@ -302,16 +300,14 @@ export function addTradeAgreement(world: World, agreement: TradeAgreement): bool
   return true;
 }
 
-const tradeLedger = defineWorldSingleton<{
-  /** `player * MAX_PLAYERS + partner` -> units the player's traders received from the partner's houses. */
-  received: Map<number, number>;
-}>('TradeLedger', 'players', () => ({ received: new Map() }));
-
 /** What each player has traded with each other player, the tally `NumberOfGoodsTraded` and the diplomacy
  *  window read. Original behavior (byte-level): one per unit of the agreement's take good a trader carries
  *  from the partner's house to its cart, keyed by the trader's player and the house's; the goods it hands
  *  over count nowhere. Approximation: counted as the unit lands in the cart, not as the carry starts. */
-export const TradeLedger = tradeLedger.component;
+const tradeLedger = defineWorldSingleton<{
+  /** `player * MAX_PLAYERS + partner` -> units the player's traders received from the partner's houses. */
+  received: Map<number, number>;
+}>('TradeLedger', 'players', () => ({ received: new Map() }));
 
 function ledgerKey(player: number, partner: number): number {
   return player * MAX_PLAYERS + partner;

@@ -199,7 +199,7 @@ export const DIPLOMACY_STATES = ['friend', 'neutral', 'enemy'] as const;
 export type DiplomacyState = (typeof DIPLOMACY_STATES)[number];
 
 /** The `setDiplomacy` validity gate: an unknown state string is a recoverable bad input, skipped. */
-export function isDiplomacyState(state: string): state is DiplomacyState {
+function isDiplomacyState(state: string): state is DiplomacyState {
   return (DIPLOMACY_STATES as readonly string[]).includes(state);
 }
 

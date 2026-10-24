@@ -381,7 +381,7 @@ export function setScriptedLandscape(
   return freed;
 }
 
-export function forNodesInArea(
+function forNodesInArea(
   terrain: TerrainGraph,
   point: HalfCellNode,
   range: number,

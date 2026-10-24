@@ -72,7 +72,7 @@ export function workplaceStaffable(
   return buildingEnabled(world, ctx, owner, tribe, buildingType);
 }
 
-export function recipeOutputsEnabled(
+function recipeOutputsEnabled(
   world: World,
   ctx: ContentContext,
   owner: number | undefined,

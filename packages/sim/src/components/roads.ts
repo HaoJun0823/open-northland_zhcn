@@ -18,7 +18,7 @@ export function writeRoadNetwork(world: World, apply: (state: RoadNetworkState) 
 export const ROAD_SHARD_NODES = 64;
 
 /** The key of the shard holding half-cell node (hx, hy): its block's row times this plus its column. */
-export const ROAD_SHARD_KEY_STRIDE = 1 << 16;
+const ROAD_SHARD_KEY_STRIDE = 1 << 16;
 
 export function roadShardKey(hx: number, hy: number): number {
   return Math.floor(hy / ROAD_SHARD_NODES) * ROAD_SHARD_KEY_STRIDE + Math.floor(hx / ROAD_SHARD_NODES);

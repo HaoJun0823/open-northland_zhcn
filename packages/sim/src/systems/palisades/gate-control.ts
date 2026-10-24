@@ -20,7 +20,7 @@ import { setPalisadeGate } from './index.js';
 
 /** Gameplay tuning: close at 12 map points (six visual cells along either map axis).
  * Living enemy settlers (civilians included) and vehicles count; buildings and wildlife do not. */
-export const GATE_ENEMY_NEAR_POINTS = 12;
+const GATE_ENEMY_NEAR_POINTS = 12;
 
 interface GateList {
   readonly feed: ChangeFeed;

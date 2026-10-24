@@ -4,7 +4,7 @@ import type { HalfCellNode } from '../../nav/halfcell.js';
 import { isValidPlayer, MAX_PLAYERS } from '../players/ownership.js';
 
 /** Lines per player on the on-screen info display (reading). */
-export const INFO_LINES_PER_PLAYER = 5;
+const INFO_LINES_PER_PLAYER = 5;
 /** The player argument that writes every player's line at once; the corpus writes both spellings. */
 const BROADCAST_PLAYERS = [20, -1];
 
@@ -23,18 +23,16 @@ export interface InfoLine {
   extra: number;
 }
 
+/** Keyed by {@link infoLineKey}; only a line some `Info*` result set is present. */
 const infoLines = defineWorldSingleton<{ lines: Map<number, InfoLine> }>('InfoLines', 'players', () => ({
   lines: new Map(),
 }));
-
-/** Keyed by {@link infoLineKey}; only a line some `Info*` result set is present. */
-export const InfoLines = infoLines.component;
 
 export function isInfoLineIndex(index: number): boolean {
   return Number.isInteger(index) && index >= 0 && index < INFO_LINES_PER_PLAYER;
 }
 
-export function infoLineKey(player: number, index: number): number {
+function infoLineKey(player: number, index: number): number {
   return player * INFO_LINES_PER_PLAYER + index;
 }
 

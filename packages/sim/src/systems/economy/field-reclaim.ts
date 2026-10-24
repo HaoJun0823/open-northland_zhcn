@@ -34,7 +34,7 @@ export const STRANDED_FIELD_RECLAIM_TICKS = 60 * TICKS_PER_SECOND;
  * half a map. A sealed region bigger than this reads as `giveup`, which keeps the field, so the cap can
  * defer reclaiming a monstrous pocket but never destroys a workable one.
  */
-export const STRANDED_FIELD_PROBE_MAX_VISITED = 2048;
+const STRANDED_FIELD_PROBE_MAX_VISITED = 2048;
 
 type ProbeResult = 'reached' | 'exhausted' | 'giveup';
 

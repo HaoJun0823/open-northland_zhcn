@@ -102,11 +102,7 @@ export function discOffsets(radius: number, centreRow: number): readonly HalfCel
  * map-point directions, a N or S facing read as NE or SW), which is the anchor itself for a cart or
  * catapult that authors no vector. Unclamped.
  */
-export function vehicleEntryPoint(
-  vehicle: VehicleStateView,
-  type: VehicleType,
-  anchor: HalfCellNode,
-): HalfCellNode {
+function vehicleEntryPoint(vehicle: VehicleStateView, type: VehicleType, anchor: HalfCellNode): HalfCellNode {
   if (vehicle.moored && vehicle.mooring !== null) return { hx: vehicle.mooring.hx, hy: vehicle.mooring.hy };
   const vector = type.passengerVector;
   if (vector === undefined) return anchor;

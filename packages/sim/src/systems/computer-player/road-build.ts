@@ -40,7 +40,7 @@ export const ROAD_ROUTE_MAX_EXPLORED = 4096;
 /** The most a long route's budget grows to (authored). Over open ground the search, priced at the laid
  *  road step, settles about the square of the hex distance, so the budget follows that square up to
  *  here; a route past it waits for the roads nearer the base, which cost less to cross. */
-export const ROAD_ROUTE_MAX_EXPLORED_FAR = 16384;
+const ROAD_ROUTE_MAX_EXPLORED_FAR = 16384;
 
 /** The settle budget of a road route between two nodes `hexDistance` apart. */
 export function roadRouteBudget(hexDistance: number): number {

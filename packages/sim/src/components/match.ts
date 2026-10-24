@@ -69,6 +69,7 @@ interface MatchGoalTable {
   tornDown: number;
 }
 
+/** The goal table a multiplayer map plays by and the verdicts it reached. */
 const matchGoals = defineWorldSingleton<MatchGoalTable & { enabled: boolean }>(
   'MatchGoals',
   'players',
@@ -83,9 +84,6 @@ const matchGoals = defineWorldSingleton<MatchGoalTable & { enabled: boolean }>(
     tornDown: 0,
   }),
 );
-
-/** The goal table a multiplayer map plays by and the verdicts it reached. */
-export const MatchGoals = matchGoals.component;
 
 export type MatchOutcome = 'undecided' | 'defeat' | 'victory';
 

@@ -90,7 +90,7 @@ const missionState = defineWorldSingleton<MissionStateValue>('MissionState', 'pl
 
 /** The per-mission state of the world's script, materialized on the mission system's first tick and
  *  saved and hashed from there on. Absent for every world that runs no script. */
-export const MissionState: Component<MissionStateValue> = missionState.component;
+const MissionState: Component<MissionStateValue> = missionState.component;
 
 /** The script clock at load: missions active from the start carry it as their activation. */
 export const MISSION_LOAD_CLOCK = 1;

@@ -20,7 +20,7 @@ interface HeldTarget {
  * the band, in the order the wall discs first visit them. The dynamic walk block is left to the reader,
  * so a held band reads only the target's body: a body that differs from the held one re-derives it.
  */
-export class EncircleBands {
+class EncircleBands {
   private readonly targets = new Map<Entity, HeldTarget>();
   private sweepAbove = HELD_TARGETS_BEFORE_SWEEP;
 

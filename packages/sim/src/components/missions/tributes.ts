@@ -4,7 +4,7 @@ import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 /** The tribute table's slot count (byte-level). */
 export const TRIBUTE_SLOTS = 40;
 /** The most distinct goods one slot demands (byte-level); a further kind is dropped. */
-export const TRIBUTE_DEMAND_KINDS = 5;
+const TRIBUTE_DEMAND_KINDS = 5;
 
 export interface TributeDemand {
   good: number;

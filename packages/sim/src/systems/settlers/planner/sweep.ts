@@ -394,7 +394,7 @@ export function sweepOrder(
 
 /** A cursor over {@link sweepOrder}'s settlers: a pass asks for the next one after each visit, so the
  *  walk allocates nothing per settler. */
-export class PlannerSweep {
+class PlannerSweep {
   private cursor = 0;
   private done = false;
 

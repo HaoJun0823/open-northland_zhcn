@@ -107,7 +107,7 @@ class WalkFrontier<N extends number = NodeId> {
 }
 
 const COST_PAGE_SHIFT = 7;
-export const COST_PAGE_SIZE = 1 << COST_PAGE_SHIFT;
+const COST_PAGE_SIZE = 1 << COST_PAGE_SHIFT;
 const COST_PAGE_MASK = COST_PAGE_SIZE - 1;
 /** A page slot no walk has reached yet: past every cost, so no relaxation ever keeps it. */
 const UNREACHED_COST = Number.POSITIVE_INFINITY;

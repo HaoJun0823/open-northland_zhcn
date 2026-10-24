@@ -77,7 +77,7 @@ export const FLEE_CHECK_STRIDE_TICKS = 4;
  * caught between raiders does not run from the nearest one straight at the next. Approximation for scale:
  * one per walk direction.
  */
-export const FLEE_THREAT_LIMIT = 8;
+const FLEE_THREAT_LIMIT = 8;
 
 const NO_THREATS: readonly { entity: Entity; distance: number }[] = [];
 

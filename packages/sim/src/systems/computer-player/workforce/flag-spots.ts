@@ -31,7 +31,7 @@ export interface FlagBand {
 }
 
 /** The AI collector's band: 2-3 tiles, any legal node within 6 tiles when it is blocked (authored). */
-export const COLLECTOR_FLAG_BAND: FlagBand = {
+const COLLECTOR_FLAG_BAND: FlagBand = {
   min: FLAG_MIN_DISTANCE_NODES,
   max: FLAG_MAX_DISTANCE_NODES,
   fallbackMax: 12,

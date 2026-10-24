@@ -12,7 +12,7 @@ import type { EntryStatus } from './progress.js';
  *  herb hut. On the decoded maps the snow-corner seats of zimna_wojna hold 140-480 such nodes, the green
  *  starts 1000-1900. Such a seat raises one building of each bio-pattern type
  *  (`progress.ts`) and keeps the rest off the grass while {@link grassReserved}. */
-export const GRASS_SCARCE_BELOW_NODES = 600;
+const GRASS_SCARCE_BELOW_NODES = 600;
 
 /** Whether the building only stands on grass: the engine's bio-pattern rule (the well, the hive) or the
  *  entry's own `plantable` restriction (the farm, the herb hut). */

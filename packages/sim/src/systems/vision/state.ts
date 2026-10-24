@@ -72,7 +72,7 @@ function cellFold(index: number, state: number): number {
 
 /** Fold `index`'s move from `from` to `to` into `fold`; XOR is its own inverse, so the old contribution
  *  cancels and the new one lands. */
-export function foldCellChange(fold: FogFold, index: number, from: number, to: number): void {
+function foldCellChange(fold: FogFold, index: number, from: number, to: number): void {
   fold.value = (fold.value ^ cellFold(index, from) ^ cellFold(index, to)) >>> 0;
 }
 

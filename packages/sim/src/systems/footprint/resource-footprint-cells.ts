@@ -21,10 +21,7 @@ import type { Entity, World } from '../../ecs/world.js';
  * original stamps it, and one without the full-grown object's cells. Approximation: collision stays at
  * the placed size until the node is removed, where the original's shrinks as the valency is spent.
  */
-export function resourceFootprintFromLandscapeGfx(
-  record: LandscapeGfx,
-  level?: number,
-): ResourceFootprintCells {
+function resourceFootprintFromLandscapeGfx(record: LandscapeGfx, level?: number): ResourceFootprintCells {
   const blocks = (areas: LandscapeGfx['walkBlockAreas']) =>
     level === undefined ? fullStateBlockAreaCells(areas) : levelBlockAreaCells(areas, level);
   return {

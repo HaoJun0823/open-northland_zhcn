@@ -759,7 +759,7 @@ function askerOf(
 }
 
 /** How many walk steps a fighter takes between two looks for a nearer enemy. Original behavior. */
-export const RESCAN_WALK_STEPS = 10;
+const RESCAN_WALK_STEPS = 10;
 
 /** {@link RESCAN_WALK_STEPS} in ticks: ten steps at the reference land pace of 8 ticks a step, 80 ticks,
  *  staggered by entity id. Approximation: the original counts the steps themselves, so here a walker slower

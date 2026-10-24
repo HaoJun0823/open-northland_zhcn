@@ -62,7 +62,7 @@ export function householdGoodAllowed(world: World, player: number, effect: HomeQ
   return (carrier === null ? DEFAULT_HOUSEHOLD_GOOD_POLICY : world.get(carrier, HouseholdGoodPolicy))[effect];
 }
 
-export function householdGoodPolicyEntity(world: World, player: number): Entity | null {
+function householdGoodPolicyEntity(world: World, player: number): Entity | null {
   let best: Entity | null = null;
   for (const e of world.query(HouseholdGoodPolicy)) {
     if (world.get(e, HouseholdGoodPolicy).player !== player) continue;

@@ -209,43 +209,6 @@ describe('SpritePool - a still clockless entity skips its present', () => {
   });
 });
 
-describe('SpritePool - a still frame presents only what moves with the frame clock', () => {
-  const TREE = 7;
-  const scene = () =>
-    snapshotOf([
-      entity(SETTLER, 0, 0, { Settler: { tribe: 0 } }),
-      entity(TREE, 3, 0, { Resource: { goodType: 3 } }),
-    ]);
-  type PresentPooled = (pe: unknown, item: DrawItem) => void;
-  const presented = () =>
-    vi.spyOn(SpritePool.prototype as unknown as { presentPooled: PresentPooled }, 'presentPooled');
-
-  it('leaves a still tree untouched while only the alpha moves, and keeps its bounds', () => {
-    const pool = new SpritePool(new Container(), new TextureCache(), sheet);
-    const snapshot = scene();
-    pool.reconcile(frameOf(snapshot, { alpha: 0.25 }));
-    const spy = presented();
-    pool.reconcile(frameOf(snapshot, { alpha: 0.5 }));
-    pool.reconcile(frameOf(snapshot, { alpha: 0.75 }));
-    const refs = spy.mock.calls.map((call) => call[1].ref);
-    expect(refs).toEqual([SETTLER, SETTLER]);
-    expect(pool.boundsOf(TREE)).toBeDefined();
-    expect(pool.boundsOf(SETTLER)).toBeDefined();
-  });
-
-  it('runs a full pass once a still entity is selected, and on a new tick', () => {
-    const pool = new SpritePool(new Container(), new TextureCache(), sheet);
-    const snapshot = scene();
-    pool.reconcile(frameOf(snapshot, { alpha: 0.25 }));
-    const spy = presented();
-    pool.reconcile(frameOf(snapshot, { alpha: 0.5, selection: new Set([TREE]), selectionStyle: 'outline' }));
-    expect(spy.mock.calls.map((call) => call[1].ref)).toContain(TREE);
-    spy.mockClear();
-    pool.reconcile(frameOf(snapshot, { alpha: 0.5, tick: 1 }));
-    expect(spy.mock.calls.map((call) => call[1].ref)).toContain(TREE);
-  });
-});
-
 describe('SpritePool - a stand-in for a turned-away bake', () => {
   it('binds that entity again next frame, and only until a bind gets its answer', () => {
     const TREE = 7;

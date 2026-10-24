@@ -7,25 +7,10 @@ import { reconcileSprites } from '../../src/gpu/sprite-pool/index.js';
  */
 
 describe('reconcileSprites', () => {
-  it('destroys pooled entities absent from the live set (died), keeps culled-but-live ones', () => {
-    const live = new Set([1, 2, 4]);
-    const pooled = [1, 2, 3, 4, 5]; // 3 and 5 have left the snapshot
-    expect(reconcileSprites(live, pooled).toDestroy).toEqual([3, 5]);
-  });
-
-  it('destroys nothing when every pooled entity is still live (e.g. all merely off-screen)', () => {
-    expect(reconcileSprites(new Set([1, 2, 3]), [1, 2, 3]).toDestroy).toEqual([]);
-  });
-
-  it('is empty for an empty pool, whatever the live set', () => {
-    expect(reconcileSprites(new Set([1, 2]), []).toDestroy).toEqual([]);
-  });
-
-  it('ignores live refs that were never pooled', () => {
-    expect(reconcileSprites(new Set([1, 2, 3, 4]), [2]).toDestroy).toEqual([]);
-  });
-
-  it('preserves pooled iteration order in the destroy list (deterministic)', () => {
-    expect(reconcileSprites(new Set<number>(), [5, 1, 3]).toDestroy).toEqual([5, 1, 3]);
+  it('destroys pooled entities absent from the live set, in pool order, and keeps culled-but-live ones', () => {
+    const live = new Set([1, 2, 4, 6]); // 6 was never pooled
+    const pooled = [5, 1, 2, 3, 4]; // 3 and 5 have left the snapshot
+    expect(reconcileSprites(live, pooled).toDestroy).toEqual([5, 3]);
+    expect(reconcileSprites(live, [1, 2, 4]).toDestroy).toEqual([]);
   });
 });

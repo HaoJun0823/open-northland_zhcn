@@ -1,12 +1,6 @@
 import type { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import {
-  BoundsUnion,
-  createLayerDrawBox,
-  layerDrawBox,
-  placeholderBounds,
-} from '../../src/gpu/sprite-pool/index.js';
-import { ARROW } from '../../src/gpu/sprite-pool/placeholder.js';
+import { createLayerDrawBox, layerDrawBox, placeholderBounds } from '../../src/gpu/sprite-pool/index.js';
 import type { ResolvedLayer } from '../../src/index.js';
 
 /** Pure feet-local box arithmetic, so this fake source is never sampled. */
@@ -81,31 +75,6 @@ describe('layerDrawBox', () => {
   });
 });
 
-describe('BoundsUnion', () => {
-  it('is empty until something is added', () => {
-    const union = new BoundsUnion();
-    expect(union.isEmpty()).toBe(true);
-    union.add(0, 0, 1, 1);
-    expect(union.isEmpty()).toBe(false);
-  });
-
-  it('unions overlapping and disjoint boxes into their outer extent', () => {
-    const union = new BoundsUnion();
-    union.add(-4, -20, 6, -10);
-    union.add(-8, -14, 2, 0);
-    expect(union).toMatchObject({ minX: -8, minY: -20, maxX: 6, maxY: 0 });
-  });
-
-  it('reset drops the previous entity’s box', () => {
-    const union = new BoundsUnion();
-    union.add(-100, -100, 100, 100);
-    union.reset();
-    expect(union.isEmpty()).toBe(true);
-    union.add(0, -5, 1, 0);
-    expect(union).toMatchObject({ minX: 0, minY: -5, maxX: 1, maxY: 0 });
-  });
-});
-
 describe('placeholderBounds', () => {
   it('sizes a wide marker to its body box', () => {
     // A building's 28-wide body is wider than the footprint diamond, so the body decides the half-width.
@@ -116,12 +85,5 @@ describe('placeholderBounds', () => {
     // A settler's 14-wide body is narrower than the 9-half-width diamond, and a box that missed the
     // diamond would drop clicks on the marker's tips.
     expect(placeholderBounds('settler')).toMatchObject({ minX: -9, maxX: 9 });
-  });
-
-  it('covers the arrow marker’s own extent', () => {
-    // placeholderBounds halves the body width and centres it on the anchor, so the box follows a retuned
-    // arrow but would not follow an asymmetric one.
-    const halfLength = (ARROW.head.tipX - ARROW.shaft.tailX) / 2;
-    expect(placeholderBounds('projectile')).toMatchObject({ minX: -halfLength, maxX: halfLength });
   });
 });

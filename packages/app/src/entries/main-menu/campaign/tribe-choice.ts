@@ -2,7 +2,7 @@ import { CIVILIZATION_TRIBES } from '@open-northland/data';
 import { RECOMMENDED_CAMPAIGN_TRIBE } from '../../../campaign/launch.js';
 import { formatMessage, messages, tribeName } from '../../../i18n/index.js';
 import { node } from '../dom.js';
-import { loadTribeEmblems } from '../lobby-controls/tribe-emblems.js';
+import { tribeEmblem } from '../lobby-controls/tribe-emblems.js';
 
 /** Keys that move the choice to the previous or next civilization, as in any radio group. */
 const STEP_KEYS: Readonly<Record<string, number>> = {
@@ -11,21 +11,6 @@ const STEP_KEYS: Readonly<Record<string, number>> = {
   ArrowRight: 1,
   ArrowDown: 1,
 };
-
-/** The civilization's headquarters thumbnail, its initial until the content draws it. */
-function emblem(tribe: number): HTMLElement {
-  const box = node('span', 'campaign-tribe__emblem', tribeName(tribe).slice(0, 1));
-  box.setAttribute('aria-hidden', 'true');
-  void loadTribeEmblems().then((urls) => {
-    const url = urls.get(tribe);
-    if (url === undefined) return;
-    const image = node('img');
-    image.src = url;
-    image.alt = '';
-    box.replaceChildren(image);
-  });
-  return box;
-}
 
 /**
  * The campaign's civilization as a secondary setting: one emblem per civilization in a radio group,
@@ -55,7 +40,7 @@ export function campaignTribeChoice(initial: number, change: (tribe: number) => 
     option.classList.toggle('is-recommended', recommended);
     option.title = recommended ? `${tribeName(tribe)} (${copy.tribeNote})` : tribeName(tribe);
     option.setAttribute('aria-label', option.title);
-    option.append(emblem(tribe));
+    option.append(tribeEmblem(tribe, 'campaign-tribe__emblem'));
     option.addEventListener('click', () => pick(tribe));
     group.append(option);
     return { tribe, option };

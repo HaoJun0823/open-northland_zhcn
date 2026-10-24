@@ -1,12 +1,14 @@
 import { CIVILIZATION_TRIBES, isCivilizationTribe } from '@open-northland/data';
 import { formatMessage, messages, tribeName } from '../../../i18n/index.js';
 import { node } from '../dom.js';
-import { loadTribeEmblems } from './tribe-emblems.js';
+import { tribeEmblem } from './tribe-emblems.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STAR_PATH = 'M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.5l7.1-.6z';
 /** Gap in CSS pixels between the button and its opened list, and between the list and the viewport edge. */
 const MENU_GAP_PX = 4;
+/** The thumbnail's class on the button and in every list entry. */
+const EMBLEM_CLASS = 'lobby-tribe__emblem';
 
 /** The map's own civilization's mark; the note beside it says what it means. */
 function star(): SVGSVGElement {
@@ -18,22 +20,6 @@ function star(): SVGSVGElement {
   path.setAttribute('d', STAR_PATH);
   svg.append(path);
   return svg;
-}
-
-/** The civilization's headquarters thumbnail; its initial stands in until the content draws it. The
- *  name is carried by the surrounding control, so the picture stays out of the accessible name. */
-function emblem(tribe: number): HTMLElement {
-  const box = node('span', 'lobby-tribe__emblem', tribeName(tribe).slice(0, 1));
-  box.setAttribute('aria-hidden', 'true');
-  void loadTribeEmblems().then((urls) => {
-    const url = urls.get(tribe);
-    if (url === undefined) return;
-    const image = node('img');
-    image.src = url;
-    image.alt = '';
-    box.replaceChildren(image);
-  });
-  return box;
 }
 
 /** A list entry's name, over a small starred line on the map's own civilization. */
@@ -61,7 +47,7 @@ export function tribePicker(authored: number, change: (tribe: number) => void, c
   button.setAttribute('aria-haspopup', 'listbox');
   button.setAttribute('aria-expanded', 'false');
   let current = authored;
-  let buttonEmblem = emblem(authored);
+  let buttonEmblem = tribeEmblem(authored, EMBLEM_CLASS);
   button.append(buttonEmblem);
 
   const menu = node('div', 'lobby-tribe__menu');
@@ -75,7 +61,7 @@ export function tribePicker(authored: number, change: (tribe: number) => void, c
     const option = node('button', 'lobby-tribe__option');
     option.type = 'button';
     option.setAttribute('role', 'option');
-    option.append(emblem(tribe), caption(tribe, authored));
+    option.append(tribeEmblem(tribe, EMBLEM_CLASS), caption(tribe, authored));
     option.addEventListener('click', () => {
       menu.hidePopover();
       if (tribe !== current) change(tribe);
@@ -141,7 +127,7 @@ export function tribePicker(authored: number, change: (tribe: number) => void, c
       // The world plays the map's own tribe for any other value a relay passes on.
       const tribe = isCivilizationTribe(chosen) ? chosen : authored;
       if (tribe !== current) {
-        const next = emblem(tribe);
+        const next = tribeEmblem(tribe, EMBLEM_CLASS);
         buttonEmblem.replaceWith(next);
         buttonEmblem = next;
       }

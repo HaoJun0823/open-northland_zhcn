@@ -6,7 +6,7 @@ import { campaignTribeChoice } from '../../../../src/entries/main-menu/campaign/
 /** The campaign's civilization choice is a radio group: arrows step and wrap, Home and End jump. */
 
 vi.mock('../../../../src/entries/main-menu/lobby-controls/tribe-emblems.js', () => ({
-  loadTribeEmblems: () => Promise.resolve(new Map()),
+  tribeEmblem: () => document.createElement('span'),
 }));
 
 const FIRST = CIVILIZATION_TRIBES[0];

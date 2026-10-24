@@ -5,6 +5,8 @@ import { tribeEmblemRows } from '../../../content/building-gfx/emblems.js';
 import { servedAtlasStem } from '../../../content/ir/joins.js';
 import { loadIr } from '../../../content/ir/load.js';
 import type { BuildingBobRow } from '../../../content/ir/rows.js';
+import { tribeName } from '../../../i18n/index.js';
+import { node } from '../dom.js';
 
 /** Square edge in device pixels the thumbnail is painted at; the CSS box scales it down. */
 const EMBLEM_PX = 128;
@@ -31,6 +33,22 @@ export function loadTribeEmblems(): Promise<TribeEmblems> {
   });
   emblems = pending;
   return pending;
+}
+
+/** The civilization's headquarters thumbnail; its initial stands in until the content draws it. The
+ *  name is carried by the surrounding control, so the picture stays out of the accessible name. */
+export function tribeEmblem(tribe: number, className: string): HTMLElement {
+  const box = node('span', className, tribeName(tribe).slice(0, 1));
+  box.setAttribute('aria-hidden', 'true');
+  void loadTribeEmblems().then((urls) => {
+    const url = urls.get(tribe);
+    if (url === undefined) return;
+    const image = node('img');
+    image.src = url;
+    image.alt = '';
+    box.replaceChildren(image);
+  });
+  return box;
 }
 
 async function emblemUrl(bob: BuildingBobRow): Promise<string | null> {

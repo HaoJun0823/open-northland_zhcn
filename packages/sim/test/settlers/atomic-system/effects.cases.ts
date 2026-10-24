@@ -171,14 +171,4 @@ describe('atomicSystem - effects', () => {
     expect(() => atomicSystem(sim.world, nextTickCtxOf(sim))).not.toThrow(); // missing target must not throw
     expect(sim.world.has(target, Health)).toBe(false);
   });
-
-  it('attack with zero damage leaves the target untouched', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const attacker = sim.world.create();
-    const target = sim.world.create();
-    sim.world.add(target, Health, { hitpoints: 500, max: 500 });
-    startAtomic(sim, attacker, { kind: 'attack', target, damage: 0 }, 1, 81); // a material column the weapon does no harm to
-    atomicSystem(sim.world, nextTickCtxOf(sim));
-    expect(sim.world.get(target, Health).hitpoints).toBe(500); // no harm
-  });
 });

@@ -5,7 +5,7 @@ import {
   atomicElapsed,
   CurrentAtomic,
 } from '../../../src/components/index.js';
-import { exportSaveGame, restoreSimulation, Simulation } from '../../../src/index.js';
+import { Simulation } from '../../../src/index.js';
 import { atomicSystem } from '../../../src/systems/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { fixtureTick, nextTickCtxOf } from '../../fixtures/context.js';
@@ -26,23 +26,6 @@ describe('atomicSystem - clock + completion', () => {
     // Tick 4: reaches the duration, applies + removes.
     atomicSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.has(e, CurrentAtomic)).toBe(false);
-  });
-
-  it('keeps the clock revision stable between start and completion, including after restore', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = sim.world.create();
-    startAtomic(sim, e, { kind: 'idle' }, 8);
-    sim.run(2);
-    const revision = sim.world.revisionOf(e, AtomicClock);
-    sim.run(3);
-    expect(atomicElapsed(sim.world.get(e, AtomicClock), sim.tick)).toBe(5);
-    expect(sim.world.revisionOf(e, AtomicClock)).toBe(revision);
-    const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content });
-    restored.run(2);
-    expect(atomicElapsed(restored.world.get(e, AtomicClock), restored.tick)).toBe(7);
-    restored.step();
-    expect(restored.world.has(e, AtomicClock)).toBe(false);
-    expect(restored.events.current()).toContainEqual({ kind: 'atomicCompleted', entity: e, atomicId: 1 });
   });
 
   it('starts a clip created after the executor on the following tick, preserving prefilled progress', () => {

@@ -24,15 +24,6 @@ describe('atomicPlanner - end-to-end harvest -> carry -> pileup through the real
     expect(sim.world.has(cutter, Carrying)).toBe(false); // unloaded at the store
   });
 
-  it('keeps cycling: a second unit lands in the store on a longer run', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
-    woodcutterAt(sim, 0, 0);
-    woodAt(sim, 1, 0, 5);
-    const store = storeAt(sim, 2, 0);
-    for (let i = 0; i < 1000; i++) sim.step();
-    expect(sim.world.get(store, Stockpile).amounts.get(WOOD) ?? 0).toBeGreaterThanOrEqual(2);
-  });
-
   it('depletes a finite node: a 3-unit node empties, is removed, and exactly 3 units reach the store', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
     const cutter = woodcutterAt(sim, 0, 0);

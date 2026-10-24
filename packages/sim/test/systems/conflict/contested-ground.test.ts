@@ -7,16 +7,16 @@ import {
   Position,
   Settler,
   setDiplomacyStance,
-} from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
-import { positionOfNode, Simulation } from '../../../../src/index.js';
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { positionOfNode, Simulation } from '../../../src/index.js';
 import {
   CONTESTED_GROUND_RADIUS_NODES,
   contestedGroundFor,
-} from '../../../../src/systems/conflict/contested-ground.js';
-import { VISION_CADENCE_TICKS } from '../../../../src/systems/vision/index.js';
-import { aiContent } from '../../../fixtures/ai-content.js';
-import { grassNodeMap } from '../../../fixtures/terrain.js';
+} from '../../../src/systems/conflict/contested-ground.js';
+import { VISION_CADENCE_TICKS } from '../../../src/systems/vision/index.js';
+import { aiContent } from '../../fixtures/ai-content.js';
+import { grassNodeMap } from '../../fixtures/terrain.js';
 
 /**
  * Contested ground: the placement rule that refuses a site near a hostile army, and the `placeBuilding`

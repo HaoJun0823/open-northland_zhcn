@@ -11,14 +11,14 @@ import {
   PickupClaim,
   Position,
   SupplyRun,
-} from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
-import { fx, Simulation } from '../../../../../src/index.js';
-import type { TerrainMap } from '../../../../../src/nav/terrain/index.js';
-import { combatSystem, SIGHT_RADIUS_NODES } from '../../../../../src/systems/index.js';
-import { attackUnit } from '../../../../../src/systems/orders/index.js';
-import { collectSupplyTally } from '../../../../../src/systems/stores/index.js';
-import { testContent } from '../../../../fixtures/content.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { fx, Simulation } from '../../../../src/index.js';
+import type { TerrainMap } from '../../../../src/nav/terrain/index.js';
+import { combatSystem, SIGHT_RADIUS_NODES } from '../../../../src/systems/index.js';
+import { attackUnit } from '../../../../src/systems/orders/index.js';
+import { collectSupplyTally } from '../../../../src/systems/stores/index.js';
+import { testContent } from '../../../fixtures/content.js';
 import { ctxOf, fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './support.js';
 
 describe('attackUnit - the explicit attack order', () => {

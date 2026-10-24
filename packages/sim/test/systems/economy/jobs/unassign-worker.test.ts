@@ -23,7 +23,7 @@ import { ctxOf } from '../../../fixtures/context.js';
 import { grassCellMap as grassMap } from '../../../fixtures/terrain.js';
 
 /** The `unassignWorker` command. The garrison arm lives with the rest of the tower post, in
- *  `conflict/ranged/tower-garrison.test.ts`. */
+ *  `conflict/tower-garrison.test.ts`. */
 
 const VIKING = 1;
 const HUMAN = 0;

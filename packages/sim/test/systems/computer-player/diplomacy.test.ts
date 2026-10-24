@@ -3,7 +3,7 @@ import { type DiplomacyState, diplomacyStance, setDiplomacyLock } from '../../..
 import { Simulation } from '../../../src/index.js';
 import { AI_HANDLER_ROUND_TICKS } from '../../../src/systems/ai-shared/cadence.js';
 import { testContent } from '../../fixtures/content.js';
-import { grassMap } from '../conflict/melee/engagement/support.js';
+import { grassMap } from '../conflict/engagement/support.js';
 
 /**
  * A computer seat's answer to another player's stance toward it, one slot per handler turn: the seat on

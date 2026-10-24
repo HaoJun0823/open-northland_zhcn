@@ -41,7 +41,7 @@ import { queueBehindCurrentOrder, sendUnit } from '../../../src/systems/orders/i
 import { testContent } from '../../fixtures/content.js';
 import { ctxOf } from '../../fixtures/context.js';
 import { grassCellMap as grassMap } from '../../fixtures/terrain.js';
-import { COW, fighterAt } from '../conflict/melee/engagement/support.js';
+import { COW, fighterAt } from '../conflict/engagement/support.js';
 
 /** Shift-clicked orders wait behind the settler's current one and start the tick it ends. */
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { Rng } from '../../../../src/core/rng.js';
-import { Simulation } from '../../../../src/index.js';
-import { hexDistanceBetween } from '../../../../src/nav/halfcell.js';
-import type { NodeId, TerrainGraph } from '../../../../src/nav/terrain/index.js';
-import { nearestFreeInBand } from '../../../../src/systems/conflict/chase.js';
-import type { WeaponBand } from '../../../../src/systems/conflict/weapon-band.js';
-import { testContent } from '../../../fixtures/content.js';
-import { grassNodeMap } from '../../../fixtures/terrain.js';
+import { Rng } from '../../../src/core/rng.js';
+import { Simulation } from '../../../src/index.js';
+import { hexDistanceBetween } from '../../../src/nav/halfcell.js';
+import type { NodeId, TerrainGraph } from '../../../src/nav/terrain/index.js';
+import { nearestFreeInBand } from '../../../src/systems/conflict/chase.js';
+import type { WeaponBand } from '../../../src/systems/conflict/weapon-band.js';
+import { testContent } from '../../fixtures/content.js';
+import { grassNodeMap } from '../../fixtures/terrain.js';
 
 // The chase's free-cell search walks the rings around the chaser before the band; its answer must be the
 // band walk's: the nearest free cell by (map points from the chaser, cell id), and whether any band cell

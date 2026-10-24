@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { MoveSpeed, PathFollow, PathRoute, Position } from '../../../../src/components/index.js';
-import { fx, positionOfNode, Simulation } from '../../../../src/index.js';
-import type { NodeId } from '../../../../src/nav/terrain/index.js';
+import { MoveSpeed, PathFollow, PathRoute, Position } from '../../../src/components/index.js';
+import { fx, positionOfNode, Simulation } from '../../../src/index.js';
+import type { NodeId } from '../../../src/nav/terrain/index.js';
 import {
   leadPoint,
   mapPointDistance,
@@ -10,12 +10,12 @@ import {
   shelterSpread,
   shotFlightTicks,
   shotLandDelay,
-} from '../../../../src/systems/conflict/shot-aim.js';
-import { testContent } from '../../../fixtures/content.js';
-import { ctxOf } from '../../../fixtures/context.js';
-import { addSettlerOfTribe } from '../../../fixtures/settler.js';
-import { grassCellMap } from '../../../fixtures/terrain.js';
-import { VIKING } from '../combat-system/support.js';
+} from '../../../src/systems/conflict/shot-aim.js';
+import { testContent } from '../../fixtures/content.js';
+import { ctxOf } from '../../fixtures/context.js';
+import { addSettlerOfTribe } from '../../fixtures/settler.js';
+import { grassCellMap } from '../../fixtures/terrain.js';
+import { VIKING } from './combat-system/support.js';
 
 const DRAWS = 400;
 const LONG_SHOT_NODES = 20;

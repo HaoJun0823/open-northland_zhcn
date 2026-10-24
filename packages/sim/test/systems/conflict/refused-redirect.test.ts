@@ -6,11 +6,11 @@ import {
   PathRoute,
   PlayerOrder,
   Position,
-} from '../../../../src/components/index.js';
-import { nodeOfPosition, positionOfNode, Simulation } from '../../../../src/index.js';
-import { testContent } from '../../../fixtures/content.js';
-import { grassNodeMap } from '../../../fixtures/terrain.js';
-import { ownedWoodcutter } from './support.js';
+} from '../../../src/components/index.js';
+import { nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
+import { testContent } from '../../fixtures/content.js';
+import { grassNodeMap } from '../../fixtures/terrain.js';
+import { ownedWoodcutter } from './orders/support.js';
 
 it.each(['straight', 'diagonal-first', 'diagonal-second', 'replace-stop'] as const)(
   'finishes only the live step after a refused redirect: %s',

@@ -7,15 +7,15 @@ import {
   PathRequest,
   Position,
   Resource,
-} from '../../../../../src/components/index.js';
-import { fx, hexDistanceBetween, Simulation } from '../../../../../src/index.js';
+} from '../../../../src/components/index.js';
+import { fx, hexDistanceBetween, Simulation } from '../../../../src/index.js';
 import {
   anchorOnlyFootprint,
   combatSystem,
   SIGHT_RADIUS_NODES,
   stampResourceFootprintData,
-} from '../../../../../src/systems/index.js';
-import { testContent } from '../../../../fixtures/content.js';
+} from '../../../../src/systems/index.js';
+import { testContent } from '../../../fixtures/content.js';
 import {
   BEAR,
   ctxOf,

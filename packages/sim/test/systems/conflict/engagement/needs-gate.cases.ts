@@ -17,12 +17,12 @@ import {
   Position,
   Stockpile,
   setMissionBehaviour,
-} from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
-import { cellAnchorNode, type Fixed, fx, type NodeId, ONE, Simulation } from '../../../../../src/index.js';
-import { plannerSystem } from '../../../../../src/systems/index.js';
-import { testContent } from '../../../../fixtures/content.js';
-import { needsOf, setNeeds } from '../../../../fixtures/settler.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { cellAnchorNode, type Fixed, fx, type NodeId, ONE, Simulation } from '../../../../src/index.js';
+import { plannerSystem } from '../../../../src/systems/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { needsOf, setNeeds } from '../../../fixtures/settler.js';
 import { ctxOf, FRANK, fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './support.js';
 
 /**

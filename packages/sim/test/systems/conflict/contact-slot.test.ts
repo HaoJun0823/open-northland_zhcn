@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { MoveGoal, Owner, Stance } from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
-import { Simulation } from '../../../../src/index.js';
+import { MoveGoal, Owner, Stance } from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { Simulation } from '../../../src/index.js';
 import {
   forEachRingNode,
   type HalfCellNode,
   hexDistanceBetween,
   hexNeighboursOf,
-} from '../../../../src/nav/halfcell.js';
-import { combatSystem } from '../../../../src/systems/index.js';
-import { MILITARY_MODE, type MilitaryMode } from '../../../../src/systems/readviews/index.js';
+} from '../../../src/nav/halfcell.js';
+import { combatSystem } from '../../../src/systems/index.js';
+import { MILITARY_MODE, type MilitaryMode } from '../../../src/systems/readviews/index.js';
 import {
   combatCadenceContent,
   ctxOf,
@@ -19,7 +19,7 @@ import {
   SOLDIER_SWORD_SHORT,
   VIKING,
   WOMAN,
-} from '../combat-cadence/support.js';
+} from './combat-cadence/support.js';
 
 // A melee attacker's contact slot is drawn among the free cells of its band at the nearest distance from it.
 

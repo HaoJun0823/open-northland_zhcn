@@ -8,13 +8,13 @@ import {
   PlayerOrder,
   Position,
   Stance,
-} from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
-import { cellAnchorNode, fx, Simulation } from '../../../../../src/index.js';
-import { combatSystem, playerOrderSystem } from '../../../../../src/systems/index.js';
-import { attackMoveUnit } from '../../../../../src/systems/orders/index.js';
-import { MILITARY_MODE } from '../../../../../src/systems/readviews/index.js';
-import { testContent } from '../../../../fixtures/content.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { cellAnchorNode, fx, Simulation } from '../../../../src/index.js';
+import { combatSystem, playerOrderSystem } from '../../../../src/systems/index.js';
+import { attackMoveUnit } from '../../../../src/systems/orders/index.js';
+import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { testContent } from '../../../fixtures/content.js';
 import { ctxOf, fighterAt, grassMap, P0, P1, splitMap, VIKING, WOOD, WOODCUTTER } from './support.js';
 
 /**

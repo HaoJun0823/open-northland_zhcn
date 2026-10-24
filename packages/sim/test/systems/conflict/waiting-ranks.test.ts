@@ -7,9 +7,9 @@ import {
   PathFollow,
   PathRoute,
   Position,
-} from '../../../../src/components/index.js';
-import { fx, positionOfNode, Simulation } from '../../../../src/index.js';
-import { MeleeSlots } from '../../../../src/systems/conflict/melee-slots.js';
+} from '../../../src/components/index.js';
+import { fx, positionOfNode, Simulation } from '../../../src/index.js';
+import { MeleeSlots } from '../../../src/systems/conflict/melee-slots.js';
 import {
   combatCadenceContent,
   ctxOf,
@@ -19,7 +19,7 @@ import {
   SOLDIER_SWORD_SHORT,
   VIKING,
   WOMAN,
-} from '../combat-cadence/support.js';
+} from './combat-cadence/support.js';
 
 it.each(['previous pass', 'current pass', 'mid-stride'])(
   'gives a front reservation to the nearer ally (%s)',

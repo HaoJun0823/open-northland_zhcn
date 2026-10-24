@@ -17,24 +17,24 @@ import {
   Position,
   Stance,
   Stockpile,
-} from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
-import { cellAnchorNode, type Fixed, fx, type NodeId, ONE, Simulation } from '../../../../../src/index.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { cellAnchorNode, type Fixed, fx, type NodeId, ONE, Simulation } from '../../../../src/index.js';
 import {
   combatSystem,
   NEED_CRITICAL_THRESHOLD,
   NEED_DRIVE_THRESHOLD,
   plannerSystem,
-} from '../../../../../src/systems/index.js';
-import { MILITARY_MODE } from '../../../../../src/systems/readviews/index.js';
+} from '../../../../src/systems/index.js';
+import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
 import {
   applyPendingHitReactions,
   type PendingHitReaction,
   resolveCombatHit,
-} from '../../../../../src/systems/settlers/atomics/effects/combat/index.js';
-import { testContent } from '../../../../fixtures/content.js';
-import { stepToIdleReplan } from '../../../../fixtures/idle-replan.js';
-import { needsOf, setNeeds } from '../../../../fixtures/settler.js';
+} from '../../../../src/systems/settlers/atomics/effects/combat/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { stepToIdleReplan } from '../../../fixtures/idle-replan.js';
+import { needsOf, setNeeds } from '../../../fixtures/settler.js';
 import { BEAR, ctxOf, FRANK, fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './support.js';
 
 /**

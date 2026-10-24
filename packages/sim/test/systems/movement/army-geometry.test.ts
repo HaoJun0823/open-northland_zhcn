@@ -18,7 +18,7 @@ import {
   type Simulation,
   serializeSaveGame,
 } from '../../../src/index.js';
-import { fighterAt } from '../conflict/melee/engagement/support.js';
+import { fighterAt } from '../conflict/engagement/support.js';
 import { COUNT, DESTINATION_SHIFT, geometry, makeArmy, report, translated } from './army-geometry/support.js';
 
 type Destinations = ReturnType<typeof translated>;

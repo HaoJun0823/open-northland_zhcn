@@ -10,14 +10,14 @@ import {
   Settler,
   Stance,
   Weapon,
-} from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
-import { hexDistanceBetween, playerCommand, Simulation } from '../../../../src/index.js';
-import { hexNeighboursOf, nodeOfPosition } from '../../../../src/nav/halfcell.js';
-import { CombatIndex } from '../../../../src/systems/conflict/combat-index.js';
-import { EngagementSpecs, RESCAN_PERIOD_TICKS } from '../../../../src/systems/conflict/engagement.js';
-import { noteUnreachableTarget } from '../../../../src/systems/conflict/unreachable-targets.js';
-import { attackerWeapon } from '../../../../src/systems/conflict/weapons.js';
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { hexDistanceBetween, playerCommand, Simulation } from '../../../src/index.js';
+import { hexNeighboursOf, nodeOfPosition } from '../../../src/nav/halfcell.js';
+import { CombatIndex } from '../../../src/systems/conflict/combat-index.js';
+import { EngagementSpecs, RESCAN_PERIOD_TICKS } from '../../../src/systems/conflict/engagement.js';
+import { noteUnreachableTarget } from '../../../src/systems/conflict/unreachable-targets.js';
+import { attackerWeapon } from '../../../src/systems/conflict/weapons.js';
 import {
   combatSystem,
   DEFEND_LEASH_NODES,
@@ -25,10 +25,10 @@ import {
   IGNORE_LEASH_NODES,
   REPATH_CADENCE,
   SIGHT_RADIUS_NODES,
-} from '../../../../src/systems/index.js';
-import { attackMoveUnit, moveUnit } from '../../../../src/systems/orders/index.js';
-import { MILITARY_MODE, type MilitaryMode } from '../../../../src/systems/readviews/index.js';
-import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+} from '../../../src/systems/index.js';
+import { attackMoveUnit, moveUnit } from '../../../src/systems/orders/index.js';
+import { MILITARY_MODE, type MilitaryMode } from '../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import {
   BOW_MIN_RANGE,
   combatCadenceContent,
@@ -43,7 +43,7 @@ import {
   VIKING,
   WOLF_TRIBE,
   WOMAN,
-} from '../combat-cadence/support.js';
+} from './combat-cadence/support.js';
 
 const P0 = 0;
 const P1 = 1;

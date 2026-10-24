@@ -13,7 +13,7 @@ import type { MilitaryMode } from '../../../../src/systems/readviews/index.js';
 
 /**
  * The four **military stances** (`MILITARY_MODE`) as a per-unit auto-engagement mode, plus the civilian
- * **flee** drive. This file pins the stance layer on top of the engagement half (melee/engagement.test.ts):
+ * **flee** drive. This file pins the stance layer on top of the engagement half (engagement.test.ts):
  * the job-based defaults, the `setStance` command, the ATTACK/DEFEND/IGNORE/FLEE gates, and the
  * order-over-stance precedence - all deterministic, no RNG.
  *

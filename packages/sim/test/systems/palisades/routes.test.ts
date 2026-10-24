@@ -44,7 +44,7 @@ import { societyContent } from '../../fixtures/content/societies.js';
 import { testContent } from '../../fixtures/content.js';
 import { ctxOf } from '../../fixtures/context.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
-import { fighterAt } from '../conflict/melee/engagement/support.js';
+import { fighterAt } from '../conflict/engagement/support.js';
 
 const VIKING = 1;
 const WOODCUTTER = 1;

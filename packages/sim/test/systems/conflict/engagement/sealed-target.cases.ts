@@ -15,8 +15,8 @@ import {
   Stance,
   setDiplomacyStance,
   UnreachableTargets,
-} from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
 import {
   findPath,
   fx,
@@ -26,22 +26,22 @@ import {
   positionOfNode,
   Simulation,
   type TerrainGraph,
-} from '../../../../../src/index.js';
-import { REPATH_CADENCE, SEALED_TARGET_ROUTE_FAILURES } from '../../../../../src/systems/conflict/chase.js';
+} from '../../../../src/index.js';
+import { REPATH_CADENCE, SEALED_TARGET_ROUTE_FAILURES } from '../../../../src/systems/conflict/chase.js';
 import {
   noteUnreachableTarget,
   UNREACHABLE_TARGET_MEMO_TICKS,
-} from '../../../../../src/systems/conflict/unreachable-targets.js';
-import { dynamicBlockOverlay } from '../../../../../src/systems/footprint/index.js';
+} from '../../../../src/systems/conflict/unreachable-targets.js';
+import { dynamicBlockOverlay } from '../../../../src/systems/footprint/index.js';
 import {
   anchorOnlyFootprint,
   combatSystem,
   type SystemContext,
   stampResourceFootprintData,
-} from '../../../../../src/systems/index.js';
-import { MILITARY_MODE, type MilitaryMode } from '../../../../../src/systems/readviews/index.js';
-import { testContent } from '../../../../fixtures/content.js';
-import { addSettlerOfTribe } from '../../../../fixtures/settler.js';
+} from '../../../../src/systems/index.js';
+import { MILITARY_MODE, type MilitaryMode } from '../../../../src/systems/readviews/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { addSettlerOfTribe } from '../../../fixtures/settler.js';
 import { ctxOf, fighterAt, grassMap, HARVEST_ATOMIC, P0, P1, VIKING, WOOD, WOODCUTTER } from './support.js';
 
 // A chase whose target the walk-block overlay seals off inside the chaser's own static walk component, so only

@@ -8,14 +8,14 @@ import {
   Health,
   PlayerContacts,
   setDiplomacyStance,
-} from '../../../../src/components/index.js';
-import { Simulation } from '../../../../src/index.js';
-import { combatSystem } from '../../../../src/systems/index.js';
-import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
-import { provokeHostility } from '../../../../src/systems/settlers/atomics/effects/combat/hit/reactions.js';
-import { testContent } from '../../../fixtures/content.js';
-import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from '../melee/engagement/support.js';
-import { combatant, ctxOf, fleeCheckCtxOf } from '../stances/support.js';
+} from '../../../src/components/index.js';
+import { Simulation } from '../../../src/index.js';
+import { combatSystem } from '../../../src/systems/index.js';
+import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
+import { provokeHostility } from '../../../src/systems/settlers/atomics/effects/combat/hit/reactions.js';
+import { testContent } from '../../fixtures/content.js';
+import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './engagement/support.js';
+import { combatant, ctxOf, fleeCheckCtxOf } from './stances/support.js';
 
 /**
  * The diplomacy table on the owner axis of `mayTarget`: two player-owned combatants engage only when

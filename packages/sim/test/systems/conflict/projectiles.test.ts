@@ -18,18 +18,18 @@ import {
   Stockpile,
   Stump,
   setMissionBehaviour,
-} from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
-import { type Fixed, fx, nodeOfPosition, ONE, positionOfNode, Simulation } from '../../../../src/index.js';
-import { hexNeighboursOf } from '../../../../src/nav/halfcell.js';
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { type Fixed, fx, nodeOfPosition, ONE, positionOfNode, Simulation } from '../../../src/index.js';
+import { hexNeighboursOf } from '../../../src/nav/halfcell.js';
 import {
   anchorOnlyFootprint,
   FIGHT_EXPERIENCE_TYPE,
   stampResourceFootprintData,
-} from '../../../../src/systems/index.js';
-import { ARMOR_MATERIAL } from '../../../../src/systems/readviews/index.js';
-import { addSettlerOfTribe } from '../../../fixtures/settler.js';
-import { grassCellMap as grassMap } from '../../../fixtures/terrain.js';
+} from '../../../src/systems/index.js';
+import { ARMOR_MATERIAL } from '../../../src/systems/readviews/index.js';
+import { addSettlerOfTribe } from '../../fixtures/settler.js';
+import { grassCellMap as grassMap } from '../../fixtures/terrain.js';
 
 /**
  * Ranged-combat (projectile) tests - the flight half of combat: a bow shot LAUNCHES a projectile entity

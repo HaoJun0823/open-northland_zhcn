@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AttackOrder, Health } from '../../../../../src/components/index.js';
-import { Simulation } from '../../../../../src/index.js';
-import { testContent } from '../../../../fixtures/content.js';
+import { AttackOrder, Health } from '../../../../src/components/index.js';
+import { Simulation } from '../../../../src/index.js';
+import { testContent } from '../../../fixtures/content.js';
 import { BEE, COW, fighterAt, grassMap, P0, VIKING, WOODCUTTER } from './support.js';
 
 /**

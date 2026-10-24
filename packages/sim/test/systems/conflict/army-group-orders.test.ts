@@ -32,7 +32,7 @@ import { commandSystem } from '../../../src/systems/command/index.js';
 import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { ctxOf } from '../../fixtures/context.js';
-import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './melee/engagement/support.js';
+import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './engagement/support.js';
 
 const WIDTH = 100;
 const HEIGHT = 40;

@@ -4,10 +4,10 @@ import {
   diplomacyStance,
   Health,
   setDiplomacyLock,
-} from '../../../../src/components/index.js';
-import { playerCommand, Simulation } from '../../../../src/index.js';
-import { testContent } from '../../../fixtures/content.js';
-import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from '../melee/engagement/support.js';
+} from '../../../src/components/index.js';
+import { playerCommand, Simulation } from '../../../src/index.js';
+import { testContent } from '../../fixtures/content.js';
+import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './engagement/support.js';
 
 /**
  * A seat's own stance change, the command the diplomacy window's stance buttons send: it rewrites the

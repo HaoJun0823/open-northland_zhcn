@@ -1,12 +1,12 @@
-import { grassCellMap as grassMap } from '../../../../fixtures/terrain.js';
+import { grassCellMap as grassMap } from '../../../fixtures/terrain.js';
 
 export { grassMap };
 
-import { Health, Owner, Position, Stance } from '../../../../../src/components/index.js';
-import type { Entity } from '../../../../../src/ecs/world.js';
-import { fx, halfCellMapFromCells, type Simulation, type TerrainMap } from '../../../../../src/index.js';
-import { MILITARY_MODE } from '../../../../../src/systems/readviews/index.js';
-import { addSettlerOfTribe } from '../../../../fixtures/settler.js';
+import { Health, Owner, Position, Stance } from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { fx, halfCellMapFromCells, type Simulation, type TerrainMap } from '../../../../src/index.js';
+import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { addSettlerOfTribe } from '../../../fixtures/settler.js';
 
 export const WOOD = 1;
 export const HARVEST_ATOMIC = 24;
@@ -25,7 +25,7 @@ export const P1 = 1;
 const GRASS = 0;
 const WATER = 1; // landscape type 1 in the fixture content - unwalkable
 
-export { ctxOf } from '../../../../fixtures/context.js';
+export { ctxOf } from '../../../fixtures/context.js';
 
 /** A grass map split by a full-height water column at cell x = `wall` - two banks, no crossing. */
 export function splitMap(width: number, height: number, wall: number): TerrainMap {

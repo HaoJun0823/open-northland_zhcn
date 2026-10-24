@@ -188,7 +188,7 @@ describe('ai program catapults', () => {
     );
     sim.run(DRIVE_TICKS);
     // A chase that lost its mark leaves the catapult off its spot and the guard spot behind
-    // (`conflict/ranged/catapult.test.ts`); a goto moves the guard with it, so it is put back here.
+    // (`conflict/catapult.test.ts`); a goto moves the guard with it, so it is put back here.
     sim.world.mut(catapult, Vehicle).guard = { ...home };
     const away = vehicleAnchor(sim.world, catapult);
     if (away === null) throw new Error('the catapult stands nowhere');

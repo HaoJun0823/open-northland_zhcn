@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { Position } from '../../../src/components/index.js';
 import { fx, Simulation } from '../../../src/index.js';
 import { testContent } from '../../fixtures/content.js';
-import { fighterAt } from '../conflict/melee/engagement/support.js';
+import { fighterAt } from '../conflict/engagement/support.js';
 
 it('keeps a redirected soldier eligible for formation slots while crossing a legal bank diagonal', () => {
   const typeIds = new Array<number>(16).fill(0);

@@ -1,7 +1,7 @@
 import { type ContentSet, parseContentSet, type WeaponType } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { isRangedWeapon, isSiegeWeapon } from '../../../../src/systems/index.js';
-import { TEST_MANIFEST } from '../../../fixtures/content.js';
+import { isRangedWeapon, isSiegeWeapon } from '../../../src/systems/index.js';
+import { TEST_MANIFEST } from '../../fixtures/content.js';
 
 const SWORDSMAN = 6;
 const FIGHTER = 31;

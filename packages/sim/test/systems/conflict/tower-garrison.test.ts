@@ -22,18 +22,18 @@ import {
   Settler,
   Stance,
   Stockpile,
-} from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
-import { fx, nodeOfPosition, ONE, Simulation } from '../../../../src/index.js';
-import type { NodeId } from '../../../../src/nav/terrain/index.js';
-import { garrisonReach, TOWER_RANGE_BONUS_NODES } from '../../../../src/systems/conflict/tower-post.js';
-import { plannerSystem } from '../../../../src/systems/index.js';
-import { razeBuilding } from '../../../../src/systems/lifecycle/cleanup.js';
-import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
-import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
-import { testContent } from '../../../fixtures/content.js';
-import { ctxOf, grassMap } from '../../../fixtures/needs.js';
-import { needsOf, setNeeds } from '../../../fixtures/settler.js';
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { fx, nodeOfPosition, ONE, Simulation } from '../../../src/index.js';
+import type { NodeId } from '../../../src/nav/terrain/index.js';
+import { garrisonReach, TOWER_RANGE_BONUS_NODES } from '../../../src/systems/conflict/tower-post.js';
+import { plannerSystem } from '../../../src/systems/index.js';
+import { razeBuilding } from '../../../src/systems/lifecycle/cleanup.js';
+import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { testContent } from '../../fixtures/content.js';
+import { ctxOf, grassMap } from '../../fixtures/needs.js';
+import { needsOf, setNeeds } from '../../fixtures/settler.js';
 
 /**
  * The tower garrison: a bow soldier posted to a watchtower walks in, holds it, and shoots from cover at

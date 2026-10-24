@@ -26,8 +26,8 @@ import {
   VehicleOrderQueue,
   vehicleCommander,
   wasAttackedBy,
-} from '../../../../src/components/index.js';
-import type { Entity } from '../../../../src/ecs/world.js';
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
 import {
   checkInvariants,
   exportSaveGame,
@@ -45,23 +45,23 @@ import {
   Simulation,
   serializeSaveGame,
   type TerrainMap,
-} from '../../../../src/index.js';
-import { findPath } from '../../../../src/nav/pathfinding/index.js';
-import { combatSystem } from '../../../../src/systems/conflict/combat.js';
-import { projectileSystem } from '../../../../src/systems/conflict/projectile.js';
-import { isFleeThreat } from '../../../../src/systems/conflict/targeting.js';
-import { UNREACHABLE_TARGET_MEMO_SIZE } from '../../../../src/systems/conflict/unreachable-targets.js';
-import { stampResourceFootprintData } from '../../../../src/systems/footprint/index.js';
-import { REGENERATION_HITPOINTS_PER_TICK } from '../../../../src/systems/lifecycle/needs/index.js';
-import { vehiclesGone } from '../../../../src/systems/missions/goals/casualties.js';
-import { FIGHT_EXPERIENCE_TYPE } from '../../../../src/systems/progression/index.js';
-import { ARMOR_MATERIAL, MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
-import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
-import { boardRider, createVehicle } from '../../../../src/systems/vehicles/index.js';
-import { FogState, SIEGE_SHOT_SIGHT_NODES } from '../../../../src/systems/vision/index.js';
-import { TEST_MANIFEST } from '../../../fixtures/content.js';
-import { ctxOf } from '../../../fixtures/context.js';
-import { routeAhead } from '../../../fixtures/vehicle-route.js';
+} from '../../../src/index.js';
+import { findPath } from '../../../src/nav/pathfinding/index.js';
+import { combatSystem } from '../../../src/systems/conflict/combat.js';
+import { projectileSystem } from '../../../src/systems/conflict/projectile.js';
+import { isFleeThreat } from '../../../src/systems/conflict/targeting.js';
+import { UNREACHABLE_TARGET_MEMO_SIZE } from '../../../src/systems/conflict/unreachable-targets.js';
+import { stampResourceFootprintData } from '../../../src/systems/footprint/index.js';
+import { REGENERATION_HITPOINTS_PER_TICK } from '../../../src/systems/lifecycle/needs/index.js';
+import { vehiclesGone } from '../../../src/systems/missions/goals/casualties.js';
+import { FIGHT_EXPERIENCE_TYPE } from '../../../src/systems/progression/index.js';
+import { ARMOR_MATERIAL, MILITARY_MODE } from '../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { boardRider, createVehicle } from '../../../src/systems/vehicles/index.js';
+import { FogState, SIEGE_SHOT_SIGHT_NODES } from '../../../src/systems/vision/index.js';
+import { TEST_MANIFEST } from '../../fixtures/content.js';
+import { ctxOf } from '../../fixtures/context.js';
+import { routeAhead } from '../../fixtures/vehicle-route.js';
 
 // The catapult's fight (docs/formats/VEHICLES.md "Catapult"): the stance scans, the band's back-off
 // and approach, the scatter roll, the ground burst on whatever stands on the landing node (the owner's

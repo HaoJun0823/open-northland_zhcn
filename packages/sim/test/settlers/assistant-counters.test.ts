@@ -70,8 +70,6 @@ const TRAINING_TRACK = 77;
 const TRAINING_EVENT_TYPE = 29;
 /** More TRAINING repeats than any test run can bank - a gate that would always refuse. */
 const UNBANKABLE_TRAINING = 9999;
-/** The spawn command's idle sentinel (job 0): the wire form of "no trade", normalized to null. */
-const _IDLE_SPAWN_JOB = 0;
 const SWORD_SHORT_GOOD = 41;
 const SWORD_LONG_GOOD = 42;
 const ARMOR_WOOL_GOOD = 61;

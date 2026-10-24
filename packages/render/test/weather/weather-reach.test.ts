@@ -7,7 +7,6 @@ import { fogViewOf, snapshotOf } from '../support/fixtures.js';
 
 const VIEWPORT = { minX: -1000, minY: -1000, maxX: 1000, maxY: 1000 };
 const WORLD = snapshotOf([]);
-const _MAP_CELLS = { wide: 80, high: 60 };
 
 describe('WeatherReach', () => {
   it('follows the fog wash band and asks for a rebind only when its texture changes', () => {

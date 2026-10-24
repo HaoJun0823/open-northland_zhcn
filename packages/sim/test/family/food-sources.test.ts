@@ -31,7 +31,6 @@ const LARDER_SLOT = 5;
 const HOME = 2;
 const WAREHOUSE = 7;
 const VIKING = 1;
-const _FOOD_FREE_STORES = 200;
 
 function foodContent(): ContentSet {
   return parseContentSet({

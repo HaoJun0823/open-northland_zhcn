@@ -91,7 +91,7 @@ describe('ClearanceField', () => {
     expectMatchesDefinition(graph, new ClearanceField(graph, open), open);
   });
 
-  it('recomputes a change locally and lands on the fresh build', () => {
+  it('lands on the fresh build after a change', () => {
     const graph = buildTerrainGraph(testContent(), grassNodeMap(NODE_W, NODE_H));
     const wall = new Set<NodeId>();
     const open = (n: NodeId): boolean => !wall.has(n);

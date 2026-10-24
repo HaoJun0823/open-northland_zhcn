@@ -85,8 +85,6 @@ const CIVILIST = 6;
 const BARRACKS = { x: 30, y: 30 };
 /** The enemy seat, far enough that no objective ever falls inside the seat's own muster ring. */
 const FOE_HQ = { x: 110, y: 70 };
-/** The wave-size draw's band at the start of the game: `OPENING_WAVE.min + int(WAVE_BAND)`. */
-const _WAVE_BAND = OPENING_WAVE.max - OPENING_WAVE.min + 1;
 /** A full opening band, which satisfies any early draw: this many march as soon as they are formed up. */
 const CERTAIN_WAVE = OPENING_WAVE.max;
 

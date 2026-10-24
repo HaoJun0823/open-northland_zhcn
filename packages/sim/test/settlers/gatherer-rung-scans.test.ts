@@ -97,7 +97,7 @@ function resourceAt(
 describe('pile scan', () => {
   it('a trade takes the nearest pile of a good it harvests', () => {
     const sim = newSim();
-    const _nearWood = pileAt(sim, 6, 10, WOOD); // nearer, but not the miner's good
+    pileAt(sim, 6, 10, WOOD); // nearer, but not the miner's good
     const stone = pileAt(sim, 12, 10, STONE);
     const plan = planFor(sim, MINER, 4, 10);
 

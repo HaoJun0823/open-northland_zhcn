@@ -159,9 +159,8 @@ automatically the strongest available setting. Verify findings before editing; a
 the changed areas and affected contracts rather than restarting the whole review.
 
 Prove behavior at the lowest useful layer: unit, integration, headless scenario, browser. Tests are
-a budget: a change adds one test per behavior it changes or bug it fixes, in the file that already
-covers the feature, and deletes what it makes redundant; a test that cannot fail for the regression
-its title names is not written ([writing a test](docs/TESTING.md#writing-a-test)).
+a budget, not a score: [writing a test](docs/TESTING.md#writing-a-test) says when a change adds one,
+when it deletes one, and what is not worth writing.
 Golden hashes change only for intentional behavior changes. Player-visible mechanics should have a
 registered acceptance scene when it adds useful coverage. Agents inspect screenshots, console errors,
 state and integration themselves; final visual/audio acceptance remains human.

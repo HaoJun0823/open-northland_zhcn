@@ -23,7 +23,6 @@ import {
 } from '../../src/index.js';
 import { authorizedCommand } from '../../src/systems/command/authority.js';
 import { MATCH_DEATH_CHECK_INTERVAL_TICKS, MATCH_DEATH_GRACE_TICKS } from '../../src/systems/match/index.js';
-import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
 import { testContent } from '../fixtures/content.js';
 import { settlerAt } from '../fixtures/settler.js';
 
@@ -73,8 +72,6 @@ function declare(sim: Simulation, players: readonly number[]): void {
 }
 
 describe('matchSystem - schedule relationships', () => {
-  const _names = SYSTEM_ORDER.map((s) => s.name);
-
   it('counts a man reaped on the check tick itself as already gone', () => {
     const sim = fresh();
     declare(sim, [P0, P1]);

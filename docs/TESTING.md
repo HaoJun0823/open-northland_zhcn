@@ -92,27 +92,30 @@ One test per observable rule. A table of inputs that take the same code path is 
 keeps the smallest case that reaches the branch. Title the test with the rule it defends
 ("a gate opens for its owner's carts"), so a failure reads without the body.
 
-Keep a test cheap. A unit or integration file runs in well under a second; a headless scenario
+Keep a test cheap. A unit or integration file aims at well under a second; a headless scenario
 steps the fewest ticks that show the behavior, from a direct state setup where the command path is
-not the point. Anything slower, and any scenario that plays a whole map, needs a named contract it
-guards and a place in the slow tier of `vitest.config.ts`, or it is not written.
+not the point. The fast tier's few multi-second files are named contracts (the determinism fuzz, the
+golden trace, the AI module suite, the scene boots); a new one needs a reason of that weight. Real
+time, thousand-unit scale and wall-clock pacing go to the slow tier of `vitest.config.ts`; a run over
+the real pack goes to the `content` project; a whole-map playthrough is a session tool, not a test.
 
 ## Tests not worth writing
 
 - Restating a constant, a type shape, a re-export, a catalog row or framework behavior: the
   compiler and the content validators own those.
 - Asserting on a mock: a spy's call count or arguments cannot tell a correct write from a wrong one.
-  To prove a write happened, read the value back. Mock only process boundaries (network, filesystem,
-  clock, randomness), never in-repo logic.
+  To prove a write happened, read the value back. Mock process boundaries (network, filesystem,
+  clock, randomness) and injectable seams, not in-repo logic; the module-registry note above says
+  how to stand in for an imported module when a test must.
 - Proving cost through a spy or a monkeypatch: counting `stepsIntoAt`, `world.get`, `query` or
   `watchChanges` calls, or asserting a memo's object identity with `toBe(previous)`, pins the
   implementation. Assert the answer, and the values after the write that should or should not
   invalidate a cache; a scale claim is a measured benchmark.
 - Pinning the schedule: a position in `SYSTEM_ORDER`, the pass an incremental index first sees a
   change in, or how many component writes a pass makes. Step once and read the outcome.
-- Calling a pure function twice with the same argument is not a determinism test: the hygiene scan
-  owns ambient nondeterminism and the fuzz suite owns run-to-run equality. Reserve
-  `expect(run()).toBe(run())` for two independently built simulations.
+- Calling a pure function twice with the same argument, or running one scenario twice from the same
+  seed, is not a determinism test: the hygiene scan owns ambient nondeterminism, and the fuzz suite
+  and the goldens own run-to-run equality.
 - A test whose only assertion is that its own fixture is non-degenerate is not a test. Assert the
   premise inside the first test that depends on it.
 - Do not assert one accessor against another that reads the same field. Pin both against a named
@@ -609,8 +612,8 @@ area the fix touched.
 | --- | --- |
 | Documentation only | `npm run check:docs`, `npm run check`, and any relevant link or example inspection |
 | Normal code | standard gates |
-| Army movement, orders or combat (`packages/sim/src/systems/{movement,orders,conflict}`), needs (`systems/lifecycle`), the snapshot mirror or session host (`packages/sim/src/inspect`, `packages/app/src/session`), networking (`packages/lockstep`, `packages/net-*`, `packages/app/src/net`) or map conversion (`tools/asset-pipeline`) | standard gates plus `npm run test:slow` |
-| Sim behavior | standard gates plus a focused determinism or scenario test |
+| Army movement, orders or combat (`packages/sim/src/systems/{movement,orders,conflict}`), the snapshot mirror or session host (`packages/sim/src/inspect`, `packages/app/src/session`) or networking (`packages/lockstep`, `packages/net-*`, `packages/app/src/net`) | standard gates plus `npm run test:slow` |
+| Sim behavior | standard gates plus the focused scenario test of the changed rule |
 | Pipeline or schema | standard gates plus `npm run test:pipeline` |
 | Translation overlays (`translations/`) | `npm run check:translations` with the unpacked pack present |
 | Real-content consumers | standard gates plus `npm run test:content` when local content exists |

@@ -313,13 +313,8 @@ describe('stampVision - the world-metric ellipse', () => {
   });
 });
 
-describe('stamp memo - an eye whose footprint did not change writes nothing', () => {
+describe('stamp memo - a still eye stamps only what changed', () => {
   afterEach(() => vi.restoreAllMocks());
-
-  /** Counts the stamps the pass writes, memoized and repeated footprints aside. */
-  function _countStamps(): { readonly calls: readonly unknown[] } {
-    return vi.spyOn(FogState.prototype, 'stampSight').mock;
-  }
 
   /** Twelve idle civilians of one player in a row, one per two cells, out of idle chat: eyes that stay
    *  put. */

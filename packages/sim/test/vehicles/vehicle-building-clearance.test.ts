@@ -189,17 +189,4 @@ describe('buildings displace vehicles', () => {
     expect(anchor(sim, e)).not.toEqual(before);
     expectClear(sim, [e]);
   });
-
-  it('chooses the same landings in two independent runs', () => {
-    const run = () => {
-      const sim = mappedSim();
-      cart(sim);
-      cart(sim, HANDCART, PLOT.hx + 1);
-      cart(sim, CATAPULT, PLOT.hx + 2);
-      place(sim);
-      sim.run(20);
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

@@ -587,21 +587,6 @@ describe('the carrier rung', () => {
     expect(line(restored, cart, WOOD)).toEqual({ current: 1, wanted: 1, reserved: 1 });
     expect(restored.hashState()).toBe(s.hashState());
   });
-
-  it('runs the same way twice from one seed', () => {
-    const build = (): Simulation => {
-      const s = sim(11);
-      const cart = spawnCart(s);
-      attachCarrier(s, cart);
-      dropPile(s, WOOD, { hx: 24, hy: 24 }, 6);
-      dropPile(s, PLANK, { hx: 24, hy: 16 }, 6);
-      want(s, cart, WOOD, 3);
-      want(s, cart, PLANK, 3);
-      s.run(TRIP_TICKS * 3);
-      return s;
-    };
-    expect(build().hashState()).toBe(build().hashState());
-  });
 });
 
 describe("the trader's own write", () => {

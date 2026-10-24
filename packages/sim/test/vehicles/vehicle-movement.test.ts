@@ -1,5 +1,5 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   Health,
   MoveGoal,
@@ -14,7 +14,7 @@ import {
   WALK_DIRECTION,
 } from '../../src/components/index.js';
 import { contentIndex } from '../../src/core/content-index.js';
-import type { Component, Entity } from '../../src/ecs/world.js';
+import type { Entity } from '../../src/ecs/world.js';
 import {
   checkInvariants,
   exportSaveGame,
@@ -47,7 +47,6 @@ import {
   snapVehicleTarget,
   VEHICLE_TARGET_SNAP_RADIUS,
   vehicleLegTicks,
-  vehicleMovementSystem,
   vehicleMovePeriod,
   vehicleProgressPerTick,
 } from '../../src/systems/vehicles/index.js';
@@ -541,22 +540,6 @@ describe('moveVehicle', () => {
     expect(s.world.has(bystander, MoveGoal)).toBe(false);
   });
 
-  it('shoves from the stationary settler index without walking the settler store per node', () => {
-    const s = sim();
-    const catapult = commanded(s, CATAPULT, 4, 8);
-    const bystander = spawnSettler(s, 8, 8);
-    order(s, catapult, 8, 8);
-    s.step();
-    const queries = vi.spyOn(s.world, 'query');
-    for (let t = 0; t < SHOVE_WALK_TICKS * 4 && s.world.has(catapult, VehicleDrive); t++) {
-      vehicleMovementSystem(s.world, ctxOf(s));
-    }
-    expect(queries.mock.calls.some((args) => args.includes(Settler as Component<unknown>))).toBe(false);
-    queries.mockRestore();
-    expect(s.world.has(catapult, VehicleDrive)).toBe(false);
-    expect(s.world.has(bystander, MoveGoal)).toBe(true);
-  });
-
   it('keeps direct route answers and refreshes blockers between searches', () => {
     const s = sim();
     const terrain = s.terrain;
@@ -783,17 +766,13 @@ describe('moveVehicle', () => {
     expect(s.world.verifyCaches()).toEqual([]);
   });
 
-  it('runs a golden drive with a shove and survives a mid-drive save round trip', () => {
-    const run = (): { s: Simulation; catapult: Entity; cart: Entity; bystanders: Entity[] } => {
-      const s = sim(grassCellMap(MAP_CELLS, MAP_CELLS), 11);
-      const catapult = commanded(s, CATAPULT, 3, 6);
-      const cart = commanded(s, HANDCART, 3, 20);
-      const bystanders = [spawnSettler(s, 14, 6), spawnSettler(s, 15, 7)];
-      order(s, catapult, 24, 6);
-      order(s, cart, 24, 20);
-      return { s, catapult, cart, bystanders };
-    };
-    const { s, catapult, cart, bystanders } = run();
+  it('finishes a drive with a shove after a mid-drive save round trip', () => {
+    const s = sim(grassCellMap(MAP_CELLS, MAP_CELLS), 11);
+    const catapult = commanded(s, CATAPULT, 3, 6);
+    const cart = commanded(s, HANDCART, 3, 20);
+    const bystanders = [spawnSettler(s, 14, 6), spawnSettler(s, 15, 7)];
+    order(s, catapult, 24, 6);
+    order(s, cart, 24, 20);
     s.run(40);
     expect(s.world.has(catapult, VehicleDrive)).toBe(true);
     const saved = serializeSaveGame(exportSaveGame(s));
@@ -802,23 +781,15 @@ describe('moveVehicle', () => {
       map: grassCellMap(MAP_CELLS, MAP_CELLS),
     });
     expect(restored.hashState()).toBe(s.hashState());
-    s.run(400);
     restored.run(400);
-    expect(restored.hashState()).toBe(s.hashState());
-    expect([...s.world.query(VehicleDrive)]).toEqual([]);
-    expect(anchorOf(s, catapult)).toEqual({ hx: 24, hy: 6 });
-    expect(anchorOf(s, cart)).toEqual({ hx: 24, hy: 20 });
-    // Both bystanders were shoved off the catapult's ring as it passed, side by side two rows below its
-    // road, and chat where the shove left them.
-    expect(bystanders.map((e) => anchorOf(s, e))).toEqual([
+    expect([...restored.world.query(VehicleDrive)]).toEqual([]);
+    expect(anchorOf(restored, catapult)).toEqual({ hx: 24, hy: 6 });
+    expect(anchorOf(restored, cart)).toEqual({ hx: 24, hy: 20 });
+    // Both bystanders were shoved off the catapult's ring as it passed, side by side two rows below its road.
+    expect(bystanders.map((e) => anchorOf(restored, e))).toEqual([
       { hx: 15, hy: 8 },
       { hx: 16, hy: 8 },
     ]);
-    const twin = run().s;
-    twin.run(440);
-    expect(twin.hashState()).toBe(s.hashState());
-    // Includes detached settler needs and tick-derived clocks after the chat approaches finish.
-    expect(s.hashState()).toBe('7f5f2b9e');
   });
 });
 

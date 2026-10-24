@@ -27,8 +27,8 @@ import {
 import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
 import { aiContent } from '../../fixtures/ai-content.js';
 import { ctxOf } from '../../fixtures/context.js';
-import { fresh, map, POINT, terrainOf, WALL } from './landscape-support.js';
-import { HUT, houseContent, LOAD_PASS, missionSim } from './support.js';
+import { HUT, houseContent, LOAD_PASS, missionSim } from '../missions/support.js';
+import { fresh, map, POINT, terrainOf, WALL } from './support.js';
 
 /** The 16x16 node fixture's cells per side. */
 const CELLS = 8;

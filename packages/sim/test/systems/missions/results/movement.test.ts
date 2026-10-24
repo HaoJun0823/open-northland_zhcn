@@ -14,12 +14,12 @@ import {
   Resting,
   setHouseBehaviour,
   WALK_RANGE_NODES,
-} from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { playerCommand, type Simulation } from '../../../src/index.js';
-import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../src/nav/halfcell.js';
-import { REGENERATION_HITPOINTS_PER_TICK } from '../../../src/systems/index.js';
-import { type MissionResultOp, SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { playerCommand, type Simulation } from '../../../../src/index.js';
+import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import { REGENERATION_HITPOINTS_PER_TICK } from '../../../../src/systems/index.js';
+import { type MissionResultOp, SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
 import {
   firingMission,
   firingSim,
@@ -35,7 +35,7 @@ import {
   scriptedSim,
   spawn,
   VIKING,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The results that walk, teleport, halt, heal and damage what a script addresses. Every one reads the

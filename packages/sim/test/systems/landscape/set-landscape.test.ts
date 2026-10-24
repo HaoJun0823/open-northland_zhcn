@@ -4,8 +4,8 @@ import { LandscapePlacements } from '../../../src/nav/terrain/landscapes.js';
 import { removeScriptedLandscapes, setScriptedLandscape } from '../../../src/systems/landscape/edits.js';
 import { landscapesWithin } from '../../../src/systems/landscape/view.js';
 import { ctxOf } from '../../fixtures/context.js';
-import { map, POINT, terrainOf } from './landscape-support.js';
-import { HUT, houseContent, VIKING } from './support.js';
+import { HUT, houseContent, VIKING } from '../missions/support.js';
+import { map, POINT, terrainOf } from './support.js';
 
 const WALL = 1;
 const SMOKE = 2;

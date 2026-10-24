@@ -10,7 +10,7 @@ import {
   scriptEnables,
   setMapPermission,
   setProfessionProgression,
-} from '../../../src/components/index.js';
+} from '../../../../src/components/index.js';
 import {
   exportSaveGame,
   parseSaveGame,
@@ -18,14 +18,14 @@ import {
   Simulation,
   scenario,
   serializeSaveGame,
-} from '../../../src/index.js';
-import type { MissionDefinition, MissionResultOp } from '../../../src/systems/missions/index.js';
-import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { buildingEnabled, goodEnabled, jobEnabled } from '../../../src/systems/progression/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { settlerAt } from '../../fixtures/settler.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+} from '../../../../src/index.js';
+import type { MissionDefinition, MissionResultOp } from '../../../../src/systems/missions/index.js';
+import { SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { buildingEnabled, goodEnabled, jobEnabled } from '../../../../src/systems/progression/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import { settlerAt } from '../../../fixtures/settler.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 import {
   CARPENTER,
   FRANK,
@@ -36,7 +36,7 @@ import {
   spawn,
   VIKING,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The unlock tables a script writes and the gates that read them. The fixture gates the plank on a

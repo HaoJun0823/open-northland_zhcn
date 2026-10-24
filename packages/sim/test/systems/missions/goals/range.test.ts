@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { missionRecords, Person as PersonComponent, Position, Rider } from '../../../src/components/index.js';
-import type { Simulation } from '../../../src/index.js';
-import { positionOfNode } from '../../../src/nav/halfcell.js';
-import type { MissionGoalOp } from '../../../src/systems/missions/index.js';
-import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { boardRider, createVehicle } from '../../../src/systems/vehicles/index.js';
-import { ctxOf } from '../../fixtures/context.js';
+import {
+  missionRecords,
+  Person as PersonComponent,
+  Position,
+  Rider,
+} from '../../../../src/components/index.js';
+import type { Simulation } from '../../../../src/index.js';
+import { positionOfNode } from '../../../../src/nav/halfcell.js';
+import type { MissionGoalOp } from '../../../../src/systems/missions/index.js';
+import { SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { boardRider, createVehicle } from '../../../../src/systems/vehicles/index.js';
+import { ctxOf } from '../../../fixtures/context.js';
 import {
   goalMission,
   goalSim,
@@ -24,7 +29,7 @@ import {
   WILD,
   WOLF,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The goals that measure map-point distance. Each pair is one world where the goal holds and one

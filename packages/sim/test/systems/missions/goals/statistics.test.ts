@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { playerTally } from '../../../src/components/index.js';
-import { missionObjects, SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
-import { createVehicle } from '../../../src/systems/vehicles/index.js';
-import { ctxOf } from '../../fixtures/context.js';
+import { playerTally } from '../../../../src/components/index.js';
+import { missionObjects, SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { createVehicle } from '../../../../src/systems/vehicles/index.js';
+import { ctxOf } from '../../../fixtures/context.js';
 import {
   CARPENTER,
   goalMission,
@@ -24,7 +24,7 @@ import {
   VIKING,
   WOLF,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The per-player war tallies and the goals that read them, beside the goals that count what a player

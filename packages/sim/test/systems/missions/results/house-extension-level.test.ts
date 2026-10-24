@@ -7,13 +7,13 @@ import {
   Position,
   Stockpile,
   UnderConstruction,
-} from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { ONE, type Simulation } from '../../../src/index.js';
-import { nodeOfPosition } from '../../../src/nav/halfcell.js';
-import type { MissionResultOp } from '../../../src/systems/missions/index.js';
-import { missionObjects } from '../../../src/systems/missions/index.js';
-import { firingSim, HUT, HUT_LARGE, houseContent, LOAD_PASS, POINT, VIKING } from './support.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { ONE, type Simulation } from '../../../../src/index.js';
+import { nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import type { MissionResultOp } from '../../../../src/systems/missions/index.js';
+import { missionObjects } from '../../../../src/systems/missions/index.js';
+import { firingSim, HUT, HUT_LARGE, houseContent, LOAD_PASS, POINT, VIKING } from '../support.js';
 
 const ID = 5;
 const WOOD = 1;

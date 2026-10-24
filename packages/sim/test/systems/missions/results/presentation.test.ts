@@ -7,13 +7,13 @@ import {
   Person,
   ScriptedLook,
   ScriptedName,
-} from '../../../src/components/index.js';
-import type { SimEvent } from '../../../src/core/events.js';
-import type { Simulation } from '../../../src/index.js';
-import { hexDistance } from '../../../src/nav/halfcell.js';
-import type { MissionDefinition, MissionResultOp } from '../../../src/systems/missions/index.js';
-import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { NO_MISSION_ID } from '../../../src/systems/missions/targets.js';
+} from '../../../../src/components/index.js';
+import type { SimEvent } from '../../../../src/core/events.js';
+import type { Simulation } from '../../../../src/index.js';
+import { hexDistance } from '../../../../src/nav/halfcell.js';
+import type { MissionDefinition, MissionResultOp } from '../../../../src/systems/missions/index.js';
+import { SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { NO_MISSION_ID } from '../../../../src/systems/missions/targets.js';
 import {
   firingSim,
   LOAD_PASS,
@@ -25,7 +25,7 @@ import {
   spawn,
   stamped,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The results that reach the player through the display: each fires its event, the two that outlive

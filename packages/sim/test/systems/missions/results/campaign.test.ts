@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { HouseLandscapeOverlays, MissionCampaign, missionRecords } from '../../../src/components/index.js';
-import type { Simulation } from '../../../src/index.js';
-import type { MissionResultOp } from '../../../src/systems/missions/index.js';
+import { HouseLandscapeOverlays, MissionCampaign, missionRecords } from '../../../../src/components/index.js';
+import type { Simulation } from '../../../../src/index.js';
+import type { MissionResultOp } from '../../../../src/systems/missions/index.js';
 import {
   firingMission,
   firingSim,
@@ -14,7 +14,7 @@ import {
   roundTrip,
   stamped,
   VIKING,
-} from './support.js';
+} from '../support.js';
 
 const UNLOCK: MissionResultOp = { opcode: 'AllowMap', campaignId: 4, mapId: 20 };
 const VIDEO: MissionResultOp = { opcode: 'Mission quit and play video', amount: 2 };

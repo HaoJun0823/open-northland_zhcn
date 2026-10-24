@@ -1,13 +1,13 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Building, missionRecords, Position, Stockpile, Vehicle } from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import type { Simulation } from '../../../src/index.js';
-import { type HalfCellNode, nodeOfPosition } from '../../../src/nav/halfcell.js';
-import type { MissionGoalOp, MissionResultOp } from '../../../src/systems/missions/index.js';
-import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { MAX_GROUND_STACK } from '../../../src/systems/stores/index.js';
-import { testContent } from '../../fixtures/content.js';
+import { Building, missionRecords, Position, Stockpile, Vehicle } from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import type { Simulation } from '../../../../src/index.js';
+import { type HalfCellNode, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import type { MissionGoalOp, MissionResultOp } from '../../../../src/systems/missions/index.js';
+import { SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { MAX_GROUND_STACK } from '../../../../src/systems/stores/index.js';
+import { testContent } from '../../../fixtures/content.js';
 import {
   enableMissions,
   firingMission,
@@ -21,7 +21,7 @@ import {
   POINT,
   scriptedSim,
   VIKING,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The goods a script hands out and asks about: stock put into named houses, into the player's

@@ -20,8 +20,8 @@ import {
 import { pathfindingSystem } from '../../../src/systems/movement/routing.js';
 import { ctxOf } from '../../fixtures/context.js';
 import { stopAt } from '../../fixtures/waypoints.js';
-import { fresh, map, POINT, terrainOf, WALL } from './landscape-support.js';
-import { houseContent } from './support.js';
+import { houseContent } from '../missions/support.js';
+import { fresh, map, POINT, terrainOf, WALL } from './support.js';
 
 function passOf(sim: Simulation): MissionPass {
   return {

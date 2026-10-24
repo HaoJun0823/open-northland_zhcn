@@ -13,14 +13,14 @@ import {
   Settler,
   Signpost,
   UnderConstruction,
-} from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { ONE, Simulation } from '../../../src/index.js';
-import { hexDistance, nodeOfPosition } from '../../../src/nav/halfcell.js';
-import { createSignpost, signpostNetwork } from '../../../src/systems/index.js';
-import type { MissionResultOp } from '../../../src/systems/missions/index.js';
-import { missionObjects, SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { ONE, Simulation } from '../../../../src/index.js';
+import { hexDistance, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import { createSignpost, signpostNetwork } from '../../../../src/systems/index.js';
+import type { MissionResultOp } from '../../../../src/systems/missions/index.js';
+import { missionObjects, SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 import {
   FRANK,
   firingMission,
@@ -41,7 +41,7 @@ import {
   WILD,
   WOLF,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The results that put entities on the map, take them off it, and change who owns or addresses them.

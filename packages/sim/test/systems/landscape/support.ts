@@ -1,7 +1,7 @@
 import { GROUND_LAND, GROUND_WATER } from '@open-northland/data';
 import { Simulation, type TerrainMap } from '../../../src/index.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
-import { houseContent } from './support.js';
+import { houseContent } from '../missions/support.js';
 
 export const POINT = { hx: 8, hy: 8 };
 export const WALL = {

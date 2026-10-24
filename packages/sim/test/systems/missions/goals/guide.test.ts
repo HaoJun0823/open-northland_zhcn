@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Owner, Position, Signpost } from '../../../src/components/index.js';
-import type { Simulation } from '../../../src/index.js';
-import { type HalfCellNode, positionOfNode } from '../../../src/nav/halfcell.js';
-import { guideNearPoint } from '../../../src/systems/missions/goals/proximity.js';
-import { goalSim, holds, LOAD_PASS, PASS_TICKS, POINT, roundTrip, spawn, stamped } from './support.js';
+import { Owner, Position, Signpost } from '../../../../src/components/index.js';
+import type { Simulation } from '../../../../src/index.js';
+import { type HalfCellNode, positionOfNode } from '../../../../src/nav/halfcell.js';
+import { guideNearPoint } from '../../../../src/systems/missions/goals/proximity.js';
+import { goalSim, holds, LOAD_PASS, PASS_TICKS, POINT, roundTrip, spawn, stamped } from '../support.js';
 
 const PLAYER = 0;
 const OTHER_PLAYER = 1;

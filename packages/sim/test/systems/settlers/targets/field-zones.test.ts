@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { cellAnchorNode, Simulation } from '../../../../src/index.js';
 import type { NodeId } from '../../../../src/nav/terrain/index.js';
 import { collectTargets } from '../../../../src/systems/settlers/targets/index.js';
-import { BLOCKHOUSE, Building, blockhouseAt, ctxOf, FARM, grassMap, wallsContent } from './support.js';
+import {
+  BLOCKHOUSE,
+  Building,
+  blockhouseAt,
+  ctxOf,
+  FARM,
+  grassMap,
+  wallsContent,
+} from '../../economy/farming/support.js';
 
 /** The blockhouse's 2x2 reserved body; the fixture farm reserves only its anchor. */
 const BLOCKHOUSE_ZONE_NODES = 4;

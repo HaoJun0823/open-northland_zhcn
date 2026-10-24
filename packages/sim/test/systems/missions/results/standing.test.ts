@@ -11,21 +11,21 @@ import {
   PlayerAttacks,
   ScriptVerdicts,
   wasAttackedBy,
-} from '../../../src/components/index.js';
-import { playerCommand, type Simulation } from '../../../src/index.js';
-import { authorizedCommand } from '../../../src/systems/command/authority.js';
+} from '../../../../src/components/index.js';
+import { playerCommand, type Simulation } from '../../../../src/index.js';
+import { authorizedCommand } from '../../../../src/systems/command/authority.js';
 import {
   MATCH_DEATH_CHECK_INTERVAL_TICKS,
   MATCH_DEATH_GRACE_TICKS,
-} from '../../../src/systems/match/index.js';
+} from '../../../../src/systems/match/index.js';
 import type {
   MissionDefinition,
   MissionGoalOp,
   MissionResultOp,
-} from '../../../src/systems/missions/index.js';
-import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
-import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
-import { ctxOf } from '../../fixtures/context.js';
+} from '../../../../src/systems/missions/index.js';
+import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { ctxOf } from '../../../fixtures/context.js';
 import {
   eventsUntil,
   failedResultsUntil,
@@ -45,7 +45,7 @@ import {
   stamped,
   WILD,
   WOLF,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The results and goals about a player's standing: its stance toward another player and the lock on

@@ -125,7 +125,8 @@ The hygiene suite enforces the import and nondeterminism boundary. Normal change
 | `computer-player`, `map-ai`, `ai-shared` | see AI ownership below |
 | `readviews` | content read views shared across systems |
 
-`test/` mirrors `src/`: system tests live in `test/systems/<system>/`, a large suite splits into
+`test/` mirrors `src/`: system tests live in `test/systems/<system>/` and its subfolders (a
+`missions/results/` executor's test sits in `test/systems/missions/results/`), a large suite splits into
 `<name>.test.ts` plus `<name>/*.cases.ts`, and shared helpers go to `test/fixtures/`.
 
 Prefer the tree itself over expanding this into a file-by-file inventory.

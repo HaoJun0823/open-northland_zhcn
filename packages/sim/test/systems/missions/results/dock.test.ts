@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { Vehicle } from '../../../src/components/index.js';
-import { Simulation } from '../../../src/index.js';
-import { hexDistance } from '../../../src/nav/halfcell.js';
-import { dockScriptedVehicles } from '../../../src/systems/missions/results/movement.js';
-import { createVehicle } from '../../../src/systems/vehicles/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+import { Vehicle } from '../../../../src/components/index.js';
+import { Simulation } from '../../../../src/index.js';
+import { hexDistance } from '../../../../src/nav/halfcell.js';
+import { dockScriptedVehicles } from '../../../../src/systems/missions/results/movement.js';
+import { createVehicle } from '../../../../src/systems/vehicles/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 
 const SHIP = 3;
 const ID = 7;

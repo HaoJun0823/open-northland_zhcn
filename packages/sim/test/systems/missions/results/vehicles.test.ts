@@ -15,20 +15,20 @@ import {
   VehicleStock,
   vehicleCommander,
   vehiclePassengers,
-} from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { halfCellMapFromCells, type Simulation, type TerrainMap } from '../../../src/index.js';
-import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../src/nav/halfcell.js';
-import type { MissionGoalOp, MissionResultOp } from '../../../src/systems/missions/index.js';
+} from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { halfCellMapFromCells, type Simulation, type TerrainMap } from '../../../../src/index.js';
+import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import type { MissionGoalOp, MissionResultOp } from '../../../../src/systems/missions/index.js';
 import {
   MISSION_EVALUATION_TICKS,
   missionObjects,
   SUCCESSFUL_IF,
-} from '../../../src/systems/missions/index.js';
-import { createVehicle } from '../../../src/systems/vehicles/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+} from '../../../../src/systems/missions/index.js';
+import { createVehicle } from '../../../../src/systems/vehicles/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 import {
   firingMission,
   firingSim,
@@ -45,7 +45,7 @@ import {
   scriptedSim,
   spawn,
   VIKING,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The vehicle results and goals of docs/formats/VEHICLES.md "Map scripts" and MISSIONS.md: a scripted

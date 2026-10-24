@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { missionRecords, Position, Rider } from '../../../src/components/index.js';
-import { exportSaveGame, restoreSimulation, Simulation, type TerrainMap } from '../../../src/index.js';
-import type { MissionGoalOp } from '../../../src/systems/missions/index.js';
-import { boardRider, createVehicle } from '../../../src/systems/vehicles/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { grassNodeMap, waterColumnMap } from '../../fixtures/terrain.js';
+import { missionRecords, Position, Rider } from '../../../../src/components/index.js';
+import { exportSaveGame, restoreSimulation, Simulation, type TerrainMap } from '../../../../src/index.js';
+import type { MissionGoalOp } from '../../../../src/systems/missions/index.js';
+import { boardRider, createVehicle } from '../../../../src/systems/vehicles/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import { grassNodeMap, waterColumnMap } from '../../../fixtures/terrain.js';
 import {
   goalMission,
   goalSim,
@@ -21,7 +21,7 @@ import {
   stamped,
   VIKING,
   WOLF,
-} from './support.js';
+} from '../support.js';
 
 const WIDTH = 48;
 const OWNER = 2;

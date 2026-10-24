@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { addWildlife, Palisade, Position } from '../../../src/components/index.js';
+import { addWildlife, Palisade, Position } from '../../../../src/components/index.js';
 import {
   type Entity,
   positionOfNode,
   type ScriptLandscapeType,
   type Simulation,
   type TerrainMap,
-} from '../../../src/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
-import { enableMissions, failedResultsNow, firingMission, scriptedSim } from './support.js';
+} from '../../../../src/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
+import { enableMissions, failedResultsNow, firingMission, scriptedSim } from '../support.js';
 
 const CLOSED = 696;
 const OPEN = 700;

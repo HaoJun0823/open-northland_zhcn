@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { FOG_MODE, type FogMode } from '../../../src/components/index.js';
-import type { Simulation } from '../../../src/index.js';
-import type { HalfCellNode } from '../../../src/nav/halfcell.js';
+import { FOG_MODE, type FogMode } from '../../../../src/components/index.js';
+import type { Simulation } from '../../../../src/index.js';
+import type { HalfCellNode } from '../../../../src/nav/halfcell.js';
 import type {
   MissionDefinition,
   MissionGoalOp,
   MissionResultOp,
-} from '../../../src/systems/missions/index.js';
-import { FOG_STATE, VISION_CADENCE_TICKS } from '../../../src/systems/vision/index.js';
-import { allyVision } from '../../fixtures/allies.js';
-import { testContent } from '../../fixtures/content.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+} from '../../../../src/systems/missions/index.js';
+import { FOG_STATE, VISION_CADENCE_TICKS } from '../../../../src/systems/vision/index.js';
+import { allyVision } from '../../../fixtures/allies.js';
+import { testContent } from '../../../fixtures/content.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 import {
   failedResultsNow,
   firingMission,
@@ -30,7 +30,7 @@ import {
   VIKING,
   WILD,
   WOLF,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The reveal a script grants and the goals that ask whether a player has explored a point. Fog is

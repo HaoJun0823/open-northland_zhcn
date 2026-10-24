@@ -1,11 +1,11 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Building, Health, Person, Settler } from '../../../src/components/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { Simulation } from '../../../src/index.js';
-import type { MissionResultOp, MissionSeatTribe } from '../../../src/systems/missions/index.js';
-import { missionObjects } from '../../../src/systems/missions/index.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
+import { Building, Health, Person, Settler } from '../../../../src/components/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { Simulation } from '../../../../src/index.js';
+import type { MissionResultOp, MissionSeatTribe } from '../../../../src/systems/missions/index.js';
+import { missionObjects } from '../../../../src/systems/missions/index.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
 import {
   enableMissions,
   FRANK,
@@ -18,7 +18,7 @@ import {
   runLoadPass,
   VIKING,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /** A handover that delivers the re-tribed seat's authored people moves them to the chosen people. */
 

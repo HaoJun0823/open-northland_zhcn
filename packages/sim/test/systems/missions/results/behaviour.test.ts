@@ -17,15 +17,15 @@ import {
   setMissionBehaviour,
   WALK_DIRECTION,
   WalkFacing,
-} from '../../../src/components/index.js';
-import { aiCommand, playerCommand } from '../../../src/core/commands/index.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import type { Simulation } from '../../../src/index.js';
-import { hexDistance, nodeOfPosition } from '../../../src/nav/halfcell.js';
-import { grantWorkExperience } from '../../../src/systems/progression/index.js';
-import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { needsOf } from '../../fixtures/settler.js';
+} from '../../../../src/components/index.js';
+import { aiCommand, playerCommand } from '../../../../src/core/commands/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import type { Simulation } from '../../../../src/index.js';
+import { hexDistance, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import { grantWorkExperience } from '../../../../src/systems/progression/index.js';
+import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import { needsOf } from '../../../fixtures/settler.js';
 import {
   CARPENTER,
   firingSim,
@@ -36,7 +36,7 @@ import {
   spawn,
   VIKING,
   WOODCUTTER,
-} from './support.js';
+} from '../support.js';
 
 /**
  * The behaviour mask: the four results that write it, and the rules that read it. Every reading bit

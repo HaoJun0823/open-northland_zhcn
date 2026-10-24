@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { Chest, LandscapeResource, OpenedChest, Position } from '../../../src/components/index.js';
-import { exportSaveGame, restoreSimulation, type TerrainMap } from '../../../src/index.js';
-import { nodeOfPosition } from '../../../src/nav/halfcell.js';
-import { createChest } from '../../../src/systems/chests/index.js';
-import { SUCCESSFUL_IF } from '../../../src/systems/missions/index.js';
-import { testContent } from '../../fixtures/content.js';
-import { grassNodeMap } from '../../fixtures/terrain.js';
-import { failedResultsUntil, holds, LOAD_PASS, missionSim, POINT } from './support.js';
+import { Chest, LandscapeResource, OpenedChest, Position } from '../../../../src/components/index.js';
+import { exportSaveGame, restoreSimulation, type TerrainMap } from '../../../../src/index.js';
+import { nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import { createChest } from '../../../../src/systems/chests/index.js';
+import { SUCCESSFUL_IF } from '../../../../src/systems/missions/index.js';
+import { testContent } from '../../../fixtures/content.js';
+import { grassNodeMap } from '../../../fixtures/terrain.js';
+import { failedResultsUntil, holds, LOAD_PASS, missionSim, POINT } from '../support.js';
 
 const WOODEN_CHEST = 85;
 const MAP_SIZE = 48;

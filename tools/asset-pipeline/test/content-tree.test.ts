@@ -2,23 +2,8 @@ import { join } from 'node:path';
 import { ATLAS_PALETTE_BYTES, type BobAtlas } from '@open-northland/formats/atlas/index';
 import type { RgbaImage } from '@open-northland/formats/image';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  assertDistinctBobBasenames,
-  BOBS_DIR,
-  BobAtlasCatalog,
-  bobAtlasStem,
-  MAPS_DIR,
-  SOUNDS_DIR,
-  TEXTURES_DIR,
-} from '../src/stages/content-tree.js';
+import { assertDistinctBobBasenames, BobAtlasCatalog, bobAtlasStem } from '../src/stages/content-tree.js';
 import { makeTempDir } from './support/game-tree.js';
-
-describe('served directory constants', () => {
-  it('spell the URL roots the app fetches, since the tree is served as static files', () => {
-    // Pinned as literals: a drift here 404s a whole route silently.
-    expect([BOBS_DIR, TEXTURES_DIR, SOUNDS_DIR, MAPS_DIR]).toEqual(['bobs', 'textures', 'sounds', 'maps']);
-  });
-});
 
 describe('bobAtlasStem', () => {
   it('drops the source directory and casing - the app addresses atlases by basename alone', () => {

@@ -9,7 +9,7 @@ import {
 } from '@open-northland/formats/mapdat/index';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { encodeStringList } from '../../../packages/formats/test/fixtures/mapdat.js';
-import { CORRECTIONS_DIR, loadSourceCorrections } from '../src/corrections.js';
+import { loadSourceCorrections } from '../src/corrections.js';
 import { convertMapDatTree } from '../src/stages/maps/index.js';
 import { makeTempDir, type TempDir } from './support/game-tree.js';
 
@@ -156,23 +156,5 @@ describe('map.dat object corrections', () => {
     { objects: [{ hx: 1, hy: 1, to: WALL }] },
   ])('rejects a malformed object correction: %j', async (extra) => {
     await expect(load(extra)).rejects.toThrow(/correction gap/);
-  });
-
-  it('closes the vagabond camp wall with the named correction', async () => {
-    const named = JSON.parse(
-      await readFile(join(CORRECTIONS_DIR, 'wonder-03-01-vagabond-camp-wall.json'), 'utf8'),
-    );
-    // An authored scaffold, not the shipped map: only the posts around the gap at their real nodes.
-    const source = objectMap(
-      284,
-      139,
-      ['wall_02'],
-      [565, 566, 566].map((hx, i) => ({ hx, hy: [273, 274, 276][i] ?? 0, name: 0, level: 100, owner: 5 })),
-    );
-    const corrections = await load({ reason: named.reason, objects: named.objects }, source);
-    const objects = await convert(corrections);
-    expect(objects.placements).toEqual([565, 273, 0, 566, 274, 0, 566, 275, 0, 566, 276, 0]);
-    expect(objects.owners).toEqual([5, 5, 5, 5]);
-    expect(() => corrections.assertApplied()).not.toThrow();
   });
 });

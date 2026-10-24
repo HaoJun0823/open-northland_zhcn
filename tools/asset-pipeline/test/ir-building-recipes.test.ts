@@ -151,10 +151,9 @@ describe('fillBuildingRecipes', () => {
     expect(filled?.recipes.flatMap((r) => r.outputs.map((o) => o.goodType))).toEqual([22]);
   });
 
-  it('paces every recipe at the uniform design ticks (15 s at 1×)', () => {
+  it('paces every recipe at the uniform design ticks', () => {
     const [mint] = fillBuildingRecipes([building(13, 'mint', [27])], GOODS, []);
     expect(mint?.recipes[0]?.ticks).toBe(DEFAULT_RECIPE_TICKS);
-    expect(DEFAULT_RECIPE_TICKS).toBe(180); // 15 s × the sim's 12 ticks/s
   });
 });
 

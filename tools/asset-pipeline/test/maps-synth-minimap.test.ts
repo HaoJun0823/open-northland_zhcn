@@ -79,6 +79,13 @@ const MEADOW_GROUND = {
   b: new Array<number>(CELLS).fill(0),
 };
 
+/** Byte equality without Vitest's per-element deep walk, which takes seconds on a preview image. */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return Buffer.from(a.buffer, a.byteOffset, a.byteLength).equals(
+    Buffer.from(b.buffer, b.byteOffset, b.byteLength),
+  );
+}
+
 async function synthesized(png: Uint8Array | undefined): Promise<RgbaImage> {
   if (png === undefined) throw new Error('expected a synthesized PNG');
   return decodePng(png);
@@ -115,7 +122,7 @@ describe('createMinimapSynthesizer', () => {
       size.width,
       size.height,
     );
-    expect(image.rgba).toEqual(expected);
+    expect(sameBytes(image.rgba, expected)).toBe(true);
   });
 
   it('falls back to the typeId debugColor for lanes that resolve no pattern', async () => {
@@ -134,7 +141,7 @@ describe('createMinimapSynthesizer', () => {
       image.width,
       image.height,
     );
-    expect(image.rgba).toEqual(expected);
+    expect(sameBytes(image.rgba, expected)).toBe(true);
   });
 
   it('draws the placed trees and ore the harvest join names', async () => {
@@ -158,8 +165,8 @@ describe('createMinimapSynthesizer', () => {
       image.width,
       image.height,
     );
-    expect(image.rgba).toEqual(expected);
-    expect(image.rgba).not.toEqual(bare.rgba);
+    expect(sameBytes(image.rgba, expected)).toBe(true);
+    expect(sameBytes(image.rgba, bare.rgba)).toBe(false);
   });
 
   it('yields nothing without ground lanes or when no lane pattern resolves a colour', async () => {

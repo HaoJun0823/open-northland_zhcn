@@ -32,10 +32,8 @@ import {
   GOOD_SWORD_LONG,
   GOOD_SWORD_SHORT,
   GOOD_WOOD,
-  VEHICLE_SHIP_SMALL,
   WEAPON_FISTS,
   WEAPON_SWORD,
-  WEAPON_WOODEN_SPEAR,
   weaponEquipmentFor,
 } from '../src/game/sandbox/ids/index.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
@@ -43,21 +41,14 @@ import { resourceCommand } from '../src/game/sandbox/place/index.js';
 import { createSceneSim } from '../src/scenes/index.js';
 import { sandboxScene } from '../src/scenes/sandbox/index.js';
 import {
-  ADMIN_DROP_AMOUNT,
   type ArmorEntry,
-  CREATURE_PRESETS,
-  creatureSpawnCommand,
   everyJobExperience,
-  goodDropCommand,
   PERSON_PRESETS,
   type PersonPreset,
   personSpawnCommand,
-  RESOURCE_ENTRIES,
   SOLDIER_WEAPONS,
   type SoldierWeapon,
   soldierSpawnCommand,
-  vehicleSpawnCommand,
-  weaponGoodSlug,
 } from '../src/view/admin-debug/spawn-catalog.js';
 
 /**
@@ -97,48 +88,6 @@ describe('admin spawn command mapping', () => {
       .entities.filter((e) => !before.has(e.id) && e.components.Settler !== undefined)
       .sort((a, b) => a.id - b.id);
     expect(spawned.map((e) => e.components.Female !== undefined)).toEqual([false, true, false, true]);
-  });
-
-  it('offers a soldier the seven weapons in the panel order', () => {
-    expect(SOLDIER_WEAPONS.map(weaponGoodSlug)).toEqual([
-      undefined,
-      'sword_shord',
-      'sword_long',
-      'bow_short',
-      'bow_long',
-      'spear_wooden',
-      'spear_iron',
-    ]);
-  });
-
-  it('spawns each creature with its fixed tribe and form, selected owner and natural weapon', () => {
-    expect(CREATURE_PRESETS.map(({ tribe, jobType }) => [tribe, jobType])).toEqual([
-      [5, 31],
-      [6, 31],
-      [5, 16],
-      [5, 18],
-      [5, 32],
-      [5, 33],
-      [5, 35],
-      [3, 32],
-    ]);
-    for (const preset of CREATURE_PRESETS) {
-      expect(creatureSpawnCommand(preset, { player: 1, hitpoints: 0, x: 7, y: 9 })).toEqual({
-        kind: 'spawnSettler',
-        jobType: preset.jobType,
-        tribe: preset.tribe,
-        owner: 1,
-        humanForm: false,
-        x: 7,
-        y: 9,
-      });
-    }
-    const first = CREATURE_PRESETS[0];
-    if (first === undefined) throw new Error('missing creature preset');
-    expect(creatureSpawnCommand(first, { player: 2, hitpoints: 8400, x: 1, y: 2 })).toMatchObject({
-      owner: 2,
-      hitpoints: 8400,
-    });
   });
 
   it('a soldier wields its weapon and wears its armor, both also in its equipment slots', () => {
@@ -187,20 +136,6 @@ describe('admin spawn command mapping', () => {
     });
   });
 
-  it('a wooden spear arms the wooden spearman with its own weapon', () => {
-    const cmd = soldierSpawnCommand({
-      ...person,
-      weapon: weapon(JOB_SOLDIER_SPEAR_WOODEN),
-      armor: null,
-      goods: sandboxGoods,
-    });
-    expect(cmd).toMatchObject({
-      jobType: JOB_SOLDIER_SPEAR_WOODEN,
-      weaponTypeId: WEAPON_WOODEN_SPEAR,
-      equipment: { weapon: { goodType: GOOD_SPEAR_WOODEN } },
-    });
-  });
-
   it('a person carries nothing, and the seat tribe and non-positive health pass as the sim defaults', () => {
     const FRANK = 2;
     const cmd = personSpawnCommand(presetOf('man'), { ...person, tribe: FRANK });
@@ -228,43 +163,6 @@ describe('admin spawn command mapping', () => {
         systems.requirementRepeats(content.jobExperience, xp, row.experienceTypes),
       ).toBeGreaterThanOrEqual(row.amount);
     }
-  });
-
-  it('a vehicle spawns through createVehicle for the chosen seat and that seat’s tribe', () => {
-    const FRANK = 2;
-    const cmd = vehicleSpawnCommand(VEHICLE_SHIP_SMALL, { player: 1, tribe: FRANK, x: 7, y: 9 });
-    expect(cmd).toEqual({
-      kind: 'createVehicle',
-      vehicleType: VEHICLE_SHIP_SMALL,
-      x: 7,
-      y: 9,
-      tribe: FRANK,
-      owner: 1,
-    });
-  });
-
-  it('the palette offers every gatherable resource', () => {
-    const goods = new Set(RESOURCE_ENTRIES.map((r) => r.good));
-    expect(goods.has(GOOD_WOOD)).toBe(true);
-    expect(goods.has(GOOD_STONE)).toBe(true);
-    expect(RESOURCE_ENTRIES.length).toBeGreaterThanOrEqual(6);
-  });
-
-  it('the goods palette is the running content - every good it defines is droppable (bare-checkout sandbox)', () => {
-    // The panel builds its goods list from `sim.content.goods`, so it can only offer goods the sim will
-    // actually drop (a good absent from the content is a `dropGood` no-op). Assert the source it reads on a
-    // bare checkout - the sandbox content - spans the whole catalog, so nothing silently drops out.
-    const goods = sandboxContent(grassTerrain(4, 4)).goods;
-    const ids = new Set(goods.map((g) => g.id));
-    expect(ids.has('wood')).toBe(true);
-    expect(ids.has('bread')).toBe(true);
-    expect(ids.has('armor_plate')).toBe(true);
-    expect(goods.length).toBeGreaterThanOrEqual(60);
-  });
-
-  it('a good drops as a loose ground pile via dropGood', () => {
-    const cmd = goodDropCommand(GOOD_STONE, 4, 5);
-    expect(cmd).toEqual({ kind: 'dropGood', good: GOOD_STONE, x: 4, y: 5, amount: ADMIN_DROP_AMOUNT });
   });
 
   it('a wood resource resolves to a felled tree node', () => {

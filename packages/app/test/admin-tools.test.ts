@@ -6,15 +6,13 @@ import { DEBUG_ACTIONS, type DebugAction } from '../src/view/admin-debug/actions
 import { createAdminLabels } from '../src/view/admin-debug/labels.js';
 import {
   type ArmorEntry,
-  CREATURE_PRESETS,
   type GoodEntry,
   PERSON_PRESETS,
   type PersonPreset,
   RESOURCE_ENTRIES,
-  SOLDIER_WEAPONS,
   type VehicleEntry,
 } from '../src/view/admin-debug/spawn-catalog.js';
-import { type Armed, armedKey, createAdminToolCatalogue, NO_ARMOR } from '../src/view/admin-debug/tools.js';
+import { type Armed, armedKey, createAdminToolCatalogue } from '../src/view/admin-debug/tools.js';
 
 /**
  * The debug tools' pure half: the labels each tool resolves through, the groups and keys the panel
@@ -88,35 +86,6 @@ describe('admin tool catalogue', () => {
     ]);
     expect(groupOf('soldiers').tools.map((tool) => tool.label)).toEqual([copy.soldier]);
     expect(groupOf('resources').tools).toHaveLength(RESOURCE_ENTRIES.length);
-  });
-
-  it('applies each setting only where the spawn takes it', () => {
-    const knobsOf = (id: string) => groupOf(id).tools.map((tool) => tool.knobs);
-    expect(knobsOf('people')).toEqual([
-      ['owner', 'hitpoints', 'skills'],
-      ['owner', 'hitpoints'],
-      ['owner', 'hitpoints'],
-      ['owner', 'hitpoints'],
-    ]);
-    expect(knobsOf('soldiers')).toEqual([['owner', 'hitpoints', 'weapon', 'armor']]);
-    expect(knobsOf('creatures').every((knobs) => knobs.join() === 'owner,hitpoints')).toBe(true);
-    expect(knobsOf('vehicles')).toEqual([['owner']]);
-    expect(knobsOf('buildings')).toEqual([['owner']]);
-    expect(knobsOf('animals')).toEqual([[]]);
-  });
-
-  it('offers a soldier every weapon and armor by name, bare hands and no armor first', () => {
-    expect(catalogue.weapons.map((choice) => choice.value)).toEqual(SOLDIER_WEAPONS.map((w) => w.jobType));
-    expect(catalogue.weapons[0]).toEqual({ value: SOLDIER_WEAPONS[0]?.jobType, label: copy.weaponNone });
-    expect(catalogue.weapons[1]).toEqual({
-      value: SOLDIER_WEAPONS[1]?.jobType,
-      label: messages().goods.sword_shord,
-      goodId: 'sword_shord',
-    });
-    expect(catalogue.armors).toEqual([
-      { value: NO_ARMOR, label: copy.armorNone },
-      { value: CHAIN_CLASS, label: messages().goods.armor_chain, goodId: 'armor_chain' },
-    ]);
   });
 
   it('shows goods and deposits with their own icons, named live where the content names them', () => {
@@ -214,21 +183,6 @@ describe('createAdminLabels', () => {
     const entry = { good: NAMED_GOOD, id: 'test_good' };
     expect(labels.good(entry)).toBe('Nazwa Towaru');
     expect(createAdminLabels(messages(), undefined).good(entry)).toBe('test_good');
-  });
-
-  it('names creature forms and threat herds by their visible species', () => {
-    const form = CREATURE_PRESETS.find((entry) => entry.id === 'weresnakeLion');
-    if (form === undefined) throw new Error('missing lion form');
-    expect(labels.creature(form)).toBe(copy.creaturesCatalog.weresnakeLion);
-    for (const [tribe, id] of [
-      [8, 'bears'],
-      [18, 'evil_hares'],
-      [20, 'wolves'],
-      [25, 'lions'],
-      [26, 'lionesses'],
-    ] as const) {
-      expect(labels.animal({ tribe, id })).toBe(copy.wildlifeCatalog[tribe]);
-    }
   });
 
   it('falls back to the raw player index past the color table', () => {

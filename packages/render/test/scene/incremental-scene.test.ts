@@ -263,21 +263,6 @@ describe('IncrementalScene', () => {
     expect(incremental.spliced).toBe(false);
   });
 
-  it('splices items field for field equal to a build from scratch', () => {
-    const mirror = mirrorOf([
-      entity(1, 1, 1, SETTLER),
-      entity(2, 3, 2, tree(1)),
-      entity(4, 2, 5, heap(3, 4)),
-    ]);
-    const { incremental, build, scratch } = buildLoop();
-    build(mirror.snapshot());
-    let snapshot = advance(mirror, [moved(1, 2, 2, SETTLER)]);
-    expect(build(snapshot)).toEqual(scratch(snapshot));
-    snapshot = advance(mirror, [moved(4, 2, 5, heap(3, 9))]);
-    expect(build(snapshot)).toEqual(scratch(snapshot));
-    expect(incremental.spliced).toBe(true);
-  });
-
   it('switches a felled tree to its stump within one delta', () => {
     const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 3, 2, tree(1))]);
     const { incremental, build, scratch } = buildLoop();

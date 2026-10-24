@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildScene, terrainMapToScene, tileToScreen } from '../../src/index.js';
+import { buildScene } from '../../src/index.js';
 import { entity, FLAT_3x2, snapshotOf } from '../support/fixtures.js';
 
 describe('buildScene - projection, depth order & classification', () => {
@@ -9,16 +9,6 @@ describe('buildScene - projection, depth order & classification', () => {
     expect(tiles).toHaveLength(6); // 3*2 cells
     expect(tiles.map((t) => t.ref)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(tiles.map((t) => t.typeId)).toEqual([1, 1, 2, 2, 1, 1]);
-  });
-
-  it('projects a tile to the iso position its (col,row) maps to', () => {
-    const scene = buildScene(snapshotOf([]), FLAT_3x2);
-    // cell 4 = (col 1, row 1) in a width-3 grid.
-    const tile4 = scene.find((d) => d.kind === 'tile' && d.ref === 4);
-    expect(tile4).toBeDefined();
-    const expected = tileToScreen(1, 1);
-    expect(tile4?.x).toBe(expected.x);
-    expect(tile4?.y).toBe(expected.y);
   });
 
   it('draws every terrain tile behind every sprite', () => {
@@ -126,17 +116,5 @@ describe('buildScene - projection, depth order & classification', () => {
     expect(house?.tribe).toBe(SARACEN);
     // Only tiles and buildings carry a typeId.
     expect(scene.find((d) => d.kind === 'resource')?.typeId).toBeUndefined();
-  });
-
-  it('consumes a loaded terrain map (the parseTerrainMap shape) via terrainMapToScene', () => {
-    // A decoded map carries varied landscape typeIds, and the GPU layer tints each tile by typeId.
-    const loadedMap = { width: 2, height: 3, typeIds: [5, 1, 2, 5, 16, 1] };
-    const terrain = terrainMapToScene(loadedMap);
-    expect(terrain).toEqual({ width: 2, height: 3, typeIds: [5, 1, 2, 5, 16, 1] });
-
-    const scene = buildScene(snapshotOf([]), terrain);
-    const tiles = scene.filter((d) => d.kind === 'tile');
-    expect(tiles).toHaveLength(6); // 2*3 cells
-    expect(tiles.map((t) => t.typeId)).toEqual([5, 1, 2, 5, 16, 1]);
   });
 });

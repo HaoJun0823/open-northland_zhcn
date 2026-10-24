@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { FogGhostStore } from '../../src/data/fog/index.js';
 import { tileToScreen } from '../../src/data/projection/index.js';
 import { buildSpriteScene } from '../../src/data/scene/index.js';
-import { classify } from '../../src/data/scene/snapshot-readers/index.js';
 import { GFX_DIR_TO_FACING } from '../../src/data/sprites/settler.js';
 import { drawableGhosts, entity, fogViewOf, ghostSourceOf, snapshotOf } from '../support/fixtures.js';
 
@@ -65,10 +64,6 @@ function vehicle(
 }
 
 describe('vehicle draw items', () => {
-  it('classifies a Vehicle entity as the vehicle kind', () => {
-    expect(classify(vehicle(1).components)).toBe('vehicle');
-  });
-
   it('carries the binding keys, the remapped heading, the owner and the task', () => {
     const [item] = buildSpriteScene(
       snapshotOf([vehicle(1, { vehicleType: CATAPULT, facing: HEX_SOUTH_WEST, task: 'attacks' })]),

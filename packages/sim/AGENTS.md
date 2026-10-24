@@ -98,14 +98,35 @@ The hygiene suite enforces the import and nondeterminism boundary. Normal change
 - `simulation.ts`: simulation facade and public read seams
 - `core/`: deterministic primitives, commands, events, RNG, and fixed point
 - `ecs/`: world and component storage
-- `components/`: plain component definitions
-- `systems/`: behavior grouped by domain, plus the schedule; `systems/missions/AGENTS.md` adds the
-  mission engine's own rules
+- `components/`: plain component definitions behind the `components/index.ts` barrel; `ai/` holds
+  controller identity and saved state, `economy/` buildings and stock, `missions/` what a map script
+  writes and shows, `players/` per-player tables
+- `systems/`: behavior by folder, plus `schedule.ts`; `systems/missions/AGENTS.md` adds the mission
+  engine's own rules
 - `nav/`: half-cell conversion, terrain graphs, and routing
 - `replay/`: command replay and divergence tools
 - `save/`: the persisted SaveGame format, its export, and its validated restore path
 - `inspect/`: snapshots, hashes, and state diagnostics
 - `harness/`: scenarios, population helpers, and invariants
+
+`systems/` folders:
+
+| Folders | Own |
+| --- | --- |
+| `command`, `orders` | applying player commands; queued unit orders |
+| `settlers` | the settler planner, its drives, targets and atomic actions |
+| `economy`, `stores`, `trade` | construction, production, hauling and ground goods; stock and workers; trade routes |
+| `conflict`, `defence`, `palisades` | combat, hunting and diplomacy; tower and shelter manning; walls and gates |
+| `movement`, `vehicles`, `signposts`, `roads` | walking, groups and herds; carts and ships; signpost reach; road sites |
+| `footprint`, `landscape`, `spatial`, `vision` | blocked cells and placement; landscape objects; spatial indexes; fog |
+| `lifecycle`, `family`, `social`, `progression`, `equipment`, `assistant` | needs, ageing and death; households; gossip; experience and unlocks; gear; builder assistant |
+| `spawn`, `livestock`, `wildlife`, `chests` | entity creation; farm animals; wild animals; chests |
+| `missions`, `match` | map scripts and goals; match goals, standing and teardown |
+| `computer-player`, `map-ai`, `ai-shared` | see AI ownership below |
+| `readviews` | content read views shared across systems |
+
+`test/` mirrors `src/`: system tests live in `test/systems/<system>/`, a large suite splits into
+`<name>.test.ts` plus `<name>/*.cases.ts`, and shared helpers go to `test/fixtures/`.
 
 Prefer the tree itself over expanding this into a file-by-file inventory.
 

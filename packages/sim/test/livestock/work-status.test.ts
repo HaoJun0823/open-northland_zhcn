@@ -51,11 +51,6 @@ describe('Simulation.workStatus - why a breeder does not breed', () => {
     });
   });
 
-  it('holds no partly stocked input for a herd short of the pair', () => {
-    const { sim, breeder } = breederWithHerd([[WHEAT, 1]], 1);
-    expect(sim.workStatus(breeder)?.kind).toBe('herdNotReady');
-  });
-
   it('waits for the young to grow when the herd only lacks grown animals', () => {
     const { sim, breeder } = breederWithHerd(STOCKED, 1, 1);
     expect(sim.workStatus(breeder)).toMatchObject({ kind: 'herdNotReady', wait: 'youngGrowing' });

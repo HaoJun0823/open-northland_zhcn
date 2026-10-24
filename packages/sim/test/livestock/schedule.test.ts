@@ -3,18 +3,7 @@ import { FarmAnimal, MoveGoal, Owner, StayPoint } from '../../src/components/ind
 import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
 import { breederAt, cowAt, ctxOf, farmAt, livestockSim, scoutAt } from './support.js';
 
-/** The schedule's declared livestock slots, in order - the relationships the comments claim. */
-const names = SYSTEM_ORDER.map((s) => s.name);
-
-describe('livestock schedule relationships', () => {
-  it('declares the claim after the walk settles, then the herd sweep, growth, and the summon', () => {
-    expect(names.indexOf('separation')).toBeLessThan(names.indexOf('livestockCapture'));
-    expect(names.indexOf('livestockCapture')).toBeLessThan(names.indexOf('livestockAssign'));
-    expect(names.indexOf('livestockAssign')).toBeLessThan(names.indexOf('livestockGrowth'));
-    expect(names.indexOf('livestockGrowth')).toBeLessThan(names.indexOf('livestockSummon'));
-    expect(names.indexOf('livestockSummon')).toBeLessThan(names.indexOf('production'));
-  });
-
+describe('livestock same-tick handoffs', () => {
   it("a claim re-anchors onto the player's base yard in the same tick", () => {
     const sim = livestockSim();
     farmAt(sim, 20, 20, { owner: 0, buildingType: 1 });

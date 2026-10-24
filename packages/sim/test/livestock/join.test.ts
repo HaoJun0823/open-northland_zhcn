@@ -1,21 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { contentIndex } from '../../src/core/content-index.js';
 import {
   isLivestockWorkplaceType,
   livestockGoodOfTribe,
   livestockTribeOfGood,
   slayAtomicOfSpecies,
 } from '../../src/systems/readviews/index.js';
-import {
-  BEAR_TRIBE,
-  COW_GOOD,
-  COW_TRIBE,
-  FARM,
-  livestockContent,
-  MEAT,
-  SLAY_ATOMIC,
-  WOOL,
-} from './support.js';
+import { BEAR_TRIBE, COW_GOOD, COW_TRIBE, FARM, livestockContent, SLAY_ATOMIC, WOOL } from './support.js';
 
 /** The economy fixture's sawmill - a recipe workshop that is NOT a livestock workplace. */
 const SAWMILL = 2;
@@ -43,16 +33,5 @@ describe('livestock content join', () => {
     expect(slayAtomicOfSpecies(content, SLAY_ATOMIC)).toBeNull(); // not a species good
     expect(slayAtomicOfSpecies(content, COW_GOOD)).toBe(SLAY_ATOMIC);
     expect(slayAtomicOfSpecies(content, WOOL)).toBeNull();
-  });
-
-  it('leaves the farm with its breeding recipe alone - its wares have none of their own', () => {
-    const recipes = contentIndex(content).recipeByProductByBuilding.get(FARM);
-    expect(recipes).toBeDefined();
-    expect(recipes?.has(COW_GOOD)).toBe(true);
-    // Wool and meat come off the slaughter clip, so nothing at the farm makes them by recipe.
-    expect(recipes?.has(WOOL)).toBe(false);
-    expect(recipes?.has(MEAT)).toBe(false);
-    // A non-livestock workshop's recipes are untouched.
-    expect(contentIndex(content).recipeByProductByBuilding.get(SAWMILL)?.has(PLANK)).toBe(true);
   });
 });

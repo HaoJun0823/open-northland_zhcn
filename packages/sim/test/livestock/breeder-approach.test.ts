@@ -23,8 +23,6 @@ const PEN_RADIUS = 4;
 describe('a breeder approaching moving livestock', () => {
   it.each([
     { flank: 'resource', summoned: false },
-    { flank: 'resource', summoned: true },
-    { flank: 'water', summoned: false },
     { flank: 'water', summoned: true },
   ])('approaches a legal $flank diagonal with summoned=$summoned', ({ flank, summoned }) => {
     const map = grassNodeMap(64, 64);

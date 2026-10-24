@@ -28,7 +28,7 @@ been measured, so the first step is a measurement.
 
 ## Verify
 
-- The existing object-id tests (`test/missions/object-ids.test.ts`, `mission-entities.test.ts`) pass
+- The existing object-id tests (`test/systems/missions/object-ids.test.ts`, `entities.test.ts`) pass
   unchanged.
 - A cache verifier registered through `World.registerCacheVerifier` compares the incremental index
   with a full rebuild, and a test spawns, removes and renumbers stamped entities between lookups

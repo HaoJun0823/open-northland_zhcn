@@ -1,0 +1,150 @@
+import { describe, expect, it } from 'vitest';
+import { Age, Health, HerdMember, MoveStepPeriod, Position, Settler } from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { cellAnchorNode, fx, nodeOfPosition, Simulation } from '../../../src/index.js';
+import { testContent } from '../../fixtures/content.js';
+import { grassCellMap } from '../../fixtures/terrain.js';
+
+/**
+ * Tests for the `spawnAnimalHerd` command - the animal-PLACEMENT mechanic:
+ * it puts a herd of creatures on the map, consuming the `herdParams` /
+ * `animalHitpoints` read views. The fixture's BEAR (tribe 10) is a herd of `maximumGroupSize` 3 that
+ * `searchForLeader`s, ranging `maximumDistanceToBirthPoint` 2, with `hitpoints_adult` 15000; the BEE
+ * (tribe 11) is solitary (no group size, searchForLeader false). The VIKING (tribe 1) is a civilization
+ * (no animaltypes record) - bad input for this command.
+ *
+ * The sim has no terrain map, so the full `step()` schedule runs but the CombatSystem (which needs cells
+ * to measure range) is inert - a spawned herd is placed, not immediately fighting.
+ */
+
+const BEAR = 10; // aggressive herd animal: group 3, searchForLeader, range 2, hitpointsAdult 15000; moveSpeed 8 + runSpeed 4
+const BEE = 11; // solitary decorative animal: no group size, searchForLeader false, hitpointsAdult 200
+const BUTTERFLY = 15; // hitpoints-0 decorative record - a swarm effect, never a living creature
+const VIKING = 1; // a civilization - no animaltypes record (bad input for spawnAnimalHerd)
+
+function fresh(seed = 1): Simulation {
+  return new Simulation({ seed, content: testContent() });
+}
+
+/** A sim on a grass map, where the herding drive forms a spawned herd on its spawn tick. */
+function onMap(seed = 1): Simulation {
+  return new Simulation({ seed, content: testContent(), map: grassCellMap(20, 20) });
+}
+
+/** Enqueue a herd spawn at visual tile (x, y) - command coords are half-cell nodes, so anchor-convert. */
+function spawnHerdAt(sim: Simulation, tribe: number, x: number, y: number): void {
+  const n = cellAnchorNode(x, y);
+  sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe, x: n.hx, y: n.hy });
+}
+
+/** Every spawned creature, in canonical (ascending-id) order. */
+function creatures(sim: Simulation): Entity[] {
+  return [...sim.world.query(Settler, Health, Position)].sort((a, b) => a - b);
+}
+
+describe('spawnAnimalHerd command', () => {
+  it('places a herd of maximumGroupSize creatures of the animal tribe, each with a Health pool', () => {
+    const sim = fresh();
+    spawnHerdAt(sim, BEAR, 5, 5);
+    sim.step();
+
+    const herd = creatures(sim);
+    expect(herd).toHaveLength(3); // maximumGroupSize 3
+    for (const e of herd) {
+      const s = sim.world.get(e, Settler);
+      expect(s.tribe).toBe(BEAR);
+      expect(s.jobType).toBeNull(); // an animal isn't born into a trade
+      // HP is stamped from animaltypes hitpoints_adult (15000), full pool.
+      expect(sim.world.get(e, Health)).toEqual({ hitpoints: 15000, max: 15000 });
+      expect(sim.world.has(e, Age)).toBe(false); // spawned adult - no growth bookkeeping
+    }
+    // No settlerBorn: that event rings the settlement's birth jingle, which is for its people.
+    expect(sim.events.current().filter((ev) => ev.kind === 'settlerBorn')).toHaveLength(0);
+  });
+
+  it('scatters the herd within maximumDistanceToBirthPoint (no two stacked, all in range)', () => {
+    const sim = fresh();
+    spawnHerdAt(sim, BEAR, 5, 5); // birth node (11,10) - cell (5,5)'s anchor
+    sim.step();
+
+    const herd = creatures(sim);
+    const nodes = herd.map((e) => {
+      const p = sim.world.get(e, Position);
+      return nodeOfPosition(p.x, p.y);
+    });
+    const keys = nodes.map((n) => `${n.hx},${n.hy}`);
+    expect(new Set(keys).size).toBe(herd.length); // no two creatures share a node
+    // The leader sits ON the birth node; every member is within the range-2 birth-point radius -
+    // herd ranges are consumed as half-cell NODE distances (the scatter offsets apply in node space).
+    expect(keys).toContain('11,10');
+    for (const n of nodes) {
+      expect(Math.abs(n.hx - 11)).toBeLessThanOrEqual(2);
+      expect(Math.abs(n.hy - 10)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('forms the herd on its spawn tick: the lowest-id member leads, recorded on every member', () => {
+    const sim = onMap();
+    spawnHerdAt(sim, BEAR, 5, 5);
+    sim.step();
+
+    const herd = creatures(sim);
+    const leader = herd[0]; // lowest id - the first created
+    expect(leader).toBeDefined();
+    for (const e of herd) {
+      expect(sim.world.has(e, HerdMember)).toBe(true);
+      expect(sim.world.get(e, HerdMember).leader).toBe(leader); // all point at the one leader
+    }
+    // The leader's HerdMember is self-referential (marks "I am the leader" without a second flag).
+    expect(sim.world.get(leader as Entity, HerdMember).leader).toBe(leader);
+  });
+
+  it('count 1 overrides maximumGroupSize: exactly one creature, on the birth node (the map setanimal shape)', () => {
+    const sim = onMap();
+    const n = cellAnchorNode(5, 5);
+    sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: BEAR, x: n.hx, y: n.hy, count: 1 });
+    sim.step();
+
+    const herd = creatures(sim);
+    expect(herd).toHaveLength(1); // count wins over the record's maximumGroupSize 3
+    const lone = herd[0];
+    if (lone === undefined) throw new Error('one creature expected');
+    // Member 0 sits on the birth point itself (no scatter for the sole creature).
+    const p = sim.world.get(lone, Position);
+    expect(nodeOfPosition(p.x, p.y)).toEqual({ hx: n.hx, hy: n.hy });
+    // A sole creature with no herd in reach leads itself, ready to gather later arrivals.
+    expect(sim.world.get(lone, HerdMember).leader).toBe(lone);
+  });
+
+  it('a solitary animal (searchForLeader false) spawns one creature with NO HerdMember', () => {
+    const sim = fresh();
+    spawnHerdAt(sim, BEE, 2, 3);
+    sim.step();
+
+    const herd = creatures(sim);
+    expect(herd).toHaveLength(1); // no group size -> one creature
+    const bee = herd[0] as Entity;
+    expect(sim.world.get(bee, Settler).tribe).toBe(BEE);
+    expect(sim.world.get(bee, Health)).toEqual({ hitpoints: 200, max: 200 });
+    expect(sim.world.has(bee, HerdMember)).toBe(false); // solitary - no leader to follow
+    expect(sim.world.get(bee, MoveStepPeriod)).toEqual({ ticks: 8 }); // omitted movespeed uses the source default
+    const p = sim.world.get(bee, Position);
+    expect([fx.toInt(p.x), fx.toInt(p.y)]).toEqual([2, 3]); // sits on the birth node (tile (2,3)'s anchor)
+  });
+
+  it('spawns nothing for a hitpoints-0 decorative record (the real butterflies/bees shape)', () => {
+    const sim = fresh();
+    spawnHerdAt(sim, BUTTERFLY, 5, 5);
+    sim.step();
+    expect(creatures(sim)).toHaveLength(0); // a swarm effect, not a creature - no born-dead churn
+  });
+
+  it('skips a non-animal tribe (a civilization - no animaltypes record), still logging the command', () => {
+    const sim = fresh();
+    sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: VIKING, x: 0, y: 0 });
+    expect(() => sim.step()).not.toThrow();
+
+    expect(creatures(sim)).toHaveLength(0); // nothing spawned - the viking has no herd params
+    expect(sim.commands.log).toHaveLength(1); // but recorded for faithful replay
+  });
+});

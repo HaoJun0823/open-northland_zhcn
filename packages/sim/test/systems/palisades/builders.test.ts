@@ -1,0 +1,579 @@
+import { parseContentSet } from '@open-northland/data';
+import { describe, expect, it } from 'vitest';
+import {
+  addPerson,
+  Building,
+  BuildMode,
+  CurrentAtomic,
+  Damaged,
+  Health,
+  MoveGoal,
+  Owner,
+  Palisade,
+  Position,
+  SiteAssignment,
+  Stockpile,
+  SupplyRun,
+  setStockAmount,
+  UnderConstruction,
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import {
+  adminCommand,
+  fx,
+  ONE,
+  positionOfNode,
+  type ScriptLandscapeType,
+  Simulation,
+} from '../../../src/index.js';
+import { advanceConstructionLabor, constructionSystem } from '../../../src/systems/economy/construction.js';
+import { WALL_REPAIR_CREW_LIMIT } from '../../../src/systems/economy/repair.js';
+import { claimSite, releaseSiteClaim, siteClaimHolder } from '../../../src/systems/economy/site-claim.js';
+import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
+import { REPAIR_CALM_TICKS } from '../../../src/systems/settlers/drives/economy/repair.js';
+import { TEST_MANIFEST } from '../../fixtures/content.js';
+import { ctxOf } from '../../fixtures/context.js';
+import { grassNodeMap } from '../../fixtures/terrain.js';
+
+const VIKING = 1;
+const HUMAN = 0;
+const STONE = 1;
+const WOOD = 2;
+const IDLE = 0;
+const BUILDER = 7;
+const BUILD_HOUSE_ATOMIC = 39;
+const BUILD_WALL_ATOMIC = 42;
+const STORE = 1;
+const HOUSE = 2;
+const GRASS = 0;
+const ROW = 6;
+
+const WALL: ScriptLandscapeType = {
+  typeId: 691,
+  walk: [{ dx: 0, dy: 0 }],
+  build: [],
+  groups: [],
+  wall: {
+    maxHitpoints: 100,
+    repairPerStrike: 3,
+    construction: [{ goodType: WOOD, amount: 1 }],
+  },
+};
+
+const GATE_POSTS: ScriptLandscapeType['walk'] = [
+  { dx: -2, dy: 0 },
+  { dx: 2, dy: 0 },
+];
+
+const GATE_MAX_HITPOINTS = 100;
+const GATE_WALL = {
+  maxHitpoints: GATE_MAX_HITPOINTS,
+  repairPerStrike: 1,
+  construction: [{ goodType: WOOD, amount: 1 }],
+};
+
+const CLOSED_GATE: ScriptLandscapeType = {
+  typeId: 696,
+  walk: [...GATE_POSTS, { dx: -1, dy: 0 }, { dx: 0, dy: 0 }, { dx: 1, dy: 0 }],
+  build: [],
+  groups: [],
+  wall: { ...GATE_WALL, gate: { open: false, counterpartGfxIndex: 700 } },
+};
+
+/** An open gate's body is its two posts alone. */
+const OPEN_GATE: ScriptLandscapeType = {
+  ...CLOSED_GATE,
+  typeId: 700,
+  walk: GATE_POSTS,
+  wall: { ...GATE_WALL, gate: { open: true, counterpartGfxIndex: 696 } },
+};
+
+function builderContent() {
+  return parseContentSet({
+    manifest: TEST_MANIFEST,
+    goods: [
+      { typeId: 0, id: 'none' },
+      { typeId: STONE, id: 'stone' },
+      { typeId: WOOD, id: 'wood' },
+    ],
+    jobs: [
+      { typeId: IDLE, id: 'idle' },
+      { typeId: BUILDER, id: 'builder', allowedAtomics: [BUILD_HOUSE_ATOMIC, BUILD_WALL_ATOMIC] },
+    ],
+    landscape: [{ typeId: GRASS, id: 'grass', walkable: true, buildable: true }],
+    buildings: [
+      {
+        typeId: STORE,
+        id: 'headquarters',
+        kind: 'storage',
+        stock: [
+          { goodType: STONE, capacity: 10 },
+          { goodType: WOOD, capacity: 10 },
+        ],
+      },
+      {
+        typeId: HOUSE,
+        id: 'home_small',
+        kind: 'home',
+        homeSize: 1,
+        construction: [{ goodType: STONE, amount: 1 }],
+      },
+    ],
+  });
+}
+
+function buildingAt(sim: Simulation, buildingType: number, hx: number, site: boolean): Entity {
+  const e = sim.world.create();
+  sim.world.add(e, Position, positionOfNode(hx, ROW));
+  sim.world.add(e, Building, { buildingType, tribe: VIKING, built: site ? fx.fromInt(0) : ONE, level: 0 });
+  sim.world.add(e, Stockpile, {
+    amounts: new Map(
+      site
+        ? []
+        : [
+            [STONE, 5],
+            [WOOD, 5],
+          ],
+    ),
+  });
+  if (site) sim.world.add(e, UnderConstruction, { labor: fx.fromInt(0) });
+  sim.world.add(e, Owner, { player: HUMAN });
+  return e;
+}
+
+function builderAt(sim: Simulation, hx: number): Entity {
+  const e = sim.world.create();
+  sim.world.add(e, Position, positionOfNode(hx, ROW));
+  addPerson(sim.world, e, {
+    tribe: VIKING,
+    jobType: BUILDER,
+    hunger: fx.fromInt(0),
+    fatigue: fx.fromInt(0),
+    piety: fx.fromInt(0),
+    enjoyment: fx.fromInt(0),
+  });
+  sim.world.add(e, Owner, { player: HUMAN });
+  return e;
+}
+
+describe('palisade builders', () => {
+  it('answer the shortage read for a wall site like a house: its wood, held once a store has it', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 7,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 12,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      underConstruction: true,
+    });
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a wall site');
+    expect(sim.constructionSupply(wall)).toMatchObject({
+      kind: 'short',
+      shortfalls: [{ goodType: WOOD, inbound: 0, held: false }],
+    });
+    buildingAt(sim, STORE, 4, false);
+    expect(sim.constructionSupply(wall)).toMatchObject({ kind: 'short', shortfalls: [{ held: true }] });
+  });
+
+  it('raise a wall only once no house is left to build, even when the wall is nearer', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 1,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const house = buildingAt(sim, HOUSE, 40, true);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 12,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      underConstruction: true,
+    });
+    const builder = builderAt(sim, 8);
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a wall site');
+
+    let houseDoneAt: number | null = null;
+    for (let tick = 0; tick < 4000 && sim.world.has(wall, UnderConstruction); tick++) {
+      sim.step();
+      if (sim.world.has(house, UnderConstruction)) {
+        expect(sim.world.tryGet(builder, SiteAssignment)?.site, `tick ${tick}`).not.toBe(wall);
+      } else {
+        houseDoneAt ??= tick;
+      }
+    }
+    expect(houseDoneAt).not.toBeNull();
+    expect(sim.world.has(wall, UnderConstruction)).toBe(false);
+  });
+
+  it('mend a damaged wall with the hammer once it is quiet', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 2,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 12,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+    });
+    const builder = builderAt(sim, 8);
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a standing wall');
+    resolveCombatHit(sim.world, ctxOf(sim), sim.world.create(), wall, { damage: 30 }, [], 'melee');
+    const hitTick = sim.tick;
+
+    let repairTicks = 0;
+    while (sim.world.has(wall, Damaged) && sim.tick < hitTick + 6000) {
+      sim.step();
+      if (sim.world.tryGet(builder, SiteAssignment)?.site === wall) {
+        expect(sim.tick - hitTick, 'a crew waits out the calm period').toBeGreaterThanOrEqual(
+          REPAIR_CALM_TICKS,
+        );
+        const swing = sim.world.tryGet(builder, CurrentAtomic);
+        if (swing?.effect.kind === 'repair') {
+          expect(swing.atomicId).toBe(BUILD_WALL_ATOMIC);
+          repairTicks++;
+        }
+      }
+    }
+    expect(repairTicks).toBeGreaterThan(0);
+    expect(sim.world.get(wall, Health).hitpoints).toBe(WALL.wall?.maxHitpoints);
+    expect(sim.world.has(wall, UnderConstruction)).toBe(false);
+  });
+
+  it('mend a damaged wall before building a house, even when the house is nearer', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 2,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const house = buildingAt(sim, HOUSE, 12, true);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 40,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      valency: 70,
+    });
+    builderAt(sim, 8);
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a standing wall');
+
+    for (let tick = 0; tick < 4000 && sim.world.has(wall, Damaged); tick++) {
+      sim.step();
+      expect(sim.world.has(house, UnderConstruction), `the house waits, tick ${tick}`).toBe(true);
+    }
+    expect(sim.world.get(wall, Health).hitpoints).toBe(WALL.wall?.maxHitpoints);
+  });
+
+  it('mend a damaged gate before a damaged house or wall, even when they are nearer', () => {
+    const map = grassNodeMap(64, 12);
+    const sim = new Simulation({
+      seed: 3,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL, CLOSED_GATE, OPEN_GATE], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const house = buildingAt(sim, HOUSE, 12, false);
+    sim.world.add(house, Health, { hitpoints: 100, max: 1000 });
+    sim.world.add(house, Damaged, { lastHitTick: null });
+    const place = (gfxIndex: number, x: number): void =>
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex,
+        x,
+        y: ROW,
+        tribe: VIKING,
+        owner: HUMAN,
+        valency: 50,
+      });
+    place(WALL.typeId, 20);
+    place(CLOSED_GATE.typeId, 50);
+    builderAt(sim, 8);
+    sim.step();
+    const gate = [...sim.world.query(Palisade)].find((e) => sim.world.get(e, Palisade).gate !== null);
+    const wall = [...sim.world.query(Palisade)].find((e) => sim.world.get(e, Palisade).gate === null);
+    if (gate === undefined || wall === undefined) throw new Error('expected a gate and a wall');
+
+    for (let tick = 0; tick < 4000 && sim.world.has(gate, Damaged); tick++) {
+      sim.step();
+      expect(sim.world.get(house, Health).hitpoints, `the house waits, tick ${tick}`).toBe(100);
+      expect(sim.world.get(wall, Health).hitpoints, `the wall waits, tick ${tick}`).toBe(50);
+    }
+    expect(sim.world.get(gate, Health).hitpoints).toBe(GATE_MAX_HITPOINTS);
+  });
+
+  it('mend a damaged wall before raising a new segment, even when the segment is nearer', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 3,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const place = (x: number, extra: object): void =>
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL.typeId,
+        x,
+        y: ROW,
+        tribe: VIKING,
+        owner: HUMAN,
+        ...extra,
+      });
+    place(12, { underConstruction: true });
+    place(24, { valency: 70 });
+    builderAt(sim, 8);
+    sim.step();
+    const [segment, damaged] = [...sim.world.query(Palisade)].sort((a, b) => a - b);
+    if (segment === undefined || damaged === undefined) throw new Error('expected a site and a wall');
+
+    for (let tick = 0; tick < 4000 && sim.world.has(segment, UnderConstruction); tick++) {
+      sim.step();
+      if (!sim.world.has(segment, UnderConstruction)) {
+        expect(sim.world.has(damaged, Damaged), 'the damaged wall was mended first').toBe(false);
+      }
+    }
+    expect(sim.world.has(segment, UnderConstruction)).toBe(false);
+    expect(sim.world.get(damaged, Health).hitpoints).toBe(WALL.wall?.maxHitpoints);
+  });
+
+  it('send a damaged wall one mender at a time', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 4,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 24,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      valency: 10,
+    });
+    const builders = [16, 18, 20, 28, 30, 32, 34].map((hx) => builderAt(sim, hx));
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a standing wall');
+
+    let largest = 0;
+    for (let tick = 0; tick < 600 && sim.world.has(wall, Damaged); tick++) {
+      sim.step();
+      const crew = builders.filter((b) => sim.world.tryGet(b, SiteAssignment)?.site === wall).length;
+      largest = Math.max(largest, crew);
+    }
+    expect(largest).toBe(WALL_REPAIR_CREW_LIMIT);
+  });
+
+  it('mend a damaged gate standing open', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 6,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL, CLOSED_GATE, OPEN_GATE], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: CLOSED_GATE.typeId,
+      x: 24,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      valency: 90,
+    });
+    builderAt(sim, 16);
+    sim.step();
+    const [gate] = [...sim.world.query(Palisade)];
+    if (gate === undefined) throw new Error('expected a standing gate');
+    sim.enqueueSetup({ kind: 'setPalisadeGate', palisade: gate, open: true });
+    sim.step();
+    expect(sim.world.get(gate, Palisade).gate?.open).toBe(true);
+    expect(sim.world.has(gate, Damaged)).toBe(true);
+
+    for (let tick = 0; tick < 2000 && sim.world.has(gate, Damaged); tick++) sim.step();
+    expect(sim.world.get(gate, Health).hitpoints).toBe(GATE_MAX_HITPOINTS);
+  });
+});
+
+function wallSim(): Simulation {
+  const map = grassNodeMap(48, 12);
+  const sim = new Simulation({
+    seed: 5,
+    content: builderContent(),
+    map: { ...map, landscapes: { types: [WALL], placements: [] } },
+  });
+  buildingAt(sim, STORE, 4, false);
+  return sim;
+}
+
+function wallSite(sim: Simulation, hx: number, extra: object = { underConstruction: true }): Entity {
+  sim.enqueueSetup({
+    kind: 'placePalisade',
+    gfxIndex: WALL.typeId,
+    x: hx,
+    y: ROW,
+    tribe: VIKING,
+    owner: HUMAN,
+    ...extra,
+  });
+  sim.step();
+  const centre = positionOfNode(hx, ROW);
+  const wall = [...sim.world.query(Palisade, Position)].find(
+    (e) => sim.world.get(e, Position).x === centre.x && sim.world.get(e, Position).y === centre.y,
+  );
+  if (wall === undefined) throw new Error(`expected a wall at ${hx}`);
+  return wall;
+}
+
+describe('wall claims', () => {
+  /** A claim holder that stays put: an assignment and a claim, no trade to walk off with. */
+  function stillClaimant(sim: Simulation, site: Entity): Entity {
+    const holder = sim.world.create();
+    sim.world.add(holder, SiteAssignment, { site, pinned: false });
+    expect(claimSite(sim.world, site, holder)).toBe(true);
+    return holder;
+  }
+
+  it('leave a segment another builder claimed to it, ending the wall run when no other is left', () => {
+    const sim = wallSim();
+    const site = wallSite(sim, 24);
+    const holder = stillClaimant(sim, site);
+    const assigned = builderAt(sim, 20);
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: assigned, site });
+    sim.run(30);
+    expect(sim.world.tryGet(assigned, SiteAssignment)?.site).not.toBe(site);
+    expect(sim.world.has(assigned, BuildMode)).toBe(false);
+    expect(siteClaimHolder(sim.world, site)).toBe(holder);
+    expect(sim.world.get(site, UnderConstruction).labor).toBe(0);
+  });
+
+  it('refuse a pin to a damaged wall whose one-mender crew is full, a pinned mender included', () => {
+    const sim = wallSim();
+    const wall = wallSite(sim, 24, { valency: 50 });
+    const first = builderAt(sim, 20);
+    const second = builderAt(sim, 28);
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: first, site: wall });
+    sim.step();
+    expect(sim.world.get(first, SiteAssignment)).toEqual({ site: wall, pinned: true });
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: second, site: wall });
+    sim.step();
+    expect(sim.world.tryGet(second, SiteAssignment)?.site).not.toBe(wall);
+  });
+
+  it('drop the flag when the claim holder is pinned elsewhere or dies', () => {
+    const sim = wallSim();
+    const first = wallSite(sim, 24);
+    const second = wallSite(sim, 30);
+    const builder = builderAt(sim, 20);
+    sim.world.add(builder, SiteAssignment, { site: first, pinned: false });
+    expect(claimSite(sim.world, first, builder)).toBe(true);
+    sim.enqueueSetup({ kind: 'assignBuilder', entity: builder, site: second });
+    sim.step();
+    expect(sim.world.get(first, Palisade).reservation).toBeNull();
+
+    // A lapse no release saw, such as a job change: the construction pass clears the raw claim.
+    const other = sim.world.create();
+    sim.world.add(other, SiteAssignment, { site: first, pinned: false });
+    expect(claimSite(sim.world, first, other)).toBe(true);
+    sim.world.remove(other, SiteAssignment);
+    sim.step();
+    expect(sim.world.get(first, Palisade).reservation).toBeNull();
+
+    sim.world.add(builder, SiteAssignment, { site: first, pinned: false });
+    expect(claimSite(sim.world, first, builder)).toBe(true);
+    sim.world.add(builder, Health, { hitpoints: 1, max: 1 });
+    sim.enqueue(adminCommand({ kind: 'debugKill', target: builder }));
+    sim.step();
+    expect(sim.world.isAlive(builder)).toBe(false);
+    expect(sim.world.get(first, Palisade).reservation).toBeNull();
+  });
+
+  it('keep the flag of a struck segment its builder left while a traveller holds it up', () => {
+    const sim = wallSim();
+    const site = wallSite(sim, 24);
+    const holder = stillClaimant(sim, site);
+    setStockAmount(sim.world, site, WOOD, 1);
+    expect(advanceConstructionLabor(sim.world, ctxOf(sim), site, holder)).toBe(true);
+    const walker = builderAt(sim, 24);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('expected a mapped simulation');
+    sim.world.add(walker, MoveGoal, { cell: terrain.nodeAt(40, ROW) });
+
+    // The builder leaves the struck segment as the planner does.
+    releaseSiteClaim(sim.world, holder);
+    sim.world.remove(holder, SiteAssignment);
+    constructionSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(site, UnderConstruction)).toBe(true);
+    expect(sim.world.get(site, Palisade).reservation).toEqual({ builder: holder });
+
+    sim.world.remove(walker, MoveGoal);
+    constructionSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(site, UnderConstruction)).toBe(false);
+    expect(sim.world.get(site, Palisade).reservation).toBeNull();
+  });
+});
+
+describe('idle builders beside waiting walls', () => {
+  it('stand ready at the segment a delivery walks to, past nearer segments waiting for wood', () => {
+    const sim = wallSim();
+    const store = [...sim.world.query(Building)][0];
+    if (store === undefined) throw new Error('expected the store');
+    setStockAmount(sim.world, store, WOOD, 0);
+    wallSite(sim, 12);
+    wallSite(sim, 16);
+    const awaited = wallSite(sim, 36);
+    const errand = sim.world.create();
+    sim.world.add(errand, SupplyRun, { site: awaited, goodType: WOOD, amount: 1 });
+    const builder = builderAt(sim, 8);
+    sim.run(5);
+    expect(sim.world.tryGet(builder, SiteAssignment)?.site).toBe(awaited);
+  });
+
+  it('hammer the segment whose wood is on site, past nearer segments waiting for wood', () => {
+    const sim = wallSim();
+    const store = [...sim.world.query(Building)][0];
+    if (store === undefined) throw new Error('expected the store');
+    setStockAmount(sim.world, store, WOOD, 0);
+    const waiting = [wallSite(sim, 12), wallSite(sim, 16)];
+    const stocked = wallSite(sim, 36);
+    if (sim.world.has(stocked, Stockpile)) setStockAmount(sim.world, stocked, WOOD, 1);
+    else sim.world.add(stocked, Stockpile, { amounts: new Map([[WOOD, 1]]) });
+    const builder = builderAt(sim, 8);
+    sim.run(5);
+    expect(sim.world.tryGet(builder, SiteAssignment)?.site).toBe(stocked);
+    for (let tick = 0; tick < 1000 && sim.world.has(stocked, UnderConstruction); tick++) sim.step();
+    expect(sim.world.has(stocked, UnderConstruction)).toBe(false);
+    for (const wall of waiting) expect(sim.world.has(wall, UnderConstruction)).toBe(true);
+  });
+});

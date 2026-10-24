@@ -8,7 +8,7 @@ map's deposits falls across the run, and at least one seat completes a smithy.
 
 Nothing cheaper covers this. `packages/app/test/content/ai-map-scenario.test.ts` runs 120 ticks, which
 reaches the opening orders only; the sim's AI module tests
-(`packages/sim/test/systems/computer-player-modules.test.ts`) prove the workforce rules against synthetic
+(`packages/sim/test/systems/computer-player/modules.test.ts`) prove the workforce rules against synthetic
 fixtures, not that a real seat's plan arrives at the gated collector entry. The property needs roughly
 18-20k ticks because one construction site at a time gates that entry.
 

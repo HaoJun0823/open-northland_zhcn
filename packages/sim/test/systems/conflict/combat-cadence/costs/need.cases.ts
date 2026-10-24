@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import { setNeedsEnabled } from '../../../../../src/components/index.js';
+import { fx, Simulation } from '../../../../../src/index.js';
+import { atomicSystem } from '../../../../../src/systems/index.js';
+import { nextTickCtxOf } from '../../../../fixtures/context.js';
+import { needsOf } from '../../../../fixtures/settler.js';
+import {
+  combatCadenceContent,
+  fighterAt,
+  grass,
+  OTHER,
+  SOLDIER_SPEAR,
+  startSwing,
+  VIKING,
+  WOMAN,
+} from '../support.js';
+
+describe('atomicSystem - the attacker pays the swing need-drain from its own clip', () => {
+  it('a soldier swing drains rest + hunger by the animation deltas (−20 each → same bar rise)', () => {
+    const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
+    const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
+    const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
+    startSwing(sim, attacker, { target, damage: 0, hitFrames: [17] }, 27);
+
+    for (let i = 0; i < 27; i++) atomicSystem(sim.world, nextTickCtxOf(sim)); // run to completion
+
+    // −20 on the ~10000-unit reserve → +20/10000·ONE on the 0..ONE need bar (the reserve drain raises the
+    // need). A soldier never goes home, so his rest costs full strength wherever he swings.
+    const expected = fx.div(fx.fromInt(20), fx.fromInt(10_000));
+    expect(needsOf(sim, attacker).fatigue).toBe(expected);
+    expect(needsOf(sim, attacker).hunger).toBe(expected);
+  });
+
+  it('a woman swing drains 5× as much food (−100), and half that rest away from home', () => {
+    const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
+    const attacker = fighterAt(sim, 0, 0, VIKING, WOMAN);
+    const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
+    startSwing(sim, attacker, { target, damage: 0, hitFrames: [6] }, 16);
+
+    for (let i = 0; i < 16; i++) atomicSystem(sim.world, nextTickCtxOf(sim));
+
+    const soldierRise = fx.div(fx.fromInt(20), fx.fromInt(10_000));
+    const womanRise = fx.div(fx.fromInt(100), fx.fromInt(10_000));
+    expect(needsOf(sim, attacker).hunger).toBe(womanRise);
+    expect(womanRise).toBe(soldierRise * 5); // a woman's swing costs 5× a soldier's - the data ratio
+    // She has a house to go back to, so away from it every rest event counts half, a drain included.
+    expect(needsOf(sim, attacker).fatigue).toBe(fx.div(fx.fromInt(50), fx.fromInt(10_000)));
+  });
+
+  it('charges nothing while the needs rule is off, so a long battle cannot walk a fighter off to eat', () => {
+    const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
+    setNeedsEnabled(sim.world, false);
+    const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
+    const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
+    startSwing(sim, attacker, { target, damage: 0, hitFrames: [17] }, 27);
+
+    for (let i = 0; i < 27; i++) atomicSystem(sim.world, nextTickCtxOf(sim));
+
+    expect(needsOf(sim, attacker).fatigue).toBe(0);
+    expect(needsOf(sim, attacker).hunger).toBe(0);
+  });
+});

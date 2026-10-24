@@ -15,7 +15,7 @@ import {
   mappedSim,
   placementContent,
   VIKING,
-} from '../footprint/building-placement/support.js';
+} from '../systems/footprint/building-placement/support.js';
 
 const MAP_NODES = 16;
 const TICKS = 5;

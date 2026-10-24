@@ -1,0 +1,955 @@
+import { describe, expect, it } from 'vitest';
+import {
+  Chat,
+  Equipment,
+  JobAssignment,
+  NeedOrder,
+  OrderQueue,
+  Owner,
+  PlayerOrder,
+  Position,
+  Rider,
+  Settler,
+  StandIn,
+  Vehicle,
+  VehicleDrive,
+  VehicleOrderQueue,
+  VehicleRoute,
+  VehicleStock,
+  vehicleCommander,
+  vehiclePassengers,
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import {
+  adminCommand,
+  exportSaveGame,
+  fx,
+  type HalfCellNode,
+  halfCellMapFromCells,
+  nodeOfPosition,
+  parseSaveGame,
+  playerCommand,
+  positionOfNode,
+  restoreSimulation,
+  Simulation,
+  serializeSaveGame,
+  type TerrainMap,
+} from '../../../src/index.js';
+import { stepHex } from '../../../src/nav/halfcell.js';
+import { removeSettlerSilently } from '../../../src/systems/lifecycle/death.js';
+import { clearNavState } from '../../../src/systems/movement/nav-state.js';
+import { boardCrew, createVehicle, stockVehicleGoods } from '../../../src/systems/vehicles/index.js';
+import { type VehicleWorkFilter, vehiclesAtWork } from '../../../src/systems/vehicles/registry.js';
+import { testContent } from '../../fixtures/content.js';
+import { ctxOf } from '../../fixtures/context.js';
+
+/**
+ * The crew of docs/formats/VEHICLES.md "Crew" and the carried vehicles of "Ships and docking": the attach
+ * gate and its notes, the walk to the door, boarding on a goto, commander promotion, the straggler and
+ * pending-need rules, the forced detach of a passenger ahead of an ordinary order, the commander's walk
+ * order driving its vehicle, a rider's death, a cart riding a moored ship, and a save with people aboard.
+ */
+
+const VIKING = 1;
+const P0 = 0;
+const P1 = 1;
+const HANDCART = 1;
+const SHIP_SMALL = 3;
+const CATAPULT = 5;
+const SCOUT = 27;
+const CARRIER = 24;
+const SOLDIER = 31;
+const CIVILIST = 6;
+const WOODCUTTER = 1;
+const MAP_CELLS = 16;
+const GRASS = 0;
+const WATER = 1;
+/** The first water column of the shore map, in cells; the ships lie east of it. */
+const SHORE_CELL = 10;
+/** A few ticks into a scout's attach walk: on its way, nowhere near the door. */
+const ATTACH_WALK_TICKS = 5;
+/** A load the driven cart must keep: the fixture's wood. */
+const CART_GOOD = 1;
+const CART_LOAD = 5;
+/** A hunger reading past the drive threshold, in percent. */
+const STARVING_PCT = 90;
+/** A scout's ten-node walk at its nine ticks a node, with a tick to board. */
+const BOARD_TICKS = 120;
+/** The same walk at a carrier's slower gait, with margin. */
+const CARRIER_WALK_TICKS = 300;
+/** The door of a handcart parked at (12, 6): the first open node of the ring around it, north-east. */
+const CART_DOOR = { hx: 12, hy: 5 } as const;
+const SAIL_TICKS = 300;
+
+/** The west grass, the east open water, at cell resolution. */
+function shoreMap(): TerrainMap {
+  const typeIds = new Array<number>(MAP_CELLS * MAP_CELLS).fill(GRASS);
+  for (let row = 0; row < MAP_CELLS; row++) {
+    for (let col = SHORE_CELL; col < MAP_CELLS; col++) typeIds[row * MAP_CELLS + col] = WATER;
+  }
+  return halfCellMapFromCells({ width: MAP_CELLS, height: MAP_CELLS, typeIds });
+}
+
+/** Two landmasses split by a water column at cell 5. */
+function splitMap(): TerrainMap {
+  const typeIds = new Array<number>(MAP_CELLS * MAP_CELLS).fill(GRASS);
+  for (let row = 0; row < MAP_CELLS; row++) typeIds[row * MAP_CELLS + 5] = WATER;
+  return halfCellMapFromCells({ width: MAP_CELLS, height: MAP_CELLS, typeIds });
+}
+
+function sim(map: TerrainMap = shoreMap(), seed = 5): Simulation {
+  const s = new Simulation({ seed, content: testContent(), map });
+  s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
+  return s;
+}
+
+function spawn(s: Simulation, vehicleType: number, x: number, y: number, owner = P0): Entity {
+  const e = createVehicle(s.world, ctxOf(s), { vehicleType, x, y, tribe: VIKING, owner });
+  if (e === null) throw new Error(`vehicle type ${vehicleType} not in the fixture`);
+  return e;
+}
+
+function spawnSettler(s: Simulation, x: number, y: number, jobType = SCOUT, owner = P0): Entity {
+  s.enqueueSetup({ kind: 'spawnSettler', jobType, x, y, tribe: VIKING, owner });
+  s.step();
+  const settlers = [...s.world.query(Settler)];
+  const settler = settlers[settlers.length - 1];
+  if (settler === undefined) throw new Error('settler missing');
+  return settler;
+}
+
+function attach(s: Simulation, entity: Entity, vehicle: Entity, player = P0): void {
+  s.enqueue(playerCommand(player, { kind: 'attachToVehicle', entity, vehicle }));
+  s.step();
+}
+
+function nodeOf(s: Simulation, e: Entity): HalfCellNode | null {
+  const p = s.world.tryGet(e, Position);
+  return p === undefined ? null : nodeOfPosition(p.x, p.y);
+}
+
+function seatOf(s: Simulation, vehicle: Entity, rider: Entity): { inside: boolean } | undefined {
+  return vehiclePassengers(s.world.get(vehicle, Vehicle)).find((seat) => seat.entity === rider);
+}
+
+function riderRefusals(s: Simulation): string[] {
+  return s.events
+    .current()
+    .flatMap((ev) => (ev.kind === 'riderRefused' ? [`${ev.entity}:${ev.reason}:${ev.player}`] : []));
+}
+
+function moveRefusals(s: Simulation): string[] {
+  return s.events
+    .current()
+    .flatMap((ev) => (ev.kind === 'vehicleMoveRefused' ? [`${ev.entity}:${ev.reason}:${ev.player}`] : []));
+}
+
+function crewRefusals(s: Simulation): string[] {
+  return s.events
+    .current()
+    .flatMap((ev) => (ev.kind === 'vehicleCrewRefused' ? [`${ev.entity}:${ev.reason}:${ev.player}`] : []));
+}
+
+/** Step until `rider` is inside `vehicle`, returning the ticks taken. */
+function boardOut(s: Simulation, vehicle: Entity, rider: Entity, limit = BOARD_TICKS): number {
+  for (let ticks = 1; ticks <= limit; ticks++) {
+    s.step();
+    if (seatOf(s, vehicle, rider)?.inside === true) return ticks;
+  }
+  throw new Error('rider never boarded');
+}
+
+describe('attachToVehicle', () => {
+  it('keeps a rider aboard when its trade cannot pray', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const rider = spawnSettler(s, CART_DOOR.hx, CART_DOOR.hy);
+    attach(s, rider, cart);
+    boardOut(s, cart, rider);
+    s.enqueue(playerCommand(P0, { kind: 'orderNeed', entity: rider, need: 'piety' }));
+    s.step();
+    expect(s.world.has(rider, Rider)).toBe(true);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(rider);
+    expect(seatOf(s, cart, rider)?.inside).toBe(true);
+    expect(s.world.has(rider, NeedOrder)).toBe(false);
+  });
+
+  it('keeps a food-amulet commander aboard and travelling when ordered to eat', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, CART_DOOR.hx, CART_DOOR.hy);
+    s.world.add(scout, Equipment, {
+      boots: null,
+      tool: null,
+      weapon: null,
+      armor: null,
+      misc: [{ goodType: 23, degreeOfUse: fx.fromInt(0) }, null, null, null],
+    });
+    attach(s, scout, cart);
+    boardOut(s, cart, scout);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    s.step();
+    expect(s.world.get(cart, VehicleDrive).goal).toEqual({ hx: 4, hy: 12 });
+    s.enqueue(playerCommand(P0, { kind: 'orderNeed', entity: scout, need: 'hunger' }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(true);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(scout);
+    expect(seatOf(s, cart, scout)?.inside).toBe(true);
+    expect(s.world.get(cart, VehicleDrive).goal).toEqual({ hx: 4, hy: 12 });
+    expect(s.world.has(scout, NeedOrder)).toBe(false);
+  });
+
+  it('seats an allowed trade in the commander slot and walks it in at the door, leaving its workplace', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(scout);
+    expect(seatOf(s, cart, scout)).toEqual({ entity: scout, inside: false });
+    expect(s.world.get(scout, Rider)).toEqual({ vehicle: cart, boarding: false, leaving: null });
+    expect(s.world.has(scout, JobAssignment)).toBe(false);
+    s.run(ATTACH_WALK_TICKS);
+    expect(nodeOf(s, scout)).not.toEqual(CART_DOOR);
+    boardOut(s, cart, scout);
+    expect(s.world.has(scout, Position)).toBe(false); // a passenger steps in unasked
+    expect(s.world.get(cart, Vehicle).task).toBe('none'); // and the cart stands until ordered
+  });
+
+  it('a Shift-queued attach waits for the walk ahead, then seats the settler, whose queue lapses', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    const stop = { hx: 2, hy: 2 };
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: stop.hx, y: stop.hy }));
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: scout, vehicle: cart, queued: true }));
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 6, y: 10, queued: true }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(s.world.get(scout, OrderQueue).orders).toHaveLength(2);
+    for (let t = 0; t < CARRIER_WALK_TICKS && !s.world.has(scout, Rider); t++) s.step();
+    expect(nodeOf(s, scout)).toEqual(stop);
+    expect(seatOf(s, cart, scout)).toEqual({ entity: scout, inside: false });
+    s.step();
+    expect(s.world.has(scout, OrderQueue)).toBe(false);
+    boardOut(s, cart, scout);
+  });
+
+  it('keeps a carrier by the door of its cart until the cart asks it in', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const carrier = spawnSettler(s, 2, 6, CARRIER);
+    attach(s, carrier, cart);
+    s.run(CARRIER_WALK_TICKS);
+    expect(nodeOf(s, carrier)).toEqual(CART_DOOR);
+    expect(seatOf(s, cart, carrier)?.inside).toBe(false);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    boardOut(s, cart, carrier, CARRIER_WALK_TICKS);
+  });
+
+  it('ends the chat the settler was in and boards from beside a door another settler holds', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const door = s.vehicleView(ship)?.door;
+    if (door === undefined || door === null) throw new Error('the ship spawned with no door');
+    const bystander = spawnSettler(s, door.hx, door.hy, SOLDIER);
+    const soldier = spawnSettler(s, 2, 6, SOLDIER);
+    s.world.add(soldier, Chat, {
+      partner: bystander,
+      kind: 'company',
+      seeker: true,
+      talking: false,
+      speaks: true,
+    });
+    s.world.add(bystander, Chat, {
+      partner: soldier,
+      kind: 'company',
+      seeker: false,
+      talking: false,
+      speaks: false,
+    });
+    attach(s, soldier, ship);
+    expect(s.world.has(soldier, Chat)).toBe(false);
+    expect(s.world.has(bystander, Chat)).toBe(false);
+    boardOut(s, ship, soldier, SAIL_TICKS);
+    expect(nodeOf(s, bystander)).toEqual(door);
+  });
+
+  it('refuses a trade the type does not list with cannotEnter and a full vehicle with noRoom', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const woodcutter = spawnSettler(s, 2, 6, WOODCUTTER);
+    attach(s, woodcutter, cart);
+    expect(riderRefusals(s)).toEqual([`${woodcutter}:cannotEnter:${P0}`]);
+    expect(s.world.has(woodcutter, Rider)).toBe(false);
+    const first = spawnSettler(s, 2, 8);
+    const second = spawnSettler(s, 2, 10);
+    attach(s, first, cart);
+    attach(s, second, cart);
+    expect(crewRefusals(s)).toEqual([`${cart}:noRoom:${P0}`]);
+    expect(s.world.has(second, Rider)).toBe(false);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(first);
+  });
+
+  it("is refused for another player's vehicle and for a settler of another seat", () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6, P1);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    attach(s, scout, cart, P1);
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(vehiclePassengers(s.world.get(cart, Vehicle))).toEqual([]);
+  });
+
+  it('canAttachToVehicle answers as the order would, with the walk to the door judged ahead', () => {
+    const s = sim(splitMap());
+    const cart = spawn(s, HANDCART, 4, 6);
+    const scout = spawnSettler(s, 2, 6);
+    const woodcutter = spawnSettler(s, 2, 8, WOODCUTTER);
+    const far = spawnSettler(s, 20, 6);
+    const foreign = spawnSettler(s, 2, 10, SCOUT, P1);
+    expect(s.canAttachToVehicle(scout, cart)).toBe(true);
+    expect(s.canAttachToVehicle(woodcutter, cart)).toBe(false); // the type lists no woodcutter
+    expect(s.canAttachToVehicle(far, cart)).toBe(false); // the other landmass
+    expect(s.canAttachToVehicle(foreign, cart)).toBe(false); // another seat's settler
+    expect(s.canAttachToVehicle(scout, scout)).toBe(false); // not a vehicle
+    attach(s, scout, cart);
+    expect(s.canAttachToVehicle(scout, cart)).toBe(true); // its own seat
+    const second = spawnSettler(s, 2, 12);
+    expect(s.canAttachToVehicle(second, cart)).toBe(false); // the one seat is taken
+    const ship = spawn(s, SHIP_SMALL, 4, 12);
+    expect(s.canAttachToVehicle(second, ship)).toBe(true);
+    expect(s.vehiclesAttachableBy(second)).toEqual([ship]); // the batched read lists what the rule admits
+    s.world.mut(ship, Vehicle).moored = false; // a ship at sea has no door to walk to
+    expect(s.canAttachToVehicle(second, ship)).toBe(false);
+    expect(s.vehiclesAttachableBy(second)).toEqual([]);
+  });
+
+  it('promotes the first ordinary passenger when the commander detaches', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const first = spawnSettler(s, 2, 6);
+    const second = spawnSettler(s, 2, 8);
+    attach(s, first, ship);
+    attach(s, second, ship);
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(first);
+    s.enqueue(playerCommand(P0, { kind: 'detachFromVehicle', entity: first }));
+    s.step();
+    expect(s.world.has(first, Rider)).toBe(false);
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(second);
+    expect(vehiclePassengers(s.world.get(ship, Vehicle))).toHaveLength(1);
+  });
+});
+
+describe('boarding', () => {
+  it('holds a goto until the crew is inside, then drives; the rider leaves the map and rides along', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('waitsForHuman');
+    expect(s.world.get(cart, Vehicle).heldGoal).toEqual({ hx: 4, hy: 12 });
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    // The route the order was judged by is held, and the boarding drives on it without a second search.
+    const held = s.world.get(cart, VehicleRoute).nodes;
+    expect(held.at(-1)).toEqual({ hx: 4, hy: 12 });
+    boardOut(s, cart, scout);
+    expect(s.world.has(scout, Position)).toBe(false);
+    expect(s.world.get(scout, Rider)).toEqual({ vehicle: cart, boarding: false, leaving: null });
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('none');
+    expect(s.world.has(cart, VehicleDrive)).toBe(true);
+    expect(s.world.get(cart, VehicleRoute).nodes).toBe(held);
+    s.run(SAIL_TICKS);
+    expect(nodeOf(s, cart)).toEqual({ hx: 4, hy: 12 });
+    expect(s.world.has(scout, Position)).toBe(false);
+    const saved = serializeSaveGame(exportSaveGame(s));
+    const restored = restoreSimulation(parseSaveGame(JSON.parse(saved)), {
+      content: testContent(),
+      map: shoreMap(),
+    });
+    expect(restored.hashState()).toBe(s.hashState());
+    expect(restored.world.get(scout, Rider)).toEqual({ vehicle: cart, boarding: false, leaving: null });
+  });
+
+  it("refuses a goto without a commander and boards a moored ship's crew at its mooring", () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: ship, x: 26, y: 12 }));
+    s.step();
+    expect(
+      s.events.current().some((ev) => ev.kind === 'vehicleMoveRefused' && ev.reason === 'noCommander'),
+    ).toBe(true);
+    const first = spawnSettler(s, 2, 6);
+    const second = spawnSettler(s, 2, 8);
+    attach(s, first, ship);
+    attach(s, second, ship);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: first }));
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: second }));
+    boardOut(s, ship, first, SAIL_TICKS);
+    boardOut(s, ship, second, SAIL_TICKS);
+    expect(s.world.has(first, Position)).toBe(false);
+    expect(s.world.has(second, Position)).toBe(false);
+    expect(vehiclePassengers(s.world.get(ship, Vehicle)).every((seat) => seat.inside)).toBe(true);
+  });
+
+  it('detaches a rider on another continent instead of waiting for it', () => {
+    const s = sim(splitMap());
+    const cart = spawn(s, HANDCART, 4, 6);
+    const near = spawnSettler(s, 2, 6);
+    const far = spawnSettler(s, 20, 6);
+    attach(s, near, cart);
+    attach(s, far, cart);
+    // The far scout took the commander slot? No: the near one attached first and commands; the far one
+    // is refused a second seat on a one-seat cart, so seat it on a ship instead.
+    expect(s.world.has(far, Rider)).toBe(false);
+    const ship = spawn(s, SHIP_SMALL, 4, 12);
+    attach(s, far, ship);
+    attach(s, near, ship);
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(far);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: ship, x: 4, y: 20 }));
+    s.step();
+    s.step();
+    expect(s.world.has(far, Rider)).toBe(false);
+    expect(nodeOf(s, far)).toEqual({ hx: 20, hy: 6 });
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(near);
+  });
+
+  it('keeps a rider whose position rounds onto the sea beside the shore it walks, judging its continent on ground', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const scout = spawnSettler(s, 2, 8);
+    attach(s, scout, ship);
+    // A walker mid-step on a one-node strip of shore can round onto the water beside its leg.
+    const sea = positionOfNode(SHORE_CELL * 2, 8);
+    const pos = s.world.mut(scout, Position);
+    pos.x = sea.x;
+    pos.y = sea.y;
+    boardCrew(s.world, ctxOf(s), ship);
+    expect(seatOf(s, ship, scout)).toEqual({ entity: scout, inside: false });
+    expect(s.world.get(scout, Rider).vehicle).toBe(ship);
+  });
+
+  it('boards a starving carrier when the cart asks: the order outranks the need', () => {
+    const s = sim();
+    s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: true });
+    const cart = spawn(s, HANDCART, 12, 6);
+    const carrier = spawnSettler(s, 12, 6, CARRIER);
+    attach(s, carrier, cart);
+    s.enqueue(adminCommand({ kind: 'debugSetNeeds', target: carrier, hunger: STARVING_PCT }));
+    s.run(ATTACH_WALK_TICKS);
+    expect(s.world.has(carrier, Position)).toBe(true);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    boardOut(s, cart, carrier, CARRIER_WALK_TICKS);
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('none');
+  });
+
+  it('detaches a selected group from its vehicles together without taking a rival rider', () => {
+    const s = sim();
+    const carts = [spawn(s, HANDCART, 12, 6), spawn(s, HANDCART, 12, 12)];
+    const riders = carts.map((cart) => {
+      const rider = spawnSettler(s, 2, 6);
+      attach(s, rider, cart);
+      return rider;
+    });
+    const rivalCart = spawn(s, HANDCART, 16, 6, P1);
+    const rival = spawnSettler(s, 2, 12, SCOUT, P1);
+    attach(s, rival, rivalCart, P1);
+    expect(riders.every((rider) => s.world.has(rider, Rider))).toBe(true);
+    s.enqueue(
+      playerCommand(P0, {
+        kind: 'unitActionGroup',
+        members: [...riders, rival].map((entity) => ({ entity })),
+        action: { kind: 'detachFromVehicle' },
+      }),
+    );
+    s.step();
+    for (const rider of riders) expect(s.world.has(rider, Rider)).toBe(false);
+    for (const cart of carts) expect(vehiclePassengers(s.world.get(cart, Vehicle))).toHaveLength(0);
+    expect(s.world.get(rival, Rider).vehicle).toBe(rivalCart);
+  });
+
+  it('lets a held goto lapse with noCommander when its only rider detaches before boarding', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('waitsForHuman');
+    s.enqueue(playerCommand(P0, { kind: 'detachFromVehicle', entity: scout }));
+    s.step();
+    expect(moveRefusals(s)).toEqual([`${cart}:noCommander:${P0}`]);
+    expect(s.world.get(cart, Vehicle).task).toBe('none');
+    expect(s.world.get(cart, Vehicle).heldGoal).toBeNull();
+    s.run(ATTACH_WALK_TICKS);
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    expect(nodeOf(s, cart)).toEqual({ hx: 12, hy: 6 });
+  });
+
+  it('stops asking the crew in when an attack held for boarding is stopped', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const carrier = spawnSettler(s, 2, 6, CARRIER);
+    attach(s, carrier, cart);
+    // The state an attack order leaves while its crew is outside: no held goal, the boarding task.
+    s.world.mut(cart, Vehicle).task = 'waitsForHuman';
+    s.step();
+    expect(s.world.get(carrier, Rider).boarding).toBe(true);
+    s.enqueue(playerCommand(P0, { kind: 'stopVehicle', vehicle: cart }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('interrupted');
+    expect(s.world.get(carrier, Rider).boarding).toBe(false);
+    s.run(CARRIER_WALK_TICKS);
+    expect(seatOf(s, cart, carrier)?.inside).toBe(false); // a carrier waits by the door unasked
+  });
+
+  it('boards a rider the router stood in beside the door, with the door empty', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const door = s.vehicleView(ship)?.door;
+    if (door === undefined || door === null) throw new Error('the ship spawned with no door');
+    const beside = stepHex(door, 'west');
+    const soldier = spawnSettler(s, beside.hx, beside.hy, SOLDIER);
+    attach(s, soldier, ship);
+    // A crowd took the door when this rider routed to it: the router sent it to a free neighbour, where
+    // it has arrived.
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('no terrain');
+    clearNavState(s.world, soldier);
+    s.world.add(soldier, StandIn, {
+      goal: terrain.nodeAt(door.hx, door.hy),
+      at: terrain.nodeAt(beside.hx, beside.hy),
+    });
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: soldier }));
+    boardOut(s, ship, soldier, 2);
+    expect(s.world.has(soldier, Position)).toBe(false);
+  });
+
+  it('boardVehicle steps a rider standing on the door in without a goto', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 12, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, cart, scout);
+    expect(s.world.has(scout, Position)).toBe(false);
+  });
+});
+
+describe('vehiclesAtWork', () => {
+  const waitsOnCrew: VehicleWorkFilter = (_content, state) => state.task === 'waitsForHuman';
+
+  it('lists the vehicles a filter admits in ascending id and follows their task writes', () => {
+    const s = sim();
+    const first = spawn(s, HANDCART, 12, 6);
+    const second = spawn(s, HANDCART, 12, 14);
+    const content = s.content;
+    expect(vehiclesAtWork(s.world, content, waitsOnCrew)).toEqual([]);
+    s.world.mut(second, Vehicle).task = 'waitsForHuman';
+    s.world.mut(first, Vehicle).task = 'waitsForHuman';
+    expect(vehiclesAtWork(s.world, content, waitsOnCrew)).toEqual([first, second]);
+    s.world.mut(first, Vehicle).facing = 1; // a write that keeps the task keeps the vehicle listed
+    s.world.mut(second, Vehicle).task = 'none';
+    expect(vehiclesAtWork(s.world, content, waitsOnCrew)).toEqual([first]);
+    s.world.destroy(first);
+    expect(vehiclesAtWork(s.world, content, waitsOnCrew)).toEqual([]);
+    expect(s.world.verifyCaches()).toEqual([]);
+  });
+});
+
+describe('leaving', () => {
+  it('detaches a passenger ahead of an ordinary order and refuses to leave a ship at sea with cannotLeave', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const captain = spawnSettler(s, 2, 6);
+    const scout = spawnSettler(s, 2, 8);
+    attach(s, captain, ship);
+    attach(s, scout, ship);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: captain }));
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, ship, scout, SAIL_TICKS);
+    boardOut(s, ship, captain, SAIL_TICKS);
+    s.world.mut(ship, Vehicle).moored = false; // cast off
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 2, y: 6 }));
+    s.step();
+    expect(riderRefusals(s)).toEqual([`${scout}:cannotLeave:${P0}`]);
+    expect(s.world.has(scout, Position)).toBe(false);
+    expect(s.world.has(scout, Rider)).toBe(true);
+    s.world.mut(ship, Vehicle).moored = true;
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 2, y: 6 }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(captain);
+    expect(vehiclePassengers(s.world.get(ship, Vehicle))).toHaveLength(1);
+    const mooring = s.world.get(ship, Vehicle).mooring;
+    expect(mooring).not.toBeNull();
+    expect(s.world.has(scout, Position)).toBe(true);
+    s.run(SAIL_TICKS);
+    expect(nodeOf(s, scout)).toEqual({ hx: 2, hy: 6 }); // the order ran after the detach
+  });
+
+  it('halts a cart whose only commander is taken off it mid-drive by a job order', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 26 }));
+    boardOut(s, cart, scout);
+    for (let t = 0; t < SAIL_TICKS && !s.world.has(cart, VehicleDrive); t++) s.step();
+    s.run(ATTACH_WALK_TICKS); // a few legs under way
+    s.enqueue(playerCommand(P0, { kind: 'setJob', entity: scout, jobType: WOODCUTTER }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBeNull();
+    s.run(SAIL_TICKS);
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    const stopped = nodeOf(s, cart);
+    expect(stopped).not.toEqual({ hx: 4, hy: 26 });
+    s.run(SAIL_TICKS);
+    expect(nodeOf(s, cart)).toEqual(stopped);
+  });
+
+  it('halts a cart whose only commander is removed mid-drive', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 26 }));
+    boardOut(s, cart, scout);
+    for (let t = 0; t < SAIL_TICKS && !s.world.has(cart, VehicleDrive); t++) s.step();
+    s.run(ATTACH_WALK_TICKS);
+    removeSettlerSilently(s.world, scout);
+    s.run(SAIL_TICKS);
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    expect(nodeOf(s, cart)).not.toEqual({ hx: 4, hy: 26 });
+  });
+
+  it("hands the commander's walk order to its vehicle, which boards it and drives, cargo and all", () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    stockVehicleGoods(s.world, cart, s.content, CART_GOOD, CART_LOAD);
+    const scout = spawnSettler(s, 2, 6);
+    attach(s, scout, cart);
+    s.run(ATTACH_WALK_TICKS); // still on the attach walk to the door
+    expect(s.world.has(scout, PlayerOrder)).toBe(true);
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 4, y: 6 }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('waitsForHuman');
+    expect(s.world.get(cart, Vehicle).heldGoal).toEqual({ hx: 4, hy: 6 });
+    expect(s.world.has(scout, Rider)).toBe(true);
+    expect(s.world.has(scout, PlayerOrder)).toBe(false); // the walk is the cart's now
+    expect(s.world.get(scout, Rider).boarding).toBe(true);
+    boardOut(s, cart, scout);
+    s.run(SAIL_TICKS);
+    expect(s.world.isAlive(cart)).toBe(true);
+    expect(nodeOf(s, cart)).toEqual({ hx: 4, hy: 6 });
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    expect(s.world.get(cart, VehicleStock).lines.get(CART_GOOD)?.current).toBe(CART_LOAD);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(scout);
+    expect(s.world.has(scout, Position)).toBe(false); // still aboard: no route steps it out
+  });
+
+  it("leaves a vehicle a script handed to another player alone on its old commander's walk order", () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 12, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, cart, scout);
+    s.world.mut(cart, Owner).player = P1; // ChangeVehiclesPlayerId keeps the crew's owner
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 4, y: 6 }));
+    s.run(2);
+    expect(s.world.has(cart, VehicleDrive)).toBe(false);
+    expect(s.world.get(cart, Vehicle).heldGoal).toBeNull();
+  });
+
+  it("re-aims a driving vehicle on its commander's walk order and refuses one the vehicle cannot take", () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 12, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 6 }));
+    boardOut(s, cart, scout);
+    s.run(2);
+    expect(s.world.has(cart, VehicleDrive)).toBe(true);
+    s.enqueue(playerCommand(P0, { kind: 'attackMoveUnit', entity: scout, x: 12, y: 12 }));
+    s.step();
+    expect(s.world.get(cart, VehicleDrive).goal).toEqual({ hx: 12, hy: 12 });
+    expect(s.world.has(scout, Position)).toBe(false);
+  });
+
+  it("sails a ship on its captain's walk order to water and refuses one to land", () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const captain = spawnSettler(s, 2, 6);
+    attach(s, captain, ship);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: captain }));
+    boardOut(s, ship, captain, SAIL_TICKS);
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: captain, x: 2, y: 6 }));
+    s.step();
+    expect(moveRefusals(s)).toEqual([`${ship}:noPath:${P0}`]);
+    expect(s.world.has(captain, Position)).toBe(false);
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: captain, x: 26, y: 20 }));
+    s.step();
+    expect(s.world.get(ship, VehicleDrive).goal).toEqual({ hx: 26, hy: 20 });
+    expect(s.world.get(ship, Vehicle).moored).toBe(false);
+  });
+
+  it("keeps the commander seated when its vehicle refuses the walk order's point", () => {
+    // A point on the far landmass: the vehicle refuses with noPath and nobody walks off on foot.
+    const s = sim(splitMap());
+    const cart = spawn(s, HANDCART, 2, 2);
+    const scout = spawnSettler(s, 2, 2);
+    attach(s, scout, cart);
+    s.run(BOARD_TICKS);
+    s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: scout, x: 2 * MAP_CELLS - 4, y: 2 }));
+    s.step();
+    expect(moveRefusals(s)).toEqual([`${cart}:noPath:${P0}`]);
+    expect(s.world.has(scout, Rider)).toBe(true);
+    expect(s.world.has(scout, PlayerOrder)).toBe(false);
+    expect(s.world.get(cart, Vehicle).heldGoal).toBeNull();
+  });
+
+  it('unloadPeople puts everyone aboard onto the door node and frees them', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 12, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, cart, scout);
+    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: cart }));
+    s.step();
+    expect(nodeOf(s, scout)).toEqual(CART_DOOR);
+    expect(s.world.has(scout, Rider)).toBe(false);
+    expect(vehiclePassengers(s.world.get(cart, Vehicle))).toEqual([]);
+  });
+
+  it('unseats a rider that dies aboard, so the vehicle never meets a dead seat', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const first = spawnSettler(s, 2, 6);
+    const second = spawnSettler(s, 2, 8);
+    attach(s, first, ship);
+    attach(s, second, ship);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: first }));
+    boardOut(s, ship, first, SAIL_TICKS);
+    s.enqueue(adminCommand({ kind: 'debugKill', target: first }));
+    s.step();
+    expect(s.world.isAlive(first)).toBe(false);
+    expect(vehiclePassengers(s.world.get(ship, Vehicle)).map((seat) => seat.entity)).toEqual([second]);
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(second);
+  });
+
+  it('sets the crew of a destroyed cart down and drowns the crew of a ship at sea', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 12, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, cart, scout);
+    s.enqueue(adminCommand({ kind: 'debugKill', target: cart }));
+    s.step();
+    expect(s.world.isAlive(scout)).toBe(true);
+    expect(nodeOf(s, scout)).toEqual(CART_DOOR);
+    expect(s.world.has(scout, Rider)).toBe(false);
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const sailor = spawnSettler(s, 2, 8);
+    attach(s, sailor, ship);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: sailor }));
+    boardOut(s, ship, sailor, SAIL_TICKS);
+    s.world.mut(ship, Vehicle).moored = false;
+    s.enqueue(adminCommand({ kind: 'debugKill', target: ship }));
+    s.step();
+    expect(s.world.isAlive(sailor)).toBe(false);
+  });
+});
+
+describe('carried vehicles', () => {
+  /** A cart with a scout aboard, standing on the shore beside a moored ship. */
+  function loadedCart(s: Simulation): { ship: Entity; cart: Entity; scout: Entity } {
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const cart = spawn(s, HANDCART, 10, 6);
+    const scout = spawnSettler(s, 10, 6);
+    attach(s, scout, cart);
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: scout }));
+    boardOut(s, cart, scout);
+    return { ship, cart, scout };
+  }
+
+  it('boards a small ship with its crew aboard and leaves it onto the shore', () => {
+    const s = sim();
+    const { ship, cart, scout } = loadedCart(s);
+    const mooring = s.world.get(ship, Vehicle).mooring;
+    if (mooring === null) throw new Error('the ship spawned unmoored');
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).task).toBe('boardsShip');
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: false }]);
+    s.run(SAIL_TICKS);
+    expect(s.world.has(cart, Position)).toBe(false);
+    expect(s.world.get(cart, Vehicle).carrier).toBe(ship);
+    expect(s.world.get(cart, Vehicle).task).toBe('none');
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: true }]);
+    expect(seatOf(s, cart, scout)?.inside).toBe(true); // the crew rides inside its own vehicle
+    expect(s.world.has(scout, Position)).toBe(false);
+    // Off a ship at sea, nobody leaves.
+    s.world.mut(ship, Vehicle).moored = false;
+    s.enqueue(playerCommand(P0, { kind: 'leaveCarrier', vehicle: cart }));
+    s.step();
+    expect(crewRefusals(s)).toEqual([`${cart}:cannotLeave:${P0}`]);
+    s.enqueue(playerCommand(P0, { kind: 'detachFromVehicle', entity: scout }));
+    s.step();
+    expect(riderRefusals(s)).toEqual([`${scout}:cannotLeave:${P0}`]);
+    s.world.mut(ship, Vehicle).moored = true;
+    s.enqueue(playerCommand(P0, { kind: 'leaveCarrier', vehicle: cart }));
+    s.step();
+    expect(nodeOf(s, cart)).toEqual(mooring);
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
+    expect(seatOf(s, cart, scout)?.inside).toBe(true);
+  });
+
+  it('a Shift-queued load waits for the drive ahead, then drives into the ship', () => {
+    const s = sim();
+    const { ship, cart } = loadedCart(s);
+    const stop = { hx: 6, hy: 10 };
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: stop.hx, y: stop.hy }));
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship, queued: true }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(cart, VehicleOrderQueue).orders).toHaveLength(1);
+    for (let t = 0; t < SAIL_TICKS && s.world.get(cart, Vehicle).carrier === null; t++) s.step();
+    expect(nodeOf(s, cart)).toEqual(stop);
+    s.run(SAIL_TICKS);
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: true }]);
+  });
+
+  it('skips a Shift-queued load into a ship a script handed to another player meanwhile', () => {
+    const s = sim();
+    const { ship, cart } = loadedCart(s);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 6, y: 10 }));
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship, queued: true }));
+    s.step();
+    s.world.mut(ship, Owner).player = P1;
+    for (let t = 0; t < SAIL_TICKS && s.world.has(cart, VehicleOrderQueue); t++) s.step();
+    s.run(SAIL_TICKS);
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(ship, Vehicle).vehicles.every((seat) => seat === null)).toBe(true);
+  });
+
+  it('drives on into the ship without a pause when its commander is removed on the way', () => {
+    const s = sim();
+    const { ship, cart, scout } = loadedCart(s);
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship }));
+    for (let t = 0; t < SAIL_TICKS && !s.world.has(cart, VehicleDrive); t++) s.step();
+    s.run(ATTACH_WALK_TICKS);
+    removeSettlerSilently(s.world, scout);
+    let paused = false;
+    for (let t = 0; t < SAIL_TICKS && s.world.has(cart, Position); t++) {
+      s.step();
+      if (s.world.has(cart, Position) && !s.world.has(cart, VehicleDrive)) paused = true;
+    }
+    expect(paused).toBe(false);
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: true }]);
+  });
+
+  it('refuses a carrier that does not list the vehicle, and drops a load the ship cannot take', () => {
+    const s = sim();
+    const { ship, cart } = loadedCart(s);
+    const catapult = spawn(s, CATAPULT, 6, 12);
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: catapult }));
+    s.step();
+    expect(crewRefusals(s)).toEqual([`${cart}:cannotAttach:${P0}`]);
+    s.world.mut(ship, Vehicle).moored = false;
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship }));
+    s.step(); // attached by the command, dropped by the boarding pass of the same tick
+    expect(crewRefusals(s)).toEqual([`${cart}:noRoom:${P0}`]);
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
+  });
+
+  it('clears the carrier slot when the carried vehicle is removed', () => {
+    const s = sim();
+    const { ship, cart, scout } = loadedCart(s);
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship }));
+    s.run(SAIL_TICKS);
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([{ entity: cart, inside: true }]);
+    s.enqueue(adminCommand({ kind: 'debugKill', target: cart }));
+    s.step();
+    expect(s.world.isAlive(cart)).toBe(false);
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
+    expect(nodeOf(s, scout)).toEqual(s.world.get(ship, Vehicle).mooring); // set down on the ship's door
+    expect(s.world.has(scout, Rider)).toBe(false);
+  });
+
+  it('a civilist may crew the ship but not the cart it rides', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 10, 6);
+    const civilist = spawnSettler(s, 10, 6, CIVILIST);
+    attach(s, civilist, cart);
+    expect(riderRefusals(s)).toEqual([`${civilist}:cannotEnter:${P0}`]);
+  });
+});
+
+describe('an authored seat', () => {
+  it('seats a spawned settler on the vehicle standing on its anchor, the first as commander, aboard when inside', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const mooring = s.world.get(ship, Vehicle).mooring;
+    if (mooring === null) throw new Error('the ship should spawn moored');
+    for (const inside of [true, false]) {
+      s.enqueueSetup({
+        kind: 'spawnSettler',
+        jobType: SCOUT,
+        x: 2,
+        y: 6,
+        tribe: VIKING,
+        owner: P0,
+        vehicle: { x: 22, y: 8, inside },
+      });
+    }
+    s.step();
+    const [first, second] = [...s.world.query(Settler)];
+    if (first === undefined || second === undefined) throw new Error('two settlers expected');
+    expect(vehicleCommander(s.world.get(ship, Vehicle))).toBe(first);
+    expect(seatOf(s, ship, first)).toEqual({ entity: first, inside: true });
+    expect(s.world.has(first, Position)).toBe(false);
+    expect(seatOf(s, ship, second)).toEqual({ entity: second, inside: false });
+    expect(s.world.get(second, Rider)).toEqual({ vehicle: ship, boarding: false, leaving: null });
+    expect(nodeOf(s, second)).not.toBeNull(); // walking to the door from where it spawned
+  });
+
+  it('leaves a settler where it spawned when no vehicle stands on the anchor or the gate refuses it', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    s.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType: SCOUT,
+      x: 2,
+      y: 6,
+      tribe: VIKING,
+      owner: P0,
+      vehicle: { x: 5, y: 5, inside: true },
+    });
+    s.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType: CIVILIST,
+      x: 2,
+      y: 8,
+      tribe: VIKING,
+      owner: P0,
+      vehicle: { x: 12, y: 6, inside: true },
+    });
+    s.step();
+    const settlers = [...s.world.query(Settler)];
+    expect(settlers).toHaveLength(2);
+    for (const e of settlers) {
+      expect(s.world.has(e, Rider)).toBe(false);
+      expect(s.world.has(e, Position)).toBe(true);
+    }
+    expect(vehiclePassengers(s.world.get(cart, Vehicle))).toHaveLength(0);
+  });
+});

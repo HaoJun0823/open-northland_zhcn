@@ -4,7 +4,12 @@ import { Position } from '../../../sim/src/components/index.js';
 import type { Entity } from '../../../sim/src/ecs/world.js';
 import { nodeOfPosition, type Simulation, SnapshotMirror } from '../../../sim/src/index.js';
 import { createSignpost } from '../../../sim/src/systems/index.js';
-import { HUT, mappedSim, terrainOf, VIKING } from '../../../sim/test/footprint/building-placement/support.js';
+import {
+  HUT,
+  mappedSim,
+  terrainOf,
+  VIKING,
+} from '../../../sim/test/systems/footprint/building-placement/support.js';
 import { networkInventoryOf } from '../../src/data/hud/inventory.js';
 import { signpostOverlayIndex } from '../../src/data/signposts.js';
 

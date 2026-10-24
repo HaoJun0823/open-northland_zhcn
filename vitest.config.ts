@@ -38,7 +38,7 @@ const SLOW_APP_TESTS = [
   'packages/app/test/net/relay-slow-display.test.ts',
 ];
 const SLOW_CORE_TESTS = [
-  'packages/sim/test/movement/army-geometry.test.ts',
+  'packages/sim/test/systems/movement/army-geometry.test.ts',
   'packages/net-server/test/host/socket-recovery.test.ts',
   'packages/net-server/test/host/army-socket.test.ts',
   'packages/net-server/test/relay/army-session.test.ts',

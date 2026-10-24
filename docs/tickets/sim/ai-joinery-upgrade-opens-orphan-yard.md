@@ -21,6 +21,6 @@ production itself. No orphan-yard cleanup exists in the craft allocator.
 
 ## Verify
 
-In `packages/sim/test/systems/computer-player/garrison-and-craft.cases.ts`, upgrade a joinery and
+In `packages/sim/test/systems/computer-player/modules/garrison-and-craft.cases.ts`, upgrade a joinery and
 verify its first cycle respects the new role's selection. An unselected handcart yard is torn down
 at the next craft decision, while a selected catapult or ship yard remains.

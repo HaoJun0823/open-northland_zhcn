@@ -34,4 +34,4 @@ flag 1), so the two are not interchangeable to the consumer.
 ## Verify
 
 `npm test`, `npm run check`. A changed mapping moves no golden (no golden fixture stocks a dish), so add
-a case to `packages/sim/test/economy/dish-export.test.ts` for whichever dish changes form.
+a case to `packages/sim/test/systems/economy/production/dish-export.test.ts` for whichever dish changes form.

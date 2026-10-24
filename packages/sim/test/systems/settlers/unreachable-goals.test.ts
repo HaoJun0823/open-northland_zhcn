@@ -1,0 +1,204 @@
+import { describe, expect, it } from 'vitest';
+import {
+  CurrentAtomic,
+  MoveGoal,
+  PathRequest,
+  Resource,
+  SiteAssignment,
+  Stockpile,
+  Stranded,
+  UnreachableGoals,
+} from '../../../src/components/index.js';
+import type { Entity } from '../../../src/ecs/world.js';
+import { type NodeId, Simulation } from '../../../src/index.js';
+import type { SystemContext } from '../../../src/systems/index.js';
+import { dropPath } from '../../../src/systems/movement/nav-state.js';
+import {
+  isUnreachableGoal,
+  noteUnreachableGoal,
+  UNREACHABLE_GOAL_MEMO_SIZE,
+  UNREACHABLE_GOAL_MEMO_TICKS,
+  unreachableGoals,
+} from '../../../src/systems/settlers/unreachable-goals.js';
+import { ctxOf } from '../../fixtures/context.js';
+import { grassNodeMap } from '../../fixtures/terrain.js';
+import { ownedWoodcutter, sim, woodAt } from '../conflict/orders/support.js';
+import {
+  builderAt,
+  constructionContent,
+  HOUSE,
+  STONE,
+  siteAt,
+  WOOD,
+} from '../economy/construction/system/support.js';
+
+/**
+ * The failed-goal memo: a settler whose route fails must not re-choose the same target on its next
+ * plan. Without it the planner's deterministic nearest-first pick returns the identical unreachable
+ * node every retry, and the settler loops park→re-pick→fail forever - observed on a real map as an AI
+ * clay collector idle from tick ~20k with 50 routable deposits inside its own flag radius.
+ */
+
+const cell = (id: number): NodeId => id as NodeId;
+
+/** `ctxOf` reads the sim's live tick; the memo's expiry needs an arbitrary one. */
+function ctxAt(s: Simulation, tick: number): SystemContext {
+  return { ...ctxOf(s), tick };
+}
+
+describe('the failed-goal memo', () => {
+  it('remembers a failed goal until it expires', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    noteUnreachableGoal(s.world, ctxAt(s, 0), e, cell(42));
+
+    expect(isUnreachableGoal(unreachableGoals(s.world, ctxAt(s, 0), e), cell(42))).toBe(true);
+    expect(unreachableGoals(s.world, ctxAt(s, UNREACHABLE_GOAL_MEMO_TICKS - 1), e)).not.toBeNull();
+    expect(unreachableGoals(s.world, ctxAt(s, UNREACHABLE_GOAL_MEMO_TICKS), e)).toBeNull();
+  });
+
+  it('remembers several goals, so a settler ringed by walled-off targets cannot cycle between two', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    const ctx = ctxAt(s, 0);
+    noteUnreachableGoal(s.world, ctx, e, cell(1));
+    noteUnreachableGoal(s.world, ctx, e, cell(2));
+
+    const memo = unreachableGoals(s.world, ctx, e);
+    expect(isUnreachableGoal(memo, cell(1))).toBe(true);
+    expect(isUnreachableGoal(memo, cell(2))).toBe(true);
+  });
+
+  it('caps the memo, evicting the least recent failure', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    const ctx = ctxAt(s, 0);
+    for (let i = 0; i <= UNREACHABLE_GOAL_MEMO_SIZE; i++) noteUnreachableGoal(s.world, ctx, e, cell(i));
+
+    const memo = unreachableGoals(s.world, ctx, e);
+    expect(memo).toHaveLength(UNREACHABLE_GOAL_MEMO_SIZE);
+    expect(isUnreachableGoal(memo, cell(0))).toBe(false); // the oldest went
+    expect(isUnreachableGoal(memo, cell(UNREACHABLE_GOAL_MEMO_SIZE))).toBe(true); // the newest stayed
+  });
+
+  it('refreshes a re-noted goal instead of storing it twice', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    noteUnreachableGoal(s.world, ctxAt(s, 0), e, cell(7));
+    noteUnreachableGoal(s.world, ctxAt(s, 10), e, cell(7));
+
+    expect(s.world.get(e, UnreachableGoals).entries).toHaveLength(1);
+    // Its deadline moved with the second failure, so it outlives the first note's window.
+    expect(
+      isUnreachableGoal(unreachableGoals(s.world, ctxAt(s, UNREACHABLE_GOAL_MEMO_TICKS + 5), e), cell(7)),
+    ).toBe(true);
+  });
+});
+
+/** Drive the sim until `done`, or fail loudly - a silent timeout would read as a passing assertion. */
+function stepUntil(s: ReturnType<typeof sim>, limit: number, done: () => boolean): void {
+  for (let i = 0; i < limit && !done(); i++) s.step();
+  if (!done()) throw new Error(`condition not reached within ${limit} ticks`);
+}
+
+function harvestedResource(s: ReturnType<typeof sim>, e: Entity): Entity | null {
+  const atomic = s.world.tryGet(e, CurrentAtomic);
+  return atomic?.effect.kind === 'harvest' ? atomic.effect.resource : null;
+}
+
+describe('the gatherer re-plan after a failed route', () => {
+  it('moves on to the next tree instead of re-choosing the one it could not reach', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    const UNTOUCHED = 5;
+    const near = woodAt(s, 3, 0, UNTOUCHED);
+    const far = woodAt(s, 8, 0, UNTOUCHED);
+
+    // Let the planner make its own nearest-first pick, then fail exactly that route - the state
+    // routing leaves behind when a goal turns out to be walled off by standing bodies: a flagged
+    // request and no route to play out.
+    stepUntil(s, 20, () => s.world.has(e, MoveGoal));
+    const doomed = s.world.get(e, MoveGoal).cell;
+    dropPath(s.world, e);
+    s.world.add(e, PathRequest, { start: s.world.get(e, MoveGoal).cell, goal: doomed, failed: true });
+
+    stepUntil(s, 400, () => harvestedResource(s, e) !== null);
+    expect(harvestedResource(s, e)).toBe(far); // the reachable tree, not the doomed nearer one
+    expect(s.world.get(near, Resource).remaining).toBe(UNTOUCHED); // the doomed tree was left standing
+    expect(s.world.has(e, Stranded)).toBe(false);
+  });
+
+  it('announces the goal it gave up, so the player can be told the settler lost its way', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    woodAt(s, 3, 0);
+
+    stepUntil(s, 20, () => s.world.has(e, MoveGoal));
+    const doomed = s.world.get(e, MoveGoal).cell;
+    s.world.add(e, PathRequest, { start: doomed, goal: doomed, failed: true });
+
+    const raised: Entity[] = [];
+    const collect = (): void => {
+      for (const ev of s.events.current()) {
+        if (ev.kind === 'settlerLost') raised.push(ev.entity);
+      }
+    };
+    for (let i = 0; i < 100 && raised.length === 0; i++) {
+      s.step();
+      collect();
+    }
+    expect(raised).toEqual([e]);
+
+    // Refusing the same goal again is the same give-up, so the settler says nothing more about it.
+    if (!s.world.has(e, PathRequest)) {
+      s.world.add(e, PathRequest, { start: doomed, goal: doomed, failed: true });
+    }
+    for (let i = 0; i < 100; i++) {
+      s.step();
+      collect();
+    }
+    expect(raised).toEqual([e]);
+  });
+
+  it('takes the skipped target back once the memo expires', () => {
+    const s = sim();
+    const e = ownedWoodcutter(s, 0, 0);
+    woodAt(s, 3, 0);
+
+    stepUntil(s, 20, () => s.world.has(e, MoveGoal));
+    const doomed = s.world.get(e, MoveGoal).cell;
+    s.world.add(e, PathRequest, { start: doomed, goal: doomed, failed: true });
+    stepUntil(s, 100, () => s.world.has(e, UnreachableGoals));
+
+    // With no alternative tree the settler idles while the memo holds, then resumes on expiry -
+    // a transient blockage (a colleague in the only doorway) must not retire the node forever.
+    stepUntil(s, UNREACHABLE_GOAL_MEMO_TICKS + 400, () => harvestedResource(s, e) !== null);
+    expect(harvestedResource(s, e)).not.toBeNull();
+  });
+});
+
+describe('the builder re-plan after a failed stand route', () => {
+  it('raises the second site instead of re-picking the one whose stand it could not reach', () => {
+    // Sites are bucketed by their finished door, but site routes walk PERIMETER stands - the veto must
+    // probe the stand (unreachableSiteStand), or a failed site route retires a cell no pick compares.
+    const s = new Simulation({ seed: 1, content: constructionContent(), map: grassNodeMap(24, 4) });
+    const near = siteAt(s, HOUSE, 2, 0);
+    const far = siteAt(s, HOUSE, 8, 0);
+    for (const site of [near, far]) {
+      s.world.mut(site, Stockpile).amounts.set(STONE, 2);
+      s.world.mut(site, Stockpile).amounts.set(WOOD, 1);
+    }
+    const builder = builderAt(s, 0, 0);
+
+    // The builder heads for the nearer site's stand to work there; fail exactly that route (a
+    // really-failed walk leaves a failed request and no path to follow).
+    stepUntil(s, 20, () => s.world.has(builder, MoveGoal));
+    expect(s.world.get(builder, SiteAssignment).site).toBe(near);
+    const doomed = s.world.get(builder, MoveGoal).cell;
+    dropPath(s.world, builder);
+    s.world.add(builder, PathRequest, { start: doomed, goal: doomed, failed: true });
+
+    // Park, shed, memo: the re-pick probes the stand it would walk and moves the crew to the far site.
+    stepUntil(s, 400, () => s.world.tryGet(builder, SiteAssignment)?.site === far);
+  });
+});

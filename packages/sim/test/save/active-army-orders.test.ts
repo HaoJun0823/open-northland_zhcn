@@ -12,8 +12,15 @@ import {
   serializeSaveGame,
   worldDistance,
 } from '../../src/index.js';
-import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from '../conflict/melee-engagement/support.js';
 import { testContent } from '../fixtures/content.js';
+import {
+  fighterAt,
+  grassMap,
+  P0,
+  P1,
+  VIKING,
+  WOODCUTTER,
+} from '../systems/conflict/melee/engagement/support.js';
 
 function restored(original: Simulation, width: number, height: number): Simulation {
   expect(original.commands.pendingCount).toBe(0);

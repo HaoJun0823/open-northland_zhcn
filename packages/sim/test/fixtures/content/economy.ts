@@ -361,7 +361,7 @@ export const economyContent = {
       // carcass tests need: its ground is the HUNTER_WORK_FLAG_RADIUS circle around it, and its store
       // decides which goods it forages at all. Named for what it models, not after an original
       // building: the owned copy has no hunting hut (hunters work out of the HQ and the stocks).
-      // typeId 24, unplaced by any golden (23 is the tower job-system.test.ts appends).
+      // typeId 24, unplaced by any golden.
       typeId: 24,
       id: 'meat_workplace',
       kind: 'workplace',

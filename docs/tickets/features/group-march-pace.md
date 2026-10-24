@@ -42,7 +42,7 @@ about twice its single-file length and would arrive piecemeal. The outcome needs
 
 - A headless replay of Wielka Inwazja's crusade (`SendHuman 100 412 350` from the camp at 111,162):
   for most of the march the band stays several nodes wide and no longer than a few ranks.
-- `packages/sim/test/movement/army-geometry.test.ts` and `army-routing.test.ts` keep their spread,
+- `packages/sim/test/systems/movement/army-geometry.test.ts` and `army-routing.test.ts` keep their spread,
   distinct-slot and search-budget guarantees.
 - A paced group must not cost a route search per member per tick; report the expansions of the
   1000-soldier army tests before and after.

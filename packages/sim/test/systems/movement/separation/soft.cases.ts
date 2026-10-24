@@ -1,0 +1,329 @@
+import { describe, expect, it } from 'vitest';
+import {
+  Building,
+  Engagement,
+  MoveGoal,
+  Obstructed,
+  Owner,
+  PathFollow,
+  PathRequest,
+  PathRoute,
+  Position,
+} from '../../../../src/components/index.js';
+import { fx } from '../../../../src/core/fixed.js';
+import { positionOfNode } from '../../../../src/index.js';
+import { positionXOfWorld } from '../../../../src/nav/halfcell.js';
+import { HALF_ROW, worldDistance, worldX } from '../../../../src/nav/world-metric.js';
+import { separationSystem } from '../../../../src/systems/movement/collision/separation.js';
+import { ctxOf } from '../../../fixtures/context.js';
+import {
+  ANY_BUILDING_TYPE,
+  nodeOf,
+  orderTo,
+  P0,
+  P1,
+  SOLDIER,
+  settlerAt,
+  sim,
+  VIKING,
+  WOODCUTTER,
+  walkStraightTo,
+  wallAt,
+} from './support.js';
+
+describe('unit body collision - soft and civilian traffic', () => {
+  it.each(['shared-goal', 'first-engaged', 'second-engaged'] as const)(
+    'aligned neighbours yield along their heading for %s',
+    (situation) => {
+      const s = sim();
+      const a = settlerAt(s, 6, 6, SOLDIER, P0);
+      const b = settlerAt(s, 6, 6, SOLDIER, P0);
+      const rows = [fx.fromFloat(2.875), fx.fromFloat(3.125)];
+      const startWX = fx.fromInt(3);
+      const terrain = s.terrain;
+      if (terrain === undefined) throw new Error('mapped separation fixture');
+      for (const [i, entity] of [a, b].entries()) {
+        const y = rows[i];
+        if (y === undefined) throw new Error('one position per walker');
+        s.world.add(entity, Position, { x: positionXOfWorld(startWX, y), y });
+        const goalY = situation === 'shared-goal' ? fx.fromInt(3) : y;
+        s.world.add(entity, PathRoute, {
+          waypoints: [
+            { x: positionXOfWorld(fx.fromInt(8), y), y, node: terrain.nodeAt(16, 6) },
+            { x: positionXOfWorld(fx.fromInt(10), goalY), y: goalY, node: terrain.nodeAt(20, 6) },
+          ],
+        });
+        s.world.add(entity, PathFollow, { index: 0, legElapsed: 0, legCost: 0 });
+      }
+      if (situation !== 'shared-goal')
+        s.world.add(situation === 'first-engaged' ? a : b, Engagement, { repathAt: 0 });
+      separationSystem(s.world, ctxOf(s));
+      // A horizontal brake round-trips world Y through the fixed grid projection (at most two ulps),
+      // without the hundreds of ulps a lateral overlap split would apply here.
+      expect(Math.abs(s.world.get(a, Position).y - (rows[0] ?? 0))).toBeLessThanOrEqual(2);
+      expect(Math.abs(s.world.get(b, Position).y - (rows[1] ?? 0))).toBeLessThanOrEqual(2);
+      expect(worldX(s.world.get(b, Position).x, s.world.get(b, Position).y)).toBeLessThan(startWX);
+    },
+  );
+
+  it.each([WOODCUTTER, SOLDIER])('walkers abreast keep their lateral space, job %i', (job) => {
+    const s = sim();
+    const a = settlerAt(s, 6, 6, job, P0);
+    const b = settlerAt(s, 6, 6, job, P0);
+    const starts = [fx.fromFloat(2.875), fx.fromFloat(3.125)];
+    const startWX = fx.fromInt(3);
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('mapped separation fixture');
+    for (const [i, entity] of [a, b].entries()) {
+      const y = starts[i];
+      if (y === undefined) throw new Error('one position per walker');
+      s.world.add(entity, Position, { x: positionXOfWorld(startWX, y), y });
+      s.world.add(entity, PathRoute, {
+        waypoints: [{ x: positionXOfWorld(fx.fromInt(8), y), y, node: terrain.nodeAt(16, 6) }],
+      });
+      s.world.add(entity, PathFollow, { index: 0, legElapsed: 0, legCost: 0 });
+    }
+
+    separationSystem(s.world, ctxOf(s));
+
+    const pa = s.world.get(a, Position);
+    const pb = s.world.get(b, Position);
+    expect(pa.y).toBeLessThan(starts[0] ?? 0);
+    expect(pb.y).toBeGreaterThan(starts[1] ?? 0);
+    for (const p of [pa, pb]) expect(Math.abs(worldX(p.x, p.y) - startWX)).toBeLessThanOrEqual(1);
+  });
+
+  it.each([
+    { row: 2, lowerEndpoint: { x: 195141, y: 119946 }, upperEndpoint: { x: 195143, y: 142195 } },
+    { row: 3, lowerEndpoint: { x: 198075, y: 185482 }, upperEndpoint: { x: 198074, y: 207731 } },
+  ])(
+    'separates vertically across the fractional-row cusp at row $row',
+    ({ row, lowerEndpoint, upperEndpoint }) => {
+      const s = sim();
+      const a = settlerAt(s, 6, 4, WOODCUTTER, P0);
+      const b = settlerAt(s, 6, 4, WOODCUTTER, P0);
+      const lower = { x: fx.fromInt(3), y: fx.fromFloat(row - 0.125) };
+      const upper = { x: fx.fromInt(3), y: fx.fromFloat(row + 0.125) };
+      for (const [entity, position] of [
+        [a, lower],
+        [b, upper],
+      ] as const) {
+        s.world.add(entity, Position, { ...position });
+        // No established heading: overlapping walkers use the radial split.
+        s.world.add(entity, PathRoute, { waypoints: [] });
+        s.world.add(entity, PathFollow, { index: 0, legElapsed: 0, legCost: 0 });
+      }
+      separationSystem(s.world, ctxOf(s));
+      const pa = s.world.get(a, Position);
+      const pb = s.world.get(b, Position);
+      expect(pa.y).toBeLessThan(lower.y);
+      expect(pb.y).toBeGreaterThan(upper.y);
+      // Vertical world motion crosses the stagger cusp without acquiring a lateral push.
+      expect(Math.abs(worldX(pa.x, pa.y) - worldX(lower.x, lower.y))).toBeLessThanOrEqual(1);
+      expect(Math.abs(worldX(pb.x, pb.y) - worldX(upper.x, upper.y))).toBeLessThanOrEqual(1);
+      // Original fixed-point radial split endpoints. Integer sqrt truncation makes the normalized
+      // push 1639 units here despite the nominal 1638-unit cap; grid conversion rounds again.
+      expect(pa).toEqual(lowerEndpoint);
+      expect(pb).toEqual(upperEndpoint);
+    },
+  );
+
+  it('civilians never collide: a worker walks straight through an enemy line, untouched', () => {
+    const s = sim();
+    wallAt(s, 10, P1);
+    const worker = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    walkStraightTo(s, worker, 16, 6);
+    s.run(150);
+
+    expect(nodeOf(s, worker)).toEqual({ x: 16, y: 6 }); // passed the wall as in the original
+    expect(s.world.has(worker, Obstructed)).toBe(false);
+  });
+
+  it('a ROUTED civilian is never detoured by standing bodies - routing skips the unit overlay', () => {
+    // Same wall, but the worker goes through the real planner→routing pipeline (a MoveGoal, not a
+    // hand-built path). The wall seals every row, so a detour is impossible: arriving at all proves
+    // routing never composed the standing-unit overlay for a non-collider. The physical-layer twin
+    // above bypasses routing on purpose; this is the ROUTING half of the civilian pass-through.
+    const s = sim();
+    wallAt(s, 10, P1);
+    const worker = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    orderTo(s, worker, 16, 6);
+    s.run(150);
+
+    expect(nodeOf(s, worker)).toEqual({ x: 16, y: 6 });
+    expect(s.world.has(worker, PathRequest)).toBe(false); // never flagged failed either
+  });
+
+  it("a civilian's goal on a fighter-occupied node is never re-aimed - economy targets stay exact", () => {
+    // A standing enemy soldier occupies the worker's exact destination. The surround rule re-aims a
+    // COLLIDER's goal to a free stand-in; a civilian's goal must survive verbatim (the economy's
+    // node-coincidence checks depend on arriving exactly where the goal was set). Asserted at the
+    // ARRIVAL tick - the idle-spacing drive legitimately nudges a settler off a shared node later.
+    const s = sim();
+    settlerAt(s, 16, 6, SOLDIER, P1); // a post exactly on the goal node
+    const worker = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    orderTo(s, worker, 16, 6);
+    let arrived = false;
+    for (let t = 0; t < 150 && !arrived; t++) {
+      s.run(1);
+      arrived = !s.world.has(worker, MoveGoal); // the goal is shed exactly on arrival
+    }
+    expect(arrived).toBe(true);
+    expect(nodeOf(s, worker)).toEqual({ x: 16, y: 6 }); // arrived ON the occupied node, not beside it
+  });
+
+  it('unowned fighters never collide - neutral fixtures stay byte-identical to the pre-collision sim', () => {
+    const s = sim();
+    for (let hy = 0; hy < 12; hy++) settlerAt(s, 10, hy, SOLDIER, null); // an UNOWNED line
+    const runner = settlerAt(s, 4, 6, SOLDIER, null); // an UNOWNED walker
+    walkStraightTo(s, runner, 16, 6);
+    s.run(150);
+
+    expect(nodeOf(s, runner)).toEqual({ x: 16, y: 6 }); // passed straight through
+  });
+
+  it('two owned civilians walking the same road are nudged apart - never drawn merged mid-walk', () => {
+    const s = sim();
+    const a = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    const b = settlerAt(s, 4, 6, WOODCUTTER, P0); // spawned exactly stacked - the builders' case
+    orderTo(s, a, 20, 6);
+    orderTo(s, b, 20, 6);
+
+    // After a short warm-up (route resolution + the first split ticks), the pair must never share an
+    // exact position again while BOTH walk - the soft nudge rides them apart and keeps them apart.
+    let bothWalkedTicks = 0;
+    for (let t = 0; t < 250; t++) {
+      s.step();
+      if (!s.world.has(a, PathFollow) || !s.world.has(b, PathFollow)) continue;
+      bothWalkedTicks++;
+      if (bothWalkedTicks <= 5) continue; // the exact-stack split needs a few ticks to open a gap
+      const pa = s.world.get(a, Position);
+      const pb = s.world.get(b, Position);
+      expect(pa.x === pb.x && pa.y === pb.y).toBe(false);
+    }
+    expect(bothWalkedTicks).toBeGreaterThan(20); // the walk was long enough to prove anything
+    // ...and the nudge never prevented the arrivals (both stood down at/next to the shared goal -
+    // the idle-spacing drive legitimately parks one beside it).
+    expect(s.world.has(a, PathFollow)).toBe(false);
+    expect(s.world.has(b, PathFollow)).toBe(false);
+    expect(Math.abs(nodeOf(s, a).x - 20) + Math.abs(nodeOf(s, a).y - 6)).toBeLessThanOrEqual(1);
+    expect(Math.abs(nodeOf(s, b).x - 20) + Math.abs(nodeOf(s, b).y - 6)).toBeLessThanOrEqual(1);
+    expect(s.world.has(a, Obstructed)).toBe(false); // soft-only movers never grind
+    expect(s.world.has(b, Obstructed)).toBe(false);
+  });
+
+  it('the civilian nudge stays ON inside a calm zone - town walkers spread and still arrive', () => {
+    const s = sim();
+    const b = s.world.create();
+    s.world.add(b, Position, positionOfNode(12, 6));
+    s.world.add(b, Building, {
+      buildingType: ANY_BUILDING_TYPE,
+      tribe: VIKING,
+      built: fx.fromInt(1),
+      level: 0,
+    });
+    s.world.add(b, Owner, { player: P0 }); // its calm zone covers the whole walk below
+    const w1 = settlerAt(s, 8, 6, WOODCUTTER, P0);
+    const w2 = settlerAt(s, 8, 6, WOODCUTTER, P0);
+    orderTo(s, w1, 16, 6);
+    orderTo(s, w2, 16, 6);
+
+    let bothWalkedTicks = 0;
+    for (let t = 0; t < 200; t++) {
+      s.step();
+      if (!s.world.has(w1, PathFollow) || !s.world.has(w2, PathFollow)) continue;
+      bothWalkedTicks++;
+      if (bothWalkedTicks <= 5) continue;
+      const p1 = s.world.get(w1, Position);
+      const p2 = s.world.get(w2, Position);
+      expect(p1.x === p2.x && p1.y === p2.y).toBe(false); // nudged apart even in town
+    }
+    expect(bothWalkedTicks).toBeGreaterThan(10);
+    expect(s.world.has(w1, PathFollow)).toBe(false); // and town flow never jammed
+    expect(s.world.has(w2, PathFollow)).toBe(false);
+  });
+
+  it('same-lane walkers form a COLUMN: the follower falls in behind, nobody is shoved off the lane', () => {
+    // Two owned civilians share one eastbound lane (a pure E walk keeps the row constant, so ANY
+    // lateral shove would show as a y change). The convoy rule must (a) never push either off the
+    // lane, (b) open a fore/aft gap, and (c) keep the column order stable - the reported jostle was
+    // the pair swapping/shoving sideways on every step.
+    const s = sim();
+    const a = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    const b = settlerAt(s, 4, 6, WOODCUTTER, P0);
+    orderTo(s, a, 20, 6);
+    orderTo(s, b, 20, 6);
+
+    let bothWalkedTicks = 0;
+    let order: 1 | -1 | null = null;
+    for (let t = 0; t < 250; t++) {
+      s.step();
+      if (!s.world.has(a, PathFollow) || !s.world.has(b, PathFollow)) continue;
+      bothWalkedTicks++;
+      const pa = s.world.get(a, Position);
+      const pb = s.world.get(b, Position);
+      expect(pa.y).toBe(pb.y); // never shoved off the shared lane
+      if (bothWalkedTicks <= 6) continue; // the tie-brake needs a few ticks to open the gap
+      expect(pa.x === pb.x).toBe(false); // a real fore/aft gap
+      const now: 1 | -1 = pa.x > pb.x ? 1 : -1;
+      if (order !== null) expect(now).toBe(order); // the column never flips (no per-step shoving)
+      order = now;
+    }
+    expect(bothWalkedTicks).toBeGreaterThan(20);
+    expect(order).not.toBeNull();
+    // The nudge still never prevents the arrivals (idle spacing may park one beside the goal).
+    expect(s.world.has(a, PathFollow)).toBe(false);
+    expect(s.world.has(b, PathFollow)).toBe(false);
+    expect(Math.abs(nodeOf(s, a).x - 20) + Math.abs(nodeOf(s, a).y - 6)).toBeLessThanOrEqual(1);
+    expect(Math.abs(nodeOf(s, b).x - 20) + Math.abs(nodeOf(s, b).y - 6)).toBeLessThanOrEqual(1);
+  });
+
+  it('UNOWNED civilians walking together stay exactly merged - the Owner gate holds for the soft tier', () => {
+    const s = sim();
+    const a = settlerAt(s, 4, 6, WOODCUTTER, null);
+    const b = settlerAt(s, 4, 6, WOODCUTTER, null);
+    walkStraightTo(s, a, 16, 6);
+    walkStraightTo(s, b, 16, 6);
+    for (let t = 0; t < 150; t++) {
+      s.step();
+      const pa = s.world.get(a, Position);
+      const pb = s.world.get(b, Position);
+      expect({ x: pa.x, y: pa.y }).toEqual({ x: pb.x, y: pb.y }); // byte-identical twin walks
+    }
+    expect(nodeOf(s, a)).toEqual({ x: 16, y: 6 });
+  });
+
+  it('a slow head-on walker is pushed back by less than its own pace, so it never stalls in place', () => {
+    // A route spliced mid-leg walks a fixed pace; on a slow N/S leg it fell below the soft push cap,
+    // and a head-on pair settled where push and step cancelled until both starved.
+    const slowLegTicks = 12;
+    const slowSplicedPace = fx.div(HALF_ROW, fx.fromInt(slowLegTicks));
+    const s = sim();
+    const a = settlerAt(s, 6, 4, WOODCUTTER, P0);
+    const b = settlerAt(s, 6, 4, WOODCUTTER, P0);
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('the test map has terrain');
+    // Facing each other on one column, a southbound over a northbound walker.
+    const starts = [
+      { entity: a, position: { x: fx.fromInt(3), y: fx.fromFloat(2.875) }, target: { hx: 6, hy: 8 } },
+      { entity: b, position: { x: fx.fromInt(3), y: fx.fromFloat(3.125) }, target: { hx: 6, hy: 4 } },
+    ];
+    for (const { entity, position, target } of starts) {
+      const node = terrain.nodeAt(target.hx, target.hy);
+      s.world.add(entity, Position, { ...position });
+      s.world.add(entity, PathRoute, { waypoints: [{ ...positionOfNode(target.hx, target.hy), node }] });
+      s.world.add(entity, PathFollow, {
+        index: 0,
+        legElapsed: 0,
+        legCost: slowLegTicks,
+        legPace: slowSplicedPace,
+      });
+    }
+    separationSystem(s.world, ctxOf(s));
+    for (const { entity, position } of starts) {
+      const now = s.world.get(entity, Position);
+      expect(now).not.toEqual(position);
+      expect(worldDistance(position.x, position.y, now.x, now.y)).toBeLessThan(slowSplicedPace);
+    }
+  });
+});

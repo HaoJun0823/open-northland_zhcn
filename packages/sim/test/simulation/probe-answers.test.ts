@@ -22,7 +22,7 @@ import {
   mappedSim,
   terrainOf,
   VIKING,
-} from '../footprint/building-placement/support.js';
+} from '../systems/footprint/building-placement/support.js';
 
 /** Each probe's plain-data answer must match its live probe on every node it covers. */
 

@@ -1,0 +1,231 @@
+import { describe, expect, it } from 'vitest';
+import {
+  addPerson,
+  Building,
+  DeliveryFlag,
+  MoveGoal,
+  Owner,
+  PathRequest,
+  Position,
+  ProductionCounters,
+  Resource,
+  Stockpile,
+  WorkFlag,
+} from '../../../../../src/components/index.js';
+import type { Command } from '../../../../../src/core/commands/index.js';
+import type { Entity } from '../../../../../src/ecs/world.js';
+import { fx, nodeOfPosition, ONE, Simulation } from '../../../../../src/index.js';
+import { positionOfNode } from '../../../../../src/nav/halfcell.js';
+import type { NodeId } from '../../../../../src/nav/terrain/index.js';
+import {
+  anchorOnlyFootprint,
+  setGatherGood,
+  setWorkFlag,
+  stampResourceFootprintData,
+} from '../../../../../src/systems/index.js';
+import { testContent } from '../../../../fixtures/content.js';
+import { gatherPick } from '../../../../fixtures/production-counters.js';
+import { ctxOf, grassMap, makeWoodcutter, riverMap, VIKING, WOOD, WOODCUTTER } from './support.js';
+
+describe('setWorkFlag command - place / move a gatherer flag (Ctrl+Right-Click)', () => {
+  const PLAYER = 0;
+  // A node at half-cell coords of tile (t,0): node (2t, 0).
+  const nodeOfTile = (t: number): { x: number; y: number } => ({ x: 2 * t, y: 0 });
+
+  function ownedGatherer(sim: Simulation, x: number, y: number): Entity {
+    const e = makeWoodcutter(sim, x, y);
+    sim.world.add(e, Owner, { player: PLAYER });
+    return e;
+  }
+  const cmd = (entity: Entity, tile: number): Extract<Command, { kind: 'setWorkFlag' }> => ({
+    kind: 'setWorkFlag',
+    entity,
+    ...nodeOfTile(tile),
+  });
+
+  it('creates a bound, DeliveryFlag-marked flag at the target for a gatherer with none', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const g = ownedGatherer(sim, 0, 0);
+    expect(sim.world.has(g, WorkFlag)).toBe(false);
+
+    setWorkFlag(sim.world, ctxOf(sim), cmd(g, 6));
+
+    expect(sim.world.has(g, WorkFlag)).toBe(true);
+    const wf = sim.world.get(g, WorkFlag);
+    expect(sim.world.has(wf.flag, DeliveryFlag)).toBe(true); // marked so render draws the flag above goods
+    expect(sim.world.has(wf.flag, Stockpile)).toBe(false); // a PURE marker - it stores nothing
+    expect(fx.toInt(sim.world.get(wf.flag, Position).x)).toBe(6);
+    expect(wf.radius).toBeGreaterThan(0);
+  });
+
+  it('RELOCATES the existing flag (same entity, new position) rather than making a second', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const g = ownedGatherer(sim, 0, 0);
+    setWorkFlag(sim.world, ctxOf(sim), cmd(g, 5));
+    const flag = sim.world.get(g, WorkFlag).flag;
+
+    setWorkFlag(sim.world, ctxOf(sim), cmd(g, 11));
+
+    expect(sim.world.get(g, WorkFlag).flag).toBe(flag); // same flag entity…
+    expect(fx.toInt(sim.world.get(flag, Position).x)).toBe(11); // …moved to the new tile
+    expect([...sim.world.query(DeliveryFlag)]).toHaveLength(1); // no second flag littered
+  });
+
+  // The flag marker's node-x - the yard fixtures are a one-row map, so x alone identifies the node.
+  const flagNodeX = (sim: Simulation, gatherer: Entity): number =>
+    nodeOfPosition(
+      sim.world.get(sim.world.get(gatherer, WorkFlag).flag, Position).x,
+      sim.world.get(sim.world.get(gatherer, WorkFlag).flag, Position).y,
+    ).hx;
+
+  it('snaps to the node just outside an occupied resource body rather than dropping the order', () => {
+    // Clicking the patch to work means clicking the body that blocks its own cells - the click the
+    // player actually makes. Dropping it left the gatherer at its old flag with no feedback. A real ore
+    // patch is a CLUSTER, so the body here is three nodes wide and the snap must clear all of it.
+    const sim = new Simulation({ seed: 2, content: testContent(), map: grassMap(40, 1) });
+    const gatherer = ownedGatherer(sim, 0, 0);
+    for (const hx of [11, 12, 13]) {
+      const ore = sim.world.create();
+      sim.world.add(ore, Position, { ...positionOfNode(hx, 0) });
+      sim.world.add(ore, Resource, { goodType: WOOD, remaining: 1, harvestAtomic: 24 });
+      stampResourceFootprintData(sim.world, ore, anchorOnlyFootprint());
+    }
+
+    setWorkFlag(sim.world, ctxOf(sim), { kind: 'setWorkFlag', entity: gatherer, x: 12, y: 0 });
+
+    // The nearest legal node to the body's middle wins: 11/12/13 are blocked, so 10 and 14 tie at
+    // distance 2 and the lower node id breaks it.
+    expect(flagNodeX(sim, gatherer)).toBe(10);
+  });
+
+  it('snaps off a building body too', () => {
+    const sim = new Simulation({ seed: 2, content: testContent(), map: grassMap(40, 1) });
+    const gatherer = ownedGatherer(sim, 0, 0);
+    const building = sim.world.create();
+    sim.world.add(building, Position, { ...positionOfNode(24, 0) });
+    sim.world.add(building, Building, { buildingType: 1, tribe: VIKING, built: ONE, level: 0 });
+
+    setWorkFlag(sim.world, ctxOf(sim), { kind: 'setWorkFlag', entity: gatherer, x: 24, y: 0 });
+
+    expect(flagNodeX(sim, gatherer)).toBe(23); // the adjacent node, lower id on the tie
+  });
+
+  it('rejects a click with no walkable node in snapping range (mid-lake)', () => {
+    // A water band wider than the snap radius: there is no nearby ground to mean, so the order stands
+    // rejected - the snap is a click tolerance, not a licence to relocate the yard anywhere.
+    const lake = [...Array(21).keys()].map((i) => i + 5); // half-cell columns 5..25
+    const water = new Simulation({ seed: 1, content: testContent(), map: riverMap(40, 1, lake) });
+    const gatherer = ownedGatherer(water, 0, 0);
+
+    setWorkFlag(water.world, ctxOf(water), { kind: 'setWorkFlag', entity: gatherer, x: 15, y: 0 });
+
+    expect(water.world.has(gatherer, WorkFlag)).toBe(false);
+  });
+
+  it('clears a stale failed route when the flag moves, so delivery replans', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const gatherer = ownedGatherer(sim, 0, 0);
+    setWorkFlag(sim.world, ctxOf(sim), cmd(gatherer, 5));
+    sim.world.add(gatherer, MoveGoal, { cell: 10 });
+    sim.world.add(gatherer, PathRequest, { start: 0 as NodeId, goal: 10 as NodeId, failed: true });
+
+    setWorkFlag(sim.world, ctxOf(sim), cmd(gatherer, 11));
+
+    expect(sim.world.has(gatherer, MoveGoal)).toBe(false);
+    expect(sim.world.has(gatherer, PathRequest)).toBe(false);
+  });
+
+  it('accepts only harvestable goods for the gatherer filter, with null meaning all', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(20, 1) });
+    const gatherer = ownedGatherer(sim, 0, 0);
+    setWorkFlag(sim.world, ctxOf(sim), cmd(gatherer, 5));
+
+    setGatherGood(sim.world, ctxOf(sim), { kind: 'setGatherGood', entity: gatherer, goodType: WOOD });
+    expect(gatherPick(sim, gatherer)).toBe(WOOD);
+    setGatherGood(sim.world, ctxOf(sim), { kind: 'setGatherGood', entity: gatherer, goodType: 4 });
+    expect(gatherPick(sim, gatherer)).toBe(WOOD); // stone atomic is not allowed by this job
+    setGatherGood(sim.world, ctxOf(sim), { kind: 'setGatherGood', entity: gatherer, goodType: null });
+    expect(sim.world.has(gatherer, ProductionCounters)).toBe(false);
+  });
+
+  it('skips an UNOWNED gatherer, a jobless settler, and a non-settler (only an owned gatherer gets a flag)', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(12, 1) });
+    const unowned = makeWoodcutter(sim, 0, 0); // a gatherer, but no Owner
+    const jobless = sim.world.create();
+    sim.world.add(jobless, Position, { x: fx.fromInt(1), y: fx.fromInt(0) });
+    addPerson(sim.world, jobless, {
+      tribe: VIKING,
+      jobType: null, // employed at nothing → cannot harvest → no flag
+      hunger: fx.fromInt(0),
+      fatigue: fx.fromInt(0),
+      piety: fx.fromInt(0),
+      enjoyment: fx.fromInt(0),
+    });
+    sim.world.add(jobless, Owner, { player: PLAYER });
+    const rock = sim.world.create(); // a non-settler entity
+
+    setWorkFlag(sim.world, ctxOf(sim), cmd(unowned, 6));
+    setWorkFlag(sim.world, ctxOf(sim), cmd(jobless, 6));
+    setWorkFlag(sim.world, ctxOf(sim), cmd(rock, 6));
+
+    expect(sim.world.has(unowned, WorkFlag)).toBe(false);
+    expect(sim.world.has(jobless, WorkFlag)).toBe(false);
+    expect([...sim.world.query(DeliveryFlag)]).toHaveLength(0); // nothing planted
+  });
+
+  it('routes through the command dispatch (enqueue → step) end to end', () => {
+    const sim = new Simulation({ seed: 4, content: testContent(), map: grassMap(40, 1) });
+    const g = ownedGatherer(sim, 0, 0);
+    sim.enqueueSetup(cmd(g, 6));
+    sim.step();
+    expect(sim.world.has(g, WorkFlag)).toBe(true);
+    expect(fx.toInt(sim.world.get(sim.world.get(g, WorkFlag).flag, Position).x)).toBe(6);
+  });
+});
+
+describe("spawnSettler gatherGood - a decoded map's authored setproducedgood", () => {
+  const CARPENTER = 2; // a non-gathering trade: syncWorkFlagToJob plants it no flag
+  const STONE = 4; // a fixture good whose harvest atomic (25) the woodcutter is NOT granted
+
+  /** The first canonical (ascending-id) entity - a spawn command returns no id. */
+  const spawned = (sim: Simulation): Entity => {
+    const e = sim.world.canonicalEntities()[0];
+    if (e === undefined) throw new Error('nothing spawned');
+    return e;
+  };
+
+  function spawn(sim: Simulation, jobType: number, gatherGood?: number): Entity {
+    sim.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType,
+      x: 2,
+      y: 0,
+      tribe: VIKING,
+      ...(gatherGood !== undefined ? { gatherGood } : {}),
+    });
+    sim.step();
+    return spawned(sim);
+  }
+
+  it('holds the gatherer to the authored good (an imported wood collector stays one)', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const g = spawn(sim, WOODCUTTER, WOOD);
+    expect(gatherPick(sim, g)).toBe(WOOD);
+  });
+
+  it('leaves the gather-everything default when the map authors no pick', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const g = spawn(sim, WOODCUTTER);
+    expect(sim.world.has(g, ProductionCounters)).toBe(false);
+  });
+
+  it('ignores a good the trade cannot harvest, and a trade with no flag at all', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const g = spawn(sim, WOODCUTTER, STONE);
+    expect(sim.world.has(g, ProductionCounters)).toBe(false); // bad pick ⇒ gathers everything
+
+    const other = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const c = spawn(other, CARPENTER, WOOD);
+    expect(other.world.has(c, WorkFlag)).toBe(false); // no flag to narrow - no crash, no stamp
+  });
+});

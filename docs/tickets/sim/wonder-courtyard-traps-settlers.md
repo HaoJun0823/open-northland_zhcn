@@ -22,6 +22,6 @@ the semiramis courtyard includes (131,123).
 
 ## Verify
 
-- A focused test in `packages/sim/test/movement/` with a settler inside each courtyard at completion:
+- A focused test in `packages/sim/test/systems/movement/` with a settler inside each courtyard at completion:
   it ends up outside the body with a route to open ground.
 - `npm test`.

@@ -1,0 +1,9 @@
+import './engagement/autonomous.cases.js';
+import './engagement/attack-move.cases.js';
+import './engagement/animal-order.cases.js';
+import './engagement/attack-order.cases.js';
+import './engagement/battle-alert.cases.js';
+import './engagement/economy-gate.cases.js';
+import './engagement/move-order.cases.js';
+import './engagement/needs-gate.cases.js';
+import './engagement/sealed-target.cases.js';

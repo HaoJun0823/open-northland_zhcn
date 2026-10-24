@@ -8,9 +8,9 @@ import {
   Simulation,
   serializeSaveGame,
 } from '../../src/index.js';
-import { DEER, fighterAtNode, VIKING } from '../conflict/combat-system/support.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap } from '../fixtures/terrain.js';
+import { DEER, fighterAtNode, VIKING } from '../systems/conflict/combat-system/support.js';
 
 /** The arrow's sound payload as `looseProjectile` copies it off the bow: the impact ids by the victim's
  *  material and the whole per-ground miss table. */

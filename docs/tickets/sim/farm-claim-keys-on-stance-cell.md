@@ -19,5 +19,5 @@ are wasted, and the sim tests cannot see it because the fixture pool is the anch
 
 ## Verify
 
-- The new case and `packages/sim/test/economy/farming.test.ts`; hashes stay put on fixture content, where
+- The new case and `packages/sim/test/systems/economy/farming.test.ts`; hashes stay put on fixture content, where
   anchor and stance coincide.

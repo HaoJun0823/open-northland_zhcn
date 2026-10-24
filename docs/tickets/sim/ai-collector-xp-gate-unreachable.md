@@ -18,7 +18,7 @@ Neither predicate is unconditionally true.
 - Remove the XP-only veteran distinction and repost path from machine-seat collector allocation.
   Preserve permission checks and existing build-order entry gates.
 - Review the three XP-oriented cases in
-  `packages/sim/test/systems/computer-player/workforce-allocation.cases.ts`: the gated-entry hire,
+  `packages/sim/test/systems/computer-player/modules/workforce-allocation.cases.ts`: the gated-entry hire,
   veteran repost, and generic flag holding only a good the holder lacks XP for. Use a real `AiControl`
   seat for machine-player expectations; retain any independent build-order coverage.
 - Keep the shared reach predicate's human experience behavior and every seat's permission refusal.

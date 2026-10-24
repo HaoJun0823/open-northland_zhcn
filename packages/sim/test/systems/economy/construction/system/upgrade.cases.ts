@@ -1,0 +1,312 @@
+import { parseContentSet } from '@open-northland/data';
+import { describe, expect, it } from 'vitest';
+import { Residence } from '../../../../../src/components/family.js';
+import {
+  Building,
+  DefenceMode,
+  Health,
+  IdleStand,
+  JobAssignment,
+  Owner,
+  Resting,
+  Stockpile,
+  UnderConstruction,
+  Upgrading,
+} from '../../../../../src/components/index.js';
+import type { ChangeFeed } from '../../../../../src/ecs/change-feed.js';
+import type { Entity } from '../../../../../src/ecs/world.js';
+import { fx, ONE, Simulation } from '../../../../../src/index.js';
+import { housingCapacity } from '../../../../../src/simulation/hud.js';
+import { assembleBuilding } from '../../../../../src/systems/command/placement.js';
+import { constructionSystem, stockCapacity } from '../../../../../src/systems/index.js';
+
+import {
+  ctxOf,
+  HOME_L0,
+  HOME_L1,
+  HOME_L2,
+  levelChainContent,
+  placeBuiltHome,
+  STONE,
+  upgradedEvents,
+  VIKING,
+  WOOD,
+} from './support.js';
+
+function writtenBy(feed: ChangeFeed): Entity[] {
+  const written: Entity[] = [];
+  feed.peek((e) => written.push(e));
+  return written;
+}
+
+/**
+ * The MANUAL upgrade lifecycle (the `upgradeBuilding` command): a built chained building re-opens as a
+ * construction site - inventory stashed into `Upgrading.savedStock` except bill goods, which seed the
+ * build hold (see the `Upgrading` component doc for the why) - is delivered + hammered at the TARGET
+ * tier's own cost (the level difference), and finishes by adopting the target tier, restoring the
+ * stash, and emitting `buildingUpgraded`. Source basis: observed original behavior (upgrade re-opens
+ * the building as a site with its own build store; occupants keep their bindings); own goods counting
+ * toward the upgrade is a named approximation.
+ */
+describe('constructionSystem - manual upgrade lifecycle', () => {
+  it('stands a higher tier placed outright on its rung of the chain', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const ctx = ctxOf(sim);
+    const levelOf = (buildingType: number): number | undefined => {
+      const type = sim.content.buildings.find((candidate) => candidate.typeId === buildingType);
+      if (type === undefined) return undefined;
+      const spec = { buildingType, tribe: VIKING, owner: 1, missionId: undefined, x: 0, y: 0 };
+      const e = assembleBuilding(sim.world, ctx, type, {
+        ...spec,
+        underConstruction: false,
+        fillStock: false,
+      });
+      return sim.world.get(e, Building).level;
+    };
+    // The household wares a home offers go by this level, so a map's upgraded house must carry its own.
+    expect([levelOf(HOME_L0), levelOf(HOME_L1), levelOf(HOME_L2)]).toEqual([0, 1, 2]);
+  });
+
+  it('takes a raised alarm down with the roof', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 2 });
+    sim.world.add(e, Owner, { player: 1 }); // only an owned building takes the order
+    sim.enqueueSetup({ kind: 'setDefenceMode', building: e, enabled: true });
+    sim.step();
+    expect(sim.world.has(e, DefenceMode)).toBe(true);
+
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+
+    // A site shelters nobody, and the panel drops the defence window for one: an alarm left standing
+    // could be neither seen nor lowered, and would call the garrison back when the upgrade finished.
+    expect(sim.world.has(e, UnderConstruction)).toBe(true);
+    expect(sim.world.has(e, DefenceMode)).toBe(false);
+  });
+
+  it('wakes the crew waiting inside, so it leaves on the order rather than on the building’s idle beat', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 2 });
+    const crew = sim.world.create();
+    sim.world.add(crew, JobAssignment, { workplace: e });
+    sim.world.add(crew, Resting, { at: e });
+    sim.world.add(crew, IdleStand, { standing: false });
+
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+
+    expect(sim.world.has(e, UnderConstruction)).toBe(true);
+    expect(sim.world.has(crew, IdleStand)).toBe(false);
+  });
+
+  it('re-opens a built home as a site, seeding held bill goods into the hold and stashing the rest', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // 3 stone + 1 wood of household inventory; the L0->L1 bill is 2 stone.
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 3, [WOOD]: 1 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+
+    const b = sim.world.get(e, Building);
+    expect(b.buildingType).toBe(HOME_L0); // still the old tier while the site rises
+    expect(b.built).toBe(0); // a site again - production/housing suspended
+    expect(sim.world.has(e, UnderConstruction)).toBe(true);
+    // Bill goods seed the hold up to the bill amount; the surplus and non-bill goods are stashed.
+    expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(2);
+    expect(sim.world.get(e, Stockpile).amounts.get(WOOD) ?? 0).toBe(0);
+    expect(sim.world.get(e, Upgrading).savedStock.get(STONE)).toBe(1);
+    expect(sim.world.get(e, Upgrading).savedStock.get(WOOD)).toBe(1);
+    expect(sim.world.get(e, Upgrading).seeded.get(STONE)).toBe(2); // recorded for cancel refund
+  });
+
+  it('announces a demolition mid-upgrade as an upgrading house, not a fresh site', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    sim.enqueueSetup({ kind: 'demolish', building: e });
+    sim.step();
+    const razed = sim.events.current().find((ev) => ev.kind === 'buildingDestroyed');
+    expect(razed).toMatchObject({ entity: e, built: 0, upgrading: true });
+  });
+
+  it('an upgrade site bills only the DIFFERENCE - the target tier own cost, not the cumulative bill', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    // L1's own cost is 2 stone; the cumulative from-scratch L1 bill would be 3. The site advertises 2.
+    expect(stockCapacity(sim.world, ctxOf(sim), e, STONE)).toBe(2);
+  });
+
+  it('suspends housing while upgrading and completes into the target tier, restoring the stash', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // 1 stone (seeds the hold, spent into the upgrade) + 1 wood (stashed household inventory).
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 1, [WOOD]: 1 });
+    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(1); // L0 shelters 1
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(0); // a site shelters no one
+
+    // Deliver the outstanding stone (the seeded one covers half of L1's 2) and hammer the site out.
+    const hold = sim.world.mut(e, Stockpile).amounts;
+    hold.set(STONE, (hold.get(STONE) ?? 0) + 1);
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+
+    const b = sim.world.get(e, Building);
+    expect(b.buildingType).toBe(HOME_L1); // adopted the target tier
+    expect(b.level).toBe(1);
+    expect(b.built).toBe(ONE);
+    expect(sim.world.has(e, UnderConstruction)).toBe(false);
+    expect(sim.world.has(e, Upgrading)).toBe(false);
+    // The 2-stone cost (seeded + delivered) was consumed; the stashed household wood came back.
+    expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(0);
+    expect(sim.world.get(e, Stockpile).amounts.get(WOOD)).toBe(1);
+    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(2); // L1 shelters 2
+    expect(upgradedEvents(sim)).toEqual([{ kind: 'buildingUpgraded', entity: e, level: 1 }]);
+  });
+
+  it('completes with no external delivery when the building already holds the whole bill', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // The settlement's only 2 stone sit inside the home being upgraded (the reported stall).
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 2 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.get(e, Building).buildingType).toBe(HOME_L1);
+    expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(0); // spent into the upgrade
+    expect(upgradedEvents(sim)).toEqual([{ kind: 'buildingUpgraded', entity: e, level: 1 }]);
+  });
+
+  it('residents keep their Residence through the whole upgrade - occupants are not evicted from the books', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    const resident = sim.world.create();
+    sim.world.add(resident, Residence, { home: e });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    expect(sim.world.get(resident, Residence).home).toBe(e); // kept while the site rises
+    sim.world.mut(e, Stockpile).amounts.set(STONE, 2);
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(resident, Residence).home).toBe(e); // and after completion
+  });
+
+  it('skips a top-tier home, an unbuilt site, and a double-upgrade - recoverable no-ops', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // Top tier: no upgradeTarget - nothing to rise into.
+    const top = placeBuiltHome(sim, HOME_L2, 2, { [STONE]: 9 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: top });
+    // An unbuilt from-scratch site: not a built building yet.
+    const site = sim.world.create();
+    sim.world.add(site, Building, { buildingType: HOME_L0, tribe: VIKING, built: fx.fromInt(0), level: 0 });
+    sim.world.add(site, Stockpile, { amounts: new Map<number, number>() });
+    sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: site });
+    // A double-upgrade: the second command lands on an already-open upgrade site.
+    const home = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 1 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: home });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: home });
+    const writes = sim.world.watchChanges([], [Building]);
+    sim.step();
+
+    expect(writtenBy(writes)).not.toContain(top); // a refusal writes nothing a snapshot delta would carry
+    expect(sim.world.has(top, Upgrading)).toBe(false);
+    expect(sim.world.get(top, Stockpile).amounts.get(STONE)).toBe(9); // inventory untouched
+    expect(sim.world.has(site, Upgrading)).toBe(false);
+    // The double-upgrade opened ONE site; its stone seeded the hold exactly once.
+    expect(sim.world.get(home, Upgrading).savedStock.get(STONE) ?? 0).toBe(0);
+    expect(sim.world.get(home, Stockpile).amounts.get(STONE)).toBe(1);
+  });
+
+  it('advances one tier per completed upgrade - reaching L2 takes a second command', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    sim.world.mut(e, Stockpile).amounts.set(STONE, 2);
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(e, Building).buildingType).toBe(HOME_L1);
+    expect(sim.world.has(e, UnderConstruction)).toBe(false); // finished - not rolling into L2 by itself
+    expect(sim.world.get(e, Building).built).toBe(ONE);
+  });
+
+  it('cancelUpgrade restores the previous level: stash + seeded goods back, deliveries lost', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // 1 stone (seeds the hold) + 1 wood (stashed) of household inventory.
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 1, [WOOD]: 1 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    const hold = sim.world.mut(e, Stockpile).amounts;
+    hold.set(STONE, (hold.get(STONE) ?? 0) + 1); // a partial delivery on top of the seeded stone
+    sim.enqueueSetup({ kind: 'cancelUpgrade', building: e });
+    sim.step();
+
+    const b = sim.world.get(e, Building);
+    expect(b.buildingType).toBe(HOME_L0); // the previous level stands again…
+    expect(b.level).toBe(0);
+    expect(b.built).toBe(ONE);
+    expect(sim.world.has(e, UnderConstruction)).toBe(false); // …with both site markers off
+    expect(sim.world.has(e, Upgrading)).toBe(false);
+    // The household inventory came back whole (stash + the seeded stone); the DELIVERED site
+    // stone is lost (user decision).
+    expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(1);
+    expect(sim.world.get(e, Stockpile).amounts.get(WOOD)).toBe(1);
+    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(1); // L0 shelters again
+    expect(upgradedEvents(sim)).toEqual([]); // an abort upgrades nothing
+  });
+
+  it('cancelUpgrade skips a from-scratch site and a built building - recoverable no-ops', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // A from-scratch construction site: no previous level to fall back to.
+    const site = sim.world.create();
+    sim.world.add(site, Building, { buildingType: HOME_L0, tribe: VIKING, built: fx.fromInt(0), level: 0 });
+    sim.world.add(site, Stockpile, { amounts: new Map<number, number>() });
+    sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
+    // A plain built home: nothing to abort.
+    const home = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 2 });
+    sim.enqueueSetup({ kind: 'cancelUpgrade', building: site });
+    sim.enqueueSetup({ kind: 'cancelUpgrade', building: home });
+    const writes = sim.world.watchChanges([], [Building]);
+    sim.step();
+
+    expect(writtenBy(writes)).not.toContain(home);
+    expect(sim.world.has(site, UnderConstruction)).toBe(true); // the site keeps rising
+    expect(sim.world.get(site, Building).built).toBe(0);
+    expect(sim.world.get(home, Stockpile).amounts.get(STONE)).toBe(2); // inventory untouched
+  });
+
+  it("raises the life pool to the target tier's own for the building's tribe", () => {
+    const SARACEN = 4;
+    const L1_HITPOINTS = 400;
+    const SARACEN_L1_HITPOINTS = 350;
+    const base = levelChainContent();
+    const content = parseContentSet({
+      ...base,
+      tribes: [{ typeId: SARACEN, id: 'saracen' }],
+      buildings: base.buildings.map((b) =>
+        b.typeId === HOME_L1
+          ? {
+              ...b,
+              hitpoints: L1_HITPOINTS,
+              tribeVariants: [{ tribe: SARACEN, hitpoints: SARACEN_L1_HITPOINTS }],
+            }
+          : b,
+      ),
+    });
+    const sim = new Simulation({ seed: 1, content });
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 2 });
+    sim.world.mut(e, Building).tribe = SARACEN;
+    sim.world.add(e, Health, { hitpoints: 100, max: 100 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
+    sim.step();
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.get(e, Building).buildingType).toBe(HOME_L1);
+    expect(sim.world.get(e, Health).max).toBe(SARACEN_L1_HITPOINTS);
+  });
+});

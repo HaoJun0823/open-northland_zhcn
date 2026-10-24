@@ -7,9 +7,9 @@ import {
   Simulation,
   serializeSaveGame,
 } from '../../src/index.js';
-import { ownedWoodcutter } from '../conflict/orders/support.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap } from '../fixtures/terrain.js';
+import { ownedWoodcutter } from '../systems/conflict/orders/support.js';
 
 /** A strip longer than the walk range, so a walk order to its far end is refused as beyond the signposts. */
 const MAP_CELLS_WIDE = WALK_RANGE_NODES + 8;

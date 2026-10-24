@@ -31,5 +31,5 @@ fighters stuck at the line times the region size, not with active work (root con
 
 - The holding-line scenario above, before and after: total expansions, ticks above 10k, pathfinding
   ms per tick on an idle machine.
-- `packages/sim/test/conflict/melee-engagement/sealed-target.cases.ts` (the body-seal cadence test)
-  and `packages/sim/test/movement/army-routing.test.ts` keep passing.
+- `packages/sim/test/systems/conflict/melee/engagement/sealed-target.cases.ts` (the body-seal cadence test)
+  and `packages/sim/test/systems/movement/army-routing.test.ts` keep passing.

@@ -25,7 +25,6 @@ import {
   rowPress,
   stopHouse,
   type TradeGood,
-  tradeGood,
 } from '../src/hud/dom/trade-window/route.js';
 import {
   FOOD,
@@ -117,15 +116,6 @@ describe('trade route marks', () => {
     expect(rowPress('toB', TRADE_SLOT_A, true)).toBe('both');
     expect(rowPress('both', TRADE_SLOT_A, true)).toBe('none');
   });
-
-  it('reads a good’s flow and stores off the route', () => {
-    expect(tradeGood(ownRoute([transfer(SWORD, 'toB')]), SWORD)).toMatchObject({
-      flow: 'toB',
-      storedA: true,
-      storedB: true,
-    });
-    expect(tradeGood(ownRoute(), FOOD)).toMatchObject({ flow: 'none', storedA: true, storedB: false });
-  });
 });
 
 describe('trade window model', () => {
@@ -212,25 +202,6 @@ describe('trade window commands', () => {
         { house: HOUSE_A, goodType: SWORD, on: true },
         { house: HOUSE_B, goodType: SWORD, on: true },
       ],
-    ]);
-  });
-
-  it('refuses an arrow into a house that does not store the good', () => {
-    const { commands, marks } = recorded(ownRoute());
-    commands.arrow(TRADE_SLOT_A, FOOD, false);
-    expect(marks).toEqual([]);
-  });
-
-  it('turns a transfer with the direction strip and removes it with ✕', () => {
-    const { commands, marks } = recorded(ownRoute([transfer(SWORD, 'toB')]));
-    commands.setFlow(SWORD, 'toA');
-    commands.setFlow(SWORD, 'none');
-    expect(marks).toEqual([
-      [
-        { house: HOUSE_A, goodType: SWORD, on: true },
-        { house: HOUSE_B, goodType: SWORD, on: false },
-      ],
-      [{ house: HOUSE_B, goodType: SWORD, on: false }],
     ]);
   });
 

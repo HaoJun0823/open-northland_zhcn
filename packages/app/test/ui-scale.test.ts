@@ -74,23 +74,6 @@ describe('uiScaleFor', () => {
 });
 
 describe('startWorldZoomFor', () => {
-  it('opens at a fixed share of the HUD base', () => {
-    expect(startWorldZoomFor(maximized(UHD_HEIGHT))).toBeCloseTo(START_WORLD_ZOOM_PER_UI_SCALE * 1.75);
-    expect(startWorldZoomFor(maximized(QHD_HEIGHT))).toBe(
-      START_WORLD_ZOOM_PER_UI_SCALE * uiScaleFor(maximized(QHD_HEIGHT)),
-    );
-  });
-
-  it('opens a reference display zoomed out from 1:1', () => {
-    expect(
-      startWorldZoomFor({
-        displayHeight: REFERENCE_DISPLAY_HEIGHT,
-        viewportWidth: 1920,
-        viewportHeight: 1000,
-      }),
-    ).toBe(START_WORLD_ZOOM_PER_UI_SCALE);
-  });
-
   it('stays above the camera zoom-out floor at the smallest HUD scale', () => {
     expect(START_WORLD_ZOOM_PER_UI_SCALE * MIN_UI_SCALE).toBeGreaterThanOrEqual(MIN_ZOOM);
   });

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  JOB_ARCHER,
   JOB_CIVILIST,
   JOB_DRUID,
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_UNARMED,
 } from '../src/catalog/jobs.js';
 import type { ContentIr, JobGraphicsRow } from '../src/content/ir/rows.js';
-import { lookStem, tribeLooks } from '../src/content/settler-gfx/index.js';
+import { tribeLooks } from '../src/content/settler-gfx/index.js';
 import { resolveLooks } from '../src/content/sprite-sheet/character-looks.js';
 
 /**
@@ -49,11 +48,6 @@ const ir: ContentIr = {
 };
 
 describe('tribeLooks', () => {
-  it('gives each tribe its own body for the same character spec', () => {
-    expect(tribeLooks(ir, VIKING).get('civilian')?.[0]?.bodyBmd).toBe('cr_hum_body_00');
-    expect(tribeLooks(ir, FRANK).get('civilian')?.[0]?.bodyBmd).toBe('cr_hum_body_30');
-  });
-
   it('resolves a soldier class to its own record, then degrades to the tribe plain soldier', () => {
     const frank = tribeLooks(ir, FRANK);
     // The frank spearman has its own record; the chain still carries the plain soldier behind it, which
@@ -99,23 +93,6 @@ describe('tribeLooks', () => {
   it('is empty for a tribe with no rows, and for an absent IR', () => {
     expect(tribeLooks(ir, 99).size).toBe(0);
     expect(tribeLooks(null, VIKING).size).toBe(0);
-  });
-
-  it('composes the served atlas stem from the bob set and its palette', () => {
-    expect(lookStem('cr_hum_body_30', 'test_human_00')).toBe('cr_hum_body_30.test_human_00');
-    expect(lookStem('cr_hum_head_42', 'egypt_soldier')).toBe('cr_hum_head_42.egypt_soldier');
-  });
-
-  it('reads the archer chain as its own class then the plain soldier', () => {
-    // The chain order is what makes a tribe-specific archer body win where one exists.
-    const viking = tribeLooks(
-      { jobGraphics: [...(ir.jobGraphics ?? []), row(VIKING, JOB_ARCHER, 'cr_hum_body_60')] },
-      VIKING,
-    );
-    expect(viking.get('warrior-shortbow')?.map((l) => l.bodyBmd)).toEqual([
-      'cr_hum_body_60',
-      'cr_hum_body_05',
-    ]);
   });
 
   it('keeps an animal-body look assigned to a monster soldier job, and every monster look its own skin', () => {

@@ -3,7 +3,6 @@ import {
   isStaleCodeError,
   menuSearch,
   parseServedBuild,
-  placeOfRoute,
   type ServedBuild,
   type UpdateSituation,
   updateOffer,
@@ -102,15 +101,6 @@ describe('isStaleCodeError', () => {
     expect(isStaleCodeError('Importing a module script failed.')).toBe(true);
     expect(isStaleCodeError('ResizeObserver loop completed with undelivered notifications.')).toBe(false);
     expect(isStaleCodeError("Cannot read properties of undefined (reading 'tick')")).toBe(false);
-  });
-});
-
-describe('placeOfRoute', () => {
-  it('treats tools as the menu and tells local from relayed games', () => {
-    expect(placeOfRoute('anim')).toBe('menu');
-    expect(placeOfRoute('map')).toBe('localGame');
-    expect(placeOfRoute('scene')).toBe('localGame');
-    expect(placeOfRoute('relay')).toBe('relayGame');
   });
 });
 

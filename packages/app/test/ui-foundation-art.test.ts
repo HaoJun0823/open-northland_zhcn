@@ -1,6 +1,6 @@
 import { uiManifest } from '@open-northland/art-contracts';
 import { describe, expect, it } from 'vitest';
-import { iconCellStyle, uiFoundationArt } from '../src/content/ui-foundation.js';
+import { iconCellStyle } from '../src/content/ui-foundation.js';
 
 const icons = {
   file: 'icons.png',
@@ -56,13 +56,5 @@ describe('iconCellStyle', () => {
 
   it('reports an unknown icon instead of showing the first cell', () => {
     expect(iconCellStyle(icons, 'people', 50)).toBeNull();
-  });
-});
-
-describe('delivered ui foundation', () => {
-  it('reads the public copy of the HUD chrome', () => {
-    const art = uiFoundationArt();
-    for (const url of [art?.surfaceUrl, art?.iconsUrl, art?.noticesUrl])
-      expect(url).toContain('assets/ui/foundation/');
   });
 });

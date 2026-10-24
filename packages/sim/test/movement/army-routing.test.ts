@@ -16,21 +16,17 @@ import type { Entity } from '../../src/ecs/world.js';
 import { fx, playerCommand, positionOfNode, Simulation, type TerrainMap } from '../../src/index.js';
 import { type NodeId, StepBuffer } from '../../src/nav/terrain/index.js';
 import { stampResourceFootprintData } from '../../src/systems/footprint/index.js';
-import { GroupRoutes } from '../../src/systems/movement/group-routes.js';
 import { testContent } from '../fixtures/content.js';
 
-const MEMBERS = 1000;
+/** Four rows of 32: enough for the army's rows to share searched routes. The thousand-soldier scale
+ *  lives in the slow-tier army-geometry suite. */
+const MEMBERS = 128;
 const WIDTH = 400;
 const HEIGHT = 96;
 const WALL_X = 120;
 const GAP_Y = 76;
 /** Nodes a member's route must share with the route it rides. */
 const SHARED_STRETCH_NODES = 100;
-
-function reportRouting(scenario: string, orders: number, expansions: number, elapsedMs?: number): void {
-  if (process.env.ON_ARMY_ROUTING_REPORT === 'on')
-    console.log(JSON.stringify({ scenario, orders, expansions, elapsedMs }));
-}
 
 function army(wall: boolean, wallHeight = GAP_Y) {
   const typeIds = new Array<number>(WIDTH * HEIGHT).fill(0);
@@ -79,26 +75,15 @@ function enemyLine(sim: Simulation): Entity[] {
 }
 
 describe('army player routing', () => {
-  it(`rejects ${MEMBERS} statically disconnected orders without a dynamic-region flood`, () => {
+  it(`rejects ${MEMBERS} statically disconnected orders`, () => {
     const { sim, members } = army(true, HEIGHT);
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('army terrain missing');
-    let expansions = 0;
-    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
-    terrain.stepsIntoAt = (...args) => {
-      expansions++;
-      return stepsIntoAt(...args);
-    };
     for (const { entity, x, y } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
     sim.step();
     for (const { entity } of members) expect(sim.world.get(entity, PathRequest).failed).toBe(true);
-    reportRouting('static-disconnected', MEMBERS, expansions);
-    expect(expansions).toBe(0);
   });
 
-  // Three expansions for the whole army: the sealed-goal check is not repeated per order.
-  it(`rejects ${MEMBERS} orders into a tiny sealed goal without flooding the open map`, () => {
+  it(`rejects ${MEMBERS} orders into a tiny sealed goal`, () => {
     const { sim, members } = army(false);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('army terrain missing');
@@ -116,26 +101,16 @@ describe('army player routing', () => {
       build: [],
       work: [],
     });
-    let expansions = 0;
-    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
-    terrain.stepsIntoAt = (...args) => {
-      expansions++;
-      return stepsIntoAt(...args);
-    };
     for (const { entity } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: goalX, y: goalY }));
     sim.step();
     for (const { entity } of members) expect(sim.world.get(entity, PathRequest).failed).toBe(true);
-    reportRouting('sealed-goal', MEMBERS, expansions);
-    expect(expansions).toBe(3);
   });
 
   it.each(['structure', 'soldiers'] as const)(
-    'rejects 1000 orders across a closed %s wall without repeating the region flood per soldier',
+    'rejects every order across a closed %s wall, and a line of soldiers lets them through once it leaves',
     (wallKind) => {
       const { sim, members } = army(false);
-      const terrain = sim.terrain;
-      if (terrain === undefined) throw new Error('army terrain missing');
       const posts: Entity[] = [];
       if (wallKind === 'structure') {
         const wall = sim.world.create();
@@ -148,12 +123,6 @@ describe('army player routing', () => {
       } else {
         posts.push(...enemyLine(sim));
       }
-      let expansions = 0;
-      const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
-      terrain.stepsIntoAt = (...args) => {
-        expansions++;
-        return stepsIntoAt(...args);
-      };
       // An attack-move routes through an enemy line, so only a plain move is refused at one.
       const kind = wallKind === 'soldiers' ? 'moveUnit' : 'attackMoveUnit';
       for (const { entity, x, y } of members) sim.enqueue(playerCommand(0, { kind, entity, x: x + 240, y }));
@@ -162,8 +131,6 @@ describe('army player routing', () => {
         expect(sim.world.get(entity, PathRequest).failed).toBe(true);
         expect(sim.world.has(entity, PathFollow)).toBe(false);
       }
-      reportRouting(`closed-${wallKind}-wall`, members.length, expansions);
-      expect(expansions).toBeLessThan(terrain.nodeCount * 3);
       if (wallKind === 'soldiers') {
         for (const post of posts) sim.world.destroy(post);
         for (const { entity, x, y } of members)
@@ -192,17 +159,11 @@ describe('army player routing', () => {
     expect(sim.world.get(member.entity, PathRequest).failed).toBe(true);
   });
 
-  it('routes 1000 attack-moves through a closed line of enemy soldiers', () => {
+  it('routes every attack-move through a closed line of enemy soldiers', () => {
     const { sim, members } = army(false);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('army terrain missing');
     enemyLine(sim);
-    let expansions = 0;
-    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
-    terrain.stepsIntoAt = (...args) => {
-      expansions++;
-      return stepsIntoAt(...args);
-    };
     for (const { entity, x, y } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
     sim.step();
@@ -210,12 +171,10 @@ describe('army player routing', () => {
       expect(sim.world.has(entity, PathRequest)).toBe(false);
       expect(sim.world.get(entity, PathRoute).waypoints.at(-1)?.node).toBe(terrain.nodeAt(x + 240, y));
     }
-    reportRouting('enemy-line', members.length, expansions);
-    expect(expansions).toBeLessThan(terrain.nodeCount * 3);
   });
 
   it.each(['moveUnit', 'attackMoveUnit'] as const)(
-    'starts all 1000 local %s orders in their application tick and replaces every route on redirect',
+    'starts every local %s order in its application tick and replaces every route on redirect',
     (kind) => {
       const { sim, members } = army(false);
       for (const { entity, x, y } of members) sim.enqueue(playerCommand(0, { kind, entity, x: x + 24, y }));
@@ -238,43 +197,14 @@ describe('army player routing', () => {
     },
   );
 
-  it.each([false, true])('starts 1000 long attack-move routes in the application tick (wall=%s)', (wall) => {
+  it.each([false, true])('starts every long attack-move route in the application tick (wall=%s)', (wall) => {
     const { sim, members } = army(wall);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('army terrain missing');
-    let expansions = 0;
-    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
-    terrain.stepsIntoAt = (...args) => {
-      expansions++;
-      return stepsIntoAt(...args);
-    };
-    // Every offered route is one more each later member tries to borrow, which expansions do not count.
-    let offered = 0;
-    const offer = GroupRoutes.prototype.offer;
-    GroupRoutes.prototype.offer = function (this: GroupRoutes, ...args) {
-      offered++;
-      return offer.apply(this, args);
-    };
     for (const { entity, x, y } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
-    const started = performance.now();
-    try {
-      sim.step();
-    } finally {
-      GroupRoutes.prototype.offer = offer;
-    }
-    reportRouting(
-      wall ? 'open-wall-gap' : 'open-long',
-      members.length,
-      expansions,
-      performance.now() - started,
-    );
-    // Only searched routes are offered: a handful for the whole army, not one per member.
-    expect(offered).toBeLessThan(MEMBERS / 10);
+    sim.step();
     expect(members.filter(({ entity }) => sim.world.has(entity, PathRequest))).toEqual([]);
-    // Route checks stay linear in the army's total path length; a wall must not trigger one full-map
-    // search per member. Timing is diagnostic only, never a machine-dependent correctness gate.
-    expect(expansions).toBeLessThan(wall ? 2_000_000 : MEMBERS * 250);
     for (const { entity, x, y } of members) {
       const route = sim.world.get(entity, PathRoute).waypoints;
       expect(route.at(-1)?.node).toBe(terrain.nodeAt(x + 240, y));

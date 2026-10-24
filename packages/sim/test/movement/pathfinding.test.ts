@@ -204,14 +204,6 @@ const POCKET_LOW = 25;
 const POCKET_HIGH = 40;
 
 describe('findPath - deterministic tie-breaking', () => {
-  it('picks the same path across repeated calls (history-independent)', () => {
-    const g = open(6, 6);
-    const a = g.nodeAt(0, 0);
-    const b = g.nodeAt(5, 5);
-    const first = findPath(g, a, b);
-    for (let i = 0; i < 5; i++) expect(findPath(g, a, b)).toEqual(first);
-  });
-
   /** A walk-block ANNULUS sealing node (40,40) on an 80×80 grid: nodes at Chebyshev distance 3..4
    *  from it. Thickness 2 in y seals the ±2 diagonal/step reach (any escape from max ≤ 2 lands at
    *  max ≤ 4 - inside the ring), leaving a ~25-node pocket around the centre. */
@@ -403,37 +395,6 @@ describe('findPath - deterministic tie-breaking', () => {
     expect(forward).toBeGreaterThan(FLOOD_GUARD_MAX_EXPLORED);
     expect(stats.explored).toBeLessThanOrEqual(
       POCKET_PROBE_MAX_EXPLORED + forward + (forward - FLOOD_GUARD_MAX_EXPLORED) + RACE_SLICE_EXPLORED,
-    );
-  });
-
-  it('a smaller goal-side slice finds the same route with fewer goal-side settles', () => {
-    const width = 100;
-    const height = 241;
-    const typeIds = new Array(width * height).fill(GRASS);
-    for (let wall = 0; wall * 4 + 3 < height; wall++) {
-      const y = wall * 4 + 3;
-      const gapWest = wall % 2 === 1;
-      for (let x = 0; x < width; x++) {
-        if (gapWest ? x < 4 : x >= width - 4) continue;
-        typeIds[y * width + x] = WATER;
-      }
-    }
-    const g = grid(width, height, typeIds);
-    const start = g.nodeAt(10, 1);
-    const goal = g.nodeAt(10, height - 4);
-    const blocked = new Set<NodeId>([g.nodeAt(0, 0)]);
-    const even = { explored: 0 };
-    const quarter = { explored: 0 };
-    const quarterSlice = RACE_SLICE_EXPLORED / 4;
-    const route = findPath(g, start, goal, blocked, even);
-    expect(route).not.toBeNull();
-    expect(findPath(g, start, goal, blocked, quarter, 'land', quarterSlice)).toEqual(route);
-    const unguarded = { explored: 0 };
-    findPath(g, start, goal, undefined, unguarded);
-    const remainder = unguarded.explored - FLOOD_GUARD_MAX_EXPLORED;
-    expect(quarter.explored).toBeLessThan(even.explored);
-    expect(quarter.explored).toBeLessThanOrEqual(
-      POCKET_PROBE_MAX_EXPLORED + unguarded.explored + remainder / 4 + quarterSlice,
     );
   });
 

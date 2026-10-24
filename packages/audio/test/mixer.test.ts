@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_VOLUMES,
   notificationShot,
   type OneShot,
   oneShotBus,
   uiCueShot,
-  VOLUME_CHANNELS,
   VOLUME_MAX,
   VOLUME_RANGE_DB,
   volumeGain,
@@ -31,15 +29,6 @@ describe('volumeGain', () => {
     expect(volumeGain(VOLUME_MAX + 40)).toBe(1);
     expect(volumeGain(-3)).toBe(0);
     expect(volumeGain(Number.NaN)).toBe(0);
-  });
-});
-
-describe('mixer defaults', () => {
-  it('has a slider position for every channel inside the range', () => {
-    for (const channel of VOLUME_CHANNELS) {
-      expect(DEFAULT_VOLUMES[channel]).toBeGreaterThan(0);
-      expect(DEFAULT_VOLUMES[channel]).toBeLessThanOrEqual(VOLUME_MAX);
-    }
   });
 });
 

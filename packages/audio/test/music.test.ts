@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CALM_FADE_IN_S,
   CALM_RETURN_MAX_WAIT_S,
@@ -601,11 +601,16 @@ describe('WebAudioEngine music rotation', () => {
     await engine.resume();
     engine.setMusic(trackRotation(ROTATION));
     await flush();
-    engine.close();
-    expect((ctx.sources[0] as FakeSource).stoppedAt).not.toBeNull();
-    expect(engine.audible).toBe(false);
-    await new Promise((r) => setTimeout(r, CLOSE_GRACE_S * 1000 + 10));
-    expect(ctx.state).toBe('closed');
+    vi.useFakeTimers();
+    try {
+      engine.close();
+      expect((ctx.sources[0] as FakeSource).stoppedAt).not.toBeNull();
+      expect(engine.audible).toBe(false);
+      vi.advanceTimersByTime(CLOSE_GRACE_S * 1000);
+      expect(ctx.state).toBe('closed');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

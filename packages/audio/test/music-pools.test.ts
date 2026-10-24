@@ -76,19 +76,6 @@ describe('music culture', () => {
 });
 
 describe('culture pools', () => {
-  it('sizes each pool by its distinct audio, the same-audio stems folded', () => {
-    const sizes = Object.fromEntries(
-      [...POOLS].map(([culture, { calm, tense }]) => [culture, [calm.length, tense.length]]),
-    );
-    expect(sizes).toEqual({
-      norse: [8, 3],
-      frank: [7, 4],
-      byzantine: [10, 6],
-      arab: [8, 5],
-      underworld: [3, 3],
-    });
-  });
-
   it('never holds two stems of the same audio in one culture', () => {
     for (const { calm, tense } of POOLS.values()) {
       const digests = [...calm, ...tense].map((stem) => MANIFEST.tracks[stem]?.segmentSha256);

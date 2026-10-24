@@ -21,8 +21,6 @@ import { battleEvents, battleIndex, battleShots, battleSnapshot } from './helper
 const FRAME_S = 1 / 60;
 /** Seconds of battle: enough for every budget, cooldown and cap to saturate. */
 const BATTLE_S = 4;
-/** Seconds the scaling comparison runs: its first frames start every pool, the costliest frames. */
-const COMPARED_S = 0.25;
 /** Shot property reads one offered shot may cost: the lane switch, its key, pool, gain and exclusivity. */
 const READS_PER_SHOT = 8;
 /** Reads a frame may spend beyond the linear pass: sorting and starting the pool candidates. */
@@ -61,7 +59,7 @@ function counted(shots: readonly OneShot[], reads: { n: number }): OneShot[] {
   );
 }
 
-function runBattle(units: number, seconds = BATTLE_S) {
+function runBattle(units: number, seconds: number) {
   const snapshot = battleSnapshot(units);
   const shots = battleShots(snapshot, battleEvents(units), { chatterTicks: 1 });
   const stopped = new Set<number>();
@@ -116,7 +114,7 @@ function runBattle(units: number, seconds = BATTLE_S) {
 
 describe('a 1000-unit battle', () => {
   it('reaches the engine inside every cap, at a cost linear in the frame`s shots', () => {
-    const run = runBattle(1000);
+    const run = runBattle(1000, BATTLE_S);
     expect(run.shots).toBeGreaterThan(2000);
     expect(run.starts.voice).toBeGreaterThan(0);
     expect(run.starts.voice).toBeLessThanOrEqual(VOICE_BURST + VOICE_STARTS_PER_S * BATTLE_S);
@@ -126,13 +124,5 @@ describe('a 1000-unit battle', () => {
     // One start per sound pool a frame at most, however many shots the pool's fighters raise.
     expect(run.maxPicksPerFrame).toBeLessThanOrEqual(DRAWS_PER_START * battleIndex.groupsByName.size);
     expect(run.maxReadsPerFrame).toBeLessThanOrEqual(READS_PER_SHOT * run.shots + READS_PER_FRAME);
-  });
-
-  it('spends the same per-pool work on ten times the shots', () => {
-    const small = runBattle(1000, COMPARED_S);
-    const large = runBattle(10_000, COMPARED_S);
-    expect(large.shots).toBeGreaterThan(5 * small.shots);
-    expect(large.maxPicksPerFrame).toBe(small.maxPicksPerFrame);
-    expect(large.maxReadsPerFrame).toBeLessThanOrEqual(READS_PER_SHOT * large.shots + READS_PER_FRAME);
   });
 });

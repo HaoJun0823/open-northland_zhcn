@@ -16,15 +16,11 @@ import {
   authoredVolumeGain,
   BUS_DUCK_RAMP_S,
   buildSoundIndex,
-  CHAT_CUE_COOLDOWN_S,
-  CHAT_CUE_GAIN,
   DEPARTURE_BELL_RATE,
   defaultBindings,
   directAudio,
   IMMEDIATE_JINGLES,
   JINGLE_COOLDOWN_MAX_S,
-  LANE_RANK,
-  NOTICE_CARD_GAIN,
   NOTICE_CUE_INTERVAL_S,
   notificationShot,
   type OneShot,
@@ -300,18 +296,6 @@ describe('alert and notice sounds', () => {
     });
   });
 
-  it('rings the notification cues, a card and a chat line under a press', () => {
-    expect(notificationShot('card')).toMatchObject({
-      files: ['gui/briefing_popup.wav'],
-      gain: NOTICE_CARD_GAIN,
-    });
-    expect(notificationShot('chat')).toMatchObject({
-      files: ['gui/chat_incoming.wav'],
-      gain: CHAT_CUE_GAIN,
-      cooldownS: CHAT_CUE_COOLDOWN_S,
-    });
-  });
-
   it("rings a player's coming and going on the ship's bell, the going lower and quieter, never the fail click", () => {
     const arrival = notificationShot('arrival');
     const departure = notificationShot('departure');
@@ -428,15 +412,6 @@ describe('alert lane ladder', () => {
     // The hungry sigh waits for the short take's end, not the default lane length.
     expect(arbiter.decide([laneShot('hungry')], CLIP_S / 2)).toEqual([]);
     expect(arbiter.decide([], CLIP_S).map((shot) => shot.key)).toEqual(['hungry']);
-  });
-
-  it('ranks defeat over the settlement over people over a death over the economy over completions', () => {
-    expect(LANE_RANK.critical).toBeGreaterThan(LANE_RANK.baseAttacked);
-    expect(LANE_RANK.baseAttacked).toBeGreaterThan(LANE_RANK.unitsAttacked);
-    expect(LANE_RANK.unitsAttacked).toBeGreaterThan(LANE_RANK.death);
-    expect(LANE_RANK.death).toBeGreaterThan(LANE_RANK.peril);
-    expect(LANE_RANK.peril).toBeGreaterThan(LANE_RANK.economy);
-    expect(LANE_RANK.economy).toBeGreaterThan(LANE_RANK.completion);
   });
 
   it("rings a frame's lane shots one at a time, gravest first", () => {

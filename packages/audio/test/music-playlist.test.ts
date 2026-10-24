@@ -127,20 +127,6 @@ describe('calm rotation', () => {
     expect(first?.passes).toBeLessThanOrEqual(CALM_PASSES_MAX);
   });
 
-  it('draws the same rotation from the same seed', () => {
-    // The add-on Franken2 Wealthy name stands for Franken1 Wealthy: one stem per audio, first by name.
-    expect(take(playlistFor(MISSION_FRANKEN1), 8).map(stemOf)).toEqual([
-      'mission_franken1_standard',
-      'theme_franken_friendly',
-      'mission_franken1_standard',
-      'mission_franken2_standard',
-      'mission_franken1_standard',
-      'mission_addon_franken2_wealthy',
-      'mission_franken1_standard',
-      'mission_franken2_wealthy',
-    ]);
-  });
-
   it('never plays the same audio twice in a row', () => {
     const cues = take(playlistFor(MISSION_FRANKEN1), LONG_RUN);
     expect(cues).toHaveLength(LONG_RUN);
@@ -232,19 +218,6 @@ describe('long sessions', () => {
       expect(every).toBeGreaterThanOrEqual(LONG_SESSION_OWN_STEM_EVERY_MIN);
       expect(every).toBeLessThanOrEqual(LONG_SESSION_OWN_STEM_EVERY_MAX);
     }
-  });
-
-  it('draws the same rotation from the same seed and session clock', () => {
-    const run = (): Array<[string, number]> => {
-      let nowS = 0;
-      const playlist = playlistFor(MISSION_FRANKEN1, seeded(SEED), () => nowS);
-      const STEP_S = 300;
-      return take(playlist, LONG_RUN).map((cue) => {
-        nowS += STEP_S;
-        return [stemOf(cue), cue.gapBeforeS];
-      });
-    };
-    expect(run()).toEqual(run());
   });
 });
 

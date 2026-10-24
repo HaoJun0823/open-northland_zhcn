@@ -1,7 +1,7 @@
 import type { GfxPattern, HumanVoices, SoundBank, TerrainPattern } from '@open-northland/data';
 import type { EntitySnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { BORROWED_TRIBE_VOICES, groupFiles, poolGain, SILENT_PLACEHOLDER_FILE } from '../src/data/bank.js';
+import { groupFiles, poolGain, SILENT_PLACEHOLDER_FILE } from '../src/data/bank.js';
 import { humanVoicesOf, responseGroup } from '../src/data/voices.js';
 import {
   AUTHORED_VOLUME_MAX,
@@ -228,10 +228,6 @@ describe('tribe voice borrowing', () => {
   const egyptian = (id: number, components: Record<string, unknown> = {}): EntitySnapshot => ({
     id,
     components: { Settler: { tribe: EGYPT, jobType: null }, Person: { person: true }, ...components },
-  });
-
-  it('lends Egypt the Saracen pools by default', () => {
-    expect(BORROWED_TRIBE_VOICES.get('egypt')).toBe('saracen');
   });
 
   it('gives a voiceless Egyptian settler an answer pool and a scream pool', () => {

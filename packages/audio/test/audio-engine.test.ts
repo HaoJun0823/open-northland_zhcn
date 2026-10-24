@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { OneShot } from '../src/index.js';
 import {
   AMBIENT_FADE_S,
@@ -66,8 +66,6 @@ function makeEngine(opts: { failFetch?: boolean; noPanner?: boolean; random?: ()
 
 /** The birth jingle's `MusicType`; any jingle routes alike. */
 const BIRTH_JINGLE = 23;
-
-const waitForClose = (): Promise<unknown> => new Promise((r) => setTimeout(r, CLOSE_GRACE_S * 1000 + 10));
 
 const shot = (over: Partial<OneShot> = {}): OneShot => ({
   files: ['sfx/hammer.wav'],
@@ -304,13 +302,18 @@ describe('WebAudioEngine context interruption', () => {
   it('fades the master out before it closes the context, and never resumes it after', async () => {
     const { engine, ctx } = makeEngine();
     await engine.resume();
-    engine.close();
-    expect(mixerGraph(ctx).master.gain.ramps.at(-1)).toEqual({ value: 0, time: CLICK_FREE_RAMP_S });
-    expect(ctx.state).toBe('running'); // the fade first
-    expect(engine.audible).toBe(false);
-    await waitForClose();
-    expect(ctx.state).toBe('closed');
-    expect(ctx.resumes).toBe(1);
+    vi.useFakeTimers();
+    try {
+      engine.close();
+      expect(mixerGraph(ctx).master.gain.ramps.at(-1)).toEqual({ value: 0, time: CLICK_FREE_RAMP_S });
+      expect(ctx.state).toBe('running'); // the fade first
+      expect(engine.audible).toBe(false);
+      vi.advanceTimersByTime(CLOSE_GRACE_S * 1000);
+      expect(ctx.state).toBe('closed');
+      expect(ctx.resumes).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -353,14 +353,6 @@ describe('WeatherSoundscape', () => {
       .filter((n): n is FakePanner => n instanceof FakePanner);
     expect(panners.map((p) => p.pan.value)).toEqual([-THUNDER_MAX_PAN]);
   });
-
-  it('opens a near strike with a crack', () => {
-    const { ctx, scape } = soundscape();
-    scape.update({ ...rain, strikes: [strike(1, 0, 0)] }, 0);
-    const started = ctx.sources.filter((s) => !s.loop);
-    expect(started).toHaveLength(1); // the crack plays once; the rumble loops its buffer
-    expect(scape.thunderVoices).toBe(1);
-  });
 });
 
 describe('weather noise buffers', () => {

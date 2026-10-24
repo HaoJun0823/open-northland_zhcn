@@ -4,7 +4,7 @@ import type { MusicTrack } from '../../src/index.js';
 /** Builders for manifest documents in the layout the pipeline writes. */
 
 /** A stand-in segment digest: distinct per `audio` name, so two stems share one only when asked to. */
-export function digestOf(audio: string): string {
+function digestOf(audio: string): string {
   let hash = FNV_OFFSET_BASIS;
   for (let i = 0; i < audio.length; i++) hash = fnvMixWord(hash, audio.charCodeAt(i));
   return fnvHex(hash).repeat(8);
@@ -27,9 +27,4 @@ export function musicTrack(stem: string, overrides: Partial<MusicTrack> & { same
 /** A whole manifest document over `tracks`, keyed by stem. */
 export function manifestDocument(tracks: Readonly<Record<string, MusicTrack>>) {
   return { version: MUSIC_MANIFEST_VERSION, renderVersion: 1, sources: 'test', tracks };
-}
-
-/** A document whose every stem is a default {@link musicTrack}. */
-export function manifestOf(stems: readonly string[]) {
-  return manifestDocument(Object.fromEntries(stems.map((stem) => [stem, musicTrack(stem)])));
 }

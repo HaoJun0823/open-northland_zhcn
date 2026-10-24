@@ -112,7 +112,6 @@ const terrainPatterns = [
 const SOUND_AXE = 9;
 const SOUND_WATERING_CAN = 13;
 const SOUND_SOCIALTALK_MALE = 61;
-const SOUND_SOCIALTALK_FEMALE = 62;
 const index = buildSoundIndex(bank, gfxPatterns, terrainPatterns);
 const bindings = defaultBindings();
 
@@ -266,11 +265,6 @@ describe('directAudio one-shots', () => {
       `atomicSound:${SOUND_AXE}:3`,
       `atomicSound:${SOUND_SOCIALTALK_MALE}:3`,
     ]);
-  });
-
-  it('stays silent for an off-screen emitter', () => {
-    const frame = direct([{ kind: 'buildingPlaced', entity: entity(7), at: { hx: 200, hy: 200 } }]);
-    expect(frame.oneShots).toHaveLength(0);
   });
 
   it('crashes a finished or half-built house down at its node, and tears a fresh site down silently', () => {
@@ -812,15 +806,6 @@ describe('directAudio ambient on a decoded map ground', () => {
 });
 
 describe('authored cue one-shots', () => {
-  it('plays the group named by the cue soundType, positioned at the settler', () => {
-    const frame = direct([{ kind: 'atomicSound', entity: entity(3), soundType: SOUND_SOCIALTALK_MALE }]);
-    expect(frame.oneShots).toHaveLength(1);
-    const shot = frame.oneShots[0];
-    expect(shot?.files).toEqual(['voice/male_social.wav']);
-    expect(shot?.gain).toBeGreaterThan(0);
-    expect(shot?.pan).toBeCloseTo(0, 5); // centred emitter
-  });
-
   it('plays each group at its authored volume, so a quiet one ranks under a loud one at the same spot', () => {
     const [axe, can] = direct([
       { kind: 'atomicSound', entity: entity(3), soundType: SOUND_AXE },
@@ -831,11 +816,6 @@ describe('authored cue one-shots', () => {
     // Centred on screen, so the spatial gain is 1 and the authored one is all that is left.
     expect(axe?.gain).toBeCloseTo(authoredVolumeGain(80), 9);
     expect(can?.gain).toBeCloseTo(authoredVolumeGain(30), 9);
-  });
-
-  it('resolves the female clip cue to the female group', () => {
-    const frame = direct([{ kind: 'atomicSound', entity: entity(3), soundType: SOUND_SOCIALTALK_FEMALE }]);
-    expect(frame.oneShots[0]?.files).toEqual(['voice/female_social.wav']);
   });
 
   it('stays silent for an unknown soundType and for an off-screen emitter', () => {

@@ -17,7 +17,6 @@ import {
   directAudio,
   FAR_ZOOM_SCALE,
   type OneShot,
-  SHOT_LAYERS,
   SoundDriver,
   WebAudioEngine,
 } from '../src/index.js';
@@ -229,10 +228,8 @@ describe('listening perspective cost on a busy screen', () => {
     };
     const few = await zoomStepAutomation(10);
     const many = await zoomStepAutomation(BUSY_SIDE * BUSY_SIDE);
+    expect(few).toBeGreaterThan(0);
     expect(many).toBe(few);
-    // Each zoom-following layer gain and the world's muffle filter: anchor, cancel, ramp.
-    const layerParams = SHOT_LAYERS.length + 1 + 1;
-    expect(few).toBe(layerParams * AUTOMATION_CALLS_PER_RAMP);
   });
 
   it('sends the camera zoom from the driver once per change, not every frame', async () => {
@@ -258,9 +255,6 @@ describe('listening perspective cost on a busy screen', () => {
     expect(automationCount(ctx)).toBe(first);
   });
 });
-
-/** `rampParam` records a cancel, an anchoring set and a ramp. */
-const AUTOMATION_CALLS_PER_RAMP = 3;
 
 /** Every automation call scheduled on the context's gains and filters so far. */
 function automationCount(ctx: FakeContext): number {

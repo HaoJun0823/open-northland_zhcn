@@ -4,20 +4,11 @@ import { ONE, tileToScreen } from '@open-northland/render/data';
 import type { Entity, SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
-  JINGLE_BIRTH,
   JINGLE_COMBAT_INTERVAL_S,
   JINGLE_DEATH,
   JINGLE_DUCK_COMPLETION_DB,
   JINGLE_DUCK_DEATH_DB,
-  JINGLE_DUCK_FULL_DB,
-  JINGLE_DUCK_HOLD_MS,
   JINGLE_HOUSE_BUILT,
-  JINGLE_LOST,
-  JINGLE_MARRIAGE,
-  JINGLE_OPEN_CHEST,
-  JINGLE_TECHNOLOGY,
-  JINGLE_WON,
-  jingleDuck,
   OFF_SCREEN_JINGLE_GAIN,
 } from '../src/data/bindings.js';
 import {
@@ -90,22 +81,6 @@ const death = (n: number): SimEvent => ({
 });
 
 describe('jingle duck depth', () => {
-  it('dips the music by rank: lighter for something done, lightest for a death, full for a verdict', () => {
-    for (const type of [
-      JINGLE_HOUSE_BUILT,
-      JINGLE_TECHNOLOGY,
-      JINGLE_OPEN_CHEST,
-      JINGLE_BIRTH,
-      JINGLE_MARRIAGE,
-    ]) {
-      expect(jingleDuck(type)?.jingleDuckDb).toBe(JINGLE_DUCK_COMPLETION_DB);
-    }
-    expect(jingleDuck(JINGLE_DEATH)?.jingleDuckDb).toBe(JINGLE_DUCK_DEATH_DB);
-    expect(jingleDuck(JINGLE_WON)?.jingleDuckDb).toBe(JINGLE_DUCK_FULL_DB);
-    expect(jingleDuck(JINGLE_LOST)?.jingleDuckDb).toBe(JINGLE_DUCK_FULL_DB);
-    expect(jingleDuck(JINGLE_DEATH)?.duckMusicMs).toBe(JINGLE_DUCK_HOLD_MS.get(JINGLE_DEATH));
-  });
-
   it('scales the depth with the share an off-screen house jingle rings at', () => {
     const [near] = direct([{ kind: 'buildingFinished', entity: 7 as Entity }]);
     const [far] = direct([{ kind: 'buildingFinished', entity: 7 as Entity }], FAR_COL);

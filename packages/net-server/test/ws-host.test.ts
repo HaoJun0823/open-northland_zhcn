@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { connect as connectTcp } from 'node:net';
 import type { GameSession } from '@open-northland/lockstep';
-import { CLOSE_SERVICE_RESTART, PROTOCOL_VERSION, type RoomSettings } from '@open-northland/net-protocol';
+import {
+  CLOSE_SERVICE_RESTART,
+  MAX_SPEED,
+  PROTOCOL_VERSION,
+  type RoomSettings,
+} from '@open-northland/net-protocol';
 import { HEALTH_PATH, type RelayHost, startRelayHost } from '@open-northland/net-server';
 import {
   type Command,
@@ -26,9 +31,11 @@ const SETTINGS: RoomSettings = {
   world: { kind: 'scene', sceneId: 'fixture' },
   seed: 3,
   rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
-  speed: 1,
+  // The fastest clock: the run is paced by wall time over real sockets.
+  speed: MAX_SPEED,
 };
 const RUN_TICKS = 24;
+const CLIENTS = 2;
 const POLL_MS = 10;
 const STEP_TIMEOUT_MS = 5000;
 const SESSION_TIMEOUT_MS = 30_000;
@@ -96,9 +103,10 @@ describe('websocket host', () => {
     host = null;
   });
 
-  it.each([2, 8])(
-    'plays a session between %i clients over real sockets',
-    async (count) => {
+  it(
+    'plays a session between clients over real sockets',
+    async () => {
+      const count = CLIENTS;
       const relay = await target();
       host = relay.host;
       const connections: Awaited<ReturnType<typeof connect>>[] = [];

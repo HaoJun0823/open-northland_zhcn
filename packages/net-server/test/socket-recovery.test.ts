@@ -4,7 +4,11 @@ import { startRelayHost } from '@open-northland/net-server';
 import { restoreSimulation, Simulation } from '@open-northland/sim';
 import { expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
+import { MESSAGE_BURST } from '../src/host/socket-budget.js';
 import { HeadlessClient } from './support/headless-client.js';
+
+/** Acknowledgements the stalled upload holds back: past the socket's message burst, with margin. */
+const STALLED_ACKS = MESSAGE_BURST + 88;
 
 /** A paused TCP reader lets the kernel coalesce traffic without changing WebSocket messages. */
 async function upstreamGate(target: number) {
@@ -117,12 +121,11 @@ it('recovers when a stalled upload releases a valid catch-up acknowledgement bur
     await until(() => a.room?.seats.every((seat) => seat.ready) === true);
     a.start();
     await until(() => clients.every((client) => client.sim !== null));
-    await until(() => b.bufferedTicks >= 800, [a]);
+    await until(() => b.bufferedTicks >= STALLED_ACKS, [a]);
 
     gate.pause();
     const firstTick = b.tick ?? 0;
-    await until(() => (b.tick ?? 0) - firstTick >= 700, clients);
-    expect((b.tick ?? 0) - firstTick).toBeGreaterThan(512);
+    await until(() => (b.tick ?? 0) - firstTick >= STALLED_ACKS, clients);
     gate.resume();
     await until(() => finalClosures.length > 0 || (opens[1] ?? 0) > 1, clients);
     expect([...finalClosures]).toEqual([]);

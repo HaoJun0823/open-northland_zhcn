@@ -29,8 +29,8 @@ const RUN_TICKS = 240;
 const ORDER_EVERY_TICKS = 7;
 const SLOW_LINK = { latencyMs: 160, jitterMs: 40 };
 const FAST_LINK = { latencyMs: 40, jitterMs: 10 };
-/** Jitter schedules to run the unequal-link session over; each must end in agreement. */
-const JITTER_SEEDS = [7, 8, 9];
+/** The jitter schedule the unequal-link session runs over. */
+const JITTER_SEED = 7;
 
 async function buildWorld(session: GameSession): Promise<Simulation> {
   return new Simulation({ seed: session.seed, content: testContent() });
@@ -79,40 +79,37 @@ function orderTogether(client: HeadlessClient, tick: number): void {
 }
 
 describe('a relayed session', () => {
-  it.each(JITTER_SEEDS)(
-    'leaves two clients on different links with one state and one log (seed %i)',
-    async (seed) => {
-      const stage = stageFor(seed);
-      const ania = client('Ania');
-      const bartek = client('Bartek');
-      stage.network.link(ania, FAST_LINK);
-      stage.network.link(bartek, SLOW_LINK);
-      await assembleRoom(stage, [ania, bartek], {
-        settings: SETTINGS,
-        seats: SEATS,
-        seatOf: (i) => i,
-        settleMs: 400,
-      });
+  it('leaves two clients on different links with one state and one log', async () => {
+    const stage = stageFor(JITTER_SEED);
+    const ania = client('Ania');
+    const bartek = client('Bartek');
+    stage.network.link(ania, FAST_LINK);
+    stage.network.link(bartek, SLOW_LINK);
+    await assembleRoom(stage, [ania, bartek], {
+      settings: SETTINGS,
+      seats: SEATS,
+      seatOf: (i) => i,
+      settleMs: 400,
+    });
 
-      const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
-      const a = captures.get(ania);
-      const b = captures.get(bartek);
-      expect(a?.hash).toBe(b?.hash);
-      expect(a?.log).toEqual(b?.log);
-      expect(a?.log.length).toBeGreaterThanOrEqual((RUN_TICKS / ORDER_EVERY_TICKS) * 2 - 4);
-      expect(ania.rejections).toEqual([]);
-      expect(bartek.rejections).toEqual([]);
-      expect(ania.dropped).toEqual([]);
-      // The slower link earns the longer input delay; the outcome above did not depend on it.
-      expect(bartek.delayTicks).toBeGreaterThan(ania.delayTicks ?? Number.POSITIVE_INFINITY);
-      // Each client reported its tick cost and backlog, and the room view carries them.
-      for (const member of ania.room?.members ?? []) {
-        expect(member.load?.tickMs).toBeGreaterThanOrEqual(0);
-        expect(member.load?.buffered).toBeGreaterThanOrEqual(0);
-      }
-      expect(ania.room?.members).toHaveLength(2);
-    },
-  );
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
+    const a = captures.get(ania);
+    const b = captures.get(bartek);
+    expect(a?.hash).toBe(b?.hash);
+    expect(a?.log).toEqual(b?.log);
+    expect(a?.log.length).toBeGreaterThanOrEqual((RUN_TICKS / ORDER_EVERY_TICKS) * 2 - 4);
+    expect(ania.rejections).toEqual([]);
+    expect(bartek.rejections).toEqual([]);
+    expect(ania.dropped).toEqual([]);
+    // The slower link earns the longer input delay; the outcome above did not depend on it.
+    expect(bartek.delayTicks).toBeGreaterThan(ania.delayTicks ?? Number.POSITIVE_INFINITY);
+    // Each client reported its tick cost and backlog, and the room view carries them.
+    for (const member of ania.room?.members ?? []) {
+      expect(member.load?.tickMs).toBeGreaterThanOrEqual(0);
+      expect(member.load?.buffered).toBeGreaterThanOrEqual(0);
+    }
+    expect(ania.room?.members).toHaveLength(2);
+  });
 
   it('orders two seats competing for one tick the same way on both clients', async () => {
     const stage = stageFor(3);

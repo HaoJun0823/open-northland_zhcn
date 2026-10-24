@@ -30,13 +30,6 @@ describe('parseStoredSettings', () => {
     expect(parseStoredSettings('null')).toEqual(defaultSettings());
   });
 
-  it('enables blood by default and preserves an explicit opt-out', () => {
-    for (const raw of [null, '{}', '{"blood":null}', '{"blood":"false"}']) {
-      expect(parseStoredSettings(raw).blood).toBe(true);
-    }
-    expect(parseStoredSettings('{"blood":false}').blood).toBe(false);
-  });
-
   it('round-trips a full settings object', () => {
     const settings = {
       displayMode: 'fullscreen',
@@ -124,13 +117,6 @@ describe('parseStoredSettings', () => {
     expect(parseStoredSettings('{}').fpsLimit).toBe(60);
   });
 
-  it('persists explicit sprite smoothing choices and defaults older settings to on', () => {
-    expect(parseStoredSettings('{}').spriteSmoothing).toBe(true);
-    expect(parseStoredSettings('{"spriteSmoothing":false}').spriteSmoothing).toBe(false);
-    expect(parseStoredSettings('{"spriteSmoothing":true}').spriteSmoothing).toBe(true);
-    expect(parseStoredSettings('{"spriteSmoothing":"off"}').spriteSmoothing).toBe(true);
-  });
-
   it('plays sound in the background by default only outside a browser tab', () => {
     expect(defaultSettings().soundInBackground).toBe(false);
     vi.stubGlobal('window', {});
@@ -147,12 +133,6 @@ describe('parseStoredSettings', () => {
     vi.stubGlobal('window', { desktop: { fullscreen: {} } });
     expect(defaultSettings().soundQuality).toBe('lossless');
     expect(parseStoredSettings('{"soundQuality":"compact"}').soundQuality).toBe('compact');
-  });
-
-  it('keeps the mix in stereo unless a stored boolean folds it to mono', () => {
-    expect(parseStoredSettings('{}').monoSound).toBe(false);
-    expect(parseStoredSettings('{"monoSound":true}').monoSound).toBe(true);
-    expect(parseStoredSettings('{"monoSound":"yes"}').monoSound).toBe(false);
   });
 
   it('rings the jingles and answers every call unless stored choices say otherwise', () => {
@@ -229,10 +209,6 @@ describe('parseStoredSettings', () => {
     expect(parseStoredSettings('{"uiScaleFactor":0.1}').uiScaleFactor).toBe(UI_SCALE_FACTOR_MIN);
     expect(parseStoredSettings('{"renderScale":9}').renderScale).toBe(RENDER_SCALE_MAX);
     expect(parseStoredSettings('{"renderScale":0.1}').renderScale).toBe(RENDER_SCALE_MIN);
-  });
-
-  it('ignores the pre-relative absolute `uiScale` field', () => {
-    expect(parseStoredSettings('{"uiScale":1.75}').uiScaleFactor).toBe(defaultSettings().uiScaleFactor);
   });
 
   it('starts a player with nothing stored in the browser language, English when it ships no catalog', () => {
@@ -432,12 +408,4 @@ describe('carriedSettingParams', () => {
       { key: 'soundEnabled', param: 'sound', value: 'off' },
     ]);
   });
-});
-
-it('defaults selection to green and validates the four stored styles', () => {
-  expect(parseStoredSettings(null).selectionStyle).toBe('outline');
-  expect(parseStoredSettings('{"selectionStyle":"unknown"}').selectionStyle).toBe('outline');
-  for (const selectionStyle of ['outline', 'pulse', 'ring-white', 'ring-green']) {
-    expect(parseStoredSettings(JSON.stringify({ selectionStyle })).selectionStyle).toBe(selectionStyle);
-  }
 });

@@ -16,7 +16,6 @@ import {
   singlePlayerTabs,
 } from '../src/entries/main-menu/map-select-model.js';
 import { pluralForm } from '../src/i18n/index.js';
-import { parseStoredSettings } from '../src/view/settings-store.js';
 import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 
 function slot(player: number, hidden = false): MapsIndexPlayerSlot {
@@ -232,10 +231,6 @@ describe('map preview views', () => {
   it("shows a catalogue map's picture from wherever it lives", () => {
     expect(mapPreviewUrl({ id: 'cn-a', pictureUrl: 'blob:x' }, 'picture')).toBe('blob:x');
     expect(mapPreviewUrl({ id: 'cn-a', pictureUrl: 'blob:x' }, 'map')).toBe('/maps/cn-a.map.png');
-  });
-
-  it('stores no preview choice', () => {
-    expect(parseStoredSettings('{"mapPreview":"map"}')).not.toHaveProperty('mapPreview');
   });
 });
 

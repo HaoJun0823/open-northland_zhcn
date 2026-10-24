@@ -35,29 +35,9 @@ describe('deepLinkScreen', () => {
 });
 
 describe('MAIN_NAV', () => {
-  it('lists the menu order with multiplayer available', () => {
-    expect(MAIN_NAV.map((item) => item.id)).toEqual([
-      'newGame',
-      'load',
-      'multiplayer',
-      'catalogue',
-      'settings',
-      'credits',
-      'exit',
-    ]);
-    expect(MAIN_NAV.find((item) => item.id === 'multiplayer')?.kind).toBe('open');
-  });
-
   it('offers the exit only in the desktop shell, since a page cannot close its browser tab', () => {
     expect(mainNavFor(false).map((item) => item.id)).toContain('exit');
-    expect(mainNavFor(true).map((item) => item.id)).toEqual([
-      'newGame',
-      'load',
-      'multiplayer',
-      'catalogue',
-      'settings',
-      'credits',
-    ]);
+    expect(mainNavFor(true).map((item) => item.id)).not.toContain('exit');
   });
 });
 

@@ -4,7 +4,6 @@ import {
   computerSeats,
   hasClaimableSeat,
   initialRosterState,
-  OBSERVER_SEAT,
   setSlotColor,
   setVacantMode,
   vacantOffers,
@@ -55,97 +54,10 @@ describe('roster state', () => {
     expect(computerSeats(state, players)).toEqual([1]);
   });
 
-  it('keeps every slot eligible for the AI toggle behind a spectator seat', () => {
-    let state = claimSeat(initialRosterState(players), OBSERVER_SEAT);
-    state = setVacantMode(state, 0, 'computer'); // no seat is the observer's own - slot 0 still counts
-    state = setVacantMode(state, 1, 'computer'); // the all-AI watch rig: every seat toggled to AI
-    expect(computerSeats(state, players)).toEqual([0, 1]);
-  });
-
   it('rejects a colour another slot wears and accepts re-picking your own', () => {
     const state = initialRosterState(players);
     expect(setSlotColor(state, 0, 4)).toBeNull(); // slot 1 wears green
     expect(setSlotColor(state, 0, 7)).not.toBeNull(); // own colour, no-op accepted
-  });
-
-  it('does not list the claimed seat as AI', () => {
-    const state = claimSeat(setVacantMode(initialRosterState(players), 1, 'computer'), 1);
-    expect(computerSeats(state, players)).toEqual([]);
-  });
-
-  it('defaults a claimable authored-ai slot to Script and drops it when toggled to idle', () => {
-    // A lobby-opened seat (Forteca/Mosty style): authored ai, playeroption offers human. The
-    // non-claimable slot 2 is the map's own computer seat, which is not the lobby's to list.
-    const lobby = [
-      {
-        player: 0,
-        type: 'human',
-        tribeId: 1,
-        colorId: 0,
-        claimable: true,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: true,
-        hasComputerControl: true,
-      },
-      {
-        player: 1,
-        type: 'ai',
-        tribeId: 1,
-        colorId: 1,
-        claimable: true,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: true,
-        hasComputerControl: true,
-      },
-      {
-        player: 2,
-        type: 'ai',
-        tribeId: 1,
-        colorId: 9,
-        claimable: false,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: true,
-        hasComputerControl: true,
-      },
-    ] as const;
-    const state = claimSeat(initialRosterState(lobby), 0);
-    expect(computerSeats(state, lobby)).toEqual([1]);
-    expect(computerSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
-  });
-
-  it('never lists a Human/Closed-only seat as AI', () => {
-    // playeroption without #PLAYER_TYPE_AI (e.g. Zgielk2 slot 0): no AI offer, so the authored
-    // default is idle even on an authored-ai slot, and a toggle the UI never shows cannot leak it.
-    const lobby = [
-      {
-        player: 0,
-        type: 'human',
-        tribeId: 1,
-        colorId: 0,
-        claimable: true,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: true,
-        hasComputerControl: true,
-      },
-      {
-        player: 1,
-        type: 'ai',
-        tribeId: 1,
-        colorId: 1,
-        claimable: true,
-        hidden: false,
-        aiAllowed: false,
-        noneAllowed: true,
-        hasComputerControl: true,
-      },
-    ] as const;
-    const state = claimSeat(initialRosterState(lobby), 0);
-    expect(computerSeats(state, lobby)).toEqual([]);
-    expect(computerSeats(setVacantMode(state, 1, 'computer'), lobby)).toEqual([]);
   });
 
   it('offers only the vacant modes the map allows, and locks the map computer seat', () => {

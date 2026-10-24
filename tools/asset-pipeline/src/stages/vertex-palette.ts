@@ -3,7 +3,7 @@ import { assertPaletteBytes } from '@open-northland/formats/image';
 import { decodePcx } from '@open-northland/formats/pcx';
 import type { SourceRoots } from '../roots.js';
 import { writeJsonFile } from './content-tree.js';
-import { readSourceFile } from './source-files.js';
+import { readShippedSourceFile } from './source-files.js';
 
 /** The picture whose colour table a script's `SetVertexColor` indexes; its raster is irrelevant. */
 const VERTEX_PALETTE_PCX = 'Data/engine2d/bin/palettes/misc/vertexcolors.pcx';
@@ -11,7 +11,7 @@ export const VERTEX_PALETTE_FILE = 'terrain-palettes/vertexcolors.json';
 
 /** Writes the vertex colour palette as packed `0xRRGGBB` entries; throws when the mod ships none. */
 export async function convertVertexPalette(roots: SourceRoots, outDir: string): Promise<VertexPalette> {
-  const { palette } = decodePcx(await readSourceFile(roots, VERTEX_PALETTE_PCX));
+  const { palette } = decodePcx(await readShippedSourceFile(roots, VERTEX_PALETTE_PCX));
   if (palette === undefined) throw new Error(`${VERTEX_PALETTE_PCX} carries no colour table`);
   assertPaletteBytes(palette, 'vertex palette');
   const colors: number[] = [];

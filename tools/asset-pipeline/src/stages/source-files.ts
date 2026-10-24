@@ -3,10 +3,11 @@ import { normalizeAssetPath } from '@open-northland/formats/ini';
 import { collectSourceFiles, resolveSourceFile, type SourceFile, type SourceRoots } from '../roots.js';
 
 /**
- * Reads a source file, every path segment resolving case-insensitively through the pipeline's one
- * source-path rule ({@link resolveSourceFile}). Throws when absent.
+ * Reads a source file as shipped, without corrections (`readSourceFile` in `roots.ts` applies them),
+ * every path segment resolving case-insensitively through the pipeline's one source-path rule
+ * ({@link resolveSourceFile}). Throws when absent.
  */
-export async function readSourceFile(roots: SourceRoots, relPath: string): Promise<Uint8Array> {
+export async function readShippedSourceFile(roots: SourceRoots, relPath: string): Promise<Uint8Array> {
   const path = await resolveSourceFile(roots, relPath);
   if (path === undefined) {
     throw new Error(`${relPath} not found under ${roots.data}`);

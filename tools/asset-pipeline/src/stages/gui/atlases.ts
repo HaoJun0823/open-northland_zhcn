@@ -2,7 +2,7 @@ import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
 import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
 import { type BobAtlasCatalog, emitIndexedAndPreviewAtlas } from '../content-tree.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 
 /** The GUI bob sheets to atlas, each with the palette its RGBA preview is coloured through. */
 interface GuiAtlasSource {
@@ -43,7 +43,7 @@ export async function convertGuiAtlases(
   for (const src of GUI_ATLASES) {
     let bytes: Uint8Array;
     try {
-      bytes = await readSourceFile(roots, src.bmd);
+      bytes = await readShippedSourceFile(roots, src.bmd);
     } catch (err) {
       console.warn(`[pipeline] gui: skipped ${src.stem}: ${errorMessage(err)}`);
       continue;

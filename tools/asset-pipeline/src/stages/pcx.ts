@@ -6,7 +6,7 @@ import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
 import { collectSourceFiles, DATA_TEXTURES_DIR, type SourceRoots } from '../roots.js';
 import { TEXTURES_DIR } from './content-tree.js';
-import { readSourceFile } from './source-files.js';
+import { readShippedSourceFile } from './source-files.js';
 
 /** A transition overlay's two source pictures: the RGB texture + its separate alpha-mask `.pcx`. */
 export interface MaskedTexturePair {
@@ -47,7 +47,7 @@ export async function composeMaskedTransitionPages(
   const done: PcxConversion[] = [];
   const seen = new Set<string>();
   const readTexturePcx = (normalizedPath: string): Promise<Uint8Array> =>
-    readSourceFile(roots, `${DATA_TEXTURES_DIR}/${basename(normalizedPath)}`);
+    readShippedSourceFile(roots, `${DATA_TEXTURES_DIR}/${basename(normalizedPath)}`);
   for (const pair of pairs) {
     if (seen.has(pair.texture)) continue;
     seen.add(pair.texture);

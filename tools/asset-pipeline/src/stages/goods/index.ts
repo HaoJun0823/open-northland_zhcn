@@ -3,7 +3,7 @@ import { errorMessage } from '../../errors.js';
 import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
 import { type BobAtlasCatalog, emitIndexedAndPreviewAtlas, writeJsonFile } from '../content-tree.js';
 import { identityPalette, writeLutPng } from '../palette-lut.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 import { buildGoodIcons, GOODS_ATLAS_STEM, type GoodIcon, loadGoods } from './icons.js';
 import { loadGoodsPalette, loadPaletteAliases } from './palettes.js';
 
@@ -86,7 +86,7 @@ export async function convertGoodsStage(
 
   let frames = 0;
   try {
-    const bmd = decodeBmd(await readSourceFile(roots, GOODS_BMD));
+    const bmd = decodeBmd(await readShippedSourceFile(roots, GOODS_BMD));
     const emitted = await emitIndexedAndPreviewAtlas(
       bobAtlases,
       GOODS_ATLAS_STEM,

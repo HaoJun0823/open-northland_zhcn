@@ -5,7 +5,7 @@ import {
   iniBytesToSections,
 } from '@open-northland/formats/ini';
 import type { SourceRoots } from '../../roots.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 
 /** The plaintext good table (good `name`/`type`/`landscapetype`). */
 const GOODTYPES_INI = 'Data/logic/goodtypes.ini';
@@ -99,7 +99,7 @@ export async function buildGoodIcons(
   roots: SourceRoots,
   goods: readonly GoodLike[],
 ): Promise<Record<string, GoodIcon>> {
-  const sections = cifBytesToSections(await readSourceFile(roots, LANDSCAPES_CIF));
+  const sections = cifBytesToSections(await readShippedSourceFile(roots, LANDSCAPES_CIF));
   const landscapeGfx = extractLandscapeGfx(sections, {
     file: LANDSCAPES_CIF,
     layer: 'base',
@@ -109,6 +109,6 @@ export async function buildGoodIcons(
 
 /** Parse `goodtypes.ini` into the goods list (the id/landscapeType the icon join keys off). */
 export async function loadGoods(roots: SourceRoots): Promise<readonly GoodLike[]> {
-  const sections = iniBytesToSections(await readSourceFile(roots, GOODTYPES_INI));
+  const sections = iniBytesToSections(await readShippedSourceFile(roots, GOODTYPES_INI));
   return extractGoods(sections, { file: GOODTYPES_INI, layer: 'base' });
 }

@@ -18,7 +18,7 @@ import { decodePcx } from '@open-northland/formats/pcx';
 import { hueRotateRamp, PLAYER_COLORS, type PlayerColorDef } from '@open-northland/formats/player-palette';
 import { cutRamp, extractRandomPalettes } from '@open-northland/formats/random-palette';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 import type { JobChangeRecipes } from './job-graphics.js';
 
 const RANDOMPALETTE_INI = 'Data/engine2d/inis/humans/randompalette.ini';
@@ -251,13 +251,13 @@ export async function loadHumanPalettes(
 ): Promise<HumanPalettes> {
   if ((await resolveSourceFile(roots, RANDOMPALETTE_INI)) === undefined) return emptyHumanPalettes;
   return buildHumanPalettes({
-    recipes: extractRandomPalettes(iniBytesToSections(await readSourceFile(roots, RANDOMPALETTE_INI))),
-    paletteSections: iniBytesToSections(await readSourceFile(roots, PALETTES_INI)),
+    recipes: extractRandomPalettes(iniBytesToSections(await readShippedSourceFile(roots, RANDOMPALETTE_INI))),
+    paletteSections: iniBytesToSections(await readShippedSourceFile(roots, PALETTES_INI)),
     jobGraphics,
     jobChanges,
     goods,
     loadPalette: async (gfxFile) => {
-      const palette = decodePcx(await readSourceFile(roots, gfxFile)).palette;
+      const palette = decodePcx(await readShippedSourceFile(roots, gfxFile)).palette;
       if (palette === undefined) throw new Error(`human palettes: ${gfxFile} has no palette trailer`);
       assertPaletteBytes(palette, 'human palettes', gfxFile);
       return palette;

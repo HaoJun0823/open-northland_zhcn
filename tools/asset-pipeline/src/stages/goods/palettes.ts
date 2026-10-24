@@ -2,7 +2,7 @@ import { extractPaletteIndex, iniBytesToSections, paletteAliasMap } from '@open-
 import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
 import type { SourceRoots } from '../../roots.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 
 /** The palette alias table: `[GfxPalette256]` records mapping a palette editname to its real `.pcx`
  *  (`gold01` → `landscapes/gold.pcx`). */
@@ -17,7 +17,7 @@ export type PaletteAliasMap = ReadonlyMap<string, string>;
  *  degrades to the {@link PALETTE_DIRS} search. */
 export async function loadPaletteAliases(roots: SourceRoots): Promise<PaletteAliasMap> {
   try {
-    const sections = iniBytesToSections(await readSourceFile(roots, PALETTES_INI));
+    const sections = iniBytesToSections(await readShippedSourceFile(roots, PALETTES_INI));
     return paletteAliasMap(extractPaletteIndex(sections));
   } catch (err) {
     console.warn(`[pipeline] goods: palettes.ini unreadable (${errorMessage(err)}); resolving by path`);
@@ -39,14 +39,14 @@ export async function loadGoodsPalette(
   const aliased = aliases.get(name.toLowerCase());
   if (aliased !== undefined) {
     try {
-      return decodePcx(await readSourceFile(roots, aliased)).palette;
+      return decodePcx(await readShippedSourceFile(roots, aliased)).palette;
     } catch {
       // aliased file unreadable - fall through to the by-path search
     }
   }
   for (const dir of PALETTE_DIRS) {
     try {
-      return decodePcx(await readSourceFile(roots, `${dir}/${name}.pcx`)).palette;
+      return decodePcx(await readShippedSourceFile(roots, `${dir}/${name}.pcx`)).palette;
     } catch {
       // try the next dir
     }

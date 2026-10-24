@@ -6,7 +6,7 @@ import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
 import type { SourceRoots } from '../roots.js';
 import { BOBS_DIR } from './content-tree.js';
-import { readSourceFile } from './source-files.js';
+import { readShippedSourceFile } from './source-files.js';
 
 /** A neutral 256-colour grayscale palette (index i to (i,i,i)): the stand-in row for an absent carrier. */
 export function identityPalette(): Uint8Array {
@@ -48,7 +48,7 @@ export async function buildPaletteLut(
   for (const src of sources) {
     let palette: Uint8Array | undefined;
     try {
-      palette = decodePcx(await readSourceFile(roots, src.file)).palette;
+      palette = decodePcx(await readShippedSourceFile(roots, src.file)).palette;
     } catch (err) {
       console.warn(
         `[pipeline] ${log.label}: ${log.noun} ${src.name} unreadable (${errorMessage(err)}); using neutral row`,

@@ -4,7 +4,7 @@ import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../../errors.js';
 import { writeFileWithParents } from '../../files.js';
 import type { SourceRoots } from '../../roots.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 import { GUI_CONTENT_DIR } from './paths.js';
 
 /** The three mouse cursors under `DataX/Mouse/`, in a stable order. */
@@ -33,7 +33,7 @@ export async function convertCursors(roots: SourceRoots, outDir: string): Promis
     const rel = `${MOUSE_DIR}/${name}.cur`;
     let bytes: Uint8Array;
     try {
-      bytes = await readSourceFile(roots, rel);
+      bytes = await readShippedSourceFile(roots, rel);
     } catch (err) {
       console.warn(`[pipeline] gui: skipped cursor ${name}: ${errorMessage(err)}`);
       continue;

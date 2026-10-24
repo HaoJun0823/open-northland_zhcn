@@ -18,7 +18,7 @@ import { textEncoding } from '@open-northland/formats/text-encoding';
 import { errorMessage } from '../../errors.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { writeJsonFile } from '../content-tree.js';
-import { readSourceFile } from '../source-files.js';
+import { readShippedSourceFile } from '../source-files.js';
 import { GUI_CONTENT_DIR, GUI_LANGS } from './paths.js';
 
 /** The in-game GUI string tables the app reads (files are `ingamegui<table>.cif` under
@@ -68,7 +68,7 @@ type DecodedTables = Record<string, StringTable>;
 
 async function readGuiTable(roots: SourceRoots, lang: string, table: string): Promise<DecodedTables> {
   const rel = `Data/text/${lang}/strings/ingamegui/ingamegui${table}.cif`;
-  return { [table]: decodeCifStringTable(await readSourceFile(roots, rel), textEncoding(lang)) };
+  return { [table]: decodeCifStringTable(await readShippedSourceFile(roots, rel), textEncoding(lang)) };
 }
 
 /** Some shipped names carry a trailing space or a doubled one, which no label wants. */
@@ -103,10 +103,10 @@ export async function readGameObjectNames(
   let sections: RuleSection[];
   let decode: (text: string) => string;
   if ((await resolveSourceFile(roots, `${stem}.ini`)) !== undefined) {
-    sections = parseIniSections(decodeIni(await readSourceFile(roots, `${stem}.ini`), encoding));
+    sections = parseIniSections(decodeIni(await readShippedSourceFile(roots, `${stem}.ini`), encoding));
     decode = (text) => text;
   } else {
-    sections = cifBytesToSections(await readSourceFile(roots, `${stem}.cif`));
+    sections = cifBytesToSections(await readShippedSourceFile(roots, `${stem}.cif`));
     decode = (text) => decodeDisplayText(text, encoding);
   }
   const { singular, plural } = extractStringnNames(sections);

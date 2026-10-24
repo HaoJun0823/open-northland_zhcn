@@ -45,11 +45,14 @@ function bundle(tick = 7) {
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'on-diag-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(join(root, 'scripts'));
+  await mkdir(join(root, 'scripts/dev'), { recursive: true });
   const dist = join(root, 'packages/sim/dist');
   await mkdir(dist, { recursive: true });
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
-  await copyFile(new URL('../diag-bundle.mjs', import.meta.url), join(root, 'scripts/diag-bundle.mjs'));
+  await copyFile(
+    new URL('../dev/diag-bundle.mjs', import.meta.url),
+    join(root, 'scripts/dev/diag-bundle.mjs'),
+  );
   await writeFile(join(dist, 'index.js'), compiled.outputFiles[0].text);
   return {
     root,
@@ -58,7 +61,7 @@ async function fixture(t) {
       await writeFile(join(root, name), JSON.stringify(value));
     },
     run: (args = ['diff', 'a.json', 'b.json']) =>
-      spawnSync(process.execPath, ['scripts/diag-bundle.mjs', ...args], { cwd: root, encoding: 'utf8' }),
+      spawnSync(process.execPath, ['scripts/dev/diag-bundle.mjs', ...args], { cwd: root, encoding: 'utf8' }),
   };
 }
 

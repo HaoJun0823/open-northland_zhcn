@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { browserWindowTable, windowName } from '../bench-browser-report.mjs';
+import { browserWindowTable, windowName } from '../bench/browser/frames-report.mjs';
 
 function windowReport(overrides = {}) {
   return {

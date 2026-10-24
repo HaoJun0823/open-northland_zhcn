@@ -5,7 +5,7 @@ import { benchOutDir, latestComparablePair, type StoredReport } from './store.js
 /**
  * The A/B report comparison - `npm run bench:compare`. It lives here rather than in a plain script so
  * the report shapes stay in one typed place and the noise-band logic is covered by `npm test`;
- * `scripts/bench-compare.mjs` is the argv wrapper.
+ * `scripts/bench/compare.mjs` is the argv wrapper.
  */
 
 /** `tick total` and `tick p99`, appended after the per-system rows. */

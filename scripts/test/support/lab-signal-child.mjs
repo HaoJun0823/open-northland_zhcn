@@ -2,7 +2,7 @@
 // signal handling. Prints `child <pid>` once the child runs; the argument is the log directory.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createProcessSet, stopOnSignals } from '../../net-browser-lab/processes.mjs';
+import { createProcessSet, stopOnSignals } from '../../net-lab/processes.mjs';
 
 /** Long enough that an exit which did not wait for the close would skip the stops after it. */
 const BROWSER_CLOSE_MS = 300;

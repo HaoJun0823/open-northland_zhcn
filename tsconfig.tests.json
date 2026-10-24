@@ -16,7 +16,7 @@
     "packages/*/test-e2e/**/*",
     "tools/*/test/**/*",
     "packages/app/bench/**/*",
-    "scripts/shader-probe/**/*",
+    "scripts/test-modes/shader-probe.ts",
     "tools/*/test-browser/**/*"
   ]
 }

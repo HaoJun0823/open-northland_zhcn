@@ -58,7 +58,7 @@ describe('unversionedContentPath', () => {
 /** Servers outside the app's package boundary keep their own copy of the versioned path pattern. */
 const VERSIONED_PATH_COPIES = [
   'packages/desktop/src/protocol/static-files.ts',
-  'scripts/boot-check/static-server.mjs',
+  'scripts/test-modes/boot/static-server.mjs',
 ];
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 

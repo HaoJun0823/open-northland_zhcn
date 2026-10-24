@@ -21,7 +21,7 @@ import {
   obtainPinnedArchive,
   obtainPinnedDataRoot,
   translationsDigest,
-} from '../build-content.mjs';
+} from '../content/build-content.mjs';
 import { hash, syntheticPack } from './support/data-pack.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -34,7 +34,7 @@ test('prints stage logs to stderr before rejecting a non-pinned archive', async 
   const archive = join(dir, 'fake.zip');
   await writeFile(archive, 'definitely not the pinned data archive');
 
-  const result = spawnSync(process.execPath, ['scripts/build-content.mjs'], {
+  const result = spawnSync(process.execPath, ['scripts/content/build-content.mjs'], {
     cwd: repoRoot,
     env: { ...process.env, ON_DATA_ZIP: archive },
     encoding: 'utf8',

@@ -7,7 +7,7 @@ import {
   overloaded,
   parseDeviceScale,
   parseViewport,
-} from '../bench-browser-session.mjs';
+} from '../browser/session.mjs';
 
 const SEARCH =
   'map=krwawa_rzeka&player=overseer&tribes=1:2&difficulty=1:hard&computer=1,2&seed=7&fog=classic&needs=off';

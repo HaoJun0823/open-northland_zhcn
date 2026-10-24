@@ -34,6 +34,25 @@ any active game so new code cannot retain an old multiplayer identity.
 Production builds and plain Node tools use `dist/`. Run `npx tsc --build` before running a Node tool
 against changed package sources; `npm run build` performs the full typecheck and production build.
 
+## Repository scripts
+
+Root `scripts/` holds the Node tools behind the npm commands:
+
+- `bench/`: Node benchmark entry points and their runner; `bench/browser/` the browser benchmarks.
+- `browser/`: the shared Chromium session, input helpers and original-game gate.
+- `content/`: build, locate and inspect generated content (`build-content.mjs`, `convert-map.mjs`,
+  mission tools).
+- `test-modes/`: the runners behind `npm run test:content`, `test:pipeline`, `test:engines`,
+  `test:boot` and `test:shaders`.
+- `net-lab/`: the multiplayer browser lab and the chaos proxy.
+- `dev/`: `ports.sh`, `reset.sh` and the diagnostic bundle tool.
+- `test/`: the scripts' own `node --test` suites, mirroring these folders.
+
+The files left at the root keep their paths for outside callers: the asset check and its policy
+(the art fork loads its policy beside it), the docs and ticket tools, the data-pack reader with its
+release pin and unzip (imported by the pipeline and the deployment repository), and the smoke-image
+helper.
+
 ## Worktree previews
 
 Port `5173` belongs to the primary checkout on `main`. Linked worktrees default to `5174`;
@@ -91,7 +110,7 @@ primary server and must not be used to start a worktree preview.
 A release builds `content/` from the pinned source data pack and ships the converted tree inside
 installers and the web image. Player-selected local maps are converted separately in a Worker.
 
-`npm run dev` and `npm run build` start with `node scripts/build-content.mjs --if-stale`, which
+`npm run dev` and `npm run build` start with `node scripts/content/build-content.mjs --if-stale`, which
 builds `content/` when the tree is missing or its `build-stamp.json` names another archive hash, IR
 version or translation set, and otherwise returns at once. In a Git worktree it first clones the
 primary checkout's `content/` when that tree's stamp matches, and a worktree that must convert clones
@@ -283,7 +302,7 @@ world, so a forced divergence for a resync check runs in the headless multi-clie
 ## Network chaos proxy
 
 ```bash
-node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 [--port 8780] [--host 127.0.0.1] \
+node scripts/net-lab/chaos-proxy.mjs --upstream ws://127.0.0.1:8765 [--port 8780] [--host 127.0.0.1] \
   [--profile lan|home|far|mobile|bad] [--seed 1] [--log-dir DIR] [--max-queued-bytes N]
 ```
 
@@ -358,7 +377,7 @@ proxy port; each window may sit behind its own connection settings:
 
 ```bash
 npm run relay
-node scripts/net-chaos-proxy.mjs --upstream ws://127.0.0.1:8765 --profile home --log-dir /tmp/chaos
+node scripts/net-lab/chaos-proxy.mjs --upstream ws://127.0.0.1:8765 --profile home --log-dir /tmp/chaos
 ```
 
 ```text

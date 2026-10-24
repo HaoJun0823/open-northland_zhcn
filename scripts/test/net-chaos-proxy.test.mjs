@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { WebSocket, WebSocketServer } from 'ws';
-import { isLoopback, startChaosProxy } from '../net-chaos-proxy.mjs';
+import { isLoopback, startChaosProxy } from '../net-lab/chaos-proxy.mjs';
 
 const ONE_WAY_MS = 50;
 /** Timers fire late, never early; this much late is still a pass on a loaded machine. */

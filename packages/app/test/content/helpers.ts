@@ -33,7 +33,7 @@ import { checkoutRoot } from '../support/checkout-root.js';
  */
 
 /** The content directory under test: `ON_CONTENT_DIR` (absolute, or relative to the repo root) when set,
- *  else `content/`. Resolution rules mirror `scripts/test-content.mjs` - keep them in step. */
+ *  else `content/`. Resolution rules mirror `scripts/test-modes/content.mjs` - keep them in step. */
 export function contentDir(): string {
   const override = process.env.ON_CONTENT_DIR;
   if (override === undefined || override === '') return resolve(checkoutRoot(), 'content');

@@ -16,7 +16,7 @@ import { publishReport, reportFrom } from './run.js';
  * measures a synthetic world with isolated axes; this one measures the world the game is actually
  * played on, with its scenery, resource nodes and six competing AI seats.
  *
- * Needs generated content. `scripts/bench-map.mjs` hard-fails without it rather than skipping, so a
+ * Needs generated content. `scripts/bench/map.mjs` hard-fails without it rather than skipping, so a
  * run that measured nothing cannot be mistaken for a clean one.
  *
  * Knobs (env, all optional): `ON_BENCH_SESSION` (a browser URL or its query, the whole session) or

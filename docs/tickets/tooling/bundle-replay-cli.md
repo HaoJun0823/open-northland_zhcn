@@ -9,7 +9,7 @@ recorded tick). Operationalize it: one command a dev points at a downloaded bund
 
 ## Scope
 
-1. `npm run diag -- replay <bundle.json>`, a second subcommand of `scripts/diag-bundle.mjs` beside
+1. `npm run diag -- replay <bundle.json>`, a second subcommand of `scripts/dev/diag-bundle.mjs` beside
    `diff`, over `dist/`:
    - parse + validate the bundle (`kind`/`version`),
    - rebuild the world: scene bundles via the registered scene builder; map bundles via the decoded

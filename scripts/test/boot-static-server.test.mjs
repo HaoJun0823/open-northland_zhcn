@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { startStaticServer } from '../boot-check/static-server.mjs';
+import { startStaticServer } from '../test-modes/boot/static-server.mjs';
 
 test('serves content over the app build, the index at the root, and nothing outside either', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'boot-static-'));

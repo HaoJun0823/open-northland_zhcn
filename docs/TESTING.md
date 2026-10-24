@@ -277,7 +277,7 @@ machine. A Metal run catches compile errors only.
 It fails on a compile or link error, a program whose compile and link or whose first draw is over
 `--max-ms`, a total over `--max-total-ms`, or a renderer string that is not the requested backend,
 since a silent fallback would time the wrong compiler. The budgets default per backend, seconds on
-Metal and SwiftShader and minutes on Direct3D 11; the table in `scripts/test-shaders.mjs` records the
+Metal and SwiftShader and minutes on Direct3D 11; the table in `scripts/test-modes/shaders.mjs` records the
 measurements behind them. Variants declaring more samplers than the device has texture units are
 skipped, as the game never builds them there. CI runs it on `windows-latest` when a shader-relevant
 path changes, or through the CI workflow's manual `shaders` checkbox.
@@ -354,7 +354,7 @@ advances the network and relay by the real time each turn took.
 check: a fresh profile sees the gate, an unrecognized folder shows the failure line, a synthetic
 install opens the menu, an unverified `?map=` link lands on the gate, and a seeded flag skips it. It
 needs no content, only `npx playwright install chromium`. Every browser harness that opens the menu or
-a map seeds the flag through `scripts/original-game-gate.mjs` or its own one helper.
+a map seeds the flag through `scripts/browser/original-game-gate.mjs` or its own one helper.
 
 ## Desktop boot and persistence
 
@@ -532,7 +532,7 @@ its verified lobby copy instead, so the lab's saved start sends each client the 
 
 ### Browser multiplayer lab
 
-`node scripts/net-browser-lab.mjs` plays one relayed session with real game pages: one headless
+`node scripts/net-lab/browser-lab.mjs` plays one relayed session with real game pages: one headless
 Chromium, a browser context per player so each nick keeps its own reconnect token. The pages join
 through the developer lobby URLs of [DEVELOPMENT.md](DEVELOPMENT.md#relay-server) and order
 through the HUD, so the join path, the command path under `?relay=` and a reload's rejoin run as a
@@ -540,10 +540,10 @@ player's do. It needs generated content (`ON_CONTENT_DIR` as for the dev server)
 options and their defaults.
 
 ```sh
-node scripts/net-browser-lab.mjs --help
-ON_CONTENT_DIR=/abs/primary/content node scripts/net-browser-lab.mjs --players 3 --seconds 90 \
+node scripts/net-lab/browser-lab.mjs --help
+ON_CONTENT_DIR=/abs/primary/content node scripts/net-lab/browser-lab.mjs --players 3 --seconds 90 \
   --profiles home,far,bad
-node scripts/net-browser-lab.mjs --relay wss://test-relay.opennorthland.org --profiles home --no-chaos
+node scripts/net-lab/browser-lab.mjs --relay wss://test-relay.opennorthland.org --profiles home --no-chaos
 ```
 
 Without `--relay` it starts a relay, rebuilding a stale `packages/net-server/dist` first. Without
@@ -598,7 +598,7 @@ Each case reports, per page, when `loaded` went, its first acknowledged tick and
 first ran, the room's longest hold as the creator saw it, and what each page showed meanwhile.
 
 ```sh
-node scripts/net-browser-lab.mjs --scenario start --cases uneven,noFrame
+node scripts/net-lab/browser-lab.mjs --scenario start --cases uneven,noFrame
 ```
 
 ## Choosing the required checks

@@ -20,8 +20,8 @@ import {
   seatContinuity,
   tallyProxyLog,
   windowStats,
-} from '../net-browser-lab/plan.mjs';
-import { createProcessSet } from '../net-browser-lab/processes.mjs';
+} from '../net-lab/plan.mjs';
+import { createProcessSet } from '../net-lab/processes.mjs';
 
 const APP = 'http://127.0.0.1:5176';
 const RELAY = 'ws://127.0.0.1:8780';

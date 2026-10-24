@@ -18,7 +18,7 @@ import {
  * one relayed session on a real decoded map with headless human clients and computer seats, on the
  * in-memory relay and a virtual clock, and reports where each client's tick time and spikes went.
  * `build-save` as the first argument instead runs an all-computer world on the plain sim and writes
- * the save `--save` starts a room from. `scripts/bench-net-lab.mjs` bundles it from source and
+ * the save `--save` starts a room from. `scripts/bench/net-lab.mjs` bundles it from source and
  * hard-fails without generated content.
  */
 /** The exit status of a run refused for its arguments, apart from a run that measured a mismatch. */

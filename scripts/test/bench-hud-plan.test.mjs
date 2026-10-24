@@ -11,7 +11,7 @@ import {
   meanOfWindows,
   metricDeltas,
   parseHudBenchArgs,
-} from '../bench-hud-plan.mjs';
+} from '../bench/browser/hud-plan.mjs';
 
 const ORIGIN = 'http://127.0.0.1:5174';
 const MAIN = { pid: 1, tid: 10 };

@@ -22,6 +22,7 @@ import {
 } from '../weather/ground-cover-shading.js';
 import { buildFlat } from './build-flat.js';
 import { buildTextured } from './build-ground.js';
+import { rebindCoverTexture } from './chunk-batcher.js';
 import {
   DEFAULT_TILE_COLOUR,
   dominantGroundColour,
@@ -264,13 +265,8 @@ export class TerrainLayer {
   private rebindCover(sectorsX: number, sectorsY: number): void {
     const previous = this.coverTex;
     this.coverTex = makeGroundCoverTexture(sectorsX, sectorsY);
-    for (const chunk of this.chunks) {
-      for (const child of chunk.container.children) {
-        if (child instanceof Mesh && child.shader?.resources.uCoverTex !== undefined) {
-          child.shader.resources.uCoverTex = this.coverTex;
-        }
-      }
-    }
+    for (const chunk of this.chunks) rebindCoverTexture(chunk.container, this.coverTex);
+    this.roads?.rebindCover({ texture: this.coverTex, uniforms: this.coverUniforms });
     previous.destroy();
   }
 

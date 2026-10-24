@@ -16,8 +16,9 @@ import {
   triangleUVs,
 } from '../../data/terrain/index.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
+import type { TerrainCoverBinding } from '../shading.js';
 import type { TerrainTextureSet } from '../terrain-textures.js';
-import { ChunkBatcher, type TerrainBatch } from './chunk-batcher.js';
+import { ChunkBatcher, rebindCoverTexture, type TerrainBatch } from './chunk-batcher.js';
 import {
   type LaneShading,
   type NodeLiftFn,
@@ -96,6 +97,7 @@ export class RoadLayer {
   private readonly dirty = new Set<number>();
   private readonly nodeWidth: number;
   private readonly chunkColumns: number;
+  private cover: TerrainCoverBinding;
 
   private constructor(
     private readonly terrain: SceneTerrain,
@@ -109,6 +111,7 @@ export class RoadLayer {
   ) {
     this.nodeWidth = 2 * terrain.width;
     this.chunkColumns = Math.ceil(terrain.width / TERRAIN_CHUNK_TILES);
+    this.cover = lane.cover;
     for (const chunk of chunks) this.chunkByKey.set(this.chunkKeyOf(chunk.c0, chunk.r0), chunk);
     for (const id of roads) this.move(id, true);
   }
@@ -136,6 +139,12 @@ export class RoadLayer {
   cullChunk(chunk: TerrainChunk): void {
     const mesh = this.meshes.get(this.chunkKeyOf(chunk.c0, chunk.r0));
     if (mesh !== undefined) mesh.visible = chunk.container.visible;
+  }
+
+  /** Follow the ground onto a resized weather cover texture. */
+  rebindCover(cover: TerrainCoverBinding): void {
+    this.cover = cover;
+    for (const container of this.meshes.values()) rebindCoverTexture(container, cover.texture);
   }
 
   /** Re-mesh the marked blocks the cull just showed. */
@@ -223,7 +232,7 @@ export class RoadLayer {
           triangles.set(`${ref.col},${ref.row},${ref.which}`, ref);
       }
     }
-    const batcher = new ChunkBatcher(this.lane.brightnessTex, this.lane.waveUniforms);
+    const batcher = new ChunkBatcher(this.lane.brightnessTex, this.lane.waveUniforms, this.cover);
     for (const ref of triangles.values()) this.paintTriangle(batcher, ref);
     const container = new Container();
     for (const child of batcher.children()) container.addChild(child);

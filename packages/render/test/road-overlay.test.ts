@@ -1,4 +1,4 @@
-import { Mesh, Texture } from 'pixi.js';
+import { Mesh, Texture, type TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import {
   cellsNearNode,
@@ -143,6 +143,8 @@ const WIDTH = 70;
 const HEIGHT = 4;
 const grid = { width: WIDTH, height: HEIGHT, typeIds: Array.from({ length: WIDTH * HEIGHT }, () => 0) };
 const NODE_WIDTH = 2 * WIDTH;
+/** A weather cover texel: wet, snow, dust and rain falling. */
+const COVER_TEXEL_BYTES = 4;
 
 /** Triangle counts of the road overlay's populated chunks. */
 function roadTriangles(layer: TerrainLayer): number[] {
@@ -201,6 +203,33 @@ describe('TerrainLayer roads', () => {
     expect(layer.roadContainer.children[0]?.visible).toBe(true);
     layer.cull(FIRST_BLOCK);
     expect(layer.roadContainer.children[0]?.visible).toBe(false);
+    layer.destroy();
+  });
+
+  it('shades a road like the ground beneath it', () => {
+    const layer = new TerrainLayer();
+    layer.set({ ...grid, brightness: grid.typeIds.map(() => 127) }, roadTextures);
+    change(layer, [4 * NODE_WIDTH + 4]);
+    const ground = layer.container.children[0]?.children.find((child) => child instanceof Mesh);
+    const road = layer.roadContainer.children[0]?.children.find((child) => child instanceof Mesh);
+    if (ground === undefined || road === undefined) throw new Error('Missing ground or road mesh');
+    expect(road.geometry.getAttribute('aBrightnessUV')).toBeDefined();
+    expect(road.shader?.glProgram).toBe(ground.shader?.glProgram);
+    layer.destroy();
+  });
+
+  it('follows the ground onto a resized weather cover', () => {
+    const layer = new TerrainLayer();
+    layer.set({ ...grid, brightness: grid.typeIds.map(() => 127) }, roadTextures);
+    change(layer, [4 * NODE_WIDTH + 4]);
+    const road = layer.roadContainer.children[0]?.children.find((child) => child instanceof Mesh);
+    if (road === undefined) throw new Error('Missing road mesh');
+    const sectorsX = 3;
+    const sectorsY = 2;
+    layer.setWeatherCover(new Uint8Array(sectorsX * sectorsY * COVER_TEXEL_BYTES), sectorsX, sectorsY);
+    const cover = road.shader?.resources.uCoverTex as TextureSource;
+    expect(cover.destroyed).toBe(false);
+    expect([cover.width, cover.height]).toEqual([sectorsX, sectorsY]);
     layer.destroy();
   });
 

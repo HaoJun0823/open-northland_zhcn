@@ -1,4 +1,4 @@
-import { Mesh, MeshGeometry, type Shader, Texture, type TextureSource } from 'pixi.js';
+import { type Container, Mesh, MeshGeometry, type Shader, Texture, type TextureSource } from 'pixi.js';
 import { scaleColour } from '../../data/terrain/index.js';
 import {
   makeShadedTerrainShader,
@@ -74,6 +74,14 @@ export function meshGeometry(batch: TerrainBatch): MeshGeometry {
     geometry.addAttribute('aWater', { buffer: new Float32Array(batch.water) });
   }
   return geometry;
+}
+
+/** Point `container`'s shaded meshes at a resized weather cover texture before the old one is destroyed. */
+export function rebindCoverTexture(container: Container, texture: TextureSource): void {
+  for (const child of container.children) {
+    if (child instanceof Mesh && child.shader?.resources.uCoverTex !== undefined)
+      child.shader.resources.uCoverTex = texture;
+  }
 }
 
 /** Shading levels per unit for flat-colour triangles. They batch by exact tint, so an unquantized

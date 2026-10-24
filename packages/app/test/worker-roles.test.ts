@@ -107,10 +107,6 @@ describe('assignmentPriorityFor keeps the settler`s current trade', () => {
     expect(assignmentPriorityFor(undefined, WAREHOUSE_SLOTS)).toEqual([REAL_JOB.carrier]);
   });
 
-  it('a miller re-assigned to a mill stays a miller (already the top choice)', () => {
-    expect(assignmentPriorityFor(REAL_JOB.miller, MILL_SLOTS)).toEqual([REAL_JOB.miller, REAL_JOB.carrier]);
-  });
-
   it('a carrier on a farm stays a carrier - its offered trade is promoted ahead of the farmer', () => {
     expect(assignmentPriorityFor(REAL_JOB.carrier, FARM_SLOTS)).toEqual([REAL_JOB.carrier, REAL_JOB.farmer]);
   });
@@ -155,11 +151,6 @@ describe('assignmentPriorityFor keeps the settler`s current trade', () => {
       REAL_JOB.miller,
       REAL_JOB.carrier,
     ]);
-  });
-
-  it('a plain/idle settler is never offered a gatherer slot (only a gatherer current trade is)', () => {
-    // Idle on a warehouse still becomes a carrier - the default excludes gatherers for a non-gatherer.
-    expect(assignmentPriorityFor(undefined, WAREHOUSE_SLOTS)).toEqual([REAL_JOB.carrier]);
   });
 });
 

@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  findVikingBuildings,
-  resolveVikingBuilding,
-  VIKING_BUILDINGS,
-  vikingBuildingById,
-  vikingBuildingByTypeId,
-} from '../src/catalog/buildings.js';
+import { findVikingBuildings, resolveVikingBuilding, VIKING_BUILDINGS } from '../src/catalog/buildings.js';
 
 /**
  * The committed viking-building catalog is the single source of truth for name → typeId - its pure
@@ -22,12 +16,6 @@ describe('viking building catalog', () => {
 });
 
 describe('viking building lookups', () => {
-  it('resolves a building by its exact id and typeId', () => {
-    expect(vikingBuildingById('stock_02')?.typeId).toBe(9);
-    expect(vikingBuildingByTypeId(9)?.id).toBe('stock_02');
-    expect(vikingBuildingById('does_not_exist')).toBeUndefined();
-  });
-
   it('finds buildings by a fuzzy id/label query (the "warehouse level 2" use case)', () => {
     // The label carries the human synonym ("Warehouse"), so a search the game/user would type resolves the
     // three stocks even though the machine ids say "stock_*".

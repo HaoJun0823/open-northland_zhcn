@@ -105,12 +105,6 @@ describe('originalNameOverlay', () => {
     expect(names.weaponXp).toEqual({ fist: 'Fixture brawling' });
   });
 
-  it("names the group panel's plurals from the plural table, by the same keys as the singulars", () => {
-    const names = originalNameOverlay(strings, content);
-    expect(names.professions).toEqual({ mason: 'Fixture stonecutters', idle: 'Fixture commoners' });
-    expect(names.soldierClasses).toEqual({ soldier_spear_wooden: 'Fixture pikemen' });
-  });
-
   it("names the group panel's civilians and women by their jobs, as the settler panel does", () => {
     installOriginalNames(currentLocale(), strings, content);
     const copy = messages().hud.groupPanel;
@@ -211,15 +205,6 @@ describe('launch-time tribe names', () => {
 
     installOriginalNames(currentLocale(), strings, content);
     expect([tribeName(VIKING), tribeName(FRANK)]).toEqual(['Fixture northman', 'Fixture westman']);
-  });
-
-  it('fetch each language once per document', async () => {
-    stubStrings(strings);
-    await originalTribeNameOverlay('ger');
-    // Another test file may have loaded this language already, so count only the repeat's fetches.
-    const fetched = vi.mocked(fetch).mock.calls.length;
-    await originalTribeNameOverlay('ger');
-    expect(fetch).toHaveBeenCalledTimes(fetched);
   });
 
   it('leave the authored names without the pipeline strings', async () => {

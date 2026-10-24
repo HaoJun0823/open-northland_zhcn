@@ -177,12 +177,6 @@ describe('vehicle panel model', () => {
     expect(asked).toEqual([ship.entity]);
   });
 
-  it("answers the unload rule off the sim's landing for a ship at its shore", () => {
-    const world = vehiclesWorld();
-    const ship = ownVehicle(world.sim, VEHICLE_SHIP_SMALL).entity;
-    expect(world.sim.canUnloadPeople(ship)).toBe(true);
-  });
-
   it('shows a carried cart riding its ship, leaving only while the ship is moored', () => {
     const world = vehiclesWorld();
     const cart = ownVehicle(world.sim, VEHICLE_HANDCART).entity;

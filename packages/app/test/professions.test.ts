@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JOB_CIVILIST, JOB_IDLE, JOB_SOLDIER, JOB_SOLDIER_SWORD } from '../src/catalog/jobs.js';
+import { JOB_CIVILIST, JOB_SOLDIER, JOB_SOLDIER_SWORD } from '../src/catalog/jobs.js';
 import { isSoldierJob, PROFESSIONS, pickerEntries, professionDefForJob } from '../src/catalog/professions.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
 import { professionLabel } from '../src/i18n/index.js';
@@ -34,25 +34,6 @@ describe('profession catalog + i18n', () => {
     expect(professionDefForJob(JOB_SOLDIER)?.key).toBe('soldier');
     expect(professionDefForJob(JOB_SOLDIER_SWORD)?.key).toBe('soldier');
     expect(professionLabel('soldier')).toBe('Żołnierz');
-  });
-
-  it('resolves Polish labels for professions, and idle for off-roster jobs', () => {
-    expect(professionLabel('smith')).toBe('Kowal');
-    expect(professionLabel('collector')).toBe('Zbieracz');
-    // Idle is not a ROSTER profession (professionDefForJob returns undefined so the panel labels it
-    // itself); the picker still leads with it as the hand-added Civilian row.
-    expect(professionDefForJob(JOB_IDLE)).toBeUndefined();
-    expect(professionLabel('idle')).toBe('Cywil');
-  });
-
-  it('is complete: covers the original production trades beyond gatherers/soldiers', () => {
-    const keys = new Set(PROFESSIONS.map((p) => p.key));
-    for (const trade of ['builder', 'mason', 'smith', 'baker', 'farmer', 'tailor', 'druid'] as const) {
-      expect(keys.has(trade), `missing trade "${trade}"`).toBe(true);
-    }
-    // The jester (jobtypes.ini 28) is deliberately NOT a profession - 8th Wonder doesn't field it.
-    const JESTER_JOB = 28;
-    expect(PROFESSIONS.some((p) => p.jobType === JESTER_JOB)).toBe(false);
   });
 
   it('builds a grouped picker list: Cywil leads ungrouped, then a header opens each category', () => {

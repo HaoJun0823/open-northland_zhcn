@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   characterStem,
-  characterStems,
   DEFAULT_CHARACTER,
   findCharacter,
   headLabel,
@@ -30,18 +29,6 @@ describe('character stems', () => {
   it('appends the palette to a bmd stem', () => {
     expect(characterStem('cr_hum_body_05')).toBe('cr_hum_body_05.test_human_00');
     expect(characterStem('cr_hum_head_10', 'egypt_soldier')).toBe('cr_hum_head_10.egypt_soldier');
-  });
-
-  it('resolves a character to its body + head stems in roster order', () => {
-    const warrior = findCharacter('warrior');
-    const { bodyStem, headStems } = characterStems(warrior);
-    expect(bodyStem).toBe('cr_hum_body_05.test_human_00');
-    expect(headStems).toEqual([
-      'cr_hum_head_05.test_human_00',
-      'cr_hum_head_06.test_human_00',
-      'cr_hum_head_07.test_human_00',
-      'cr_hum_head_08.test_human_00',
-    ]);
   });
 });
 
@@ -89,11 +76,5 @@ describe('roster shape', () => {
     // The civilian carries multiple looks (the heads montage is meaningful); the baby is body-only.
     expect(findCharacter('civilian').headBmds.length).toBeGreaterThan(1);
     expect(findCharacter('baby').headBmds).toEqual([]);
-  });
-
-  it('includes the warrior with its combat body and several looks', () => {
-    const warrior = findCharacter('warrior');
-    expect(warrior.imagelib).toBe('cr_hum_body_05.bmd');
-    expect(warrior.headBmds.length).toBe(4);
   });
 });

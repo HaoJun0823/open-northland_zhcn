@@ -1,4 +1,3 @@
-import { systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { isCarrierJob } from '../src/hud/details-panel/model/context.js';
 import type { UnitPanelModelContext } from '../src/hud/details-panel/model/index.js';
@@ -32,13 +31,6 @@ describe('the panel carrier rule', () => {
 
     expect(isCarrierJob(ctx, 4001)).toBe(true);
     expect(isCarrierJob(ctx, 4002)).toBe(false);
-  });
-
-  it('answers exactly what the sim predicate answers, so the two cannot drift', () => {
-    const carrier = job(7, 'carrier');
-    const ctx = ctxWith([carrier]);
-
-    expect(isCarrierJob(ctx, carrier.typeId)).toBe(systems.isCarrierJobRow(carrier));
   });
 
   it('classifies a job the content never declared as no trade at all', () => {

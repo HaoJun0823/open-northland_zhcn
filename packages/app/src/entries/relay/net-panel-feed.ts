@@ -24,8 +24,8 @@ import { messages, tribeName } from '../../i18n/index.js';
 import type { KickTally, RelayClientMirror } from '../../net/net-worker-client.js';
 import { relayCloseText } from '../../net/relay-reason.js';
 import type { LinkReport } from '../../session/worker/net-protocol.js';
+import type { NetReadout } from '../../view/net/readout.js';
 import { createSpeedHistory } from '../../view/net/speed-history.js';
-import type { NetReadout } from '../../view/runtime/net-readout.js';
 
 const MS_PER_SECOND = 1000;
 const PERCENT = 100;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAP_BOOT_PHASES, RELAYED_MAP_BOOT_PHASES } from '../../../src/entries/map.js';
-import { SCENE_BOOT_PHASES } from '../../../src/entries/scene.js';
+import { SCENE_BOOT_PHASES } from '../../../src/entries/scene/index.js';
 import { BOOT_PHASES, bootFraction } from '../../../src/view/boot/progress.js';
 
 /** The real step lists the playable entries drive the card with - not a copy that could drift from them. */

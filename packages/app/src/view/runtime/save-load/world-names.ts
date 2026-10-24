@@ -3,7 +3,7 @@ import { loadMapSources } from '../../../content/map-source/index.js';
 import { localizedMapText } from '../../../game/map/strings.js';
 import { currentLocale, sceneCopy } from '../../../i18n/index.js';
 
-/** World tokens of scene entries; everything else is a decoded map id (`entries/scene.ts`). */
+/** World tokens of scene entries; everything else is a decoded map id (`entries/scene/index.ts`). */
 export const SCENE_TOKEN_PREFIX = 'scene:';
 
 export type WorldNameOf = (token: string | null) => string | null;

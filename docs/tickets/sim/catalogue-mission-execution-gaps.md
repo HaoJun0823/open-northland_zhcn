@@ -6,7 +6,7 @@
 unsupported (`packages/sim/test/systems/missions/opcode-support.test.ts`). Other catalogue-start warnings
 reported failed `SetLandscape` and `SetHouse` actions; these require reproduction and do not alone
 prove an implementation defect. Entry points are `packages/sim/src/systems/missions/` and
-`packages/app/src/view/runtime/script-presentation.ts`.
+`packages/app/src/view/script/presentation.ts`.
 
 ## Scope
 

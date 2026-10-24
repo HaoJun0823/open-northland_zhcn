@@ -10,7 +10,7 @@ These static edges pull simulation code into the first download before URL dispa
 ## Scope
 
 - Break both value edges without moving hash tracing or frame statistics out of `diag/`.
-  `hashTraceFor` is called by `entries/map/boot.ts` and `entries/scene.ts`, whose hosts own the world;
+  `hashTraceFor` is called by `entries/map/boot.ts` and `entries/scene/index.ts`, whose hosts own the world;
   inject the trace at that seam or expose a suitably small, side-effect-free sim subpath.
 - Preserve crash capture, the boot header and downloadable diagnostic bundles.
 - Keep route loading automatic; do not add manual chunk groups to hide the static dependency.

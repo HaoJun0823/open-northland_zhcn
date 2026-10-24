@@ -1,0 +1,595 @@
+import { LockstepDriver, LoopbackTransport } from '@open-northland/lockstep';
+import {
+  adminCommand,
+  type ExportSaveOptions,
+  exportSaveGame,
+  parseSaveGame,
+  SAVE_FORMAT_VERSION,
+  type SaveGame,
+  type Simulation,
+  serializeSaveGame,
+  TICKS_PER_SECOND,
+} from '@open-northland/sim';
+import { describe, expect, it, vi } from 'vitest';
+import { runDemoWorld } from '../../../../src/game/world/index.js';
+import { inlineSessionHost } from '../../../../src/session/index.js';
+import { createAutosave } from '../../../../src/view/runtime/save-load/autosave.js';
+import { autosaveSlots } from '../../../../src/view/runtime/save-load/autosave-slots.js';
+import { stagedSaveFrom } from '../../../../src/view/runtime/save-load/boot.js';
+import {
+  compressSaveText,
+  decodeSaveText,
+  isGzipSave,
+  type SaveBytes,
+} from '../../../../src/view/runtime/save-load/codec.js';
+import type { PickedSaveFile } from '../../../../src/view/runtime/save-load/file-access.js';
+import {
+  evaluateSaveFile,
+  type LiveWorldIdentity,
+  saveLoadSession,
+} from '../../../../src/view/runtime/save-load/index.js';
+import {
+  restoredControlGroups,
+  type SavedView,
+  savedView,
+} from '../../../../src/view/runtime/save-load/view-state.js';
+
+/**
+ * The in-game save and load flows against a live demo world: what a picked file must match before
+ * the page may reload, and that a cancelled or rejected pick leaves the running session untouched.
+ */
+
+const WORLD_TOKEN = 'demo-test';
+const ENTRY_SEARCH = '?map=demo-test&player=2';
+
+function demoSim(): Simulation {
+  return runDemoWorld(7, 2);
+}
+
+function liveIdentity(sim: Simulation): LiveWorldIdentity {
+  return {
+    worldToken: WORLD_TOKEN,
+    mapFingerprint: sim.mapFingerprint ?? null,
+    irVersion: sim.content.manifest.version,
+  };
+}
+
+function savedBytes(sim: Simulation, mapId: string = WORLD_TOKEN): string {
+  return serializeSaveGame(exportSaveGame(sim, { mapId, entry: ENTRY_SEARCH }));
+}
+
+/** A pick of an uncompressed save file, as a pre-gzip build would have written it. */
+function pickedOf(text: string, name = 'a.json'): PickedSaveFile {
+  return { name, contents: text, raw: new TextEncoder().encode(text) };
+}
+
+describe('evaluateSaveFile', () => {
+  const sim = demoSim();
+  const live = liveIdentity(sim);
+  const bytes = savedBytes(sim);
+
+  it('accepts a save of the running world, with or without a BOM', () => {
+    expect(evaluateSaveFile(bytes, live)).toMatchObject({ ok: true });
+    expect(evaluateSaveFile(`\uFEFF${bytes}`, live)).toMatchObject({ ok: true });
+  });
+
+  it('rejects unparseable text and JSON that is no save document', () => {
+    expect(evaluateSaveFile('not json', live)).toEqual({ ok: false, reason: 'corrupt' });
+    expect(evaluateSaveFile('{"foo":1}', live)).toEqual({ ok: false, reason: 'corrupt' });
+    expect(evaluateSaveFile('{"header":{"kind":"elsewhere"}}', live)).toEqual({
+      ok: false,
+      reason: 'corrupt',
+    });
+  });
+
+  it('reports a truncated real save as corrupt, not incompatible', () => {
+    const doc = JSON.parse(bytes) as { sections: unknown };
+    doc.sections = [];
+    expect(evaluateSaveFile(JSON.stringify(doc), live)).toEqual({ ok: false, reason: 'corrupt' });
+  });
+
+  it('classifies a save from another format version as incompatible, older or newer', () => {
+    for (const formatVersion of [SAVE_FORMAT_VERSION - 1, SAVE_FORMAT_VERSION + 1]) {
+      const doc = JSON.parse(bytes) as { header: { formatVersion: number } };
+      doc.header.formatVersion = formatVersion;
+      expect(evaluateSaveFile(JSON.stringify(doc), live)).toEqual({
+        ok: false,
+        reason: 'incompatibleVersion',
+      });
+    }
+  });
+
+  it('rejects a save from another IR version, or of this world on changed terrain', () => {
+    expect(evaluateSaveFile(bytes, { ...live, irVersion: live.irVersion + 1 })).toEqual({
+      ok: false,
+      reason: 'wrongContent',
+    });
+    expect(evaluateSaveFile(bytes, { ...live, mapFingerprint: 'deadbeef' })).toEqual({
+      ok: false,
+      reason: 'wrongMap',
+    });
+  });
+
+  it("accepts another world's save, whose own entry checks its terrain", () => {
+    const elsewhere = { ...live, worldToken: 'another-map', mapFingerprint: 'deadbeef' };
+    expect(evaluateSaveFile(bytes, elsewhere)).toMatchObject({ ok: true });
+  });
+});
+
+interface StoredSlot {
+  readonly bytes: SaveBytes;
+  readonly meta: {
+    mapId: string | null;
+    tick: number;
+    entry: string | null;
+    seed: number;
+    thumbnail: Blob | null;
+  };
+}
+
+interface Harness {
+  readonly session: ReturnType<typeof saveLoadSession>;
+  readonly store: Map<string, StoredSlot>;
+  readonly staged: SaveBytes[];
+  /** Whether each staging asked the next boot to resume running. */
+  readonly resumes: boolean[];
+  readonly reloads: () => number;
+  readonly paused: () => boolean;
+  readonly delivered: Array<{ fileName: string; bytes: SaveBytes }>;
+  /** The entries of saves handed to their own world. */
+  readonly launched: (string | null)[];
+}
+
+function harness(
+  sim: Simulation,
+  overrides: {
+    captureSave?: (options: ExportSaveOptions) => SaveGame | Promise<SaveGame>;
+    pickFile?: () => Promise<PickedSaveFile | null>;
+    stagePending?: (bytes: SaveBytes, resume?: boolean) => Promise<void>;
+    startPaused?: boolean;
+    failWrite?: boolean;
+    sessionMetadata?: () => unknown;
+    viewState?: () => SavedView | null;
+    loadOtherWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
+    captureThumbnail?: () => Promise<Blob | null>;
+  } = {},
+): Harness {
+  let paused = overrides.startPaused === true;
+  let reloads = 0;
+  const store = new Map<string, StoredSlot>();
+  const staged: SaveBytes[] = [];
+  const resumes: boolean[] = [];
+  const delivered: Array<{ fileName: string; bytes: SaveBytes }> = [];
+  const launched: (string | null)[] = [];
+  const session = saveLoadSession({
+    ...(overrides.captureSave === undefined ? {} : { captureSave: overrides.captureSave }),
+    ...(overrides.sessionMetadata === undefined ? {} : { sessionMetadata: overrides.sessionMetadata }),
+    ...(overrides.viewState === undefined ? {} : { viewState: overrides.viewState }),
+    loadOtherWorld:
+      overrides.loadOtherWorld ??
+      ((save) => {
+        launched.push(save.header.entry);
+        return Promise.resolve();
+      }),
+    ...(overrides.captureThumbnail === undefined ? {} : { captureThumbnail: overrides.captureThumbnail }),
+    host: inlineSessionHost(sim),
+    worldToken: WORLD_TOKEN,
+    entrySearch: ENTRY_SEARCH,
+    setPaused: (value) => {
+      paused = value;
+    },
+    isPaused: () => paused,
+    reload: () => {
+      reloads++;
+    },
+    stagePending:
+      overrides.stagePending ??
+      ((bytes, resume = false) => {
+        staged.push(bytes);
+        resumes.push(resume);
+        return Promise.resolve();
+      }),
+    pickFile: overrides.pickFile ?? (() => Promise.resolve(null)),
+    downloadSave: (fileName, bytes) => {
+      delivered.push({ fileName, bytes });
+    },
+    store: {
+      list: () =>
+        Promise.resolve(
+          [...store.entries()].map(([id, slot]) => ({
+            id,
+            name: id,
+            mapId: slot.meta.mapId,
+            tick: slot.meta.tick,
+            entry: slot.meta.entry,
+            savedAt: 0,
+            seed: slot.meta.seed,
+            thumbnail: slot.meta.thumbnail,
+          })),
+        ),
+      read: (id) => Promise.resolve(store.get(id)?.bytes ?? null),
+      write: (name, bytes, meta) => {
+        if (overrides.failWrite === true) return Promise.reject(new Error('quota'));
+        store.set(name, { bytes, meta });
+        return Promise.resolve();
+      },
+      remove: (id) => {
+        store.delete(id);
+        return Promise.resolve();
+      },
+    },
+  });
+  return {
+    session,
+    store,
+    staged,
+    resumes,
+    reloads: () => reloads,
+    paused: () => paused,
+    delivered,
+    launched,
+  };
+}
+
+describe('stagedSaveFrom', () => {
+  it('parses staged bytes through the same seam that accepted them, BOM included', () => {
+    const sim = demoSim();
+    const bytes = savedBytes(sim);
+    expect(stagedSaveFrom(bytes, WORLD_TOKEN).header.tick).toBe(sim.tick);
+    expect(stagedSaveFrom(`\uFEFF${bytes}`, WORLD_TOKEN).header.tick).toBe(sim.tick);
+  });
+
+  it('throws for a staged save naming another world', () => {
+    const bytes = savedBytes(demoSim(), 'another-map');
+    expect(() => stagedSaveFrom(bytes, WORLD_TOKEN)).toThrow(/names world "another-map"/);
+  });
+});
+
+describe('saveLoadSession save flow', () => {
+  it('automatically stores a restorable session without pausing its shared clock', async () => {
+    const sim = demoSim();
+    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania', 'Jan'] }) });
+    const preference = { autosaveMinutes: 5, autosaveCount: 1 } as const;
+    const scheduler = createAutosave(h.session, sim.tick, preference, new AbortController().signal);
+    scheduler.update(sim.tick + 5 * 60 * TICKS_PER_SECOND, preference);
+    const id = autosaveSlots(WORLD_TOKEN)[0];
+    if (id === undefined) throw new Error('Missing autosave slot');
+    await vi.waitFor(() => expect(h.store.has(id)).toBe(true));
+    const file = h.store.get(id);
+    if (file === undefined) throw new Error('Autosave not stored');
+    const restored = parseSaveGame(JSON.parse(await decodeSaveText(file.bytes)));
+    expect(restored.header.session).toEqual({ roster: ['Ania', 'Jan'] });
+    expect(h.paused()).toBe(false);
+    expect(await h.session.loadSave(id)).toEqual({ kind: 'loading' });
+  });
+
+  it('reports a save whose compression fails as failed, keeping the slot it would replace', async () => {
+    const h = harness(demoSim());
+    expect(await h.session.saveGame('kept')).toEqual({ kind: 'saved' });
+    const previous = h.store.get('kept');
+    vi.stubGlobal(
+      'CompressionStream',
+      class {
+        constructor() {
+          throw new Error('gzip unavailable');
+        }
+      },
+    );
+    try {
+      expect(await h.session.saveGame('kept')).toEqual({ kind: 'failed' });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(h.store.get('kept')).toBe(previous);
+  });
+
+  it('writes the gzipped live sim into the named slot with its provenance', async () => {
+    const sim = demoSim();
+    const h = harness(sim);
+    await expect(h.session.saveGame('Slot 1')).resolves.toEqual({ kind: 'saved' });
+    const slot = h.store.get('Slot 1');
+    expect(slot).toBeDefined();
+    expect(isGzipSave(slot?.bytes ?? new Uint8Array())).toBe(true);
+    const doc = JSON.parse(await decodeSaveText(slot?.bytes ?? new Uint8Array())) as {
+      header: { mapId: string; tick: number; entry: string; savedAt: number };
+    };
+    expect(doc.header.mapId).toBe(WORLD_TOKEN);
+    expect(doc.header.entry).toBe(ENTRY_SEARCH);
+    expect(doc.header.tick).toBe(sim.tick);
+    expect(doc.header.savedAt).toBeGreaterThan(0);
+    expect(slot?.meta).toEqual({
+      mapId: WORLD_TOKEN,
+      tick: sim.tick,
+      entry: ENTRY_SEARCH,
+      savedAt: doc.header.savedAt,
+      seed: sim.seed,
+      thumbnail: null,
+    });
+    expect(h.paused()).toBe(false);
+  });
+
+  it('records the control groups and restores them only into the seat that saved them', async () => {
+    const SAVING_SEAT = 0;
+    const OTHER_SEAT = 1;
+    const groups = { controlGroup1: [3, 5], controlGroup0: [7] };
+    const h = harness(demoSim(), { viewState: () => ({ seat: SAVING_SEAT, controlGroups: groups }) });
+    await h.session.saveGame('Groups');
+    const slot = h.store.get('Groups');
+    if (slot === undefined) throw new Error('Save not stored');
+    const { view } = stagedSaveFrom(await decodeSaveText(slot.bytes), WORLD_TOKEN).header;
+    expect(restoredControlGroups(view, SAVING_SEAT)).toEqual(groups);
+    expect(restoredControlGroups(view, OTHER_SEAT)).toBeUndefined();
+    expect(restoredControlGroups(null, SAVING_SEAT)).toBeUndefined();
+    expect(
+      restoredControlGroups({ seat: SAVING_SEAT, controlGroups: { group11: [1] } }, SAVING_SEAT),
+    ).toBeUndefined();
+  });
+
+  it('saves oversized groups by keeping only live members up to a cap', async () => {
+    const GROUP_SIZE = 410;
+    const GONE = 1;
+    const ids = Array.from({ length: GROUP_SIZE }, (_, i) => i + 1);
+    const members = Object.fromEntries(
+      [
+        'controlGroup1',
+        'controlGroup2',
+        'controlGroup3',
+        'controlGroup4',
+        'controlGroup5',
+        'controlGroup6',
+        'controlGroup7',
+        'controlGroup8',
+        'controlGroup9',
+        'controlGroup0',
+      ].map((action) => [action, ids]),
+    );
+    const view = savedView(0, members, (id) => id !== GONE);
+    const kept = Object.values(view.controlGroups).flat();
+    expect(kept).not.toContain(GONE);
+    expect(kept.length).toBeLessThan(10 * (GROUP_SIZE - 1));
+    const h = harness(demoSim(), { viewState: () => view });
+    await expect(h.session.saveGame('Crowded')).resolves.toEqual({ kind: 'saved' });
+  });
+
+  it('stores the picture beside the slot and still saves when taking it fails', async () => {
+    const picture = new Blob(['picture'], { type: 'image/webp' });
+    const pictured = harness(demoSim(), { captureThumbnail: () => Promise.resolve(picture) });
+    await expect(pictured.session.saveGame('With')).resolves.toEqual({ kind: 'saved' });
+    expect(pictured.store.get('With')?.meta.thumbnail).toBe(picture);
+
+    const failing = harness(demoSim(), { captureThumbnail: () => Promise.reject(new Error('context lost')) });
+    await expect(failing.session.saveGame('Without')).resolves.toEqual({ kind: 'saved' });
+    expect(failing.store.get('Without')?.meta.thumbnail).toBeNull();
+  });
+
+  it('keeps slot metadata at the captured tick while a shared session advances during compression', async () => {
+    const sim = demoSim();
+    const h = harness(sim);
+    const capturedTick = sim.tick;
+    const saving = h.session.saveGame('Running session');
+    sim.step();
+    await expect(saving).resolves.toEqual({ kind: 'saved' });
+    const slot = h.store.get('Running session');
+    const save = stagedSaveFrom(await decodeSaveText(slot?.bytes ?? new Uint8Array()), WORLD_TOKEN);
+    expect(save.header.tick).toBe(capturedTick);
+    expect(slot?.meta.tick).toBe(capturedTick);
+    expect(sim.tick).toBeGreaterThan(capturedTick);
+  });
+
+  it('reports a failed store write and keeps the player pause state', async () => {
+    const failed = harness(demoSim(), { failWrite: true, startPaused: true });
+    await expect(failed.session.saveGame('Slot 1')).resolves.toEqual({ kind: 'failed' });
+    expect(failed.paused()).toBe(true);
+    expect(failed.store.size).toBe(0);
+  });
+});
+
+describe('saveLoadSession reload hand-over', () => {
+  it('stages the running world for the next boot without writing a slot or reloading itself', async () => {
+    const sim = demoSim();
+    const h = harness(sim);
+    await h.session.stageForReload();
+    const save = stagedSaveFrom(await decodeSaveText(h.staged[0] ?? new Uint8Array()), WORLD_TOKEN);
+    expect(save.header.tick).toBe(sim.tick);
+    expect(save.header.entry).toBe(ENTRY_SEARCH);
+    expect(h.resumes).toEqual([true]);
+    expect(h.store.size).toBe(0);
+    expect(h.reloads()).toBe(0);
+  });
+
+  it('keeps a paused world paused across the reload', async () => {
+    const h = harness(demoSim(), { startPaused: true });
+    await h.session.stageForReload();
+    expect(h.resumes).toEqual([false]);
+  });
+
+  it('resumes a world only an open menu paused', async () => {
+    const h = harness(demoSim());
+    h.session.forcePause();
+    await h.session.stageForReload();
+    expect(h.resumes).toEqual([true]);
+  });
+});
+
+describe('saveLoadSession slot load and export', () => {
+  it('stages a stored slot byte-identically and reloads', async () => {
+    const sim = demoSim();
+    const h = harness(sim);
+    await h.session.saveGame('Slot 1');
+    await expect(h.session.loadSave('Slot 1')).resolves.toEqual({ kind: 'loading' });
+    expect(h.staged).toEqual([h.store.get('Slot 1')?.bytes]);
+    expect(h.reloads()).toBe(1);
+  });
+
+  it('relaunches a save this map recorded under another entry instead of reloading in place', async () => {
+    const h = harness(demoSim());
+    const other = `${ENTRY_SEARCH}&tribes=2:4`;
+    const save = exportSaveGame(demoSim(), { mapId: WORLD_TOKEN, entry: other });
+    h.store.set('Other', {
+      bytes: await compressSaveText(serializeSaveGame(save)),
+      meta: { mapId: WORLD_TOKEN, tick: 0, entry: other, seed: 0, thumbnail: null },
+    });
+    await expect(h.session.loadSave('Other')).resolves.toEqual({ kind: 'loading' });
+    expect([h.reloads(), h.launched]).toEqual([0, [other]]);
+  });
+
+  it("hands another world's save to that world's entry, staging nothing here", async () => {
+    const h = harness(demoSim());
+    const entry = '?map=another-map&player=1';
+    const save = exportSaveGame(demoSim(), { mapId: 'another-map', entry });
+    h.store.set('Away', {
+      bytes: await compressSaveText(serializeSaveGame(save)),
+      meta: { mapId: 'another-map', tick: 0, entry, seed: 0, thumbnail: null },
+    });
+    await expect(h.session.loadSave('Away')).resolves.toEqual({ kind: 'loading' });
+    expect([h.reloads(), h.staged, h.launched]).toEqual([0, [], [entry]]);
+  });
+
+  it("keeps the session when another world's save cannot load there", async () => {
+    const sim = demoSim();
+    const h = harness(sim, {
+      pickFile: () => Promise.resolve(pickedOf(savedBytes(sim, 'another-map'))),
+      loadOtherWorld: () => Promise.reject(new Error('map gone')),
+      startPaused: true,
+    });
+    await expect(h.session.loadFromFile()).resolves.toEqual({ kind: 'rejected', reason: 'wrongMap' });
+    expect([h.reloads(), h.staged, h.paused()]).toEqual([0, [], true]);
+  });
+
+  it('rejects a vanished slot as missing, touching nothing', async () => {
+    const h = harness(demoSim());
+    await expect(h.session.loadSave('nope')).resolves.toEqual({ kind: 'rejected', reason: 'missing' });
+    expect(h.staged).toEqual([]);
+    expect(h.reloads()).toBe(0);
+    expect(h.paused()).toBe(false);
+  });
+
+  it('exports a stored slot under a suffix honest about its gzip payload', async () => {
+    const h = harness(demoSim());
+    await h.session.saveGame('Slot 1');
+    await h.session.saveGame('backup.json');
+    await expect(h.session.exportSave('Slot 1')).resolves.toEqual({ kind: 'saved' });
+    expect(h.delivered[0]?.fileName).toBe('Slot 1.json.gz');
+    expect(h.delivered[0]?.bytes).toBe(h.store.get('Slot 1')?.bytes);
+    // A slot the player named like a plain file still exports as the gzip it is.
+    await expect(h.session.exportSave('backup.json')).resolves.toEqual({ kind: 'saved' });
+    expect(h.delivered[1]?.fileName).toBe('backup.json.gz');
+    await expect(h.session.exportSave('nope')).resolves.toEqual({ kind: 'failed' });
+  });
+});
+
+describe('saveLoadSession panel pause', () => {
+  it('forces the pause for an open panel and releases back to the player state', () => {
+    const wasRunning = harness(demoSim());
+    wasRunning.session.forcePause();
+    expect(wasRunning.paused()).toBe(true);
+    wasRunning.session.releaseForcedPause();
+    expect(wasRunning.paused()).toBe(false);
+
+    const wasPaused = harness(demoSim(), { startPaused: true });
+    wasPaused.session.forcePause();
+    wasPaused.session.releaseForcedPause();
+    expect(wasPaused.paused()).toBe(true);
+  });
+
+  it('no flow touches the pause; the open panel owns it until the page dies', async () => {
+    const sim = demoSim();
+    const h = harness(sim, { pickFile: () => Promise.resolve(pickedOf(savedBytes(sim))) });
+    h.session.forcePause();
+    await expect(h.session.loadFromFile()).resolves.toEqual({ kind: 'loading' });
+    expect(h.reloads()).toBe(1);
+    expect(h.paused()).toBe(true);
+  });
+});
+
+describe('saveLoadSession file load flow', () => {
+  it('stages the picked file bytes and reloads', async () => {
+    const sim = demoSim();
+    const picked = pickedOf(savedBytes(sim));
+    const h = harness(sim, { pickFile: () => Promise.resolve(picked) });
+    await expect(h.session.loadFromFile()).resolves.toEqual({ kind: 'loading' });
+    expect(h.staged).toEqual([picked.raw]);
+    expect(h.reloads()).toBe(1);
+  });
+
+  it('keeps the session on a cancelled pick: nothing staged, no reload, pause untouched', async () => {
+    const h = harness(demoSim(), { pickFile: () => Promise.resolve(null) });
+    await expect(h.session.loadFromFile()).resolves.toEqual({ kind: 'cancelled' });
+    expect(h.staged).toEqual([]);
+    expect(h.reloads()).toBe(0);
+    expect(h.paused()).toBe(false);
+  });
+
+  it('keeps the session on a rejected file and names the rejection', async () => {
+    const sim = demoSim();
+    const doc = JSON.parse(savedBytes(sim)) as { header: { irVersion: number } };
+    doc.header.irVersion += 1;
+    const h = harness(sim, {
+      pickFile: () => Promise.resolve(pickedOf(JSON.stringify(doc))),
+      startPaused: true,
+    });
+    await expect(h.session.loadFromFile()).resolves.toEqual({
+      kind: 'rejected',
+      reason: 'wrongContent',
+    });
+    expect(h.staged).toEqual([]);
+    expect(h.reloads()).toBe(0);
+    expect(h.paused()).toBe(true);
+  });
+
+  it('treats an unreadable pick as corrupt and a failed staging as a storage rejection', async () => {
+    const sim = demoSim();
+    const unreadable = harness(sim, { pickFile: () => Promise.reject(new Error('io')) });
+    await expect(unreadable.session.loadFromFile()).resolves.toEqual({
+      kind: 'rejected',
+      reason: 'corrupt',
+    });
+
+    const storage = harness(sim, {
+      pickFile: () => Promise.resolve(pickedOf(savedBytes(sim))),
+      stagePending: () => Promise.reject(new Error('quota')),
+    });
+    await expect(storage.session.loadFromFile()).resolves.toEqual({
+      kind: 'rejected',
+      reason: 'storage',
+    });
+    expect(storage.reloads()).toBe(0);
+    expect(storage.paused()).toBe(false);
+  });
+});
+
+it('writes the paused session orders into the compressed manual save without running a tick', async () => {
+  const sim = demoSim();
+  const driver = new LockstepDriver({ sim, transport: new LoopbackTransport(), paused: true });
+  driver.submit(adminCommand({ kind: 'setNeedsEnabled', enabled: false }));
+  driver.submit(adminCommand({ kind: 'setNeedsEnabled', enabled: true }));
+  const before = sim.tick;
+  const h = harness(sim, { captureSave: (options) => driver.captureSave(options), startPaused: true });
+  expect(await h.session.saveGame('paused')).toEqual({ kind: 'saved' });
+  const bytes = h.store.get('paused')?.bytes;
+  if (bytes === undefined) throw new Error('no saved slot');
+  const save = parseSaveGame(JSON.parse(await decodeSaveText(bytes)));
+  expect(save.header.tick).toBe(before);
+  expect(save.sections.find((section) => section.id === 'commands')?.continuation).toEqual([
+    { applyTick: before + 1, envelope: adminCommand({ kind: 'setNeedsEnabled', enabled: false }) },
+    { applyTick: before + 1, envelope: adminCommand({ kind: 'setNeedsEnabled', enabled: true }) },
+  ]);
+  expect(sim.tick).toBe(before);
+  expect(h.paused()).toBe(true);
+});
+
+it('preserves the previous slot when obtaining authoritative pending orders fails', async () => {
+  let fail = false;
+  const sim = demoSim();
+  const h = harness(sim, {
+    captureSave: async (options) => {
+      if (fail) throw new Error('relay disconnected while saving');
+      return exportSaveGame(sim, options);
+    },
+  });
+  expect(await h.session.saveGame('safe')).toEqual({ kind: 'saved' });
+  const previous = h.store.get('safe');
+  fail = true;
+  expect(await h.session.saveGame('safe')).toEqual({ kind: 'failed' });
+  expect(h.store.get('safe')).toBe(previous);
+});

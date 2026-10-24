@@ -1,0 +1,97 @@
+import type { SoundDriver } from '@open-northland/audio';
+import { components, Simulation } from '@open-northland/sim';
+import { afterEach, expect, it, vi } from 'vitest';
+import { testContent } from '../../../../sim/test/fixtures/content.js';
+import { currentDiagGameSession, setDiagGameSession } from '../../../src/diag/session.js';
+import * as hudDom from '../../../src/hud/dom/root.js';
+import { inlineSessionHost } from '../../../src/session/index.js';
+import * as toolPanel from '../../../src/view/game-tool-panel.js';
+import * as presentation from '../../../src/view/runtime/game-presentation.js';
+import { type GameViewDeps, startGameView } from '../../../src/view/runtime/game-view.js';
+import * as tooltips from '../../../src/view/tooltip.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  setDiagGameSession(null);
+});
+
+it.each([false, true])(
+  'releases a failed mount before another attempt (cleanup throws: %s)',
+  async (cleanupThrows) => {
+    vi.stubGlobal('window', { location: { search: '' }, screen: { height: 1080 } });
+    // The bar's debug corner is a detached node until the tool panel mounts it.
+    vi.stubGlobal('document', { createElement: () => ({}) });
+    const live = new Set<string>();
+    let primedHistory: readonly number[] | null = null;
+    const acquire = (name: string) => {
+      expect(live.has(name)).toBe(false);
+      live.add(name);
+      return () => live.delete(name);
+    };
+    vi.spyOn(presentation, 'mountGamePresentation').mockImplementation(
+      async (_params, _renderer, _jobs, _music, signal) => {
+        const releaseBinding = acquire('sound binding');
+        signal?.addEventListener('abort', releaseBinding, { once: true });
+        return { close: acquire('sound') } as unknown as SoundDriver;
+      },
+    );
+    vi.spyOn(tooltips, 'createTooltip').mockImplementation(() => {
+      const release = acquire('tooltip');
+      return { show() {}, hide() {}, destroy: release };
+    });
+    // The DOM plane mounts before the tool panel; the node environment has no document for it. Its
+    // cleanup is the one that runs after the failed mount, so it is the one that may throw here.
+    vi.spyOn(hudDom, 'mountHudDomRoot').mockImplementation(() => {
+      expect(primedHistory).toEqual([500, 511]);
+      const release = acquire('hud dom');
+      return {
+        element: {} as HTMLElement,
+        setUiScale: () => Promise.resolve(),
+        currentScale: () => 1,
+        claims: () => false,
+        setChromeHidden() {},
+        dispose() {
+          release();
+          if (cleanupThrows) throw new Error('hud dom cleanup failed');
+        },
+      };
+    });
+    const failure = new Error('tool-panel asset failed');
+    vi.spyOn(toolPanel, 'mountGameToolPanel').mockRejectedValue(failure);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const sim = new Simulation({ seed: 7, content: testContent() });
+      components.deliverMissionBriefing(sim.world, 500, true);
+      components.deliverMissionBriefing(sim.world, 511, true);
+      const host = inlineSessionHost(sim);
+      primedHistory = null;
+      const readHistory = host.missionBriefingHistory.bind(host);
+      vi.spyOn(host, 'missionBriefingHistory').mockImplementation(async () => {
+        const history = await readHistory();
+        primedHistory = history;
+        return history;
+      });
+      setDiagGameSession({ entry: 'scene', worldId: 'mount-test', seed: 7, host, hashTrace: null });
+      const deps = {
+        host,
+        params: new URLSearchParams(),
+        canvas: Object.assign(new EventTarget(), { getAttribute: () => null }),
+        initialViewport: { width: 1000, height: 600 },
+        cameraCtl: { dispose: acquire('camera') },
+        renderer: { setSelectionStyle() {}, setGroupNumbersShown() {} },
+        driver: {},
+        saveEntrySearch: '?scene=mount-test',
+        mapSize: { width: 10, height: 10 },
+      } as unknown as GameViewDeps;
+      const mount = startGameView(deps);
+      if (cleanupThrows) {
+        await expect(mount).rejects.toMatchObject({ errors: [failure, expect.any(AggregateError)] });
+      } else {
+        await expect(mount).rejects.toBe(failure);
+      }
+      expect(live).toEqual(new Set());
+      expect(currentDiagGameSession()).toBeNull();
+    }
+  },
+);

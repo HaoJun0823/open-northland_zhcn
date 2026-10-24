@@ -6,8 +6,8 @@ import { desyncNotice } from '../../hud/network/text.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 import { relayReasonText } from '../../net/relay-reason.js';
 import type { LinkReport } from '../../session/worker/net-protocol.js';
+import type { NetReadout } from '../../view/net/readout.js';
 import { clockAnnouncement } from '../../view/net/session-clock.js';
-import type { NetReadout } from '../../view/runtime/net-readout.js';
 import { createRelayPanelFeed, type RelayPanelFeedDeps } from './net-panel-feed.js';
 
 export interface NetHudDeps {

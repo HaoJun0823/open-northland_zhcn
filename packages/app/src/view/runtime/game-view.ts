@@ -122,8 +122,11 @@ import {
 } from '../game-tool-panel.js';
 import { applyWhenWarmed } from '../graphics/shader-warmup.js';
 import { createSignpostMapOverlay } from '../map-overlays/signposts.js';
+import { mountNetOverlays } from '../net/overlays.js';
+import type { NetReadout } from '../net/readout.js';
 import { floatParam, introParam, menuSearch, tintParam, weatherParam } from '../params.js';
 import { nodeBounds } from '../picking.js';
+import { createPlacementGates } from '../placement/gates.js';
 import {
   createFogGates,
   defenceRadiusAt,
@@ -134,8 +137,10 @@ import {
   messageTargetAnchor,
   templeAuraRadius,
 } from '../projections/index.js';
-import { createScriptEffects } from '../script-effects.js';
-import { createScriptMarkers } from '../script-markers.js';
+import { createScriptEffects } from '../script/effects.js';
+import { createScriptMarkers } from '../script/markers.js';
+import { createScriptPresentation } from '../script/presentation.js';
+import { mountScriptTints } from '../script/tints.js';
 import { patchStoredSettings, readStoredSettings } from '../settings/store.js';
 import { createShortfallLook } from '../speed-shortfall.js';
 import { createTooltip } from '../tooltip.js';
@@ -150,13 +155,10 @@ import { startFrameLoop } from './frame-loop.js';
 import { createLiveGameSettings } from './game-live-settings.js';
 import { mountGamePresentation } from './game-presentation.js';
 import { createHostAnswers } from './host-answers.js';
-import { mountNetOverlays } from './net-overlays.js';
-import type { NetReadout } from './net-readout.js';
 import { orderAnswerOf } from './order-answer.js';
 import { ownRoadSiteAt } from './own-road-sites.js';
 import { createPauseHolds } from './pause-holds.js';
 import { mountPerfReadout } from './perf-readout.js';
-import { createPlacementGates } from './placement-gates.js';
 import { createPlaytest } from './playtest.js';
 import { trackCanvasPointer } from './pointer-tracker.js';
 import type { RafLoop } from './raf-loop.js';
@@ -172,8 +174,6 @@ import {
 } from './save-load/index.js';
 import { otherWorldLoader } from './save-load/other-world.js';
 import { worldThumbnail } from './save-load/thumbnail.js';
-import { createScriptPresentation } from './script-presentation.js';
-import { mountScriptTints } from './script-tints.js';
 import { noteRestartOnLeave } from './settings-restart.js';
 import { createSubMissions, type PrepareSubMission } from './sub-missions.js';
 import { createWorldEventHandler } from './world-events.js';

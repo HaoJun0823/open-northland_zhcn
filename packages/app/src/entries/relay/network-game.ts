@@ -25,12 +25,12 @@ import {
 } from '../../net/relay-reason.js';
 import { networkSaveSession } from '../../net/save-session.js';
 import { dismissBootProgress } from '../../view/boot/progress.js';
+import type { NetReadout } from '../../view/net/readout.js';
 import { mountResyncPlaque, type ResyncPlaque } from '../../view/net/resync-plaque.js';
 import { menuSearch } from '../../view/params.js';
 import { bindDisplayMode } from '../../view/platform/fullscreen.js';
 import { releaseDocument } from '../../view/platform/navigation-guard.js';
 import type { GameViewHandle } from '../../view/runtime/game-view.js';
-import type { NetReadout } from '../../view/runtime/net-readout.js';
 import { type AssembledMapWorld, assembleMapWorld, presentMapWorld, type RestoredSave } from '../map/boot.js';
 import { keptView } from './kept-view.js';
 import { mountHaltNotice } from './menu-notice.js';

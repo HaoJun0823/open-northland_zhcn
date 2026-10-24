@@ -10,12 +10,13 @@ import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { WorldTribes } from '../../game/world-tribes.js';
 import { goodName } from '../../i18n/index.js';
 import type { SessionHost } from '../../session/index.js';
+import type { PlacementProbeViews } from '../placement/gates.js';
 import {
   makeDockOverlaySource,
   makeLitOverlaySource,
   makeOverlayFrameSource,
   makeSignpostOverlaySource,
-} from '../placement-overlay.js';
+} from '../placement/overlay.js';
 import {
   type BuildingDoorInfo,
   type BuildingDoorInfoOf,
@@ -26,7 +27,6 @@ import {
   type GeometryBuildingInfoOf,
   type HeartSelection,
 } from '../projections/index.js';
-import type { PlacementProbeViews } from './placement-gates.js';
 
 export interface ViewReadModelDeps {
   readonly authoredBuildings?: BuildingTypeBinding['byEntity'];

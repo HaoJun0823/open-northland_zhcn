@@ -4,7 +4,7 @@
 
 `parseContentSet` now rejects any `manifest.version` but `IR_VERSION`, so a checkout's `content/`
 left unregenerated across a version bump makes `loadLocalizedRealContent` throw. The map boot
-(`entries/map/boot.ts`) and scene entry (`entries/scene.ts`) load it before their terrain-loading
+(`entries/map/boot.ts`) and scene entry (`entries/scene/index.ts`) load it before their terrain-loading
 `MissingTerrainError` guard, so the throw escapes and the run ends as a crash-capture report instead of the
 existing "regenerate content" card that the same situation already gets for missing terrain.
 

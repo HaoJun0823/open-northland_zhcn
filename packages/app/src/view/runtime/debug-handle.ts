@@ -10,7 +10,7 @@ import type { SystemProfileRow } from '../../diag/system-profile.js';
 import { recordedTraceEvents, type TraceEvent } from '../../diag/trace.js';
 import type { ProfileSource, SessionHost } from '../../session/index.js';
 import type { CameraController } from '../camera/index.js';
-import type { NetReadout } from './net-readout.js';
+import type { NetReadout } from '../net/readout.js';
 import type { PlaytestHandle } from './playtest.js';
 
 declare global {

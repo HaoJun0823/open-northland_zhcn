@@ -12,7 +12,7 @@ paints one cell, 6 paints 19 cells and 900 the whole map. The disc is clamped to
 off the map still paints what lies on it (piracka_utopia's chain, copied from a 500x500 map). The
 `OnLand` variant paints only land cells off the map border ([MISSIONS.md](MISSIONS.md#mutable-landscape-and-terrain)).
 A cell's colour sits on its corner node and the ground shades each triangle between its three corners
-(`cellColorsToCorners`, `packages/app/src/view/runtime/script-tints.ts`).
+(`cellColorsToCorners`, `packages/app/src/view/script/tints.ts`).
 
 ## What the shipped scripts do
 
@@ -51,7 +51,7 @@ The original engine could tint only the ground mesh, so a scripted "night" left 
 settler in daylight. We read the author's intent instead:
 
 - The index covering at least 60% of the map's cells (`WHOLE_MAP_SHARE`,
-  `packages/app/src/view/runtime/script-tints.ts`) is the scene grade: its palette colour multiplied
+  `packages/app/src/view/script/tints.ts`) is the scene grade: its palette colour multiplied
   over everything the stage draws below the HUD (`packages/render/src/gpu/lighting/scene-light.ts`).
   Cells the author's disc missed (the corners of wielka_kolonizacja and krwawa_rzeka) take the grade
   too, as their paired rain square does. An `OnLand` write that reaches the share grades the water

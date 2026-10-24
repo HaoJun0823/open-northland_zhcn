@@ -39,12 +39,12 @@ const ROUTES: readonly Route[] = [
   {
     id: 'scene',
     matches: (params) => params.has('scene'),
-    load: () => import('./entries/scene.js').then((m) => m.renderSceneMode),
+    load: () => import('./entries/scene/index.js').then((m) => m.renderSceneMode),
   },
   {
     id: 'anim',
     matches: (params) => params.has('anim'),
-    load: () => import('./entries/anim.js').then((m) => m.renderAnimationGallery),
+    load: () => import('./entries/anim/index.js').then((m) => m.renderAnimationGallery),
   },
   {
     id: 'icons',

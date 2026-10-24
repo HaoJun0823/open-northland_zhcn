@@ -25,13 +25,14 @@ import { createForeignFlags } from '../foreign-flags.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import { createFellingPresenter } from '../map-objects/felling-presenter.js';
 import type { SignpostMapOverlay } from '../map-overlays/signposts.js';
+import { placementCursor } from '../placement/cursor.js';
 import type {
   LitAnswers,
   makeDockOverlaySource,
   makeLitOverlaySource,
   makeOverlayFrameSource,
   makeSignpostOverlaySource,
-} from '../placement-overlay.js';
+} from '../placement/overlay.js';
 import {
   type computeConstructionSigns,
   type computeDoorBadges,
@@ -42,6 +43,7 @@ import {
   type GeometryDebugOverlay,
   harshestStance,
 } from '../projections/index.js';
+import type { ScriptPresentation } from '../script/presentation.js';
 import type { FpsLimit } from '../settings/store.js';
 import type { UnitControls } from '../unit-controls/index.js';
 import { lostGoalPulse } from '../unit-controls/lost-goals.js';
@@ -49,9 +51,7 @@ import type { WorldHover } from '../world-hover.js';
 import { presentCombatEffects, type TickEffects } from './combat-effects.js';
 import type { GameViewDeps } from './game-view.js';
 import type { PerfReadout } from './perf-readout.js';
-import { placementCursor } from './placement-cursor.js';
 import { type RafLoop, startRafLoop } from './raf-loop.js';
-import type { ScriptPresentation } from './script-presentation.js';
 import { createVisiblePlots } from './visible-plots.js';
 
 /** Everything the per-frame loop reads, assembled once by the mount phase. */

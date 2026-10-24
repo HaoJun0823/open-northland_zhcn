@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAP_SCENES, mapSceneParams } from '../../src/scenes/map-scenes.js';
-import { firedMissionRows } from '../../src/view/runtime/mission-trace.js';
 import { relaunchSearch } from '../../src/view/runtime/save-load/relaunch.js';
+import { firedMissionRows } from '../../src/view/script/mission-trace.js';
 
 describe('the real map acceptance entry', () => {
   it('runs the decoded map route with scripts and diagnostics, preserving player overrides', () => {

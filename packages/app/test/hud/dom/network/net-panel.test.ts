@@ -18,7 +18,7 @@ import type { GameSpeedState } from '../../../../src/hud/tool-panel/game-speed.j
 import { createSpeedControl } from '../../../../src/hud/tool-panel/speed-control.js';
 import { formatClockTime, formatMessage, messages } from '../../../../src/i18n/index.js';
 import { CHAT_LINGER_MS, mountChatPanel } from '../../../../src/view/net/chat-panel.js';
-import { mountNetOverlays, type NetOverlaysController } from '../../../../src/view/runtime/net-overlays.js';
+import { mountNetOverlays, type NetOverlaysController } from '../../../../src/view/net/overlays.js';
 
 /** The network window, its status line, the chat above the beam and the speed bar over jsdom. */
 

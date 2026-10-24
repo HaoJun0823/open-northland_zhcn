@@ -5,7 +5,7 @@
 `seatMayIssue` (`packages/sim/src/systems/command/authority.ts`) refuses every command from a seat the
 match marked dead. The HUD does not know: after the verdict panel is dismissed with "Keep watching",
 the strip still opens the build menu, `seatPlacementProbe` still paints the ghost green
-(`packages/app/src/view/runtime/placement-gates.ts` has no death check), unit selection still works, and
+(`packages/app/src/view/placement/gates.ts` has no death check), unit selection still works, and
 the click enqueues a command the sim drops without a word. Defeat leaves women and children alive, so
 the player has entities to select and a whole HUD that contradicts the one line the panel showed once.
 

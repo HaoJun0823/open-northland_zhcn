@@ -5,7 +5,7 @@ import type {
   RoomSeatView,
   VacantSeatMode,
 } from '@open-northland/net-protocol';
-import type { Member, Refusal } from './member.js';
+import type { Member, Refusal } from '../member.js';
 
 interface Seat {
   readonly player: number;

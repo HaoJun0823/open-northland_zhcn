@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { type DigestReport, SyncLedger } from '../src/relay/sync-ledger.js';
+import { type DigestReport, SyncLedger } from '../src/relay/game/sync-ledger.js';
 import { digest } from './support/message-stage.js';
 
 /** The ledger decides who is right from digests alone: the majority, and the oldest connection on a tie. */

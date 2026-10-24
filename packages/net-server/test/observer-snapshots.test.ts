@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createMember } from '../src/relay/member.js';
-import { Resync, SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from '../src/relay/resync.js';
+import { Resync, SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from '../src/relay/snapshots/resync.js';
 
 it('asks a seated player for snapshots before faster observers, including retries', () => {
   const player = createMember('player', 'Player', 0, { delayTicks: 1, roundTripMs: 100 });

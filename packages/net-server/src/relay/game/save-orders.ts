@@ -1,7 +1,7 @@
 import { type ClientMessage, type ServerMessage, saveOrdersText } from '@open-northland/net-protocol';
-import { type Deliver, isSynced, type Member, type Refusal } from './member.js';
-import type { Resync } from './resync.js';
-import type { RoomClock } from './room-clock.js';
+import { type Deliver, isSynced, type Member, type Refusal } from '../member.js';
+import type { Resync } from '../snapshots/resync.js';
+import type { RoomClock } from '../timing/room-clock.js';
 
 export class SaveOrders {
   constructor(

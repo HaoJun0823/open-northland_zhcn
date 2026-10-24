@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { KickVotes } from '../src/relay/kick-vote.js';
+import { KickVotes } from '../src/relay/game/kick-vote.js';
+import { KICK_COUNTDOWN_MS, Waiting } from '../src/relay/game/waiting.js';
 import { createMember } from '../src/relay/member.js';
-import { KICK_COUNTDOWN_MS, Waiting } from '../src/relay/waiting.js';
 
 const STILL_WAITED = () => true;
 

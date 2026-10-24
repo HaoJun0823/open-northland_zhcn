@@ -5,10 +5,10 @@ import {
   TICK_MS,
 } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
+import { SaveOrders } from '../src/relay/game/save-orders.js';
 import { createMember } from '../src/relay/member.js';
-import { Resync } from '../src/relay/resync.js';
-import { RoomClock } from '../src/relay/room-clock.js';
-import { SaveOrders } from '../src/relay/save-orders.js';
+import { Resync } from '../src/relay/snapshots/resync.js';
+import { RoomClock } from '../src/relay/timing/room-clock.js';
 import { ackThrough, seatCommand, startedRoom } from './support/message-stage.js';
 
 const ask = (tick: number, world = 0, id = 1) => ({ kind: 'saveOrders', id, tick, world });

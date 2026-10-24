@@ -1,8 +1,8 @@
 import { TICK_MS, type WireFrame } from '@open-northland/net-protocol';
 import { parseCommandEnvelope } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { CatchUpStore, MAX_HISTORY_AGE_MS, MAX_HISTORY_BYTES } from '../src/relay/catch-up.js';
-import { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from '../src/relay/resync.js';
+import { CatchUpStore, MAX_HISTORY_AGE_MS, MAX_HISTORY_BYTES } from '../src/relay/snapshots/catch-up.js';
+import { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from '../src/relay/snapshots/resync.js';
 import {
   ackThrough,
   type MessageStage,

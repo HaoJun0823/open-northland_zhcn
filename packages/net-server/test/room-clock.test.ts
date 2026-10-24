@@ -9,7 +9,7 @@ import {
   MAX_PENDING_COMMAND_BYTES,
   MAX_PENDING_COMMANDS_PER_MEMBER,
   RoomClock,
-} from '../src/relay/room-clock.js';
+} from '../src/relay/timing/room-clock.js';
 
 /** Frames one advance may carry after a stall. */
 const STALL_BURST_FRAMES = 12;

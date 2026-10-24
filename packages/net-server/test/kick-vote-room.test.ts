@@ -1,7 +1,7 @@
 import { TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { KICK_COUNTDOWN_MS, SILENT_AFTER_MS } from '../src/index.js';
-import { MAX_HISTORY_AGE_MS } from '../src/relay/catch-up.js';
+import { MAX_HISTORY_AGE_MS } from '../src/relay/snapshots/catch-up.js';
 import { ackThrough, type MessageStage, type Peer, SETTINGS, stage } from './support/message-stage.js';
 
 /** Kick votes in a running room of four or five, driven message by message. */

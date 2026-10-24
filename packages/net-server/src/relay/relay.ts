@@ -12,13 +12,13 @@ import {
   type RelayReason,
   type ServerMessage,
 } from '@open-northland/net-protocol';
-import { LatencyProbe } from './input-delay.js';
+import { saveOrdersRequestId } from './game/save-orders.js';
 import { createMember, type Member, type Refusal } from './member.js';
 import { type RelayLog, wholeSeconds } from './relay-log.js';
-import { type Farewell, Room } from './room.js';
-import { dispatchRoomMessage } from './room-dispatch.js';
-import { retireRoomMembers } from './room-retirement.js';
-import { saveOrdersRequestId } from './save-orders.js';
+import { dispatchRoomMessage } from './room/dispatch.js';
+import { retireRoomMembers } from './room/retirement.js';
+import { type Farewell, Room } from './room/room.js';
+import { LatencyProbe } from './timing/input-delay.js';
 
 export interface Connection {
   send(message: ServerMessage): void;

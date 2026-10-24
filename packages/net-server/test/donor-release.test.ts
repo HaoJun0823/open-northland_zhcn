@@ -2,7 +2,7 @@ import { TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import type { Member } from '../src/relay/member.js';
 import { SILENT_AFTER_MS } from '../src/relay/member.js';
-import { SNAPSHOT_RETRY_MS } from '../src/relay/resync.js';
+import { SNAPSHOT_RETRY_MS } from '../src/relay/snapshots/resync.js';
 import { ackThrough, type Peer, roomOfThree } from './support/message-stage.js';
 
 const SLOW_LINK_MS = 200;

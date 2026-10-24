@@ -1,5 +1,5 @@
 import { type ClientMessage, MAX_ENVELOPE_BYTES } from '@open-northland/net-protocol';
-import type { Member, Refusal } from './member.js';
+import type { Member, Refusal } from '../member.js';
 import type { Room } from './room.js';
 
 export type RoomMessage = Exclude<

@@ -1,8 +1,8 @@
 import { MAX_RESPONSIVENESS_BUFFER_TICKS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
-import { InputDelayEstimator } from '../src/relay/input-delay.js';
 import { createMember } from '../src/relay/member.js';
-import { automaticBufferTicks, Responsiveness } from '../src/relay/responsiveness.js';
+import { InputDelayEstimator } from '../src/relay/timing/input-delay.js';
+import { automaticBufferTicks, Responsiveness } from '../src/relay/timing/responsiveness.js';
 import { startedRoom, startingRoom, TOKEN_B } from './support/message-stage.js';
 
 function measured(roundTripMs: number, jitterMs = 0) {

@@ -6,17 +6,7 @@ export {
   type RelayHostOptions,
   startRelayHost,
 } from './host/ws-host.js';
-export {
-  CATCH_UP_SHARE,
-  GOVERN_RELEASE_MS,
-  GOVERNED_RISE_STEPS,
-  GOVERNED_SPEED_STEP,
-  GOVERNOR_HEADROOM,
-  LAG_BEHIND_MS,
-  MIN_GOVERNED_SPEED,
-  SLOW_GRACE_MS,
-} from './relay/governor.js';
-export { INITIAL_INPUT_DELAY_TICKS, InputDelayEstimator } from './relay/input-delay.js';
+export { KICK_COUNTDOWN_MS } from './relay/game/waiting.js';
 export { SILENT_AFTER_MS } from './relay/member.js';
 export {
   type ClientHandle,
@@ -28,6 +18,16 @@ export {
   STATUS_LOG_INTERVAL_MS,
 } from './relay/relay.js';
 export type { RelayLog } from './relay/relay-log.js';
-export { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from './relay/resync.js';
-export { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS } from './relay/room.js';
-export { KICK_COUNTDOWN_MS } from './relay/waiting.js';
+export { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS } from './relay/room/room.js';
+export { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from './relay/snapshots/resync.js';
+export {
+  CATCH_UP_SHARE,
+  GOVERN_RELEASE_MS,
+  GOVERNED_RISE_STEPS,
+  GOVERNED_SPEED_STEP,
+  GOVERNOR_HEADROOM,
+  LAG_BEHIND_MS,
+  MIN_GOVERNED_SPEED,
+  SLOW_GRACE_MS,
+} from './relay/timing/governor.js';
+export { INITIAL_INPUT_DELAY_TICKS, InputDelayEstimator } from './relay/timing/input-delay.js';

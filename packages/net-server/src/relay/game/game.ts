@@ -10,17 +10,17 @@ import {
   type WireDigest,
 } from '@open-northland/net-protocol';
 import type { SyncDomain } from '@open-northland/sim';
-import { type BlobUpload, blobMessage, relayBlob } from './blob-relay.js';
-import type { CachedSnapshot } from './catch-up.js';
+import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
+import type { RelayLog } from '../relay-log.js';
+import { type BlobUpload, blobMessage, relayBlob } from '../snapshots/blob-relay.js';
+import type { CachedSnapshot } from '../snapshots/catch-up.js';
+import { Resync } from '../snapshots/resync.js';
+import { framesIn, governedSpeed } from '../timing/governor.js';
+import { Pacing } from '../timing/pacing.js';
+import { RoomClock } from '../timing/room-clock.js';
 import { Departures } from './departures.js';
-import { framesIn, governedSpeed } from './governor.js';
 import { type KickOutcome, KickVotes, type PassedKick } from './kick-vote.js';
 import { MatchEnd } from './match-end.js';
-import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from './member.js';
-import { Pacing } from './pacing.js';
-import type { RelayLog } from './relay-log.js';
-import { Resync } from './resync.js';
-import { RoomClock } from './room-clock.js';
 import { SaveOrders } from './save-orders.js';
 import { SyncLedger, type Verdict } from './sync-ledger.js';
 import { type Waited, Waiting } from './waiting.js';

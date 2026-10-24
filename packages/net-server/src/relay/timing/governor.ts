@@ -1,5 +1,5 @@
 import { type GovernedClock, type GovernorCause, TICK_MS } from '@open-northland/net-protocol';
-import type { Member } from './member.js';
+import type { Member } from '../member.js';
 
 /** Wall time a client may trail the clock, as frames at the requested speed, before it is lagging. A
  *  lagging client catches up alone; the room notices it only once it has stayed lagging. */

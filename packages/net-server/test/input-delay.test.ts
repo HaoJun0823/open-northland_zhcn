@@ -5,7 +5,7 @@ import {
   InputDelayEstimator,
   LatencyProbe,
   MAX_INPUT_DELAY_TICKS,
-} from '../src/relay/input-delay.js';
+} from '../src/relay/timing/input-delay.js';
 
 /** Pings arrive once a second, so a sample count reads as seconds. */
 const STEADY_SAMPLES = 60;

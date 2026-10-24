@@ -21,7 +21,7 @@ import {
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import { SLOW_WAIT_AFTER_MS } from '../src/relay/governor.js';
+import { SLOW_WAIT_AFTER_MS } from '../src/relay/timing/governor.js';
 import { TEST_COMPATIBILITY } from './support/compatibility.js';
 import { HeadlessClient } from './support/headless-client.js';
 import {

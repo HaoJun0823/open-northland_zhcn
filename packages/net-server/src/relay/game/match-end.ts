@@ -1,7 +1,7 @@
 import type { ClientMessage, ServerMessage } from '@open-northland/net-protocol';
-import { broadcast, type Deliver, isSynced, type Member, type Refusal } from './member.js';
+import { broadcast, type Deliver, isSynced, type Member, type Refusal } from '../member.js';
 
-import type { RoomClock } from './room-clock.js';
+import type { RoomClock } from '../timing/room-clock.js';
 
 type FinishReport = Extract<ClientMessage, { kind: 'finish' }>;
 

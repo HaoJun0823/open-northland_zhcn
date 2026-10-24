@@ -1,11 +1,11 @@
 import { TICKS_PER_SECOND, type WireFrame } from '@open-northland/net-protocol';
+import { type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
 import {
   type CachedSnapshot,
   CatchUpStore,
   HISTORY_REFRESH_AGE_MS,
   MAX_COMMAND_HISTORY_BYTES,
 } from './catch-up.js';
-import { type Deliver, isSilent, isSynced, type Member, type Refusal } from './member.js';
 
 /** Cadence of the cached snapshot's refresh from the best-connected client. */
 export const SNAPSHOT_REFRESH_MS = HISTORY_REFRESH_AGE_MS;

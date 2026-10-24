@@ -1,5 +1,5 @@
 import { kickVotesNeeded, type RelayReason, type ServerMessage } from '@open-northland/net-protocol';
-import type { Member } from './member.js';
+import type { Member } from '../member.js';
 import type { Waiting } from './waiting.js';
 
 const MS_PER_SECOND = 1000;

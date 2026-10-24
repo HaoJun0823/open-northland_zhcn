@@ -1,5 +1,5 @@
 import type { RelayReason } from '@open-northland/net-protocol';
-import type { Deliver } from './member.js';
+import type { Deliver } from '../member.js';
 import type { Room } from './room.js';
 
 /** Release every membership before a terminal notification can trigger a new room action. */

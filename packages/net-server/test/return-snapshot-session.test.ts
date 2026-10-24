@@ -11,7 +11,7 @@ import {
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import { RETURN_SNAPSHOT_MAX_TICKS } from '../src/relay/resync.js';
+import { RETURN_SNAPSHOT_MAX_TICKS } from '../src/relay/snapshots/resync.js';
 import { HeadlessClient } from './support/headless-client.js';
 import { assembleRoom, type Capture, relink, runFor, runUntil, type Stage } from './support/session-run.js';
 import { type LinkOptions, seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';

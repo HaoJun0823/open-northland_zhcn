@@ -5,8 +5,8 @@ import {
   type RoomState,
   type RoomView,
 } from '@open-northland/net-protocol';
-import type { Member } from './member.js';
-import type { SeatTable } from './seats.js';
+import type { SeatTable } from '../lobby/seats.js';
+import type { Member } from '../member.js';
 
 /** Serialize the public room without exposing its identity tokens or mutable membership objects. */
 export function roomView(

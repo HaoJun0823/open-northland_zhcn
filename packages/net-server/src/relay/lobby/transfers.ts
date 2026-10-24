@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { type RoomSettings, TRANSFER_REQUEST_COOLDOWN_MS } from '@open-northland/net-protocol';
-import { type BlobMessage, type BlobUpload, blobMessage, relayBlob } from './blob-relay.js';
-import type { CachedSnapshot } from './catch-up.js';
-import { broadcast, type Deliver, type Member, type Refusal } from './member.js';
+import { broadcast, type Deliver, type Member, type Refusal } from '../member.js';
+import { type BlobMessage, type BlobUpload, blobMessage, relayBlob } from '../snapshots/blob-relay.js';
+import type { CachedSnapshot } from '../snapshots/catch-up.js';
 
 /** The map text the creator last delivered or deposited, kept for the room's life so the relay can
  *  serve it again. Every request is answered with the one message object, which the host encodes once. */

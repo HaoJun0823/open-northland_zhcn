@@ -1,6 +1,6 @@
 import { TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
-import { RETURN_SNAPSHOT_MAX_TICKS, SNAPSHOT_RETRY_MS } from '../src/relay/resync.js';
+import { RETURN_SNAPSHOT_MAX_TICKS, SNAPSHOT_RETRY_MS } from '../src/relay/snapshots/resync.js';
 import {
   ackThrough,
   type MessageStage,

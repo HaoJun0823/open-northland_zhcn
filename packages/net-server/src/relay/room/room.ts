@@ -15,16 +15,16 @@ import {
   type RoomView,
   type ServerMessage,
 } from '@open-northland/net-protocol';
-import type { BlobUpload } from './blob-relay.js';
+import { Game } from '../game/game.js';
+import { Lobby } from '../lobby/lobby.js';
+import { type SeatChange, SeatTable } from '../lobby/seats.js';
+import { LobbyTransfers } from '../lobby/transfers.js';
+import { broadcast, type Deliver, type Member, type Refusal } from '../member.js';
+import { type RelayLog, wholeSeconds } from '../relay-log.js';
+import type { BlobUpload } from '../snapshots/blob-relay.js';
+import { Responsiveness } from '../timing/responsiveness.js';
 import { ChatLog } from './chat-log.js';
-import { Game } from './game.js';
-import { Lobby } from './lobby.js';
-import { LobbyTransfers } from './lobby-transfers.js';
-import { broadcast, type Deliver, type Member, type Refusal } from './member.js';
-import { type RelayLog, wholeSeconds } from './relay-log.js';
-import { Responsiveness } from './responsiveness.js';
-import { roomView, sessionForMember } from './room-view.js';
-import { type SeatChange, SeatTable } from './seats.js';
+import { roomView, sessionForMember } from './view.js';
 
 /** Least wall time between two room views sent only because a member's load, boot progress, link
  *  measurement or lag moved. A load changes with nearly every acknowledgement; a view per ack would be

@@ -1,5 +1,6 @@
 import { type ClientLoad, TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
+import { createMember, type Member } from '../src/relay/member.js';
 import {
   CATCH_UP_SHARE,
   GOVERNED_RISE_STEPS,
@@ -7,8 +8,7 @@ import {
   GOVERNOR_HEADROOM,
   governedSpeed,
   MIN_GOVERNED_SPEED,
-} from '../src/relay/governor.js';
-import { createMember, type Member } from '../src/relay/member.js';
+} from '../src/relay/timing/governor.js';
 
 const CLOCK_TICK = 100;
 const LINK = { delayTicks: 2, roundTripMs: 40 };

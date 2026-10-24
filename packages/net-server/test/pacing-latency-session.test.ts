@@ -4,7 +4,7 @@ import { LAG_BEHIND_MS, Relay, SLOW_GRACE_MS } from '@open-northland/net-server'
 import { restoreSimulation, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import { framesIn, SLOW_WAIT_AFTER_MS } from '../src/relay/governor.js';
+import { framesIn, SLOW_WAIT_AFTER_MS } from '../src/relay/timing/governor.js';
 import { HeadlessClient } from './support/headless-client.js';
 import { assembleRoom, runFor, runUntil, type Stage } from './support/session-run.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from './support/virtual-network.js';

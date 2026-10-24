@@ -5,7 +5,7 @@ import {
   type ServerMessage,
   TICK_MS,
 } from '@open-northland/net-protocol';
-import { isSynced, type Member } from './member.js';
+import { isSynced, type Member } from '../member.js';
 
 /** These are room pacing choices, independent of each member's existing command delivery budget. */
 const MANUAL_TICKS = { responsive: 1, balanced: 2, smooth: 3 } as const;

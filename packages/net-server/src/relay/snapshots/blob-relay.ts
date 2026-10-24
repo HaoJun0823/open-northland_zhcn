@@ -1,5 +1,5 @@
 import type { BlobUpload, ServerMessage } from '@open-northland/net-protocol';
-import type { Deliver, Member, Refusal } from './member.js';
+import type { Deliver, Member, Refusal } from '../member.js';
 
 export type { BlobUpload } from '@open-northland/net-protocol';
 

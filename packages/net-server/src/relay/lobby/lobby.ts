@@ -7,7 +7,7 @@ import {
   sameLobbySettings,
   sameSessionRules,
 } from '@open-northland/net-protocol';
-import type { Member, Refusal } from './member.js';
+import type { Member, Refusal } from '../member.js';
 import type { SeatChange, SeatTable } from './seats.js';
 
 export class Lobby {

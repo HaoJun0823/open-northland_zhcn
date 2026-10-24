@@ -1,7 +1,7 @@
 import { TICK_MS, type WaitedMember } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { KICK_COUNTDOWN_MS, SILENT_AFTER_MS } from '../src/index.js';
-import { WAIT_FORGIVENESS, Waiting } from '../src/relay/waiting.js';
+import { WAIT_FORGIVENESS, Waiting } from '../src/relay/game/waiting.js';
 import {
   digest,
   LOAD,

@@ -4,7 +4,7 @@ import {
   ENVELOPE_VERSION,
   type ServerMessage,
 } from '@open-northland/net-protocol';
-import type { RoomClock } from './room-clock.js';
+import type { RoomClock } from '../timing/room-clock.js';
 
 type Departure = {
   readonly nick: string;

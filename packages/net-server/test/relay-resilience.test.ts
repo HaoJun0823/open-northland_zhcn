@@ -16,8 +16,8 @@ import {
   SLOW_AT_ONCE_MS,
   SLOW_GRACE_MS,
   SLOW_WAIT_AFTER_MS,
-} from '../src/relay/governor.js';
-import { AUTO_INITIAL_BUFFER_TICKS } from '../src/relay/responsiveness.js';
+} from '../src/relay/timing/governor.js';
+import { AUTO_INITIAL_BUFFER_TICKS } from '../src/relay/timing/responsiveness.js';
 import {
   ackThrough,
   digest,

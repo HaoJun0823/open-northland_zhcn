@@ -43,8 +43,8 @@ const MAP = 60;
 const FARM = { x: 28, y: 28 } as const;
 /** Near the farm, so overflow hauling never becomes the bottleneck under test. */
 const WAREHOUSE = { x: 40, y: 28 } as const;
-/** Clear of the plot: the farm is `jobEnablesHouse`-gated on a collector (scenes/chain.ts), which has
- *  nothing to gather here and simply idles. */
+/** Clear of the plot: the farm is `jobEnablesHouse`-gated on a collector (scenes/economy/chain.ts),
+ *  which has nothing to gather here and simply idles. */
 const ENABLER = { x: 2, y: 2 } as const;
 
 interface Measured {

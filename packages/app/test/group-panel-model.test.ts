@@ -9,8 +9,8 @@ import {
   type GroupPanelModel,
   type GroupScopeModel,
 } from '../src/hud/details-panel/model/index.js';
-import { groupPanelScene, groupSelectionScene } from '../src/scenes/group-panel.js';
 import { createSceneSim } from '../src/scenes/index.js';
+import { groupPanelScene, groupSelectionScene } from '../src/scenes/interface/group-panel.js';
 import { ctxOf, sandboxCtx, snapshotOf } from './support/sandbox.js';
 
 /** The scene's whole company, boxed: 35 settlers, two catapults and a handcart. */

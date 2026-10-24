@@ -8,7 +8,7 @@ import {
   methodPupil,
   PLATE_ARMOR_GOOD,
   schoolGraduatesScene,
-} from '../../src/scenes/school-graduates.js';
+} from '../../src/scenes/settlers/school-graduates.js';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
 const BREAD_GOOD = 'bread';

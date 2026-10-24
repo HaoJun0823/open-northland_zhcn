@@ -2,7 +2,7 @@
 
 **Area:** app · **Priority:** P3
 
-`packages/app/src/scenes/battle.ts` uses `grassTerrain`. The water and shore vehicle scenes do not
+`packages/app/src/scenes/army/battle.ts` uses `grassTerrain`. The water and shore vehicle scenes do not
 exercise combat across two disconnected land components. The chase's cross-bank release
 (`conflict/chase.ts`), the acquisition gate (`conflict/target-node.ts` `reachableTargetGate`), and the
 archer walking up its bank to shoot over water have focused headless coverage, but no registered

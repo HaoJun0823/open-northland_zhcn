@@ -8,7 +8,7 @@ import {
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { createSceneSim, getScene, restoreSceneSim } from '../src/scenes/index.js';
-import { TIMBER_TRIBUTE } from '../src/scenes/tribute.js';
+import { TIMBER_TRIBUTE } from '../src/scenes/missions/tribute.js';
 
 const TICKS = 108;
 const PAYMENT_TICK = 40;

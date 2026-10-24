@@ -4,7 +4,7 @@ import { exportSaveGame, type MissionScript, type SimEvent, SUCCESSFUL_IF } from
 import { expect, it } from 'vitest';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { buildMapWorld, restoreMapWorld } from '../src/entries/map/world.js';
-import { BRIEFING_PAGE, presentationScene } from '../src/scenes/presentation.js';
+import { BRIEFING_PAGE, presentationScene } from '../src/scenes/missions/presentation.js';
 import { createSceneWorld, enableSceneScript } from '../src/scenes/runtime.js';
 
 /**

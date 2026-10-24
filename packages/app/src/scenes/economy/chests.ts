@@ -1,0 +1,144 @@
+import type { ChestKind, Simulation } from '@open-northland/sim';
+import { cellAnchorNode, components, ONE, systems } from '@open-northland/sim';
+import { grassTerrain } from '../../catalog/buildings.js';
+import { JOB_ARCHER_LONG, JOB_COLLECTOR, JOB_SOLDIER_SWORD } from '../../catalog/jobs.js';
+import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../game/rules.js';
+import { BUILDING_WELL, GOOD_BOW_LONG, spawnSettlerDirect } from '../../game/sandbox/index.js';
+import type { SceneDefinition } from '../types.js';
+
+/**
+ * Chests and papers: five openers are each sent to a chest at tick 0 - a sword soldier to a wooden food
+ * chest, collectors to a wooden chest holding three civilists, a wooden chest holding a well paper, a
+ * magical shoes chest that only a druid or hero may open, so its collector refuses, and a wooden chest
+ * holding three long bowmen - while the seat spends a paper it already holds on a well that stands
+ * finished at once. Watch four settlers walk to their chests, bend over the lid (the soldier on his own
+ * armed body), and the chests vanish; the found-paper note names the well paper, which the construction
+ * window's papers page then lists; the magical chest stays closed with nobody at it; each
+ * bowman's details panel shows the long bow in its weapon slot; the first well never shows a foundation.
+ */
+
+const MAP_W = 36;
+const MAP_H = 12;
+const ROW_Y = 6;
+/** Tile gap between the chest stations, so each opener's stance cell is its own. */
+const STATION_GAP = 6;
+const FIRST_STATION_X = 4;
+/** The chest types of the five stations (`chesttypes` rows 20, 92, 60, 26 and 95). */
+const FOOD_CHEST = 20;
+const CIVILISTS_CHEST = 92;
+const WELL_PAPER_CHEST = 60;
+const SHOES_CHEST = 26;
+const LONG_BOWMEN_CHEST = 95;
+/** Settlers a settlers chest stands up. */
+const SETTLERS_PER_CHEST = 3;
+/** Every adult trade opens a wooden chest; the soldier proves the bend on an armed body too. */
+const STATIONS = [
+  { kind: 'wooden', contents: FOOD_CHEST, opener: JOB_SOLDIER_SWORD },
+  { kind: 'wooden', contents: CIVILISTS_CHEST, opener: JOB_COLLECTOR },
+  { kind: 'wooden', contents: WELL_PAPER_CHEST, opener: JOB_COLLECTOR },
+  { kind: 'magical', contents: SHOES_CHEST, opener: JOB_COLLECTOR },
+  { kind: 'wooden', contents: LONG_BOWMEN_CHEST, opener: JOB_COLLECTOR },
+] as const;
+const SETTLERS_CHESTS: ReadonlySet<number> = new Set([CIVILISTS_CHEST, LONG_BOWMEN_CHEST]);
+/** Where the paper-bought well stands, clear of the stations. */
+const WELL = { x: 4, y: 2 } as const;
+const WELL_PAPER = { kind: 'placeHouse', param: BUILDING_WELL } as const;
+/** Long enough for the far walk plus the open-chest clip. */
+const RUN_TICKS = 400;
+const INITIAL_ZOOM = 1.2;
+
+const { Building, Chest, Equipment, Settler, Stockpile } = components;
+
+function stationX(i: number): number {
+  return FIRST_STATION_X + i * STATION_GAP;
+}
+
+function chestAt(sim: Simulation, kind: ChestKind, contents: number, x: number, y: number) {
+  const node = cellAnchorNode(x, y);
+  return systems.createChest(sim.world, sim.content, { kind, contents, x: node.hx, y: node.hy });
+}
+
+function build(sim: Simulation): void {
+  STATIONS.forEach((station, i) => {
+    const chest = chestAt(sim, station.kind, station.contents, stationX(i), ROW_Y);
+    const opener = spawnSettlerDirect(sim, station.opener, stationX(i), ROW_Y - 3);
+    sim.enqueueSetup({ kind: 'openChest', entity: opener, chest });
+  });
+  sim.enqueueSetup({ kind: 'grantPaper', player: HUMAN_PLAYER, paper: { ...WELL_PAPER } });
+  const well = cellAnchorNode(WELL.x, WELL.y);
+  sim.enqueueSetup({
+    kind: 'placeBuilding',
+    buildingType: BUILDING_WELL,
+    x: well.hx,
+    y: well.hy,
+    tribe: PRIMARY_TRIBE,
+    owner: HUMAN_PLAYER,
+    paper: { ...WELL_PAPER },
+  });
+}
+
+function looseGoodsHeld(sim: Simulation): number {
+  let units = 0;
+  for (const e of sim.world.query(Stockpile)) {
+    if (sim.world.has(e, Building)) continue;
+    for (const amount of sim.world.get(e, Stockpile).amounts.values()) units += amount;
+  }
+  return units;
+}
+
+export const chestsScene: SceneDefinition = {
+  id: 'chests',
+  seed: 11,
+  // Chests block their own cell only, so plain grass is enough.
+  terrain: grassTerrain(MAP_W, MAP_H),
+  build,
+  runTicks: RUN_TICKS,
+  initialZoom: INITIAL_ZOOM,
+  checks: [
+    {
+      label: 'the three wooden chests were opened; the magical one refused its collector and stands',
+      predicate: (sim) => {
+        const left = [...sim.world.query(Chest)];
+        return left.length === 1 && left.every((e) => sim.world.get(e, Chest).kind === 'magical');
+      },
+    },
+    {
+      label: 'the paper chest handed its well paper to the seat, where the plans tab lists it unspent',
+      predicate: (sim) =>
+        sim.papers(HUMAN_PLAYER).some((p) => p.kind === 'placeHouse' && p.param === BUILDING_WELL),
+    },
+    {
+      label: 'the food chest heaped its food on the ground',
+      predicate: (sim) => looseGoodsHeld(sim) > 0,
+    },
+    {
+      label: 'the two settlers chests stood up three settlers each beside the five openers',
+      predicate: (sim) => {
+        const settlersChests = STATIONS.filter((s) => SETTLERS_CHESTS.has(s.contents)).length;
+        return [...sim.world.query(Settler)].length === STATIONS.length + settlersChests * SETTLERS_PER_CHEST;
+      },
+    },
+    {
+      label: 'every long bowman from the chest holds the long bow in its weapon slot',
+      predicate: (sim) => {
+        const bowmen = [...sim.world.query(Settler)].filter(
+          (e) => sim.world.get(e, Settler).jobType === JOB_ARCHER_LONG,
+        );
+        return (
+          bowmen.length === SETTLERS_PER_CHEST &&
+          bowmen.every((e) => sim.world.tryGet(e, Equipment)?.weapon?.goodType === GOOD_BOW_LONG)
+        );
+      },
+    },
+    {
+      label: 'the well paper was spent on a well that stands finished, never a foundation',
+      predicate: (sim) => {
+        const wells = [...sim.world.query(Building)].filter(
+          (e) => sim.world.get(e, Building).buildingType === BUILDING_WELL,
+        );
+        const well = wells[0];
+        return wells.length === 1 && well !== undefined && sim.world.get(well, Building).built === ONE;
+      },
+    },
+  ],
+};

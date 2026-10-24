@@ -35,7 +35,7 @@ import { cargoFill, cargoFlow, cargoLineTooltip } from '../src/hud/dom/vehicle-p
 import { orderTexts } from '../src/hud/dom/vehicle-panel/portrait.js';
 import { messages } from '../src/i18n/index.js';
 import { createSceneSim } from '../src/scenes/index.js';
-import { vehiclesScene } from '../src/scenes/vehicles.js';
+import { vehiclesScene } from '../src/scenes/vehicles/vehicles.js';
 import type { PickMode } from '../src/view/unit-controls/pick-mode.js';
 import {
   armedVehiclePick,

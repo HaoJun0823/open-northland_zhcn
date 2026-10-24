@@ -1,6 +1,6 @@
 import { components, playerCommand } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { equipmentScene } from '../src/scenes/equipment.js';
+import { equipmentScene } from '../src/scenes/combat/equipment.js';
 import { createSceneSim } from '../src/scenes/runtime.js';
 import { goodBySlug } from '../src/scenes/sandbox-queries.js';
 import { equipSlotFor, selectionEquipCommands } from '../src/view/unit-controls/equip-picker.js';

@@ -29,7 +29,7 @@ const CONTENT_TESTS = 'packages/app/test/real-content/**/*.test.ts';
  */
 const SLOW_APP_TESTS = [
   'packages/app/test/army-march.test.ts',
-  'packages/app/test/scenes/battle.test.ts',
+  'packages/app/test/scenes/army/battle.test.ts',
   'packages/app/test/snapshot-mirror-scenes.test.ts',
   'packages/app/test/session-worker.test.ts',
   'packages/app/test/session-worker-pacing.test.ts',

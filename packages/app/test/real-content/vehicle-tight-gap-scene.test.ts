@@ -5,7 +5,7 @@ import {
   type TightGapLane,
   tightGapLanes,
   vehicleTightGapScene,
-} from '../../src/scenes/vehicle-tight-gap.js';
+} from '../../src/scenes/vehicles/vehicle-tight-gap.js';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
 
 /** The catapult squeeze over REAL house footprints, which the clean-room catalog leaves unblocked: two

@@ -63,7 +63,7 @@ import {
 import { goodLabel, jobDisplayName } from '../src/hud/details-panel/model/context.js';
 import { experienceShown } from '../src/hud/details-panel/model/index.js';
 import { currentLocale, installNameOverlay, messages } from '../src/i18n/index.js';
-import { equipmentScene } from '../src/scenes/equipment.js';
+import { equipmentScene } from '../src/scenes/combat/equipment.js';
 import { createSceneSim } from '../src/scenes/index.js';
 import { sandboxScene } from '../src/scenes/sandbox/index.js';
 import { buildingEntity, ctxOf, sandboxCtx as freshSandboxCtx, snapshotOf } from './support/sandbox.js';

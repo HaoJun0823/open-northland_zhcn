@@ -7,7 +7,7 @@ scene when a mechanic needs both state assertions and a human check of its prese
 
 | Consumer | Location | Purpose |
 | --- | --- | --- |
-| Headless | `packages/app/test/scenes/<id>.test.ts` | mechanics and invariants |
+| Headless | `packages/app/test/scenes/<domain>/<id>.test.ts` | mechanics and invariants |
 | Browser | `?scene=<id>` | pixels, animation, controls, and sound |
 
 Only a dev server lists the scenes in the menu, under the Test scenes tab; web and desktop builds
@@ -25,7 +25,7 @@ copyrighted content.
 
 ## Scene definition
 
-A `SceneDefinition` in `packages/app/src/scenes/<id>.ts` contains:
+A `SceneDefinition` in `packages/app/src/scenes/<domain>/<id>.ts` contains:
 
 - a stable `id`, `seed`, and terrain setup;
 - `build(sim)` for pre-tick entities and commands;
@@ -37,10 +37,13 @@ jobs, buildings, controls, and sound bindings belong in the sandbox catalog, not
 
 ## Add a scene
 
-1. Add a focused scene definition.
+1. Add a focused scene definition under the domain folder of its mechanic: `animals`, `army`,
+   `combat`, `construction`, `economy`, `gathering`, `interface`, `missions`, `sandbox`, `settlers`
+   or `vehicles`. Source and test use the same folder and the scene id as the file name.
 2. Register it in `packages/app/src/scenes/index.ts`.
-3. Add `packages/app/test/scenes/<id>.test.ts` calling `sceneAcceptance` - one file per scene, so
-   Vitest spreads the runs over workers. `registry.test.ts` fails until it exists.
+3. Add `packages/app/test/scenes/<domain>/<id>.test.ts` calling `sceneAcceptance` - one file per
+   scene, so Vitest spreads the runs over workers. `registry.test.ts` counts the files in the domain
+   folders and fails until it exists.
 4. Add its title and summary to both locale catalogs.
 5. Run `npm test -- scenes`.
 6. Open `http://localhost:5173/?scene=<id>` and perform the human checks named by the ticket.
@@ -132,7 +135,7 @@ Real-map scenes live in `scenes/map-scenes.ts`, separately from synthetic `Scene
 Their headless checks require owned content and run under `npm run test:content`:
 `packages/app/test/real-content/map-mission-acceptance.test.ts` exercises the untouched script's opening,
 the hero's ordinary move order to reinforcements, and identical continuation after save/load.
-`packages/app/test/map-mission-scene.test.ts` checks routing and the execution-log projection without
+`packages/app/test/scenes/map-scenes.test.ts` checks routing and the execution-log projection without
 owned content.
 
 This is a scripted single-player free map, not a base campaign. Its opening and reinforcements do not

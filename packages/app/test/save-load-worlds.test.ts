@@ -9,7 +9,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { buildMapWorld, restoreMapWorld } from '../src/entries/map/world.js';
-import { collisionScene } from '../src/scenes/collision.js';
+import { collisionScene } from '../src/scenes/army/collision.js';
 import { createSceneSim, restoreSceneSim } from '../src/scenes/index.js';
 import { AUTHORED_ENTITIES, AUTHORED_ROWS } from './support/authored-entities.js';
 import { authoredMapFile } from './support/world-maps.js';

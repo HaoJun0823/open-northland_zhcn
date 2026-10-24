@@ -26,4 +26,4 @@ real content.
 
 - `npm test`; a real pipeline run against the selected data pack (extraction changed).
 - The generated `ir.json` carries `equip` on the equippable goods, and the equip window, draught
-  effects and the `amulets` scene (`packages/app/test/scenes/amulets.test.ts`) still work.
+  effects and the `amulets` scene (`packages/app/test/scenes/combat/amulets.test.ts`) still work.

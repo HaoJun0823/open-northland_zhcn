@@ -3,7 +3,7 @@ import {
   anyHouseCarvesACell,
   anySettlerOnWalls,
   nationFootprintsScene,
-} from '../../src/scenes/nation-footprints.js';
+} from '../../src/scenes/construction/nation-footprints.js';
 import { createSceneSim } from '../../src/scenes/runtime.js';
 import { hasRealIr, loadContentUnderTest } from './helpers.js';
 

@@ -6,9 +6,9 @@ import { VEHICLE_HANDCART, VEHICLE_OXCART, VEHICLE_SHIP_SMALL } from '../src/gam
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import { type VehicleHoverContext, vehicleHoverModel } from '../src/hud/hover-card/vehicle.js';
 import { messages } from '../src/i18n/index.js';
+import { tradeDomesticScene } from '../src/scenes/economy/trade-domestic.js';
 import { createSceneSim } from '../src/scenes/index.js';
-import { tradeDomesticScene } from '../src/scenes/trade-domestic.js';
-import { vehiclesScene } from '../src/scenes/vehicles.js';
+import { vehiclesScene } from '../src/scenes/vehicles/vehicles.js';
 import { ctxOf } from './support/sandbox.js';
 
 /** Another seat than the viewer's. */

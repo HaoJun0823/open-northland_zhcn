@@ -14,7 +14,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { diagCadenceAt, HASH_TRACE_EVERY_TICKS } from '../src/diag/session.js';
 import { HUMAN_PLAYER } from '../src/game/rules.js';
-import { IDLE_WORK_NAMES, idleWorkScene, idleWorkWorker } from '../src/scenes/idle-work.js';
+import { IDLE_WORK_NAMES, idleWorkScene, idleWorkWorker } from '../src/scenes/economy/idle-work.js';
 import { createSceneSim, SCENES } from '../src/scenes/index.js';
 import type { SessionHost } from '../src/session/host.js';
 import { inlineSessionHost } from '../src/session/inline-host.js';

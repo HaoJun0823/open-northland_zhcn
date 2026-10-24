@@ -19,7 +19,11 @@ import { SNAPSHOT_SWEEP_INTERVAL_TICKS } from '../src/hud/tool-panel/messages/fr
 import { STORAGE_FULL_GRACE_TICKS } from '../src/hud/tool-panel/messages/storage-full.js';
 import { WORK_STATUS_REASK_SWEEPS } from '../src/hud/tool-panel/messages/work-asks.js';
 import { PRODUCTION_STALL_GRACE_TICKS } from '../src/hud/tool-panel/messages/workshop-stalls.js';
-import { IDLE_WORK_NAMES, idleWorkBakeryDefinition, idleWorkWorker } from '../src/scenes/idle-work.js';
+import {
+  IDLE_WORK_NAMES,
+  idleWorkBakeryDefinition,
+  idleWorkWorker,
+} from '../src/scenes/economy/idle-work.js';
 import { createSceneSim, SCENES } from '../src/scenes/index.js';
 import type { SceneWorld } from '../src/scenes/types.js';
 import { watchStalls } from './support/stall-watch.js';

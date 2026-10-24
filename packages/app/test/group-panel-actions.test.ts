@@ -9,8 +9,8 @@ import { ALL_SCOPE } from '../src/hud/details-panel/model/index.js';
 import { memberPress } from '../src/hud/dom/group-panel/members.js';
 import { holdCounts } from '../src/hud/dom/group-panel/military.js';
 import { scopePress } from '../src/hud/dom/group-panel/tabs.js';
-import { groupPanelScene } from '../src/scenes/group-panel.js';
 import { createSceneSim } from '../src/scenes/index.js';
+import { groupPanelScene } from '../src/scenes/interface/group-panel.js';
 import { groupPanelActions } from '../src/view/unit-controls/group-panel.js';
 import { snapshotOf } from './support/snapshot.js';
 

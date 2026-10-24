@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { groupPanelModel } from '../src/hud/details-panel/model/group.js';
 import { createOverviewSection } from '../src/hud/dom/group-panel/overview.js';
 import { createScopeTabs } from '../src/hud/dom/group-panel/tabs.js';
-import { groupSelectionScene } from '../src/scenes/group-panel.js';
 import { createSceneSim } from '../src/scenes/index.js';
+import { groupSelectionScene } from '../src/scenes/interface/group-panel.js';
 import { ctxOf } from './support/sandbox.js';
 
 function company() {

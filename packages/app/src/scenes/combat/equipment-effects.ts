@@ -1,0 +1,135 @@
+import type { Simulation } from '@open-northland/sim';
+import { cellAnchorNode, components, fx, ONE } from '@open-northland/sim';
+import { grassTerrain } from '../../catalog/buildings.js';
+import { JOB_COLLECTOR } from '../../catalog/jobs.js';
+import { HUMAN_PLAYER } from '../../game/rules.js';
+import {
+  BUILDING_MILL,
+  GATHERERS,
+  placeBuiltSandboxBuilding,
+  placeResourceNode,
+  spawnSandboxSettler,
+  spawnWorkersAtDoor,
+} from '../../game/sandbox/index.js';
+import { buildingOfType, goodBySlug } from '../sandbox-queries.js';
+import type { SceneDefinition } from '../types.js';
+
+const MAP_W = 40;
+const MAP_H = 16;
+/** The trek spans ~9 cells, which keeps the forest inside the spawn-stamped work-flag radius (24
+ *  nodes) so the collectors claim the trees. */
+const RACER_BARE = { x: 3, y: 8 } as const;
+const RACER_BOOTED = { x: 3, y: 10 } as const;
+const FOREST = [
+  { x: 12, y: 8 },
+  { x: 12, y: 10 },
+] as const;
+/** The wheat pile sits clear of the mill footprint so its stand stays reachable. */
+const MILL = { x: 16, y: 12 } as const;
+const WHEAT_PILE = { x: 12, y: 14 } as const;
+/** Five one-to-one cycles. The iron tool banks 7 tenths of a flour per cycle, 35 in all: three whole
+ *  bonus flour are guaranteed, and the miller's own experience only adds on top. */
+const WHEAT_UNITS = 5;
+const GUARANTEED_BONUS_FLOUR = 3;
+const MILLERS = 1;
+/** Parked out of work-flag range of the forest so the drinker stays put. */
+const DRINKER = { x: 3, y: 2 } as const;
+/** From the spawn-rolled need levels the ¾ pressing threshold falls at most ~6000 ticks out, so every
+ *  carried draught is sipped inside the run. */
+const RUN_TICKS = 7500;
+const INITIAL_ZOOM = 0.8;
+
+const { bootsDegreeOfUse, Equipment, Settler, Stockpile } = components;
+
+function build(sim: Simulation): void {
+  const wood = GATHERERS.find((g) => g.id === 'wood');
+  if (wood === undefined) throw new Error('equipment-effects scene: no wood gatherer spec');
+  for (const tree of FOREST) placeResourceNode(sim, wood, tree.x, tree.y);
+
+  // The racers are collectors because the mill's tech unlock needs one alive.
+  spawnSandboxSettler(sim, JOB_COLLECTOR, RACER_BARE.x, RACER_BARE.y, HUMAN_PLAYER, {
+    equipment: { misc: [{ goodType: goodBySlug(sim, 'potion_food_big') }, null, null, null] },
+  });
+  spawnSandboxSettler(sim, JOB_COLLECTOR, RACER_BOOTED.x, RACER_BOOTED.y, HUMAN_PLAYER, {
+    equipment: {
+      boots: { goodType: goodBySlug(sim, 'shoes') },
+      misc: [{ goodType: goodBySlug(sim, 'potion_food_big') }, null, null, null],
+    },
+  });
+
+  const mill = placeBuiltSandboxBuilding(sim, BUILDING_MILL, MILL.x, MILL.y, HUMAN_PLAYER);
+  const pile = cellAnchorNode(WHEAT_PILE.x, WHEAT_PILE.y);
+  sim.enqueueSetup({
+    kind: 'dropGood',
+    good: goodBySlug(sim, 'wheat'),
+    x: pile.hx,
+    y: pile.hy,
+    amount: WHEAT_UNITS,
+  });
+  spawnWorkersAtDoor(sim, mill, MILLERS, {
+    owner: HUMAN_PLAYER,
+    equipment: {
+      tool: { goodType: goodBySlug(sim, 'tool_iron') },
+      misc: [
+        { goodType: goodBySlug(sim, 'potion_food_big') },
+        { goodType: goodBySlug(sim, 'potion_stamina_big') },
+        null,
+        null,
+      ],
+    },
+  });
+
+  spawnSandboxSettler(sim, JOB_COLLECTOR, DRINKER.x, DRINKER.y, HUMAN_PLAYER, {
+    equipment: { misc: [{ goodType: goodBySlug(sim, 'mead') }, null, null, null] },
+  });
+}
+
+function equipments(sim: Simulation) {
+  return [...sim.world.query(Equipment)].map((e) => sim.world.get(e, Equipment));
+}
+
+export const equipmentEffectsScene: SceneDefinition = {
+  id: 'equipment-effects',
+  seed: 11,
+  terrain: grassTerrain(MAP_W, MAP_H),
+  needs: true,
+  initialZoom: INITIAL_ZOOM,
+  build,
+  runTicks: RUN_TICKS,
+  checks: [
+    {
+      label: 'the booted racer wore its boots on the road (per-waypoint wear accrued)',
+      predicate: (sim) =>
+        [...sim.world.query(Equipment)].some(
+          (e) => (bootsDegreeOfUse(sim.world, e) ?? fx.fromInt(0)) > fx.fromInt(0),
+        ),
+    },
+    {
+      label: 'the iron tool banked its whole bonus flour above the 5-wheat base',
+      predicate: (sim) => {
+        const mill = buildingOfType(sim, BUILDING_MILL);
+        if (mill === null) return false;
+        const flour = sim.world.get(mill, Stockpile).amounts.get(goodBySlug(sim, 'flour')) ?? 0;
+        return flour >= WHEAT_UNITS + GUARANTEED_BONUS_FLOUR; // any XP credit only adds on top
+      },
+    },
+    {
+      label: "the miller's tool wore one step per completed cycle",
+      predicate: (sim) =>
+        equipments(sim).some((eq) => eq.tool !== null && eq.tool.degreeOfUse > fx.fromInt(0)),
+    },
+    {
+      label: 'a draught was sipped somewhere (auto-drink fired; nobody may hold only full bottles)',
+      predicate: (sim) =>
+        equipments(sim).some((eq) =>
+          eq.misc.some((slot) => slot !== null && slot.degreeOfUse > fx.fromInt(0) && slot.degreeOfUse < ONE),
+        ) ||
+        // An emptied bottle leaves a null slot, so an all-null misc row is also proof of a sip.
+        equipments(sim).some((eq) => eq.misc.every((slot) => slot === null)),
+    },
+    {
+      label: 'every settler survived the run (the draughts kept hunger off the starvation pin)',
+      predicate: (sim) => [...sim.world.query(Settler)].length === 4,
+    },
+  ],
+};

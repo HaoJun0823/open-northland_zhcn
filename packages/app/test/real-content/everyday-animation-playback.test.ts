@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { JOB_BABY_FEMALE, JOB_BABY_MALE, JOB_DRUID, JOB_FISHER } from '../../src/catalog/jobs.js';
 import { inHouseProgramLookup } from '../../src/content/ir/joins.js';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { everydayGesturesScene } from '../../src/scenes/everyday-gestures.js';
 import { createSceneSim } from '../../src/scenes/runtime.js';
+import { everydayGesturesScene } from '../../src/scenes/settlers/everyday-gestures.js';
 import { characterTablesUnderTest, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 
 /** The druid's brewing strip and the fisher's rod walk in the viking body's bob pool (`[bobseq]`). */

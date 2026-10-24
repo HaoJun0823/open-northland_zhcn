@@ -10,8 +10,12 @@ import {
 } from '../src/hud/details-panel/model/index.js';
 import { pulledByParts } from '../src/hud/dom/vehicle-panel/portrait.js';
 import { formatMessage, messages } from '../src/i18n/index.js';
-import { haulingCartScene, PARKED_CHECK_TICKS, SLEEP_ORDER_TICK } from '../src/scenes/hauling-cart.js';
 import { createSceneSim } from '../src/scenes/index.js';
+import {
+  haulingCartScene,
+  PARKED_CHECK_TICKS,
+  SLEEP_ORDER_TICK,
+} from '../src/scenes/vehicles/hauling-cart.js';
 import { ctxOf } from './support/sandbox.js';
 
 interface HaulingCartSnapshot {

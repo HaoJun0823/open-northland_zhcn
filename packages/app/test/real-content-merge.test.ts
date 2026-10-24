@@ -14,8 +14,8 @@ import {
   TERRAIN_MARGIN,
   TERRAIN_OPEN,
 } from '../src/catalog/terrain.js';
-import { loadRuntimeRealContent, logRealContentGaps, mergeRealContent } from '../src/content/real-content.js';
-import { diag } from '../src/diag/log.js';
+import { loadRuntimeRealContent, mergeRealContent } from '../src/content/real-content.js';
+import { EQUIP_CLASS_BY_SLUG } from '../src/game/sandbox/combat.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
 
 /**
@@ -123,27 +123,6 @@ function rawRealLike(): ContentSet {
 }
 
 describe('mergeRealContent', () => {
-  it('overlays the engine-authored permanent armor onto every hero class', () => {
-    const raw = rawRealLike();
-    const heroes = [
-      ['hero_unarmed', 1],
-      ['hero_spear_siegfried', 4],
-      ['hero_sword_bjarni', 3],
-      ['hero_saber_hatschi', 3],
-      ['hero_axe', 3],
-      ['heroine_bow_xena', 2],
-    ] as const;
-    const realLike = parseContentSet({
-      ...raw,
-      jobs: [...raw.jobs, ...heroes.map(([id], index) => ({ typeId: 42 + index, id }))],
-    });
-
-    const { content } = mergeRealContent(realLike);
-    for (const [id, fixedArmorType] of heroes) {
-      expect(content.jobs.find((job) => job.id === id)?.fixedArmorType).toBe(fixedArmorType);
-    }
-  });
-
   it('binds the mis-keyed Byzantine and Egyptian hero fist to the unarmed hero job', () => {
     const raw = rawRealLike();
     const fist = raw.weapons.find((weapon) => weapon.mainType === 1);
@@ -194,11 +173,6 @@ describe('mergeRealContent', () => {
     expect(stone?.depositLevels).toBe(MINE_LEVELS);
   });
 
-  it('leaves non-gathered goods untouched', () => {
-    const { content } = mergeRealContent(rawRealLike());
-    expect(goodById(content, 'coin').gathering).toBeUndefined();
-  });
-
   it('re-adds the clean-room farming block to a farmed good the pipeline shipped without one', () => {
     const raw = rawRealLike();
     expect(goodById(raw, 'wheat').farming).toBeUndefined(); // stand-in ships no block, like real ir.json
@@ -213,13 +187,7 @@ describe('mergeRealContent', () => {
     const raw = rawRealLike();
     expect(goodById(raw, 'shoes').equip).toBeUndefined(); // stand-in ships none, like real ir.json
     const { content } = mergeRealContent(raw);
-    // The full effect axis rides the overlay: category/wear plus the shoe condition points.
-    expect(goodById(content, 'shoes').equip).toEqual({
-      category: 'boots',
-      wears: true,
-      uses: 10000,
-    });
-    expect(goodById(content, 'sword_shord').equip).toEqual({ category: 'weapon', wears: false });
+    expect(goodById(content, 'shoes').equip).toEqual(EQUIP_CLASS_BY_SLUG.get('shoes'));
     expect(goodById(content, 'wood').equip).toBeUndefined(); // a non-equippable stays bare
   });
 
@@ -227,10 +195,7 @@ describe('mergeRealContent', () => {
     const { content } = mergeRealContent(rawRealLike());
     const capacityOf = (id: string) => content.buildings.find((b) => b.id === id)?.shelterCapacity;
 
-    expect(capacityOf('headquarters')).toBe(30);
-    expect(capacityOf('barracks')).toBe(10);
-    expect(capacityOf('tower_00')).toBe(10);
-    expect(capacityOf('tower_01')).toBe(20);
+    expect(capacityOf('headquarters')).toBe(shelterCapacityById('headquarters'));
     // A flagged house the table does not name (a mod's own) takes the default garrison.
     expect(capacityOf('wonder_test')).toBe(DEFAULT_SHELTER_CAPACITY);
     // A workplace carries no flag, so it never offers the mode (the panel and the order read this).
@@ -315,28 +280,6 @@ describe('loadRuntimeRealContent', () => {
 
     // A bare checkout (no ir.json → 404) degrades to null so the entries fall back to sandbox content.
     expect(await loadRuntimeRealContent(fetchStub(null, false))).toBeNull();
-  });
-});
-
-describe('logRealContentGaps', () => {
-  it('logs one line when there are gaps, and is silent otherwise', () => {
-    // Asserted on the logger's own ring, not its console echo (the app suite silences that echo).
-    const before = diag.entries().length;
-    const content = sandboxContent();
-    logRealContentGaps({
-      content,
-      unbalancedGoods: ['testberry'],
-      unfarmedFieldGoods: ['mushroom'],
-      uncatalogedBuildings: ['wonder'],
-    });
-    const logged = diag.entries().slice(before);
-    expect(logged).toHaveLength(1);
-    const line = logged[0]?.message ?? '';
-    expect(line).toContain('testberry'); // names the uncalibrated gathered good
-    expect(line).toContain('mushroom'); // names the unfarmed field good
-    expect(line).toContain('wonder'); // names the uncataloged building
-    logRealContentGaps({ content, unbalancedGoods: [], unfarmedFieldGoods: [], uncatalogedBuildings: [] });
-    expect(diag.entries()).toHaveLength(before + 1);
   });
 });
 

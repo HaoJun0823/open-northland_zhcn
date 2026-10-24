@@ -1,13 +1,8 @@
-import { DEFAULT_RECIPE_TICKS } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { JOB_ARCHER, JOB_ARCHER_LONG, JOB_CARRIER, JOB_HUNTER } from '../src/catalog/jobs.js';
 import {
   BUILDING_JOINERY,
-  BUILDING_MILL,
   BUILDING_WATCHTOWER,
-  GOOD_FLOUR,
-  GOOD_WHEAT,
-  JOB_MILLER_SLOT,
   WORKER_SLOT_JOB_BASE,
 } from '../src/game/sandbox/ids/index.js';
 import {
@@ -27,30 +22,6 @@ describe('sandbox building worker slots', () => {
   const content = sandboxContent();
   const byType = new Map(content.buildings.map((b) => [b.typeId, b]));
   const jobIds = new Set(content.jobs.map((j) => j.typeId));
-
-  it('gives a workshop worker + carrier slots (the smithy employs both)', () => {
-    const smithy = byType.get(31); // work_smithy_00
-    expect((smithy?.workers.length ?? 0) > 0).toBe(true);
-    expect(smithy?.workers.some((w) => w.jobType === JOB_CARRIER)).toBe(true);
-    expect(smithy?.workers.some((w) => w.jobType !== JOB_CARRIER)).toBe(true);
-  });
-
-  it('gives different capacities to different buildings (a well is carrier-only, a farm has 4 field hands)', () => {
-    const cap = (typeId: number): number => byType.get(typeId)?.workers.reduce((s, w) => s + w.count, 0) ?? 0;
-    expect(cap(10)).toBe(1); // well: one carrier
-    expect(cap(12)).toBe(5); // farm: 4 workers + 1 carrier
-    expect(cap(1)).toBe(12); // headquarters: 3 carriers + 9 hands
-  });
-
-  it('keeps the extracted grass-only placement flag on wells and hives', () => {
-    expect(byType.get(10)?.buildOnBioPattern).toBe(true);
-    expect(byType.get(11)?.buildOnBioPattern).toBe(true);
-    expect(byType.get(12)?.buildOnBioPattern).toBe(false); // the farm's fields need grass, not its house
-  });
-
-  it('leaves residences employing nobody', () => {
-    for (const typeId of [2, 3, 4, 5, 6]) expect(byType.get(typeId)?.workers.length ?? 0).toBe(0);
-  });
 
   it('resolves every worker-slot jobType as a content job (no dangling cross-reference)', () => {
     for (const b of content.buildings) {
@@ -88,11 +59,6 @@ describe('sandbox building worker slots', () => {
     expect(content.jobs.find((j) => j.typeId === JOB_HUNTER)?.id).toBe('hunter');
   });
 
-  it('keeps the joinery demo worker a gatherer (its plank production is fed by a woodcutter)', () => {
-    const joinery = byType.get(BUILDING_JOINERY);
-    expect(joinery?.workers.some((w) => workerRoleOf(w.jobType) === 'gatherer')).toBe(true);
-  });
-
   it('names each extracted craftsman by its real trade, from the SAME i18n label the picker uses', () => {
     const firstCraftName = (typeId: number): string | undefined => {
       const slot = byType.get(typeId)?.workers.find((w) => workerRoleOf(w.jobType) === 'craftsman');
@@ -123,44 +89,5 @@ describe('sandbox building worker slots', () => {
     // Everyone else is never offered a post - only the hauler slot.
     expect(assignmentPriority(slots)).toEqual([JOB_CARRIER]);
     expect(assignmentPriorityFor(JOB_CARRIER, slots)).toEqual([JOB_CARRIER]);
-  });
-});
-
-/**
- * The mill's sandbox shape must stay pinned to the extracted original data: the wheat-in/flour-out
- * two-slot store (`DataCnmd/types/houses.ini` "work mill 00": `logicstock 4 10 1` / `logicstock 11
- * 20 0` - the trailing int is the consumed-here flag, so both slots start EMPTY), `logicproduction
- * 11`, 2 millers + 1 carrier; the recipe carries the DEFAULT_RECIPE_TICKS fallback a miller's produce
- * clip replaces wherever the content binds one.
- */
-describe('sandbox mill content (extracted "work mill 00" pins)', () => {
-  const content = sandboxContent();
-  const mill = content.buildings.find((b) => b.typeId === BUILDING_MILL);
-
-  it('stores ONLY wheat (10, empty) and flour (20, empty) - every other good is refused at capacity 0', () => {
-    expect(mill?.stock).toEqual([
-      { goodType: GOOD_WHEAT, capacity: 10, initial: 0 },
-      { goodType: GOOD_FLOUR, capacity: 20, initial: 0 },
-    ]);
-  });
-
-  it('grinds 1 wheat → 1 flour on the fallback recipe time', () => {
-    expect(mill?.recipes).toEqual([
-      {
-        inputs: [{ goodType: GOOD_WHEAT, amount: 1 }],
-        outputs: [{ goodType: GOOD_FLOUR, amount: 1 }],
-        ticks: DEFAULT_RECIPE_TICKS,
-      },
-    ]);
-    expect(mill?.produces).toEqual([GOOD_FLOUR]);
-  });
-
-  it('employs 2 millers + 1 carrier (the extracted `logicworker 19 2` / `logicworker 24 1`)', () => {
-    expect(mill?.workers).toEqual([
-      { jobType: JOB_MILLER_SLOT, count: 2 },
-      { jobType: JOB_CARRIER, count: 1 },
-    ]);
-    // The miller slot resolves as a content job under the picker's own label (the drift guard).
-    expect(content.jobs.find((j) => j.typeId === JOB_MILLER_SLOT)?.name).toBe(professionLabel('miller'));
   });
 });

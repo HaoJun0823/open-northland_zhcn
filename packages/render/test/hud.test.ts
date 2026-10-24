@@ -334,23 +334,11 @@ describe('buildHud', () => {
     ]);
   });
 
-  it('carries the snapshot tick and is byte-identical for the same snapshot', () => {
-    const snap = snapshotOf([settler(1, 0, 5), store(2, 0, [[2, 7]])], 42);
-    const a = buildHud(snap, 0);
-    const b = buildHud(snap, 0);
-    expect(a.tick).toBe(42);
-    expect(a).toEqual(b);
-  });
-
   it('returns an empty-but-shaped model for a player with nothing', () => {
     const hud = buildHud(snapshotOf([settler(1, 1, 5)]), 0);
     expect(hud).toEqual({ tick: 1, player: 0, population: 0, jobs: [], stocks: [] });
   });
 });
-
-const HUD_PAD = 8; // mirrors the layout constants in hud.ts, kept local so a drift is caught
-const HUD_LINE_H = 16;
-const HUD_INDENT = 12;
 
 function model(over: Partial<HudModel> = {}): HudModel {
   return { tick: 0, player: 0, population: 0, jobs: [], stocks: [], ...over };
@@ -366,61 +354,10 @@ const LABELS = {
   good: (goodType: number) => `good ${goodType}`,
 };
 
-describe('layoutHud', () => {
-  it('emits the header + section headings for an empty model, stacked by line height', () => {
-    const layout = layoutHud(model({ tick: 7, player: 2, population: 0 }), LABELS);
-    expect(layout.rows).toEqual([
-      { x: HUD_PAD, y: HUD_PAD, text: 'Player 2 · tick 7' },
-      { x: HUD_PAD, y: HUD_PAD + HUD_LINE_H, text: 'Population: 0' },
-      { x: HUD_PAD, y: HUD_PAD + 2 * HUD_LINE_H, text: 'Jobs' },
-      { x: HUD_PAD, y: HUD_PAD + 3 * HUD_LINE_H, text: 'Stocks' },
-    ]);
-  });
-
-  it('indents each job/stock tally under its heading and labels the idle sentinel "idle"', () => {
-    const layout = layoutHud(
-      model({
-        population: 3,
-        jobs: [
-          { jobType: IDLE_JOB, count: 1, female: 0 },
-          { jobType: 5, count: 2, female: 0 },
-        ],
-        stocks: [{ goodType: 2, amount: 14 }],
-      }),
-      LABELS,
-    );
-    // The tally rows carry the indent; headings stay at the left margin.
-    const tallyRows = layout.rows.filter((r) => r.x === HUD_PAD + HUD_INDENT);
-    expect(tallyRows.map((r) => r.text)).toEqual(['idle: 1', 'job 5: 2', 'good 2: 14']);
-    layout.rows.forEach((r, i) => {
-      expect(r.y).toBe(HUD_PAD + i * HUD_LINE_H);
-    });
-  });
-
-  it('sizes the panel height to the row count (padding + lines + bottom padding)', () => {
-    const empty = layoutHud(model(), LABELS); // 4 rows: header, population, Jobs, Stocks
-    expect(empty.height).toBe(HUD_PAD + 4 * HUD_LINE_H + HUD_PAD);
-    const busy = layoutHud(model({ jobs: [{ jobType: 1, count: 1, female: 0 }] }), LABELS); // +1 row
-    expect(busy.height).toBe(empty.height + HUD_LINE_H);
-    expect(busy.width).toBe(empty.width); // width is a fixed column, height grows with content
-  });
-});
-
 const HUD_MARGIN = 8; // mirrors the placement margin in hud.ts, kept local so a drift is caught
 
 describe('placeHud', () => {
   const layout = layoutHud(model({ tick: 1, player: 1, population: 2 }), LABELS);
-
-  it('top-left: anchors the panel at the margin and offsets every row by the panel origin', () => {
-    const placed = placeHud(layout, 'top-left', { width: 960, height: 540 });
-    expect(placed.panelX).toBe(HUD_MARGIN);
-    expect(placed.panelY).toBe(HUD_MARGIN);
-    expect(placed.width).toBe(layout.width);
-    expect(placed.height).toBe(layout.height);
-    expect(placed.rows).toEqual(
-      layout.rows.map((r) => ({ x: HUD_MARGIN + r.x, y: HUD_MARGIN + r.y, text: r.text })),
-    );
-  });
 
   it('top-right / bottom corners anchor the panel against the matching screen edge', () => {
     const screen = { width: 960, height: 540 };

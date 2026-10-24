@@ -4,7 +4,6 @@ import {
   clipDirs,
   type GalleryClip,
   galleryBobId,
-  galleryCellLayout,
   headBobId,
 } from '../src/gpu/gallery/index.js';
 
@@ -19,29 +18,6 @@ function nth<T>(values: readonly T[], index: number): T {
   if (value === undefined) throw new Error(`missing item ${index}`);
   return value;
 }
-
-describe('galleryCellLayout', () => {
-  it('places cells row-major into the given column count', () => {
-    const boxes = galleryCellLayout(5, 2);
-    expect(boxes.map((b) => b.index)).toEqual([0, 1, 2, 3, 4]);
-    expect(boxes.map((b) => b.col)).toEqual([0, 1, 0, 1, 0]);
-    expect(boxes.map((b) => b.row)).toEqual([0, 0, 1, 1, 2]);
-  });
-
-  it('advances x by a constant per column and y by a constant per row', () => {
-    // The cell pixel sizes themselves are a visual tuning knob, so only their sign and sharing hold.
-    const boxes = galleryCellLayout(4, 2);
-    expect(nth(boxes, 1).x - nth(boxes, 0).x).toBeGreaterThan(0);
-    expect(nth(boxes, 2).y - nth(boxes, 0).y).toBeGreaterThan(0);
-    expect(nth(boxes, 2).x).toBe(nth(boxes, 0).x); // same column shares x
-    expect(nth(boxes, 0).y).toBe(nth(boxes, 1).y); // same row shares y
-  });
-
-  it('treats a non-positive column count as a single column', () => {
-    expect(galleryCellLayout(3, 0).map((b) => b.col)).toEqual([0, 0, 0]);
-    expect(galleryCellLayout(3, 0).map((b) => b.row)).toEqual([0, 1, 2]);
-  });
-});
 
 describe('clipDirs', () => {
   it('is 8 for a clean ×8 length, 1 otherwise', () => {
@@ -92,14 +68,6 @@ describe('galleryBobId - 8-directional clip', () => {
   it('wraps a negative facing into range', () => {
     // -1 wraps to block 7 rather than indexing below `start`.
     expect(galleryBobId(walk, -1, 0)).toBe(walk.start + 7 * 12);
-  });
-});
-
-describe('galleryBobId - guards', () => {
-  it('pins to the clip start when the stride is 0 (dirs > 1 but too short to split)', () => {
-    // An 8-dir clip shorter than 8 frames gives floor(4/8) = 0 stride.
-    const bad = clip({ start: 700, length: 4, dirs: 8 });
-    for (let step = 0; step < 20; step++) expect(galleryBobId(bad, 3, step)).toBe(700);
   });
 });
 

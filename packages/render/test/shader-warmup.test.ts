@@ -9,6 +9,7 @@ import {
   type LinkingContext,
   type LinkResult,
   linkPrograms,
+  type WarmedProgram,
   type WarmupSettings,
   waitForLinks,
   worldShaderSettings,
@@ -175,12 +176,26 @@ describe('boot shader programs', () => {
   });
 });
 
+/** The timers the link polls and the stall clock read, faked so no test waits out a real poll. */
+const POLL_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'performance'] } as const;
+
 describe('linkPrograms', () => {
   useHeadlessShaderContext();
+  beforeEach(() => {
+    vi.useFakeTimers(POLL_TIMERS);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   const programs = bootShaderPrograms(16, EVERY_EFFECT);
-  const tick = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-  const ended = (links: ReadonlyMap<string, Promise<LinkResult>>): Promise<string[]> =>
-    Promise.all([...links.values()]).then((results) => results.map((result) => result.outcome));
+  const tick = async (ms: number): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(ms);
+  };
+  const ended = async (links: ReadonlyMap<string, Promise<LinkResult>>): Promise<string[]> => {
+    const all = Promise.all([...links.values()]);
+    await vi.runAllTimersAsync();
+    return (await all).map((result) => result.outcome);
+  };
 
   it('requests every link before waiting, then ends each once the driver completes it', async () => {
     const { gl, calls, complete } = fakeContext(new Set(['decor-shadow']));
@@ -269,14 +284,28 @@ describe('linkPrograms', () => {
 });
 
 describe('waitForLinks', () => {
+  beforeEach(() => {
+    vi.useFakeTimers(POLL_TIMERS);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   const after = (ms: number, outcome: LinkResult['outcome'] = 'linked'): Promise<LinkResult> =>
     new Promise((resolve) => setTimeout(() => resolve({ outcome, ms, contextLost: false }), ms));
   const never = (): Promise<LinkResult> => new Promise(() => undefined);
   const outcomesOf = (warmed: readonly { readonly outcome: string }[]): string[] =>
     warmed.map((program) => program.outcome);
+  const settled = async (
+    links: ReadonlyMap<string, Promise<LinkResult>>,
+    stallMs?: number,
+  ): Promise<readonly WarmedProgram[]> => {
+    const pending = waitForLinks(links, stallMs);
+    await vi.runAllTimersAsync();
+    return pending;
+  };
 
   it('settles once every link has ended, with each outcome', async () => {
-    const warmed = await waitForLinks(
+    const warmed = await settled(
       new Map([
         ['a', after(5)],
         ['b', after(10, 'failed')],
@@ -286,7 +315,7 @@ describe('waitForLinks', () => {
   });
 
   it('stops waiting once no link has ended for the stall limit, reading the rest as pending', async () => {
-    const warmed = await waitForLinks(
+    const warmed = await settled(
       new Map([
         ['a', after(5)],
         ['b', never()],
@@ -300,24 +329,17 @@ describe('waitForLinks', () => {
     const gapMs = 30;
     const stallMs = 200;
     const names = Array.from({ length: 16 }, (_, index) => `p${index}`);
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
-    try {
-      // Every gap is well inside the stall limit, the whole run well past it.
-      const pending = waitForLinks(
-        new Map(names.map((name, index) => [name, after((index + 1) * gapMs)])),
-        stallMs,
-      );
-      await vi.advanceTimersByTimeAsync(names.length * gapMs);
-      const warmed = await pending;
-      expect(outcomesOf(warmed).every((outcome) => outcome === 'linked')).toBe(true);
-    } finally {
-      vi.useRealTimers();
-    }
+    // Every gap is well inside the stall limit, the whole run well past it.
+    const warmed = await settled(
+      new Map(names.map((name, index) => [name, after((index + 1) * gapMs)])),
+      stallMs,
+    );
+    expect(outcomesOf(warmed).every((outcome) => outcome === 'linked')).toBe(true);
   });
 
   it('credits a link that ended between two checks a held-back tab ran back to back', async () => {
     // A zero limit reads as stalled at the first check; the link ends before the second one.
-    const warmed = await waitForLinks(new Map([['a', after(20)]]), 0);
+    const warmed = await settled(new Map([['a', after(20)]]), 0);
     expect(outcomesOf(warmed)).toEqual(['linked']);
   });
 });

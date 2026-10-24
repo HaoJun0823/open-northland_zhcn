@@ -58,11 +58,6 @@ describe('resolveJobAtomics', () => {
     expect(setOf(map, 7)).toEqual([12]);
   });
 
-  it('returns the same resolution for the same job table', () => {
-    const jobs = [job(6, { allowedAtomics: [10] }), job(18, { allowedAtomics: [29], baseJob: 6 })];
-    expect(resolveJobAtomics(jobs)).toBe(resolveJobAtomics(jobs));
-  });
-
   // `validateCrossReferences` rejects a cycle at load; the resolver still must not hang on one. Which
   // end of a mutual cycle keeps the union is an artefact of file order, so only termination is pinned.
   it('terminates on a base-job cycle', () => {

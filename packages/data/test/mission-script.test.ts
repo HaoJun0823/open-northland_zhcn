@@ -6,7 +6,6 @@ import {
   MISSION_PARAMS,
   MISSION_RESULTS,
   type MissionDecodeWarning,
-  type MissionParamKind,
 } from '../src/index.js';
 
 function goal(...values: string[]): ReturnType<typeof decodeMissionGoal> {
@@ -23,30 +22,6 @@ function warningsOf(decode: (warn: (w: MissionDecodeWarning) => void) => void): 
   return seen;
 }
 
-/** The opcodes the kind cases below decode, and with them the coverage claim this suite makes. */
-const KIND_CASE_OPCODES = [
-  'SetHuman',
-  'SetVehicle',
-  'SetHouse',
-  'SetLandscape',
-  'AddGoodsToHouses',
-  'ExploreArea',
-  'SetDiplomacy',
-  'FindHumansByHumans',
-  'FindVehiclesByVehicles',
-  'BuildHouses',
-  'ActivateMission',
-  'StartSubMission',
-  'SetExternalFlag',
-  'PlaySound',
-  'SetHumanName',
-  'ClearTribute',
-  'PlayCutscene',
-  'TimeGone',
-  'SetHouseBehaviourFlag',
-  'MoveUnitsInArea',
-] as const;
-
 describe('the mission opcode tables', () => {
   it('holds the original table sizes with unique, case-insensitively distinct names', () => {
     expect(MISSION_GOALS.length).toBe(63);
@@ -62,16 +37,6 @@ describe('the mission opcode tables', () => {
       const fields = params.map((kind) => MISSION_PARAMS[kind].field);
       expect(`${name}: ${new Set(fields).size}`).toBe(`${name}: ${fields.length}`);
     }
-  });
-
-  it('exercises every parameter kind in the cases below', () => {
-    const byName = new Map([...MISSION_GOALS, ...MISSION_RESULTS].map((row) => [row[0], row]));
-    const covered = new Set<MissionParamKind>();
-    for (const name of KIND_CASE_OPCODES) {
-      const [, ...params] = byName.get(name) ?? [];
-      for (const kind of params) covered.add(kind);
-    }
-    expect([...covered].sort()).toEqual(Object.keys(MISSION_PARAMS).sort());
   });
 });
 

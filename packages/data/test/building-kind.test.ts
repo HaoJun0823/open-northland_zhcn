@@ -8,15 +8,12 @@ import { BUILDING_KIND, BuildingType } from '../src/index.js';
 describe('BuildingType.kind', () => {
   const record = (kind: string): Record<string, unknown> => ({ typeId: 1, id: 'hq', kind });
 
-  it.each(Object.values(BUILDING_KIND))('accepts the known class %s', (kind) => {
-    expect(BuildingType.parse(record(kind)).kind).toBe(kind);
+  it('accepts every known class and the extractor fallback', () => {
+    for (const kind of [...Object.values(BUILDING_KIND), 'maintype_9', 'maintype_unknown'])
+      expect(BuildingType.parse(record(kind)).kind).toBe(kind);
   });
 
-  it.each(['maintype_9', 'maintype_unknown'])('accepts the extractor fallback %s', (kind) => {
-    expect(BuildingType.parse(record(kind)).kind).toBe(kind);
-  });
-
-  it.each(['worplace', 'Home', ''])('rejects the unknown kind %j', (kind) => {
-    expect(() => BuildingType.parse(record(kind))).toThrow();
+  it('rejects a misspelt, miscased or empty kind', () => {
+    for (const kind of ['worplace', 'Home', '']) expect(() => BuildingType.parse(record(kind))).toThrow();
   });
 });

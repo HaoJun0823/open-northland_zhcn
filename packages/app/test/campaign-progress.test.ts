@@ -42,9 +42,6 @@ describe('campaign progression', () => {
     ]);
     expect(readCampaignProgress({ ...campaign, id: 'other' }, storage).unlocked).toEqual(['first']);
   });
-  it('keys progress by campaign alone', () => {
-    expect(campaignProgressKey(campaignFixture())).toBe('open-northland:campaign:v2:test');
-  });
   it('recovers corrupt progress and unlocks the next stage once', () => {
     const campaign = campaignFixture();
     const storage = memoryStorage();

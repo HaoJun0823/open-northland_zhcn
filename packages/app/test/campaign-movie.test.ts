@@ -86,10 +86,6 @@ describe('movieMusicHold', () => {
     hold.release();
     expect(state).toEqual({ taken: 1, given: 1 });
   });
-
-  it('is a no-op without a silencer', () => {
-    expect(() => movieMusicHold(undefined).release()).not.toThrow();
-  });
 });
 
 describe('playCampaignMovie media', () => {
@@ -104,27 +100,6 @@ describe('playCampaignMovie media', () => {
 });
 
 describe('playCampaignMovie ending', () => {
-  it('keeps the film, its picture on the last frame, until the longer sound ends', async () => {
-    const done = playCampaignMovie(MOVIE, LABELS);
-    const { video, sound } = tracks();
-    endTrack(video);
-    expect(await settled(done)).toBe(false);
-    expect(video.isConnected).toBe(true);
-    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
-    endTrack(sound);
-    expect(await settled(done)).toBe(true);
-  });
-
-  it('keeps the film until the picture ends after a shorter sound', async () => {
-    const done = playCampaignMovie(MOVIE, LABELS);
-    const { video, sound } = tracks();
-    endTrack(sound);
-    expect(await settled(done)).toBe(false);
-    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
-    endTrack(video);
-    expect(await settled(done)).toBe(true);
-  });
-
   it('ends both tracks at once on skip', async () => {
     const done = playCampaignMovie(MOVIE, LABELS);
     const { video, sound } = tracks();

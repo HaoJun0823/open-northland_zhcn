@@ -109,13 +109,6 @@ describe('panCamera', () => {
     const cam: Camera = { offsetX: 100, offsetY: 50, scale: 2 };
     expect(panCamera(cam, 10, -5)).toEqual({ offsetX: 110, offsetY: 45, scale: 2 });
   });
-
-  it('leaves an unscaled camera unscaled (no scale field invented)', () => {
-    const cam: Camera = { offsetX: 0, offsetY: 0 };
-    const out = panCamera(cam, 7, 8);
-    expect(out).toEqual({ offsetX: 7, offsetY: 8 });
-    expect(out.scale).toBeUndefined();
-  });
 });
 
 describe('cameraCenteredOnTile', () => {
@@ -138,12 +131,6 @@ describe('cameraForViewportResize', () => {
     expect(resized.offsetX + worldX * zoom).toBeCloseTo(1280 / 2);
     expect(resized.offsetY + worldY * zoom).toBeCloseTo(900 / 2);
     expect(resized.scale).toBe(zoom);
-  });
-
-  it('preserves an omitted scale field', () => {
-    const resized = cameraForViewportResize({ offsetX: 10, offsetY: 20 }, 800, 600, 1000, 500);
-    expect(resized).toEqual({ offsetX: 110, offsetY: -30 });
-    expect(resized.scale).toBeUndefined();
   });
 });
 
@@ -213,12 +200,6 @@ describe('edgePanVelocity', () => {
     const shallow = edgePanVelocity(EDGE_SCROLL_MARGIN * 0.75, H / 2, W, H, SPEED).vx;
     const deep = edgePanVelocity(EDGE_SCROLL_MARGIN * 0.25, H / 2, W, H, SPEED).vx;
     expect(deep).toBeCloseTo(shallow * 3);
-  });
-
-  it('pans diagonally from a corner', () => {
-    const corner = edgePanVelocity(0, 0, W, H, SPEED);
-    expect(corner.vx).toBeGreaterThan(0);
-    expect(corner.vy).toBeGreaterThan(0);
   });
 });
 

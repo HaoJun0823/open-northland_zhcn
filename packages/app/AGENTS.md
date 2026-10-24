@@ -154,18 +154,26 @@ world, then apply the recorded command log to the stored tick.
 
 ## Structure
 
-Group code by user-facing concern:
+Group code by user-facing concern, one feature folder each:
 
-- `entries/`: top-level URL modes;
+- `entries/`: URL modes; a mode with parts is a folder (`anim/`, `scene/`, `sound/`, `main-menu/`);
 - `session/`: the host interface the runtime reads the world through, the inline host, the worker host
   (`session/worker/`) and the last-answer cache;
-- `view/runtime/`: shared playable runtime, frame loop and the host's cached answers;
-- `content/`: generated-content loaders and pure bindings;
-- `catalog/` and `game/sandbox/`: fallback content and rules;
+- `view/runtime/`: frame loop, game view and the host's cached answers; `view/<feature>/`: platform,
+  boot, settings, graphics, script, placement, map-objects, net, unit-controls (orders, panels);
+- `content/`: generated-content loaders and pure joins by kind: map, object-gfx, gui, audio and the
+  `*-gfx` sprite joins;
+- `catalog/` and `game/sandbox/`: fallback content and rules; `game/snapshot/`, `game/map/`,
+  `game/match/`: snapshot readers, per-map script facts, session and seat setup;
 - `game/world/`: the deterministic worlds a playable entry builds over decoded or fallback content;
-- `hud/`: interface models, layout, drawing, and controllers;
-- `scenes/`: deterministic acceptance setups;
+- `hud/`: interface models, layout, drawing, and controllers; `hud/dom/`: DOM panels, with notices,
+  system and network windows grouped;
+- `scenes/<domain>/`: acceptance setups by mechanic; `scenes/` itself holds the registry and runtime;
 - `diag/`: logging, crash reports, replay diagnostics, and performance instrumentation.
+
+Tests mirror `src/` under `test/` (`test/content/` holds the `src/content/` tests). `test/real-content/`
+is the opt-in real-content tier (vitest `content` project, `npm run test:content`); `test/support/` and
+`test/engines/` hold shared helpers and the cross-engine check.
 
 Do not extend this list with a file-by-file inventory. The tree and local barrels are the current
 source of truth.

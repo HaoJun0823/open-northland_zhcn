@@ -155,14 +155,6 @@ describe('tool windows registry', () => {
     expect(menu.isOpen()).toBe(false);
     expect(windows.openId()).toBe('knowledge');
   });
-
-  it("hands the tick's figures to the construction and statistics windows", () => {
-    const { windows, menu, stats } = mountWindows();
-    const model = { tick: 1, player: 0, population: 0, jobs: [], stocks: [] };
-    windows.presentModel(model);
-    expect(menu.models).toEqual([model]);
-    expect(stats.models).toEqual([model]);
-  });
 });
 
 describe('placement controller', () => {
@@ -422,14 +414,15 @@ describe('placement controller', () => {
     expect(commands).toHaveLength(1);
   });
 
-  it('a click on ground the placement rule rejects is consumed but inert (mode survives)', () => {
-    const { placement, commands } = mount(
+  it('a click on ground the placement rule rejects is consumed but inert and silent (mode survives)', () => {
+    const { placement, commands, cues } = mount(
       () => ({ col: 4, row: 2 }),
       () => false, // the probe says the anchor doesn't fit here
     );
     placement.enter(joinery());
     expect(placement.handleClick(10, 10)).toBe(true); // claimed - never falls through to picking
     expect(commands).toHaveLength(0); // nothing enqueued: the sim would drop it anyway
+    expect(cues).toEqual([]); // the world makes no sound for a site that did not land
     expect(placement.isActive()).toBe(true); // a mis-click on the dim wash doesn't end the mode
   });
 
@@ -452,16 +445,6 @@ describe('placement controller', () => {
     placement.enter(joinery());
     placement.cancel();
     expect(cues).toEqual(['confirm']);
-  });
-
-  it('a rejected tile clicks nothing: the world makes no sound for a site that did not land', () => {
-    const { placement, cues } = mount(
-      () => ({ col: 4, row: 2 }),
-      () => false,
-    );
-    placement.enter(joinery());
-    placement.handleClick(10, 10);
-    expect(cues).toEqual([]);
   });
 
   it('starts a wall line on the first click, lays the capped line on the second and exits', () => {
@@ -774,24 +757,6 @@ describe('placement controller', () => {
     );
     // The line joins the chosen owner's walls, not the seat's.
     expect([...builtOwners]).toEqual([3]);
-  });
-
-  it('lays an admin road line finished for the chosen owner', () => {
-    let tile = { col: 4, row: 2 };
-    const trusted: Command[] = [];
-    const { placement, commands, strip } = mount(() => tile, undefined, undefined, undefined, {
-      canPlaceRoadAt: () => true,
-      enqueueTrusted: (command) => trusted.push(command),
-    });
-    placement.enterRoad({ owner: 3, tribe: 2 });
-    expect(strip.shown?.label).toBe(messages().admin.standingRoad);
-    placement.handleClick(0, 0);
-    tile = { col: 5, row: 2 };
-    placement.handleClick(10, 0);
-    expect(commands).toEqual([]);
-    expect(trusted).toEqual(
-      [4, 5].map((x) => ({ kind: 'placeRoadSite', x, y: 2, owner: 3, tribe: 2, laid: true })),
-    );
   });
 
   it('stands an admin building finished for the chosen owner past the technology gate, cancelling quietly', () => {

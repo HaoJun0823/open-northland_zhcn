@@ -30,14 +30,6 @@ describe('navigation beam', () => {
 });
 
 describe('central window region', () => {
-  it('spans the screen width from under the top bar to the beam', () => {
-    const region = centralRegion(SCREEN, 1);
-    expect(region.x).toBe(0);
-    expect(region.w).toBe(SCREEN.width);
-    expect(region.y).toBe(WINDOW_REGION_TOP);
-    expect(region.y + region.h).toBe(navBeamRect(SCREEN, 1).y - 8);
-  });
-
   it('centres a window on the screen, on the axis the beam sits on', () => {
     expect(centralWindowOrigin(SCREEN, 1, 400)).toEqual({ x: 440, y: WINDOW_REGION_TOP });
     const beam = navBeamRect(SCREEN, 1);

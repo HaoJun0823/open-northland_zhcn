@@ -1,0 +1,418 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildStringCif } from '../../../../../packages/formats/test/fixtures/cif.js';
+import { jobBaseGraphicsToBindings, resolveGraphicsBindings } from '../../../src/stages/bmd/index.js';
+import { makeTempDir } from '../../support/game-tree.js';
+
+/** Engine-owned bindings appended on every resolve; no ordinary graphics record names these pairs. */
+const FISH_BINDING = ['data/engine2d/bin/bobs/ls_fishes.bmd', 'fishes'];
+const GUIDEPOST_BINDING = ['data/engine2d/bin/bobs/ls_guidepost.bmd', 'bridge01'];
+
+describe('resolveGraphicsBindings', () => {
+  let game: string;
+
+  beforeEach(async () => {
+    game = (await makeTempDir('gfx')).path;
+  });
+
+  afterEach(async () => {
+    await rm(game, { recursive: true, force: true });
+  });
+
+  it('reads the readable jobgraphics + palettes inis into bindings + palette aliases', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'animals'), { recursive: true });
+    await mkdir(join(game, inis, 'palettes'), { recursive: true });
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Body.bmd"\ngfxpalettebody "Bear01"\n',
+    );
+    await writeFile(
+      join(game, inis, 'palettes', 'palettes.ini'),
+      '[GfxPalette256]\neditname "Bear01"\ngfxfile "data\\pal\\bear01.pcx"\n',
+    );
+
+    const { bindings, palettes } = await resolveGraphicsBindings({ data: game });
+
+    expect(bindings).toHaveLength(3); // the animals record + the two engine-owned bindings
+    expect(bindings[0]?.bmd).toBe('data/bobs/body.bmd');
+    expect(bindings[0]?.paletteName).toBe('bear01');
+    expect([bindings[1]?.bmd, bindings[1]?.paletteName]).toEqual(FISH_BINDING);
+    expect([bindings[2]?.bmd, bindings[2]?.paletteName]).toEqual(GUIDEPOST_BINDING);
+    expect(palettes).toEqual([{ name: 'bear01', gfxFile: 'data/pal/bear01.pcx' }]);
+  });
+
+  it('merges the mod [jobbasegraphics] human body/head bobs onto the base animals bindings', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'animals'), { recursive: true });
+    await mkdir(join(game, 'rules/types', 'humanstype'), { recursive: true });
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
+    );
+    await writeFile(
+      join(game, 'rules/types', 'humanstype', 'jobgraphics.ini'),
+      '[jobbasegraphics]\nlogictribe 1\nlogicjob 6\n' +
+        'gfxbobmanagerbody 0 "Data\\Bobs\\Body00.bmd" "Data\\Bobs\\Body00_s.bmd"\n' +
+        'gfxbobmanagerhead 0 "Data\\Bobs\\Head00.bmd"\n' +
+        'gfxbobmanagerhead 1 "Data\\Bobs\\Head01.bmd"\n' +
+        'gfxpalettebasebody "human_body"\ngfxpalettebasehead "human_head"\ngfxpaletterandom "Vik_Man_Base"\n',
+    );
+
+    const { bindings } = await resolveGraphicsBindings({ data: game });
+
+    // Base animals binding first, then the flattened mod body + head slots.
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/lion.bmd', 'lion01'],
+      ['data/bobs/body00.bmd', 'human_body'],
+      ['data/bobs/head00.bmd', 'human_head'],
+      ['data/bobs/head01.bmd', 'human_head'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    // The body slot keeps its shadow + cross-refs; the random tint is not emitted as a binding.
+    expect(bindings[1]?.shadowBmd).toBe('data/bobs/body00_s.bmd');
+    expect(bindings[1]?.tribeId).toBe(1);
+    expect(bindings[1]?.jobId).toBe(6);
+    expect(bindings.some((b) => b.paletteName === 'vik_man_base')).toBe(false);
+  });
+
+  it('merges the base-game humans/jobgraphics.cif [jobbasegraphics] records (the .cif-only leg)', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'animals'), { recursive: true });
+    await mkdir(join(game, inis, 'humans'), { recursive: true });
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
+    );
+    // The base human graphics ship only as encrypted .cif, decoded via the same CStringArray path.
+    await writeFile(
+      join(game, inis, 'humans', 'jobgraphics.cif'),
+      buildStringCif([
+        { level: 1, text: 'jobbasegraphics' },
+        { level: 2, text: 'logictribe 1' },
+        { level: 2, text: 'logicjob 6' },
+        { level: 2, text: 'gfxbobmanagerbody 0 "Data\\Bobs\\Body00.bmd" "Data\\Bobs\\Body00_s.bmd"' },
+        { level: 2, text: 'gfxbobmanagerhead 0 "Data\\Bobs\\Head00.bmd"' },
+        { level: 2, text: 'gfxpalettebasebody "test_human_00"' },
+        { level: 2, text: 'gfxpalettebasehead "test_human_00"' },
+        // A palette-less job-change body uses the same human palette floor as a palette-less hero.
+        { level: 1, text: 'jobchangegraphics' },
+        { level: 2, text: 'logictribe 1' },
+        { level: 2, text: 'gfxbobmanagerbody 0 "Data\\Bobs\\Body01.bmd"' },
+      ]),
+    );
+
+    const { bindings } = await resolveGraphicsBindings({ data: game });
+
+    // Base animals binding first, then the flattened base-human body + head slots and job-change body.
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/lion.bmd', 'lion01'],
+      ['data/bobs/body00.bmd', 'test_human_00'],
+      ['data/bobs/head00.bmd', 'test_human_00'],
+      ['data/bobs/body01.bmd', 'test_human_00'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    expect(bindings[1]?.shadowBmd).toBe('data/bobs/body00_s.bmd');
+    expect(bindings[1]?.tribeId).toBe(1);
+    expect(bindings[1]?.jobId).toBe(6);
+  });
+
+  it('merges the base-game vehicles/jobgraphics.cif [jobgraphics] cart/ship records (.cif-only leg)', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'animals'), { recursive: true });
+    await mkdir(join(game, inis, 'vehicles'), { recursive: true });
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
+    );
+    // Vehicles ship only as encrypted .cif; the flat [jobgraphics] grammar matches the animals .ini,
+    // keyed by logicvehicle instead of logicjob (which is left undefined).
+    await writeFile(
+      join(game, inis, 'vehicles', 'jobgraphics.cif'),
+      buildStringCif([
+        { level: 1, text: 'jobgraphics' },
+        { level: 2, text: 'logictribe 1' },
+        { level: 2, text: 'logicvehicle 2' },
+        { level: 2, text: 'gfxbobmanagerbody "Data\\Bobs\\Cart.bmd" "Data\\Bobs\\Cart_s.bmd"' },
+        { level: 2, text: 'gfxpalettebody "OxCart"' },
+      ]),
+    );
+
+    const { bindings } = await resolveGraphicsBindings({ data: game });
+
+    // Base animals binding first, then the flattened vehicle record.
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/lion.bmd', 'lion01'],
+      ['data/bobs/cart.bmd', 'oxcart'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    expect(bindings[1]?.shadowBmd).toBe('data/bobs/cart_s.bmd');
+    expect(bindings[1]?.tribeId).toBe(1);
+    // logicvehicle is not a job cross-ref, so jobId stays undefined.
+    expect(bindings[1]?.jobId).toBeUndefined();
+  });
+
+  it('overlays the mod vehiclestype/jobgraphics.ini [jobgraphics] cart/ship records (golden rule #4)', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'animals'), { recursive: true });
+    await mkdir(join(game, inis, 'vehicles'), { recursive: true });
+    await mkdir(join(game, 'rules/types', 'vehiclestype'), { recursive: true });
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
+    );
+    // The base vehicles .cif carries the narrow base-tribe set.
+    await writeFile(
+      join(game, inis, 'vehicles', 'jobgraphics.cif'),
+      buildStringCif([
+        { level: 1, text: 'jobgraphics' },
+        { level: 2, text: 'logictribe 1' },
+        { level: 2, text: 'logicvehicle 2' },
+        { level: 2, text: 'gfxbobmanagerbody "Data\\Bobs\\Cart.bmd" "Data\\Bobs\\Cart_s.bmd"' },
+        { level: 2, text: 'gfxpalettebody "OxCart"' },
+      ]),
+    );
+    // The mod ships the readable twin with an extra tribe's vehicle recolour (broader per-tribe set).
+    await writeFile(
+      join(game, 'rules/types', 'vehiclestype', 'jobgraphics.ini'),
+      '[jobgraphics]\nlogictribe 1\nlogicvehicle 2\n' +
+        'gfxbobmanagerbody "Data\\Bobs\\Cart.bmd" "Data\\Bobs\\Cart_s.bmd"\ngfxpalettebody "OxCart"\n\n' +
+        '[jobgraphics]\nlogictribe 3\nlogicvehicle 4\n' +
+        'gfxbobmanagerbody "Data\\Bobs\\Ship.bmd" "Data\\Bobs\\Ship_s.bmd"\ngfxpalettebody "Human_Ship01"\n',
+    );
+
+    const { bindings } = await resolveGraphicsBindings({ data: game });
+
+    // Base animals binding, then the base vehicle .cif record, then the mod's [jobgraphics] overlay.
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/lion.bmd', 'lion01'],
+      ['data/bobs/cart.bmd', 'oxcart'],
+      ['data/bobs/cart.bmd', 'oxcart'],
+      ['data/bobs/ship.bmd', 'human_ship01'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    // The mod's extra tribe-3 ship carries its own per-tribe cross-ref (the base .cif lacks it).
+    expect(bindings[3]?.tribeId).toBe(3);
+    expect(bindings[3]?.shadowBmd).toBe('data/bobs/ship_s.bmd');
+    expect(bindings[3]?.jobId).toBeUndefined();
+  });
+
+  it('claims [GfxHouse] .bmds for the opaque-alpha bake (mod houses.ini leg)', async () => {
+    await mkdir(join(game, 'rules/buildings'), { recursive: true });
+    await writeFile(
+      join(game, 'rules/buildings', 'houses.ini'),
+      '[GfxHouse]\nEditName "viking home"\n' +
+        'GfxBobLibs "Data\\Bobs\\ls_houses_viking.bmd" "Data\\Bobs\\ls_houses_viking_s.bmd"\n' +
+        'GfxPalette "house01" "house02"\n',
+    );
+
+    const { bindings, buildTimeBmds } = await resolveGraphicsBindings({ data: game });
+
+    // Every palette recolour becomes a binding, and the CLAIM is on the .bmd path alone, so the
+    // landscape twins of the same geometry bake opaque too, except the bobs they draw themselves.
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/ls_houses_viking.bmd', 'house01'],
+      ['data/bobs/ls_houses_viking.bmd', 'house02'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    expect([...buildTimeBmds]).toEqual(['data/bobs/ls_houses_viking.bmd']);
+  });
+
+  it('keeps the landscape-only bobs of a house .bmd on coverage, and a bob a house also draws on the threshold', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'landscapes'), { recursive: true });
+    await mkdir(join(game, 'rules/buildings'), { recursive: true });
+    await writeFile(
+      join(game, 'rules/buildings', 'houses.ini'),
+      '[GfxHouse]\nEditName "wonder"\nGfxBobLibs "Data\\Bobs\\Wonders.bmd"\nGfxPalette "wonder01"\n' +
+        'GfxBobId 0 3\nGfxBobConstructionLayer 0 0 4 -1 0 100\nGfxOverlay 0 4 1 0 0 1 5 6\nGfxOverlay 0 3 1 9 9 0\n' +
+        'Gfxdoorbobid 0 1 8\n',
+    );
+    await writeFile(
+      join(game, inis, 'landscapes', 'landscapes.cif'),
+      buildStringCif([
+        { level: 1, text: 'GfxLandscape' },
+        { level: 2, text: 'EditName "beacon"' },
+        { level: 2, text: 'GfxBobLibs "Data\\Bobs\\Wonders.bmd"' },
+        { level: 2, text: 'GfxPalette "glow01"' },
+        { level: 2, text: 'GfxFrames 1 3 6 7 8 9' },
+      ]),
+    );
+
+    const { coverageBobs } = await resolveGraphicsBindings({ data: game });
+
+    // 3 to 6 and 8 are the house's (body, layer, overlay frames, door); the type-3 overlay names no bob.
+    expect([...(coverageBobs.get('data/bobs/wonders.bmd') ?? [])]).toEqual([7, 9]);
+  });
+
+  it('merges every binding skin in source-table order, guidepost last', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    for (const dir of ['animals', 'vehicles', 'humans', 'landscapes']) {
+      await mkdir(join(game, inis, dir), { recursive: true });
+    }
+    for (const dir of ['types/humanstype', 'types/vehiclestype', 'buildings']) {
+      await mkdir(join(game, 'rules', dir), { recursive: true });
+    }
+    await writeFile(
+      join(game, inis, 'animals', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Animal.bmd"\ngfxpalettebody "Animal01"\n',
+    );
+    await writeFile(
+      join(game, inis, 'vehicles', 'jobgraphics.cif'),
+      buildStringCif([
+        { level: 1, text: 'jobgraphics' },
+        { level: 2, text: 'gfxbobmanagerbody "Data\\Bobs\\BaseCart.bmd"' },
+        { level: 2, text: 'gfxpalettebody "BaseCart01"' },
+      ]),
+    );
+    await writeFile(
+      join(game, inis, 'humans', 'jobgraphics.cif'),
+      buildStringCif([
+        { level: 1, text: 'jobbasegraphics' },
+        { level: 2, text: 'gfxbobmanagerbody 0 "Data\\Bobs\\BaseBody.bmd"' },
+        { level: 2, text: 'gfxpalettebasebody "BaseBody01"' },
+      ]),
+    );
+    await writeFile(
+      join(game, inis, 'landscapes', 'landscapes.cif'),
+      buildStringCif([
+        { level: 1, text: 'GfxLandscape' },
+        { level: 2, text: 'EditName "yew 01"' },
+        { level: 2, text: 'GfxBobLibs "Data\\Bobs\\Trees.bmd"' },
+        { level: 2, text: 'GfxPalette "Tree01"' },
+        { level: 2, text: 'GfxFrames 1 7 8' },
+        // A second species sharing the same bob+palette - dropped by the landscape leg's own dedupe.
+        { level: 1, text: 'GfxLandscape' },
+        { level: 2, text: 'EditName "fir 01"' },
+        { level: 2, text: 'GfxBobLibs "Data\\Bobs\\Trees.bmd"' },
+        { level: 2, text: 'GfxPalette "Tree01"' },
+      ]),
+    );
+    await writeFile(
+      join(game, 'rules/types', 'humanstype', 'jobgraphics.ini'),
+      '[jobbasegraphics]\ngfxbobmanagerbody 0 "Data\\Bobs\\ModBody.bmd"\ngfxpalettebasebody "ModBody01"\n',
+    );
+    await writeFile(
+      join(game, 'rules/types', 'vehiclestype', 'jobgraphics.ini'),
+      '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\ModCart.bmd"\ngfxpalettebody "ModCart01"\n',
+    );
+    await writeFile(
+      join(game, 'rules/buildings', 'houses.ini'),
+      '[GfxHouse]\nEditName "viking home"\n' + 'GfxBobLibs "Data\\Bobs\\Houses.bmd"\nGfxPalette "House01"\n',
+    );
+
+    const { bindings, buildTimeBmds, coverageBobs } = await resolveGraphicsBindings({ data: game });
+
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
+      ['data/bobs/animal.bmd', 'animal01'],
+      ['data/bobs/basecart.bmd', 'basecart01'],
+      ['data/bobs/basebody.bmd', 'basebody01'],
+      ['data/bobs/trees.bmd', 'tree01'],
+      ['data/bobs/modbody.bmd', 'modbody01'],
+      ['data/bobs/modcart.bmd', 'modcart01'],
+      ['data/bobs/houses.bmd', 'house01'],
+      FISH_BINDING,
+      GUIDEPOST_BINDING,
+    ]);
+    // Only the [GfxHouse] leg claims a build-time bake; coverage bobs exist only inside a house library.
+    expect([...buildTimeBmds]).toEqual(['data/bobs/houses.bmd']);
+    expect([...coverageBobs]).toEqual([]);
+  });
+
+  it('returns only the engine-owned bindings with a warning when every source is missing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const { bindings, palettes } = await resolveGraphicsBindings({ data: game }); // nothing laid down
+
+    // Unconditional engine bindings remain (convertBmdTree skips them when unresolvable).
+    expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([FISH_BINDING, GUIDEPOST_BINDING]);
+    expect(palettes).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/jobgraphics\.ini/));
+    warn.mockRestore();
+  });
+});
+
+describe('jobBaseGraphicsToBindings', () => {
+  it('flattens body slots (bodyPalette) and head slots (headPalette) into flat bindings', () => {
+    const flat = jobBaseGraphicsToBindings([
+      {
+        tribeId: 2,
+        jobId: 4,
+        body: [{ index: 0, bmd: 'data/bobs/body.bmd', shadowBmd: 'data/bobs/body_s.bmd' }],
+        head: [
+          { index: 0, bmd: 'data/bobs/head0.bmd', shadowBmd: undefined },
+          { index: 1, bmd: 'data/bobs/head1.bmd', shadowBmd: undefined },
+        ],
+        bodyPalette: 'b_pal',
+        headPalette: 'h_pal',
+        randomPalettes: ['rnd'],
+      },
+    ]);
+
+    expect(flat).toEqual([
+      {
+        bmd: 'data/bobs/body.bmd',
+        shadowBmd: 'data/bobs/body_s.bmd',
+        paletteName: 'b_pal',
+        tribeId: 2,
+        jobId: 4,
+      },
+      { bmd: 'data/bobs/head0.bmd', shadowBmd: undefined, paletteName: 'h_pal', tribeId: 2, jobId: 4 },
+      { bmd: 'data/bobs/head1.bmd', shadowBmd: undefined, paletteName: 'h_pal', tribeId: 2, jobId: 4 },
+    ]);
+  });
+
+  it('drops a head whose palette editname is absent while preserving the body binding', () => {
+    const flat = jobBaseGraphicsToBindings([
+      {
+        tribeId: undefined,
+        jobId: undefined,
+        body: [{ index: 0, bmd: 'data/bobs/body.bmd', shadowBmd: undefined }],
+        head: [{ index: 0, bmd: 'data/bobs/head.bmd', shadowBmd: undefined }],
+        bodyPalette: 'b_pal', // body keeps its palette
+        headPalette: undefined, // head has none -> dropped
+        randomPalettes: [],
+      },
+    ]);
+
+    expect(flat).toEqual([
+      {
+        bmd: 'data/bobs/body.bmd',
+        shadowBmd: undefined,
+        paletteName: 'b_pal',
+        tribeId: undefined,
+        jobId: undefined,
+      },
+    ]);
+  });
+
+  it('emits a body-only random-palette hero through the runtime human palette floor', () => {
+    const flat = jobBaseGraphicsToBindings([
+      {
+        tribeId: 3,
+        jobId: 42,
+        body: [{ index: 0, bmd: 'data/bobs/body73.bmd', shadowBmd: 'data/bobs/body73_s.bmd' }],
+        head: [],
+        bodyPalette: undefined,
+        headPalette: undefined,
+        randomPalettes: ['grizzu_small'],
+      },
+    ]);
+
+    expect(flat).toEqual([
+      {
+        bmd: 'data/bobs/body73.bmd',
+        shadowBmd: 'data/bobs/body73_s.bmd',
+        paletteName: 'test_human_00',
+        tribeId: 3,
+        jobId: 42,
+      },
+    ]);
+  });
+});

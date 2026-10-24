@@ -28,6 +28,6 @@ palace, mosque, tents and residences.
 ## Verify
 
 - `npm run test:pipeline` keeps the fallback and precedence tests in
-  `tools/asset-pipeline/test/ir-base-houses.test.ts` green.
+  `tools/asset-pipeline/test/stages/ir/base-houses.test.ts` green.
 - After the decision, `npm run build:content` and a boot of `tutorial_007` show either the base-only
   houses placed or an explicit skip, matching the recorded observation.

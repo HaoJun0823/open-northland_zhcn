@@ -6,10 +6,10 @@ import { gunzipSync } from 'node:zlib';
 import { CatalogBrowse, CatalogEntry, catalogBrowseEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { verifyMapDocuments } from '../../app/src/content/transfer/documents.js';
-import { sha256Hex } from '../src/catalog/snapshot.js';
-import { type ApiServer, startApiServer } from '../src/server.js';
-import { DataStore } from '../src/store.js';
+import { verifyMapDocuments } from '../../../app/src/content/transfer/documents.js';
+import { sha256Hex } from '../../src/catalog/snapshot.js';
+import { type ApiServer, startApiServer } from '../../src/server.js';
+import { DataStore } from '../../src/store.js';
 import {
   catalogEntry,
   FakeFiles,
@@ -19,7 +19,7 @@ import {
   syncedOf,
   under,
   zipOf,
-} from './support/conversion-fixture.js';
+} from '../support/conversion-fixture.js';
 
 const ENTRY = 'cn-wyspa';
 const ARCHIVE = zipOf(under('Wyspa', plaintextMap('Wyspa')));

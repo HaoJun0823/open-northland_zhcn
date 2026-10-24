@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Catalog } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CatalogSync, syncCatalog } from '../src/catalog/sync.js';
-import { DataStore } from '../src/store.js';
+import { CatalogSync, syncCatalog } from '../../src/catalog/sync.js';
+import { DataStore } from '../../src/store.js';
 import {
   ACCEPTED_RECORDS,
   FakeUpstream,
@@ -13,7 +13,7 @@ import {
   REFUSED_RECORDS,
   strapiRecord,
   UPSTREAM,
-} from './support/strapi-fixture.js';
+} from '../support/strapi-fixture.js';
 
 const HOUR_MS = 3_600_000;
 /** The bytes and the meta beside them. */

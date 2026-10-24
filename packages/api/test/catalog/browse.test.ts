@@ -2,8 +2,8 @@ import { gunzipSync } from 'node:zlib';
 import { CatalogBrowse, type CatalogConvertedMap, CatalogEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { expect, it } from 'vitest';
-import { catalogSnapshot } from '../src/catalog/snapshot.js';
-import { catalogEntry } from './support/conversion-fixture.js';
+import { catalogSnapshot } from '../../src/catalog/snapshot.js';
+import { catalogEntry } from '../support/conversion-fixture.js';
 
 it('serves browse facts and searchable descriptions while retaining full indexes in detail', () => {
   const map: CatalogConvertedMap = {

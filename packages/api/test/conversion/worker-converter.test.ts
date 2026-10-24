@@ -2,9 +2,9 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type ArchiveConverter, WorkerArchiveConverter } from '../src/conversion/worker-converter.js';
-import { type ApiServer, startApiServer } from '../src/server.js';
-import { DataStore } from '../src/store.js';
+import { type ArchiveConverter, WorkerArchiveConverter } from '../../src/conversion/worker-converter.js';
+import { type ApiServer, startApiServer } from '../../src/server.js';
+import { DataStore } from '../../src/store.js';
 import {
   catalogEntry,
   FakeFiles,
@@ -16,10 +16,10 @@ import {
   temporaryDir,
   under,
   zipOf,
-} from './support/conversion-fixture.js';
+} from '../support/conversion-fixture.js';
 
-const WORKER = new URL('../dist/conversion/worker.js', import.meta.url);
-const SYNTHETIC_WORKER = new URL('./support/conversion-worker.mjs', import.meta.url);
+const WORKER = new URL('../../dist/conversion/worker.js', import.meta.url);
+const SYNTHETIC_WORKER = new URL('../support/conversion-worker.mjs', import.meta.url);
 const LATER = '2025-01-01T00:00:00.000Z';
 const mapArchive = (): Uint8Array => zipOf(under('Island', plaintextMap('Island')));
 const TIMEOUT_MS = 2000;

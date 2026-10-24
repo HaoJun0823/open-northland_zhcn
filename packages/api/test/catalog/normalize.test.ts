@@ -7,8 +7,8 @@ import {
   classifyCategory,
   classifyFile,
   normalizeRecords,
-} from '../src/catalog/normalize.js';
-import { ACCEPTED_RECORDS, REFUSED_RECORDS, UPSTREAM } from './support/strapi-fixture.js';
+} from '../../src/catalog/normalize.js';
+import { ACCEPTED_RECORDS, REFUSED_RECORDS, UPSTREAM } from '../support/strapi-fixture.js';
 
 describe('normalizeRecords', () => {
   const { records, skipped } = normalizeRecords([...REFUSED_RECORDS, ...ACCEPTED_RECORDS], UPSTREAM);

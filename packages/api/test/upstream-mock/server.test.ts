@@ -2,12 +2,12 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { sha256Hex } from '../src/catalog/snapshot.js';
-import { syncCatalog } from '../src/catalog/sync.js';
-import { DataStore } from '../src/store.js';
-import { startUpstreamMock, type UpstreamMock } from '../src/upstream-mock/server.js';
-import { harness, plaintextMap, temporaryDir, under, zipOf } from './support/conversion-fixture.js';
-import { PNG_BYTES, strapiPage, strapiRecord } from './support/strapi-fixture.js';
+import { sha256Hex } from '../../src/catalog/snapshot.js';
+import { syncCatalog } from '../../src/catalog/sync.js';
+import { DataStore } from '../../src/store.js';
+import { startUpstreamMock, type UpstreamMock } from '../../src/upstream-mock/server.js';
+import { harness, plaintextMap, temporaryDir, under, zipOf } from '../support/conversion-fixture.js';
+import { PNG_BYTES, strapiPage, strapiRecord } from '../support/strapi-fixture.js';
 
 const DOCUMENT_ID = 'WyspaWyspaWyspaWyspa0001';
 const ENTRY = 'cn-wyspawyspawyspawyspa0001';

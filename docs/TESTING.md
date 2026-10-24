@@ -175,7 +175,7 @@ rather than in the expectation.
   that strips such a prefix must strip it the same way.
 - **Open files.** Windows refuses to rename or delete a file another handle holds, returning `EPERM`
   where POSIX succeeds. A test that swaps bytes under an open handle must overwrite in place there
-  rather than skip the case; see `swapDuringHash` in `packages/api/test/archive-verifier.test.ts`.
+  rather than skip the case; see `swapDuringHash` in `packages/api/test/conversion/archive-verifier.test.ts`.
 - **Volumes.** Windows refuses `rename` across drives with `EXDEV`, and a checkout may keep `.cache/`
   and `%TEMP%` on different volumes. Stage beside the tree a rename replaces.
 - **Processes.** `npm`, `npx` and `vitest` are `.cmd` shims a direct `spawn` cannot execute, and

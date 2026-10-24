@@ -5,12 +5,12 @@ import { jsonFingerprint, type Language } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildMapDat } from '../../formats/test/fixtures/mapdat.js';
-import { sha256Hex } from '../src/catalog/snapshot.js';
-import type { CatalogMapOverlays } from '../src/conversion/overlays.js';
-import type { ConversionService } from '../src/conversion/service.js';
-import { ConversionStore } from '../src/conversion/store.js';
-import * as storeIo from '../src/store.js';
+import { buildMapDat } from '../../../formats/test/fixtures/mapdat.js';
+import { sha256Hex } from '../../src/catalog/snapshot.js';
+import type { CatalogMapOverlays } from '../../src/conversion/overlays.js';
+import type { ConversionService } from '../../src/conversion/service.js';
+import { ConversionStore } from '../../src/conversion/store.js';
+import * as storeIo from '../../src/store.js';
 import {
   catalogEntry,
   FakeFiles,
@@ -24,7 +24,7 @@ import {
   UPDATED_AT,
   under,
   zipOf,
-} from './support/conversion-fixture.js';
+} from '../support/conversion-fixture.js';
 
 const ENTRY = 'cn-wyspa';
 const LATER = '2025-01-01T00:00:00.000Z';

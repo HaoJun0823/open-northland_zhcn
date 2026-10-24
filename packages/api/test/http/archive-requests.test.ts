@@ -3,12 +3,12 @@ import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { catalogSnapshot, sha256Hex } from '../src/catalog/snapshot.js';
-import { ArchiveVerificationBusyError, ArchiveVerifier } from '../src/conversion/archive-verifier.js';
-import type { KeptFileSource } from '../src/http/sources.js';
-import { type ApiServer, startApiServer } from '../src/server.js';
-import { DataStore } from '../src/store.js';
-import { catalogEntry } from './support/conversion-fixture.js';
+import { catalogSnapshot, sha256Hex } from '../../src/catalog/snapshot.js';
+import { ArchiveVerificationBusyError, ArchiveVerifier } from '../../src/conversion/archive-verifier.js';
+import type { KeptFileSource } from '../../src/http/sources.js';
+import { type ApiServer, startApiServer } from '../../src/server.js';
+import { DataStore } from '../../src/store.js';
+import { catalogEntry } from '../support/conversion-fixture.js';
 
 const ENTRY = 'cn-verification';
 const PATH = `/v1/maps/${ENTRY}/file`;

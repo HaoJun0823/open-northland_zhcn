@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { catalogPageUrl, fetchCatalogPages } from '../src/upstream/strapi.js';
-import { ACCEPTED_RECORDS, FakeUpstream, strapiPage, UPSTREAM } from './support/strapi-fixture.js';
+import { catalogPageUrl, fetchCatalogPages } from '../../src/upstream/strapi.js';
+import { ACCEPTED_RECORDS, FakeUpstream, strapiPage, UPSTREAM } from '../support/strapi-fixture.js';
 
 describe('fetchCatalogPages', () => {
   it('asks for maps and campaigns a hundred at a time', () => {

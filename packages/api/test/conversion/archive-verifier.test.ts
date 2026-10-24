@@ -2,8 +2,8 @@ import { type FileHandle, mkdtemp, open, readFile, rename, rm, writeFile } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sha256Hex } from '../src/catalog/snapshot.js';
-import { ArchiveVerificationBusyError, ArchiveVerifier } from '../src/conversion/archive-verifier.js';
+import { sha256Hex } from '../../src/catalog/snapshot.js';
+import { ArchiveVerificationBusyError, ArchiveVerifier } from '../../src/conversion/archive-verifier.js';
 
 const ARCHIVE = Buffer.alloc(8 * 1024 * 1024, 7);
 const HASH = sha256Hex(ARCHIVE);

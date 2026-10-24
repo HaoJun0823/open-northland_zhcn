@@ -3,12 +3,12 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { classifyFile, normalizeRecords } from '../src/catalog/normalize.js';
-import { syncThumbnails } from '../src/catalog/thumbnails.js';
-import { downloadArchive } from '../src/conversion/download.js';
-import { DataStore } from '../src/store.js';
-import { fetchCatalogPages } from '../src/upstream/strapi.js';
-import { ACCEPTED_RECORDS, UPSTREAM } from './support/strapi-fixture.js';
+import { classifyFile, normalizeRecords } from '../../src/catalog/normalize.js';
+import { syncThumbnails } from '../../src/catalog/thumbnails.js';
+import { downloadArchive } from '../../src/conversion/download.js';
+import { DataStore } from '../../src/store.js';
+import { fetchCatalogPages } from '../../src/upstream/strapi.js';
+import { ACCEPTED_RECORDS, UPSTREAM } from '../support/strapi-fixture.js';
 
 describe('automatic upstream fetch policy', () => {
   it('allows exact trusted origins and rejects screenshot credentials, schemes and other origins', () => {

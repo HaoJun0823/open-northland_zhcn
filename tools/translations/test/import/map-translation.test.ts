@@ -1,8 +1,8 @@
 import { MapOverlay, OVERLAY_VERSION } from '@open-northland/data';
 import type { MapLanguageText } from '@open-northland/map-import';
 import { describe, expect, it } from 'vitest';
-import { germanRoundTrip, translateMap } from '../src/import/map-translation.js';
-import { readLocalizationMap, SIMPLIFIED_COLUMN, TRADITIONAL_COLUMN } from '../src/import/map-xml.js';
+import { germanRoundTrip, translateMap } from '../../src/import/map-translation.js';
+import { readLocalizationMap, SIMPLIFIED_COLUMN, TRADITIONAL_COLUMN } from '../../src/import/map-xml.js';
 
 /** A localization XML authored for this test, in the shape the localization repository writes. */
 const XML = `<?xml version="1.0" encoding="UTF-8"?>

@@ -6,7 +6,7 @@ import {
   normalizeWhitespace,
   tagGaps,
   takeRunEdges,
-} from '../src/import/map-xml.js';
+} from '../../src/import/map-xml.js';
 
 /** A block file authored for this test: blank lines and tags between paragraphs, framing whitespace. */
 const BLOCK_FILE = [

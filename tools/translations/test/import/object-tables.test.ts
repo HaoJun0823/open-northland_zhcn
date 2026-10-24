@@ -1,7 +1,7 @@
 import type { GameObjectNames } from '@open-northland/asset-pipeline/sources';
 import { describe, expect, it } from 'vitest';
-import { formatCsv, glossaryFromLanguageUnion, parseCsv } from '../src/import/glossary.js';
-import { driftedIds, sameGermanName, translateObjectNames } from '../src/import/object-tables.js';
+import { formatCsv, glossaryFromLanguageUnion, parseCsv } from '../../src/import/glossary.js';
+import { driftedIds, sameGermanName, translateObjectNames } from '../../src/import/object-tables.js';
 
 describe('sameGermanName', () => {
   it('reads a Han character of their garbled table as the umlaut and the byte it swallowed', () => {

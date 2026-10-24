@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mapOverlayFileId } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
-import { correctedMapKeys, readGermanCorrections } from '../src/import/corrected-keys.js';
+import { correctedMapKeys, readGermanCorrections } from '../../src/import/corrected-keys.js';
 
 const PROBE_MAP = { id: 'probe_map', text: { datDigest: 'a'.repeat(64) } };
 const OTHER_DAT = 'b'.repeat(64);

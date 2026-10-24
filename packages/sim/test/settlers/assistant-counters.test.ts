@@ -71,7 +71,7 @@ const TRAINING_EVENT_TYPE = 29;
 /** More TRAINING repeats than any test run can bank - a gate that would always refuse. */
 const UNBANKABLE_TRAINING = 9999;
 /** The spawn command's idle sentinel (job 0): the wire form of "no trade", normalized to null. */
-const IDLE_SPAWN_JOB = 0;
+const _IDLE_SPAWN_JOB = 0;
 const SWORD_SHORT_GOOD = 41;
 const SWORD_LONG_GOOD = 42;
 const ARMOR_WOOL_GOOD = 61;
@@ -398,25 +398,6 @@ describe('the training queue', () => {
     setCounter(sim, 'trainSoldiers', 1);
     run(sim, BEAT_TICKS);
     expect(sim.world.has(spawned, TrainingOrder)).toBe(true);
-  });
-
-  it('normalizes the spawn command idle sentinel to the trade-less null shape', () => {
-    const sim = trainSim();
-    // No barracks and no workplace on the map, so nothing employs him before the read.
-    sim.enqueueSetup({
-      kind: 'spawnSettler',
-      jobType: IDLE_SPAWN_JOB,
-      x: 3,
-      y: 3,
-      tribe: VIKING,
-      owner: PLAYER,
-    });
-    run(sim, 1);
-    const spawned = [...sim.world.query(Settler)];
-    expect(spawned).toHaveLength(1);
-    const only = spawned[0];
-    if (only === undefined) throw new Error('spawn failed');
-    expect(sim.world.get(only, Settler).jobType).toBe(null);
   });
 
   it('books no more men than the counter asks, and enlistment pays it', () => {

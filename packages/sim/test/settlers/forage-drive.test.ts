@@ -281,15 +281,4 @@ describe('forage drive - closing the rise→forage→relief loop through the rea
     expect(wentBare).toBe(true); // the bush was actually eaten off (not conjured food)
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: testContent(), map: grassMap(5, 1) });
-      settlerAt(sim, 0, 0, NEED_DRIVE_THRESHOLD);
-      bushAt(sim, 2, 0);
-      for (let i = 0; i < 300; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

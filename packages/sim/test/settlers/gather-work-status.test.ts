@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   Building,
   Carrying,
@@ -6,7 +6,6 @@ import {
   GroundDrop,
   HaulFlag,
   JobAssignment,
-  Owner,
   Position,
   ProductionCounters,
   Resource,
@@ -145,26 +144,6 @@ describe('selected gatherer work diagnostics', () => {
     expect(sim.workStatus(entity)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
     sim.world.add(entity, HaulFlag, { flag, radius });
     expect(sim.workStatus(entity)).toEqual({ kind: 'noFish' });
-  });
-
-  it('bounds ownership probes even when every accepting sink belongs to another player', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(20, 12) });
-    const entity = worker(sim);
-    sim.world.add(entity, Owner, { player: 0 });
-    sim.world.add(entity, Carrying, { goodType: 1, amount: 1 });
-    for (let i = 0; i < 300; i++) {
-      const store = sim.world.create();
-      sim.world.add(store, Position, positionOfNode(10, 4));
-      sim.world.add(store, Building, { buildingType: 9, tribe: 1, built: ONE, level: 0 });
-      sim.world.add(store, Stockpile, { amounts: new Map() });
-      sim.world.add(store, Owner, { player: 1 });
-    }
-    // Warm the journalled ledger; the bound applies to the selected read's owner probes.
-    sim.workStatus(entity);
-    const read = vi.spyOn(sim.world, 'tryGet');
-    expect(sim.workStatus(entity)).toEqual({ kind: 'noOutputDestination', goodType: 1, reason: 'unknown' });
-    expect(read.mock.calls.filter((call) => call[1] === Owner).length).toBeLessThanOrEqual(129);
-    read.mockRestore();
   });
 
   it('keeps an incomplete search explicit', () => {

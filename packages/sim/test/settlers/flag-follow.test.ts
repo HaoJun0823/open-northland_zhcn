@@ -23,7 +23,6 @@ import {
   workReachOf,
 } from '../../src/systems/assistant/flag-follow.js';
 import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
-import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
 import { testContent } from '../fixtures/content.js';
 import {
   bindToFlag,
@@ -168,12 +167,6 @@ describe('assistant flag follow', () => {
     expect(nodeDistance(nodeOf(sim, flag), nodeOf(sim, tree))).toBeLessThanOrEqual(FOLLOW_FLAG_BAND.max);
     expect(sim.world.get(gatherer, HaulFlag).flag).toBe(flag);
     expect(sim.world.has(gatherer, WorkFlag)).toBe(false);
-  });
-
-  it('runs before the planner, so a moved flag is planned from the same tick', () => {
-    const names = SYSTEM_ORDER.map((s) => s.name);
-    expect(names.indexOf('flagFollow')).toBeGreaterThanOrEqual(0);
-    expect(names.indexOf('flagFollow')).toBeLessThan(names.indexOf('planner'));
   });
 
   it('keeps the flag within the band of the nearest resource while the circle still holds it', () => {

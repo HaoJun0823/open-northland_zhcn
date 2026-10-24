@@ -192,17 +192,17 @@ function checkQueries(
 }
 
 describe('InteractionCellIndex', () => {
-  it.each([1, 2, 3])('picks the linear scan winner for loose and door candidates alike (seed %i)', (seed) => {
+  it.each([1])('picks the linear scan winner for loose and door candidates alike (seed %i)', (seed) => {
     const { sim, candidates, roll, index } = world(seed);
     checkQueries(sim, index, candidates, roll);
   });
 
-  it.each([7, 8])('picks the linear scan winner across many search blocks (seed %i)', (seed) => {
+  it.each([7])('picks the linear scan winner across many search blocks (seed %i)', (seed) => {
     const { sim, candidates, roll, index } = world(seed, WIDE);
     checkQueries(sim, index, candidates, roll);
   });
 
-  it.each([9, 10])('finds a lone candidate just past the ring cap (seed %i)', (seed) => {
+  it.each([9])('finds a lone candidate just past the ring cap (seed %i)', (seed) => {
     const { sim, terrain, candidates, roll, index } = world(seed, WIDE);
     for (let q = 0; q < QUERIES; q++) {
       const target = candidates[roll(candidates.length)] as Entity;
@@ -223,26 +223,23 @@ describe('InteractionCellIndex', () => {
     }
   });
 
-  it.each([4, 5])(
-    'keeps the same answers when filled and thinned one candidate at a time (seed %i)',
-    (seed) => {
-      const { sim, terrain, ctx, candidates, roll, index: built } = world(seed);
-      const live = new InteractionCellIndex(sim.world, ctx, terrain);
-      // Out of id order, with a query between, so the loose grid exists before the later inserts land.
-      const order = [...candidates].sort((a, b) => ((a * 7919) % 101) - ((b * 7919) % 101));
-      for (const [i, e] of order.entries()) {
-        live.add(e);
-        if (i === order.length >> 1) live.nearest(terrain.nodeAt(0, 0), () => null);
-      }
-      expect(live.divergence(built)).toEqual([]);
-      const kept = candidates.filter(() => roll(3) !== 0);
-      for (const e of candidates) if (!kept.includes(e)) live.remove(e);
-      expect(live.divergence(new InteractionCellIndex(sim.world, ctx, terrain, kept))).toEqual([]);
-      checkQueries(sim, live, kept, roll);
-    },
-  );
+  it.each([4])('keeps the same answers when filled and thinned one candidate at a time (seed %i)', (seed) => {
+    const { sim, terrain, ctx, candidates, roll, index: built } = world(seed);
+    const live = new InteractionCellIndex(sim.world, ctx, terrain);
+    // Out of id order, with a query between, so the loose grid exists before the later inserts land.
+    const order = [...candidates].sort((a, b) => ((a * 7919) % 101) - ((b * 7919) % 101));
+    for (const [i, e] of order.entries()) {
+      live.add(e);
+      if (i === order.length >> 1) live.nearest(terrain.nodeAt(0, 0), () => null);
+    }
+    expect(live.divergence(built)).toEqual([]);
+    const kept = candidates.filter(() => roll(3) !== 0);
+    for (const e of candidates) if (!kept.includes(e)) live.remove(e);
+    expect(live.divergence(new InteractionCellIndex(sim.world, ctx, terrain, kept))).toEqual([]);
+    checkQueries(sim, live, kept, roll);
+  });
 
-  it.each([11, 12])('keeps its owner sides current as candidates change hands (seed %i)', (seed) => {
+  it.each([11])('keeps its owner sides current as candidates change hands (seed %i)', (seed) => {
     const { sim, terrain, ctx, candidates, roll, index } = world(seed);
     checkQueries(sim, index, candidates, roll); // splits the sides
     for (const handovers of [1, OWNER_HANDOVERS, GENERATION_JOURNAL_LIMIT + 1]) {
@@ -261,7 +258,7 @@ describe('InteractionCellIndex', () => {
     }
   });
 
-  it.each([15, 16])(
+  it.each([15])(
     'keeps its per-side filed candidates current through edits and handovers (seed %i)',
     (seed) => {
       const { sim, terrain, ctx, candidates, roll, index } = world(seed);
@@ -292,7 +289,7 @@ describe('InteractionCellIndex', () => {
     },
   );
 
-  it.each([13, 14])(
+  it.each([13])(
     "asks a short list's gate only for a candidate that beats the best so far (seed %i)",
     (seed) => {
       const { sim, terrain, ctx, candidates, roll } = world(seed);

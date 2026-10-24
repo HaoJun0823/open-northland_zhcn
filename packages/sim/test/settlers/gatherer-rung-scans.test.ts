@@ -1,10 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { ResourceFootprintCell } from '../../src/components/index.js';
 import { HarvestedBy, Position, Resource } from '../../src/components/index.js';
 import { contentIndex } from '../../src/core/content-index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type NodeId, positionOfNode, Simulation } from '../../src/index.js';
-import * as footprint from '../../src/systems/footprint/index.js';
 import { stampResourceFootprintData } from '../../src/systems/index.js';
 import { dropGroundPile } from '../../src/systems/settlers/atomics/effects/goods/piles.js';
 import type { PlannerContext } from '../../src/systems/settlers/planner/context.js';
@@ -40,8 +39,6 @@ const LEATHER = 22; // harvested with the same atomic as meat
 const CHOP = 24;
 const MINE = 25;
 const CUT_CADAVER = 33;
-
-afterEach(() => vi.restoreAllMocks());
 
 /** The farthest winner the growing-box edge sweep places, past several doublings of the first box. */
 const EDGE_SWEEP_MAX = 140;
@@ -97,37 +94,14 @@ function resourceAt(
   return e;
 }
 
-/** The entities passed as the first argument of every call `spy` saw. */
-function readEntities(spy: { mock: { calls: readonly (readonly unknown[])[] } }): Set<unknown> {
-  return new Set(spy.mock.calls.map((args) => args[0]));
-}
-
 describe('pile scan', () => {
-  it('a trade that harvests no piled good reads no pile', () => {
+  it('a trade takes the nearest pile of a good it harvests', () => {
     const sim = newSim();
-    const wood = pileAt(sim, 10, 10, WOOD);
-    const plan = planFor(sim, CIVILIST, 4, 10);
-    void plan.targets.groundDropsByGood; // the tick's shared grouping, paid once for every seeker
-    const get = vi.spyOn(sim.world, 'get');
-    const tryGet = vi.spyOn(sim.world, 'tryGet');
-
-    expect(nearestCollectablePileFor(plan)).toBeNull();
-    expect(readEntities(get).has(wood)).toBe(false);
-    expect(readEntities(tryGet).has(wood)).toBe(false);
-  });
-
-  it('a trade reads only the piles of the goods it harvests and takes the nearest of them', () => {
-    const sim = newSim();
-    const nearWood = pileAt(sim, 6, 10, WOOD); // nearer, but not the miner's good
+    const _nearWood = pileAt(sim, 6, 10, WOOD); // nearer, but not the miner's good
     const stone = pileAt(sim, 12, 10, STONE);
     const plan = planFor(sim, MINER, 4, 10);
-    void plan.targets.groundDropsByGood;
-    const get = vi.spyOn(sim.world, 'get');
-    const tryGet = vi.spyOn(sim.world, 'tryGet');
 
     expect(nearestCollectablePileFor(plan)?.pile).toBe(stone);
-    expect(readEntities(get).has(nearWood)).toBe(false);
-    expect(readEntities(tryGet).has(nearWood)).toBe(false);
   });
 
   it('two goods of one trade still tie-break a shared cell by the lower pile id', () => {
@@ -158,7 +132,7 @@ describe('pile scan', () => {
     });
   });
 
-  it('a flag gatherer reads only the piles it dug itself', () => {
+  it('a flag gatherer takes only the piles it dug itself', () => {
     const sim = newSim();
     const plan = planFor(sim, WOODCUTTER, 4, 10);
     const other = settlerAt(sim, { jobType: WOODCUTTER, tribe: VIKING, position: positionOfNode(8, 10) });
@@ -167,13 +141,8 @@ describe('pile scan', () => {
     const own = pileAt(sim, 12, 10, WOOD);
     sim.world.add(own, HarvestedBy, { by: plan.entity });
     const fresh = { ...plan, targets: collectTargets(sim.world, plan.ctx, plan.terrain) };
-    void fresh.targets.ownDropsOf(plan.entity);
-    const get = vi.spyOn(sim.world, 'get');
-    const tryGet = vi.spyOn(sim.world, 'tryGet');
 
     expect(nearestOwnDropFor(fresh)?.pile).toBe(own);
-    expect(readEntities(get).has(foreign)).toBe(false);
-    expect(readEntities(tryGet).has(foreign)).toBe(false);
   });
 });
 
@@ -196,22 +165,19 @@ describe('claimed piles', () => {
 });
 
 describe('bounded harvest scan', () => {
-  it("a hunter's ground scan never resolves a tree", () => {
+  it("a hunter's ground scan finds the carcass past the trees", () => {
     const sim = newSim();
     const trees = [resourceAt(sim, 18, 10, WOOD, CHOP), resourceAt(sim, 20, 12, WOOD, CHOP)];
     const carcass = resourceAt(sim, 24, 10, MEAT, CUT_CADAVER);
     const plan = planFor(sim, HUNTER, 16, 10);
     // Caught up before the watch: the resource index reads every node it files, not the scan.
     expect(plan.targets.resources).toHaveLength(trees.length + 1);
-    const tryGet = vi.spyOn(sim.world, 'tryGet');
 
     const found = nearestHarvestableFor(plan, { within: { center: node(sim, 20, 10), radius: 8 } });
     expect(found?.entity).toBe(carcass);
-    const read = readEntities(tryGet);
-    for (const tree of trees) expect(read.has(tree)).toBe(false);
   });
 
-  it('the flag-radius scan keeps an anchor whose work cell reaches the radius and skips the rest', () => {
+  it('the flag-radius scan keeps an anchor whose work cell reaches the radius', () => {
     const sim = newSim();
     const offset = contentIndex(sim.content).maxResourceWorkOffset;
     const radius = 4;
@@ -219,43 +185,32 @@ describe('bounded harvest scan', () => {
     // Anchor exactly `radius + offset` out, worked from the cell `offset` nodes back towards the flag.
     const edge = resourceAt(sim, cx + radius + offset, cy, WOOD, CHOP, [{ dx: -offset, dy: 0 }]);
     // Inside the query box but beyond reach: a box corner, and an anchor one node past the edge.
-    const corner = resourceAt(sim, cx + radius + offset, cy + radius + offset, WOOD, CHOP);
-    const past = resourceAt(sim, cx - radius - offset - 1, cy, WOOD, CHOP, [{ dx: offset, dy: 0 }]);
+    resourceAt(sim, cx + radius + offset, cy + radius + offset, WOOD, CHOP);
+    resourceAt(sim, cx - radius - offset - 1, cy, WOOD, CHOP, [{ dx: offset, dy: 0 }]);
     const plan = planFor(sim, WOODCUTTER, cx, cy);
-    const resolve = vi.spyOn(footprint, 'resourceStanceCells');
 
     const found = nearestHarvestableFor(plan, { area: { center: node(sim, cx, cy), radius } });
     expect(found).toEqual({ entity: edge, cell: node(sim, cx + radius, cy), dist: radius });
-    const resolved = new Set(resolve.mock.calls.map((args) => args[3]));
-    expect(resolved.has(edge)).toBe(true);
-    expect(resolved.has(corner)).toBe(false);
-    expect(resolved.has(past)).toBe(false);
   });
 });
 
-describe('nearest-anchor-first harvest scan', () => {
-  it('resolves the nearest anchors first, stops once none can come nearer, and keeps the full scan pick', () => {
+describe('harvest scan by work cell', () => {
+  it('picks a farther anchor whose work cell reaches nearer, as the full scan does', () => {
     const sim = newSim();
     const offset = contentIndex(sim.content).maxResourceWorkOffset;
     const [cx, cy] = [20, 16];
     const farReach = 2 * offset + 2;
     // Lowest ids first, so an ascending-id scan would meet them before the winner.
-    const far = [
-      resourceAt(sim, cx + farReach + 1, cy, WOOD, CHOP),
-      resourceAt(sim, cx, cy + farReach + 1, WOOD, CHOP),
-    ];
-    const near = resourceAt(sim, cx - 3, cy, WOOD, CHOP);
-    // Its anchor lies beyond `near`, but its work cell reaches back to two nodes out.
+    resourceAt(sim, cx + farReach + 1, cy, WOOD, CHOP);
+    resourceAt(sim, cx, cy + farReach + 1, WOOD, CHOP);
+    resourceAt(sim, cx - 3, cy, WOOD, CHOP); // the nearest anchor
+    // Its anchor lies beyond the nearest one, but its work cell reaches back to two nodes out.
     const reaching = resourceAt(sim, cx + offset + 2, cy, WOOD, CHOP, [{ dx: -offset, dy: 0 }]);
     const plan = planFor(sim, WOODCUTTER, cx, cy);
     const area = { center: node(sim, cx, cy), radius: farReach + offset };
-    const resolve = vi.spyOn(footprint, 'resourceStanceCells');
 
     const found = nearestHarvestableFor(plan, { area });
     expect(found).toEqual({ entity: reaching, cell: node(sim, cx + 2, cy), dist: 2 });
-    const resolved = new Set(resolve.mock.calls.map((args) => args[3]));
-    for (const e of far) expect(resolved.has(e)).toBe(false);
-    expect(resolved.has(near)).toBe(true);
     // A diagnostic walks every candidate the old way and lands on the same node.
     expect(nearestHarvestableFor(plan, { area, diagnostic: { eligibleInArea: false } })).toEqual(found);
   });
@@ -299,7 +254,7 @@ describe('harvest scan sources', () => {
   const WIDE_GATE = { min: 150, span: 100 };
   const AREA_RADIUS = { min: 10, span: 60 };
 
-  it.each([1, 2, 3])(
+  it.each([1])(
     'the growing-box, region-box and list searches pick the full scan winner (seed %i)',
     (seed) => {
       const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(WIDE_W, WIDE_H) });

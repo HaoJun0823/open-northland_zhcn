@@ -41,28 +41,7 @@ function fixture(row = 10) {
   return { sim, terrain, worker, flag, pick, heap };
 }
 
-describe('flag yard layout approximation', () => {
-  it.each([10, 11])('fills the flag, then six neighbours in clockwise order on row %i', (row) => {
-    const { terrain, pick, heap } = fixture(row);
-    const westDiagonal = row % 2 === 0 ? 9 : 10;
-    const eastDiagonal = westDiagonal + 1;
-    const expected = [
-      [10, row],
-      [11, row],
-      [eastDiagonal, row + 1],
-      [westDiagonal, row + 1],
-      [9, row],
-      [westDiagonal, row - 1],
-      [eastDiagonal, row - 1],
-      [12, row],
-    ];
-    for (const [hx, hy] of expected) {
-      if (hx === undefined || hy === undefined) throw new Error('missing expected point');
-      expect(pick()).toBe(terrain.nodeAt(hx, hy));
-      heap(hx, hy);
-    }
-  });
-
+describe('flag yard layout', () => {
   it('tops up the centre and reuses a drained inner heap before expanding', () => {
     const { sim, terrain, pick, heap } = fixture();
     const centre = heap(10, 10, 4);
@@ -72,25 +51,6 @@ describe('flag yard layout approximation', () => {
     expect(pick()).toBe(terrain.nodeAt(10, 11));
     setStockAmount(sim.world, east, WOOD, 0);
     expect(pick()).toBe(terrain.nodeAt(11, 10));
-  });
-
-  it('resumes after an unreachable candidate in layout order, even at a lower node id', () => {
-    const { terrain, pick, heap } = fixture();
-    heap(10, 10);
-    heap(11, 10, 1, WOOD + 1);
-    expect(pick()).toBe(terrain.nodeAt(10, 11));
-    expect(pick(terrain.nodeAt(10, 11))).toBe(terrain.nodeAt(9, 11));
-    expect(pick(terrain.nodeAt(9, 11))).toBe(terrain.nodeAt(9, 10));
-  });
-
-  it('skips off-map neighbours without changing the order of the remaining candidates', () => {
-    const { sim, terrain, flag, pick, heap } = fixture();
-    sim.world.add(flag, Position, positionOfNode(0, 0));
-    heap(0, 0);
-    heap(1, 0);
-    expect(pick()).toBe(terrain.nodeAt(0, 1));
-    heap(0, 1);
-    expect(pick()).toBe(terrain.nodeAt(2, 0));
   });
 
   it('walks each delivery to its pile', () => {

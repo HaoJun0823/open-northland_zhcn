@@ -29,28 +29,10 @@ export function rangedWeapons(content: ContentSet): WeaponType[] {
   return content.weapons.filter(isRangedWeapon);
 }
 
-/** A strict subset of {@link rangedWeapons}, in source order for the same reason. */
-export function siegeWeapons(content: ContentSet): WeaponType[] {
-  return content.weapons.filter(isSiegeWeapon);
-}
-
 /** The extracted `mainType`: 1 fist, 2 spear, 3 sword, 6 bow, 7 catapult. The saber rows carry 4 and the
  *  hero axe 5, which the sim gives no class and no fight bucket. */
 export function weaponClassOf(weapon: WeaponType): number | undefined {
   return weapon.mainType;
-}
-
-/**
- * Encumbrance weight `0..2`: fist and dagger 0, most weapons 1, the heaviest 2. The schema defaults it to
- * 0, so a weightless weapon reads the same 0 the source carries.
- */
-export function weaponWeightOf(weapon: WeaponType): number {
-  return weapon.weight;
-}
-
-/** Weapons bucketed by {@link weaponClassOf}, in {@link groupByKey} order. */
-export function weaponsByClass(content: ContentSet): Map<number, WeaponType[]> {
-  return groupByKey(content.weapons, weaponClassOf);
 }
 
 /**

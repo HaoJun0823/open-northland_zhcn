@@ -1,5 +1,5 @@
 import type { Fixed } from '../core/fixed.js';
-import { type DeepReadonly, defineComponent, type Entity } from '../ecs/world.js';
+import { defineComponent, type Entity } from '../ecs/world.js';
 import type { NodeId } from '../nav/terrain/index.js';
 import type { MilitaryMode } from '../systems/readviews/stances.js';
 
@@ -175,8 +175,6 @@ export const Projectile = defineComponent<{
    *  burst strikes everything there, whatever its side. */
   impact: ProjectileImpact | null;
 }>('Projectile', 'combat');
-
-export type ProjectileStateView = DeepReadonly<NonNullable<(typeof Projectile)['__value']>>;
 
 /** What a ground-burst shot carries beyond the damage tables every shot holds. */
 export interface ProjectileImpact {

@@ -5,7 +5,6 @@ import {
   HomeQuality,
   HouseholdGoodPolicy,
   ownerOf,
-  Residence,
   Settler,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
@@ -170,12 +169,6 @@ export function demandedHomeQualityGoods(
     out.add(good.typeId);
   }
   return out ?? EMPTY_GOODS;
-}
-
-/** The home currently containing `settler`, if it is its own residence. */
-export function occupiedHome(world: World, settler: Entity): Entity | null {
-  const home = world.tryGet(settler, Residence)?.home;
-  return home !== undefined && world.isAlive(home) ? home : null;
 }
 
 const EMPTY_GOODS: ReadonlySet<number> = new Set<number>();

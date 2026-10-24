@@ -28,16 +28,3 @@ export function armorByClass(content: ContentSet): Map<number, ArmorType[]> {
 export function armorMaterialOf(armor: ArmorType): number | undefined {
   return armor.materialType;
 }
-
-/**
- * Encumbrance weight: leather 0, cloth 1, chain and plate 3. Its own axis, because the material tiers do
- * not map monotonically to weight. The schema defaults it to 0, so weightless armor reads the source's 0.
- */
-export function armorWeightOf(armor: ArmorType): number {
-  return armor.weight;
-}
-
-/** Armor bucketed by {@link armorMaterialOf}, in {@link groupByKey} order. */
-export function armorByMaterial(content: ContentSet): Map<number, ArmorType[]> {
-  return groupByKey(content.armor, armorMaterialOf);
-}

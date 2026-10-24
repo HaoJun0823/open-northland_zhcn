@@ -32,20 +32,15 @@ export {
 export {
   ARMOR_MAIN_TYPE,
   armorByClass,
-  armorByMaterial,
   armorClassOf,
   armorMaterialOf,
-  armorWeightOf,
   isAreaWeapon,
   isRangedWeapon,
   isSiegeWeapon,
   rangedWeapons,
-  siegeWeapons,
   weaponClassOf,
-  weaponsByClass,
   weaponsByJob,
   weaponsForJob,
-  weaponWeightOf,
 } from './classes/index.js';
 export {
   ARMOR_MATERIAL,

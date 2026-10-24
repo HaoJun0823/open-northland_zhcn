@@ -13,7 +13,7 @@ import {
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
-import type { System, SystemContext } from '../context.js';
+import type { System } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { interactionNodeId } from '../footprint/interaction.js';
 import { isTravelling } from '../movement/nav-state.js';
@@ -75,11 +75,6 @@ export function livestockLeashOf(world: World, content: ContentSet, e: Entity): 
 export function territoryRangeIn(world: World, content: ContentSet, e: Entity): number {
   if (world.has(e, Livestock) && world.has(e, Owner)) return livestockLeashOf(world, content, e);
   return stayPointRangeOf(content, world.get(e, Settler).tribe);
-}
-
-/** {@link territoryRangeIn} under the system's content. */
-export function territoryRangeOf(world: World, ctx: SystemContext, e: Entity): number {
-  return territoryRangeIn(world, ctx.content, e);
 }
 
 /**

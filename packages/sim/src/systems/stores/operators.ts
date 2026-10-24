@@ -135,13 +135,6 @@ export function operatorCountOf(operators: WorkplaceOperators): number {
   }
 }
 
-/** The operator seats a workplace type declares, read from content alone with no settler scan. */
-export function operatorSlotCapacity(world: World, ctx: SystemContext, building: Entity): number {
-  const jobs = operatorJobsOf(world, ctx, building);
-  if (jobs.size === 0) return UNSTAFFED_OPERATOR_COUNT;
-  return operatorSlotHeadcount(world, ctx, building, jobs);
-}
-
 /** Operator-slot headcounts by building type, per content set: the jobs are the type's too. */
 const headcounts = new WeakMap<ContentSet, Map<number, number>>();
 

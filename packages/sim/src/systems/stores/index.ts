@@ -24,7 +24,6 @@ export { accessibleStockAmounts, setAccessibleStockAmount } from './inventory.js
 export {
   isWorkplaceOperator,
   operatorCountOf,
-  operatorSlotCapacity,
   presentOperatorCount,
   presentOperators,
   presentOperatorsInto,

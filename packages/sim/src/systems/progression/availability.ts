@@ -1,4 +1,4 @@
-import type { ContentSet, JobEnablesKind, Recipe, TribeType, VehicleType } from '@open-northland/data';
+import type { ContentSet, JobEnablesKind, Recipe, TribeType } from '@open-northland/data';
 import {
   AiControl,
   Building,
@@ -23,7 +23,6 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
 import type { ContentContext } from '../context.js';
-import { isShipVehicle } from '../readviews/vehicles.js';
 import { assignedWorkers } from '../stores/assigned-workers.js';
 import { aliveTribeJobs } from './alive-jobs.js';
 
@@ -320,22 +319,6 @@ export function jobAwaitsDiscovery(ctx: ContentContext, tribe: number, jobType: 
   if (definition === undefined) return false;
   if (definition.technology !== undefined) return needsExperienceForJob(definition, jobType);
   return index.enablingJobsByTribe.get(tribe)?.get('job')?.has(jobType) ?? false;
-}
-
-/**
- * The ship types `tribe` has currently unlocked, sorted ascending by `typeId` so the order cannot depend
- * on `content.vehicles` declaration order. Composes the extracted `passengerSlots` ship classification
- * with the `vehicle`-kind tech gate.
- */
-export function tribeShipsUnlocked(
-  world: World,
-  ctx: ContentContext,
-  tribe: number,
-  owner?: number,
-): VehicleType[] {
-  return ctx.content.vehicles
-    .filter((v) => isShipVehicle(v) && tribeUnlockEnabled(world, ctx, tribe, 'vehicle', v.typeId, owner))
-    .sort((a, b) => a.typeId - b.typeId);
 }
 
 /** A script's `Allow*` overrides authored bans; otherwise the map's permission table, then the tribe's

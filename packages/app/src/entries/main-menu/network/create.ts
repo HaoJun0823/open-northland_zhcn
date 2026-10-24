@@ -1,4 +1,4 @@
-import { initialMapSelectMemory, type MapSelectItem } from '../map-select-model.js';
+import { initialMapSelectMemory, type MapSelectItem } from '../map-select/model.js';
 import { type CreateChoice, createRoomCard } from './create-card.js';
 import { roomMapPick } from './map-pick.js';
 

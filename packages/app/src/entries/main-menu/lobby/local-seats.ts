@@ -6,7 +6,7 @@ import { difficultyControl } from '../lobby-controls/difficulty.js';
 import { seatRow } from '../lobby-controls/seat.js';
 import { seatModeControl } from '../lobby-controls/seat-mode.js';
 import { tribePicker } from '../lobby-controls/tribe.js';
-import type { MapSelectItem } from '../map-select-model.js';
+import type { MapSelectItem } from '../map-select/model.js';
 import type { LobbySlotRow } from './model.js';
 import { type RosterState, type VacantMode, vacantOffers, wornByAnother } from './roster-state.js';
 

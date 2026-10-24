@@ -2,7 +2,7 @@ import type { CatalogEntry } from '@open-northland/data';
 import { findMapSource } from '../../../content/map-source/index.js';
 import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
 import { node } from '../dom.js';
-import { mapItem, mapPreviewUrl, mapSourceItem } from '../map-select-model.js';
+import { mapItem, mapPreviewUrl, mapSourceItem } from '../map-select/model.js';
 import {
   type CatalogueContext,
   downloadButton,

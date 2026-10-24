@@ -1,5 +1,5 @@
 import { messages } from '../../../i18n/index.js';
-import type { MapSelectItem } from '../map-select-model.js';
+import type { MapSelectItem } from '../map-select/model.js';
 import type { MenuScreen, MountedScreen } from '../model.js';
 import { screenHead } from '../screen-head.js';
 import { type CatalogueMemory, catalogueView } from './view.js';

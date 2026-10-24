@@ -1,5 +1,5 @@
 import { GAME_VERSION } from '../../build-version.js';
-import type { MapContentTab } from './map-select-model.js';
+import type { MapContentTab } from './map-select/model.js';
 
 export type MenuScreen =
   | 'main'

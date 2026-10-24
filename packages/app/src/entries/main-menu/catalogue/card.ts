@@ -2,7 +2,7 @@ import type { CatalogBrowseEntry, MapTextLanguage } from '@open-northland/data';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
-import { listedIn, mapItem } from '../map-select-model.js';
+import { listedIn, mapItem } from '../map-select/model.js';
 import type { CatalogueRow } from './model.js';
 
 /** What the cards, the detail panel and the Installed tab ask of the view that owns the data. */

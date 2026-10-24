@@ -10,7 +10,7 @@ import { relayCloseText, relayFailureText, relayReasonText } from '../../../net/
 import { nextPaint } from '../../../view/next-paint.js';
 import { relayIdentity } from '../../relay/identity.js';
 import { node } from '../dom.js';
-import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
+import { type MapSelectItem, mapSourceItem } from '../map-select/model.js';
 import type { MenuScreen } from '../model.js';
 import type { MenuSound } from '../music.js';
 import { screenHead } from '../screen-head.js';

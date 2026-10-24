@@ -4,8 +4,8 @@ import { localImportControls } from '../catalogue/local-import.js';
 import { type CatalogueView, catalogueView, initialCatalogueMemory } from '../catalogue/view.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
-import { mapPicker } from '../map-picker.js';
-import { type MapSelectItem, type MapSelectMemory, ROOM_TABS } from '../map-select-model.js';
+import { type MapSelectItem, type MapSelectMemory, ROOM_TABS } from '../map-select/model.js';
+import { mapPicker } from '../map-select/picker.js';
 
 interface MapPickOptions {
   readonly memory: MapSelectMemory;

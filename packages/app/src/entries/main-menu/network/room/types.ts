@@ -2,7 +2,7 @@ import type { MapsIndexPlayerSlot } from '@open-northland/data';
 import type { SavedSessionMetadata, SessionWorld } from '@open-northland/lockstep';
 import type { RelayClientView } from '@open-northland/net-client';
 import type { enNetworkRoom } from '../../../../i18n/catalogs/en-network-room.js';
-import type { MapSelectItem } from '../../map-select-model.js';
+import type { MapSelectItem } from '../../map-select/model.js';
 
 export type NetworkRoomCopy = { readonly [Key in keyof typeof enNetworkRoom]: string };
 export type RoomClient = Pick<

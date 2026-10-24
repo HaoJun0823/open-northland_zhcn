@@ -17,7 +17,7 @@ import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { menuConfirm } from '../confirm.js';
 import { node } from '../dom.js';
-import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
+import { type MapSelectItem, mapSourceItem } from '../map-select/model.js';
 import { type CardDate, type CatalogueContext, formatCount } from './card.js';
 import { catalogueCardGrid } from './card-grid.js';
 import { catalogueDetail } from './detail.js';

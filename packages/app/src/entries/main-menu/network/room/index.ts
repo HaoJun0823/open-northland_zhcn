@@ -2,8 +2,8 @@ import { type ChatLine, MAX_CHAT_LENGTH, type RoomView } from '@open-northland/n
 import { quietTextField } from '../../../../hud/dom/parts/text-field.js';
 import { formatClockTime, formatMessage, messages } from '../../../../i18n/index.js';
 import { node } from '../../dom.js';
-import { createMapDetailsCard } from '../../map-card.js';
-import type { MapSelectItem } from '../../map-select-model.js';
+import { createMapDetailsCard } from '../../map-select/card.js';
+import type { MapSelectItem } from '../../map-select/model.js';
 import { button } from './controls.js';
 import { roomPermissions } from './model.js';
 import { roomObservers } from './observers.js';

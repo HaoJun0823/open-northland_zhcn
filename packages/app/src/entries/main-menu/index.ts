@@ -16,8 +16,8 @@ import { mountFullscreenPrompt } from './fullscreen-prompt.js';
 import { loadSelectScreen } from './load-select.js';
 import { lobbyScreen } from './lobby/index.js';
 import type { RosterState } from './lobby/roster-state.js';
-import { mapSelectScreen } from './map-select.js';
-import { initialMapSelectMemory, type MapSelectItem } from './map-select-model.js';
+import { initialMapSelectMemory, type MapSelectItem } from './map-select/model.js';
+import { mapSelectScreen } from './map-select/screen.js';
 import {
   backTarget,
   deepLinkScreen,
@@ -31,8 +31,8 @@ import {
 import { startMenuMusic } from './music.js';
 import { networkScreen } from './network/index.js';
 import { originalGameGateScreen } from './original-game/gate-screen.js';
-import { settingsScreen } from './settings.js';
-import { adoptStoredSettings, menuSettings, onSettingsChange, updateSettings } from './settings-state.js';
+import { settingsScreen } from './settings/screen.js';
+import { adoptStoredSettings, menuSettings, onSettingsChange, updateSettings } from './settings/state.js';
 
 /** Grade layers above the scene, bottom to top; the scene layer itself is built as the backdrop host. */
 const OVERLAY_LAYERS = ['tint', 'shade', 'aurora-dusk', 'aurora-blue'] as const;

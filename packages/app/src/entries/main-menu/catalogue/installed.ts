@@ -5,7 +5,7 @@ import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/ind
 import { desktopMaps } from '../../../view/platform/desktop-bridge.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
-import { listedIn, mapItem } from '../map-select-model.js';
+import { listedIn, mapItem } from '../map-select/model.js';
 import {
   badge,
   type CatalogueContext,

@@ -2,7 +2,7 @@
 
 **Area:** app · **Focus:** entries · **Priority:** P3
 
-`entries/main-menu/map-picker.ts` imports `SCENES` and `MAP_SCENES` to list ids, but each
+`entries/main-menu/map-select/picker.ts` imports `SCENES` and `MAP_SCENES` to list ids, but each
 `SceneDefinition` carries a `build(sim)` closure and a terrain grid. Opening the menu therefore pulls
 in the acceptance world builders and their sandbox content even when no scene is launched.
 

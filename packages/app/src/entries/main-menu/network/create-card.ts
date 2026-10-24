@@ -9,8 +9,8 @@ import { browserSaveStore } from '../../../view/runtime/save-load/store-browser.
 import { SCENE_TOKEN_PREFIX } from '../../../view/runtime/save-load/world-names.js';
 import { segControl } from '../../../view/settings/controls.js';
 import { node } from '../dom.js';
-import { metaLine, paintMapThumb } from '../map-card.js';
-import type { MapSelectItem } from '../map-select-model.js';
+import { metaLine, paintMapThumb } from '../map-select/card.js';
+import type { MapSelectItem } from '../map-select/model.js';
 import { button, field } from './parts.js';
 
 export type CreateChoice =

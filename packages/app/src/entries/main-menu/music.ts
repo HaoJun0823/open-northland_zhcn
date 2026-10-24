@@ -14,7 +14,7 @@ import { contentAudioOptions } from '../../content/audio/sound-driver.js';
 import { followPageFocus } from '../../view/sound-background.js';
 import { startSound } from '../../view/sound-start.js';
 import { rotationOrder } from './rotation.js';
-import { menuSettings, onSettingsChange } from './settings-state.js';
+import { menuSettings, onSettingsChange } from './settings/state.js';
 
 /**
  * Approximation: the segments the menu plays are a presentation choice. The original's segment table

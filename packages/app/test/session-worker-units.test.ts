@@ -1,6 +1,6 @@
 import { MessageChannel } from 'node:worker_threads';
 import { FOG_MODE, type FogMaskAnswer, MS_PER_TICK } from '@open-northland/sim';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createSceneSim, SCENES } from '../src/scenes/index.js';
 import { changedFacts, readWorldFacts } from '../src/session/worker/facts.js';
 import { FogPosts } from '../src/session/worker/fog-posts.js';
@@ -192,11 +192,24 @@ function inProcessSession(
 
 /** How long past reaching its limit the hold test watches the worker. */
 const PAST_THE_LIMIT_MS = 500;
-/** How long the hold test waits for the worker to reach its limit on a loaded machine. */
-const REACH_LIMIT_TIMEOUT_MS = 30_000;
 const settle = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 /** A polling interval while the other end of an in-process channel works. */
 const TURN_MS = 10;
+
+/** Fake the clock both ends read. Channel messages and the session's zero-delay tasks stay real. */
+function fakeClock(): void {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+}
+
+/** One fake turn, then the real tasks it released. */
+async function fakeTurn(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(TURN_MS);
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+async function fakeElapse(ms: number): Promise<void> {
+  for (let passed = 0; passed < ms; passed += TURN_MS) await fakeTurn();
+}
 
 describe('fog posts', () => {
   const VIEWER = 2;
@@ -292,18 +305,23 @@ describe('tick batch queue', () => {
   });
 
   it('steps nothing before the first frame', async () => {
+    /** Clock ticks a running session would have stepped meanwhile. */
+    const TICKS_WATCHED = 4;
+    fakeClock();
     const { session: started } = inProcessSession({ kind: 'scene', id: 'sandbox' }, SPEED, false);
     const session = await started;
     try {
-      await settle(TURN_MS);
+      await fakeElapse(TICKS_WATCHED * PERIOD_MS);
       expect((await session.host.hashState()).tick).toBe(session.host.tick);
     } finally {
       session.dispose();
+      vi.useRealTimers();
     }
   });
 
   it('holds the clock once the runtime has left its lead of ticks undelivered', async () => {
     const FAST = 16;
+    fakeClock();
     const { session: started } = inProcessSession({ kind: 'scene', id: 'sandbox' }, FAST, false);
     const session = await started;
     try {
@@ -312,16 +330,13 @@ describe('tick batch queue', () => {
       session.driver.advance(0);
       const limit = leadTickLimit(FAST, ASSUMED_FRAME_MS);
       const lead = async () => (await session.host.hashState()).tick - session.host.tick;
-      const deadline = performance.now() + REACH_LIMIT_TIMEOUT_MS;
-      while ((await lead()) < limit) {
-        if (performance.now() > deadline) throw new Error('the worker did not reach its limit');
-        await settle(TURN_MS);
-      }
-      await settle(PAST_THE_LIMIT_MS);
+      while ((await lead()) < limit) await fakeTurn();
+      await fakeElapse(PAST_THE_LIMIT_MS);
       // The clock feeds the driver a tick at a time, so it stops exactly at the limit.
       expect(await lead()).toBe(limit);
     } finally {
       session.dispose();
+      vi.useRealTimers();
     }
   });
 });
@@ -333,6 +348,7 @@ describe('a runtime back from not drawing', () => {
   const HIDDEN_MS = 700;
 
   it('reads its first frame as no frame rate and reports no drawn tick cost for it', async () => {
+    fakeClock();
     const drawn: number[] = [];
     const { session: started, batches } = inProcessSession(
       { kind: 'scene', id: 'sandbox' },
@@ -349,13 +365,13 @@ describe('a runtime back from not drawing', () => {
       const deliveredFrame = async (frameMs: number): Promise<void> => {
         const before = batches.length;
         session.driver.advance(frameMs);
-        while (batches.length === before) await settle(TURN_MS);
+        while (batches.length === before) await fakeTurn();
       };
       session.driver.advance(ASSUMED_FRAME_MS);
-      while (batches.length === 0) await settle(TURN_MS);
+      while (batches.length === 0) await fakeTurn();
       await deliveredFrame(ASSUMED_FRAME_MS);
       expect(drawn).toHaveLength(1);
-      await settle(HIDDEN_MS);
+      await fakeElapse(HIDDEN_MS);
       await deliveredFrame(HIDDEN_RETURN_FRAME_MS);
       expect(drawn).toHaveLength(1);
       await deliveredFrame(ASSUMED_FRAME_MS);
@@ -363,6 +379,7 @@ describe('a runtime back from not drawing', () => {
       expect(Math.max(...drawn)).toBeLessThan(MS_PER_TICK);
     } finally {
       session.dispose();
+      vi.useRealTimers();
     }
   });
 });
@@ -532,6 +549,7 @@ describe('failures between the ends', () => {
   });
 
   it('rejects the pending asks and stops its heartbeat when the worker fails', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     const channel = new MessageChannel();
     serveSession(nodeParentPort(channel.port1), buildTestWorld);
     const inner = nodeParentPort(channel.port2);
@@ -559,14 +577,17 @@ describe('failures between the ends', () => {
       { heartbeatMs: HEARTBEAT_MS },
     );
     try {
+      vi.advanceTimersByTime(HEARTBEAT_MS * HEARTBEATS_WATCHED);
+      expect(pings).toBeGreaterThan(0);
       const pending = session.host.hashState();
       failWorker(new Error(WORKER_GONE));
       await expect(pending).rejects.toThrow(WORKER_GONE);
       const pingsAtFailure = pings;
-      await settle(HEARTBEAT_MS * HEARTBEATS_WATCHED);
+      vi.advanceTimersByTime(HEARTBEAT_MS * HEARTBEATS_WATCHED);
       expect(pings).toBe(pingsAtFailure);
     } finally {
       session.dispose();
+      vi.useRealTimers();
     }
   });
 });

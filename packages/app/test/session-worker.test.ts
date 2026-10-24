@@ -39,8 +39,8 @@ import { INJECTED_FAULT_MESSAGE, type TestWorldBoot } from './support/session-wo
  * the same state, and the runtime's side sees every tick the worker stepped.
  */
 
-/** The scenes the loopback parity test runs, reaching distinct system sets. */
-const PARITY_SCENES = ['battle', 'construction', 'sandbox', 'tower-defence'];
+/** The scenes the loopback parity test runs: economy and combat. The other tests run the sandbox. */
+const PARITY_SCENES = ['construction', 'tower-defence'];
 const PARITY_TICKS = 120;
 /** Fast enough that the clock-driven tests take a fraction of a second per hundred ticks. */
 const FAST_SPEED = 8;

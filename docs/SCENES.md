@@ -14,7 +14,7 @@ Only a dev server lists the scenes in the menu, under the Test scenes tab; web a
 hide the tab, though `?scene=<id>` still opens a scene there.
 
 A scene does not re-prove same-seed determinism: every mechanic's own suite under `packages/sim/test/`
-compares two runs of its scenario, with `core/fuzz-determinism.test.ts` and `core/golden-trace.test.ts`
+compares two runs of its scenario, with `simulation/fuzz-determinism.test.ts` and `simulation/golden-trace.test.ts`
 as the engine-wide tripwires. Nothing checks a scene's own `build()`, so keep pre-tick-zero setup free
 of wall clock, unseeded randomness, and payloads shared between runs.
 

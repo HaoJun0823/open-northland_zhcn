@@ -20,14 +20,8 @@ import {
   resolveCombatHit,
 } from '../../src/systems/settlers/atomics/effects/combat/index.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
-import {
-  ctxOf,
-  grassMap,
-  justAbove,
-  NEED_DRIVE_THRESHOLD,
-  needsSettlerAt,
-} from '../settlers/needs/support.js';
 
 // The six amulets on the fixture goods, carrying the original's magnitudes: food and stamina top their
 // need up by 40% and never wear, strength deals 3/2, critical hit doubles one blow in five, defense

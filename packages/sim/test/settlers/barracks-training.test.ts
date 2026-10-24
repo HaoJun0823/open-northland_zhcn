@@ -34,9 +34,9 @@ import { BARRACKS_DRILL_TICKS } from '../../src/systems/settlers/drives/training
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
 import { noteUnreachableGoal } from '../../src/systems/settlers/unreachable-goals.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap } from '../fixtures/needs.js';
 import { setNeeds } from '../fixtures/settler.js';
 import { waterColumnMap } from '../fixtures/terrain.js';
-import { ctxOf, grassMap } from './needs/support.js';
 
 /**
  * The barracks drill: a colonist sent to a training house walks to its door, drills inside for

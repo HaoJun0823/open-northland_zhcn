@@ -31,7 +31,6 @@ import { TEMPLE_PREFERRED_RANGE } from '../../src/systems/settlers/targets/store
 import { NodeBuckets } from '../../src/systems/spatial/nodes.js';
 import { testContent } from '../fixtures/content.js';
 import { nextTickCtxOf } from '../fixtures/context.js';
-import { needsOf } from '../fixtures/settler.js';
 import {
   cellOf,
   ctxOf,
@@ -40,7 +39,8 @@ import {
   NEED_DRIVE_THRESHOLD,
   needsSettlerAt,
   treeAt,
-} from './needs/support.js';
+} from '../fixtures/needs.js';
+import { needsOf } from '../fixtures/settler.js';
 
 /**
  * Unit + integration tests for the PRAY DRIVE - the planner choosing a `pray` atomic (id 12, the

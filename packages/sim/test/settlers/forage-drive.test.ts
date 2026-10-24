@@ -27,8 +27,15 @@ import {
 import { BUSH_AT_HAND_NODES } from '../../src/systems/settlers/targets/index.js';
 import { testContent } from '../fixtures/content.js';
 import { fixtureTick, nextTickCtxOf } from '../fixtures/context.js';
+import {
+  cellOf,
+  ctxOf,
+  grassMap,
+  justAbove,
+  NEED_DRIVE_THRESHOLD,
+  needsSettlerAt,
+} from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
-import { cellOf, ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /**
  * Unit + integration tests for the FORAGE DRIVE - a hungry settler eating a wild {@link BerryBush} (the

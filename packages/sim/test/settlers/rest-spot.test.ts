@@ -10,7 +10,7 @@ import { collectTargets } from '../../src/systems/settlers/targets/index.js';
 import { NodeBuckets } from '../../src/systems/spatial/nodes.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
+import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 
 /**
  * The REST SPOT rule - where a tired settler beds down. The original's settlers step off the workplace

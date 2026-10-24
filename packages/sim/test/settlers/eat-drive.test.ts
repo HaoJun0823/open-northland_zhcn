@@ -34,8 +34,15 @@ import { noteUnreachableGoal } from '../../src/systems/settlers/unreachable-goal
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { nextTickCtxOf } from '../fixtures/context.js';
+import {
+  cellOf,
+  ctxOf,
+  grassMap,
+  justAbove,
+  NEED_DRIVE_THRESHOLD,
+  needsSettlerAt,
+} from '../fixtures/needs.js';
 import { settlerAt as fixtureSettlerAt, needsOf } from '../fixtures/settler.js';
-import { cellOf, ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /**
  * Unit + integration tests for the EAT DRIVE - the planner choosing an `eat` atomic (id 10, the

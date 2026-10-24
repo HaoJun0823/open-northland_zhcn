@@ -26,8 +26,8 @@ import {
 } from '../../src/systems/index.js';
 import { resolveAttackHit } from '../../src/systems/settlers/atomics/effects/combat/index.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /** The fixture's attack swing (`setatomic 1 81 "viking_attack"`, length 4) at its landing frame - the
  *  shape `resolveAttackHit` reads to decide whether the clip announces the swing itself. */

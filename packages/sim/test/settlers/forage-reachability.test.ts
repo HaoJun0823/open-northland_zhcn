@@ -22,8 +22,8 @@ import { chooseMeal } from '../../src/systems/settlers/targets/food.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
+import { needsSettlerAt } from '../fixtures/needs.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { needsSettlerAt } from '../settlers/needs/support.js';
 
 const SEAL_RING = HEX_NEIGHBOUR_OFFSETS;
 

@@ -10,8 +10,8 @@ import {
   mealAtomicId,
 } from '../../src/systems/settlers/atomics/start.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /**
  * The candy eat slot: a meal of food_extra or candy plays atomic 11 for a job that allows it, and every

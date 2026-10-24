@@ -5,8 +5,15 @@ import { cellAnchorNode, type Fixed, fx, ONE, Simulation } from '../../src/index
 import { atomicSystem, NEED_DRAIN_UNITS_PER_TICK, needBar, plannerSystem } from '../../src/systems/index.js';
 import { testContent } from '../fixtures/content.js';
 import { nextTickCtxOf } from '../fixtures/context.js';
+import {
+  ctxOf,
+  grassMap,
+  justAbove,
+  NEED_DRIVE_THRESHOLD,
+  needsSettlerAt,
+  treeAt,
+} from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt, treeAt } from './needs/support.js';
 
 /**
  * Unit + integration tests for the SLEEP DRIVE - the planner choosing a `sleep` atomic (id 8, the

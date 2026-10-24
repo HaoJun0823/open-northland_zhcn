@@ -20,9 +20,9 @@ import { combatContent } from '../fixtures/content/combat.js';
 import { economyContent } from '../fixtures/content/economy.js';
 import { TEST_MANIFEST } from '../fixtures/content/index.js';
 import { societyContent } from '../fixtures/content/societies.js';
+import { justAbove, NEED_DRIVE_THRESHOLD } from '../fixtures/needs.js';
 import { setNeeds } from '../fixtures/settler.js';
 import { grassCellMap } from '../fixtures/terrain.js';
-import { justAbove, NEED_DRIVE_THRESHOLD } from './needs/support.js';
 
 /**
  * A hunter's chase is an economy errand, so a pressing need breaks it off: the hunter walks to food

@@ -1,11 +1,11 @@
-import { Position, Resource } from '../../../src/components/index.js';
-import { ULP } from '../../../src/core/fixed.js';
-import type { Entity } from '../../../src/ecs/world.js';
-import { cellAnchorNode, type Fixed, fx, type NodeId, type Simulation } from '../../../src/index.js';
-import { anchorOnlyFootprint, stampResourceFootprintData } from '../../../src/systems/index.js';
-import { ctxOf } from '../../fixtures/context.js';
-import { settlerAt } from '../../fixtures/settler.js';
-import { grassCellMap as grassMap } from '../../fixtures/terrain.js';
+import { Position, Resource } from '../../src/components/index.js';
+import { ULP } from '../../src/core/fixed.js';
+import type { Entity } from '../../src/ecs/world.js';
+import { cellAnchorNode, type Fixed, fx, type NodeId, type Simulation } from '../../src/index.js';
+import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
+import { ctxOf } from './context.js';
+import { settlerAt } from './settler.js';
+import { grassCellMap as grassMap } from './terrain.js';
 
 export { ctxOf, grassMap };
 
@@ -13,7 +13,7 @@ const WOOD = 1;
 const WOODCUTTER = 1;
 
 /** The one level every need drive fires at - used bare as an exactly-at-threshold start. */
-export { NEED_DRIVE_THRESHOLD } from '../../../src/systems/index.js';
+export { NEED_DRIVE_THRESHOLD } from '../../src/systems/index.js';
 
 /** The smallest need level strictly past `v`, for a fixture that must clear a threshold rather than sit
  *  on it. */

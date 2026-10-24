@@ -22,8 +22,8 @@ import { isServedAtHome } from '../../src/systems/settlers/drives/home-errands.j
 import { noteUnreachableGoal } from '../../src/systems/settlers/unreachable-goals.js';
 import { hexNodeDistance } from '../../src/systems/spatial/metric.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from './needs/support.js';
 
 /**
  * The SLEEP-AT-HOME rung: a settler with a built house walks to its door, goes inside (hidden by the

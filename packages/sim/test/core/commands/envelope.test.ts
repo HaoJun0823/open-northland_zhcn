@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CommandQueue } from '../../src/core/command-queue.js';
-import type { Entity } from '../../src/ecs/world.js';
+import { CommandQueue } from '../../../src/core/command-queue.js';
+import type { Entity } from '../../../src/ecs/world.js';
 import {
   adminCommand,
   COMMAND_ENVELOPE_VERSION,
@@ -9,7 +9,7 @@ import {
   parseCommandLog,
   playerCommand,
   setupCommand,
-} from '../../src/index.js';
+} from '../../../src/index.js';
 
 /**
  * The command envelope is the sim's authority boundary in wire form: what a caller may claim, what the

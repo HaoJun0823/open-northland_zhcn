@@ -21,7 +21,7 @@ import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
 import { plannerSystem } from '../../src/systems/index.js';
 import { orderNeed } from '../../src/systems/orders/needs.js';
 import { testContent } from '../fixtures/content.js';
-import { cellOf, ctxOf, grassMap, type NeedLevels, needsSettlerAt } from './needs/support.js';
+import { cellOf, ctxOf, grassMap, type NeedLevels, needsSettlerAt } from '../fixtures/needs.js';
 
 /**
  * The four "answer this need now" orders (the original's eat/sleep/talk/pray buttons) and the

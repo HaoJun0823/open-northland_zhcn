@@ -32,8 +32,8 @@ import { razeBuilding } from '../../src/systems/lifecycle/cleanup.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { resolveCombatHit } from '../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf, grassMap } from '../fixtures/needs.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
-import { ctxOf, grassMap } from '../settlers/needs/support.js';
 
 /**
  * The tower garrison: a bow soldier posted to a watchtower walks in, holds it, and shoots from cover at

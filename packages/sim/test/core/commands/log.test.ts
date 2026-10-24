@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CommandQueue } from '../../src/core/command-queue.js';
-import { aiCommand, type CommandEnvelope, playerCommand } from '../../src/core/commands/envelope.js';
-import type { PlayerCommand } from '../../src/core/commands/index.js';
-import type { Entity } from '../../src/ecs/component.js';
+import { CommandQueue } from '../../../src/core/command-queue.js';
+import { aiCommand, type CommandEnvelope, playerCommand } from '../../../src/core/commands/envelope.js';
+import type { PlayerCommand } from '../../../src/core/commands/index.js';
+import type { Entity } from '../../../src/ecs/component.js';
 
 const SEAT = 1;
 const TRIBE = 2;

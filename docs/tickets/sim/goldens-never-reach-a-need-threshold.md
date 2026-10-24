@@ -2,7 +2,7 @@
 
 **Area:** sim · **Priority:** P3
 
-`packages/sim/test/core/golden-trace.test.ts` runs its economy slice for 1000 ticks without an authored
+`packages/sim/test/simulation/golden-trace.test.ts` runs its economy slice for 1000 ticks without an authored
 high starting need or an assertion that eating or sleeping occurs. Its trace covers work and short
 work-rest clips, but contains neither the eat atomic (10) nor sleep atomic (8). Rising needs are
 hashed as component state; their drives are not exercised by this integration golden.

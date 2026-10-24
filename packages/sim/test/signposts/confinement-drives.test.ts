@@ -20,8 +20,8 @@ import { CUT_OFF_CHECK_TICKS } from '../../src/systems/settlers/drives/cut-off.j
 import { woodAt } from '../conflict/orders/support.js';
 import { testContent } from '../fixtures/content.js';
 import { stepToIdleReplan } from '../fixtures/idle-replan.js';
+import { justAbove, NEED_DRIVE_THRESHOLD } from '../fixtures/needs.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
-import { justAbove, NEED_DRIVE_THRESHOLD } from '../settlers/needs/support.js';
 import { stampPost } from './support.js';
 
 /**

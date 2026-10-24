@@ -30,8 +30,8 @@ import {
 } from '../../src/systems/settlers/planner/idle-replan.js';
 import { testContent } from '../fixtures/content.js';
 import { fixtureTick, nextTickCtxOf } from '../fixtures/context.js';
+import { justAbove, NEED_DRIVE_THRESHOLD } from '../fixtures/needs.js';
 import { setNeeds } from '../fixtures/settler.js';
-import { justAbove, NEED_DRIVE_THRESHOLD } from '../settlers/needs/support.js';
 import {
   buildingAt,
   CARPENTER,

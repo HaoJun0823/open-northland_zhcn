@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MISC_EQUIP_SLOTS } from '../../src/components/equipment.js';
-import { MAX_PLAYERS } from '../../src/components/players/ownership.js';
-import { GOOD_TYPE_SPACE, JOB_TYPE_SPACE, TRIBE_TYPE_SPACE } from '../../src/core/commands/payload.js';
-import { MAX_UNIT_ORDER_MEMBERS, parseCommandEnvelope } from '../../src/index.js';
+import { MISC_EQUIP_SLOTS } from '../../../src/components/equipment.js';
+import { MAX_PLAYERS } from '../../../src/components/players/ownership.js';
+import { GOOD_TYPE_SPACE, JOB_TYPE_SPACE, TRIBE_TYPE_SPACE } from '../../../src/core/commands/payload.js';
+import { MAX_UNIT_ORDER_MEMBERS, parseCommandEnvelope } from '../../../src/index.js';
 
 /**
  * Every list a networked or imported payload carries has a bound of its own, so the transport's byte

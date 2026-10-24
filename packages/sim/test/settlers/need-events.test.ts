@@ -14,9 +14,9 @@ import { type Fixed, fx, ONE, positionOfNode, Simulation } from '../../src/index
 import { atomicSystem, CHILD_MALE, interactionNode, needBar } from '../../src/systems/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf, nextTickCtxOf } from '../fixtures/context.js';
+import { grassMap, needsSettlerAt } from '../fixtures/needs.js';
 import { needsOf } from '../fixtures/settler.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { grassMap, needsSettlerAt } from './needs/support.js';
 
 /**
  * The clip-event rules: a settler's bars move by what the animation it is playing says

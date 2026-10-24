@@ -19,8 +19,8 @@ import { UNREACHABLE_GOAL_MEMO_TICKS } from '../../src/systems/settlers/unreacha
 import { ownedWoodcutter, woodAt } from '../conflict/orders/support.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
+import { justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../fixtures/needs.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt } from '../settlers/needs/support.js';
 
 /**
  * A woodcutter walled in by a closed gate with every tree outside: each tree's route fails in turn. The

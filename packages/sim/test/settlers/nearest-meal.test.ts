@@ -19,8 +19,8 @@ import { BUSH_AT_HAND_NODES, chooseMeal, collectTargets } from '../../src/system
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf, nextTickCtxOf } from '../fixtures/context.js';
+import { needsSettlerAt } from '../fixtures/needs.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { needsSettlerAt } from './needs/support.js';
 
 const FOOD = 3;
 const BREAD = 7;

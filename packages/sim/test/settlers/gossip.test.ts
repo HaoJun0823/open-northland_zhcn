@@ -23,8 +23,15 @@ import type { ChatCandidates } from '../../src/systems/social/gossip/candidates.
 import { GossipCandidates } from '../../src/systems/social/index.js';
 import { testContent } from '../fixtures/content.js';
 import { idleReplanTick } from '../fixtures/idle-replan.js';
+import {
+  ctxOf,
+  grassMap,
+  justAbove,
+  NEED_DRIVE_THRESHOLD,
+  needsSettlerAt,
+  treeAt,
+} from '../fixtures/needs.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
-import { ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerAt, treeAt } from './needs/support.js';
 
 /**
  * Tests for the GOSSIP drive - the company need's self-satisfying loop: a lonely settler pairs up with

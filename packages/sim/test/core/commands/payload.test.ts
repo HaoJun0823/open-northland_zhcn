@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../src/components/index.js';
-import { type Command, parseCommandEnvelope, SETTLER_NAME_MAX_CHARS } from '../../src/index.js';
+import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../../src/components/index.js';
+import { type Command, parseCommandEnvelope, SETTLER_NAME_MAX_CHARS } from '../../../src/index.js';
 
 /**
  * The per-kind field contract the parser holds an untrusted payload to. Without it a hand-edited log

@@ -8,8 +8,8 @@ import {
   restoreSimulation,
   Simulation,
   serializeSaveGame,
-} from '../../src/index.js';
-import { testContent } from '../fixtures/content.js';
+} from '../../../src/index.js';
+import { testContent } from '../../fixtures/content.js';
 
 /**
  * Tick-targeted admission is what a lockstep session needs from the queue: an envelope stamped for a

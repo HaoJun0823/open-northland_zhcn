@@ -3,7 +3,7 @@ import { buildTerrainGraph } from '../../src/index.js';
 import { NodeMask } from '../../src/nav/block-overlay.js';
 import { StepBuffer } from '../../src/nav/terrain/step-buffer.js';
 import { testContent } from '../fixtures/content.js';
-import { rawGrid } from '../world/terrain/support.js';
+import { rawGrid } from './terrain/support.js';
 
 const DIRECTIONS = [
   [1, -2],

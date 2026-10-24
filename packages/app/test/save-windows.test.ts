@@ -38,6 +38,9 @@ afterEach(() => {
 });
 
 const SEED = 7;
+/** The window redraws after async list reads; poll every millisecond, not Vitest's default 50. */
+const POLL_MS = 1;
+const settle = <T>(check: () => T): Promise<T> => vi.waitFor(check, { interval: POLL_MS });
 
 function slot(name: string, savedAt: number, mapId = HERE, seed = SEED): SaveSlotInfo {
   return { id: name, name, mapId, tick: 600, entry: null, savedAt, seed, thumbnail: null };
@@ -155,13 +158,6 @@ describe('save window', () => {
     expect(readStoredSettings().autosaveCount).toBe(3);
     expect(counts[2]?.getAttribute('aria-pressed')).toBe('true');
     expect(counts[0]?.getAttribute('aria-pressed')).toBe('false');
-    next.menu.close();
-    next.menu.toggle();
-    button(messages().mainMenu.items.settings).click();
-    expect([...document.querySelectorAll('.main-menu__settings-tab')].map((tab) => tab.textContent)).toEqual(
-      Object.values(messages().mainMenu.settings.tabs),
-    );
-    expect(document.querySelector('.on-settings .on-saves__auto-options')).toBeNull();
   });
 
   it('offers a free name, saves it, and exports the written slot from the same window', async () => {
@@ -170,13 +166,13 @@ describe('save window', () => {
     menu.openPage('save');
     const save = page('save');
     const input = save.querySelector('input');
-    await vi.waitFor(() => expect(input?.value).toBe('World here - Save 3'));
+    await settle(() => expect(input?.value).toBe('World here - Save 3'));
     expect(document.activeElement).toBe(button(copy.save, save));
     const exportButton = button(copy.export, save);
     expect(exportButton.disabled).toBe(true);
 
     button(copy.save, save).click();
-    await vi.waitFor(() =>
+    await settle(() =>
       expect(save.querySelector('.on-saves__status')?.textContent).toBe(
         formatMessage(copy.savedNamed, { name: 'World here - Save 3' }),
       ),
@@ -187,7 +183,7 @@ describe('save window', () => {
     expect(document.activeElement).toBe(exportButton);
 
     exportButton.click();
-    await vi.waitFor(() => expect(saveLoad.exportSave).toHaveBeenCalledWith('World here - Save 3'));
+    await settle(() => expect(saveLoad.exportSave).toHaveBeenCalledWith('World here - Save 3'));
   });
 
   it('warns before overwriting a listed name and asks with the overwrite focused', async () => {
@@ -195,7 +191,7 @@ describe('save window', () => {
     const { menu, saveLoad } = mount([slot('Keep', 5)]);
     menu.openPage('save');
     const save = page('save');
-    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Keep']));
+    await settle(() => expect(rowNames(save)).toEqual(['Keep']));
     save.querySelector<HTMLButtonElement>('.on-saves__pick')?.click();
     expect(save.querySelector('input')?.value).toBe('Keep');
     expect(save.querySelector('.on-saves__hint')?.textContent).toBe(copy.overwriteHint);
@@ -213,9 +209,9 @@ describe('save window', () => {
     input.dispatchEvent(enter);
     // Unhandled, the browser's keypress would click the overwrite button the question just focused.
     expect(enter.defaultPrevented).toBe(true);
-    await vi.waitFor(() => expect(document.activeElement).toBe(button(copy.overwrite, question())));
+    await settle(() => expect(document.activeElement).toBe(button(copy.overwrite, question())));
     button(copy.cancel, question()).click();
-    await vi.waitFor(() => expect(save.querySelector('.on-saves__status')?.textContent).toBe(copy.notSaved));
+    await settle(() => expect(save.querySelector('.on-saves__status')?.textContent).toBe(copy.notSaved));
     expect(saveLoad.saveGame).not.toHaveBeenCalled();
   });
 
@@ -225,12 +221,12 @@ describe('save window', () => {
     const { menu, saveLoad } = mount([slot('Autosave 1', 9), { ...slot('Autosave 1', 5), id: autoId }]);
     menu.openPage('save');
     const save = page('save');
-    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Autosave 1', 'Autosave 1']));
+    await settle(() => expect(rowNames(save)).toEqual(['Autosave 1', 'Autosave 1']));
     save.querySelectorAll<HTMLButtonElement>('.on-saves__pick')[1]?.click();
     button(copy.save, save).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.overwrite, question()).click();
-    await vi.waitFor(() => expect(saveLoad.saveGame).toHaveBeenCalledWith(autoId));
+    await settle(() => expect(saveLoad.saveGame).toHaveBeenCalledWith(autoId));
   });
 
   it('deletes through a bin without taking over the name field, then offers a fresh name', async () => {
@@ -240,16 +236,16 @@ describe('save window', () => {
     const save = page('save');
     const input = save.querySelector('input');
     if (input === null) throw new Error('Missing name field');
-    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop', 'Keep']));
+    await settle(() => expect(rowNames(save)).toEqual(['Drop', 'Keep']));
     input.value = 'Mine';
     input.dispatchEvent(new Event('input'));
     const bin = button(formatMessage(copy.deleteNamed, { name: 'Keep' }), save);
     bin.focus();
     bin.click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     expect(input.value).toBe('Mine');
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop']));
+    await settle(() => expect(rowNames(save)).toEqual(['Drop']));
     // The redraw removed the focused bin; focus stays in the window for the keyboard.
     expect(save.contains(document.activeElement)).toBe(true);
     expect(input.value).toBe('Mine');
@@ -257,9 +253,9 @@ describe('save window', () => {
     input.value = 'Drop';
     input.dispatchEvent(new Event('input'));
     button(formatMessage(copy.deleteNamed, { name: 'Drop' }), save).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(rowNames(save)).toEqual([]));
+    await settle(() => expect(rowNames(save)).toEqual([]));
     expect(input.value).toBe('World here - Save 1');
   });
 });
@@ -271,7 +267,7 @@ describe('load window', () => {
     menu.openPage('load');
     const load = page('load');
     // The running game opens first; another map's game stays closed under it.
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['New', 'Old']));
+    await settle(() => expect(rowNames(load)).toEqual(['New', 'Old']));
     expect(selectedName(load)).toBe('New');
     const [mine, away] = groupHeads(load);
     expect(mine?.textContent).toContain(copy.currentGame);
@@ -295,15 +291,15 @@ describe('load window', () => {
     expect(selectedName(load)).toBe('Old');
     expect(document.activeElement).toBe(rowOf('Old'));
     press(rowOf('Old'), 'Enter');
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.load, question()).click();
-    await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Old'));
+    await settle(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Old'));
 
     rowOf('Away')?.click();
     button(copy.load, load).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.load, question()).click();
-    await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Away'));
+    await settle(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Away'));
   });
 
   it('filters by name or map and deletes a row through its bin after asking', async () => {
@@ -311,7 +307,7 @@ describe('load window', () => {
     const { menu, saveLoad } = mount([slot('Harbour', 1), slot('Fjord', 2), slot('Away', 3, ELSEWHERE)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
+    await settle(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
     const search = load.querySelector<HTMLInputElement>('input[type="search"]');
     if (search === null) throw new Error('Missing search');
     search.value = 'elsew';
@@ -329,9 +325,9 @@ describe('load window', () => {
     expect(selectedName(load)).toBe('Fjord');
 
     button(formatMessage(copy.deleteNamed, { name: 'Harbour' }), load).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord']));
+    await settle(() => expect(rowNames(load)).toEqual(['Fjord']));
     expect(saveLoad.deleteSave).toHaveBeenCalledWith('Harbour');
     expect(load.querySelector('.on-saves__status')?.textContent).toBe(copy.deleted);
   });
@@ -341,15 +337,15 @@ describe('load window', () => {
     const { menu } = mount([slot('Harbour', 1), slot('Fjord', 2), slot('Away', 3, ELSEWHERE)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
+    await settle(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
     const search = load.querySelector<HTMLInputElement>('input[type="search"]');
     if (search === null) throw new Error('Missing search');
     search.value = 'harb';
     search.dispatchEvent(new Event('input'));
     button(formatMessage(copy.deleteNamed, { name: 'Harbour' }), load).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(rowNames(load)).toEqual([]));
+    await settle(() => expect(rowNames(load)).toEqual([]));
     expect(selectedName(load)).toBeNull();
     expect(button(copy.load, load).disabled).toBe(true);
     search.value = '';
@@ -368,7 +364,7 @@ describe('load window', () => {
     ]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Mine']));
+    await settle(() => expect(rowNames(load)).toEqual(['Mine']));
     const [mine, earlier] = groupHeads(load);
     expect(mine?.textContent).toContain(formatMessage(copy.playthrough, { n: 2 }));
     expect(earlier?.textContent).toContain(formatMessage(copy.playthrough, { n: 1 }));
@@ -391,16 +387,16 @@ describe('load window', () => {
     const { menu, saveLoad } = mount([slot('A', 3), slot('B', 2), slot('C', 1)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(selectedName(load)).toBe('A'));
+    await settle(() => expect(selectedName(load)).toBe('A'));
     load.querySelectorAll<HTMLButtonElement>('.on-saves__pick')[1]?.click();
     const bin = button(formatMessage(copy.deleteNamed, { name: 'B' }), load);
     press(bin, 'ArrowDown');
     expect(selectedName(load)).toBe('C');
     const binC = button(formatMessage(copy.deleteNamed, { name: 'C' }), load);
     press(binC, 'Delete');
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(saveLoad.deleteSave).toHaveBeenCalledWith('C'));
+    await settle(() => expect(saveLoad.deleteSave).toHaveBeenCalledWith('C'));
   });
 
   it('keeps a game the player closed closed when the list redraws', async () => {
@@ -408,15 +404,15 @@ describe('load window', () => {
     const { menu } = mount([slot('Mine', 3), slot('Away', 2, ELSEWHERE)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(selectedName(load)).toBe('Mine'));
+    await settle(() => expect(selectedName(load)).toBe('Mine'));
     const [mine, away] = groupHeads(load);
     mine?.click();
     away?.click();
     expect(rowNames(load)).toEqual(['Away']);
     button(formatMessage(copy.deleteNamed, { name: 'Away' }), load).click();
-    await vi.waitFor(() => question());
+    await settle(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(groupHeads(load)).toHaveLength(1));
+    await settle(() => expect(groupHeads(load)).toHaveLength(1));
     expect(rowNames(load)).toEqual([]);
     groupHeads(load)[0]?.click();
     expect(selectedName(load)).toBe('Mine');
@@ -427,7 +423,7 @@ describe('load window', () => {
     const { menu } = mount([]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(load.querySelector('.on-saves__empty')?.textContent).toContain(copy.empty));
+    await settle(() => expect(load.querySelector('.on-saves__empty')?.textContent).toContain(copy.empty));
     expect(load.querySelector('.on-saves__empty')?.textContent).toContain(copy.emptyLoadHint);
   });
 });

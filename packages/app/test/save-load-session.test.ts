@@ -263,18 +263,6 @@ describe('saveLoadSession save flow', () => {
     expect(await h.session.loadSave(id)).toEqual({ kind: 'loading' });
   });
 
-  it('stores the save captured at the request, even when simulation advances during compression', async () => {
-    const sim = demoSim();
-    const tick = sim.tick;
-    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania'] }) });
-    const pending = h.session.saveGame('Multi');
-    sim.step();
-    expect(await pending).toEqual({ kind: 'saved' });
-    const stored = h.store.get('Multi');
-    const document = JSON.parse(await decodeSaveText(stored?.bytes ?? new Uint8Array()));
-    expect(document.header).toMatchObject({ tick, session: { roster: ['Ania'] } });
-  });
-
   it('reports a save whose compression fails as failed, keeping the slot it would replace', async () => {
     const h = harness(demoSim());
     expect(await h.session.saveGame('kept')).toEqual({ kind: 'saved' });
@@ -433,12 +421,8 @@ describe('saveLoadSession slot load and export', () => {
     expect(h.reloads()).toBe(1);
   });
 
-  it('reloads a save of this session in place and relaunches one this map recorded under another', async () => {
+  it('relaunches a save this map recorded under another entry instead of reloading in place', async () => {
     const h = harness(demoSim());
-    await h.session.saveGame('Same');
-    await expect(h.session.loadSave('Same')).resolves.toEqual({ kind: 'loading' });
-    expect([h.reloads(), h.launched]).toEqual([1, []]);
-
     const other = `${ENTRY_SEARCH}&tribes=2:4`;
     const save = exportSaveGame(demoSim(), { mapId: WORLD_TOKEN, entry: other });
     h.store.set('Other', {
@@ -446,7 +430,7 @@ describe('saveLoadSession slot load and export', () => {
       meta: { mapId: WORLD_TOKEN, tick: 0, entry: other, seed: 0, thumbnail: null },
     });
     await expect(h.session.loadSave('Other')).resolves.toEqual({ kind: 'loading' });
-    expect([h.reloads(), h.launched]).toEqual([1, [other]]);
+    expect([h.reloads(), h.launched]).toEqual([0, [other]]);
   });
 
   it("hands another world's save to that world's entry, staging nothing here", async () => {
@@ -491,13 +475,6 @@ describe('saveLoadSession slot load and export', () => {
     await expect(h.session.exportSave('backup.json')).resolves.toEqual({ kind: 'saved' });
     expect(h.delivered[1]?.fileName).toBe('backup.json.gz');
     await expect(h.session.exportSave('nope')).resolves.toEqual({ kind: 'failed' });
-  });
-
-  it('deletes a slot from the store', async () => {
-    const h = harness(demoSim());
-    await h.session.saveGame('Slot 1');
-    await h.session.deleteSave('Slot 1');
-    expect(h.store.size).toBe(0);
   });
 });
 

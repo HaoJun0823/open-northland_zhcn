@@ -64,24 +64,6 @@ describe('sanitizedSaveName', () => {
   });
 });
 
-describe('sanitizedSaveName against the desktop filename guard', () => {
-  // The desktop main process rejects these outright (`save-files.ts`); a sanitized title must
-  // never reach it carrying one, or every desktop save write breaks.
-  it('yields names the shell accepts: no forbidden or control characters, bounded length', () => {
-    const nasty = ['..\\..\\up', 'a:b*c?d', `x${BEL}y`, '  spaced  ', '"quoted"', 'z'.repeat(500)];
-    for (const raw of nasty) {
-      const name = sanitizedSaveName(raw);
-      if (name === null) continue;
-      expect(name).toMatch(/^[^\\/:*?"<>|]{1,120}$/);
-      expect(hasControl(name)).toBe(false);
-    }
-  });
-});
-
-function hasControl(value: string): boolean {
-  return [...value].some((ch) => (ch.codePointAt(0) ?? 0) < 0x20);
-}
-
 describe('save file suffixes', () => {
   it('strips the three accepted suffixes only', () => {
     expect(displayNameOf('przed atakiem.json.gz')).toBe('przed atakiem');

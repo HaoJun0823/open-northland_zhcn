@@ -1,4 +1,4 @@
-import { MapImportError } from '../errors.js';
+import { errorMessage, MapImportError } from '../errors.js';
 import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from '../limits.js';
 import { type MapTree, TreeBuilder } from '../tree.js';
 import { unpackC2m } from './c2m.js';
@@ -33,10 +33,7 @@ function unpackers(options: OpenOptions): (format: ArchiveFormat) => Unpack {
       wasm ??= typeof source === 'function' ? source() : Promise.resolve(source);
       return await wasm;
     } catch (err) {
-      throw new MapImportError(
-        'unsupported-archive',
-        `rar: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      throw new MapImportError('unsupported-archive', `rar: ${errorMessage(err)}`);
     }
   };
   return (format) => {

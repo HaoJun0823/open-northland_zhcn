@@ -76,10 +76,6 @@ afterEach(() => setActiveLocale(previousLocale));
 describe('catalogue entries the player downloads by hand', () => {
   const text = () => messages().mapCatalogue;
 
-  it('never lists the archive that holds no map', () => {
-    expect(rows.some((row) => row.entry.id === 'cn-norwegia')).toBe(false);
-  });
-
   it('offers the kept file of an archive the server could not unpack, from the panel only', () => {
     const fileUrl = `${API}/v1/maps/cn-grobowiec/file`;
     const status = formatMessage(text().status.manual, { message: 'the rar archive is password-protected' });

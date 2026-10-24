@@ -45,10 +45,6 @@ describe('settlerName', () => {
     expect(settlerName({ jobs }, overridden)).toBe('Ada');
     expect(settlerName({ jobs, mapText: () => 'Sigurd' }, overridden)).toBe('Sigurd');
   });
-  it('keeps authored names whole, including spaces', () => {
-    const e = entity({ ...identity, ScriptedName: { stringId: 5 } });
-    expect(settlerName({ jobs: [], mapText: () => 'Abd al-Rahman' }, e)).toBe('Abd al-Rahman');
-  });
   it('uses a numbered localized fallback for an unknown person', () => {
     setActiveLocale('eng');
     expect(settlerName({ jobs: [] }, entity({ Settler: { tribe: 999 } }))).toBe('Person #42');

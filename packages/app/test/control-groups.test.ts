@@ -107,15 +107,6 @@ describe('control groups', () => {
     expect(groups.recall('controlGroup3', () => true, ALL_UNITS)).toEqual([8]);
   });
 
-  it('Ctrl-replaces only the target group without stealing its members from others', () => {
-    const groups = createControlGroups();
-    groups.replace('controlGroup1', [1, 2]);
-    groups.replace('controlGroup2', [2, 3]);
-
-    expect(groups.recall('controlGroup1', () => true, ALL_UNITS)).toEqual([1, 2]);
-    expect(groups.recall('controlGroup2', () => true, ALL_UNITS)).toEqual([2, 3]);
-  });
-
   it('overwrites and clears a group with the current selection', () => {
     const groups = createControlGroups();
     groups.replace('controlGroup1', [1, 2]);

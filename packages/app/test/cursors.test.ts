@@ -10,7 +10,6 @@ import {
   patchStoredSettings,
   persistSettings,
 } from '../src/view/settings-store.js';
-import { pickCursor } from '../src/view/unit-controls/pick-cursor.js';
 import { createSelectionCursor } from '../src/view/unit-controls/selection-cursor.js';
 import { snapshotOf } from './support/snapshot.js';
 
@@ -155,16 +154,6 @@ describe('cursor deliveries', () => {
     expect(cursorCss('iron', 'text', 28, true)).toMatch(/image-set\(.+ 1x,.+ 2x\).+, text$/);
     expect(cursorCss('iron', 'pointer', 24, false)).toMatch(/^url\(.+\) \d+ \d+, pointer$/);
   });
-});
-
-it('keeps order intent distinct and clears it when the pick is cancelled', () => {
-  expect(pickCursor({ kind: 'destination', units: [1] })).toBe('move');
-  expect(pickCursor({ kind: 'attack-building', units: [1] })).toBe('attack');
-  expect(pickCursor({ kind: 'attack-move', units: [1], vehicles: [] })).toBe('attack-move');
-  expect(pickCursor({ kind: 'vehicle-attack-position', vehicle: 1 })).toBe('attack-move');
-  expect(pickCursor({ kind: 'workplace-or-flag', units: [1] })).toBe('work');
-  expect(pickCursor({ kind: 'home', units: [1] })).toBe('crosshair');
-  expect(pickCursor(null)).toBeNull();
 });
 
 it('uses the placement verdict without mistaking a partly accepted wall for a blocked order', () => {

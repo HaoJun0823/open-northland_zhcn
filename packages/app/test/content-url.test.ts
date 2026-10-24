@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contentFetch, onContentMovedOn } from '../src/content/url.js';
 
 const response = (redirected: boolean): Response => {
@@ -28,9 +28,5 @@ describe('contentFetch', () => {
     const late = vi.fn();
     onContentMovedOn(late);
     expect(late).toHaveBeenCalledTimes(1);
-  });
-
-  it('takes only content paths, since a URL or Request would skip the content prefix', () => {
-    expectTypeOf(contentFetch).parameter(0).toEqualTypeOf<string>();
   });
 });

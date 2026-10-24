@@ -4,8 +4,8 @@ import type { DrawItem } from '../../../../src/data/scene/index.js';
 import { resolveSettlerBobId } from '../../../../src/data/sprites/settler.js';
 import {
   characterGaitRate,
-  characterInterpolatesMotion,
   humanCharacter,
+  settlerCharacterOf,
 } from '../../../../src/gpu/sprite-pool/layers/character.js';
 import { type MotionTrack, trackMotion } from '../../../../src/gpu/sprite-pool/presentation/motion.js';
 import type { SettlerCharacterSet } from '../../../../src/gpu/textures/sprite-sheet.js';
@@ -145,10 +145,12 @@ describe('character motion ownership', () => {
   });
 
   it('keeps interpolation local to the selected appearance, including jobs and wildlife', () => {
-    expect(characterInterpolatesMotion(mixed, { ...item, ref: 2 })).toBe(true);
-    expect(characterInterpolatesMotion(mixed, { ...item, ref: 3 })).toBe(false);
-    expect(characterInterpolatesMotion(mixed, { ...item, ref: 2, jobType: 7 })).toBe(false);
-    expect(characterInterpolatesMotion(mixed, { ...item, ref: 2, tribe: 9 })).toBe(false);
-    expect(characterInterpolatesMotion(undefined, item)).toBe(false);
+    expect(settlerCharacterOf(mixed, { ...item, ref: 2 })?.interpolateMotion === true).toBe(true);
+    expect(settlerCharacterOf(mixed, { ...item, ref: 3 })?.interpolateMotion === true).toBe(false);
+    expect(settlerCharacterOf(mixed, { ...item, ref: 2, jobType: 7 })?.interpolateMotion === true).toBe(
+      false,
+    );
+    expect(settlerCharacterOf(mixed, { ...item, ref: 2, tribe: 9 })?.interpolateMotion === true).toBe(false);
+    expect(settlerCharacterOf(undefined, item)?.interpolateMotion === true).toBe(false);
   });
 });

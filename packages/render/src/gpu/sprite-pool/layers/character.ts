@@ -317,10 +317,3 @@ function stepsOnWholeTicks(value: unknown): boolean {
 export function characterStepsOnWholeTicks(char: SettlerCharacter): boolean {
   return stepsOnWholeTicks(char.binding) && stepsOnWholeTicks(char.headBinding);
 }
-
-export function characterInterpolatesMotion(
-  characters: SettlerCharacterSet | undefined,
-  item: DrawItem,
-): boolean {
-  return settlerCharacterOf(characters, item)?.interpolateMotion === true;
-}

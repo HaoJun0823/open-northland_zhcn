@@ -33,19 +33,6 @@ export function animationClock(item: DrawItem, tick: number): number {
   return item.kind === 'settler' || waves ? tick + item.ref * ENTITY_PHASE_STEP : tick;
 }
 
-export function motionClocks(
-  item: DrawItem,
-  tick: number,
-  alpha: number,
-  motion: MotionTrack,
-  smooth: boolean,
-  continuousAnimation = false,
-) {
-  const clocks = { animation: 0, gait: 0 };
-  writeMotionClocks(clocks, item, tick, alpha, motion, smooth, continuousAnimation);
-  return clocks;
-}
-
 export function writeMotionClocks(
   out: { animation: number; gait: number },
   item: DrawItem,

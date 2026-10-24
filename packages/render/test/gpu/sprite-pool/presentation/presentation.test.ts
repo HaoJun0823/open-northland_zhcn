@@ -8,9 +8,9 @@ import {
 import {
   animationClock,
   easeReveal,
-  motionClocks,
   revealedItem,
   walkPose,
+  writeMotionClocks,
 } from '../../../../src/gpu/sprite-pool/presentation/presentation.js';
 
 const TICK = 100;
@@ -48,6 +48,19 @@ function motion(stillTicks: number): MotionTrack {
 
 const WALKING = motion(0);
 const STALLED = motion(STALL_TICKS_TO_IDLE);
+
+function motionClocks(
+  item: DrawItem,
+  tick: number,
+  alpha: number,
+  track: MotionTrack,
+  smooth: boolean,
+  continuousAnimation = false,
+): { animation: number; gait: number } {
+  const clocks = { animation: 0, gait: 0 };
+  writeMotionClocks(clocks, item, tick, alpha, track, smooth, continuousAnimation);
+  return clocks;
+}
 
 describe('interpolated character clocks', () => {
   it('keeps the gait between the same anchors as the moving body', () => {

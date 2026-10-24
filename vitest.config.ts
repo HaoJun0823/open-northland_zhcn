@@ -39,10 +39,10 @@ const SLOW_APP_TESTS = [
 ];
 const SLOW_CORE_TESTS = [
   'packages/sim/test/movement/army-geometry.test.ts',
-  'packages/net-server/test/socket-recovery.test.ts',
-  'packages/net-server/test/army-socket.test.ts',
-  'packages/net-server/test/army-session.test.ts',
-  'packages/net-server/test/relay-responsiveness.test.ts',
+  'packages/net-server/test/host/socket-recovery.test.ts',
+  'packages/net-server/test/host/army-socket.test.ts',
+  'packages/net-server/test/relay/army-session.test.ts',
+  'packages/net-server/test/relay/timing/command-responsiveness.test.ts',
 ];
 // A renamed or deleted file would otherwise drop out of both tiers silently.
 for (const file of [...SLOW_APP_TESTS, ...SLOW_CORE_TESTS]) {

@@ -1,0 +1,643 @@
+import type { GameSession } from '@open-northland/lockstep';
+import { type DisputeRecord, prepareInitialSave } from '@open-northland/net-client';
+import { type RoomSettings, TICK_MS } from '@open-northland/net-protocol';
+import {
+  KICK_COUNTDOWN_MS,
+  LAG_BEHIND_MS,
+  Relay,
+  SILENT_AFTER_MS,
+  SLOW_GRACE_MS,
+} from '@open-northland/net-server';
+import {
+  components,
+  diffDigestInputs,
+  digestInputsFromJson,
+  exportSaveGame,
+  fx,
+  playerCommand,
+  restoreSimulation,
+  type SaveGame,
+  Simulation,
+} from '@open-northland/sim';
+import { describe, expect, it } from 'vitest';
+import { testContent } from '../../../sim/test/fixtures/content.js';
+import { SLOW_WAIT_AFTER_MS } from '../../src/relay/timing/governor.js';
+import { TEST_COMPATIBILITY } from '../support/compatibility.js';
+import { HeadlessClient } from '../support/headless-client.js';
+import {
+  assembleRoom,
+  type Capture,
+  relink,
+  runFor,
+  runUntil,
+  type Stage,
+  settle,
+} from '../support/session-run.js';
+import { seededRandom, VirtualClock, VirtualNetwork } from '../support/virtual-network.js';
+
+/**
+ * Real sims on both ends of the relay while things go wrong: a socket drops or goes quiet, a client's
+ * state diverges, a seat is voted out, a player comes back with nothing. Every run must still end
+ * with one state on every client that is left.
+ */
+
+const SETTINGS: RoomSettings = {
+  name: 'fixture',
+  world: { kind: 'scene', sceneId: 'fixture' },
+  seed: 5,
+  rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
+  speed: 1,
+};
+const SEATS = [
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 1 },
+  { player: 2, mode: 'computer', claimable: true, offers: ['idle', 'computer', 'absent'], color: 2 },
+] as const;
+const RUN_TICKS = 200;
+const VIKINGS = 1;
+const ORDER_EVERY_TICKS = 7;
+const LINK = { latencyMs: 60, jitterMs: 20 };
+/** Time for a lobby step, a reconnect, or a snapshot to cross the link and back, with margin. */
+const SETTLE_MS = 400;
+/** A run that waits out a countdown needs the virtual deadline pushed past it. */
+const LONG_RUN_MS = KICK_COUNTDOWN_MS * 3;
+
+async function buildWorld(session: GameSession): Promise<Simulation> {
+  return new Simulation({ seed: session.seed, content: testContent() });
+}
+
+/** The fixture world with one newborn, whose `Age` the sim writes every tick while `ageAt` runs. */
+async function buildWorldWithNewborn(session: GameSession): Promise<Simulation> {
+  const sim = await buildWorld(session);
+  const newborn = sim.world.create();
+  components.addPerson(sim.world, newborn, {
+    tribe: VIKINGS,
+    jobType: null,
+    hunger: fx.fromInt(0),
+    fatigue: fx.fromInt(0),
+    piety: fx.fromInt(0),
+    enjoyment: fx.fromInt(0),
+  });
+  sim.world.add(newborn, components.Age, { ticks: 0, asOf: null });
+  return sim;
+}
+
+async function restoreWorld(_session: GameSession, save: SaveGame): Promise<Simulation> {
+  return restoreSimulation(save, { content: testContent() });
+}
+
+function client(nick: string, build = buildWorld): HeadlessClient {
+  return new HeadlessClient({
+    token: `${nick.toLowerCase()}-token-0123456789`,
+    nick,
+    buildWorld: build,
+    restoreWorld,
+  });
+}
+
+function stageFor(seed: number): Stage {
+  const clock = new VirtualClock();
+  const relay = new Relay({ now: clock.now });
+  return { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(seed)) };
+}
+
+function orderAt(client: HeadlessClient, tick: number): void {
+  const seat = client.session?.localSeat;
+  if (typeof seat !== 'number' || tick % ORDER_EVERY_TICKS !== seat) return;
+  client.submit(
+    playerCommand(seat, {
+      kind: 'setAssistantCounter',
+      player: seat,
+      counter: 'extraMen',
+      value: tick,
+      infinite: false,
+    }),
+  );
+}
+
+/** Push one client's RNG off its stream on `atTick`: the smallest divergence, in one domain. */
+function divergeAt(target: HeadlessClient, atTick: number) {
+  return (client: HeadlessClient, tick: number): void => {
+    orderAt(client, tick);
+    if (client === target && tick === atTick && client.sim !== null) {
+      client.sim.rng.setState(client.sim.rng.getState() ^ 1);
+    }
+  };
+}
+
+/** Push one client's newborn a tick older on `atTick`; the sim's next write to its `Age` shows it. Every
+ *  client leaves the age uncounted after each tick, so each growth pass writes it. */
+function ageAt(target: HeadlessClient, atTick: number) {
+  return (client: HeadlessClient, tick: number): void => {
+    orderAt(client, tick);
+    const world = client.sim?.world;
+    const [newborn] = world?.query(components.Age) ?? [];
+    if (world === undefined || newborn === undefined) return;
+    const age = world.mut(newborn, components.Age);
+    age.asOf = null;
+    if (client === target && tick === atTick) age.ticks += 1;
+  };
+}
+
+/** Both sides' fold inputs of one verdict, and where they part. */
+function disputeDifference(reference: DisputeRecord | null, diverged: DisputeRecord | null) {
+  if (reference?.inputs == null || diverged?.inputs == null) throw new Error('a dispute without inputs');
+  return diffDigestInputs(digestInputsFromJson(reference.inputs), digestInputsFromJson(diverged.inputs));
+}
+
+async function twoClients(seed: number, build = buildWorld) {
+  const stage = stageFor(seed);
+  const ania = client('Ania', build);
+  const bartek = client('Bartek', build);
+  const links = [stage.network.link(ania, LINK), stage.network.link(bartek, LINK)] as const;
+  await assembleRoom(stage, [ania, bartek], {
+    settings: SETTINGS,
+    seats: SEATS,
+    seatOf: (i) => i,
+    settleMs: SETTLE_MS,
+  });
+  return { stage, ania, bartek, links };
+}
+
+/** One hash everywhere, and one command log from the last tick anyone rebuilt at: a restored sim's
+ *  log starts at its snapshot. */
+function expectAgreement(captures: Map<HeadlessClient, Capture>, clients: readonly HeadlessClient[]): void {
+  const [first, ...rest] = clients;
+  if (first === undefined) throw new Error('no clients');
+  const since = Math.max(0, ...clients.flatMap((each) => each.restoredFrom));
+  const logSince = (each: HeadlessClient) =>
+    captures.get(each)?.log.filter(([applyTick]) => applyTick > since);
+  expect(logSince(first)?.length).toBeGreaterThan(0);
+  for (const other of rest) {
+    expect(captures.get(other)?.hash, `${other.nick} against ${first.nick}`).toBe(captures.get(first)?.hash);
+    expect(logSince(other)).toEqual(logSince(first));
+  }
+  for (const each of clients) expect(each.dropped, each.nick).toEqual([]);
+}
+
+describe('a relayed session under faults', () => {
+  it('waits for the reconnect handshake before acknowledging a buffered replay', async () => {
+    const { stage, ania, bartek, links } = await twoClients(913);
+    const clients = [ania, bartek];
+    await runUntil(stage, clients, 40, { onTick: orderAt });
+    ania.setSpeed(8);
+    await runFor(stage, clients, 500);
+    await runFor(stage, [ania], 8000);
+    expect(bartek.bufferedTicks).toBeGreaterThan(100);
+    links[1].close();
+    relink(stage, bartek, { latencyMs: 300, jitterMs: 80 });
+    const captures = await runUntil(stage, clients, (ania.tick ?? 0) + 200, { onTick: orderAt });
+    expectAgreement(captures, clients);
+    expect(bartek.rejections).toEqual([]);
+    expect(bartek.restoredFrom).toEqual([]);
+  });
+
+  it.each(['up', 'down'] as const)('recovers after a one-way %s blackhole', async (direction) => {
+    const { stage, ania, bartek, links } = await twoClients(911);
+    const clients = [ania, bartek];
+    await runUntil(stage, clients, 40, { onTick: orderAt });
+    links[1].cut(direction);
+    await runFor(stage, clients, SILENT_AFTER_MS + 1000);
+    expect(ania.waits.at(-1)?.for).toMatchObject([{ nick: 'Bartek', reason: 'silent' }]);
+    const held = ania.tick;
+    await runFor(stage, clients, 3000);
+    expect(ania.tick).toBe(held);
+    // A later TCP close still notifies the relay after a half-open link.
+    links[1].close();
+    relink(stage, bartek, LINK);
+    const captures = await runUntil(stage, clients, RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, clients);
+    for (const each of clients) {
+      expect(each.rejections).toEqual([]);
+      expect(each.errors).toEqual([]);
+      expect(each.desyncs).toEqual([]);
+    }
+    expect(ania.waits.at(-1)?.for).toEqual([]);
+  });
+
+  it('resumes after a save blocks application pongs on a bandwidth-limited link', async () => {
+    const stage = stageFor(912);
+    const clients = [client('Ania'), client('Bartek')];
+    const [ania, bartek] = clients;
+    if (ania === undefined || bartek === undefined) throw new Error('missing clients');
+    for (const each of clients)
+      stage.network.link(each, {
+        ...LINK,
+        uploadBytesPerSecond: 16 * 1024,
+        downloadBytesPerSecond: 16 * 1024,
+      });
+    await assembleRoom(stage, clients, {
+      settings: SETTINGS,
+      seats: SEATS,
+      seatOf: (i) => i,
+      settleMs: 1000,
+    });
+    await runUntil(stage, clients, 40, { onTick: orderAt });
+    // Opaque save bytes exercise both upload and download queues without changing either world.
+    const bytes = Buffer.alloc(96 * 1024, 7).toString('base64');
+    bartek.sendBlob({ type: 'save', to: 'Ania', tick: bartek.tick, bytes });
+    await runFor(stage, clients, 25_000);
+    expect(ania.blobs.at(-1)).toMatchObject({ type: 'save', bytes });
+    // The upload's progress keeps its sender heard, though its pongs wait behind it.
+    const silent = ania.waits.flatMap((notice) =>
+      notice.for.filter((member) => member.reason === 'silent').map((member) => member.nick),
+    );
+    expect(silent).not.toContain('Bartek');
+    const captures = await runUntil(
+      stage,
+      clients,
+      Math.max(...clients.map((each) => each.tick ?? 0)) + 100,
+      { onTick: orderAt },
+    );
+    expectAgreement(captures, clients);
+    expect(ania.waits.at(-1)?.for).toEqual([]);
+    for (const each of clients) {
+      expect(each.errors).toEqual([]);
+      expect(each.rejections).toEqual([]);
+      expect(each.desyncs).toEqual([]);
+    }
+  });
+
+  it('holds for a dropped client and resumes on its return without a resync', async () => {
+    const { stage, ania, bartek, links } = await twoClients(1);
+    await runUntil(stage, [ania, bartek], 40, { onTick: orderAt });
+    links[1].close();
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    expect(ania.waits.at(-1)?.for).toMatchObject([{ nick: 'Bartek', reason: 'gone' }]);
+    const held = ania.tick;
+    await runFor(stage, [ania, bartek], TICK_MS * 48);
+    expect(ania.tick).toBe(held);
+
+    relink(stage, bartek, LINK);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, [ania, bartek]);
+    expect(ania.waits.at(-1)?.for).toEqual([]);
+    expect(bartek.restoredFrom).toEqual([]);
+    expect(bartek.rejections).toEqual([]);
+  });
+
+  it('replays the room’s chat to a client that drops and returns, whose world carries on in step', async () => {
+    const { stage, ania, bartek, links } = await twoClients(23);
+    await runUntil(stage, [ania, bartek], 40, { onTick: orderAt });
+    ania.say('gotowi?');
+    bartek.say('tak');
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    links[1].close();
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    ania.say('wracaj');
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    expect(bartek.chat.map((line) => line.text)).toEqual(['gotowi?', 'tak']);
+
+    relink(stage, bartek, LINK);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, [ania, bartek]);
+    expect(bartek.chat).toEqual(ania.chat);
+    expect(bartek.chat.map((line) => [line.from, line.text])).toEqual([
+      ['Ania', 'gotowi?'],
+      ['Bartek', 'tak'],
+      ['Ania', 'wracaj'],
+    ]);
+    // Said after the clock started, each line carries the tick the relay heard it at.
+    for (const line of bartek.chat) expect(line.tick).toBeGreaterThan(0);
+    expect(bartek.restoredFrom).toEqual([]);
+  });
+
+  it('lets a client behind a silent socket catch up from the frames alone', async () => {
+    const { stage, ania, bartek, links } = await twoClients(2);
+    await runUntil(stage, [ania, bartek], 40, { onTick: orderAt });
+    const cutAt = bartek.tick ?? 0;
+    links[1].cut();
+    await runFor(stage, [ania, bartek], SILENT_AFTER_MS + SETTLE_MS);
+    expect(ania.tick).toBeGreaterThan(cutAt);
+    expect(ania.waits.at(-1)?.for.map((entry) => entry.nick)).toEqual(['Bartek']);
+
+    relink(stage, bartek, LINK);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, [ania, bartek]);
+    expect(bartek.restoredFrom).toEqual([]);
+    expect(bartek.rejections).toEqual([]);
+  });
+
+  it('paces for a connected client that stops ticking, which resumes without rebuilding', async () => {
+    const { stage, ania, bartek } = await twoClients(21);
+    await runUntil(stage, [ania, bartek], 40, { onTick: orderAt });
+    const stoppedAt = bartek.tick;
+    await runFor(stage, [ania], LAG_BEHIND_MS + SLOW_GRACE_MS + SETTLE_MS * 2);
+    expect(bartek.tick).toBe(stoppedAt);
+    expect(ania.waits.at(-1)?.for).toEqual([]);
+    expect(ania.governed).toMatchObject({ nick: 'Bartek', cause: 'lag' });
+
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, [ania, bartek]);
+    expect(bartek.restoredFrom).toEqual([]);
+    expect(bartek.kicks).toEqual([]);
+  });
+
+  it('waits for a connected client that stops ticking only once it has stayed slow for the bound', async () => {
+    const { stage, ania, bartek } = await twoClients(22);
+    await runUntil(stage, [ania, bartek], 40);
+    await runFor(stage, [ania], LAG_BEHIND_MS + SLOW_GRACE_MS + SLOW_WAIT_AFTER_MS - SETTLE_MS * 2);
+    expect(ania.waits.at(-1)?.for ?? []).toEqual([]);
+    expect(ania.governed).toMatchObject({ nick: 'Bartek' });
+    const paced = ania.tick ?? 0;
+    ania.kick(1, true);
+    await runFor(stage, [ania], SETTLE_MS);
+    expect(ania.tick).toBeGreaterThan(paced);
+    expect(ania.rejections.at(-1)?.reason).toEqual({ code: 'notWaitedFor', nick: 'Bartek' });
+
+    await runFor(stage, [ania], SETTLE_MS * 3);
+    expect(ania.waits.at(-1)?.for).toMatchObject([{ nick: 'Bartek', reason: 'slow' }]);
+    expect(ania.room?.members.find((member) => member.nick === 'Bartek')?.connected).toBe(true);
+    const held = ania.tick;
+    ania.kick(1, true);
+    await runFor(stage, [ania], SETTLE_MS);
+    expect(ania.tick).toBe(held);
+    expect(ania.rejections.at(-1)?.reason).toMatchObject({ code: 'voteNotOpen' });
+
+    await runFor(stage, [ania], KICK_COUNTDOWN_MS);
+    expect(ania.waits.at(-1)?.for).toEqual([{ nick: 'Bartek', reason: 'slow', voteAfterMs: 0 }]);
+    ania.kick(1, true);
+    await runFor(stage, [ania], SETTLE_MS);
+    expect(ania.kicks).toMatchObject([{ player: 1, nick: 'Bartek', cause: 'vote' }]);
+  });
+
+  it('detects a diverged client within a tick, names the domain, and resyncs it from the reference', async () => {
+    const { stage, ania, bartek } = await twoClients(3);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: divergeAt(bartek, 50) });
+    expect(bartek.desyncs).toHaveLength(1);
+    expect(bartek.desyncs[0]).toMatchObject({ tick: 51, reference: 'Ania' });
+    expect(bartek.desyncs[0]?.domains).toContain('rng');
+    expect(ania.desyncs).toEqual([]);
+    expect(ania.disputes).toEqual([
+      { kind: 'disputed', tick: 51, domains: bartek.desyncs[0]?.domains, diverged: ['Bartek'] },
+    ]);
+    expect(bartek.disputes).toEqual([]);
+    expect(ania.dispute).toMatchObject({ role: 'reference', tick: 51, counterparts: ['Bartek'] });
+    expect(bartek.dispute).toMatchObject({ role: 'diverged', tick: 51, counterparts: ['Ania'] });
+    expect(disputeDifference(ania.dispute, bartek.dispute)).toMatchObject({ kind: 'rng' });
+    expect(ania.snapshotsSent).toBe(1);
+    expect(bartek.restoredFrom).toHaveLength(1);
+    expect(bartek.restoredFrom[0]).toBeGreaterThanOrEqual(51);
+    expect(ania.waits.some((wait) => wait.for.some((entry) => entry.reason === 'resync'))).toBe(true);
+    expectAgreement(captures, [ania, bartek]);
+  });
+
+  it('names the entity and component whose write parted a client from the room', async () => {
+    const { stage, ania, bartek } = await twoClients(3, buildWorldWithNewborn);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: ageAt(bartek, 50) });
+    expect(bartek.dispute).toMatchObject({ role: 'diverged', tick: 51, domains: ['settlers'] });
+    expect(ania.dispute).toMatchObject({ role: 'reference', tick: 51 });
+    const [newborn] = ania.sim?.world.query(components.Age) ?? [];
+    expect(disputeDifference(ania.dispute, bartek.dispute)).toEqual({
+      kind: 'component',
+      domain: 'settlers',
+      component: 'Age',
+      entity: newborn,
+      detail: 'word',
+    });
+    expectAgreement(captures, [ania, bartek]);
+  });
+
+  it('resolves a two-client tie to the longer-connected one, even when it is the one that diverged', async () => {
+    const { stage, ania, bartek } = await twoClients(4);
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, { onTick: divergeAt(ania, 50) });
+    expect(ania.desyncs).toEqual([]);
+    expect(bartek.desyncs[0]).toMatchObject({ tick: 51, reference: 'Ania' });
+    expect(bartek.restoredFrom).toHaveLength(1);
+    expectAgreement(captures, [ania, bartek]);
+  });
+
+  it('kicks a gone seat after the countdown and hands it to the AI on one tick everywhere', async () => {
+    const stage = stageFor(5);
+    const ania = client('Ania');
+    const bartek = client('Bartek');
+    const cezary = client('Cezary');
+    stage.network.link(ania, LINK);
+    stage.network.link(bartek, LINK);
+    const cezaryLink = stage.network.link(cezary, LINK);
+    const clients = [ania, bartek, cezary];
+    await assembleRoom(stage, clients, {
+      settings: SETTINGS,
+      seats: SEATS,
+      seatOf: (i) => i,
+      settleMs: SETTLE_MS,
+    });
+    await runUntil(stage, clients, 30, { onTick: orderAt });
+    cezaryLink.close();
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    ania.kick(2, true);
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    expect(ania.rejections.at(-1)?.reason).toMatchObject({ code: 'voteNotOpen' });
+    await runFor(stage, [ania, bartek], KICK_COUNTDOWN_MS);
+    expect(ania.waits.at(-1)).toEqual({
+      kind: 'waiting',
+      for: [{ nick: 'Cezary', reason: 'gone', voteAfterMs: 0 }],
+    });
+    ania.kick(2, true);
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    expect(bartek.votes.at(-1)).toMatchObject({ player: 2, nick: 'Cezary', yes: ['Ania'], needed: 2 });
+    expect(bartek.kicks).toEqual([]);
+    bartek.kick(2, true);
+    await runFor(stage, [ania, bartek], SETTLE_MS);
+    const kicked = bartek.kicks[0];
+    expect(kicked).toMatchObject({ player: 2, nick: 'Cezary', mode: 'computer' });
+    expect(bartek.room?.seats[2]).toMatchObject({ mode: 'computer', nick: null });
+
+    const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, {
+      onTick: orderAt,
+      virtualLimitMs: LONG_RUN_MS,
+    });
+    expectAgreement(captures, [ania, bartek]);
+    for (const each of [ania, bartek]) {
+      const handover = captures
+        .get(each)
+        ?.log.filter(([, , command]) => command.kind === 'setAiControl')
+        .map(([applyTick, , command]) => [applyTick, command]);
+      expect(handover, each.nick).toEqual([
+        [
+          kicked?.tick,
+          { kind: 'setAiControl', player: 2, enabled: true, computerEnabled: true, mapAiEnabled: true },
+        ],
+      ]);
+    }
+  });
+
+  it('brings a player back with nothing from the room’s cached checkpoint', async () => {
+    const { stage, ania, bartek, links } = await twoClients(6);
+    await runUntil(stage, [ania, bartek], 60, { onTick: orderAt });
+    ania.receive({ kind: 'snapshotRequest' });
+    await ania.settled();
+    settle(stage, SETTLE_MS);
+    expect(bartek.blobs).toEqual([]);
+    links[1].close();
+    const again = client('Bartek');
+    relink(stage, again, LINK);
+    // The port answers `start` asynchronously, so the ask for the cache and the snapshot it brings
+    // need the network stepped between them.
+    await runFor(stage, [ania, again], SETTLE_MS);
+    expect(again.restoredFrom).toHaveLength(1);
+    expect(again.restoredFrom[0]).toBeLessThanOrEqual(60);
+
+    const captures = await runUntil(stage, [ania, again], RUN_TICKS, { onTick: orderAt });
+    expectAgreement(captures, [ania, again]);
+    expect(again.rejections).toEqual([]);
+  });
+
+  it('boots both real clients from the same saved tick and resumes with shared seat control', async () => {
+    const stage = stageFor(17),
+      ania = client('Ania'),
+      bartek = client('Bartek');
+    const sim = await buildWorld({ ...SETTINGS, seats: [], localSeat: 0 });
+    for (let i = 0; i < 73; i++) sim.step();
+    const prepared = await prepareInitialSave(exportSaveGame(sim));
+    for (const c of [ania, bartek]) relink(stage, c, LINK);
+    settle(stage, SETTLE_MS);
+    ania.createRoom({ ...SETTINGS, initialSave: prepared.identity }, SEATS);
+    settle(stage, SETTLE_MS);
+    const roomId = ania.room?.id;
+    if (roomId === undefined) throw new Error('room was not created');
+    bartek.joinRoom(roomId);
+    settle(stage, SETTLE_MS);
+    ania.claimSeat(0);
+    bartek.claimSeat(1);
+    settle(stage, SETTLE_MS);
+    ania.sendBlob({ type: 'initialSave', to: null, tick: 73, bytes: prepared.bytes });
+    for (const c of [ania, bartek])
+      c.setCompatibility({ ...TEST_COMPATIBILITY, save: prepared.identity.fingerprint });
+    settle(stage, SETTLE_MS);
+    for (const c of [ania, bartek]) c.setReady(true);
+    settle(stage, SETTLE_MS);
+    ania.start();
+    await runFor(stage, [ania, bartek], SETTLE_MS * 2);
+    expect(ania.restoredFrom).toEqual([73]);
+    expect(bartek.restoredFrom).toEqual([73]);
+    const captures = await runUntil(stage, [ania, bartek], 95);
+    expectAgreement(captures, [ania, bartek]);
+    expect(ania.rejections).toEqual([]);
+    expect(bartek.rejections).toEqual([]);
+    // The save seated nobody, so only the seat the room hands to a computer player is re-seated.
+    expect(
+      captures
+        .get(ania)
+        ?.log.filter(([, , command]) => command.kind === 'setAiControl')
+        .map(([, , c]) => c),
+    ).toEqual([{ kind: 'setAiControl', player: 2, enabled: true }]);
+    for (const participant of [ania, bartek]) {
+      const world = participant.sim?.world;
+      if (world === undefined) throw new Error('missing restored world');
+      const carrier = components.aiControlEntity(world, 2);
+      if (carrier === null) throw new Error('missing computer seat');
+      expect(world.get(carrier, components.AiControl)).toMatchObject({
+        computerEnabled: true,
+        mapAiEnabled: true,
+      });
+    }
+  });
+
+  it('keeps eight clients in agreement through repeated resyncs, a silent link and paused orders', async () => {
+    const stage = stageFor(81);
+    const clients = Array.from({ length: 8 }, (_, i) => client(`Player${i}`));
+    const links = clients.map((each, i) =>
+      stage.network.link(each, {
+        latencyMs: 40 + i * 80,
+        jitterMs: 10 + i * 20,
+        uploadBytesPerSecond: 128 * 1024,
+        downloadBytesPerSecond: 64 * 1024,
+      }),
+    );
+    await assembleRoom(stage, clients, {
+      settings: { ...SETTINGS, speed: 4 },
+      seats: clients.map((_, player) => ({
+        player,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'computer'],
+        color: player,
+      })),
+      seatOf: (i) => i,
+      settleMs: 1400,
+    });
+    const host = clients[0];
+    const returning = clients[3];
+    const diverging = clients[7];
+    if (host === undefined || returning === undefined || diverging === undefined)
+      throw new Error('missing clients');
+    const onTick = (each: HeadlessClient, tick: number): void => {
+      const seat = each.session?.localSeat;
+      if (typeof seat === 'number' && tick % 11 === seat)
+        each.submit(
+          playerCommand(seat, {
+            kind: 'setAssistantCounter',
+            player: seat,
+            counter: 'extraMen',
+            value: tick,
+            infinite: false,
+          }),
+        );
+      if (each === diverging && (tick === 100 || tick === 800) && each.sim !== null)
+        each.sim.rng.setState(each.sim.rng.getState() ^ 1);
+    };
+    await runUntil(stage, clients, 250, { onTick });
+    links[3]?.cut();
+    await runFor(stage, clients, SILENT_AFTER_MS + 1400);
+    expect(host.waits.at(-1)?.for).toMatchObject([{ nick: returning.nick, reason: 'silent' }]);
+    relink(stage, returning, { latencyMs: 500, jitterMs: 150 });
+    await runUntil(stage, clients, 650, { onTick });
+    host.setPaused(true);
+    await runFor(stage, clients, 2000);
+    expect(new Set(clients.map((each) => each.tick)).size).toBe(1);
+    for (const each of clients) {
+      const seat = each.session?.localSeat;
+      if (typeof seat !== 'number') throw new Error('missing seat');
+      for (let order = 0; order < 10; order++) {
+        each.submit(
+          playerCommand(seat, {
+            kind: 'setAssistantCounter',
+            player: seat,
+            counter: 'extraMen',
+            value: 100_000 + order,
+            infinite: false,
+          }),
+        );
+      }
+    }
+    await runFor(stage, clients, 1400);
+    host.setPaused(false);
+    const afterBurst = await runUntil(stage, clients, 750, { onTick });
+    for (const capture of afterBurst.values()) {
+      for (let seat = 0; seat < clients.length; seat++) {
+        expect(
+          capture.log.flatMap(([, , command]) =>
+            command.kind === 'setAssistantCounter' && command.player === seat && command.value >= 100_000
+              ? [command.value]
+              : [],
+          ),
+        ).toEqual(Array.from({ length: 10 }, (_, order) => 100_000 + order));
+      }
+    }
+    const captures = await runUntil(stage, clients, 1100, { onTick });
+    expectAgreement(captures, clients);
+    expect(diverging.desyncs).toHaveLength(2);
+    expect(diverging.restoredFrom).toHaveLength(2);
+    for (const each of clients) {
+      expect(each.rejections, each.nick).toEqual([]);
+      expect(each.errors, each.nick).toEqual([]);
+      if (each !== diverging) expect(each.desyncs, each.nick).toEqual([]);
+    }
+    const log = captures.get(host)?.log ?? [];
+    const orderedSeats = new Set(
+      log.flatMap(([, , command]) => (command.kind === 'setAssistantCounter' ? [command.player] : [])),
+    );
+    expect(orderedSeats.size).toBe(8);
+  });
+
+  it('refuses lobby map replacement after a session starts', async () => {
+    const { stage, ania, bartek } = await twoClients(7);
+    const bytes = Buffer.from(Array.from({ length: 3000 }, (_, i) => i % 251)).toString('base64');
+    ania.sendBlob({ type: 'map', to: 'Bartek', tick: null, bytes });
+    settle(stage, SETTLE_MS);
+    expect(bartek.blobs).toEqual([]);
+    expect(ania.rejections.at(-1)).toMatchObject({ reason: { code: 'lobbyFilesFixed' } });
+    expect(ania.blobs).toEqual([]);
+  });
+});

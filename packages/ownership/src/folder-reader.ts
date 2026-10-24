@@ -40,14 +40,6 @@ export async function findEntry(
   return entry === undefined ? undefined : { path, entry };
 }
 
-export async function findDirectory(
-  reader: FolderReader,
-  wanted: FolderPath,
-): Promise<FolderPath | undefined> {
-  const found = await findEntry(reader, wanted);
-  return found?.entry.kind === 'directory' ? found.path : undefined;
-}
-
 export async function findFile(
   reader: FolderReader,
   wanted: FolderPath,

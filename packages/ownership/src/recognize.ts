@@ -70,7 +70,7 @@ export function isLibraryHead(bytes: Uint8Array): boolean {
   );
 }
 
-export function isCifHead(bytes: Uint8Array): boolean {
+function isCifHead(bytes: Uint8Array): boolean {
   return CIF_MAGIC.every((value, index) => bytes[index] === value);
 }
 

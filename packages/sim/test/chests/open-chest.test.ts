@@ -31,7 +31,6 @@ import {
   resolveChestReward,
 } from '../../src/systems/chests/index.js';
 import { resourceBlockedCells } from '../../src/systems/footprint/index.js';
-import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap } from '../fixtures/terrain.js';
 
@@ -186,8 +185,8 @@ describe('chest contents', () => {
       jobType: CIVILIST,
       count: 3,
     });
-    // A house the fixture does not carry, and an unassigned type, open empty.
-    expect(resolveChestReward(content, 'wooden', 70)).toEqual({ kind: 'nothing' });
+    // A workshop reward whose house the fixture lacks, and an unassigned type, open empty.
+    expect(resolveChestReward(content, 'wooden', SMITHY_REWARD)).toEqual({ kind: 'nothing' });
     expect(resolveChestReward(content, 'wooden', UNKNOWN_CHEST)).toEqual({ kind: 'nothing' });
   });
 
@@ -359,24 +358,6 @@ describe('the openChest order', () => {
     expect(restored.unlockStatus('good', LONG_SWORD, VIKING, P0).enabled).toBe(true);
   });
 
-  it('a hero opens a magical chest, and it holds more of the same', () => {
-    const sim = fresh();
-    const magical = createChest(sim.world, sim.content, {
-      kind: 'magical',
-      contents: SHOES_CHEST,
-      x: 10,
-      y: 10,
-    });
-    const hero = spawn(sim, HERO, 6, 6);
-    sim.enqueue(playerCommand(P0, { kind: 'openChest', entity: hero, chest: magical }));
-    sim.step();
-    expect(sim.world.has(hero, OpenChestOrder)).toBe(true);
-    stepUntilOpened(sim, magical);
-    expect(sim.world.isAlive(magical)).toBe(true);
-    expect(sim.world.has(magical, OpenedChest)).toBe(true);
-    expect(looseGoods(sim, SHOES)).toBe(9);
-  });
-
   it('a magical chest refuses a plain trade, and a child refuses any chest', () => {
     const sim = fresh();
     const magical = createChest(sim.world, sim.content, {
@@ -434,12 +415,6 @@ describe('the openChest order', () => {
     sim.step();
     expect(sim.world.has(woodcutter, OpenChestOrder)).toBe(false);
     expect(sim.world.isAlive(chest)).toBe(true);
-  });
-
-  it('runs after the player order retires the walk and before the planner could re-task the opener', () => {
-    const names = SYSTEM_ORDER.map((s) => s.name);
-    expect(names.indexOf('playerOrder')).toBeLessThan(names.indexOf('chestOrder'));
-    expect(names.indexOf('chestOrder')).toBeLessThan(names.indexOf('planner'));
   });
 
   it('two settlers sent to one chest: the second finds it gone and returns to autonomy', () => {

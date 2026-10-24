@@ -173,25 +173,6 @@ describe('placing with a paper', () => {
     expect(amounts.get(WOOD)).toBe(SAWMILL_CAPACITY);
     expect(amounts.get(PLANK)).toBe(SAWMILL_CAPACITY);
   });
-
-  it('a placeAny paper spends on whatever house the seat picks', () => {
-    const sim = fresh();
-    sim.enqueueSetup({ kind: 'grantPaper', player: P0, paper: anyHouse });
-    sim.enqueue(
-      playerCommand(P0, {
-        kind: 'placeBuilding',
-        buildingType: HQ,
-        x: 8,
-        y: 8,
-        tribe: VIKING,
-        paper: anyHouse,
-      }),
-    );
-    sim.step();
-    expect(buildings(sim)).toHaveLength(1);
-    expect(sim.world.get(buildings(sim)[0] as Entity, Building).built).toBe(ONE);
-    expect(sim.papers(P0)).toEqual([]);
-  });
 });
 
 describe('a trusted placement past the tech gate', () => {

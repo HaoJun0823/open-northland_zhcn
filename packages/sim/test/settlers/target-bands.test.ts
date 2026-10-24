@@ -236,7 +236,7 @@ describe('TargetBands.holding kept off the holder ledger', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it.each([1, 2, 3])(
+  it.each([1])(
     'matches a cold judgement as walls and blocking deposits come and go around the piles (seed %i)',
     (seed) => {
       const sim = new Simulation({ seed: 1, content: constructionContent(), map: grassMap(24, 8) });

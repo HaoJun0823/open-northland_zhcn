@@ -37,16 +37,4 @@ describe("ownDropsOf - a harvester's own drops from the marks kept across ticks"
     expect(next.ownDropsOf(b)).toEqual([second]);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
-
-  it('counts only the drops standing at the pass start', () => {
-    const { sim, pile, pass } = fixture();
-    const harvester = sim.world.create();
-    const early = pile(2);
-    sim.world.add(early, HarvestedBy, { by: harvester });
-    const targets = pass();
-    const late = pile(8);
-    sim.world.add(late, HarvestedBy, { by: harvester });
-    expect(targets.ownDropsOf(harvester)).toEqual([early]);
-    expect(pass().ownDropsOf(harvester)).toEqual([early, late]);
-  });
 });

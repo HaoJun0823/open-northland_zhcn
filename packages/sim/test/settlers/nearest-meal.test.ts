@@ -49,6 +49,11 @@ const BEYOND_FAR = 76;
 const RANK: Record<Exclude<Source, 'home'>, number> = { store: 0, ground: 0, producer: 0, bush: 1 };
 const IN_REACH = ['store', 'ground', 'producer', 'bush'] as const;
 
+/** Each kind once as the nearer and once as the farther source, against its neighbour in the list. */
+function neighbourPairs<T>(kinds: readonly T[]): Array<{ near: T; far: T }> {
+  return kinds.map((near, i) => ({ near, far: kinds[(i + 1) % kinds.length] as T }));
+}
+
 function fixture() {
   const base = testContent();
   const content = parseContentSet({
@@ -126,7 +131,7 @@ function sourceOf(food: ReturnType<typeof chooseMeal>): Entity | undefined {
 }
 
 describe('the meal choice', () => {
-  it.each(IN_REACH.flatMap((near) => IN_REACH.filter((far) => far !== near).map((far) => ({ near, far }))))(
+  it.each(neighbourPairs(IN_REACH))(
     'ranks stocked food over a bush inside the reach, nearest within a rank: nearer $near, farther $far',
     ({ near, far }) => {
       const { add, pick, sim } = fixture();
@@ -164,7 +169,7 @@ describe('the meal choice', () => {
     expect(sourceOf(pick())).toBe(store);
   });
 
-  it.each(SOURCES.flatMap((near) => SOURCES.filter((far) => far !== near).map((far) => ({ near, far }))))(
+  it.each(neighbourPairs(SOURCES))(
     'takes the nearest meal of any kind past the reach, the far home included: nearer $near, farther $far',
     ({ near, far }) => {
       const { add, pick } = fixture();

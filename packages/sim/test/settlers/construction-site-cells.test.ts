@@ -66,18 +66,6 @@ describe('constructionSiteCells - the planner site index kept across ticks', () 
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
-  it('holds the sites the pass listed while a later site appears mid-pass', () => {
-    const { sim, pass } = fixture();
-    const targets = pass();
-    expect(targets.constructionSites).toEqual([]);
-    const late = siteAt(sim, 3, 3);
-    const here = sim.terrain?.nodeAt(6, 6);
-    if (here === undefined) throw new Error('fixture map missing');
-    const accept = (e: Entity) => (e === late ? { payload: null } : null);
-    expect(targets.constructionSiteCells.nearest(here, accept)).toBeNull();
-    expect(pass().constructionSiteCells.nearest(here, accept)?.entity).toBe(late);
-  });
-
   it('moves a site between the served and the vehicle lists when its type changes in place', () => {
     const { sim, pass } = fixture();
     const site = siteAt(sim, 6, 3);

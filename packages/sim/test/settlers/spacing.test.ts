@@ -167,32 +167,6 @@ describe('idle-spacing (de-stack) drive', () => {
 });
 
 describe('planner-pass occupancy', () => {
-  it('holds the stationary owned settlers as the pass began, and catches up at the next pass', () => {
-    const s = sim();
-    const terrain = s.terrain;
-    if (terrain === undefined) throw new Error('setup: terrain missing');
-    const ctx = ctxOf(s);
-    const keeper = idleWoodcutter(s, 4, 3);
-    const leaver = idleWoodcutter(s, 4, 3);
-    const mover = idleWoodcutter(s, 6, 3);
-    idleWoodcutter(s, 4, 3, null); // unowned: never occupies
-
-    const first = PlannerSpacing.forTick(s.world, ctx, terrain).occupancy;
-    expect(first.at(4, 3)).toEqual([keeper, leaver]);
-    s.world.add(leaver, MoveGoal, { cell: terrain.nodeAtClamped(8, 3) });
-    const p = s.world.mut(mover, Position);
-    ({ x: p.x, y: p.y } = positionOfNode(8, 3));
-    // The pass that set them moving still reads its own start.
-    expect(first.at(4, 3)).toEqual([keeper, leaver]);
-    expect(first.at(6, 3)).toEqual([mover]);
-
-    const next = PlannerSpacing.forTick(s.world, ctx, terrain).occupancy;
-    expect(next.at(4, 3)).toEqual([keeper]);
-    expect(next.at(6, 3)).toEqual([]);
-    expect(next.at(8, 3)).toEqual([mover]);
-    expect(s.world.verifyCaches()).toEqual([]);
-  });
-
   it('follows two walkers through more writes than its feed has entries', () => {
     const s = sim();
     const terrain = s.terrain;

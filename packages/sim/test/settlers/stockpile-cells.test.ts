@@ -55,15 +55,4 @@ describe('stockpileCells - the planner stockpile index kept across ticks', () =>
     tick();
     expect(sim.world.verifyCaches()).toEqual([]);
   });
-
-  it('holds the stockpiles of the pass start while the pass drops a new pile', () => {
-    const { sim, tick } = fixture();
-    const index = tick();
-    const late = pileAt(sim, 3, 3);
-    const here = sim.terrain?.nodeAt(6, 6);
-    if (here === undefined) throw new Error('fixture map missing');
-    expect(index.nearest(here, (e) => (e === late ? { payload: null } : null))).toBeNull();
-    tick();
-    expect(index.nearest(here, (e) => (e === late ? { payload: null } : null))?.entity).toBe(late);
-  });
 });

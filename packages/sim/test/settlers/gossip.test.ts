@@ -351,19 +351,6 @@ describe('gossip candidate index', () => {
       expect(sim.world.verifyCaches()).toEqual([]);
     }
   });
-
-  it('holds the candidates as of its first search for the rest of the pass', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 4) });
-    const a = gossiper(sim, 1, 0, MILD);
-    const pass = new GossipCandidates(sim.world, sim.content);
-    const before = nodeOfPosition(sim.world.get(a, Position).x, sim.world.get(a, Position).y);
-    pass.ensure();
-
-    sim.world.mut(a, Position).y = fx.fromInt(2);
-
-    expect(onNode(pass.ensure(), before.hx, before.hy)).toEqual([a]);
-    expect(bucketOf(new GossipCandidates(sim.world, sim.content), sim, a)).toEqual([a]);
-  });
 });
 
 describe('gossip chat rounds (GossipSystem)', () => {

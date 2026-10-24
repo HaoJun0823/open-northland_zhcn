@@ -1,4 +1,4 @@
-import { decodeWav, inspectWav } from '@open-northland/formats/wav';
+import { decodeWav, inspectWav } from '@open-northland/formats/audio/wav';
 import { VOICE_MUSIC_DUCK_DB } from '../../data/mixer.js';
 import type { BusDuck, DuckHold } from './bus-duck.js';
 import { CLICK_FREE_RAMP_S, rampParam } from './ramps.js';

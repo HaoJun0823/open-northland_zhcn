@@ -9,7 +9,11 @@ import {
   MusicManifestDocument,
   type MusicManifestTrack,
 } from '@open-northland/data';
-import { decodeSegmentAudiopath, decodeSegmentTiming, musicTimeToSeconds } from '@open-northland/formats/sgt';
+import {
+  decodeSegmentAudiopath,
+  decodeSegmentTiming,
+  musicTimeToSeconds,
+} from '@open-northland/formats/audio/sgt';
 import { errorMessage } from '../../errors.js';
 import { statIfExists, writeFileWithParents } from '../../files.js';
 import { findPathCaseInsensitive, type SourceRoots } from '../../roots.js';

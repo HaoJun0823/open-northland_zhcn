@@ -3,14 +3,14 @@
  * the render clock to produce the instrument event stream the synthesizer replays.
  */
 
-import { DMUS_PPQ } from '@open-northland/formats/sgt';
+import { DMUS_PPQ } from '@open-northland/formats/audio/sgt';
 import {
   type DmBand,
   type DmPattern,
   type DmSequenceItem,
   type DmTimeSignature,
   decodeSegmentTracks,
-} from '@open-northland/formats/sgt-tracks';
+} from '@open-northland/formats/audio/sgt-tracks';
 import type { EventInstance, SegmentEvents, TimedEvent } from './events.js';
 import {
   curveValue,

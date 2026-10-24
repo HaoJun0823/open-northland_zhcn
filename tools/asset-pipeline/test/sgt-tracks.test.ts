@@ -1,4 +1,4 @@
-import { decodeSegmentTracks } from '@open-northland/formats/sgt-tracks';
+import { decodeSegmentTracks } from '@open-northland/formats/audio/sgt-tracks';
 import { describe, expect, it } from 'vitest';
 import { chunk, u32 } from '../../../packages/formats/test/fixtures/riff.js';
 import { DMUS_PLAYMODE_NONE } from '../src/stages/music/music-value.js';

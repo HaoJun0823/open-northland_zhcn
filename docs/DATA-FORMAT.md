@@ -81,7 +81,7 @@ English-locale conversion of CnMod 1.3.2; state a different input beside any cla
 | `.fnt` | bitmap-font wrapper around a bob container; documented only, no stage reads it | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.cur` | Windows cursor resource | `packages/formats/src/cur.ts` and its tests |
 | `.wav` | sound effects and voices | the pipeline re-encodes them as FLAC and Ogg Opus (`stages/sounds/`, `packages/formats/src/audio/`); briefing voices play as shipped |
-| `.sgt` / `.dls` | DirectMusic soundtrack | `packages/formats/src/sgt.ts`, `dls.ts`, performed by the pipeline's `stages/music/interpret.ts` |
+| `.sgt` / `.dls` | DirectMusic soundtrack | `packages/formats/src/audio/sgt.ts`, `dls.ts`, performed by the pipeline's `stages/music/interpret.ts` |
 
 The music interpreter follows the MIT [libdmusic](https://github.com/frabert/libdmusic) player, with
 music-value resolution as documented by the MIT [GothicKit dmusic](https://github.com/GothicKit/dmusic)

@@ -4,7 +4,7 @@
  * (`DMUS_IO_TRACK_HEADER`, `DMUS_IO_TEMPO_ITEM`, `DMUS_IO_STYLE*`, `DMUS_IO_INSTRUMENT`,
  * `DMUS_IO_SEQ_ITEM`); all are byte-packed in the files.
  */
-import { viewOf } from './byte-cursor.js';
+import { viewOf } from '../byte-cursor.js';
 import { fourCc, type RiffChild, riffChildren } from './riff.js';
 
 export interface DmTimeSignature {

@@ -4,7 +4,7 @@
  * the published DirectX headers (`DMUS_IO_SEGMENT_HEADER`, `DMUS_IO_TEMPO_ITEM`,
  * `DMUS_PORTPARAMS8`, `DSFXWavesReverb`), byte-verified against the owned copy's segments.
  */
-import { viewOf } from './byte-cursor.js';
+import { viewOf } from '../byte-cursor.js';
 import { walkRiffTree } from './riff.js';
 
 /** Music-time ticks per quarter note (`DMUS_PPQ`). */

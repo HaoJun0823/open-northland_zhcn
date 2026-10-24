@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeWav, inspectWav, isWav, WavDecodeError, type WavDecodeFailure } from '../../src/wav.js';
+import { decodeWav, inspectWav, isWav, WavDecodeError, type WavDecodeFailure } from '../../src/audio/wav.js';
 
 const ascii = (s: string): number[] => [...s].map((c) => c.charCodeAt(0));
 const u16 = (v: number): number[] => [v & 0xff, (v >>> 8) & 0xff];

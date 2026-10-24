@@ -9,7 +9,7 @@ import {
   type DlsInstrumentRejects,
   type DlsKeyRange,
   decodeRejectedRegions,
-} from '@open-northland/formats/dls';
+} from '@open-northland/formats/audio/dls';
 import {
   type BasicPreset,
   type BasicSoundBank,

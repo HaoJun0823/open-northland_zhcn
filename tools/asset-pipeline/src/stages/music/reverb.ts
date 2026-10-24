@@ -5,7 +5,7 @@
  * level of sustained material lands near the authored mix.
  */
 
-import type { SegmentReverb } from '@open-northland/formats/sgt';
+import type { SegmentReverb } from '@open-northland/formats/audio/sgt';
 
 /** Freeverb comb/allpass tunings, in samples at the rate they were designed for. */
 const TUNING_RATE = 44100;

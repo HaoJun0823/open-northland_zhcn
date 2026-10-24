@@ -6,7 +6,7 @@
  * was rejected by ear against an in-game recording). Layouts from the published DLS Level 2
  * specification.
  */
-import { viewOf } from './byte-cursor.js';
+import { viewOf } from '../byte-cursor.js';
 import { walkRiffTree } from './riff.js';
 
 /** Inclusive MIDI key range of one instrument region. */

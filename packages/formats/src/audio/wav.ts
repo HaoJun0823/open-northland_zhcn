@@ -1,4 +1,4 @@
-import { viewOf } from './byte-cursor.js';
+import { viewOf } from '../byte-cursor.js';
 import { fourCc, riffChildren } from './riff.js';
 
 /** A decoded wav: one float channel per speaker, each sample in -1..1. */

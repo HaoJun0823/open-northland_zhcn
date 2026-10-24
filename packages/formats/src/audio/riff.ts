@@ -1,4 +1,4 @@
-import { viewOf } from './byte-cursor.js';
+import { viewOf } from '../byte-cursor.js';
 
 /**
  * One chunk inside a RIFF container body. Containers (`RIFF`/`LIST`) carry their form type and

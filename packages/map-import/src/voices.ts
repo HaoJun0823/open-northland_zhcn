@@ -4,7 +4,7 @@ import {
   briefingVoices,
   type MapBriefing,
 } from '@open-northland/data';
-import { inspectWav, WavDecodeError } from '@open-northland/formats/wav';
+import { inspectWav, WavDecodeError } from '@open-northland/formats/audio/wav';
 import type { MapFolder } from './folder.js';
 import { VOICE_DIR } from './layout.js';
 

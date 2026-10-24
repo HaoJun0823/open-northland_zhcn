@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeRejectedRegions } from '../../src/dls.js';
+import { decodeRejectedRegions } from '../../src/audio/dls.js';
 import { chunk, list, riff, u16, u32 } from '../fixtures/riff.js';
 
 /**

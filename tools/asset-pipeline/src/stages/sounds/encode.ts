@@ -4,7 +4,7 @@ import type { SoundQuality } from '@open-northland/data';
 import { encodeFlac } from '@open-northland/formats/audio/flac';
 import { oggOpus } from '@open-northland/formats/audio/ogg-opus';
 import { resample } from '@open-northland/formats/audio/resample';
-import { decodeWav } from '@open-northland/formats/wav';
+import { decodeWav } from '@open-northland/formats/audio/wav';
 
 /** Turns one source wav into one quality's bytes. */
 export type SoundEncoder = (wav: Uint8Array, quality: SoundQuality) => Promise<Uint8Array>;

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DMUS_PPQ, decodeSegmentAudiopath, decodeSegmentTiming, musicTimeToSeconds } from '../../src/sgt.js';
+import {
+  DMUS_PPQ,
+  decodeSegmentAudiopath,
+  decodeSegmentTiming,
+  musicTimeToSeconds,
+} from '../../src/audio/sgt.js';
 
 /**
  * Synthetic-fixture coverage for the segment timing decoder: fixtures are authored here (never game

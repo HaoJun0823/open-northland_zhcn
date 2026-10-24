@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
 import { findInstall, isLibraryHead, recognizeInstall, releaseLabel } from '../src/index.js';
-import { ascii, cifHead, libraryHead, memoryReader } from './memory-reader.js';
+import { ascii, cifHead, libraryHead, memoryReader } from './support/memory-reader.js';
 
 const WONDERS_EN_LIBRARY_SIZE = 255_230_793;
 

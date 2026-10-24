@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { libraryHead } from '../../ownership/test/memory-reader.js';
+import { libraryHead } from '../../ownership/test/support/memory-reader.js';
 import { fileListReader } from '../src/entries/main-menu/original-game/browser-folder-reader.js';
 import {
   type OriginalGameRecord,

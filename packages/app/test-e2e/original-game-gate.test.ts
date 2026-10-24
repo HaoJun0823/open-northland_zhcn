@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { type Browser, chromium, type Page } from 'playwright';
 import type { ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { libraryHead } from '../../ownership/test/memory-reader.js';
+import { libraryHead } from '../../ownership/test/support/memory-reader.js';
 
 /** The browser build's original-game gate, in Chromium over the app's dev server. */
 

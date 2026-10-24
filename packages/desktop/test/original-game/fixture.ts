@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { libraryHead } from '../../../ownership/test/memory-reader.js';
+import { libraryHead } from '../../../ownership/test/support/memory-reader.js';
 
 export { libraryHead };
 

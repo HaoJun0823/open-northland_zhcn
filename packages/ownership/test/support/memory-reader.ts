@@ -1,4 +1,4 @@
-import type { FolderEntry, FolderPath, FolderReader } from '../src/index.js';
+import type { FolderEntry, FolderPath, FolderReader } from '../../src/index.js';
 
 /** A directory is a nested record; a file is its content bytes. */
 export type MemoryTree = { readonly [name: string]: MemoryTree | Uint8Array };

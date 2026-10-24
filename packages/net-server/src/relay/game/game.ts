@@ -1,4 +1,5 @@
 import {
+  type BlobUpload,
   type ClientMessage,
   type DepartedSeatMode,
   type DepartureCause,
@@ -12,7 +13,7 @@ import {
 import type { SyncDomain } from '@open-northland/sim';
 import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
 import type { RelayLog } from '../relay-log.js';
-import { type BlobUpload, blobMessage, relayBlob } from '../snapshots/blob-relay.js';
+import { blobMessage, relayBlob } from '../snapshots/blob-relay.js';
 import type { CachedSnapshot } from '../snapshots/catch-up.js';
 import { Resync } from '../snapshots/resync.js';
 import { framesIn, governedSpeed } from '../timing/governor.js';

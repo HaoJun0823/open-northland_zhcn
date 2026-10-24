@@ -5,6 +5,7 @@ export { apiConfigFromEnvironment, parseSyncInterval } from './config.js';
 export { convertArchive, loadUnrarWasm } from './conversion/convert.js';
 export { ConversionService } from './conversion/service.js';
 export { ConversionStore } from './conversion/store.js';
-export { type ApiHealth, type ApiServer, type ContentSource, startApiServer } from './server.js';
+export type { ContentSource } from './http/sources.js';
+export { type ApiHealth, type ApiServer, startApiServer } from './server.js';
 export { DataStore } from './store.js';
 export { type Fetch, fetchCatalogPages } from './upstream/strapi.js';

@@ -1,8 +1,6 @@
 import type { BlobUpload, ServerMessage } from '@open-northland/net-protocol';
 import type { Deliver, Member, Refusal } from '../member.js';
 
-export type { BlobUpload } from '@open-northland/net-protocol';
-
 export type BlobMessage = Extract<ServerMessage, { kind: 'blob' }>;
 
 export function blobMessage(sender: Member, upload: BlobUpload): BlobMessage {

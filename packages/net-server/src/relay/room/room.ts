@@ -1,5 +1,6 @@
 import type { GameSession } from '@open-northland/lockstep';
 import {
+  type BlobUpload,
   type ClientMessage,
   type DepartedSeatMode,
   type DepartureCause,
@@ -21,7 +22,6 @@ import { type SeatChange, SeatTable } from '../lobby/seats.js';
 import { LobbyTransfers } from '../lobby/transfers.js';
 import { broadcast, type Deliver, type Member, type Refusal } from '../member.js';
 import { type RelayLog, wholeSeconds } from '../relay-log.js';
-import type { BlobUpload } from '../snapshots/blob-relay.js';
 import { Responsiveness } from '../timing/responsiveness.js';
 import { ChatLog } from './chat-log.js';
 import { roomView, sessionForMember } from './view.js';

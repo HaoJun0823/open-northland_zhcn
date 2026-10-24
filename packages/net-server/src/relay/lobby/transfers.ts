@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
-import { type RoomSettings, TRANSFER_REQUEST_COOLDOWN_MS } from '@open-northland/net-protocol';
+import {
+  type BlobUpload,
+  type RoomSettings,
+  TRANSFER_REQUEST_COOLDOWN_MS,
+} from '@open-northland/net-protocol';
 import { broadcast, type Deliver, type Member, type Refusal } from '../member.js';
-import { type BlobMessage, type BlobUpload, blobMessage, relayBlob } from '../snapshots/blob-relay.js';
+import { type BlobMessage, blobMessage, relayBlob } from '../snapshots/blob-relay.js';
 import type { CachedSnapshot } from '../snapshots/catch-up.js';
 
 /** The map text the creator last delivered or deposited, kept for the room's life so the relay can

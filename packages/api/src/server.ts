@@ -9,8 +9,6 @@ import { pathOf, send, sendError, V1_HEADERS } from './http/response.js';
 import type { ContentSource, KeptFileSource } from './http/sources.js';
 import type { DataStore } from './store.js';
 
-export type { ContentFile, ContentSource, KeptFile, KeptFileSource } from './http/sources.js';
-
 export const HEALTH_PATH = '/healthz';
 const CATALOG_PATH = '/v1/catalog';
 const MAP_PATH = /^\/v1\/maps\/([^/]+)(?:\/(thumbnail|file))?$/;

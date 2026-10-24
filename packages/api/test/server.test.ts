@@ -7,7 +7,8 @@ import { CatalogBrowse, CatalogEntry } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { catalogSnapshot } from '../src/catalog/snapshot.js';
 import { syncCatalog } from '../src/catalog/sync.js';
-import { type ApiServer, type KeptFile, startApiServer } from '../src/server.js';
+import type { KeptFile } from '../src/http/sources.js';
+import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
 import { ACCEPTED_RECORDS, FakeUpstream, PNG_BYTES, UPSTREAM } from './support/strapi-fixture.js';
 

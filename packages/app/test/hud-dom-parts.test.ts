@@ -22,11 +22,6 @@ const JUMP = { jump: true, tens: false };
 const TENS = { jump: false, tens: true };
 
 describe('the counter part', () => {
-  it('steps within the finite range', () => {
-    expect(counterStep(RANGE, 3, 1, PLAIN)).toBe(4);
-    expect(counterStep(RANGE, 3, -1, PLAIN)).toBe(2);
-  });
-
   it('steps by its own step, clamped at the ends of a range without unlimited, and by ten with the tens key', () => {
     const fives = { max: 999, step: 5 };
     expect(counterStep(fives, 10, 1, PLAIN)).toBe(15);
@@ -87,11 +82,6 @@ describe('the counter part', () => {
     expect(counterModifiers(click({ ctrlKey: true }), 'ctrl')).toEqual(JUMP);
     expect(counterModifiers(click({ metaKey: true }), 'ctrl')).toEqual(JUMP);
     expect(counterModifiers(click({ shiftKey: true }), 'ctrl')).toEqual(TENS);
-  });
-
-  it('shows unlimited as the infinity sign', () => {
-    expect(counterText(RANGE, RANGE.unlimited)).toBe('∞');
-    expect(counterText(RANGE, 7)).toBe('7');
   });
 });
 

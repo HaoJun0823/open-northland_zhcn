@@ -1,6 +1,6 @@
 import type { SceneTerrain } from '../scene/terrain-scene.js';
-import type { TerrainCells } from './minimap.js';
-import { waterCellFractions } from './water.js';
+import { waterCellFractions } from '../terrain/water.js';
+import type { TerrainCells } from './map-preview.js';
 
 /** The deposit families the minimap tints; the caller's content join decides which objects count. */
 export const MINIMAP_DEPOSIT_KINDS = ['stone', 'clay', 'iron', 'gold'] as const;

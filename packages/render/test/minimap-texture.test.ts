@@ -13,13 +13,13 @@ import {
   FIELD_WATER_G,
   FIELD_WATER_R,
   waterRamp,
-} from '../src/data/terrain/minimap-cells.js';
-import { LandPainter } from '../src/data/terrain/minimap-land.js';
-import { cellLight, MINIMAP_LIGHT } from '../src/data/terrain/minimap-light.js';
-import { valueNoisePair } from '../src/data/terrain/minimap-noise.js';
-import { SAMPLE_LANES } from '../src/data/terrain/minimap-sampler.js';
-import type { MinimapScene } from '../src/data/terrain/minimap-scene.js';
-import { SeaPainter } from '../src/data/terrain/minimap-sea.js';
+} from '../src/data/minimap/cells.js';
+import { LandPainter } from '../src/data/minimap/land.js';
+import { cellLight, MINIMAP_LIGHT } from '../src/data/minimap/light.js';
+import { valueNoisePair } from '../src/data/minimap/noise.js';
+import { SAMPLE_LANES } from '../src/data/minimap/sampler.js';
+import type { MinimapScene } from '../src/data/minimap/scene.js';
+import { SeaPainter } from '../src/data/minimap/sea.js';
 import {
   classifyGround,
   contrastCurve,
@@ -30,7 +30,7 @@ import {
   type Rgb,
   sampleDomes,
   textureFade,
-} from '../src/data/terrain/minimap-texture.js';
+} from '../src/data/minimap/texture.js';
 
 const SIZE = 24;
 const GREY = 0x808080;

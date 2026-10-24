@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { buildMinimapCellField, FIELD_LAND_R, FIELD_STRIDE } from '../src/data/minimap/cells.js';
+import { minimapFeatureOfGood, minimapObjectLanes } from '../src/data/minimap/features.js';
+import { terrainWorldBounds } from '../src/data/minimap/map-preview.js';
+import { SAMPLE_LANES, sampleField } from '../src/data/minimap/sampler.js';
+import { MINIMAP_DEPOSIT_KINDS, type MinimapScene, minimapScene } from '../src/data/minimap/scene.js';
+import { rasterizeMinimap } from '../src/data/minimap/style.js';
 import { tileToScreen } from '../src/data/projection/index.js';
-import { terrainWorldBounds } from '../src/data/terrain/minimap.js';
-import { buildMinimapCellField, FIELD_LAND_R, FIELD_STRIDE } from '../src/data/terrain/minimap-cells.js';
-import { minimapFeatureOfGood, minimapObjectLanes } from '../src/data/terrain/minimap-features.js';
-import { SAMPLE_LANES, sampleField } from '../src/data/terrain/minimap-sampler.js';
-import { MINIMAP_DEPOSIT_KINDS, type MinimapScene, minimapScene } from '../src/data/terrain/minimap-scene.js';
-import { rasterizeMinimap } from '../src/data/terrain/minimap-style.js';
 import { waterCellFractions } from '../src/data/terrain/water.js';
 
 const GREY = 0x808080;

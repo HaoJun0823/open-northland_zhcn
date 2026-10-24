@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { TILE_HALF_H, TILE_HALF_W, tileToScreen } from '../src/data/projection/index.js';
 import {
   averagePatternColour,
   cellColoursFromGround,
   MINIMAP_CELL_UNRESOLVED,
   terrainWorldBounds,
-} from '../src/data/terrain/minimap.js';
+} from '../src/data/minimap/map-preview.js';
+import { TILE_HALF_H, TILE_HALF_W, tileToScreen } from '../src/data/projection/index.js';
 
 describe('terrainWorldBounds', () => {
   it('covers every cell diamond, including the odd-row half-cell stagger', () => {

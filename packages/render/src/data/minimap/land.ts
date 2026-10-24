@@ -9,8 +9,8 @@ import {
   FIELD_ORE_B,
   FIELD_ORE_G,
   FIELD_ORE_R,
-} from './minimap-cells.js';
-import { hash2, smoothstep, valueNoise } from './minimap-noise.js';
+} from './cells.js';
+import { hash2, smoothstep, valueNoise } from './noise.js';
 import {
   classifyGround,
   type Dome,
@@ -20,7 +20,7 @@ import {
   type Rgb,
   sampleDomes,
   textureFade,
-} from './minimap-texture.js';
+} from './texture.js';
 
 /**
  * The minimap's land at sub-cell scale: ground micro-texture by class, canopy crowns and deposit rocks.

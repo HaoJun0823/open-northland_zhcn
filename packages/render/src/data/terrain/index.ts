@@ -14,30 +14,6 @@ export {
 } from './elevation.js';
 export { composeShadingLane } from './hillshade.js';
 export {
-  averagePatternColour,
-  cellColourResolver,
-  cellColoursFromGround,
-  MINIMAP_CELL_UNRESOLVED,
-  mapPreviewSize,
-  type TerrainCells,
-  terrainWorldBounds,
-  type WorldBounds,
-} from './minimap.js';
-export {
-  type MinimapFeature,
-  type MinimapObjectLanes,
-  type MinimapObjects,
-  minimapFeatureOfGood,
-  minimapObjectLanes,
-} from './minimap-features.js';
-export {
-  MINIMAP_DEPOSIT_KINDS,
-  type MinimapDepositKind,
-  type MinimapScene,
-  minimapScene,
-} from './minimap-scene.js';
-export { rasterizeMinimap } from './minimap-style.js';
-export {
   type Barycentric,
   cellsNearNode,
   type HalfTriangle,

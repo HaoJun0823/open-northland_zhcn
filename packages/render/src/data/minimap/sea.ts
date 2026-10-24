@@ -1,8 +1,8 @@
 import { clamp01 } from '../math.js';
 import { TILE_HALF_W } from '../projection/iso.js';
-import { FIELD_COVER, FIELD_DEPTH, FIELD_WATER_B, FIELD_WATER_G, FIELD_WATER_R } from './minimap-cells.js';
-import { valueNoise } from './minimap-noise.js';
-import { type LightFrame, mixToward, type Rgb, textureFade } from './minimap-texture.js';
+import { FIELD_COVER, FIELD_DEPTH, FIELD_WATER_B, FIELD_WATER_G, FIELD_WATER_R } from './cells.js';
+import { valueNoise } from './noise.js';
+import { type LightFrame, mixToward, type Rgb, textureFade } from './texture.js';
 
 /**
  * The minimap's water at sub-cell scale: a pale shallows band along the coast, swell ripples and a

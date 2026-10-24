@@ -20,6 +20,30 @@ export {
   placeHud,
   type StockCount,
 } from './data/hud/index.js';
+export {
+  type MinimapFeature,
+  type MinimapObjectLanes,
+  type MinimapObjects,
+  minimapFeatureOfGood,
+  minimapObjectLanes,
+} from './data/minimap/features.js';
+export {
+  averagePatternColour,
+  cellColourResolver,
+  cellColoursFromGround,
+  MINIMAP_CELL_UNRESOLVED,
+  mapPreviewSize,
+  type TerrainCells,
+  terrainWorldBounds,
+  type WorldBounds,
+} from './data/minimap/map-preview.js';
+export {
+  MINIMAP_DEPOSIT_KINDS,
+  type MinimapDepositKind,
+  type MinimapScene,
+  minimapScene,
+} from './data/minimap/scene.js';
+export { rasterizeMinimap } from './data/minimap/style.js';
 export { HumanPaletteCache } from './data/palettes/human-palette-cache.js';
 export {
   type ArmorBand,
@@ -123,34 +147,16 @@ export {
   waveFrameAt,
 } from './data/sprites/index.js';
 export {
-  averagePatternColour,
   type BrightnessField,
   type CellTexture,
-  cellColourResolver,
-  cellColoursFromGround,
   type ElevationField,
-  MINIMAP_CELL_UNRESOLVED,
-  MINIMAP_DEPOSIT_KINDS,
-  type MinimapDepositKind,
-  type MinimapFeature,
-  type MinimapObjectLanes,
-  type MinimapObjects,
-  type MinimapScene,
   makeElevationField,
-  mapPreviewSize,
-  minimapFeatureOfGood,
-  minimapObjectLanes,
-  minimapScene,
   patternSrcRect,
   projectNode,
   projectTile,
-  rasterizeMinimap,
-  type TerrainCells,
   terrainLiftAt,
-  terrainWorldBounds,
   texturePageKey,
   type WaterCellFractions,
-  type WorldBounds,
   waterCellFractions,
 } from './data/terrain/index.js';
 export { buildWeatherField, type WeatherField } from './data/weather/field.js';

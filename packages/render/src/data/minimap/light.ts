@@ -1,9 +1,9 @@
 import { clamp, clamp01 } from '../math.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../projection/iso.js';
-import { BRIGHTNESS_NEUTRAL } from './brightness.js';
-import { elevationLiftPerUnit } from './elevation.js';
-import { boxBlur, laneOf, staggerBlur } from './minimap-grid.js';
-import type { MinimapScene } from './minimap-scene.js';
+import { BRIGHTNESS_NEUTRAL } from '../terrain/brightness.js';
+import { elevationLiftPerUnit } from '../terrain/elevation.js';
+import { boxBlur, laneOf, staggerBlur } from './grid.js';
+import type { MinimapScene } from './scene.js';
 
 /**
  * The minimap's land light per cell: hillshaded relief at three scales, occlusion in valleys and

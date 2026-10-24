@@ -1,10 +1,10 @@
 import { clamp, clamp01 } from '../math.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../projection/iso.js';
-import { forEachStaggerNeighbour, laneOf, staggerBlur } from './minimap-grid.js';
-import { cellLight } from './minimap-light.js';
-import { valueNoise } from './minimap-noise.js';
-import { MINIMAP_DEPOSIT_KINDS, type MinimapDepositKind, type MinimapScene } from './minimap-scene.js';
-import { classifyGround, type GroundClass, luma } from './minimap-texture.js';
+import { forEachStaggerNeighbour, laneOf, staggerBlur } from './grid.js';
+import { cellLight } from './light.js';
+import { valueNoise } from './noise.js';
+import { MINIMAP_DEPOSIT_KINDS, type MinimapDepositKind, type MinimapScene } from './scene.js';
+import { classifyGround, type GroundClass, luma } from './texture.js';
 
 /**
  * The per-cell half of the minimap style: every term that varies slower than a cell (relief light,

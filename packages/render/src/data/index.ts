@@ -12,6 +12,35 @@ export { empireInventoryContains, empireInventoryOf, networkInventoryOf } from '
 export { stockCounts } from './hud/model.js';
 export { type LightGrade, NEUTRAL_GRADE } from './lighting/types.js';
 export {
+  type MinimapFeature,
+  type MinimapObjectLanes,
+  type MinimapObjects,
+  minimapFeatureOfGood,
+  minimapObjectLanes,
+} from './minimap/features.js';
+export {
+  applyMinimapGroundMode,
+  MINIMAP_GROUND_MODES,
+  type MinimapGroundMode,
+} from './minimap/ground-mode.js';
+export {
+  averagePatternColour,
+  cellColourResolver,
+  cellColoursFromGround,
+  MINIMAP_CELL_UNRESOLVED,
+  mapPreviewSize,
+  type TerrainCells,
+  terrainWorldBounds,
+  type WorldBounds,
+} from './minimap/map-preview.js';
+export {
+  MINIMAP_DEPOSIT_KINDS,
+  type MinimapDepositKind,
+  type MinimapScene,
+  minimapScene,
+} from './minimap/scene.js';
+export { rasterizeMinimap } from './minimap/style.js';
+export {
   aabbIntersects,
   type Box,
   type Camera,
@@ -50,35 +79,6 @@ export type {
   SettlerStateBinding,
   SpriteFrameRef,
 } from './sprites/settler-bindings.js';
-export {
-  averagePatternColour,
-  cellColourResolver,
-  cellColoursFromGround,
-  MINIMAP_CELL_UNRESOLVED,
-  mapPreviewSize,
-  type TerrainCells,
-  terrainWorldBounds,
-  type WorldBounds,
-} from './terrain/minimap.js';
-export {
-  type MinimapFeature,
-  type MinimapObjectLanes,
-  type MinimapObjects,
-  minimapFeatureOfGood,
-  minimapObjectLanes,
-} from './terrain/minimap-features.js';
-export {
-  applyMinimapGroundMode,
-  MINIMAP_GROUND_MODES,
-  type MinimapGroundMode,
-} from './terrain/minimap-ground-mode.js';
-export {
-  MINIMAP_DEPOSIT_KINDS,
-  type MinimapDepositKind,
-  type MinimapScene,
-  minimapScene,
-} from './terrain/minimap-scene.js';
-export { rasterizeMinimap } from './terrain/minimap-style.js';
 export { patternSrcRect, type SrcRect, texturePageKey } from './terrain/uv.js';
 export { type WaterCellFractions, waterCellFractions } from './terrain/water.js';
 export {

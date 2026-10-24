@@ -1,6 +1,6 @@
 import { clamp } from '../math.js';
-import { staggerBlur } from './minimap-grid.js';
-import { MINIMAP_DEPOSIT_KINDS, type MinimapDepositKind } from './minimap-scene.js';
+import { staggerBlur } from './grid.js';
+import { MINIMAP_DEPOSIT_KINDS, type MinimapDepositKind } from './scene.js';
 
 /**
  * The placed-object half of the minimap scene. Which placed object is forest or a deposit is content:

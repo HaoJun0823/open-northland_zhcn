@@ -1,6 +1,6 @@
+import { MINIMAP_CELL_UNRESOLVED } from '../../data/minimap/map-preview.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import type { BrightnessField, ElevationField } from '../../data/terrain/index.js';
-import { MINIMAP_CELL_UNRESOLVED } from '../../data/terrain/index.js';
 import type { GroundColours } from './foot-ground.js';
 
 const CHANNEL_MAX = 0xff;

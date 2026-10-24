@@ -3,7 +3,7 @@ import {
   applyMinimapGroundMode,
   MINIMAP_GROUND_MODES,
   type MinimapGroundMode,
-} from '../src/data/terrain/minimap-ground-mode.js';
+} from '../src/data/minimap/ground-mode.js';
 
 const GRASS = [74, 118, 50] as const;
 const WATER = [38, 84, 132] as const;

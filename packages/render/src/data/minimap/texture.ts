@@ -1,5 +1,5 @@
 import { clamp01 } from '../math.js';
-import { hashBits, smoothstep } from './minimap-noise.js';
+import { hashBits, smoothstep } from './noise.js';
 
 /**
  * Pure helpers of the minimap's sub-cell texture and final tone. Every amplitude, period and curve is a

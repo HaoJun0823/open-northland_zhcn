@@ -1,22 +1,14 @@
 import { clamp, clamp01 } from '../math.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../projection/iso.js';
-import { terrainWorldBounds } from './minimap.js';
-import { buildMinimapCellField, FIELD_COVER } from './minimap-cells.js';
-import { LandPainter } from './minimap-land.js';
-import { MINIMAP_LIGHT } from './minimap-light.js';
-import { hash2, smoothstep, valueNoise, valueNoisePair } from './minimap-noise.js';
-import { SAMPLE_LANES, sampleField } from './minimap-sampler.js';
-import type { MinimapScene } from './minimap-scene.js';
-import { COAST, SeaPainter } from './minimap-sea.js';
-import {
-  contrastCurve,
-  lightFrame,
-  luma,
-  mixToward,
-  type Rgb,
-  saturate,
-  textureFade,
-} from './minimap-texture.js';
+import { buildMinimapCellField, FIELD_COVER } from './cells.js';
+import { LandPainter } from './land.js';
+import { MINIMAP_LIGHT } from './light.js';
+import { terrainWorldBounds } from './map-preview.js';
+import { hash2, smoothstep, valueNoise, valueNoisePair } from './noise.js';
+import { SAMPLE_LANES, sampleField } from './sampler.js';
+import type { MinimapScene } from './scene.js';
+import { COAST, SeaPainter } from './sea.js';
+import { contrastCurve, lightFrame, luma, mixToward, type Rgb, saturate, textureFade } from './texture.js';
 
 /**
  * The styled minimap raster every consumer shares: lobby preview, pipeline card and in-game surface.

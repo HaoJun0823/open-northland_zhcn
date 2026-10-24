@@ -10,7 +10,7 @@ import {
   FIELD_STRIDE,
   FIELD_WATER,
   FIELD_WATER_R,
-} from './minimap-cells.js';
+} from './cells.js';
 
 /** A sample holds the cell field's lanes at their `FIELD_*` indices. */
 export const SAMPLE_LANES = FIELD_STRIDE;

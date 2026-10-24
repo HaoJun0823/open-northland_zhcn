@@ -1,4 +1,4 @@
-import { defineComponent, type Entity, type World } from '../ecs/world.js';
+import { defineComponent, type Entity, type World } from '../../ecs/world.js';
 
 /**
  * The number of player slots the sim supports; player ids are the half-open range `[0, MAX_PLAYERS)`.

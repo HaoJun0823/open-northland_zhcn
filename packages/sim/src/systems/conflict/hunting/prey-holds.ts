@@ -1,5 +1,5 @@
 import { HuntFocus, Owner } from '../../../components/index.js';
-import { ownerOf } from '../../../components/ownership.js';
+import { ownerOf } from '../../../components/players/ownership.js';
 import type { Entity, World } from '../../../ecs/world.js';
 
 /** How many hunters hold each prey animal, split by the holder's owner so a lookup sums only the holders

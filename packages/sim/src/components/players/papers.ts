@@ -1,4 +1,4 @@
-import { defineComponent, type Entity, type World } from '../ecs/world.js';
+import { defineComponent, type Entity, type World } from '../../ecs/world.js';
 import { isValidPlayer } from './ownership.js';
 
 /**

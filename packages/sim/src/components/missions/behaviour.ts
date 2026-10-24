@@ -1,4 +1,4 @@
-import { type Component, defineComponent, type Entity, type World } from '../ecs/world.js';
+import { type Component, defineComponent, type Entity, type World } from '../../ecs/world.js';
 
 /**
  * The 32-bit behaviour mask a placed or scripted human carries (`MISSIONS.md`, "Human behaviour

@@ -1,4 +1,4 @@
-import { AiControl, aiControlEntity } from '../../components/ai-control.js';
+import { AiControl, aiControlEntity } from '../../components/ai/control.js';
 import type { World } from '../../ecs/world.js';
 
 /**

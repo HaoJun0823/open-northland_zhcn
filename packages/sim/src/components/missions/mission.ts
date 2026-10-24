@@ -1,5 +1,11 @@
-import { type Component, type DeepReadonly, defineComponent, type Entity, type World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
+import {
+  type Component,
+  type DeepReadonly,
+  defineComponent,
+  type Entity,
+  type World,
+} from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 
 /**
  * The mission object id a placed or scripted entity carries (`sethouse`/`sethuman`/`setanimal`/

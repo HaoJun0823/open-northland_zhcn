@@ -1,6 +1,6 @@
 import type { World } from '../ecs/world.js';
 import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import { isValidPlayer, MAX_PLAYERS } from './ownership.js';
+import { isValidPlayer, MAX_PLAYERS } from './players/ownership.js';
 
 const worldRules = defineWorldSingleton<{
   /** Whether the needs mechanic runs: the hunger, fatigue and enjoyment rise, the per-swing combat need

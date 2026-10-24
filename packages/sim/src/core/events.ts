@@ -1,5 +1,5 @@
 import type { ChestKind } from '../components/chest.js';
-import type { Paper } from '../components/papers.js';
+import type { Paper } from '../components/players/papers.js';
 import type { SettlerIdentity } from '../components/settler.js';
 import type { Entity } from '../ecs/world.js';
 import { type HalfCellNode, nodeOfPosition } from '../nav/halfcell.js';

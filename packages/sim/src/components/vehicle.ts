@@ -1,7 +1,7 @@
 import type { Command } from '../core/commands/index.js';
 import { type DeepReadonly, defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { HalfCellNode } from '../nav/halfcell.js';
-import type { AiOrderOrigin } from './ai-order.js';
+import type { AiOrderOrigin } from './ai/order.js';
 import { Position, type WalkDirection } from './movement.js';
 
 /** The tasks the original's vehicle window shows, in its numbering 0..6. */

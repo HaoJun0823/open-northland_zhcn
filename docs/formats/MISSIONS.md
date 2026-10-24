@@ -512,7 +512,7 @@ Readings unless marked otherwise.
   the attacker in the victim's row, one direction. The same hit escalates the
   victim's stance to enemy when the attacker already treats the victim as an enemy and the victim
   still treats the attacker as friend or neutral, with no regard to the not-changeable flag. This
-  build keeps the row in `components/relations.ts`, written by the hit resolution.
+  build keeps the row in `components/players/relations.ts`, written by the hit resolution.
 - **Player dead**: every 125 ticks after tick 720, a player with no living adult male human is marked
   dead (with a message) unless `playerneverdies` is set in `[playermisc]`. The
   flag is permanent and turns off both of the player's AI handlers (unconfirmed against the owned
@@ -537,7 +537,7 @@ Readings unless marked otherwise.
   no-details one no page, and shows a player's three stance buttons only for a pair without the
   not-changeable flag; the stance command and every other change ignore that flag, and a hidden pair
   gets no stance message. This build locks a pair
-  (`components/relations.ts`) for the first two rows and for `SetDiplomacyNotChangeableFlag`, and
+  (`components/players/relations.ts`) for the first two rows and for `SetDiplomacyNotChangeableFlag`, and
   refuses a locked pair at the seat's `declareDiplomacy` command rather than in the window alone.
   Its window drops a hidden player, and with it the messages about that player, and keeps a
   no-details player's readout but gives it no stance buttons, having no overview page to list it on.
@@ -549,7 +549,7 @@ Readings unless marked otherwise.
   this build leaves out (`systems/computer-player/diplomacy.ts`).
 - **External flags**: up to 100 condition slots on a seat's scripted AI; a slot takes a script's flag
   only when its `ai.inc` condition is the external-activate kind (see [AI data](#ai-data)). This build
-  keeps the raised slots per player (`components/ai-flags.ts`), whatever the slot's kind, and the
+  keeps the raised slots per player (`components/ai/flags.ts`), whatever the slot's kind, and the
   scripted program's `OnExternal` slots read them.
 - **Allowed and enabled tables**: per player and tribe: 56 job, 66 good and 55 house-type slots,
   one byte each in an allowed table and an enabled table (produceable for goods). Allowed is the
@@ -558,7 +558,7 @@ Readings unless marked otherwise.
   and `Allow*` writes it. Enabled is the tech-tree progress that update records once any settler of
   the player gained the ability, with a "new ability" message; `Enable*` writes it outright, a chest
   reward writes the produceable byte the same way, and `JobEnabled` and `GoodProduceable` read it.
-  This build keeps script grants per player and tribe (`components/unlocks.ts`). Initial permissions
+  This build keeps script grants per player and tribe (`components/players/unlocks.ts`). Initial permissions
   come from `tribetypes.ini` `allowjob`, `allowhouse`, `allowgood`; map `[allowedthings]` overrides
   (`forbid*` / `allow*`) are saved in `MapPermissions`. Pack `Walhalla/player.inc` forbids the
   wooden spear for players 0-5, tribe 1; `StraznicyPolnocy/player.inc` forbids good 63. A `forbid*`
@@ -804,7 +804,7 @@ A reading of the original's tributes, which the goal `PayTribute` and results 27
   demand amounts are untouched; only the paid flag is set. The receiver gets nothing (the goods
   vanish). The command does not check who sent it.
 - `PayTribute n` holds when slot `n` is active and paid.
-- This build keeps the table in `components/tributes.ts`, pays it through the `payTribute` seat
+- This build keeps the table in `components/missions/tributes.ts`, pays it through the `payTribute` seat
   command (`systems/missions/tributes.ts`) and lists it in the diplomacy window, with the same rules
   and drain order: the first finished headquarters (the `headquarters` content id), then the other
   finished storages, then the finished workplaces, each group ascending by entity id; the food class

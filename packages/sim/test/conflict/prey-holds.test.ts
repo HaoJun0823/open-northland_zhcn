@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HuntFocus, Owner } from '../../src/components/index.js';
-import { ownerOf, ownersCompatible } from '../../src/components/ownership.js';
+import { ownerOf, ownersCompatible } from '../../src/components/players/ownership.js';
 import { type Entity, World } from '../../src/ecs/world.js';
 import { preyHeldByOthers } from '../../src/systems/conflict/hunting/prey-holds.js';
 

@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { AiOrderOrigin } from '../../components/ai-order.js';
+import type { AiOrderOrigin } from '../../components/ai/order.js';
 import {
   Age,
   AttackOrder,

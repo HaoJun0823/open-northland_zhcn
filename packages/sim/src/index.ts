@@ -14,14 +14,15 @@ export type {
   MatchRulesView,
   MatchVictory,
 } from './components/match.js';
-export { BRIEFING_HISTORY_LIMIT } from './components/mission.js';
-export type { MissionPresentationView } from './components/mission-presentation.js';
+export { BRIEFING_HISTORY_LIMIT } from './components/missions/mission.js';
+export type { MissionPresentationView } from './components/missions/presentation.js';
 // Fog mode ids, their two settings and the diplomacy stance union, flattened to the package root for
 // render and app consumers.
 /** The four need bars, the vocabulary the `orderNeed` command addresses one by. */
 export type { NeedKind } from './components/needs.js';
-export { PAPER_KINDS, type Paper, type PaperKind, PLACING_PAPER_KINDS } from './components/papers.js';
-export { buildTribes } from './components/player-placement.js';
+export { PAPER_KINDS, type Paper, type PaperKind, PLACING_PAPER_KINDS } from './components/players/papers.js';
+export { buildTribes } from './components/players/placement.js';
+export type { UnlockKind } from './components/players/unlocks.js';
 export { roadShardKey } from './components/roads.js';
 export {
   type DiplomacyState,
@@ -39,7 +40,6 @@ export {
 } from './components/settler.js';
 export { WALK_RANGE_NODES } from './components/signpost.js';
 export { TRADE_LIMIT_NONE, TRADE_ROUTE_HOUSES, type TradeImportMark } from './components/trade.js';
-export type { UnlockKind } from './components/unlocks.js';
 export type { AtomicEffect } from './core/atomic-effect.js';
 export type { Brand } from './core/brand.js';
 export type { LoggedCommand } from './core/command-queue.js';

@@ -1,8 +1,8 @@
 import { MAP_AI_CONDITION_SLOTS } from '@open-northland/data';
-import { insertSortedById, removeSortedById } from '../core/sorted-id.js';
-import type { World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import { isValidPlayer } from './ownership.js';
+import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
+import type { World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
+import { isValidPlayer } from '../players/ownership.js';
 
 const aiExternalFlags = defineWorldSingleton<{
   /** player → the condition slots a script has raised, ascending. */

@@ -1,6 +1,6 @@
 import type { DeepReadonly, World } from '../ecs/world.js';
 import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import { isValidPlayer, MAX_PLAYERS } from './ownership.js';
+import { isValidPlayer, MAX_PLAYERS } from './players/ownership.js';
 
 /** Player-slot bitmasks: slots are `< MAX_PLAYERS`, so each set fits one integer and hashes canonically. */
 const matchRules = defineWorldSingleton<{

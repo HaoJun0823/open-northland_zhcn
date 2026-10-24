@@ -1,13 +1,16 @@
 import { EQUIP_CATEGORIES, HomeQualityEffect, MAP_GOAL_GOODS_MAX } from '@open-northland/data';
-import { COMPUTER_DIFFICULTIES, COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
+import { COMPUTER_DIFFICULTIES, COMPUTER_MODULE_IDS } from '../../components/ai/control.js';
 import { ASSISTANT_COUNTER_KINDS, ASSISTANT_GRANT_AUDIENCES } from '../../components/assistant.js';
 import { MISC_EQUIP_SLOTS } from '../../components/equipment.js';
 import { MAX_MATCH_GOALS, type MatchGoal } from '../../components/match.js';
-import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../components/mission.js';
+import {
+  SCRIPTED_LOOK_MAX_RECIPES,
+  SCRIPTED_LOOK_RECIPE_MAX_CHARS,
+} from '../../components/missions/mission.js';
 import type { NeedKind } from '../../components/needs.js';
-import { MAX_PLAYERS } from '../../components/ownership.js';
 import { GATE_MODES } from '../../components/palisade.js';
-import { PAPER_KINDS } from '../../components/papers.js';
+import { MAX_PLAYERS } from '../../components/players/ownership.js';
+import { PAPER_KINDS } from '../../components/players/papers.js';
 import { DIPLOMACY_STATES } from '../../components/rules.js';
 import { SETTLER_NAME_MAX_CHARS } from '../../components/settler.js';
 import { VEHICLE_STANCES } from '../../components/vehicle.js';

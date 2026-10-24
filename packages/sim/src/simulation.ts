@@ -1,4 +1,5 @@
 import type { ContentSet, EquipCategory } from '@open-northland/data';
+import type { MapAiScript } from './components/ai/map-ai.js';
 import {
   ASSISTANT_COUNTER_KINDS,
   AssistantCounters,
@@ -35,10 +36,9 @@ import {
   Settler,
   Vehicle,
 } from './components/index.js';
-import type { MapAiScript } from './components/map-ai.js';
 import { type MatchRulesView, matchRulesView } from './components/match.js';
-import { type MissionPresentationView, missionPresentation } from './components/mission-presentation.js';
-import type { UnlockKind } from './components/unlocks.js';
+import { type MissionPresentationView, missionPresentation } from './components/missions/presentation.js';
+import type { UnlockKind } from './components/players/unlocks.js';
 import { CommandQueue } from './core/command-queue.js';
 import { type Command, type CommandEnvelope, setupCommand } from './core/commands/index.js';
 import { EventBuffer } from './core/events.js';

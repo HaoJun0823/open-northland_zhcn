@@ -2,7 +2,7 @@ import {
   ComputerModuleId as ComputerModuleSchema,
   type ComputerModuleId as DataComputerModuleId,
 } from '@open-northland/data';
-import { defineComponent, type Entity, type World } from '../ecs/world.js';
+import { defineComponent, type Entity, type World } from '../../ecs/world.js';
 
 /**
  * The computer player's module ids, one per autonomous concern: the map data's

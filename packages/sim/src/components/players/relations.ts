@@ -1,6 +1,6 @@
-import type { World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import { playerBit } from './match.js';
+import type { World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
+import { playerBit } from '../match.js';
 import { isValidPlayer } from './ownership.js';
 
 const diplomacyLocks = defineWorldSingleton<{

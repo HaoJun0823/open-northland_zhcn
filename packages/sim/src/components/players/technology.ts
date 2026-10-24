@@ -1,5 +1,5 @@
-import type { World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
+import type { World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 import type { UnlockKind } from './unlocks.js';
 
 const discoveries = defineWorldSingleton<{

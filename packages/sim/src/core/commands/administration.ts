@@ -1,5 +1,5 @@
 import type { MatchGoal, MatchVictory } from '../../components/match.js';
-import type { Paper } from '../../components/papers.js';
+import type { Paper } from '../../components/players/papers.js';
 import type { DiplomacyState } from '../../components/rules.js';
 import type { Entity } from '../../ecs/world.js';
 

@@ -1,7 +1,7 @@
-import type { DeepReadonly, World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import type { HalfCellNode } from '../nav/halfcell.js';
-import { isValidPlayer, MAX_PLAYERS } from './ownership.js';
+import type { DeepReadonly, World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
+import type { HalfCellNode } from '../../nav/halfcell.js';
+import { isValidPlayer, MAX_PLAYERS } from '../players/ownership.js';
 
 /** Lines per player on the on-screen info display (reading). */
 export const INFO_LINES_PER_PLAYER = 5;

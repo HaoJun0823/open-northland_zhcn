@@ -1,5 +1,5 @@
-import { defineComponent, type Entity } from '../ecs/world.js';
-import type { HalfCellNode } from '../nav/halfcell.js';
+import { defineComponent, type Entity } from '../../ecs/world.js';
+import type { HalfCellNode } from '../../nav/halfcell.js';
 
 export interface MapAiDefenceState {
   player: number;

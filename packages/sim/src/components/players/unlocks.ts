@@ -1,6 +1,6 @@
-import { insertSortedById } from '../core/sorted-id.js';
-import type { DeepReadonly, World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
+import { insertSortedById } from '../../core/sorted-id.js';
+import type { DeepReadonly, World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 import { isValidPlayer } from './ownership.js';
 
 /** The catalogs a map script unlocks by name; ships have no opcode. */

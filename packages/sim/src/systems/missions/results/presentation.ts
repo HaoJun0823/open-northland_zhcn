@@ -1,6 +1,6 @@
 import { MAP_WEATHER_DENSITY_FULL } from '@open-northland/data';
 import { deliverMissionBriefing, nameHuman } from '../../../components/index.js';
-import { retainMissionPresentation } from '../../../components/mission-presentation.js';
+import { retainMissionPresentation } from '../../../components/missions/presentation.js';
 import type { SimEvent } from '../../../core/events.js';
 import { type HalfCellNode, hexagonRing } from '../../../nav/halfcell.js';
 import type { MissionPass } from '../pass.js';

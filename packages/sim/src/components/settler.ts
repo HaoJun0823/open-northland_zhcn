@@ -3,7 +3,7 @@ import type { Command } from '../core/commands/index.js';
 import { type Fixed, fx } from '../core/fixed.js';
 import { type DeepReadonly, defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { NodeId } from '../nav/terrain/index.js';
-import type { AiOrderOrigin } from './ai-order.js';
+import type { AiOrderOrigin } from './ai/order.js';
 
 /** The `(tribe, job)` pair that keys a settler's content lookups, with the form it took (`UnitForm`). */
 export interface SettlerIdentity {

@@ -1,4 +1,4 @@
-import type { AiOrderOrigin } from '../../components/ai-order.js';
+import type { AiOrderOrigin } from '../../components/ai/order.js';
 import {
   AttackOrder,
   Engagement,

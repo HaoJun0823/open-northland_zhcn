@@ -1,8 +1,8 @@
 import type { ContentSet } from '@open-northland/data';
-import { contentIndex } from '../core/content-index.js';
-import { insertSortedById } from '../core/sorted-id.js';
-import type { World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
+import { contentIndex } from '../../core/content-index.js';
+import { insertSortedById } from '../../core/sorted-id.js';
+import type { World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 import { isValidPlayer } from './ownership.js';
 import { scriptEnabledHouseTribes } from './unlocks.js';
 

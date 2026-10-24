@@ -1,5 +1,5 @@
 import { KilledBy, Resource, Settler } from '../../../components/index.js';
-import { sameSide } from '../../../components/ownership.js';
+import { sameSide } from '../../../components/players/ownership.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';

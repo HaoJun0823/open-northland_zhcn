@@ -1,5 +1,5 @@
-import { COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
-import { isValidPlayer } from '../../components/ownership.js';
+import { COMPUTER_MODULE_IDS } from '../../components/ai/control.js';
+import { isValidPlayer } from '../../components/players/ownership.js';
 import type { LoggedCommand } from '../command-queue.js';
 import { asCount, asRecord, typeName } from '../untrusted.js';
 import {

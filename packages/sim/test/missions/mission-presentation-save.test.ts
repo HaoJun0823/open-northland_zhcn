@@ -3,7 +3,7 @@ import {
   MissionPresentation,
   retainMissionPresentation,
   seedMapWeather,
-} from '../../src/components/mission-presentation.js';
+} from '../../src/components/missions/presentation.js';
 import { Simulation } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
 import { firingSim, LOAD_PASS, roundTrip } from './support.js';

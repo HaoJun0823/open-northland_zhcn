@@ -2,7 +2,7 @@ import { type DeepReadonly, defineComponent, type Entity, type World } from '../
 import { defineWorldSingleton } from '../ecs/world-singleton.js';
 import { Building } from './economy/infrastructure.js';
 import { Position } from './movement.js';
-import { MAX_PLAYERS, ownerOf } from './ownership.js';
+import { MAX_PLAYERS, ownerOf } from './players/ownership.js';
 
 /** A trader's route holds two houses (reading: the original's merchant data has two house slots). */
 export const TRADE_ROUTE_HOUSES = 2;

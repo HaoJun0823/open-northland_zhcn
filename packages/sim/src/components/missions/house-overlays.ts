@@ -1,4 +1,4 @@
-import { defineComponent } from '../ecs/world.js';
+import { defineComponent } from '../../ecs/world.js';
 
 /** Original behavior: ten individually switchable landscape slots; unconfirmed on the running original. */
 export const HOUSE_LANDSCAPE_OVERLAY_SLOTS = 10;

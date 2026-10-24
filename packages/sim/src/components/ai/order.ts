@@ -1,5 +1,5 @@
-import type { AiDecisionSource } from '../core/commands/envelope.js';
-import { defineComponent } from '../ecs/world.js';
+import type { AiDecisionSource } from '../../core/commands/envelope.js';
+import { defineComponent } from '../../ecs/world.js';
 
 /** Provenance of an AI-issued movement/attack order. Replaced when another controller takes over. */
 export interface AiOrderOrigin {

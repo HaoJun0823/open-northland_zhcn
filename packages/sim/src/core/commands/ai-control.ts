@@ -1,4 +1,4 @@
-import type { ComputerDifficulty, ComputerModuleEnables } from '../../components/ai-control.js';
+import type { ComputerDifficulty, ComputerModuleEnables } from '../../components/ai/control.js';
 
 /** Changes machine identity and the permissions of its two controllers. */
 export type AiControlCommand = {

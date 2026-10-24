@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { MapAiScript } from '../components/map-ai.js';
+import type { MapAiScript } from '../components/ai/map-ai.js';
 import type { CommandQueue } from '../core/command-queue.js';
 import type { EventBuffer } from '../core/events.js';
 import type { PersonalNames } from '../core/personal-names.js';

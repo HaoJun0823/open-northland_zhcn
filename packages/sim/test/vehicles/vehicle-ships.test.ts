@@ -14,7 +14,7 @@ import {
   vehicleCommander,
   vehiclePassengers,
 } from '../../src/components/index.js';
-import { playerTally } from '../../src/components/statistics.js';
+import { playerTally } from '../../src/components/players/statistics.js';
 import type { Entity } from '../../src/ecs/world.js';
 import {
   exportSaveGame,

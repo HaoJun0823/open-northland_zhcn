@@ -1,4 +1,4 @@
-import type { AiOrderOrigin } from '../../components/ai-order.js';
+import type { AiOrderOrigin } from '../../components/ai/order.js';
 import { ORDER_QUEUE_LIMIT, ownerOf } from '../../components/index.js';
 import type { AiDecisionSource, PlayerCommand } from '../../core/commands/index.js';
 import { aiCommand, playerCommand } from '../../core/commands/index.js';

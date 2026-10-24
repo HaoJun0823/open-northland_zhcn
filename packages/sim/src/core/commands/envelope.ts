@@ -1,4 +1,4 @@
-import type { ComputerModuleId } from '../../components/ai-control.js';
+import type { ComputerModuleId } from '../../components/ai/control.js';
 import { assertNever } from '../brand.js';
 import { isPlainRecord, valueShapeName } from '../plain-value.js';
 import type { AssistantCommand } from './assistant.js';

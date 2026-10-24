@@ -1,5 +1,5 @@
 import type { MapAiSeat } from '@open-northland/data';
-import { defineComponent, type Entity, type World } from '../ecs/world.js';
+import { defineComponent, type Entity, type World } from '../../ecs/world.js';
 
 /**
  * The seats' `[AIData]` rows: the immutable program each scripted handler runs, handed to the

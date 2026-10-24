@@ -1,5 +1,5 @@
 import type { GateMode } from '../../components/palisade.js';
-import type { Paper } from '../../components/papers.js';
+import type { Paper } from '../../components/players/papers.js';
 import type { Entity } from '../../ecs/world.js';
 
 /** Commands that place or remove world fixtures, stores, resources, and loose goods. Coordinates are
@@ -145,7 +145,7 @@ interface AuthoredPlaceBuildingFields {
    *  whatever the default/`fillStock` seeding put in the stockpile. Ignored for an `underConstruction`
    *  site, like `fillStock`. */
   readonly initialGoods?: readonly { readonly good: number; readonly amount: number }[];
-  /** The {@link import('../../components/mission.js').MissionObjectId} to stamp; omit for a house no
+  /** The {@link import('../../components/missions/mission.js').MissionObjectId} to stamp; omit for a house no
    *  mission addresses. */
   readonly missionId?: number;
   /** A decoded map's `sethouse` level. It stands only on a type whose `[GfxHouse]` record draws it above

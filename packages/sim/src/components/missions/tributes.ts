@@ -1,5 +1,5 @@
-import type { DeepReadonly, World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
+import type { DeepReadonly, World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
 
 /** The tribute table's slot count (byte-level). */
 export const TRIBUTE_SLOTS = 40;

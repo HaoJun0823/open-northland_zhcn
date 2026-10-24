@@ -1,5 +1,5 @@
 import type { VehicleType } from '@open-northland/data';
-import type { AiOrderOrigin } from '../../components/ai-order.js';
+import type { AiOrderOrigin } from '../../components/ai/order.js';
 import { dropVehicleOrderQueue, Vehicle, vehicleCommander } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';

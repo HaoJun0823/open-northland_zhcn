@@ -1,4 +1,4 @@
-import type { AiOrderOrigin } from '../../components/ai-order.js';
+import type { AiOrderOrigin } from '../../components/ai/order.js';
 import { AiOrder, type DeferrableOrderCommand, DeferredOrder, Settler } from '../../components/index.js';
 import { assertNever } from '../../core/brand.js';
 import type { World } from '../../ecs/world.js';

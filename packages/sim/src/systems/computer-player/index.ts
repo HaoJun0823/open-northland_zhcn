@@ -1,4 +1,4 @@
-import { AiControl, type ComputerModuleId, computerModuleRuns } from '../../components/ai-control.js';
+import { AiControl, type ComputerModuleId, computerModuleRuns } from '../../components/ai/control.js';
 import { isPlayerDead } from '../../components/match.js';
 import { aiCommand, type PlayerCommand } from '../../core/commands/index.js';
 import type { World } from '../../ecs/world.js';

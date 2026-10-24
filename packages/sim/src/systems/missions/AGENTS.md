@@ -48,7 +48,7 @@ because no other system deals that damage. Anything else would put one mechanic 
 
 ## The unlock tables
 
-A result writes a player's script unlock tables (`components/unlocks.ts`). The progression gates read
+A result writes a player's script unlock tables (`components/players/unlocks.ts`). The progression gates read
 the enabled table beside saved technology discoveries, and the `JobEnabled` and `GoodProduceable` goals go
 through those gates rather than the table, so a script and a settler unlock one and the same thing.
 The allowed table overrides initial tribe permissions and saved map bans. Progression and UI probes

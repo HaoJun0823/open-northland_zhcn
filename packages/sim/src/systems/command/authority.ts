@@ -1,8 +1,8 @@
-import { AiControl, aiControlEntity, computerModuleRuns } from '../../components/ai-control.js';
-import { hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../components/behaviour.js';
+import { AiControl, aiControlEntity, computerModuleRuns } from '../../components/ai/control.js';
 import { isContinuingMatch, isPlayerDead } from '../../components/match.js';
-import { isValidPlayer, ownerOf, ownersCompatible } from '../../components/ownership.js';
-import { buildTribes, playerPlacementTribes } from '../../components/player-placement.js';
+import { hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../components/missions/behaviour.js';
+import { isValidPlayer, ownerOf, ownersCompatible } from '../../components/players/ownership.js';
+import { buildTribes, playerPlacementTribes } from '../../components/players/placement.js';
 import type {
   Command,
   CommandEnvelope,

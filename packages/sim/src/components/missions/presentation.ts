@@ -1,8 +1,8 @@
 import { MAP_WEATHER_DENSITY_FULL } from '@open-northland/data';
-import type { SimEvent } from '../core/events.js';
-import type { World } from '../ecs/world.js';
-import { defineWorldSingleton } from '../ecs/world-singleton.js';
-import type { HalfCellNode } from '../nav/halfcell.js';
+import type { SimEvent } from '../../core/events.js';
+import type { World } from '../../ecs/world.js';
+import { defineWorldSingleton } from '../../ecs/world-singleton.js';
+import type { HalfCellNode } from '../../nav/halfcell.js';
 
 export interface GroundMissionMarker {
   readonly style: 'area' | 'magic' | 'import';

@@ -2,8 +2,13 @@ import type { SoundBank } from '@open-northland/data';
 import type { Camera } from '@open-northland/render/data';
 import type { Entity, HalfCellNode, SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { AlertDesk, noticeVoiceShot } from '../src/data/alerts.js';
-import { JINGLE_BIRTH, JINGLE_DEATH, JINGLE_DUCK_HOLD_MS, JINGLE_TECHNOLOGY } from '../src/data/bindings.js';
+import {
+  JINGLE_BIRTH,
+  JINGLE_DEATH,
+  JINGLE_DUCK_HOLD_MS,
+  JINGLE_TECHNOLOGY,
+} from '../src/data/bank/bindings.js';
+import { AlertDesk, noticeVoiceShot } from '../src/data/cues/alerts.js';
 import {
   ALERT_DUCK_DB,
   ALERT_DUCKED_BUSES,

@@ -6,7 +6,7 @@ import {
   type Viewport,
   visibleTileRange,
 } from '@open-northland/render/data';
-import type { SoundIndex } from '../bank.js';
+import type { SoundIndex } from '../bank/bank.js';
 import { clamp } from '../math.js';
 import type { AmbientLoop, AudioTerrain, DirectorInput } from '../types.js';
 

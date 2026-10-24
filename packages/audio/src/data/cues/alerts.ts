@@ -1,11 +1,11 @@
 import type { AttackFront, VoiceClass } from '@open-northland/data';
 import { type Camera, halfCellToScreen } from '@open-northland/render/data';
 import { entityById, type HalfCellNode, type WorldSnapshot } from '@open-northland/sim';
-import { groupFiles, poolGain, type SoundIndex } from './bank.js';
-import { VOICE_MUSIC_DUCK_DB } from './mixer.js';
-import { voiceClassOf } from './snapshot.js';
-import { inEarshot, offsetOfScreenPoint } from './spatial.js';
-import type { Lane, NoticeVoiceSound, OneShot, SoundBindings } from './types.js';
+import { groupFiles, poolGain, type SoundIndex } from '../bank/bank.js';
+import { VOICE_MUSIC_DUCK_DB } from '../mixer.js';
+import { voiceClassOf } from '../snapshot.js';
+import { inEarshot, offsetOfScreenPoint } from '../spatial.js';
+import type { Lane, NoticeVoiceSound, OneShot, SoundBindings } from '../types.js';
 import { NOTICE_CUE_INTERVAL_S } from './ui-cues.js';
 
 /**

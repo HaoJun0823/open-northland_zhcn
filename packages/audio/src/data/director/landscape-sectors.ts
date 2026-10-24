@@ -7,7 +7,7 @@ import {
   type SnapshotIndexSpec,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { entityTile, type TilePoint } from './snapshot.js';
+import { entityTile, type TilePoint } from '../snapshot.js';
 
 /**
  * The landscape objects the object ambience rolls over, bucketed by map sector and `[GfxLandscape]`

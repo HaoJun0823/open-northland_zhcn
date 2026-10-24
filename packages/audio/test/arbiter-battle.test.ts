@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { POOL_INSTANCE_CAP, POOL_RETRIGGER_S, WORLD_VOICE_CAP } from '../src/data/one-shot-ledger.js';
+import {
+  POOL_INSTANCE_CAP,
+  POOL_RETRIGGER_S,
+  WORLD_VOICE_CAP,
+} from '../src/data/arbitration/one-shot-ledger.js';
 import {
   type OneShot,
   OneShotArbiter,

@@ -1,4 +1,4 @@
-import type { OneShot } from './types.js';
+import type { OneShot } from '../types.js';
 
 /**
  * The engine's hardwired cues, played centred at full volume outside the `soundfx.cif` groups. The two
@@ -19,7 +19,7 @@ export const UI_CUE_FILES: Readonly<Record<UiCue, string>> = {
 };
 
 /** Gain of a hardwired cue - full scale, the original's 100 on the authored volume scale where the
- *  static groups mostly author 80 ({@link import('./bank.js').authoredVolumeGain}). */
+ *  static groups mostly author 80 ({@link import('../bank/bank.js').authoredVolumeGain}). */
 export const UI_CUE_GAIN = 1;
 
 /** The centred, full-gain one-shot a cue plays. Keyed per cue, so in game the arbiter's key

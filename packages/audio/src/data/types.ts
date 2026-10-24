@@ -1,13 +1,13 @@
 import type { VoiceClass } from '@open-northland/data';
 import type { Camera, SceneGround } from '@open-northland/render/data';
 import type { ChestKind, SimEvent, SimEventKind, WorldSnapshot } from '@open-northland/sim';
-import type { AlertKind, NoticeVoice } from './alerts.js';
-import type { SoundIndex } from './bank.js';
+import type { SoundIndex } from './bank/bank.js';
+import type { AlertKind, NoticeVoice } from './cues/alerts.js';
+import type { UiCue } from './cues/ui-cues.js';
 import type { AmbientBedMemory } from './director/ambient.js';
-import type { LandscapeSectors } from './landscape-sectors.js';
+import type { LandscapeSectors } from './director/landscape-sectors.js';
 import type { SoundBus } from './mixer.js';
 import type { ShotLayer } from './perspective.js';
-import type { UiCue } from './ui-cues.js';
 
 /**
  * The audio package's pure vocabulary - the data the {@link import('./director/index.js').directAudio}
@@ -15,7 +15,7 @@ import type { UiCue } from './ui-cues.js';
  */
 
 /**
- * The arbitration lane a one-shot competes in ({@link import('./arbiter.js').OneShotArbiter}). A
+ * The arbitration lane a one-shot competes in ({@link import('./arbitration/arbiter.js').OneShotArbiter}). A
  * `jingle` is a life-event stinger, identified by its `MusicType`; an `alert` shares its lane and
  * ranking (an attack alert, a settler's notice line); a `voice` is an unprompted line or a scream; `sfx`
  * is a positioned action sound; `ambience` is a landscape object's sound (a bird, a branch, a stone).
@@ -46,10 +46,10 @@ export interface OneShot {
   /** Emitter identity for debounce/dedup (e.g. `"atomicSound:9:42"`). */
   readonly key: string;
   /** Milliseconds the music should stay ducked under this shot - set on a jingle, from its
-   *  per-`MusicType` hold ({@link import('./bindings.js').JINGLE_DUCK_HOLD_MS}). */
+   *  per-`MusicType` hold ({@link import('./bank/bindings.js').JINGLE_DUCK_HOLD_MS}). */
   readonly duckMusicMs?: number;
   /** dB the music dips for {@link duckMusicMs}: the jingle type's depth scaled by the share it rings at
-   *  ({@link import('./bindings.js').jingleDuck}). Absent is the original's full duck. */
+   *  ({@link import('./bank/bindings.js').jingleDuck}). Absent is the original's full duck. */
   readonly jingleDuckDb?: number;
   /** dB the world and ambient buses dip for the length of this shot's wav - set on an alert. */
   readonly duckWorldDb?: number;
@@ -82,7 +82,7 @@ export interface OneShot {
    *  slider is judged at the bus's own level wherever the camera was. */
   readonly preview?: boolean;
   /** The arbiter's handle for a world one-shot or a yielding line it started, which a later steal or
-   *  answer names ({@link import('./one-shot-ledger.js').OneShotPlayback}). */
+   *  answer names ({@link import('./arbitration/one-shot-ledger.js').OneShotPlayback}). */
   readonly instance?: number;
   /** Playback rate, 1 = as recorded; the arbiter varies it per world one-shot. Absent plays at 1. */
   readonly rate?: number;

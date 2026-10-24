@@ -1,6 +1,6 @@
 import { type AnimalCall, type HumanVoices, VOICE_CLASSES, type VoiceClass } from '@open-northland/data';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { groupFiles, poolGain, type SoundIndex } from '../bank.js';
+import { groupFiles, poolGain, type SoundIndex } from '../bank/bank.js';
 import { creatureTribe, entityOwner, entityTile, isPerson, voiceClassOf } from '../snapshot.js';
 import { computeSpatial } from '../spatial.js';
 import type { ChatterInput, DirectorInput, Lane, OneShot } from '../types.js';

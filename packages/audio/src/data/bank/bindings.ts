@@ -1,4 +1,4 @@
-import type { SoundBindings } from './types.js';
+import type { SoundBindings } from '../types.js';
 
 /**
  * The Cultures event→sound map: which sim event triggers which sound group. The original drives these

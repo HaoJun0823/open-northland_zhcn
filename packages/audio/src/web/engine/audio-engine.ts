@@ -1,5 +1,5 @@
 import type { SoundQuality } from '@open-northland/data';
-import { JINGLE_DUCK_FULL_DB } from '../../data/bindings.js';
+import { JINGLE_DUCK_FULL_DB } from '../../data/bank/bindings.js';
 import {
   clampVolume,
   DEFAULT_VOLUMES,

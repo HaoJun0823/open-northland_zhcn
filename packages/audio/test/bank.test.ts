@@ -1,8 +1,8 @@
 import type { GfxPattern, HumanVoices, SoundBank, TerrainPattern } from '@open-northland/data';
 import type { EntitySnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { groupFiles, poolGain, SILENT_PLACEHOLDER_FILE } from '../src/data/bank.js';
-import { humanVoicesOf, responseGroup } from '../src/data/voices.js';
+import { groupFiles, poolGain, SILENT_PLACEHOLDER_FILE } from '../src/data/bank/bank.js';
+import { humanVoicesOf, responseGroup } from '../src/data/bank/voices.js';
 import {
   AUTHORED_VOLUME_MAX,
   AUTHORED_VOLUME_RANGE_DB,

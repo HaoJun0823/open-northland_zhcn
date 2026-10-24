@@ -1,5 +1,5 @@
+import { NOTIFICATION_SOUNDS, UI_CUE_FILES } from '../cues/ui-cues.js';
 import { groupFiles, type SoundIndex } from './bank.js';
-import { NOTIFICATION_SOUNDS, UI_CUE_FILES } from './ui-cues.js';
 
 /**
  * The order the bank is decoded in ahead of play, so a first click or first fight finds its wav

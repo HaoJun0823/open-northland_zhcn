@@ -10,7 +10,7 @@ import {
   JINGLE_DUCK_DEATH_DB,
   JINGLE_HOUSE_BUILT,
   OFF_SCREEN_JINGLE_GAIN,
-} from '../src/data/bindings.js';
+} from '../src/data/bank/bindings.js';
 import {
   buildSoundIndex,
   defaultBindings,

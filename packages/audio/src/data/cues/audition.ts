@@ -1,8 +1,8 @@
-import { poolGain, type SoundIndex } from './bank.js';
-import { jingleDuck } from './bindings.js';
-import { AMBIENT_MAX_GAIN } from './director/ambient.js';
-import type { ShotLayer } from './perspective.js';
-import type { AmbientLoop, OneShot } from './types.js';
+import { poolGain, type SoundIndex } from '../bank/bank.js';
+import { jingleDuck } from '../bank/bindings.js';
+import { AMBIENT_MAX_GAIN } from '../director/ambient.js';
+import type { ShotLayer } from '../perspective.js';
+import type { AmbientLoop, OneShot } from '../types.js';
 
 /**
  * Shots built the way the director builds them in play, for a listener to audition one sound group

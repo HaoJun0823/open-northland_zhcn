@@ -64,7 +64,7 @@ export interface LandscapeSoundPool {
   readonly files: readonly string[];
   /** The summed pick weight of its wavs. */
   readonly weight: number;
-  /** The per-object, per-tick chance in {@link import('./director/object-ambience.js').LANDSCAPE_CHANCE_RANGE}. */
+  /** The per-object, per-tick chance in {@link import('../director/object-ambience.js').LANDSCAPE_CHANCE_RANGE}. */
   readonly chance: number;
 }
 

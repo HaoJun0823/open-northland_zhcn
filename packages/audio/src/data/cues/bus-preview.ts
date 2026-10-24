@@ -1,6 +1,6 @@
-import { authoredVolumeGain, DEFAULT_AUTHORED_VOLUME } from './bank.js';
-import type { SoundBus } from './mixer.js';
-import type { OneShot } from './types.js';
+import { authoredVolumeGain, DEFAULT_AUTHORED_VOLUME } from '../bank/bank.js';
+import type { SoundBus } from '../mixer.js';
+import type { OneShot } from '../types.js';
 import { UI_CUE_FILES, UI_CUE_GAIN } from './ui-cues.js';
 
 /**

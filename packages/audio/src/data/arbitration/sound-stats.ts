@@ -1,4 +1,4 @@
-import type { OneShot } from './types.js';
+import type { OneShot } from '../types.js';
 
 /**
  * Running one-shot counts for a probe or an acceptance scene: how many shots each lane was offered and

@@ -5,22 +5,6 @@
  * whose platform seams (context, fetch, random) are injectable for tests.
  */
 
-// Pure decision layer (headless-testable; no Web Audio / DOM). The event→sound MusicType/group
-// constants (JINGLE_*, GROUP_*) are intentionally not re-exported: they are implementation detail of
-// `defaultBindings`, which is the surface a consumer overrides.
-export {
-  ALERT_DUCK_DB,
-  type AlertKind,
-  ATTACK_ALERT_GAIN,
-  ATTACK_ALERT_INTERVAL_S,
-  ATTACK_ALERT_MIN_GAP_S,
-  ATTACK_ALERT_NEW_FRONT_PX,
-  AttackAlerts,
-  type AttackFront,
-  type AttackReport,
-  attackAlertShot,
-  type NoticeVoice,
-} from './data/alerts.js';
 export {
   ALERT_PRIORITY,
   AMBIENCE_BURST,
@@ -42,8 +26,27 @@ export {
   SFX_STARTS_PER_S,
   VOICE_BURST,
   VOICE_STARTS_PER_S,
-} from './data/arbiter.js';
-export { type AuditionRole, auditionBed, auditionShot } from './data/audition.js';
+} from './data/arbitration/arbiter.js';
+export {
+  DEFAULT_CLIP_LENGTH_S,
+  GAIN_JITTER_DB,
+  KEY_COOLDOWN_S,
+  LEDGER_PRUNE_SIZE,
+  NO_REPEAT_FREE_CHOICES,
+  type OneShotPlayback,
+  POOL_INSTANCE_CAP,
+  POOL_RETRIGGER_S,
+  RATE_JITTER,
+  WORLD_VOICE_CAP,
+} from './data/arbitration/one-shot-ledger.js';
+export {
+  copySoundStats,
+  type LaneCounts,
+  type SoundStatsView,
+  STAT_LANES,
+  type StatLane,
+  zeroLanes,
+} from './data/arbitration/sound-stats.js';
 export {
   AUTHORED_VOLUME_MAX,
   AUTHORED_VOLUME_RANGE_DB,
@@ -56,9 +59,52 @@ export {
   type MurmurPools,
   type SoundIndex,
   TRIBE_MURMUR_GROUPS,
-} from './data/bank.js';
-export { defaultBindings } from './data/bindings.js';
-export { BUS_PREVIEWS, type BusPreview, busPreviewShot } from './data/bus-preview.js';
+} from './data/bank/bank.js';
+export { defaultBindings } from './data/bank/bindings.js';
+export {
+  PINNED_PRELOAD_TIERS,
+  PRELOAD_TIERS,
+  type PreloadEntry,
+  type PreloadTier,
+  preloadPlan,
+  TALK_FOLDERS,
+} from './data/bank/preload-plan.js';
+// Pure decision layer (headless-testable; no Web Audio / DOM). The event→sound MusicType/group
+// constants (JINGLE_*, GROUP_*) are intentionally not re-exported: they are implementation detail of
+// `defaultBindings`, which is the surface a consumer overrides.
+export {
+  ALERT_DUCK_DB,
+  type AlertKind,
+  ATTACK_ALERT_GAIN,
+  ATTACK_ALERT_INTERVAL_S,
+  ATTACK_ALERT_MIN_GAP_S,
+  ATTACK_ALERT_NEW_FRONT_PX,
+  AttackAlerts,
+  type AttackFront,
+  type AttackReport,
+  attackAlertShot,
+  type NoticeVoice,
+} from './data/cues/alerts.js';
+export { type AuditionRole, auditionBed, auditionShot } from './data/cues/audition.js';
+export { BUS_PREVIEWS, type BusPreview, busPreviewShot } from './data/cues/bus-preview.js';
+export {
+  ARRIVAL_BELL_GAIN,
+  CHAT_CUE_COOLDOWN_S,
+  CHAT_CUE_GAIN,
+  DEPARTURE_BELL_GAIN,
+  DEPARTURE_BELL_RATE,
+  NOTICE_CARD_GAIN,
+  NOTICE_CUE_INTERVAL_S,
+  NOTIFICATION_SOUNDS,
+  type NotificationCue,
+  type NotificationSound,
+  notificationShot,
+  SHIP_BELL_FILE,
+  UI_CUE_FILES,
+  UI_CUE_GAIN,
+  type UiCue,
+  uiCueShot,
+} from './data/cues/ui-cues.js';
 export {
   AMBIENT_FULL_COVERAGE,
   AMBIENT_MAX_GAIN,
@@ -87,6 +133,12 @@ export {
   SELECT_COOLDOWN_S,
 } from './data/director/index.js';
 export {
+  LANDSCAPE_SECTOR_TILES,
+  type LandscapeSectors,
+  landscapeSectorsOf,
+  type SceneryObject,
+} from './data/director/landscape-sectors.js';
+export {
   LANDSCAPE_CHANCE_RANGE,
   LANDSCAPE_REFERENCE_SCREEN_H,
   LANDSCAPE_REFERENCE_SCREEN_W,
@@ -94,12 +146,6 @@ export {
   landscapeDensity,
   MAX_LANDSCAPE_ROLLS_PER_FRAME,
 } from './data/director/object-ambience.js';
-export {
-  LANDSCAPE_SECTOR_TILES,
-  type LandscapeSectors,
-  landscapeSectorsOf,
-  type SceneryObject,
-} from './data/landscape-sectors.js';
 export {
   ANSWER_MUSIC_DUCK_DB,
   clampVolume,
@@ -181,18 +227,6 @@ export {
   WEALTHY_POPULATION_DROP,
 } from './data/music/index.js';
 export {
-  DEFAULT_CLIP_LENGTH_S,
-  GAIN_JITTER_DB,
-  KEY_COOLDOWN_S,
-  LEDGER_PRUNE_SIZE,
-  NO_REPEAT_FREE_CHOICES,
-  type OneShotPlayback,
-  POOL_INSTANCE_CAP,
-  POOL_RETRIGGER_S,
-  RATE_JITTER,
-  WORLD_VOICE_CAP,
-} from './data/one-shot-ledger.js';
-export {
   FAR_ZOOM_SCALE,
   MUFFLE_FAR_HZ,
   MUFFLE_OPEN_HZ,
@@ -208,22 +242,6 @@ export {
   shotPerspectiveLayer,
   zoomDistance,
 } from './data/perspective.js';
-export {
-  PINNED_PRELOAD_TIERS,
-  PRELOAD_TIERS,
-  type PreloadEntry,
-  type PreloadTier,
-  preloadPlan,
-  TALK_FOLDERS,
-} from './data/preload-plan.js';
-export {
-  copySoundStats,
-  type LaneCounts,
-  type SoundStatsView,
-  STAT_LANES,
-  type StatLane,
-  zeroLanes,
-} from './data/sound-stats.js';
 export {
   computeSpatial,
   EDGE_GAIN,
@@ -249,24 +267,6 @@ export type {
   SoundBindings,
   VoiceCall,
 } from './data/types.js';
-export {
-  ARRIVAL_BELL_GAIN,
-  CHAT_CUE_COOLDOWN_S,
-  CHAT_CUE_GAIN,
-  DEPARTURE_BELL_GAIN,
-  DEPARTURE_BELL_RATE,
-  NOTICE_CARD_GAIN,
-  NOTICE_CUE_INTERVAL_S,
-  NOTIFICATION_SOUNDS,
-  type NotificationCue,
-  type NotificationSound,
-  notificationShot,
-  SHIP_BELL_FILE,
-  UI_CUE_FILES,
-  UI_CUE_GAIN,
-  type UiCue,
-  uiCueShot,
-} from './data/ui-cues.js';
 export {
   DEFAULT_UNIT_RESPONSES,
   gateResponse,

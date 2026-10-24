@@ -1,5 +1,5 @@
+import type { OneShot } from '../types.js';
 import { pruneExpired } from './prune.js';
-import type { OneShot } from './types.js';
 
 /**
  * What the arbiter has started and when each start ends, on the audio clock: the wav it picked from a

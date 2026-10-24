@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WORLD_VOICE_CAP } from '../src/data/one-shot-ledger.js';
+import { WORLD_VOICE_CAP } from '../src/data/arbitration/one-shot-ledger.js';
 import {
   AMBIENCE_BURST,
   AMBIENCE_STARTS_PER_S,

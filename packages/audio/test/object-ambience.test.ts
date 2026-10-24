@@ -10,9 +10,9 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { poolGain } from '../src/data/bank.js';
+import { poolGain } from '../src/data/bank/bank.js';
+import { scenerySectors } from '../src/data/director/landscape-sectors.js';
 import { objectAmbienceShots } from '../src/data/director/object-ambience.js';
-import { scenerySectors } from '../src/data/landscape-sectors.js';
 import {
   type AudioTerrain,
   authoredVolumeGain,

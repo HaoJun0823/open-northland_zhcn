@@ -1,7 +1,7 @@
 import type { HumanVoices } from '@open-northland/data';
 import type { EntitySnapshot } from '@open-northland/sim';
+import { creatureTribe, isPerson, settlerJob, voiceClassOf } from '../snapshot.js';
 import { groupFiles, type SoundIndex } from './bank.js';
-import { creatureTribe, isPerson, settlerJob, voiceClassOf } from './snapshot.js';
 
 /** The voice row a person speaks with: its tribe's pool for its class, or undefined when the tribe
  *  leaves that class silent or the entity is no person. */

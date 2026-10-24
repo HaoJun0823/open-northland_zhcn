@@ -1,13 +1,13 @@
 import type { HumanVoices } from '@open-northland/data';
 import { type EntitySnapshot, entityById } from '@open-northland/sim';
-import { authoredVolumeGain, groupFiles, poolGain, type SoundIndex } from '../bank.js';
+import { authoredVolumeGain, groupFiles, poolGain, type SoundIndex } from '../bank/bank.js';
+import { humanVoicesOf, murmurPool, refusalGroup, responseGroup, selectLines } from '../bank/voices.js';
+import { uiCueShot } from '../cues/ui-cues.js';
 import { clamp } from '../math.js';
 import { ANSWER_MUSIC_DUCK_DB } from '../mixer.js';
 import { entityTile } from '../snapshot.js';
 import { screenOffset } from '../spatial.js';
 import type { DirectorInput, OneShot, OrderAnswer, VoiceCall } from '../types.js';
-import { uiCueShot } from '../ui-cues.js';
-import { humanVoicesOf, murmurPool, refusalGroup, responseGroup, selectLines } from '../voices.js';
 
 /**
  * How a group answers the player: one lead line from the member nearest the screen centre, panned at

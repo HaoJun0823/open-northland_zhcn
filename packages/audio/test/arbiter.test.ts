@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { JINGLE_BIRTH, JINGLE_DEATH, JINGLE_DUCK_HOLD_MS, JINGLE_WON } from '../src/data/bindings.js';
 import {
   DEFAULT_CLIP_LENGTH_S,
   GAIN_JITTER_DB,
@@ -10,7 +9,8 @@ import {
   POOL_RETRIGGER_S,
   RATE_JITTER,
   WORLD_VOICE_CAP,
-} from '../src/data/one-shot-ledger.js';
+} from '../src/data/arbitration/one-shot-ledger.js';
+import { JINGLE_BIRTH, JINGLE_DEATH, JINGLE_DUCK_HOLD_MS, JINGLE_WON } from '../src/data/bank/bindings.js';
 import {
   JINGLE_COOLDOWN_MAX_S,
   JINGLE_PENDING_MAX_AGE_S,

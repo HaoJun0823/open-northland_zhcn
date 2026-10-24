@@ -2,8 +2,8 @@ import type { SoundBank } from '@open-northland/data';
 import { type Camera, ONE, tileToScreen } from '@open-northland/render/data';
 import type { EntitySnapshot, WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { MURMUR_MIN_TALK_WAVS, poolGain } from '../src/data/bank.js';
-import { SELECT_SECOND_LINE_MAX_S, selectLines } from '../src/data/voices.js';
+import { MURMUR_MIN_TALK_WAVS, poolGain } from '../src/data/bank/bank.js';
+import { SELECT_SECOND_LINE_MAX_S, selectLines } from '../src/data/bank/voices.js';
 import {
   ANSWER_LAYERS,
   ANSWER_MAX_PAN,

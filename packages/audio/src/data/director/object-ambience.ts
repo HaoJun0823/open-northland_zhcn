@@ -1,17 +1,17 @@
 import { type Camera, cameraViewport, type TileRange } from '@open-northland/render/data';
 import { TICKS_PER_SECOND } from '@open-northland/sim';
-import { type LandscapeAmbience, type LandscapeSoundPool, poolGain, type SoundIndex } from '../bank.js';
-import {
-  LANDSCAPE_SECTOR_TILES,
-  type LandscapeSectors,
-  landscapeSectorsOf,
-  sectorKey,
-} from '../landscape-sectors.js';
+import { type LandscapeAmbience, type LandscapeSoundPool, poolGain, type SoundIndex } from '../bank/bank.js';
 import { NEAR_ZOOM_SCALE } from '../perspective.js';
 import type { TilePoint } from '../snapshot.js';
 import { computeSpatial } from '../spatial.js';
 import type { DirectorInput, Lane, OneShot } from '../types.js';
 import { onScreenTiles } from './ambient.js';
+import {
+  LANDSCAPE_SECTOR_TILES,
+  type LandscapeSectors,
+  landscapeSectorsOf,
+  sectorKey,
+} from './landscape-sectors.js';
 
 /**
  * Landscape objects on screen → their ambience one-shots: birds in a tree, a branch cracking under

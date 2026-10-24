@@ -7,14 +7,14 @@ import {
   type SimEvent,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { groupFiles, poolGain, type SoundIndex } from '../bank.js';
-import { JINGLE_COMBAT_INTERVAL_S, jingleDuck } from '../bindings.js';
+import { groupFiles, poolGain, type SoundIndex } from '../bank/bank.js';
+import { JINGLE_COMBAT_INTERVAL_S, jingleDuck } from '../bank/bindings.js';
+import { humanVoicesOf } from '../bank/voices.js';
+import { uiCueShot } from '../cues/ui-cues.js';
 import type { ShotLayer } from '../perspective.js';
 import { entityOwner, entityTile, type TilePoint } from '../snapshot.js';
 import { computeSpatial, computeSpatialAtNode, type Spatial } from '../spatial.js';
 import type { AudioTerrain, DirectorInput, EventSound, Lane, OneShot, SoundBindings } from '../types.js';
-import { uiCueShot } from '../ui-cues.js';
-import { humanVoicesOf } from '../voices.js';
 
 /**
  * Sim events → one-shots: resolve each frame event through the {@link SoundBindings}, locate the

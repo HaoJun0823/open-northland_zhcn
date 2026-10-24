@@ -5,8 +5,8 @@ import { loadRealContent } from '../src/content/real-content.js';
 /**
  * `loadRealContent` validates the served `content/ir.json` into a sim `ContentSet`. The degrade +
  * malformed paths run here unconditionally over synthetic responses (the "must still boot/test
- * without decoded bytes" stance); the full-parse and memoization assertions over the real IR live
- * in the real-content suite (`test/content/real-content-loader.test.ts`).
+ * without decoded bytes" stance); the memoization check over the real IR lives in the real-content
+ * suite (`test/content/real-content-loader.test.ts`).
  */
 
 /** An empty IR document carrying every lane, as the pipeline writes it. */

@@ -83,10 +83,11 @@ the caller through `Simulation.setInstrument`, never in sim source.
 
 ## Tests and goldens
 
-- Add the narrowest unit or integration test that proves the rule.
-- Use a headless scenario for a multi-system player action.
-- Check same-seed repeated runs when randomness or ordering changes.
-- Run invariant checks for long system chains.
+- Add the narrowest unit or integration test that proves the rule, in the file that already covers
+  the system. One test per rule, not per branch, tick count or threshold.
+- Use a headless scenario for a multi-system player action, stepping the fewest ticks that show it.
+- Determinism is owned by the hygiene scan, the fuzz suite and the goldens; a system test does not
+  repeat a run to prove it.
 - Treat state hashes and atomic traces as behavior contracts. Do not update them during a refactor.
 
 The hygiene suite enforces the import and nondeterminism boundary. Normal changes run

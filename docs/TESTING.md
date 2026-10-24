@@ -73,8 +73,43 @@ Run `npm run check:assets` and `npm run check:docs` before committing repository
 Do not use a browser scene to replace a cheap state assertion. Do not claim visual or audio
 correctness from a headless test.
 
+## Writing a test
+
+The suite is a budget, not a score. Every test costs a run on every change, a read on every failure
+and a rewrite on every refactor, so a test earns its place only by failing for a regression no other
+test catches. A change adds a test for the behavior it changes or the bug it fixes, in the file that
+already covers that feature when one exists, and nothing for code it did not touch. Deleting a test
+the change made redundant is part of the change.
+
+Before keeping a test, ask two questions. If the code were wrong in the way the title names, would
+the test fail? If the internals were refactored with identical behavior, would it stay green? A test
+that fails either question pins the fixture, the mock or the structure, not the rule. Write the
+expected value by hand, from source data or from a named rule, never by running the code under test
+or a copy of its logic; then break the behavior once and watch the test go red before restoring it.
+
+One test per observable rule. A table of inputs that take the same code path is one test, not one
+`it` per row; a switch is tested by the rules it implements, not one case per branch; a scale ladder
+keeps the smallest case that reaches the branch. Title the test with the rule it defends
+("a gate opens for its owner's carts"), so a failure reads without the body.
+
+Keep a test cheap. A unit or integration file runs in well under a second; a headless scenario
+steps the fewest ticks that show the behavior, from a direct state setup where the command path is
+not the point. Anything slower, and any scenario that plays a whole map, needs a named contract it
+guards and a place in the slow tier of `vitest.config.ts`, or it is not written.
+
 ## Tests not worth writing
 
+- Restating a constant, a type shape, a re-export, a catalog row or framework behavior: the
+  compiler and the content validators own those.
+- Asserting on a mock: a spy's call count or arguments cannot tell a correct write from a wrong one.
+  To prove a write happened, read the value back. Mock only process boundaries (network, filesystem,
+  clock, randomness), never in-repo logic.
+- Proving cost through a spy or a monkeypatch: counting `stepsIntoAt`, `world.get`, `query` or
+  `watchChanges` calls, or asserting a memo's object identity with `toBe(previous)`, pins the
+  implementation. Assert the answer, and the values after the write that should or should not
+  invalidate a cache; a scale claim is a measured benchmark.
+- Pinning the schedule: a position in `SYSTEM_ORDER`, the pass an incremental index first sees a
+  change in, or how many component writes a pass makes. Step once and read the outcome.
 - Calling a pure function twice with the same argument is not a determinism test: the hygiene scan
   owns ambient nondeterminism and the fuzz suite owns run-to-run equality. Reserve
   `expect(run()).toBe(run())` for two independently built simulations.
@@ -82,16 +117,47 @@ correctness from a headless test.
   premise inside the first test that depends on it.
 - Do not assert one accessor against another that reads the same field. Pin both against a named
   value from the fixture.
+- Snapshots and large `toEqual` on derived structures (HUD text dumps, layout tables, scene graphs)
+  when a smaller assertion proves the rule. Goldens are for determinism contracts.
+- Pinning an approximation: an exact tick count, a tuned threshold or a layout coordinate the next
+  balance pass will move. Assert the relation the rule promises (before/after, less/greater, reached
+  within a bound), not the number.
+- Tests of test infrastructure: a fixture builder, a fake or a scenario helper is proven by the
+  tests that use it. A source correction is proven by the pipeline run that applies it, not by a
+  synthetic file built from its own `from` lines.
+- Experiment switches in a committed test: env-selected variants, spies that swap a production
+  function, opt-in console reports, timing counters. An investigation's probe is deleted with it.
+- A random oracle sized by volume: run the index or filter against the plain scan on the smallest
+  case count and seed whose coverage assertions still pass, named as a constant, and leave more
+  seeds to the fuzz suite. A per-member rule gets a squad of a few; thousand-unit scale is one named
+  slow-tier test per command.
+- Building a registered scene to get a fixture for a pure function; hand-build the few entities it
+  reads.
 - A test that needs the decoded map corpus joins the file that already parses it. Without isolation
   only same-file memoization is guaranteed to be reused, so do not lift the parse into a helper.
-- Do not step a restored simulation alongside the live one for a whole scenario. Compare once, at the
-  checkpoint the restore is about.
-- A scale ladder is one contract, not one per rung. Keep the smallest case that reaches the branch.
-- To prove a write happened, read the value back. A spy's call count cannot tell a correct write from
-  a wrong one.
+- Do not step a restored simulation alongside the live one for a whole scenario. Compare the state
+  hash and the re-serialized bytes once, at the checkpoint the restore is about, and finish on the
+  restored copy. Local state-hash literals and same-seed twin runs belong only to the core goldens
+  and the fuzz suite.
+- A test that waits for an outcome stops when it happens; several tests that read one long run
+  build it once, lazily, inside their `describe`.
 - Compare large buffers and pixel arrays with `Buffer.equals` or a hash, not `toEqual`: Vitest's deep
   equality walks every element (an 8 MiB buffer takes about 15 s).
-- Do not wait out a real timeout. Use fake timers or inject a short limit.
+- Do not wait out a real timeout or assert a wall-clock duration. Use fake timers or an injected
+  clock, and wait on a condition, not a delay. "Nothing happens before X" is proven by elapsing
+  several periods of fake time, never by a real wait shorter than one period. A DOM test that must
+  poll passes `vi.waitFor(check, { interval: 1 })`; the default 50 ms interval adds up over a file.
+  A test that passes only on an idle machine is deleted or fixed, never retried.
+- A real-content twin of a synthetic test: a file under `test/content/` gates on `hasRealIr()` and
+  names the data-only fact it defends; a scene or join that a synthetic test already proves gets no
+  second run over the real pack.
+
+## Pruning tests
+
+Removing a test is a reviewed change like adding one, never a way to get a failing run green. Delete
+a test when another kept test fails for the same regression, when it fails one of the two questions
+above, or when its runtime or flakiness outweighs the rule it guards. Name what each deleted file
+guarded in the commit body, so a reader can check nothing was lost.
 
 ## Cross-platform tests
 

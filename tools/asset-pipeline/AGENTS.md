@@ -100,6 +100,8 @@ to both packages.
 Binary claims need byte-level evidence from the owned copy and synthetic fixtures. Test valid input,
 truncation, invalid lengths, and useful round trips. Visual formats also need a human comparison of
 locally rendered output with the running original.
+A named correction is proven by the pipeline run that applies it; do not test it against a synthetic
+file built from its own `from` lines.
 
 A map whose `[StaticObjects]` carries a verb the decoder does not know fails the run: decode the verb,
 or add it to the decoder's skipped verbs when the original ignores it too.

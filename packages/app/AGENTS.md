@@ -188,5 +188,7 @@ source of truth.
 - Keep viewport-driven work screen-bounded.
 - Accumulate events from every sim step in a display frame before handing them to audio or effects.
 - Test pure layout, content joins, and input decisions without a browser where possible.
+- Test the function that reads a table (actions, bindings, defaults, labels), never the table's
+  rows; hand-build the few entities a pure function reads instead of booting a registered scene.
 - Run `npm run test:content` for changes that consume generated maps or IR rows.
 - Use the screenshot harness for reproducible input, then ask a human to judge visual output.

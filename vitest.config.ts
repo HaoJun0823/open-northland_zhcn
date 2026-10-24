@@ -42,8 +42,6 @@ const SLOW_CORE_TESTS = [
   'packages/net-server/test/socket-recovery.test.ts',
   'packages/net-server/test/army-socket.test.ts',
   'packages/net-server/test/army-session.test.ts',
-  'packages/net-server/test/ws-host.test.ts',
-  'packages/net-server/test/relay-resilience-session.test.ts',
   'packages/net-server/test/relay-responsiveness.test.ts',
 ];
 // A renamed or deleted file would otherwise drop out of both tiers silently.

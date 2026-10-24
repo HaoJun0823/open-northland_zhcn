@@ -32,10 +32,6 @@ const MINT_SLOTS = [
   { jobType: rebaseSlotJob(COIN_MAKER), count: 2 },
   { jobType: JOB_CARRIER, count: 1 },
 ];
-const WAREHOUSE_SLOTS = [
-  { jobType: JOB_CARRIER, count: 3 },
-  { jobType: rebaseSlotJob(JOB_COLLECTOR), count: 3 }, // a collector (gatherer) slot
-];
 
 describe('tradeSlotsOf - the slots that seat a current trade', () => {
   it('matches the rebased coin-maker slot of a mint to the raw current id', () => {

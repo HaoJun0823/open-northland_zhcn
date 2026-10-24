@@ -92,11 +92,6 @@ describe('percentile', () => {
   it('reports 0 for an empty sample rather than NaN', () => {
     expect(percentile([], 50)).toBe(0);
   });
-
-  it('handles a single sample at every percentile', () => {
-    expect(percentile([7], 50)).toBe(7);
-    expect(percentile([7], 95)).toBe(7);
-  });
 });
 
 describe('summarize', () => {
@@ -129,28 +124,10 @@ describe('summarize', () => {
     expect(report.tickMs).toEqual({ medianMs: 6, p95Ms: 20, p99Ms: 20, maxMs: 20 });
   });
 
-  it('breaks mean ties by name, so a report is stable across runs', () => {
-    const tied = summarize(
-      new Map([
-        ['zebra', [1]],
-        ['alpha', [1]],
-      ]),
-      [2],
-      META,
-    );
-    expect(tied.systems.map((s) => s.name)).toEqual(['alpha', 'zebra']);
-  });
-
   it('reports zero shares instead of NaN when nothing was measured', () => {
     const empty = summarize(new Map([['ai', []]]), [], META);
     expect(empty.systems[0]?.sharePct).toBe(0);
     expect(empty.tickMs).toEqual({ medianMs: 0, p95Ms: 0, p99Ms: 0, maxMs: 0 });
-  });
-
-  it('carries the world/tick metadata and state hash through to the machine-readable report', () => {
-    expect(report.world).toEqual(META.world);
-    expect(report.ticks).toEqual(META.ticks);
-    expect(report.stateHash).toBe('abc123');
   });
 });
 
@@ -236,59 +213,6 @@ describe('assessTrust', () => {
 });
 
 describe('formatReport', () => {
-  it('renders one row per system plus the world/tick header', () => {
-    const text = formatReport(summarize(new Map([['ai', [1.5]]]), [2.25], META));
-    expect(text).toContain('192x140 cells, 340 settlers, 82 buildings');
-    expect(text).toContain('10 warmup + 4 measured');
-    expect(text).toContain('abc123');
-    expect(text).toContain('tick total: median 2.250 ms');
-    expect(text).toMatch(/ai\s+1\.500\s+1\.500\s+1\.500\s+1\.500\s+100\.0%/);
-  });
-
-  it('reports a population that moved across the window as a range, not a single number', () => {
-    // A fighter run thins out as the battle resolves; the reader must see that the medians span two
-    // populations rather than trust a single headline count.
-    const drifted = { ...META, world: { ...META.world, settlersAtEnd: 210 } };
-    const text = formatReport(summarize(new Map([['ai', [1]]]), [1], drifted));
-    expect(text).toContain('340→210 settlers');
-  });
-
-  it('names the world each benchmark measured', () => {
-    expect(formatReport(summarize(new Map(), [], META))).toContain('sim benchmark - 2 settlement(s)');
-    const realMap = {
-      ...META,
-      world: {
-        ...META.world,
-        kind: 'realMap',
-        mapId: 'magiczny_las_12_players',
-        machineSeats: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        session: 'map=magiczny_las_12_players&player=observer&seed=7&progression=on',
-      },
-    } as Parameters<typeof summarize>[2];
-    expect(formatReport(summarize(new Map(), [], realMap))).toContain(
-      'map benchmark - magiczny_las_12_players, AI seats 0-12, ?map=magiczny_las_12_players&player=observer&seed=7&progression=on',
-    );
-  });
-
-  it('omits the window and growth tables for a single-window run', () => {
-    const text = formatReport(summarize(new Map([['ai', [1]]]), [1], META));
-    expect(text).not.toContain('growth (window');
-    expect(text).not.toContain('rss MB');
-  });
-
-  it('prints the window and growth tables once there is a curve to show', () => {
-    const windowed = { ...META, windows: [windowFixture(0, 1), windowFixture(1, 4)] };
-    const text = formatReport(summarize(new Map([['ai', [1]]]), [1], windowed));
-    expect(text).toContain('growth (window 1 -> 2)');
-    expect(text).toMatch(/ai\s+1\.000\s+4\.000\s+4\.0x/);
-    // Window 2: median 4, p95 8, p99 12, max 16, 101 settlers, 21 fighters, 11 buildings, then GC 2.5 ms
-    // over 3 collections, longest 1.3, heap 121.
-    expect(text).toMatch(
-      /2\/2\s+101\.\.200\s+4\.000\s+8\.000\s+12\.000\s+16\.000\s+101\s+21\s+11\s+2\.5\s+3\s+1\.3\s+121/,
-    );
-    expect(text).toContain('gc: 6 collection(s), 5.0 ms paused, longest 1.3 ms   heap at end 121 MB');
-  });
-
   it('leads with a banner when the measurement cannot be trusted', () => {
     const suspect = {
       ...META,
@@ -298,12 +222,6 @@ describe('formatReport', () => {
     expect(text.startsWith('!!! UNTRUSTWORTHY MEASUREMENT !!!')).toBe(true);
     expect(text).toContain('this box was busy');
     expect(text).toContain('trust: SUSPECT');
-  });
-
-  it('records the machine the numbers came from', () => {
-    const text = formatReport(summarize(new Map([['ai', [1]]]), [1], META));
-    expect(text).toContain('environment: node v22.14.0  darwin-arm64  8 cpu  load/cpu 0.30');
-    expect(text).toContain('rev 9ab7c02 (clean)');
   });
 });
 

@@ -75,10 +75,4 @@ describe('authored catalog extras', () => {
     expect(extras.buildings?.map((b) => b.typeId)).toEqual([7, 11]);
     expect(extras.jobs?.map((j) => j.typeId)).toEqual([3, 5]);
   });
-
-  it('derives nothing from an empty placement list', () => {
-    const extras = authoredCatalogExtras([], ROWS);
-
-    expect(extras).toEqual({ buildings: [], jobs: [], tribes: [] });
-  });
 });

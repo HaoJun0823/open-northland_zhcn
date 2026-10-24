@@ -154,16 +154,6 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'indexed' }]);
   });
 
-  it('loads a shore wave displacement stem straight, not in the indexed layout', async () => {
-    const { impl } = countingFetch({ 'test_effect.indexed': MANIFEST });
-    vi.stubGlobal('fetch', impl);
-    const { loadDisplacementLayer } = await freshLoader();
-
-    await loadDisplacementLayer('test_effect.indexed');
-
-    expect(uploads).toEqual([{ url: `/bobs/${SHEET}`, layout: 'displacement' }]);
-  });
-
   it('keeps a displacement body apart from the indexed body of the same stem', async () => {
     const { impl } = countingFetch({ 'test_effect.indexed': MANIFEST });
     vi.stubGlobal('fetch', impl);

@@ -1,6 +1,6 @@
 import { Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { resolveLayers } from '../../../src/gpu/sprite-pool/resolve-layers.js';
+import { resolveLayers } from '../../../src/gpu/sprite-pool/layers/resolve.js';
 import { type ClothIndexRanges, sailWind } from '../../../src/gpu/sway/cloth-wind.js';
 import type { SpriteSheet } from '../../../src/gpu/textures/sprite-sheet.js';
 

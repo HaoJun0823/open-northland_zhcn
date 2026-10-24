@@ -18,8 +18,8 @@ import {
 } from '../../../src/gpu/ground-foot/foot-ground.js';
 import { GroundedFootCache } from '../../../src/gpu/ground-foot/grounded-foot-cache.js';
 import { LayerBinder } from '../../../src/gpu/sprite-pool/bind-layers.js';
+import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/layers/resolved-layer.js';
 import { createPooled } from '../../../src/gpu/sprite-pool/pooled-entity.js';
-import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/resolved-layer.js';
 import * as drawable from '../../../src/gpu/textures/drawable-resource.js';
 import { SoftShadowCache } from '../../../src/gpu/textures/soft-shadow-cache.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';

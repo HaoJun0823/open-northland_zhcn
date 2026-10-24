@@ -1,4 +1,4 @@
-import { alphaMaskOf, maskSolidAt } from '../sprite-pool/alpha-mask.js';
+import { alphaMaskOf, maskSolidAt } from '../sprite-pool/picking/alpha-mask.js';
 import type { EntityBounds } from '../sprite-pool/pooled-entity.js';
 import { type MapObjectSprite, objectFrameAt } from './map-object-sprite.js';
 

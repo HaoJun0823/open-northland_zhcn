@@ -18,9 +18,9 @@ import {
 import type { SceneGround } from '../../../src/data/scene/index.js';
 import { makeWaterField, NO_WATER, waterSurfaceAt } from '../../../src/data/terrain/index.js';
 import { ShipWakeLayer } from '../../../src/gpu/overlays/ship-wake-layer.js';
-import { buildAlphaMask } from '../../../src/gpu/sprite-pool/alpha-mask.js';
 import type { DrawnGeometry, ShipAfloat } from '../../../src/gpu/sprite-pool/index.js';
-import { keelLine } from '../../../src/gpu/sprite-pool/keel-line.js';
+import { buildAlphaMask } from '../../../src/gpu/sprite-pool/picking/alpha-mask.js';
+import { keelLine } from '../../../src/gpu/sprite-pool/picking/keel-line.js';
 
 const FACING_E = 4;
 const FACING_W = 1;

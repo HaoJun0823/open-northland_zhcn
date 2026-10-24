@@ -5,8 +5,8 @@ import type { DrawItem } from '../../../src/data/scene/index.js';
 import { isBloodless, surfaceOf } from '../../../src/gpu/blood/surface-sprite.js';
 import { BloodSurfaces } from '../../../src/gpu/blood/surfaces.js';
 import { LayerBinder } from '../../../src/gpu/sprite-pool/bind-layers.js';
+import { resolveLayers } from '../../../src/gpu/sprite-pool/layers/resolve.js';
 import { createPooled } from '../../../src/gpu/sprite-pool/pooled-entity.js';
-import { resolveLayers } from '../../../src/gpu/sprite-pool/resolve-layers.js';
 import type { SpriteSheet } from '../../../src/gpu/textures/sprite-sheet.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
 

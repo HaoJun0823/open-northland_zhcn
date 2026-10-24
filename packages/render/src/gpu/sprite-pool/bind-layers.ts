@@ -20,16 +20,18 @@ import type { PaletteLut, SpriteSheet } from '../textures/sprite-sheet.js';
 import type { TextureCache } from '../textures/texture-cache.js';
 import { worldBatched } from '../world-batch/batcher.js';
 import { type ShadowStyle, setCastShadowTransform } from '../world-batch/shadow-style.js';
-import { cartDriveLook } from './cart-drive.js';
-import { settlerPalette } from './character-layers.js';
-import { humanLayerRow } from './human-palette-row.js';
 import {
   addTiltedBox,
   BoundsUnion,
   createLayerDrawBox,
   type LayerDrawBox,
   layerDrawBox,
-} from './layer-box.js';
+} from './layers/box.js';
+import { cartDriveLook } from './layers/cart-drive.js';
+import { settlerPalette } from './layers/character.js';
+import { humanLayerRow } from './layers/human-palette-row.js';
+import type { ResolvedLayer } from './layers/resolved-layer.js';
+import { vehicleBodyRow, vehiclePalette } from './layers/vehicle-palette.js';
 import { drawPlaceholder, placeholderBounds } from './placeholder.js';
 import {
   createPooled,
@@ -37,9 +39,7 @@ import {
   type PlainPooledEntity,
   type PooledEntity,
 } from './pooled-entity.js';
-import type { ResolvedLayer } from './resolved-layer.js';
 import type { PoolFrame } from './sprite-pool.js';
-import { vehicleBodyRow, vehiclePalette } from './vehicle-palette.js';
 
 /** Bodies that move or fly never take a splash; their pooled containers hold no blood surface. */
 const BLOODLESS_KINDS: ReadonlySet<DrawItem['kind']> = new Set<DrawItem['kind']>([

@@ -8,7 +8,7 @@ import {
   surfaceOf,
 } from '../../../src/gpu/blood/surface-sprite.js';
 import { BloodSurfaces, MAX_BLOOD_SURFACES } from '../../../src/gpu/blood/surfaces.js';
-import * as masks from '../../../src/gpu/sprite-pool/alpha-mask.js';
+import * as masks from '../../../src/gpu/sprite-pool/picking/alpha-mask.js';
 import { DepthSortedLayer } from '../../../src/gpu/world-renderer/depth-sorted-layer.js';
 
 const drop: BloodDrop = { vx: 4, vy: 0, rise: 20, lift: 0.2, delay: 0.5, flight: 6, size: 1.5 };

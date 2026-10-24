@@ -2,7 +2,7 @@ import { FOG_STATE } from '@open-northland/sim';
 import { Container, Sprite, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { MapObjectLayer, type MapObjectSprite } from '../../../src/gpu/map-objects/index.js';
-import { resolveLayers } from '../../../src/gpu/sprite-pool/resolve-layers.js';
+import { resolveLayers } from '../../../src/gpu/sprite-pool/layers/resolve.js';
 import { castShadowShear, setVegetationShear, vegetationShear } from '../../../src/gpu/sway/vegetation.js';
 import type { SpriteSheet } from '../../../src/gpu/textures/sprite-sheet.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';

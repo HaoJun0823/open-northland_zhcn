@@ -1,8 +1,8 @@
 import type { DrawItem } from '../../data/scene/index.js';
 import type { ErasedRegion } from '../textures/erased-frame-cache.js';
 import { planSiteOf } from './bind-layers.js';
-import type { MotionTrack } from './motion.js';
-import type { ResolvedLayer } from './resolved-layer.js';
+import type { ResolvedLayer } from './layers/resolved-layer.js';
+import type { MotionTrack } from './presentation/motion.js';
 import type { PoolFrame } from './sprite-pool.js';
 
 /**

@@ -266,7 +266,6 @@ export {
   type WarmedProgram,
   type WarmupSettings,
 } from './gpu/shaders/warmup.js';
-export { humanPaletteIdentity } from './gpu/sprite-pool/human-palette-row.js';
 export {
   createPresentationTrack,
   type EntityBounds,
@@ -276,6 +275,7 @@ export {
   resolveLayers,
   vehiclePalette,
 } from './gpu/sprite-pool/index.js';
+export { humanPaletteIdentity } from './gpu/sprite-pool/layers/human-palette-row.js';
 export type { ClothIndexRanges } from './gpu/sway/cloth-wind.js';
 export { flatTileColour, TerrainLayer } from './gpu/terrain/index.js';
 export type {

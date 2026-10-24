@@ -2,8 +2,8 @@ import { Rectangle, Texture, TextureSource } from 'pixi.js';
 import { afterEach, expect, it } from 'vitest';
 import type { DrawItem } from '../../../src/data/scene/index.js';
 import { collapsePlan } from '../../../src/gpu/demolition/collapse-plan.js';
-import { resolveLayers } from '../../../src/gpu/sprite-pool/resolve-layers.js';
-import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/resolved-layer.js';
+import { resolveLayers } from '../../../src/gpu/sprite-pool/layers/resolve.js';
+import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/layers/resolved-layer.js';
 import type { SpriteSheet } from '../../../src/gpu/textures/sprite-sheet.js';
 
 const sources: TextureSource[] = [];

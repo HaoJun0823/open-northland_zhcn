@@ -5,8 +5,8 @@ import type { PalettedQuad, PalettedSprite } from '../paletted-sprite/index.js';
 import type { SelectionGraphics, SelectionSprite } from '../selection/sprite-effect.js';
 import type { PaletteLut } from '../textures/sprite-sheet.js';
 import { BindStamp } from './bind-stamp.js';
-import { HumanPaletteRow } from './human-palette-row.js';
-import { createPresentationTrack, type PresentationTrack } from './present-item.js';
+import { HumanPaletteRow } from './layers/human-palette-row.js';
+import { createPresentationTrack, type PresentationTrack } from './presentation/present-item.js';
 
 /** The world-space (pre-camera) axis-aligned box of an entity's drawn sprite this frame. */
 export interface EntityBounds {

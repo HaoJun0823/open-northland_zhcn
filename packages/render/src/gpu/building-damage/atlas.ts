@@ -1,6 +1,6 @@
 import { Rectangle, Texture } from 'pixi.js';
 import { isMagnifiedTexture, markMagnifiedTexture, markPixelArtSource } from '../pixel-art/registry.js';
-import { invalidateAlphaMask } from '../sprite-pool/alpha-mask.js';
+import { invalidateAlphaMask } from '../sprite-pool/picking/alpha-mask.js';
 import { readable2dContext } from '../textures/drawable-resource.js';
 import { WrittenPageSource } from '../textures/written-page-source.js';
 

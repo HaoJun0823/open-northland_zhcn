@@ -1,10 +1,10 @@
 import type { DrawItem } from '../../data/scene/index.js';
 import { resolveConstructionDraws } from '../../data/sprites/index.js';
 import type { FallenBody } from '../building-damage/building-damage.js';
-import { damageScaffoldLayers } from '../sprite-pool/building-layers.js';
 import { resolveLayers } from '../sprite-pool/index.js';
-import { layeredLayerFor } from '../sprite-pool/layered-layers.js';
-import type { ResolvedLayer } from '../sprite-pool/resolved-layer.js';
+import { damageScaffoldLayers } from '../sprite-pool/layers/building.js';
+import { layeredLayerFor } from '../sprite-pool/layers/layered.js';
+import type { ResolvedLayer } from '../sprite-pool/layers/resolved-layer.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 
 export interface CollapsePart {

@@ -1,7 +1,7 @@
 import type { Container, Sprite, Texture } from 'pixi.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import type { DamagedBuilding } from '../sprite-pool/pick.js';
-import type { ResolvedLayer } from '../sprite-pool/resolved-layer.js';
+import type { ResolvedLayer } from '../sprite-pool/layers/resolved-layer.js';
+import type { DamagedBuilding } from '../sprite-pool/picking/pick.js';
 import { isDrawableResource, readable2dContext } from '../textures/drawable-resource.js';
 import { DamageAtlas, type DamageTile } from './atlas.js';
 import { DamageEffectTextures } from './effect-textures.js';

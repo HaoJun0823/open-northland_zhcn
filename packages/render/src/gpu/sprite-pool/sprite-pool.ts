@@ -39,9 +39,9 @@ import { restoreStash, type StashedVisibility, stashHidden } from '../world-view
 import { LayerBinder } from './bind-layers.js';
 import { FrameEpoch } from './bind-stamp.js';
 import { coatBody } from './blood-coats.js';
-import { damageScaffoldLayers } from './building-layers.js';
 import { GroundPileCover } from './ground-pile-cover.js';
-import { atRest } from './motion.js';
+import { damageScaffoldLayers } from './layers/building.js';
+import { resolvesWithoutClock } from './layers/resolve.js';
 import {
   anchorOf,
   boundsOf,
@@ -50,13 +50,13 @@ import {
   pixelHit,
   type ShipAfloat,
   siteFlagHit,
-} from './pick.js';
+} from './picking/pick.js';
 import { type EntityBounds, meshablePooled, type PooledEntity } from './pooled-entity.js';
 import { PortraitSubject } from './portrait-subject.js';
-import { presentEntity } from './present-entity.js';
-import { repeatsInTick } from './present-item.js';
+import { atRest } from './presentation/motion.js';
+import { presentEntity } from './presentation/present-entity.js';
+import { repeatsInTick } from './presentation/present-item.js';
 import { reconcileSprites } from './reconcile.js';
-import { resolvesWithoutClock } from './resolve-layers.js';
 import { SpriteSceneCache } from './scene-cache.js';
 import { SelectionEffects } from './selection-effects.js';
 

@@ -1,0 +1,50 @@
+import type { DrawItem } from '../../../data/scene/index.js';
+import { resolveVehicleDraw } from '../../../data/sprites/index.js';
+import type { WindSway } from '../../../data/weather/climate.js';
+import { sailWind } from '../../sway/cloth-wind.js';
+import { shipSway } from '../../sway/ship.js';
+import type { SpriteSheet } from '../../textures/sprite-sheet.js';
+import { cartDriveLook, pushCartDriveLayers } from './cart-drive.js';
+import { hasLoadedFamily, pushLayeredWithShadow } from './layered.js';
+import { LayerBuffer } from './resolved-layer.js';
+
+/** Scratch for {@link pushVehicleLayers}: the `[shadow, body]` before the swell. */
+const VEHICLE_BODY = new LayerBuffer();
+
+/**
+ * Append a vehicle's `[shadow, body]`; false appends nothing. Every look names its family atlas, so an
+ * unloaded one draws the placeholder, never a human frame from the shared body atlas. A ship at sea rolls,
+ * heaves and fills its sail; a moored one and a fog ghost lie still. A cart its trader drives from inside
+ * draws the driving figure instead (`./cart-drive.ts`).
+ */
+export function pushVehicleLayers(
+  out: LayerBuffer,
+  sheet: SpriteSheet,
+  item: DrawItem,
+  tick: number,
+  gaitClock: number,
+  wind?: WindSway,
+): boolean {
+  const driven = cartDriveLook(sheet, item);
+  if (driven !== undefined) return pushCartDriveLayers(out, sheet, driven, item, tick, gaitClock);
+  const draw = resolveVehicleDraw(sheet.bindings.vehicle, item, tick, gaitClock);
+  if (draw === null || !hasLoadedFamily(sheet, draw)) return false;
+  VEHICLE_BODY.reset();
+  if (!pushLayeredWithShadow(VEHICLE_BODY, sheet, 'vehicle', draw)) return false;
+  const still = draw.sway === 'none' || item.ghost === true;
+  const underSail = draw.sway === 'sailing';
+  const sway = still ? null : shipSway(tick, item.x, item.y, underSail);
+  const sails =
+    !still && draw.indexed && draw.layer !== undefined
+      ? sheet.vehiclePalette?.sailRanges?.[draw.layer]
+      : undefined;
+  const cloth = sails === undefined ? undefined : sailWind(sails, tick, item.x, item.y, underSail, wind);
+  for (const layer of VEHICLE_BODY.finish()) {
+    out.push(
+      sway === null || layer.shadow
+        ? layer
+        : { ...layer, shear: sway.shear, dy: sway.dy, ...(cloth !== undefined ? { cloth } : {}) },
+    );
+  }
+  return true;
+}

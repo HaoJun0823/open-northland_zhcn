@@ -1,7 +1,7 @@
 import { systems } from '@open-northland/sim';
 import type { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { fishHeadingIndex } from '../../../src/gpu/sprite-pool/resolve-layers.js';
+import { fishHeadingIndex } from '../../../src/gpu/sprite-pool/layers/resolve.js';
 import { buildSpriteScene, resolveLayers, type SpriteAtlas, type SpriteSheet } from '../../../src/index.js';
 import { entity, snapshotOf } from '../../support/fixtures.js';
 

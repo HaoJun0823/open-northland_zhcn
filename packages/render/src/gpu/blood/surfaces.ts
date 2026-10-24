@@ -9,7 +9,7 @@ import {
   smoothUnit,
 } from '../../data/effects/blood.js';
 import type { BloodPalette } from '../../data/effects/blood-appearance.js';
-import { alphaMaskOf, maskSolidAt } from '../sprite-pool/alpha-mask.js';
+import { alphaMaskOf, maskSolidAt } from '../sprite-pool/picking/alpha-mask.js';
 import {
   type BloodSurface,
   type BloodSurfaceSprite,

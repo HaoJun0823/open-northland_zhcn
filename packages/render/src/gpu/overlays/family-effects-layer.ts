@@ -5,7 +5,7 @@ import { SIGN_DEPTH_EPS, screenDepth } from '../../data/scene/index.js';
 import { type ParticleRef, particleFrame } from '../../data/sprites/index.js';
 import { type ElevationField, terrainLiftAt } from '../../data/terrain/index.js';
 import type { DrawnGeometry } from '../sprite-pool/index.js';
-import { layeredLayerFor } from '../sprite-pool/layered-layers.js';
+import { layeredLayerFor } from '../sprite-pool/layers/layered.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import type { TextureCache } from '../textures/texture-cache.js';
 import { worldBatched } from '../world-batch/batcher.js';

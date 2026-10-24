@@ -5,7 +5,7 @@ import { type Camera, ONE, tileToScreen, type Viewport } from '../../../src/data
 import type { ElevationField } from '../../../src/data/terrain/index.js';
 import { SelectionGraphics } from '../../../src/gpu/selection/sprite-effect.js';
 import { type PoolFrame, SpritePool } from '../../../src/gpu/sprite-pool/index.js';
-import { SNAP_DISTANCE } from '../../../src/gpu/sprite-pool/motion.js';
+import { SNAP_DISTANCE } from '../../../src/gpu/sprite-pool/presentation/motion.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../../support/fixtures.js';
 

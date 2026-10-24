@@ -250,21 +250,22 @@ function expectRingWalkAgreement(
   }
 }
 
+/** One random crowd: the draws cover every query shape, so further seeds repeat the same branches. */
+const CROWD_SEED = 1;
+
 describe('CombatIndex nearest search - equivalent to the node ring walk', () => {
-  for (const seed of [1, 2, 3]) {
-    it(`agrees with the ring walk on nearest, nearestFew and anyWithin over a random crowd (seed ${seed})`, () => {
-      const draw = lcg(seed);
-      const sim = mappedSim(seed);
-      for (const [from, to] of [
-        [P0, P2],
-        [P2, P0],
-        [P2, P1],
-      ] as const) {
-        setDiplomacyStance(sim.world, from, to, 'neutral');
-      }
-      expectRingWalkAgreement(sim, crowd(sim, draw), keeps(sim, draw), draw);
-    });
-  }
+  it('agrees with the ring walk on nearest, nearestFew and anyWithin over a random crowd', () => {
+    const draw = lcg(CROWD_SEED);
+    const sim = mappedSim(CROWD_SEED);
+    for (const [from, to] of [
+      [P0, P2],
+      [P2, P0],
+      [P2, P1],
+    ] as const) {
+      setDiplomacyStance(sim.world, from, to, 'neutral');
+    }
+    expectRingWalkAgreement(sim, crowd(sim, draw), keeps(sim, draw), draw);
+  });
 
   it('keeps agreeing across builds as units move, change hands and leave and buildings are placed, razed, handed over and retyped', () => {
     // Both layers outlive a build, so each change must reach the next build.

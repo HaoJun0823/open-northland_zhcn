@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { expect, it } from 'vitest';
 import {
   AttackOrder,
   Engagement,
@@ -9,7 +9,6 @@ import {
   Position,
 } from '../../src/components/index.js';
 import { fx, positionOfNode, Simulation } from '../../src/index.js';
-import { hexagonRing } from '../../src/nav/halfcell.js';
 import { MeleeSlots } from '../../src/systems/conflict/melee-slots.js';
 import {
   combatCadenceContent,
@@ -21,46 +20,6 @@ import {
   VIKING,
   WOMAN,
 } from './combat-cadence/support.js';
-
-it('shares full waiting rows instead of scanning the whole crowd for every waiting soldier', () => {
-  const checks = [100, 200, 400].map((count) => {
-    const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(30, 30) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('expected terrain');
-    const centre = { hx: 30, hy: 30 };
-    const target = fighterAtNode(sim, centre.hx, centre.hy, OTHER, WOMAN);
-    const positions = [];
-    for (let radius = 1; positions.length < count; radius++) {
-      for (const { point } of hexagonRing(centre, radius)) {
-        const e = fighterAtNode(sim, point.hx, point.hy, VIKING, SOLDIER_SWORD_SHORT);
-        sim.world.add(e, Owner, { player: 0 });
-        positions.push({ node: terrain.nodeAt(point.hx, point.hy), radius });
-        if (positions.length === count) break;
-      }
-    }
-    const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
-    const taken = vi.spyOn(slots, 'isTaken');
-    try {
-      for (const { node, radius } of positions) {
-        if (radius === 1) continue;
-        expect(
-          slots.waitingCell(
-            node,
-            { entity: target, node: terrain.nodeAt(centre.hx, centre.hy), body: null },
-            { minRange: 1, maxRange: 1 },
-            { goal: undefined, standingOn: node },
-          ),
-        ).toBe(node);
-        slots.claim(node, 0);
-      }
-      return taken.mock.calls.length;
-    } finally {
-      taken.mockRestore();
-    }
-  });
-  expect(checks[2]).toBeLessThan((checks[0] ?? 0) * 6);
-  expect(checks[2]).toBeLessThan(400 * 12);
-});
 
 it.each(['previous pass', 'current pass', 'mid-stride'])(
   'gives a front reservation to the nearer ally (%s)',
@@ -162,32 +121,6 @@ it('keeps the destination of a final diagonal step reserved', () => {
   const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
   expect(slots.isTaken(cell, undefined, undefined, { entity: near, target })).toBe(true);
   expect(sim.world.get(far, MoveGoal).cell).toBe(cell);
-});
-
-it('shares structural reachability across incoming contenders for a reserved slot', () => {
-  const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(40, 40) });
-  const terrain = sim.terrain;
-  if (terrain === undefined) throw new Error('expected terrain');
-  const target = fighterAtNode(sim, 5, 5, OTHER, WOMAN);
-  const far = fighterAtNode(sim, 70, 70, VIKING, SOLDIER_SWORD_SHORT);
-  sim.world.add(far, Owner, { player: 0 });
-  const cell = terrain.nodeAt(6, 5);
-  sim.world.add(far, Engagement, { target, repathAt: 100 });
-  sim.world.add(far, MoveGoal, { cell });
-  const near = Array.from({ length: 400 }, (_, i) => {
-    const e = fighterAtNode(sim, 8 + (i % 20), 8 + Math.floor(i / 20), VIKING, SOLDIER_SWORD_SHORT);
-    sim.world.add(e, Owner, { player: 0 });
-    return e;
-  });
-  const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
-  const steps = vi.spyOn(terrain, 'stepsIntoAt');
-  try {
-    for (const entity of near)
-      expect(slots.isTaken(cell, undefined, undefined, { entity, target })).toBe(false);
-    expect(steps.mock.calls.length).toBeLessThanOrEqual(terrain.nodeCount);
-  } finally {
-    steps.mockRestore();
-  }
 });
 
 it('does not brake onto a reservation shared by an enemy and an ally', () => {

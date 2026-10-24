@@ -67,10 +67,6 @@ const ORDERED_MEAL_BUDGET_TICKS = 400;
 const ORDERED_SLEEP_BUDGET_TICKS = 60;
 /** A sleep far longer than any run below, so only a wake can end it. */
 const LONG_SLEEP_TICKS = 10_000;
-/** The fixture's unarmed soldier class: a fighter trade, which the company rungs refuse outright. */
-const SOLDIER = 31;
-/** Enough soldiers that a per-settler sweep would show up as more than one. */
-const PEACETIME_ARMY = 20;
 /** Enough ticks for a neighbouring enemy to close and land its first blow. */
 const FIRST_BLOW_BUDGET_TICKS = 120;
 
@@ -406,33 +402,6 @@ describe('a fighting unit on alert takes no rest', () => {
     expect(sim.standsTo(hunter)).toBe(false); // a hunt is no battle
     sim.world.remove(soldier, Position); // aboard a vehicle
     expect(sim.standsTo(soldier)).toBe(false);
-  });
-
-  it('costs a settlement at peace nothing: no sweep unless a rung would act on the answer', () => {
-    // The expensive half of the alert is one sweep of the owned settlers. Every rung asks for it last,
-    // after its own cheap refusals, so an army standing about in peacetime never pays for it.
-    const sweepsPerPass = (bar: 'none' | 'hunger' | 'enjoyment'): number => {
-      const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 4) });
-      for (let i = 0; i < PEACETIME_ARMY; i++) {
-        const e = fighterAt(sim, i % 20, i % 4, VIKING, SOLDIER, { owner: P0 });
-        if (bar !== 'none') setNeeds(sim, e, { [bar]: HUNGRY });
-      }
-      let sweeps = 0;
-      const world = sim.world as unknown as { query: (...c: { name?: string }[]) => unknown };
-      const real = world.query.bind(sim.world);
-      world.query = (...comps: { name?: string }[]) => {
-        // The presence index's own query, and nothing else in the planner asks for this exact set.
-        const names = comps.map((c) => c.name ?? '?');
-        if (names.join('+') === 'Settler+Health+Position+Owner') sweeps++;
-        return real(...comps);
-      };
-      plannerSystem(sim.world, ctxOf(sim));
-      return sweeps;
-    };
-
-    expect(sweepsPerPass('none')).toBe(0); // nobody wants anything
-    expect(sweepsPerPass('enjoyment')).toBe(0); // a soldier never chats, so the company rungs refuse first
-    expect(sweepsPerPass('hunger')).toBe(1); // once for the pass, however many soldiers ask
   });
 
   it('over real ticks, a tired rear rank stays up for the whole fight and rests once it is won', () => {

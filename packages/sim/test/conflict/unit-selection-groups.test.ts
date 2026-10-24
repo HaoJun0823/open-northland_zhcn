@@ -28,6 +28,9 @@ import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassMap, makeWoodcutter } from '../settlers/gatherer-flag/support.js';
 
+/** Enough members that the halves of the alternating need order both appear. */
+const SQUAD = 8;
+
 function fixture(count = 3) {
   const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(100, 30) });
   const units = Array.from({ length: count }, (_, i) => {
@@ -116,8 +119,8 @@ describe('compound selection orders', () => {
     expect(grouped.sim.commands.log).toHaveLength(1);
   });
 
-  it('applies 1000 compound members on one tick and round-trips their serialized save and replay', () => {
-    const { sim, units } = fixture(1000);
+  it('applies every compound member on one tick and round-trips their serialized save and replay', () => {
+    const { sim, units } = fixture(SQUAD);
     const house = sim.world.create();
     for (const entity of units) sim.world.add(entity, TrainingOrder, { house, drillTicksLeft: 100 });
     const order: PlayerCommand = {

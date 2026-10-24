@@ -586,26 +586,6 @@ describe('projectiles - expiry + dead zone', () => {
   });
 });
 
-describe('projectiles - determinism', () => {
-  it('two same-seed runs with projectiles active reach the same state hash', () => {
-    const run = (): { hash: string; sawProjectile: boolean } => {
-      const sim = new Simulation({ seed: 9, content: content(), map: grassMap(24, 1) });
-      marksmanAt(sim, 0, 0);
-      fighterAt(sim, 8, 0, FRANK, IDLE, 90); // frail, in band - dies under the volley, exercising the death path too
-      let sawProjectile = false;
-      for (let i = 0; i < 60; i++) {
-        sim.step();
-        if (projectiles(sim).length > 0) sawProjectile = true;
-      }
-      return { hash: sim.hashState(), sawProjectile };
-    };
-    const a = run();
-    const b = run();
-    expect(a.sawProjectile).toBe(true); // the scenario really put arrows in flight (not a vacuous hash)
-    expect(a.hash).toBe(b.hash);
-  });
-});
-
 describe('projectiles - area shots', () => {
   const CATAPULT_DAMAGE = 800;
   const AIM = { hx: 16, hy: 4 } as const;

@@ -32,7 +32,9 @@ import { testContent } from '../fixtures/content.js';
 import { BEAR, BOAR, COW, DEER, fighterAtNode, HUNTER } from './combat-system/support.js';
 import { cell, combatantAtNode, ctxOf, grassMap, P0, P1 } from './stances/support.js';
 
-const TICKS = 240;
+const TICKS = 120;
+/** Long enough that the soldiers' walk up to their towers is the smaller part of the run. */
+const POST_TICKS = 240;
 
 /** Two warring villages that meet, a far quiet one, guards, a hunter and wildlife. */
 function mixedScene(): Simulation {
@@ -271,15 +273,15 @@ describe('combat pass - who may engage', () => {
     const { sim, soldiers } = postsAndMarches();
     let skipped = 0;
     let manned = 0;
-    for (let t = 0; t < TICKS; t++) {
+    for (let t = 0; t < POST_TICKS; t++) {
       skipped += skippedLeaveNoTrace(sim);
       outsideCandidatesRefused(sim);
       sim.step();
       expect(sim.world.verifyCaches()).toEqual([]);
       for (const soldier of soldiers) if (onPost(sim, soldier)) manned++;
     }
-    expect(manned).toBeGreaterThan(TICKS); // both towers were held for most of the run
-    expect(skipped).toBeGreaterThan(TICKS); // the quiet post and the far march are skipped
+    expect(manned).toBeGreaterThan(POST_TICKS); // both towers were held for most of the run
+    expect(skipped).toBeGreaterThan(POST_TICKS); // the quiet post and the far march are skipped
   });
 });
 

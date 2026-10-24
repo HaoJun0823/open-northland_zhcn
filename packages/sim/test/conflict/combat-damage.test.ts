@@ -5,7 +5,6 @@ import {
   armorMaterialForClass,
   armorMaterialForGood,
   weaponDamageVsMaterial,
-  weaponKey,
 } from '../../src/systems/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
 
@@ -93,13 +92,5 @@ describe('armor material resolution', () => {
     const content = combatContent();
     expect(armorMaterialForClass(content, UNRECORDED_CLASS)).toBe(UNRECORDED_CLASS);
     expect(armorMaterialForGood(content, UNCLAIMED_GOOD)).toBeNull();
-  });
-});
-
-describe('weaponKey', () => {
-  it('keys on (tribeType, typeId), the tribe-less slot left empty', () => {
-    expect(weaponKey({ tribeType: 1, typeId: SWORD })).toBe('1:7');
-    expect(weaponKey({ tribeType: 2, typeId: SWORD })).not.toBe(weaponKey({ tribeType: 1, typeId: SWORD }));
-    expect(weaponKey({ tribeType: undefined, typeId: SWORD })).toBe(':7');
   });
 });

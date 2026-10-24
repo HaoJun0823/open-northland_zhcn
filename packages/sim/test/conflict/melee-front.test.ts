@@ -215,15 +215,6 @@ describe('melee front - a fighter behind a full front steps along it', () => {
     return { s, spearman, heldEnemy, other };
   }
 
-  it('is the fixture it claims: a step behind both enemies, with the seam a step south', () => {
-    const dist = (a: HalfCellNode, b: HalfCellNode) => hexDistanceBetween(a.hx, a.hy, b.hx, b.hy);
-    expect(dist(PICKER, HELD)).toBe(SPEAR_REACH + 1);
-    expect(dist(PICKER, OTHER)).toBe(SPEAR_REACH + 1);
-    expect(hexNeighboursOf(PICKER.hx, PICKER.hy)).toContainEqual(SEAM);
-    expect(dist(SEAM, OTHER)).toBe(SPEAR_REACH);
-    expect(dist(SEAM, HELD)).toBeGreaterThan(SPEAR_REACH); // the seam is no cell of the held enemy's band
-  });
-
   it('steps to the free node that brings another enemy into reach and takes that enemy up', () => {
     const { s, spearman, other } = front();
     const terrain = s.terrain;

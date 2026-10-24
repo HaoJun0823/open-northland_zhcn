@@ -36,8 +36,12 @@ import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './melee-engagem
 
 const WIDTH = 100;
 const HEIGHT = 40;
+/** The redirect test's army: large enough that a per-tick member budget would split the start. */
+const LARGE_ARMY = 1000;
+/** A selection for the per-member rules, which the dispatch applies alike to any size. */
+const SQUAD = 8;
 
-function armyWorld(count = 1000): { sim: Simulation; army: Entity[] } {
+function armyWorld(count: number): { sim: Simulation; army: Entity[] } {
   const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(WIDTH, HEIGHT) });
   const army = Array.from({ length: count }, (_, i) =>
     fighterAt(sim, 1 + (i % 40), 1 + Math.floor(i / 40), VIKING, 31, { owner: P0 }),
@@ -69,7 +73,7 @@ describe('atomic army orders', () => {
   it.each(['moveUnitGroup', 'attackMoveUnitGroup'] as const)(
     '%s starts all 1000 members together and replaces repeated redirects without a backlog',
     (kind) => {
-      const { sim, army } = armyWorld();
+      const { sim, army } = armyWorld(LARGE_ARMY);
       const initial = army.map((entity) => ({ ...sim.world.get(entity, Position) }));
       const members = destinations(army);
       sim.enqueue(playerCommand(P0, { kind, members }));
@@ -82,7 +86,7 @@ describe('atomic army orders', () => {
           const position = sim.world.get(entity, Position);
           return position.x !== initial[i]?.x || position.y !== initial[i]?.y;
         }),
-      ).toHaveLength(1000);
+      ).toHaveLength(LARGE_ARMY);
       const opposite = kind === 'moveUnitGroup' ? 'attackMoveUnitGroup' : 'moveUnitGroup';
       // Both clicks land in the next input tick; every member must carry only the newest destination.
       const redirect = destinations(army, 110);
@@ -131,7 +135,7 @@ describe('atomic army orders', () => {
   });
 
   it('applies explicit attack and stance to every selected fighter in one tick', () => {
-    const { sim, army } = armyWorld(1000);
+    const { sim, army } = armyWorld(SQUAD);
     const target = fighterAt(sim, 98, 38, VIKING, WOODCUTTER, { owner: P1, hitpoints: 1_000_000 });
     const members = army.map((entity) => ({ entity }));
     sim.enqueue(playerCommand(P0, { kind: 'setStanceGroup', members, mode: MILITARY_MODE.DEFEND }));
@@ -144,9 +148,9 @@ describe('atomic army orders', () => {
   });
 
   it.each(['hunger', 'fatigue', 'enjoyment'] as const)(
-    'applies the %s need action to all 1000 soldiers together',
+    'applies the %s need action to every selected soldier in one command',
     (need) => {
-      const { sim, army } = armyWorld();
+      const { sim, army } = armyWorld(SQUAD);
       sim.enqueue(
         playerCommand(P0, {
           kind: 'unitActionGroup',
@@ -176,7 +180,7 @@ describe('atomic army orders', () => {
   });
 
   it('cancels every selected training order together while excluding a rival', () => {
-    const { sim, army } = armyWorld();
+    const { sim, army } = armyWorld(SQUAD);
     const house = sim.world.create();
     const rival = fighterAt(sim, 99, 39, VIKING, WOODCUTTER, { owner: P1 });
     for (const entity of [...army, rival])

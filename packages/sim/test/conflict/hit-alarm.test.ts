@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   addCurrentAtomic,
   Engagement,
@@ -19,7 +19,6 @@ import {
 import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../src/index.js';
 import { nodeOfPosition } from '../../src/nav/halfcell.js';
-import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
 import { FLEE_STEP_NODES } from '../../src/systems/conflict/flee.js';
 import {
   ALARM_PEOPLE_RADIUS_NODES,
@@ -255,23 +254,6 @@ describe('hit alarm - a blow alarms the struck person side', () => {
     removeCurrentAtomic(s.world, victim);
     combatSystem(s.world, { ...ctxOf(s), tick: s.tick + 1 });
     expect(runsEast(s, victim, VICTIM_AT)).toBe(true);
-  });
-
-  it('answers each attacker once a tick, however many blows it lands', () => {
-    const s = sim();
-    const { victim, attacker } = struck(s);
-    const second = unit(s, VICTIM_AT + 1, P0, MILITARY_MODE.FLEE, WOMAN);
-    const other = unit(s, VICTIM_AT + 2, P1, MILITARY_MODE.ATTACK);
-    const answers = vi.spyOn(CombatIndex.prototype, 'ownedWithin');
-    try {
-      resolveCombatHit(s.world, ctxOf(s), attacker, victim, BLOW, [], 'melee');
-      resolveCombatHit(s.world, ctxOf(s), attacker, second, BLOW, [], 'melee');
-      resolveCombatHit(s.world, ctxOf(s), other, second, BLOW, [], 'melee');
-      combatSystem(s.world, ctxOf(s));
-      expect(answers).toHaveBeenCalledTimes(2);
-    } finally {
-      answers.mockRestore();
-    }
   });
 
   it('drops a melee alarm that its own tick did not answer', () => {

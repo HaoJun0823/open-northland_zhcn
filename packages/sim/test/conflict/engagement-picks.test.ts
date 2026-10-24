@@ -536,24 +536,31 @@ describe('engagement - a crowd on one enemy', () => {
     expect(crowdOn(CROWD, SOLDIER_SWORD_SHORT)).toEqual({ swung: HEX_SIDES, flips: 0, holding: CROWD });
   });
 
+  /** Past the six sides and the twelve second-rank nodes, so the third ring must take the rest. */
+  const LARGE_CROWD = 30;
+  const THIRD_RANK = 3;
+  const LARGE_CROWD_TICKS = 600;
+
   it('brings a large crowd near its unit target instead of stopping after the second rank fills', () => {
     const s = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(MAP_CELLS, 20) });
     const target = fighterAtNode(s, 12, 12, OTHER, WOMAN, { hitpoints: 100_000_000 });
     s.world.add(target, Owner, { player: P1 });
     s.world.add(target, Stance, { mode: MILITARY_MODE.DEFEND, anchorCell: null });
-    const attackers = Array.from({ length: 64 }, (_, i) => {
+    const attackers = Array.from({ length: LARGE_CROWD }, (_, i) => {
       const e = fighterAtNode(s, 40 + (i % 8), 2 + Math.floor(i / 8) * 2, VIKING, SOLDIER_SWORD_SHORT);
       s.world.add(e, Owner, { player: P0 });
       s.world.add(e, Stance, { mode: MILITARY_MODE.ATTACK, anchorCell: null });
       return e;
     });
     for (const entity of attackers) s.enqueue(playerCommand(P0, { kind: 'attackUnit', entity, target }));
-    for (let i = 0; i < 1000; i++) s.step();
+    for (let i = 0; i < LARGE_CROWD_TICKS; i++) s.step();
     const nodes = attackers.map((e) => {
       const p = s.world.get(e, Position);
       return nodeOfPosition(p.x, p.y);
     });
-    expect(Math.max(...nodes.map((p) => hexDistanceBetween(p.hx, p.hy, 12, 12)))).toBeLessThanOrEqual(5);
+    expect(Math.max(...nodes.map((p) => hexDistanceBetween(p.hx, p.hy, 12, 12)))).toBeLessThanOrEqual(
+      THIRD_RANK,
+    );
     expect(new Set(nodes.map((p) => `${p.hx},${p.hy}`)).size).toBe(attackers.length);
     expect(attackers.every((e) => held(s, e) === target)).toBe(true);
   });

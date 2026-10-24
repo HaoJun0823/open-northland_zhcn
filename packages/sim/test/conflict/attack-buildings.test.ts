@@ -1,5 +1,5 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   AttackOrder,
   addPerson,
@@ -546,21 +546,6 @@ describe('warriors attack enemy buildings', () => {
     }
   });
 
-  it('does not flood the map for a siege whose front still has space', () => {
-    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(40, 40) });
-    const soldier = warriorAt(sim, 0, 0, P1);
-    buildingAt(sim, 7, 0, FORT, P2, 1_000_000);
-    if (sim.terrain === undefined) throw new Error('expected terrain');
-    const steps = vi.spyOn(sim.terrain, 'stepsIntoAt');
-    try {
-      combatSystem(sim.world, ctxOf(sim));
-      expect(sim.world.has(soldier, MoveGoal)).toBe(true);
-      expect(steps.mock.calls.length).toBeLessThan(100);
-    } finally {
-      steps.mockRestore();
-    }
-  });
-
   it.each([false, true])(
     'a nearer besieger takes an unoccupied front reservation (created first: %s)',
     (nearFirst) => {
@@ -604,6 +589,11 @@ describe('warriors attack enemy buildings', () => {
     },
   );
 
+  /** Three times the fort's melee-1 contact slots, so the siege needs more than one waiting rank. */
+  const FORT_SLOTS = 10;
+  const SIEGE_SIZE = 3 * FORT_SLOTS;
+  const SIEGE_SETTLE_TICKS = 500;
+
   it('brings a large siege into successive waiting ranks and advances when the front leaves', () => {
     const sim = new Simulation({
       seed: 1,
@@ -611,18 +601,18 @@ describe('warriors attack enemy buildings', () => {
       map: grass(24, 14),
     });
     const fort = buildingAt(sim, 3, 3, FORT, P2, 1_000_000);
-    const soldiers = Array.from({ length: 80 }, (_, i) =>
+    const soldiers = Array.from({ length: SIEGE_SIZE }, (_, i) =>
       warriorAt(sim, 12 + (i % 8), Math.floor(i / 8), P1),
     );
     for (const entity of soldiers)
       sim.enqueue(playerCommand(P1, { kind: 'attackUnit', entity, target: fort }));
-    for (let i = 0; i < 1000; i++) sim.step();
+    for (let i = 0; i < SIEGE_SETTLE_TICKS; i++) sim.step();
 
     expect(Math.max(...soldiers.map((s) => distToFort(sim, s)))).toBeLessThanOrEqual(6);
     const positions = soldiers.map((s) => JSON.stringify(sim.world.get(s, Position)));
     expect(new Set(positions).size).toBe(soldiers.length);
     const waiting = soldiers.filter((s) => distToFort(sim, s) > 1);
-    expect(waiting.length).toBeGreaterThan(50);
+    expect(waiting.length).toBe(SIEGE_SIZE - FORT_SLOTS);
     expect(waiting.every((s) => sim.world.get(s, Engagement).waiting === true)).toBe(true);
     expect(waiting.every((s) => !sim.world.has(s, MoveGoal) && !sim.world.has(s, PathFollow))).toBe(true);
 

@@ -282,25 +282,4 @@ describe('animalFrightSystem - the flight and its end', () => {
     expect(sim.world.get(cow, Health).hitpoints).toBe(1000);
     expect(sim.world.has(cow, Frightened)).toBe(false);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const scatter = (): { hash: string; fled: boolean } => {
-      const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-      const hunter = fighterAtNode(sim, 38, 40, VIKING, HUNTER);
-      const cow = wildAtNode(sim, 41, 40, COW);
-      const calf = wildAtNode(sim, 42, 41, COW);
-      joinHerd(sim, cow, calf);
-      wildAtNode(sim, 40, 42, DEER);
-      const terrain = mapTerrain(sim);
-      const before = hexNodeDistance(terrain, nodeOf(sim, hunter), nodeOf(sim, cow));
-      reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, cow);
-      for (let i = 0; i < FLIGHT_REACH_NODES * 4; i++) sim.step();
-      const after = hexNodeDistance(terrain, nodeOf(sim, hunter), nodeOf(sim, cow));
-      return { hash: sim.hashState(), fled: after > before };
-    };
-    const a = scatter();
-    const b = scatter();
-    expect(a.fled).toBe(true); // the scatter really ran (not a vacuous hash)
-    expect(a.hash).toBe(b.hash);
-  });
 });

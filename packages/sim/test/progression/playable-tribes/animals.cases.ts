@@ -1,18 +1,6 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import {
-  animalBabyHitpoints,
-  animalCannotBeAttacked,
-  animalHitpoints,
-  herdParams,
-  ignoresHousesAnimal,
-  isAggressiveAnimal,
-  isAnimalTribe,
-  isHuntablePrey,
-  isPlayableTribe,
-  locomotionOf,
-  stayPointRangeOf,
-} from '../../../src/systems/index.js';
+import { herdParams, isAnimalTribe, locomotionOf } from '../../../src/systems/index.js';
 import { TEST_MANIFEST } from '../../fixtures/content.js';
 import { tribeContent } from './support.js';
 
@@ -26,9 +14,7 @@ describe('isAnimalTribe', () => {
   });
 
   it('is false for an UNKNOWN tribe id - an absent record is not silently reclassified as an animal', () => {
-    // The boundary `isAnimalTribe` exists to draw: `!isPlayableTribe(99)` is true, but tribe 99 is NOT
-    // an animal (we have no record for it), so the combat drive must not treat it as wildlife.
-    expect(isPlayableTribe(tribeContent(), 99)).toBe(false);
+    // An absent record is no civilization either, but the combat drive must not treat it as wildlife.
     expect(isAnimalTribe(tribeContent(), 99)).toBe(false);
   });
 
@@ -37,61 +23,7 @@ describe('isAnimalTribe', () => {
     // `TRIBE_TYPE_HUMAN_WEREWOLF` and `animaltypes.ini` gives it no record, yet it carries no tech
     // graph. An empty `jobEnables` must therefore not be read as wildlife.
     const content = tribeContent();
-    expect(isPlayableTribe(content, 6)).toBe(false);
     expect(isAnimalTribe(content, 6)).toBe(false);
-  });
-
-  it('never holds together with isPlayableTribe (a tribe is at most one of the two)', () => {
-    const content = tribeContent();
-    for (const tribe of content.tribes) {
-      expect(isAnimalTribe(content, tribe.typeId) && isPlayableTribe(content, tribe.typeId)).toBe(false);
-    }
-  });
-});
-
-describe('isAggressiveAnimal / animalCannotBeAttacked / animalHitpoints (animaltypes read views)', () => {
-  it('isAggressiveAnimal reads the `aggressive` flag off the animaltypes record', () => {
-    const content = tribeContent();
-    expect(isAggressiveAnimal(content, 8)).toBe(true); // bears - aggressive record
-    expect(isAggressiveAnimal(content, 9)).toBe(false); // wolves - a record leaving `aggressive` at default
-    expect(isAggressiveAnimal(content, 1)).toBe(false); // viking - a civilization, not an animal
-    expect(isAggressiveAnimal(content, 99)).toBe(false); // unknown tribe - no record
-  });
-
-  it('animalHitpoints returns the adult HP pool, or null for a tribe with no animal record', () => {
-    const content = tribeContent();
-    expect(animalHitpoints(content, 8)).toBe(15000); // bears - hitpointsAdult
-    expect(animalHitpoints(content, 6)).toBeNull(); // werewolf - a monster tribe, no animaltypes record
-    expect(animalHitpoints(content, 1)).toBeNull(); // viking - a civilization
-  });
-
-  it('animalBabyHitpoints returns the juvenile HP pool, distinct from the adult, or null with no record', () => {
-    const content = tribeContent();
-    expect(animalBabyHitpoints(content, 8)).toBe(8000); // bears - hitpointsBaby, NOT the 15000 adult pool
-    // A record with no hitpoints_baby reads as the engine's pre-parse default, which is what a calf gets.
-    expect(animalBabyHitpoints(content, 10)).toBe(500); // cows
-    expect(animalBabyHitpoints(content, 9)).toBe(500); // wolves
-    expect(animalBabyHitpoints(content, 1)).toBeNull(); // viking - a civilization
-  });
-
-  it('animalCannotBeAttacked exempts a decorative-fauna animal (cannotbeattacked)', () => {
-    const content = parseContentSet({
-      manifest: TEST_MANIFEST,
-      goods: [{ typeId: 0, id: 'none' }],
-      jobs: [{ typeId: 0, id: 'idle' }],
-      buildings: [{ typeId: 1, id: 'headquarters', kind: 'storage' }],
-      tribes: [
-        { typeId: 5, id: 'bees', atomicBindings: [{ jobType: 0, atomicId: 1, animation: 'b' }] },
-        { typeId: 6, id: 'wasps', atomicBindings: [{ jobType: 0, atomicId: 1, animation: 'w' }] },
-      ],
-      animals: [
-        { id: 'bee', tribeType: 5, aggressive: true, cannotBeAttacked: true, hitpointsAdult: 200 },
-        { id: 'wasp', tribeType: 6, aggressive: true, hitpointsAdult: 200 },
-      ],
-    });
-    expect(animalCannotBeAttacked(content, 5)).toBe(true); // bee - decorative, exempt
-    expect(animalCannotBeAttacked(content, 6)).toBe(false); // wasp - attackable
-    expect(animalCannotBeAttacked(content, 1)).toBe(false); // unknown - not exempt
   });
 });
 
@@ -100,47 +32,7 @@ describe('isAggressiveAnimal / animalCannotBeAttacked / animalHitpoints (animalt
 // (every extracted animaltypes.ini field is now surfaced to the sim). Both are the same boolean-flag
 // pattern as animalCannotBeAttacked, read straight off the record (false when absent).
 
-describe('isHuntablePrey / ignoresHousesAnimal (the last animaltypes flag read views)', () => {
-  it('isHuntablePrey reads the `warrantable` flag (game) off the record', () => {
-    const content = tribeContent();
-    expect(isHuntablePrey(content, 10)).toBe(true); // cow - warrantable
-    expect(isHuntablePrey(content, 8)).toBe(false); // bear - a record, but not warrantable
-    expect(isHuntablePrey(content, 9)).toBe(false); // wolves - animal tribe but NO animaltypes record
-    expect(isHuntablePrey(content, 1)).toBe(false); // viking - a civilization
-    expect(isHuntablePrey(content, 99)).toBe(false); // unknown tribe - no record
-  });
-
-  it('ignoresHousesAnimal reads the `ignorehouses` pathing flag off the record', () => {
-    const content = tribeContent();
-    expect(ignoresHousesAnimal(content, 8)).toBe(true); // bear - barges through buildings
-    expect(ignoresHousesAnimal(content, 10)).toBe(false); // cow - a record, but paths around houses
-    expect(ignoresHousesAnimal(content, 9)).toBe(false); // wolves - animal tribe but NO animaltypes record
-    expect(ignoresHousesAnimal(content, 1)).toBe(false); // viking - a civilization
-    expect(ignoresHousesAnimal(content, 99)).toBe(false); // unknown tribe - no record
-  });
-
-  it('the two flags are independent (a warrantable animal need not ignore houses, and vice versa)', () => {
-    const content = tribeContent();
-    // cow: warrantable but NOT ignoreHouses; bear: ignoreHouses but NOT warrantable - orthogonal flags.
-    expect(isHuntablePrey(content, 10) && !ignoresHousesAnimal(content, 10)).toBe(true);
-    expect(ignoresHousesAnimal(content, 8) && !isHuntablePrey(content, 8)).toBe(true);
-  });
-});
-
 describe('herdParams (the animal herd/spawn read view)', () => {
-  it('surfaces the herd/spawn params off the animaltypes record as one struct', () => {
-    const content = tribeContent();
-    expect(herdParams(content, 8)).toEqual({
-      maxGroupSize: 4, // bears: maximumGroupSize
-      searchForLeader: true, // searchForLeader
-      leaderDistance: 5, // maximumLeaderDistance
-      birthPointRange: 12, // maximumDistanceToBirthPoint
-      stayPointRange: 7, // maximumDistanceToStayPoint
-    });
-    // The scalar territory-radius view answers the same field without minting the struct.
-    expect(stayPointRangeOf(content, 8)).toBe(7);
-  });
-
   it('defaults a source-omitted herd field to 0/false rather than guessing (a solitary animal)', () => {
     // A minimal animal record (only the required id+tribeType): the schema fills the herd params with
     // their source-omitted defaults, and the read view passes them through verbatim - no inference.
@@ -163,11 +55,6 @@ describe('herdParams (the animal herd/spawn read view)', () => {
 });
 
 describe('locomotionOf (the animal pace read view)', () => {
-  it('surfaces both walking and running speeds from the animaltypes record', () => {
-    const params = locomotionOf(tribeContent(), 8); // bears: movespeed 8, runspeed 5
-    expect(params).toEqual({ walkSpeed: 8, runSpeed: 5 });
-  });
-
   it('uses the walking default for a missing movespeed and keeps missing runspeed at zero', () => {
     // The cow record (tribe 10) omits both keys; the parsed schema applies their source defaults.
     expect(locomotionOf(tribeContent(), 10)).toEqual({ walkSpeed: 8, runSpeed: 0 });

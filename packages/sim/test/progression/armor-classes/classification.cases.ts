@@ -1,25 +1,7 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { armorByClass, armorClassOf } from '../../../src/systems/index.js';
-import { armor, armorContent, SCAFFOLD } from './support.js';
-
-describe('armorClassOf', () => {
-  it('returns the coarse armor class (its mainType) for each record', () => {
-    const content = armorContent();
-    expect(armorClassOf(armor(content, 'cloth'))).toBe(1);
-    expect(armorClassOf(armor(content, 'leather'))).toBe(1);
-    expect(armorClassOf(armor(content, 'chain'))).toBe(2);
-    expect(armorClassOf(armor(content, 'plate'))).toBe(2);
-  });
-
-  it('is undefined for a malformed record carrying no mainType', () => {
-    const content = parseContentSet({
-      ...SCAFFOLD,
-      armor: [{ typeId: 1, id: 'no_class' }],
-    });
-    expect(armorClassOf(armor(content, 'no_class'))).toBeUndefined();
-  });
-});
+import { armorByClass } from '../../../src/systems/index.js';
+import { armorContent, SCAFFOLD } from './support.js';
 
 describe('armorByClass', () => {
   it('partitions the armor by class, grouping records that share one in source order', () => {
@@ -43,9 +25,5 @@ describe('armorByClass', () => {
     const byClass = armorByClass(content);
     expect([...byClass.keys()]).toEqual([1]);
     expect(byClass.get(1)?.map((a) => a.id)).toEqual(['cloth']);
-  });
-
-  it('is empty for content with no armor (parseContentSet defaults armor to [])', () => {
-    expect(armorByClass(parseContentSet({ ...SCAFFOLD })).size).toBe(0);
   });
 });

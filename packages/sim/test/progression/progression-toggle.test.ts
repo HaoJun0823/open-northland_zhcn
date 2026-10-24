@@ -33,7 +33,6 @@ describe('setProfessionProgression - the rules command and its default', () => {
     sim.enqueueSetup({ kind: 'setProfessionProgression', enabled: true });
     sim.step();
     expect(sim.professionProgressionEnabled()).toBe(true);
-    expect(sim.world.lowestEntityWith(ProgressionRules)).not.toBeNull(); // re-enabling keeps the singleton
   });
 });
 

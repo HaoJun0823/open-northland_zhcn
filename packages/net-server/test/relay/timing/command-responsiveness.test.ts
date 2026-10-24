@@ -1,9 +1,10 @@
 import { Relay } from '@open-northland/net-server';
-import { playerCommand, restoreSimulation, Simulation } from '@open-northland/sim';
+import { playerCommand, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { assembleRoom, runUntil, type Stage, settle } from '../../support/session-run.js';
+import { restoreTestWorld } from '../../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../../support/virtual-network.js';
 
 /** A near pair, then a full room on the worst links at normal and top speed. */
@@ -34,7 +35,7 @@ describe('relay command responsiveness', () => {
           token: `latency-player-${seat}-0123456789`,
           nick: `Player${seat}`,
           buildWorld: async (session) => new Simulation({ seed: session.seed, content: testContent() }),
-          restoreWorld: async (_session, save) => restoreSimulation(save, { content: testContent() }),
+          restoreWorld: restoreTestWorld,
         }),
     );
     for (const client of clients)

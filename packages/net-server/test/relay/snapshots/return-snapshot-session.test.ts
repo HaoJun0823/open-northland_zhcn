@@ -2,15 +2,8 @@ import type { GameSession } from '@open-northland/lockstep';
 import { encodeSnapshot } from '@open-northland/net-client';
 import type { RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import {
-  components,
-  exportSaveGame,
-  restoreSimulation,
-  type SaveGame,
-  Simulation,
-} from '@open-northland/sim';
+import { components, exportSaveGame, type Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { RETURN_SNAPSHOT_MAX_TICKS } from '../../../src/relay/snapshots/resync.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import {
@@ -21,6 +14,7 @@ import {
   runUntil,
   type Stage,
 } from '../../support/session-run.js';
+import { buildTestWorld, restoreTestWorld } from '../../support/test-world.js';
 import {
   type LinkOptions,
   seededRandom,
@@ -60,13 +54,9 @@ const MEGABYTE = 1_000_000;
 /** Virtual time for the whole snapshot to cross the slow downlink, with margin. */
 const SLOW_DOWNLOAD_MS = ((NOISE_CHARACTERS * 2) / SLOW_DOWNLINK_BYTES_PER_SECOND) * 1000;
 
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
 /** The fixture world with a name no compression shrinks, so its snapshot is about a megabyte. */
 async function buildHeavyWorld(session: GameSession): Promise<Simulation> {
-  const sim = await buildWorld(session);
+  const sim = await buildTestWorld(session);
   const random = seededRandom(session.seed);
   let name = '';
   for (let i = 0; i < NOISE_CHARACTERS; i++)
@@ -75,18 +65,17 @@ async function buildHeavyWorld(session: GameSession): Promise<Simulation> {
   return sim;
 }
 
-function client(nick: string, build: typeof buildWorld): HeadlessClient {
+function client(nick: string, build: typeof buildTestWorld): HeadlessClient {
   return new HeadlessClient({
     token: `${nick.toLowerCase()}-token-0123456789`,
     nick,
     buildWorld: build,
-    restoreWorld: async (_session: GameSession, save: SaveGame) =>
-      restoreSimulation(save, { content: testContent() }),
+    restoreWorld: restoreTestWorld,
   });
 }
 
 /** Ania and Bartek in a running room, with the relay's cache taken from Ania's world at `CACHED_AT_TICK`. */
-async function cachedRoom(seed: number, build: typeof buildWorld) {
+async function cachedRoom(seed: number, build: typeof buildTestWorld) {
   const clock = new VirtualClock();
   const relay = new Relay({ now: clock.now });
   const stage: Stage = { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(seed)) };
@@ -111,7 +100,7 @@ function reload(
   stage: Stage,
   link: { close(): void },
   options: LinkOptions,
-  build: typeof buildWorld,
+  build: typeof buildTestWorld,
 ): HeadlessClient {
   link.close();
   const again = client('Bartek', build);
@@ -137,10 +126,10 @@ function silentNicks(observer: HeadlessClient): string[] {
 
 describe('a reloaded page in a running game', () => {
   it('restores from a fresh snapshot when the cache is further behind than it replays', async () => {
-    const { stage, ania, links } = await cachedRoom(3, buildWorld);
+    const { stage, ania, links } = await cachedRoom(3, buildTestWorld);
     const reloadAt = CACHED_AT_TICK + RETURN_SNAPSHOT_MAX_TICKS + MARGIN_TICKS;
     await runUntil(stage, [ania], reloadAt);
-    const again = reload(stage, links[1], LINK, buildWorld);
+    const again = reload(stage, links[1], LINK, buildTestWorld);
     await runFor(stage, [ania, again], SETTLE_MS * 2);
 
     expect(again.restoredFrom).toHaveLength(1);

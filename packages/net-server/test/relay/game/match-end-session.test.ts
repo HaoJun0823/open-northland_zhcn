@@ -1,21 +1,13 @@
-import type { GameSession } from '@open-northland/lockstep';
 import { prepareInitialSave } from '@open-northland/net-client';
 import type { RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import {
-  adminCommand,
-  components,
-  exportSaveGame,
-  fx,
-  restoreSimulation,
-  type SaveGame,
-  Simulation,
-} from '@open-northland/sim';
+import { adminCommand, components, exportSaveGame, fx, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { TEST_COMPATIBILITY } from '../../support/compatibility.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { assembleRoom, relink, runFor, type Stage, settle } from '../../support/session-run.js';
+import { restoreTestWorld } from '../../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../../support/virtual-network.js';
 
 const SETTINGS: RoomSettings = {
@@ -66,8 +58,7 @@ function client(nick: string, localDefeat = false) {
     token: `${nick}-0123456789abcdef`,
     nick,
     buildWorld: async () => buildWorld(localDefeat),
-    restoreWorld: async (_session: GameSession, save: SaveGame) =>
-      restoreSimulation(save, { content: testContent() }),
+    restoreWorld: restoreTestWorld,
   });
 }
 async function assembled(localDefeat = false) {

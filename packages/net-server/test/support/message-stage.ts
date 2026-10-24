@@ -178,3 +178,12 @@ export function ackThrough(peer: Peer, fromTick: number, tick: number, word = 1,
   for (let t = fromTick; t <= tick; t++)
     peer.send({ kind: 'ack', tick: t, digest: digest(word), world, load: LOAD });
 }
+
+/** Nicks the relay's waiting notices named as silent, in notice order. */
+export function silentNicks(peer: Peer): string[] {
+  return peer
+    .of('waiting')
+    .flatMap((notice) =>
+      notice.for.filter((member) => member.reason === 'silent').map((member) => member.nick),
+    );
+}

@@ -1,12 +1,13 @@
 import type { GameSession } from '@open-northland/lockstep';
 import { type ResponsivenessMode, type RoomSettings, TICK_MS } from '@open-northland/net-protocol';
 import { LAG_BEHIND_MS, Relay, SLOW_GRACE_MS } from '@open-northland/net-server';
-import { restoreSimulation, Simulation } from '@open-northland/sim';
+import { Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { framesIn, SLOW_WAIT_AFTER_MS } from '../../../src/relay/timing/governor.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { assembleRoom, runFor, runUntil, type Stage } from '../../support/session-run.js';
+import { restoreTestWorld } from '../../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../../support/virtual-network.js';
 
 /** Pacing judges how far a member trails beyond what its link and the room's reserve put in flight:
@@ -50,7 +51,7 @@ async function farRoom(mode: ResponsivenessMode) {
       now: clock.now,
       buildWorld: async (session: GameSession) =>
         new Simulation({ seed: session.seed, content: testContent() }),
-      restoreWorld: async (_session, save) => restoreSimulation(save, { content: testContent() }),
+      restoreWorld: restoreTestWorld,
     });
   const ania = client('Ania');
   const bartek = client('Bartek');

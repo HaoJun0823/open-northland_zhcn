@@ -1,11 +1,12 @@
 import { connect, createServer, type Socket } from 'node:net';
 import { RelaySocket } from '@open-northland/net-client';
 import { startRelayHost } from '@open-northland/net-server';
-import { restoreSimulation, Simulation } from '@open-northland/sim';
+import { Simulation } from '@open-northland/sim';
 import { expect, it } from 'vitest';
 import { testContent } from '../../../sim/test/fixtures/content.js';
 import { MESSAGE_BURST } from '../../src/host/socket-budget.js';
 import { HeadlessClient } from '../support/headless-client.js';
+import { restoreTestWorld } from '../support/test-world.js';
 
 /** Acknowledgements the stalled upload holds back: past the socket's message burst, with margin. */
 const STALLED_ACKS = MESSAGE_BURST + 88;
@@ -70,7 +71,7 @@ it('recovers when a stalled upload releases a valid catch-up acknowledgement bur
         nick,
         token: `burst-recovery-${nick}-0123456789`,
         buildWorld: async () => new Simulation({ seed: 3, content: testContent() }),
-        restoreWorld: async (_session, save) => restoreSimulation(save, { content: testContent() }),
+        restoreWorld: restoreTestWorld,
       }),
   );
   const [a, b] = clients;

@@ -1,11 +1,10 @@
-import type { GameSession } from '@open-northland/lockstep';
 import { type RoomSettings, TICK_MS } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import { playerCommand, restoreSimulation, type SaveGame, Simulation } from '@open-northland/sim';
+import { playerCommand } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../support/headless-client.js';
 import { assembleRoom, runFor, runUntil, type Stage, settle } from '../support/session-run.js';
+import { buildTestWorld, restoreTestWorld } from '../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../support/virtual-network.js';
 
 /**
@@ -32,20 +31,12 @@ const FAST_LINK = { latencyMs: 40, jitterMs: 10 };
 /** The jitter schedule the unequal-link session runs over. */
 const JITTER_SEED = 7;
 
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
-async function restoreWorld(_session: GameSession, save: SaveGame): Promise<Simulation> {
-  return restoreSimulation(save, { content: testContent() });
-}
-
 function client(nick: string): HeadlessClient {
   return new HeadlessClient({
     token: `${nick.toLowerCase()}-token-0123456789`,
     nick,
-    buildWorld,
-    restoreWorld,
+    buildWorld: buildTestWorld,
+    restoreWorld: restoreTestWorld,
   });
 }
 

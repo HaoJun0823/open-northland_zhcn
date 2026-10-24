@@ -1,11 +1,12 @@
 import type { GameSession } from '@open-northland/lockstep';
 import type { RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import { restoreSimulation, type SaveGame, Simulation } from '@open-northland/sim';
+import { type SaveGame, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { assembleRoom, relink, runFor, runUntil, type Stage, settle } from '../../support/session-run.js';
+import { restoreTestWorld } from '../../support/test-world.js';
 import {
   type LinkOptions,
   seededRandom,
@@ -42,8 +43,6 @@ const MAP_WAIT_MS = 5000;
 const MAP_TEXT = Buffer.from('the creator map envelope').toString('base64');
 
 type RestoreWorld = (session: GameSession, save: SaveGame) => Promise<Simulation>;
-const restoreWithContent: RestoreWorld = async (_session, save) =>
-  restoreSimulation(save, { content: testContent() });
 
 function client(nick: string, restoreWorld: RestoreWorld): HeadlessClient {
   return new HeadlessClient({
@@ -65,8 +64,8 @@ async function returnWithoutMap(lobbyMap: LobbyMap): Promise<void> {
   const clock = new VirtualClock();
   const relay = new Relay({ now: clock.now });
   const stage: Stage = { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(5)) };
-  const ania = client('Ania', restoreWithContent);
-  const bartek = client('Bartek', restoreWithContent);
+  const ania = client('Ania', restoreTestWorld);
+  const bartek = client('Bartek', restoreTestWorld);
   const links = [stage.network.link(ania, LINK), stage.network.link(bartek, LINK)] as const;
   await assembleRoom(stage, [ania, bartek], {
     settings: SETTINGS,
@@ -87,7 +86,7 @@ async function returnWithoutMap(lobbyMap: LobbyMap): Promise<void> {
   let installed: string | null = null;
   const again = client('Bartek', async (session, save) => {
     if (installed !== MAP_TEXT) throw new Error('restored before the map was installed');
-    return restoreWithContent(session, save);
+    return restoreTestWorld(session, save);
   });
   relink(stage, again, LINK);
   for (let waited = 0; again.session === null && waited < MAP_WAIT_MS; waited += SETTLE_MS)

@@ -15,12 +15,9 @@ import {
   exportSaveGame,
   fx,
   playerCommand,
-  restoreSimulation,
-  type SaveGame,
-  Simulation,
+  type Simulation,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../../sim/test/fixtures/content.js';
 import { SLOW_WAIT_AFTER_MS } from '../../src/relay/timing/governor.js';
 import { TEST_COMPATIBILITY } from '../support/compatibility.js';
 import { HeadlessClient } from '../support/headless-client.js';
@@ -33,6 +30,7 @@ import {
   type Stage,
   settle,
 } from '../support/session-run.js';
+import { buildTestWorld, restoreTestWorld } from '../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../support/virtual-network.js';
 
 /**
@@ -62,13 +60,9 @@ const SETTLE_MS = 400;
 /** A run that waits out a countdown needs the virtual deadline pushed past it. */
 const LONG_RUN_MS = KICK_COUNTDOWN_MS * 3;
 
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
 /** The fixture world with one newborn, whose `Age` the sim writes every tick while `ageAt` runs. */
 async function buildWorldWithNewborn(session: GameSession): Promise<Simulation> {
-  const sim = await buildWorld(session);
+  const sim = await buildTestWorld(session);
   const newborn = sim.world.create();
   components.addPerson(sim.world, newborn, {
     tribe: VIKINGS,
@@ -82,16 +76,12 @@ async function buildWorldWithNewborn(session: GameSession): Promise<Simulation> 
   return sim;
 }
 
-async function restoreWorld(_session: GameSession, save: SaveGame): Promise<Simulation> {
-  return restoreSimulation(save, { content: testContent() });
-}
-
-function client(nick: string, build = buildWorld): HeadlessClient {
+function client(nick: string, build = buildTestWorld): HeadlessClient {
   return new HeadlessClient({
     token: `${nick.toLowerCase()}-token-0123456789`,
     nick,
     buildWorld: build,
-    restoreWorld,
+    restoreWorld: restoreTestWorld,
   });
 }
 
@@ -145,7 +135,7 @@ function disputeDifference(reference: DisputeRecord | null, diverged: DisputeRec
   return diffDigestInputs(digestInputsFromJson(reference.inputs), digestInputsFromJson(diverged.inputs));
 }
 
-async function twoClients(seed: number, build = buildWorld) {
+async function twoClients(seed: number, build = buildTestWorld) {
   const stage = stageFor(seed);
   const ania = client('Ania', build);
   const bartek = client('Bartek', build);
@@ -487,7 +477,7 @@ describe('a relayed session under faults', () => {
     const stage = stageFor(17),
       ania = client('Ania'),
       bartek = client('Bartek');
-    const sim = await buildWorld({ ...SETTINGS, seats: [], localSeat: 0 });
+    const sim = await buildTestWorld({ ...SETTINGS, seats: [], localSeat: 0 });
     for (let i = 0; i < 73; i++) sim.step();
     const prepared = await prepareInitialSave(exportSaveGame(sim));
     for (const c of [ania, bartek]) relink(stage, c, LINK);

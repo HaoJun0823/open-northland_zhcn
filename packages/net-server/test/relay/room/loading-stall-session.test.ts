@@ -1,11 +1,10 @@
-import type { GameSession } from '@open-northland/lockstep';
 import type { DepartedSeatMode, RoomSettings } from '@open-northland/net-protocol';
 import { LOADING_STALL_MS, Relay } from '@open-northland/net-server';
-import { restoreSimulation, type SaveGame, Simulation } from '@open-northland/sim';
+import type { Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { relink, runFor, runUntil, type Stage, settle } from '../../support/session-run.js';
+import { buildTestWorld, restoreTestWorld } from '../../support/test-world.js';
 import { type Link, seededRandom, VirtualClock, VirtualNetwork } from '../../support/virtual-network.js';
 
 /**
@@ -33,23 +32,15 @@ const LINK = { latencyMs: 60, jitterMs: 20 };
 const SETTLE_MS = 400;
 const RUN_TICKS = 40;
 
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
 /** A boot that never finishes and never reports progress. */
 const frozenBuild = (): Promise<Simulation> => new Promise(() => undefined);
 
-async function restoreWorld(_session: GameSession, save: SaveGame): Promise<Simulation> {
-  return restoreSimulation(save, { content: testContent() });
-}
-
-function client(nick: string, build = buildWorld): HeadlessClient {
+function client(nick: string, build = buildTestWorld): HeadlessClient {
   return new HeadlessClient({
     token: `${nick.toLowerCase()}-token-0123456789`,
     nick,
     buildWorld: build,
-    restoreWorld,
+    restoreWorld: restoreTestWorld,
   });
 }
 

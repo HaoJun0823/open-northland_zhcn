@@ -1,10 +1,11 @@
 import { MAX_COMMANDS_PER_TICK, MAX_ENVELOPE_BYTES, type RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import { playerCommand, restoreSimulation, Simulation } from '@open-northland/sim';
+import { playerCommand, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../support/headless-client.js';
 import { assembleRoom, relink, runFor, type Stage } from '../support/session-run.js';
+import { restoreTestWorld } from '../support/test-world.js';
 import { type Link, seededRandom, VirtualClock, VirtualNetwork } from '../support/virtual-network.js';
 
 const SEED = 7;
@@ -31,7 +32,7 @@ function client(nick: string): HeadlessClient {
     token: `${nick}-0123456789abcdef`,
     nick,
     buildWorld: async () => new Simulation({ seed: SEED, content: testContent() }),
-    restoreWorld: async (_session, save) => restoreSimulation(save, { content: testContent() }),
+    restoreWorld: restoreTestWorld,
   });
 }
 

@@ -7,6 +7,7 @@ import { testContent } from '../../../../sim/test/fixtures/content.js';
 import { TEST_COMPATIBILITY } from '../../support/compatibility.js';
 import { HeadlessClient } from '../../support/headless-client.js';
 import { assembleRoom, relink, runFor, runUntil, type Stage, settle } from '../../support/session-run.js';
+import { restoreTestWorld } from '../../support/test-world.js';
 import { seededRandom, VirtualClock, VirtualNetwork } from '../../support/virtual-network.js';
 
 const settings: RoomSettings = {
@@ -23,7 +24,7 @@ function client(nick: string) {
     token: `${nick}-0123456789abcdef`,
     nick,
     buildWorld: async () => new Simulation({ seed: 7, content: testContent() }),
-    restoreWorld: async (_session, save) => restoreSimulation(save, { content: testContent() }),
+    restoreWorld: restoreTestWorld,
   });
 }
 describe('manual save accepted orders end to end', () => {

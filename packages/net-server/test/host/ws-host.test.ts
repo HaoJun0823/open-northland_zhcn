@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { connect as connectTcp } from 'node:net';
-import type { GameSession } from '@open-northland/lockstep';
 import {
   CLOSE_SERVICE_RESTART,
   MAX_SPEED,
@@ -8,16 +7,10 @@ import {
   type RoomSettings,
 } from '@open-northland/net-protocol';
 import { HEALTH_PATH, type RelayHost, startRelayHost } from '@open-northland/net-server';
-import {
-  type Command,
-  playerCommand,
-  restoreSimulation,
-  type SaveGame,
-  Simulation,
-} from '@open-northland/sim';
+import { type Command, playerCommand } from '@open-northland/sim';
 import { afterEach, describe, expect, it } from 'vitest';
-import { testContent } from '../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../support/headless-client.js';
+import { buildTestWorld, restoreTestWorld } from '../support/test-world.js';
 
 /**
  * The WebSocket host over a real socket: what the in-memory tests prove, once, through the wire.
@@ -39,14 +32,6 @@ const CLIENTS = 2;
 const POLL_MS = 10;
 const STEP_TIMEOUT_MS = 5000;
 const SESSION_TIMEOUT_MS = 30_000;
-
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
-async function restoreWorld(_session: GameSession, save: SaveGame): Promise<Simulation> {
-  return restoreSimulation(save, { content: testContent() });
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -84,8 +69,8 @@ async function connect(url: string, nick: string): Promise<{ client: HeadlessCli
   const client = new HeadlessClient({
     token: `${nick.toLowerCase()}-${randomUUID()}`,
     nick,
-    buildWorld,
-    restoreWorld,
+    buildWorld: buildTestWorld,
+    restoreWorld: restoreTestWorld,
   });
   socket.addEventListener('message', (event) => client.receive(JSON.parse(String(event.data))));
   client.attach((message) => socket.send(JSON.stringify(message)));

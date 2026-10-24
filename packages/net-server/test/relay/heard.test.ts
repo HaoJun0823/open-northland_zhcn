@@ -1,7 +1,14 @@
 import { PROTOCOL_VERSION, TICK_MS } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
 import { SILENT_AFTER_MS } from '../../src/relay/member.js';
-import { ackThrough, type MessageStage, type Peer, startedRoom, TOKEN_C } from '../support/message-stage.js';
+import {
+  ackThrough,
+  type MessageStage,
+  type Peer,
+  silentNicks,
+  startedRoom,
+  TOKEN_C,
+} from '../support/message-stage.js';
 
 /** Long enough past the silence limit that a client heard by nothing would be waited for. */
 const QUIET_MS = SILENT_AFTER_MS * 2;
@@ -9,14 +16,6 @@ const UPLOAD_BYTES_PER_TICK = 4096;
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
 const PING_INTERVAL_MS = 1000;
 const FAULTY_TOKEN = 'faulty-token-0123456789';
-
-function silentNicks(peer: Peer): string[] {
-  return peer
-    .of('waiting')
-    .flatMap((notice) =>
-      notice.for.filter((member) => member.reason === 'silent').map((member) => member.nick),
-    );
-}
 
 /** Advance tick by tick; Ania answers every ping, `bartek` runs once per tick with its count. */
 function run(s: MessageStage & { a: Peer }, ms: number, bartek: (ticks: number) => void): void {

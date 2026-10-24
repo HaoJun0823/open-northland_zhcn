@@ -2,11 +2,11 @@ import type { GameSession } from '@open-northland/lockstep';
 import { LINK_REPLACE_MS, RelaySocket, TRANSFER_REPLACE_MS } from '@open-northland/net-client';
 import { type ClientMessage, type RoomSettings, TICKS_PER_SECOND } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
-import { components, restoreSimulation, type SaveGame, Simulation } from '@open-northland/sim';
+import { components, type Simulation } from '@open-northland/sim';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { testContent } from '../../../sim/test/fixtures/content.js';
 import { HeadlessClient } from '../support/headless-client.js';
 import { assembleRoom, NETWORK_STEP_MS, runFor, runUntil, type Stage } from '../support/session-run.js';
+import { buildTestWorld, restoreTestWorld } from '../support/test-world.js';
 import {
   type Link,
   type LinkOptions,
@@ -55,12 +55,8 @@ const SOCKET_CONNECTING = 0;
 const SOCKET_OPEN = 1;
 const SOCKET_CLOSED = 3;
 
-async function buildWorld(session: GameSession): Promise<Simulation> {
-  return new Simulation({ seed: session.seed, content: testContent() });
-}
-
 async function buildHeavyWorld(session: GameSession): Promise<Simulation> {
-  const sim = await buildWorld(session);
+  const sim = await buildTestWorld(session);
   const random = seededRandom(session.seed);
   let name = '';
   for (let i = 0; i < NOISE_CHARACTERS; i++)
@@ -69,13 +65,12 @@ async function buildHeavyWorld(session: GameSession): Promise<Simulation> {
   return sim;
 }
 
-function client(nick: string, build: typeof buildWorld): HeadlessClient {
+function client(nick: string, build: typeof buildTestWorld): HeadlessClient {
   return new HeadlessClient({
     token: `${nick.toLowerCase()}-token-0123456789`,
     nick,
     buildWorld: build,
-    restoreWorld: async (_session: GameSession, save: SaveGame) =>
-      restoreSimulation(save, { content: testContent() }),
+    restoreWorld: restoreTestWorld,
   });
 }
 
@@ -171,7 +166,7 @@ async function play(
   }
 }
 
-async function room(seed: number, build: typeof buildWorld) {
+async function room(seed: number, build: typeof buildTestWorld) {
   const clock = new VirtualClock();
   const relay = new Relay({ now: clock.now });
   const stage: Stage = { clock, relay, network: new VirtualNetwork(clock, relay, seededRandom(seed)) };
@@ -211,7 +206,7 @@ describe('a client on a half-open link', () => {
   });
 
   it('replaces the stalled socket on its own and the room runs again', async () => {
-    const { stage, ania, bartek } = await room(5, buildWorld);
+    const { stage, ania, bartek } = await room(5, buildTestWorld);
     const socket = socketFor(stage, bartek, LINK);
     opened.push(socket.link);
     await play(stage, [ania, bartek], SETTLE_MS);

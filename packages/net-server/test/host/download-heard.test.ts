@@ -5,21 +5,13 @@ import { WebSocket } from 'ws';
 import { TEXT_FRAGMENT_BYTES } from '../../src/host/socket-budget.js';
 import { type RelayHost, startRelayHost } from '../../src/host/ws-host.js';
 import { SILENT_AFTER_MS } from '../../src/relay/member.js';
-import { type Peer, startedRoom } from '../support/message-stage.js';
+import { silentNicks, startedRoom } from '../support/message-stage.js';
 
 /** Long enough past the silence limit that a client heard by nothing would be waited for. */
 const QUIET_MS = SILENT_AFTER_MS * 2;
 /** How often a slow download's next fragment is read: well inside the silence limit. */
 const FRAGMENT_EVERY_MS = SILENT_AFTER_MS / 2;
 const FRAGMENTS = 3;
-
-function silentNicks(peer: Peer): string[] {
-  return peer
-    .of('waiting')
-    .flatMap((notice) =>
-      notice.for.filter((member) => member.reason === 'silent').map((member) => member.nick),
-    );
-}
 
 describe('hearing from a client that is downloading', () => {
   let host: RelayHost | null = null;

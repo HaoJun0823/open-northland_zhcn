@@ -1,5 +1,5 @@
 import { type Entity, ONE } from '@open-northland/sim';
-import { Container, Mesh, type Texture, TextureSource } from 'pixi.js';
+import { Container, Mesh, Sprite, Texture, TextureSource } from 'pixi.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { COLLAPSE_LIFETIME_TICKS, COLLAPSE_TICKS } from '../src/data/effects/collapse.js';
 import type { ElevationField } from '../src/data/terrain/index.js';
@@ -38,7 +38,7 @@ function mockCanvas(): void {
   );
 }
 
-function frame(hitpoints: number | null, tick: number): PoolFrame {
+function frame(hitpoints: number | null, tick: number, viewport = VIEW): PoolFrame {
   const house = entity(REF, 0, 0, {
     Building: { buildingType: 1, tribe: 1, built: ONE, level: 0 },
     Health: { hitpoints, max: 1000 },
@@ -46,7 +46,7 @@ function frame(hitpoints: number | null, tick: number): PoolFrame {
   return {
     snapshot: snapshotOf(hitpoints === null ? [] : [house], tick),
     tick,
-    viewport: VIEW,
+    viewport,
     camera: { offsetX: 0, offsetY: 0 },
     screenW: 800,
     screenH: 600,
@@ -157,6 +157,42 @@ it('keeps selected textures current through live settings and repair, then lease
     expect(collapseView.destroyed).toBe(true);
   } finally {
     collapses.destroy();
+    pool.destroy();
+    textures.clear();
+    source.destroy();
+    layer.destroy({ children: true });
+  }
+});
+
+it('resolves a culled building collapse without reading the textures its last bind left behind', () => {
+  mockCanvas();
+  const source = new TextureSource({ width: SIZE, height: SIZE });
+  const sheet: SpriteSheet = {
+    source,
+    atlas: {
+      width: SIZE,
+      height: SIZE,
+      frames: new Map([[1, { x: 0, y: 0, width: SIZE, height: SIZE, offsetX: -SIZE / 2, offsetY: -SIZE }]]),
+    },
+    bindings: { building: 1, settler: 1, resource: 1 },
+  };
+  const layer = new Container();
+  const textures = new TextureCache();
+  const pool = new SpritePool(layer, textures, sheet);
+  const elsewhere = { minX: 5000, minY: 5000, maxX: 6000, maxY: 6000 };
+  try {
+    pool.reconcile(frame(100, 1));
+    const body = layer.children[0]?.children.find((child) => child instanceof Sprite);
+    if (!(body instanceof Sprite)) throw new Error('Missing building body');
+    pool.reconcile(frame(100, 2, elsewhere));
+    expect(layer.children).toHaveLength(0);
+    // A construction reveal bake evicted while its building was off screen.
+    const evicted = new Texture({ source: new TextureSource({ width: SIZE, height: SIZE }) });
+    body.texture = evicted;
+    evicted.destroy(true);
+    expect(() => pool.captureBuildingDamage(REF)).not.toThrow();
+    expect(pool.captureBuildingDamage(REF)).toBeUndefined();
+  } finally {
     pool.destroy();
     textures.clear();
     source.destroy();

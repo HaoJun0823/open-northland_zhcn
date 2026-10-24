@@ -717,8 +717,10 @@ export class SpritePool {
     this.groundPileCover.apply(this.lastItems, this.pool, covers);
   }
 
+  /** Only a drawn building: a culled one keeps the textures of its last bind, which the reveal cache
+   *  may since have evicted and destroyed. Its collapse resolves the normal appearance instead. */
   captureBuildingDamage(ref: number): readonly FallenBody[] | undefined {
-    const pe = this.pool.get(ref);
+    const pe = this.damageSubject(ref);
     if (pe === undefined || pe.paletted) return undefined;
     const sprites: readonly Sprite[] = pe.sprites;
     return this.buildingDamage.capture(

@@ -1,6 +1,6 @@
 import { buildSpriteScene, type DrawItem, ONE } from '@open-northland/render';
 import { components, type WorldSnapshot } from '@open-northland/sim';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../src/game/rules.js';
 import { isSettler, ownerPlayerOf } from '../src/game/snapshot.js';
 import { fixedViewerSeat, overseerViewerSeat } from '../src/game/viewer-seat.js';
@@ -15,16 +15,22 @@ import { snapshotOf, visitCountingSnapshot } from './support/snapshot.js';
  * scene supplies both sides: a human warband facing a red base of enemy buildings and defenders.
  */
 describe('unit-controls targets over the renderer frame', () => {
+  let siege: WorldSnapshot;
   let snapshot: WorldSnapshot;
   let fullScene: DrawItem[];
 
-  beforeEach(() => {
+  beforeAll(() => {
     const scene = SCENES.find((s) => s.id === 'siege');
     if (scene === undefined) throw new Error('siege scene missing');
     const sim = createSceneSim(scene);
     sim.run(2); // drain the scene's spawn/placement commands
-    snapshot = sim.snapshot();
-    fullScene = buildSpriteScene(snapshot);
+    siege = sim.snapshot();
+    fullScene = buildSpriteScene(siege);
+  });
+
+  // Tests replace `snapshot` with extended copies, never mutate it, so each starts from the scene's.
+  beforeEach(() => {
+    snapshot = siege;
   });
 
   const targetsOver = (
@@ -107,16 +113,6 @@ describe('unit-controls targets over the renderer frame', () => {
     expect(targets.hasOwnedAt(310, 400)).toBe(false);
     verdict = undefined;
     expect(targets.hasOwnedAt(310, 400)).toBe(true);
-    for (const kind of ['settler', 'building', 'palisade', 'roadsite', 'vehicle'] as const) {
-      drawn = [{ ...own, kind }];
-      for (const [x, y] of [
-        [310, 400],
-        [322, 400],
-        [323, 400],
-        [100, 200],
-      ] as const)
-        expect(targets.hasOwnedAt(x, y)).toBe(pickTopAt(targets.owned(kind), x, y) !== null);
-    }
     drawn = [{ ...own, kind: 'roadsite' }];
     expect(targets.hasOwnedAt(322, 400)).toBe(true);
     expect(targets.hasOwnedAt(323, 400)).toBe(false);

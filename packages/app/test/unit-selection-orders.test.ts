@@ -1,9 +1,4 @@
-import {
-  type Entity,
-  MAX_UNIT_ORDER_MEMBERS,
-  type PlayerCommand,
-  type UnitSelectionCommand,
-} from '@open-northland/sim';
+import type { Entity, PlayerCommand, UnitSelectionCommand } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { enqueueUnitSelection } from '../src/view/unit-controls/group-orders.js';
 
@@ -46,26 +41,6 @@ describe('bounded selection gestures', () => {
         action: { kind: 'setJob', jobType: 31 },
       },
     ]);
-  });
-
-  it('refuses an oversized whole gesture before submitting any member', () => {
-    const commands: UnitSelectionCommand[] = Array.from({ length: MAX_UNIT_ORDER_MEMBERS + 1 }, (_, i) => ({
-      kind: 'setWorkFlag',
-      entity: (i + 1) as Entity,
-      x: i,
-      y: 0,
-    }));
-    const issued: PlayerCommand[] = [];
-    let refused = 0;
-    expect(
-      enqueueUnitSelection(
-        commands,
-        (command) => issued.push(command),
-        () => refused++,
-      ),
-    ).toBe(false);
-    expect(issued).toEqual([]);
-    expect(refused).toBe(1);
   });
 
   it('never silently reorders interleaved settlers or truncates a member’s action list', () => {

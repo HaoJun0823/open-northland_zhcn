@@ -80,6 +80,7 @@ const targets: UnitTargets = {
 function harness(
   initiallySelected: readonly number[] = [],
   overrides: Partial<UnitTargets> = {},
+  world: WorldSnapshot = WORLD,
 ): {
   selection: UnitSelection;
   orders: UnitOrderController;
@@ -94,7 +95,7 @@ function harness(
     answered: createAnsweredOrders(),
     selected: selection.ids,
     targets: { ...targets, ...overrides },
-    snapshot: () => WORLD,
+    snapshot: () => world,
     content: CONTENT,
     mapSize: MAP_SIZE,
     toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
@@ -226,25 +227,12 @@ describe('unit orders against a selection that moves under them', () => {
   });
 
   it('strikes a neutral palisade from the action-ring attack mode and walks beside it on a right-click', () => {
-    const issued: Command[] = [];
     const target = { id: 50, at: OPEN_GROUND };
     const p = halfCellToScreen(target.at.hx, target.at.hy);
-    const orders = createUnitOrderController({
-      answered: createAnsweredOrders(),
-      selected: () => new Set([SCOUT.id]),
-      targets: {
-        ...targets,
-        // An unowned wall, which the targets offer only to an explicit attack pick.
-        enemies: (opts) =>
-          opts?.neutralWalls === true ? [{ ref: target.id, x: p.x, y: p.y, kind: 'palisade' }] : [],
-      },
-      snapshot: () => WORLD,
-      content: CONTENT,
-      mapSize: MAP_SIZE,
-      toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
-      enqueue: (command) => issued.push(command),
-      selectOwnSettler: () => {},
-      openActions: () => {},
+    const { orders, issued } = harness([SCOUT.id], {
+      // An unowned wall, which the targets offer only to an explicit attack pick.
+      enemies: (opts) =>
+        opts?.neutralWalls === true ? [{ ref: target.id, x: p.x, y: p.y, kind: 'palisade' }] : [],
     });
 
     expect(orders.issueAttackTarget(clickOn(target.at), ['building', 'palisade'])).toBe(true);
@@ -256,20 +244,10 @@ describe('unit orders against a selection that moves under them', () => {
   });
 
   it('strikes an enemy vehicle from the action-ring attack mode, queued under Shift', () => {
-    const issued: Command[] = [];
     const target = { id: 51, at: OPEN_GROUND };
     const p = halfCellToScreen(target.at.hx, target.at.hy);
-    const orders = createUnitOrderController({
-      answered: createAnsweredOrders(),
-      selected: () => new Set([SCOUT.id]),
-      targets: { ...targets, enemies: () => [{ ref: target.id, x: p.x, y: p.y, kind: 'vehicle' }] },
-      snapshot: () => WORLD,
-      content: CONTENT,
-      mapSize: MAP_SIZE,
-      toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
-      enqueue: (command) => issued.push(command),
-      selectOwnSettler: () => {},
-      openActions: () => {},
+    const { orders, issued } = harness([SCOUT.id], {
+      enemies: () => [{ ref: target.id, x: p.x, y: p.y, kind: 'vehicle' }],
     });
 
     expect(orders.issueAttackTarget(clickOn(target.at), 'vehicle', undefined, true)).toBe(true);
@@ -298,15 +276,10 @@ describe('unit orders against a selection that moves under them', () => {
   });
 
   it('switches a collector to the good of a right-clicked resource without moving its flag', () => {
-    const issued: Command[] = [];
     const [goodType] = systems.jobGatherGoods({ content: CONTENT }, JOB_COLLECTOR);
     if (goodType === undefined) throw new Error('setup: the collector gathers nothing');
     const resource = { id: 50, at: OPEN_GROUND };
     const p = halfCellToScreen(resource.at.hx, resource.at.hy);
-    const resourceTargets: UnitTargets = {
-      ...targets,
-      resources: () => [{ ref: resource.id, x: p.x, y: p.y, kind: 'resource', goodType }],
-    };
     const snapshot = snapshotOf([
       ...UNITS.map((unit) =>
         unit === SCOUT
@@ -318,18 +291,11 @@ describe('unit orders against a selection that moves under them', () => {
       ),
       { id: resource.id, components: { Resource: { goodType } } },
     ]);
-    const orders = createUnitOrderController({
-      answered: createAnsweredOrders(),
-      selected: () => new Set([SCOUT.id, GUARD.id]),
-      targets: resourceTargets,
-      snapshot: () => snapshot,
-      content: CONTENT,
-      mapSize: MAP_SIZE,
-      toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
-      enqueue: (command) => issued.push(command),
-      selectOwnSettler: () => {},
-      openActions: () => {},
-    });
+    const { orders, issued } = harness(
+      [SCOUT.id, GUARD.id],
+      { resources: () => [{ ref: resource.id, x: p.x, y: p.y, kind: 'resource', goodType }] },
+      snapshot,
+    );
 
     expect(orders.issueRightClick(clickOn(resource.at))).toBe(true);
 
@@ -347,25 +313,13 @@ describe('unit orders against a selection that moves under them', () => {
   });
 
   it('moves the work flag and changes the gatherer filter on Ctrl+right-click over a resource', () => {
-    const issued: Command[] = [];
+    const RESOURCE = 50;
+    /** Any good: the sim, not the click, validates it against the settler's trade. */
+    const RESOURCE_GOOD = 5;
     const p = halfCellToScreen(OPEN_GROUND.hx, OPEN_GROUND.hy);
-    // The rendered target is the click's source of truth. It may outlive the snapshot that produced the
-    // current controls frame; the sim validates the selected settler and good when applying the command.
-    const snapshot = snapshotOf(UNITS.map(standing));
-    const orders = createUnitOrderController({
-      answered: createAnsweredOrders(),
-      selected: () => new Set([SCOUT.id]),
-      targets: {
-        ...targets,
-        resources: () => [{ ref: 50, x: p.x, y: p.y, kind: 'resource', goodType: 5 }],
-      },
-      snapshot: () => snapshot,
-      content: CONTENT,
-      mapSize: MAP_SIZE,
-      toWorld: (clientX, clientY) => ({ x: clientX, y: clientY }),
-      enqueue: (command) => issued.push(command),
-      selectOwnSettler: () => {},
-      openActions: () => {},
+    // The rendered target is the click's source of truth, even past the snapshot it was drawn from.
+    const { orders, issued } = harness([SCOUT.id], {
+      resources: () => [{ ref: RESOURCE, x: p.x, y: p.y, kind: 'resource', goodType: RESOURCE_GOOD }],
     });
 
     orders.issueSetWorkFlagAt(clickOn(OPEN_GROUND));
@@ -378,7 +332,7 @@ describe('unit orders against a selection that moves under them', () => {
             entity: SCOUT.id,
             actions: [
               { kind: 'setWorkFlag', x: OPEN_GROUND.hx, y: OPEN_GROUND.hy },
-              { kind: 'setGatherGood', goodType: 5 },
+              { kind: 'setGatherGood', goodType: RESOURCE_GOOD },
             ],
           },
         ],

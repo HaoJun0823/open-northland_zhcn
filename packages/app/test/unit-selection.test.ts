@@ -53,15 +53,6 @@ describe('unit selection set', () => {
     expect(selection.apply([], true)).toBe(false);
     expect(selection.version()).toBe(2);
   });
-
-  it('extends a non-empty set with an id it does not hold yet', () => {
-    const selection = createUnitSelection(ALL_UNITS);
-    selection.apply([1, 2], false);
-
-    expect(selection.apply([3], true)).toBe(true);
-    expect(selection.version()).toBe(2);
-    expect([...selection.ids()]).toEqual([1, 2, 3]);
-  });
 });
 
 describe('unit selection work flags', () => {

@@ -1,14 +1,12 @@
 import type { WorldSnapshot } from '@open-northland/sim';
-import type { FogGhost, GhostSource } from '../fog/index.js';
-import { isVisible, ONE, tileToScreen, type Viewport } from '../projection/index.js';
-import { type ElevationField, terrainLiftAt } from '../terrain/index.js';
-import { spriteDepth } from './depth.js';
-import { type MutableDrawItem, type MutableSpriteDrawItem, newDrawItem } from './draw-item.js';
-import type { DrawList } from './draw-list.js';
-import { anchorTileBox } from './entity-source.js';
-import type { InHouseOverlay } from './in-house.js';
-import { COVER_LAUNCH_HEIGHT_PX, projectileArc } from './projectile-arc.js';
-import { SIGNPOST_BOARD_FRAMES, signpostBoards } from './signpost-boards.js';
+import type { FogGhost, GhostSource } from '../../fog/index.js';
+import { isVisible, ONE, tileToScreen, type Viewport } from '../../projection/index.js';
+import { type ElevationField, terrainLiftAt } from '../../terrain/index.js';
+import { spriteDepth } from '../depth.js';
+import { type MutableDrawItem, type MutableSpriteDrawItem, newDrawItem } from '../draw-item.js';
+import type { InHouseOverlay } from '../in-house.js';
+import { COVER_LAUNCH_HEIGHT_PX, projectileArc } from '../projectiles/arc.js';
+import { SIGNPOST_BOARD_FRAMES, signpostBoards } from '../signpost-boards.js';
 import {
   assignStaticFields,
   copyStaticFields,
@@ -33,7 +31,9 @@ import {
   readScriptedLook,
   readSettlerTribe,
   readUpgradePct,
-} from './snapshot-readers/index.js';
+} from '../snapshot-readers/index.js';
+import type { DrawList } from './draw-list.js';
+import { anchorTileBox } from './entity-source.js';
 
 export function assignSettlerFields(
   item: MutableDrawItem,

@@ -1,8 +1,8 @@
 import { Container, Graphics } from 'pixi.js';
 import { depthKey, halfCellToScreen, TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import type { DrawItem } from '../../data/scene/index.js';
-import { type PalisadeLayout, planShiftX } from '../../data/scene/palisade-connections.js';
-import { palisadeStaggerX } from '../../data/scene/palisade-stagger.js';
+import { type PalisadeLayout, planShiftX } from '../../data/scene/palisades/connections.js';
+import { palisadeStaggerX } from '../../data/scene/palisades/stagger.js';
 import { type ElevationField, terrainLiftAtNode } from '../../data/terrain/index.js';
 import { mintRangeRing } from '../selection/range-ring.js';
 import { resolveLayers } from '../sprite-pool/index.js';

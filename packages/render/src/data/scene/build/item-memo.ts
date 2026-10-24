@@ -1,6 +1,6 @@
 import type { EntitySnapshot } from '@open-northland/sim';
-import type { ElevationField } from '../terrain/index.js';
-import type { EntityKind, MutableSpriteDrawItem } from './draw-item.js';
+import type { ElevationField } from '../../terrain/index.js';
+import type { EntityKind, MutableSpriteDrawItem } from '../draw-item.js';
 
 /** Kinds whose draw item reads the entity's own components and the map's elevation alone. */
 const SELF_CONTAINED_KINDS: ReadonlySet<EntityKind> = new Set<EntityKind>([

@@ -14,7 +14,7 @@ import {
 } from '@open-northland/sim';
 import { ONE } from '../projection/index.js';
 import type { DrawKind, EntityKind, StaticDrawFields } from '../scene/draw-item.js';
-import { assignPalisadeFields, palisadeLayoutOf } from '../scene/palisade-connections.js';
+import { assignPalisadeFields, palisadeLayoutOf } from '../scene/palisades/connections.js';
 import { assignStaticFields, classify, readPosition } from '../scene/snapshot-readers/index.js';
 import type { ElevationField } from '../terrain/index.js';
 import { fogCellOfTile } from './mask.js';

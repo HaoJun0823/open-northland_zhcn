@@ -1,8 +1,8 @@
 import type { WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import type { Viewport } from '../../../src/data/projection/index.js';
-import { collectSpriteScene, SceneItemMemo } from '../../../src/data/scene/index.js';
-import { entity, snapshotOf } from '../../support/fixtures.js';
+import type { Viewport } from '../../../../src/data/projection/index.js';
+import { collectSpriteScene, SceneItemMemo } from '../../../../src/data/scene/index.js';
+import { entity, snapshotOf } from '../../../support/fixtures.js';
 
 const VIEW: Viewport = { minX: -1e6, maxX: 1e6, minY: -1e6, maxY: 1e6 };
 /** Frames nothing the specs place, so every entity is culled. */

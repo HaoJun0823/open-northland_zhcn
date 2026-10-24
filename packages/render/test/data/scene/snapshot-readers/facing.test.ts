@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildScene, ONE } from '../../../src/index.js';
-import { entity, FLAT_3x2, snapshotOf } from '../../support/fixtures.js';
+import { buildScene, ONE } from '../../../../src/index.js';
+import { entity, FLAT_3x2, snapshotOf } from '../../../support/fixtures.js';
 
 describe('buildScene - settler facing derivation', () => {
   it('turns a praying settler toward its site after approaching from the side', () => {

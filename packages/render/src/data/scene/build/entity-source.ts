@@ -6,7 +6,7 @@ import {
   type TileBox,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { TILE_HALF_H, TILE_HALF_W, type Viewport } from '../projection/index.js';
+import { TILE_HALF_H, TILE_HALF_W, type Viewport } from '../../projection/index.js';
 import type { DrawListOptions, LiveRefs } from './sprite-scene.js';
 
 export type EntitySource = Pick<

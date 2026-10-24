@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ONE, tileToScreen } from '../../../src/data/projection/index.js';
-import { readSiegeShot, type SiegeShot, shotPath, shotPoseAt } from '../../../src/data/scene/index.js';
-import { headingValency, type ParticleRef, particleFrame } from '../../../src/data/sprites/index.js';
-import { type ElevationField, makeElevationField } from '../../../src/data/terrain/index.js';
+import { ONE, tileToScreen } from '../../../../src/data/projection/index.js';
+import { readSiegeShot, type SiegeShot, shotPath, shotPoseAt } from '../../../../src/data/scene/index.js';
+import { headingValency, type ParticleRef, particleFrame } from '../../../../src/data/sprites/index.js';
+import { type ElevationField, makeElevationField } from '../../../../src/data/terrain/index.js';
 
 /** A catapult's stone east over 16 map points at weapon speed 3: `16 * 8 / 3` ticks, the tick before its
  *  land tick spent on the aim. */

@@ -1,5 +1,5 @@
-import { clamp01 } from '../math.js';
-import { tileToScreen } from '../projection/index.js';
+import { clamp01 } from '../../math.js';
+import { tileToScreen } from '../../projection/index.js';
 
 /**
  * A render-only presentation over the sim's frozen release-time chord: the drawn arrow is lifted off that

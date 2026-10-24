@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { SpriteDepthOrder } from '../../../src/data/scene/depth-order.js';
-import { collectSpriteScene, SceneItemMemo, type SpriteScene } from '../../../src/data/scene/index.js';
-import { buildSpriteScene, ONE, tileToScreen } from '../../../src/index.js';
-import { entity, ghostSourceOf, snapshotOf } from '../../support/fixtures.js';
+import { SpriteDepthOrder } from '../../../../src/data/scene/build/depth-order.js';
+import { collectSpriteScene, SceneItemMemo, type SpriteScene } from '../../../../src/data/scene/index.js';
+import { buildSpriteScene, ONE, tileToScreen } from '../../../../src/index.js';
+import { entity, ghostSourceOf, snapshotOf } from '../../../support/fixtures.js';
 
 /** `liveRefs` is a membership view, so exact-set assertions probe it over the fixture's id universe. */
 const liveOf = (scene: SpriteScene, ids: readonly number[]): number[] =>

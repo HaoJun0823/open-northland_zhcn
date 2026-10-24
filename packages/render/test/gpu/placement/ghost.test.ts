@@ -1,6 +1,6 @@
 import { Graphics, Sprite, Texture, type TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { PALISADE_STAGGER_PX } from '../../../src/data/scene/palisade-stagger.js';
+import { PALISADE_STAGGER_PX } from '../../../src/data/scene/palisades/stagger.js';
 import type { ElevationField } from '../../../src/data/terrain/index.js';
 import { PlacementGhostLayer } from '../../../src/gpu/placement/ghost.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';

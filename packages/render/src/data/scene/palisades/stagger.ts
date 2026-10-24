@@ -1,5 +1,5 @@
 import { hexNeighboursOf } from '@open-northland/sim';
-import { TILE_HALF_W } from '../projection/index.js';
+import { TILE_HALF_W } from '../../projection/index.js';
 
 /**
  * Walls join hex neighbours, but the half-cell lattice draws with no row stagger, so a wall along a hex

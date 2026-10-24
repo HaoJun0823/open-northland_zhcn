@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { depositVisualLevel } from '../../../src/data/scene/index.js';
+import { depositVisualLevel } from '../../../../src/data/scene/index.js';
 
 describe('depositVisualLevel - the shrink-by-level fill bucket', () => {
   it('buckets remaining/initial into [1, levels]: full → levels, dregs → 1, exhausted → 0', () => {

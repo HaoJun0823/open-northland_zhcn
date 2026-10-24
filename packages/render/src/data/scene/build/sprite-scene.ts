@@ -6,7 +6,7 @@ import {
   isPositioned,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import type { GhostSource } from '../fog/index.js';
+import type { GhostSource } from '../../fog/index.js';
 import {
   isVisible,
   ONE,
@@ -14,23 +14,23 @@ import {
   tileToScreenX,
   tileToScreenY,
   type Viewport,
-} from '../projection/index.js';
-import type { ElevationField } from '../terrain/index.js';
+} from '../../projection/index.js';
+import type { ElevationField } from '../../terrain/index.js';
+import { type MutableSpriteDrawItem, type SpriteDrawItem, unsetDrawField } from '../draw-item.js';
+import { type HolyFireLookup, holyFireOverlays } from '../holy-fire.js';
+import type { InHousePose, InHouseProgramLookup } from '../in-house.js';
+import { palisadeLayoutOf } from '../palisades/connections.js';
+import { craftAnchorOf, inHouseDrawAt, STANDING_POSE, settlerPose, vehiclePose } from '../settler-pose.js';
+import { isIndoorSettler, targetPositionsOf } from '../snapshot-index.js';
+import { classify, readPosition, vehicleDrawTile } from '../snapshot-readers/index.js';
 import { pushEffectItems, pushGhostItems } from './collect-fields.js';
 import { CullAnchors } from './cull-anchors.js';
 import type { SpriteDepthOrder } from './depth-order.js';
-import { type MutableSpriteDrawItem, type SpriteDrawItem, unsetDrawField } from './draw-item.js';
 import { DrawList } from './draw-list.js';
 import { anchorTileBox, emitEntities } from './entity-source.js';
-import { type HolyFireLookup, holyFireOverlays } from './holy-fire.js';
-import type { InHousePose, InHouseProgramLookup } from './in-house.js';
 import { assembleItem, type SceneBuild } from './item-assembly.js';
 import { isSelfContainedKind, type SceneItemMemo } from './item-memo.js';
-import { palisadeLayoutOf } from './palisade-connections.js';
 import { collectRebuiltPositioned, type TouchedIds, touchedIdsOf } from './scene-feeds.js';
-import { craftAnchorOf, inHouseDrawAt, STANDING_POSE, settlerPose, vehiclePose } from './settler-pose.js';
-import { isIndoorSettler, targetPositionsOf } from './snapshot-index.js';
-import { classify, readPosition, vehicleDrawTile } from './snapshot-readers/index.js';
 
 /** Whether a ref is alive (drawable) this frame. A `ReadonlySet` satisfies it; the viewport build
  *  serves it without materializing the map-wide set, which is why it is not a set type. */

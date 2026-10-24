@@ -1,4 +1,4 @@
-import type { SpriteDrawItem } from './draw-item.js';
+import type { SpriteDrawItem } from '../draw-item.js';
 import { DrawList } from './draw-list.js';
 
 /** Fresh members past which a membership change sorts them by merge rather than by insertion. */

@@ -1,5 +1,16 @@
 import { type EntitySnapshot, systems, type WorldSnapshot } from '@open-northland/sim';
-import { type ElevationField, terrainLiftAt } from '../terrain/index.js';
+import { type ElevationField, terrainLiftAt } from '../../terrain/index.js';
+import { spriteDepth } from '../depth.js';
+import { type EntityKind, type MutableSpriteDrawItem, newDrawItem } from '../draw-item.js';
+import { assignPalisadeFields, type PalisadeLayout } from '../palisades/connections.js';
+import type { SettlerPose } from '../settler-pose.js';
+import {
+  assignStaticFields,
+  readHaulingCartDriver,
+  readRoadSiteClaimed,
+  readVehicleDriver,
+  readVehicleFields,
+} from '../snapshot-readers/index.js';
 import {
   assignBerryBushFields,
   assignBuildingFields,
@@ -8,18 +19,7 @@ import {
   assignStockpileFields,
   pushSignpostItems,
 } from './collect-fields.js';
-import { spriteDepth } from './depth.js';
-import { type EntityKind, type MutableSpriteDrawItem, newDrawItem } from './draw-item.js';
 import type { DrawList } from './draw-list.js';
-import { assignPalisadeFields, type PalisadeLayout } from './palisade-connections.js';
-import type { SettlerPose } from './settler-pose.js';
-import {
-  assignStaticFields,
-  readHaulingCartDriver,
-  readRoadSiteClaimed,
-  readVehicleDriver,
-  readVehicleFields,
-} from './snapshot-readers/index.js';
 
 export interface SceneBuild {
   readonly snapshot: WorldSnapshot;

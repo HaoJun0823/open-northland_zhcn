@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readBerryBushLevel } from '../../../src/data/scene/snapshot-readers/index.js';
+import { readBerryBushLevel } from '../../../../src/data/scene/snapshot-readers/index.js';
 
 describe('readBerryBushLevel - stage → draw level (1 bare, 2 flowering, 3 ripe)', () => {
   it('maps each growth stage to its 1-based level', () => {

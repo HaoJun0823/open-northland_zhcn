@@ -10,11 +10,11 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { isVisible } from '../../../src/data/projection/index.js';
-import { collectSpriteScene } from '../../../src/data/scene/index.js';
-import type { SpriteSceneOptions } from '../../../src/data/scene/sprite-scene.js';
-import { ONE, TILE_HALF_W, tileToScreen, type Viewport } from '../../../src/index.js';
-import { entity, ghostSourceOf, snapshotOf } from '../../support/fixtures.js';
+import { isVisible } from '../../../../src/data/projection/index.js';
+import type { SpriteSceneOptions } from '../../../../src/data/scene/build/sprite-scene.js';
+import { collectSpriteScene } from '../../../../src/data/scene/index.js';
+import { ONE, TILE_HALF_W, tileToScreen, type Viewport } from '../../../../src/index.js';
+import { entity, ghostSourceOf, snapshotOf } from '../../../support/fixtures.js';
 
 /**
  * A viewport build reads the snapshot's position index instead of walking every entity. These specs

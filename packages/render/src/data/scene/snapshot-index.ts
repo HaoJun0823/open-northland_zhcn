@@ -9,7 +9,7 @@ import {
   type SnapshotIndexSpec,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { readSiegeShot, type SiegeShot } from './shot-flight.js';
+import { readSiegeShot, type SiegeShot } from './projectiles/shot-flight.js';
 import {
   readActingAtomic,
   readAtomicTargetEntity,

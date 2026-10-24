@@ -9,7 +9,7 @@ import {
   snapToDevicePixels,
   type Viewport,
 } from '../../data/projection/index.js';
-import { SpriteDepthOrder } from '../../data/scene/depth-order.js';
+import { SpriteDepthOrder } from '../../data/scene/build/depth-order.js';
 import {
   buildSpriteScene,
   collectSpriteScene,

@@ -7,8 +7,8 @@ import {
   TileBuckets,
   type WorldSnapshot,
 } from '@open-northland/sim';
+import { classify } from '../snapshot-readers/index.js';
 import { isSelfContainedKind } from './item-memo.js';
-import { classify } from './snapshot-readers/index.js';
 
 /**
  * The per-change feeds an incremental scene build reads: which entities a delta touched, and where the

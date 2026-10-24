@@ -1,8 +1,8 @@
 import { entitiesWith, type WorldSnapshot } from '@open-northland/sim';
 import { collectBonePiles } from './effects/index.js';
 import { hudTotalsOf } from './hud/totals.js';
+import { collectRebuiltPositioned, touchedIdsOf } from './scene/build/scene-feeds.js';
 import { type ImportMarkerExemption, importMarkersOf } from './scene/import-markers.js';
-import { collectRebuiltPositioned, touchedIdsOf } from './scene/scene-feeds.js';
 import {
   enterableStoresOf,
   palisadesOf,

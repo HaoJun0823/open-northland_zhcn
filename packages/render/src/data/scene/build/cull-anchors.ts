@@ -1,5 +1,5 @@
-import { isVisible, type Viewport } from '../projection/index.js';
-import type { SpriteDrawItem } from './draw-item.js';
+import { isVisible, type Viewport } from '../../projection/index.js';
+import type { SpriteDrawItem } from '../draw-item.js';
 
 /** Entries past this many per live item make a pan over one snapshot drop the stale ones. */
 const STALE_ENTRY_FACTOR = 4;

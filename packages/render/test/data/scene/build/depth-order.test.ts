@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SpriteDepthOrder } from '../../../src/data/scene/depth-order.js';
-import type { SpriteDrawItem } from '../../../src/data/scene/draw-item.js';
+import { SpriteDepthOrder } from '../../../../src/data/scene/build/depth-order.js';
+import type { SpriteDrawItem } from '../../../../src/data/scene/draw-item.js';
 
 const item = (ref: number, depth: number): SpriteDrawItem => ({
   kind: 'settler',

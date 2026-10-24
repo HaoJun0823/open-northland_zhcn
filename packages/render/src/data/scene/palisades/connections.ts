@@ -7,18 +7,18 @@ import {
   positionOfNode,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { ONE, tileToScreen } from '../projection/index.js';
-import type { ElevationField } from '../terrain/index.js';
-import { terrainLiftAt } from '../terrain/index.js';
-import type { PalisadePostDraw, StaticDrawFields } from './draw-item.js';
-import { palisadeStaggerX, staggeredNodeKeys, type WallNode, wallNodeKey } from './palisade-stagger.js';
-import { palisadesOf } from './snapshot-index.js';
+import { ONE, tileToScreen } from '../../projection/index.js';
+import type { ElevationField } from '../../terrain/index.js';
+import { terrainLiftAt } from '../../terrain/index.js';
+import type { PalisadePostDraw, StaticDrawFields } from '../draw-item.js';
+import { palisadesOf } from '../snapshot-index.js';
 import {
   assignStaticFields,
   readPalisadeClaimed,
   readPalisadeStatePct,
   readPosition,
-} from './snapshot-readers/index.js';
+} from '../snapshot-readers/index.js';
+import { palisadeStaggerX, staggeredNodeKeys, type WallNode, wallNodeKey } from './stagger.js';
 
 /** One repeated post between two neighbouring palisade anchors, relative to the first anchor. */
 export interface PalisadePostOffset {

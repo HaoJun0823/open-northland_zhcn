@@ -6,16 +6,16 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { SpriteDepthOrder } from '../../../src/data/scene/depth-order.js';
+import { SpriteDepthOrder } from '../../../../src/data/scene/build/depth-order.js';
+import type { SpriteSceneOptions } from '../../../../src/data/scene/build/sprite-scene.js';
 import {
   collectSpriteScene,
   IncrementalScene,
   SceneItemMemo,
   type SpriteDrawItem,
-} from '../../../src/data/scene/index.js';
-import type { SpriteSceneOptions } from '../../../src/data/scene/sprite-scene.js';
-import { ONE, type Viewport } from '../../../src/index.js';
-import { entity, ghostSourceOf } from '../../support/fixtures.js';
+} from '../../../../src/data/scene/index.js';
+import { ONE, type Viewport } from '../../../../src/index.js';
+import { entity, ghostSourceOf } from '../../../support/fixtures.js';
 
 /**
  * A build that keeps its self-contained items across deltas and splices only the touched ones must

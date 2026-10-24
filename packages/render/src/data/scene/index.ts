@@ -1,4 +1,14 @@
 /** The pure scene-building layer: no Pixi, no canvas, no GPU. */
+
+export { SceneItemMemo } from './build/item-memo.js';
+export {
+  buildSpriteScene,
+  collectSpriteScene,
+  IncrementalScene,
+  isStaticItem,
+  type LiveRefs,
+  type SpriteScene,
+} from './build/sprite-scene.js';
 export { drawPassDepth, rowOfDepth, SHADOW_DEPTH_EPS, SIGN_DEPTH_EPS, screenDepth } from './depth.js';
 export type {
   DrawItem,
@@ -11,17 +21,15 @@ export type {
 } from './draw-item.js';
 export { type HolyFireBinding, type HolyFireLookup, holyFireOverlays } from './holy-fire.js';
 export type { InHouseProgramLookup } from './in-house.js';
-export { SceneItemMemo } from './item-memo.js';
-export { type PalisadeLayout, palisadeLayoutOf } from './palisade-connections.js';
-export { palisadeStaggerX } from './palisade-stagger.js';
+export { type PalisadeLayout, palisadeLayoutOf } from './palisades/connections.js';
+export { palisadeStaggerX } from './palisades/stagger.js';
 export {
   BOW_LAUNCH_HEIGHT_PX,
   COVER_LAUNCH_HEIGHT_PX,
   PROJECTILE_ARC_PEAK_FRACTION,
   PROJECTILE_ARC_PEAK_MAX_PX,
   SHOT_STRIKE_HEIGHT_PX,
-} from './projectile-arc.js';
-export { type RoadChanges, RoadShardTracker } from './road-shards.js';
+} from './projectiles/arc.js';
 export {
   readSiegeShot,
   type ShotPath,
@@ -30,7 +38,8 @@ export {
   shotGroundLift,
   shotPath,
   shotPoseAt,
-} from './shot-flight.js';
+} from './projectiles/shot-flight.js';
+export { type RoadChanges, RoadShardTracker } from './road-shards.js';
 export {
   indoorHouseOf,
   isIndoorSettler,
@@ -40,12 +49,4 @@ export {
   siegeShotsOf,
 } from './snapshot-index.js';
 export { depositVisualLevel, vehicleDrawTile } from './snapshot-readers/index.js';
-export {
-  buildSpriteScene,
-  collectSpriteScene,
-  IncrementalScene,
-  isStaticItem,
-  type LiveRefs,
-  type SpriteScene,
-} from './sprite-scene.js';
 export { buildScene, type SceneGround, type SceneTerrain, terrainMapToScene } from './terrain-scene.js';

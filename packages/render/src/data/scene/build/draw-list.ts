@@ -1,4 +1,4 @@
-import type { MutableSpriteDrawItem } from './draw-item.js';
+import type { MutableSpriteDrawItem } from '../draw-item.js';
 
 /**
  * A scene build's draw item array, presized to the last build's count: pushed one by one onto an empty

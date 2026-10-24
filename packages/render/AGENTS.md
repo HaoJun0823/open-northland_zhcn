@@ -24,7 +24,7 @@ render of the world layer, so the cost grows with the boxes on screen, not the m
 the same list object while the boxes hold still.
 
 A scene build takes its candidates from the snapshot's position index over the viewport
-(`positionedWithin`, `data/scene/entity-source.ts`) and culls each candidate. The lookups a build
+(`positionedWithin`, `data/scene/build/entity-source.ts`) and culls each candidate. The lookups a build
 needs (enterable stores, the ids actors face or craft at, palisades, HUD totals) are indexes
 the mirror maintains per change, read through `indexesOf`. The target-position and siege-shot readers
 are per-snapshot passes over those small index lists, and the fog ghost store is render-owned, updated

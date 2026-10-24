@@ -675,7 +675,7 @@ these choices for the holes:
 - The stone in flight, the puff it leaves every tick and the smoke a `createsmoke` weapon raises where
   it lands are the `[particel]` records `Rock` (by `munitiontype`), its `spawnparticelId` and
   `Smoke.org` (`particles` in the IR; `packages/render/src/gpu/overlays/shot-layer.ts`). The lob and
-  what it adds to the original's are described in `packages/render/src/data/scene/shot-flight.ts`.
+  what it adds to the original's are described in `packages/render/src/data/scene/projectiles/shot-flight.ts`.
 - Ship player colour: besides the baked `human_ship01` atlas, the pipeline emits each ship library as
   an indexed atlas (`ls_vehicles.indexed`, `ve_test_ship.indexed`) and the `human_ship01..10` family as
   a ten-row LUT (`human_ship01.lut.png`), and a ship draws through `PalettedSprite` with its owner's

@@ -5,10 +5,10 @@ import {
   PROJECTILE_ARC_PEAK_FRACTION,
   PROJECTILE_ARC_PEAK_MAX_PX,
   SHOT_STRIKE_HEIGHT_PX,
-} from '../../../src/data/scene/index.js';
-import { headingValency } from '../../../src/data/sprites/index.js';
-import { buildScene, ONE, tileToScreen } from '../../../src/index.js';
-import { entity, FLAT_3x2, snapshotOf } from '../../support/fixtures.js';
+} from '../../../../src/data/scene/index.js';
+import { headingValency } from '../../../../src/data/sprites/index.js';
+import { buildScene, ONE, tileToScreen } from '../../../../src/index.js';
+import { entity, FLAT_3x2, snapshotOf } from '../../../support/fixtures.js';
 
 describe('buildScene - projectile arc & aim', () => {
   it('classifies an in-flight Projectile and aims its rotation at the target', () => {

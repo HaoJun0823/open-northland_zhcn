@@ -1,9 +1,9 @@
 import type { WorldSnapshot } from '@open-northland/sim';
 import { tileToScreen } from '../projection/index.js';
 import type { ElevationField } from '../terrain/index.js';
+import { collectSpriteScene } from './build/sprite-scene.js';
 import { UNDER_EVERY_PASS } from './depth.js';
 import type { DrawItem } from './draw-item.js';
-import { collectSpriteScene } from './sprite-scene.js';
 
 /**
  * A decoded map's 1:1 per-triangle ground lanes (the `ground` layer of `content/maps/<id>.json`):

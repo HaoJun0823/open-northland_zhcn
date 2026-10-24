@@ -16,7 +16,7 @@ import {
   TILE_HALF_W,
   type Viewport,
 } from '../../data/projection/index.js';
-import { anchorTileBox } from '../../data/scene/entity-source.js';
+import { anchorTileBox } from '../../data/scene/build/entity-source.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { type ElevationField, terrainLiftAtNode } from '../../data/terrain/index.js';
 import { BloodSurfaceSprite } from '../blood/surface-sprite.js';

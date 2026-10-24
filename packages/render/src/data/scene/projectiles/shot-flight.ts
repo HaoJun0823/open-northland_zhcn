@@ -1,6 +1,6 @@
-import { clamp01, lerp } from '../math.js';
-import { ONE, tileToScreen } from '../projection/index.js';
-import { type ElevationField, elevationLiftPerUnit, terrainLiftAt } from '../terrain/index.js';
+import { clamp01, lerp } from '../../math.js';
+import { ONE, tileToScreen } from '../../projection/index.js';
+import { type ElevationField, elevationLiftPerUnit, terrainLiftAt } from '../../terrain/index.js';
 
 /**
  * A siege shot's drawn flight. The sim moves the stone along its release chord in equal steps, reaching

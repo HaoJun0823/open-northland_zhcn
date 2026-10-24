@@ -129,15 +129,6 @@ function opaqueRaster(width: number, height: number): Uint8Array {
   return rgba;
 }
 
-/** A baker on the calling thread, for tests. */
-export const createInlineMinimapBaker: MinimapBakerFactory = (scene) => {
-  const bake = createCachedMinimapBake(createMinimapRasterizer(scene));
-  return {
-    bake: async (width, height, mode, objects) => bake(width, height, mode, objects),
-    dispose: () => {},
-  };
-};
-
 /** The part of a `Worker` the bake client uses, so a test can stand in for the thread. */
 export interface MinimapBakeWorker {
   addEventListener(type: 'message', listener: (event: MessageEvent<MinimapBakeReply>) => void): void;

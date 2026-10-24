@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { diag } from '../../../src/diag/index.js';
 import { GOOD_WOOD } from '../../../src/game/sandbox/ids/index.js';
 import {
-  createInlineMinimapBaker,
+  createCachedMinimapBake,
   createMinimapRasterizer,
   type MinimapBakerFactory,
   minimapBakeScene,
@@ -22,6 +22,15 @@ import {
   OBJECT_REBAKE_INTERVAL_MS,
 } from '../../../src/hud/minimap/surface.js';
 import { type Ent, snapshotOf } from '../../support/snapshot.js';
+
+/** A baker on the calling thread, so a bake resolves without a worker. */
+const createInlineMinimapBaker: MinimapBakerFactory = (scene) => {
+  const bake = createCachedMinimapBake(createMinimapRasterizer(scene));
+  return {
+    bake: async (width, height, mode, objects) => bake(width, height, mode, objects),
+    dispose: () => {},
+  };
+};
 
 const SIZE = 4;
 const TERRAIN: SceneTerrain = {

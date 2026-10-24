@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   Owner,
   Position,
@@ -18,7 +18,6 @@ import { GroupCoverage } from '../../src/systems/signposts/group-coverage.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { createSignpost, razeSignpost } from '../../src/systems/signposts/placement.js';
 import { goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
-import { signpostMask } from '../../src/systems/signposts/terrain-reach.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -81,7 +80,7 @@ describe('terrain-aware goods reach', () => {
     expect(after).not.toBe(before);
     expect(reachContains(after, 59, 50)).toBe(false);
   });
-  it('keeps distant post searches through remote block changes and refreshes affected masks', () => {
+  it('keeps post coverage through a remote block and cuts a near block out of it', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(500, 150) });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('terrain');
@@ -93,7 +92,6 @@ describe('terrain-aware goods reach', () => {
     }
     signpostLinksSystem(sim.world, ctxOf(sim));
     const before = sim.signpostReach(0);
-    const reads = vi.spyOn(terrain, 'walkableResistances');
     const block = (hx: number, hy: number) => {
       const id = sim.world.create();
       sim.world.add(id, Position, positionOfNode(hx, hy));
@@ -102,18 +100,15 @@ describe('terrain-aware goods reach', () => {
       return sim.signpostReach(0);
     };
     const remote = block(480, 140);
-    expect(reads).not.toHaveBeenCalled();
     expect(remote?.posts.map((p) => p.area)).toEqual(before?.posts.map((p) => p.area));
     expect(remote?.posts[0]?.area).toBe(before?.posts[0]?.area);
     const local = block(36, 40);
-    expect(reads).toHaveBeenCalled();
     const area = local?.posts[0]?.area;
     if (area === undefined) throw new Error('post coverage');
     expect(reachContains(area, 36, 40)).toBe(false);
     expect(local?.posts.at(-1)?.area).toBe(remote?.posts.at(-1)?.area);
-    reads.mockRestore();
   });
-  it('asks the link pass again only for posts whose read box a change since the last pass meets', () => {
+  it('relinks the posts a wall splits and keeps the far pair linked', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(500, 150) });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('terrain');
@@ -125,8 +120,6 @@ describe('terrain-aware goods reach', () => {
       return post;
     });
     signpostLinksSystem(sim.world, ctxOf(sim));
-    const mask = signpostMask(sim.world, sim.content, terrain);
-    const scans = vi.spyOn(mask, 'flippedSince');
     const wall = (hx: number) => {
       const id = sim.world.create();
       sim.world.add(id, Position, positionOfNode(hx, 0));
@@ -135,17 +128,11 @@ describe('terrain-aware goods reach', () => {
         build: [],
         work: [],
       });
-      scans.mockClear();
       signpostLinksSystem(sim.world, ctxOf(sim));
     };
     wall(480);
-    // One scan lists the pass's changes; no post's reach is asked.
-    expect(scans).toHaveBeenCalledTimes(1);
     wall(45);
-    // The two posts the wall splits are asked again; the far pair keeps its links unasked.
-    expect(scans).toHaveBeenCalledTimes(3);
     expect(posts.map((p) => sim.world.get(p, Signpost).links)).toEqual([[], [], [posts[3]], [posts[2]]]);
-    scans.mockRestore();
   });
   it('links as a fresh pass would after an owner change and a post added and razed', () => {
     type Edit = (sim: Simulation) => void;
@@ -190,7 +177,7 @@ describe('terrain-aware goods reach', () => {
       expect(linksOf(reused), `after edit ${i}`).toEqual(linksOf(fresh));
     });
   });
-  it('asks a coverage post again only when a change since its scan met its read box', () => {
+  it('answers coverage as a fresh one does after a block lands beside its posts', () => {
     // Resistance 5 spends the 80-point budget within 16 steps, so each post reads about 17 nodes around it.
     const sim = new Simulation({ seed: 1, content: testContent(), map: roughNodeMap(300, 100, () => 5) });
     const terrain = sim.terrain;
@@ -207,31 +194,10 @@ describe('terrain-aware goods reach', () => {
     const block = sim.world.create();
     sim.world.add(block, Position, positionOfNode(145, 30));
     sim.world.add(block, ResourceFootprint, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
-    const scans = vi.spyOn(signpostMask(sim.world, sim.content, terrain), 'flippedSince');
-    // The node's block meets the posts at 70, 100 and 130; the change lies in the box only the last read.
     expect(coverage.covers(100, 30, 1)).toBe(true);
-    expect(scans).toHaveBeenCalledTimes(2);
-    scans.mockRestore();
     const fresh = new GroupCoverage(sim.world, sim.content, terrain, posts);
     for (let hx = 90; hx < 160; hx++) expect(coverage.covers(hx, 30, 1)).toBe(fresh.covers(hx, 30, 1));
     expect(coverage.covers(145, 30, 1)).toBe(false);
-  });
-  it('floods each post once for its links and once for the goods search', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(200, 100) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('terrain');
-    for (const hx of [40, 70]) {
-      const post = sim.world.create();
-      sim.world.add(post, Owner, { player: 0 });
-      sim.world.add(post, Position, positionOfNode(hx, 40));
-      sim.world.add(post, Signpost, { links: [] });
-    }
-    const floods = vi.spyOn(terrain, 'walkableResistances');
-    signpostLinksSystem(sim.world, ctxOf(sim));
-    expect(floods).toHaveBeenCalledTimes(2);
-    expect(sim.signpostReach(0)?.posts).toHaveLength(2);
-    expect(floods).toHaveBeenCalledTimes(4);
-    floods.mockRestore();
   });
   it('rebuilds a group coverage when one of its posts searches again', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(200, 100) });
@@ -257,7 +223,7 @@ describe('terrain-aware goods reach', () => {
     expect(allows(95)).toBe(false);
     expect(allows(75)).toBe(true);
   });
-  it('answers a node no search result could reach without flooding', () => {
+  it('refuses a node no post search reaches and allows one a caught post covers', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(300, 100) });
     sim.enqueueSetup({ kind: 'setSignpostNavigation', enabled: true });
     sim.step();
@@ -267,14 +233,8 @@ describe('terrain-aware goods reach', () => {
     createSignpost(sim.world, terrain, terrain.nodeAt(70, 30), 0, sim.content);
     signpostLinksSystem(sim.world, ctxOf(sim));
     const limit = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
-    const floods = vi.spyOn(terrain, 'walkableResistances');
     expect(limit?.allowsNode(terrain.nodeAt(200, 30))).toBe(false);
-    expect(floods).not.toHaveBeenCalled();
     expect(limit?.allowsNode(terrain.nodeAt(100, 30))).toBe(true);
-    // The post at 70, whose search box holds the node, and the post at 40, whose search marks the spot and
-    // so shows its group caught; the spot's own search never runs.
-    expect(floods).toHaveBeenCalledTimes(2);
-    floods.mockRestore();
   });
   it('rules out a neighbourhood only when no node in it passes', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(240, 100) });

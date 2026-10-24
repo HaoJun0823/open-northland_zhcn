@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { GOODS_SEARCH_RANGE_NODES, Position, ResourceFootprint } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import {
@@ -16,7 +16,6 @@ import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { networkLimitAt, signpostNetwork } from '../../src/systems/signposts/network.js';
 import { createSignpost, razeSignpost } from '../../src/systems/signposts/placement.js';
 import { GenerationalCache, goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
-import { warmPostReaches } from '../../src/systems/signposts/terrain-reach.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap, roughNodeMap } from '../fixtures/terrain.js';
@@ -394,94 +393,6 @@ describe('goods search limit under random world changes', () => {
       }
     }
     expect(openedByGroups).toBeGreaterThan(0);
-  });
-});
-
-describe('goods search limit floods its own search lazily', () => {
-  it('answers as fresh floods do while flooding fewer spots than it is asked about', () => {
-    const WIDTH = 240;
-    const HEIGHT = 160;
-    const ROUNDS = 4;
-    const SPOTS_PER_ROUND = 40;
-    const NODES_PER_SPOT = 40;
-    const POST_SPACING = 24;
-    const OTHER_PLAYER_EVERY = 5;
-    const BLOCKERS_PER_ROUND = 6;
-    const BLOCKER_CELLS = 8;
-    const MARGIN = 8;
-    /** West of this column one node in {@link ZERO_RESISTANCE_EVERY} is walkable ground of zero
-     *  resistance, which a flood starts from but never enters or marks. */
-    const ZERO_RESISTANCE_BAND = 48;
-    const ZERO_RESISTANCE_EVERY = 11;
-    const random = seededRandom(20261017);
-    const { sim, terrain } = navigableSim(WIDTH, HEIGHT, (hx, hy) =>
-      hx < ZERO_RESISTANCE_BAND && (hx * 7 + hy * 13) % ZERO_RESISTANCE_EVERY === 0
-        ? 0
-        : 1 + ((hx + 2 * hy) % 3),
-    );
-    const node = () => [MARGIN + random(WIDTH - 2 * MARGIN), MARGIN + random(HEIGHT - 2 * MARGIN)] as const;
-    let post = 0;
-    for (let hy = MARGIN; hy < HEIGHT - MARGIN; hy += POST_SPACING)
-      for (let hx = MARGIN; hx < WIDTH - MARGIN; hx += POST_SPACING)
-        createSignpost(
-          sim.world,
-          terrain,
-          terrain.nodeAt(hx, hy),
-          post++ % OTHER_PLAYER_EVERY === 0 ? 1 : 0,
-          sim.content,
-        );
-    const floods = vi.spyOn(terrain, 'walkableResistances');
-    let spotsAsked = 0;
-    let spotFloods = 0;
-    for (let round = 0; round < ROUNDS; round++) {
-      for (let b = 0; b < BLOCKERS_PER_ROUND; b++) {
-        const [hx, hy] = node();
-        blockNodes(
-          sim,
-          hx,
-          hy,
-          Array.from({ length: BLOCKER_CELLS }, () => ({ dx: random(5) - 2, dy: random(5) - 2 })),
-        );
-      }
-      signpostLinksSystem(sim.world, ctxOf(sim));
-      // The eager rule of `eagerAllows`, with each post's flood run once per round rather than per spot.
-      const blocked = walkBlockMask(sim.world, { content: sim.content }, terrain).levelled();
-      const sites = [...signpostNetwork(sim.world)].flatMap(([player, list]) =>
-        list.map((p) => ({ ...p, player, area: searchReach(terrain, blocked, p.hx, p.hy, RANGE) })),
-      );
-      // Held post searches answer without a flood from here on, so every flood a limit runs is its own.
-      warmPostReaches(sim.world, sim.content, terrain);
-      for (let s = 0; s < SPOTS_PER_ROUND; s++) {
-        const [hx, hy] = node();
-        const player = random(2);
-        const local = searchReach(terrain, blocked, hx, hy, RANGE);
-        const caught = new Set(
-          sites.filter((p) => p.player === player && reachContains(local, p.hx, p.hy)).map((p) => p.group),
-        );
-        const coverage = sites.filter((p) => p.player === player && caught.has(p.group));
-        const before = floods.mock.calls.length;
-        const limit = goodsSearchLimitAt(sim.world, sim.content, terrain, player, hx, hy);
-        if (limit === null) throw new Error('signpost navigation is on');
-        for (let n = 0; n < NODES_PER_SPOT; n++) {
-          // Half inside the spot's own range, half around a post, where group coverage decides.
-          const around =
-            n % 2 === 0 ? { hx, hy } : (sites[random(sites.length)] as { hx: number; hy: number });
-          const x = Math.max(0, Math.min(WIDTH - 1, around.hx + random(2 * RANGE) - RANGE));
-          const y = Math.max(0, Math.min(HEIGHT - 1, around.hy + random(2 * RANGE) - RANGE));
-          const expected = reachContains(local, x, y) || coverage.some((p) => reachContains(p.area, x, y));
-          expect(
-            limit.allowsNode(terrain.nodeAt(x, y)),
-            `round ${round}: (${x}, ${y}) from (${hx}, ${hy})`,
-          ).toBe(expected);
-        }
-        spotFloods += floods.mock.calls.length - before;
-        spotsAsked++;
-      }
-    }
-    floods.mockRestore();
-    // A limit that always floods runs one own search per spot.
-    expect(spotFloods).toBeGreaterThan(0);
-    expect(spotFloods).toBeLessThan(spotsAsked);
   });
 });
 

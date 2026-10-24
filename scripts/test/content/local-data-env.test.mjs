@@ -4,7 +4,7 @@ import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { localDataArchive } from '../content/local-data-env.mjs';
+import { localDataArchive } from '../../content/local-data-env.mjs';
 
 test('uses environment, checkout dotenv, then primary dotenv for a worktree', async (t) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'data-env-')));

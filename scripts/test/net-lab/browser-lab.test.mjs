@@ -20,8 +20,8 @@ import {
   seatContinuity,
   tallyProxyLog,
   windowStats,
-} from '../net-lab/plan.mjs';
-import { createProcessSet } from '../net-lab/processes.mjs';
+} from '../../net-lab/plan.mjs';
+import { createProcessSet } from '../../net-lab/processes.mjs';
 
 const APP = 'http://127.0.0.1:5176';
 const RELAY = 'ws://127.0.0.1:8780';
@@ -332,9 +332,13 @@ test('SIGINT to the lab closes the browser, stops its children, then exits with 
   skip: process.platform === 'win32',
 }, async () => {
   const logDir = mkdtempSync(join(tmpdir(), 'net-browser-lab-'));
-  const lab = spawn(process.execPath, [join(import.meta.dirname, 'support/lab-signal-child.mjs'), logDir], {
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
+  const lab = spawn(
+    process.execPath,
+    [join(import.meta.dirname, '../support/lab-signal-child.mjs'), logDir],
+    {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    },
+  );
   let childPid = null;
   try {
     childPid = await new Promise((done, fail) => {

@@ -21,10 +21,10 @@ import {
   obtainPinnedArchive,
   obtainPinnedDataRoot,
   translationsDigest,
-} from '../content/build-content.mjs';
-import { hash, syntheticPack } from './support/data-pack.mjs';
+} from '../../content/build-content.mjs';
+import { hash, syntheticPack } from '../support/data-pack.mjs';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const pinnedSha256 = JSON.parse(await readFile(join(repoRoot, 'scripts/data-release.json'), 'utf8')).sha256;
 
 test('prints stage logs to stderr before rejecting a non-pinned archive', async (t) => {

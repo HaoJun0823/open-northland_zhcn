@@ -11,7 +11,7 @@ import {
   scenarioSettings,
   summarizeRepeats,
   TOGGLED_SETTINGS,
-} from '../bench/browser/gpu-plan.mjs';
+} from '../../bench/browser/gpu-plan.mjs';
 
 const ORIGIN = 'http://127.0.0.1:5174';
 

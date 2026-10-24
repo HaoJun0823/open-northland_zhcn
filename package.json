@@ -23,7 +23,7 @@
     "test": "npm run test:scripts && npm run typecheck && npm run test:vitest --",
     "test:vitest": "vitest run --project=app --project=core",
     "test:slow": "vitest run --project=app-slow --project=core-slow",
-    "test:scripts": "node --test scripts/test/*.test.mjs",
+    "test:scripts": "node --test \"scripts/test/**/*.test.mjs\"",
     "test:watch": "vitest --project=app --project=core",
     "bench:sim": "node scripts/bench/sim.mjs",
     "bench:map": "node scripts/bench/map.mjs",

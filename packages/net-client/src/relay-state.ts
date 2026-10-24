@@ -11,6 +11,9 @@ import {
 
 export type ClockState = Extract<ServerMessage, { kind: 'clock' }>;
 
+/** The relay's automatic reserve before it has measured the room's links. */
+const INITIAL_RESPONSIVENESS: ResponsivenessState = { mode: 'auto', bufferTicks: 2, by: null };
+
 /** What the relay's messages say about one client's lobby and session. The client and any mirror of it
  *  apply the same messages in the same order and reach the same state. */
 export class RelayState {
@@ -23,7 +26,7 @@ export class RelayState {
   session: GameSession | null = null;
   /** The relay's last word on the clock. */
   clockState: ClockState | null = null;
-  responsiveness: ResponsivenessState = { mode: 'auto', bufferTicks: 2, by: null };
+  responsiveness: ResponsivenessState = { ...INITIAL_RESPONSIVENESS };
   /** The relay's last word on who the room waits for. */
   waitingFor: readonly WaitedMember[] = [];
   delayTicks: number | null = null;
@@ -64,7 +67,7 @@ export class RelayState {
         this.room = null;
         this.session = null;
         this.clockState = null;
-        this.responsiveness = { mode: 'auto', bufferTicks: 2, by: null };
+        this.responsiveness = { ...INITIAL_RESPONSIVENESS };
         this.waitingFor = [];
         this.delayTicks = null;
         this.chat = [];

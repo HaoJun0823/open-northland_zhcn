@@ -22,6 +22,7 @@ export const MAX_OUTSTANDING_CONTROL_PINGS = Math.ceil(MAX_BUFFERED_BYTES / TEXT
 // RFC 6455: an unmasked frame needs at most 10 header bytes; a control frame is at most 127 bytes.
 const MAX_FRAME_HEADER_BYTES = 10;
 const MAX_CONTROL_FRAME_BYTES = 127;
+const MS_PER_SECOND = 1000;
 
 /** Deployment budgets allow snapshot bursts alongside acknowledgements at the maximum game speed. */
 export class SocketBudget {
@@ -31,7 +32,7 @@ export class SocketBudget {
   constructor(private updatedAt: number) {}
 
   take(bytes: number, now: number, messageCost: 0 | 1 = 1): boolean {
-    const seconds = Math.max(0, now - this.updatedAt) / 1000;
+    const seconds = Math.max(0, now - this.updatedAt) / MS_PER_SECOND;
     this.updatedAt = now;
     this.messages = Math.min(MESSAGE_BURST, this.messages + seconds * MESSAGES_PER_SECOND);
     this.bytes = Math.min(BYTE_BURST, this.bytes + seconds * BYTES_PER_SECOND);

@@ -44,6 +44,14 @@ export const SILENT_SOCKET_MS = 30_000;
 const SILENCE_CHECK_MS = 5000;
 /** TCP keepalive so a peer that vanished without a FIN is noticed by the kernel as well. */
 const TCP_KEEPALIVE_MS = 10_000;
+/** HTTP limits for the health check and upgrade requests; a game connection lives on the WebSocket. */
+const HTTP_HEADERS_TIMEOUT_MS = 5000;
+const HTTP_REQUEST_TIMEOUT_MS = 10_000;
+const HTTP_CONNECTION_CHECK_MS = 1000;
+const HTTP_SOCKET_TIMEOUT_MS = 10_000;
+const MAX_REQUESTS_PER_SOCKET = 100;
+/** How long a closing WebSocket waits for the peer's close frame before the socket is destroyed. */
+const WS_CLOSE_TIMEOUT_MS = 1000;
 
 export interface RelayHostOptions {
   /** 0 picks a free port; read it back from the host. */
@@ -127,9 +135,9 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   };
   const server = createServer(
     {
-      headersTimeout: 5000,
-      requestTimeout: 10_000,
-      connectionsCheckingInterval: 1000,
+      headersTimeout: HTTP_HEADERS_TIMEOUT_MS,
+      requestTimeout: HTTP_REQUEST_TIMEOUT_MS,
+      connectionsCheckingInterval: HTTP_CONNECTION_CHECK_MS,
     },
     (request, response) => {
       // A fault in one request costs that request, never the rooms.
@@ -144,14 +152,14 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   );
   // HTTP sockets awaiting upgrade are outside WebSocketServer.clients.
   server.maxConnections = maxConnections + HTTP_CONNECTION_HEADROOM;
-  server.setTimeout(10_000);
-  server.maxRequestsPerSocket = 100;
+  server.setTimeout(HTTP_SOCKET_TIMEOUT_MS);
+  server.maxRequestsPerSocket = MAX_REQUESTS_PER_SOCKET;
   const socketOptions = {
     noServer: true,
     maxPayload: MAX_BLOB_MESSAGE_BYTES,
     perMessageDeflate: false,
     autoPong: false,
-    closeTimeout: 1000,
+    closeTimeout: WS_CLOSE_TIMEOUT_MS,
   };
   const sockets = new WebSocketServer(socketOptions);
   const lastHeardAt = new Map<WebSocket, number>();

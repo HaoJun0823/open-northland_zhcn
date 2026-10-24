@@ -17,6 +17,11 @@ const LOWER_AFTER_MS = 10_000;
  *  a second, so one late pong, whose share of the smoothed jitter fades over a few samples, lifts the
  *  reserve by a tick or so instead of to the cap. */
 const RAISE_AFTER_MS = 1000;
+/** The RTT margin is this share of the round trip, capped. */
+const RTT_MARGIN_SHARE = 0.1;
+const RTT_MARGIN_CAP_MS = 25;
+/** Measured jitter is reserved this many times over. */
+const JITTER_RESERVE_FACTOR = 2;
 
 type MeasuredMember = Pick<
   Member,
@@ -30,10 +35,12 @@ export function automaticBufferTicks(members: Iterable<MeasuredMember>, speed: n
   for (const member of members) {
     if (member.seat === null || !isSynced(member)) continue;
     if (!member.linkMeasured) {
-      target = Math.max(target, 2);
+      target = Math.max(target, AUTO_INITIAL_BUFFER_TICKS);
       continue;
     }
-    const reserveMs = Math.min(25, member.roundTripMs * 0.1) + member.jitterMs * 2;
+    const reserveMs =
+      Math.min(RTT_MARGIN_CAP_MS, member.roundTripMs * RTT_MARGIN_SHARE) +
+      member.jitterMs * JITTER_RESERVE_FACTOR;
     target = Math.max(target, Math.ceil((reserveMs * speed) / TICK_MS));
   }
   return Math.min(MAX_RESPONSIVENESS_BUFFER_TICKS, target);

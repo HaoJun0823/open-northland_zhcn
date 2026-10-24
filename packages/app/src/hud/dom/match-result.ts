@@ -1,6 +1,5 @@
 import type { MatchOutcome, MatchRank, SimEvent } from '@open-northland/sim';
 import { formatMessage, messages } from '../../i18n/index.js';
-import { matchResultActions, matchResultState } from '../../view/match-result-state.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
 import { createSystemConfirm, type SystemConfirmCopy } from './system/confirm.js';
@@ -52,6 +51,27 @@ export function keepsPlayingAfterResult(
   if (sharedClock) return true;
   if (outcome === 'victory') return !scriptEndsVictory;
   return outcome === 'defeat';
+}
+
+function matchResultState() {
+  let shown = false;
+  let finished = false;
+  return {
+    announce(outcome: MatchOutcome): boolean {
+      if (shown || finished || outcome === 'undecided') return false;
+      shown = true;
+      return true;
+    },
+    finish(): boolean {
+      if (finished) return false;
+      finished = true;
+      return true;
+    },
+  };
+}
+
+function matchResultActions(shared: boolean, terminal: boolean) {
+  return { pause: !shared, confirmQuit: !terminal };
 }
 
 /** The result is permanent; dismissing its window returns to local play or a shared spectator view. */

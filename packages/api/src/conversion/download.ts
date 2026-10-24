@@ -1,4 +1,5 @@
 import { MapImportError } from '@open-northland/map-import';
+import { errorMessage } from '../log.js';
 import { ResponseTooLargeError, readCappedBody } from '../upstream/body.js';
 import type { Fetch } from '../upstream/strapi.js';
 
@@ -55,6 +56,6 @@ export async function downloadArchive(
     if (error instanceof ResponseTooLargeError)
       throw new MapImportError('too-large', `${url}: more than ${limits.maxBytes} bytes`);
     if (error instanceof MapImportError || error instanceof DownloadError) throw error;
-    throw new DownloadError(`${url}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new DownloadError(`${url}: ${errorMessage(error)}`);
   }
 }

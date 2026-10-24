@@ -5,6 +5,7 @@ import { type CatalogSnapshot, catalogSnapshot, sha256Hex } from '../catalog/sna
 import type { SyncedCatalog } from '../catalog/sync.js';
 import type { Log } from '../catalog/thumbnails.js';
 import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../http/sources.js';
+import { errorMessage } from '../log.js';
 import { isMissing } from '../store.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
@@ -72,10 +73,6 @@ type Attempt =
       readonly files: ReadonlyMap<string, Uint8Array>;
     }
   | { readonly kind: 'download-failed'; readonly message: string };
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Downloads and converts the catalogue's files in a queue, keeps the verdicts and serves the sidecars
@@ -303,7 +300,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
         this.downloadFailures.delete(id);
         this.index(id, stored);
         await this.options.store.pruneGenerations(id, stored.generation).catch((error: unknown) => {
-          this.log('old conversion cleanup failed', { id, error: messageOf(error) });
+          this.log('old conversion cleanup failed', { id, error: errorMessage(error) });
         });
         const { conversion } = stored;
         this.log('conversion done', {
@@ -316,7 +313,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
           ms: Math.round(performance.now() - startedAt),
         });
       } catch (error) {
-        this.log('conversion not stored', { id, error: messageOf(error) });
+        this.log('conversion not stored', { id, error: errorMessage(error) });
       }
     }
     return entry.updatedAt;
@@ -350,7 +347,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
       return {
         kind: 'converted',
         verdict: {
-          conversion: { verdict: 'failed', reason, message: messageOf(error) },
+          conversion: { verdict: 'failed', reason, message: errorMessage(error) },
           archiveSha256,
           updatedAt,
           overlays: {},
@@ -412,7 +409,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
       }
       if (removed.length > 0) this.log('conversions pruned', { ids: removed });
     } catch (error) {
-      this.log('prune failed', { error: messageOf(error) });
+      this.log('prune failed', { error: errorMessage(error) });
     }
   }
 }

@@ -7,17 +7,9 @@ import { apiConfigFromEnvironment } from './config.js';
 import { ConversionService } from './conversion/service.js';
 import { ConversionStore } from './conversion/store.js';
 import { WorkerArchiveConverter } from './conversion/worker-converter.js';
+import { errorMessage, logLine } from './log.js';
 import { type ApiServer, startApiServer } from './server.js';
 import { DataStore } from './store.js';
-
-/** One JSON line per event, for a log collector to read as a record. */
-function logLine(event: string, fields?: Record<string, unknown>): void {
-  console.log(JSON.stringify({ time: new Date().toISOString(), event, ...fields }));
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 let stopAll: () => Promise<void>;
 try {
@@ -49,7 +41,7 @@ try {
       );
       conversions.setCatalog({ catalog, downloads: downloadsOf(records), syncedAt: stored.writtenAt });
     } catch (error) {
-      logLine('stored catalogue refused', { error: messageOf(error) });
+      logLine('stored catalogue refused', { error: errorMessage(error) });
     }
   }
   const sync = new CatalogSync(
@@ -71,7 +63,7 @@ try {
     await Promise.all([running.close(), sync.stop(), conversions.stop()]);
   };
 } catch (error) {
-  logLine('start failed', { error: messageOf(error) });
+  logLine('start failed', { error: errorMessage(error) });
   process.exit(1);
 }
 
@@ -80,7 +72,7 @@ const stop = (signal: string): void => {
   stopAll().then(
     () => process.exit(0),
     (error: unknown) => {
-      logLine('stop failed', { error: messageOf(error) });
+      logLine('stop failed', { error: errorMessage(error) });
       process.exit(1);
     },
   );

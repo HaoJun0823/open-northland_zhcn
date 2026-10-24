@@ -1,5 +1,6 @@
 import { Worker } from 'node:worker_threads';
 import { MapImportError } from '@open-northland/map-import';
+import { errorMessage } from '../log.js';
 import type { ArchiveConversion } from './convert.js';
 import type { CatalogMapOverlays } from './overlays.js';
 import type { ConversionJob, ConversionReply } from './worker-protocol.js';
@@ -86,10 +87,7 @@ export class WorkerArchiveConverter implements ArchiveConverter {
         else if (reply.kind === 'result') finish(reply.conversion);
       });
       worker.once('error', (error) =>
-        finish(
-          null,
-          new ConversionWorkerError('crashed', error instanceof Error ? error.message : String(error)),
-        ),
+        finish(null, new ConversionWorkerError('crashed', errorMessage(error))),
       );
       worker.once('exit', (code) =>
         finish(

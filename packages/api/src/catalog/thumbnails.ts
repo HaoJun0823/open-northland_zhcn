@@ -1,4 +1,5 @@
 import type { CatalogEntry } from '@open-northland/data';
+import { errorMessage } from '../log.js';
 import type { DataStore } from '../store.js';
 import { readCappedBody } from '../upstream/body.js';
 import { type Fetch, UPSTREAM_TIMEOUT_MS } from '../upstream/strapi.js';
@@ -67,7 +68,7 @@ async function syncThumbnail(
     return (await store.writeThumbnail(id, bytes, { contentType, updatedAt })).sha256;
   } catch (error) {
     signal?.throwIfAborted();
-    log('thumbnail failed', { id, error: error instanceof Error ? error.message : String(error) });
+    log('thumbnail failed', { id, error: errorMessage(error) });
     return meta?.sha256 ?? null;
   }
 }

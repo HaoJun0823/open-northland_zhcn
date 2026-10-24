@@ -1,5 +1,6 @@
 import { isMarkedAsUntransferable, parentPort, workerData } from 'node:worker_threads';
 import { MapImportError } from '@open-northland/map-import';
+import { errorMessage } from '../log.js';
 import { convertArchive, loadUnrarWasm } from './convert.js';
 import type { ConversionJob, ConversionReply } from './worker-protocol.js';
 
@@ -32,7 +33,7 @@ try {
   port.postMessage({
     kind: 'failure',
     reason: error instanceof MapImportError ? error.kind : 'decode-failed',
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage(error),
   } satisfies ConversionReply);
 } finally {
   port.close();

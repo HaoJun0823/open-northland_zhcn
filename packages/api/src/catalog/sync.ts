@@ -1,4 +1,5 @@
 import type { Catalog } from '@open-northland/data';
+import { errorMessage } from '../log.js';
 import type { DataStore } from '../store.js';
 import { type Fetch, fetchCatalogPages } from '../upstream/strapi.js';
 import { type NormalizedRecord, normalizeRecords } from './normalize.js';
@@ -99,8 +100,7 @@ export class CatalogSync {
         ms: Math.round(performance.now() - startedAt),
       });
     } catch (error) {
-      if (!this.stopped)
-        this.options.log('sync failed', { error: error instanceof Error ? error.message : String(error) });
+      if (!this.stopped) this.options.log('sync failed', { error: errorMessage(error) });
     }
     if (!this.stopped) {
       this.timer = setTimeout(() => {

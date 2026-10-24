@@ -1,12 +1,9 @@
 import { resolve } from 'node:path';
+import { errorMessage, logLine } from '../log.js';
 import { startUpstreamMock } from './server.js';
 
 const DEFAULT_PORT = 8791;
 const HOST = '127.0.0.1';
-
-function logLine(event: string, fields?: Record<string, unknown>): void {
-  console.log(JSON.stringify({ time: new Date().toISOString(), event, ...fields }));
-}
 
 const cacheDir = process.env.ON_UPSTREAM_CACHE_DIR?.trim() || '.api-upstream-cache';
 const port = process.env.PORT?.trim() ? Number(process.env.PORT) : DEFAULT_PORT;
@@ -25,6 +22,6 @@ try {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 } catch (error) {
-  logLine('start failed', { error: error instanceof Error ? error.message : String(error) });
+  logLine('start failed', { error: errorMessage(error) });
   process.exit(1);
 }

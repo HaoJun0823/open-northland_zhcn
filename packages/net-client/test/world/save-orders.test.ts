@@ -1,9 +1,9 @@
 import type { ClientMessage } from '@open-northland/net-protocol';
 import { exportSaveGame, restoreSimulation, Simulation } from '@open-northland/sim';
 import { afterEach, expect, it, vi } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
-import { RelayRefusal } from '../src/relay-refusal.js';
-import { SaveOrders } from '../src/save-orders.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
+import { RelayRefusal } from '../../src/relay-refusal.js';
+import { SaveOrders } from '../../src/world/save-orders.js';
 
 const order = {
   v: 2,

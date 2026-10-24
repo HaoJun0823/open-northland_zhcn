@@ -1,7 +1,7 @@
 import { prepareInitialSave, verifyInitialSave } from '@open-northland/net-client';
 import { exportSaveGame, Simulation } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
 
 describe('initial save identity', () => {
   it('verifies the exact transferable save without secure-context crypto', async () => {

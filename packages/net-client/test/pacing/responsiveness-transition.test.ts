@@ -3,8 +3,8 @@ import { RelayClient } from '@open-northland/net-client';
 import { type ClientMessage, type ResponsivenessMode, TICK_MS } from '@open-northland/net-protocol';
 import { playerCommand, Simulation } from '@open-northland/sim';
 import { expect, it, vi } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
-import * as pacer from '../src/pacer.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
+import * as pacer from '../../src/pacing/pacer.js';
 
 const STEP_MS = 5;
 const SESSION: GameSession = {

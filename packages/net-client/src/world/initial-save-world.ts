@@ -1,6 +1,6 @@
 import { applyInitialSaveSeats, type GameSession } from '@open-northland/lockstep';
+import type { OpenedWorld, WorldPort } from '../relay-client.js';
 import { verifyInitialSave } from './initial-save.js';
-import type { OpenedWorld, WorldPort } from './relay-client.js';
 
 /** Whether a world at `tick` is the saved start; a null tick is a start whose snapshot the relay
  *  still has to serve, which stands there too. */

@@ -33,6 +33,14 @@ requests. The root [`AGENTS.md`](../../AGENTS.md) applies in full; the wire cont
 - The snapshot encoding is this package's contract with every other client: gzip of the canonical
   save JSON, base64 on the wire, the session's map named in the header.
 
+## Layout
+
+- `src/` root: `RelayClient`, its view, state, refusals, socket, lobby and identity.
+- `src/pacing/`: jitter-buffer pacer, tick cost, command latency and outbox.
+- `src/world/`: world adoption, initial saves, snapshot codec, save orders.
+- `src/sync/`: digest trail, dispute capture, match completion.
+- `test/` mirrors `src/`.
+
 ## Verification
 
 Unit tests cover the pieces with a clock or a socket behind them. The state machine is proven end

@@ -1,8 +1,8 @@
 import type { WireDigest } from '@open-northland/net-protocol';
 import { SYNC_DOMAINS } from '@open-northland/sim';
 import { expect, it } from 'vitest';
-import { DigestTrail } from '../src/digest-trail.js';
-import { DISPUTE_WINDOW_TICKS } from '../src/dispute-capture.js';
+import { DigestTrail } from '../../src/sync/digest-trail.js';
+import { DISPUTE_WINDOW_TICKS } from '../../src/sync/dispute-capture.js';
 
 it('keeps the digest of every tick a dispute verdict can still name', () => {
   const trail = new DigestTrail();

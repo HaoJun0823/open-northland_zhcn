@@ -1,10 +1,7 @@
-export type { DigestTrail, TickDigest } from './digest-trail.js';
-export { DISPUTE_WINDOW_TICKS, type DisputeRecord } from './dispute-capture.js';
 export { newToken } from './identity.js';
-export { type PreparedInitialSave, prepareInitialSave, verifyInitialSave } from './initial-save.js';
-export { CommandLatency } from './latency.js';
 export type { RelayLobby } from './lobby.js';
-export { JITTER_BUFFER_TICKS, paceScale } from './pacer.js';
+export { CommandLatency } from './pacing/latency.js';
+export { JITTER_BUFFER_TICKS, paceScale } from './pacing/pacer.js';
 export {
   type AdoptedWorld,
   type OpenedWorld,
@@ -24,6 +21,9 @@ export {
   TRANSFER_REPLACE_MS,
 } from './relay-socket.js';
 export { type ClockState, RelayState } from './relay-state.js';
+export type { DigestTrail, TickDigest } from './sync/digest-trail.js';
+export { DISPUTE_WINDOW_TICKS, type DisputeRecord } from './sync/dispute-capture.js';
+export { type PreparedInitialSave, prepareInitialSave, verifyInitialSave } from './world/initial-save.js';
 export {
   base64ToBytes,
   bytesToBase64,
@@ -31,4 +31,4 @@ export {
   encodeSnapshot,
   gzipText,
   inflateText,
-} from './snapshot-codec.js';
+} from './world/snapshot-codec.js';

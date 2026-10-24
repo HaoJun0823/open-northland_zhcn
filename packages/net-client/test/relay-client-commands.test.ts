@@ -9,7 +9,7 @@ import {
 import { type CommandEnvelope, playerCommand, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import { MAX_QUEUED_COMMANDS } from '../src/command-outbox.js';
+import { MAX_QUEUED_COMMANDS } from '../src/pacing/command-outbox.js';
 
 const SESSION: GameSession = {
   world: { kind: 'scene', sceneId: 'fixture' },

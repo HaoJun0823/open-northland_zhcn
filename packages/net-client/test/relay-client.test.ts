@@ -19,7 +19,7 @@ import {
 import { digestInputsToJson, exportSaveGame, Simulation } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
-import * as snapshotCodec from '../src/snapshot-codec.js';
+import * as snapshotCodec from '../src/world/snapshot-codec.js';
 
 const SESSION: GameSession = {
   world: { kind: 'scene', sceneId: 'fixture' },

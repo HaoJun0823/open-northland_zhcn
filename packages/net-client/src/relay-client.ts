@@ -25,21 +25,25 @@ import {
   type SaveGame,
   type Simulation,
 } from '@open-northland/sim';
-import { CommandOutbox } from './command-outbox.js';
-import { DigestTrail } from './digest-trail.js';
-import { DisputeCapture, type DisputeRecord } from './dispute-capture.js';
-import { applyInitialSeatControl, openSessionWorld, restoreSessionWorld } from './initial-save-world.js';
-import { CommandLatency } from './latency.js';
 import { RelayLobby } from './lobby.js';
-import { MatchCompletion } from './match-completion.js';
-import { paceScale } from './pacer.js';
+import { CommandOutbox } from './pacing/command-outbox.js';
+import { CommandLatency } from './pacing/latency.js';
+import { paceScale } from './pacing/pacer.js';
+import { TickCost } from './pacing/tick-cost.js';
 import type { RelayClientView } from './relay-client-view.js';
 import { RelayRefusal } from './relay-refusal.js';
 import type { ClockState } from './relay-state.js';
-import { SaveOrders } from './save-orders.js';
-import { encodeSnapshot } from './snapshot-codec.js';
-import { TickCost } from './tick-cost.js';
-import { WorldLoader } from './world-loader.js';
+import { DigestTrail } from './sync/digest-trail.js';
+import { DisputeCapture, type DisputeRecord } from './sync/dispute-capture.js';
+import { MatchCompletion } from './sync/match-completion.js';
+import {
+  applyInitialSeatControl,
+  openSessionWorld,
+  restoreSessionWorld,
+} from './world/initial-save-world.js';
+import { WorldLoader } from './world/loader.js';
+import { SaveOrders } from './world/save-orders.js';
+import { encodeSnapshot } from './world/snapshot-codec.js';
 
 /** The pacer alone refills and drains the jitter buffer, so a wait for a frame leaves no owed time
  *  beyond the tick it waited for: debt would run each late frame the moment it lands, and run a burst

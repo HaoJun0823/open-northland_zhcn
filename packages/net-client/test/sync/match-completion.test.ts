@@ -3,7 +3,7 @@ import { RelayClient } from '@open-northland/net-client';
 import { type ClientMessage, DESCRIPTOR_WORLD } from '@open-northland/net-protocol';
 import { components, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
 
 const session: GameSession = {
   world: { kind: 'scene', sceneId: 'fixture' },

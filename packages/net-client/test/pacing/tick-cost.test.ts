@@ -1,6 +1,6 @@
 import { MAX_REPORTED_TICK_MS, TICKS_PER_SECOND } from '@open-northland/net-protocol';
 import { describe, expect, it } from 'vitest';
-import { TickCost } from '../src/tick-cost.js';
+import { TickCost } from '../../src/pacing/tick-cost.js';
 
 describe('TickCost', () => {
   it('reports the first tick as measured and smooths the ones after', () => {

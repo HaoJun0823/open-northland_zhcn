@@ -10,7 +10,7 @@ import {
 } from '@open-northland/net-protocol';
 import { MAX_UNIT_ORDER_MEMBERS, parseCommandEnvelope, playerCommand, Simulation } from '@open-northland/sim';
 import { expect, it } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
 
 const SESSION: GameSession = {
   world: { kind: 'scene', sceneId: 'fixture' },

@@ -1,4 +1,4 @@
-import type { OpenedWorld } from './relay-client.js';
+import type { OpenedWorld } from '../relay-client.js';
 
 /** Only the latest world operation may publish a result or a failure. */
 export class WorldLoader {

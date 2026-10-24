@@ -5,7 +5,7 @@ import {
   DISPUTE_WINDOW_TICKS,
   DisputeCapture,
   retainedBytes,
-} from '../src/dispute-capture.js';
+} from '../../src/sync/dispute-capture.js';
 
 const WORD_BYTES = Uint32Array.BYTES_PER_ELEMENT;
 /** Ticks whose words alone fill a quarter of the cap each, so the cap holds three of them. */

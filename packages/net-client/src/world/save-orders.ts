@@ -1,6 +1,6 @@
 import type { ClientMessage, RelayReason, ServerMessage } from '@open-northland/net-protocol';
 import { parseCommandEnvelope, type SaveGame, withSaveContinuation } from '@open-northland/sim';
-import { RelayRefusal } from './relay-refusal.js';
+import { RelayRefusal } from '../relay-refusal.js';
 
 const SAVE_ORDERS_TIMEOUT_MS = 10_000;
 type Orders = Extract<ServerMessage, { kind: 'saveOrders' }>;

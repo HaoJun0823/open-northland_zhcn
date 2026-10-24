@@ -3,7 +3,7 @@ import { base64ToBytes, bytesToBase64, decodeSnapshot, encodeSnapshot } from '@o
 import { MAX_BLOB_BYTES } from '@open-northland/net-protocol';
 import { exportSaveGame, Simulation, serializeSaveGame } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { testContent } from '../../sim/test/fixtures/content.js';
+import { testContent } from '../../../sim/test/fixtures/content.js';
 
 const WARM_UP_TICKS = 30;
 

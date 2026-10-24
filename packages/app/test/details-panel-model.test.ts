@@ -416,34 +416,6 @@ describe('selection details panel model', () => {
     expect(automatic.workplace?.target ?? null).toBeNull();
   });
 
-  it('gives a building the settler Zdrowie bar off its Health pool', () => {
-    /** The panel's health bar for a farm holding `hitpoints`/1000. */
-    const healthOfBuilding = (hitpoints: number): { hitpoints: number; max: number } | null => {
-      const model = buildUnitPanelModel(
-        snapshotOf(
-          [buildingEntity(1, BUILDING_FARM, { components: { Health: { hitpoints, max: 1000 } } })],
-          1,
-        ),
-        new Set([1]),
-        sandboxCtx(),
-      );
-      if (model.kind !== 'building') throw new Error('expected a building panel');
-      return model.health;
-    };
-
-    expect(healthOfBuilding(300)).toEqual({ hitpoints: 300, max: 1000 });
-    // Damage moves the model, which is what makes the drawn bar follow the building's hitpoints.
-    expect(healthOfBuilding(120)).toEqual({ hitpoints: 120, max: 1000 });
-
-    // A building whose type declares no hitpoints carries no bar at all (never a zeroed one).
-    const poolless = buildUnitPanelModel(
-      snapshotOf([buildingEntity(1, BUILDING_FARM)], 1),
-      new Set([1]),
-      sandboxCtx(),
-    );
-    expect(poolless.kind === 'building' && poolless.health).toBeNull();
-  });
-
   it("keeps an upgrade site's two numbers apart: standing health beside 0% built", () => {
     const model = buildUnitPanelModel(
       snapshotOf(

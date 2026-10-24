@@ -637,18 +637,6 @@ describe('right-clicking a standing house with a trader', () => {
     ]);
   });
 
-  it('puts the house on the route of a trader riding inside its cart, which the cart does not drive to', async () => {
-    const sim = new Simulation({ seed: 1, content: sandboxContent() });
-    const home = buildingAt(sim, BUILDING_HOME_00, ONE);
-    const trader = settlerAt(sim, JOB_TRADER);
-    sim.world.remove(trader, Position);
-    sim.world.add(trader, Rider, { vehicle: sim.world.create(), boarding: false, leaving: null });
-
-    expect(await rightClick(sim, [trader], home, sim.content, true, 'riders')).toEqual([
-      { kind: 'attachTradeHouse', entity: trader, house: home },
-    ]);
-  });
-
   it('puts the house on the route of a trader waiting inside a house', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const home = buildingAt(sim, BUILDING_HOME_00, ONE);

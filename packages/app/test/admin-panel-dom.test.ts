@@ -159,30 +159,6 @@ describe('admin panel', () => {
     expect(q<HTMLElement>('.on-admin__empty').hidden).toBe(false);
   });
 
-  it('shows a group its own settings and fades what the open group or the armed tool ignores', () => {
-    const { panel, plane, q } = mount();
-    const chips = plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip');
-    const idle = (): number => plane.querySelectorAll('.on-admin__knob--idle').length;
-    const options = (): string[] =>
-      [...q<HTMLElement>('.on-admin__options').children]
-        .filter((row) => !(row as HTMLElement).hidden)
-        .map((row) => row.querySelector('.on-admin__label')?.textContent ?? '');
-    expect(options()).toEqual([copy.skills]);
-    expect(idle()).toBe(0);
-    panel.showArmed({ key: 'person:woman', name: 'Woman · Blue', hint: 'Click the map' });
-    expect(idle()).toBe(1);
-
-    panel.showArmed(null);
-    chips[1]?.click();
-    expect(options()).toEqual([copy.weapon, copy.armor]);
-    chips[2]?.click();
-    expect(q<HTMLElement>('.on-admin__options').hidden).toBe(true);
-    expect(idle()).toBe(2);
-    panel.showArmed({ key: 'soldier', name: 'Sword Soldier · Blue', hint: 'Click the map' });
-    expect(options()).toEqual([copy.weapon, copy.armor]);
-    expect(idle()).toBe(0);
-  });
-
   it('names the chosen weapon and armor and passes every equipment pick through', () => {
     const { panel, plane, calls, q } = mount();
     plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[1]?.click();

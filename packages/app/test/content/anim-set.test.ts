@@ -5,8 +5,7 @@ import { hasRealIr, rawIrUnderTest } from './helpers.js';
 /**
  * The animation gallery's real-data half: the catalog of animations the gallery plays is the
  * extracted ir.json `bobSequences` for the viking civilian body - pinned here so a pipeline change
- * that drops the body's animations is caught, not discovered by a blank gallery. The gallery's pure
- * cell-builder tests live with the fixture suite (`test/anim-gallery.test.ts`).
+ * that drops the body's animations is caught, not discovered by a blank gallery.
  */
 
 interface IrSeq {

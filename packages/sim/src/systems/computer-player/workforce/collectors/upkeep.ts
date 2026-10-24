@@ -1,7 +1,7 @@
 import { CurrentAtomic } from '../../../../components/index.js';
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../../../nav/halfcell.js';
 import { decisionIndex, WORKFORCE_EVERY_DECISIONS } from '../../../ai-shared/cadence.js';
 import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
 import { FOLLOW_FLAG_BAND, forgetReplantMisses, replantMissesAt } from '../../../assistant/flag-follow.js';
@@ -13,7 +13,7 @@ import {
   nearestLiveResource,
   type WorkableTest,
 } from '../../live-resources.js';
-import { claimFlagNode, nodeDistance, replantSpot, type TakenFlagNodes } from '../flag-spots.js';
+import { claimFlagNode, replantSpot, type TakenFlagNodes } from '../flag-spots.js';
 import type { CollectorGround } from './allocate.js';
 import type { WantedGood } from './wanted-goods.js';
 
@@ -81,12 +81,12 @@ export function upkeepHolders(
       driftTargets.set(key, currentNode);
     }
     // Within the band the flag follow keeps, the flag already serves: re-aiming it would only move it twice.
-    if (currentNode === null || nodeDistance(flagNode, currentNode) <= FOLLOW_FLAG_BAND.max) continue;
+    if (currentNode === null || nodeManhattan(flagNode, currentNode) <= FOLLOW_FLAG_BAND.max) continue;
     const replant = replantSpot(world, ground.flags, holder, flag.radius, nearest, anchor, reach, taken);
     if (replant === 'dry' || replant === null) continue;
     const { target, spot } = replant;
     if (spot.hx === flagNode.hx && spot.hy === flagNode.hy) continue;
-    if (nodeDistance(spot, target) >= nodeDistance(flagNode, target)) continue; // no nearer spot
+    if (nodeManhattan(spot, target) >= nodeManhattan(flagNode, target)) continue; // no nearer spot
     commands.push({ kind: 'setWorkFlag', entity: holder, x: spot.hx, y: spot.hy });
     claimFlagNode(taken, spot);
   }

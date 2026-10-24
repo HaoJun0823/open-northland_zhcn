@@ -1,7 +1,7 @@
 import { JobAssignment, Settler } from '../../../../components/index.js';
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../../../nav/halfcell.js';
 import { goodTypeByContentId } from '../../../ai-shared/content-lookup.js';
 import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
 import { ownedSettlers } from '../../../ai-shared/seat-roster.js';
@@ -17,7 +17,6 @@ import {
   FLAG_MAX_DISTANCE_NODES,
   type FlagGround,
   flagSpotNear,
-  nodeDistance,
   replantSpot,
   type TakenFlagNodes,
 } from '../flag-spots.js';
@@ -313,13 +312,13 @@ export function allocateGenericCollectors(
     if (!flagRelocateDue(ctx, g)) continue;
     // The flag follow aims at whatever stands nearest, so posts may bunch up on one grove: a crowded post
     // re-aims at a clearing resource of its own, as a far one does at the nearer one.
-    const crowded = others.some((f) => nodeDistance(f, flagNode) < CLEARING_SPREAD_NODES);
+    const crowded = others.some((f) => nodeManhattan(f, flagNode) < CLEARING_SPREAD_NODES);
     if (!crowded && !farFromNearest(world, baseNode, flagNode, nearest(everyResource))) continue;
     const replant = replantSpot(world, ground.flags, g, flag.radius, nearest, baseNode, reach, taken);
     if (replant === 'dry' || replant === null) continue;
     const { target: resource, spot } = replant;
     if (spot.hx === flagNode.hx && spot.hy === flagNode.hy) continue;
-    if (nodeDistance(spot, resource) >= nodeDistance(flagNode, resource)) continue; // no nearer spot
+    if (nodeManhattan(spot, resource) >= nodeManhattan(flagNode, resource)) continue; // no nearer spot
     commands.push({ kind: 'setWorkFlag', entity: g, x: spot.hx, y: spot.hy });
     claimFlagNode(taken, spot);
     flags.set(g, spot);
@@ -356,7 +355,7 @@ function farFromNearest(
 ): boolean {
   const node = nearest === null ? null : anchorNodeOf(world, nearest);
   if (node === null) return false;
-  return nodeDistance(baseNode, flagNode) - nodeDistance(baseNode, node) > FLAG_MAX_DISTANCE_NODES;
+  return nodeManhattan(baseNode, flagNode) - nodeManhattan(baseNode, node) > FLAG_MAX_DISTANCE_NODES;
 }
 
 /** The goods whose standing resource takes ground a building could use, by stable content id, the one
@@ -393,7 +392,7 @@ function clearingResource(
     if (resource === null) continue;
     const node = anchorNodeOf(world, resource);
     if (node === null) continue;
-    const dist = nodeDistance(node, baseNode);
+    const dist = nodeManhattan(node, baseNode);
     if (best === null || dist + WOOD_OVER_STONE_NODES < best.dist) best = { resource, dist };
   }
   return best?.resource ?? null;
@@ -403,6 +402,6 @@ function clearingResource(
 function clearOfFlags(world: World, resource: Entity, flags: Iterable<HalfCellNode>): boolean {
   const node = anchorNodeOf(world, resource);
   if (node === null) return false;
-  for (const f of flags) if (nodeDistance(node, f) < CLEARING_SPREAD_NODES) return false;
+  for (const f of flags) if (nodeManhattan(node, f) < CLEARING_SPREAD_NODES) return false;
   return true;
 }

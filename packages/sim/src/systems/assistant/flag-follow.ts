@@ -16,7 +16,13 @@ import {
 } from '../../components/index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition, positionOfNode } from '../../nav/halfcell.js';
+import {
+  type HalfCellNode,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
+  nodeManhattan,
+  positionOfNode,
+} from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import { anchorNodeOf } from '../ai-shared/node-geometry.js';
 import { ownedBuildings } from '../ai-shared/seat-roster.js';
@@ -32,7 +38,6 @@ import {
   claimFlagNode,
   type FlagBand,
   flagGround,
-  nodeDistance,
   replantSpot,
   type TakenFlagNodes,
 } from '../computer-player/workforce/flag-spots.js';
@@ -255,7 +260,7 @@ function inBand(
   const res = world.get(r, Resource);
   if (res.remaining <= 0 || !goods.includes(res.goodType)) return false;
   const at = anchorNodeOf(world, r);
-  return at !== null && nodeDistance(at, flagNode) <= FOLLOW_FLAG_BAND.max && workable(r);
+  return at !== null && nodeManhattan(at, flagNode) <= FOLLOW_FLAG_BAND.max && workable(r);
 }
 
 /** The anchor of the owner's building nearest `flagNode`, HQ, store or any other, which the new flag faces
@@ -268,7 +273,7 @@ function settlementSide(world: World, e: Entity, flagNode: HalfCellNode): HalfCe
   for (const b of ownedBuildings(world, owner)) {
     const at = anchorNodeOf(world, b);
     if (at === null) continue;
-    const distance = nodeDistance(at, flagNode);
+    const distance = nodeManhattan(at, flagNode);
     if (distance < bestDistance) {
       best = at;
       bestDistance = distance;

@@ -67,11 +67,6 @@ function flagNodeKey(hx: number, hy: number): string {
   return `${hx},${hy}`;
 }
 
-/** Manhattan distance between two half-cell nodes, the metric of the flag band. */
-export function nodeDistance(a: HalfCellNode, b: HalfCellNode): number {
-  return nodeDistanceFrom(a.hx, a.hy, b);
-}
-
 function nodeDistanceFrom(hx: number, hy: number, to: HalfCellNode): number {
   return Math.abs(hx - to.hx) + Math.abs(hy - to.hy);
 }

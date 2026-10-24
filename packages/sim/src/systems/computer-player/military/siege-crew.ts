@@ -2,7 +2,7 @@ import { Equipment, Vehicle, VehicleDrive, vehicleCommander } from '../../../com
 import type { PlayerCommand } from '../../../core/commands/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { type HalfCellNode, hexDistance, hexDistanceBetween } from '../../../nav/halfcell.js';
+import { type HalfCellNode, hexDistance, hexDistanceBetween, nodeManhattan } from '../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
 import { seatCatapults } from '../../ai-shared/military/catapults.js';
 import { fighterWeaponClass } from '../../ai-shared/military/census.js';
@@ -18,6 +18,7 @@ import { interactionCell } from '../../settlers/targets/index.js';
 import { canAttachToVehicle } from '../../vehicles/crew.js';
 import { VEHICLE_TARGET_SNAP_RADIUS, vehicleRestBlocks } from '../../vehicles/movement.js';
 import { seatBarracksOf } from '../base.js';
+import { continentOf } from './march/geometry.js';
 
 // The seat's catapults: a soldier drives each one, and one idle at home parks on the attack stance by the
 // barracks or a tower, where its own scan (`conflict/engage-vehicle.ts`) answers what comes near; a raid
@@ -177,15 +178,11 @@ function parkAnchors(
   return doors;
 }
 
-function manhattanOf(a: HalfCellNode, b: HalfCellNode): number {
-  return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
-}
-
 /** Whether `node` lies in the park band of some door and off the approach of every door. */
 function inParkBand(node: HalfCellNode, doors: readonly HalfCellNode[]): boolean {
   let near = false;
   for (const door of doors) {
-    const distance = manhattanOf(node, door);
+    const distance = nodeManhattan(node, door);
     if (distance < PARK_RING_MIN_NODES) return false;
     if (distance <= PARK_RING_MAX_NODES) near = true;
   }
@@ -193,7 +190,7 @@ function inParkBand(node: HalfCellNode, doors: readonly HalfCellNode[]): boolean
 }
 
 function spacedFrom(node: HalfCellNode, taken: readonly HalfCellNode[]): boolean {
-  return taken.every((other) => manhattanOf(node, other) >= PARK_SPACING_NODES);
+  return taken.every((other) => nodeManhattan(node, other) >= PARK_SPACING_NODES);
 }
 
 /**
@@ -221,10 +218,6 @@ function raidOrders(
     commands.push({ kind: 'moveVehicle', vehicle, x: hop.hx, y: hop.hy, attackMove: true });
   }
   return commands;
-}
-
-function continentOf(terrain: TerrainGraph, at: HalfCellNode): number {
-  return terrain.componentOf(terrain.nodeAtClamped(at.hx, at.hy));
 }
 
 /**
@@ -315,7 +308,7 @@ function parkGoal(
     return inParkBand(spot, doors) && spacedFrom(spot, taken);
   };
   const load = (door: HalfCellNode): number =>
-    taken.filter((spot) => manhattanOf(spot, door) <= PARK_RING_MAX_NODES).length;
+    taken.filter((spot) => nodeManhattan(spot, door) <= PARK_RING_MAX_NODES).length;
   const byLoad = doors
     .map((door, rank) => ({ door, rank, load: load(door) }))
     .filter(({ door }) => onContinent(door))
@@ -326,7 +319,7 @@ function parkGoal(
   }
   let nearest: HalfCellNode | null = null;
   for (const { door } of byLoad) {
-    if (nearest === null || manhattanOf(at, door) < manhattanOf(at, nearest)) nearest = door;
+    if (nearest === null || nodeManhattan(at, door) < nodeManhattan(at, nearest)) nearest = door;
   }
   if (nearest === null || hexDistance(at, nearest) <= CATAPULT_REACH_NODES) return null;
   return towardNode(at, nearest, VEHICLE_HOP_NODES);

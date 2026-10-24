@@ -56,6 +56,6 @@ export function nodeOf(terrain: TerrainGraph, node: NodeId): HalfCellNode {
   return { hx: x, hy: y };
 }
 
-export function manhattanOf(a: HalfCellNode, b: HalfCellNode): number {
-  return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
+export function continentOf(terrain: TerrainGraph, at: HalfCellNode): number {
+  return terrain.componentOf(terrain.nodeAtClamped(at.hx, at.hy));
 }

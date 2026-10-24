@@ -2,7 +2,7 @@ import { Building, diplomacyStance, Health, MAX_PLAYERS, Vehicle } from '../../.
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import { TICKS_PER_SECOND } from '../../../../core/loop.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../../../nav/halfcell.js';
 import { NO_COMPONENT, type NodeId, type TerrainGraph } from '../../../../nav/terrain/index.js';
 import { isRangedFighter } from '../../../ai-shared/military/census.js';
 import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
@@ -14,7 +14,7 @@ import { interactionCell } from '../../../settlers/targets/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { VEHICLE_TARGET_SNAP_RADIUS } from '../../../vehicles/movement.js';
 import { formation, type WaveMarchView } from './formation.js';
-import { clampNode, manhattanOf, nodeOf } from './geometry.js';
+import { clampNode, continentOf, nodeOf } from './geometry.js';
 import { driveCatapult, type Fire, orderable, placeOrders, ringOrders, type Wave } from './orders.js';
 
 // A wave at its objective: the towers first, then everybody in. Every radius is an approximation.
@@ -155,10 +155,6 @@ export function onCatapultContinents(
   });
 }
 
-function continentOf(terrain: TerrainGraph, at: HalfCellNode): number {
-  return terrain.componentOf(terrain.nodeAtClamped(at.hx, at.hy));
-}
-
 /**
  * The standing enemy towers within {@link SIEGE_TOWER_RADIUS_NODES} of `objective`, ascending id. Read off
  * the rosters of the seat's enemies, so the cost is their buildings, like the campaign's target scan.
@@ -178,7 +174,7 @@ function enemyTowersNear(
       if (buildingCombatClass(ctx, world.get(e, Building).buildingType) !== 'tower') continue;
       if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
       const node = anchorNodeOf(world, e);
-      if (node !== null && manhattanOf(node, at) <= SIEGE_TOWER_RADIUS_NODES) towers.push(e);
+      if (node !== null && nodeManhattan(node, at) <= SIEGE_TOWER_RADIUS_NODES) towers.push(e);
     }
   }
   return towers.sort((a, b) => a - b);
@@ -208,7 +204,7 @@ function nearestTower(
   for (const tower of towers) {
     const node = anchorNodeOf(world, tower);
     if (node === null) continue;
-    const distance = manhattanOf(clampNode(terrain, node), from);
+    const distance = nodeManhattan(clampNode(terrain, node), from);
     if (distance < bestDistance) {
       best = tower;
       bestDistance = distance;

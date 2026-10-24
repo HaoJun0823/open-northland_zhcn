@@ -2,7 +2,7 @@ import { type BuildingType, footprintCellDx } from '@open-northland/data';
 import { Building, Stockpile } from '../../../components/index.js';
 import { type ContentIndex, contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { type HalfCellNode, hexDistanceBetween } from '../../../nav/halfcell.js';
+import { type HalfCellNode, hexDistanceBetween, nodeManhattan } from '../../../nav/halfcell.js';
 import { withinNodeRadius } from '../../../nav/node-circle.js';
 import { NO_COMPONENT, type NodeId, type TerrainGraph } from '../../../nav/terrain/index.js';
 import { type SpotAcceptor, spotAcceptor } from '../../ai-shared/building-spot.js';
@@ -175,7 +175,7 @@ function frontEdgeNode(
   for (const e of owned) {
     const node = anchorNodeOf(world, e);
     if (node === null) continue;
-    const distance = nodeDistance(node, target);
+    const distance = nodeManhattan(node, target);
     if (distance < edgeDistance) {
       edge = node;
       edgeDistance = distance;
@@ -250,11 +250,6 @@ export function unservedAnchor(
 
 function mapCentreNode(terrain: TerrainGraph): HalfCellNode {
   return { hx: Math.floor(terrain.width / 2), hy: Math.floor(terrain.height / 2) };
-}
-
-/** Lattice Manhattan distance, not the anisotropic world metric the spacing veto measures in. */
-function nodeDistance(a: HalfCellNode, b: HalfCellNode): number {
-  return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
 }
 
 /** Where the spot must land beyond the reach and the acceptor, or null for anywhere. */
@@ -363,18 +358,18 @@ function reachOver(centres: readonly HalfCellNode[], fallback: HalfCellNode, rad
       return false;
     },
     meets(centre, span) {
-      return centres.some((c) => nodeDistance(c, centre) <= span + radius);
+      return centres.some((c) => nodeManhattan(c, centre) <= span + radius);
     },
     around(centre, span) {
       return reachOver(
-        centres.filter((c) => nodeDistance(c, centre) <= span + radius),
+        centres.filter((c) => nodeManhattan(c, centre) <= span + radius),
         fallback,
         radius,
       );
     },
     clamp(node) {
       let nearest = centres[0] ?? fallback;
-      for (const c of centres) if (nodeDistance(node, c) < nodeDistance(node, nearest)) nearest = c;
+      for (const c of centres) if (nodeManhattan(node, c) < nodeManhattan(node, nearest)) nearest = c;
       const dx = node.hx - nearest.hx;
       const dy = node.hy - nearest.hy;
       const dist = Math.abs(dx) + Math.abs(dy);

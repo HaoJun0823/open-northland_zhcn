@@ -1,7 +1,7 @@
 import { Vehicle } from '../../../../components/index.js';
 import { contentIndex } from '../../../../core/content-index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../../../nav/halfcell.js';
 import { findPath } from '../../../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { towardNode } from '../../../ai-shared/node-geometry.js';
@@ -9,7 +9,7 @@ import type { SystemContext } from '../../../context.js';
 import { dynamicBlockOverlay, vehicleAnchor } from '../../../footprint/index.js';
 import { vehicleTraversal } from '../../../readviews/vehicles.js';
 import { snapVehicleTarget, vehicleWalkBlocks } from '../../../vehicles/movement.js';
-import { manhattanOf, nodeOf } from './geometry.js';
+import { nodeOf } from './geometry.js';
 
 // The route a wave marches, cut into legs. Every distance is an approximation.
 
@@ -40,8 +40,8 @@ export function routeTo(
 ): HalfCellNode[] {
   const goal = nodeOf(terrain, objective);
   const standsOff = (node: HalfCellNode): boolean =>
-    manhattanOf(node, goal) <= SIEGE_STANDOFF_NODES ||
-    towers.some((tower) => manhattanOf(node, tower) <= SIEGE_TOWER_STANDOFF_NODES);
+    nodeManhattan(node, goal) <= SIEGE_STANDOFF_NODES ||
+    towers.some((tower) => nodeManhattan(node, tower) <= SIEGE_TOWER_STANDOFF_NODES);
   const path =
     (lead === null ? null : catapultPath(world, ctx, terrain, lead, goal)) ??
     findPath(terrain, start, objective, dynamicBlockOverlay(world, ctx, terrain))?.map((n) =>
@@ -56,7 +56,7 @@ export function routeTo(
       ends.push(node);
       return ends;
     }
-    if (manhattanOf(node, last) < LEG_NODES) continue;
+    if (nodeManhattan(node, last) < LEG_NODES) continue;
     ends.push(node);
     last = node;
   }

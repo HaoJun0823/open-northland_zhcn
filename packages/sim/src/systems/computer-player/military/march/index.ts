@@ -12,7 +12,7 @@ import {
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import { TICKS_PER_SECOND } from '../../../../core/loop.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import { type HalfCellNode, hexDistance } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, hexDistance, nodeManhattan } from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { isRangedFighter, weaponMix } from '../../../ai-shared/military/census.js';
 import { enemyPosts, seatRaiders } from '../../../ai-shared/military/defence/index.js';
@@ -28,7 +28,7 @@ import { seatBarracksOf } from '../../base.js';
 import { meleeCoreFor, waveWorthy } from '../muster.js';
 import { crewedCatapults, PARK_RING_MAX_NODES, PARK_SPACING_NODES } from '../siege-crew.js';
 import { formation, type WaveMarchView } from './formation.js';
-import { backOf, type Heading, headingOf, manhattanOf, nodeOf } from './geometry.js';
+import { backOf, type Heading, headingOf, nodeOf } from './geometry.js';
 import {
   catapultOrders,
   driveCatapult,
@@ -134,7 +134,7 @@ export function launchWave(
       return (
         at !== null &&
         world.get(vehicle, Vehicle).attack === null &&
-        manhattanOf(at, door) <= HOME_CATAPULT_NODES
+        nodeManhattan(at, door) <= HOME_CATAPULT_NODES
       );
     })
     .map(({ vehicle }) => vehicle);
@@ -290,7 +290,7 @@ function nearestMemberNode(
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const e of men) {
     const node = entityNode(world, terrain, e);
-    const distance = manhattanOf(nodeOf(terrain, node), centre);
+    const distance = nodeManhattan(nodeOf(terrain, node), centre);
     if (distance < bestDistance) {
       best = node;
       bestDistance = distance;
@@ -458,7 +458,11 @@ function legNearest(state: WaveMarchView, centre: HalfCellNode): number {
   for (;;) {
     const here = state.waypoints[leg];
     const next = state.waypoints[leg + 1];
-    if (here === undefined || next === undefined || manhattanOf(next, centre) >= manhattanOf(here, centre)) {
+    if (
+      here === undefined ||
+      next === undefined ||
+      nodeManhattan(next, centre) >= nodeManhattan(here, centre)
+    ) {
       return leg;
     }
     leg++;
@@ -483,7 +487,7 @@ function stragglers(
     const place = places.get(e);
     if (place === undefined) continue;
     const at = nodeOf(terrain, entityNode(world, terrain, e));
-    if (manhattanOf(at, place) > REGROUP_SLACK_NODES && backOf(place, heading, at) > 0) behind.add(e);
+    if (nodeManhattan(at, place) > REGROUP_SLACK_NODES && backOf(place, heading, at) > 0) behind.add(e);
   }
   for (const vehicle of catapults) {
     const place = places.get(vehicle);
@@ -537,7 +541,7 @@ function shellingCatapult(
       if (target?.kind !== 'entity' || !men.has(target.entity)) continue;
       const at = vehicleAnchor(world, vehicle);
       if (at === null || terrain.componentOf(terrain.nodeAtClamped(at.hx, at.hy)) !== reachable) continue;
-      const distance = manhattanOf(at, wave.centre);
+      const distance = nodeManhattan(at, wave.centre);
       if (best === null || distance < best.distance || (distance === best.distance && vehicle < best.vehicle))
         best = { at, distance, vehicle };
     }

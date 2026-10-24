@@ -1,12 +1,11 @@
 import { Building } from '../../../../components/index.js';
 import { contentIndex } from '../../../../core/content-index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../../../nav/halfcell.js';
 import { buildingTypeByContentId, tiersAtOrAbove } from '../../../ai-shared/content-lookup.js';
 import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
 import type { SystemContext } from '../../../context.js';
 import { liveWorkFlag } from '../../../economy/work-flag.js';
-import { nodeDistance } from '../flag-spots.js';
 
 /** The workshop a good's gatherers supply, and how many of its holders do (all when `posts` is absent). */
 interface CollectorWorkshop {
@@ -57,7 +56,7 @@ export function seatHolders(
     for (let i = 1; at !== null && i < free.length; i++) {
       const slot = free[i];
       const best = free[pick];
-      if (slot !== undefined && best !== undefined && nodeDistance(at, slot) < nodeDistance(at, best))
+      if (slot !== undefined && best !== undefined && nodeManhattan(at, slot) < nodeManhattan(at, best))
         pick = i;
     }
     return free.splice(pick, 1)[0] ?? fallback;

@@ -11,7 +11,12 @@ import {
 } from '../../../../components/index.js';
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import { type HalfCellNode, hexDistance, hexDistanceBetween } from '../../../../nav/halfcell.js';
+import {
+  type HalfCellNode,
+  hexDistance,
+  hexDistanceBetween,
+  nodeManhattan,
+} from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { isRangedFighter } from '../../../ai-shared/military/census.js';
 import { spokenFor } from '../../../ai-shared/military/errand.js';
@@ -24,7 +29,7 @@ import { atomicHoldsSettler } from '../../../settlers/atomics/busy.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { ASSAULT_RING_RADIUS_NODES, marchOrders } from '../muster.js';
 import { VEHICLE_HOP_NODES } from '../siege-crew.js';
-import { manhattanOf, nodeOf } from './geometry.js';
+import { nodeOf } from './geometry.js';
 
 // How a marching wave's men and catapults are ordered: to their places, onto a ring, or at the fire
 // they stand in.
@@ -91,10 +96,11 @@ export function placeOrders(
     const place = places.get(e);
     if (place === undefined || !orderable(world, e)) continue;
     const march = world.tryGet(e, PlayerOrder)?.attackMove;
-    if (march !== undefined && manhattanOf(nodeOf(terrain, march.goal), place) <= SLOT_SLACK_NODES) continue;
+    if (march !== undefined && nodeManhattan(nodeOf(terrain, march.goal), place) <= SLOT_SLACK_NODES)
+      continue;
     const here = entityNode(world, terrain, e);
     const stance = world.tryGet(e, Stance);
-    if (march === undefined && manhattanOf(nodeOf(terrain, here), place) <= SLOT_SLACK_NODES) {
+    if (march === undefined && nodeManhattan(nodeOf(terrain, here), place) <= SLOT_SLACK_NODES) {
       if (fire === null) continue;
       const { x, y } = terrain.coordsOf(here);
       const shooter = isRangedFighter(world, ctx, e) ? null : nearestFireOn(fire, x, y);
@@ -106,7 +112,7 @@ export function placeOrders(
       const anchored =
         stance?.mode === hold &&
         anchor !== null &&
-        manhattanOf(nodeOf(terrain, anchor), nodeOf(terrain, here)) <= SLOT_SLACK_NODES;
+        nodeManhattan(nodeOf(terrain, anchor), nodeOf(terrain, here)) <= SLOT_SLACK_NODES;
       if (!anchored) commands.push({ kind: 'setStance', entity: e, mode: hold });
       continue;
     }
@@ -216,7 +222,7 @@ export function ringOrders(
     const march = world.tryGet(e, PlayerOrder)?.attackMove;
     return (
       march === undefined ||
-      manhattanOf(nodeOf(terrain, march.goal), nodeOf(terrain, centre)) > ASSAULT_RING_RADIUS_NODES
+      nodeManhattan(nodeOf(terrain, march.goal), nodeOf(terrain, centre)) > ASSAULT_RING_RADIUS_NODES
     );
   });
   return marchOrders(world, terrain, heading, centre);

@@ -1,7 +1,7 @@
 import { Building, type DiplomacyState, diplomacyStance, MAX_PLAYERS } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import type { HalfCellNode } from '../../nav/halfcell.js';
+import { type HalfCellNode, nodeManhattan } from '../../nav/halfcell.js';
 import { NO_COMPONENT, type TerrainGraph } from '../../nav/terrain/index.js';
 import { anchorNodeOf } from '../ai-shared/node-geometry.js';
 import { ownedBuildings } from '../ai-shared/seat-roster.js';
@@ -37,11 +37,6 @@ export function seatHeadquartersOf(world: World, ctx: SystemContext, player: num
   return found;
 }
 
-/** Manhattan distance between two lattice nodes. */
-function manhattan(a: HalfCellNode, b: HalfCellNode): number {
-  return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
-}
-
 /** Which stances a headquarters search counts: the front's enemies, or the sea route's rivals. */
 type StanceFilter = (stance: DiplomacyState) => boolean;
 
@@ -66,7 +61,7 @@ function nearestHeadquarters(
     const hq = seatHeadquartersOf(world, ctx, owner);
     const node = hq === null ? null : anchorNodeOf(world, hq);
     if (hq === null || node === null) continue;
-    const distance = manhattan(node, from);
+    const distance = nodeManhattan(node, from);
     if (distance < bestDistance || (distance === bestDistance && best !== null && hq < best.entity)) {
       best = { entity: hq, node, headquarters: true };
       bestDistance = distance;
@@ -95,7 +90,7 @@ export function nearestEnemyBuilding(
     for (const e of ownedBuildings(world, owner)) {
       const node = anchorNodeOf(world, e);
       if (node === null) continue;
-      const distance = manhattan(node, from);
+      const distance = nodeManhattan(node, from);
       // The seats' rosters are walked one after another, so the lowest id on a tie is kept explicitly.
       if (distance < bestDistance || (distance === bestDistance && best !== null && e < best.entity)) {
         best = { entity: e, node, headquarters: false };

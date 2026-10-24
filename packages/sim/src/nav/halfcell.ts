@@ -163,6 +163,11 @@ export function hexDistanceBetween(ahx: number, ahy: number, bhx: number, bhy: n
   return rows + Math.max(0, columns - (rows >> 1));
 }
 
+/** Manhattan distance between two lattice nodes in half-cell nodes, not the anisotropic world metric. */
+export function nodeManhattan(a: HalfCellNode, b: HalfCellNode): number {
+  return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
+}
+
 /** The six map-point headings, numbered as the original numbers them (its walk directions' first six). */
 export const HEX_HEADING = { E: 0, SE: 1, SW: 2, W: 3, NW: 4, NE: 5 } as const;
 export type HexHeading = (typeof HEX_HEADING)[keyof typeof HEX_HEADING];

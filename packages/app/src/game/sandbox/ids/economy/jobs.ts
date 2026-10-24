@@ -6,7 +6,6 @@ import {
   JOB_FARMER,
   JOB_FISHER,
   JOB_HUNTER,
-  JOB_MILLER,
 } from '../../../../catalog/jobs.js';
 
 /**
@@ -48,4 +47,3 @@ export function canonicalJobType(jobType: number): number {
 }
 
 export const JOB_FARMER_SLOT = WORKER_SLOT_JOB_BASE + JOB_FARMER;
-export const JOB_MILLER_SLOT = WORKER_SLOT_JOB_BASE + JOB_MILLER;

@@ -273,11 +273,6 @@ export function canDownload(status: CatalogueStatus): boolean {
   );
 }
 
-/** Whether the row is a map the game ships rather than one the player downloaded. */
-export function isInGame(status: CatalogueStatus): boolean {
-  return status === 'inGame' || status === 'inGameChanged';
-}
-
 /** Whether the player downloads the entry's file outside the game: from another site or from our API. */
 export function isManualDownload(status: CatalogueStatus): boolean {
   return status === 'external' || status === 'manual';

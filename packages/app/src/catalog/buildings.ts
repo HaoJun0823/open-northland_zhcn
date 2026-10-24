@@ -120,12 +120,6 @@ export function vikingBuildingById(id: string): VikingBuilding | undefined {
   return BY_ID.get(id);
 }
 
-/** Every building whose `id` or `label` contains `query`, case-insensitively. */
-export function findVikingBuildings(query: string): VikingBuilding[] {
-  const q = query.toLowerCase();
-  return VIKING_BUILDINGS.filter((b) => b.id.toLowerCase().includes(q) || b.label.toLowerCase().includes(q));
-}
-
 /** Resolve a `typeId` or exact `id` to its catalog row, throwing on an unknown reference. */
 export function resolveVikingBuilding(ref: number | string): VikingBuilding {
   const found = typeof ref === 'number' ? vikingBuildingByTypeId(ref) : vikingBuildingById(ref);

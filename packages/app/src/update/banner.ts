@@ -67,7 +67,3 @@ export function hideUpdateBanner(): void {
   current?.root.remove();
   current = null;
 }
-
-export function updateBannerShown(): boolean {
-  return current !== null;
-}

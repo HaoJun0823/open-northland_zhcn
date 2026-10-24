@@ -12,7 +12,6 @@ import {
   fillFogMask,
   type MinimapSize,
   minimapLayout,
-  minimapPanelWidth,
   minimapToWorld,
   nextMinimapSize,
   pointOverMinimap,
@@ -74,7 +73,6 @@ describe('minimapLayout', () => {
         w: layout.panel.w - 40,
         h: layout.panel.h - 40,
       });
-      expect(minimapPanelWidth(1, size)).toBe(layout.panel.w);
     }
   });
 

@@ -53,11 +53,6 @@ function atlasPanel(
   return { x: 0, y: screenH - h, w, h };
 }
 
-/** Panel width in screen px before a narrow screen limits it. */
-export function minimapPanelWidth(uiscale: number, size: MinimapSize = 'm'): number {
-  return ATLAS_WIDTHS[size] * Math.max(MIN_UI_SCALE, uiscale);
-}
-
 /**
  * The next size that is larger on this screen. The bottom navigation and the selection panel cap the
  * width, so a size that would clamp to the current one is skipped and the cycle wraps to the smallest.

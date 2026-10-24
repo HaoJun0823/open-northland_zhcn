@@ -1394,9 +1394,6 @@ export const GUI_FRAMES = [
 
 export type GuiFrameName = (typeof GUI_FRAMES)[number]['name'];
 
-/** The stock window's tab strip: `stock_tab_0`..`stock_tab_7` are consecutive frames on the sheet. */
-export const STOCK_TAB_COUNT = 8;
-
 const FRAME_INDEX_BY_NAME: ReadonlyMap<string, number> = new Map(
   GUI_FRAMES.map((f, i) => [f.name, i] as const),
 );

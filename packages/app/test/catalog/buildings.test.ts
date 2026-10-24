@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findVikingBuildings, resolveVikingBuilding, VIKING_BUILDINGS } from '../../src/catalog/buildings.js';
+import { resolveVikingBuilding, VIKING_BUILDINGS } from '../../src/catalog/buildings.js';
 
 /**
  * The committed viking-building catalog is the single source of truth for name → typeId - its pure
@@ -16,14 +16,6 @@ describe('viking building catalog', () => {
 });
 
 describe('viking building lookups', () => {
-  it('finds buildings by a fuzzy id/label query (the "warehouse level 2" use case)', () => {
-    // The label carries the human synonym ("Warehouse"), so a search the game/user would type resolves the
-    // three stocks even though the machine ids say "stock_*".
-    const warehouses = findVikingBuildings('warehouse');
-    expect(warehouses.map((b) => b.id)).toEqual(['stock_00', 'stock_01', 'stock_02']);
-    expect(findVikingBuildings('temple').map((b) => b.typeId)).toEqual([37]);
-  });
-
   it('resolves by id or typeId and throws on an unknown ref', () => {
     expect(resolveVikingBuilding('headquarters').typeId).toBe(1);
     expect(resolveVikingBuilding(1).id).toBe('headquarters');

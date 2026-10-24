@@ -50,6 +50,13 @@ the canonical legal wording.
 - Use names, types and focused functions that explain the code without the conversation or PR.
   Group by feature; split mixed responsibilities, not files merely exceeding a line count. Around
   300 lines is a review cue, not a limit for tables, schemas or cohesive implementations.
+- Keep directories navigable. A source file lives in the folder of the feature that owns it, and its
+  test lives at the same path under the package's `test/` (`src/hud/dom/notices/x.ts` is covered by
+  `test/hud/dom/notices/x.test.ts`); `test/support`, `test/fixtures` and the opt-in real-content tier
+  are the only exceptions. Name a folder after its domain, never after a layer (`utils`, `helpers`,
+  `common`). Create a folder when a feature reaches its third file and split one before it passes
+  about 30 direct children. Each package `AGENTS.md` maps its folders; a move updates the map, every
+  importer and every path named in configs, docs, tickets and comments in the same commit.
 - Keep ownership explicit. Prefer composition and narrow domain interfaces; do not introduce a
   framework, service layer, wrapper or helper without a concrete caller and a simpler resulting API.
   Share a helper when a second real caller proves the concept. Check existing tools before adding one.

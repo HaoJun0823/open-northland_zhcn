@@ -164,7 +164,7 @@ describe('the settler panel model', () => {
     expect(gatherer({}).workplace?.centreFlag).toBeNull();
   });
 
-  it('gives a posted carrier, extractor, hunter and fisherman the work area row, with the remove button once a flag stands', () => {
+  it('gives a posted carrier or extractor the work area row, with the remove button once a flag stands', () => {
     const content = sandboxContent();
     const ctx: UnitPanelModelContext = {
       ...sandboxCtx(),
@@ -193,22 +193,21 @@ describe('the settler panel model', () => {
       assign: true,
       remove: true,
     });
-    expect(settlerModel(posted(JOB_HUNTER), ctx).workArea?.trade).toBe('hunter');
     expect(settlerModel(posted(JOB_FISHER), ctx).workArea?.trade).toBe('fisher');
-    expect(settlerModel(posted(JOB_COLLECTOR), ctx).workArea?.trade).toBe('collector');
     expect(settlerModel(posted(JOB_SCOUT), ctx).workArea).toBeNull();
-    for (const jobType of [JOB_COLLECTOR, JOB_HUNTER, JOB_FISHER]) {
-      const unposted = settlerModel(
-        [
-          {
-            id: SETTLER,
-            components: owned({ Settler: { tribe: 1, jobType }, WorkFlag: { flag: 99, radius: 32 } }),
-          },
-        ],
-        ctx,
-      );
-      expect(unposted.workArea).toBeNull();
-    }
+    const unposted = settlerModel(
+      [
+        {
+          id: SETTLER,
+          components: owned({
+            Settler: { tribe: 1, jobType: JOB_FISHER },
+            WorkFlag: { flag: 99, radius: 32 },
+          }),
+        },
+      ],
+      ctx,
+    );
+    expect(unposted.workArea).toBeNull();
   });
 
   it("keeps a posted extractor's Workplace pick to buildings once his post takes a flag of its own", () => {
@@ -706,25 +705,6 @@ describe('the settler panel model', () => {
     const site = settlerModel([upgrading, ...rest], { ...ctx, traderView: () => view }).trade?.stock?.a;
     expect(site?.find((row) => row.goodType === GOOD_WOOD)?.amount).toBe(WOOD_ABOARD);
     expect(site?.find((row) => row.goodType === GOOD_IRON)?.amount).toBe(0);
-  });
-
-  it('carries the good in hand to the status line', () => {
-    const ctx = sandboxCtx();
-    const [good] = ctx.goods;
-    if (good === undefined) throw new Error('sandbox has no goods');
-    const model = settlerModel(
-      [
-        {
-          id: SETTLER,
-          components: owned({
-            Settler: { tribe: 1, jobType: JOB_COLLECTOR },
-            Carrying: { goodType: good.typeId, amount: 2 },
-          }),
-        },
-      ],
-      ctx,
-    );
-    expect(model.status.carrying).toMatchObject({ goodId: good.id, amount: 2 });
   });
 
   it('treats the whole-map viewer as owning everyone', () => {

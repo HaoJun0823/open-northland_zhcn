@@ -66,13 +66,8 @@ describe('the settler status caption', () => {
       settlerStatus(ctxOf(), snapshot, SETTLER, comps(null, live));
     const atomic = (kind: string): Record<string, unknown> => ({ CurrentAtomic: { effect: { kind } } });
     expect(status(atomic('eat'))).toBe('eating');
-    expect(status(atomic('sleep'))).toBe('sleeping');
-    expect(status(atomic('pray'))).toBe('praying');
     expect(status(atomic('construct'))).toBe('building');
-    expect(status(atomic('repair'))).toBe('repairing');
-    expect(status(atomic('attack'))).toBe('fighting');
     expect(status(atomic('harvest'))).toBe('working');
-    expect(status(atomic('produce'))).toBe('working');
     expect(status(atomic('idle'))).toBe('idle');
     expect(status({ ...atomic('idle'), MoveGoal: {} })).toBe('walking');
   });

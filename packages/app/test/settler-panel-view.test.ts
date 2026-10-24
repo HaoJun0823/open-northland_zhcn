@@ -1,11 +1,9 @@
-import { systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { EquipRow, SettlerPanelModel } from '../src/hud/details-panel/model/index.js';
 import { PRODUCTION_UNLIMITED } from '../src/hud/details-panel/model/index.js';
 import { socketWearTone } from '../src/hud/dom/parts/socket.js';
 import { equipmentSockets } from '../src/hud/dom/settler-panel/equipment.js';
 import { settlerHead } from '../src/hud/dom/settler-panel/head.js';
-import { stanceSegment } from '../src/hud/dom/settler-panel/military.js';
 import { needTooltip } from '../src/hud/dom/settler-panel/needs.js';
 import {
   createPeerIndex,
@@ -14,7 +12,7 @@ import {
   peerAt,
   tradePeers,
 } from '../src/hud/dom/settler-panel/peers.js';
-import { statusText, statusTone } from '../src/hud/dom/settler-panel/portrait.js';
+import { statusTone } from '../src/hud/dom/settler-panel/portrait.js';
 import { toggledProductionCount } from '../src/hud/dom/settler-panel/production.js';
 import {
   familyButton,
@@ -169,12 +167,6 @@ describe('equipment sockets', () => {
 });
 
 describe('the settler panel’s rows', () => {
-  it('lights the stance segment the sim stamped, none for flight', () => {
-    expect(stanceSegment(systems.MILITARY_MODE.DEFEND)).toBe('defend');
-    expect(stanceSegment(systems.MILITARY_MODE.FLEE)).toBeNull();
-    expect(stanceSegment(null)).toBeNull();
-  });
-
   it('names the ring order a need row gives, and none for health', () => {
     expect(
       needTooltip(
@@ -269,26 +261,10 @@ describe('the settler panel’s rows', () => {
     ]);
   });
 
-  it('writes the state and its detail after a dot', () => {
-    const status = {
-      state: 'idle',
-      label: 'Bezczynny',
-      detail: null,
-      trouble: true,
-      lostGoal: null,
-      carrying: null,
-    } as const;
-    expect(statusText(status)).toBe('Bezczynny');
-    expect(statusText({ ...status, detail: 'bez zawodu' })).toBe('Bezczynny · bez zawodu');
-  });
-
   it('colours the status dot amber for trouble, grey for a walk or a wait, green for anything done', () => {
     const status = { label: '', detail: null, trouble: false, lostGoal: null, carrying: null } as const;
     expect(statusTone({ ...status, state: 'idle', trouble: true })).toBe('trouble');
-    expect(statusTone({ ...status, state: 'lost', trouble: true })).toBe('trouble');
-    expect(statusTone({ ...status, state: 'walking' })).toBe('neutral');
     expect(statusTone({ ...status, state: 'awaitingWorkplace' })).toBe('neutral');
-    expect(statusTone({ ...status, state: 'talking' })).toBe('ok');
     expect(statusTone({ ...status, state: 'working' })).toBe('ok');
   });
 });

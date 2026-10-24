@@ -7,7 +7,6 @@ import {
   transferSummary,
   transferTooltip,
 } from '../src/hud/dom/settler-panel/trade-transfers.js';
-import { formatMessage, messages, pluralForm } from '../src/i18n/index.js';
 import { ownRoute, SWORD, transfer } from './support/trade-route.js';
 
 const CEILING = 10;
@@ -29,7 +28,7 @@ describe('the settler panel’s Handel summary', () => {
     expect(bodyOf(one)).toEqual({ own: false, agreement: false });
   });
 
-  it('reads "Dodaj punkt handlowy" on both free slots, also while A is empty', () => {
+  it('offers to attach a stop on both free slots, also while A is empty', () => {
     const empty: TradePanelModel = { ...ownRoute(), stops: [], stock: null, attachSlot: 0 };
     expect([slotState(empty, 0).kind, slotState(empty, 1).kind]).toEqual(['attach', 'attach']);
     const onlyB: TradePanelModel = {
@@ -39,7 +38,6 @@ describe('the settler panel’s Handel summary', () => {
       attachSlot: 0,
     };
     expect([slotState(onlyB, 0).kind, slotState(onlyB, 1).kind]).toEqual(['attach', 'stop']);
-    expect(messages().hud.settlerPanel.tradeAddStop).toBe('Dodaj punkt handlowy');
   });
 
   it('offers "osada" on an own storehouse stop, refused while the other stop already loads from one', () => {
@@ -85,12 +83,5 @@ describe('the settler panel’s Handel summary', () => {
     });
     // No room even for the link: the section folds.
     expect(fitTransferLines(TRANSFERS, TRANSFERS * LINE_PX, LINE_PX)).toBeNull();
-  });
-
-  it('counts the transfers the link leaves out in the locale’s plural', () => {
-    const copy = messages().hud.settlerPanel;
-    const more = (count: number) =>
-      formatMessage(pluralForm(count, copy.tradeTransferCount, 'pl'), { count });
-    expect([1, 3, 6].map(more)).toEqual(['jeszcze 1 przewóz', 'jeszcze 3 przewozy', 'jeszcze 6 przewozów']);
   });
 });

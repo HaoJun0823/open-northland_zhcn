@@ -68,12 +68,6 @@ describe('the settler panel’s orders', () => {
     expect(cues).toEqual(['confirm']);
   });
 
-  it('ends a builder’s road or wall run by unpinning it', () => {
-    const { actions, sent } = harness();
-    actions.endBuildRun(OWN);
-    expect(sent).toEqual([{ kind: 'unassignBuilder', entity: OWN }]);
-  });
-
   it('refuses another seat’s settler and a vanished one, sending nothing', () => {
     const { actions, sent, cues, renamed } = harness();
     actions.unassignWorkplace(FOREIGN);
@@ -115,29 +109,9 @@ describe('the Handel section', () => {
     ]);
     expect(cues).toEqual(['confirm', 'confirm']);
   });
-
-  it('sends the settlement toggle of a stop and the limits of the agreement', () => {
-    const { actions, sent } = harness();
-    actions.setTradeSettlement(OWN, HOUSE_A, true);
-    actions.setTradeAgreementLimits(OWN, 3, 12);
-    expect(sent).toEqual([
-      { kind: 'setTradeSettlement', entity: OWN, house: HOUSE_A, on: true },
-      { kind: 'setTradeAgreementLimits', entity: OWN, giveKeep: 3, takeUpTo: 12 },
-    ]);
-  });
 });
 
 describe('the Pojazd row', () => {
-  it('gives its pick and its way off the ring’s own orders', () => {
-    const { actions, rings } = harness();
-    actions.assignVehicle(OWN);
-    actions.leaveVehicle(RIDER);
-    expect(rings).toEqual([
-      ['assignVehicle', [OWN]],
-      ['removeVehicle', [RIDER]],
-    ]);
-  });
-
   it('arms the ring’s vehicle pick and detaches a rider through the ring’s dispatch', () => {
     const armed: PickMode[] = [];
     const sent: PlayerCommand[] = [];

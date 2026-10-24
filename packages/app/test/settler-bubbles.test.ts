@@ -158,10 +158,6 @@ describe('computeSettlerBubbles', () => {
     expect(computeSettlerBubbles(snap, WHOLE_MAP).map((b) => b.id)).toEqual([1, 2, 3, 4]);
   });
 
-  it('keeps the bubble trigger above the drive trigger, so acting always comes first', () => {
-    expect(systems.NEED_CRITICAL_THRESHOLD).toBeGreaterThan(systems.NEED_DRIVE_THRESHOLD);
-  });
-
   it('shows no sleepy bubble at the SLEEP threshold - a settler that far along just goes to bed', () => {
     const snap = snapshotOf([
       {

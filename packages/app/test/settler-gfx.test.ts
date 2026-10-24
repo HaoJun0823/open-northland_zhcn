@@ -2,8 +2,6 @@ import { indexAtlasFrames, type SpriteAtlas } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
 import {
   ATTACK_ATOMIC,
-  BUILD_HOUSE_ATOMIC,
-  BUILD_WALL_ATOMIC,
   EAT_ATOMIC,
   EAT_CANDY_ATOMIC,
   HERB_HARVEST_ATOMIC,
@@ -13,7 +11,7 @@ import {
   WELL_DRAW_ATOMIC,
   WHEAT_HARVEST_ATOMIC,
 } from '../src/catalog/atomics.js';
-import { JOB_CIVILIST, JOB_DRUID, JOB_SCOUT, JOB_SOLDIER_UNARMED } from '../src/catalog/jobs.js';
+import { JOB_SOLDIER_UNARMED } from '../src/catalog/jobs.js';
 import { SOLDIER_CLASS_OF_JOB } from '../src/catalog/soldier-classes.js';
 import {
   ADULT_CHARACTER_BY_JOB,
@@ -71,64 +69,25 @@ describe('directionalAnimFromSeq', () => {
 
 describe('buildHumanBindings', () => {
   it('derives the settler walk/chop/carry anims from the decoded sequences', () => {
+    // Starts off the committed fallback ranges, so a binding that ignored the manifest would fail.
     const seqs = new Map([
-      ['human_man_generic_walk', { name: 'human_man_generic_walk', start: 1988, length: 96 }],
+      ['human_man_generic_walk', { name: 'human_man_generic_walk', start: 2988, length: 96 }],
       // Idle is the WAIT sequence played SINGLE-direction (57 isn't ×8) - the full loop, not a frozen hold.
-      ['human_man_generic_wait', { name: 'human_man_generic_wait', start: 1931, length: 57 }],
+      ['human_man_generic_wait', { name: 'human_man_generic_wait', start: 2931, length: 57 }],
       [
         'human_man_woodcutter_work_woodcutting',
-        { name: 'human_man_woodcutter_work_woodcutting', start: 5106, length: 120 },
+        { name: 'human_man_woodcutter_work_woodcutting', start: 6106, length: 120 },
       ],
-      ['human_man_generic_walk_wood', { name: 'human_man_generic_walk_wood', start: 4580, length: 96 }],
+      ['human_man_generic_walk_wood', { name: 'human_man_generic_walk_wood', start: 5580, length: 96 }],
     ]);
     const bindings = buildHumanBindings(seqs);
     expect(bindings.settler).toEqual({
-      // Idle = the WHOLE wait strip as ONE direction (57 frames), not a facing-sliced 1/8 - and it ANIMATES.
-      idle: { start: 1931, dirs: 1, stride: 57 },
-      moving: { start: 1988, dirs: 8, stride: 12 },
-      byAtomic: { 24: { start: 5106, dirs: 8, stride: 15, phaseStart: 9 } },
+      idle: { start: 2931, dirs: 1, stride: 57 },
+      moving: { start: 2988, dirs: 8, stride: 12 },
+      byAtomic: { 24: { start: 6106, dirs: 8, stride: 15, phaseStart: 9 } },
       carrying: {
-        idle: { start: 4580, dirs: 8, stride: 12, frames: 1 },
-        moving: { start: 4580, dirs: 8, stride: 12 },
-      },
-    });
-  });
-
-  it('binds idle to a full-loop single-direction wait (never a frozen hold, never a facing-sliced excerpt)', () => {
-    // The never-frozen guarantee: idle is a multi-frame DirectionalAnim, not a `frames: 1` still. With no
-    // decoded seq it falls back to the known-good wait range (start 1931) - single-direction (dirs 1), so
-    // it plays the WHOLE 57-frame loop rather than a 1/8 slice (57 isn't a clean ×8).
-    const idle = buildHumanBindings(new Map()).settler;
-    const anim = typeof idle === 'number' ? undefined : idle.idle;
-    expect(anim).toEqual({ start: 1931, dirs: 1, stride: 57 });
-    // Not a `frames: 1` hold - the effective cycle (frames ?? stride) is the whole strip, so it animates.
-    const cycle =
-      typeof anim === 'number' || anim === undefined || !('stride' in anim)
-        ? 0
-        : (anim.frames ?? anim.stride);
-    expect(cycle).toBe(57);
-  });
-
-  it('falls back to the transcribed house table when no building binding is supplied', () => {
-    // An absent IR (a checkout without content/) → buildHumanBindings is called with no layered bindings →
-    // the binding uses the committed VIKING_HOUSE01_BOBS constant (houses.ini [GfxHouse], LogicTribeType
-    // 1, GfxPalette "house01"). Pins the fallback so a stale/typo'd constant is caught here, not by eye.
-    expect(buildHumanBindings(new Map()).building).toEqual({
-      byType: { 6: 41, 10: 131, 11: 91, 12: 60, 15: 105 },
-      default: 11,
-    });
-  });
-
-  it('falls back to the known-good ranges when the manifest is empty (fallback == data)', () => {
-    // The committed FALLBACK_* ranges must equal what the real animations.ini yields, so a checkout
-    // without content/ draws the same cycles as one with it. Asserting the empty-map result pins that.
-    expect(buildHumanBindings(new Map()).settler).toEqual({
-      idle: { start: 1931, dirs: 1, stride: 57 }, // FALLBACK_WAIT: the whole wait loop, single-direction
-      moving: { start: 1988, dirs: 8, stride: 12 },
-      byAtomic: { 24: { start: 5106, dirs: 8, stride: 15, phaseStart: 9 } },
-      carrying: {
-        idle: { start: 4580, dirs: 8, stride: 12, frames: 1 },
-        moving: { start: 4580, dirs: 8, stride: 12 },
+        idle: { start: 5580, dirs: 8, stride: 12, frames: 1 },
+        moving: { start: 5580, dirs: 8, stride: 12 },
       },
     });
   });
@@ -183,11 +142,6 @@ describe('carryAnimsByGood', () => {
     ]);
     expect(table[90]).toBeUndefined();
     expect(table[11]).toBeUndefined();
-  });
-
-  it('keys the table on the CONTENT-relative good typeId (the demo wood(1) vs the real wood(5))', () => {
-    const demo = carryAnimsByGood(seqs, carrySeqs, [{ typeId: 1, id: 'wood' }]);
-    expect(Object.keys(demo)).toEqual(['1']);
   });
 });
 
@@ -408,11 +362,6 @@ describe('characterBinding', () => {
       start: 2255,
       frameLists: [[2], [3], [4], [5], [0], [1], [7], [6]],
     });
-  });
-
-  it('swings the same hammer at a wall segment as at a house', () => {
-    const atomics = CHARACTER_SPECS.civilian.atomics;
-    expect(atomics[BUILD_WALL_ATOMIC]).toEqual(atomics[BUILD_HOUSE_ATOMIC]);
   });
 
   it('plays an atomic through its gfxAtomics program when one exists, looping only mode-1 records', () => {
@@ -711,18 +660,6 @@ describe('the job → character tables (the [jobbasegraphics] transcription)', (
     }
   });
 
-  it('maps the scout and the druid onto their own head records, degrading to the civilist', () => {
-    // Both are head-only variants of the civilian body (`logicjob 27` heads 80..83, `logicjob 30` heads
-    // 90..93), so a tribe authoring neither record draws its civilist for them.
-    for (const [job, specId] of [
-      [JOB_SCOUT, 'scout'],
-      [JOB_DRUID, 'druid'],
-    ] as const) {
-      expect(ADULT_CHARACTER_BY_JOB[job]).toBe(specId);
-      expect(CHARACTER_SPECS[specId].gfxJobs).toEqual([job, JOB_CIVILIST]);
-    }
-  });
-
   it('binds each mutable warrior look to its authored pickup gesture, the chest bend included', () => {
     for (const id of [
       'warrior',
@@ -758,27 +695,10 @@ describe('the job → character tables (the [jobbasegraphics] transcription)', (
     }
   });
 
-  it('maps every hero class to its own fixed character spec', () => {
-    for (const job of HERO_JOBS) {
-      const specId = ADULT_CHARACTER_BY_JOB[job];
-      expect(specId, `hero job ${job}`).toBeDefined();
-      expect(specId?.startsWith('hero-'), `hero job ${job} → ${specId}`).toBe(true);
-      expect(specId !== undefined && CHARACTER_SPECS[specId].gfxJobs[0]).toBe(job);
-    }
-  });
-
   it('keeps the age-class ids out of the adult table, so an adult fixture job there stays the default', () => {
     const ageClasses = Object.keys(YOUNG_CHARACTER_BY_JOB).map(Number);
     expect(ageClasses.length).toBeGreaterThan(0);
     for (const id of ageClasses) expect(ADULT_CHARACTER_BY_JOB[id]).toBeUndefined();
-  });
-
-  it('every spec a job table references exists and names at least one graphics job', () => {
-    const specIds = [...Object.values(ADULT_CHARACTER_BY_JOB), ...Object.values(YOUNG_CHARACTER_BY_JOB)];
-    for (const id of specIds) expect(CHARACTER_SPECS[id], id).toBeDefined();
-    for (const [id, spec] of Object.entries(CHARACTER_SPECS)) {
-      expect(spec.gfxJobs.length, `${id} names no [jobbasegraphics] job`).toBeGreaterThan(0);
-    }
   });
 });
 

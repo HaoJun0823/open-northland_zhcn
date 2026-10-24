@@ -22,7 +22,7 @@ vi.mock('../../src/entries/map/boot.js', () => ({
   assembleMapWorld: mocks.assemble,
   presentMapWorld: mocks.present,
 }));
-vi.mock('../../src/view/fullscreen.js', () => ({ bindDisplayMode: vi.fn() }));
+vi.mock('../../src/view/platform/fullscreen.js', () => ({ bindDisplayMode: vi.fn() }));
 vi.mock('../../src/entries/relay/net-hud.js', () => ({ mountNetHud: mocks.mountHud }));
 
 beforeEach(() => {

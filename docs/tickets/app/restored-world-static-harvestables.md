@@ -4,8 +4,8 @@
 
 A fresh map bakes every harvestable placement into the static object layer and hands one node at a time to
 the sprite pool as it is worked. A restored map cannot know which nodes the save already felled, so
-`entries/map/present.ts` passes the restored placements to `view/static-layer.ts`, which retires the
-whole harvestable bake up front and every tree and bush on the map becomes
+`entries/map/present.ts` passes the restored placements to `view/map-objects/static-layer.ts`, which
+retires the whole harvestable bake up front and every tree and bush on the map becomes
 pool-drawn for the rest of the session. On a real map that is thousands of quads moved from a built-once
 layer into per-frame work, and nothing measures it.
 

@@ -13,7 +13,7 @@ import {
   trainingNotes,
   UNLIMITED_FACE,
 } from '../../../../src/hud/dom/assistant-window/model.js';
-import { assistantBookingsOf } from '../../../../src/view/assistant-bookings.js';
+import { assistantBookingsOf } from '../../../../src/view/assistant/bookings.js';
 import { type Ent, snapshotOf } from '../../../support/snapshot.js';
 
 const finite = (value: number) => ({ value, infinite: false });

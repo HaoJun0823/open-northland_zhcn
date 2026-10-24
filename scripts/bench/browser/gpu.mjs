@@ -218,7 +218,7 @@ try {
     const settings = scenarioSettings(scenario);
     await restoreCheckpoint(page, { saveText, header, stateHash, url: url.href, settings });
     const stored = await page.evaluate(async () => {
-      const { readStoredSettings } = await import('/src/view/settings-store.ts');
+      const { readStoredSettings } = await import('/src/view/settings/store.ts');
       return readStoredSettings();
     });
     const unapplied = Object.keys(settings).filter((key) => stored[key] !== settings[key]);

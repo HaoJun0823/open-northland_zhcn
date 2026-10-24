@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createAutosave } from '../src/view/runtime/save-load/autosave.js';
 import { autosaveNumber, autosaveSlots } from '../src/view/runtime/save-load/autosave-slots.js';
 import type { SaveSlotInfo } from '../src/view/runtime/save-load/store.js';
-import { type AutosaveCount, defaultSettings, parseStoredSettings } from '../src/view/settings-store.js';
+import { type AutosaveCount, defaultSettings, parseStoredSettings } from '../src/view/settings/store.js';
 
 const AUTOSAVE_SLOTS = autosaveSlots('test-map', 3);
 const FIVE_MINUTES = 5 * 60 * TICKS_PER_SECOND;

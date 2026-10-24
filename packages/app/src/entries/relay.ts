@@ -11,9 +11,9 @@ import {
   relayReasonText,
   worldFailureTitle,
 } from '../net/relay-reason.js';
-import { bindDisplayMode } from '../view/fullscreen.js';
-import { releaseDocument, replaceEntryUrl } from '../view/navigation-guard.js';
 import { mountMessage } from '../view/overlay.js';
+import { bindDisplayMode } from '../view/platform/fullscreen.js';
+import { releaseDocument, replaceEntryUrl } from '../view/platform/navigation-guard.js';
 import { lobbyCompatibilityReporter } from './relay/compatibility.js';
 import { roomCreation } from './relay/creation.js';
 import { devLobbyAction } from './relay/dev-lobby.js';

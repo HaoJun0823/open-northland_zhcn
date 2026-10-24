@@ -1,7 +1,7 @@
 import type { ComputerDifficulty } from '@open-northland/lockstep';
 import { components } from '@open-northland/sim';
 import { messages } from '../../../i18n/index.js';
-import { segControl } from '../../../view/settings-controls.js';
+import { segControl } from '../../../view/settings/controls.js';
 
 const { COMPUTER_DIFFICULTIES } = components;
 

@@ -13,7 +13,7 @@ import { loadIr } from '../../content/ir/load.js';
 import { loadCombatBones, loadWreckDebris } from '../../content/object-gfx/objects.js';
 import { diag } from '../../diag/index.js';
 import { presentationPack } from '../../presentation/pack.js';
-import { readStoredSettings } from '../settings-store.js';
+import { readStoredSettings } from '../settings/store.js';
 import { followPageFocus } from '../sound-background.js';
 import { startSound } from '../sound-start.js';
 import { gameSoundEnabled } from './game-settings.js';

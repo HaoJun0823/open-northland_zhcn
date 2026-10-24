@@ -12,12 +12,12 @@ import {
 } from '../../content/real-content.js';
 import { diag } from '../../diag/index.js';
 import { localeParam, messages } from '../../i18n/index.js';
-import { dismissBootProgress } from '../boot-progress.js';
-import { enhancementsOf } from '../graphics-enhancements.js';
-import { releaseDocument } from '../navigation-guard.js';
+import { dismissBootProgress } from '../boot/progress.js';
+import { enhancementsOf } from '../graphics/enhancements.js';
 import { mountMessage, navButton } from '../overlay.js';
 import { postFxParam } from '../params.js';
-import { readStoredSettings } from '../settings-store.js';
+import { releaseDocument } from '../platform/navigation-guard.js';
+import { readStoredSettings } from '../settings/store.js';
 import type { GameViewDeps } from './game-view.js';
 
 /**

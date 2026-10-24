@@ -29,13 +29,13 @@ import { currentLocale, messages } from '../../i18n/index.js';
 import { ambientWeatherFor } from '../../view/ambient-weather.js';
 import { cameraCenteredOnTile, createCameraController } from '../../view/camera/index.js';
 import { mapZoomParam } from '../../view/camera/map-zoom.js';
+import { bindStaticLayer } from '../../view/map-objects/static-layer.js';
 import { formatSearch } from '../../view/params.js';
 import { type GameViewDeps, type GameViewHandle, startGameView } from '../../view/runtime/game-view.js';
 import type { NetReadout } from '../../view/runtime/net-readout.js';
 import { bindScriptLandscapes } from '../../view/runtime/script-landscapes.js';
 import { terrainColourOption } from '../../view/runtime/world-bootstrap.js';
-import { readStoredSettings } from '../../view/settings-store.js';
-import { bindStaticLayer } from '../../view/static-layer.js';
+import { readStoredSettings } from '../../view/settings/store.js';
 import type { AssembledMapWorld } from './boot.js';
 import { mapSubMissionLoader, validateSavedMap } from './sub-missions.js';
 

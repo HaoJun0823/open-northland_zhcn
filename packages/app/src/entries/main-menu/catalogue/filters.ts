@@ -6,7 +6,7 @@ import {
 } from '../../../hud/dom/parts/dropdown.js';
 import { quietTextField } from '../../../hud/dom/parts/text-field.js';
 import { compareLabels, formatMessage, messages } from '../../../i18n/index.js';
-import { segControl } from '../../../view/settings-controls.js';
+import { segControl } from '../../../view/settings/controls.js';
 import { node } from '../dom.js';
 import { authorPicker } from './author-picker.js';
 import { formatCount, LANGUAGE_CODES } from './card.js';

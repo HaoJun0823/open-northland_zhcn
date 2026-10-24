@@ -3,8 +3,8 @@
  * DOM, so the banner depends on nothing that may itself be the wedged part.
  */
 import { messages } from '../i18n/index.js';
-import { isBrave } from '../view/browser-support.js';
-import { servedByBrowser } from '../view/host.js';
+import { isBrave } from '../view/platform/browser-support.js';
+import { servedByBrowser } from '../view/platform/host.js';
 import { downloadDiagnosticsBundle } from './bundle.js';
 import { diag } from './log.js';
 

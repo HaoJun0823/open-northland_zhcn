@@ -1,6 +1,6 @@
 import { diag } from '../../diag/index.js';
 import { swapToEntry } from '../../launch.js';
-import { releaseDocument } from '../navigation-guard.js';
+import { releaseDocument } from '../platform/navigation-guard.js';
 
 /**
  * Leaves a local world for the entry a search names, inside this document, so a fullscreen window

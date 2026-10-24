@@ -14,11 +14,11 @@ vi.mock('@open-northland/render', async (original) => ({
   ...(await original<typeof import('@open-northland/render')>()),
   createWindowPixiApp: async () => ({ destroy: mocks.appDestroy, renderer: {} }),
 }));
-vi.mock('../src/view/boot-progress.js', () => ({
+vi.mock('../src/view/boot/progress.js', () => ({
   mountBootProgress: () => ({ begin: async () => undefined, finish: async () => undefined }),
 }));
-vi.mock('../src/view/settings-store.js', async (original) => ({
-  ...(await original<typeof import('../src/view/settings-store.js')>()),
+vi.mock('../src/view/settings/store.js', async (original) => ({
+  ...(await original<typeof import('../src/view/settings/store.js')>()),
   readStoredSettings: () => ({ renderScale: 1, debugToolsEnabled: false }),
 }));
 vi.mock('../src/content/ir/load.js', () => ({ loadIr: async () => null }));

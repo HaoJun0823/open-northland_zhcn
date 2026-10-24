@@ -1,6 +1,6 @@
 import { closingCode } from '@open-northland/net-protocol';
 import { type ConnectionEvent, NetworkConnection } from '../../net/connection.js';
-import { reloadDocument } from '../../view/navigation-guard.js';
+import { reloadDocument } from '../../view/platform/navigation-guard.js';
 
 /** How long giving a seat up waits for the relay before the menu opens anyway; the seat then stays held
  *  and the room can still vote it out. */

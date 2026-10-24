@@ -1,7 +1,7 @@
 import { messages } from '../../../i18n/index.js';
 import type { GameSettingsRuntime } from '../../../view/runtime/game-settings.js';
-import { createSettingsPage, initialSettingsMemory } from '../../../view/settings-page.js';
-import type { MenuSettings } from '../../../view/settings-store.js';
+import { createSettingsPage, initialSettingsMemory } from '../../../view/settings/page.js';
+import type { MenuSettings } from '../../../view/settings/store.js';
 import { createTooltip } from '../../../view/tooltip.js';
 import { GLYPH } from '../icons.js';
 import { attachTipLayer } from '../parts/tip-layer.js';

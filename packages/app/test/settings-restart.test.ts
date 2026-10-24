@@ -5,7 +5,7 @@ import {
   SETTINGS_NEEDING_MAP_RESTART,
   settingsAwaitingRestart,
 } from '../src/view/runtime/settings-restart.js';
-import { defaultSettings } from '../src/view/settings-store.js';
+import { defaultSettings } from '../src/view/settings/store.js';
 
 const locale = currentLocale();
 beforeEach(() => setActiveLocale('eng'));

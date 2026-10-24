@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { DEFAULT_MINIMAP_FRAME, MINIMAP_FRAMES } from '../../../src/hud/minimap/frames.js';
-import { parseStoredSettings } from '../../../src/view/settings-store.js';
+import { parseStoredSettings } from '../../../src/view/settings/store.js';
 
 it('starts with the default frame and keeps only a frame the game draws', () => {
   expect(parseStoredSettings(null).minimapFrame).toBe(DEFAULT_MINIMAP_FRAME);

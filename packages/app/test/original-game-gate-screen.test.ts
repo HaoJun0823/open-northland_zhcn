@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { OriginalGameRecord } from '../src/entries/main-menu/original-game/gate.js';
 import { originalGameGateScreen } from '../src/entries/main-menu/original-game/gate-screen.js';
 import { messages, setActiveLocale } from '../src/i18n/index.js';
-import type { DesktopOriginalGamePick } from '../src/view/original-game-check.js';
+import type { DesktopOriginalGamePick } from '../src/view/platform/original-game-check.js';
 import { fakeShell } from './support/original-game-shell.js';
 
 const CANCELLED: DesktopOriginalGamePick = { verified: false, label: null, cancelled: true };

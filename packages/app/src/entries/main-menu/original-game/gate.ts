@@ -1,5 +1,5 @@
 import { type FolderReader, findInstall, releaseLabel } from '@open-northland/ownership';
-import type { MenuSettings } from '../../../view/settings-store.js';
+import type { MenuSettings } from '../../../view/settings/store.js';
 
 export type OriginalGameGateStatus = 'asking' | 'checking' | 'notRecognized' | 'verified';
 

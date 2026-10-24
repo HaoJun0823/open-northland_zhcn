@@ -4,8 +4,8 @@ import {
   randomStill,
   rememberStill,
   BACKDROP_STILLS as STILLS,
-} from '../../view/backdrop-stills.js';
-import { BRAND_BACKDROP } from '../../view/brand-art.js';
+} from '../../view/boot/backdrop-stills.js';
+import { BRAND_BACKDROP } from '../../view/boot/brand-art.js';
 import { rotationOrder } from './rotation.js';
 
 /**

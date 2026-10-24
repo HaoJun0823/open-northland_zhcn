@@ -1,7 +1,7 @@
 import { installOriginalTribeNames } from '../../content/gui/original-names.js';
 import { defaultLocale, localeParam, setActiveLocale } from '../../i18n/index.js';
-import { replaceEntryUrl } from '../../view/navigation-guard.js';
-import { type MenuSettings, persistSettings, readStoredSettings } from '../../view/settings-store.js';
+import { replaceEntryUrl } from '../../view/platform/navigation-guard.js';
+import { type MenuSettings, persistSettings, readStoredSettings } from '../../view/settings/store.js';
 
 /**
  * The menu's settings session: the persisted store plus URL overrides. `lang` and `sound` are projected

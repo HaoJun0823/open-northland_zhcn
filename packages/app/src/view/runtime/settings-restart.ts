@@ -1,5 +1,5 @@
 import { type Messages, messages } from '../../i18n/index.js';
-import type { MenuSettings } from '../settings-store.js';
+import type { MenuSettings } from '../settings/store.js';
 
 /** The stored settings a map reads only as it starts; every other one reaches a running game at once. */
 export const SETTINGS_NEEDING_MAP_RESTART = [

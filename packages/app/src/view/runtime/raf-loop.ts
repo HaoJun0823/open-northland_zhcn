@@ -1,4 +1,4 @@
-import type { FpsLimit } from '../settings-store.js';
+import type { FpsLimit } from '../settings/store.js';
 
 export interface RafLoop {
   /** Halt the chain; a second call is a no-op. */

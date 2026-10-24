@@ -180,7 +180,7 @@ export async function restoreCheckpoint(page, { saveText, header, stateHash, url
   await page.evaluate(
     async ({ text, patch }) => {
       if (patch !== null) {
-        const { patchStoredSettings } = await import('/src/view/settings-store.ts');
+        const { patchStoredSettings } = await import('/src/view/settings/store.ts');
         patchStoredSettings(patch);
       }
       const { storePendingLoad } = await import('/src/view/runtime/save-load/pending-store.ts');

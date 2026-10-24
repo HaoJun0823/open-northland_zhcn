@@ -17,7 +17,7 @@ import { armorEntriesOf, everyJobExperience } from '../admin-debug/spawn-catalog
 import type { BuildingEntry } from '../admin-debug/tools.js';
 import type { CameraController } from '../camera/index.js';
 import { buildingLabelsFromContent } from '../game-tool-panel.js';
-import { replaceEntryUrl } from '../navigation-guard.js';
+import { replaceEntryUrl } from '../platform/navigation-guard.js';
 import {
   createGeometryDebugOverlay,
   type GeometryBuildingInfoOf,

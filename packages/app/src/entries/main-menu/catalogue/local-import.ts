@@ -8,7 +8,7 @@ import { droppedLocalInput, LocalPickError, localFilePicker } from '../../../con
 import { MapStorageFullError } from '../../../content/map-source/installed.js';
 import type { InstalledMapStore } from '../../../content/map-source/store.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
-import { desktopMaps } from '../../../view/desktop-bridge.js';
+import { desktopMaps } from '../../../view/platform/desktop-bridge.js';
 import { node } from '../dom.js';
 import { importMenu } from './import-menu.js';
 import { isImportedMainMap } from './model.js';

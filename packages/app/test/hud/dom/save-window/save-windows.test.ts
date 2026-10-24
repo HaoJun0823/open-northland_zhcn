@@ -9,7 +9,7 @@ import {
   defaultSettings,
   patchStoredSettings,
   readStoredSettings,
-} from '../../../../src/view/settings-store.js';
+} from '../../../../src/view/settings/store.js';
 
 vi.mock('../../../../src/view/runtime/save-load/world-names.js', () => ({
   worldNameIndex: async () => (token: string | null) => (token === null ? null : `World ${token}`),

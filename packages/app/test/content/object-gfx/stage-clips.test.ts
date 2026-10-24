@@ -55,7 +55,7 @@ vi.resetModules();
 const { loadFellingClips } = await import('../../../src/content/object-gfx/felling-clips.js');
 const { loadMapObjects } = await import('../../../src/content/object-gfx/objects.js');
 const { playsOnceThenRests } = await import('../../../src/content/ir/joins.js');
-const { createFellingPresenter } = await import('../../../src/view/felling-presenter.js');
+const { createFellingPresenter } = await import('../../../src/view/map-objects/felling-presenter.js');
 
 function record(
   index: number,

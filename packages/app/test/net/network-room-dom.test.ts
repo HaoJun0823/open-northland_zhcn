@@ -7,7 +7,7 @@ import { connectionForm } from '../../src/entries/main-menu/network/connection-f
 import { DEFAULT_RELAY_URL } from '../../src/entries/main-menu/network/relay-default.js';
 import { mountNetworkRoom, type NetworkRoomDeps } from '../../src/entries/main-menu/network/room/index.js';
 import { formatClockTime, messages } from '../../src/i18n/index.js';
-import { patchStoredSettings, readStoredSettings } from '../../src/view/settings-store.js';
+import { patchStoredSettings, readStoredSettings } from '../../src/view/settings/store.js';
 import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 
 const mounted: Array<ReturnType<typeof mountNetworkRoom>> = [];

@@ -4,7 +4,7 @@ import {
   fullscreenControllable,
   fullscreenOptedOut,
   isFullscreen,
-} from '../../view/fullscreen.js';
+} from '../../view/platform/fullscreen.js';
 
 /**
  * The menu's fullscreen prompt. It exists only while the window is not fullscreen, and its own click is

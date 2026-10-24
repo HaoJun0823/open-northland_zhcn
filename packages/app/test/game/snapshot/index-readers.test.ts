@@ -43,7 +43,7 @@ import type { MinimapDotContext } from '../../../src/hud/minimap/dots.js';
 import { DEFAULT_MINIMAP_FILTERS, withAllMinimapLayers } from '../../../src/hud/minimap/filters.js';
 import { restingBuildingsOf } from '../../../src/hud/tool-panel/messages/workshop-stalls.js';
 import { createSceneSim, getScene } from '../../../src/scenes/index.js';
-import { gearTalliesOf } from '../../../src/view/assistant-shortages.js';
+import { gearTalliesOf } from '../../../src/view/assistant/shortages.js';
 import { flagHoldingsOf } from '../../../src/view/foreign-flags.js';
 import { computeConstructionSigns } from '../../../src/view/projections/construction-signs.js';
 import { computeDoorBadges, type DoorBadgeCache } from '../../../src/view/projections/door-badges.js';

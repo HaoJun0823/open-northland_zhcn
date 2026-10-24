@@ -25,7 +25,7 @@ ipcRenderer.on(FULLSCREEN_CHANGED_CHANNEL, (_event, next: unknown) => {
   for (const listener of listeners) listener();
 });
 
-// The shape `packages/app/src/view/host.ts` declares as `window.desktop`.
+// The shape `packages/app/src/view/platform/host.ts` declares as `window.desktop`.
 contextBridge.exposeInMainWorld('desktop', {
   fullscreen: {
     isActive: (): boolean => active,

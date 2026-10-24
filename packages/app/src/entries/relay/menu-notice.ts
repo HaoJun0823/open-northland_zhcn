@@ -1,6 +1,6 @@
 import { formatMessage, messages } from '../../i18n/index.js';
 import { swapToEntry } from '../../launch.js';
-import { type BootNoticeAction, mountBootNotice } from '../../view/boot-progress.js';
+import { type BootNoticeAction, mountBootNotice } from '../../view/boot/progress.js';
 import { BUTTON_STYLE, el, mountMessage } from '../../view/overlay.js';
 import { menuSearch } from '../../view/params.js';
 import type { KeptView } from './kept-view.js';

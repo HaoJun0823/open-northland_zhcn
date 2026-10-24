@@ -1,5 +1,5 @@
 import { MapImportError } from '@open-northland/map-import/input';
-import { type DesktopLocalMapInput, desktopMaps } from '../../view/desktop-bridge.js';
+import { type DesktopLocalMapInput, desktopMaps } from '../../view/platform/desktop-bridge.js';
 import { LocalImportError } from './client.js';
 import { checkedLocalInput, type LocalMapInput } from './input.js';
 

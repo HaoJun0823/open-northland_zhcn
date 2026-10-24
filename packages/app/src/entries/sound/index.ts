@@ -4,7 +4,7 @@ import { contentAudioOptions, hasSoundContent, soundIndexOf } from '../../conten
 import { loadIr } from '../../content/ir/load.js';
 import { messages } from '../../i18n/index.js';
 import { el, pageInnerStyle, pageRootStyle } from '../../view/overlay.js';
-import { readStoredSettings } from '../../view/settings-store.js';
+import { readStoredSettings } from '../../view/settings/store.js';
 import { buildSoundGalleryModel } from './model.js';
 import { createSoundStudio, runStudioClock } from './studio.js';
 

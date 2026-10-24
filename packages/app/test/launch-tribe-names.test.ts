@@ -4,7 +4,7 @@ import { diag } from '../src/diag/index.js';
 import { runEntry } from '../src/launch.js';
 import * as routes from '../src/routes.js';
 import * as cursors from '../src/view/cursors/theme.js';
-import * as navigation from '../src/view/navigation-guard.js';
+import * as navigation from '../src/view/platform/navigation-guard.js';
 
 afterEach(() => {
   vi.restoreAllMocks();

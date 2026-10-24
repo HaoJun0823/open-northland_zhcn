@@ -1,0 +1,350 @@
+import {
+  badgeAnchor,
+  type Camera,
+  type DoorBadge,
+  halfCellToScreen,
+  makeElevationField,
+  ONE,
+  tileToScreen,
+} from '@open-northland/render';
+import { describe, expect, it } from 'vitest';
+import {
+  clampTile,
+  pickDoorBadgeRow,
+  pickGarrisonFlag,
+  pickInRect,
+  pickNearestAt,
+  pickTopAt,
+  screenToWorld,
+  worldToTile,
+} from '../../src/view/picking.js';
+
+/** A picked Tile is a half-cell node; the load-bearing property is the round-trip
+ *  `worldToTile(halfCellToScreen(t)) === t`, so a click lands on the node a human aimed at. */
+
+describe('screenToWorld', () => {
+  it('inverts the camera transform (world = (screen - offset)/scale)', () => {
+    const camera: Camera = { offsetX: 100, offsetY: 50, scale: 2 };
+    expect(screenToWorld(camera, 140, 90)).toEqual({ x: 20, y: 20 });
+  });
+});
+
+describe('worldToTile', () => {
+  it('is the exact inverse of halfCellToScreen for a range of nodes', () => {
+    for (const [col, row] of [
+      [0, 0],
+      [3, 1],
+      [7, 4],
+      [12, 0],
+      [0, 9],
+      [5, 5],
+    ] as const) {
+      const s = halfCellToScreen(col, row);
+      expect(worldToTile(s.x, s.y)).toEqual({ col, row });
+    }
+  });
+
+  it('resolves a cell centre to its ANCHOR node (2c + (r&1), 2r)', () => {
+    // A click on a visual tile's centre lands on the node the sim anchors that cell on.
+    const s = tileToScreen(3, 1);
+    expect(worldToTile(s.x, s.y)).toEqual({ col: 7, row: 2 });
+  });
+
+  it('rounds a point inside a node catchment to that node', () => {
+    const centre = halfCellToScreen(9, 5);
+    // A few px off-centre (within the node's 34×19 px per-axis rounding catchment) still resolves to (9,5).
+    expect(worldToTile(centre.x + 6, centre.y - 3)).toEqual({ col: 9, row: 5 });
+  });
+});
+
+describe('worldToTile - elevation-aware inverse', () => {
+  // Elevation lives on the CELL grid (W×H); node coordinates run 0..2W-1 / 0..2H-1 and sample the
+  // field at (col/2, row/2) - the same cell-space point the renderer lifts a node by.
+  const W = 20;
+  const H = 20;
+
+  /** The screen point the renderer draws node (col,row)'s ground centre at: projected feet lifted up
+   *  by the elevation at its cell-space point. `worldToTile` of this must recover (col,row). */
+  const liftedCentre = (
+    field: ReturnType<typeof makeElevationField>,
+    col: number,
+    row: number,
+  ): { x: number; y: number } => {
+    const s = halfCellToScreen(col, row);
+    return { x: s.x, y: s.y - field.liftAt(col / 2, row / 2) };
+  };
+
+  it('round-trips every node on a STEEP east-rising ramp (lift up to ~15 node rows)', () => {
+    // elevation = col·12 → the east edge lifts ~228·1.24 ≈ 282 px ≈ 14.9 node rows above the flat inverse.
+    const elev: number[] = [];
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) elev.push(c * 12);
+    const field = makeElevationField(elev, W, H);
+    for (let row = 1; row < 2 * H - 1; row += 5) {
+      for (let col = 1; col < 2 * W - 1; col += 5) {
+        const p = liftedCentre(field, col, row);
+        expect(worldToTile(p.x, p.y, field)).toEqual({ col, row });
+      }
+    }
+  });
+
+  it('round-trips a hill that varies in BOTH axes (the iterated correction converges)', () => {
+    const elev: number[] = [];
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) elev.push(c * 6 + r * 5);
+    const field = makeElevationField(elev, W, H);
+    for (const [col, row] of [
+      [6, 6],
+      [20, 17],
+      [31, 30],
+      [36, 5],
+      [3, 36],
+    ] as const) {
+      const p = liftedCentre(field, col, row);
+      expect(worldToTile(p.x, p.y, field)).toEqual({ col, row });
+    }
+  });
+
+  it('is EXACTLY the flat inverse for a flat field (no elevation lane)', () => {
+    const flat = makeElevationField(undefined, W, H);
+    for (const [col, row] of [
+      [0, 0],
+      [14, 8],
+      [25, 19],
+    ] as const) {
+      const s = halfCellToScreen(col, row);
+      expect(worldToTile(s.x, s.y, flat)).toEqual(worldToTile(s.x, s.y));
+      expect(worldToTile(s.x, s.y, flat)).toEqual({ col, row });
+    }
+  });
+});
+
+describe('clampTile', () => {
+  it('holds a tile inside the map bounds', () => {
+    expect(clampTile({ col: -3, row: 20 }, 10, 8)).toEqual({ col: 0, row: 7 });
+    expect(clampTile({ col: 5, row: 4 }, 10, 8)).toEqual({ col: 5, row: 4 });
+  });
+});
+
+describe('pickTopAt', () => {
+  it('picks the FRONTMOST unit when two overlap at a click point', () => {
+    // Two units sharing a screen column; the one lower on screen (larger y) is drawn in front.
+    const back = { ref: 1, x: 100, y: 100 };
+    const front = { ref: 2, x: 100, y: 140 };
+    // Click on the front unit's feet - inside both boxes (front body reaches up past the back feet).
+    expect(pickTopAt([back, front], 100, 138)).toBe(2);
+  });
+
+  it('returns null when the click misses every unit box', () => {
+    expect(pickTopAt([{ ref: 1, x: 100, y: 100 }], 300, 300)).toBeNull();
+  });
+
+  it('gives a BUILDING a far larger hit box - a click anywhere on the house body selects it', () => {
+    const building = { ref: 9, x: 200, y: 200, kind: 'building' as const };
+    // A point 40px up + 40px to the side would MISS a settler-sized box but lands on the house body.
+    expect(pickTopAt([building], 240, 160)).toBe(9);
+    // ...and high up the tall sprite (90px above the feet) still selects.
+    expect(pickTopAt([building], 200, 110)).toBe(9);
+    // The same offsets miss a settler-kind target (its box is small) - proving the box is kind-aware.
+    expect(pickTopAt([{ ref: 9, x: 200, y: 200, kind: 'settler' as const }], 240, 160)).toBeNull();
+  });
+
+  it('uses the EXACT sprite box when provided - a click anywhere inside the graphic selects', () => {
+    // A big building's real rendered bounds: click any part of the graphic hits; just outside misses.
+    const t = {
+      ref: 3,
+      x: 100,
+      y: 100,
+      kind: 'building' as const,
+      box: { minX: 40, minY: 20, maxX: 160, maxY: 130 },
+    };
+    expect(pickTopAt([t], 45, 25)).toBe(3); // near the top-left corner of the sprite
+    expect(pickTopAt([t], 155, 125)).toBe(3); // near the bottom-right corner
+    expect(pickTopAt([t], 34, 100)).toBeNull(); // just left of the box
+    expect(pickTopAt([t], 100, 140)).toBeNull(); // just below the box
+  });
+
+  it('prefers a settler standing IN FRONT of a building over the (larger-boxed) building behind it', () => {
+    const building = { ref: 1, x: 100, y: 100, kind: 'building' as const };
+    const settler = { ref: 2, x: 100, y: 150, kind: 'settler' as const }; // lower on screen = in front
+    expect(pickTopAt([building, settler], 100, 150)).toBe(2); // the frontmost wins the overlap
+  });
+
+  it('refines a box hit to SOLID pixels when the target carries a pixelHit', () => {
+    // A building whose sprite fills only the LEFT half of its box (the right half is transparent air).
+    const t = {
+      ref: 7,
+      x: 100,
+      y: 100,
+      kind: 'building' as const,
+      box: { minX: 40, minY: 20, maxX: 160, maxY: 130 },
+      pixelHit: (wx: number, _wy: number): boolean | undefined => wx < 100,
+    };
+    expect(pickTopAt([t], 60, 60)).toBe(7); // on the graphic
+    expect(pickTopAt([t], 140, 60)).toBeNull(); // inside the box but on transparent pixels
+    expect(pickTopAt([t], 200, 60)).toBeNull(); // outside the box: pixelHit is never consulted
+  });
+
+  it('keeps the box verdict when pixelHit has no exact answer (undefined)', () => {
+    const t = {
+      ref: 8,
+      x: 100,
+      y: 100,
+      kind: 'building' as const,
+      box: { minX: 40, minY: 20, maxX: 160, maxY: 130 },
+      pixelHit: (): boolean | undefined => undefined, // unreadable atlas / not drawn this frame
+    };
+    expect(pickTopAt([t], 140, 60)).toBe(8); // the pre-mask behaviour stands
+  });
+});
+
+describe('pickNearestAt', () => {
+  it('picks the resource planted nearest the click when tall fallback boxes overlap', () => {
+    const clicked = { ref: 1, x: 100, y: 100, kind: 'resource' as const };
+    const frontNeighbour = { ref: 2, x: 110, y: 130, kind: 'resource' as const };
+
+    expect(pickTopAt([clicked, frontNeighbour], 100, 100)).toBe(2);
+    expect(pickNearestAt([clicked, frontNeighbour], 100, 100)).toBe(1);
+  });
+});
+
+describe('pickInRect', () => {
+  const target = {
+    ref: 1,
+    x: 100,
+    y: 200,
+    kind: 'settler' as const,
+    // Drawn bounds can be far above the pre-lift feet anchor on elevated terrain.
+    box: { minX: 90, maxX: 110, minY: 80, maxY: 120 },
+  };
+
+  it.each([
+    [95, 75, 105, 85], // clips the head, without the feet
+    [105, 85, 95, 75], // reversed corners
+    [110, 90, 120, 100], // touches the side
+    [95, 90, 100, 95], // wholly inside the sprite
+    [80, 70, 120, 130], // encloses the sprite
+  ])('selects a sprite touched by rectangle (%s, %s)-(%s, %s)', (x0, y0, x1, y1) => {
+    expect(pickInRect([target], x0, y0, x1, y1)).toEqual([1]);
+  });
+
+  it('misses outside drawn bounds, even when the raw anchor is inside the rectangle', () => {
+    expect(pickInRect([target], 111, 80, 130, 120)).toEqual([]);
+    expect(pickInRect([target], 90, 180, 110, 210)).toEqual([]);
+  });
+
+  it('uses the fallback body box without rendered geometry and preserves input order', () => {
+    const targets = [
+      { ref: 2, x: 100, y: 100 },
+      { ref: 1, x: 105, y: 100 },
+    ];
+    expect(pickInRect(targets, 95, 55, 110, 65)).toEqual([2, 1]);
+    expect(pickInRect(targets, 200, 200, 300, 300)).toEqual([]);
+  });
+});
+
+describe('pickDoorBadgeRow', () => {
+  const stack = (id: number, tileX: number, tileY: number, extra?: Partial<DoorBadge>): DoorBadge => ({
+    id,
+    x: tileX * ONE,
+    y: tileY * ONE,
+    rows: [
+      { role: 'single', settler: 40 },
+      { role: 'craftsman', settler: 41 },
+      { role: 'carrier', settler: 42 },
+    ],
+    ...extra,
+  });
+
+  it('maps a click on each chain band to that row’s settler, and misses beside/above the stack', () => {
+    const p = tileToScreen(3, 5);
+    const badges = [stack(1, 3, 5)];
+    expect(pickDoorBadgeRow(badges, p.x, p.y - 10)).toBe(40); // base banner emblem
+    expect(pickDoorBadgeRow(badges, p.x, p.y - 30)).toBe(41); // middle disc
+    expect(pickDoorBadgeRow(badges, p.x, p.y - 50)).toBe(42); // carrier pennant on top
+    expect(pickDoorBadgeRow(badges, p.x, p.y - 80)).toBeNull(); // above the chain
+    expect(pickDoorBadgeRow(badges, p.x + 30, p.y - 10)).toBeNull(); // beside it
+  });
+
+  it('applies the GfxFlagPoint px offset and the terrain lift at the anchor tile', () => {
+    const W = 4;
+    const H = 8;
+    const elev = new Array<number>(W * H).fill(0);
+    elev[6 * W + 1] = 160; // a hill under cell (col 1, row 6)
+    const field = makeElevationField(elev, W, H);
+    const p = tileToScreen(1, 6);
+    const post = stack(1, 1, 6, { dx: -6, dy: 29 });
+    const badges = [post];
+    const ax = p.x - 6;
+    const ay = p.y + 29 - field.liftAt(1, 6);
+    expect(badgeAnchor(post, field)).toMatchObject({ x: ax, y: ay }); // the picker's shared anchor
+    expect(pickDoorBadgeRow(badges, ax, ay - 10, field)).toBe(40);
+    expect(pickDoorBadgeRow(badges, p.x, p.y - 10, field)).toBeNull(); // the unlifted spot misses
+  });
+
+  it('skips rows with no settler and picks the frontmost stack when two overlap', () => {
+    const p = tileToScreen(3, 5);
+    const bare = stack(1, 3, 5, { rows: [{ role: 'single' }] }); // an unresolvable banner - no hit
+    expect(pickDoorBadgeRow([bare], p.x, p.y - 10)).toBeNull();
+
+    // Two stacks anchored a fraction of a row apart, so both base bands cover the click point: the
+    // larger anchor y (the iso frontmost convention) wins.
+    const back = stack(1, 3, 4.8, { rows: [{ role: 'single', settler: 7 }] });
+    const front = stack(2, 3, 5, { rows: [{ role: 'single', settler: 8 }] });
+    expect(pickDoorBadgeRow([back, front], p.x, p.y - 10)).toBe(8);
+  });
+
+  it('breaks an overlap on the building, not the post, matching what the layer paints', () => {
+    // The layer sorts a chain by its BUILDING, so the front house's chain paints over the rear one even
+    // when the rear post is planted lower on screen - real flag points spread that far (home_level_04
+    // is +92, the smithy -23). Two posts 6 px apart, so one click lands in both base bands.
+    const rear = stack(1, 3, 5, { dy: 92, rows: [{ role: 'single', settler: 7 }] });
+    const front = stack(2, 3, 7, { dy: 10, rows: [{ role: 'single', settler: 8 }] });
+    const rearPost = tileToScreen(3, 5).y + 92;
+    const frontPost = tileToScreen(3, 7).y + 10;
+    expect(rearPost).toBeGreaterThan(frontPost); // the buried chain IS the lower-planted one
+    const p = tileToScreen(3, 5);
+    expect(pickDoorBadgeRow([rear, front], p.x, frontPost - 5)).toBe(8); // the front house still wins
+  });
+});
+
+describe('pickGarrisonFlag', () => {
+  /** The viking small tower's extracted mast, where the scene actually flies one. */
+  const MAST = { dx: -6, dy: -239 };
+  const manned = (id: number, tileX: number, tileY: number, stars = 3): DoorBadge => ({
+    id,
+    x: tileX * ONE,
+    y: tileY * ONE,
+    rows: [],
+    garrison: { stars, ...MAST },
+  });
+
+  it('picks the BUILDING under the banner - the whole post, never one of its men', () => {
+    const p = tileToScreen(3, 5);
+    const badges = [manned(1, 3, 5)];
+    const mast = { x: p.x + MAST.dx, y: p.y + MAST.dy };
+    expect(pickGarrisonFlag(badges, mast.x + 20, mast.y - 20)).toBe(1); // mid-cloth, where the stars are
+    expect(pickGarrisonFlag(badges, mast.x, mast.y)).toBe(1); // the mast foot
+    // A click through the banner used to land on empty ground 230 px above the tower's own box, which
+    // clears the selection on the left button and walks the garrison past its tower on the right.
+    expect(pickGarrisonFlag(badges, mast.x + 60, mast.y - 20)).toBeNull(); // past the cloth
+    expect(pickGarrisonFlag(badges, mast.x + 20, mast.y - 60)).toBeNull(); // above the mast head
+    expect(pickGarrisonFlag(badges, p.x, p.y)).toBeNull(); // the building's own box, not the flag's
+  });
+
+  it('ignores an unmanned building and rides the terrain lift like the layer does', () => {
+    const W = 4;
+    const H = 8;
+    const elev = new Array<number>(W * H).fill(0);
+    elev[6 * W + 1] = 160;
+    const field = makeElevationField(elev, W, H);
+    const p = tileToScreen(1, 6);
+    const tower = manned(1, 1, 6);
+    const badges = [tower];
+    const lifted = p.y + MAST.dy - field.liftAt(1, 6);
+    expect(badgeAnchor(tower, field).mast).toEqual({ x: p.x + MAST.dx, y: lifted });
+    expect(pickGarrisonFlag(badges, p.x + MAST.dx + 20, lifted - 20, field)).toBe(1);
+    expect(pickGarrisonFlag(badges, p.x + MAST.dx + 20, p.y + MAST.dy - 20, field)).toBeNull();
+
+    const unmanned: DoorBadge = { id: 2, x: ONE, y: 6 * ONE, rows: [{ role: 'carrier', settler: 9 }] };
+    expect(pickGarrisonFlag([unmanned], p.x + MAST.dx + 20, lifted - 20, field)).toBeNull();
+  });
+});

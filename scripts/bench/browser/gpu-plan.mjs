@@ -5,7 +5,7 @@ const DEFAULT_OUTPUT = 'bench-out/gpu';
 const DEFAULT_SECONDS = 5;
 const DEFAULT_REPEATS = 3;
 
-/** The settings the startup graphics profile switches (`view/graphics-defaults.ts`), minus the scaler. */
+/** The settings the startup graphics profile switches (`view/graphics/defaults.ts`), minus the scaler. */
 export const ENHANCEMENT_SETTINGS = [
   'enhancedSampling',
   'softShadows',

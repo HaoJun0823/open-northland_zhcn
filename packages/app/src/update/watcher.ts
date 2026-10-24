@@ -3,8 +3,8 @@ import { onContentMovedOn } from '../content/url.js';
 import { diag } from '../diag/index.js';
 import { formatMessage, messages } from '../i18n/index.js';
 import { routeFor } from '../routes.js';
-import { servedByBrowser } from '../view/host.js';
-import { releaseDocument, reloadDocument } from '../view/navigation-guard.js';
+import { servedByBrowser } from '../view/platform/host.js';
+import { releaseDocument, reloadDocument } from '../view/platform/navigation-guard.js';
 import { type BannerAction, hideUpdateBanner, setUpdateBannerText, showUpdateBanner } from './banner.js';
 import {
   type CheckCause,

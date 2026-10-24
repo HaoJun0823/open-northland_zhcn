@@ -1,6 +1,6 @@
 import { DEFAULT_WEATHER_MODE, WEATHER_MODES, type WeatherMode } from '@open-northland/lockstep';
 import { FOG_MODE, type FogSettings } from '@open-northland/sim';
-import { segControl } from '../../../view/settings-controls.js';
+import { segControl } from '../../../view/settings/controls.js';
 import { fogRuleComposer, isMapMode, MAP_MODES, type MapModeName, ruleChoiceState } from './rules-state.js';
 import { selectControl } from './select.js';
 

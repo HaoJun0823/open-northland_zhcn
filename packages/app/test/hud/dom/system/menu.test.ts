@@ -3,11 +3,11 @@ import { type SoundBus, VOLUME_CHANNELS } from '@open-northland/audio';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSystemMenu, type SystemMenu } from '../../../../src/hud/dom/system/menu.js';
 import { currentLocale, messages, setActiveLocale } from '../../../../src/i18n/index.js';
-import * as graphicsStartup from '../../../../src/view/graphics-startup.js';
+import * as graphicsStartup from '../../../../src/view/graphics/startup.js';
 import type { GameSettingsRuntime } from '../../../../src/view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../../../../src/view/runtime/save-load/index.js';
 import { noteRestartOnLeave } from '../../../../src/view/runtime/settings-restart.js';
-import { defaultSettings, type MenuSettings } from '../../../../src/view/settings-store.js';
+import { defaultSettings, type MenuSettings } from '../../../../src/view/settings/store.js';
 
 let menu: SystemMenu | null = null;
 let notifyHudResize = (): void => undefined;

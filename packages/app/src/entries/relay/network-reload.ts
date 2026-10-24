@@ -10,8 +10,8 @@ import {
   relayFailureText,
   relayReasonText,
 } from '../../net/relay-reason.js';
-import { dismissBootProgress, mountBootProgress } from '../../view/boot-progress.js';
-import { releaseDocument } from '../../view/navigation-guard.js';
+import { dismissBootProgress, mountBootProgress } from '../../view/boot/progress.js';
+import { releaseDocument } from '../../view/platform/navigation-guard.js';
 import { compatibilityIssuesText } from './compatibility.js';
 import { relayIdentity } from './identity.js';
 import { keptView } from './kept-view.js';

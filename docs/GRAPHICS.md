@@ -12,7 +12,7 @@ so a user edit or another tab wins over a pending result.
 
 GPU classification comes from the pinned `@pmndrs/detect-gpu` dependency and its matching benchmark
 database. The game owns only the mapping in
-[`graphics-defaults.ts`](../packages/app/src/view/graphics-defaults.ts):
+[`graphics/defaults.ts`](../packages/app/src/view/graphics/defaults.ts):
 
 | Library result | Game profile | Original art filter | Other optional world enhancements |
 | --- | --- | --- | --- |

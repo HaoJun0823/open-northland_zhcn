@@ -1,5 +1,5 @@
 import { components, TICKS_PER_SECOND } from '@open-northland/sim';
-import type { AssistantShortage } from '../../../view/assistant-shortages.js';
+import type { AssistantShortage } from '../../../view/assistant/shortages.js';
 import type { Rect } from '../../geometry.js';
 import type { ScreenSize } from '../../nav-beam.js';
 import { centralWindowBox, centralWindowOrigin } from '../../regions.js';

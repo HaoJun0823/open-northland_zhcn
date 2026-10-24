@@ -2,7 +2,7 @@ import type {
   DesktopOriginalGame,
   DesktopOriginalGamePick,
   DesktopOriginalGameStatus,
-} from '../../src/view/original-game-check.js';
+} from '../../src/view/platform/original-game-check.js';
 
 /** A desktop bridge answering `status` and handing out `picks` in order. */
 export function fakeShell(

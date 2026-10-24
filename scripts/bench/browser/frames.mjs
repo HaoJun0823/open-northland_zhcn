@@ -149,7 +149,7 @@ try {
   }
   await restore();
   metadata.settings = await page.evaluate(async () => {
-    const { readStoredSettings } = await import('/src/view/settings-store.ts');
+    const { readStoredSettings } = await import('/src/view/settings/store.ts');
     return readStoredSettings();
   });
   metadata.restoredRules = await page.evaluate(() => {

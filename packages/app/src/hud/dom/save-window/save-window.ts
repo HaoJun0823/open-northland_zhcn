@@ -8,7 +8,7 @@ import {
 } from '../../../view/runtime/save-load/list-model.js';
 import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import { worldNameIndex } from '../../../view/runtime/save-load/world-names.js';
-import { AUTOSAVE_COUNTS, type AutosaveMinutes } from '../../../view/settings-store.js';
+import { AUTOSAVE_COUNTS, type AutosaveMinutes } from '../../../view/settings/store.js';
 import { GLYPH } from '../icons.js';
 import { button, element, setTip } from '../parts/dom.js';
 import { quietTextField } from '../parts/text-field.js';

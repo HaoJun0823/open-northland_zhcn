@@ -1,4 +1,4 @@
-import type { DesktopMaps } from '../../view/desktop-bridge.js';
+import type { DesktopMaps } from '../../view/platform/desktop-bridge.js';
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
 import { localInputFromDesktop, localInputToDesktop } from '../local-import/desktop.js';
 import { storedLocalInput } from '../local-import/input.js';

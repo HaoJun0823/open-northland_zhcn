@@ -14,7 +14,7 @@ import {
   type AssistantShortage,
   type AssistantShortages,
   NO_SHORTAGES,
-} from '../../../view/assistant-shortages.js';
+} from '../../../view/assistant/shortages.js';
 import type { ToolWindow } from '../../tool-panel/window-shell.js';
 import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { FIGURE, GLYPH } from '../icons.js';

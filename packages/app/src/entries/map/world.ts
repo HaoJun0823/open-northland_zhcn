@@ -46,7 +46,7 @@ import {
   setupPlacementTribes,
   withNeutralRosterPairs,
 } from '../../game/world/index.js';
-import { grantAssistantDefaults } from '../../view/assistant-grants.js';
+import { grantAssistantDefaults } from '../../view/assistant/grants.js';
 
 /**
  * The world the `?map=` entry plays on, assembled from decoded map data alone. It needs no renderer or

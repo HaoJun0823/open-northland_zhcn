@@ -1,6 +1,6 @@
 import { playerSwatchHex } from '../../catalog/roster.js';
 import { bcp47Tag, formatMessage, messages, pluralForm, tribeName } from '../../i18n/index.js';
-import { segControl } from '../../view/settings-controls.js';
+import { segControl } from '../../view/settings/controls.js';
 import {
   defaultMapPreview,
   type MapPreviewView,

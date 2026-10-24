@@ -1,6 +1,6 @@
 import { newToken } from '@open-northland/net-client';
 import { messages } from '../../i18n/index.js';
-import { patchStoredSettings, readStoredSettings } from '../../view/settings-store.js';
+import { patchStoredSettings, readStoredSettings } from '../../view/settings/store.js';
 
 const tokens = new Map<string, string>();
 

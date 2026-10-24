@@ -3,7 +3,7 @@ import { messages } from '../../../i18n/index.js';
 import { dismissOnBackdropClick } from '../../../view/backdrop-dismiss.js';
 import type { GameSettingsRuntime } from '../../../view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../../../view/runtime/save-load/index.js';
-import type { MenuSettings } from '../../../view/settings-store.js';
+import type { MenuSettings } from '../../../view/settings/store.js';
 import { GLYPH } from '../icons.js';
 import { createHudPlane, type HudPlane } from '../root.js';
 import type { MenuPageView } from '../save-window/frame.js';

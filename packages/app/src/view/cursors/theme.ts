@@ -1,5 +1,5 @@
 import { diag } from '../../diag/index.js';
-import { onStoredSettingsChange, readStoredSettings } from '../settings-store.js';
+import { onStoredSettingsChange, readStoredSettings } from '../settings/store.js';
 import { CURSOR_HOTSPOTS } from './hotspots.js';
 import {
   type ArtCursorTheme,

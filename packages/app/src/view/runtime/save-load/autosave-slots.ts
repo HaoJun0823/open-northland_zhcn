@@ -1,4 +1,4 @@
-import { AUTOSAVE_COUNTS } from '../../settings-store.js';
+import { AUTOSAVE_COUNTS } from '../../settings/store.js';
 
 /** Every slot a rotation may use; slots past the chosen count are the ones a smaller count prunes. */
 const MAX_AUTOSAVE_SLOTS = Math.max(...AUTOSAVE_COUNTS);

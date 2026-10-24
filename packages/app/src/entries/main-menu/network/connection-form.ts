@@ -1,7 +1,7 @@
 import { MAX_NICK_LENGTH } from '@open-northland/net-protocol';
 import { quietTextField } from '../../../hud/dom/parts/text-field.js';
 import { messages } from '../../../i18n/index.js';
-import { patchStoredSettings, readStoredSettings } from '../../../view/settings-store.js';
+import { patchStoredSettings, readStoredSettings } from '../../../view/settings/store.js';
 import { node } from '../dom.js';
 import { relayAddress } from './model.js';
 import { button, field } from './parts.js';

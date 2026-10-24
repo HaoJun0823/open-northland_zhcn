@@ -1,6 +1,6 @@
 import { TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../../diag/index.js';
-import type { MenuSettings } from '../../settings-store.js';
+import type { MenuSettings } from '../../settings/store.js';
 import { autosaveSlots } from './autosave-slots.js';
 import type { SaveLoadSession } from './controller.js';
 

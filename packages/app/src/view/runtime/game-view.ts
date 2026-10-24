@@ -100,10 +100,10 @@ import { presentationPack } from '../../presentation/pack.js';
 import type { OffThreadTickCost, SessionHost } from '../../session/index.js';
 import { setUpdateContinuation } from '../../update/watcher.js';
 import type { AmbientWeather } from '../ambient-weather.js';
-import { seatBookingsOf } from '../assistant-bookings.js';
-import { assistantCountersSeam } from '../assistant-counters.js';
-import { assistantGrantsSeam } from '../assistant-grants.js';
-import { assistantShortagesOf } from '../assistant-shortages.js';
+import { seatBookingsOf } from '../assistant/bookings.js';
+import { assistantCountersSeam } from '../assistant/counters.js';
+import { assistantGrantsSeam } from '../assistant/grants.js';
+import { assistantShortagesOf } from '../assistant/shortages.js';
 import type { CameraController } from '../camera/index.js';
 import {
   cameraCenteredOnTile,
@@ -120,6 +120,7 @@ import {
   mountGameToolPanel,
   palisadeToolsOf,
 } from '../game-tool-panel.js';
+import { applyWhenWarmed } from '../graphics/shader-warmup.js';
 import { createSignpostMapOverlay } from '../map-overlays/signposts.js';
 import { floatParam, introParam, menuSearch, tintParam, weatherParam } from '../params.js';
 import { nodeBounds } from '../picking.js';
@@ -135,8 +136,7 @@ import {
 } from '../projections/index.js';
 import { createScriptEffects } from '../script-effects.js';
 import { createScriptMarkers } from '../script-markers.js';
-import { patchStoredSettings, readStoredSettings } from '../settings-store.js';
-import { applyWhenWarmed } from '../shader-warmup.js';
+import { patchStoredSettings, readStoredSettings } from '../settings/store.js';
 import { createShortfallLook } from '../speed-shortfall.js';
 import { createTooltip } from '../tooltip.js';
 import { type ControlGroupMembers, isControlGroupMember } from '../unit-controls/control-groups.js';

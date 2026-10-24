@@ -2,7 +2,7 @@ import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { InstalledMapRecord } from '../../../content/map-source/installed.js';
 import { MAX_INSTALLED_MAP_BYTES } from '../../../content/map-source/installed.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
-import { desktopMaps } from '../../../view/desktop-bridge.js';
+import { desktopMaps } from '../../../view/platform/desktop-bridge.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
 import { listedIn, mapItem } from '../map-select-model.js';

@@ -1,6 +1,6 @@
 import type { SaveGame } from '@open-northland/sim';
-import { reloadDocument } from '../../navigation-guard.js';
 import { entrySearch } from '../../params.js';
+import { reloadDocument } from '../../platform/navigation-guard.js';
 import { type SaveLoadDeps, type SaveLoadSession, saveLoadSession } from './controller.js';
 import { browserSaveDownload, pickSaveFile } from './file-access.js';
 import { storePendingLoad } from './pending-store.js';

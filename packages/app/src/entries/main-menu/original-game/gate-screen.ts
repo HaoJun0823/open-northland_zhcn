@@ -1,7 +1,7 @@
 import { diag } from '../../../diag/index.js';
 import { messages } from '../../../i18n/index.js';
-import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../../view/brand-art.js';
-import { type DesktopOriginalGame, desktopOriginalGame } from '../../../view/original-game-check.js';
+import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../../view/boot/brand-art.js';
+import { type DesktopOriginalGame, desktopOriginalGame } from '../../../view/platform/original-game-check.js';
 import { node } from '../dom.js';
 import {
   directoryHandleReader,

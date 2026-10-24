@@ -7,9 +7,9 @@ import {
   setActiveLocale,
 } from './i18n/index.js';
 import { routeFor } from './routes.js';
-import { dismissBootProgress } from './view/boot-progress.js';
-import { guardEntry, pushEntryUrl, releaseDocument } from './view/navigation-guard.js';
-import { originalGameRedirect } from './view/original-game-check.js';
+import { dismissBootProgress } from './view/boot/progress.js';
+import { guardEntry, pushEntryUrl, releaseDocument } from './view/platform/navigation-guard.js';
+import { originalGameRedirect } from './view/platform/original-game-check.js';
 
 let cursorsInstalled = false;
 

@@ -7,7 +7,7 @@ import type { SaveBytes } from '../../../view/runtime/save-load/codec.js';
 import { pickSaveFile } from '../../../view/runtime/save-load/file-access.js';
 import { browserSaveStore } from '../../../view/runtime/save-load/store-browser.js';
 import { SCENE_TOKEN_PREFIX } from '../../../view/runtime/save-load/world-names.js';
-import { segControl } from '../../../view/settings-controls.js';
+import { segControl } from '../../../view/settings/controls.js';
 import { node } from '../dom.js';
 import { metaLine, paintMapThumb } from '../map-card.js';
 import type { MapSelectItem } from '../map-select-model.js';

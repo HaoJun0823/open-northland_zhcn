@@ -10,7 +10,7 @@ import {
   originalGameCheckEnabled,
   originalGameCheckOwed,
   originalGameRedirect,
-} from '../src/view/original-game-check.js';
+} from '../src/view/platform/original-game-check.js';
 import { fakeShell } from './support/original-game-shell.js';
 
 function pickedFile(relativePath: string, bytes: Uint8Array): File {

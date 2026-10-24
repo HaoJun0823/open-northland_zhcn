@@ -2,7 +2,7 @@ import culturesNationLogo from '../../assets/community/culturesnation.webp';
 import discordMark from '../../assets/community/discord.svg';
 import { GAME_VERSION } from '../../build-version.js';
 import { messages } from '../../i18n/index.js';
-import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/brand-art.js';
+import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/boot/brand-art.js';
 import { node } from './dom.js';
 import type { MenuScreen } from './model.js';
 import { screenHead } from './screen-head.js';

@@ -12,7 +12,7 @@ import {
   createInstalledMapStore,
   desktopInstalledMapStorage,
 } from '../../../src/content/map-source/store.js';
-import type { DesktopMaps } from '../../../src/view/desktop-bridge.js';
+import type { DesktopMaps } from '../../../src/view/platform/desktop-bridge.js';
 
 it('round-trips the web source contract through desktop storage and rebuilds with stable map ids', async () => {
   const root = await mkdtemp(join(tmpdir(), 'on-desktop-adapter-'));

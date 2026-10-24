@@ -1,5 +1,5 @@
 import type { SeatMode } from '@open-northland/lockstep';
-import { segControl } from '../../../view/settings-controls.js';
+import { segControl } from '../../../view/settings/controls.js';
 import { selectControl } from './select.js';
 
 interface ModeOptions {

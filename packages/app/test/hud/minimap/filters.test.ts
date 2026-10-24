@@ -7,7 +7,7 @@ import {
   toggleMinimapLayer,
   withAllMinimapLayers,
 } from '../../../src/hud/minimap/filters.js';
-import { defaultSettings, parseStoredSettings } from '../../../src/view/settings-store.js';
+import { defaultSettings, parseStoredSettings } from '../../../src/view/settings/store.js';
 
 describe('minimap filters', () => {
   it('toggle one layer, or all of them at once', () => {

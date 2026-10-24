@@ -1,9 +1,9 @@
 import { installCrashCapture, logBootHeader } from './diag/index.js';
 import { runEntry } from './launch.js';
 import { installUpdateWatcher } from './update/watcher.js';
-import { deviceNoticeCleared } from './view/device-notice.js';
-import { initializeGraphicsSettings } from './view/graphics-startup.js';
-import { installNavigationGuard } from './view/navigation-guard.js';
+import { initializeGraphicsSettings } from './view/graphics/startup.js';
+import { deviceNoticeCleared } from './view/platform/device-notice.js';
+import { installNavigationGuard } from './view/platform/navigation-guard.js';
 
 /**
  * App shell entry point: reads `window.location.search` and hands off to the entry it names, once a

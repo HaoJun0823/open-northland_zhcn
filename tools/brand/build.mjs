@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { BRAND_LOGO_STACKED_SIZE } from '../../packages/app/src/view/brand-art.ts';
+import { BRAND_LOGO_STACKED_SIZE } from '../../packages/app/src/view/boot/brand-art.ts';
 import { portableSplash } from './portable-splash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

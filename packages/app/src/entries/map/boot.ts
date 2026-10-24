@@ -44,15 +44,15 @@ import { type WorldTribes, worldTribes } from '../../game/world-tribes.js';
 import { WorldNotAdoptedError } from '../../net/relayed-worlds.js';
 import { type PresentationPack, presentationPack } from '../../presentation/pack.js';
 import type { SessionHost } from '../../session/index.js';
-import { type BootPhase, type BootProgress, mountBootProgress } from '../../view/boot-progress.js';
+import { type BootPhase, type BootProgress, mountBootProgress } from '../../view/boot/progress.js';
+import { graphicsShaderWarmup } from '../../view/graphics/shader-warmup.js';
 import {
   createWorldRenderer,
   haltOnFailedRestore,
   haltOnMissingContent,
   loadLocalizedRealContent,
 } from '../../view/runtime/world-bootstrap.js';
-import { readStoredSettings } from '../../view/settings-store.js';
-import { graphicsShaderWarmup } from '../../view/shader-warmup.js';
+import { readStoredSettings } from '../../view/settings/store.js';
 import type { MapWorldDocuments, MapWorldPlacements } from './world-inputs.js';
 
 export { type MapRuntime, presentMapWorld } from './present.js';

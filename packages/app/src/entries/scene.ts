@@ -28,12 +28,12 @@ import {
 } from '../scenes/index.js';
 import type { SceneDefinition } from '../scenes/types.js';
 import { inlineSessionHost } from '../session/index.js';
-import { type BootPhase, mountBootProgress } from '../view/boot-progress.js';
+import { type BootPhase, mountBootProgress } from '../view/boot/progress.js';
 import { cameraFor, createCameraController } from '../view/camera/index.js';
-import { bindDisplayMode } from '../view/fullscreen.js';
-import { replaceEntryUrl } from '../view/navigation-guard.js';
 import { createNetPanelPreview, NET_PREVIEW_STATE_PARAM, stillWhileHeld } from '../view/net/panel-preview.js';
 import { mountResyncPlaque } from '../view/net/resync-plaque.js';
+import { bindDisplayMode } from '../view/platform/fullscreen.js';
+import { replaceEntryUrl } from '../view/platform/navigation-guard.js';
 import { startGameView } from '../view/runtime/game-view.js';
 import { type StagedSession, takeStagedSession } from '../view/runtime/save-load/index.js';
 import { SCENE_TOKEN_PREFIX } from '../view/runtime/save-load/world-names.js';
@@ -46,7 +46,7 @@ import {
 } from '../view/runtime/world-bootstrap.js';
 import { mountUnknownSceneOverlay } from '../view/scene-overlay.js';
 import { mountSceneStages } from '../view/scene-stages.js';
-import { readStoredSettings } from '../view/settings-store.js';
+import { readStoredSettings } from '../view/settings/store.js';
 
 /**
  * The `?scene=<id>` entry renders a registered acceptance scene with the standard game HUD, over the

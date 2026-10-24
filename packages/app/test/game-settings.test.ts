@@ -1,7 +1,7 @@
 import { DEFAULT_VOLUMES, type MixerVolumes } from '@open-northland/audio';
 import { describe, expect, it, vi } from 'vitest';
 import { uiScaleFor } from '../src/hud/ui-scale.js';
-import { enhancementsOf } from '../src/view/graphics-enhancements.js';
+import { enhancementsOf } from '../src/view/graphics/enhancements.js';
 import { createGameHudScaleCoordinator } from '../src/view/runtime/game-hud-scale.js';
 import {
   createGameSettingsRuntime,
@@ -9,7 +9,7 @@ import {
   gameSoundEnabled,
 } from '../src/view/runtime/game-settings.js';
 import { createGameViewportCoordinator } from '../src/view/runtime/game-viewport.js';
-import { defaultSettings, parseStoredSettings } from '../src/view/settings-store.js';
+import { defaultSettings, parseStoredSettings } from '../src/view/settings/store.js';
 
 /** The default mix with only the world bus moved to `world`. */
 const worldAt = (world: number): MixerVolumes => ({ ...DEFAULT_VOLUMES, world });

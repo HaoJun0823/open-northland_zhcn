@@ -1,4 +1,4 @@
-import { desktopMaps } from '../../view/desktop-bridge.js';
+import { desktopMaps } from '../../view/platform/desktop-bridge.js';
 import { localInputBytes } from '../local-import/input.js';
 import {
   type LocalSourceRecord,

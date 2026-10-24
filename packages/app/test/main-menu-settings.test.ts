@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adoptSettings, carriedSettingParams } from '../src/entries/main-menu/settings-state.js';
 import { DEFAULT_KEY_BINDINGS } from '../src/hud/keybindings.js';
 import { UI_SCALE_FACTOR_MAX, UI_SCALE_FACTOR_MIN } from '../src/hud/ui-scale.js';
-import type { MenuSettings } from '../src/view/settings-store.js';
+import type { MenuSettings } from '../src/view/settings/store.js';
 import {
   defaultSettings,
   parseStoredSettings,
@@ -13,7 +13,7 @@ import {
   RENDER_SCALE_MIN,
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
-} from '../src/view/settings-store.js';
+} from '../src/view/settings/store.js';
 
 // The default language, and so the param the URL elides, comes from the browser rather than a constant.
 beforeEach(() => vi.stubGlobal('navigator', { languages: ['pl-PL'] }));

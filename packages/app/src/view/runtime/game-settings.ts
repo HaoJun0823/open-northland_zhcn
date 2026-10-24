@@ -1,8 +1,8 @@
 import type { SoundBus } from '@open-northland/audio';
 import type { WorldEnhancements } from '@open-northland/render';
 import type { CameraInputSettings } from '../camera/index.js';
-import { ENHANCEMENT_KEYS, enhancementsOf } from '../graphics-enhancements.js';
-import type { MenuSettings } from '../settings-store.js';
+import { ENHANCEMENT_KEYS, enhancementsOf } from '../graphics/enhancements.js';
+import type { MenuSettings } from '../settings/store.js';
 
 export interface GameSettingsRuntime {
   current(): MenuSettings;

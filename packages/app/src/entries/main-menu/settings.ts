@@ -1,12 +1,12 @@
 import { displayViewOf, uiScaleFor } from '../../hud/ui-scale.js';
 import { messages } from '../../i18n/index.js';
-import { createSettingsPage, type SettingsMemory, type SettingsPageStore } from '../../view/settings-page.js';
+import { createSettingsPage, type SettingsMemory, type SettingsPageStore } from '../../view/settings/page.js';
 import type { MenuScreen, MountedScreen } from './model.js';
 import type { MenuSound } from './music.js';
 import { screenHead } from './screen-head.js';
 import { menuSettings, updateSettings } from './settings-state.js';
 
-export type { SettingsMemory } from '../../view/settings-page.js';
+export type { SettingsMemory } from '../../view/settings/page.js';
 
 export function settingsScreen(
   open: (screen: MenuScreen) => void,

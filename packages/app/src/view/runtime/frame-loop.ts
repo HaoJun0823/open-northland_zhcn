@@ -21,9 +21,9 @@ import type { MinimapHandle } from '../../hud/minimap/index.js';
 import { type BuildingPick, probeOwner, techWaived } from '../../hud/tool-panel/placement.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { placementPointer, wallDemolishPointer } from '../cursors/placement.js';
-import { createFellingPresenter } from '../felling-presenter.js';
 import { createForeignFlags } from '../foreign-flags.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
+import { createFellingPresenter } from '../map-objects/felling-presenter.js';
 import type { SignpostMapOverlay } from '../map-overlays/signposts.js';
 import type {
   LitAnswers,
@@ -42,7 +42,7 @@ import {
   type GeometryDebugOverlay,
   harshestStance,
 } from '../projections/index.js';
-import type { FpsLimit } from '../settings-store.js';
+import type { FpsLimit } from '../settings/store.js';
 import type { UnitControls } from '../unit-controls/index.js';
 import { lostGoalPulse } from '../unit-controls/lost-goals.js';
 import type { WorldHover } from '../world-hover.js';

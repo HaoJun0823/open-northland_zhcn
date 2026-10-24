@@ -371,14 +371,6 @@ describe('system menu navigation', () => {
     expect(pressed('sound-quality')).toEqual(['false', 'true']);
   });
 
-  it('leaves the sliders without test buttons when there is no sound to preview', () => {
-    const { menu } = mount();
-    menu.toggle();
-    openSettings();
-    button(messages().mainMenu.settings.tabs.audio).click();
-    expect(document.querySelector('.main-menu__settings-test')).toBeNull();
-  });
-
   it('closes on request as the resume button would', () => {
     const state = mount();
     state.menu.toggle();

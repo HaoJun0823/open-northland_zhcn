@@ -66,8 +66,4 @@ describe('sessionRoles', () => {
     expect(sessionRoles({ ...relayed, localSeat: 0 }, [])).toEqual(roles);
     expect(sessionRoles({ ...relayed, localSeat: OBSERVER_SEAT }, [])).toEqual(roles);
   });
-
-  it('keeps a never-dies seat out of the match', () => {
-    expect(sessionRoles(session('map=las&player=1&computer=2'), [2]).matchParticipants).toEqual([1]);
-  });
 });

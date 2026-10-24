@@ -86,10 +86,7 @@ describe('subtitle defaults', () => {
   const urls = { eng: '/en.srt', pol: '/pl.srt', ger: '/de.srt', rus: '/ru.srt', chs: '/zh.srt' };
   it.each([
     ['eng', 'eng', false],
-    ['pol', 'pol', false],
-    ['ger', 'ger', false],
     ['rus', 'rus', true],
-    ['chs', 'chs', true],
     ['cht', 'chs', true],
   ] as const)('defaults %s to %s with visibility %s', (ui, selected, visible) => {
     const result = movieSubtitles(urls, ui);

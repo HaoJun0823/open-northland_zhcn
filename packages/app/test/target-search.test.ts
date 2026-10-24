@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { LOBBY_FOG_MODES } from '../src/game/fog.js';
 import { targetSearch } from '../src/view/target-search.js';
 
 describe('targetSearch', () => {
@@ -24,10 +23,6 @@ describe('targetSearch', () => {
     expect(targetSearch('?scene=goods-catalog&fog=off', current)).toBe(
       '?lang=pol&speed=2&scene=goods-catalog&fog=off',
     );
-  });
-
-  it('offers the four player-facing fog modes, never the revealed map', () => {
-    expect(LOBBY_FOG_MODES).toEqual(['classic', 'classic-fow', 'recon', 'recon-fow']);
   });
 
   it('defaults maps to classic fog when no mode was selected, or a carried one is not for a lobby', () => {

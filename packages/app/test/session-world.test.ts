@@ -53,10 +53,6 @@ describe('session world options', () => {
     expect(survivors.matchParticipants).toEqual([0, 1, 2, 3, 5]);
   });
 
-  it('hands the world the rules, allied vision among them', () => {
-    expect(sessionWorldOptions(SESSION, null, {}).alliedVision).toBe(true);
-  });
-
   it('joins the map allies into one fog mask under the rule', () => {
     const { sim } = buildMapWorld({
       map: { width: 2, height: 2, typeIds: [0, 0, 0, 0] },

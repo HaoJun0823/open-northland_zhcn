@@ -6,7 +6,7 @@ import {
   MISSION_PARAMS,
   MISSION_RESULTS,
   type MissionDecodeWarning,
-} from '../src/index.js';
+} from '../../src/index.js';
 
 function goal(...values: string[]): ReturnType<typeof decodeMissionGoal> {
   return decodeMissionGoal({ key: 'goal', values });

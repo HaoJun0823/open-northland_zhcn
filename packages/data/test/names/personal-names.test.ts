@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IR_VERSION, PERSONAL_NAMES, PersonalNamePool, parseContentSet } from '../src/index.js';
+import { IR_VERSION, PERSONAL_NAMES, PersonalNamePool, parseContentSet } from '../../src/index.js';
 
 const pool = { id: 'example-male', tribe: 1, sex: 'male', names: ['Erik', 'Leif'] };
 const raw = {

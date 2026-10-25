@@ -266,6 +266,9 @@ export class HumanPaletteLut implements PaletteLut {
    * The row moves with a resize.
    */
   fixedRow(palette: Uint8Array): number {
+    // Without fixed slots the overflow row below would be the first shared human row, another palette's.
+    if (this.fixedSlots === 0)
+      throw new Error('A palette LUT without fixed rows cannot host a recoloured stem');
     let index = this.fixedIndex.get(palette);
     if (index === undefined) {
       if (this.fixedPalettes.length >= this.fixedSlots * ROWS_PER_HUMAN) {

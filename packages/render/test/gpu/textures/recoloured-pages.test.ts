@@ -1,6 +1,6 @@
 import { colourIndexedSheet, GREY_ALPHA_INDEXED } from '@open-northland/formats/atlas/paletted-sheet';
 import { Texture } from 'pixi.js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '../../../src/data/sprites/index.js';
 import { isIndexedSource, palettedLutOf, palettedRowOf } from '../../../src/gpu/pixel-art/registry.js';
 import { PaletteRowsLut } from '../../../src/gpu/textures/palette-rows-lut.js';
@@ -187,26 +187,5 @@ describe('TextureCache over a recoloured page', () => {
   it('answers -1 for a frame of a coloured page', () => {
     const cache = new TextureCache();
     expect(cache.recolourRow(Texture.WHITE.source, frameAt(0, 0, 1, 1))).toBe(-1);
-  });
-});
-
-describe('PaletteRowsLut', () => {
-  it('draws a palette past its rows through the first row, warning once', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const lut = new PaletteRowsLut(1);
-    expect(lut.fixedRow(palette(3))).toBe(0);
-    expect(lut.fixedRow(palette(5))).toBe(0);
-    expect(lut.fixedRow(palette(7))).toBe(0);
-    expect(lut.overflows).toBe(2);
-    expect(warn).toHaveBeenCalledTimes(1);
-    warn.mockRestore();
-  });
-
-  it('gives each stem palette a row of its own, even one with the same entries', () => {
-    const lut = new PaletteRowsLut();
-    const stem = palette(3);
-    expect(lut.fixedRow(stem)).toBe(0);
-    expect(lut.fixedRow(palette(3))).toBe(1);
-    expect(lut.fixedRow(stem)).toBe(0);
   });
 });

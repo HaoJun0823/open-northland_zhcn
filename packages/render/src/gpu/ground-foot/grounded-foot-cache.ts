@@ -157,7 +157,7 @@ export class GroundedFootCache {
     let analysis = this.analyses.get(frame);
     if (analysis === undefined) {
       if (!this.spend(frame.width * frame.height)) return undefined;
-      const pixels = readFrame(source, frame);
+      const pixels = readFrameRgba(source, frame);
       analysis = pixels === null ? null : analyseFoot(pixels, frame.width, 0, 0, frame.width, frame.height);
       this.analyses.set(frame, analysis);
     }
@@ -221,11 +221,6 @@ export class GroundedFootCache {
     this.baked.clear();
     this.gpuBytes = 0;
   }
-}
-
-/** One atlas frame's straight-alpha RGBA pixels, or null when its page cannot be read back. */
-function readFrame(source: TextureSource, frame: AtlasFrame): Uint8ClampedArray | null {
-  return readFrameRgba(source, frame);
 }
 
 /**

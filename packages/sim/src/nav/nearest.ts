@@ -10,6 +10,7 @@ import type { NodeId, TerrainGraph, Traversal } from './terrain/index.js';
 export const NEAREST_NODE_SEARCH_CAP = 64;
 
 const NO_NODES: ReadonlySet<NodeId> = new Set();
+const ANY_NODE = (): boolean => true;
 
 /** Scratch for `TerrainGraph.neighboursInto`, so a stand test allocates no neighbour array. */
 const neighbourScratch: NodeId[] = [];
@@ -47,6 +48,8 @@ export interface NearestUnblockedOptions {
   /** The walk blocks a landing must keep an {@link hasOpenSide} against, when `blocked` also holds
    *  standing units that will move off; defaults to `blocked`. */
   readonly walls?: BlockOverlay;
+  /** A further test a returned node must pass, such as being reachable from a walker; traversed still. */
+  readonly reachable?: (node: NodeId) => boolean;
 }
 
 /**
@@ -67,7 +70,8 @@ export function nearestUnblockedNode(
   const walls = options.walls ?? blocked;
   const traversal = options.traversal ?? 'land';
   const cap = options.cap ?? NEAREST_NODE_SEARCH_CAP;
-  const free = (n: NodeId): boolean => !blocked.has(n) && !claimed.has(n) && !avoid.has(n);
+  const reachable = options.reachable ?? ANY_NODE;
+  const free = (n: NodeId): boolean => !blocked.has(n) && !claimed.has(n) && !avoid.has(n) && reachable(n);
   const open = ringSearch(
     terrain,
     from,

@@ -2,15 +2,20 @@ import { hostileMaskOf, hostilePlayerMasks } from '../../../../components/index.
 import type { Fixed } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { BlockOverlay } from '../../../../nav/block-overlay.js';
-import { bracketNodes, nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
+import {
+  type NodesBeside,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
+  nodesBesidePosition,
+} from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { dynamicBlockOverlay } from '../../../footprint/index.js';
 import { type CalmZones, calmZonesByPlayer } from '../bodies.js';
 import { playerSlotBit } from '../standing-posts.js';
 
-/** {@link bracketNodes}' result, reused so a landing test allocates nothing. */
-const bracket = { lowHx: 0, lowHy: 0, highHx: 0, highHy: 0 };
+/** {@link nodesBesidePosition}'s result, reused so a landing test allocates nothing. */
+const beside: NodesBeside = { northHx: 0, northHy: 0, southHx: 0, southHy: 0 };
 
 /** A player id outside every slot, so its slot bit is zero; only for the type, as every listed post has
  *  an owner. */
@@ -74,12 +79,13 @@ export class SeparationGates {
     return this.terrain.inBounds(hx, hy) ? this.terrain.nodeAt(hx, hy) : undefined;
   }
 
-  /** Whether a push may land a body at `(x, y)`: the nearest node of each row bracketing it is walkable and
-   *  unblocked. Between rows the node a position reads changes with its column alone, so a landing beside
-   *  water or a wall must keep clear of that row's nodes, not only of the node it reads now. */
-  allowsLanding(x: Fixed, y: Fixed): boolean {
-    bracketNodes(x, y, bracket);
-    return this.openNode(bracket.lowHx, bracket.lowHy) && this.openNode(bracket.highHx, bracket.highHy);
+  /** Whether a push may land a body at `(x, y)`: the node it reads there is walkable and unblocked, and so,
+   *  off a column step, are the nodes it stands between, since walking on it reads either. A column step
+   *  never reads the nodes of the row it skips, so they do not hold it. */
+  allowsLanding(x: Fixed, y: Fixed, onColumnStep: boolean): boolean {
+    if (onColumnStep) return this.openNode(nodeHxOfPosition(x, y), nodeHyOfPosition(x, y));
+    nodesBesidePosition(x, y, beside);
+    return this.openNode(beside.northHx, beside.northHy) && this.openNode(beside.southHx, beside.southHy);
   }
 
   private openNode(hx: number, hy: number): boolean {

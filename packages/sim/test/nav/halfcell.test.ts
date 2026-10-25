@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Fixed } from '../../src/core/fixed.js';
 import {
   cellAnchorNode,
   cellOfAnchorNode,
@@ -11,6 +12,7 @@ import {
   positionOfNode,
 } from '../../src/index.js';
 import { nodeWorldX, positionXOfWorld } from '../../src/nav/halfcell.js';
+import { ROW_STEP } from '../../src/nav/world-metric.js';
 
 /**
  * The half-cell ↔ Position conversion seam (`nav/halfcell.ts`) - the one place a fractional
@@ -92,93 +94,164 @@ describe('positionOfNode', () => {
 });
 
 describe('nodeOfPosition', () => {
-  it('round-trips every node of a small grid exactly', () => {
-    for (let hy = 0; hy < 8; hy++) {
-      for (let hx = 1; hx < 8; hx++) {
-        // hx ≥ 1: node (0, hy) on an odd row sits at world x < 0 (the border seam) and legitimately
-        // truncates to hx 0 only via clamping - covered by the border case below.
+  // Screen-proportional world metric in floats: x in columns, y rows scaled by ROW_STEP.
+  const ROW = fx.toFloat(ROW_STEP);
+  const TOLERANCE = 1 / 16; // the column-line strip half-width
+  const MARGIN = 1e-3; // keeps samples off a rule's boundary, where fixed-point rounding may fall either way
+  const nodeWx = (n: HalfCellNode): number => fx.toFloat(nodeWorldX(n.hx, n.hy));
+  const nodeWy = (n: HalfCellNode): number => (n.hy / 2) * ROW;
+  const read = (wx: number, wy: number): HalfCellNode => {
+    const y = fx.fromFloat(wy / ROW);
+    return nodeOfPosition(positionXOfWorld(fx.fromFloat(wx), y), y);
+  };
+  const ORIGINS: readonly HalfCellNode[] = [
+    { hx: 6, hy: 4 },
+    { hx: 6, hy: 5 },
+    { hx: 0, hy: 4 },
+    { hx: 0, hy: 5 },
+    { hx: -3, hy: -2 },
+    { hx: -3, hy: -3 },
+  ];
+  const OFFSETS = [-0.05, -0.02, -0.005, 0, 0.005, 0.02, 0.05];
+  const PROGRESS = Array.from({ length: 49 }, (_, i) => (i + 1) / 50).filter(
+    (t) => Math.abs(t - 0.5) > 0.015,
+  );
+
+  it('reads every node centre as itself, negative coordinates included', () => {
+    for (let hy = -4; hy < 8; hy++) {
+      for (let hx = -4; hx < 8; hx++) {
         const p = positionOfNode(hx, hy);
         expect(nodeOfPosition(p.x, p.y)).toEqual({ hx, hy });
       }
     }
   });
 
-  it('truncates a mid-leg position onto the node behind it (floor-until-arrival)', () => {
-    // A walker at (0.4, 0): world x 0.4 → 2·0.4 = 0.8 truncates to node 0; row 0 → hy 0.
-    expect(nodeOfPosition(fx.fromFloat(0.4), fx.fromInt(0))).toEqual({ hx: 0, hy: 0 });
-    // At (0.6, 0) it has passed the E-mid node (1,0): 2·0.6 = 1.2 → hx 1.
-    expect(nodeOfPosition(fx.fromFloat(0.6), fx.fromInt(0))).toEqual({ hx: 1, hy: 0 });
-  });
-
-  // A column step from (hx, hy) to (hx, hy + 2), sampled along its column line. Walked either way, the
-  // walker reads the step's start before the skipped row and its destination after it.
-  const SAMPLES_PER_ROW = 16;
-  const columnStepNodes = (hx: number, hy: number): { hx: number; hy: number }[] => {
-    const wx = nodeWorldX(hx, hy);
-    const nodes: { hx: number; hy: number }[] = [];
-    for (let i = 0; i <= 2 * SAMPLES_PER_ROW; i++) {
-      const y = fx.add(
-        fx.div(fx.fromInt(hy), fx.fromInt(2)),
-        fx.div(fx.fromInt(i), fx.fromInt(2 * SAMPLES_PER_ROW)),
-      );
-      nodes.push(nodeOfPosition(positionXOfWorld(wx, y), y));
-    }
-    return nodes;
-  };
-
-  it.each([
-    ['an even row', 6, 4],
-    ['an odd row', 6, 5],
-    ['an even row at hx 0', 0, 4],
-    ['an odd row at hx 0', 0, 5],
-  ])('reads a column step from %s as its start, then its destination', (_, hx, hy) => {
-    const nodes = columnStepNodes(hx, hy);
-    const middle = SAMPLES_PER_ROW;
-    for (let i = 0; i < nodes.length; i++) {
-      if (i === middle) continue;
-      expect(nodes[i]).toEqual({ hx, hy: i < middle ? hy : hy + 2 });
+  it('reads each of the six edges as its start before half progress and its end after, off the line too', () => {
+    for (const from of ORIGINS) {
+      for (const to of hexNeighboursOf(from.hx, from.hy)) {
+        const dx = nodeWx(to) - nodeWx(from);
+        const dy = nodeWy(to) - nodeWy(from);
+        const length = Math.hypot(dx, dy);
+        for (const offset of OFFSETS) {
+          for (const t of PROGRESS) {
+            // An E/W edge's midpoint lies on a column step's line across its row: nearer that line than the
+            // row, the position is the column step's.
+            if (dy === 0 && Math.abs(t - 0.5) * Math.abs(dx) <= Math.abs(offset) + MARGIN) continue;
+            const wx = nodeWx(from) + dx * t - (dy / length) * offset;
+            const wy = nodeWy(from) + dy * t + (dx / length) * offset;
+            expect(
+              read(wx, wy),
+              `${from.hx},${from.hy} to ${to.hx},${to.hy} t ${t} offset ${offset}`,
+            ).toEqual(t < 0.5 ? from : to);
+          }
+        }
+      }
     }
   });
 
-  it('keeps the on-row rule on the skipped row, where the column crosses an E/W edge midway', () => {
-    // Even row 4: the column at hx 6 crosses row 5 between (5, 5) and (6, 5), which truncates west.
-    expect(columnStepNodes(6, 4)[SAMPLES_PER_ROW]).toEqual({ hx: 5, hy: 5 });
+  it('reads a column step as its start, then its end, never a node of the row it skips', () => {
+    for (const from of ORIGINS) {
+      for (const rows of [-2, 2]) {
+        const to = { hx: from.hx, hy: from.hy + rows };
+        const dy = nodeWy(to) - nodeWy(from);
+        for (const offset of OFFSETS) {
+          for (const t of PROGRESS) {
+            // Nearer its skipped row than its line, a position is an E/W walker's off its row.
+            if (Math.abs(t - 0.5) * Math.abs(dy) <= Math.abs(offset) + MARGIN) continue;
+            const got = read(nodeWx(from) + offset, nodeWy(from) + dy * t);
+            expect(got, `${from.hx},${from.hy} to ${to.hx},${to.hy} t ${t} offset ${offset}`).toEqual(
+              t < 0.5 ? from : to,
+            );
+          }
+        }
+      }
+    }
   });
 
-  // Every edge and column step from a node of either row parity, at hx 0 too (negative Position x),
-  // sampled strictly inside with a small offset across the line: the first half reads the start, the
-  // second half the end, never a third node.
-  const PERPENDICULAR_OFFSETS = [-0.02, 0, 0.02];
-  const sampleNode = (from: HalfCellNode, to: HalfCellNode, t: number, offset: number): HalfCellNode => {
-    const fromWx = fx.toFloat(nodeWorldX(from.hx, from.hy));
-    const toWx = fx.toFloat(nodeWorldX(to.hx, to.hy));
-    const along = from.hy === to.hy;
-    const wx = fromWx + (toWx - fromWx) * t + (along ? 0 : offset);
-    const y = fx.fromFloat((from.hy + (to.hy - from.hy) * t) / 2 + (along ? offset : 0));
-    return nodeOfPosition(positionXOfWorld(fx.fromFloat(wx), y), y);
-  };
-  const steps = (hx: number, hy: number): HalfCellNode[] => [
-    ...hexNeighboursOf(hx, hy),
-    { hx, hy: hy - 2 },
-    { hx, hy: hy + 2 },
-  ];
+  it('settles the half-progress ties west on a row and north between rows', () => {
+    const at = (wx: Fixed, y: Fixed): HalfCellNode => nodeOfPosition(positionXOfWorld(wx, y), y);
+    const half = (a: Fixed, b: Fixed): Fixed => fx.div(fx.add(a, b), fx.fromInt(2));
+    const row5 = positionOfNode(6, 5).y;
+    expect(at(half(nodeWorldX(6, 5), nodeWorldX(7, 5)), row5)).toEqual({ hx: 6, hy: 5 });
+    // The column step (7, 4) -> (7, 6) exactly on its skipped row is that E/W edge's midpoint.
+    expect(at(nodeWorldX(7, 4), row5)).toEqual({ hx: 6, hy: 5 });
+    // The slant edge (6, 4) -> (6, 5) at its exact midpoint.
+    expect(at(half(nodeWorldX(6, 4), nodeWorldX(6, 5)), half(positionOfNode(6, 4).y, row5))).toEqual({
+      hx: 6,
+      hy: 4,
+    });
+  });
 
-  it.each([
-    ['an even row', 6, 4],
-    ['an odd row', 6, 5],
-    ['an even row at hx 0', 0, 4],
-    ['an odd row at hx 0', 0, 5],
-  ])('reads every step from %s as its start, then its end from half progress', (_, hx, hy) => {
-    const from = { hx, hy };
-    for (const to of steps(hx, hy)) {
-      for (const offset of PERPENDICULAR_OFFSETS) {
-        for (const t of [0.1, 0.3, 0.4, 0.6, 0.7, 0.9]) {
-          // An E/W edge keeps the on-row rule: its column floors, so only the exact row is pinned there.
-          if (from.hy === to.hy && offset !== 0) continue;
-          const expected = from.hy === to.hy ? (to.hx > hx ? from : to) : t < 0.5 ? from : to;
-          expect(sampleNode(from, to, t, offset), `to ${to.hx},${to.hy} t ${t} offset ${offset}`).toEqual(
-            expected,
-          );
+  /** The rule's reference in floats: the column-line strip, else the nearest node of the bracketing rows;
+   *  undefined within {@link MARGIN} of a boundary. */
+  const expectedRead = (wx: number, wy: number): HalfCellNode | undefined => {
+    const north = Math.floor(wy / (ROW / 2));
+    const rows = [north, north + 1];
+    const nearestIn = (hy: number): HalfCellNode => {
+      const shift = (hy & 1) === 0 ? 0 : 0.25;
+      return { hx: Math.round((wx - shift) * 2) | 0, hy }; // `| 0`: +0, as the sim reads
+    };
+    const [n, s] = rows.map(nearestIn) as [HalfCellNode, HalfCellNode];
+    const dx = (node: HalfCellNode): number => Math.abs(wx - nodeWx(node));
+    const dy = (node: HalfCellNode): number => Math.abs(wy - nodeWy(node));
+    for (const [line, other] of [
+      [n, s],
+      [s, n],
+    ] as const) {
+      const inside = Math.min(TOLERANCE - dx(line), dy(other) - dx(line));
+      if (Math.abs(inside) < MARGIN) return undefined;
+      if (inside > 0) return line;
+    }
+    const dn = Math.hypot(dx(n), dy(n));
+    const ds = Math.hypot(dx(s), dy(s));
+    if (Math.abs(dn - ds) < MARGIN) return undefined;
+    // The nearest node anywhere lies in a bracketing row; check against the rows beyond them too.
+    const best = dn < ds ? n : s;
+    for (const hy of [north - 1, north + 2]) {
+      const far = nearestIn(hy);
+      expect(Math.hypot(dx(far), dy(far))).toBeGreaterThan(Math.min(dn, ds));
+    }
+    return best;
+  };
+
+  it('reads any other position as the nearest node by screen distance', () => {
+    let seed = 7;
+    const next = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    let checked = 0;
+    for (let i = 0; i < 20000; i++) {
+      const wx = -4 + next() * 12;
+      const wy = (-4 + next() * 12) * ROW;
+      const expected = expectedRead(wx, wy);
+      if (expected === undefined) continue;
+      checked++;
+      expect(read(wx, wy), `world ${wx}, ${wy}`).toEqual(expected);
+    }
+    expect(checked).toBeGreaterThan(19000);
+  });
+
+  it('keeps a body pushed sideways off a node on it, whatever an ulp of vertical offset', () => {
+    const SEPARATION_RADIUS = 0.26;
+    const DIRECTIONS = 32;
+    for (const origin of ORIGINS) {
+      const centre = positionOfNode(origin.hx, origin.hy);
+      for (let d = 0; d < DIRECTIONS; d++) {
+        const angle = (2 * Math.PI * d) / DIRECTIONS;
+        for (let r = 0.01; r <= SEPARATION_RADIUS; r += 0.01) {
+          const wx = nodeWx(origin) + Math.cos(angle) * r;
+          const wy = nodeWy(origin) + Math.sin(angle) * r;
+          if (expectedRead(wx, wy)?.hx !== origin.hx || expectedRead(wx, wy)?.hy !== origin.hy) continue;
+          expect(read(wx, wy), `${origin.hx},${origin.hy} angle ${d} r ${r}`).toEqual(origin);
+        }
+      }
+      // Pushed straight east, the reviewer's flicker: a 1-ulp vertical offset either way reads the node.
+      for (let px = 1; px <= 16.5; px += 0.5) {
+        const wx = fx.add(nodeWorldX(origin.hx, origin.hy), fx.fromFloat(px / 68));
+        for (const ulps of [-1, 0, 1]) {
+          const y = fx.add(centre.y, ulps as Fixed);
+          expect(nodeOfPosition(positionXOfWorld(wx, y), y), `${px} px, ${ulps} ulp`).toEqual(origin);
         }
       }
     }

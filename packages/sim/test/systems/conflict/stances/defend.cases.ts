@@ -14,8 +14,10 @@ import {
   Weapon,
 } from '../../../../src/components/index.js';
 import { fx, ONE } from '../../../../src/core/fixed.js';
-import { hexDistanceBetween, Simulation } from '../../../../src/index.js';
-import { breakOff } from '../../../../src/systems/conflict/chase.js';
+import { hexDistanceBetween, positionOfNode, Simulation } from '../../../../src/index.js';
+import { mayEngage } from '../../../../src/systems/conflict/acting.js';
+import { breakOff, guardPost } from '../../../../src/systems/conflict/chase.js';
+import { CombatIndex } from '../../../../src/systems/conflict/combat-index.js';
 import {
   anchorOnlyFootprint,
   combatSystem,
@@ -185,6 +187,69 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     expect(here).toBe(goal);
     breakOff(sim.world, ctxOf(sim), guard, here, post);
     expect(sim.world.has(guard, MoveGoal)).toBe(false);
+    // Home for the combat pass too: with nobody near, it neither acts nor walks again.
+    const ctx = ctxOf(sim);
+    expect(mayEngage(sim.world, ctx, terrain, new CombatIndex(sim.world, ctx, terrain), guard, false)).toBe(
+      false,
+    );
+    let walks = 0;
+    for (let tick = 0; tick < 100; tick++) {
+      sim.step();
+      if (sim.world.has(guard, PathRequest) || sim.world.has(guard, MoveGoal)) walks++;
+    }
+    expect(walks).toBe(0);
+    expect(entityNode(sim.world, terrain, guard)).toBe(goal);
+  });
+
+  it('never takes a post beside a covered anchor that it cannot reach', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 5) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const block = (hx: number, hy: number): void => {
+      const stone = sim.world.create();
+      sim.world.add(stone, Position, positionOfNode(hx, hy));
+      sim.world.add(stone, Resource, { goodType: WOOD, remaining: 100, harvestAtomic: HARVEST_ATOMIC });
+      stampResourceFootprintData(sim.world, stone, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+    };
+    // The anchor (20, 4) and its western side are covered; east of it, (21, 4) and (22, 4) are sealed in,
+    // so the anchor's one open neighbour is a pocket no walk enters.
+    const [ax, ay] = [20, 4];
+    const covered = [
+      [ax, ay],
+      [19, 4],
+      [19, 3],
+      [19, 5],
+      [20, 2],
+      [20, 6],
+      [20, 3],
+      [20, 5],
+      [21, 3],
+      [21, 5],
+      [22, 3],
+      [22, 5],
+      [21, 2],
+      [21, 6],
+      [22, 2],
+      [22, 6],
+      [23, 4],
+    ] as const;
+    for (const [hx, hy] of covered) block(hx, hy);
+    const guard = combatantAtNode(sim, 8, ay, P0, MILITARY_MODE.DEFEND, { jobType: SOLDIER });
+    const anchor = terrain.nodeAt(ax, ay);
+    sim.world.mut(guard, Stance).anchorCell = anchor;
+
+    const here = entityNode(sim.world, terrain, guard);
+    const post = guardPost(sim.world, ctxOf(sim), terrain, anchor, here);
+    expect([terrain.xOf(post), terrain.yOf(post)]).not.toEqual([21, 4]);
+    expect(post).not.toBe(anchor);
+    breakOff(sim.world, ctxOf(sim), guard, here, {
+      anchorCell: anchor,
+      leash: DEFEND_LEASH_NODES,
+      hold: true,
+    });
+    expect(sim.world.get(guard, MoveGoal).cell).toBe(post);
+    sim.run(300);
+    expect(entityNode(sim.world, terrain, guard)).toBe(post);
   });
 
   it('settles beside an anchor another unit stands on instead of re-aiming at it every pass', () => {

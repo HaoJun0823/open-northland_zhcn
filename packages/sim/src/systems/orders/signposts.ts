@@ -89,10 +89,9 @@ export const signpostOrderSystem: System = (world, ctx) => {
       continue;
     }
     if (world.has(e, PlayerOrder)) continue; // still walking the order out
-    // A walker's position truncates onto the goal node up to a step short of its centre, so only a scout
-    // standing still proves arrival; a swing begun on the move slides along the rest of the step. A failed
-    // walk finishing its step, a walk that failed or was superseded, and a spot that became illegal all
-    // drop the errand.
+    // A walker reads the goal node from half a step short of its centre, so only a scout standing still
+    // proves arrival; a swing begun on the move slides along the rest of the step. A failed walk finishing
+    // its step, a walk that failed or was superseded, and a spot that became illegal all drop the errand.
     const p = world.get(e, Position);
     const here = nodeOfPosition(p.x, p.y);
     if (

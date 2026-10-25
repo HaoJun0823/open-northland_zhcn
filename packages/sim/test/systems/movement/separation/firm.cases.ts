@@ -8,11 +8,13 @@ import {
   PathRequest,
   PathRoute,
   Position,
+  Resource,
   setDiplomacyStance,
 } from '../../../../src/components/index.js';
 import { fx } from '../../../../src/core/fixed.js';
-import { halfCellMapFromCells, positionOfNode, Simulation } from '../../../../src/index.js';
-import { pathfindingSystem } from '../../../../src/systems/index.js';
+import type { Entity } from '../../../../src/ecs/world.js';
+import { halfCellMapFromCells, positionOfNode, Simulation, worldDistance } from '../../../../src/index.js';
+import { pathfindingSystem, stampResourceFootprintData } from '../../../../src/systems/index.js';
 import { testContent } from '../../../fixtures/content.js';
 import { ctxOf } from '../../../fixtures/context.js';
 import {
@@ -30,6 +32,9 @@ import {
   walkStraightTo,
   wallAt,
 } from './support.js';
+
+const WOOD = 1; // the fixture's wood good, a deposit that closes its node
+const HARVEST_ATOMIC = 24;
 
 describe('unit body collision - firm routing and resolution', () => {
   it('does not splice an active step onto an occupied route-start centre', () => {
@@ -234,4 +239,67 @@ describe('unit body collision - firm routing and resolution', () => {
     }
     expect(nodeOf(s, runner)).toEqual({ x: 16, y: 2 }); // and the brush-past still arrived
   });
+
+  // A column line from (6, 2) to (6, 10): each skipped odd row has its nodes a quarter column either side.
+  const COLUMN_HX = 6;
+  const COLUMN_ENDS = [2, 10] as const;
+  const SKIPPED_ROWS = [3, 5, 7, 9];
+  const EAST_MIDDLE_HX = COLUMN_HX;
+  const WEST_MIDDLE_HX = COLUMN_HX - 1;
+  const CROSSING_TICKS = 400;
+
+  /** Two soldiers walking the column line head-on, with the middle nodes at `closedHx` covered: the
+   *  nearest they come, in world columns. Each arrives and never reads a covered node. */
+  const crossColumnLine = (closedHx: number | null): number => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const closed = new Set<number>();
+    for (const hy of closedHx === null ? [] : SKIPPED_ROWS) {
+      const hx = closedHx ?? COLUMN_HX;
+      closed.add(terrain.nodeAt(hx, hy));
+      const stone = s.world.create();
+      s.world.add(stone, Position, positionOfNode(hx, hy));
+      s.world.add(stone, Resource, { goodType: WOOD, remaining: 100, harvestAtomic: HARVEST_ATOMIC });
+      stampResourceFootprintData(s.world, stone, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+    }
+    const [north, south] = COLUMN_ENDS;
+    const walkColumn = (walker: Entity, from: number, to: number): void => {
+      const step = from < to ? 2 : -2;
+      const waypoints = [];
+      for (let hy = from; hy !== to + step; hy += step) {
+        waypoints.push({ ...positionOfNode(COLUMN_HX, hy), node: terrain.nodeAt(COLUMN_HX, hy) });
+      }
+      s.world.add(walker, PathRoute, { waypoints });
+      s.world.add(walker, PathFollow, { index: 1, legElapsed: 0, legCost: 0 });
+    };
+    const down = settlerAt(s, COLUMN_HX, north, SOLDIER, P0);
+    const up = settlerAt(s, COLUMN_HX, south, SOLDIER, P0);
+    walkColumn(down, north, south);
+    walkColumn(up, south, north);
+    let closest = Number.POSITIVE_INFINITY;
+    for (let t = 0; t < CROSSING_TICKS; t++) {
+      s.step();
+      const a = s.world.get(down, Position);
+      const b = s.world.get(up, Position);
+      closest = Math.min(closest, fx.toFloat(worldDistance(a.x, a.y, b.x, b.y)));
+      for (const walker of [down, up]) {
+        const at = nodeOf(s, walker);
+        expect(closed.has(terrain.nodeAt(at.x, at.y))).toBe(false);
+      }
+    }
+    expect(nodeOf(s, down)).toEqual({ x: COLUMN_HX, y: south });
+    expect(nodeOf(s, up)).toEqual({ x: COLUMN_HX, y: north });
+    return closest;
+  };
+
+  it.each([
+    ['east', EAST_MIDDLE_HX],
+    ['west', WEST_MIDDLE_HX],
+  ])(
+    'separates walkers meeting head-on on a column line whose %s middle nodes are covered',
+    (_, closedHx) => {
+      expect(crossColumnLine(closedHx)).toBeGreaterThanOrEqual(crossColumnLine(null));
+    },
+  );
 });

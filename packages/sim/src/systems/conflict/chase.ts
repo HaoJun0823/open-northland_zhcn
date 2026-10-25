@@ -23,7 +23,7 @@ import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/h
 import { nearestUnblockedNode } from '../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { dynamicBlockOverlay } from '../footprint/index.js';
+import { dynamicBlockOverlay, routeRegions } from '../footprint/index.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { structureRouteSealed } from '../movement/structure-route.js';
@@ -90,19 +90,27 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
   if (world.has(e, EquipOrder) || anyNeedPressing(world, ctx, e)) return;
   if (holdsStandIn(world, ctx, e, here, anchorCell)) return;
   clearNavState(world, e);
-  const post = openPost(world, ctx, anchorCell);
+  const post = ctx.terrain === undefined ? anchorCell : guardPost(world, ctx, ctx.terrain, anchorCell, here);
   if (here !== post) world.add(e, MoveGoal, { cell: post });
 }
 
-/** The node a guard walks back to for `anchorCell`: the anchor, or the nearest open node beside it when a
- *  building or resource stands on it, as on a unit a map places on a mine deposit. No route ends on a
- *  blocked node, so walking at the anchor itself would fail on every break-off. */
-function openPost(world: World, ctx: SystemContext, anchorCell: NodeId): NodeId {
-  const terrain = ctx.terrain;
-  if (terrain === undefined) return anchorCell;
+/** The node a guard on `here` holds for `anchorCell`: the anchor, or, when a building or resource stands
+ *  on it, as on a unit a map places on a mine deposit, the nearest open node beside it the guard can reach
+ *  (same land, not proven walled off). No route ends on a blocked node, so walking at the anchor itself
+ *  would fail on every break-off. The anchor itself when no such node is near. */
+export function guardPost(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  anchorCell: NodeId,
+  here: NodeId,
+): NodeId {
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   if (!blocked.has(anchorCell)) return anchorCell;
-  return nearestUnblockedNode(terrain, anchorCell, blocked) ?? anchorCell;
+  const land = terrain.componentOf(here);
+  const regions = routeRegions(world, ctx, terrain);
+  const reachable = (n: NodeId): boolean => terrain.componentOf(n) === land && !regions.unroutable(here, n);
+  return nearestUnblockedNode(terrain, anchorCell, blocked, { reachable }) ?? anchorCell;
 }
 
 /** Whether `e` stands on the stand-in routing gave it beside `anchorCell` while a standing unit still holds

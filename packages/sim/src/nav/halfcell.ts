@@ -5,12 +5,11 @@
  * map-point projection. Every integer grid coordinate inside the sim is a half-cell coordinate.
  */
 import { type FootprintCell, footprintCellDx } from '@open-northland/data';
-import { type Fixed, fx, ONE, ZERO } from '../core/fixed.js';
-import { QUARTER_COLUMN, staggerShift, worldX } from './world-metric.js';
+import { type Fixed, fx, ONE, ULP, ZERO } from '../core/fixed.js';
+import { QUARTER_COLUMN, ROW_STEP, staggerShift, worldX } from './world-metric.js';
 
 const TWO: Fixed = fx.fromInt(2);
 const HALF_ONE: Fixed = fx.div(ONE, TWO);
-const QUARTER_ONE: Fixed = fx.div(HALF_ONE, TWO);
 
 /** An integer half-cell node address on the `2W×2H` navigation lattice. */
 export interface HalfCellNode {
@@ -27,19 +26,21 @@ export interface NodeArea {
 }
 
 /**
- * The half-cell node a fixed-point position occupies: its row scaled to half-cell units and floored, then
- * its world column in that row, less the row's odd-row shift. On a row the column floors too. Between
- * rows a column within a quarter node of a whole column of the floored row rounds to that row's node,
- * and one within a quarter node of a half column rounds to the next row's node. A position standing
- * exactly on a node maps to it exactly. The result is unclamped, and callers clamp into the grid through
- * `TerrainGraph.nodeAtClamped`.
+ * The half-cell node a fixed-point position occupies: the nearest node by screen distance (world column
+ * plus row scaled by {@link ROW_STEP}) among the nearest node of each row bracketing it, one row when it
+ * lies on a row. Along every lattice edge that reads the edge's start until half progress and its end
+ * after. A column step (`pathfinding/straight-steps.ts`) passes the skipped row between two of its nodes,
+ * which lie nearer there than the step's own ends, so inside a strip of {@link COLUMN_LINE_TOLERANCE}
+ * around a node's column line, between its row and the row it skips, the position reads the bracketing
+ * row's node on that line. The strip narrows to nothing at the skipped row: a position nearer that row
+ * than the line is taken as an E/W walker off its row, which keeps a body pushed sideways off a node
+ * reading it. Original behavior: a mover's node switches from start to destination at half progress and
+ * is never another node.
  *
- * Along a slant edge this reads the edge's start, then its end from half progress. A column step
- * (`pathfinding/straight-steps.ts`) reads its start until the skipped row and its destination after it,
- * never a node it passes between, also when a push or the helm holds the walker slightly off its column
- * line. Original behavior: the node switches at half progress. A position exactly on the skipped row is
- * an E/W edge's midpoint and reads the west node it passes; a timed walk's per-tick shares truncate, so
- * it does not normally land on that instant.
+ * Ties: on a row the west node wins, between rows the north one. So an E/W edge's midpoint reads its west
+ * node, and a column step exactly on its skipped row reads that row's west node beside it; a timed walk's
+ * per-tick shares truncate, so it does not normally land on that instant. The result is unclamped, and
+ * callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
   locateNode(x, y);
@@ -59,73 +60,97 @@ export function nodeHyOfPosition(x: Fixed, y: Fixed): number {
   return located.hy;
 }
 
+/** Half the width of the strip around a column step's line inside which the step reads its own ends, in
+ *  column units: 1/16 column, 4.25 px. Wide enough for a push or the helm holding a walker off the line,
+ *  narrow enough that a slant edge leaves its start's strip well before half progress. */
+const COLUMN_LINE_TOLERANCE: Fixed = fx.div(ONE, fx.fromInt(16));
+
+/** The nodes a position stands between, as {@link nodesBesidePosition} writes them. */
+export interface NodesBeside {
+  northHx: number;
+  northHy: number;
+  southHx: number;
+  southHy: number;
+}
+
+/**
+ * The nodes position `(x, y)` stands between: the nearest node of each row bracketing it, the west one on
+ * a tie, or the node it lies on twice on a row. Walking on from between rows a body reads either, as the
+ * nearer one changes with its column. Written into `out`, allocation-free.
+ */
+export function nodesBesidePosition(x: Fixed, y: Fixed, out: NodesBeside): void {
+  locateNode(x, y);
+  out.northHx = located.northHx;
+  out.northHy = located.northHy;
+  out.southHx = located.southHx;
+  out.southHy = located.southHy;
+}
+
 /** {@link locateNode}'s result and the position it is for, reused so the per-entity per-tick node reads
  *  allocate nothing and an `hx` then `hy` read of one position computes once. */
-const located = { x: Number.NaN, y: Number.NaN, hx: 0, hy: 0 };
+const located = {
+  x: Number.NaN,
+  y: Number.NaN,
+  hx: 0,
+  hy: 0,
+  northHx: 0,
+  northHy: 0,
+  southHx: 0,
+  southHy: 0,
+};
 
-/** Write {@link nodeOfPosition}'s node into {@link located}. */
+/** Write {@link nodeOfPosition}'s node, and the nodes {@link nodesBesidePosition} names, into
+ *  {@link located}. */
 function locateNode(x: Fixed, y: Fixed): void {
   if (x === located.x && y === located.y) return;
   located.x = x;
   located.y = y;
+  const wx = worldX(x, y);
   // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
-  const twoY = fx.add(y, y);
-  const hy = floorToInt(twoY);
-  const column = rowColumn(x, y, hy);
-  if (twoY === fx.fromInt(hy)) {
-    located.hx = floorToInt(column);
-    located.hy = hy;
-  } else if (nearHalfColumn(column)) {
-    located.hx = roundToInt(rowColumn(x, y, hy + 1));
-    located.hy = hy + 1;
-  } else {
-    located.hx = roundToInt(column);
-    located.hy = hy;
-  }
-}
-
-/** The integer floor of a Fixed, negative ones included: an off-map transient keeps its row and column. */
-function floorToInt(v: Fixed): number {
-  return Math.floor(v / ONE);
-}
-
-/** The nearest integer to a Fixed, a half rounding up. */
-function roundToInt(v: Fixed): number {
-  return Math.floor((v + HALF_ONE) / ONE);
-}
-
-/** The rows bracketing position `(x, y)` and, in each, the column of the node nearest it: one row when the
- *  position lies on a row, else the floored row and the next. Written into `out`, allocation-free. */
-export function bracketNodes(
-  x: Fixed,
-  y: Fixed,
-  out: { lowHx: number; lowHy: number; highHx: number; highHy: number },
-): void {
-  const twoY = fx.add(y, y);
-  const hy = floorToInt(twoY);
-  out.lowHy = hy;
-  if (twoY === fx.fromInt(hy)) {
-    out.lowHx = floorToInt(rowColumn(x, y, hy));
-    out.highHx = out.lowHx;
-    out.highHy = hy;
+  const northHy = Math.floor(fx.add(y, y) / ONE);
+  const northHx = nearestColumnInRow(wx, northHy);
+  const northDy = fx.mul(fx.sub(y, positionYOfNode(northHy)), ROW_STEP);
+  if (northDy === ZERO) {
+    locatedAt(northHx, northHy, northHx, northHy, northHx, northHy);
     return;
   }
-  out.lowHx = roundToInt(rowColumn(x, y, hy));
-  out.highHx = roundToInt(rowColumn(x, y, hy + 1));
-  out.highHy = hy + 1;
+  const southHy = northHy + 1;
+  const southHx = nearestColumnInRow(wx, southHy);
+  const southDy = fx.mul(fx.sub(positionYOfNode(southHy), y), ROW_STEP);
+  const northDx = Math.abs(fx.sub(wx, nodeWorldX(northHx, northHy)));
+  const southDx = Math.abs(fx.sub(wx, nodeWorldX(southHx, southHy)));
+  // A node's column line runs toward the row its column step skips, the other bracketing row.
+  const onNorthLine = northDx < COLUMN_LINE_TOLERANCE && northDx < southDy;
+  const onSouthLine = southDx < COLUMN_LINE_TOLERANCE && southDx < northDy;
+  const southNearer = southDx * southDx + southDy * southDy < northDx * northDx + northDy * northDy;
+  if (!onNorthLine && (onSouthLine || southNearer))
+    locatedAt(southHx, southHy, northHx, northHy, southHx, southHy);
+  else locatedAt(northHx, northHy, northHx, northHy, southHx, southHy);
 }
 
-/** Position `(x, y)`'s world column in half-cell units of node row `hy`, that row's odd-row shift removed. */
-function rowColumn(x: Fixed, y: Fixed, hy: number): Fixed {
-  const wx = fx.sub(worldX(x, y), oddRowShift(hy));
-  return fx.add(wx, wx);
+/** Write a located node and the nodes beside its position into {@link located}. */
+function locatedAt(
+  hx: number,
+  hy: number,
+  northHx: number,
+  northHy: number,
+  southHx: number,
+  southHy: number,
+): void {
+  located.hx = hx;
+  located.hy = hy;
+  located.northHx = northHx;
+  located.northHy = northHy;
+  located.southHx = southHx;
+  located.southHy = southHy;
 }
 
-/** Whether a half-cell column lies less than a quarter node from halfway between two whole columns,
- *  negative ones included. */
-function nearHalfColumn(column: Fixed): boolean {
-  const fraction = fx.wrap(column, ONE);
-  return fraction > QUARTER_ONE && fraction < fx.sub(ONE, QUARTER_ONE);
+/** The column of node row `hy`'s node nearest world column `wx`, the west one on a tie. Negative ones
+ *  included: an off-map transient keeps its row and column. */
+function nearestColumnInRow(wx: Fixed, hy: number): number {
+  const shifted = fx.sub(wx, oddRowShift(hy));
+  // `ceil(c - 1/2)` over whole ulps, floored so a column just west of 0 reads 0 and not -0.
+  return Math.floor((fx.add(shifted, shifted) + HALF_ONE - ULP) / ONE);
 }
 
 /**

@@ -22,7 +22,8 @@ function floorInt(v: Fixed): number {
  * the two in each of the two rows that bracket the position, by world-metric distance with ascending
  * cell id as the tie-break. The nearest bracket node alone can be unwalkable, since a slanted leg runs
  * beside nodes it never steps on, and `findPath` rejects an unwalkable start outright, which would
- * strand the walker mid-seam. Falls back to the truncated node when no bracket node is traversable.
+ * strand the walker mid-seam. Falls back to the node the position reads when no bracket node is
+ * traversable.
  *
  * With `blocked`, a bracket node outside it wins over a nearer one inside: a walker beside a wall is
  * one step from each open bracket, so those lie on its side, while a blocked start lets the route leave

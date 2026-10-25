@@ -38,6 +38,7 @@ import {
 } from '../readviews/index.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { entityNode } from '../spatial/nodes.js';
+import { guardPost } from './chase.js';
 import type { CombatIndex } from './combat-index.js';
 import { asleepOnDuty } from './engage-combatant.js';
 import { DEFEND_RADIUS_NODES } from './engagement.js';
@@ -96,7 +97,8 @@ export function mayEngage(
   }
   if (!nearStranger && isValidPlayer(owner.player)) {
     // Every search below finds nothing, so only a guard off its anchor acts, and not from a manned post.
-    if (!guardsAnchor(ctx.content, mode, settler.jobType) || !awayFromAnchor(world, e, here)) return false;
+    if (!guardsAnchor(ctx.content, mode, settler.jobType) || !awayFromAnchor(world, ctx, terrain, e, here))
+      return false;
     return !garrisoned || mannedPostOf(world, ctx, e) === null;
   }
   const x = terrain.xOf(here);
@@ -110,7 +112,7 @@ export function mayEngage(
   const reachGuard = mode === MILITARY_MODE.IGNORE && isFighterJob(ctx.content, settler.jobType);
   if (guardsAnchor(ctx.content, mode, settler.jobType)) {
     // With nothing to fight, a guard walks back to its anchor and drops its route state.
-    if (awayFromAnchor(world, e, here)) return true;
+    if (awayFromAnchor(world, ctx, terrain, e, here)) return true;
     if (reachGuard) radius = Math.max(radius, reachOf(world, ctx, e));
   }
   return index.othersWithin(owner.player, x, y, radius);
@@ -188,10 +190,17 @@ function guardsAnchor(content: ContentSet, mode: MilitaryMode, jobType: number |
   return mode === MILITARY_MODE.DEFEND || (mode === MILITARY_MODE.IGNORE && isFighterJob(content, jobType));
 }
 
-/** Whether guard `e` standing on `here` has a walk back to its anchor to make or route state to drop. */
-function awayFromAnchor(world: World, e: Entity, here: NodeId): boolean {
+/** Whether guard `e` standing on `here` has a walk back to its post to make or route state to drop. */
+function awayFromAnchor(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  e: Entity,
+  here: NodeId,
+): boolean {
+  if (world.has(e, PathRoute) || world.has(e, Stranded)) return true;
   const anchor = world.tryGet(e, Stance)?.anchorCell ?? here;
-  return anchor !== here || world.has(e, PathRoute) || world.has(e, Stranded);
+  return anchor !== here && guardPost(world, ctx, terrain, anchor, here) !== here;
 }
 
 /** Whether `e` holds state the engage ladder resolves, re-checks or reaps whoever stands near it. */

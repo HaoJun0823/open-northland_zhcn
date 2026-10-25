@@ -9,6 +9,7 @@ import {
   Owner,
   type Paper,
   Position,
+  playerPlacementTribes,
   Settler,
 } from '../../components/index.js';
 import { assertNever } from '../../core/brand.js';
@@ -72,7 +73,7 @@ export function jobCanOpenChest(content: ContentSet, jobType: number | null, kin
 /**
  * Hand a chest's contents out to `opener`'s player and leave its inert open visual behind. Goods heap on
  * the ground around the chest's cell, a paper enters the player's list (raising `paperFound`), settlers
- * stand up at the chest for the opener's player and tribe, animals spawn as a herd there, and a vehicle
+ * stand up for the opener's player and home nation, animals spawn as a herd there, and a vehicle
  * stands on the chest's node for the opener's player and tribe. A chest already open whiffs.
  */
 export function openChest(world: World, ctx: SystemContext, opener: Entity, chest: Entity): void {
@@ -109,14 +110,18 @@ export function openChest(world: World, ctx: SystemContext, opener: Entity, ches
     case 'paper':
       grantPaper(world, ctx, player, reward.paper, chest, at);
       return;
-    case 'workshop':
+    case 'workshop': {
+      const tribe = rewardTribe(world, opener, player);
       grantPaper(world, ctx, player, reward.paper, chest, at);
-      unlockWorkshopProduction(world, player, reward.tribe, reward.jobType, reward.goodTypes);
-      standUpSettlers(world, ctx, player, reward.tribe, reward.jobType, 1, at);
+      unlockWorkshopProduction(world, player, tribe, reward.jobType, reward.goodTypes);
+      standUpSettlers(world, ctx, player, tribe, reward.jobType, 1, at);
       return;
-    case 'settlers':
-      standUpSettlers(world, ctx, player, reward.tribe, reward.jobType, reward.count, at);
+    }
+    case 'settlers': {
+      const tribe = rewardTribe(world, opener, player);
+      standUpSettlers(world, ctx, player, tribe, reward.jobType, reward.count, at);
       return;
+    }
     case 'animals':
       spawnAnimalHerd(world, ctx, {
         kind: 'spawnAnimalHerd',
@@ -142,8 +147,13 @@ export function openChest(world: World, ctx: SystemContext, opener: Entity, ches
   }
 }
 
-/** As in the original, each workshop reward permanently enables its producing trade
- * and every named product for the player's Viking technology table. */
+// Home nation wins over a visiting hero's tribe; rosterless scenes use the opener's tribe.
+function rewardTribe(world: World, opener: Entity, player: number): number {
+  return playerPlacementTribes(world, player)?.[0] ?? world.get(opener, Settler).tribe;
+}
+
+/** Each workshop reward permanently enables its producing trade and named products for the
+ * recipient's nation. */
 function unlockWorkshopProduction(
   world: World,
   player: number,

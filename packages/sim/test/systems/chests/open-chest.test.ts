@@ -16,6 +16,7 @@ import {
   Position,
   Settler,
   Stockpile,
+  setPlayerPlacementTribes,
   technologyDiscovered,
   Vehicle,
 } from '../../../src/components/index.js';
@@ -181,7 +182,6 @@ describe('chest contents', () => {
     });
     expect(resolveChestReward(content, 'wooden', CIVILISTS_CHEST)).toEqual({
       kind: 'settlers',
-      tribe: VIKING,
       jobType: CIVILIST,
       count: 3,
     });
@@ -277,6 +277,53 @@ describe('the openChest order', () => {
       expect(sim.world.get(e, Owner).player).toBe(P0);
     }
     expect(sim.checkInvariants()).toEqual([]);
+  });
+
+  it('human rewards use each recipient’s home nation even when a Viking hero opens them', () => {
+    for (const contents of [CIVILISTS_CHEST, 93, SWORDSMEN_CHEST, 95, SMITHY_REWARD]) {
+      const base = workshopSim().content;
+      const home = base.tribes.find((tribe) => tribe.typeId === VIKING);
+      if (home === undefined) throw new Error('fixture needs a home nation');
+      const content = parseContentSet({
+        ...base,
+        tribes: [
+          ...base.tribes,
+          { ...home, typeId: 2, id: 'frank' },
+          { ...home, typeId: 3, id: 'byzantine' },
+        ],
+        jobs: [
+          ...base.jobs,
+          { typeId: 9, id: 'woman' },
+          { typeId: 35, id: 'soldier_sword_long' },
+          { typeId: 39, id: 'soldier_bow_long' },
+        ],
+      });
+      const sim = new Simulation({ seed: 7, content, map: grassCellMap(16, 16) });
+      for (const [player, tribe] of [
+        [0, 2],
+        [1, 3],
+      ] as const) {
+        setPlayerPlacementTribes(sim.world, sim.content, player, [tribe]);
+        const opener = spawn(sim, HERO, 6, 6, player);
+        const before = new Set(sim.world.query(Settler));
+        const chest = createChest(sim.world, sim.content, { kind: 'magical', contents, x: 10, y: 10 });
+        sim.enqueue(playerCommand(player, { kind: 'openChest', entity: opener, chest }));
+        stepUntilOpened(sim, chest);
+        const recruits = [...sim.world.query(Settler)].filter((e) => !before.has(e));
+        expect(
+          recruits,
+          `contents ${contents}, player ${player}, closed ${sim.world.has(chest, Chest)}`,
+        ).toHaveLength(contents === SMITHY_REWARD ? 1 : 3);
+        for (const recruit of recruits) {
+          expect(sim.world.get(recruit, Settler).tribe).toBe(tribe);
+          expect(sim.world.get(recruit, Owner).player).toBe(player);
+        }
+        if (contents === SMITHY_REWARD) {
+          expect(technologyDiscovered(sim.world, player, tribe, 'job', SMITH)).toBe(true);
+          expect(technologyDiscovered(sim.world, player, tribe, 'good', LONG_SWORD)).toBe(true);
+        }
+      }
+    }
   });
 
   it('a soldiers chest stands up three swordsmen holding their long swords', () => {

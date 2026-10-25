@@ -10,14 +10,14 @@ import { contentIndex } from '../../core/content-index.js';
 export type ChestReward =
   | { readonly kind: 'goods'; readonly good: string; readonly count: Readonly<Record<ChestKind, number>> }
   | { readonly kind: 'paper'; readonly paper: PaperKind; readonly house?: string }
-  /** A stocked-house paper, its Viking worker, and the production permanently enabled with it. */
+  /** A stocked-house paper, its worker, and the production permanently enabled with it. */
   | {
       readonly kind: 'workshop';
       readonly house: string;
       readonly worker: string;
       readonly goods: readonly string[];
     }
-  | { readonly kind: 'settlers'; readonly job: string; readonly tribe: string; readonly count: number }
+  | { readonly kind: 'settlers'; readonly job: string; readonly count: number }
   | { readonly kind: 'animals'; readonly tribe: string; readonly count: number }
   /** A vehicle of the named type, spawned at the chest for the opener. */
   | { readonly kind: 'vehicle'; readonly vehicle: string };
@@ -37,7 +37,7 @@ function workshop(house: string, worker: string, goods: readonly string[]): Ches
   return { kind: 'workshop', house, worker, goods };
 }
 function settlers(job: string): ChestReward {
-  return { kind: 'settlers', job, tribe: 'viking', count: SPAWNED_SETTLERS };
+  return { kind: 'settlers', job, count: SPAWNED_SETTLERS };
 }
 
 /**
@@ -110,11 +110,10 @@ export type ResolvedChestReward =
   | {
       readonly kind: 'workshop';
       readonly paper: Paper;
-      readonly tribe: number;
       readonly jobType: number;
       readonly goodTypes: readonly number[];
     }
-  | { readonly kind: 'settlers'; readonly tribe: number; readonly jobType: number; readonly count: number }
+  | { readonly kind: 'settlers'; readonly jobType: number; readonly count: number }
   | { readonly kind: 'animals'; readonly tribe: number; readonly count: number }
   | { readonly kind: 'vehicle'; readonly vehicleType: number }
   | { readonly kind: 'nothing' };
@@ -143,28 +142,23 @@ export function resolveChestReward(
     case 'workshop': {
       const param = index.buildingTypeBySlug.get(reward.house);
       const jobType = index.jobTypeBySlug.get(reward.worker);
-      const tribe = index.tribeTypeBySlug.get('viking');
       const goodTypes: number[] = [];
       for (const id of reward.goods) {
         const goodType = index.goodTypeBySlug.get(id);
         if (goodType === undefined) return NOTHING;
         goodTypes.push(goodType);
       }
-      if (param === undefined || jobType === undefined || tribe === undefined) return NOTHING;
+      if (param === undefined || jobType === undefined) return NOTHING;
       return {
         kind: 'workshop',
         paper: { kind: 'placeStockedHouse', param },
-        tribe,
         jobType,
         goodTypes,
       };
     }
     case 'settlers': {
       const jobType = index.jobTypeBySlug.get(reward.job);
-      const tribe = index.tribeTypeBySlug.get(reward.tribe);
-      return jobType === undefined || tribe === undefined
-        ? NOTHING
-        : { kind: 'settlers', tribe, jobType, count: reward.count };
+      return jobType === undefined ? NOTHING : { kind: 'settlers', jobType, count: reward.count };
     }
     case 'animals': {
       const tribe = index.tribeTypeBySlug.get(reward.tribe);

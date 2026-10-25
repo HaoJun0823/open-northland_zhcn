@@ -77,12 +77,14 @@ const NOISE = `
 `;
 
 const BAYER = `
-  // 4x4 ordered dither threshold for a 2 px block.
+  // 4x4 ordered dither threshold for a 2 px block. The Bayer matrix by bit interleaving, with no array
+  // to index: M4(x, y) = 4 * M2(x & 1, y & 1) + M2(x >> 1, y >> 1), M2(x, y) = 2 * (x ^ y) + y.
   float bayer(vec2 screen) {
     ivec2 b = ivec2(mod(floor(screen / 2.0), 4.0));
-    int index = b.x + b.y * 4;
-    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-    return (float(m[index]) + 0.5) / 16.0;
+    ivec2 lo = b & 1;
+    ivec2 hi = b >> 1;
+    int m = 4 * (((lo.x ^ lo.y) << 1) | lo.y) + (((hi.x ^ hi.y) << 1) | hi.y);
+    return (float(m) + 0.5) / 16.0;
   }
 `;
 

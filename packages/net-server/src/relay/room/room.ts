@@ -20,7 +20,7 @@ import { Game } from '../game/game.js';
 import { Lobby } from '../lobby/lobby.js';
 import { type SeatChange, SeatTable } from '../lobby/seats.js';
 import { LobbyTransfers } from '../lobby/transfers.js';
-import { broadcast, type Deliver, type Member, type Refusal } from '../member.js';
+import { broadcast, type Deliver, figureFields, freshFigures, type Member, type Refusal } from '../member.js';
 import { type RelayLog, wholeSeconds } from '../relay-log.js';
 import { Responsiveness } from '../timing/responsiveness.js';
 import { ChatLog } from './chat-log.js';
@@ -81,6 +81,8 @@ export class Room {
   private startedAt: number | null = null;
   private runningAt: number | null = null;
   private endedAt: number | null = null;
+  /** Where the interval the next room status line covers began. */
+  private statusSince: number;
 
   constructor(
     id: string,
@@ -92,6 +94,7 @@ export class Room {
   ) {
     this.id = id;
     this.createdAt = now;
+    this.statusSince = now;
     this.seats = new SeatTable(seats);
     this.creatorToken = creator.token;
     this.hooks = hooks;
@@ -174,7 +177,6 @@ export class Room {
     } else {
       member.progressAt = now;
       this.game.dropWorld(member, now);
-      this.log('player returned', { nick: member.nick, connected: this.connectedCount });
     }
     this.welcome(member);
     if (this.game !== null) {
@@ -215,7 +217,7 @@ export class Room {
     }
     member.connected = false;
     member.progressAt = now;
-    this.log('player dropped', { nick: member.nick, connected: this.connectedCount });
+    member.figures.drops++;
     this.broadcastView();
     this.game.dropWorld(member, now);
     this.carryOutKickVotes(now);
@@ -269,6 +271,15 @@ export class Room {
     if (member.token !== this.creatorToken) return { code: 'creatorOnly' };
     const refusal = this.transfers.readyRefusal() ?? this.lobby.startRefusal();
     if (refusal !== null) return refusal;
+    // Every client's build matches the creator's by now. Logged before the game takes a save it starts
+    // from as its first snapshot.
+    const client = this.members.get(this.creatorToken)?.compatibility?.client;
+    this.log('game starting', {
+      players: [...this.members.values()].map((other) => other.nick),
+      world: worldName(this.lobby.settings),
+      ...(client === undefined ? {} : { client }),
+      lobbySeconds: wholeSeconds(now - this.createdAt),
+    });
     this.game = new Game(
       this.lobby.settings.speed,
       this.members,
@@ -282,11 +293,11 @@ export class Room {
     this.transfers.start();
     this.startedSeats = this.seats.sessionSeats();
     this.startedAt = now;
-    this.log('game starting', {
-      players: [...this.members.values()].map((other) => other.nick),
-      lobbySeconds: wholeSeconds(now - this.createdAt),
-    });
-    for (const other of this.members.values()) other.progressAt = now;
+    this.statusSince = now;
+    for (const other of this.members.values()) {
+      other.progressAt = now;
+      other.figures = freshFigures(other);
+    }
     this.broadcastView();
     for (const other of this.members.values()) {
       this.deliver(other, {
@@ -340,6 +351,9 @@ export class Room {
     if (member.load?.tickMs !== load.tickMs || member.load.buffered !== load.buffered) {
       member.load = load;
       this.figuresMoved = true;
+      const { figures } = member;
+      figures.tickMaxMs = Math.max(figures.tickMaxMs ?? 0, load.tickMs);
+      figures.bufferedMaxTicks = Math.max(figures.bufferedMaxTicks ?? 0, load.buffered);
     }
     return null;
   }
@@ -388,8 +402,20 @@ export class Room {
     return this.transfers.requestMap(member, now);
   }
 
-  /** A fresh measurement of the member's link. Only a started room shows it before its next view. */
-  linkMeasured(member: Member, delayTicks: number, roundTripMs: number, jitterMs = 0): void {
+  /** A fresh measurement of the member's link: `sampleMs` is the round trip just measured, the rest the
+   *  estimates after it. Only a started room shows it before its next view. */
+  linkMeasured(
+    member: Member,
+    sampleMs: number,
+    delayTicks: number,
+    roundTripMs: number,
+    jitterMs: number,
+  ): void {
+    const { figures } = member;
+    figures.roundTrips++;
+    figures.roundTripSumMs += sampleMs;
+    figures.roundTripMaxMs = Math.max(figures.roundTripMaxMs, sampleMs);
+    figures.delayMaxTicks = Math.max(figures.delayMaxTicks, delayTicks);
     const changed = member.delayTicks !== delayTicks || member.roundTripMs !== roundTripMs;
     member.delayTicks = delayTicks;
     member.roundTripMs = roundTripMs;
@@ -462,33 +488,21 @@ export class Room {
     };
   }
 
-  /** The running room's clock and each member's link as the relay measures it, for the periodic
-   *  status: what an operator needs to tell a slow machine from a slow link after the fact. */
-  logStatus(): void {
-    const clock = this.game?.clockMessage(null);
+  /** The started room's clock, and each member's link and load, over the interval since the last room
+   *  status line; the next interval starts here. */
+  logStatus(now: number): void {
+    if (this.game === null) return;
     this.log('room status', {
-      ...(clock === undefined
-        ? {}
-        : { tick: clock.tick, speed: clock.speed, paused: clock.paused, governed: clock.governed }),
-      members: [...this.members.values()].map((member) => ({
-        nick: member.nick,
-        seat: member.seat,
-        connected: member.connected,
-        ...(member.connected
-          ? {
-              roundTripMs: Math.round(member.roundTripMs),
-              jitterMs: Math.round(member.jitterMs),
-              delayTicks: member.delayTicks,
-            }
-          : {}),
-        behindTicks: this.behindTicks(member),
-        ...(member.load === null ? {} : { tickMs: member.load.tickMs, buffered: member.load.buffered }),
-      })),
+      intervalMs: Math.round(now - this.statusSince),
+      ...this.game.statusFields(now),
+      members: [...this.members.values()].map(figureFields),
     });
+    this.statusSince = now;
+    for (const member of this.members.values()) member.figures = freshFigures(member);
   }
 
   /** The clock's start and the match's end happen inside the game; each is logged once, on the first
-   *  poll after it or when the room is dropped. */
+   *  poll after it or when the room is dropped. The end closes the game's log with a last room status. */
   noteMilestones(now: number): void {
     if (this.game === null) return;
     if (this.runningAt === null && this.game.running) {
@@ -497,11 +511,21 @@ export class Room {
     }
     if (this.endedAt === null && this.game.endedTick !== null) {
       this.endedAt = now;
+      this.game.closeClockLog(now);
+      this.logStatus(now);
       this.log('game ended', {
         tick: this.game.endedTick,
         playedSeconds: wholeSeconds(now - (this.runningAt ?? now)),
       });
     }
+  }
+
+  /** The room is being dropped: a game that has not ended closes its log with a last room status. */
+  noteDrop(now: number): void {
+    this.noteMilestones(now);
+    if (this.game === null || this.state !== 'running') return;
+    this.game.closeClockLog(now);
+    this.logStatus(now);
   }
 
   private log(event: string, fields: Record<string, unknown> = {}): void {

@@ -1,6 +1,6 @@
 import { TICKS_PER_SECOND, type WireFrame } from '@open-northland/net-protocol';
 import { type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
-import type { RelayLog } from '../relay-log.js';
+import { BYTES_PER_KIB, type RelayLog } from '../relay-log.js';
 import {
   type CachedSnapshot,
   CatchUpStore,
@@ -17,7 +17,6 @@ export const SNAPSHOT_RETRY_MS = 10_000;
  *  about what a donor's export and upload hold the room for. */
 const RETURN_REPLAY_SECONDS = 10;
 export const RETURN_SNAPSHOT_MAX_TICKS = RETURN_REPLAY_SECONDS * TICKS_PER_SECOND;
-const BYTES_PER_KIB = 1024;
 
 /**
  * The room's cached snapshot, the frames since it, and the members waiting to be brought back to
@@ -38,6 +37,11 @@ export class Resync {
   private lastRefreshAt: number;
   private refreshing = false;
   private readonly triedDonors = new Set<string>();
+  /** The first request since the cache last answered one, and the requests and the unusable uploads
+   *  since, for the log. */
+  private roundAt: number | null = null;
+  private roundAsks = 0;
+  private roundRefusals = 0;
 
   constructor(
     private readonly members: ReadonlyMap<string, Member>,
@@ -50,6 +54,10 @@ export class Resync {
 
   get snapshot(): CachedSnapshot | null {
     return this.catchUp.snapshot;
+  }
+
+  get historyBytes(): number {
+    return this.catchUp.bytes;
   }
 
   get commandHeadroomBytes(): number {
@@ -143,16 +151,11 @@ export class Resync {
 
   /** Take a snapshot at `tick`; true when it is newer than the cached one. Whoever waits is served. */
   take(from: string, tick: number, bytes: string, now: number): boolean {
+    const cached = this.catchUp.snapshot;
     const newer = this.catchUp.cache({ tick, from, bytes }, this.snapshotInvalid);
-    // From the request to the cache: the donor's export and upload, the time a refresh costs the room.
-    if (newer)
-      this.log('snapshot cached', {
-        from,
-        tick,
-        kib: Math.round(bytes.length / BYTES_PER_KIB),
-        ...(this.requestedAt === null ? {} : { askedMs: Math.round(now - this.requestedAt) }),
-      });
-    if (newer || (this.catchUp.bytes === 0 && this.catchUp.snapshot?.tick === tick)) {
+    const answered = newer || (this.catchUp.bytes === 0 && this.catchUp.snapshot?.tick === tick);
+    const round = { at: this.roundAt, asks: this.roundAsks, refusals: this.roundRefusals };
+    if (answered) {
       this.lastRefreshAt = now;
       this.refreshing = false;
       this.resetRequests();
@@ -160,13 +163,35 @@ export class Resync {
     const newest = this.catchUp.snapshot;
     // Only an upload at the cached tick vouches for it; an older one leaves an invalidated cache held.
     if (newest?.tick === tick) this.snapshotInvalid = false;
+    const waited = [...this.awaiting];
     if (newest !== null) {
       // A late upload no newer than the cache does not end a wait for a fresher one.
       for (const member of this.awaiting) {
         if (newer || !this.freshSince.has(member)) this.serve(member, newest, now);
       }
     }
+    if (!answered && newest === cached) {
+      this.refused(from, tick, 'stale');
+      return newer;
+    }
+    const served = waited.filter((member) => !this.awaiting.has(member)).map((member) => member.nick);
+    this.log('snapshot', {
+      from,
+      tick,
+      kib: Math.round(bytes.length / BYTES_PER_KIB),
+      // From the first request: the donor's export and upload, after any donor that did not answer.
+      ...(round.at === null ? {} : { askedMs: Math.round(now - round.at) }),
+      ...(round.asks > 1 ? { asks: round.asks } : {}),
+      ...(round.refusals === 0 ? {} : { refused: round.refusals }),
+      ...(served.length === 0 ? {} : { served }),
+    });
     return newer;
+  }
+
+  /** An upload the cache cannot use. The first of a round gets a line; the rest, which a client could
+   *  send one per message, are counted on the round's `snapshot` line. */
+  refused(from: string, tick: number, reason: string): void {
+    if (this.roundRefusals++ === 0) this.log('snapshot refused', { from, tick, reason });
   }
 
   /** Unanswered refreshes retry even when no member is currently waiting for resync. */
@@ -206,12 +231,19 @@ export class Resync {
       }
     }
     if (donor === null) return;
-    const retry = this.triedDonors.size > 0;
+    // A donor still asked when the next is had the whole retry window and sent nothing.
+    const unanswered = this.askedDonor === null ? undefined : this.members.get(this.askedDonor);
+    if (unanswered !== undefined && this.requestedAt !== null)
+      this.log('snapshot unanswered', {
+        donor: unanswered.nick,
+        askedMs: Math.round(now - this.requestedAt),
+      });
     this.requestedAt = now;
     this.askedDonor = donor.token;
     this.triedDonors.add(donor.token);
+    this.roundAt ??= now;
+    this.roundAsks++;
     this.deliver(donor, { kind: 'snapshotRequest' });
-    this.log('snapshot asked', { donor: donor.nick, ...(retry ? { retry } : {}) });
   }
 
   /** While any seated player remains, only seated players donate. */
@@ -255,6 +287,9 @@ export class Resync {
     this.requestedAt = null;
     this.askedDonor = null;
     this.triedDonors.clear();
+    this.roundAt = null;
+    this.roundAsks = 0;
+    this.roundRefusals = 0;
   }
 }
 

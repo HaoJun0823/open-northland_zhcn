@@ -12,13 +12,14 @@ import {
 } from '@open-northland/net-protocol';
 import type { SyncDomain } from '@open-northland/sim';
 import { broadcast, type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
-import type { RelayLog } from '../relay-log.js';
+import { BYTES_PER_KIB, type RelayLog } from '../relay-log.js';
 import { blobMessage, relayBlob } from '../snapshots/blob-relay.js';
 import type { CachedSnapshot } from '../snapshots/catch-up.js';
 import { Resync } from '../snapshots/resync.js';
 import { framesIn, governedSpeed } from '../timing/governor.js';
 import { Pacing } from '../timing/pacing.js';
 import { RoomClock } from '../timing/room-clock.js';
+import { ClockLog } from './clock-log.js';
 import { Departures } from './departures.js';
 import { type KickOutcome, KickVotes, type PassedKick } from './kick-vote.js';
 import { MatchEnd } from './match-end.js';
@@ -46,8 +47,7 @@ export class Game {
   private builtTick: number | null = null;
   private readonly initialSaveTick: number | null;
   private readonly departures: Departures;
-  /** The waited set as last logged, as `nick:reason` pairs. */
-  private loggedWait = '';
+  private readonly clockLog: ClockLog;
 
   constructor(
     speed: number,
@@ -67,6 +67,7 @@ export class Game {
       onEnded();
     });
     this.departures = new Departures(this.clock);
+    this.clockLog = new ClockLog(members, log, now);
     this.resync = new Resync(members, deliver, now, log);
     this.orders = new SaveOrders(this.clock, this.resync, () => this.builtTick, deliver);
     if (initialSave !== null) {
@@ -132,6 +133,32 @@ export class Game {
       by,
       governed: this.clock.governed,
     };
+  }
+
+  /** The clock now and over the interval since the last call, for the room status line. A figure with
+   *  nothing to report is left out. */
+  statusFields(now: number): Record<string, unknown> {
+    const totals = this.clockLog.takeTotals(now);
+    const { governed } = this.clock;
+    const waited = this.clockLog.waited;
+    return {
+      tick: this.clock.tick,
+      speed: this.clock.speed,
+      ...(this.clock.paused && this.endedTick === null ? { paused: true } : {}),
+      ...(governed === null ? {} : { governed }),
+      ...(waited.length === 0 ? {} : { waitingFor: waited.map(({ nick, reason }) => ({ nick, reason })) }),
+      ...(totals.heldMs === 0 ? {} : { holds: totals.holds, heldMs: Math.round(totals.heldMs) }),
+      ...(totals.governedMs === 0
+        ? {}
+        : { governedMs: Math.round(totals.governedMs), minSpeed: totals.minSpeed }),
+      ...(totals.pausedMs === 0 ? {} : { pausedMs: Math.round(totals.pausedMs) }),
+      historyKib: Math.round(this.resync.historyBytes / BYTES_PER_KIB),
+    };
+  }
+
+  /** The clock stopped for good: a hold or governed run still open ends at `now`. */
+  closeClockLog(now: number): void {
+    this.clockLog.observe(null, now);
   }
 
   /** A client's world stands at `tick`, or at nothing: hand it what follows, or the snapshot first. */
@@ -262,19 +289,33 @@ export class Game {
   /** Snapshots refresh the recovery cache; manual saves are relayed as addressed. */
   blob(sender: Member, upload: BlobUpload, now: number): Refusal {
     if (upload.type === 'snapshot' && upload.world !== sender.world) return null;
-    if (upload.type !== 'map' && upload.tick !== null) {
-      if (!isSynced(sender)) return { code: 'snapshotUnsynced' };
-      if (upload.tick < 1 || upload.tick > this.clock.tick)
-        return { code: 'tickNotEmitted', tick: upload.tick };
-      if (upload.type === 'snapshot') {
-        if (sender.seat === null && [...this.members.values()].some((member) => member.seat !== null))
-          return { code: 'seatRequired' };
-        if (this.resync.take(sender.nick, upload.tick, upload.bytes, now))
-          this.ledger.pruneBefore(upload.tick + 1);
-        return null;
-      }
+    const relayed = (): Refusal =>
+      relayBlob(this.members.values(), this.deliver, sender, upload.to, blobMessage(sender, upload));
+    if (upload.type === 'map' || upload.tick === null) return relayed();
+    const refusal = this.uploadRefusal(sender, upload.type, upload.tick);
+    if (upload.type !== 'snapshot') return refusal ?? relayed();
+    if (refusal !== null) {
+      // The donor's export is wasted, and a refresh it answered still waits.
+      this.resync.refused(sender.nick, upload.tick, refusal.code);
+      return refusal;
     }
-    return relayBlob(this.members.values(), this.deliver, sender, upload.to, blobMessage(sender, upload));
+    if (this.resync.take(sender.nick, upload.tick, upload.bytes, now))
+      this.ledger.pruneBefore(upload.tick + 1);
+    return null;
+  }
+
+  /** A snapshot or save stamped with a tick comes from a world in sync, at a tick the clock emitted;
+   *  while any seated player remains, a snapshot comes from one. */
+  private uploadRefusal(sender: Member, type: BlobUpload['type'], tick: number): Refusal {
+    if (!isSynced(sender)) return { code: 'snapshotUnsynced' };
+    if (tick < 1 || tick > this.clock.tick) return { code: 'tickNotEmitted', tick };
+    if (
+      type === 'snapshot' &&
+      sender.seat === null &&
+      [...this.members.values()].some((member) => member.seat !== null)
+    )
+      return { code: 'seatRequired' };
+    return null;
   }
 
   /** The member's connection dropped, returned or was replaced: it says where it stands again with
@@ -362,6 +403,8 @@ export class Game {
   private updateWaiting(now: number): boolean {
     const waited: Waited[] = [];
     for (const member of this.members.values()) {
+      const { figures } = member;
+      figures.behindMaxTicks = Math.max(figures.behindMaxTicks, this.behindTicks(member));
       if (this.absentReason(member, now) === null) {
         this.pacing.observe(member.token, this.backlogTicks(member), this.clock.speed, now);
       } else {
@@ -372,10 +415,16 @@ export class Game {
     }
     const told = this.waiting.update(waited, now);
     if (told) this.broadcast(this.waiting.message(now));
-    this.logWait(waited);
     for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
     if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
+    const { clock } = this;
+    this.clockLog.observe(
+      clock.running
+        ? { tick: clock.tick, speed: clock.speed, paused: clock.paused, waited, governed: clock.governed }
+        : null,
+      now,
+    );
     return told;
   }
 
@@ -391,19 +440,7 @@ export class Game {
     const governed = governedSpeed(slow, this.clock.tick, this.clock.speed, this.clock.governed);
     if (sameGoverned(governed, this.clock.governed)) return false;
     this.clock.govern(governed);
-    this.log('governed', { tick: this.clock.tick, speed: this.clock.speed, governed });
     return true;
-  }
-
-  /** Each change of whom the clock holds for, and why; an empty `for` ends the hold. */
-  private logWait(waited: readonly Waited[]): void {
-    const key = waited.map(({ nick, reason }) => `${nick}:${reason}`).join(',');
-    if (key === this.loggedWait) return;
-    this.loggedWait = key;
-    this.log('waiting', {
-      tick: this.clock.tick,
-      for: waited.map(({ nick, reason }) => ({ nick, reason })),
-    });
   }
 
   private slowMembers(): Member[] {

@@ -13,7 +13,7 @@ import {
 } from '@open-northland/net-protocol';
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
 import { type Connection, type ConnectionEnd, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
-import type { RelayLog } from '../relay/relay-log.js';
+import { faultFields, type RelayLog } from '../relay/relay-log.js';
 import {
   ControlPings,
   DEFAULT_MAX_CONNECTIONS,
@@ -37,6 +37,7 @@ const RETRY_TOO_SOON: RelayReason = { code: 'retryTooSoon' };
 const SERVER_RESTART: ClosingCode = 'serverRestart';
 export const HEALTH_PATH = '/healthz';
 const MS_PER_SECOND = 1000;
+const BYTES_PER_MIB = 1024 * 1024;
 const HTTP_CONNECTION_HEADROOM = 16;
 /** A connection that has sent nothing for this long is dead to the relay, whose ping it answers every
  *  second while alive; closing it lets the seat be waited for and the token return on a new socket. */
@@ -115,7 +116,12 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const log = options.log ?? (() => undefined);
   const maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
   const maxConnections = options.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
-  const relay = new Relay({ log, maxRooms, build: options.build ?? null });
+  const relay = new Relay({
+    log,
+    maxRooms,
+    build: options.build ?? null,
+    hostStatus: () => ({ rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB) }),
+  });
   const startedAt = performance.now();
   const health = (): RelayHealth => ({
     ok: true,
@@ -146,7 +152,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       try {
         serveHttp(request, response, health);
       } catch (err) {
-        log('request failed', { error: String(err) });
+        log('request failed', faultFields(err));
         if (!response.headersSent) response.writeHead(500);
         response.end();
       }
@@ -204,7 +210,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       try {
         relay.receiving(client, unparsedBytes);
       } catch (err) {
-        log('receiving failed', { error: String(err) });
+        log('receiving failed', faultFields(err));
       }
     };
     request.socket.prependListener('data', countBytes);
@@ -216,7 +222,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       try {
         relay.sending(client, inFlight);
       } catch (err) {
-        log('sending failed', { error: String(err) });
+        log('sending failed', faultFields(err));
       }
     };
     const connection: Connection = {
@@ -228,11 +234,13 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       },
     };
     const client = relay.connect(connection);
+    let transportError: string | undefined;
+    let closed = false;
     const disconnect = (end: ConnectionEnd): void => {
       try {
         relay.disconnect(client, end);
       } catch (err) {
-        log('disconnect failed', { error: String(err) });
+        log('disconnect failed', faultFields(err));
       }
     };
     const refuseTraffic = (): void => {
@@ -260,7 +268,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       try {
         relay.downloading(client);
       } catch (err) {
-        log('downloading failed', { error: String(err) });
+        log('downloading failed', faultFields(err));
       }
       if (downloadInFlight && controlPings.settled) reportDownload(false);
     });
@@ -288,26 +296,35 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
         if (recoveryVerdict === 'refuse') relay.refuse(client, raw, RETRY_TOO_SOON);
         else relay.receive(client, raw, byteLength(data));
       } catch (err) {
-        log('receive failed', { error: String(err) });
+        log('receive failed', faultFields(err));
         socket.close(CLOSE_INTERNAL_ERROR, RELAY_FAULT);
         disconnect({ code: CLOSE_INTERNAL_ERROR, cause: RELAY_FAULT });
       }
     });
     // A fault in departure handling is logged; it never reaches the process.
     socket.on('close', (code) => {
+      closed = true;
       request.socket.off('data', countBytes);
       request.socket.off('data', receivedBytes);
       lastHeardAt.delete(socket);
-      disconnect({ code, ...(silenced.has(socket) ? { cause: SILENT_SOCKET } : {}) });
+      disconnect({
+        code,
+        ...(silenced.has(socket) ? { cause: SILENT_SOCKET } : {}),
+        ...(transportError === undefined ? {} : { error: transportError }),
+      });
     });
-    // `ws` closes the socket itself after a protocol error; a transport error is followed by `close`.
-    socket.on('error', (err) => log('socket error', { error: String(err) }));
+    // `ws` closes the socket itself after a protocol error, and a transport error is followed by `close`:
+    // the error goes out on that connection's disconnect line.
+    socket.on('error', (err) => {
+      if (closed) log('socket error', { error: String(err) });
+      else transportError ??= String(err);
+    });
   });
   const poll = setInterval(() => {
     try {
       relay.advance();
     } catch (err) {
-      log('advance failed', { error: String(err) });
+      log('advance failed', faultFields(err));
     }
   }, POLL_INTERVAL_MS);
   const silence = setInterval(() => {

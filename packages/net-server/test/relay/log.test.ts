@@ -1,6 +1,14 @@
-import { TICK_MS } from '@open-northland/net-protocol';
-import { SILENT_AFTER_MS, SNAPSHOT_REFRESH_MS, STATUS_LOG_INTERVAL_MS } from '@open-northland/net-server';
+import { PROTOCOL_VERSION, TICK_MS } from '@open-northland/net-protocol';
+import {
+  CATCH_UP_SHARE,
+  LAG_BEHIND_MS,
+  SILENT_AFTER_MS,
+  SLOW_GRACE_MS,
+  SNAPSHOT_RETRY_MS,
+  STATUS_LOG_INTERVAL_MS,
+} from '@open-northland/net-server';
 import { describe, expect, it } from 'vitest';
+import { NOTABLE_EPISODE_MS } from '../../src/relay/game/clock-log.js';
 import {
   ackThrough,
   digest,
@@ -18,11 +26,14 @@ import {
 /** The diagnostic lines an operator reads to see who plays, in which room, and for how long. */
 
 const SECOND_MS = 1000;
-/** Long enough without an acknowledgement for a heard member to trail into `slow`. */
-const SLOW_SECONDS = 8;
+const SILENT_SECONDS = SILENT_AFTER_MS / SECOND_MS;
+/** Heard but acknowledging nothing this long, a member lags, turns slow after the grace, and stays
+ *  governed for longer than a hiccup. */
+const GOVERNED_SECONDS = (LAG_BEHIND_MS + SLOW_GRACE_MS + NOTABLE_EPISODE_MS) / SECOND_MS + 2;
 /** RFC 6455: the connection closed without a close frame. */
 const ABNORMAL_CLOSURE = 1006;
 const SNAPSHOT_BYTES = Buffer.from('opaque snapshot').toString('base64');
+const FAULTY_TOKEN = 'faulty-token-0123456789';
 
 function logged() {
   const lines: { event: string; fields: Record<string, unknown> }[] = [];
@@ -52,29 +63,31 @@ function runningPair(s: ReturnType<typeof logged>) {
   return pair;
 }
 
-/** `seconds` of play in whole seconds: `answering` answer each ping and acknowledge every frame,
- *  `heard` only answer pings. */
-function play(
-  s: MessageStage,
-  answering: readonly Peer[],
-  seconds: number,
-  heard: readonly Peer[] = [],
-): void {
+/** The last tick each peer acknowledged. */
+const acked = new WeakMap<Peer, number>();
+
+/** Each peer acknowledges every frame it has received. */
+function acknowledge(peers: readonly Peer[]): void {
+  for (const peer of peers) {
+    const from = acked.get(peer) ?? 0;
+    const tick = peer.last('frame')?.tick ?? from;
+    ackThrough(peer, from + 1, tick);
+    acked.set(peer, tick);
+  }
+}
+
+/** `seconds` of play in whole seconds: after each poll, `ponging` answer the relay's ping and `acking`
+ *  acknowledge every frame. */
+function play(s: MessageStage, seconds: number, acking: readonly Peer[], ponging = acking): void {
   for (let second = 0; second < seconds; second++) {
     s.advance(SECOND_MS);
-    for (const peer of [...answering, ...heard]) {
+    for (const peer of ponging) {
       const ping = peer.last('ping');
       if (ping !== undefined) peer.send({ kind: 'pong', t: ping.t });
     }
-    for (const peer of answering) {
-      const from = acked.get(peer) ?? 0;
-      const tick = peer.last('frame')?.tick ?? 0;
-      ackThrough(peer, from + 1, tick);
-      acked.set(peer, tick);
-    }
+    acknowledge(acking);
   }
 }
-const acked = new WeakMap<Peer, number>();
 
 describe('relay log', () => {
   it('follows a room from creation through a played match to its drop', () => {
@@ -86,7 +99,9 @@ describe('relay log', () => {
 
     s.advance(30 * SECOND_MS);
     a.send({ kind: 'start' });
-    expect(s.events('game starting')).toEqual([{ ...room, players: ['Ania', 'Bartek'], lobbySeconds: 30 }]);
+    expect(s.events('game starting')).toEqual([
+      { ...room, players: ['Ania', 'Bartek'], world: 'zatoka', client: 'fixture-client', lobbySeconds: 30 },
+    ]);
     s.advance(20 * SECOND_MS);
     // Answered pings keep both members heard, so the clock does not wait on them as silent.
     for (const peer of [a, b]) peer.send({ kind: 'pong', t: peer.last('ping')?.t ?? 0 });
@@ -98,6 +113,8 @@ describe('relay log', () => {
     s.advance(60 * SECOND_MS);
     for (const peer of [a, b]) peer.send({ kind: 'finish', tick: 1, world: 0, hash: '12345678' });
     s.advance(TICK_MS);
+    // The end closes the game's figures with a last room status.
+    expect(s.lines.slice(-2).map((line) => line.event)).toEqual(['room status', 'game ended']);
     expect(s.events('game ended')).toEqual([{ ...room, tick: 1, playedSeconds: 60 }]);
 
     a.send({ kind: 'leaveRoom' });
@@ -112,21 +129,33 @@ describe('relay log', () => {
     ]);
   });
 
-  it('notes a player whose socket drops and returns, and where a departed seat went', () => {
+  it('notes a socket that drops and returns in two lines, and where a departed seat went', () => {
     const s = logged();
     const { a, b, roomId } = seatedPair(s);
     a.send({ kind: 'start' });
     for (const peer of [a, b]) peer.send({ kind: 'loaded', tick: 0, world: 0 });
+    s.advance(SECOND_MS);
+    b.send({ kind: 'pong', t: b.last('ping')?.t ?? 0 });
+    const quietMs = 2 * SECOND_MS;
+    s.advance(quietMs);
 
-    s.relay.disconnect(b.handle);
-    expect(s.events('disconnect').at(-1)).toMatchObject({ nick: 'Bartek', room: roomId });
-    expect(s.events('player dropped')).toEqual([
-      { room: roomId, name: SETTINGS.name, nick: 'Bartek', connected: 1 },
-    ]);
+    const mark = s.lines.length;
+    s.relay.disconnect(b.handle, { code: ABNORMAL_CLOSURE });
     s.introduce(TOKEN_B, 'Bartek');
-    expect(s.events('hello').at(-1)).toEqual({ nick: 'Bartek', rejoined: true, room: roomId });
-    expect(s.events('player returned')).toEqual([
-      { room: roomId, name: SETTINGS.name, nick: 'Bartek', connected: 2 },
+    expect(s.lines.slice(mark)).toEqual([
+      {
+        event: 'disconnect',
+        fields: {
+          nick: 'Bartek',
+          room: roomId,
+          connectedSeconds: 3,
+          clients: 1,
+          closeCode: ABNORMAL_CLOSURE,
+          quietMs,
+          roundTripMs: 0,
+        },
+      },
+      { event: 'hello', fields: { nick: 'Bartek', rejoined: true, room: roomId } },
     ]);
 
     a.send({ kind: 'leaveRoom' });
@@ -172,82 +201,210 @@ describe('relay log', () => {
     ]);
   });
 
-  it('notes whom the clock holds for or paces, and why', () => {
+  it('logs a notable hold or governed run when it ends, and only counts a short one', () => {
     const s = logged();
     const { a, b, roomId } = runningPair(s);
     const room = { room: roomId, name: SETTINGS.name };
     // Bartek answers nothing: silent, and the clock holds for him until he is heard again.
-    play(s, [a], SILENT_AFTER_MS / SECOND_MS + 1);
-    expect(s.events('waiting').at(-1)).toMatchObject({
+    play(s, SILENT_SECONDS + NOTABLE_EPISODE_MS / SECOND_MS, [a]);
+    play(s, 2, [a, b]);
+    const [held] = s.events('held');
+    expect(held).toEqual({
       ...room,
-      for: [{ nick: 'Bartek', reason: 'silent' }],
+      tick: expect.any(Number),
+      ms: held?.ms,
+      for: [{ nick: 'Bartek', silentMs: held?.ms }],
     });
-    play(s, [a, b], 2);
-    expect(s.events('waiting').at(-1)).toMatchObject({ ...room, for: [] });
+    expect(held?.ms).toBeGreaterThanOrEqual(NOTABLE_EPISODE_MS);
+    play(s, SILENT_SECONDS + 1, [a]);
+    play(s, 2, [a, b]);
+    expect(s.events('held')).toHaveLength(1);
+
     // Heard but acknowledging nothing, he trails the clock and the room is paced for him.
-    play(s, [a], SLOW_SECONDS, [b]);
-    expect(s.events('governed').at(-1)).toMatchObject({ ...room, governed: { nick: 'Bartek' } });
-    play(s, [a, b], 2);
-    expect(s.events('governed').at(-1)).toMatchObject({ ...room, governed: null });
+    play(s, GOVERNED_SECONDS, [a], [a, b]);
+    play(s, 2, [a, b]);
+    const [governed] = s.events('governed');
+    expect(governed).toEqual({
+      ...room,
+      tick: expect.any(Number),
+      ms: governed?.ms,
+      speed: SETTINGS.speed,
+      minSpeed: CATCH_UP_SHARE,
+      for: [{ nick: 'Bartek', lagMs: governed?.ms }],
+    });
+    expect(governed?.ms).toBeGreaterThanOrEqual(NOTABLE_EPISODE_MS);
+
+    while (s.events('room status').length === 0) play(s, 1, [a, b]);
+    const [status] = s.events('room status');
+    expect(status).toMatchObject({ holds: 2, governedMs: governed?.ms, minSpeed: CATCH_UP_SHARE });
+    expect(status?.heldMs).toBeGreaterThan(Number(held?.ms));
+    expect(status?.members).toEqual([
+      expect.not.objectContaining({ silentMs: expect.anything() }),
+      expect.objectContaining({ silentMs: status?.heldMs, governedMs: governed?.ms }),
+    ]);
   });
 
-  it('notes each snapshot request, what it cost the donor, and every link on the cadence', () => {
+  it('logs each snapshot refresh once, a donor that did not answer, and an upload it could not use', () => {
     const s = logged();
     const { a, b, roomId } = runningPair(s);
-    play(s, [a, b], SNAPSHOT_REFRESH_MS / SECOND_MS - 1);
-    expect(s.events('snapshot asked')).toEqual([]);
-    for (let second = 0; second < 2 && s.events('snapshot asked').length === 0; second++) play(s, [a, b], 1);
-    const asked = s.events('snapshot asked');
-    expect(asked).toHaveLength(1);
-    const donor = asked[0]?.donor === 'Ania' ? a : b;
-    play(s, [a, b], 2);
-    const tick = donor.last('frame')?.tick ?? 0;
-    donor.send({ kind: 'blob', type: 'snapshot', world: 0, to: null, tick, bytes: SNAPSHOT_BYTES });
-    expect(s.events('snapshot cached')).toEqual([
-      { room: roomId, name: SETTINGS.name, from: asked[0]?.donor, tick, kib: 0, askedMs: 2 * SECOND_MS },
+    const room = { room: roomId, name: SETTINGS.name };
+    const nick = (peer: Peer) => (peer === a ? 'Ania' : 'Bartek');
+    let first: Peer | undefined;
+    while (first === undefined) {
+      play(s, 1, [a, b]);
+      first = [a, b].find((peer) => peer.of('snapshotRequest').length > 0);
+    }
+    const second = first === a ? b : a;
+    // The first donor sends nothing within the retry window, so the request moves on.
+    while (second.of('snapshotRequest').length === 0) play(s, 1, [a, b]);
+    expect(s.events('snapshot unanswered')).toEqual([
+      { ...room, donor: nick(first), askedMs: SNAPSHOT_RETRY_MS },
     ]);
 
-    play(s, [a, b], STATUS_LOG_INTERVAL_MS / SECOND_MS);
-    const status = s.events('room status').at(-1);
-    expect(status).toMatchObject({ room: roomId, speed: 1, paused: false, governed: null });
-    expect(status?.members).toEqual([
-      expect.objectContaining({ nick: 'Ania', seat: 0, connected: true, delayTicks: expect.any(Number) }),
-      expect.objectContaining({
-        nick: 'Bartek',
-        roundTripMs: 0,
-        behindTicks: expect.any(Number),
-        tickMs: LOAD.tickMs,
-      }),
+    const tick = second.last('frame')?.tick ?? 0;
+    second.send({ kind: 'blob', type: 'snapshot', world: 0, to: null, tick, bytes: SNAPSHOT_BYTES });
+    expect(s.events('snapshot')).toEqual([
+      { ...room, from: nick(second), tick, kib: 0, askedMs: SNAPSHOT_RETRY_MS, asks: 2 },
+    ]);
+    // The first donor's late answer is older than the cache. A refused upload is a line once a round;
+    // the round's snapshot counts the rest.
+    const upload = { kind: 'blob', type: 'snapshot', world: 0, to: null, bytes: SNAPSHOT_BYTES } as const;
+    first.send({ ...upload, tick: tick - 1 });
+    first.send({ ...upload, tick: tick + 1 });
+    expect(s.events('snapshot refused')).toEqual([
+      { ...room, from: nick(first), tick: tick - 1, reason: 'stale' },
+    ]);
+    let next: Peer | undefined;
+    while (next === undefined) {
+      play(s, 1, [a, b]);
+      next = [a, b].find((peer) => peer.of('snapshotRequest').length > 1);
+    }
+    next.send({ ...upload, tick: next.last('frame')?.tick ?? 0 });
+    expect(s.events('snapshot').at(-1)).toMatchObject({ from: nick(next), refused: 2 });
+  });
+
+  it('sums up each member over the status interval, and starts the next one from nothing', () => {
+    const s = logged();
+    const { a, b, roomId } = runningPair(s);
+    // Two round trips each, of 100 and 300 ms; no pong after them.
+    for (const tripMs of [100, 300]) {
+      s.advance(SECOND_MS);
+      const stamps = [a, b].map((peer) => peer.last('ping')?.t ?? 0);
+      s.advance(tripMs);
+      for (const [i, peer] of [a, b].entries()) peer.send({ kind: 'pong', t: stamps[i] });
+      acknowledge([a, b]);
+    }
+    play(s, 1, [a, b], []);
+    // Bartek's socket drops; he is waited for from the next poll until his world is back.
+    const goneSeconds = 3;
+    s.relay.disconnect(b.handle, { code: ABNORMAL_CLOSURE });
+    play(s, goneSeconds, [a], []);
+    const back = s.introduce(TOKEN_B, 'Bartek');
+    const tick = acked.get(b) ?? 0;
+    back.send({ kind: 'loaded', tick, world: 0 });
+    acked.set(back, tick);
+    while (s.events('room status').length === 0) play(s, 1, [a, back], []);
+
+    const goneMs = (goneSeconds - 1) * SECOND_MS;
+    const link = { roundTripMs: 200, roundTripMaxMs: 300, delayMaxTicks: expect.any(Number) };
+    const load = {
+      behindMaxTicks: expect.any(Number),
+      tickMaxMs: LOAD.tickMs,
+      bufferedMaxTicks: LOAD.buffered,
+    };
+    expect(s.events('room status')).toEqual([
+      {
+        room: roomId,
+        name: SETTINGS.name,
+        intervalMs: expect.any(Number),
+        tick: expect.any(Number),
+        speed: SETTINGS.speed,
+        holds: 1,
+        heldMs: goneMs,
+        historyKib: expect.any(Number),
+        members: [
+          { nick: 'Ania', seat: 0, ...link, ...load },
+          { nick: 'Bartek', seat: 1, ...link, ...load, drops: 1, goneMs },
+        ],
+      },
+    ]);
+
+    play(s, 1, [a, back], []);
+    for (const peer of [a, back])
+      peer.send({ kind: 'finish', tick: acked.get(peer), world: 0, hash: '12345678' });
+    s.advance(TICK_MS);
+    expect(s.events('room status').at(-1)?.members).toEqual([
+      { nick: 'Ania', seat: 0, delayMaxTicks: expect.any(Number), ...load },
+      { nick: 'Bartek', seat: 1, delayMaxTicks: expect.any(Number), ...load },
     ]);
   });
 
-  it('says how a connection ended', () => {
+  it('names a replaced or refused connection, and only counts sockets that never said who they are', () => {
     const s = logged();
     const first = s.introduce(TOKEN_A, 'Ania');
     s.introduce(TOKEN_A, 'Ania');
     expect(s.events('hello').at(-1)).toEqual({ nick: 'Ania', rejoined: false, replaced: true });
     expect(first.closed()).toBe('replaced');
 
-    const b = s.introduce(TOKEN_B, 'Bartek');
-    s.relay.disconnect(b.handle, { code: ABNORMAL_CLOSURE });
-    expect(s.events('disconnect').at(-1)).toMatchObject({ nick: 'Bartek', closeCode: ABNORMAL_CLOSURE });
-    const stranger = s.peer();
-    stranger.send({ kind: 'listRooms' });
-    expect(s.events('disconnect').at(-1)).toMatchObject({ nick: '', cause: 'helloFirst' });
+    s.relay.disconnect(s.peer().handle, { code: ABNORMAL_CLOSURE });
+    s.peer().send({ kind: 'listRooms' });
+    s.peer().send({ kind: 'hello', protocol: PROTOCOL_VERSION + 1, token: TOKEN_C, nick: 'Cezary' });
+    expect(s.events('hello refused')).toEqual([{ nick: 'Cezary', protocol: PROTOCOL_VERSION + 1 }]);
+    expect(s.events('disconnect')).toEqual([]);
+    s.advance(STATUS_LOG_INTERVAL_MS);
+    expect(s.events('status')).toEqual([
+      {
+        clients: 1,
+        rooms: { lobby: 0, running: 0, ended: 0 },
+        playing: 0,
+        anonymous: 3,
+        pollMaxMs: STATUS_LOG_INTERVAL_MS,
+        latePolls: 1,
+      },
+    ]);
   });
 
-  it('counts clients, rooms and players on a cadence, and keeps quiet while idle', () => {
+  it('counts clients, rooms, players and its own late polls on a cadence, a recurring fault once', () => {
     const s = logged();
     s.advance(STATUS_LOG_INTERVAL_MS);
     expect(s.events('status')).toEqual([]);
 
     const { a, b } = seatedPair(s);
     s.introduce(TOKEN_C, 'Cezary');
+    const faulty = s.relay.connect({
+      send: (message) => {
+        if (message.kind === 'ping') throw new Error('socket gone');
+      },
+      close: () => undefined,
+    });
+    s.relay.receive(faulty, {
+      kind: 'hello',
+      protocol: PROTOCOL_VERSION,
+      token: FAULTY_TOKEN,
+      nick: 'Faulty',
+    });
     a.send({ kind: 'start' });
     for (const peer of [a, b]) peer.send({ kind: 'loaded', tick: 0, world: 0 });
-    s.advance(STATUS_LOG_INTERVAL_MS);
+    const polls = STATUS_LOG_INTERVAL_MS / SECOND_MS;
+    for (let poll = 0; poll < polls; poll++) s.advance(SECOND_MS);
+    expect(s.events('poll fault')).toEqual([
+      { nick: 'Faulty', error: 'Error: socket gone', stack: expect.stringContaining('socket gone') },
+    ]);
+    // Every poll of the test's one-second steps is late.
     expect(s.events('status')).toEqual([
-      { clients: 3, rooms: { lobby: 0, running: 1, ended: 0 }, playing: 2 },
+      {
+        clients: 4,
+        rooms: { lobby: 0, running: 1, ended: 0 },
+        playing: 2,
+        pollMaxMs: SECOND_MS,
+        latePolls: polls,
+        repeatedFaults: expect.any(Number),
+      },
+    ]);
+    // Neither player has said a word since loading.
+    expect(s.events('room status').at(-1)?.waitingFor).toEqual([
+      { nick: 'Ania', reason: 'silent' },
+      { nick: 'Bartek', reason: 'silent' },
     ]);
   });
 });

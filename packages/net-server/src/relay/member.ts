@@ -4,7 +4,9 @@ import {
   type LobbyCompatibility,
   type RelayReason,
   type ServerMessage,
+  type WaitReason,
 } from '@open-northland/net-protocol';
+import { msFields } from './relay-log.js';
 
 export interface Member {
   readonly token: string;
@@ -38,6 +40,64 @@ export interface Member {
   world: number;
   /** The notice that put the client out of sync, until a snapshot brings it back. */
   outOfSync: DesyncNotice | null;
+  /** What the relay saw of the member since the room's last status line. */
+  figures: MemberFigures;
+}
+
+/** One member's figures over a room status interval, each updated where the relay already has the
+ *  value: on a pong, an acknowledgement, a drop, or the poll that judges its lag. */
+export interface MemberFigures {
+  roundTrips: number;
+  roundTripSumMs: number;
+  roundTripMaxMs: number;
+  delayMaxTicks: number;
+  behindMaxTicks: number;
+  tickMaxMs: number | null;
+  bufferedMaxTicks: number | null;
+  drops: number;
+  /** Milliseconds the clock held for the member, by reason. */
+  readonly waitedMs: Partial<Record<WaitReason, number>>;
+  /** Milliseconds the clock was governed for the member. */
+  governedMs: number;
+}
+
+/** Figures for an interval starting now: the levels in force at its start count towards its maxima. */
+export function freshFigures(member: Pick<Member, 'delayTicks' | 'load'>): MemberFigures {
+  return {
+    roundTrips: 0,
+    roundTripSumMs: 0,
+    roundTripMaxMs: 0,
+    delayMaxTicks: member.delayTicks,
+    behindMaxTicks: 0,
+    tickMaxMs: member.load?.tickMs ?? null,
+    bufferedMaxTicks: member.load?.buffered ?? null,
+    drops: 0,
+    waitedMs: {},
+    governedMs: 0,
+  };
+}
+
+/** One member's entry in a room status line; a figure with nothing to report is left out. */
+export function figureFields(member: Member): Record<string, unknown> {
+  const { figures } = member;
+  return {
+    nick: member.nick,
+    seat: member.seat,
+    ...(member.connected ? {} : { connected: false }),
+    ...(figures.roundTrips === 0
+      ? {}
+      : {
+          roundTripMs: Math.round(figures.roundTripSumMs / figures.roundTrips),
+          roundTripMaxMs: Math.round(figures.roundTripMaxMs),
+        }),
+    delayMaxTicks: figures.delayMaxTicks,
+    behindMaxTicks: figures.behindMaxTicks,
+    ...(figures.tickMaxMs === null ? {} : { tickMaxMs: Math.round(figures.tickMaxMs) }),
+    ...(figures.bufferedMaxTicks === null ? {} : { bufferedMaxTicks: figures.bufferedMaxTicks }),
+    ...(figures.drops === 0 ? {} : { drops: figures.drops }),
+    ...msFields(figures.waitedMs),
+    ...(figures.governedMs === 0 ? {} : { governedMs: Math.round(figures.governedMs) }),
+  };
 }
 
 /** Nothing heard from a client this long makes it silent, whatever its socket says. */
@@ -78,6 +138,7 @@ export function createMember(token: string, nick: string, now: number, link: Mea
     ackedTick: 0,
     world: DESCRIPTOR_WORLD,
     outOfSync: null,
+    figures: freshFigures({ delayTicks: link.delayTicks, load: null }),
   };
 }
 

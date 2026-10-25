@@ -257,15 +257,21 @@ check at `/healthz` on the same port. It loads no content and runs no simulation
 speaks is [`NETWORK.md`](NETWORK.md). `HOST` binds one address, `RELAY_MAX_ROOMS` and
 `RELAY_MAX_CONNECTIONS` cap the rooms and the open sockets, and `RELAY_PUBLIC_URL` and `RELAY_BUILD`
 are what the health check reports as the address and the build; the log is one JSON record per
-line, a failed start included. Beside joins, drops and each room's life, it records what tells a slow
-machine from a slow link after the fact: `waiting` names whom the running clock holds for and why,
-`governed` each change of the paced speed, `snapshot asked` and `snapshot cached` each refresh with its
-donor, size and the time from request to cache, and `room status`, every five minutes, each member's
-round trip, jitter, input delay, ticks behind and reported tick cost. `disconnect` carries the close
-code (1005 for a close without one, 1006 for a dropped link) and the relay's `cause` when it closed
-the socket itself. Every message it handles is exercised by the tests under
-`packages/net-server/test`, and the decoded-map run in `npm run test:content` plays real sessions
-through it in memory. `ON_RELAY_URL=wss://…` points the socket test at a deployed relay instead:
+line, a failed start included. Beside joins, departures and each room's life, it records why a game
+froze, slowed or ended. `held` and `governed` close each hold or paced run of the running clock of 5 s
+or more, with whom it was for, why and how long; `snapshot` closes each refresh with its donor, size
+and time from the first request, and `snapshot unanswered` and `snapshot refused` name a donor that
+sent nothing or an upload of no use. Every five minutes `status` counts clients, rooms, players and
+the sockets that closed without `hello` (`anonymous`; they get no line of their own), with the
+longest gap between the relay's own polls (`pollMaxMs`) and the process memory (`rssMib`), and
+`room status` sums up the interval for each running room and member: time held by reason, governed
+time, mean and highest round trip, highest input delay, ticks behind, tick cost and buffered frames,
+and drops. A game's end or drop adds a last `room status`. `disconnect` carries the close code
+(1005 for a close without one, 1006 for a dropped link), the relay's `cause` when it closed the
+socket, the transport `error`, and how long the link had been quiet. Every message it handles is
+exercised by the tests under `packages/net-server/test`, and the decoded-map run in
+`npm run test:content` plays real sessions through it in memory. `ON_RELAY_URL=wss://…` points the
+socket test at a deployed relay instead:
 
 ```bash
 ON_RELAY_URL=wss://relay.opennorthland.org npx vitest run --project core packages/net-server/test/host/ws-host.test.ts

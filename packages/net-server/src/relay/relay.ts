@@ -11,10 +11,11 @@ import {
   parseRelayBuild,
   type RelayReason,
   type ServerMessage,
+  TICK_MS,
 } from '@open-northland/net-protocol';
 import { saveOrdersRequestId } from './game/save-orders.js';
 import { createMember, type Member, type Refusal } from './member.js';
-import { type RelayLog, wholeSeconds } from './relay-log.js';
+import { faultFields, type RelayLog, wholeSeconds } from './relay-log.js';
 import { dispatchRoomMessage } from './room/dispatch.js';
 import { retireRoomMembers } from './room/retirement.js';
 import { type Farewell, Room } from './room/room.js';
@@ -36,6 +37,8 @@ export interface RelayOptions {
   readonly maxRooms?: number;
   /** The build `welcome` names, a printable line of at most `MAX_RELAY_BUILD_LENGTH`; null names none. */
   readonly build?: string | null;
+  /** What the host adds to each `status` line about its process, such as its memory. */
+  readonly hostStatus?: () => Readonly<Record<string, unknown>>;
 }
 
 /** A room with nobody connected is kept this long for reconnects, then dropped. */
@@ -45,6 +48,9 @@ export const DEFAULT_MAX_ROOMS = 64;
 export const HELLO_TIMEOUT_MS = 10_000;
 /** How often the relay logs a census of its clients and rooms while it holds any. */
 export const STATUS_LOG_INTERVAL_MS = 5 * 60 * 1000;
+/** A poll this much later than the last leaves a frame due at speed 1 unsent past its time: the
+ *  process was busy or starved. */
+const LATE_POLL_MS = TICK_MS;
 const ROOM_ID_BYTES = 4;
 
 /** One connection as the relay sees it. Identity arrives with `hello`; before it, nothing else may. */
@@ -68,10 +74,12 @@ class Client {
 export type ClientHandle = Client;
 
 /** How a connection ended, for the log: the WebSocket close code its socket reported (1005 for a
- *  close without one, 1006 for one with no close frame), and `cause` when the relay closed it. */
+ *  close without one, 1006 for one with no close frame), `cause` when the relay closed it, and the
+ *  transport error that ended it. */
 export interface ConnectionEnd {
   readonly code?: number;
   readonly cause?: string;
+  readonly error?: string;
 }
 
 /** Transport-free and clock-free: the host feeds it connections, one `receive` per message, and one
@@ -90,8 +98,18 @@ export class Relay {
   private readonly log: RelayLog;
   private readonly maxRooms: number;
   private readonly build: { readonly build?: string };
+  private readonly hostStatus: () => Readonly<Record<string, unknown>>;
   private lastAdvanceAt: number;
   private nextStatusAt: number;
+  /** Since the last `status` line: connections that closed without introducing themselves, the
+   *  longest gap between two polls and the polls later than `LATE_POLL_MS`. */
+  private anonymous = 0;
+  private pollMaxMs = 0;
+  private latePolls = 0;
+  /** Poll faults logged since the last `status`, by event and message, and the repeats left unlogged:
+   *  a fault that recurs on every poll is one line per interval. */
+  private readonly faultsLogged = new Set<string>();
+  private repeatedFaults = 0;
 
   constructor(options: RelayOptions = {}) {
     this.now = options.now ?? (() => performance.now());
@@ -100,6 +118,7 @@ export class Relay {
     this.maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
     const build = options.build ?? null;
     this.build = build === null ? {} : { build: parseRelayBuild(build, 'build') };
+    this.hostStatus = options.hostStatus ?? (() => ({}));
     this.lastAdvanceAt = this.now();
     this.nextStatusAt = this.lastAdvanceAt + STATUS_LOG_INTERVAL_MS;
   }
@@ -115,25 +134,35 @@ export class Relay {
   connect(connection: Connection): ClientHandle {
     const client = new Client(connection, this.now());
     this.clients.add(client);
-    this.log('connect', { clients: this.clients.size });
     return client;
   }
 
+  /** A connection that never introduced itself is only counted in the next `status`. */
   disconnect(client: ClientHandle, end: ConnectionEnd = {}): void {
     if (!this.clients.delete(client)) return;
-    if (client.token !== null && this.byToken.get(client.token) === client) this.byToken.delete(client.token);
-    const room = client.room;
-    if (room !== null && client.member !== null) {
-      room.disconnect(client.member, this.now());
+    if (client.token === null) {
+      this.anonymous++;
+      return;
+    }
+    if (this.byToken.get(client.token) === client) this.byToken.delete(client.token);
+    const now = this.now();
+    const { room, member } = client;
+    if (room !== null && member !== null) {
+      room.disconnect(member, now);
       this.dropIfEmpty(room);
     }
+    const { delay } = client.probe;
     this.log('disconnect', {
       nick: client.nick,
       ...(room === null ? {} : { room: room.id }),
-      connectedSeconds: wholeSeconds(this.now() - client.connectedAt),
+      connectedSeconds: wholeSeconds(now - client.connectedAt),
       clients: this.clients.size,
       ...(end.code === undefined ? {} : { closeCode: end.code }),
       ...(end.cause === undefined ? {} : { cause: end.cause }),
+      ...(end.error === undefined ? {} : { error: end.error }),
+      // How long the link had been quiet, and its round trip before: a dying link or an abrupt close.
+      ...(member === null ? {} : { quietMs: Math.round(now - member.lastHeardAt) }),
+      ...(delay.samples === 0 ? {} : { roundTripMs: Math.round(delay.roundTripMs) }),
     });
   }
 
@@ -216,6 +245,8 @@ export class Relay {
     const now = this.now();
     const elapsed = now - this.lastAdvanceAt;
     this.lastAdvanceAt = now;
+    this.pollMaxMs = Math.max(this.pollMaxMs, elapsed);
+    if (elapsed > LATE_POLL_MS) this.latePolls++;
     for (const room of this.rooms.values()) {
       const refusal = this.advanceRoom(room, elapsed, now);
       if (refusal !== null) this.dropRoom(room, refusal);
@@ -224,22 +255,37 @@ export class Relay {
     this.expireEmptyRooms(now);
     if (now >= this.nextStatusAt) {
       this.nextStatusAt = now + STATUS_LOG_INTERVAL_MS;
-      this.logStatus();
+      this.logStatus(now);
     }
   }
 
-  /** Who is connected and what the rooms are doing, then each running room's clock and links; nothing
-   *  while the relay is idle. */
-  private logStatus(): void {
-    if (this.clients.size === 0 && this.rooms.size === 0) return;
+  /** Who is connected, what the rooms are doing and how the relay's own polls kept time, then each
+   *  running room's figures; nothing for an interval in which the relay held nothing. */
+  private logStatus(now: number): void {
+    const { anonymous, pollMaxMs, latePolls, repeatedFaults } = this;
+    this.anonymous = 0;
+    this.pollMaxMs = 0;
+    this.latePolls = 0;
+    this.repeatedFaults = 0;
+    this.faultsLogged.clear();
+    if (this.clients.size === 0 && this.rooms.size === 0 && anonymous === 0 && repeatedFaults === 0) return;
     const rooms = { lobby: 0, running: 0, ended: 0 };
     let playing = 0;
     for (const room of this.rooms.values()) {
       rooms[room.state]++;
       if (room.state === 'running') playing += room.connectedCount;
     }
-    this.log('status', { clients: this.clients.size, rooms, playing });
-    for (const room of this.rooms.values()) if (room.state === 'running') room.logStatus();
+    this.log('status', {
+      clients: this.clients.size,
+      rooms,
+      playing,
+      ...(anonymous === 0 ? {} : { anonymous }),
+      pollMaxMs: Math.round(pollMaxMs),
+      ...(latePolls === 0 ? {} : { latePolls }),
+      ...(repeatedFaults === 0 ? {} : { repeatedFaults }),
+      ...this.hostStatus(),
+    });
+    for (const room of this.rooms.values()) if (room.state === 'running') room.logStatus(now);
   }
 
   /** A fault in one room's clock ends that room; it would otherwise recur on every poll and stall
@@ -248,7 +294,7 @@ export class Relay {
     try {
       return room.advance(elapsed, now);
     } catch (err) {
-      this.log('room fault', { room: room.id, error: String(err) });
+      this.log('room fault', { room: room.id, ...faultFields(err) });
       return { code: 'relayFault' };
     }
   }
@@ -259,7 +305,13 @@ export class Relay {
     try {
       step();
     } catch (err) {
-      this.log(event, { ...fields, error: String(err) });
+      const fault = `${event}: ${String(err)}`;
+      if (this.faultsLogged.has(fault)) {
+        this.repeatedFaults++;
+        return;
+      }
+      this.faultsLogged.add(fault);
+      this.log(event, { ...fields, ...faultFields(err) });
     }
   }
 
@@ -295,6 +347,8 @@ export class Relay {
 
   private hello(client: Client, message: Extract<ClientMessage, { kind: 'hello' }>): void {
     if (message.protocol !== PROTOCOL_VERSION) {
+      // The one refusal of a connection that names a player: a client of another build.
+      this.log('hello refused', { nick: message.nick, protocol: message.protocol });
       this.fail(client, { code: 'protocolUnsupported', client: message.protocol, relay: PROTOCOL_VERSION });
       return;
     }
@@ -397,6 +451,7 @@ export class Relay {
         if (client.room !== null && client.member !== null && client.probe.delay.samples !== samples) {
           client.room.linkMeasured(
             client.member,
+            now - message.t,
             client.probe.delay.ticks,
             client.probe.delay.roundTripMs,
             client.probe.delay.jitterMs,
@@ -479,7 +534,7 @@ export class Relay {
 
   private dropRoom(room: Room, reason?: RelayReason): void {
     const now = this.now();
-    room.noteMilestones(now);
+    room.noteDrop(now);
     this.rooms.delete(room.id);
     this.emptySince.delete(room);
     for (const [token, farewell] of this.farewells) if (farewell.room === room) this.farewells.delete(token);

@@ -192,6 +192,10 @@ const float PALETTE_INDEX_MAX = 255.0;
 // Below this uv footprint the four minification taps nearly coincide, under 0.01 texel apart, so one
 // tap stands for them: at worst about 1/255 off at a hard edge within a hair of one texel per pixel.
 const float SINGLE_TAP_FOOTPRINT = 0.000001;
+// Texels per pixel under which a page counts as magnified. The uv derivatives of a tall page carry
+// rounding noise of a few thousandths of a texel, which at one texel per pixel sent a grid of pixel
+// quads through the magnifier; within one hundredth of a texel per pixel the page is drawn 1:1.
+const float MAGNIFIED_BELOW = 0.99;
 /** Each of the four minification taps sits a quarter of the footprint out from the sample point, and
  *  they average evenly: four taps cannot cover more, so the spread stops there. */
 const float MINIFY_TAP_OFFSET = 0.25;
@@ -324,7 +328,7 @@ void main(void) {
   }
   bool paletted = hasFlag(flags, WORLD_FLAG_PALETTED);
   int lutRow = flags >> WORLD_LUT_ROW_SHIFT;
-  bool magnified = texelsPerPixel < 1.0;
+  bool magnified = texelsPerPixel < MAGNIFIED_BELOW;
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
   bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(flags, WORLD_FLAG_MAGNIFY));
   // A minified plain page spreads four sampler taps over its footprint against sparkle, clamped to the

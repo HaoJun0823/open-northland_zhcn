@@ -254,13 +254,13 @@ vec4 resolvedTap(vec4 tap, ivec2 at, vec2 texSize, bool indexed, bool paletted, 
 
 ${PIXEL_ART_MAGNIFY_CORE_GLSL}
 
-// magnifySharp over the window: its 2x2 is e, f, h and i, which run against the texel axes along a
-// negative step, so the blend takes them in reverse there.
-vec4 windowSharp(XbrNeighbours n, vec2 p, float texelsPerPixel, ivec2 windowStep) {
+// magnifySharp over the window's 2x2 e, f, h and i, which run against the texel axes along a negative
+// step, so the blend takes them in reverse there.
+vec4 windowSharp(vec4 e, vec4 f, vec4 h, vec4 i, vec2 p, float texelsPerPixel, ivec2 windowStep) {
   vec2 w = magnifySharpWeights(p, texelsPerPixel);
   bvec2 forward = greaterThan(windowStep, ivec2(0));
-  vec4 top = forward.x ? mix(n.e, n.f, w.x) : mix(n.f, n.e, w.x);
-  vec4 bottom = forward.x ? mix(n.h, n.i, w.x) : mix(n.i, n.h, w.x);
+  vec4 top = forward.x ? mix(e, f, w.x) : mix(f, e, w.x);
+  vec4 bottom = forward.x ? mix(h, i, w.x) : mix(i, h, w.x);
   return forward.y ? mix(top, bottom, w.y) : mix(bottom, top, w.y);
 }
 
@@ -372,12 +372,20 @@ ${XBR_NEIGHBOURS.map(([name, dx, dy], k) => `      tapAt[${k}] = centre + window
 ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k < tapCount) taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
     // The one 2x2 most gathers take resolves at literal indices, which measured faster; the rest loop.
 ${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTap(taps[${k}], tapAt[${k}], texSize, indexed, paletted, lutRow);`).join('\n')}
+    // xBR's 2x2 decides whether its corner is an edge; only an edge resolves the rest of the window.
+    int resolved = xbr ? SUB_WINDOW_TAPS : tapCount;
     for (int k = SUB_WINDOW_TAPS; k < TAP_COUNT; k++) {
-      if (k < tapCount) taps[k] = resolvedTap(taps[k], tapAt[k], texSize, indexed, paletted, lutRow);
+      if (k < resolved) taps[k] = resolvedTap(taps[k], tapAt[k], texSize, indexed, paletted, lutRow);
     }
     if (xbr) {
-      XbrNeighbours n = XbrNeighbours(${XBR_NEIGHBOURS.map((_, k) => `taps[${k}]`).join(', ')});
-      outColor = magnifyXbrCorner(n, windowSharp(n, p, texelsPerPixel, windowStep), p, texelsPerPixel);
+      outColor = windowSharp(taps[0], taps[1], taps[2], taps[3], p, texelsPerPixel, windowStep);
+      if (!magnifyXbrKeepsBase(taps[0], taps[1], taps[2])) {
+        for (int k = SUB_WINDOW_TAPS; k < WINDOW_TAPS; k++) {
+          taps[k] = resolvedTap(taps[k], tapAt[k], texSize, indexed, paletted, lutRow);
+        }
+        XbrNeighbours n = XbrNeighbours(${XBR_NEIGHBOURS.map((_, k) => `taps[${k}]`).join(', ')});
+        outColor = magnifyXbrCorner(n, outColor, p, texelsPerPixel);
+      }
     } else if (sharp) {
       outColor = BLEND_TAPS(0, magnifySharpWeights(p, texelsPerPixel));
     } else if (single) {

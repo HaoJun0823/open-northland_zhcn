@@ -66,6 +66,12 @@ struct XbrNeighbours {
 };
 #define XBR_NEIGHBOURS_OF(TAP) XbrNeighbours(${XBR_NEIGHBOURS.map(([, dx, dy]) => `TAP(${dx}, ${dy})`).join(', ')})
 
+// Whether xBR keeps the sharp base at the corner of e, f and h without reading the rest of the
+// window: an edge needs e to differ from both neighbours.
+bool magnifyXbrKeepsBase(vec4 e, vec4 f, vec4 h) {
+  return magnifyDistance(e, f) < MAGNIFY_DISTINCT || magnifyDistance(e, h) < MAGNIFY_DISTINCT;
+}
+
 // Edge-directed magnification after the published xBR rule set (Hyllian's 2011 algorithm; an
 // approximation, not an original-engine mechanism): a diagonal edge through a texel's corner is
 // redrawn as a straight cut at 45, ~27 or ~63 degrees, filled with the neighbour that continues
@@ -73,9 +79,9 @@ struct XbrNeighbours {
 // sharp magnification kept where no edge runs.
 vec4 magnifyXbrCorner(XbrNeighbours n, vec4 base, vec2 p, float texelsPerPixel) {
   vec2 local = abs(fract(p) - 0.5); // 0 at the texel centre, 0.5 at the judged corner
+  if (magnifyXbrKeepsBase(n.e, n.f, n.h)) return base;
   float ef = magnifyDistance(n.e, n.f);
   float eh = magnifyDistance(n.e, n.h);
-  if (ef < MAGNIFY_DISTINCT || eh < MAGNIFY_DISTINCT) return base;
   // The corner is an edge when the diagonal e-i is a stronger contrast than the diagonal f-h.
   float along = magnifyDistance(n.e, n.c) + magnifyDistance(n.e, n.g) + magnifyDistance(n.i, n.h5)
               + magnifyDistance(n.i, n.f4) + XBR_DIAGONAL_WEIGHT * magnifyDistance(n.h, n.f);

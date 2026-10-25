@@ -24,6 +24,10 @@ const APP_OPTIONS = {
   resolution: 1,
   // Left on, the shared ticker would render the stage before the first frame sets the camera transform.
   autoStart: false,
+  // The game takes input from DOM listeners and picks sprites itself; nothing listens to Pixi's
+  // federated events. Left on, every pointer move walked the whole scene graph for a hit test, and a
+  // handled event wrote an inline canvas cursor that outranks the stylesheet's world cursors.
+  eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
 } as const;
 
 /**
@@ -125,18 +129,7 @@ export async function createWindowPixiApp(
   });
   inheritParentGroupUniforms(app.renderer);
   watchBackingResolution(app, resolutionScale);
-  leaveCursorToCss(app.renderer.events);
   return app;
-}
-
-/**
- * Stop Pixi writing the canvas's inline `cursor`. Its default style is `inherit`, and an inline style
- * outranks the stylesheet rules that pick the world cursor (hover, armed order, placement), so they
- * never showed. Nothing in the scene sets a Pixi cursor of its own. An own key with an empty style
- * makes Pixi's `setCursor` write nothing.
- */
-export function leaveCursorToCss(events: { cursorStyles: Record<string, unknown> }): void {
-  for (const mode of Object.keys(events.cursorStyles)) events.cursorStyles[mode] = '';
 }
 
 /**

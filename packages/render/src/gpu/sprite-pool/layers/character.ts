@@ -209,6 +209,7 @@ function characterForItem(characters: SettlerCharacterSet, item: DrawItem): Sett
     const character = characters.animals.byTribe[item.tribe];
     return character === undefined ? undefined : characterVariant(character, item.ref);
   }
+  if (isUnseenHuman(characters, item)) return undefined;
   return humanCharacter(
     characters,
     item.tribe,
@@ -218,6 +219,18 @@ function characterForItem(characters: SettlerCharacterSet, item: DrawItem): Sett
     item.ref,
     item.humanForm,
   );
+}
+
+/** Whether `item` is an adult whose tribe has no look for its job in its native form: it draws nothing. */
+export function isUnseenHuman(characters: SettlerCharacterSet, item: DrawItem): boolean {
+  if (
+    item.young === true ||
+    item.humanForm === true ||
+    item.jobType === undefined ||
+    item.tribe === undefined
+  )
+    return false;
+  return characters.byTribe?.[item.tribe]?.unseenJobs?.has(item.jobType) === true;
 }
 
 /** The look of `tribe`'s `jobType` in its native or human form, its variant picked by the stable entity

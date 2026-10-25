@@ -76,7 +76,7 @@ export function lookFrom(row: JobGraphicsRow): TribeLook {
  * record draws it, best first, so the list degrades from the soldier class to the tribe's plain soldier.
  * The caller takes the first whose bobs are actually decoded, since a record can name a body the pipeline
  * emits no atlas for. A spec with no playable body in its chain keeps no entry, and
- * its jobs then draw the base tribe's look for the same job.
+ * its jobs then draw the base tribe's look for the same job, unless they are unseen (`tribeCharacters`).
  */
 export function tribeLooks(ir: ContentIr | null, tribe: number): Map<CharacterSpecId, TribeLook[]> {
   const byJob = new Map<number, JobGraphicsRow>();

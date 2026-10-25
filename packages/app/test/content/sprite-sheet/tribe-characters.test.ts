@@ -11,6 +11,7 @@ import {
   JOB_CIVILIST,
   JOB_HERO_SWORD,
   JOB_HEROINE_BOW,
+  JOB_SCOUT,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
@@ -243,14 +244,29 @@ describe('tribeCharacters', () => {
     expect(chest({ ...chainIr, jobs: cut })).toBeUndefined();
   });
 
-  it('fills a job the tribe authors no record for from the base table', () => {
-    const base = tribeCharacters(ir, [], VIKING, inputsFor(VIKING, ['cr_hum_body_00', 'cr_hum_body_05']));
-    // The weresnake has a soldier and nothing else: its soldier is its own, its woman is the base's.
-    const snake = tribeCharacters(ir, [], WERESNAKE, inputsFor(WERESNAKE, ['cr_hum_body_70']), base);
-    expect(snake).toBeDefined();
+  it('leaves unseen the adult jobs whose baseJob chain reaches no record of the tribe', () => {
+    const jobs = [
+      { typeId: JOB_WOMAN },
+      { typeId: JOB_CIVILIST },
+      { typeId: JOB_SCOUT, baseJob: JOB_CIVILIST },
+      { typeId: JOB_SOLDIER_UNARMED, baseJob: JOB_CIVILIST },
+      { typeId: JOB_SOLDIER_SWORD, baseJob: JOB_SOLDIER_UNARMED },
+    ];
+    const chainIr: ContentIr = { ...ir, jobs };
+    const base = tribeCharacters(
+      chainIr,
+      [],
+      VIKING,
+      inputsFor(VIKING, ['cr_hum_body_00', 'cr_hum_body_05']),
+    );
+    // The weresnake has a soldier and no civilian: its soldiers draw, its woman and scout draw nothing.
+    const snake = tribeCharacters(chainIr, [], WERESNAKE, inputsFor(WERESNAKE, ['cr_hum_body_70']), base);
     expect(snake?.byJob[JOB_SOLDIER_UNARMED]).not.toBe(base?.byJob[JOB_SOLDIER_UNARMED]);
-    expect(snake?.byJob[JOB_WOMAN]).toBe(base?.byJob[JOB_WOMAN]);
-    expect(snake?.default).toBe(base?.default);
+    expect([...(snake?.unseenJobs ?? [])].sort((a, b) => a - b)).toEqual([
+      JOB_WOMAN,
+      JOB_CIVILIST,
+      JOB_SCOUT,
+    ]);
   });
 
   it('is undefined for a tribe with no bodies and no base to borrow from', () => {

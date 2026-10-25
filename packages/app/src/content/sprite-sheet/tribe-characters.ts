@@ -12,6 +12,7 @@ import { isFrankishHeroineSlot } from '../../catalog/jobs.js';
 import {
   attackProgramsBySeq,
   carryWalkSeqs,
+  clipLookupChain,
   type GfxAtomicProgram,
   gfxAtomicProgramsByAction,
   gfxWaitProgramsBySeq,
@@ -252,9 +253,10 @@ export interface TribeCharacterInputs {
  * frame lists, so a soldier drawing another tribe's programs would swing the wrong motion.
  *
  * A tribe authors only part of the roster - the werewolf authors a soldier and nothing else, the
- * weresnake a soldier and its animal forms - so every slot it leaves empty is filled from `base`. That
- * keeps the job right where the tribe is wrong, which reads better than putting the tribe's own civilian
- * man under a woman's or a child's job.
+ * weresnake a soldier and its animal forms - so every slot it leaves empty is filled from `base`, and
+ * `unseenJobs` names the adult jobs whose `baseJob` chain reaches none of its records, which draw nothing.
+ * Approximation: a job whose chain does reach a record but whose own spec the tribe lacks wears the
+ * base tribe's look for that job, where the original would draw the record's body.
  */
 export function tribeCharacters(
   ir: ContentIr | null,
@@ -390,5 +392,33 @@ export function tribeCharacters(
   const unarmedByJob: Record<number, SettlerCharacter> = { ...base?.unarmedByJob };
   const bareWarrior = bySpec.get(UNARMED_WARRIOR_SPEC);
   if (bareWarrior !== undefined) for (const job of WARRIOR_JOBS) unarmedByJob[job] = bareWarrior;
-  return { byJob, youngByJob, fixedByJob, byWeaponGood, unarmedByJob, default: fallback };
+  const unseenJobs = unrecordedJobs(ir, tribe);
+  return {
+    byJob,
+    youngByJob,
+    fixedByJob,
+    byWeaponGood,
+    unarmedByJob,
+    ...(unseenJobs.size > 0 ? { unseenJobs } : {}),
+    default: fallback,
+  };
+}
+
+/**
+ * The adult jobs `tribe` authors no `[jobbasegraphics]` record for anywhere on their `baseJob` chain.
+ * Original behavior: such a job draws the file's first record, the viking baby, whose few frames its
+ * clips point past, so the human stands invisible (the werewolf scouts a map author keeps out of sight
+ * on purpose). A tribe that authors no record at all is synthetic content and keeps the base looks.
+ */
+function unrecordedJobs(ir: ContentIr | null, tribe: number): ReadonlySet<number> {
+  const recorded = new Set<number>();
+  for (const row of ir?.jobGraphics ?? []) if (row.tribe === tribe) recorded.add(row.job);
+  const unseen = new Set<number>();
+  if (recorded.size === 0) return unseen;
+  for (const job of ir?.jobs ?? []) {
+    const id = job.typeId;
+    if (id === undefined || YOUNG_CHARACTER_BY_JOB[id] !== undefined) continue;
+    if (!clipLookupChain(ir, [id]).some((link) => recorded.has(link))) unseen.add(id);
+  }
+  return unseen;
 }

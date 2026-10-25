@@ -7,7 +7,7 @@ import type { DrawItem } from '../../../data/scene/index.js';
 import { HUMAN_HEAD_ROW_OFFSET } from '../../textures/human-palette-lut.js';
 import type { SpriteSheet } from '../../textures/sprite-sheet.js';
 import { cartDriveLook } from './cart-drive.js';
-import { humanCharacter } from './character.js';
+import { humanCharacter, isUnseenHuman } from './character.js';
 import type { ResolvedLayer } from './resolved-layer.js';
 
 /** The look of a character loaded without palette data: the book's fallback base alone. */
@@ -59,6 +59,7 @@ export function humanPaletteIdentity(
     return true;
   }
   if (item.tribe !== undefined && characters.animals?.tribes.has(item.tribe) === true) return false;
+  if (isUnseenHuman(characters, item)) return false;
   const young = item.young === true;
   const character = humanCharacter(
     characters,

@@ -140,5 +140,7 @@ export interface ByJobTable<T> {
    * reaches this table.
    */
   readonly unarmedByJob?: Readonly<Record<number, T>>;
+  /** Adult jobs this tribe has no look for at all, which draw nothing rather than another tribe's. */
+  readonly unseenJobs?: ReadonlySet<number>;
   readonly default: T;
 }

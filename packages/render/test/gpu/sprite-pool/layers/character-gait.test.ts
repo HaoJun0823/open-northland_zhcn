@@ -154,3 +154,19 @@ describe('character motion ownership', () => {
     expect(settlerCharacterOf(undefined, item)?.interpolateMotion === true).toBe(false);
   });
 });
+
+describe('unseen jobs', () => {
+  it("draws no look for an adult of a tribe that has none for its job, and the base tribe's otherwise", () => {
+    const WEREWOLF = 6;
+    const SCOUT = 27;
+    const wolf: SettlerCharacterSet['default'] = { body, binding };
+    const table: SettlerCharacterSet = {
+      ...characters,
+      byTribe: { [WEREWOLF]: { default: wolf, byJob: { [SCOUT]: wolf }, unseenJobs: new Set([SCOUT]) } },
+    };
+    const scout: DrawItem = { ...item, tribe: WEREWOLF, jobType: SCOUT };
+    expect(settlerCharacterOf(table, scout)).toBeUndefined();
+    expect(settlerCharacterOf(table, { ...scout, tribe: 1 })).toBe(characters.default);
+    expect(settlerCharacterOf(table, { ...scout, young: true })).toBe(wolf);
+  });
+});

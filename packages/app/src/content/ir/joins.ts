@@ -450,7 +450,7 @@ export interface TribeJobSeqs {
  * `baseJob` chain (hero → soldier class → unarmed soldier → civilist). That is the parent walk the
  * original takes when a job authors no record of its own. A repeated job stops the walk.
  */
-function clipLookupChain(ir: ContentIr | null, jobs: readonly number[]): number[] {
+export function clipLookupChain(ir: ContentIr | null, jobs: readonly number[]): number[] {
   const baseOf = new Map<number, number>();
   for (const job of ir?.jobs ?? []) {
     if (job.typeId !== undefined && job.baseJob !== undefined) baseOf.set(job.typeId, job.baseJob);

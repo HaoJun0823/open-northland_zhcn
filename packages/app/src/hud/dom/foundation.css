@@ -11,6 +11,11 @@ body.on-drag-scroll * {
 body.on-drag-scroll * {
   pointer-events: none !important;
 }
+/* Without the lock the cursor travels with the hand, so it shows as the grab it is. */
+body.on-drag-scroll.on-drag-scroll-free,
+body.on-drag-scroll.on-drag-scroll-free * {
+  cursor: grabbing !important;
+}
 
 .on-hud {
   --hud-scale: 1;

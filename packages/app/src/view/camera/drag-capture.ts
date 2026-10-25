@@ -3,13 +3,21 @@ import { createDragJumpFilter, type DragStep, type DroppedJump } from './drag-ju
 
 /** Hides the cursor and makes every page element inert while a drag scroll runs. */
 export const DRAG_SCROLL_CLASS = 'on-drag-scroll';
+/** Added beside `DRAG_SCROLL_CLASS` when the drag never asks for the lock: the cursor moves, so it shows. */
+export const DRAG_SCROLL_FREE_CLASS = 'on-drag-scroll-free';
+
+// Chromium engines (Chrome, Edge, the desktop shell) grant the lock without covering the view. Firefox and
+// Safari put a notice over the page on every grant, so their drags pan by client deltas instead.
+const QUIET_POINTER_LOCK_ENGINE = /\bChrom(e|ium)\//;
+const engineLocksQuietly = (): boolean =>
+  typeof navigator !== 'undefined' && QUIET_POINTER_LOCK_ENGINE.test(navigator.userAgent);
 
 /**
  * Holds the cursor for a middle-button drag scroll, the RTS convention: the cursor stays where the press
  * landed, the mouse moves only the view, and release shows the cursor at the same spot. Pointer lock
  * gives that, including drags past the screen edge. When the browser refuses the lock (a relock right
- * after Escape, a browser without the API) the drag reads client deltas and the page class still keeps
- * HUD chrome from reacting to the hidden cursor.
+ * after Escape, a browser without the API) or would announce it with a notice, the drag reads client
+ * deltas and the page class still keeps HUD chrome from reacting to the cursor.
  */
 export interface DragCapture {
   /** Call from the press handler: a browser grants the lock only inside a user gesture. */
@@ -31,6 +39,7 @@ export function createDragCapture(target: HTMLElement, onLost: () => void): Drag
   let lastY = 0;
   let lastMoveAtMs: number | undefined;
   const jumpFilter = createDragJumpFilter();
+  const usesLock = engineLocksQuietly();
   const holdsLock = (): boolean => document.pointerLockElement === target;
   const release = (): void => {
     if (holdsLock()) document.exitPointerLock();
@@ -61,7 +70,7 @@ export function createDragCapture(target: HTMLElement, onLost: () => void): Drag
     if (active) logDropped(jumpFilter.reset());
     active = false;
     locked = false;
-    document.body?.classList.remove(DRAG_SCROLL_CLASS);
+    document.body?.classList.remove(DRAG_SCROLL_CLASS, DRAG_SCROLL_FREE_CLASS);
     release();
   };
 
@@ -90,6 +99,10 @@ export function createDragCapture(target: HTMLElement, onLost: () => void): Drag
       lastMoveAtMs = undefined;
       jumpFilter.reset();
       document.body?.classList.add(DRAG_SCROLL_CLASS);
+      if (!usesLock) {
+        document.body?.classList.add(DRAG_SCROLL_FREE_CLASS);
+        return;
+      }
       // Older engines return nothing and report a refusal through `pointerlockerror` instead.
       target.requestPointerLock?.()?.catch(() => undefined);
     },

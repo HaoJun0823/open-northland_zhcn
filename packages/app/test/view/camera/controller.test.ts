@@ -2,7 +2,7 @@ import type { Camera } from '@open-northland/render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { diag } from '../../../src/diag/log.js';
 import { DEFAULT_KEY_BINDINGS, type KeyBindings } from '../../../src/hud/keybindings.js';
-import { DRAG_SCROLL_CLASS } from '../../../src/view/camera/drag-capture.js';
+import { DRAG_SCROLL_CLASS, DRAG_SCROLL_FREE_CLASS } from '../../../src/view/camera/drag-capture.js';
 import { JUMP_FLOOR_PX } from '../../../src/view/camera/drag-jump-filter.js';
 import {
   type CameraController,
@@ -55,8 +55,8 @@ const classList = () => {
     add: (name: string): void => {
       names.add(name);
     },
-    remove: (name: string): void => {
-      names.delete(name);
+    remove: (...removed: string[]): void => {
+      for (const name of removed) names.delete(name);
     },
     toggle: (name: string, force?: boolean): boolean => {
       const next = force ?? !names.has(name);
@@ -68,9 +68,14 @@ const classList = () => {
   };
 };
 
+const CHROME_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+const FIREFOX_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0';
+
 const install = (
   bindings: KeyBindings = DEFAULT_KEY_BINDINGS,
   inputSettings: CameraInputSettings = DEFAULT_INPUT_SETTINGS,
+  userAgent = CHROME_USER_AGENT,
 ) => {
   const win = eventTarget();
   const canvasEvents = eventTarget();
@@ -106,6 +111,7 @@ const install = (
   } as unknown as HTMLCanvasElement;
   vi.stubGlobal('window', win);
   vi.stubGlobal('document', doc);
+  vi.stubGlobal('navigator', { userAgent });
   // The typing-target guard probes these DOM classes, which the node test environment lacks.
   vi.stubGlobal('HTMLInputElement', class {});
   vi.stubGlobal('HTMLTextAreaElement', class {});
@@ -125,6 +131,7 @@ const install = (
       docEvents.emit('pointerlockchange');
     },
     cursorHidden: (): boolean => bodyClasses.contains(DRAG_SCROLL_CLASS),
+    cursorGrabs: (): boolean => bodyClasses.contains(DRAG_SCROLL_FREE_CLASS),
     /** Fire a `mousemove` whose hit target is the canvas unless `over` names another element. */
     move: (x: number, y: number, over: unknown = canvas): void => {
       win.emit('mousemove', { clientX: x, clientY: y, target: over });
@@ -393,6 +400,25 @@ describe('createCameraController input settings', () => {
     win.emit('mouseup', { button: 1 });
     expect(locked()).toBe(false);
     expect(cursorHidden()).toBe(false);
+    ctl.dispose();
+  });
+
+  it('never asks Firefox for the lock, so its pointer notice stays away, and pans by client deltas', () => {
+    const { ctl, cursorGrabs, lock, locked, move, startMiddleDrag, win } = install(
+      DEFAULT_KEY_BINDINGS,
+      DEFAULT_INPUT_SETTINGS,
+      FIREFOX_USER_AGENT,
+    );
+    lock.grantLock = true;
+    startMiddleDrag(100, 100);
+    expect(locked()).toBe(false);
+    expect(cursorGrabs()).toBe(true);
+
+    move(130, 90);
+    expect(ctl.camera()).toEqual({ offsetX: 30, offsetY: -10 });
+
+    win.emit('mouseup', { button: 1 });
+    expect(cursorGrabs()).toBe(false);
     ctl.dispose();
   });
 

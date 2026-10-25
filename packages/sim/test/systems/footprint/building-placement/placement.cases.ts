@@ -177,7 +177,7 @@ describe('the dense mask rule agrees with an independent derivation', () => {
     stampResourceFootprintData(sim.world, tree, trunkOnlyFootprint());
 
     const terrain = terrainOf(sim);
-    const probe = placementProbe(sim.world, sim.content, terrain, HUT, VIKING, []);
+    const probe = placementProbe(sim.world, sim.content, terrain, HUT, VIKING);
     let blocked = 0;
     let free = 0;
     for (let y = 0; y < terrain.height; y++) {
@@ -196,7 +196,7 @@ describe('the dense mask rule agrees with an independent derivation', () => {
   it('reports a footprint-less type placeable anywhere on the map and nowhere off it', () => {
     const sim = mappedSim();
     const terrain = terrainOf(sim);
-    const probe = placementProbe(sim.world, sim.content, terrain, HQ, VIKING, []);
+    const probe = placementProbe(sim.world, sim.content, terrain, HQ, VIKING);
     expect(probe.canPlace(0, 0)).toBe(true);
     expect(probe.canPlace(5, 5)).toBe(true);
     expect(probe.canPlace(-1, 5)).toBe(false);
@@ -247,14 +247,14 @@ describe('placementBlockerVersion - the overlay memo key that decouples the bloc
     const terrain = terrainOf(sim);
 
     // Prime the memo on the empty map, then tick: a version-keyed memo must survive idle ticks…
-    expect(placementProbe(sim.world, sim.content, terrain, HUT, VIKING, []).canPlace(11, 11)).toBe(true);
+    expect(placementProbe(sim.world, sim.content, terrain, HUT, VIKING).canPlace(11, 11)).toBe(true);
     sim.run(5);
 
     // …but re-derive the instant a hut lands, so the overlay can never keep tinting a taken spot green.
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 11, y: 11, tribe: VIKING });
     sim.step();
 
-    const probe = placementProbe(sim.world, sim.content, terrain, HUT, VIKING, []);
+    const probe = placementProbe(sim.world, sim.content, terrain, HUT, VIKING);
     expect(probe.canPlace(11, 11)).toBe(
       canPlaceBuilding(sim.world, ctxOf(sim), terrain, HUT, VIKING, 11, 11),
     );
@@ -343,7 +343,7 @@ describe('bio-pattern placement - wells and hives need grass', () => {
 
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, HUT, VIKING, 6, 6)).toBe(true);
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, BIO_HUT, VIKING, 6, 6)).toBe(false);
-    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING, []).canPlace(6, 6)).toBe(false);
+    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING).canPlace(6, 6)).toBe(false);
 
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: BIO_HUT, x: 6, y: 6, tribe: VIKING });
     sim.step();
@@ -354,7 +354,7 @@ describe('bio-pattern placement - wells and hives need grass', () => {
     const sim = mappedSim();
     const terrain = terrainOf(sim);
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, BIO_HUT, VIKING, 6, 6)).toBe(true);
-    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING, []).canPlace(6, 6)).toBe(true);
+    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING).canPlace(6, 6)).toBe(true);
   });
 
   it('places it on barren ground while the BioGroundRules waiver is on, and refuses again once it is off', () => {
@@ -373,7 +373,7 @@ describe('bio-pattern placement - wells and hives need grass', () => {
     sim.step();
     expect(sim.placementBlockerVersion()).not.toBe(versionBefore);
     expect(overlayAccepts()).toBe(1);
-    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING, []).canPlace(6, 6)).toBe(true);
+    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING).canPlace(6, 6)).toBe(true);
 
     sim.enqueueSetup({ kind: 'setBioGroundWaived', waived: false });
     sim.step();

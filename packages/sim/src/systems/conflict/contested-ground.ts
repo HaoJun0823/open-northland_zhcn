@@ -5,7 +5,6 @@ import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition } from '../../nav
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import { type PlacementProbe, placementProbe } from '../footprint/index.js';
 import { isFighterJob } from '../readviews/index.js';
-import { signpostNetwork } from '../signposts/index.js';
 import { type FogState, playerSeesEntity } from '../vision/index.js';
 import { SIGHT_RADIUS_NODES } from './targeting.js';
 import { standsAtPost } from './tower-post.js';
@@ -73,8 +72,7 @@ export function contestedGroundFor(
   return ground;
 }
 
-/** The footprint rule, with the placer's own signposts passable, and for an owned placement the
- *  contested-ground rule, as one probe. */
+/** The footprint rule and, for an owned placement, the contested-ground rule, as one probe. */
 export function seatPlacementProbe(
   world: World,
   content: ContentSet,
@@ -84,8 +82,7 @@ export function seatPlacementProbe(
   tribe: number | undefined,
   player: number | undefined,
 ): PlayerPlacementProbe {
-  const ownSignposts = player === undefined ? [] : (signpostNetwork(world).get(player) ?? []);
-  const footprint = placementProbe(world, content, terrain, buildingType, tribe, ownSignposts);
+  const footprint = placementProbe(world, content, terrain, buildingType, tribe);
   if (player === undefined)
     return { canPlace: (x, y) => footprint.canPlace(x, y), contestedKeyWithin: () => '' };
   const ground = contestedGroundFor(world, content, fog, player);

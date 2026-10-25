@@ -135,7 +135,7 @@ import { type WorkStatus, workStatus } from './systems/readviews/work-status.js'
 import { syncRoadLane } from './systems/roads/index.js';
 import { roadSitePlacementVersion } from './systems/roads/sites.js';
 import { SYSTEM_ORDER } from './systems/schedule.js';
-import { type SignpostProbe, signpostNetworkRevision } from './systems/signposts/index.js';
+import type { SignpostProbe } from './systems/signposts/index.js';
 import { type SignpostReachView, signpostReachKey, signpostReachView } from './systems/signposts/reach.js';
 import {
   canAttachTradeHouse,
@@ -534,11 +534,10 @@ export class Simulation {
 
   /**
    * An opaque token over the placement-blocker inputs, changing when one of them does rather than per
-   * tick. Overlay memos key on it. The signpost network revision is one, since a building probe lets its
-   * player cover the posts that player holds now.
+   * tick. Overlay memos key on it.
    */
   placementBlockerVersion(): string {
-    return `${placementBlockerVersion(this.world)}.${signpostNetworkRevision(this.world)}`;
+    return placementBlockerVersion(this.world);
   }
 
   /**

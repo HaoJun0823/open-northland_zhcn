@@ -537,7 +537,8 @@ export const enSurfaces = {
         'A builder you assign by hand to a road or stockade builds its next sections before working on buildings.',
       nextCivilian: '{key} selects the next free civilian.',
       nextSingleWoman: '{key} selects the next unmarried woman without a home.',
-      signposts: 'You can build over your own signposts. They move aside and keep their links.',
+      signposts:
+        "You can build over any signposts, your own or another player's. They move aside and keep their links.",
       scoutExplore: 'With the “Explore” order a scout explores the map by itself.',
       porterFlag:
         'Warehouse and workshop carriers can get a pickup flag and gather goods around it, and posted extractors, hunters and fishermen a flag to work at. Set it in the "{area}" row of the settler panel.',

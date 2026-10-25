@@ -13,11 +13,11 @@ import {
   EXCLUSION,
   eachBlockerCell,
   MARKER,
+  MOVABLE_BODY,
   OBSTACLE,
   PALISADE_BODY,
   RESOURCE_ANCHOR,
   UPGRADE_RESERVE,
-  VEHICLE_BODY,
 } from './blockers.js';
 
 // The incrementally-maintained building-placement grid - the per-world count grid ./building.ts probes,
@@ -39,7 +39,7 @@ import {
 export interface PlacementGrid {
   readonly terrain: TerrainGraph;
   readonly obstacle: Uint16Array;
-  readonly vehicleBody: Uint16Array;
+  readonly movableBody: Uint16Array;
   readonly exclusion: Uint16Array;
   readonly palisadeBody: Uint16Array;
   readonly buildingZone: Uint16Array;
@@ -94,7 +94,7 @@ const PALISADE_BODY_FIELD = 2;
 const BUILDING_ZONE_FIELD = 3;
 const UPGRADE_RESERVE_FIELD = 4;
 const ANCHOR_FIELD = 5;
-const VEHICLE_FIELD = 6;
+const MOVABLE_FIELD = 6;
 type StampField =
   | typeof OBSTACLE_FIELD
   | typeof EXCLUSION_FIELD
@@ -102,7 +102,7 @@ type StampField =
   | typeof BUILDING_ZONE_FIELD
   | typeof UPGRADE_RESERVE_FIELD
   | typeof ANCHOR_FIELD
-  | typeof VEHICLE_FIELD;
+  | typeof MOVABLE_FIELD;
 /** Low bits of a stamp code holding its field; the slot sits above them. */
 const FIELD_BITS = 3;
 const FIELD_MASK = (1 << FIELD_BITS) - 1;
@@ -150,7 +150,7 @@ function emptyGrid(terrain: TerrainGraph): PlacementGrid {
   return {
     terrain,
     obstacle: new Uint16Array(size),
-    vehicleBody: new Uint16Array(size),
+    movableBody: new Uint16Array(size),
     exclusion: new Uint16Array(size),
     palisadeBody: new Uint16Array(size),
     buildingZone: new Uint16Array(size),
@@ -182,8 +182,8 @@ function tallyChange(grid: PlacementGrid, slot: number): void {
 /** The count array of a stamp field, or null for {@link ANCHOR_FIELD}. */
 function fieldCounts(grid: PlacementGrid, field: StampField): Uint16Array | null {
   switch (field) {
-    case VEHICLE_FIELD:
-      return grid.vehicleBody;
+    case MOVABLE_FIELD:
+      return grid.movableBody;
     case OBSTACLE_FIELD:
       return grid.obstacle;
     case EXCLUSION_FIELD:
@@ -253,8 +253,8 @@ function liveLandscapeLayer(world: World, terrain: TerrainGraph): LandscapeLayer
  *  capture and full stamp. */
 function channelStampField(channel: BlockerChannel): StampField | null {
   switch (channel) {
-    case VEHICLE_BODY:
-      return VEHICLE_FIELD;
+    case MOVABLE_BODY:
+      return MOVABLE_FIELD;
     case OBSTACLE:
       return OBSTACLE_FIELD;
     case EXCLUSION:
@@ -298,7 +298,7 @@ function rebuildGrid(
   const grid = reuse?.grid ?? emptyGrid(terrain);
   grid.changes.epoch++;
   grid.obstacle.fill(0);
-  grid.vehicleBody.fill(0);
+  grid.movableBody.fill(0);
   grid.exclusion.fill(0);
   grid.palisadeBody.fill(0);
   grid.buildingZone.fill(0);
@@ -401,7 +401,7 @@ function verifyGridMemo(world: World, content: ContentSet, terrain: TerrainGraph
   const fresh = state.scratch ?? emptyGrid(terrain);
   state.scratch = fresh;
   fresh.obstacle.fill(0);
-  fresh.vehicleBody.fill(0);
+  fresh.movableBody.fill(0);
   fresh.exclusion.fill(0);
   fresh.palisadeBody.fill(0);
   fresh.buildingZone.fill(0);
@@ -410,7 +410,7 @@ function verifyGridMemo(world: World, content: ContentSet, terrain: TerrainGraph
   for (let i = 0; i < fresh.obstacle.length; i++) {
     if (
       state.grid.obstacle[i] === fresh.obstacle[i] &&
-      state.grid.vehicleBody[i] === fresh.vehicleBody[i] &&
+      state.grid.movableBody[i] === fresh.movableBody[i] &&
       state.grid.exclusion[i] === fresh.exclusion[i] &&
       state.grid.palisadeBody[i] === fresh.palisadeBody[i] &&
       state.grid.buildingZone[i] === fresh.buildingZone[i] &&

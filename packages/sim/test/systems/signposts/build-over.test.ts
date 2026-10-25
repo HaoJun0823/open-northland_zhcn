@@ -1,6 +1,6 @@
 import { type FootprintCell, footprintCellDx, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Position, Signpost, stampOwner } from '../../../src/components/index.js';
+import { Position, Signpost } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { halfCellMapFromCells, Simulation } from '../../../src/index.js';
 import { nodeOfPosition } from '../../../src/nav/halfcell.js';
@@ -20,8 +20,8 @@ import {
 } from '../footprint/building-placement/support.js';
 
 /**
- * A player may place a building over their own signposts: the placement pushes each post from under the
- * walls into the building's margin and re-links it there. Another player's post still blocks.
+ * A building may be placed over any player's signposts: the placement pushes each post from under the
+ * walls into the building's margin and re-links it there.
  */
 
 const P0 = 0;
@@ -85,37 +85,28 @@ function islandSim(): Simulation {
 }
 
 describe('building over signposts', () => {
-  it('lets only the post owner cover it', () => {
+  it('lets every placer cover a post', () => {
     const sim = mappedSim();
     post(sim, ANCHOR.x, ANCHOR.y, P0);
 
     expect(sim.placementProbe(HUT, P0)?.canPlace(ANCHOR.x, ANCHOR.y)).toBe(true);
-    expect(sim.placementProbe(HUT, P1)?.canPlace(ANCHOR.x, ANCHOR.y)).toBe(false);
-    // An ownerless placement has nobody's posts to discount.
+    expect(sim.placementProbe(HUT, P1)?.canPlace(ANCHOR.x, ANCHOR.y)).toBe(true);
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrainOf(sim), HUT, undefined, ANCHOR.x, ANCHOR.y)).toBe(
-      false,
+      true,
     );
   });
 
-  it("refuses a building over a rival's post", () => {
+  it("pushes a rival's post aside and keeps it in the rival's network", () => {
     const sim = mappedSim();
     const rival = post(sim, ANCHOR.x, ANCHOR.y, P1);
     placeHut(sim, P0);
 
-    expect(buildingsPlaced(sim)).toBe(0);
-    expect(nodeOf(sim, rival)).toEqual(ANCHOR);
-  });
-
-  it('follows a post to its new owner and moves the overlay token', () => {
-    const sim = mappedSim();
-    const handed = post(sim, ANCHOR.x, ANCHOR.y, P0);
-    const overlayKey = sim.placementBlockerVersion();
-
-    stampOwner(sim.world, handed, P1);
-
-    expect(sim.placementProbe(HUT, P1)?.canPlace(ANCHOR.x, ANCHOR.y)).toBe(true);
-    expect(sim.placementProbe(HUT, P0)?.canPlace(ANCHOR.x, ANCHOR.y)).toBe(false);
-    expect(sim.placementBlockerVersion()).not.toBe(overlayKey);
+    expect(buildingsPlaced(sim)).toBe(1);
+    const moved = nodeOf(sim, rival);
+    expect(inHutCells(HUT_WALLS_AND_DOOR, moved)).toBe(false);
+    const sites = signpostNetwork(sim.world).get(P1) ?? [];
+    expect(sites.find((s) => s.entity === rival)).toMatchObject({ hx: moved.x, hy: moved.y });
+    expectCachesExact(sim);
   });
 
   it('pushes an own post from under the walls into the margin and re-links it', () => {
@@ -137,7 +128,7 @@ describe('building over signposts', () => {
     expectCachesExact(sim);
   });
 
-  it('leaves the pushed post where no later building of its owner may cover it', () => {
+  it('leaves the pushed post where no later building may cover it', () => {
     const sim = mappedSim();
     const covered = post(sim, ANCHOR.x, ANCHOR.y, P0);
     placeHut(sim, P0);

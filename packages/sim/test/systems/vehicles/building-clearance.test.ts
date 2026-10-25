@@ -97,7 +97,7 @@ describe('buildings displace vehicles', () => {
     const terrain = terrainOf(sim);
     const ctx = ctxOf(sim);
     expect(canPlaceBuilding(sim.world, ctx, terrain, HUT, VIKING, PLOT.hx, PLOT.hy)).toBe(true);
-    expect(placementProbe(sim.world, sim.content, terrain, HUT, VIKING, []).canPlace(PLOT.hx, PLOT.hy)).toBe(
+    expect(placementProbe(sim.world, sim.content, terrain, HUT, VIKING).canPlace(PLOT.hx, PLOT.hy)).toBe(
       true,
     );
     expect(canPlaceWorkFlag(sim.world, ctx, terrain, terrain.nodeAt(PLOT.hx, PLOT.hy))).toBe(false);

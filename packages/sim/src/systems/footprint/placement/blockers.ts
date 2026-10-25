@@ -27,8 +27,8 @@ import { hexDisc, vehicleAnchor } from '../vehicle-footprint.js';
  * What a standing entity contributes to a cell - merged across entity KIND within each channel, because
  * every rule treats resource and building the same within one:
  *  - **OBSTACLE** - resource WALK bodies, existing building FAMILY bodies, signpost cells, parked
- *    vehicle discs. Rejects a building candidate's RESERVED zone (the "minimum distance from a node/wall";
- *    only a rival's, for a signpost), a wall's body and any work flag. A door outside the family body is
+ *    vehicle discs. Rejects a building candidate's RESERVED zone (the "minimum distance from a node/wall"),
+ *    less its MOVABLE_BODY part, a wall's body and any work flag. A door outside the family body is
  *    not stamped, so it stays open ground for a flag.
  *  - **EXCLUSION** - resource BUILD zones. Rejects a building candidate's FAMILY BODY, whose walls may not
  *    sit in a resource's build margin; still open ground for a wall and a work flag.
@@ -51,8 +51,8 @@ const BUILDING_ZONE = 4;
  *  another wall's body and a building's FAMILY BODY; a wall keeps no margin of its own. */
 const PALISADE_BODY = 5;
 const UPGRADE_RESERVE = 6;
-/** The movable part of OBSTACLE, waived by houses that push vehicles aside. */
-const VEHICLE_BODY = 7;
+/** The movable part of OBSTACLE, vehicles and signposts, waived by a house, which pushes them aside. */
+const MOVABLE_BODY = 7;
 type BlockerChannel =
   | typeof OBSTACLE
   | typeof EXCLUSION
@@ -61,18 +61,18 @@ type BlockerChannel =
   | typeof BUILDING_ZONE
   | typeof PALISADE_BODY
   | typeof UPGRADE_RESERVE
-  | typeof VEHICLE_BODY;
+  | typeof MOVABLE_BODY;
 
 export {
   type BlockerChannel,
   BUILDING_ZONE,
   EXCLUSION,
   MARKER,
+  MOVABLE_BODY,
   OBSTACLE,
   PALISADE_BODY,
   RESOURCE_ANCHOR,
   UPGRADE_RESERVE,
-  VEHICLE_BODY,
 };
 
 /** Opt-in for the {@link MARKER} channel. Only the work-flag rule consumes markers, so a scan that
@@ -162,14 +162,15 @@ export function palisadeBodyCells(world: World, e: Entity, visit: BlockerVisit):
   for (const c of wall.placementWalk) visit(hx + footprintCellDx(hy, c), hy + c.dy, PALISADE_BODY);
 }
 
-/** One signpost's contribution: its anchor is an OBSTACLE - no work flag and no other player's building
- *  reserved zone may cover it (observed original behaviour; the owner's own building pushes it aside, a
- *  project rule). It never blocks movement (no walk overlay). */
+/** One signpost's contribution: its anchor is an OBSTACLE no work flag or wall may cover. A building of
+ *  any player pushes it aside instead (project rule; the original refuses a rival's post). It never
+ *  blocks movement (no walk overlay). */
 function signpostBlockerCells(world: World, e: Entity, visit: BlockerVisit): void {
   const p = world.tryGet(e, Position);
   if (p === undefined) return;
   const { hx, hy } = nodeOfPosition(p.x, p.y);
   visit(hx, hy, OBSTACLE);
+  visit(hx, hy, MOVABLE_BODY);
 }
 
 /** A vehicle's disc blocks flags, roads and walls. Houses waive its OBSTACLE contribution and
@@ -182,7 +183,7 @@ export function vehicleBlockerCells(world: World, content: ContentSet, e: Entity
   if (type === undefined) return;
   for (const { hx, hy } of hexDisc(anchor, type.logicSize)) {
     visit(hx, hy, OBSTACLE);
-    visit(hx, hy, VEHICLE_BODY);
+    visit(hx, hy, MOVABLE_BODY);
   }
 }
 

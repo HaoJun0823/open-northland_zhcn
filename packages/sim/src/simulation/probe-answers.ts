@@ -28,7 +28,6 @@ import { roadSiteAreaKey } from '../systems/roads/site-index.js';
 import { roadSitePlacementProbe } from '../systems/roads/sites.js';
 import {
   plannedSignpostsVersion,
-  signpostNetwork,
   signpostNetworkRevision,
   signpostProbe,
 } from '../systems/signposts/index.js';
@@ -155,7 +154,7 @@ function areaKey(area: NodeArea): string {
   return `${area.minHx},${area.minHy},${area.maxHx},${area.maxHy}`;
 }
 
-/** A footprint grid with the token over the blocker counts and the signpost network it read. */
+/** A footprint grid with the token over the blocker counts it read. */
 interface FootprintGrid {
   readonly key: string;
   readonly grid: Uint8Array;
@@ -164,9 +163,9 @@ interface FootprintGrid {
 /** Grids kept per world before they are all dropped: a panned view keeps asking for new areas. */
 const MAX_FOOTPRINT_GRIDS = 256;
 
-/** Footprint grids by (type, placer, area), each valid while the blocker counts near its area and the
- *  signpost network hold, so a blocker changing across the map leaves them standing. The contested
- *  ground and the technology gate are laid over them per answer. A read-path cache, never hashed. */
+/** Footprint grids by (type, tribe, area), each valid while the blocker counts near its area hold, so a
+ *  blocker changing across the map leaves them standing. The contested ground and the technology gate are
+ *  laid over them per answer. A read-path cache, never hashed. */
 const footprintGrids = new WeakMap<World, Map<string, FootprintGrid>>();
 
 /** How far past an anchor a footprint cell reaches, in nodes: its offsets, plus the row parity's shift. */
@@ -186,7 +185,6 @@ function footprintGrid(
   terrain: TerrainGraph,
   buildingType: number,
   tribe: number | undefined,
-  player: number | undefined,
   area: NodeArea,
 ): FootprintGrid {
   let grids = footprintGrids.get(world);
@@ -195,12 +193,11 @@ function footprintGrid(
     footprintGrids.set(world, grids);
   }
   const blockers = placementBlockerGrid(world, content, terrain);
-  const key = `${gridChangeKey(blockers, area, footprintReach(content, buildingType, tribe))}.${signpostNetworkRevision(world)}.${bioGroundWaived(world) ? 1 : 0}`;
-  const slot = `${buildingType}:${tribe ?? ''}:${player ?? ''}:${areaKey(area)}`;
+  const key = `${gridChangeKey(blockers, area, footprintReach(content, buildingType, tribe))}.${bioGroundWaived(world) ? 1 : 0}`;
+  const slot = `${buildingType}:${tribe ?? ''}:${areaKey(area)}`;
   const held = grids.get(slot);
   if (held !== undefined && held.key === key) return held;
-  const ownSignposts = player === undefined ? [] : (signpostNetwork(world).get(player) ?? []);
-  const probe = placementProbe(world, content, terrain, buildingType, tribe, ownSignposts);
+  const probe = placementProbe(world, content, terrain, buildingType, tribe);
   const fresh = { key, grid: gridOver(area, (hx, hy) => probe.canPlace(hx, hy)) };
   if (grids.size >= MAX_FOOTPRINT_GRIDS && held === undefined) grids.clear();
   grids.set(slot, fresh);
@@ -221,15 +218,7 @@ export function placementAnswerFor(
   gated = true,
 ): NodeGridAnswer | null {
   if (terrain === undefined) return null;
-  const { key: version, grid: footprint } = footprintGrid(
-    world,
-    content,
-    terrain,
-    buildingType,
-    tribe,
-    player,
-    area,
-  );
+  const { key: version, grid: footprint } = footprintGrid(world, content, terrain, buildingType, tribe, area);
   const enabled =
     tribe === undefined || !gated || buildingEnabled(world, { content }, player, tribe, buildingType);
   if (player === undefined) {

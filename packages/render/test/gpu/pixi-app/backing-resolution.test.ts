@@ -55,8 +55,8 @@ describe('windowResolutionFor at whole density', () => {
     for (const dpr of [1, 1.25, 1.5, 1.75]) expect(windowResolutionFor(dpr, 1, 'whole')).toBe(dpr);
   });
 
-  it('applies the render scale after the division', () => {
-    expect(windowResolutionFor(2, 1.5, 'whole')).toBe(1.5);
+  it('stays native under any render scale but 1, where no whole divisor gives squares', () => {
+    expect(windowResolutionFor(2, 1.5, 'whole')).toBe(3);
   });
 });
 

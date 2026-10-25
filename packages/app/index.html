@@ -41,10 +41,10 @@
       :focus-visible { outline: none; }
       /* A horizontal overscroll (a trackpad swipe) is not a history gesture here. */
       html, body { margin: 0; height: 100%; background: #0c1420; overflow: hidden; overscroll-behavior: none; }
-      /* Interactive entries render at device resolution (createWindowPixiApp + autoDensity), so the
-         canvas maps 1:1 to device px and this pixelated hint is inert there. It still matters for the
-         fixed-size ?shot canvas, which IS CSS-stretched to the viewport: nearest keeps that stretched
-         preview crisp for the pixel art. */
+      /* Nearest upscaling of the canvas's backing store. It is the upscale itself under the `whole`
+         backing density (the store at a whole fraction of the device pixels) and for the fixed-size
+         ?shot canvas, which is CSS-stretched to the viewport; at native density the canvas maps 1:1 to
+         device pixels and it does nothing. */
       #game { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
       /* An author `display` outranks the UA rule behind `hidden`, so the attribute needs its own. */
       #game[hidden] { display: none; }

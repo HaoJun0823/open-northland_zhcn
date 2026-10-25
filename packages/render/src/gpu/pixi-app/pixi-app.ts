@@ -58,7 +58,8 @@ export function backingResolutionFor(dpr: number): number {
  * How a window draws on a display denser than its CSS pixels. `native` draws every device pixel.
  * `whole` divides the backing store's ratio by its whole part, so a ratio of 2 or 3 draws one texel per CSS
  * pixel and 2.5 draws 1.25, and the canvas's nearest upscale (`image-rendering: pixelated`) repeats each
- * texel into an exact square of device pixels; a ratio under 2 has no whole factor and stays native.
+ * texel into an exact square of device pixels; a ratio under 2 has no whole factor and stays native, and
+ * so does any render scale but 1, which no whole divisor turns into squares.
  * `sharp` and `xbr` keep the backing store native and draw only the world at one texel per CSS pixel
  * (times the render scale), which one pass then upscales with that magnifier; the rest of the stage
  * draws natively over it (see `WorldUpscale`).
@@ -86,12 +87,17 @@ export function worldUpscaleOf(app: Application): WorldUpscaleSetting | null {
   return worldUpscales.get(app) ?? null;
 }
 
+/** Whether `density` draws the world into a texture and upscales it. */
+export function upscalesWorld(density: BackingDensity): density is 'sharp' | 'xbr' {
+  return density === 'sharp' || density === 'xbr';
+}
+
 /** The world's upscale under `density` at a render scale; null for a density that draws it natively. */
 export function worldUpscaleFor(
   density: BackingDensity,
   resolutionScale: number,
 ): WorldUpscaleSetting | null {
-  if (density !== 'sharp' && density !== 'xbr') return null;
+  if (!upscalesWorld(density)) return null;
   return { filter: density, resolution: windowResolutionFor(1, resolutionScale) };
 }
 
@@ -110,7 +116,9 @@ export function windowResolutionFor(
 ): number {
   const scale = Number.isFinite(resolutionScale) && resolutionScale > 0 ? resolutionScale : 1;
   const ratio = backingResolutionFor(dpr);
-  const divisor = density === 'whole' ? Math.max(1, Math.floor(ratio + WHOLE_RATIO_TOLERANCE)) : 1;
+  // Only an unscaled ratio divides into exact squares: at scale 1.5 the nearest upscale would be 4:3.
+  const divisor =
+    density === 'whole' && scale === 1 ? Math.max(1, Math.floor(ratio + WHOLE_RATIO_TOLERANCE)) : 1;
   return (ratio / divisor) * scale;
 }
 

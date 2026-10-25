@@ -30,14 +30,14 @@ afterEach(() => {
   setWorldShadowStyle(null);
 });
 
-/** An {@link Application} stub. Constructing the renderer wires Pixi containers and bakes one noise
- *  texture, read back here as empty, so the retained graph is readable; a field the stub lacks would
- *  throw rather than pass. */
 /** The world layer, the first child of the renderer's scene on the stage. */
 function worldLayerOf(app: Application): Container | undefined {
   return app.stage.getChildByLabel('world-scene')?.children[0] as Container | undefined;
 }
 
+/** An {@link Application} stub. Constructing the renderer wires Pixi containers and bakes one noise
+ *  texture, read back here as empty, so the retained graph is readable; a field the stub lacks would
+ *  throw rather than pass. */
 function stubApp(): Application {
   return {
     stage: new Container(),

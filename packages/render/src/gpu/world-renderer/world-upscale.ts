@@ -56,7 +56,9 @@ type UpscaleUniforms = UniformGroup & {
  * not an original mechanism. While the canvas is denser than `resolution`, `scene` leaves the stage and
  * renders into a frame at `resolution` texels per CSS pixel, and a full-screen quad at the bottom of the
  * stage magnifies it with the sharp or xBR magnifier while the rest of the stage draws natively over it.
- * Otherwise `scene` stays on the stage and nothing extra draws.
+ * Otherwise `scene` stays on the stage and nothing extra draws. The quad takes stage index 0 and `scene`
+ * goes back right above it, so `scene` must be the stage's bottom child when this is built: nothing may
+ * mount on the stage before the world renderer.
  *
  * The frame's render target is marked as a root, so Pixi draws into it exactly as into the canvas: the
  * paletted sprites' hand-rolled clip projection and the filters inside the world (the shore waves) agree
@@ -68,6 +70,10 @@ export class WorldUpscale {
   private readonly shader: Shader;
   private readonly present: Mesh<Geometry, Shader>;
   private frame: RenderTexture;
+  /** The CSS size {@link frame} was made for: its own width is texels over resolution, which a render
+   *  scale such as 1.3 leaves unequal to the screen's. */
+  private frameWidth = 0;
+  private frameHeight = 0;
   private detached = false;
 
   constructor(
@@ -135,7 +141,7 @@ export class WorldUpscale {
   }
 
   private frameSized(width: number, height: number): RenderTexture {
-    if (this.frame.width === width && this.frame.height === height) return this.frame;
+    if (this.frameWidth === width && this.frameHeight === height) return this.frame;
     // Rebind before destroying: a source destroyed while still bound makes Pixi warn.
     const retired = this.frame;
     this.frame = this.makeFrame(width, height);
@@ -145,6 +151,8 @@ export class WorldUpscale {
   }
 
   private makeFrame(width: number, height: number): RenderTexture {
+    this.frameWidth = width;
+    this.frameHeight = height;
     const frame = RenderTexture.create({
       width: Math.max(1, width),
       height: Math.max(1, height),

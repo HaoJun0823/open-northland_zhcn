@@ -1,6 +1,6 @@
 import { checkMaxIfStatementsInShader } from 'pixi.js';
 import type { WorldMagnification } from '../pixel-art/registry.js';
-import { type BackingDensity, worldUpscaleFor } from '../pixi-app/pixi-app.js';
+import { type BackingDensity, upscalesWorld } from '../pixi-app/pixi-app.js';
 import { DEFAULT_SHADOW_STYLE, type ShadowStyle } from '../world-batch/shadow-style.js';
 import type { WorldEnhancements } from '../world-renderer/frame.js';
 import { bootShaderPrograms, type ShaderSelection } from './catalog.js';
@@ -111,7 +111,7 @@ function shaderSelection(settings: WarmupSettings): ShaderSelection {
     weather: settings.weather,
     blood: settings.blood,
     groundWaves: settings.environmentMotion,
-    worldUpscale: worldUpscaleFor(settings.backingDensity, 1) !== null,
+    worldUpscale: upscalesWorld(settings.backingDensity),
   };
 }
 

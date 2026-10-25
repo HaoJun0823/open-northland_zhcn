@@ -2,6 +2,7 @@ import { type EntitySnapshot, systems, type WorldSnapshot } from '@open-northlan
 import { type ElevationField, terrainLiftAt } from '../../terrain/index.js';
 import { spriteDepth } from '../depth.js';
 import { type EntityKind, type MutableSpriteDrawItem, newDrawItem } from '../draw-item.js';
+import { flagOwnerOf } from '../flag-owner.js';
 import { assignPalisadeFields, type PalisadeLayout } from '../palisades/connections.js';
 import type { SettlerPose } from '../settler-pose.js';
 import {
@@ -102,6 +103,10 @@ export function assembleItem(
     case 'stockpile':
     case 'grounddrop':
       assignStockpileFields(item, components, isFlag);
+      if (isFlag) {
+        const player = flagOwnerOf(build.snapshot, entity.id);
+        if (player !== undefined) item.player = player;
+      }
       break;
     default: {
       const _exhaustive: never = kind;

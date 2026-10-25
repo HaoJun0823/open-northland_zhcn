@@ -278,7 +278,7 @@ function withheldChanges(
 /** Whether a build keeps `item` in its static run: exactly the items a spliced build's released statics
  *  answer for, so only these may stand unvisited between builds. */
 export function isStaticItem(item: SpriteDrawItem): boolean {
-  return item.kind !== 'craftfx' && isSelfContainedKind(item.kind) && item.ghost !== true;
+  return item.kind !== 'craftfx' && isSelfContainedKind(item.kind, item.isFlag) && item.ghost !== true;
 }
 
 /** Reused query outputs of the incremental build. */
@@ -424,7 +424,7 @@ function collectScene(
       liveVehicles.add(entity.id);
     }
     list.push(item);
-    if (anchors !== undefined && !isSelfContainedKind(kind)) {
+    if (anchors !== undefined && !isSelfContainedKind(kind, 'DeliveryFlag' in entity.components)) {
       for (let i = firstPushed; i < list.size; i++) {
         const pushed = list.at(i);
         if (pushed !== undefined) anchors.record(pushed, screen.x, screen.y);
@@ -510,7 +510,12 @@ function collectScene(
     const emitTouched = (id: number): void => {
       const entity = entityById(snapshot, id);
       const kind = entity === undefined ? null : classify(entity.components);
-      if (entity !== undefined && kind !== null && isSelfContainedKind(kind)) emit(entity, true);
+      if (
+        entity !== undefined &&
+        kind !== null &&
+        isSelfContainedKind(kind, 'DeliveryFlag' in entity.components)
+      )
+        emit(entity, true);
     };
     for (const id of touched.ids) emitTouched(id);
     for (const id of withheld) if (!touched.ids.has(id)) emitTouched(id);
@@ -629,7 +634,7 @@ function emitExposedStatics(
       seen.add(entity.id);
       const known = memo?.get(entity);
       const kind = known?.kind ?? classify(entity.components);
-      if (kind === null || !isSelfContainedKind(kind)) continue;
+      if (kind === null || !isSelfContainedKind(kind, 'DeliveryFlag' in entity.components)) continue;
       // A self-contained kind draws on its own Position, the anchor its cull reads.
       let x = known?.screen.x;
       let y = known?.screen.y;

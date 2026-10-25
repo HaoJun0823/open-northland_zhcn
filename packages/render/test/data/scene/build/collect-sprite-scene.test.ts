@@ -217,21 +217,22 @@ describe('collectSpriteScene - the single-pass draw list + liveness set', () => 
   });
 
   it('maps work and construction flags from owner to the session colour slot', () => {
-    const markers = [
-      { DeliveryFlag: {} },
-      { RoadSite: { reservation: 1 } },
-      { Palisade: { gfxIndex: 2 }, UnderConstruction: {} },
-    ];
-    const scene = collectSpriteScene(
-      snapshotOf(
-        markers.map((components, i) => entity(i + 1, i + 1, 1, { ...components, Owner: { player: 2 } })),
-      ),
-      { playerColourOf: () => 7 },
-    );
-    expect(scene.items.map((item) => [item.kind, item.player])).toEqual([
+    const snapshot = snapshotOf([
+      entity(1, 1, 1, { DeliveryFlag: {} }),
+      entity(2, 2, 1, { RoadSite: { reservation: 1 }, Owner: { player: 2 } }),
+      entity(3, 3, 1, { Palisade: { gfxIndex: 2 }, UnderConstruction: {}, Owner: { player: 2 } }),
+      entity(4, 4, 1, { Settler: {}, WorkFlag: { flag: 1 }, Owner: { player: 2 } }),
+      entity(5, 5, 1, { DeliveryFlag: {} }),
+      entity(6, 6, 1, { Settler: {}, HaulFlag: { flag: 5 }, Owner: { player: 3 } }),
+    ]);
+    const scene = collectSpriteScene(snapshot, { playerColourOf: (player) => player + 4 });
+    expect(
+      scene.items.filter((item) => item.kind !== 'settler').map((item) => [item.kind, item.player]),
+    ).toEqual([
+      ['stockpile', 6],
+      ['roadsite', 6],
+      ['palisade', 6],
       ['stockpile', 7],
-      ['roadsite', 7],
-      ['palisade', 7],
     ]);
   });
 

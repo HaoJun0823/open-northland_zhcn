@@ -2,6 +2,7 @@ import { entitiesWith, type WorldSnapshot } from '@open-northland/sim';
 import { collectBonePiles } from './effects/index.js';
 import { hudTotalsOf } from './hud/totals.js';
 import { collectRebuiltPositioned, touchedIdsOf } from './scene/build/scene-feeds.js';
+import { flagHoldersOf } from './scene/flag-owner.js';
 import { type ImportMarkerExemption, importMarkersOf } from './scene/import-markers.js';
 import {
   enterableStoresOf,
@@ -28,6 +29,7 @@ export const RENDER_FRAME_INDEX_READERS: readonly FrameIndexReader[] = [
       if (seat !== null) hudTotalsOf(snapshot, seat);
     },
   },
+  { name: 'flag holders', read: (snapshot) => flagHoldersOf(snapshot) },
   { name: 'enterable stores', read: (snapshot) => enterableStoresOf(snapshot) },
   { name: 'wanted targets', read: (snapshot) => targetPositionsOf(snapshot) },
   { name: 'import markers', read: (snapshot) => importMarkersOf(snapshot, NO_EXEMPTION) },

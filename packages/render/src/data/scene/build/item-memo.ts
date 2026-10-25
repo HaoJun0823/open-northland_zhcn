@@ -13,8 +13,8 @@ const SELF_CONTAINED_KINDS: ReadonlySet<EntityKind> = new Set<EntityKind>([
   'fish',
 ]);
 
-export function isSelfContainedKind(kind: EntityKind): boolean {
-  return SELF_CONTAINED_KINDS.has(kind);
+export function isSelfContainedKind(kind: EntityKind, isFlag = false): boolean {
+  return !isFlag && SELF_CONTAINED_KINDS.has(kind);
 }
 
 /** A self-contained entity's anchor, and its item once a build assembled one. */
@@ -61,7 +61,7 @@ export class SceneItemMemo {
     tileY: number,
     screen: { readonly x: number; readonly y: number },
   ): MemoizedEntity | undefined {
-    if (!SELF_CONTAINED_KINDS.has(kind)) return undefined;
+    if (!isSelfContainedKind(kind, 'DeliveryFlag' in entity.components)) return undefined;
     const record: MemoizedEntity = { kind, tileX, tileY, screen, item: undefined };
     this.records.set(entity, record);
     return record;

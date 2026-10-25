@@ -30,7 +30,7 @@ function selfContained(entity: EntitySnapshot): boolean {
   const components = entity.components;
   for (const marker of MOVER_MARKERS) if (marker in components) return false;
   const kind = classify(components);
-  return kind !== null && isSelfContainedKind(kind);
+  return kind !== null && isSelfContainedKind(kind, 'DeliveryFlag' in entity.components);
 }
 
 function log(state: TouchedIds, entity: EntitySnapshot): void {
@@ -64,7 +64,7 @@ function positionOf(entity: EntitySnapshot): { readonly x: number; readonly y: n
  *  than its own components. */
 function rebuiltEachBuild(entity: EntitySnapshot): boolean {
   const kind = classify(entity.components);
-  return kind !== null && !isSelfContainedKind(kind);
+  return kind !== null && !isSelfContainedKind(kind, 'DeliveryFlag' in entity.components);
 }
 
 function place(buckets: TileBuckets<EntitySnapshot>, entity: EntitySnapshot): void {

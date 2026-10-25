@@ -191,6 +191,21 @@ describe('IncrementalScene', () => {
     expect(collectSpriteScene(snapshot, options(VIEW)).items.some((item) => item.ref < 0)).toBe(true);
   });
 
+  it('refreshes a retained flag when only its holder changes owner or releases it', () => {
+    const mirror = mirrorOf([
+      entity(1, 1, 1, { DeliveryFlag: {} }),
+      entity(2, 2, 1, { Settler: {}, Owner: { player: 2 }, WorkFlag: { flag: 1 } }),
+    ]);
+    const { build, scratch } = buildLoop();
+    const options = { playerColourOf: (player: number) => player + 3 };
+    expect(build(mirror.snapshot(), options).find((item) => item.ref === 1)?.player).toBe(5);
+    let snapshot = advance(mirror, [{ id: 2, components: { Owner: { player: 4 } }, removed: [] }]);
+    expect(build(snapshot, options).find((item) => item.ref === 1)?.player).toBe(7);
+    expect(build(snapshot, options)).toEqual(scratch(snapshot, options));
+    snapshot = advance(mirror, [{ id: 2, components: {}, removed: ['WorkFlag'] }]);
+    expect(build(snapshot, options).find((item) => item.ref === 1)?.player).toBeUndefined();
+  });
+
   it('keeps every self-contained kind across pans as a build from scratch draws it', () => {
     const kinds: readonly Record<string, unknown>[] = [
       tree(1),

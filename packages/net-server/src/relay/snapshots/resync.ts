@@ -77,7 +77,7 @@ export class Resync {
   queue(member: Member, now: number): void {
     if (member.outOfSync !== null && this.catchUp.snapshot?.from === member.nick) this.snapshotInvalid = true;
     this.awaiting.add(member);
-    this.releaseUnfitDonor(now);
+    this.releaseUnfitDonor();
     if (this.requestedAt === null || now - this.requestedAt >= SNAPSHOT_RETRY_MS) this.request(now);
   }
 
@@ -161,7 +161,7 @@ export class Resync {
   /** Unanswered refreshes retry even when no member is currently waiting for resync. */
   advance(now: number): Refusal {
     if (this.catchUp.expired(now)) return { code: 'historyAge' };
-    this.releaseUnfitDonor(now);
+    this.releaseUnfitDonor();
     this.fallBackToCache(now);
     const refreshDue = this.catchUp.needsRefresh(now) || now - this.lastRefreshAt >= SNAPSHOT_REFRESH_MS;
     if (refreshDue && !this.refreshing) {
@@ -221,12 +221,14 @@ export class Resync {
     }
   }
 
-  /** A donor that diverged or went silent after the request will not answer it: the request goes on
-   *  to the next donor now instead of after the retry. */
-  private releaseUnfitDonor(now: number): void {
+  /** A donor that dropped or diverged after the request will not answer it: the request goes on to
+   *  the next donor now instead of after the retry. Silence alone does not: the export runs on the
+   *  donor's own thread and keeps it silent while it lasts, so asking the next donor then would stall
+   *  each member in turn. */
+  private releaseUnfitDonor(): void {
     if (this.askedDonor === null) return;
     const donor = this.members.get(this.askedDonor);
-    if (donor !== undefined && canDonate(donor, now)) return;
+    if (donor !== undefined && isSynced(donor)) return;
     this.askedDonor = null;
     this.requestedAt = null;
   }

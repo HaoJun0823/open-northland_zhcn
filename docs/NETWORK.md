@@ -583,7 +583,8 @@ Snapshot refresh:
   answers with a `snapshot` blob at its current tick. While any seated player remains only seated players
   donate, observer uploads are refused and observers are not retried; with none, observers keep the cache.
 - An unanswered request is repeated every `SNAPSHOT_RETRY_MS` to the next eligible donor, at once when the
-  asked donor drops, diverges or goes silent; one request is outstanding however many members wait.
+  asked donor drops or diverges; one request is outstanding however many members wait. A donor that goes
+  silent keeps the request until the retry: its export runs on the thread that answers pings.
 - A snapshot prunes the frames it covers. With no retained frames, a same-tick upload also satisfies a
   paused refresh. An older upload leaves the cache unchanged.
 - When the cached snapshot's donor is found out of sync, the cache is held back, since a drop forgets held

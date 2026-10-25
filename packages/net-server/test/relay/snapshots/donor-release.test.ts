@@ -48,20 +48,16 @@ describe('snapshot donors', () => {
     expect(s.a.of('snapshotRequest')).toHaveLength(1);
   });
 
-  it('asks the next donor once the asked one goes silent, before the retry', () => {
+  it('leaves the request with a donor that goes silent while it exports, until the retry', () => {
     const s = cezaryWaiting();
     expect(s.b.of('snapshotRequest')).toHaveLength(1);
-    for (
-      let at = PING_STEP_MS;
-      at < SNAPSHOT_RETRY_MS && s.a.of('snapshotRequest').length === 0;
-      at += PING_STEP_MS
-    ) {
+    const askedAt = s.now();
+    for (let at = PING_STEP_MS; s.a.of('snapshotRequest').length === 0; at += PING_STEP_MS) {
+      if (at > 2 * SNAPSHOT_RETRY_MS) throw new Error('the request never moved on');
       s.advance(PING_STEP_MS);
       s.a.send({ kind: 'pong', t: s.a.last('ping')?.t ?? 0 });
     }
-    expect(s.a.of('snapshotRequest')).toHaveLength(1);
-    expect(s.now()).toBeLessThan(TICK_MS * 3 + SNAPSHOT_RETRY_MS);
-    expect(s.now()).toBeGreaterThan(TICK_MS * 3 + SILENT_AFTER_MS);
+    expect(s.now() - askedAt).toBeGreaterThanOrEqual(SNAPSHOT_RETRY_MS);
   });
 
   it('passes over a silent member when choosing a donor', () => {

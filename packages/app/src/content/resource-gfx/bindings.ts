@@ -91,11 +91,25 @@ export function buildStockpileBinding(refs: GatheringRefs, loaded: ReadonlySet<s
   }
   const flag: WaveLoop<LayeredBobRef> =
     refs.flag !== undefined && loaded.has(refs.flag.stem) ? loopRef(refs.flag) : [STOCKPILE_PLACEHOLDER_BOB];
-  const flagsByPlayer: Record<number, WaveLoop<LayeredBobRef>> = {};
-  for (const [player, ref] of Object.entries(refs.flagsByPlayer ?? {})) {
-    if (loaded.has(ref.stem)) flagsByPlayer[Number(player)] = loopRef(ref);
+  return {
+    byGood,
+    flag,
+    flagsByPlayer: loadedMarkerLoops(refs.flagsByPlayer, loaded),
+    roadMarkersByPlayer: loadedMarkerLoops(refs.roadMarkersByPlayer, loaded),
+    wallMarkersByPlayer: loadedMarkerLoops(refs.wallMarkersByPlayer, loaded),
+    default: STOCKPILE_PLACEHOLDER_BOB,
+  };
+}
+
+function loadedMarkerLoops(
+  refs: Readonly<Record<number, GatheringLoopRef>> | undefined,
+  loaded: ReadonlySet<string>,
+): Record<number, WaveLoop<LayeredBobRef>> {
+  const markers: Record<number, WaveLoop<LayeredBobRef>> = {};
+  for (const [player, ref] of Object.entries(refs ?? {})) {
+    if (loaded.has(ref.stem)) markers[Number(player)] = loopRef(ref);
   }
-  return { byGood, flag, flagsByPlayer, default: STOCKPILE_PLACEHOLDER_BOB };
+  return markers;
 }
 
 function loopRef({ stem, frames: [first, ...rest] }: GatheringLoopRef): WaveLoop<LayeredBobRef> {

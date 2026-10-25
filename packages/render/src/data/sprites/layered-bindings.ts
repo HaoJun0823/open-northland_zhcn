@@ -165,8 +165,11 @@ export interface StockpileBinding {
   readonly byGood: Readonly<Record<number, readonly LayeredBobRef[]>>;
   /** The delivery-flag wave loop drawn for a pile holding no goods, stepped at the shared flag cadence. */
   readonly flag: WaveLoop<LayeredBobRef>;
-  /** Work flags indexed by session colour slot, shared by work and construction markers. */
+  /** Work flags indexed by session colour slot. */
   readonly flagsByPlayer?: Readonly<Record<number, WaveLoop<LayeredBobRef>>>;
+  /** Original road and wall markers have their own frames, separate from the waving work flag. */
+  readonly roadMarkersByPlayer?: Readonly<Record<number, WaveLoop<LayeredBobRef>>>;
+  readonly wallMarkersByPlayer?: Readonly<Record<number, WaveLoop<LayeredBobRef>>>;
   /** Fallback frame for a held pile whose good has no bound heap frames, drawn at any fill. */
   readonly default: LayeredBobRef;
 }

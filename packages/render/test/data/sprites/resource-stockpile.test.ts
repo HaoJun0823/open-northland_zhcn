@@ -162,7 +162,7 @@ describe('resolveStockpileDraw - per-good ground piles + delivery flag', () => {
     default: 0,
   };
 
-  it('uses the same colour slot for work, wall and road flags without recolouring goods', () => {
+  it('uses distinct work, wall and road markers in the same colour slot without recolouring goods', () => {
     const coloured = {
       ...binding,
       flagsByPlayer: {
@@ -171,11 +171,17 @@ describe('resolveStockpileDraw - per-good ground piles + delivery flag', () => {
           { layer: 'team-four', bob: 34 },
         ] as const,
       },
+      roadMarkersByPlayer: { 4: [{ layer: 'team-four', bob: 41 }] as const },
+      wallMarkersByPlayer: { 4: [{ layer: 'team-four', bob: 42 }] as const },
     };
-    for (const kind of ['stockpile', 'palisade', 'roadsite'] as const) {
+    for (const [kind, bob] of [
+      ['stockpile', 34],
+      ['palisade', 42],
+      ['roadsite', 41],
+    ] as const) {
       expect(
         resolveStockpileDraw(coloured, { ...pile(), kind, player: 4 }, FLAG_WAVE_TICKS_PER_FRAME),
-      ).toEqual({ layer: 'team-four', bob: 34 });
+      ).toEqual({ layer: 'team-four', bob });
       expect(resolveStockpileDraw(coloured, { ...pile(), kind, player: 2 }, 0)).toEqual({ bob: 0 });
     }
     expect(resolveStockpileDraw(coloured, { ...pile(5, 3), player: 4 }, 0)).toEqual({
@@ -221,6 +227,8 @@ describe('resolveStockpileDraw - per-good ground piles + delivery flag', () => {
   it('steps the flag through its wave loop at the shared cadence and wraps', () => {
     const at = (tick: number) => resolveStockpileDraw(binding, { ...pile(), isFlag: true }, tick).bob;
     expect(at(0)).toBe(33);
+    expect(at(1)).toBe(34);
+    expect(at(2)).toBe(35);
     expect(at(FLAG_WAVE_TICKS_PER_FRAME - 1)).toBe(33);
     expect(at(FLAG_WAVE_TICKS_PER_FRAME)).toBe(34);
     expect(at(2 * FLAG_WAVE_TICKS_PER_FRAME)).toBe(35);

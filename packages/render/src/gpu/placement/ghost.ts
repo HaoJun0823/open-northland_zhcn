@@ -6,6 +6,11 @@ import { palisadeStaggerX } from '../../data/scene/palisades/stagger.js';
 import { type ElevationField, terrainLiftAtNode } from '../../data/terrain/index.js';
 import { mintRangeRing } from '../selection/range-ring.js';
 import { resolveLayers } from '../sprite-pool/index.js';
+import {
+  type EffectSubject,
+  FLAG_OUTLINE_STYLE,
+  SelectionEffects,
+} from '../sprite-pool/selection-effects.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import type { TextureCache } from '../textures/texture-cache.js';
 import { mintLayerSprite } from './layer-sprite.js';
@@ -170,6 +175,8 @@ export class PlacementGhostLayer {
   /** The held building's defence or blessing range, mounted under the sprites apart from the ghost. */
   readonly rangeContainer = new Container();
   private rangeRing: { g: Graphics; radiusNodes: number; kind: 'defence' | 'blessing' } | null = null;
+  private flagSubject: EffectSubject | undefined;
+  private readonly flagEffects: SelectionEffects;
   private builtForKey: string | null = null;
   /** The line plan and wall layout the memoized `lineShifts` were worked out for. The app hands a new
    *  node list every frame, so the plan compares by value. */
@@ -187,12 +194,13 @@ export class PlacementGhostLayer {
     private readonly stakes?: PlanStakeTextures,
     private readonly roads?: PlanRoadTextures,
   ) {
+    this.flagEffects = new SelectionEffects(textures);
     this.container.visible = false;
     this.container.alpha = GHOST_ALPHA;
   }
 
   /** `walls` is the scene's palisade layout, which a line plan staggers with. */
-  set(ghost: PlacementGhost | null, elevation: ElevationField, walls?: PalisadeLayout): void {
+  set(ghost: PlacementGhost | null, elevation: ElevationField, walls?: PalisadeLayout, zoom = 1): void {
     this.setRange(ghost, elevation);
     if (ghost === null) {
       this.container.visible = false;
@@ -247,6 +255,9 @@ export class PlacementGhostLayer {
     // stands on the walls it replaces, so it reads over them instead.
     this.container.zIndex = ghost.kind === 'gate' ? Number.MAX_SAFE_INTEGER : depthKey(p.x, p.y);
     this.container.visible = true;
+    if (this.flagSubject !== undefined) {
+      this.flagEffects.update(this.flagSubject, FLAG_OUTLINE_STYLE, zoom, 0);
+    }
   }
 
   private setRange(ghost: PlacementGhost | null, elevation: ElevationField): void {
@@ -273,6 +284,7 @@ export class PlacementGhostLayer {
     shifts: readonly number[],
     elevation: ElevationField,
   ): void {
+    this.clearFlagOutline();
     for (const child of this.container.removeChildren()) child.destroy();
     const g = new Graphics();
     const points = ghost.nodes.map((node, i): PlanPoint => {
@@ -371,6 +383,7 @@ export class PlacementGhostLayer {
   }
 
   private rebuild(ghost: Exclude<PlacementGhost, { kind: 'line' }>): void {
+    this.clearFlagOutline();
     for (const child of this.container.removeChildren()) child.destroy();
     const item = ghostItem(ghost);
     const layers = resolveLayers(this.sheet, item, 0);
@@ -380,16 +393,34 @@ export class PlacementGhostLayer {
       this.container.addChild(g);
       return;
     }
+    const subject: Extract<EffectSubject, { paletted: false }> = {
+      container: this.container,
+      sprites: [],
+      pickExempt: [],
+      paletted: false,
+    };
     for (const layer of layers) {
       // The ghost floats over the ground it is judged against; it draws no contact shade.
       if (layer.groundFoot === 'shade' || layer.groundFoot === 'cover') continue;
       const sprite = mintLayerSprite(this.textures, layer);
       if (ghost.kind === 'gate' && !ghost.ok) sprite.tint = STRING_BLOCKED;
       this.container.addChild(sprite);
+      subject.sprites.push(sprite);
+      subject.pickExempt.push(layer.shadow === true);
+    }
+    if (ghost.kind === 'flag') {
+      this.flagSubject = subject;
     }
   }
 
+  private clearFlagOutline(): void {
+    if (this.flagSubject === undefined) return;
+    this.flagEffects.clear(this.flagSubject);
+    this.flagSubject = undefined;
+  }
+
   destroy(): void {
+    this.clearFlagOutline();
     this.container.destroy({ children: true });
     this.rangeContainer.destroy({ children: true });
     this.rangeRing = null;

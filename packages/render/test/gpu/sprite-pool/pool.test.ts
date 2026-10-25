@@ -579,7 +579,7 @@ describe('SpritePool - briefing map view pass', () => {
   });
 });
 
-it('keeps work flags outlined in amber for every style and clears them when their gatherer is deselected', () => {
+it('uses amber for the selected gatherer flag and restores its quiet edge on deselection', () => {
   const layer = new Container();
   const textures = new TextureCache();
   const pool = new SpritePool(layer, textures, undefined);
@@ -596,8 +596,11 @@ it('keeps work flags outlined in amber for every style and clears them when thei
   const flag = layer.children[0];
   const outline = flag?.children[0];
   pool.reconcile({ ...frame, selectionStyle: 'outline', flagged: new Set() });
-  expect(outline?.destroyed).toBe(true);
-  expect(flag?.children).toHaveLength(1);
+  expect(outline?.destroyed).toBe(false);
+  expect(flag?.children).toHaveLength(2);
+  const quietEdge = outline?.children[8];
+  if (!(quietEdge instanceof SelectionGraphics)) throw new Error('Missing quiet flag edge');
+  expect(quietEdge.tint).toBe(0xdacba6);
   pool.destroy();
   textures.clear();
 });

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import {
   boxAround,
   drag,
-  drawnOnScreen,
+  drawnPeople,
   openTradeWindow,
   SETTLE_MS,
   selectOneSettler,
@@ -131,7 +131,7 @@ async function select(page, target, dense) {
     await drag(page, area);
     return;
   }
-  const box = boxAround(await drawnOnScreen(page, 'settler', area), target, area);
+  const box = boxAround(await drawnPeople(page, area), target, area);
   if (box !== null) await drag(page, box);
 }
 

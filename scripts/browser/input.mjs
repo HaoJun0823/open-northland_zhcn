@@ -53,6 +53,26 @@ export function drawnOnScreen(page, kind, area) {
   );
 }
 
+/** Drawn people in `area` that a box drag selects: settlers with a person, not livestock or wildlife. */
+export async function drawnPeople(page, area) {
+  const drawn = await drawnOnScreen(page, 'settler', area);
+  const people = await page.evaluate(
+    (ids) => {
+      const wanted = new Set(ids);
+      return window.__opennorthland.host
+        .snapshot()
+        .entities.filter(
+          (e) =>
+            wanted.has(e.id) && e.components.Person !== undefined && e.components.Livestock === undefined,
+        )
+        .map((e) => e.id);
+    },
+    drawn.map((item) => item.id),
+  );
+  const selectable = new Set(people);
+  return drawn.filter((item) => selectable.has(item.id));
+}
+
 export async function click(page, point) {
   await page.mouse.move(point.x, point.y);
   await page.mouse.down();

@@ -183,7 +183,7 @@ function deriveBuildingCells(world: World, content: ContentSet, terrain: Terrain
     const footprint = buildingFootprintOf(content, b.buildingType, b.tribe);
     if (footprint === undefined || footprint.blocked.length === 0) continue;
     const p = world.get(e, Position);
-    const walk = walkBodyOf(terrain, footprint, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    const walk = walkBodyOf(terrain, footprint, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
     if (walk.door !== null) doors.add(walk.door);
     for (const cell of walk.body) blocked.add(cell);
     for (const cell of walk.passage) doorways.add(cell);
@@ -336,7 +336,7 @@ class BuildingCellsIndex implements BuildingCells {
     }
     const footprint = buildingFootprintOf(this.content, b.buildingType, b.tribe);
     const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
+    const hy = nodeHyOfPosition(p.x, p.y);
     if (held !== undefined && held.footprint === footprint && held.hx === hx && held.hy === hy) {
       if (held.type !== b.buildingType) this.placed.set(e, { ...held, type: b.buildingType });
       return;

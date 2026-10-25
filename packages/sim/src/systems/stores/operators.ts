@@ -102,7 +102,7 @@ function scanPresent(
     // A placed-but-position-less workplace has no interaction node, so nobody stands on station.
     if (
       p === undefined ||
-      !atInteractionNode(world, ctx, building, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))
+      !atInteractionNode(world, ctx, building, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y))
     )
       continue;
     present[count] = e;

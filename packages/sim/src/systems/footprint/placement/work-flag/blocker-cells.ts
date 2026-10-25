@@ -66,7 +66,7 @@ export function markerNode(world: World, terrain: TerrainGraph, e: Entity): Node
   const p = world.tryGet(e, Position);
   if (p === undefined || !BLOCKS_WORK_FLAG[MARKER]) return null;
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   return terrain.inBounds(hx, hy) ? terrain.nodeAt(hx, hy) : null;
 }
 

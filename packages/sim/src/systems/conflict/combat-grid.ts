@@ -559,7 +559,7 @@ export class CombatGrid {
     }
     const p = world.get(e, Position);
     const x = this.terrain.clampX(nodeHxOfPosition(p.x, p.y));
-    const y = this.terrain.clampY(nodeHyOfPosition(p.y));
+    const y = this.terrain.clampY(nodeHyOfPosition(p.x, p.y));
     const owner = world.tryGet(e, Owner);
     const bit = owner === undefined ? 0 : playerBit(owner.player);
     const unowned = owner === undefined ? world.get(e, Settler) : undefined;
@@ -584,7 +584,7 @@ export class CombatGrid {
     // `entityNode`'s clamped coordinates, read without minting the id and dividing it apart again.
     const p = world.get(e, Position);
     const x = this.terrain.clampX(nodeHxOfPosition(p.x, p.y));
-    const y = this.terrain.clampY(nodeHyOfPosition(p.y));
+    const y = this.terrain.clampY(nodeHyOfPosition(p.x, p.y));
     const units = held.cell.units;
     if (units.x[held.slot] === x && units.y[held.slot] === y) return;
     const cell = this.cellFor(x, y);

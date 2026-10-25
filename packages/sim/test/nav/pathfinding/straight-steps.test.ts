@@ -80,6 +80,12 @@ describe('straightenColumnSteps', () => {
     expect(straightenColumnSteps(terrain, short)).toBe(short);
   });
 
+  it('measures the goal tail as the hex distance to the goal, not the route left', () => {
+    // SE, SW, then E and SW onto (4, 3): four edges left, but the goal lies three map points away.
+    const detour = path([4, 0], [4, 1], [4, 2], [5, 2], [4, 3]);
+    expect(straightenColumnSteps(terrain, detour)).toBe(detour);
+  });
+
   it('names the two nodes a column step passes between, west first', () => {
     expect(columnStepMiddles(terrain, terrain.nodeAt(4, 4), terrain.nodeAt(4, 6))).toEqual(
       path([3, 5], [4, 5]),

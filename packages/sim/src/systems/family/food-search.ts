@@ -131,7 +131,9 @@ export class ExternalFoodIndex {
   private inArea(e: Entity, gate: SpatialGate | null): boolean {
     if (gate === null || this.terrain === undefined) return true;
     const p = this.world.get(e, Position);
-    return gate.allowsNode(this.terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)));
+    return gate.allowsNode(
+      this.terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y)),
+    );
   }
 
   /** The strictly-nearer pick over the ascending-id candidates beyond Manhattan distance `swept`. The
@@ -146,7 +148,8 @@ export class ExternalFoodIndex {
     let bestDist = 0;
     for (const e of candidates) {
       const p = this.world.get(e, Position);
-      const dist = Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
+      const dist =
+        Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.x, p.y) - from.hy);
       if (dist <= swept || (best !== null && dist >= bestDist)) continue;
       if (accept(e)) {
         best = e;

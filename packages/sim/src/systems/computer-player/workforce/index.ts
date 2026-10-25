@@ -275,7 +275,7 @@ function mayWorkInside(
   const p = world.tryGet(e, Position);
   if (p === undefined) return true;
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   return !terrain.inBounds(hx, hy) || limit.mayAllowNear(hx, hy, maxWorkOffset);
 }
 

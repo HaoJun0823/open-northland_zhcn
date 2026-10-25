@@ -87,5 +87,5 @@ export function playerSeesEntity(
   if (fog === undefined || fog.activeMode === FOG_MODE.OFF) return true;
   const p = world.tryGet(target, Position);
   if (p === undefined) return true;
-  return playerSeesNode(fog, player, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return playerSeesNode(fog, player, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }

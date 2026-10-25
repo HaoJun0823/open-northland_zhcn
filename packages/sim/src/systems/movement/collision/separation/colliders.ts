@@ -64,7 +64,7 @@ function place(columns: ColliderColumns, slot: number, e: Entity, x: Fixed, y: F
   columns.worldX[slot] = worldX(x, y);
   columns.worldY[slot] = worldYOf(y);
   columns.hx[slot] = nodeHxOfPosition(x, y);
-  columns.hy[slot] = nodeHyOfPosition(y);
+  columns.hy[slot] = nodeHyOfPosition(x, y);
 }
 
 /**

@@ -166,7 +166,7 @@ function restowPost(world: World, index: PostIndex, e: Entity): void {
     return;
   }
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const node = index.terrain.inBounds(hx, hy) ? index.terrain.nodeAt(hx, hy) : undefined;
   const player = world.get(e, Owner).player;
   if (held === undefined) {
@@ -346,7 +346,7 @@ function derivePosts(world: World, content: ContentSet, terrain: TerrainGraph): 
     const p = world.tryGet(e, Position);
     if (p === undefined || !isStanding(world, e) || !hasBodyCollision(world, content, e)) continue;
     const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
+    const hy = nodeHyOfPosition(p.x, p.y);
     const key = nodeKey(hx, hy);
     const listed = grid.get(key);
     if (listed === undefined) grid.set(key, [e]);

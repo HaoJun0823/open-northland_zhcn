@@ -289,7 +289,7 @@ function looseFighterOf(
   if (standsAtPost(world, e) !== null) return null;
   const p = world.get(e, Position);
   const x = terrain.clampX(nodeHxOfPosition(p.x, p.y));
-  const y = terrain.clampY(nodeHyOfPosition(p.y));
+  const y = terrain.clampY(nodeHyOfPosition(p.x, p.y));
   const component = terrain.componentOf(terrain.nodeAtClamped(x, y));
   const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
   const owner = world.get(e, Owner).player;
@@ -302,7 +302,7 @@ function looseFighterOf(
 function placed(world: World, terrain: TerrainGraph, was: LooseFighter): LooseFighter {
   const p = world.get(was.entity, Position);
   const x = terrain.clampX(nodeHxOfPosition(p.x, p.y));
-  const y = terrain.clampY(nodeHyOfPosition(p.y));
+  const y = terrain.clampY(nodeHyOfPosition(p.x, p.y));
   const component = terrain.componentOf(terrain.nodeAtClamped(x, y));
   return x === was.x && y === was.y && component === was.component ? was : { ...was, x, y, component };
 }

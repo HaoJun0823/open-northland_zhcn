@@ -133,7 +133,7 @@ function heapCapture(world: World, terrain: TerrainGraph, e: Entity): HeapCaptur
   if (good === null) return null;
   const p = world.get(e, Position);
   return {
-    node: terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)),
+    node: terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y)),
     fill: { good, fill: stock.amounts.get(good) ?? 0 },
   };
 }

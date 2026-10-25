@@ -37,7 +37,7 @@ function heapAt(sim: Simulation, x: number, amounts: ReadonlyMap<number, number>
 function nodeOf(terrain: TerrainGraph, x: number): NodeId {
   const px = fx.fromInt(x);
   const py = fx.fromInt(1);
-  return terrain.nodeAtClamped(nodeHxOfPosition(px, py), nodeHyOfPosition(py));
+  return terrain.nodeAtClamped(nodeHxOfPosition(px, py), nodeHyOfPosition(px, py));
 }
 
 describe('yardOccupancy - the yard heaps by node, kept across ticks', () => {

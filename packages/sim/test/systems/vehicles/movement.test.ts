@@ -183,6 +183,8 @@ function settle(s: Simulation, vehicle: Entity, limit = 600): string[] {
 
 /** The one row a fence of posts across the map leaves open. */
 const GAP_ROW = 20;
+/** An odd node row a fence closes from edge to edge, which a column step north from an even row skips. */
+const FENCE_ROW = 15;
 
 /** A one-node wall post: the walk cell of a resource footprint. */
 function post(s: Simulation, x: number, y: number): Entity {
@@ -656,6 +658,22 @@ describe('moveVehicle', () => {
     driveOut(s, cart);
     expect(refusals(s)).toEqual([`${cart}:noPath:${P0}`]);
     expect(s.world.has(cart, VehicleDrive)).toBe(false);
+  });
+
+  it('never slips a column step between two posts of a fence closed across the row it skips', () => {
+    const s = sim();
+    const cart = commanded(s, HANDCART, 8, 24);
+    order(s, cart, 8, 4);
+    s.step();
+    for (let x = 0; x < 2 * MAP_CELLS; x++) post(s, x, FENCE_ROW);
+    const seen: string[] = [];
+    for (let ticks = 0; s.world.has(cart, VehicleDrive); ticks++) {
+      if (ticks > CATAPULT_CROSSING_TICKS) throw new Error('drive never ended');
+      s.step();
+      seen.push(...refusals(s));
+      expect(anchorOf(s, cart).hy).toBeGreaterThan(FENCE_ROW);
+    }
+    expect(seen).toEqual([`${cart}:noPath:${P0}`]);
   });
 
   it('parks beside a goal another vehicle reached first instead of giving up', () => {

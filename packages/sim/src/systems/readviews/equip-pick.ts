@@ -255,7 +255,7 @@ function fetchNodeOf(world: World, ctx: MapContext, store: Entity): NodeId | nul
   const door = interactionCellOf(world, ctx, terrain, store);
   if (door !== null) return door;
   const p = world.get(store, Position);
-  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }
 
 /** The gate the errand's store search applies for `entity`: its confinement cut to the goods search from
@@ -269,7 +269,7 @@ function fetchGateFor(
 ): SpatialGate | null {
   const p = world.get(entity, Position);
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const here = terrain.nodeAtClamped(hx, hy);
   const confinement = equipErrandConfinement(
     world,

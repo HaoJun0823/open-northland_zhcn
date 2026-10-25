@@ -29,12 +29,17 @@ export interface NodeArea {
  * The half-cell node a fixed-point position occupies: its row scaled to half-cell units and truncated,
  * then its world column in that row, less the row's odd-row shift. On a row the column truncates too;
  * between rows, along a row-crossing edge, it rounds to the edge's end on that row rather than a flank
- * node beside the edge. A position standing exactly on
- * a node maps to it exactly. The result is unclamped, and callers clamp into the grid through
- * `TerrainGraph.nodeAtClamped`.
+ * node beside the edge. A position standing exactly on a node maps to it exactly. The result is
+ * unclamped, and callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
+ *
+ * Between rows, a position halfway between two nodes of its truncated row lies on the column line a
+ * column step walks (`pathfinding/straight-steps.ts`): it maps to that column's node on the next row
+ * down, so the walker reads its start until the skipped row and its destination after it, never a
+ * middle node. Original behavior: the node switches at half progress. On the skipped row itself the
+ * position is also an E/W edge's midpoint and keeps that edge's on-row rule.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
-  return { hx: nodeHxOfPosition(x, y), hy: nodeHyOfPosition(y) };
+  return { hx: nodeHxOfPosition(x, y), hy: nodeHyOfPosition(x, y) };
 }
 
 /** {@link nodeOfPosition}'s `hx` alone, so a per-tick loop allocates no node object per call. */
@@ -42,15 +47,29 @@ export function nodeHxOfPosition(x: Fixed, y: Fixed): number {
   // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
   const twoY = fx.add(y, y);
   const hy = fx.toInt(twoY);
-  const wx = fx.sub(worldX(x, y), oddRowShift(hy));
-  const column = fx.add(wx, wx);
+  const column = rowColumn(x, y, hy);
   if (twoY === fx.fromInt(hy)) return fx.toInt(column);
+  if (isHalfColumn(column)) return fx.toInt(rowColumn(x, y, hy + 1));
   return Math.floor((column + HALF_ONE) / ONE);
 }
 
 /** {@link nodeOfPosition}'s `hy` alone. */
-export function nodeHyOfPosition(y: Fixed): number {
-  return fx.toInt(fx.add(y, y));
+export function nodeHyOfPosition(x: Fixed, y: Fixed): number {
+  const twoY = fx.add(y, y);
+  const hy = fx.toInt(twoY);
+  if (twoY === fx.fromInt(hy) || !isHalfColumn(rowColumn(x, y, hy))) return hy;
+  return hy + 1;
+}
+
+/** Position `(x, y)`'s world column in half-cell units of node row `hy`, that row's odd-row shift removed. */
+function rowColumn(x: Fixed, y: Fixed, hy: number): Fixed {
+  const wx = fx.sub(worldX(x, y), oddRowShift(hy));
+  return fx.add(wx, wx);
+}
+
+/** Whether a half-cell column lies exactly halfway between two whole columns, negative ones included. */
+function isHalfColumn(column: Fixed): boolean {
+  return ((column % ONE) + ONE) % ONE === HALF_ONE;
 }
 
 /**

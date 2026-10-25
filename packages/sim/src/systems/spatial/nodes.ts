@@ -98,7 +98,7 @@ export class NodeBuckets {
       if (e === undefined) continue;
       const p = world.tryGet(e, Position);
       if (p === undefined) continue;
-      const bucket = this.filledBucket(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      const bucket = this.filledBucket(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
       if (bucket.count < bucket.entities.length) bucket.entities[bucket.count] = e;
       else bucket.entities.push(e);
       bucket.count++;
@@ -293,7 +293,7 @@ export function isValidNodeId(terrain: TerrainGraph, node: number): node is Node
  */
 export function entityNode(world: World, terrain: TerrainGraph, e: Entity): NodeId {
   const p = world.get(e, Position);
-  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }
 
 /**

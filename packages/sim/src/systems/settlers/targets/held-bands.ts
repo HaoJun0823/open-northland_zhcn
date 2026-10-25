@@ -332,7 +332,7 @@ class HoldingBand implements SyncedBand {
     let anchor: NodeId | null = null;
     if (!store && !world.has(e, GroundDrop)) {
       const p = world.get(e, Position);
-      anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
     }
     return { store, anchor, admitted: this.admitsCold(e), place: 'unfiled' };
   }

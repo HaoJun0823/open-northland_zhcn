@@ -52,7 +52,8 @@ export function isAtOwnHome(world: World, ctx: MapContext, e: Entity): boolean {
   if (isInside(world, e, home)) return true;
   const p = world.tryGet(e, Position);
   return (
-    p !== undefined && atInteractionNode(world, ctx, home, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))
+    p !== undefined &&
+    atInteractionNode(world, ctx, home, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y))
   );
 }
 

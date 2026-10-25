@@ -149,7 +149,7 @@ export class BattleFront {
 
   private within(grid: CoarseGrid, e: Entity, radius: number, accept: (t: Entity) => boolean): boolean {
     const p = this.world.get(e, Position);
-    return grid.anyWithin(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), radius, accept);
+    return grid.anyWithin(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y), radius, accept);
   }
 
   private ensureEngaged(): CoarseGrid {
@@ -201,7 +201,7 @@ class CoarseGrid {
   add(world: World, e: Entity): void {
     const p = world.get(e, Position);
     const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
+    const hy = nodeHyOfPosition(p.x, p.y);
     let column = this.byCx.get(coarseOf(hx));
     if (column === undefined) {
       column = new Map();

@@ -118,7 +118,7 @@ function seeksShelterEnRoute(world: World, ctx: SystemContext, e: Entity, shelte
   }
   const p = world.get(e, Position);
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   return planShelter(
     world,
     ctx,

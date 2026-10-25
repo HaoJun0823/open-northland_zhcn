@@ -52,7 +52,7 @@ export const templeAuraSystem: System = (world, ctx) => {
     const anchors = owner === undefined ? undefined : anchorsByOwner.get(owner);
     if (anchors === undefined) continue;
     const at = world.get(e, Position);
-    if (!withinAnyAnchor(anchors, nodeHxOfPosition(at.x, at.y), nodeHyOfPosition(at.y))) continue;
+    if (!withinAnyAnchor(anchors, nodeHxOfPosition(at.x, at.y), nodeHyOfPosition(at.x, at.y))) continue;
     bless(world, ctx, e, piety);
   }
 };
@@ -70,7 +70,7 @@ function activeTempleAnchors(world: World, temples: readonly Entity[]): Map<numb
       anchors = [];
       byOwner.set(owner, anchors);
     }
-    anchors.push(nodeHxOfPosition(at.x, at.y), nodeHyOfPosition(at.y));
+    anchors.push(nodeHxOfPosition(at.x, at.y), nodeHyOfPosition(at.x, at.y));
   }
   return byOwner;
 }

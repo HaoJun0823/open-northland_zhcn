@@ -8,6 +8,7 @@ import {
   ONE,
   positionOfNode,
 } from '../../src/index.js';
+import { nodeWorldX, positionXOfWorld } from '../../src/nav/halfcell.js';
 
 /**
  * The half-cell ↔ Position conversion seam (`nav/halfcell.ts`) - the one place a fractional
@@ -105,5 +106,47 @@ describe('nodeOfPosition', () => {
     expect(nodeOfPosition(fx.fromFloat(0.4), fx.fromInt(0))).toEqual({ hx: 0, hy: 0 });
     // At (0.6, 0) it has passed the E-mid node (1,0): 2·0.6 = 1.2 → hx 1.
     expect(nodeOfPosition(fx.fromFloat(0.6), fx.fromInt(0))).toEqual({ hx: 1, hy: 0 });
+  });
+
+  // A column step from (hx, hy) to (hx, hy + 2), sampled along its column line. Walked either way, the
+  // walker reads the step's start before the skipped row and its destination after it.
+  const SAMPLES_PER_ROW = 16;
+  const columnStepNodes = (hx: number, hy: number): { hx: number; hy: number }[] => {
+    const wx = nodeWorldX(hx, hy);
+    const nodes: { hx: number; hy: number }[] = [];
+    for (let i = 0; i <= 2 * SAMPLES_PER_ROW; i++) {
+      const y = fx.add(
+        fx.div(fx.fromInt(hy), fx.fromInt(2)),
+        fx.div(fx.fromInt(i), fx.fromInt(2 * SAMPLES_PER_ROW)),
+      );
+      nodes.push(nodeOfPosition(positionXOfWorld(wx, y), y));
+    }
+    return nodes;
+  };
+
+  it.each([
+    ['an even row', 6, 4],
+    ['an odd row', 6, 5],
+    ['an even row at hx 0', 0, 4],
+    ['an odd row at hx 0', 0, 5],
+  ])('reads a column step from %s as its start, then its destination', (_, hx, hy) => {
+    const nodes = columnStepNodes(hx, hy);
+    const middle = SAMPLES_PER_ROW;
+    for (let i = 0; i < nodes.length; i++) {
+      if (i === middle) continue;
+      expect(nodes[i]).toEqual({ hx, hy: i < middle ? hy : hy + 2 });
+    }
+  });
+
+  it('keeps the on-row rule on the skipped row, where the column crosses an E/W edge midway', () => {
+    // Even row 4: the column at hx 6 crosses row 5 between (5, 5) and (6, 5), which truncates west.
+    expect(columnStepNodes(6, 4)[SAMPLES_PER_ROW]).toEqual({ hx: 5, hy: 5 });
+  });
+
+  it('still rounds a slant edge between rows to its end on the truncated row', () => {
+    // SE from (6, 4) to (6, 5), three quarters along: row 4's frame column 6.375 rounds to 6.
+    const y = fx.add(fx.fromInt(2), fx.div(fx.fromInt(3), fx.fromInt(8)));
+    const wx = fx.add(nodeWorldX(6, 4), fx.div(fx.fromInt(3), fx.fromInt(16)));
+    expect(nodeOfPosition(positionXOfWorld(wx, y), y)).toEqual({ hx: 6, hy: 4 });
   });
 });

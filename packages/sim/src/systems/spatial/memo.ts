@@ -63,7 +63,7 @@ export function createSpatialMemo<S, M>(
   const admit = (world: World, state: MemoState<S, M>, e: Entity): void => {
     const p = world.tryGet(e, Position);
     if (p === undefined) return; // unindexable, exactly as the query-driven build skips it
-    const m = payload.member(world, e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    const m = payload.member(world, e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
     payload.insert(state.payload, e, m, world);
     state.members.set(e, m);
   };

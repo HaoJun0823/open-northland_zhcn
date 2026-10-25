@@ -66,7 +66,7 @@ it.each(['water', 'resource'] as const)(
       const node = terrain.nodeAt(n.hx, n.hy);
       expect(terrain.isWalkable(node)).toBe(true);
       expect(dynamicBlockOverlay(s.world, ctxOf(s), terrain).has(node)).toBe(false);
-      if (midLegOnRow(p, 5)) break;
+      if (midLegOnRow(p, 6)) break;
     }
     expect(s.world.has(b, PathFollow)).toBe(true);
     expect(
@@ -78,7 +78,7 @@ it.each(['water', 'resource'] as const)(
       ),
     ).not.toBeNull();
     const before = { ...s.world.get(b, Position) };
-    expect(nodeOfPosition(before.x, before.y)).toEqual({ hx: 5, hy: 5 });
+    expect(nodeOfPosition(before.x, before.y)).toEqual({ hx: 5, hy: 6 });
     expect(
       planGossipSeek(
         s.world,
@@ -124,7 +124,7 @@ it.each(['gossip', 'wedding'] as const)(
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('terrain');
     const a = ownedWoodcutter(sim, 0, 0);
-    sim.world.add(a, Position, positionOfNode(5, 6));
+    sim.world.add(a, Position, positionOfNode(6, 6));
     setNeeds(sim, a, { enjoyment: fx.fromInt(1) });
     const b = ownedWoodcutter(sim, 0, 0);
     setSettlerJob(sim.world, b, 6);
@@ -134,10 +134,10 @@ it.each(['gossip', 'wedding'] as const)(
     pathfindingSystem(sim.world, ctxOf(sim));
     for (let i = 0; i < 30; i++) {
       movementSystem(sim.world, nextTickCtxOf(sim));
-      if (midLegOnRow(sim.world.get(b, Position), 5)) break;
+      if (midLegOnRow(sim.world.get(b, Position), 6)) break;
     }
     const before = { ...sim.world.get(b, Position) };
-    expect(nodeOfPosition(before.x, before.y)).toEqual({ hx: 5, hy: 5 });
+    expect(nodeOfPosition(before.x, before.y)).toEqual({ hx: 5, hy: 6 });
     expect(sim.world.has(b, PathFollow)).toBe(true);
     sim.world.add(b, MoveGoal, { cell: terrain.nodeAt(4, 5) });
     navigationPlanner(sim.world, terrain);
@@ -151,7 +151,7 @@ it.each(['gossip', 'wedding'] as const)(
           ctxOf(sim),
           a,
           sim.world.get(a, Settler),
-          5,
+          6,
           6,
           new GossipCandidates(sim.world, sim.content),
         ),
@@ -169,7 +169,7 @@ it.each(['gossip', 'wedding'] as const)(
     for (let tick = 0; tick < 30 && sim.world.has(b, PathFollow); tick++)
       movementSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.has(b, PathFollow)).toBe(false);
-    // It finishes the edge it was crossing, from half-row 5 onto the node below.
+    // It finishes the column step it was walking, onto (5, 6).
     expect(sim.world.get(b, Position)).toEqual(positionOfNode(5, 6));
     expect(sim.checkInvariants()).toEqual([]);
   },

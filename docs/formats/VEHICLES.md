@@ -347,11 +347,13 @@ hull and leg allows (full aligned, nearly nothing a half turn off, dropping at o
 leg starts); it steers for the node three legs ahead so a lattice zigzag reads as one course, gathers
 way from rest, brakes over the last half of a leg into a sharp change of course and over its whole
 last leg onto its goal (`systems/vehicles/helm.ts`; the values are an approximation tuned by eye).
-Original behavior: a land vehicle walks a column straight, as a human does: once the route is found,
-each SE+SW, SW+SE, NW+NE or NE+NW pair ending in its start's column, begun more than three route nodes
-from the goal, becomes one SOUTH or NORTH step that skips the row between, faced S or N
-(`nav/pathfinding/straight-steps.ts`); a ship sails every edge, its helm steering over the zigzag; other vehicles route around parked vehicles' cells where a
-way around exists and pass through them, as in the original, where none does; settlers walk through
+Original behavior: every vehicle, a ship included, walks a column straight, as a human does: once the
+route is found, each SE+SW, SW+SE, NW+NE or NE+NW pair ending in its start's column, begun more than
+three map points (hex distance) from the goal, becomes one SOUTH or NORTH step that skips the row
+between, faced S or N (`nav/pathfinding/straight-steps.ts`). The original checks only the step's
+destination; here a column step is also refused when both nodes of the row it skips are closed, so a
+vehicle never slips between two posts of a wall. Other vehicles route around parked vehicles' cells
+where a way around exists and pass through them, as in the original, where none does; settlers walk through
 parked vehicles as in the original; the
 shove happens on entering a node only and sends a settler outside the discs of the whole remaining
 route. Open Northland shoves only owned settlers standing still (the planner's kept occupancy): one

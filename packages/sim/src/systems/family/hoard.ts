@@ -132,5 +132,5 @@ function nearerSource(
 
 function distanceTo(world: World, from: { hx: number; hy: number }, store: Entity): number {
   const p = world.get(store, Position);
-  return Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
+  return Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.x, p.y) - from.hy);
 }

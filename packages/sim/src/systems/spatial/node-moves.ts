@@ -30,7 +30,7 @@ class NodeMoves {
     let hy = 0;
     if (p !== undefined) {
       hx = nodeHxOfPosition(p.x, p.y);
-      hy = nodeHyOfPosition(p.y);
+      hy = nodeHyOfPosition(p.x, p.y);
     }
     const nodes = this.nodes;
     if (nodes.hx(e) === hx && nodes.hy(e) === hy) return;
@@ -66,7 +66,7 @@ class NodeMoves {
     this.nodes.reset(idLimit);
     for (const e of this.world.query(Position)) {
       const p = this.world.get(e, Position);
-      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), idLimit);
+      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y), idLimit);
     }
   }
 
@@ -77,7 +77,7 @@ class NodeMoves {
     for (let e = 0; e < this.nodes.size; e++) {
       const p = this.world.tryGet(e as Entity, Position);
       const hx = p === undefined ? NO_NODE : nodeHxOfPosition(p.x, p.y);
-      const hy = p === undefined ? 0 : nodeHyOfPosition(p.y);
+      const hy = p === undefined ? 0 : nodeHyOfPosition(p.x, p.y);
       if (this.nodes.hx(e as Entity) !== hx || (p !== undefined && this.nodes.hy(e as Entity) !== hy)) {
         return [`nodeMoves holds a stale node for entity ${e}`];
       }

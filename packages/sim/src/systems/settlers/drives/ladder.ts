@@ -94,7 +94,7 @@ export function planShelterRung(pass: PlannerPass, e: Entity, settler: SettlerVi
   const { world, ctx, terrain } = pass;
   const p = world.get(e, Position);
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const here = terrain.nodeAtClamped(hx, hy);
   const limit = navigationLimitFor(world, ctx.content, terrain, e);
   if (!planShelter(world, ctx, terrain, e, settler, here, hx, hy, limit, pass.shelters)) return false;
@@ -118,7 +118,7 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   const { world, ctx, terrain } = pass;
   const p = world.get(e, Position);
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const here = terrain.nodeAtClamped(hx, hy);
   const load = world.tryGet(e, Carrying);
   const limit = navigationLimitFor(world, ctx.content, terrain, e);

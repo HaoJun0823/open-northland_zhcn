@@ -121,7 +121,7 @@ export class PlannerSpacing {
         this.terrain,
         this.world.get(e, Palisade).walk,
         nodeHxOfPosition(at.x, at.y),
-        nodeHyOfPosition(at.y),
+        nodeHyOfPosition(at.x, at.y),
       )) {
         nodes.add(cell);
       }
@@ -206,7 +206,7 @@ class StationaryOwned {
     const held = this.nodes.get(e);
     const p = isStationaryOwned(this.world, e) ? this.world.tryGet(e, Position) : undefined;
     const x = p === undefined ? undefined : nodeHxOfPosition(p.x, p.y);
-    const y = p === undefined ? undefined : nodeHyOfPosition(p.y);
+    const y = p === undefined ? undefined : nodeHyOfPosition(p.x, p.y);
     if (held?.x === x && held?.y === y) return;
     if (held !== undefined) {
       this.buckets.remove(e, held.x, held.y);
@@ -255,7 +255,7 @@ function freshStationaryOwned(world: World): Entity[] {
 
 function stationaryNode(world: World, e: Entity): NodeXY | undefined {
   const p = isStationaryOwned(world, e) ? world.tryGet(e, Position) : undefined;
-  return p === undefined ? undefined : { x: nodeHxOfPosition(p.x, p.y), y: nodeHyOfPosition(p.y) };
+  return p === undefined ? undefined : { x: nodeHxOfPosition(p.x, p.y), y: nodeHyOfPosition(p.x, p.y) };
 }
 
 function isStationaryOwned(world: World, e: Entity): boolean {

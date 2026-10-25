@@ -268,7 +268,7 @@ function verifyEyeMemo(world: World, { fog, content }: EyeMemoSubject): string[]
       if (radius === null) continue;
       eyes.add(e);
       const p = world.get(e, Position);
-      const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
       if (!fog.holdsEyeStamp(e, world.get(e, Owner).player, cx, cy, radius)) {
         violations.push(`fog: eye ${e} has no memo for its footprint, a change no feed reported`);
       }
@@ -291,7 +291,7 @@ function isOwnedEyeKind(world: World, e: Entity): boolean {
 /** Stamp the sight of eye `e`, owned and positioned, `radius` nodes wide; whether a byte rose. */
 function stampEyeOf(world: World, fog: FogState, e: Entity, radius: number): boolean {
   const p = world.get(e, Position);
-  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   return fog.stampEye(e, world.get(e, Owner).player, cx, cy, radius);
 }
 
@@ -307,7 +307,7 @@ function meetOwnerOf(world: World, contacts: ContactPass, e: Entity): void {
   const ownerBit = 1 << owner;
   if ((contacts.unmetOwners & ownerBit) === 0) return;
   const p = world.get(e, Position);
-  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   const { cellsWide, cellsHigh } = contacts;
   if (cx < 0 || cy < 0 || cx >= cellsWide || cy >= cellsHigh) return; // off-grid reads UNEXPLORED
   const index = cy * cellsWide + cx;

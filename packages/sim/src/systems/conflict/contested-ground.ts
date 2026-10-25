@@ -109,7 +109,7 @@ function scanContestedGround(
       const p = world.tryGet(e, Position);
       if (p === undefined || standsAtPost(world, e) !== null) continue;
       if (!playerSeesEntity(world, fog, player, e)) continue;
-      const node = { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.y) };
+      const node = { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.x, p.y) };
       cellFor(cells, coarseOf(node.hx), coarseOf(node.hy)).push(node);
     }
   }

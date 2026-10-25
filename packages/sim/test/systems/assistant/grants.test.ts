@@ -126,7 +126,7 @@ function nodeOf(sim: Simulation, e: Entity): NodeId {
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('mapped sim expected');
   const p = sim.world.get(e, Position);
-  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }
 
 /** A pile of one `goodType` unit already promised to another walker: the stock ledger counts it, no

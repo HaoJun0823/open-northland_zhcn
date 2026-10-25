@@ -13,8 +13,9 @@ import type { SceneDefinition } from '../types.js';
 
 /**
  * Two crewed ships sail straight up and down open water side by side, the small one north and the big
- * one south, then turn about and sail back. A vertical lattice step faces N or S, so each ship holds its
- * column on its drawn N/S frames instead of zigzagging NE/NW (docs/formats/VEHICLES.md "Movement"). The
+ * one south, then turn about and sail back. A ship sails a column in N or S column steps, as the original,
+ * so each holds its column on its drawn N/S frames instead of zigzagging NE/NW (docs/formats/VEHICLES.md
+ * "Movement"). The
  * browser view is the check that the N/S hulls draw with their wake along the course.
  */
 
@@ -26,8 +27,8 @@ const NORTH_ROW = 4;
 const SOUTH_ROW = 22;
 const SMALL_COLUMN = 7;
 const BIG_COLUMN = 12;
-/** The first order follows the crews' spawn aboard; the return trip starts once both have arrived, which
- *  eighteen rows of open water at six ticks per half-row step take about 220 ticks. */
+/** The first order follows the crews' spawn aboard; the return trip starts once both have arrived, with
+ *  margin: eighteen rows of open water are about eighteen column steps of six ticks. */
 const OUTWARD_ORDER_TICK = 4;
 const RETURN_ORDER_TICK = 280;
 /** Claims positions no session transport hands out for those ticks. */

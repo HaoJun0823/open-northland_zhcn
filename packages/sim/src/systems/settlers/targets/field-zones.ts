@@ -78,7 +78,7 @@ function zoneOf(
     terrain,
     buildingFieldZone(content, building.buildingType, building.tribe),
     nodeHxOfPosition(position.x, position.y),
-    nodeHyOfPosition(position.y),
+    nodeHyOfPosition(position.x, position.y),
   );
 }
 

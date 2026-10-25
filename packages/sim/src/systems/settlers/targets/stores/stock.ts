@@ -146,7 +146,7 @@ export function nearestFreeYardNode(
   gate?: SpatialGate,
 ): NodeId | null {
   const fp = world.get(flag, Position);
-  const flagNode = terrain.nodeAtClamped(nodeHxOfPosition(fp.x, fp.y), nodeHyOfPosition(fp.y));
+  const flagNode = terrain.nodeAtClamped(nodeHxOfPosition(fp.x, fp.y), nodeHyOfPosition(fp.x, fp.y));
   const hasRoom = (node: NodeId): boolean => {
     const o = yard.occupied.get(node);
     return o === undefined || (o.good === good && o.fill < MAX_GROUND_STACK);
@@ -190,7 +190,7 @@ export function strandedPile(
 ): boolean {
   if (world.has(entity, Building)) return false;
   const p = world.get(entity, Position);
-  if (walls.has(terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)))) return true;
+  if (walls.has(terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y)))) return true;
   return positionedStanceCells(world, ctx, terrain, entity).length === 0;
 }
 

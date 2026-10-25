@@ -152,7 +152,8 @@ export function nearestHarvestableFor(
       (box === undefined ? targets.resources : resourcesNearNode(world, box.x, box.y, box.reach, allowed));
     best = nearestByCell(terrain, scanned, origin, (e) => {
       const p = world.tryGet(e, Position);
-      if (p === undefined || !anchorInBound(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))) return null;
+      if (p === undefined || !anchorInBound(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y)))
+        return null;
       return resolve(e);
     });
   } else {
@@ -340,7 +341,8 @@ class AnchorRanking {
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       const p = e === undefined ? undefined : world.tryGet(e, Position);
-      if (e !== undefined && p !== undefined) this.add(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      if (e !== undefined && p !== undefined)
+        this.add(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
     }
     return this;
   }

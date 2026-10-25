@@ -291,7 +291,7 @@ export function navigationLimitFor(
   const p = world.tryGet(e, Position);
   if (settler === undefined || owner === undefined || p === undefined) return null;
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const networkRevision = signpostNetworkRevision(world);
   let memo = limitMemo.get(world);
   if (memo === undefined) {
@@ -366,7 +366,7 @@ export function equipFetchLimitFor(
     terrain,
     owner.player,
     nodeHxOfPosition(p.x, p.y),
-    nodeHyOfPosition(p.y),
+    nodeHyOfPosition(p.x, p.y),
   );
 }
 

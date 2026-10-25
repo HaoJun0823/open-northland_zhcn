@@ -256,7 +256,10 @@ function fellTreesUnder(world: World, ctx: SystemContext, proj: Flight): void {
 
 /** The map point shot `proj` comes down on. */
 function landingNode(terrain: TerrainGraph, proj: Flight): NodeId {
-  return terrain.nodeAtClamped(nodeHxOfPosition(proj.aimX, proj.aimY), nodeHyOfPosition(proj.aimY));
+  return terrain.nodeAtClamped(
+    nodeHxOfPosition(proj.aimX, proj.aimY),
+    nodeHyOfPosition(proj.aimX, proj.aimY),
+  );
 }
 
 /**

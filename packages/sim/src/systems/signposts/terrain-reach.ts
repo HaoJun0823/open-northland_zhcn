@@ -264,7 +264,7 @@ export function warmPostReaches(world: World, content: ContentSet, terrain: Terr
   for (const post of world.query(Signpost, Position)) {
     const p = world.get(post, Position);
     const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
+    const hy = nodeHyOfPosition(p.x, p.y);
     postTerrainReach(world, content, terrain, post, hx, hy, SIGNPOST_LINK_SPAN);
     postTerrainReach(world, content, terrain, post, hx, hy, GOODS_SEARCH_SPAN);
   }

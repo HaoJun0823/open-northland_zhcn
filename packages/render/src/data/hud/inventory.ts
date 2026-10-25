@@ -99,8 +99,8 @@ function nodeHx(c: Components, position: { readonly x: number; readonly y: numbe
   return mooringOf(c)?.hx ?? nodeHxOfPosition(position.x as Fixed, position.y as Fixed);
 }
 
-function nodeHy(c: Components, position: { readonly y: number }): number {
-  return mooringOf(c)?.hy ?? nodeHyOfPosition(position.y as Fixed);
+function nodeHy(c: Components, position: { readonly x: number; readonly y: number }): number {
+  return mooringOf(c)?.hy ?? nodeHyOfPosition(position.x as Fixed, position.y as Fixed);
 }
 
 function sourceOf(c: Components): Source | null {

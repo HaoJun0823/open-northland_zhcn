@@ -29,7 +29,13 @@ import {
   positionOfNode,
 } from '../../nav/halfcell.js';
 import { hasOpenSide } from '../../nav/nearest.js';
-import { findPath, joinCorridor, straightenColumnSteps } from '../../nav/pathfinding/index.js';
+import {
+  columnStepMiddles,
+  findPath,
+  isColumnStep,
+  joinCorridor,
+  straightenColumnSteps,
+} from '../../nav/pathfinding/index.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
@@ -486,11 +492,11 @@ function otherVehicleCovers(
 }
 
 /**
- * A drive whose next node closed since its route was found. A node only another vehicle closed, on the
- * way to a goal no other vehicle took, is entered as it stands, as the original's vehicles pass each
- * other (`enter`, with no search). Otherwise the drive re-routes to its goal, moved beside it when
- * another vehicle now stands there ({@link freeGoal}): `rerouted` starts the fresh route on the next
- * tick, `none` gives up.
+ * A drive whose next step closed since its route was found ({@link stepClosed}). A step only another
+ * vehicle closed, on the way to a goal no other vehicle took, is entered as it stands, as the original's
+ * vehicles pass each other (`enter`, with no search). Otherwise the drive re-routes to its goal, moved
+ * beside it when another vehicle now stands there ({@link freeGoal}): `rerouted` starts the fresh route
+ * on the next tick, `none` gives up.
  */
 function rerouteAtBlock(
   world: World,
@@ -499,12 +505,28 @@ function rerouteAtBlock(
   e: Entity,
   type: VehicleType,
   aimed: HalfCellNode,
+  from: NodeId,
   next: NodeId,
 ): 'enter' | 'rerouted' | 'none' {
   const aimedNode = terrain.nodeAtClamped(aimed.hx, aimed.hy);
   const goal = freeGoal(world, ctx, terrain, e, aimedNode);
-  if (goal === aimedNode && !vehicleGroundBlocks(world, ctx, terrain, e, type).has(next)) return 'enter';
+  const ground = vehicleGroundBlocks(world, ctx, terrain, e, type);
+  if (goal === aimedNode && !stepClosed(terrain, ground, from, next)) return 'enter';
   return startVehicleDrive(world, ctx, terrain, e, goal) ? 'rerouted' : 'none';
+}
+
+/**
+ * Whether `blocks` closes the step from `from` to `next`: its destination, or, on a column step, both
+ * nodes of the row it skips (one off the map counts closed). A human's walk is cut when either closes
+ * (`landscape/routes.ts`) and its new search takes the column step again while the other stays open; a
+ * leg test reads the blocks standing now, so it allows the step past one closed side, or a side closed
+ * before the search would refuse it forever.
+ */
+function stepClosed(terrain: TerrainGraph, blocks: BlockOverlay, from: NodeId, next: NodeId): boolean {
+  if (blocks.has(next)) return true;
+  if (!isColumnStep(terrain, from, next)) return false;
+  const [west, east] = columnStepMiddles(terrain, from, next);
+  return (west === undefined || blocks.has(west)) && (east === undefined || blocks.has(east));
 }
 
 /** End `vehicle`'s drive, its route with it. */
@@ -576,7 +598,7 @@ export function rejoinMarch(
     vehicleTraversal(type),
   );
   if (joined === null) return false;
-  deliverRoute(world, ctx, vehicle, { hx: goal.hx, hy: goal.hy }, drivenNodes(terrain, type, joined));
+  deliverRoute(world, ctx, vehicle, { hx: goal.hx, hy: goal.hy }, drivenNodes(terrain, joined));
   return true;
 }
 
@@ -623,7 +645,7 @@ export function vehicleRouteTo(
   if (start !== goal && blocked.has(goal)) return null;
   const group = `${world.tryGet(vehicle, Owner)?.player ?? -1}:${traversal}:${type.logicSize}`;
   const borrowed = orders?.borrow(terrain, group, blocked, start, goal, traversal) ?? null;
-  if (borrowed !== null) return drivenNodes(terrain, type, borrowed);
+  if (borrowed !== null) return drivenNodes(terrain, borrowed);
   const pastVehicles = vehicleGroundBlocks(world, ctx, terrain, vehicle, type);
   const blind = findPath(terrain, start, goal, pastVehicles, undefined, traversal);
   if (blind === null) return null;
@@ -631,14 +653,15 @@ export function vehicleRouteTo(
   const around = meetsVehicle ? findPath(terrain, start, goal, blocked, undefined, traversal) : blind;
   // Only a route clear of other vehicles is offered: the group joins one under their cells.
   if (around !== null) orders?.offer(group, around);
-  return drivenNodes(terrain, type, around ?? blind);
+  return drivenNodes(terrain, around ?? blind);
 }
 
-/** The nodes a drive along node `path` enters, the first next. A land vehicle walks a column straight
- *  (`straightenColumnSteps`); a ship sails every edge, its helm steering over the zigzag. */
-function drivenNodes(terrain: TerrainGraph, type: VehicleType, path: readonly NodeId[]): HalfCellNode[] {
-  const walked = isShipVehicle(type) ? path : straightenColumnSteps(terrain, path);
-  return walked.slice(1).map((node) => nodeOf(terrain, node));
+/** The nodes a drive along node `path` enters, the first next. Original behavior: every vehicle, a ship
+ *  too, walks a column straight (`straightenColumnSteps`). */
+function drivenNodes(terrain: TerrainGraph, path: readonly NodeId[]): HalfCellNode[] {
+  return straightenColumnSteps(terrain, path)
+    .slice(1)
+    .map((node) => nodeOf(terrain, node));
 }
 
 /** Whether `goal` lies in a part of the sea a ship of `type` on `start` can sail into: a lookup that
@@ -899,7 +922,7 @@ function stopAskingCrewIn(world: World, state: VehicleStateView): void {
 
 /**
  * Advance every drive one tick. A leg under way gains its increment and ends once full; a vehicle
- * between legs enters its next node, re-routing when that node closed since the route was found
+ * between legs enters its next node, re-routing when that step closed since the route was found
  * ({@link rerouteAtBlock}) and giving up with `vehicleNoPath` when nothing leads on. Entering a node
  * moves the anchor and footprint there at once, turns a land vehicle to face the step or sets a ship's
  * helm onto it, and shoves the settlers standing inside the footprint (approximation: the original
@@ -949,9 +972,12 @@ export const vehicleMovementSystem: System = (world, ctx) => {
       endDrive(world, e);
       continue;
     }
+    const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
     const nextNode = terrain.nodeAtClamped(next.hx, next.hy);
-    const blocked = vehicleWalkBlocks(world, ctx, terrain, e, type).has(nextNode);
-    const outcome = blocked ? rerouteAtBlock(world, ctx, terrain, e, type, drive.goal, nextNode) : 'enter';
+    const blocked = stepClosed(terrain, vehicleWalkBlocks(world, ctx, terrain, e, type), here, nextNode);
+    const outcome = blocked
+      ? rerouteAtBlock(world, ctx, terrain, e, type, drive.goal, here, nextNode)
+      : 'enter';
     if (outcome === 'none') {
       endDrive(world, e);
       refuseMove(world, ctx, e, 'noPath');
@@ -959,7 +985,6 @@ export const vehicleMovementSystem: System = (world, ctx) => {
       if (!settleOutOfGap(world, ctx, terrain, e)) reanchorGuard(world, e);
     }
     if (outcome !== 'enter') continue; // a fresh route's first leg starts next tick
-    const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
     const stock = world.tryGet(e, VehicleStock);
     const ground = vehicleMovePeriod(terrain.resistanceAt(here), isSiegeVehicle(type));
     const drag = cartSpeedLossPercent(ctx.content, type, stock === undefined ? 0 : vehicleLoad(stock));

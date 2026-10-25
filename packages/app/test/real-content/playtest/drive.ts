@@ -179,7 +179,7 @@ export function humanOf(sim: Simulation, id: number): Entity {
 export function nodeOf(sim: Simulation, entity: Entity): HalfCellNode {
   const position = sim.world.tryGet(entity, components.Position);
   if (position === undefined) throw new Error(`entity ${entity} has no position`);
-  return { hx: nodeHxOfPosition(position.x, position.y), hy: nodeHyOfPosition(position.y) };
+  return { hx: nodeHxOfPosition(position.x, position.y), hy: nodeHyOfPosition(position.x, position.y) };
 }
 
 /** Every entity stamped with script id `id`: humans, animals, houses or vehicles. */

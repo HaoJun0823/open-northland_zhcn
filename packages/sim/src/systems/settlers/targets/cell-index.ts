@@ -194,7 +194,7 @@ export class InteractionCellIndex {
       this.all.addDoor(e, terrain.xOf(cell), terrain.yOf(cell));
     } else {
       const p = world.get(e, Position);
-      const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
       this.looseNode.set(e, node);
       this.all.addLoose(e, terrain.xOf(node), terrain.yOf(node));
     }

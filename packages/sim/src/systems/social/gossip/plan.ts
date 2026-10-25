@@ -212,7 +212,7 @@ export function planGossipIdle(
     return (
       p !== undefined &&
       Math.abs(nodeHxOfPosition(p.x, p.y) - hx) <= ADJACENT_NODES &&
-      Math.abs(nodeHyOfPosition(p.y) - hy) <= ADJACENT_NODES &&
+      Math.abs(nodeHyOfPosition(p.x, p.y) - hy) <= ADJACENT_NODES &&
       idle(cand)
     );
   };

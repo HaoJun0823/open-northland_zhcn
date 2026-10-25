@@ -88,7 +88,7 @@ export class ExternalQualityIndex {
     for (const store of candidates) {
       const p = this.world.get(store, Position);
       const distance =
-        Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
+        Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.x, p.y) - from.hy);
       if (distance <= swept || (best !== null && distance >= bestDistance)) continue;
       if (accept(store)) {
         best = store;

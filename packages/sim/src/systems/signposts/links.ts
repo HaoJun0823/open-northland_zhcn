@@ -83,7 +83,7 @@ function reachableLinks(
 ): readonly Entity[] {
   const p = world.get(post, Position);
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   const r = SIGNPOST_LINK_SPAN.range;
   const owner = world.get(post, Owner).player;
   siteBox.minX = (hx - r) / 2;

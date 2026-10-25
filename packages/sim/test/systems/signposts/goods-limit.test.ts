@@ -382,7 +382,7 @@ describe('goods search limit under random world changes', () => {
           const y =
             n % 2 === 0
               ? random(HEIGHT)
-              : Math.max(0, Math.min(HEIGHT - 1, nodeHyOfPosition(at.y) + random(2 * RANGE) - RANGE));
+              : Math.max(0, Math.min(HEIGHT - 1, nodeHyOfPosition(at.x, at.y) + random(2 * RANGE) - RANGE));
           const expected = rule(x, y);
           expect(
             limit.allowsNode(terrain.nodeAt(x, y)),

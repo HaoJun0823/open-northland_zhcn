@@ -70,7 +70,7 @@ function atomicPlanner(world: World, ctx: SystemContext, terrain: TerrainGraph):
         // Still standing, so it keeps any lost-way mark; the idle tail's seat-reach check keeps its cadence.
         if (world.get(e, IdleStand).standing && cutOffCheckDue(ctx)) {
           const p = world.get(e, Position);
-          const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+          const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
           const limit = navigationLimitFor(world, ctx.content, terrain, e);
           checkCutOff(pass, plannerContextOf(pass, e, settler, settler.jobType, here, limit));
         }

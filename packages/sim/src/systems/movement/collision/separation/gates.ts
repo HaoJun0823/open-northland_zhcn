@@ -67,13 +67,13 @@ export class SeparationGates {
 
   nodeAt(x: Fixed, y: Fixed): NodeId | undefined {
     const hx = nodeHxOfPosition(x, y);
-    const hy = nodeHyOfPosition(y);
+    const hy = nodeHyOfPosition(x, y);
     return this.terrain.inBounds(hx, hy) ? this.terrain.nodeAt(hx, hy) : undefined;
   }
 
   allowsLanding(x: Fixed, y: Fixed): boolean {
     const hx = nodeHxOfPosition(x, y);
-    const hy = nodeHyOfPosition(y);
+    const hy = nodeHyOfPosition(x, y);
     if (!this.terrain.inBounds(hx, hy)) return false;
     const node = this.terrain.nodeAt(hx, hy);
     if (!this.terrain.isWalkable(node)) return false;

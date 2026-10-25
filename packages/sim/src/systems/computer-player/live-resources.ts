@@ -83,7 +83,7 @@ function stanceComponentVerdict(
   if (world.has(e, Building) || !world.has(e, Resource)) return null;
   const p = world.tryGet(e, Position);
   if (p === undefined) return null;
-  const anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   const anchorOn = terrain.componentOf(anchor) === component;
   let anyOn = false;
   let allOn = true;

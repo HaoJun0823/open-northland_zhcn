@@ -100,7 +100,7 @@ function settlerAim(
     aim = positionOfNode(terrain.xOf(mark), terrain.yOf(mark));
   } else {
     aim = leadPoint(world, ctx, release, target, speed);
-    mark = terrain.nodeAtClamped(nodeHxOfPosition(aim.x, aim.y), nodeHyOfPosition(aim.y));
+    mark = terrain.nodeAtClamped(nodeHxOfPosition(aim.x, aim.y), nodeHyOfPosition(aim.x, aim.y));
   }
   if (isHeroJob(ctx.content, world.tryGet(shooter, Settler)?.jobType ?? null)) return aim;
   const from = entityNode(world, terrain, shooter);

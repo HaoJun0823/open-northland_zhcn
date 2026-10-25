@@ -91,7 +91,7 @@ function insideBuildingFieldZone(world: World, content: ContentSet, hx: number, 
     const zone = buildingFieldZone(content, buildingType, tribe);
     const position = world.get(entity, Position);
     const anchorHx = nodeHxOfPosition(position.x, position.y);
-    const anchorHy = nodeHyOfPosition(position.y);
+    const anchorHy = nodeHyOfPosition(position.x, position.y);
     const reach = zoneReachOf(zone);
     const dx = hx - anchorHx;
     const dy = hy - anchorHy;

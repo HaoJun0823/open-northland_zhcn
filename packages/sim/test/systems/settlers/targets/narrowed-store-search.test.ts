@@ -73,7 +73,7 @@ describe('the narrowed equip store search', () => {
       // The wide round's field is past the ring threshold, so its search takes the rings.
       const field = sim.world.canonicalQuery(Stockpile, Position).filter((e) => {
         const p = sim.world.get(e, Position);
-        const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+        const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
         return (
           sim.world.tryGet(e, Owner)?.player !== RIVAL &&
           nearBox(box, terrain.xOf(node), terrain.yOf(node), slack)

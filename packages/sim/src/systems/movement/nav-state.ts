@@ -24,7 +24,7 @@ export function isTravelling(world: World, e: Entity): boolean {
  *  its index, so a walker is on-lattice for the tick that ends any leg. */
 export function onNodeCentre(world: World, e: Entity): boolean {
   const p = world.get(e, Position);
-  const centre = positionOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const centre = positionOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   return p.x === centre.x && p.y === centre.y;
 }
 

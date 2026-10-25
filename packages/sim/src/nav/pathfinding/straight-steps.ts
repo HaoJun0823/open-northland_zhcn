@@ -5,11 +5,12 @@
  * NE+NW pair by one NORTH step, greedily from the start, so a column is walked straight. The node between
  * the two rows is skipped: the walker never stops on it. The search had already opened both edges.
  */
+import { hexDistanceBetween } from '../halfcell.js';
 import type { NodeId, TerrainGraph } from '../terrain/index.js';
 
 /**
- * Original behavior: a walker this many route nodes from its goal, or nearer, no longer merges a pair,
- * so the walk's last steps stay single edges.
+ * Original behavior: a walker this many map points from its goal (hex distance, the route's length
+ * aside), or nearer, no longer merges a pair, so the walk's last steps stay single edges.
  */
 export const STRAIGHT_STEP_GOAL_TAIL_NODES = 3;
 
@@ -31,6 +32,10 @@ function formsColumnStep(terrain: TerrainGraph, a: NodeId, b: NodeId, c: NodeId)
  */
 export function straightenColumnSteps(terrain: TerrainGraph, path: readonly NodeId[]): readonly NodeId[] {
   const last = path.length - 1;
+  const goal = path[last];
+  if (goal === undefined) return path;
+  const goalX = terrain.xOf(goal);
+  const goalY = terrain.yOf(goal);
   let out: NodeId[] | undefined;
   let i = 0;
   while (i < last) {
@@ -38,10 +43,10 @@ export function straightenColumnSteps(terrain: TerrainGraph, path: readonly Node
     const b = path[i + 1];
     const c = path[i + 2];
     if (
-      last - i > STRAIGHT_STEP_GOAL_TAIL_NODES &&
       a !== undefined &&
       b !== undefined &&
       c !== undefined &&
+      hexDistanceBetween(terrain.xOf(a), terrain.yOf(a), goalX, goalY) > STRAIGHT_STEP_GOAL_TAIL_NODES &&
       formsColumnStep(terrain, a, b, c)
     ) {
       out ??= path.slice(0, i + 1);

@@ -97,7 +97,7 @@ export class ChatCandidates {
   private refresh(e: Entity): void {
     const p = isCandidate(this.world, this.content, e) ? this.world.tryGet(e, Position) : undefined;
     if (p === undefined) this.release(e);
-    else this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    else this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   }
 
   /** Runs after the membership and job changes, so only a held entity can be a candidate. */
@@ -106,7 +106,7 @@ export class ChatCandidates {
     const p = this.world.tryGet(e, Position);
     // A removal after the write, which the membership feed carries.
     if (p === undefined) return;
-    this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   }
 
   private hold(e: Entity, hx: number, hy: number): void {
@@ -161,7 +161,7 @@ export class ChatCandidates {
     for (const list of this.blocks.values()) list.length = 0;
     for (const e of freshCandidates(this.world, this.content)) {
       const p = this.world.get(e, Position);
-      this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
     }
   }
 
@@ -171,7 +171,7 @@ export class ChatCandidates {
     for (const e of fresh) {
       const p = this.world.get(e, Position);
       const hx = nodeHxOfPosition(p.x, p.y);
-      const hy = nodeHyOfPosition(p.y);
+      const hy = nodeHyOfPosition(p.x, p.y);
       const list = this.blocks.get(blockKey(hx, hy));
       if (this.nodes.hx(e) !== hx || this.nodes.hy(e) !== hy || list?.[this.slots[e] as number] !== e) {
         return [`gossipCandidates holds ${e} off its node (${hx}, ${hy})`];

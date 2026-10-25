@@ -69,7 +69,7 @@ function people(context: OrderContext): SnapshotEntity[] {
 function nodeOf(entity: SnapshotEntity): { readonly hx: number; readonly hy: number } | null {
   const position = positionOf(entity);
   if (position === undefined) return null;
-  return { hx: nodeHxOfPosition(position.x, position.y), hy: nodeHyOfPosition(position.y) };
+  return { hx: nodeHxOfPosition(position.x, position.y), hy: nodeHyOfPosition(position.x, position.y) };
 }
 
 /** A contiguous run of up to `MAX_GROUP` of the seat's settlers, or its fighters when the coin says so

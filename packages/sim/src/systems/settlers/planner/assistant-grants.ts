@@ -168,7 +168,7 @@ function grantRouteFor(pass: PlannerPass, e: Entity, owner: number): GrantRoute 
   const { world, ctx, terrain } = pass;
   const limit = equipFetchLimitFor(world, ctx.content, terrain, e);
   const p = world.get(e, Position);
-  const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   return {
     here,
     gate: pass.targets.bands.goodsGate(here, owner, limit ?? undefined),

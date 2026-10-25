@@ -202,7 +202,7 @@ function mayWorkInside(world: World, limit: NavigationLimit, r: Entity): boolean
   const p = world.tryGet(r, Position);
   if (limit.mayAllowNear === undefined || footprint === undefined || p === undefined) return true;
   const ax = nodeHxOfPosition(p.x, p.y);
-  const ay = nodeHyOfPosition(p.y);
+  const ay = nodeHyOfPosition(p.x, p.y);
   return limit.mayAllowNear(ax, ay, workReachOf(footprint, ay));
 }
 

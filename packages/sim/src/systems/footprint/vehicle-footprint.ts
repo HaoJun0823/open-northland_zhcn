@@ -73,7 +73,7 @@ export function forEachVehicleFootprintNode(
   if (type === undefined) return;
   // The anchor node, read without minting it.
   const anchorHx = nodeHxOfPosition(p.x, p.y);
-  const anchorHy = nodeHyOfPosition(p.y);
+  const anchorHy = nodeHyOfPosition(p.x, p.y);
   for (const offset of discOffsets(type.logicSize, anchorHy)) {
     const hx = anchorHx + offset.hx;
     const hy = anchorHy + offset.hy;

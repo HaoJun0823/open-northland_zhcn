@@ -117,7 +117,7 @@ export function foodSourcesOf(world: World, content: ContentSet): FoodSources {
 
 function anchorNode(world: World, e: Entity): SourceNode {
   const p = world.get(e, Position);
-  return { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.y), owner: ownerOf(world, e) };
+  return { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.x, p.y), owner: ownerOf(world, e) };
 }
 
 function isFoodSource(world: World, content: ContentSet, e: Entity): boolean {

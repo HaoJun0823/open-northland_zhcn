@@ -146,7 +146,7 @@ class ZonesMemo implements CalmZones {
       return;
     }
     const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
+    const hy = nodeHyOfPosition(p.x, p.y);
     if (held !== undefined) {
       if (held.player === owner.player && held.hx === hx && held.hy === hy) return;
       this.stamp(held, -1);

@@ -74,9 +74,9 @@ function hitDirectionPct(
   const facing = world.tryGet(victim, WalkFacing)?.direction ?? INITIAL_WALK_DIRECTION;
   const toward = hexHeadingBetween(
     nodeHxOfPosition(at.x, at.y),
-    nodeHyOfPosition(at.y),
+    nodeHyOfPosition(at.x, at.y),
     nodeHxOfPosition(from.x, from.y),
-    nodeHyOfPosition(from.y),
+    nodeHyOfPosition(from.x, from.y),
   );
   const apart = Math.abs(toward - hexHeadingOfWalk(facing));
   return HIT_DIRECTION_PCT[Math.min(apart, HEX_HEADING_COUNT - apart)] ?? PERCENT;

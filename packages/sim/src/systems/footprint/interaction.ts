@@ -74,7 +74,7 @@ function resolveInteractionNode(world: World, ctx: MapContext, building: Entity)
   const p = world.tryGet(building, Position);
   if (b === undefined || p === undefined) return false;
   const ax = nodeHxOfPosition(p.x, p.y);
-  const ay = nodeHyOfPosition(p.y);
+  const ay = nodeHyOfPosition(p.x, p.y);
   resolvedX = ax;
   resolvedY = ay;
   const door = buildingFootprintOf(ctx.content, b.buildingType, b.tribe)?.door;
@@ -118,7 +118,7 @@ export function constructionWorkCells(
   if ((building === undefined && palisade === undefined && !road) || position === undefined) return [];
 
   const ax = nodeHxOfPosition(position.x, position.y);
-  const ay = nodeHyOfPosition(position.y);
+  const ay = nodeHyOfPosition(position.x, position.y);
   const footprint =
     building === undefined
       ? undefined
@@ -387,7 +387,7 @@ function fillResourceApproachCells(
   out.clear();
   const p = world.get(resource, Position);
   const ax = nodeHxOfPosition(p.x, p.y);
-  const ay = nodeHyOfPosition(p.y);
+  const ay = nodeHyOfPosition(p.x, p.y);
   const anchor = terrain.nodeAtClamped(ax, ay);
   const cells = footprintCellsOf(world, resource).work;
   const resources = resourceBlockedCells(world, terrain);
@@ -480,7 +480,7 @@ export function resourceWorkCell(
   const cell = nearestOpenStance(terrain, stancePools(world, ctx, terrain).regions, pool, from);
   if (cell !== null) return cell;
   const p = world.get(resource, Position);
-  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }
 
 /**
@@ -496,7 +496,7 @@ export function positionedStanceCells(
 ): readonly NodeId[] {
   const p = world.get(entity, Position);
   const x = nodeHxOfPosition(p.x, p.y);
-  const y = nodeHyOfPosition(p.y);
+  const y = nodeHyOfPosition(p.x, p.y);
   const resource = resourceUnderDrop(world, entity, x, y);
   if (resource !== null) return resourceStanceCells(world, ctx, terrain, resource);
   return anchoredStanceCells(world, ctx, terrain, terrain.nodeAtClamped(x, y));
@@ -581,7 +581,7 @@ export function positionedInteractionCell(
   from?: NodeId,
 ): NodeId {
   const p = world.get(entity, Position);
-  const anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   const pool = positionedStanceCells(world, ctx, terrain, entity);
   return nearestOpenStance(terrain, stancePools(world, ctx, terrain).regions, pool, from) ?? anchor;
 }

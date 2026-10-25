@@ -31,9 +31,9 @@ export function shotLandDelay(flight: number): number {
 export function mapPointDistance(from: { x: Fixed; y: Fixed }, to: { x: Fixed; y: Fixed }): number {
   return hexDistanceBetween(
     nodeHxOfPosition(from.x, from.y),
-    nodeHyOfPosition(from.y),
+    nodeHyOfPosition(from.x, from.y),
     nodeHxOfPosition(to.x, to.y),
-    nodeHyOfPosition(to.y),
+    nodeHyOfPosition(to.x, to.y),
   );
 }
 

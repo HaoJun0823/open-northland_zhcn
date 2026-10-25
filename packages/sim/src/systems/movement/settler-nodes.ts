@@ -22,7 +22,7 @@ class SettlerNodes {
     let hy = 0;
     if (p !== undefined) {
       hx = nodeHxOfPosition(p.x, p.y);
-      hy = nodeHyOfPosition(p.y);
+      hy = nodeHyOfPosition(p.x, p.y);
     }
     const nodes = this.nodes;
     const heldX = nodes.hx(e);
@@ -55,7 +55,7 @@ class SettlerNodes {
     this.nodes.reset(idLimit);
     for (const e of entities) {
       const p = world.get(e, Position);
-      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), idLimit);
+      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y), idLimit);
     }
   }
 }

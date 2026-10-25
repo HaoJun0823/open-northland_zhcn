@@ -40,7 +40,7 @@ export class RepairCrews {
     if (mark === undefined) return false;
     if (mark.lastHitTick !== null && this.ctx.tick - mark.lastHitTick < REPAIR_CALM_TICKS) return false;
     const p = this.world.get(site, Position);
-    return !this.front.fightNear(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    return !this.front.fightNear(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
   }
 
   /** Whether `builder` may join the crew at `site`: it already belongs to it, or the crew has room. */

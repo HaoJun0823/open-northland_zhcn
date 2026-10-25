@@ -120,7 +120,7 @@ function addEntry(cache: ResourceBlockedCache, world: World, resource: Entity): 
   const p = world.tryGet(resource, Position);
   if (p === undefined) return;
   const hx = nodeHxOfPosition(p.x, p.y);
-  const hy = nodeHyOfPosition(p.y);
+  const hy = nodeHyOfPosition(p.x, p.y);
   if (stampWalkCells(cache, world, resource, hx, hy, 1))
     cache.entries.set(resource, hx * ANCHOR_KEY_STRIDE + hy);
 }

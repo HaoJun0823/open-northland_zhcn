@@ -131,5 +131,7 @@ function storeCell(world: World, ctx: SystemContext, terrain: TerrainGraph, stor
 
 function ownNode(world: World, terrain: TerrainGraph, e: Entity): NodeId | null {
   const p = world.tryGet(e, Position);
-  return p === undefined ? null : terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return p === undefined
+    ? null
+    : terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
 }

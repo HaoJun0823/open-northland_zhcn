@@ -2,7 +2,9 @@ import {
   cellAnchorNode,
   cellOfNode,
   components,
+  constructionBillForType,
   type Entity,
+  fx,
   playerCommand,
   type Simulation,
   systems,
@@ -10,11 +12,17 @@ import {
 import { grassTerrain } from '../../catalog/buildings.js';
 import { JOB_CARRIER, JOB_TRADER } from '../../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
-import { spawnVehicleDirect, VEHICLE_HANDCART, VEHICLE_OXCART } from '../../game/sandbox/index.js';
+import {
+  BUILDING_CATAPULT_YARD,
+  placeSandboxSite,
+  spawnVehicleDirect,
+  VEHICLE_HANDCART,
+  VEHICLE_OXCART,
+} from '../../game/sandbox/index.js';
 import { CIVILIZATIONS } from '../civilizations.js';
 import type { SceneDefinition } from '../types.js';
 
-const { Settler, WALK_DIRECTION } = components;
+const { Building, Health, Settler, Stockpile, UnderConstruction, WALK_DIRECTION } = components;
 
 /** Each row's two carts, their commander one cell behind, each driving east to its own goal. */
 const DRIVES = [
@@ -22,9 +30,13 @@ const DRIVES = [
   { type: VEHICLE_OXCART, commander: JOB_CARRIER, fromX: 10, toX: 15 },
 ] as const;
 const COMMANDER_OFFSET_X = -1;
+/** Each row ends in its civilization's catapult yard, part built: a site draws its frame revealed up
+ *  to its progress, and nobody here works on it. */
+const YARD_X = 19;
+const YARD_BUILT = fx.fromFloat(0.7);
 const MARGIN_Y = 3;
 const SPACING_Y = 3;
-const MAP_W = 18;
+const MAP_W = 22;
 const MAP_H = MARGIN_Y * 2 + SPACING_Y * CIVILIZATIONS.length;
 /** Ticks before the drive orders, so each cart rolls only once its commander is aboard. */
 const DRIVE_ORDER_TICK = 6;
@@ -35,6 +47,16 @@ function build(sim: Simulation): void {
   let sequence = DRIVE_SEQUENCE;
   for (const [row, tribe] of CIVILIZATIONS.entries()) {
     const y = MARGIN_Y + row * SPACING_Y;
+    const yard = placeSandboxSite(sim, BUILDING_CATAPULT_YARD, YARD_X, y, HUMAN_PLAYER, { tribe });
+    const building = sim.world.mut(yard, Building);
+    building.built = YARD_BUILT;
+    sim.world.mut(yard, UnderConstruction).labor = YARD_BUILT;
+    const health = sim.world.mut(yard, Health);
+    health.hitpoints = health.max;
+    // Progress holds only over delivered material, so the site's bill lies in its hold.
+    const hold = sim.world.mut(yard, Stockpile).amounts;
+    for (const line of constructionBillForType(sim.content.buildings, BUILDING_CATAPULT_YARD))
+      hold.set(line.goodType, line.amount);
     for (const drive of DRIVES) {
       const vehicle = spawnVehicleDirect(sim, drive.type, drive.fromX, y, {
         tribe,
@@ -81,10 +103,21 @@ function everyCartDrivenByItsTribe(sim: Simulation): boolean {
   );
 }
 
+/** One unfinished catapult yard stands per civilization. */
+function yardPerTribe(sim: Simulation): boolean {
+  const tribes = new Set<number>();
+  for (const e of sim.world.query(Building, UnderConstruction)) {
+    const building = sim.world.get(e, Building);
+    if (building.buildingType === BUILDING_CATAPULT_YARD) tribes.add(building.tribe);
+  }
+  return CIVILIZATIONS.every((tribe) => tribes.has(tribe));
+}
+
 /**
  * A trader driving a handcart and a carrier driving an ox cart for each civilization, in rows: viking,
  * frank, byzantine, saracen, egyptian. The browser view is the check that every driver wears his own
- * civilization's head, standing and driving.
+ * civilization's head, standing and driving, that every cart's wheels turn, and that each row's
+ * catapult yard draws a catapult, not a cart.
  */
 export const cartDriversScene: SceneDefinition = {
   id: 'cart-drivers',
@@ -99,5 +132,6 @@ export const cartDriversScene: SceneDefinition = {
       label: "every cart is driven east by its own civilization's commander",
       predicate: everyCartDrivenByItsTribe,
     },
+    { label: 'every civilization has its catapult yard under construction', predicate: yardPerTribe },
   ],
 };

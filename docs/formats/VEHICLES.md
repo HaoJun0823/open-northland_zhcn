@@ -661,7 +661,11 @@ which the renderer needs fallbacks for: Egypt (tribe 7) has no vehicle binding a
 and Frank have a big-ship binding, and the Viking one is the 32-frame `ve_test_ship.bmd` whose rows
 still index the 98-frame `LS_vehicles` layout, so its loaded hull (bobs 66..94) has no frame,
 while the Frank one has hulls but no gait; the ox-less cart has records for Viking and Frank only; the handcart's drive reuses
-`vehicles_bullcart_walk`; Byzantine carts and the Saracen ox cart have a wait but no drive.
+`vehicles_bullcart_walk`; Byzantine carts and the Saracen ox cart have a wait but no drive. The
+yards' `[GfxHouse]` records have two holes the `houses-graphics` correction fixes: the Egyptian and
+Byzantine catapult yards name bob 32 of `CR_Veh_Body_00.bmd`, an ox-cart frame, where the other
+tribes name bob 32 of `ls_vehicles.bmd`, the catapult; every ship yard names `ls_houses_viking_s.bmd`
+as its shadow, whose bob 4 is empty, where `ls_houses_vehicles_s.bmd` holds that bob's shadow.
 
 Open Northland draws a vehicle as one `vehicle` draw item bound per `(tribe, vehicleType)` from the
 lane (`packages/app/src/content/vehicle-gfx`, `packages/render/src/data/sprites/vehicle.ts`), with
@@ -670,8 +674,9 @@ these choices for the holes:
 - A tribe with no rows (Egypt) draws the world's base tribe's looks (`fallbackTribe`, the viking),
   and so does a row that binds nothing (the Byzantine and Saracen ox-less cart).
 - A clip naming a bob the baked body lacks is dropped at load, so the Viking big ship sails on its
-  empty hull (`ve_test_ship` holds bobs 0..31); a cart with a wait but no drive stands its wait while
-  it moves. Every state falls back down `loaded → unloaded → wait`.
+  empty hull (`ve_test_ship` holds bobs 0..31). A cart with a wait but no drive takes the base
+  tribe's drives when both draw from the same atlas; the original looks a drive up by exact tribe,
+  so its cart would slide on its wait. Every state falls back down `loaded → unloaded → wait`.
 - The catapult plays its 40-frame shot once over each 48-tick attack cadence while `task` is `attacks`;
   where in the clip the shot releases is an approximation.
 - The stone in flight, the puff it leaves every tick and the smoke a `createsmoke` weapon raises where

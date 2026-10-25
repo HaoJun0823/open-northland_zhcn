@@ -96,7 +96,8 @@ export function placeBuiltSandboxBuildingAtNode(
 /**
  * The foundation twin of {@link placeBuiltSandboxBuilding}. A plainer site than the `placeBuilding`
  * command builds: it runs no footprint eviction, clears no decor under the body, and announces no
- * `buildingPlaced`, so author it on ground that is already clear.
+ * `buildingPlaced`, so author it on ground that is already clear. A numeric `ref` may name any type the
+ * content defines, such as a vehicle yard the viking catalog leaves out.
  */
 export function placeSandboxSite(
   sim: Simulation,
@@ -107,7 +108,7 @@ export function placeSandboxSite(
   opts: { readonly tribe?: number } = {},
 ): Entity {
   const { Building, Health, Owner, Position, Stockpile, UnderConstruction } = components;
-  const typeId = resolveVikingBuilding(ref).typeId;
+  const typeId = typeof ref === 'number' ? ref : resolveVikingBuilding(ref).typeId;
   const def = buildingDef(sim, typeId);
   const node = cellAnchorNode(x, y);
   const e = sim.world.create();

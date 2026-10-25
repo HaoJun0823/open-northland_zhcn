@@ -161,6 +161,30 @@ function holdFirstFrame(anim: FrameListAnim): FrameListAnim {
   return { start: anim.start, frameLists: anim.frameLists.map((list) => list.slice(0, 1)), loop: true };
 }
 
+/**
+ * A look with a wait but no drive (the shipped Byzantine carts, the Saracen ox cart) takes the base
+ * tribe's drives when both draw from the same atlas, so its wheels turn instead of sliding. The original
+ * looks a drive up by exact tribe and would slide; this is our approximation.
+ */
+function borrowBaseDrives(byTribe: Record<number, Record<number, VehicleLook>>, baseTribe: number): void {
+  const base = byTribe[baseTribe];
+  if (base === undefined) return;
+  for (const [tribe, looks] of Object.entries(byTribe)) {
+    if (Number(tribe) === baseTribe) continue;
+    for (const [type, look] of Object.entries(looks)) {
+      const donor = base[Number(type)];
+      if (look.moving !== undefined || look.loadedMoving !== undefined) continue;
+      if (donor?.layer !== look.layer || donor.moving === undefined) continue;
+      looks[Number(type)] = {
+        ...look,
+        moving: donor.moving,
+        ...(donor.movingByGood !== undefined ? { movingByGood: donor.movingByGood } : {}),
+        ...(donor.loadedMoving !== undefined ? { loadedMoving: donor.loadedMoving } : {}),
+      };
+    }
+  }
+}
+
 /** The `vehicleGraphics` rows of the served IR; empty without one. */
 export function vehicleGraphicsRows(ir: ContentIr | null): readonly VehicleGraphics[] {
   return ir?.vehicleGraphics ?? [];
@@ -194,6 +218,7 @@ export function buildVehicleBinding(
     any = true;
   }
   if (!any) return undefined;
+  borrowBaseDrives(byTribe, fallbackTribe);
   const tribes: Record<number, VehicleTribeLooks> = byTribe;
   return { byTribe: tribes, fallbackTribe };
 }

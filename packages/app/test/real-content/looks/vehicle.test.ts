@@ -62,8 +62,8 @@ describe.runIf(hasRealIr())('the vehicle looks over the decoded content', () => 
     expect(look?.loadedMoving).toBeUndefined();
   });
 
-  it('stands the byzantine ox cart while moving, and fires the viking catapult on the 48-tick clip', () => {
-    expect(binding?.byTribe[BYZANTINE]?.[OXCART]?.moving).toBeUndefined();
+  it('drives the byzantine ox cart on the viking drive, and fires the viking catapult on the 48-tick clip', () => {
+    expect(binding?.byTribe[BYZANTINE]?.[OXCART]?.moving).toBe(binding?.byTribe[VIKING]?.[OXCART]?.moving);
     expect(binding?.byTribe[VIKING]?.[CATAPULT]?.attack).toBeDefined();
     expect(binding?.byTribe[EGYPT]).toBeUndefined();
     expect(binding?.fallbackTribe).toBe(VIKING);

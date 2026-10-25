@@ -12,8 +12,8 @@ import {
 /**
  * The vehicle-look join over the IR's `vehicleGraphics` rows, and the fallbacks the shipped data's holes
  * need (docs/formats/VEHICLES.md "Graphics"): a tribe with no rows draws the base tribe's, a clip whose
- * frames the baked body lacks is dropped so its state falls back, a wait with no drive stands while
- * moving.
+ * frames the baked body lacks is dropped so its state falls back, a wait with no drive borrows the base
+ * tribe's drive over the same atlas.
  */
 
 const VIKING = 1;
@@ -218,5 +218,20 @@ describe('the vehicle look join', () => {
     });
     expect(afloat?.byTribe[VIKING]?.[OXCART]?.afloat).toBe(true);
     expect(afloat?.byTribe[VIKING]?.[CATAPULT]?.afloat).toBeUndefined();
+  });
+
+  it('lends the base tribe’s drive to a wait-only look over the same atlas, keeping its own wait', () => {
+    const stem = 'cr_veh_body_00.oxcart';
+    const binding = buildVehicleBinding(
+      [vikingOxcart, byzantineOxcart],
+      new Set([stem]),
+      drawable(stem, CART_FRAMES),
+      VIKING,
+    );
+    const byzantine = binding?.byTribe[BYZANTINE]?.[OXCART];
+    expect(byzantine?.moving).toBe(binding?.byTribe[VIKING]?.[OXCART]?.moving);
+    expect(byzantine?.idle).toEqual(
+      vehicleLook(byzantineOxcart, new Set([stem]), drawable(stem, CART_FRAMES))?.idle,
+    );
   });
 });

@@ -48,7 +48,6 @@ export {
   snapVehicleTarget,
   stopVehicle,
   VEHICLE_TARGET_SNAP_RADIUS,
-  vehicleLegTicks,
   vehicleMovementSystem,
   vehicleMovePeriod,
   vehicleProgressPerTick,

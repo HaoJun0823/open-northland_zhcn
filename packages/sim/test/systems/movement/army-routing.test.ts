@@ -14,6 +14,7 @@ import {
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, playerCommand, positionOfNode, Simulation, type TerrainMap } from '../../../src/index.js';
+import { columnStepMiddles, isColumnStep } from '../../../src/nav/pathfinding/index.js';
 import { type NodeId, StepBuffer } from '../../../src/nav/terrain/index.js';
 import { stampResourceFootprintData } from '../../../src/systems/footprint/index.js';
 import { testContent } from '../../fixtures/content.js';
@@ -348,10 +349,17 @@ describe('army player routing', () => {
     const farLeaderRoute = new Set(routeNodes(farLeader.entity));
     for (const { entity } of farBand) {
       const route = routeNodes(entity);
-      // Through the gap, never across the wall.
-      expect(route.some((node) => terrain.yOf(node) === wallY && terrain.xOf(node) >= gapColumns.from)).toBe(
-        true,
-      );
+      // Through the gap, never across the wall: a stop in the gap, or a column step passing between gap nodes.
+      const inGap = (node: NodeId | undefined): boolean =>
+        node !== undefined && terrain.yOf(node) === wallY && terrain.xOf(node) >= gapColumns.from;
+      expect(
+        route.some((node, i) => {
+          const previous = route[i - 1];
+          if (inGap(node)) return true;
+          if (previous === undefined || !isColumnStep(terrain, previous, node)) return false;
+          return columnStepMiddles(terrain, previous, node).some(inGap);
+        }),
+      ).toBe(true);
       // The band rides its own leader's searched route rather than searching one each.
       expect(route.filter((node) => farLeaderRoute.has(node)).length).toBeGreaterThan(route.length / 2);
     }

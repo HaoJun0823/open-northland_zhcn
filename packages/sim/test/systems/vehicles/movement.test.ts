@@ -46,7 +46,6 @@ import {
   facingOfStep,
   snapVehicleTarget,
   VEHICLE_TARGET_SNAP_RADIUS,
-  vehicleLegTicks,
   vehicleMovePeriod,
   vehicleProgressPerTick,
 } from '../../../src/systems/vehicles/index.js';
@@ -209,12 +208,6 @@ describe('vehicle move period', () => {
     }
   });
 
-  it('charges the period at every map point a leg crosses, whatever its drawn length', () => {
-    expect(vehicleLegTicks(CART_PERIOD_GRASS, 1)).toBe(CART_PERIOD_GRASS);
-    expect(vehicleLegTicks(CART_PERIOD_GRASS, 2)).toBe(2 * CART_PERIOD_GRASS);
-    expect(vehicleLegTicks(CATAPULT_PERIOD_GRASS, 2)).toBe(2 * CATAPULT_PERIOD_GRASS);
-  });
-
   it('counts a turn around the eight headings the short way round', () => {
     expect(walkTurnSteps(E, E)).toBe(0);
     expect(walkTurnSteps(E, SE)).toBe(1);
@@ -250,7 +243,7 @@ describe('vehicle move period', () => {
     expect(s.world.has(cart, VehicleDrive)).toBe(false);
   });
 
-  it('faces the screen heading of a lattice step, the row parity deciding a column step', () => {
+  it('faces the screen heading of a step, the row parity deciding a single row-crossing edge', () => {
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 5, hy: 4 })).toBe(E);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 3, hy: 4 })).toBe(W);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 5, hy: 6 })).toBe(SE);
@@ -260,25 +253,33 @@ describe('vehicle move period', () => {
     expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 6 })).toBe(SW);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 3 })).toBe(NE);
     expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 4 })).toBe(NW);
+    // A column step, two rows straight.
+    expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 6 })).toBe(S);
+    expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 3 })).toBe(N);
   });
 
-  it('drives up a column facing NE and NW in turn, one hexagon step between its legs', () => {
+  it('drives up a column straight north, each column step in one period, the last edges single', () => {
     const s = sim();
     const cart = commanded(s, HANDCART, 8, 12);
-    order(s, cart, 8, 6);
-    const facings = new Set<number>();
-    let turnHolds = 0;
+    order(s, cart, 8, 4);
     s.step(); // the command applies and the first leg starts
-    for (let t = 0; t < 200 && s.world.has(cart, VehicleDrive); t++) {
-      facings.add(s.world.get(cart, Vehicle).facing);
-      if ((s.vehicleView(cart)?.leg?.progress ?? 0) < 0) turnHolds++;
+    const nodes = s.world.get(cart, VehicleRoute).nodes;
+    // Eight row edges: three column steps, then the goal tail's two edges.
+    expect(nodes.slice(0, 3)).toEqual([
+      { hx: 8, hy: 10 },
+      { hx: 8, hy: 8 },
+      { hx: 8, hy: 6 },
+    ]);
+    expect(nodes.at(-1)).toEqual({ hx: 8, hy: 4 });
+    expect(nodes).toHaveLength(5);
+    // The first leg turns from the spawn's east through NE to N, then the column steps hold N.
+    const turn = 2 * ONE_DIRECTION_TURN;
+    for (let t = 0; t < turn + 3 * CART_PERIOD_GRASS; t++) {
+      expect(s.world.get(cart, Vehicle).facing).toBe(N);
       s.step();
     }
-    expect(anchorOf(s, cart)).toEqual({ hx: 8, hy: 6 });
-    expect([...facings].sort()).toEqual([NW, NE].sort());
-    // The first leg turns from the spawn's east by at most two steps, each later one NE to NW or back.
-    const legs = 12 - 6;
-    expect(turnHolds).toBeLessThanOrEqual((2 + legs - 1) * ONE_DIRECTION_TURN);
+    expect(anchorOf(s, cart)).toEqual({ hx: 7, hy: 5 });
+    expect(s.world.get(cart, Vehicle).facing).toBe(NW);
   });
 });
 

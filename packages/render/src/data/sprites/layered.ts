@@ -1,4 +1,4 @@
-import { TILE_HALF_H, TILE_HALF_W } from '../projection/index.js';
+import { screenToHalfCell } from '../projection/index.js';
 import type { DrawItem } from '../scene/index.js';
 import type {
   AuthoredBuildingDraw,
@@ -286,7 +286,8 @@ function loopFrameAt(loop: ResourceLoopRef, item: DrawItem, tick: number | undef
   const n = loop.frames.length;
   const layer = loop.layer === undefined ? {} : { layer: loop.layer };
   if (tick === undefined || n === 1) return { bob: loop.frames[0], ...layer };
-  const phase = Math.round(item.x / TILE_HALF_W) + Math.round((2 * item.y) / TILE_HALF_H);
+  const node = screenToHalfCell(item.x, item.y);
+  const phase = node.col + node.row;
   const bob = loop.frames[(((Math.floor(tick) + phase) % n) + n) % n] ?? loop.frames[0];
   return { bob, ...layer, looping: true };
 }

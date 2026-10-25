@@ -4,7 +4,7 @@ import {
   resolveSpriteBobId,
   resolveStockpileDraw,
 } from '../../../src/data/sprites/index.js';
-import { type DrawItem, resolveResourceDraw, TILE_HALF_H, TILE_HALF_W } from '../../../src/index.js';
+import { type DrawItem, halfCellToScreen, resolveResourceDraw } from '../../../src/index.js';
 import { drawItem } from '../../support/fixtures.js';
 
 describe('resolveResourceDraw - per-good resource node binding', () => {
@@ -108,8 +108,7 @@ describe('resolveResourceDraw - a looping level', () => {
   const tree = (hx: number, hy: number, extra: Partial<DrawItem> = {}): DrawItem => ({
     ...drawItem('resource'),
     goodType: 7,
-    x: hx * TILE_HALF_W,
-    y: (hy * TILE_HALF_H) / 2,
+    ...halfCellToScreen(hx, hy),
     ...extra,
   });
 
@@ -122,6 +121,7 @@ describe('resolveResourceDraw - a looping level', () => {
     expect(resolveResourceDraw(loop, tree(0, 0), 1.7)?.bob).toBe(11);
     expect(resolveResourceDraw(loop, tree(3, 2), 0)?.bob).toBe(11); // phase 5 → frame 1 of 4
     expect(resolveResourceDraw(loop, tree(0, 0), 5)?.bob).toBe(11);
+    expect(resolveResourceDraw(loop, tree(3, 1), 0)?.bob).toBe(10); // odd row, phase 4 → frame 0
   });
 
   it('holds the first frame without a clock', () => {

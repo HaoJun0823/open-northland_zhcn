@@ -1,4 +1,5 @@
 import type { Waypoint } from '../../components/index.js';
+import { columnStepMiddles, isColumnStep } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 
 export interface NodeBounds {
@@ -8,7 +9,7 @@ export interface NodeBounds {
   readonly maxY: number;
 }
 
-/** Each route's node bounds, for the closing test that
+/** Each route's node bounds, a column step's two skipped-row nodes included, for the closing test that
  *  stops walkers short of a new wall (`landscape/routes.ts`). Keyed on the stop array, which a delivery or
  *  a cut replaces rather than edits. Routing reads a route's bounds as it installs it, while its stops are
  *  fresh in memory, so a closing tests the routes in view without walking each again. Derived, never
@@ -21,7 +22,13 @@ export function routeBoundsOf(terrain: TerrainGraph, waypoints: readonly Waypoin
     bounds = emptyBounds();
     for (let i = 0; i < waypoints.length; i++) {
       const stop = waypoints[i];
-      if (stop !== undefined) extendBounds(terrain, bounds, stop.node);
+      if (stop === undefined) continue;
+      extendBounds(terrain, bounds, stop.node);
+      const previous = waypoints[i - 1];
+      if (previous === undefined || !isColumnStep(terrain, previous.node, stop.node)) continue;
+      for (const middle of columnStepMiddles(terrain, previous.node, stop.node)) {
+        if (middle !== undefined) extendBounds(terrain, bounds, middle);
+      }
     }
     routeBounds.set(waypoints, bounds);
   }

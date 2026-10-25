@@ -9,3 +9,9 @@ export {
   type SearchStats,
 } from './find-path.js';
 export { nodeMarksOf } from './node-marks.js';
+export {
+  columnStepMiddles,
+  isColumnStep,
+  STRAIGHT_STEP_GOAL_TAIL_NODES,
+  straightenColumnSteps,
+} from './straight-steps.js';

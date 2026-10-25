@@ -338,8 +338,8 @@ drive takes once the crew is in; vehicles of one hull class ordered in the same 
 when their starts and goals lie near it (each joins it by a short hop, as a settler group does), so a
 fleet's order costs about one search; an attack-move that stops to fight keeps the rest of its route and
 rejoins it by a short search afterwards; the anchor and footprint move at the
-start of a leg, not halfway; a lattice edge of two map points takes two periods; the vehicle faces
-its lattice step's screen heading at once, among the eight walk headings, and holds on the node it
+start of a leg, not halfway; every step takes one period, a column step's two rows included; the
+vehicle faces its step's screen heading at once, among the eight walk headings, and holds on the node it
 leaves for the turn's 2 ticks per step of that ring, drawn there while its progress stays below zero.
 Deviation (owner's choice): a ship never pivots on its node. It turns under way, its hull swinging one
 heading step per 2 ticks while the leg goes on, and its way eases toward the most the angle between
@@ -347,10 +347,10 @@ hull and leg allows (full aligned, nearly nothing a half turn off, dropping at o
 leg starts); it steers for the node three legs ahead so a lattice zigzag reads as one course, gathers
 way from rest, brakes over the last half of a leg into a sharp change of course and over its whole
 last leg onto its goal (`systems/vehicles/helm.ts`; the values are an approximation tuned by eye).
-Deviation (owner's choice): the original steers through the six hexagon directions only, so a vehicle
-heading up or down a column zigzags NE/NW and its N/S frames show only mid-turn; here a vertical
-half-row step faces N or S and the vehicle sails straight on those frames, and a half turn holds 8
-ticks where the original's holds 6; other vehicles route around parked vehicles' cells where a
+Original behavior: a land vehicle walks a column straight, as a human does: once the route is found,
+each SE+SW, SW+SE, NW+NE or NE+NW pair ending in its start's column, begun more than three route nodes
+from the goal, becomes one SOUTH or NORTH step that skips the row between, faced S or N
+(`nav/pathfinding/straight-steps.ts`); a ship sails every edge, its helm steering over the zigzag; other vehicles route around parked vehicles' cells where a
 way around exists and pass through them, as in the original, where none does; settlers walk through
 parked vehicles as in the original; the
 shove happens on entering a node only and sends a settler outside the discs of the whole remaining

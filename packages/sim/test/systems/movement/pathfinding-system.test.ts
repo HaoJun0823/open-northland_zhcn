@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addPerson,
+  addWildlife,
   MoveStepPeriod,
   Owner,
   PathFollow,
@@ -8,6 +9,7 @@ import {
   PathRoute,
   PlayerOrder,
   Position,
+  WALK_DIRECTION,
   WalkFacing,
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
@@ -90,34 +92,31 @@ describe('pathfindingSystem - request to PathFollow handoff', () => {
     expect(sim.world.get(e, PathFollow).index).toBe(0);
   });
 
-  it("splices the midpoint into a diagonal leg leaving an odd row, as the original's between node", () => {
-    // (2,1) -> (3,3) is a single SE diagonal from odd hy=1: rows ½ → 1½ cross the integer row 1
-    // mid-leg, where the stagger wave kinks. The midpoint is the original's SE neighbour of (2,1),
-    // which from an odd row is (3,2), at the edge's world middle 1½ columns, row 1 (stagger ½): 1.
+  it('walks two SE edges from an odd row through the node between them', () => {
+    // (2,1) -> (3,3): SE from odd hy=1 reaches (3,2), SE from even hy=2 keeps the column.
     const { sim, request } = mappedSim(grassMap(5, 5));
     const e = request(sim.terrain?.nodeAt(2, 1) as number, sim.terrain?.nodeAt(3, 3) as number);
     sim.step();
     expect(sim.world.get(e, PathRoute).waypoints).toEqual([
       { x: Q(4), y: Q(2), node: sim.terrain?.nodeAt(2, 1) }, // node (2,1): 1¼ − ¼
-      { x: Q(4), y: Q(4), node: sim.terrain?.nodeAt(3, 2) }, // the midpoint at row 1
+      { x: Q(4), y: Q(4), node: sim.terrain?.nodeAt(3, 2) }, // node (3,2), row 1
       { x: Q(6), y: Q(6), node: sim.terrain?.nodeAt(3, 3) }, // node (3,3): 1¾ − ¼
     ]);
   });
 
-  it('splices the midpoint into a diagonal leg between even rows too: two steps, the between node', () => {
-    // (2,0) -> (3,2): rows 0 → 1, the stagger is linear across the interval, but the edge is still two
-    // of the original's steps through its between node, which from an even row is (2,1).
+  it('walks two SE edges from an even row through the node between them', () => {
+    // (2,0) -> (3,2): SE from even hy=0 keeps the column at (2,1), SE from odd hy=1 shifts east.
     const { sim, request } = mappedSim(grassMap(5, 5));
     const e = request(sim.terrain?.nodeAt(2, 0) as number, sim.terrain?.nodeAt(3, 2) as number);
     sim.step();
     expect(sim.world.get(e, PathRoute).waypoints).toEqual([
       { x: Q(4), y: Q(0), node: sim.terrain?.nodeAt(2, 0) }, // node (2,0)
-      { x: Q(4), y: Q(2), node: sim.terrain?.nodeAt(2, 1) }, // the midpoint at row ½: 1¼ − ¼
+      { x: Q(4), y: Q(2), node: sim.terrain?.nodeAt(2, 1) }, // node (2,1): 1¼ − ¼
       { x: Q(4), y: Q(4), node: sim.terrain?.nodeAt(3, 2) }, // node (3,2): row 1, grid x = 1½ − ½
     ]);
   });
 
-  it('a westward diagonal picks the between node on the other side', () => {
+  it('walks two SW edges through the node between them, from either row parity', () => {
     // (3,0) -> (2,2): SW from an even row passes (2,1); (2,1) -> (1,3): SW from an odd row passes (2,2).
     const { sim, request } = mappedSim(grassMap(5, 5));
     const e = request(sim.terrain?.nodeAt(3, 0) as number, sim.terrain?.nodeAt(2, 2) as number);
@@ -134,6 +133,90 @@ describe('pathfindingSystem - request to PathFollow handoff', () => {
       sim.terrain?.nodeAt(2, 2),
       sim.terrain?.nodeAt(1, 3),
     ]);
+  });
+});
+
+describe('pathfindingSystem - a person walks a column straight', () => {
+  const VIKING = 1;
+  const BEAR = 10;
+  /** A bare walker's step off land, the same for a column step as for any edge. */
+  const LAND_STEP_TICKS = 8;
+  const FROM = { hx: 4, hy: 2 };
+  const GOAL = { hx: 4, hy: 16 };
+
+  function walkerOn(sim: Simulation, person: boolean): Entity {
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const e = sim.world.create();
+    sim.world.add(e, Position, positionOfNode(FROM.hx, FROM.hy));
+    const state = {
+      tribe: VIKING,
+      jobType: null,
+      hunger: fx.fromInt(0),
+      fatigue: fx.fromInt(0),
+      piety: fx.fromInt(0),
+      enjoyment: fx.fromInt(0),
+    };
+    if (person) addPerson(sim.world, e, state);
+    else addWildlife(sim.world, e, BEAR);
+    sim.world.add(e, PathRequest, {
+      start: terrain.nodeAt(FROM.hx, FROM.hy),
+      goal: terrain.nodeAt(GOAL.hx, GOAL.hy),
+      failed: false,
+    });
+    return e;
+  }
+
+  it('faces south on every column step, each in one step cost, and never stands on a skipped node', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(12, 20) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const e = walkerOn(sim, true);
+    sim.step();
+    const stops = sim.world.get(e, PathRoute).waypoints.map((w) => terrain.coordsOf(w.node));
+    // Column steps down to the goal tail, whose two edges stay single.
+    expect(stops).toEqual([
+      { x: 4, y: 2 },
+      { x: 4, y: 4 },
+      { x: 4, y: 6 },
+      { x: 4, y: 8 },
+      { x: 4, y: 10 },
+      { x: 4, y: 12 },
+      { x: 4, y: 14 },
+      { x: 3, y: 15 },
+      { x: 4, y: 16 },
+    ]);
+    const skipped = new Set<string>();
+    for (let hy = FROM.hy + 1; hy < 14; hy += 2) for (const hx of [3, 4]) skipped.add(`${hx},${hy}`);
+    const legTicks: number[] = [];
+    let ticks = 1;
+    let index = sim.world.get(e, PathFollow).index;
+    while (sim.world.has(e, PathFollow)) {
+      const leg = index;
+      const p = sim.world.get(e, Position);
+      const at = nodeOfPosition(p.x, p.y);
+      const centre = positionOfNode(at.hx, at.hy);
+      if (p.x === centre.x && p.y === centre.y) expect(skipped.has(`${at.hx},${at.hy}`)).toBe(false);
+      if (leg < 7) expect(sim.world.get(e, WalkFacing).direction).toBe(WALK_DIRECTION.S);
+      sim.step();
+      ticks++;
+      index = sim.world.tryGet(e, PathFollow)?.index ?? index + 1;
+      if (index !== leg) {
+        legTicks.push(ticks);
+        ticks = 0;
+      }
+      if (legTicks.length > stops.length) throw new Error('walk never ended');
+    }
+    // The first leg also turns once from the initial SW, which costs no tick of its own.
+    expect(legTicks.slice(0, 6)).toEqual(new Array(6).fill(LAND_STEP_TICKS));
+    expect(nodeOfPosition(sim.world.get(e, Position).x, sim.world.get(e, Position).y)).toEqual(GOAL);
+  });
+
+  it('leaves a creature every lattice edge', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(12, 20) });
+    const e = walkerOn(sim, false);
+    sim.step();
+    expect(sim.world.get(e, PathRoute).waypoints).toHaveLength(GOAL.hy - FROM.hy + 1);
   });
 });
 

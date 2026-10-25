@@ -10,15 +10,13 @@ import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, positionOfNode } from '../../nav/halfcell.js';
 import { headingToward, nextWalkDirection, walkTurnSteps } from '../movement/turning.js';
 
-/** The ticks a vehicle takes to swing through one heading step, original behavior per hexagon
- *  direction; a human takes 1. A land vehicle counts six-direction steps (`hexTurnSteps`); a ship's hull
- *  swings the eight-heading ring, an approximation. */
+/** The ticks a vehicle takes to swing through one step of the eight-heading ring, original behavior; a
+ *  human takes 1. */
 export const VEHICLE_TURN_TICKS_PER_DIRECTION = 2;
 
 /**
- * The heading a vehicle faces along a lattice step, the screen octant a walker would face: E or W along
- * a row, and NE, SE, SW or NW across one, so a column climb faces NE and NW in turn. A zero step keeps
- * east.
+ * The heading a vehicle faces along a step, the screen octant a walker would face: E or W along a row,
+ * NE, SE, SW or NW across one, and N or S on a column step. A zero step keeps east.
  */
 export function facingOfStep(from: HalfCellNode, to: HalfCellNode): WalkDirection {
   return headingToward(positionOfNode(from.hx, from.hy), positionOfNode(to.hx, to.hy)) ?? WALK_DIRECTION.E;

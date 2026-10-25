@@ -1,21 +1,45 @@
 import { Graphics, GraphicsContext } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
+import { nodeDiamondPoly, TILE_HALF_H, TILE_HALF_W } from '../../../src/data/projection/index.js';
+import { type ElevationField, projectNode } from '../../../src/data/terrain/index.js';
 import {
   type ConstructionPlotFrame,
   ConstructionPlotLayer,
   fillPlotOutlines,
   plotIslands,
   plotOutlines,
+  projectUV,
 } from '../../../src/gpu/placement/construction-plot.js';
 
-/**
- * Outlines are built in the rotated `(u,v)` frame (`u = col+row`, `v = col−row`), where each cell diamond
- * is the axis-aligned 2×2 square centred on its `(u,v)`.
- */
+const FLAT: ElevationField = { maxLift: 0, liftAt: () => 0, liftAtNode: () => 0 };
+/** A node diamond's half-extents, as the placement overlay draws them. */
+const DIAMOND_HALF_W = TILE_HALF_W;
+const DIAMOND_HALF_H = TILE_HALF_H / 2;
+const EPSILON = 1e-9;
 
-/** Order-independent loop signature: the vertex set as sorted "u,v" keys. */
-function vertexSet(loop: readonly { u: number; v: number }[]): string[] {
-  return loop.map((p) => `${p.u},${p.v}`).sort();
+type Cell = { readonly col: number; readonly row: number };
+
+/** A loop's flat world vertices as sorted "x,y" keys. */
+function screenSet(loop: readonly { u: number; v: number }[]): string[] {
+  return loop
+    .map(({ u, v }) => projectUV(FLAT, u, v))
+    .map(({ x, y }) => `${x},${y}`)
+    .sort();
+}
+
+/** The placement overlay's diamond of a node, as sorted "x,y" keys. */
+function diamondSet(cell: Cell): string[] {
+  const p = projectNode(FLAT, cell.col, cell.row);
+  const poly = nodeDiamondPoly(p.x, p.y, DIAMOND_HALF_W, DIAMOND_HALF_H);
+  const keys: string[] = [];
+  for (let i = 0; i < poly.length; i += 2) keys.push(`${poly[i]},${poly[i + 1]}`);
+  return keys.sort();
+}
+
+/** How far `(x,y)` sits inside a node diamond: below 1 inside, 1 on the boundary. */
+function diamondNorm(cell: Cell, x: number, y: number): number {
+  const p = projectNode(FLAT, cell.col, cell.row);
+  return Math.abs(x - p.x) / DIAMOND_HALF_W + Math.abs(y - p.y) / DIAMOND_HALF_H;
 }
 
 /** Twice the shoelace signed area: positive is CCW, negative CW. */
@@ -30,28 +54,64 @@ function signedArea2(loop: readonly { u: number; v: number }[]): number {
   return a;
 }
 
+function nodeBlock(col: number, row: number, w: number, h: number): Cell[] {
+  const cells: Cell[] = [];
+  for (let r = row; r < row + h; r++) for (let c = col; c < col + w; c++) cells.push({ col: c, row: r });
+  return cells;
+}
+
 describe('plotOutlines', () => {
-  it('a single cell outlines as its diamond - one 4-corner square in (u,v)', () => {
-    const loops = plotOutlines([{ cells: [{ col: 5, row: 5 }] }]);
+  it.each([
+    ['an even', { col: 5, row: 4 }],
+    ['an odd', { col: 5, row: 5 }],
+  ])('outlines a single node on %s row as its placement diamond', (_, cell) => {
+    const loops = plotOutlines([{ cells: [cell] }]);
     expect(loops).toHaveLength(1);
-    // Cell (5,5) → (u,v)=(10,0); its diamond is the square [9,11]×[−1,1].
-    expect(vertexSet(loops[0] ?? [])).toEqual(['11,-1', '11,1', '9,-1', '9,1'].sort());
+    expect(screenSet(loops[0] ?? [])).toEqual(diamondSet(cell));
   });
 
-  it('two overlapping neighbour cells union into ONE loop with no interior edges', () => {
-    // Cells (5,5) and (6,5) - horizontal node neighbours whose diamonds overlap by half.
-    const loops = plotOutlines([
-      {
-        cells: [
-          { col: 5, row: 5 },
-          { col: 6, row: 5 },
-        ],
-      },
-    ]);
+  it.each([
+    ['even', 4],
+    ['odd', 5],
+  ])('traces the diamond union of a footprint at an %s-row anchor', (_, anchorRow) => {
+    const cells = [...nodeBlock(10, anchorRow, 3, 3), { col: 13, row: anchorRow + 1 }];
+    const loops = plotOutlines([{ cells }]);
     expect(loops).toHaveLength(1);
-    // The union is the 8-corner staircase of the two 2×2 blocks around (10,0) and (11,1).
-    expect(vertexSet(loops[0] ?? [])).toEqual(
-      ['9,-1', '11,-1', '11,0', '12,0', '12,2', '10,2', '10,1', '9,1'].sort(),
+    for (const { u, v } of loops[0] ?? []) {
+      const { x, y } = projectUV(FLAT, u, v);
+      const norms = cells.map((cell) => diamondNorm(cell, x, y));
+      // On some node's diamond edge, inside none: a vertex of the union.
+      expect(Math.min(...norms)).toBeCloseTo(1, 9);
+      expect(norms.every((n) => n > 1 - EPSILON)).toBe(true);
+    }
+    // Every node's lowest tip on the footprint's bottom row is an outline vertex.
+    const bottom = screenSet(loops[0] ?? []);
+    for (let col = 10; col < 13; col++) {
+      const p = projectNode(FLAT, col, anchorRow + 2);
+      expect(bottom).toContain(`${p.x},${p.y + DIAMOND_HALF_H}`);
+    }
+  });
+
+  it('two overlapping row neighbours union into ONE loop with no interior edges', () => {
+    const left = { col: 5, row: 5 };
+    const right = { col: 6, row: 5 };
+    const loops = plotOutlines([{ cells: [left, right] }]);
+    expect(loops).toHaveLength(1);
+    const l = projectNode(FLAT, left.col, left.row);
+    const r = projectNode(FLAT, right.col, right.row);
+    const midX = (l.x + r.x) / 2;
+    const notch = DIAMOND_HALF_H / 2;
+    expect(screenSet(loops[0] ?? [])).toEqual(
+      [
+        `${l.x - DIAMOND_HALF_W},${l.y}`,
+        `${l.x},${l.y - DIAMOND_HALF_H}`,
+        `${midX},${l.y - notch}`,
+        `${r.x},${r.y - DIAMOND_HALF_H}`,
+        `${r.x + DIAMOND_HALF_W},${r.y}`,
+        `${r.x},${r.y + DIAMOND_HALF_H}`,
+        `${midX},${l.y + notch}`,
+        `${l.x},${l.y + DIAMOND_HALF_H}`,
+      ].sort(),
     );
   });
 
@@ -61,11 +121,8 @@ describe('plotOutlines', () => {
     for (const loop of loops) expect(loop).toHaveLength(4);
   });
 
-  it('a filled cell rectangle outlines without interior vertices (collinear runs merged)', () => {
-    // A dense 3×3 block of nodes, whose union is one region.
-    const cells = [];
-    for (let col = 4; col <= 6; col++) for (let row = 4; row <= 6; row++) cells.push({ col, row });
-    const loops = plotOutlines([{ cells }]);
+  it('a filled node block outlines without interior vertices (collinear runs merged)', () => {
+    const loops = plotOutlines([{ cells: nodeBlock(4, 4, 3, 3) }]);
     expect(loops).toHaveLength(1);
     const loop = loops[0] ?? [];
     // Every kept vertex is a genuine turn: collinear runs along the boundary are merged away.
@@ -81,51 +138,32 @@ describe('plotOutlines', () => {
   });
 
   it('a corner-pinch (two diamonds touching at one vertex) splits into two separate loops', () => {
-    // Blocks [-1,1]² and [1,3]² touch only at (u,v)=(1,1), where the left-turn priority has to keep each
+    // Row neighbours two nodes apart touch only at one tip, where the left-turn priority has to keep each
     // region on the left rather than tracing one self-crossing figure-8.
-    const loops = plotOutlines([
-      {
-        cells: [
-          { col: 0, row: 0 },
-          { col: 2, row: 0 },
-        ],
-      },
-    ]);
+    const a = { col: 0, row: 0 };
+    const b = { col: 2, row: 0 };
+    const loops = plotOutlines([{ cells: [a, b] }]);
     expect(loops).toHaveLength(2);
-    expect(vertexSet(loops[0] ?? [])).toEqual(['-1,-1', '-1,1', '1,-1', '1,1'].sort());
-    expect(vertexSet(loops[1] ?? [])).toEqual(['1,1', '1,3', '3,1', '3,3'].sort());
+    expect(screenSet(loops[0] ?? [])).toEqual(diamondSet(a));
+    expect(screenSet(loops[1] ?? [])).toEqual(diamondSet(b));
   });
 
   it('a ring footprint yields an outer loop plus an oppositely-wound hole (fill cuts it out)', () => {
-    // Eight diamonds tiling a 6×6 (u,v) block around an empty 2×2 centre, with node (2,0) omitted.
-    const loops = plotOutlines([
-      {
-        cells: [
-          { col: 3, row: 1 },
-          { col: 1, row: 1 },
-          { col: 3, row: -1 },
-          { col: 1, row: -1 },
-          { col: 4, row: 0 },
-          { col: 0, row: 0 },
-          { col: 2, row: 2 },
-          { col: 2, row: -2 },
-        ],
-      },
-    ]);
+    const ring = nodeBlock(0, 0, 6, 6).filter(
+      ({ col, row }) => col === 0 || col === 5 || row === 0 || row === 5,
+    );
+    const loops = plotOutlines([{ cells: ring }]);
     expect(loops).toHaveLength(2);
-    const outer = loops.find((l) => Math.abs(signedArea2(l)) > 8) ?? [];
-    const hole = loops.find((l) => Math.abs(signedArea2(l)) <= 8) ?? [];
-    expect(vertexSet(outer)).toEqual(['-1,-1', '-1,5', '5,-1', '5,5'].sort()); // the 6×6 perimeter
-    expect(vertexSet(hole)).toEqual(['1,1', '1,3', '3,1', '3,3'].sort()); // the 2×2 centre hole
+    const [outer, hole] = [...loops].sort((x, y) => Math.abs(signedArea2(y)) - Math.abs(signedArea2(x)));
     // Opposite windings, so a nonzero-winding fill leaves the enclosed hole empty.
-    expect(Math.sign(signedArea2(outer))).toBe(-Math.sign(signedArea2(hole)));
+    expect(Math.sign(signedArea2(outer ?? []))).toBe(-Math.sign(signedArea2(hole ?? [])));
   });
 });
 
 describe('construction plot picking', () => {
   it('retains identical fog-filtered shapes and replaces only the site whose visible cells changed', () => {
     const layer = new ConstructionPlotLayer();
-    const flat = { maxLift: 0, liftAt: () => 0, liftAtNode: () => 0 };
+    const flat = FLAT;
     const plots = () => [
       { ref: 7, cells: [{ col: 4, row: 4 }] },
       { ref: 8, cells: [{ col: 10, row: 4 }] },
@@ -191,7 +229,7 @@ describe('construction plot picking', () => {
 
   it('moves click ownership when a site is replaced at the same cells, and drops completed or hidden plots', () => {
     const layer = new ConstructionPlotLayer();
-    const flat = { maxLift: 0, liftAt: () => 0, liftAtNode: () => 0 };
+    const flat = FLAT;
     const cells = [{ col: 4, row: 4 }];
     layer.set([{ ref: 7, cells }], flat);
     expect(layer.hit(7, 136, 76)).toBe(true);

@@ -11,6 +11,7 @@ import {
   PathFollow,
   PathRequest,
   PathRoute,
+  Person,
   PlayerOrder,
   Position,
   pathFollowRecord,
@@ -25,7 +26,12 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { positionXOfNode, positionYOfNode } from '../../nav/halfcell.js';
 import { nearestUnblockedNode } from '../../nav/nearest.js';
-import { findPath, RACE_SLICE_EXPLORED, type SearchStats } from '../../nav/pathfinding/index.js';
+import {
+  findPath,
+  RACE_SLICE_EXPLORED,
+  type SearchStats,
+  straightenColumnSteps,
+} from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { ROW_STEP, worldDistance, worldX } from '../../nav/world-metric.js';
 import type { System, SystemContext } from '../context.js';
@@ -349,7 +355,11 @@ export function drainPathRequests(
         world.remove(e, StandIn);
       }
     }
-    let waypoints = path === null ? [] : pathToWaypoints(terrain, path);
+    // A person walks a column straight; a creature keeps every edge.
+    let waypoints =
+      path === null
+        ? []
+        : pathToWaypoints(terrain, world.has(e, Person) ? straightenColumnSteps(terrain, path) : path);
     // A grind reroute that found the route already walked keeps it; any other answer replaces it.
     if (req.grind) {
       if (path !== null && walksRoute(world, e, waypoints)) {
@@ -547,7 +557,7 @@ function startIsAhead(position: { x: Fixed; y: Fixed }, waypoints: readonly Wayp
 }
 
 /** Turn a node path into the stops a walker steps between, each on its node's centre with the lattice
- *  node whose roughness paces the step that leaves it. */
+ *  node whose roughness paces the step that leaves it. A column step is one leg. */
 function pathToWaypoints(terrain: TerrainGraph, path: ReadonlyArray<NodeId>): Waypoint[] {
   return path.map((node) => {
     // `yOf` once and the column by subtraction: `xOf` exactly, one division fewer.

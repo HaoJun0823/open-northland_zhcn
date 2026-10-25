@@ -68,3 +68,35 @@ describe('a closing ahead of a walker', () => {
     expect(sim.world.get(walker, PathFollow).index).toBe(1);
   });
 });
+
+describe('a closing beside a column step', () => {
+  /** A person on a route straight down the column from (4,4): column steps to (4,10), then single edges. */
+  const COLUMN_GOAL = { hx: 4, hy: 14 };
+
+  it('stops the walker on the node before a column step when a node it passes between closes', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(16, 20) });
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: WOODCUTTER, x: 4, y: 4, tribe: VIKING, owner: OWNER });
+    sim.step();
+    const walker = [...sim.world.query(Settler)][0];
+    const terrain = sim.terrain;
+    if (walker === undefined || terrain === undefined) throw new Error('expected a mapped walker');
+    sim.world.add(walker, Position, positionOfNode(4, 4));
+    moveUnit(sim.world, ctxOf(sim), {
+      kind: 'moveUnit',
+      entity: walker,
+      x: COLUMN_GOAL.hx,
+      y: COLUMN_GOAL.hy,
+    });
+    for (let tick = 0; tick < 5 && !sim.world.has(walker, PathFollow); tick++) sim.step();
+    const nodes = stops(sim, walker).map((stop) => [terrain.xOf(stop.node), terrain.yOf(stop.node)]);
+    expect(nodes.slice(0, 3)).toEqual([
+      [4, 4],
+      [4, 6],
+      [4, 8],
+    ]);
+    sim.world.mut(walker, PathFollow).index = 1;
+    // (3,7) is the west node between (4,6) and (4,8), on no stop of the route.
+    invalidateRoutesThrough(sim.world, terrain, new Set([terrain.nodeAt(3, 7)]));
+    expect(stops(sim, walker).map((stop) => stop.node)).toEqual([terrain.nodeAt(4, 4), terrain.nodeAt(4, 6)]);
+  });
+});

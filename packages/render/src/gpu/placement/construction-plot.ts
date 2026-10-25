@@ -1,5 +1,11 @@
 import { Container, Graphics, GraphicsContext } from 'pixi.js';
-import { TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
+import {
+  halfCellToScreenX,
+  halfCellToScreenY,
+  rowStagger,
+  TILE_HALF_H,
+  TILE_HALF_W,
+} from '../../data/projection/index.js';
 import { type ElevationField, terrainLiftAt } from '../../data/terrain/index.js';
 import type { EntityBounds } from '../sprite-pool/pooled-entity.js';
 import { hashCells } from './cell-signature.js';
@@ -199,7 +205,7 @@ function sameIsland(a: readonly ConstructionPlotFrame[], b: readonly Constructio
   return true;
 }
 
-/** The `(u,v)` extent of a plot's outline vertices: a cell's diamond reaches one unit past its centre. */
+/** The `(u,v)` extent of a plot's outline vertices: a node's square reaches {@link NODE_SQUARE_HALF} past its centre. */
 interface UVBox {
   minU: number;
   maxU: number;
@@ -210,12 +216,11 @@ interface UVBox {
 function vertexBoxOf(plot: ConstructionPlotFrame): UVBox {
   const box = { minU: Infinity, maxU: -Infinity, minV: Infinity, maxV: -Infinity };
   for (const { col, row } of plot.cells) {
-    const u = col + row;
-    const v = col - row;
-    box.minU = Math.min(box.minU, u - 1);
-    box.maxU = Math.max(box.maxU, u + 1);
-    box.minV = Math.min(box.minV, v - 1);
-    box.maxV = Math.max(box.maxV, v + 1);
+    const { u, v } = nodeSquareCentre(col, row);
+    box.minU = Math.min(box.minU, u - NODE_SQUARE_HALF);
+    box.maxU = Math.max(box.maxU, u + NODE_SQUARE_HALF);
+    box.minV = Math.min(box.minV, v - NODE_SQUARE_HALF);
+    box.maxV = Math.max(box.maxV, v + NODE_SQUARE_HALF);
   }
   return box;
 }
@@ -263,9 +268,9 @@ export function plotIslands(plots: readonly ConstructionPlotFrame[]): Constructi
 }
 
 /**
- * The union outlines of the plots' cell diamonds, as loops of integer vertices in the rotated `(u,v)`
- * frame (`u = col + row`, `v = col − row`), where a node diamond is the axis-aligned 2×2 square centred
- * `(u, v)` - so the union becomes unit grid squares whose rectilinear boundary is walked exactly. Loops
+ * The union outlines of the plots' node diamonds, as loops of integer vertices in the rotated `(u,v)`
+ * frame of {@link nodeSquareCentre}, where a node diamond is an axis-aligned square - so the union
+ * becomes unit grid squares whose rectilinear boundary is walked exactly. Loops
  * wind with the region on the left (holes wind opposite); at a corner-pinch vertex the walk prefers the
  * left turn, so loops never self-cross. Deterministic: squares and edges are visited in sorted-key order,
  * so the outlines do not depend on the caller's cell order.
@@ -292,16 +297,14 @@ function byOutlineOrder(a: { readonly start: OutlineStart }, b: { readonly start
 function startedOutlines(
   plots: readonly Pick<ConstructionPlotFrame, 'cells'>[],
 ): { start: OutlineStart; loop: { u: number; v: number }[] }[] {
-  // 1. The covered unit squares, keyed by their min corner "a,b" - 4 per cell (the 2×2 block).
+  // 1. The covered unit squares, keyed by their min corner "a,b".
   const squares = new Set<string>();
   for (const plot of plots) {
     for (const cell of plot.cells) {
-      const u = cell.col + cell.row;
-      const v = cell.col - cell.row;
-      squares.add(`${u - 1},${v - 1}`);
-      squares.add(`${u - 1},${v}`);
-      squares.add(`${u},${v - 1}`);
-      squares.add(`${u},${v}`);
+      const { u, v } = nodeSquareCentre(cell.col, cell.row);
+      for (let du = -NODE_SQUARE_HALF; du < NODE_SQUARE_HALF; du++) {
+        for (let dv = -NODE_SQUARE_HALF; dv < NODE_SQUARE_HALF; dv++) squares.add(`${u + du},${v + dv}`);
+      }
     }
   }
 
@@ -363,19 +366,29 @@ function startedOutlines(
   return loops;
 }
 
-/** Half the odd-row shift of a node, in node columns: a quarter of one. */
-const ODD_ROW_SHIFT_HALVED = 1 / 4;
+/** Half a node square's side in outline units: two, so odd rows' squares, a quarter cell east, stay on
+ *  the integer grid. */
+const NODE_SQUARE_HALF = 2;
+/** World px per outline unit along `x` and along `y`: a node diamond reaches `TILE_HALF_W` across and
+ *  `TILE_HALF_H / 2` down. */
+const UNIT_X = TILE_HALF_W / NODE_SQUARE_HALF;
+const UNIT_Y = TILE_HALF_H / 2 / NODE_SQUARE_HALF;
 
-/** Project a `(u,v)` outline vertex to world px. The outline is a union of node diamonds on an affine
- *  lattice, so every row takes half the odd-row shift: approximation, each vertex at most an eighth of a
- *  cell off its node's own column. */
-function projectUV(elevation: ElevationField, u: number, v: number): { x: number; y: number } {
-  const col = (u + v) / 2;
-  const row = (u - v) / 2;
-  return {
-    x: (col + ODD_ROW_SHIFT_HALVED) * TILE_HALF_W,
-    y: (row * TILE_HALF_H) / 2 - terrainLiftAt(elevation, col / 2, row / 2),
-  };
+/** A node's square centre in the outline frame, rotated from its flat screen point so the node's
+ *  diamond becomes the axis-aligned square of half-side {@link NODE_SQUARE_HALF}. */
+function nodeSquareCentre(col: number, row: number): { u: number; v: number } {
+  const x = halfCellToScreenX(col, row) / UNIT_X;
+  const y = halfCellToScreenY(row) / UNIT_Y;
+  return { u: x + y, v: x - y };
+}
+
+/** Project a `(u,v)` outline vertex to world px, lifted by the terrain under that point. */
+export function projectUV(elevation: ElevationField, u: number, v: number): { x: number; y: number } {
+  const x = ((u + v) / 2) * UNIT_X;
+  const y = ((u - v) / 2) * UNIT_Y;
+  const tileRow = y / TILE_HALF_H;
+  const tileCol = (x / TILE_HALF_W - rowStagger(tileRow)) / 2;
+  return { x, y: y - terrainLiftAt(elevation, tileCol, tileRow) };
 }
 
 /** Per-vertex corner radii: half the shorter adjacent edge, capped at {@link MAX_CORNER_RADIUS}. */

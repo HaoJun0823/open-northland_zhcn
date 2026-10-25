@@ -29,7 +29,7 @@ import {
   positionOfNode,
 } from '../../nav/halfcell.js';
 import { hasOpenSide } from '../../nav/nearest.js';
-import { findPath, joinCorridor } from '../../nav/pathfinding/index.js';
+import { findPath, joinCorridor, straightenColumnSteps } from '../../nav/pathfinding/index.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
@@ -44,7 +44,7 @@ import {
 } from '../footprint/index.js';
 import { landVehicleFits, vehicleStandable } from '../footprint/vehicle-clearance.js';
 import { isTravelling, redirectRoute } from '../movement/nav-state.js';
-import { hexTurnSteps } from '../movement/turning.js';
+import { walkTurnSteps } from '../movement/turning.js';
 import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import {
   awaitsDraughtAnimal,
@@ -74,13 +74,14 @@ import { seaRegions } from './sea-regions.js';
 // original holds a goto to a walk range), the route runs over the shared graph, on land or on water by
 // the vehicle's traversal class, through nodes the vehicle passes (`vehicleWalkBlocks`: a
 // land vehicle squeezes through narrow gaps) to a goal it may stand on (`vehicleRestBlocks`: the plain
-// free-size class). Each leg takes the ground's move period per map point it crosses plus its turn (a
+// free-size class). Each leg takes the ground's move period, a column step's too, plus its turn (a
 // ship turns under way, `helm.ts`), the footprint travels with the anchor and shoves the settlers it
 // lands on. A ship that starts a drive leaves its mooring; one on a dock drive moors again where it
 // arrives (`dock.ts`).
 
-/** The longest lattice edge, in map points: the most a route's first node lies from where it leaves. */
-const LATTICE_EDGE_MAX_POINTS = 2;
+/** A column step's length in map points, the longest step a route takes: the most a route's first node
+ *  lies from where it leaves. */
+const LONGEST_STEP_POINTS = 2;
 
 /** How far around a clicked target the goto looks for a node the vehicle may stand on, in hexagon rings. */
 export const VEHICLE_TARGET_SNAP_RADIUS = 9;
@@ -103,15 +104,6 @@ export function vehicleMovePeriod(g: number, siege: boolean): number {
  *  the original's integer division. */
 export function vehicleProgressPerTick(period: number): number {
   return Math.floor((period + NODE_PROGRESS_FULL - 1) / period);
-}
-
-/**
- * The ticks a leg of `mapPoints` hexagon steps takes under `period`: the original's per-node counter
- * charges the period at every map point whatever its drawn length, so a vehicle crosses a N/S step
- * faster on screen than an E/W one, as in the original. A lattice edge is one or two map points.
- */
-export function vehicleLegTicks(period: number, mapPoints: number): number {
-  return period * Math.max(1, mapPoints);
 }
 
 /** The continent key a vehicle's goto compares: the anchor's static component, a land or a water
@@ -450,7 +442,7 @@ export function startHeldDrive(
     first !== undefined &&
     last !== undefined &&
     terrain.nodeAtClamped(last.hx, last.hy) === goal &&
-    hexDistance(anchor, first) <= LATTICE_EDGE_MAX_POINTS;
+    hexDistance(anchor, first) <= LONGEST_STEP_POINTS;
   if (!fits) return startVehicleDrive(world, ctx, terrain, vehicle, goal);
   castOff(world, vehicle);
   deliverRoute(world, ctx, vehicle, nodeOf(terrain, goal), held);
@@ -584,13 +576,7 @@ export function rejoinMarch(
     vehicleTraversal(type),
   );
   if (joined === null) return false;
-  deliverRoute(
-    world,
-    ctx,
-    vehicle,
-    { hx: goal.hx, hy: goal.hy },
-    joined.slice(1).map((node) => nodeOf(terrain, node)),
-  );
+  deliverRoute(world, ctx, vehicle, { hx: goal.hx, hy: goal.hy }, drivenNodes(terrain, type, joined));
   return true;
 }
 
@@ -637,7 +623,7 @@ export function vehicleRouteTo(
   if (start !== goal && blocked.has(goal)) return null;
   const group = `${world.tryGet(vehicle, Owner)?.player ?? -1}:${traversal}:${type.logicSize}`;
   const borrowed = orders?.borrow(terrain, group, blocked, start, goal, traversal) ?? null;
-  if (borrowed !== null) return borrowed.slice(1).map((node) => nodeOf(terrain, node));
+  if (borrowed !== null) return drivenNodes(terrain, type, borrowed);
   const pastVehicles = vehicleGroundBlocks(world, ctx, terrain, vehicle, type);
   const blind = findPath(terrain, start, goal, pastVehicles, undefined, traversal);
   if (blind === null) return null;
@@ -645,7 +631,14 @@ export function vehicleRouteTo(
   const around = meetsVehicle ? findPath(terrain, start, goal, blocked, undefined, traversal) : blind;
   // Only a route clear of other vehicles is offered: the group joins one under their cells.
   if (around !== null) orders?.offer(group, around);
-  return (around ?? blind).slice(1).map((node) => nodeOf(terrain, node));
+  return drivenNodes(terrain, type, around ?? blind);
+}
+
+/** The nodes a drive along node `path` enters, the first next. A land vehicle walks a column straight
+ *  (`straightenColumnSteps`); a ship sails every edge, its helm steering over the zigzag. */
+function drivenNodes(terrain: TerrainGraph, type: VehicleType, path: readonly NodeId[]): HalfCellNode[] {
+  const walked = isShipVehicle(type) ? path : straightenColumnSteps(terrain, path);
+  return walked.slice(1).map((node) => nodeOf(terrain, node));
 }
 
 /** Whether `goal` lies in a part of the sea a ship of `type` on `start` can sail into: a lookup that
@@ -976,7 +969,8 @@ export const vehicleMovementSystem: System = (world, ctx) => {
     const live = world.mut(e, VehicleDrive);
     live.step += 1;
     live.from = anchor;
-    live.increment = vehicleProgressPerTick(vehicleLegTicks(period, hexDistance(anchor, next)));
+    // Original behavior: every step takes one period, a column step's two rows included.
+    live.increment = vehicleProgressPerTick(period);
     // Written on every node entered, a ship holding its heading included: the blocker caches learn
     // that a vehicle's cells moved from the `Vehicle` store's value writes (`footprint/vehicle-anchors.ts`).
     const vehicle = world.mut(e, Vehicle);
@@ -985,7 +979,7 @@ export const vehicleMovementSystem: System = (world, ctx) => {
       live.progress = 0;
     } else {
       // A land vehicle turns on `from`: progress below zero draws it there, facing the new way.
-      const turnTicks = hexTurnSteps(state.facing, facing) * VEHICLE_TURN_TICKS_PER_DIRECTION;
+      const turnTicks = walkTurnSteps(state.facing, facing) * VEHICLE_TURN_TICKS_PER_DIRECTION;
       live.progress = live.increment * (1 - turnTicks);
       vehicle.facing = facing;
     }

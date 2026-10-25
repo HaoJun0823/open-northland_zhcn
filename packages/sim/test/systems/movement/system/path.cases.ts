@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { PathFollow, PathRoute, Position, pathLegTicks } from '../../../../src/components/index.js';
+import {
+  MISSION_BEHAVIOUR,
+  MissionBehaviour,
+  PathFollow,
+  PathRoute,
+  Position,
+  pathLegTicks,
+  WALK_DIRECTION,
+  WalkFacing,
+} from '../../../../src/components/index.js';
 import type { Entity } from '../../../../src/ecs/world.js';
 import { exportSaveGame, fx, restoreSimulation, Simulation } from '../../../../src/index.js';
 import { worldX } from '../../../../src/nav/world-metric.js';
 import { movementSystem } from '../../../../src/systems/index.js';
 import { stepTowardPoint } from '../../../../src/systems/movement/stepping.js';
+import { MIN_STEP_TICKS } from '../../../../src/systems/movement/walk-cost.js';
 import { layRoad } from '../../../../src/systems/roads/index.js';
 import { testContent } from '../../../fixtures/content.js';
 import { roughNodeMap } from '../../../fixtures/terrain.js';
@@ -134,26 +144,33 @@ describe('movementSystem - path following', () => {
     expect(pos(sim, e)).toEqual({ x: 0, y: 0 });
   });
 
-  it('walks a vertical leg dead straight on screen: worldX constant through the midpoint stop', () => {
-    // The two halves of a vertical S step (cell centre -> midpoint -> cell centre, as routing.ts splices
-    // them): grid x bends half a column left and back, EXACTLY cancelling the stagger's triangle wave -
-    // so the world x (what the render projects) never moves. This is the sim-side guarantee behind
-    // "ordered straight down, walks straight down".
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(5, 5) });
-    const e = followerAt(sim, 2, 0, [
+  it('walks a column step dead straight on screen in one step cost, the floor cost included', () => {
+    // Node (4,0) to node (4,2): two rows straight down, one leg (routing.ts merges the SE+SW pair).
+    // Grid x drops the next row's stagger.
+    const column = [
       { x: 2, y: 0 },
-      { x: 1.5, y: 1 }, // the midpoint (routing writes fractional waypoints; followerAt scales floats)
-      { x: 2, y: 2 },
-    ]);
-    let guard = 0;
+      { x: 1.5, y: 1 },
+    ];
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(5, 5) });
+    const e = followerAt(sim, 2, 0, column);
+    sim.world.mut(e, WalkFacing).direction = WALK_DIRECTION.S;
+    let ticks = 0;
     while (sim.world.has(e, PathFollow)) {
       sim.step();
-      const p = pos(sim, e);
-      const shift = Math.abs(p.y % 2) <= 1 ? Math.abs(p.y % 2) / 2 : 1 - Math.abs(p.y % 2) / 2;
-      expect(p.x + shift).toBeCloseTo(2, 3); // worldX = grid x + stagger shift stays on the column
-      if (++guard > 100) throw new Error('leg never completed');
+      ticks++;
+      const p = sim.world.get(e, Position);
+      expect(worldX(p.x, p.y)).toBe(fx.fromInt(2)); // the column's world x, through the skipped row
+      expect(sim.world.get(e, WalkFacing).direction).toBe(WALK_DIRECTION.S);
+      if (ticks > LAND_STEP_TICKS) throw new Error('leg overran its step cost');
     }
-    expect(pos(sim, e)).toEqual({ x: 2, y: 2 });
+    expect(ticks).toBe(LAND_STEP_TICKS);
+    expect(pos(sim, e)).toEqual({ x: 1.5, y: 1 });
+    // The per-tick cap still lets the longest step land in the engine's floor cost.
+    const fast = new Simulation({ seed: 1, content: testContent(), map: roughNodeMap(5, 5, () => 0) });
+    const runner = followerAt(fast, 2, 0, column);
+    fast.world.mut(runner, WalkFacing).direction = WALK_DIRECTION.S;
+    fast.world.add(runner, MissionBehaviour, { flags: MISSION_BEHAVIOUR.WALKS_FAST });
+    expect(ticksToArrive(fast, runner)).toBe(MIN_STEP_TICKS);
   });
 });
 

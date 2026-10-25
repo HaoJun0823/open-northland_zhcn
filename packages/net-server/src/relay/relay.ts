@@ -270,6 +270,7 @@ export class Relay {
     for (const room of this.rooms.values()) {
       const refusal = this.advanceRoom(room, elapsed, now);
       if (refusal !== null) this.dropRoom(room, refusal);
+      else this.retimeRoom(room);
     }
     this.pollClients(now);
     this.expireEmptyRooms(now);
@@ -407,6 +408,7 @@ export class Relay {
       member.linkMeasured = false;
       member.jitterMs = 0;
       room.reconnect(member, this.now());
+      this.retimeRoom(room);
       this.emptySince.delete(room);
     } else {
       this.sayFarewell(client, message.token);
@@ -451,6 +453,7 @@ export class Relay {
         );
         this.rooms.set(room.id, room);
         this.enter(client, room, member);
+        this.retimeRoom(room);
         room.welcome(member);
         return null;
       }
@@ -462,6 +465,7 @@ export class Relay {
         const refusal = room.join(member);
         if (refusal !== null) return refusal;
         this.enter(client, room, member);
+        this.retimeRoom(room);
         if (client.nick !== member.nick) {
           client.nick = member.nick;
           this.welcome(client);
@@ -480,6 +484,7 @@ export class Relay {
       case 'pong': {
         const now = this.now();
         const samples = client.probe.delay.samples;
+        const assignedBefore = client.member?.delayTicks;
         const changed = client.probe.pong(message.t, now);
         if (client.room !== null && client.member !== null && client.probe.delay.samples !== samples) {
           client.room.linkMeasured(
@@ -490,14 +495,36 @@ export class Relay {
             client.probe.delay.jitterMs,
           );
         }
-        if (changed) client.connection.send({ kind: 'delay', ticks: client.probe.delay.ticks });
+        if (
+          changed ||
+          (client.probe.delay.samples !== samples && assignedBefore !== client.probe.delay.ticks)
+        )
+          client.connection.send({ kind: 'delay', ticks: client.probe.delay.ticks });
         return null;
       }
       default: {
         const { room, member } = client;
         if (room === null || member === null) return { code: 'notInRoom' };
-        return dispatchRoomMessage(room, member, message, this.now());
+        const refusal = dispatchRoomMessage(room, member, message, this.now());
+        if (
+          refusal === null &&
+          (message.kind === 'clock' || message.kind === 'start' || message.kind === 'setSettings')
+        )
+          this.retimeRoom(room);
+        return refusal;
       }
+    }
+  }
+
+  /** A speed change reexpresses each measured link's wall-time budget in the room's emitted ticks. */
+  private retimeRoom(room: Room): void {
+    const speed = room.delaySpeed;
+    for (const token of room.memberTokens()) {
+      const client = this.byToken.get(token);
+      if (client?.room !== room || client.member === null) continue;
+      if (!client.probe.delay.setSpeed(speed)) continue;
+      room.retimeLink(client.member, client.probe.delay.ticks);
+      client.connection.send({ kind: 'delay', ticks: client.probe.delay.ticks });
     }
   }
 

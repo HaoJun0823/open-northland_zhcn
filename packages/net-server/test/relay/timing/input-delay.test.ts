@@ -6,6 +6,7 @@ import {
   LatencyProbe,
   MAX_INPUT_DELAY_TICKS,
 } from '../../../src/relay/timing/input-delay.js';
+import { startingRoom } from '../../support/message-stage.js';
 
 /** Pings arrive once a second, so a sample count reads as seconds. */
 const STEADY_SAMPLES = 60;
@@ -94,6 +95,35 @@ describe('input delay estimator', () => {
   it('never drops below one tick, where an instant trip lands', () => {
     expect(steadyAt(0).ticks).toBe(1);
   });
+
+  it('retimes measured latency at the effective speed without another pong', () => {
+    const delay = steadyAt(450);
+    expect(delay.ticks).toBe(7);
+    const samples = delay.samples;
+    expect(delay.setSpeed(0.25)).toBe(true);
+    expect(delay.ticks).toBe(3);
+    expect(delay.setSpeed(3)).toBe(true);
+    expect(delay.ticks).toBe(MAX_INPUT_DELAY_TICKS);
+    expect(delay.samples).toBe(samples);
+    expect(delay.setSpeed(3)).toBe(false);
+  });
+});
+
+it('retimes the assigned member delay and wire notice when the room clock changes', () => {
+  const s = startingRoom();
+  s.advance(1000);
+  const ping = s.a.last('ping');
+  if (ping === undefined) throw new Error('missing ping');
+  s.advance(450);
+  s.a.send({ kind: 'pong', t: ping.t });
+  expect(s.a.handle.member?.delayTicks).toBe(7);
+
+  s.a.send({ kind: 'clock', speed: 0.25 });
+  expect(s.a.handle.member?.delayTicks).toBe(3);
+  expect(s.a.last('delay')?.ticks).toBe(3);
+  s.a.send({ kind: 'clock', speed: 3 });
+  expect(s.a.handle.member?.delayTicks).toBe(MAX_INPUT_DELAY_TICKS);
+  expect(s.a.last('delay')?.ticks).toBe(MAX_INPUT_DELAY_TICKS);
 });
 
 describe('latency probe', () => {

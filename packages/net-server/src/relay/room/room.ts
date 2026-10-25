@@ -119,6 +119,13 @@ export class Room {
     return this.game === null ? 'lobby' : this.game.endedTick === null ? 'running' : 'ended';
   }
 
+  /** The rate that turns link time into future command ticks, including a governed clock. */
+  get delaySpeed(): number {
+    if (this.game === null) return this.lobby.settings.speed;
+    const clock = this.game.clockMessage(null);
+    return clock.governed?.speed ?? clock.speed;
+  }
+
   get name(): string {
     return this.lobby.settings.name;
   }
@@ -415,13 +422,20 @@ export class Room {
     figures.roundTrips++;
     figures.roundTripSumMs += sampleMs;
     figures.roundTripMaxMs = Math.max(figures.roundTripMaxMs, sampleMs);
-    figures.delayMaxTicks = Math.max(figures.delayMaxTicks, delayTicks);
     const changed = member.delayTicks !== delayTicks || member.roundTripMs !== roundTripMs;
-    member.delayTicks = delayTicks;
+    this.retimeLink(member, delayTicks);
     member.roundTripMs = roundTripMs;
     member.jitterMs = jitterMs;
     member.linkMeasured = true;
     if (!changed) return;
+    if (this.game !== null) this.figuresMoved = true;
+  }
+
+  /** A clock-rate change retimes the same measured link without recording another round trip. */
+  retimeLink(member: Member, delayTicks: number): void {
+    if (member.delayTicks === delayTicks) return;
+    member.delayTicks = delayTicks;
+    member.figures.delayMaxTicks = Math.max(member.figures.delayMaxTicks, delayTicks);
     if (this.game !== null) this.figuresMoved = true;
   }
 

@@ -6,7 +6,7 @@ const PING_INTERVAL_MS = 1000;
 const PING_TIMEOUT_MS = 5000;
 const MIN_INPUT_DELAY_TICKS = 1;
 /**
- * One second of ticks. A higher delay would only add latency: an order the relay receives after its
+ * Twelve ticks at any speed. A higher delay would only add latency: an order the relay receives after its
  * stamped tick has passed lands on the next unemitted tick instead, so a link slower than the cap
  * still applies every order, only with its own jitter in the timing.
  */
@@ -21,12 +21,12 @@ const SMOOTHING = 0.25;
 const MAX_SAMPLE_TRIP_FACTOR = 2;
 /** The least headroom above the smoothed trip a sample keeps, so a near-zero trip can still grow. */
 const MIN_SAMPLE_HEADROOM_MS = TICK_MS;
-/** The first sample has no smoothed trip to clamp against; it counts as at most the cap's budget. */
+/** The first sample has no smoothed trip to clamp against; it counts as at most one second. */
 const MAX_FIRST_SAMPLE_MS = MAX_INPUT_DELAY_TICKS * TICK_MS;
 
 /**
  * Ticks between a member issuing a command and its application, budgeted from that member's smoothed
- * round trip and jitter as `ceil((rtt + jitter) / tick) + 1`, capped at `MAX_INPUT_DELAY_TICKS`. Each
+ * round trip and jitter as `ceil((rtt + jitter) * speed / tick) + 1`, capped at `MAX_INPUT_DELAY_TICKS`. Each
  * sample is clamped before it enters the smoothing, the delay rises at most a tick per sample and
  * drops to the budget once that has stayed lower for a few samples, so a single late pong neither
  * sets seconds of delay nor keeps it for minutes.
@@ -37,6 +37,7 @@ export class InputDelayEstimator {
   private lowerStreak = 0;
   private delay = INITIAL_INPUT_DELAY_TICKS;
   private sampleCount = 0;
+  private speed = 1;
 
   get samples(): number {
     return this.sampleCount;
@@ -54,13 +55,24 @@ export class InputDelayEstimator {
     return this.jitter;
   }
 
+  /** Clock changes retime the existing link estimate immediately, without treating speed as a ping. */
+  setSpeed(speed: number): boolean {
+    if (speed === this.speed) return false;
+    this.speed = speed;
+    if (this.smoothedRtt === null) return false;
+    const before = this.delay;
+    this.delay = delayFor(this.smoothedRtt, this.jitter, speed);
+    this.lowerStreak = 0;
+    return this.delay !== before;
+  }
+
   /** Feed one measured round trip; true when the assigned delay changed. */
   sample(rttMs: number): boolean {
     this.sampleCount++;
     const before = this.delay;
     if (this.smoothedRtt === null) {
       this.smoothedRtt = Math.min(rttMs, MAX_FIRST_SAMPLE_MS);
-      this.delay = delayFor(this.smoothedRtt, this.jitter);
+      this.delay = delayFor(this.smoothedRtt, this.jitter, this.speed);
       return this.delay !== before;
     }
     const counted = Math.min(
@@ -69,7 +81,7 @@ export class InputDelayEstimator {
     );
     this.jitter += SMOOTHING * (Math.abs(counted - this.smoothedRtt) - this.jitter);
     this.smoothedRtt += SMOOTHING * (counted - this.smoothedRtt);
-    const budget = delayFor(this.smoothedRtt, this.jitter);
+    const budget = delayFor(this.smoothedRtt, this.jitter, this.speed);
     if (budget > this.delay) {
       this.delay = Math.min(budget, this.delay + MAX_RAISE_TICKS_PER_SAMPLE);
       this.lowerStreak = 0;
@@ -86,8 +98,8 @@ export class InputDelayEstimator {
   }
 }
 
-function delayFor(rttMs: number, jitterMs: number): number {
-  const ticks = Math.ceil((rttMs + jitterMs) / TICK_MS) + 1;
+function delayFor(rttMs: number, jitterMs: number, speed: number): number {
+  const ticks = Math.ceil(((rttMs + jitterMs) * speed) / TICK_MS) + 1;
   return Math.min(MAX_INPUT_DELAY_TICKS, Math.max(MIN_INPUT_DELAY_TICKS, ticks));
 }
 

@@ -135,8 +135,10 @@ export async function createWindowPixiApp(
 /**
  * Load a decoded atlas sheet as a Pixi {@link TextureSource}. The default `nearest` keeps pixel-art bobs
  * crisp; ground texture pages pass `linear`. An `indexed` sheet (palette index in red, coverage in
- * green, opaque) decodes and uploads like any other, since premultiplying an opaque image changes
- * nothing; its source is marked so the world batch reads coverage from green.
+ * green, opaque, blue 0) decodes like any other, since premultiplying an opaque image changes nothing;
+ * its source is marked so the world batch reads coverage from green. It uploads as RG8, half the
+ * memory of RGBA8, and samples as (r, g, 0, 1) exactly as the RGBA8 page did; CPU readers still read
+ * the decoded RGBA bitmap.
  *
  * A `displacement` sheet holds values in red under a graded mask in alpha, which premultiplying would
  * scale. `data.alphaMode: 'premultiplied-alpha'` is Pixi's only hook that decodes the bitmap with
@@ -155,7 +157,10 @@ export async function loadAtlasSource(
   texture.source.scaleMode = scaleMode;
   // A nearest-loaded page is authored pixel art and may magnify edge-aware; ground pages stay linear.
   if (scaleMode === 'nearest') markPixelArtSource(texture.source);
-  if (layout === 'indexed') markIndexedSource(texture.source);
+  if (layout === 'indexed') {
+    markIndexedSource(texture.source);
+    texture.source.format = 'rg8unorm';
+  }
   return texture.source;
 }
 

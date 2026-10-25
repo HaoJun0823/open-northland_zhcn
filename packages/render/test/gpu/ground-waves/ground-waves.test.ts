@@ -158,6 +158,17 @@ describe('GroundWaveLayer', () => {
     expect(target.draw.mock.calls.every((call) => call[0].size === 65 * 6)).toBe(true);
   });
 
+  it('draws the lift map over the waves only, in screen pixels', () => {
+    const { renderer, render } = fakeRenderer();
+    const layer = new GroundWaveLayer(renderer, new Container());
+    layer.set([wave()]);
+    layer.update(WIDE, { offsetX: 100, offsetY: 50, scale: 1 }, SCREEN, SCREEN, 0, true);
+    const { container, target } = render.mock.calls[0]?.[0] ?? {};
+    // The padded wave covers screen x 95..105 and y 47..53, so the map's first texel is pixel (95, 47).
+    expect(container.children[0].position).toMatchObject({ x: 5, y: 3 });
+    expect([target.source.pixelWidth, target.source.pixelHeight]).toEqual([256, 256]);
+  });
+
   it('draws no lift into a target framed off the screen', () => {
     const ground = new Container();
     const layer = new GroundWaveLayer(fakeRenderer().renderer, ground);

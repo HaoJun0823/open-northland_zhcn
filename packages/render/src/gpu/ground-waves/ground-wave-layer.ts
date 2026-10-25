@@ -23,6 +23,8 @@ const BLOCK_ROW_STRIDE = 1 << 16;
 const blockOf = (px: number): number => Math.floor(px / BLOCK_PX);
 const blockKeyAt = (column: number, row: number): number => row * BLOCK_ROW_STRIDE + column;
 const blockKey = (wave: GroundWave): number => blockKeyAt(blockOf(wave.x), blockOf(wave.y));
+/** The lift map grows in steps of this many pixels a side. */
+const MAP_STEP_PX = 256;
 
 interface WaveBlock {
   /** Blocks draw in the order their first wave was placed, so overlapping waves keep their order. */
@@ -49,8 +51,8 @@ interface LiftInputs {
  * The shore waves. Original behavior: after the ground and the static landscape objects are drawn and
  * before creatures, each wave's current bob copies, for every written texel of value `v`, the pixel `v`
  * rows below it into its place, so the ground under the wave rises by 1 to 6 px while settlers stay put. Here the visible
- * waves render into a screen-sized lift map, redrawn when the tick, the camera, the screen or the waves
- * change, and a pass drawn after the ground chunks applies it under the wave quads. Approximations:
+ * waves render into a lift map over their screen rectangle, redrawn when the tick, the camera, the screen
+ * or the waves change, and a pass drawn after the ground chunks applies it under the wave quads. Approximations:
  * overlapping waves take the last drawn value instead of chaining their copies,
  * and static landscape objects, which the original lifts with the ground, stay put.
  */
@@ -160,12 +162,24 @@ export class GroundWaveLayer {
       this.setApplied(false);
       return;
     }
-    this.view.scale.set(zoom);
-    this.view.position.set(camera.offsetX, camera.offsetY);
+    // The map covers the quads' pixels on the screen and nothing else: drawn in screen pixels at a
+    // whole-pixel offset, so each texel is the one a screen-sized map would hold there.
+    const screen = this.screenOf(drawn, camera, zoom);
+    const x0 = Math.max(0, Math.floor(screen.minX * resolution));
+    const y0 = Math.max(0, Math.floor(screen.minY * resolution));
+    const x1 = Math.min(Math.ceil(screenW * resolution), Math.ceil(screen.maxX * resolution));
+    const y1 = Math.min(Math.ceil(screenH * resolution), Math.ceil(screen.maxY * resolution));
+    if (x1 <= x0 || y1 <= y0) {
+      this.drawnFrom = null;
+      this.setApplied(false);
+      return;
+    }
+    this.view.scale.set(zoom * resolution);
+    this.view.position.set(camera.offsetX * resolution - x0, camera.offsetY * resolution - y0);
     const retired = this.map;
-    const map = this.mapSized(screenW, screenH);
+    const map = this.mapCovering(x1 - x0, y1 - y0);
     this.renderer.render({ container: this.root, target: map, clear: true });
-    this.lift.set(map.source, screenW, screenH, zoom, this.rects, drawn, this.screenOf(drawn, camera, zoom));
+    this.lift.set(map.source, x0, y0, resolution, zoom, this.rects, drawn, screen);
     // Only once the lift samples the new map: a bound texture destroyed under a shader is a Pixi warning.
     if (retired !== null && retired !== map) retired.destroy(true);
     this.setApplied(true);
@@ -249,7 +263,11 @@ export class GroundWaveLayer {
       grown.set(this.rects);
       this.rects = grown;
     }
-    this.rects.set([x0, y0, x1, y1], index * 4);
+    const at = index * 4;
+    this.rects[at] = x0;
+    this.rects[at + 1] = y0;
+    this.rects[at + 2] = x1;
+    this.rects[at + 3] = y1;
   }
 
   /** The screen rectangle (CSS px) of the first `count` wave rectangles under `camera`. */
@@ -268,20 +286,18 @@ export class GroundWaveLayer {
     return rect;
   }
 
-  private mapSized(screenW: number, screenH: number): RenderTexture {
-    const width = Math.max(1, Math.ceil(screenW));
-    const height = Math.max(1, Math.ceil(screenH));
-    const resolution = this.renderer.resolution;
+  /** A lift map of at least `width` by `height` pixels, grown in steps so a pan does not reallocate it. */
+  private mapCovering(width: number, height: number): RenderTexture {
     const map = this.map;
-    if (
-      map !== null &&
-      map.width === width &&
-      map.height === height &&
-      map.source.resolution === resolution
-    ) {
-      return map;
-    }
-    const next = RenderTexture.create({ width, height, resolution, antialias: false });
+    if (map !== null && map.source.pixelWidth >= width && map.source.pixelHeight >= height) return map;
+    const step = (px: number, have: number): number =>
+      Math.max(have, Math.ceil(px / MAP_STEP_PX) * MAP_STEP_PX);
+    const next = RenderTexture.create({
+      width: step(width, map?.source.pixelWidth ?? 0),
+      height: step(height, map?.source.pixelHeight ?? 0),
+      resolution: 1,
+      antialias: false,
+    });
     next.source.scaleMode = 'nearest';
     this.map = next;
     return next;

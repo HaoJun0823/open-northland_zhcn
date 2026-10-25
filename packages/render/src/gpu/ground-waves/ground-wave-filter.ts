@@ -29,12 +29,14 @@ const VERTEX = `#version 300 es
 // A lift is a whole number of world pixels (the map's red byte); `uLiftScale` is the camera zoom. The
 // target lift rounds to whole pixels so a fractional zoom never blends two ground rows. `uTopRow` and
 // `uDown` turn framebuffer rows into screen rows: a canvas counts them up from its bottom, a texture
-// target down from its top.
+// target down from its top. `uMapFrame` is the lift map's origin and size in screen pixels at
+// `uMapResolution` pixels per CSS pixel.
 const FRAGMENT = `#version 300 es
   precision highp float;
   uniform sampler2D uWaveMap;
   uniform sampler2D uGround;
-  uniform vec2 uScreenSize;
+  uniform vec4 uMapFrame;
+  uniform float uMapResolution;
   uniform float uLiftScale;
   uniform float uTargetResolution;
   uniform vec4 uGroundRect;
@@ -44,7 +46,7 @@ const FRAGMENT = `#version 300 es
   void main(void) {
     vec2 fragment = gl_FragCoord.xy;
     vec2 screen = vec2(fragment.x, (fragment.y - uTopRow) * uDown) / uTargetResolution;
-    vec4 wave = texture(uWaveMap, screen / uScreenSize);
+    vec4 wave = texture(uWaveMap, (screen * uMapResolution - uMapFrame.xy) / uMapFrame.zw);
     if (wave.a <= 0.5) discard;
     float targetPx = floor(floor(wave.r * 255.0 + 0.5) * uLiftScale * uTargetResolution + 0.5);
     vec2 below = fragment + vec2(0.0, uDown * targetPx) - uGroundRect.xy;
@@ -99,7 +101,8 @@ export class GroundWaveLift {
   private turn = 0;
   private geometry: Geometry | null = null;
   private readonly uniforms = new UniformGroup({
-    uScreenSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
+    uMapFrame: { value: new Float32Array([0, 0, 1, 1]), type: 'vec4<f32>' },
+    uMapResolution: { value: 1, type: 'f32' },
     uLiftScale: { value: 1, type: 'f32' },
     uTargetResolution: { value: 1, type: 'f32' },
     uGroundRect: { value: new Float32Array([0, 0, 1, 1]), type: 'vec4<f32>' },
@@ -125,22 +128,27 @@ export class GroundWaveLift {
   }
 
   /**
-   * This frame's lift map (CSS `screenW` by `screenH`), the camera zoom, `quads` wave rectangles as
-   * `[x0, y0, x1, y1]` world px in `rects`, and their screen rectangle.
+   * This frame's lift map, whose top-left texel is screen pixel `(mapX, mapY)` at `mapResolution` pixels
+   * per CSS pixel, the camera zoom, `quads` wave rectangles as `[x0, y0, x1, y1]` world px in `rects`, and
+   * their screen rectangle.
    */
   set(
     map: TextureSource,
-    screenW: number,
-    screenH: number,
+    mapX: number,
+    mapY: number,
+    mapResolution: number,
     zoom: number,
     rects: Float32Array,
     quads: number,
     screen: ScreenRect,
   ): void {
     this.shader.resources.uWaveMap = map;
-    const size = this.uniforms.uniforms.uScreenSize as Float32Array;
-    size[0] = screenW;
-    size[1] = screenH;
+    const frame = this.uniforms.uniforms.uMapFrame as Float32Array;
+    frame[0] = mapX;
+    frame[1] = mapY;
+    frame[2] = map.pixelWidth;
+    frame[3] = map.pixelHeight;
+    this.uniforms.uniforms.uMapResolution = mapResolution;
     this.uniforms.uniforms.uLiftScale = zoom;
     Object.assign(this.screen, screen);
     this.writeQuads(rects, quads);

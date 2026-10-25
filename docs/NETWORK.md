@@ -731,7 +731,11 @@ Each value verified against its constant; the owning package is in brackets.
 `start` names through a port the host supplies, runs it over `RelayTransport`, acknowledges every tick,
 answers pings and snapshot requests, and asks a diverged world's host to restore. It runs the sim behind
 the relay's clock by the room's [response reserve](#order-responsiveness), scaling the time it feeds the
-driver without skipping ticks, so a late frame lands inside the buffer. Catch-up is capped at 192 ticks/s
+driver without skipping ticks, so a late frame lands inside the buffer. Small buffer errors adjust
+the pace by ten percent per tick, with a one-frame deadband above the target; refilling bottoms out at
+75% of the running speed. Beyond three excess frames the catch-up acceleration grows faster, so a
+snapshot replay can still drain promptly. These are client pacing choices, not simulation rules.
+Catch-up is capped at 192 ticks/s
 at the effective governed speed, leaving room for commands and pongs within `MESSAGES_PER_SECOND`; every
 applied tick still sends its digest. A wait for a frame keeps at most one tick of owed time, so after a
 hold the pacer refills the buffer and a burst of late frames runs one tick per display frame rather than

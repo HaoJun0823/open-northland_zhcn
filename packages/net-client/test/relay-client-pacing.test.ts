@@ -86,3 +86,38 @@ it('runs a burst of late frames one tick per display frame rather than five at o
   steady(120);
   expect(Math.max(...perAdvance)).toBe(1);
 });
+
+it('absorbs tick-sized link jitter with small tempo corrections and a bounded reserve', async () => {
+  const client = await runningClient();
+  // A 420 ms round trip with ordered delivery despite +/-80 ms of downstream jitter.
+  const offsets = [-80, 60, -40, 80, 0, -60, 40];
+  const arrivals: number[] = [];
+  for (let tick = 1; tick <= 360; tick++) {
+    arrivals.push(
+      Math.max(arrivals.at(-1) ?? 0, tick * TICK_MS + 210 + (offsets[(tick - 1) % offsets.length] ?? 0)),
+    );
+  }
+  let received = 0;
+  let previousPosition = 0;
+  const tempos: number[] = [];
+  const buffers: number[] = [];
+  const applied: number[] = [];
+  for (let frame = 0; frame < 1800; frame++) {
+    const now = frame * DISPLAY_FRAME_MS;
+    while ((arrivals[received] ?? Infinity) <= now)
+      client.receive({ kind: 'frame', tick: ++received, commands: [] });
+    const alpha = client.advance(DISPLAY_FRAME_MS, () => applied.push(client.tick ?? 0));
+    const position = (client.tick ?? 0) + alpha;
+    if (now >= 10_000) {
+      tempos.push(((position - previousPosition) * TICK_MS) / DISPLAY_FRAME_MS);
+      buffers.push(client.bufferedTicks);
+    }
+    previousPosition = position;
+  }
+  expect(Math.min(...tempos)).toBeGreaterThanOrEqual(0.9 - 1e-9);
+  expect(Math.max(...tempos)).toBeLessThanOrEqual(1.1 + 1e-9);
+  expect(Math.min(...buffers)).toBeGreaterThan(0);
+  expect(Math.max(...buffers)).toBeLessThanOrEqual(JITTER_BUFFER_TICKS + 2);
+  expect(client.tick).toBeGreaterThanOrEqual(353);
+  expect(applied).toEqual(Array.from({ length: applied.length }, (_, index) => index + 1));
+});

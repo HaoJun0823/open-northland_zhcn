@@ -40,7 +40,8 @@ it.each([1, 2, 3, 6])(
 
 it('drains the former one-frame deadband gently only while reducing the target', () => {
   expect(paceScale(2, 1, 1)).toBe(1);
-  expect(paceScale(2, 1, 1, true)).toBe(1.25);
+  expect(paceScale(2, 1, 1, true)).toBeGreaterThan(1);
+  expect(paceScale(2, 1, 1, true)).toBeLessThanOrEqual(1.1);
   expect(paceScale(1, 1, 1, true)).toBe(1);
   expect(paceScale(0, 1, 1, true)).toBeLessThan(1);
   expect(paceScale(1000, 8, 1, true)).toBe(2);

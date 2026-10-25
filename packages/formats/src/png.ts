@@ -42,24 +42,65 @@ export interface PngEncodeOptions {
   readonly deflate?: (bytes: Uint8Array) => Promise<Uint8Array>;
 }
 
-// CRC-32 (ISO 3309, reflected, polynomial 0xEDB88320) over chunk type + data, per the PNG spec.
-const CRC_TABLE = buildCrcTable();
+// CRC-32 (ISO 3309, reflected, polynomial 0xEDB88320) over chunk type + data, per the PNG spec, eight
+// bytes per step ("slicing-by-8"): table k maps a byte to its CRC contribution k bytes further on.
+type CrcTables = readonly [
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+  Uint32Array,
+];
+const BYTE_VALUES = 256;
+const BYTE_MASK = 0xff;
+const CRC_TABLES = buildCrcTables();
+const CRC_SLICES = CRC_TABLES.length;
 
-function buildCrcTable(): Uint32Array {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
+function buildCrcTables(): CrcTables {
+  const table = (): Uint32Array => new Uint32Array(BYTE_VALUES);
+  const tables: CrcTables = [table(), table(), table(), table(), table(), table(), table(), table()];
+  const [first] = tables;
+  for (let n = 0; n < BYTE_VALUES; n++) {
     let c = n;
     for (let k = 0; k < 8; k++) c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
+    first[n] = c >>> 0;
   }
-  return table;
+  for (let k = 1; k < tables.length; k++) {
+    const previous = tables[k - 1] ?? first;
+    const next = tables[k] ?? first;
+    for (let n = 0; n < BYTE_VALUES; n++) {
+      const v = previous[n] ?? 0;
+      next[n] = (v >>> 8) ^ (first[v & BYTE_MASK] ?? 0);
+    }
+  }
+  return tables;
 }
 
 function crc32(bytes: Uint8Array): number {
+  const [t0, t1, t2, t3, t4, t5, t6, t7] = CRC_TABLES;
   let c = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) {
-    c = (CRC_TABLE[(c ^ (bytes[i] ?? 0)) & 0xff] ?? 0) ^ (c >>> 8);
+  let i = 0;
+  for (const end = bytes.length - (bytes.length % CRC_SLICES); i < end; i += CRC_SLICES) {
+    const low =
+      c ^
+      ((bytes[i] ?? 0) |
+        ((bytes[i + 1] ?? 0) << 8) |
+        ((bytes[i + 2] ?? 0) << 16) |
+        ((bytes[i + 3] ?? 0) << 24));
+    c =
+      (t7[low & BYTE_MASK] ?? 0) ^
+      (t6[(low >>> 8) & BYTE_MASK] ?? 0) ^
+      (t5[(low >>> 16) & BYTE_MASK] ?? 0) ^
+      (t4[low >>> 24] ?? 0) ^
+      (t3[bytes[i + 4] ?? 0] ?? 0) ^
+      (t2[bytes[i + 5] ?? 0] ?? 0) ^
+      (t1[bytes[i + 6] ?? 0] ?? 0) ^
+      (t0[bytes[i + 7] ?? 0] ?? 0);
   }
+  for (; i < bytes.length; i++) c = (t0[(c ^ (bytes[i] ?? 0)) & BYTE_MASK] ?? 0) ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 

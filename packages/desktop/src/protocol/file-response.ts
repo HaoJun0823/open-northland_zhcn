@@ -48,6 +48,7 @@ export async function fileResponse(
   file: string,
   request: Request,
   baseHeaders: Readonly<Record<string, string>>,
+  wholeReadMaxBytes = WHOLE_READ_MAX_BYTES,
 ): Promise<Response> {
   const { size } = await stat(file);
   const headers = new Headers({ ...baseHeaders, 'accept-ranges': 'bytes' });
@@ -60,7 +61,7 @@ export async function fileResponse(
   headers.set('content-length', String(range === null ? size : range.end - range.start + 1));
   const status = range === null ? HTTP_OK : HTTP_PARTIAL_CONTENT;
   if (request.method === 'HEAD') return new Response(null, { status, headers });
-  if (range === null && size <= WHOLE_READ_MAX_BYTES)
+  if (range === null && size <= wholeReadMaxBytes)
     return new Response(await readFile(file), { status, headers });
   const body = Readable.toWeb(createReadStream(file, range ?? undefined)) as ReadableStream<Uint8Array>;
   return new Response(body, { status, headers });

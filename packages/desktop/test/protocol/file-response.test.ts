@@ -54,6 +54,13 @@ describe('fileResponse', () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
   });
 
+  it('streams a whole file larger than the in-memory read limit', async () => {
+    const response = await fileResponse(file, request(), HEADERS, FILE_SIZE - 1);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-length')).toBe(String(FILE_SIZE));
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+  });
+
   it('slices a single range into a 206', async () => {
     const response = await fileResponse(file, request('bytes=0-99'), HEADERS);
     expect(response.status).toBe(206);

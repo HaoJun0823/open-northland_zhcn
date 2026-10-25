@@ -1,26 +1,26 @@
 import type { GameSession } from '@open-northland/lockstep';
-import {
-  type BlobUpload,
-  type ClientMessage,
-  type DepartedSeatMode,
-  type DepartureCause,
-  type LobbyCompatibility,
-  type LobbySettings,
-  MAX_NICK_LENGTH,
-  type PlayerWireEnvelope,
-  type ResponsivenessMode,
-  type RoomSeatSetup,
-  type RoomSettings,
-  type RoomState,
-  type RoomSummary,
-  type RoomView,
-  type ServerMessage,
+import type {
+  BlobUpload,
+  ClientMessage,
+  DepartedSeatMode,
+  DepartureCause,
+  LobbyCompatibility,
+  LobbySettings,
+  PlayerWireEnvelope,
+  ResponsivenessMode,
+  RoomSeatSetup,
+  RoomSettings,
+  RoomState,
+  RoomSummary,
+  RoomView,
+  ServerMessage,
 } from '@open-northland/net-protocol';
 import { Game } from '../game/game.js';
 import { Lobby } from '../lobby/lobby.js';
 import { type SeatChange, SeatTable } from '../lobby/seats.js';
 import { LobbyTransfers } from '../lobby/transfers.js';
 import { broadcast, type Deliver, figureFields, freshFigures, type Member, type Refusal } from '../member.js';
+import { uniqueNick } from '../nick.js';
 import { type RelayLog, wholeSeconds } from '../relay-log.js';
 import { Responsiveness } from '../timing/responsiveness.js';
 import { ChatLog } from './chat-log.js';
@@ -144,19 +144,9 @@ export class Room {
     return this.members.get(token) ?? null;
   }
 
-  /** A room-unique nick for someone joining as `nick`; the suffix displaces whole code points, so a
-   *  nick of astral characters is never cut through a surrogate pair. */
+  /** A room-unique nick for someone joining as `nick`. */
   uniqueNick(nick: string): string {
-    const taken = new Set([...this.members.values()].map((member) => member.nick));
-    if (!taken.has(nick)) return nick;
-    const points = [...nick];
-    for (let n = 2; ; n++) {
-      const suffix = String(n);
-      let kept = points.length;
-      while (kept > 0 && points.slice(0, kept).join('').length + suffix.length > MAX_NICK_LENGTH) kept--;
-      const candidate = `${points.slice(0, kept).join('')}${suffix}`;
-      if (!taken.has(candidate)) return candidate;
-    }
+    return uniqueNick(nick, new Set([...this.members.values()].map((member) => member.nick)));
   }
 
   /** Show a member that just entered the room the room and its chat so far. */

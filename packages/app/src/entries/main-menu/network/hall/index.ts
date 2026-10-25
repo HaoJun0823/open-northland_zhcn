@@ -37,6 +37,8 @@ export function networkHall(deps: HallDeps) {
   /** Running rooms' clocks, extrapolated from the summary since it arrived. */
   let clocks: { readonly time: HTMLElement; readonly playedMs: number }[] = [];
   let roomsAt = performance.now();
+  /** The list `roomsAt` dates; the client holds a new array per `rooms` message. */
+  let roomsShown: readonly RoomSummary[] | null = null;
   let ago: { readonly time: HTMLElement; readonly at: number }[] = [];
 
   const openList = node('div', 'network-menu__rooms');
@@ -137,7 +139,7 @@ export function networkHall(deps: HallDeps) {
       row.append(node('span', 'network-hall__badge', copy.gameLoading));
     } else {
       const clock = node('div', 'network-hall__clock');
-      const time = node('time', '', formatPlayed(room.playedMs));
+      const time = node('time', '', formatPlayed(room.playedMs + performance.now() - roomsAt));
       clock.append(node('span', '', copy.playedFor), time);
       clocks.push({ time, playedMs: room.playedMs });
       row.append(clock);
@@ -210,7 +212,10 @@ export function networkHall(deps: HallDeps) {
       const client = deps.client();
       if (client === null) return;
       const { open, running } = hallRooms(client.rooms);
-      roomsAt = performance.now();
+      if (client.rooms !== roomsShown) {
+        roomsShown = client.rooms;
+        roomsAt = performance.now();
+      }
       clocks = [];
       joins.length = 0;
       openCount.textContent = String(open.length);

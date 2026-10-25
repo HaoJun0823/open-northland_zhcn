@@ -54,7 +54,9 @@ no incoming transport data, a pong included, for `SILENT_SOCKET_MS`; the token m
 A `hello` with a token already connected replaces that connection: the older one gets
 `error { reason: { code: "replaced" } }` and is closed, and its room membership carries over. A token that
 belongs to a started room, connected or not, is put back into that room by `hello` alone, and its
-`welcome` uses the room's retained canonical nick; in the lobby a dropped connection is a leave. When a
+`welcome` uses the room's retained canonical nick; in the lobby a dropped connection is a leave. Any
+other `hello` whose nick another connection holds gets the lowest free numeric suffix in its `welcome`,
+as a room join does. When a
 join assigns a numeric suffix, a further `welcome` announces that canonical nick before the first room
 view, as a name update, not a new connection. The relay attaches membership before publishing the view,
 so a client can answer it immediately.
@@ -663,12 +665,12 @@ leaving a room) it gets `rooms`, `presence` and `hallChatHistory`, then, at most
 change; the client counts `playedMs` on from when the list arrived. A member of a room gets none of these.
 
 `presence { online: [{ nick, room }], recent: [{ nick, at }] }` names each introduced connection by its
-`hello` nick, once per nick, with the id of the room it is in or null; `recent` lists the nicks seen within
+last `welcome` nick, once per nick, with the id of the room it is in or null; `recent` lists the nicks seen within
 `SEEN_KEPT_MS` that are not online, newest first, `at` being when the relay last saw them, in Unix epoch
 milliseconds. Each list carries at most `MAX_PRESENCE_ENTRIES`.
 
 `hallChat { text }` from a client in the hall is broadcast to the hall as `hallChat { from, text, at }`,
-`from` being the sender's `hello` nick; the text follows the room chat's rules. A connection may say
+`from` being the sender's last `welcome` nick; the text follows the room chat's rules. A connection may say
 `HALL_CHAT_BURST` lines at once and one more every `HALL_CHAT_REFILL_MS`; past that it is refused with
 `retryTooSoon`. The relay keeps the newest `MAX_HALL_CHAT_LINES` lines of the last `HALL_CHAT_KEPT_MS`, and
 `hallChatHistory { lines: [{ from, text, at }] }` replays them oldest first. With `RELAY_HALL_FILE` set the

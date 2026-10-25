@@ -23,7 +23,8 @@ RUN --mount=type=cache,target=/root/.npm \
     && cp -R packages/net-protocol/dist /app/packages/net-protocol/dist \
     && cp packages/net-server/package.json /app/packages/net-server/ \
     && cp -R packages/net-server/dist /app/packages/net-server/dist \
-    && ln -s ../../packages/net-protocol /app/node_modules/@open-northland/net-protocol
+    && ln -s ../../packages/net-protocol /app/node_modules/@open-northland/net-protocol \
+    && mkdir -p /relay-state
 
 FROM node:22-alpine
 
@@ -39,6 +40,8 @@ LABEL org.opencontainers.image.source=$SOURCE_URL \
 
 WORKDIR /app
 COPY --from=build /app /app
+# Where RELAY_HALL_FILE belongs; a named volume mounted here starts owned by the relay's user.
+COPY --from=build --chown=node:node /relay-state /var/lib/open-northland-relay
 
 USER node
 EXPOSE 8765

@@ -57,6 +57,25 @@ describe('hall file', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(RECORD);
   });
 
+  it('keeps what the stop flushed over a save still in flight', async () => {
+    vi.useFakeTimers();
+    const file = path();
+    let record: HallRecord = { ...RECORD, chat: [] };
+    const kept = hallFile(
+      file,
+      () => record,
+      () => undefined,
+    );
+    kept.changed();
+    await vi.advanceTimersByTimeAsync(HALL_SAVE_DELAY_MS);
+    record = RECORD;
+    kept.flush();
+    kept.changed();
+    vi.useRealTimers();
+    await new Promise((done) => setTimeout(done, 50));
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(RECORD);
+  });
+
   it('sets aside a file it cannot read', () => {
     const file = path();
     writeFileSync(file, JSON.stringify({ ...RECORD, version: HALL_RECORD_VERSION + 1 }));

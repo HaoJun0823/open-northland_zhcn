@@ -19,6 +19,7 @@ import { saveOrdersRequestId } from './game/save-orders.js';
 import { ChatAllowance, Hall } from './hall/hall.js';
 import type { HallRecord } from './hall/record.js';
 import { createMember, type Member, type Refusal } from './member.js';
+import { uniqueNick } from './nick.js';
 import { faultFields, type RelayLog, wholeSeconds } from './relay-log.js';
 import { dispatchRoomMessage } from './room/dispatch.js';
 import { retireRoomMembers } from './room/retirement.js';
@@ -66,9 +67,8 @@ const ROOM_ID_BYTES = 4;
 /** One connection as the relay sees it. Identity arrives with `hello`; before it, nothing else may. */
 class Client {
   token: string | null = null;
+  /** The nick `welcome` last named: unique among the connected on `hello`, then the room's. */
   nick = '';
-  /** The nick of `hello`, which a room may have suffixed in `nick`; the hall knows the player by it. */
-  helloNick = '';
   /** The client heard the whole hall since it last arrived outside a room. */
   hallSynced = false;
   room: Room | null = null;
@@ -188,7 +188,7 @@ export class Relay {
       return;
     }
     if (this.byToken.get(client.token) === client) this.byToken.delete(client.token);
-    this.hall.saw(client.helloNick, this.wallClock());
+    this.hall.saw(client.nick, this.wallClock());
     const now = this.now();
     const { room, member } = client;
     if (room !== null && member !== null) {
@@ -408,10 +408,10 @@ export class Relay {
     if (arriving.length === 0 && !refresh) return;
     const rooms = this.roomsMessage(now);
     const presence = this.hall.presence(this.onlinePlayers(), this.wallClock());
+    const roomsKey = JSON.stringify(rooms.rooms.map(roomListing));
+    const presenceKey = JSON.stringify(presence);
     if (refresh) {
       this.nextHallAt = now + HALL_REFRESH_MS;
-      const roomsKey = JSON.stringify(rooms.rooms.map(roomListing));
-      const presenceKey = JSON.stringify(presence);
       for (const client of present) {
         if (roomsKey !== this.hallRoomsKey) client.connection.send(rooms);
         if (presenceKey !== this.hallPresenceKey) client.connection.send(presence);
@@ -420,6 +420,10 @@ export class Relay {
       this.hallPresenceKey = presenceKey;
     }
     if (arriving.length === 0) return;
+    // The arriving clients heard a newer list than the key names: forget the key, so the next refresh
+    // sends the list to everyone even when it has changed back to what the others heard.
+    if (roomsKey !== this.hallRoomsKey) this.hallRoomsKey = '';
+    if (presenceKey !== this.hallPresenceKey) this.hallPresenceKey = '';
     const history = this.hall.history(this.wallClock());
     for (const client of arriving) {
       client.connection.send(rooms);
@@ -433,11 +437,18 @@ export class Relay {
     return { kind: 'rooms', rooms: [...this.rooms.values()].map((room) => room.summary(now)) };
   }
 
-  /** Every introduced connection by its `hello` nick, and the room it is in. */
+  /** The nicks of the introduced connections other than `except`. */
+  private connectedNicks(except: Client): ReadonlySet<string> {
+    const nicks = new Set<string>();
+    for (const client of this.clients) if (client !== except && client.token !== null) nicks.add(client.nick);
+    return nicks;
+  }
+
+  /** Every introduced connection by its nick, and the room it is in. */
   private onlinePlayers(): OnlinePlayer[] {
     const online: OnlinePlayer[] = [];
     for (const client of this.clients) {
-      if (client.token !== null) online.push({ nick: client.helloNick, room: client.room?.id ?? null });
+      if (client.token !== null) online.push({ nick: client.nick, room: client.room?.id ?? null });
     }
     return online;
   }
@@ -477,13 +488,12 @@ export class Relay {
       previous.connection.close('replaced');
     }
     client.token = message.token;
-    client.nick = message.nick;
-    client.helloNick = message.nick;
-    this.hall.saw(message.nick, this.wallClock());
     this.byToken.set(message.token, client);
     const room = this.roomOfToken.get(message.token);
     const member = room?.memberOf(message.token) ?? null;
-    client.nick = member?.nick ?? message.nick;
+    // Outside a room the hall tells players apart by nick alone, so two connections never share one.
+    client.nick = member?.nick ?? uniqueNick(message.nick, this.connectedNicks(client));
+    this.hall.saw(client.nick, this.wallClock());
     this.welcome(client);
     if (room !== undefined && member !== null) {
       client.room = room;
@@ -522,7 +532,7 @@ export class Relay {
       case 'hallChat': {
         if (client.room !== null) return { code: 'alreadyInRoom' };
         if (!client.chatAllowance.take(this.now())) return { code: 'retryTooSoon' };
-        const line = this.hall.say(client.helloNick, message.text, this.wallClock());
+        const line = this.hall.say(client.nick, message.text, this.wallClock());
         for (const other of this.clients) {
           if (other.token !== null && other.room === null && other.hallSynced) other.connection.send(line);
         }

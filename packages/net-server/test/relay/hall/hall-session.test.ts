@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { HALL_CHAT_BURST } from '../../../src/relay/hall/hall.js';
 import { HALL_RECORD_VERSION } from '../../../src/relay/hall/record.js';
 import { HALL_REFRESH_MS } from '../../../src/relay/relay.js';
-import { SEATS, SETTINGS, STAGE_EPOCH_MS, stage, TOKEN_A, TOKEN_B } from '../../support/message-stage.js';
+import {
+  SEATS,
+  SETTINGS,
+  STAGE_EPOCH_MS,
+  stage,
+  TOKEN_A,
+  TOKEN_B,
+  TOKEN_C,
+} from '../../support/message-stage.js';
 
 /** A client outside a room hears the rooms, who is online and the server chat; one inside does not. */
 describe('relay hall', () => {
@@ -28,6 +36,32 @@ describe('relay hall', () => {
     ]);
     expect(a.last('presence')?.online).toContainEqual({ nick: 'Bartek', room: b.last('room')?.room.id });
     expect(b.of('presence')).toHaveLength(1);
+  });
+
+  it('tells two connections of one nick apart, so each knows its own row and lines', () => {
+    const s = stage();
+    s.introduce(TOKEN_A, 'Ania');
+    const twin = s.introduce(TOKEN_B, 'Ania');
+    expect(twin.last('welcome')?.nick).toBe('Ania2');
+    s.advance(1);
+    expect(twin.last('presence')?.online.map((player) => player.nick)).toEqual(['Ania', 'Ania2']);
+    twin.send({ kind: 'hallChat', text: 'to ja' });
+    expect(twin.last('hallChat')?.from).toBe('Ania2');
+  });
+
+  it('sends a change back to an earlier list to a client that arrived in between', () => {
+    const s = stage();
+    const a = s.introduce(TOKEN_A, 'Ania');
+    s.advance(HALL_REFRESH_MS);
+    const b = s.introduce(TOKEN_B, 'Bartek');
+    b.send({ kind: 'createRoom', settings: SETTINGS, seats: SEATS });
+    const c = s.introduce(TOKEN_C, 'Celina');
+    s.advance(1);
+    expect(c.last('rooms')?.rooms).toHaveLength(1);
+    b.send({ kind: 'leaveRoom' });
+    s.advance(HALL_REFRESH_MS);
+    expect(c.last('rooms')?.rooms).toEqual([]);
+    expect(a.last('rooms')?.rooms).toEqual([]);
   });
 
   it('broadcasts the server chat to the hall alone, and replays it to whoever arrives', () => {

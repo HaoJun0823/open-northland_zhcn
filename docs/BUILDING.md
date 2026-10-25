@@ -136,7 +136,7 @@ compiled relay, protocol and `ws`, with no simulation or game content.
 | `RELAY_MAX_ROOMS` | `64` | Room limit |
 | `RELAY_MAX_CONNECTIONS` | `256` | WebSocket limit |
 | `RELAY_BUILD` | unset | Printable build name, at most 128 characters; also a Docker build argument |
-| `RELAY_HALL_FILE` | unset | JSON file keeping the server chat and recently seen players across restarts; mount a volume for it |
+| `RELAY_HALL_FILE` | unset | JSON file keeping the server chat and recently seen players across restarts, such as `/var/lib/open-northland-relay/hall.json` on a volume mounted there |
 
 Rooms exist only in memory: restarting ends all matches. Without `RELAY_HALL_FILE` the server chat and
 the recently seen list start empty after each restart too; with it, the relay writes the file at most

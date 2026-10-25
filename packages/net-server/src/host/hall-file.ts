@@ -11,7 +11,7 @@ export interface HallFile {
   readonly initial: HallRecord | null;
   /** Something changed: write `read()` after `HALL_SAVE_DELAY_MS`. */
   changed(): void;
-  /** Write at once, as the host stops. */
+  /** Write at once, as the host stops; nothing after it is written. */
   flush(): void;
 }
 
@@ -19,6 +19,9 @@ export interface HallFile {
  *  parse is moved aside to `<path>.rejected` and the hall starts empty. */
 export function hallFile(path: string, read: () => HallRecord, log: RelayLog): HallFile {
   const temporary = `${path}.tmp`;
+  /** The stop's own temporary, which a save still in flight never writes into. */
+  const final = `${path}.final.tmp`;
+  let flushed = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let writing = false;
   let again = false;
@@ -31,11 +34,11 @@ export function hallFile(path: string, read: () => HallRecord, log: RelayLog): H
     }
     writing = true;
     writeFile(temporary, JSON.stringify(read()))
-      .then(() => rename(temporary, path))
+      .then(() => (flushed ? undefined : rename(temporary, path)))
       .catch((err: unknown) => log('hall save failed', { path, ...faultFields(err) }))
       .finally(() => {
         writing = false;
-        if (again) {
+        if (again && !flushed) {
           again = false;
           write();
         }
@@ -45,14 +48,15 @@ export function hallFile(path: string, read: () => HallRecord, log: RelayLog): H
   return {
     initial: readInitial(path, log),
     changed(): void {
-      timer ??= setTimeout(write, HALL_SAVE_DELAY_MS);
+      if (!flushed) timer ??= setTimeout(write, HALL_SAVE_DELAY_MS);
     },
     flush(): void {
       if (timer !== null) clearTimeout(timer);
       timer = null;
+      flushed = true;
       try {
-        writeFileSync(temporary, JSON.stringify(read()));
-        renameSync(temporary, path);
+        writeFileSync(final, JSON.stringify(read()));
+        renameSync(final, path);
       } catch (err) {
         log('hall save failed', { path, ...faultFields(err) });
       }

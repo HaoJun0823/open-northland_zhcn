@@ -3079,6 +3079,8 @@ body.on-drag-scroll.on-drag-scroll-free * {
 }
 .on-hud .on-choice-row__goods {
   display: flex;
+  order: 1;
+  justify-content: flex-end;
   flex: none;
   align-items: center;
   isolation: isolate;
@@ -3092,6 +3094,7 @@ body.on-drag-scroll.on-drag-scroll-free * {
   margin-left: -11px;
 }
 .on-hud .on-window--choices .on-choice-row__detail {
+  order: 2;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }

@@ -21,8 +21,15 @@ export const WORLD_FLAG_GLOW = 8;
 export const WORLD_FLAG_INDEXED = 16;
 /** The element's page has mipmaps, so a sample needs its level from the uv derivatives. */
 export const WORLD_FLAG_MIPMAPPED = 32;
-/** A paletted element's LUT row, from `aFlags` bit 6 up; a float32 holds it exactly below 2^18 rows. */
-export const WORLD_LUT_ROW_SHIFT = 6;
+/**
+ * A paletted element whose page is a recoloured stem's shared sheet, sampled nearest. It takes the plain
+ * page's path (filtered only when marked magnified, minification taps resolved before they blend,
+ * magnified through xBR), and on the unmagnified paths premultiplies in bytes, round(c * a / 255), the
+ * bytes createImageBitmap's premultiply gives an RGBA page of the stem.
+ */
+export const WORLD_FLAG_RECOLOURED = 64;
+/** A paletted element's LUT row, from `aFlags` bit 7 up; a float32 holds it exactly below 2^17 rows. */
+export const WORLD_LUT_ROW_SHIFT = 7;
 /**
  * The palette index a hero's glow takes its colour from: step 10 of the team ramp in the body palette's
  * vest band (160-175), which each player's team row of the human LUT carries. Original behavior: the glow
@@ -269,11 +276,15 @@ const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
 const int WORLD_FLAG_GLOW = ${WORLD_FLAG_GLOW};
 const int WORLD_FLAG_INDEXED = ${WORLD_FLAG_INDEXED};
 const int WORLD_FLAG_MIPMAPPED = ${WORLD_FLAG_MIPMAPPED};
+const int WORLD_FLAG_RECOLOURED = ${WORLD_FLAG_RECOLOURED};
 const float GLOW_PALETTE_INDEX = ${GLOW_PALETTE_INDEX}.0;
 const int WORLD_LUT_ROW_SHIFT = ${WORLD_LUT_ROW_SHIFT};
 const int LUT_SLOT = ${lutSlotOf(maxTextures)};
 // One texel per 8-bit palette index across a LUT row.
 const float PALETTE_INDEX_MAX = 255.0;
+// Added before the integer divide by 255, so the divide rounds to nearest.
+const int BYTE_ROUNDING_BIAS = 127;
+const int BYTE_MAX = 255;
 // Below this uv footprint the four minification taps nearly coincide, under 0.01 texel apart, so one
 // tap stands for them: at worst about 1/255 off at a hard edge within a hair of one texel per pixel.
 const float SINGLE_TAP_FOOTPRINT = 0.000001;
@@ -343,6 +354,16 @@ vec3 paletteColour(float red, int lutRow) {
 vec4 drawnTexel(vec4 tap, bool indexed, bool paletted, int lutRow) {
   if (!indexed) return tap;
   return vec4(paletted ? paletteColour(tap.r, lutRow) * tap.g : vec3(0.0), tap.g);
+}
+
+// A recoloured texel premultiplied in bytes, round(c * a / 255) per channel. Only the unmagnified paths
+// take it: Direct3D inlines the gather's resolve at every tap, where it cost about a quarter more compile
+// time per program. Magnified xBR reads the unrounded c * a, and its edge test branches on those taps,
+// so at zoom 2 a partially covered texel can differ from an RGBA page by up to about 40/255.
+vec4 recolouredTexel(vec4 tap, int lutRow) {
+  int coverage = int(tap.g * PALETTE_INDEX_MAX + 0.5);
+  ivec3 bytes = ivec3(paletteColour(tap.r, lutRow) * PALETTE_INDEX_MAX + 0.5);
+  return vec4(vec3((bytes * coverage + BYTE_ROUNDING_BIAS) / BYTE_MAX) / PALETTE_INDEX_MAX, tap.g);
 }
 
 // A tap outside the element's frame is transparent; an indexed tap resolves its colour here.
@@ -415,16 +436,19 @@ ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < OUTLINE_TA
     return;
   }
   bool paletted = hasFlag(flags, WORLD_FLAG_PALETTED);
+  bool recoloured = hasFlag(flags, WORLD_FLAG_RECOLOURED);
+  // A character's paletted page always filters; a recoloured one takes the plain page's path.
+  bool palettedFilter = paletted && !recoloured;
   int lutRow = flags >> WORLD_LUT_ROW_SHIFT;
   ${magnifies ? 'bool magnified = texelsPerPixel < MAGNIFIED_BELOW;' : '// The batcher draws this program only where no page is magnified.\n  bool magnified = false;'}
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
-  bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(flags, WORLD_FLAG_MAGNIFY));
+  bool filtered = WORLD_MAGNIFY > 0.5 && (palettedFilter || hasFlag(flags, WORLD_FLAG_MAGNIFY));
   // A minified plain page spreads four sampler taps over its footprint against sparkle, clamped to the
   // frame; where they nearly coincide, at one texel per pixel as most of the world is at zoom 1, one tap
   // stands in.
   vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
   bool single = max(footprint.x, footprint.y) < SINGLE_TAP_FOOTPRINT;
-  bool minified = filtered && !paletted && !magnified;
+  bool minified = filtered && !palettedFilter && !magnified;
   vec2 low = vFrame.xy + 0.5 / texSize;
   vec2 high = vFrame.zw - 0.5 / texSize;
   vec4 outColor;
@@ -433,14 +457,19 @@ ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < OUTLINE_TA
     vec4 texel = WORLD_MAGNIFY < 0.5 && !hasFlag(flags, WORLD_FLAG_MIPMAPPED)
       ? sampleLevelZero(vUV)
       : sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
-    outColor = drawnTexel(texel, indexed, paletted, lutRow);
+    outColor = recoloured ? recolouredTexel(texel, lutRow) : drawnTexel(texel, indexed, paletted, lutRow);
   } else if (minified) {
     // Not a mipmap substitute at extreme zoom-out: sampling cost is deliberately bounded.
-    // Never paletted, so an indexed page's averaged coverage stays its coverage.
-    outColor = drawnTexel(MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy)
-                     + sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high), uvDx, uvDy)
-                     + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy)
-                     + sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy)), indexed, false, lutRow);
+    vec4 t0 = sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy);
+    vec4 t1 = sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high), uvDx, uvDy);
+    vec4 t2 = sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy);
+    vec4 t3 = sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy);
+    // A recoloured page's taps resolve before they blend, since an averaged index names another colour;
+    // any other indexed page is never paletted here, so its averaged coverage stays its coverage.
+    outColor = recoloured
+      ? MINIFY_TAP_WEIGHT * (recolouredTexel(t0, lutRow) + recolouredTexel(t1, lutRow)
+                           + recolouredTexel(t2, lutRow) + recolouredTexel(t3, lutRow))
+      : drawnTexel(MINIFY_TAP_WEIGHT * (t0 + t1 + t2 + t3), indexed, false, lutRow);
   } else {
 ${gather}
   }

@@ -44,12 +44,17 @@ import {
   WORLD_FLAG_INDEXED,
   WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
+  WORLD_FLAG_RECOLOURED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
   WORLD_VERTEX_SIZE,
   worldBatched,
 } from '../../../src/gpu/world-batch/batcher.js';
-import { type WorldBatchSampling, worldBatchProgramSource } from '../../../src/gpu/world-batch/shader.js';
+import {
+  WORLD_FLAG_MAGNIFY,
+  type WorldBatchSampling,
+  worldBatchProgramSource,
+} from '../../../src/gpu/world-batch/shader.js';
 import { DEFAULT_SHADOW_STYLE } from '../../../src/gpu/world-batch/shadow-style.js';
 import { useHeadlessShaderContext } from '../../support/shader-context.js';
 
@@ -315,6 +320,34 @@ describe('world batcher palette LUT', () => {
     // A repack outside a rebuild, such as a new frame on the same page, keeps the row.
     batcher.updateElement(elements[0] as DefaultBatchableQuadElement);
     expect(flagsOf(0, 0)).toBe(WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | (3 << WORLD_LUT_ROW_SHIFT));
+    batcher.destroy();
+  });
+
+  it('packs a recoloured frame with the row its texture names', () => {
+    const WorldBatcher = installWorldBatcher();
+    const batcher = new WorldBatcher({ maxTextures: PAGES_AND_LUT });
+    const lut = new TextureSource({ width: 256, height: 4 });
+    const sheet = new TextureSource({ width: 8, height: 8 });
+    markPixelArtSource(sheet);
+    const house = new Texture({ source: sheet, frame: new Rectangle(0, 0, 4, 4) });
+    markPalettedTexture(house, lut, 2);
+    // The texture cache marks a recoloured view magnified as it marks any pixel-art view.
+    const tree = new Texture({ source: sheet, frame: new Rectangle(4, 0, 4, 4) });
+    markPalettedTexture(tree, lut, 3);
+    markMagnifiedTexture(tree);
+
+    batcher.begin();
+    batcher.add(quad(house));
+    batcher.add(quad(tree));
+    batcher.break(new InstructionSet());
+
+    const floats = batcher.attributeBuffer.float32View;
+    const flagsOf = (element: number) =>
+      floats[element * 4 * WORLD_VERTEX_SIZE + WORLD_ATTRIBUTE_OFFSETS.aFlags / 4];
+    const recoloured = WORLD_FLAG_PALETTED | WORLD_FLAG_INDEXED | WORLD_FLAG_RECOLOURED;
+    expect(flagsOf(0)).toBe(recoloured | (2 << WORLD_LUT_ROW_SHIFT));
+    expect(flagsOf(1)).toBe(recoloured | WORLD_FLAG_MAGNIFY | (3 << WORLD_LUT_ROW_SHIFT));
+    expect(batcher.batches[0]?.textures.textures[1]).toBe(lut);
     batcher.destroy();
   });
 
@@ -802,6 +835,12 @@ describe('world batcher shader selection', () => {
     expect(startProgram(build(scaledQuad(plain, 4)), new Matrix())).toBe(program('magnifying'));
     startProgram(build(scaledQuad(page, 1)), new Matrix());
     expect(startProgram(build(scaledQuad(plain, 4)), new Matrix())).toBe(program('unmagnified'));
+    // A recoloured stem's unmagnified view (a badge) takes the plain path and never gathers either.
+    const badge = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    markPalettedTexture(badge, new TextureSource({ width: 256, height: 4 }), 2);
+    expect(startProgram(build(scaledQuad(page, 1), scaledQuad(badge, 4)), new Matrix())).toBe(
+      program('unmagnified'),
+    );
     batcher.destroy();
   });
 });

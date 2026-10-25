@@ -56,6 +56,7 @@ import {
   WORLD_FLAG_MAGNIFY,
   WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
+  WORLD_FLAG_RECOLOURED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
   type WorldBatchSampling,
@@ -70,6 +71,7 @@ export {
   WORLD_FLAG_INDEXED,
   WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
+  WORLD_FLAG_RECOLOURED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
 } from './shader.js';
@@ -203,8 +205,12 @@ let drawPixelsPerUnit = Number.POSITIVE_INFINITY;
 /** How far a draw's texel bound must clear {@link MAGNIFIED_BELOW} for the unmagnified program: the
  *  shader's derivative noise of a few thousandths of a texel must not take a fragment below it. */
 const UNMAGNIFIED_MARGIN = 1.01;
-/** The flags of an element whose body may gather: paletted, or on a page marked for magnification. */
-const GATHERING_FLAGS = WORLD_FLAG_PALETTED | WORLD_FLAG_MAGNIFY;
+/** Whether an element's body may gather: on a page marked for magnification, or paletted, except a
+ *  recoloured stem's frame, which takes the plain page's path. */
+function gathers(flags: number): boolean {
+  if ((flags & WORLD_FLAG_MAGNIFY) !== 0) return true;
+  return (flags & WORLD_FLAG_PALETTED) !== 0 && (flags & WORLD_FLAG_RECOLOURED) === 0;
+}
 /** Off-axis terms below this share of the group's scale count as none. */
 const AXIS_ALIGNED_TOLERANCE = 1e-6;
 
@@ -537,10 +543,17 @@ function defineWorldBatcher(): WorldBatcherClass {
     return plain | WORLD_FLAG_SHADOW;
   }
 
+  /** A recoloured stem's frame names its row and takes the plain page's magnification mark. */
+  function recolouredFlags(texture: Texture): number {
+    if (palettedRowOf(texture) === undefined) return 0;
+    return WORLD_FLAG_RECOLOURED | (isMagnifiedTexture(texture) ? WORLD_FLAG_MAGNIFY : 0);
+  }
+
   function palettedFlags(element: BatchableElement): number {
     return (
       WORLD_FLAG_PALETTED |
       WORLD_FLAG_INDEXED |
+      recolouredFlags(element.texture) |
       (glowOf(element) ? WORLD_FLAG_GLOW : 0) |
       (lutRowOf(element) << WORLD_LUT_ROW_SHIFT)
     );
@@ -659,7 +672,7 @@ function defineWorldBatcher(): WorldBatcherClass {
     }
 
     private noteTexelsPerUnit(texelsPerUnit: number): void {
-      if (packing.selection >= 0 && (packing.flags & GATHERING_FLAGS) !== 0)
+      if (packing.selection >= 0 && gathers(packing.flags))
         this.texelsPerUnit = Math.min(this.texelsPerUnit, texelsPerUnit);
     }
 

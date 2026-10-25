@@ -85,7 +85,7 @@ export const gathererFlagFollowScene: SceneDefinition = {
     sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: HUMAN_PLAYER, enabled: true });
     // Stationary colour samples have no worker, so the moving-flag exercise leaves both rows intact.
     for (let player = 0; player < 10; player++) {
-      const sample = placeFlag(sim, 2 + (player % 5) * 2, player < 5 ? 12 : 15);
+      const sample = placeFlag(sim, (player % 5) * 2, player < 5 ? 11 : 13);
       sim.world.add(sample, components.Owner, { player });
     }
   },

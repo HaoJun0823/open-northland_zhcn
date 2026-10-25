@@ -14,8 +14,6 @@ export interface ChoiceRow {
   readonly reason?: string;
   /** A good whose icon leads the row; shown only when the window has an icon painter. */
   readonly goodId?: string;
-  /** Overlapping goods for a trade with several products. */
-  readonly goodIds?: readonly string[];
   /** A short value at the row's right edge, such as a count. */
   readonly detail?: string;
   /** The hover text of an enabled row. */
@@ -27,9 +25,7 @@ export interface ChoiceGroup {
 }
 
 /** Design px of a row's good icon, a little under the row's height. */
-const ROW_ICON_PX = 22;
-const rowGoods = (row: ChoiceRow): readonly string[] =>
-  row.goodIds ?? (row.goodId === undefined ? [] : [row.goodId]);
+const ROW_ICON_PX = 18;
 
 /** Shared modal choice surface for professions, school courses and equipment. The native dialog owns
  * focus and keeps pointer and keyboard input away from the world; the contents use the regular HUD plane. */
@@ -125,11 +121,7 @@ export function createChoiceWindow(opts: {
     const words = searchWords(search.value);
     // A row without a good keeps an empty icon slot beside rows that show one, so the labels line up.
     const pictured =
-      opts.icons !== undefined && groups.some((group) => group.rows.some((row) => rowGoods(row).length > 0));
-    const iconCount = Math.max(
-      1,
-      ...groups.flatMap((group) => group.rows.map((row) => rowGoods(row).length)),
-    );
+      opts.icons !== undefined && groups.some((group) => group.rows.some((row) => row.goodId !== undefined));
     for (const group of groups) {
       const rows = group.rows.filter((row) => hasWords(row.label, words));
       if (rows.length === 0) continue;
@@ -150,18 +142,10 @@ export function createChoiceWindow(opts: {
         button.dataset.choice = row.key;
         button.setAttribute('aria-disabled', String(row.reason !== undefined));
         if (pictured) {
-          const art = document.createElement('span');
-          art.className = 'on-choice-row__goods';
-          art.style.width = `${ROW_ICON_PX + (iconCount - 1) * 11}px`;
-          const goods = rowGoods(row);
-          art.innerHTML = Array.from({ length: Math.max(1, goods.length) }, () =>
-            goodIconMarkup(ROW_ICON_PX),
-          ).join('');
-          button.append(art);
-          for (const [index, frame] of art.querySelectorAll<HTMLElement>('.on-good__frame').entries()) {
-            const good = goods[index];
-            if (good !== undefined) opts.icons?.(frame, good, ROW_ICON_PX);
-          }
+          button.insertAdjacentHTML('beforeend', goodIconMarkup(ROW_ICON_PX));
+          const frame = button.querySelector('.on-good__frame');
+          if (frame instanceof HTMLElement && row.goodId !== undefined)
+            opts.icons?.(frame, row.goodId, ROW_ICON_PX);
         }
         const label = document.createElement('span');
         label.className = 'on-choice-row__label';

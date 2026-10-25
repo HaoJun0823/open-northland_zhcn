@@ -3081,24 +3081,10 @@ body.on-drag-scroll.on-drag-scroll-free * {
   flex: 1;
   overflow-wrap: anywhere;
 }
-.on-hud .on-choice-row__goods {
-  display: flex;
-  order: 1;
-  justify-content: flex-end;
-  flex: none;
-  align-items: center;
-  isolation: isolate;
-}
-.on-hud .on-window--choices .on-choice-row__goods .on-good {
-  flex: none;
-  margin: 0;
-  filter: drop-shadow(-1px 1px 1px #100d09);
-}
-.on-hud .on-window--choices .on-choice-row__goods .on-good + .on-good {
-  margin-left: -11px;
+.on-hud .on-window--choices .on-choice-row .on-good {
+  margin: -2px 0 -2px -3px;
 }
 .on-hud .on-window--choices .on-choice-row__detail {
-  order: 2;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }

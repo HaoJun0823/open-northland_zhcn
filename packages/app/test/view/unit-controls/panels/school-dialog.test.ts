@@ -1,7 +1,7 @@
 import { MAX_UNIT_ORDER_MEMBERS, type PlayerCommand } from '@open-northland/sim';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { JOB_COLLECTOR, JOB_JOINER } from '../../../../src/catalog/jobs.js';
-import { professionGoods } from '../../../../src/catalog/professions.js';
+import { professionDefForJob } from '../../../../src/catalog/professions.js';
 import { sandboxContent } from '../../../../src/game/sandbox/index.js';
 import type { ChoiceGroup } from '../../../../src/hud/dom/choice-window.js';
 import { snapshotOf } from '../../../support/snapshot.js';
@@ -117,7 +117,7 @@ it('refuses oversized school selections without opening or submitting', () => {
 /** The fixture's students' tribe. */
 const VIKING = 1;
 
-it('leads each trade with its products and each method with the good it teaches', () => {
+it('leads each trade with its roster good and each method with the good it teaches', () => {
   const f = fixture(1);
   const methods = ['furniture', 'tool_wooden'].map((id) => {
     const good = f.content.goods.find((row) => row.id === id);
@@ -161,16 +161,16 @@ it('leads each trade with its products and each method with the good it teaches'
     scale: 1,
     enqueue: () => {},
   });
-  const icons = (): [string, readonly string[] | undefined][] =>
+  const icons = (): [string, string | undefined][] =>
     choice.groups
       .flatMap((group) => group.rows)
-      .map((row): [string, readonly string[] | undefined] => [row.key, row.goodIds])
+      .map((row): [string, string | undefined] => [row.key, row.goodId])
       .sort(([a], [b]) => a.localeCompare(b));
-  expect(icons()).toEqual([[String(JOB_JOINER), professionGoods(JOB_JOINER)]]);
+  expect(icons()).toEqual([[String(JOB_JOINER), professionDefForJob(JOB_JOINER)?.icon]]);
   choice.pick?.(String(JOB_JOINER));
   expect(icons()).toEqual(
     methods
-      .map((good): [string, readonly string[]] => [`good:${good.typeId}`, [good.id]])
+      .map((good): [string, string] => [`good:${good.typeId}`, good.id])
       .sort(([a], [b]) => a.localeCompare(b)),
   );
 });

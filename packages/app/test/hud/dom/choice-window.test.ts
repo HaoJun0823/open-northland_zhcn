@@ -45,16 +45,6 @@ describe('the choice window', () => {
     expect(slots(rowsOf(choices(true)))).toEqual(['', 'wood']);
   });
 
-  it('paints all overlapping goods in their presentation order', () => {
-    const goods = ['wood', 'mud', 'stone', 'iron', 'gold', 'mushroom'];
-    const rows = rowsOf([{ label: 'Basic', rows: [{ key: '8', label: 'Collector', goodIds: goods }] }]);
-    expect(
-      [...(rows[0]?.querySelectorAll<HTMLElement>('.on-good__frame') ?? [])].map(
-        (frame) => frame.dataset.good,
-      ),
-    ).toEqual(goods);
-  });
-
   it('lists names alone when no row has a good', () => {
     expect(slots(rowsOf(choices(false)))).toEqual([null, null]);
   });

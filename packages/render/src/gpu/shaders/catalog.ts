@@ -20,6 +20,7 @@ import { GROUND_REACTIONS_SOURCE } from '../weather/ground-reactions.js';
 import { precipitationSource } from '../weather/precipitation-shader.js';
 import { WORLD_BATCH_MAX_TEXTURES, worldBatchProgramSource } from '../world-batch/shader.js';
 import { DEFAULT_SHADOW_STYLE, type ShadowStyle } from '../world-batch/shadow-style.js';
+import { WORLD_UPSCALE_SOURCE } from '../world-renderer/world-upscale.js';
 import type { GlslProgramSource } from './program-source.js';
 
 /**
@@ -73,6 +74,7 @@ export function shaderCatalog(): readonly GlslProgramSource[] {
     BLOOD_GROUND_SOURCE,
     GROUND_WAVE_FILTER_SOURCE,
     ...weatherPrograms(),
+    WORLD_UPSCALE_SOURCE,
   );
   return entries;
 }
@@ -91,6 +93,8 @@ export interface ShaderSelection {
   readonly blood: boolean;
   /** The shore-wave filter, which only environment motion draws. */
   readonly groundWaves: boolean;
+  /** The pass that magnifies a world drawn at fewer texels than a dense canvas. */
+  readonly worldUpscale: boolean;
 }
 
 /** What a world can draw with: the one batch variant for the device's batch limit and the player's
@@ -108,5 +112,6 @@ export function bootShaderPrograms(
     ...(selection.blood ? [BLOOD_GROUND_SOURCE] : []),
     ...(selection.groundWaves ? [GROUND_WAVE_FILTER_SOURCE] : []),
     ...(selection.weather ? weatherPrograms() : []),
+    ...(selection.worldUpscale ? [WORLD_UPSCALE_SOURCE] : []),
   ];
 }

@@ -34,6 +34,7 @@ describe('parseStoredSettings', () => {
     const settings = {
       displayMode: 'fullscreen',
       renderScale: 0.75,
+      backingDensity: 'whole',
       uiScaleFactor: 1.25,
       postFxEnabled: false,
       spriteSmoothing: false,
@@ -99,12 +100,13 @@ describe('parseStoredSettings', () => {
 
   it('falls back per field, not per blob', () => {
     const parsed = parseStoredSettings(
-      '{"language":"eng","uiScaleFactor":"big","displayMode":"borderless","renderScale":"max","postFxEnabled":1,"fpsLimit":45}',
+      '{"language":"eng","uiScaleFactor":"big","displayMode":"borderless","renderScale":"max","backingDensity":"half","postFxEnabled":1,"fpsLimit":45}',
     );
     expect(parsed.language).toBe('eng');
     expect(parsed.uiScaleFactor).toBe(defaultSettings().uiScaleFactor);
     expect(parsed.displayMode).toBe('window');
     expect(parsed.renderScale).toBe(defaultSettings().renderScale);
+    expect(parsed.backingDensity).toBe('native');
     expect(parsed.postFxEnabled).toBe(defaultSettings().postFxEnabled);
     expect(parsed.fpsLimit).toBe(defaultSettings().fpsLimit);
     expect(parsed.soundEnabled).toBe(defaultSettings().soundEnabled);

@@ -30,12 +30,17 @@ export class WorldChrome {
   }
 
   /**
-   * Mount the chrome quads on `stage`. Stage child order is the z-order and nothing sorts here, so the
-   * caller must invoke this after adding the world layer and before adding the HUD.
+   * Mount the chrome quads on `parent`. Child order is the z-order and nothing sorts here, so the caller
+   * must invoke this after adding the world layer and before adding the HUD.
    */
-  attach(stage: Container): void {
-    if (this.vignette !== null) stage.addChild(this.vignette);
-    stage.addChild(this.pauseWash);
+  attach(parent: Container): void {
+    if (this.vignette !== null) parent.addChild(this.vignette);
+    parent.addChild(this.pauseWash);
+  }
+
+  /** The screen quads, which a picture of the world leaves out. */
+  quads(): readonly Sprite[] {
+    return this.vignette === null ? [this.pauseWash] : [this.vignette, this.pauseWash];
   }
 
   setPaused(paused: boolean): void {

@@ -48,7 +48,7 @@ import {
   loadLocalizedRealContent,
   terrainColourOption,
 } from '../../view/runtime/world-bootstrap.js';
-import { readStoredSettings } from '../../view/settings/store.js';
+import { readStoredSettings, windowBacking } from '../../view/settings/store.js';
 import { mountUnknownSceneOverlay } from './overlay.js';
 import { mountSceneStages } from './stages.js';
 
@@ -107,7 +107,7 @@ export async function renderSceneMode(canvas: HTMLCanvasElement, params: URLSear
   await boot.begin('graphics');
   // Window-tracking backing store at the stored render scale times the device oversample: resizing
   // changes the visible field, never the scale.
-  const app = await createWindowPixiApp(canvas, { resolutionScale: readStoredSettings().renderScale });
+  const app = await createWindowPixiApp(canvas, windowBacking(readStoredSettings()));
   const terrainGrid = terrainMapToScene(scene.terrain);
   await boot.begin('content');
   // Served real content makes the browser scene collide and place exactly like the live map view. The

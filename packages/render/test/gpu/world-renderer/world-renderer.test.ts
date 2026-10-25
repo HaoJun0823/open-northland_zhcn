@@ -33,6 +33,11 @@ afterEach(() => {
 /** An {@link Application} stub. Constructing the renderer wires Pixi containers and bakes one noise
  *  texture, read back here as empty, so the retained graph is readable; a field the stub lacks would
  *  throw rather than pass. */
+/** The world layer, the first child of the renderer's scene on the stage. */
+function worldLayerOf(app: Application): Container | undefined {
+  return app.stage.getChildByLabel('world-scene')?.children[0] as Container | undefined;
+}
+
 function stubApp(): Application {
   return {
     stage: new Container(),
@@ -195,7 +200,7 @@ describe('WorldRenderer scene graph', () => {
   it('keeps enhanced camera motion subpixel and restores device alignment when switched off', () => {
     const app = stubApp();
     const renderer = new WorldRenderer(app, { viewSmoothing: true });
-    const world = app.stage.children[0];
+    const world = worldLayerOf(app);
     if (world === undefined) throw new Error('missing world layer');
     const frame = { snapshot: snapshotOf([]), camera: { offsetX: 0.25, offsetY: -0.25, scale: 2 } };
     renderer.update(frame);
@@ -249,7 +254,7 @@ describe('WorldRenderer scene graph', () => {
   it('mounts the world layer under the screen chrome, with the whole painter order inside it', () => {
     const app = stubApp();
     const renderer = new WorldRenderer(app);
-    const world = app.stage.children[0];
+    const world = worldLayerOf(app);
     expect(world).toBeInstanceOf(Container);
     expect((world as Container).children).toHaveLength(SLOTS.length);
     renderer.dispose();
@@ -264,7 +269,7 @@ describe('WorldRenderer scene graph', () => {
       camera: { offsetX: 0, offsetY: 0, scale: 1 },
       groupNumbers: new Map([[SETTLER, ['1']]]),
     };
-    const world = app.stage.children[0] as Container;
+    const world = worldLayerOf(app) as Container;
     const labels = world.children[SLOTS.indexOf('groupNumbers')] as Container;
 
     renderer.update(frame);

@@ -232,9 +232,11 @@ export { gpuAdapterName } from './gpu/pixi-app/gpu-adapter.js';
 export { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from './gpu/pixi-app/gpu-frame-timer.js';
 export {
   atlasSourceFromBitmap,
+  type BackingDensity,
   createPixiApp,
   createWindowPixiApp,
   loadAtlasSource,
+  parseBackingDensity,
   windowResolutionFor,
 } from './gpu/pixi-app/pixi-app.js';
 export {

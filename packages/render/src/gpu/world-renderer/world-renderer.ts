@@ -33,6 +33,7 @@ import {
 } from '../overlays/index.js';
 import { PagePrescaler, type PrescaleStats } from '../pixel-art/page-prescaler.js';
 import { prescaledScalerOf, setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art/registry.js';
+import { worldUpscaleOf } from '../pixi-app/pixi-app.js';
 import { type ConstructionPlotFrame, ConstructionPlotLayer } from '../placement/construction-plot.js';
 import { type PlacementGhost, PlacementGhostLayer } from '../placement/ghost.js';
 import { type PlacementOverlayFrame, PlacementOverlayLayer } from '../placement/overlay.js';
@@ -75,9 +76,13 @@ import { mountPainterOrder } from './painter-order.js';
 import { WorldChrome } from './world-chrome.js';
 import { WorldFog } from './world-fog.js';
 import { WorldMarks } from './world-marks.js';
+import { WorldUpscale } from './world-upscale.js';
 
 export class WorldRenderer {
   private readonly app: Application;
+  /** The world layer, the weather sky, the scene light and the screen chrome: what a world upscale draws
+   *  at its own resolution and a save picture shows. */
+  private readonly scene = new Container();
   private readonly worldLayer = new Container();
   /** The one depth-sorted layer: anything that must occlude like a sprite joins it instead of taking a
    *  painter-order slot. */
@@ -115,6 +120,8 @@ export class WorldRenderer {
   private readonly insetBands: Container[] = [];
   private readonly mapViews: MapViewLayer;
   private readonly prescaler: PagePrescaler;
+  /** The world drawn at fewer texels than a dense canvas and upscaled, when the window asked for it. */
+  private readonly upscale: WorldUpscale | null;
 
   private readonly viewSmoothing: boolean;
   /** What the ground last drew of the road network. */
@@ -139,9 +146,9 @@ export class WorldRenderer {
     // Own Pixi render group over its depth bands' groups: a band appearing or retiring rebuilds only
     // this layer's short instruction list, not the whole stage's.
     this.spriteLayer.isRenderGroup = true;
-    // The world its own group under the stage, so a stage-level change (the weather sky, scene light,
-    // pause wash) rebuilds the stage's short list rather than walking the whole world's again. A framed
-    // inset render would make it one on its first pass anyway.
+    // The world its own group under the scene, so a change beside it (the weather sky, scene light,
+    // pause wash) rebuilds a short list rather than walking the whole world's again. A framed inset
+    // render would make it one on its first pass anyway.
     this.worldLayer.isRenderGroup = true;
     for (const art of [opts?.planStakes, opts?.planRoads]) {
       if (art !== undefined) for (const texture of Object.values(art)) this.textureCache.adopt(texture);
@@ -191,15 +198,20 @@ export class WorldRenderer {
       sprites: this.spriteLayer,
       ...this.marks.slots,
     });
-    app.stage.addChild(this.worldLayer);
+    app.stage.addChild(this.scene);
+    this.scene.addChild(this.worldLayer);
     // Screen-space like the chrome, but under its vignette and pause wash.
-    app.stage.addChild(this.weatherSky.container);
+    this.scene.addChild(this.weatherSky.container);
     this.weatherSky.watchFog(this.fog.washMask);
     // Over the world and the weather, so rain takes the grade; framed world renders never include it.
-    app.stage.addChild(this.sceneLight.container);
+    this.scene.addChild(this.sceneLight.container);
     this.chrome = new WorldChrome(this.textureCache, opts?.postFx === true, opts?.spriteSmoothing);
-    this.chrome.attach(app.stage);
+    this.chrome.attach(this.scene);
     app.stage.addChild(this.hud.container);
+    this.scene.label = 'world-scene';
+    const upscale = worldUpscaleOf(app);
+    this.upscale =
+      upscale === null ? null : new WorldUpscale(app, this.scene, upscale.filter, upscale.resolution);
     // Always routed, never only assigned: the magnification mode and shadow style are page globals a
     // previous renderer may have left set, so the baseline has to claim them back.
     this.setGraphicsEnhancements(opts?.enhancements ?? BASELINE_ENHANCEMENTS);
@@ -210,12 +222,11 @@ export class WorldRenderer {
   /** One render of the screen as the world stands, weather and light included, without the chrome or
    *  any HUD layer on the stage: a save's picture. */
   worldPicture(resolution: number): ICanvas {
-    const world = new Set<Container>([this.worldLayer, this.weatherSky.container, this.sceneLight.container]);
-    const covering = this.app.stage.children.filter((child) => child.visible && !world.has(child));
+    const covering = this.chrome.quads().filter((quad) => quad.visible);
     for (const child of covering) child.visible = false;
     try {
       return this.app.renderer.extract.canvas({
-        target: this.app.stage,
+        target: this.scene,
         frame: this.app.screen,
         resolution,
         // The screen's own clear, so off-map margins read as they look rather than transparent.
@@ -437,7 +448,9 @@ export class WorldRenderer {
     // Filtered sprites can move continuously; pixel snapping would reintroduce one-pixel pan/feet
     // jumps. Keep the old alignment only for the baseline nearest-sampled presentation.
     const snapResolution =
-      this.viewSmoothing && !this.enhancements.enhancedSampling ? this.app.renderer.resolution : undefined;
+      this.viewSmoothing && !this.enhancements.enhancedSampling
+        ? (this.upscale?.drawResolution() ?? this.app.renderer.resolution)
+        : undefined;
     const camera =
       snapResolution === undefined ? frame.camera : snapCameraToDevicePixels(frame.camera, snapResolution);
     this.chrome.applyWorldSampling(
@@ -545,7 +558,8 @@ export class WorldRenderer {
       tick,
       this.enhancements.environmentMotion,
     );
-    this.app.render();
+    if (this.upscale === null) this.app.render();
+    else this.upscale.render();
     this.groundWaves.suspend(true);
     this.portrait.draw(camera, {
       toInset: (cam, iw, ih) => {
@@ -680,9 +694,10 @@ export class WorldRenderer {
     this.placementOverlay.destroy();
     this.constructionPlots.destroy();
     this.placementGhost.destroy();
-    this.worldLayer.destroy({ children: true });
     this.hud.destroy();
     this.chrome.destroy();
+    this.upscale?.destroy();
+    this.scene.destroy({ children: true });
     this.prescaler.destroy();
     this.textureCache.clear();
   }

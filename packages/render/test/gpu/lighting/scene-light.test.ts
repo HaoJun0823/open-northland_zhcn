@@ -85,17 +85,20 @@ describe('WorldRenderer scene light', () => {
     };
     const app = { stage, screen: SCREEN, renderer: gpu, render: () => undefined };
     const renderer = new WorldRenderer(app as unknown as Application);
-    const labels = stage.children.map((child) => child.label);
+    const scene = stage.getChildByLabel('world-scene');
+    if (scene === null) throw new Error('missing world scene');
+    const labels = scene.children.map((child) => child.label);
     const sky = labels.indexOf('weather-sky');
     const light = labels.indexOf('scene-light');
     expect(sky).toBeGreaterThan(0);
     expect(light).toBe(sky + 1);
     expect(light).toBeLessThan(labels.length - 1);
+    expect(stage.getChildIndex(scene)).toBeLessThan(stage.children.length - 1);
     renderer.update({
       snapshot: snapshotOf([entity(1, 0, 0, { Building: {} })]),
       camera: { offsetX: 0, offsetY: 0 },
     });
-    expect(stage.children[light]?.visible).toBe(false);
+    expect(scene.children[light]?.visible).toBe(false);
     renderer.dispose();
   });
 });

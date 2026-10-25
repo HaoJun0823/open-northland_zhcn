@@ -55,13 +55,63 @@ export function backingResolutionFor(dpr: number): number {
 }
 
 /**
- * The window renderer resolution: the device-pixel ratio times the caller's scale.
- * A scale below 1 trades crispness for fill-rate (the browser upscales the smaller backing store);
- * above 1 supersamples. A degenerate scale falls back to 1.
+ * How a window draws on a display denser than its CSS pixels. `native` draws every device pixel.
+ * `whole` divides the backing store's ratio by its whole part, so a ratio of 2 or 3 draws one texel per CSS
+ * pixel and 2.5 draws 1.25, and the canvas's nearest upscale (`image-rendering: pixelated`) repeats each
+ * texel into an exact square of device pixels; a ratio under 2 has no whole factor and stays native.
+ * `sharp` and `xbr` keep the backing store native and draw only the world at one texel per CSS pixel
+ * (times the render scale), which one pass then upscales with that magnifier; the rest of the stage
+ * draws natively over it (see `WorldUpscale`).
  */
-export function windowResolutionFor(dpr: number, resolutionScale: number): number {
+export type BackingDensity = 'native' | 'whole' | 'sharp' | 'xbr';
+
+const BACKING_DENSITIES: readonly BackingDensity[] = ['native', 'whole', 'sharp', 'xbr'];
+
+/** A stored value as a {@link BackingDensity}; null for anything else. */
+export function parseBackingDensity(value: unknown): BackingDensity | null {
+  return BACKING_DENSITIES.find((density) => density === value) ?? null;
+}
+
+/** The world's own resolution and magnifier under an upscaling {@link BackingDensity}. */
+export interface WorldUpscaleSetting {
+  readonly filter: 'sharp' | 'xbr';
+  /** World texels per CSS pixel. */
+  readonly resolution: number;
+}
+
+const worldUpscales = new WeakMap<Application, WorldUpscaleSetting>();
+
+/** What {@link createWindowPixiApp} asked of `app`'s world; null draws it at the backing resolution. */
+export function worldUpscaleOf(app: Application): WorldUpscaleSetting | null {
+  return worldUpscales.get(app) ?? null;
+}
+
+/** The world's upscale under `density` at a render scale; null for a density that draws it natively. */
+export function worldUpscaleFor(
+  density: BackingDensity,
+  resolutionScale: number,
+): WorldUpscaleSetting | null {
+  if (density !== 'sharp' && density !== 'xbr') return null;
+  return { filter: density, resolution: windowResolutionFor(1, resolutionScale) };
+}
+
+/** A ratio this close under a whole number counts as it: a zoomed browser reports 1.9999999. */
+const WHOLE_RATIO_TOLERANCE = 1e-4;
+
+/**
+ * The window renderer resolution: the device-pixel ratio, divided under `whole` density (see
+ * {@link BackingDensity}), times the caller's scale. A scale below 1 trades crispness for fill-rate (the
+ * browser upscales the smaller backing store); above 1 supersamples. A degenerate scale falls back to 1.
+ */
+export function windowResolutionFor(
+  dpr: number,
+  resolutionScale: number,
+  density: BackingDensity = 'native',
+): number {
   const scale = Number.isFinite(resolutionScale) && resolutionScale > 0 ? resolutionScale : 1;
-  return backingResolutionFor(dpr) * scale;
+  const ratio = backingResolutionFor(dpr);
+  const divisor = density === 'whole' ? Math.max(1, Math.floor(ratio + WHOLE_RATIO_TOLERANCE)) : 1;
+  return (ratio / divisor) * scale;
 }
 
 /**
@@ -71,11 +121,11 @@ export function windowResolutionFor(dpr: number, resolutionScale: number): numbe
  * where zooming still fires a window resize. Destroying the renderer releases every listener before
  * its context and screen disappear.
  */
-function watchBackingResolution(app: Application, resolutionScale: number): void {
+function watchBackingResolution(app: Application, resolutionScale: number, density: BackingDensity): void {
   const scope = new AbortController();
   app.renderer.runners.destroy.add({ destroy: () => scope.abort() });
   const apply = (): void => {
-    const next = windowResolutionFor(window.devicePixelRatio || 1, resolutionScale);
+    const next = windowResolutionFor(window.devicePixelRatio || 1, resolutionScale, density);
     if (next !== app.renderer.resolution) {
       app.renderer.resize(window.innerWidth, window.innerHeight, next);
     }
@@ -99,6 +149,8 @@ function watchBackingResolution(app: Application, resolutionScale: number): void
 export interface WindowPixiAppOptions {
   /** Multiplier over the DPR-derived backing resolution; see {@link windowResolutionFor}. */
   readonly resolutionScale?: number;
+  /** `native` unless given; see {@link BackingDensity}. */
+  readonly density?: BackingDensity;
 }
 
 /**
@@ -116,6 +168,7 @@ export async function createWindowPixiApp(
   options?: WindowPixiAppOptions,
 ): Promise<Application> {
   const resolutionScale = options?.resolutionScale ?? 1;
+  const density = options?.density ?? 'native';
   registerHumanPaletteUploader();
   registerWrittenPageUploader();
   registerAtlasPageUploader();
@@ -127,11 +180,13 @@ export async function createWindowPixiApp(
     height: window.innerHeight,
     resizeTo: window,
     ...APP_OPTIONS,
-    resolution: windowResolutionFor(window.devicePixelRatio || 1, resolutionScale),
+    resolution: windowResolutionFor(window.devicePixelRatio || 1, resolutionScale, density),
     autoDensity: true, // CSS-size the canvas to the logical size, so client px stay 1:1 with screen px
   });
   inheritParentGroupUniforms(app.renderer);
-  watchBackingResolution(app, resolutionScale);
+  const upscale = worldUpscaleFor(density, resolutionScale);
+  if (upscale !== null) worldUpscales.set(app, upscale);
+  watchBackingResolution(app, resolutionScale, density);
   return app;
 }
 

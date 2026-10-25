@@ -21,6 +21,7 @@ function settingsKey(settings: WarmupSettings): string {
     settings.environmentMotion,
     settings.weather,
     settings.blood,
+    settings.backingDensity,
   ].join('/');
 }
 

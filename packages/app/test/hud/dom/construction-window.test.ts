@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import type { HudModel } from '@open-northland/render';
 import { afterEach, expect, it, vi } from 'vitest';
-import { createConstructionWindow } from '../../../src/hud/dom/construction-window.js';
+import {
+  AVAILABILITY_REFRESH_MS,
+  createConstructionWindow,
+} from '../../../src/hud/dom/construction-window.js';
 import {
   type BuildingAvailability,
   type MenuBuildingEntry,
@@ -64,6 +67,11 @@ it('lists a house a script allowed while the world is paused, once the answer la
     expect(listed()).toBe(0);
 
     answers += 1;
+    const now = vi.spyOn(performance, 'now');
+    now.mockReturnValue(performance.now());
+    window.update(model);
+    // The entries' availability is read at most every quarter second, so the answer lists then.
+    now.mockReturnValue(performance.now() + AVAILABILITY_REFRESH_MS);
     window.update(model);
     expect(listed()).toBe(1);
   } finally {

@@ -37,6 +37,10 @@ import { centralWindowPlacer, createHudWindow } from './window.js';
  *  one row beside the picture; the head's painted icon, a card's picture box and a cost slot's icon box. */
 const CONSTRUCTION_WINDOW_W = 640;
 const TITLE_ART_PX = 43;
+/** Wall ms between two reads of the entries' availability while the window is open. Each read at a
+ *  newer tick asks the host again for every entry, so a read per tick would keep a request per entry
+ *  in flight; a discovery or a ban shows within this. */
+export const AVAILABILITY_REFRESH_MS = 250;
 const THUMB_BOX_PX = 72;
 const COST_ICON_BOX_PX = 16;
 /** Raster size of the nation switch's emblem. */
@@ -639,7 +643,12 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
   let model: HudModel | null = null;
   let shownModel: HudModel | null = null;
   let shownAnswers = -1;
+  /** When the entries' availability was last read, and whether a tick or an answer came since. */
+  let availabilityReadAt = Number.NEGATIVE_INFINITY;
+  let availabilityDue = false;
   const relist = (): void => {
+    availabilityDue = false;
+    availabilityReadAt = performance.now();
     if (layoutCards()) showCategory(state.category);
   };
   // Both pages follow the nation; the new nation's cards get the stock marks the old ones had.
@@ -655,13 +664,18 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
   };
   const present = (): void => {
     const answers = deps.answersVersion();
-    if (model === shownModel && answers === shownAnswers) return;
-    shownModel = model;
-    shownAnswers = answers;
-    layoutNations();
-    relist();
-    layoutPapers();
-    if (model !== null) markStocks(model);
+    if (model !== shownModel || answers !== shownAnswers) {
+      shownModel = model;
+      shownAnswers = answers;
+      availabilityDue = true;
+      layoutNations();
+      if (performance.now() - availabilityReadAt >= AVAILABILITY_REFRESH_MS) relist();
+      layoutPapers();
+      if (model !== null) markStocks(model);
+    } else if (availabilityDue && performance.now() - availabilityReadAt >= AVAILABILITY_REFRESH_MS) {
+      relist();
+      if (model !== null) markStocks(model);
+    }
   };
 
   const placeWindow = centralWindowPlacer(window, deps.plane, CONSTRUCTION_WINDOW_W);
@@ -672,7 +686,7 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
       state = { ...state, query: '', category: 'all', scrollTop: 0 };
     }
     layoutNations();
-    layoutCards();
+    relist();
     showCategory(state.category);
     layoutPapers();
     shownModel = null;

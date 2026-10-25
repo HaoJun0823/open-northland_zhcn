@@ -1,5 +1,5 @@
 import type { MinimapObjects, SceneTerrain } from '@open-northland/render';
-import { applyMinimapGroundMode, type MinimapGroundMode } from '@open-northland/render/data';
+import type { MinimapGroundMode } from '@open-northland/render/data';
 import { positionOfNode, type WorldSnapshot } from '@open-northland/sim';
 import { BufferImageSource, Container, Sprite } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,8 +7,10 @@ import { diag } from '../../../src/diag/index.js';
 import { GOOD_WOOD } from '../../../src/game/sandbox/ids/index.js';
 import {
   createCachedMinimapBake,
-  createMinimapRasterizer,
+  MINIMAP_OBJECT_TYPES,
+  type MinimapBakeObjects,
   type MinimapBakerFactory,
+  type MinimapGroundPicture,
   minimapBakeScene,
 } from '../../../src/hud/minimap/bake.js';
 import {
@@ -25,7 +27,7 @@ import { type Ent, snapshotOf } from '../../support/snapshot.js';
 
 /** A baker on the calling thread, so a bake resolves without a worker. */
 const createInlineMinimapBaker: MinimapBakerFactory = (scene) => {
-  const bake = createCachedMinimapBake(createMinimapRasterizer(scene));
+  const bake = createCachedMinimapBake(scene);
   return {
     bake: async (width, height, mode, objects) => bake(width, height, mode, objects),
     dispose: () => {},
@@ -41,6 +43,7 @@ const TERRAIN: SceneTerrain = {
 const MEADOW = 0x426f32;
 const MAP = { x: 0, y: 0, w: 52, h: 42 };
 const FEATURES = minimapFeatureOfGoodTypes([{ id: 'wood', typeId: GOOD_WOOD }]);
+const FOREST_TYPE = MINIMAP_OBJECT_TYPES.indexOf('forest');
 
 function tree(id: number, hx: number, hy: number): Ent {
   return {
@@ -59,8 +62,8 @@ function standingObjects(snapshot: WorldSnapshot): MinimapObjects {
 }
 
 function expectedRaster(objects: MinimapObjects, mode: MinimapGroundMode = 'natural'): Uint8Array {
-  const natural = createMinimapRasterizer(minimapBakeScene(TERRAIN, () => MEADOW))(MAP.w, MAP.h, objects);
-  return applyMinimapGroundMode(natural, mode);
+  return createCachedMinimapBake(minimapBakeScene(TERRAIN, () => MEADOW))(MAP.w, MAP.h, mode, { objects })
+    .rgba;
 }
 
 /** Let the baker's answer land. */
@@ -82,6 +85,7 @@ interface DeferredBake {
   readonly width: number;
   readonly height: number;
   readonly mode: MinimapGroundMode;
+  readonly objects: MinimapBakeObjects | undefined;
   resolve(rgba: Uint8Array): void;
   reject(err: Error): void;
 }
@@ -96,9 +100,9 @@ function deferredBaker(): {
     calls: [] as DeferredBake[],
     disposed: false,
     factory: (() => ({
-      bake: (width, height, mode) =>
-        new Promise<Uint8Array>((resolve, reject) =>
-          out.calls.push({ width, height, mode, resolve, reject }),
+      bake: (width, height, mode, objects) =>
+        new Promise<MinimapGroundPicture>((resolve, reject) =>
+          out.calls.push({ width, height, mode, objects, resolve: (rgba) => resolve({ rgba }), reject }),
         ),
       dispose: () => {
         out.disposed = true;
@@ -260,19 +264,40 @@ describe('minimap ground surface', () => {
     });
     const ground = groundOf(host);
     // Separate snapshots build their own indexes, so the counts stand in for a mirror's growing revision.
-    surface.sync(snapshotOf([tree(1, 2, 2), tree(2, 4, 4)]), null);
+    const standing = snapshotOf([tree(1, 2, 2), tree(2, 4, 4)]);
+    surface.sync(standing, null);
     await settle();
-    const forested = ground.texture;
+    const texture = ground.texture;
     const felled = snapshotOf([tree(1, 2, 2)]);
     now = OBJECT_REBAKE_INTERVAL_MS - 1;
     surface.sync(felled, null);
     await settle();
-    expect(ground.texture).toBe(forested);
+    expect(pixelsOf(ground)).toEqual(expectedRaster(standingObjects(standing)));
     now = OBJECT_REBAKE_INTERVAL_MS;
     surface.sync(felled, null);
     await settle();
-    expect(ground.texture).not.toBe(forested);
     expect(pixelsOf(ground)).toEqual(expectedRaster(standingObjects(felled)));
+    // The same size lands in the texture the GPU already holds.
+    expect(ground.texture).toBe(texture);
+    expect(texture.destroyed).toBe(false);
+    surface.dispose();
+    host.destroy();
+  });
+
+  it('hands the baker the seen objects once, then only what changed', async () => {
+    const host = new Container();
+    const baker = deferredBaker();
+    const { surface, advance } = surfaceOn(host, baker.factory);
+    const standing = snapshotOf([tree(1, 2, 2), tree(2, 4, 4)]);
+    surface.sync(standing, null);
+    baker.calls[0]?.resolve(expectedRaster(standingObjects(standing)));
+    await settle();
+    advance(OBJECT_REBAKE_INTERVAL_MS);
+    surface.sync(snapshotOf([tree(1, 2, 2)]), null);
+    expect(baker.calls.map((call) => call.objects)).toEqual([
+      { objects: standingObjects(standing) },
+      { changes: { types: MINIMAP_OBJECT_TYPES, changes: Int32Array.from([4, 4, FOREST_TYPE, -1]) } },
+    ]);
     surface.dispose();
     host.destroy();
   });
@@ -365,7 +390,6 @@ describe('minimap ground surface', () => {
     baker.calls[0]?.resolve(expectedRaster(standingObjects(snapshot)));
     await settle();
     const ground = groundOf(host);
-    const natural = ground.texture;
 
     // The new size has not settled, so the flip grades the baked size the baker still holds.
     mode = 'dark';
@@ -375,10 +399,9 @@ describe('minimap ground surface', () => {
       [MAP.w, MAP.h, 'natural'],
       [MAP.w, MAP.h, 'dark'],
     ]);
-    expect(ground.texture).toBe(natural);
+    expect(pixelsOf(ground)).toEqual(expectedRaster(standingObjects(snapshot)));
     baker.calls[1]?.resolve(expectedRaster(standingObjects(snapshot), 'dark'));
     await settle();
-    expect(ground.texture).not.toBe(natural);
     expect(pixelsOf(ground)).toEqual(expectedRaster(standingObjects(snapshot), 'dark'));
     surface.sync(snapshot, null);
     expect(baker.calls).toHaveLength(2);

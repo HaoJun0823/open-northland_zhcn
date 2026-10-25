@@ -11,11 +11,17 @@ export { type FrameIndexReader, RENDER_FRAME_INDEX_READERS } from './frame-index
 export { empireInventoryContains, empireInventoryOf, networkInventoryOf } from './hud/inventory.js';
 export { stockCounts } from './hud/model.js';
 export { type LightGrade, NEUTRAL_GRADE } from './lighting/types.js';
+export { buildMinimapCellField } from './minimap/cells.js';
 export {
+  changeMinimapObjectCounts,
   type MinimapFeature,
+  type MinimapObjectChanges,
+  type MinimapObjectCounts,
   type MinimapObjectLanes,
   type MinimapObjects,
   minimapFeatureOfGood,
+  minimapLanesOfCounts,
+  minimapObjectCounts,
   minimapObjectLanes,
 } from './minimap/features.js';
 export {
@@ -39,7 +45,12 @@ export {
   type MinimapScene,
   minimapScene,
 } from './minimap/scene.js';
-export { rasterizeMinimap } from './minimap/style.js';
+export {
+  changedMinimapTiles,
+  MINIMAP_TILE_PX,
+  rasterizeMinimap,
+  rasterizeMinimapRegion,
+} from './minimap/style.js';
 export {
   aabbIntersects,
   type Box,

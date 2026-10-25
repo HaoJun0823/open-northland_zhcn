@@ -1,4 +1,9 @@
-import { type MinimapFeature, type MinimapObjects, minimapFeatureOfGood } from '@open-northland/render/data';
+import {
+  type MinimapFeature,
+  type MinimapObjectChanges,
+  type MinimapObjects,
+  minimapFeatureOfGood,
+} from '@open-northland/render/data';
 import {
   cellOfNode,
   FOG_STATE,
@@ -18,10 +23,15 @@ import { MINIMAP_OBJECT_TYPES } from './bake.js';
  * placements spawn as these nodes, so a fresh world draws what the map authored.
  */
 
-/** One good's standing nodes: how many stand on each half-cell node, and a count of the changes. */
+/** The node changes a good's log keeps; a reader further behind walks every node again. */
+const CHANGE_LOG = 4096;
+
+/** One good's standing nodes: how many stand on each half-cell node, a count of the changes, and the
+ *  node of each of the last {@link CHANGE_LOG} changes at `log[revision % CHANGE_LOG]`. */
 interface GoodNodes {
   readonly countByNode: Map<number, number>;
   revision: number;
+  readonly log: Int32Array;
 }
 
 type StandingNodes = Map<number, GoodNodes>;
@@ -46,12 +56,13 @@ function count(state: StandingNodes, entity: SnapshotEntity, delta: number): voi
   if (standing === undefined) return;
   let good = state.get(standing.goodType);
   if (good === undefined) {
-    good = { countByNode: new Map(), revision: 0 };
+    good = { countByNode: new Map(), revision: 0, log: new Int32Array(CHANGE_LOG) };
     state.set(standing.goodType, good);
   }
   const left = (good.countByNode.get(standing.node) ?? 0) + delta;
   if (left > 0) good.countByNode.set(standing.node, left);
   else good.countByNode.delete(standing.node);
+  good.log[good.revision % CHANGE_LOG] = standing.node;
   good.revision++;
 }
 
@@ -112,11 +123,14 @@ export interface SeenStandingObjects {
    *  or a difference still hidden may have come into view under a new fog view. */
   stale(snapshot: WorldSnapshot, fog: FogView | null): boolean;
   /** Take each node's live count where the viewer sees its cell now, or everywhere without fog; true
-   *  when the picture changed. A full refresh walks the drawn goods' standing and seen nodes; a refresh
-   *  under unchanged nodes rechecks only the differences fog hid. */
+   *  when the picture changed. The first refresh walks the drawn goods' standing nodes; a later one
+   *  reads the nodes the index logged as changed since, with the differences fog still hides, and walks
+   *  everything only once more changes came than the log holds. */
   refresh(snapshot: WorldSnapshot, fog: FogView | null): boolean;
-  /** The picture as a baker's objects: one pass over the seen nodes. */
+  /** The picture as a baker's objects: one pass over the seen nodes. Starts the next {@link changes}. */
   objects(): MinimapObjects;
+  /** What the picture took since the last {@link objects} or changes, as a baker's object changes. */
+  changes(): MinimapObjectChanges;
 }
 
 /**
@@ -131,6 +145,10 @@ export function createSeenStandingObjects(
   const seen: CountsByGood = new Map();
   /** Nodes whose live count differs from the seen one while fog hides their cell. */
   const hidden = new Map<number, Set<number>>();
+  /** Per good, the index state and revision the last refresh read up to. */
+  const readTo = new Map<number, { readonly nodes: GoodNodes | undefined; readonly revision: number }>();
+  /** Per good, the seen count of each node the picture changed since the last objects or changes. */
+  const before: CountsByGood = new Map();
   let seeded = false;
   let refreshedRevision = 0;
   /** The fog view the last refresh saw, by its seat and generation; null seat when fog was off. */
@@ -153,6 +171,7 @@ export function createSeenStandingObjects(
   /** Apply a differing live count where it shows; otherwise remember it as hidden. True when applied. */
   const take = (
     fog: FogView | null,
+    goodType: number,
     nodes: Map<number, number>,
     hiddenNodes: Set<number>,
     node: number,
@@ -162,6 +181,12 @@ export function createSeenStandingObjects(
       hiddenNodes.add(node);
       return false;
     }
+    let was = before.get(goodType);
+    if (was === undefined) {
+      was = new Map();
+      before.set(goodType, was);
+    }
+    if (!was.has(node)) was.set(node, nodes.get(node) ?? 0);
     if (live > 0) nodes.set(node, live);
     else nodes.delete(node);
     hiddenNodes.delete(node);
@@ -178,39 +203,46 @@ export function createSeenStandingObjects(
     },
     refresh: (snapshot, fog) => {
       const state = indexesOf(snapshot).get(STANDING_NODES);
-      const revision = standingNodesRevision(snapshot, featureOfGoodType);
-      const full = !seeded || revision !== refreshedRevision;
       const view = seeded ? fog : null;
       let changed = !seeded;
       for (const goodType of featureOfGoodType.keys()) {
-        const live = state.get(goodType)?.countByNode;
+        const good = state.get(goodType);
+        const live = good?.countByNode;
         const nodes = seenOf(goodType);
         const hiddenNodes = hidden.get(goodType) ?? new Set<number>();
-        if (full) {
+        const read = readTo.get(goodType);
+        const revision = good?.revision ?? 0;
+        const differs = (node: number, count: number): boolean => (nodes.get(node) ?? 0) !== count;
+        if (!seeded || read === undefined || read.nodes !== good || revision - read.revision > CHANGE_LOG) {
           hiddenNodes.clear();
           for (const [node, count] of live ?? []) {
-            if (nodes.get(node) !== count && take(view, nodes, hiddenNodes, node, count)) changed = true;
+            if (differs(node, count) && take(view, goodType, nodes, hiddenNodes, node, count)) changed = true;
           }
           for (const node of nodes.keys()) {
-            if (live?.has(node) !== true && take(view, nodes, hiddenNodes, node, 0)) changed = true;
+            if (live?.has(node) !== true && take(view, goodType, nodes, hiddenNodes, node, 0)) changed = true;
           }
         } else {
-          for (const node of hiddenNodes) {
+          const logged = new Set<number>();
+          for (let at = read.revision; at < revision; at++) logged.add(good?.log[at % CHANGE_LOG] ?? 0);
+          for (const node of hiddenNodes) logged.add(node);
+          for (const node of logged) {
             const count = live?.get(node) ?? 0;
-            if ((nodes.get(node) ?? 0) === count) hiddenNodes.delete(node);
-            else if (take(view, nodes, hiddenNodes, node, count)) changed = true;
+            if (!differs(node, count)) hiddenNodes.delete(node);
+            else if (take(view, goodType, nodes, hiddenNodes, node, count)) changed = true;
           }
         }
         if (hiddenNodes.size > 0) hidden.set(goodType, hiddenNodes);
         else hidden.delete(goodType);
+        readTo.set(goodType, { nodes: good, revision });
       }
       seeded = true;
-      refreshedRevision = revision;
+      refreshedRevision = standingNodesRevision(snapshot, featureOfGoodType);
       refreshedSeat = fog?.player ?? null;
       refreshedGeneration = fog?.generation ?? 0;
       return changed;
     },
     objects: () => {
+      before.clear();
       let standingTotal = 0;
       for (const goodType of featureOfGoodType.keys()) {
         for (const standing of seen.get(goodType)?.values() ?? []) standingTotal += standing;
@@ -232,6 +264,21 @@ export function createSeenStandingObjects(
         }
       }
       return { types: MINIMAP_OBJECT_TYPES, placements };
+    },
+    changes: () => {
+      const list: number[] = [];
+      for (const [goodType, was] of before) {
+        const feature = featureOfGoodType.get(goodType);
+        if (feature === undefined) continue;
+        const type = MINIMAP_OBJECT_TYPES.indexOf(feature);
+        const nodes = seen.get(goodType);
+        for (const [node, count] of was) {
+          const delta = (nodes?.get(node) ?? 0) - count;
+          if (delta !== 0) list.push(node % NODE_KEY_ROW, Math.floor(node / NODE_KEY_ROW), type, delta);
+        }
+      }
+      before.clear();
+      return { types: MINIMAP_OBJECT_TYPES, changes: Int32Array.from(list) };
     },
   };
 }

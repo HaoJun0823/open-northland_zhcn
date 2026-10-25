@@ -1,20 +1,28 @@
 import {
   applyMinimapGroundMode,
+  buildMinimapCellField,
+  changedMinimapTiles,
+  changeMinimapObjectCounts,
   MINIMAP_DEPOSIT_KINDS,
+  MINIMAP_TILE_PX,
   type MinimapFeature,
   type MinimapGroundMode,
+  type MinimapObjectChanges,
+  type MinimapObjectCounts,
   type MinimapObjectLanes,
   type MinimapObjects,
   type MinimapScene,
-  minimapObjectLanes,
+  minimapLanesOfCounts,
+  minimapObjectCounts,
   minimapScene,
-  rasterizeMinimap,
+  rasterizeMinimapRegion,
   type SceneTerrain,
 } from '@open-northland/render/data';
 
 /** The object types a baker's placements name, each a minimap feature by its own name. */
 export const MINIMAP_OBJECT_TYPES: readonly MinimapFeature[] = ['forest', ...MINIMAP_DEPOSIT_KINDS];
 const FEATURE_BY_TYPE: ReadonlyMap<string, MinimapFeature> = new Map(MINIMAP_OBJECT_TYPES.map((f) => [f, f]));
+const featureOf = (type: string): MinimapFeature | undefined => FEATURE_BY_TYPE.get(type);
 
 /**
  * The minimap scene as plain lanes a worker can take: each cell's ground colour is resolved up front,
@@ -26,27 +34,45 @@ export interface MinimapBakeScene
   readonly colours: Uint32Array;
 }
 
+/** What one bake draws with: the objects as a whole, replacing the last ones, or changes to them. */
+export interface MinimapBakeObjects {
+  readonly objects?: MinimapObjects;
+  readonly changes?: MinimapObjectChanges;
+}
+
 export type MinimapBakeRequest =
   | { readonly kind: 'scene'; readonly scene: MinimapBakeScene }
-  | {
+  | ({
       readonly kind: 'bake';
       readonly id: number;
       readonly width: number;
       readonly height: number;
       readonly mode: MinimapGroundMode;
-      /** Replaces the objects this and every later bake draws; absent keeps the last ones. */
-      readonly objects?: MinimapObjects;
-    };
+    } & MinimapBakeObjects);
 
-export interface MinimapBakeReply {
-  readonly id: number;
+/** A bake's picture: the whole ground in its mode, or the rows a change of objects moved. */
+export interface MinimapGroundPicture {
+  /** The whole picture, or with `rows` the full-width rows of those bands, one after the other. */
   readonly rgba: Uint8Array;
+  /** `[start, end)` row pairs, ascending and disjoint, when only they changed since the last picture of
+   *  the same size and mode; empty when nothing did. */
+  readonly rows?: readonly number[];
 }
 
-/** Rasterizes one map's scene in a ground mode; objects passed to a bake persist for the later ones.
- *  Their types are {@link MINIMAP_OBJECT_TYPES}. */
+export interface MinimapBakeReply extends MinimapGroundPicture {
+  readonly id: number;
+}
+
+/** Rasterizes one map's scene in a ground mode; objects or changes passed to a bake persist for the
+ *  later ones. Their types are {@link MINIMAP_OBJECT_TYPES}. Bakes answer in the order asked, each
+ *  picture of rows following the picture before it. */
 export interface MinimapBaker {
-  bake(width: number, height: number, mode: MinimapGroundMode, objects?: MinimapObjects): Promise<Uint8Array>;
+  bake(
+    width: number,
+    height: number,
+    mode: MinimapGroundMode,
+    objects?: MinimapBakeObjects,
+  ): Promise<MinimapGroundPicture>;
   dispose(): void;
 }
 
@@ -65,63 +91,126 @@ export function minimapBakeScene(
   return { ...lanes, colours };
 }
 
-/** The raster of a packed scene with the objects last given, binning them into lanes on arrival. */
-export function createMinimapRasterizer(
-  scene: MinimapBakeScene,
-): (width: number, height: number, objects?: MinimapObjects) => Uint8Array {
-  const { colours } = scene;
-  const colourOfCell = (cell: number): number => colours[cell] ?? 0;
-  let lanes: MinimapObjectLanes | undefined;
-  return (width, height, objects) => {
-    if (objects !== undefined) {
-      lanes = minimapObjectLanes(scene.width, scene.height, objects, (type) => FEATURE_BY_TYPE.get(type));
-    }
-    return rasterizeMinimap({ ...scene, colourOfCell, ...lanes }, width, height);
-  };
-}
-
-export type MinimapRasterizer = ReturnType<typeof createMinimapRasterizer>;
 export type MinimapGroundBake = (
   width: number,
   height: number,
   mode: MinimapGroundMode,
-  objects?: MinimapObjects,
-) => Uint8Array;
+  objects?: MinimapBakeObjects,
+) => MinimapGroundPicture;
 
-/**
- * The ground in a mode, each call a fresh buffer the caller may transfer. The natural raster of the
- * last size and objects is kept, so a bake that changes only the mode grades it again instead of
- * rasterizing: on a 1880x834 raster a grade costs 8 to 9 ms of CPU (Node, M2 Pro), the full bake
- * about 445 ms. The hidden mode draws no ground, so it skips the raster and keeps any objects it was
- * handed for the next mode that needs them.
- */
-export function createCachedMinimapBake(rasterize: MinimapRasterizer): MinimapGroundBake {
-  let natural: { readonly width: number; readonly height: number; readonly rgba: Uint8Array } | null = null;
-  let heldObjects: MinimapObjects | undefined;
-  return (width, height, mode, objects) => {
-    if (mode === 'hidden') {
-      if (objects !== undefined) {
-        heldObjects = objects;
-        natural = null;
-      }
-      return applyMinimapGroundMode(opaqueRaster(width, height), mode);
-    }
-    const nextObjects = objects ?? heldObjects;
-    heldObjects = undefined;
-    if (
-      nextObjects !== undefined ||
-      natural === null ||
-      natural.width !== width ||
-      natural.height !== height
-    ) {
-      natural = { width, height, rgba: rasterize(width, height, nextObjects) };
-    }
-    return applyMinimapGroundMode(natural.rgba, mode, new Uint8Array(natural.rgba.length));
-  };
+/** The natural picture of one size, the cell field it was drawn from and its grade in the last mode. */
+interface KeptPicture {
+  readonly width: number;
+  readonly height: number;
+  readonly natural: Uint8Array;
+  field: Float32Array;
+  graded: Uint8Array;
+  mode: MinimapGroundMode;
 }
 
 const RGBA = 4;
 const OPAQUE = 0xff;
+
+/**
+ * The ground of a packed scene in a mode, each answer a fresh buffer the caller may transfer. The
+ * natural picture of the last size is kept with its cell field, so a bake that changes only the mode
+ * grades it again (on a 1880x834 raster 8 to 9 ms of CPU, Node, M2 Pro, against about 445 ms for the
+ * whole raster), and one that only changes objects repaints the tiles whose field moved and answers
+ * their rows. The hidden mode draws no ground, so it skips the raster and leaves the next mode that
+ * needs one to draw the whole picture.
+ */
+export function createCachedMinimapBake(scene: MinimapBakeScene): MinimapGroundBake {
+  const { colours } = scene;
+  const colourOfCell = (cell: number): number => colours[cell] ?? 0;
+  let counts: MinimapObjectCounts | null = null;
+  let lanes: MinimapObjectLanes | undefined;
+  let kept: KeptPicture | null = null;
+  const fieldOf = (): Float32Array => buildMinimapCellField({ ...scene, colourOfCell, ...lanes });
+
+  return (width, height, mode, { objects, changes } = {}) => {
+    if (objects !== undefined) counts = minimapObjectCounts(scene.width, scene.height, objects, featureOf);
+    if (changes !== undefined) {
+      counts ??= minimapObjectCounts(scene.width, scene.height, { types: [], placements: [] }, featureOf);
+      changeMinimapObjectCounts(counts, changes, featureOf);
+    }
+    const moved = objects !== undefined || changes !== undefined;
+    if (moved && counts !== null) lanes = minimapLanesOfCounts(counts);
+    if (mode === 'hidden') {
+      // The flat picture replaces the kept grade, so the next mode grades the whole picture again.
+      if (moved) kept = null;
+      else if (kept !== null) kept.mode = mode;
+      return { rgba: applyMinimapGroundMode(opaqueRaster(width, height), mode) };
+    }
+    if (kept === null || kept.width !== width || kept.height !== height || objects !== undefined) {
+      const field = fieldOf();
+      const natural = new Uint8Array(width * height * RGBA);
+      rasterizeMinimapRegion(scene, field, width, height, natural, 0, 0, width, height);
+      const graded = applyMinimapGroundMode(natural, mode, new Uint8Array(natural.length));
+      kept = { width, height, natural, field, graded, mode };
+      return { rgba: graded.slice() };
+    }
+    const rows = moved ? repaintChanged(scene, kept, fieldOf()) : [];
+    if (mode !== kept.mode) {
+      kept.mode = mode;
+      kept.graded = applyMinimapGroundMode(kept.natural, mode, kept.graded);
+      return { rgba: kept.graded.slice() };
+    }
+    const rowBytes = width * RGBA;
+    let total = 0;
+    for (let i = 0; i < rows.length; i += 2) total += ((rows[i + 1] ?? 0) - (rows[i] ?? 0)) * rowBytes;
+    const rgba = new Uint8Array(total);
+    let at = 0;
+    for (let i = 0; i < rows.length; i += 2) {
+      const band = kept.graded.subarray((rows[i] ?? 0) * rowBytes, (rows[i + 1] ?? 0) * rowBytes);
+      rgba.set(band, at);
+      at += band.length;
+    }
+    return { rgba, rows };
+  };
+}
+
+/** Repaint the tiles of `kept` whose cell field moved to `field`, grade their rows in its mode and
+ *  answer those rows as `[start, end)` bands. */
+function repaintChanged(scene: MinimapBakeScene, kept: KeptPicture, field: Float32Array): number[] {
+  const { width, height, natural, graded, mode } = kept;
+  const tiles = changedMinimapTiles(scene, kept.field, field, width, height);
+  kept.field = field;
+  if (tiles === null) return [];
+  const tilesW = Math.ceil(width / MINIMAP_TILE_PX);
+  const rows: number[] = [];
+  const rowBytes = width * RGBA;
+  for (let ty = 0; ty * tilesW < tiles.length; ty++) {
+    let any = false;
+    for (let tx = 0; tx < tilesW; tx++) {
+      if (tiles[ty * tilesW + tx] !== 1) continue;
+      any = true;
+      const x = tx * MINIMAP_TILE_PX;
+      const y = ty * MINIMAP_TILE_PX;
+      rasterizeMinimapRegion(
+        scene,
+        field,
+        width,
+        height,
+        natural,
+        x,
+        y,
+        x + MINIMAP_TILE_PX,
+        y + MINIMAP_TILE_PX,
+      );
+    }
+    if (!any) continue;
+    const start = ty * MINIMAP_TILE_PX;
+    const end = Math.min(height, start + MINIMAP_TILE_PX);
+    applyMinimapGroundMode(
+      natural.subarray(start * rowBytes, end * rowBytes),
+      mode,
+      graded.subarray(start * rowBytes, end * rowBytes),
+    );
+    if (rows.at(-1) === start) rows[rows.length - 1] = end;
+    else rows.push(start, end);
+  }
+  return rows;
+}
 
 function opaqueRaster(width: number, height: number): Uint8Array {
   const rgba = new Uint8Array(width * height * RGBA);
@@ -151,7 +240,10 @@ export function createWorkerMinimapBaker(
   spawn: () => MinimapBakeWorker = spawnBakeWorker,
 ): MinimapBaker {
   const worker = spawn();
-  const pending = new Map<number, { resolve: (rgba: Uint8Array) => void; reject: (err: Error) => void }>();
+  const pending = new Map<
+    number,
+    { resolve: (picture: MinimapGroundPicture) => void; reject: (err: Error) => void }
+  >();
   let nextId = 0;
   let failure: Error | null = null;
   const fail = (err: Error): void => {
@@ -161,26 +253,19 @@ export function createWorkerMinimapBaker(
     pending.clear();
   };
   worker.addEventListener('message', (event) => {
-    const { id, rgba } = event.data;
-    pending.get(id)?.resolve(rgba);
+    const { id, ...picture } = event.data;
+    pending.get(id)?.resolve(picture);
     pending.delete(id);
   });
   worker.addEventListener('error', (event) => fail(new Error(`minimap bake worker: ${event.message}`)));
   worker.postMessage({ kind: 'scene', scene });
   return {
-    bake: (width, height, mode, objects) => {
+    bake: (width, height, mode, objects = {}) => {
       if (failure !== null) return Promise.reject(failure);
       return new Promise((resolve, reject) => {
         const id = nextId++;
         pending.set(id, { resolve, reject });
-        worker.postMessage({
-          kind: 'bake',
-          id,
-          width,
-          height,
-          mode,
-          ...(objects !== undefined ? { objects } : {}),
-        });
+        worker.postMessage({ kind: 'bake', id, width, height, mode, ...objects });
       });
     },
     dispose: () => fail(new Error('minimap bake worker disposed')),

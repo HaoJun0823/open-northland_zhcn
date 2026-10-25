@@ -136,6 +136,52 @@ describe('minimap standing objects', () => {
     expect(Array.from(standingObjects(after, features).placements)).toEqual([]);
     expect(mirror.verifyIndexes()).toEqual([]);
   });
+
+  it('reads the nodes the index logged since the last refresh and hands the baker their changes', () => {
+    const terrain = grassTerrain(MAP_CELLS, MAP_CELLS);
+    const content = sandboxContent(terrain);
+    const features = minimapFeatureOfGoodTypes(content.goods);
+    const sim = new Simulation({ seed: 1, content, map: halfCellMapFromCells(terrain) });
+    for (const x of [MAP_CELLS, MAP_CELLS + 4]) {
+      const tree = resourceCommand(GOOD_WOOD, x, MAP_CELLS);
+      if (tree === null) throw new Error('missing wood gatherer');
+      sim.enqueueSetup(tree);
+    }
+    sim.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType: JOB_COLLECTOR,
+      x: MAP_CELLS,
+      y: MAP_CELLS,
+      tribe: PRIMARY_TRIBE,
+      owner: HUMAN_PLAYER,
+    });
+    const deltas = sim.snapshotDeltas();
+    const mirror = new SnapshotMirror();
+    const advance = (): WorldSnapshot => {
+      sim.step();
+      const delta = deltas.next();
+      if (delta !== null) mirror.apply(delta);
+      return mirror.snapshot();
+    };
+    const seen = createSeenStandingObjects(features);
+    const planted = advance();
+    seen.refresh(planted, null);
+    const both = Array.from(seen.objects().placements);
+    let felled = false;
+    for (let tick = 0; tick < MAX_FELL_TICKS && !felled; tick++) {
+      advance();
+      felled = sim.events.current().some((event) => event.kind === 'resourceFelled');
+    }
+    expect(felled).toBe(true);
+    const after = mirror.snapshot();
+    expect(seen.stale(after, null)).toBe(true);
+    expect(seen.refresh(after, null)).toBe(true);
+    const left = Array.from(standingObjects(after, features).placements);
+    const [hx, hy] = both.slice(0, 3).join() === left.join() ? both.slice(3) : both.slice(0, 3);
+    expect(Array.from(seen.changes().changes)).toEqual([hx, hy, FOREST_TYPE, -1]);
+    expect(Array.from(seen.changes().changes)).toEqual([]);
+    expect(Array.from(seen.objects().placements)).toEqual(left);
+  });
 });
 
 describe('minimap seen standing objects', () => {

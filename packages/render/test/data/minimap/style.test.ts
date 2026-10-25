@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { buildMinimapCellField, FIELD_LAND_R, FIELD_STRIDE } from '../../../src/data/minimap/cells.js';
-import { minimapFeatureOfGood, minimapObjectLanes } from '../../../src/data/minimap/features.js';
+import {
+  changeMinimapObjectCounts,
+  minimapFeatureOfGood,
+  minimapLanesOfCounts,
+  minimapObjectCounts,
+  minimapObjectLanes,
+} from '../../../src/data/minimap/features.js';
 import { terrainWorldBounds } from '../../../src/data/minimap/map-preview.js';
 import { SAMPLE_LANES, sampleField } from '../../../src/data/minimap/sampler.js';
 import { MINIMAP_DEPOSIT_KINDS, type MinimapScene, minimapScene } from '../../../src/data/minimap/scene.js';
-import { rasterizeMinimap } from '../../../src/data/minimap/style.js';
+import {
+  changedMinimapTiles,
+  MINIMAP_TILE_PX,
+  rasterizeMinimap,
+  rasterizeMinimapRegion,
+} from '../../../src/data/minimap/style.js';
 import { tileToScreen } from '../../../src/data/projection/index.js';
 import { waterCellFractions } from '../../../src/data/terrain/water.js';
 
@@ -201,6 +212,82 @@ describe('minimapObjectLanes', () => {
     const lanes = minimapObjectLanes(SIZE, SIZE, objects, featureOf);
     expect(lanes.depositKind[4 * SIZE + 4]).toBe(MINIMAP_DEPOSIT_KINDS.indexOf('gold') + 1);
     expect(lanes.depositDensity[4 * SIZE + 4]).toBeGreaterThan(0);
+  });
+
+  it('keeps counts that took changes equal to counts of the changed objects', () => {
+    const types = ['wood', 'stone', 'gold'];
+    const before = { types, placements: [10, 12, 0, 10, 12, 0, 8, 8, 1, 9, 8, 2, 30, 30, 0] };
+    const after = { types, placements: [10, 12, 0, 8, 8, 1, 30, 30, 0, 31, 30, 0, 40, 4, 1] };
+    const counts = minimapObjectCounts(SIZE, SIZE, before, featureOf);
+    // One tree felled at (10, 12), the gold worked out, a tree planted at (31, 30), stone found at (40, 4).
+    const changes = { types, changes: [10, 12, 0, -1, 9, 8, 2, -1, 31, 30, 0, 1, 40, 4, 1, 1] };
+    changeMinimapObjectCounts(counts, changes, featureOf);
+    expect(minimapLanesOfCounts(counts)).toEqual(minimapObjectLanes(SIZE, SIZE, after, featureOf));
+  });
+});
+
+describe('a changed region of the minimap raster', () => {
+  const featureOf = (name: string) => minimapFeatureOfGood(name);
+  /** Relief, a lake, two grounds and a forest edge: every field term a change of trees moves. */
+  const terrain = flatScene({
+    elevation: lane((col, row) => 40 + 30 * Math.sin(col / 3) * Math.cos(row / 4)),
+    brightness: lane((col, row) => 110 + ((col * 7 + row * 3) % 30)),
+    water: lane((col, row) => ((col - 16) ** 2 + (row - 8) ** 2 < 12 ? 1 : 0)),
+    colourOfCell: (cell) => (cell % 5 === 0 ? SAND : GREY),
+  });
+  const forest = (extra: readonly number[]) => ({
+    types: ['wood', 'stone'],
+    placements: [...lane((col, row) => (col < 9 && row % 3 !== 0 ? 1 : 0))]
+      .flatMap((trees, cell) =>
+        trees === 0
+          ? []
+          : [2 * (cell % SIZE) + (Math.floor(cell / SIZE) & 1), 2 * Math.floor(cell / SIZE), 0],
+      )
+      .concat(extra),
+  });
+  const sceneOf = (objects: ReturnType<typeof forest>) => ({
+    ...terrain,
+    ...minimapObjectLanes(SIZE, SIZE, objects, featureOf),
+  });
+
+  it.each([
+    ['supersampled', PX_W, PX_H],
+    ['textured and warped', 1200, 640],
+  ])('repaints the tiles a change reaches into the whole new picture, %s', (_case, pxW, pxH) => {
+    const before = sceneOf(forest([]));
+    // A tree planted in the open, one deep in the forest felled, and a stone found by the lake.
+    const after = sceneOf(forest([40, 30, 0, 30, 12, 1]));
+    const beforeField = buildMinimapCellField(before);
+    const afterField = buildMinimapCellField(after);
+    const picture = rasterizeMinimap(before, pxW, pxH);
+    const tiles = changedMinimapTiles(terrain, beforeField, afterField, pxW, pxH);
+    expect(tiles).not.toBeNull();
+    const tilesW = Math.ceil(pxW / MINIMAP_TILE_PX);
+    let repainted = 0;
+    tiles?.forEach((dirty, tile) => {
+      if (dirty === 0) return;
+      repainted++;
+      const x = (tile % tilesW) * MINIMAP_TILE_PX;
+      const y = Math.floor(tile / tilesW) * MINIMAP_TILE_PX;
+      rasterizeMinimapRegion(
+        terrain,
+        afterField,
+        pxW,
+        pxH,
+        picture,
+        x,
+        y,
+        x + MINIMAP_TILE_PX,
+        y + MINIMAP_TILE_PX,
+      );
+    });
+    expect(repainted).toBeLessThan(tiles?.length ?? 0);
+    expect(picture).toEqual(rasterizeMinimap(after, pxW, pxH));
+  });
+
+  it('marks no tile when no cell changed', () => {
+    const field = buildMinimapCellField(sceneOf(forest([])));
+    expect(changedMinimapTiles(terrain, field, field.slice(), PX_W, PX_H)).toBeNull();
   });
 });
 

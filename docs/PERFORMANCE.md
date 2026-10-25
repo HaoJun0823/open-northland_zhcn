@@ -155,6 +155,8 @@ decided as `audioFrames`. `bench:gpu` does the same with sound on.
 | --- | --- |
 | `ON_BENCH_BROWSER_MODE` | `baseline`, `profile` or default `all` |
 | `ON_BENCH_BROWSER_WINDOWS` | Override baseline windows, e.g. `dense:3,wide:0`; cameras: `dense`, `zoom07`, `zoom05`, `wide`, `empty` |
+| `ON_BENCH_BROWSER_FILTER` | Art filter: `off` (enhanced sampling off), `xbr` (default), `xbrz`, `superxbr` or `mmpx`; every other graphics setting stays at its default |
+| `ON_BENCH_BROWSER_RENDER_SCALE` | Backing-resolution multiplier, 0.5 to 2; default 1 |
 | `ON_BENCH_BROWSER_PROFILE_VIEWS` | Diagnostic views; default dense and wide at ×3 |
 | `ON_BENCH_BROWSER_CPU_THROTTLE` | DevTools main-thread slowdown; workers are not throttled |
 | `ON_BENCH_BROWSER_SEAT` | Watch a seat with its fog and HUD |
@@ -164,7 +166,8 @@ The default matrix covers dense views paused and at ×1/×3/×10, wide views pau
 zoom 0.7/0.5 at ×3, an empty view and a repeated dense ×3 window.
 
 `report.md` tabulates each window's RAF quantiles, delivered speed, app CPU per frame, sim time per
-tick and WebGL calls under the adapter line. `report.json` includes RAF quantiles, performance metrics,
+tick and WebGL calls under a header naming the adapter, device scale, art filter and render scale.
+`report.json` includes RAF quantiles, performance metrics,
 WebGL calls/uploads, camera, canvas, ticks, hardware and errors. Screenshots identify each view.
 Diagnostic runs add CPU/allocation/GPU profiles; their timings include instrumentation overhead.
 

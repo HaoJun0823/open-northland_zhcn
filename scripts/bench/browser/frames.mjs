@@ -17,6 +17,7 @@ import {
   VIEWPORT,
   verifyDevServer,
 } from '../../browser/session.mjs';
+import { CAMERA_NAMES, parseGraphicsKnobs, parseWindowSpec } from './frames-plan.mjs';
 import { browserWindowTable, windowName } from './frames-report.mjs';
 import {
   busyShare,
@@ -39,15 +40,9 @@ if (!['all', 'baseline', 'profile'].includes(mode))
 if (!Number.isFinite(seconds) || seconds < 1) throw new Error('window seconds must be positive');
 const throttle = Number(process.env.ON_BENCH_BROWSER_CPU_THROTTLE ?? '1');
 if (!Number.isFinite(throttle) || throttle < 1) throw new Error('ON_BENCH_BROWSER_CPU_THROTTLE must be >= 1');
-const CAMERA_NAMES = ['dense', 'zoom07', 'zoom05', 'wide', 'empty'];
 /** `camera:speed` pairs, e.g. `dense:3,wide:0`; unset runs the full baseline matrix. */
-const windowSpec = process.env.ON_BENCH_BROWSER_WINDOWS?.split(',').map((pair) => {
-  const [cameraName, speedText] = pair.split(':');
-  const speed = Number(speedText);
-  if (!CAMERA_NAMES.includes(cameraName) || !Number.isInteger(speed) || speed < 0)
-    throw new Error(`ON_BENCH_BROWSER_WINDOWS entry ${pair} is not camera:speed (${CAMERA_NAMES})`);
-  return { cameraName, speed };
-});
+const windowSpec = parseWindowSpec(process.env.ON_BENCH_BROWSER_WINDOWS);
+const graphics = parseGraphicsKnobs(process.env);
 /** A seat the spectator watches, which draws through that seat's fog and fills its HUD figures; unset
  *  watches the whole map. */
 const watchedSeat =
@@ -75,6 +70,8 @@ const metadata = {
   deviceScale: DEVICE_SCALE,
   seconds,
   mode,
+  filter: graphics.filter,
+  renderScale: graphics.renderScale,
   watchedSeat,
   cpuThrottle: throttle === 1 ? null : { rate: throttle, page: null, workers: {} },
   os: {
@@ -105,7 +102,7 @@ const writeReport = async () => {
     '',
     `Adapter: ${metadata.hardware?.renderer ?? 'unknown'}.`,
     `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}.`,
-    `${VIEWPORT.width}x${VIEWPORT.height}, ${seconds} s per window; RAF intervals in ms.${metadata.failure ? ` Failed: ${metadata.failure.message}` : ''}`,
+    `${VIEWPORT.width}x${VIEWPORT.height} at device scale ${DEVICE_SCALE}, art filter ${graphics.filter}, render scale ${graphics.renderScale}; ${seconds} s per window; RAF intervals in ms.${metadata.failure ? ` Failed: ${metadata.failure.message}` : ''}`,
     '',
     browserWindowTable(metadata.reports),
     '',
@@ -136,7 +133,7 @@ try {
       header,
       stateHash,
       url: previewUrl.href,
-      settings: { fpsLimit: null },
+      settings: { fpsLimit: null, ...graphics.settings },
     });
     progress(`restored tick ${restored.tick}, state hash verified`);
     metadata.audio = (await unlockAudio(page)) ? 'audible' : 'no sound bank';

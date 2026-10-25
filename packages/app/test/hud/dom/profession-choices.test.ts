@@ -47,15 +47,19 @@ describe('professionChoices', () => {
     ]);
   });
 
-  it('leads each trade with its roster good, and the civilist with none', () => {
+  it('leads each trade with its products, and the civilist with none', () => {
     const rows = professionChoices(
       pickerEntries(),
       () => true,
       () => true,
     ).flatMap((group) => group.rows);
-    expect(rows.find((row) => row.key === String(JOB_POTTER))?.goodId).toBe('crockery');
+    expect(rows.find((row) => row.key === String(JOB_POTTER))?.goodIds).toEqual([
+      'brick',
+      'tile',
+      'crockery',
+    ]);
     const civilist = rows.find((row) => row.key === String(JOB_CIVILIST));
     expect(civilist).toBeDefined();
-    expect(civilist?.goodId).toBeUndefined();
+    expect(civilist?.goodIds).toBeUndefined();
   });
 });

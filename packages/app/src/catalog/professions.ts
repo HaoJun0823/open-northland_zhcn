@@ -46,6 +46,8 @@ export interface ProfessionDef {
   /** The good whose icon stands for the trade where professions are picked, by slug: a presentation
    *  choice of a product or tool the trade is known by. Absent where no good reads as the trade. */
   readonly icon?: string;
+  /** Goods shown together in profession pickers, in trade unlock order. */
+  readonly goods?: readonly string[];
   /** The `jobtypes.ini` record this row transcribes. */
   readonly source: string;
 }
@@ -60,6 +62,7 @@ export function isSoldierJob(jobType: number): boolean {
 export const PROFESSIONS: readonly ProfessionDef[] = [
   {
     key: 'collector',
+    goods: ['wood', 'mud', 'stone', 'iron', 'gold', 'mushroom'],
     jobType: JOB_COLLECTOR,
     category: 'gathering',
     icon: 'wood',
@@ -75,6 +78,16 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'joiner',
+    goods: [
+      'tool_wooden',
+      'tool_iron',
+      'furniture',
+      'handcart',
+      'oxcart',
+      'ship_small',
+      'ship_big',
+      'catapult',
+    ],
     jobType: JOB_JOINER,
     category: 'production',
     icon: 'furniture',
@@ -82,6 +95,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'armorer',
+    goods: ['bow_short', 'bow_long', 'spear_wooden'],
     jobType: JOB_ARMORER,
     category: 'production',
     icon: 'bow_long',
@@ -89,6 +103,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'potter',
+    goods: ['brick', 'tile', 'crockery'],
     jobType: JOB_POTTER,
     category: 'production',
     icon: 'crockery',
@@ -96,6 +111,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'mason',
+    goods: ['pillar', 'ornament'],
     jobType: JOB_MASON,
     category: 'production',
     icon: 'pillar',
@@ -103,6 +119,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'smith',
+    goods: ['spear_iron', 'sword_shord', 'armor_chain', 'armor_plate', 'sword_long'],
     jobType: JOB_SMITH,
     category: 'production',
     icon: 'sword_long',
@@ -110,6 +127,15 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'coin_maker',
+    goods: [
+      'coin',
+      'amulet_food',
+      'amulet_stamina',
+      'amulet_strength',
+      'amulet_defense',
+      'amulet_crithit',
+      'amulet_speed',
+    ],
     jobType: JOB_COIN_MAKER,
     category: 'production',
     icon: 'coin',
@@ -117,6 +143,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'hunter',
+    goods: ['meat', 'leather'],
     jobType: JOB_HUNTER,
     category: 'production',
     icon: 'meat',
@@ -124,6 +151,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'breeder',
+    goods: ['cattle', 'sheep'],
     jobType: JOB_BREEDER,
     category: 'production',
     icon: 'sheep',
@@ -131,6 +159,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'tailor',
+    goods: ['shoes', 'armor_leather', 'armor_wool'],
     jobType: JOB_TAILOR,
     category: 'production',
     icon: 'shoes',
@@ -152,6 +181,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'baker',
+    goods: ['bread', 'candy'],
     jobType: JOB_BAKER,
     category: 'production',
     icon: 'bread',
@@ -180,6 +210,15 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'druid',
+    goods: [
+      'holy_oil',
+      'potion_food_small',
+      'potion_food_big',
+      'potion_stamina_small',
+      'potion_stamina_big',
+      'potion_heal_small',
+      'potion_heal_big',
+    ],
     jobType: JOB_DRUID,
     category: 'production',
     icon: 'holy_oil',
@@ -242,4 +281,9 @@ export function pickerEntries(locale?: Locale): PickerEntry[] {
     entries.push({ kind: 'profession', jobType: p.jobType, label: professionLabel(p.key, locale) });
   }
   return entries;
+}
+
+export function professionGoods(jobType: number): readonly string[] {
+  const profession = professionDefForJob(jobType);
+  return profession?.goods ?? (profession?.icon === undefined ? [] : [profession.icon]);
 }

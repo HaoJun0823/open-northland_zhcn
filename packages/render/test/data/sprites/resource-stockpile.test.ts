@@ -162,6 +162,28 @@ describe('resolveStockpileDraw - per-good ground piles + delivery flag', () => {
     default: 0,
   };
 
+  it('uses the same colour slot for work, wall and road flags without recolouring goods', () => {
+    const coloured = {
+      ...binding,
+      flagsByPlayer: {
+        4: [
+          { layer: 'team-four', bob: 33 },
+          { layer: 'team-four', bob: 34 },
+        ] as const,
+      },
+    };
+    for (const kind of ['stockpile', 'palisade', 'roadsite'] as const) {
+      expect(
+        resolveStockpileDraw(coloured, { ...pile(), kind, player: 4 }, FLAG_WAVE_TICKS_PER_FRAME),
+      ).toEqual({ layer: 'team-four', bob: 34 });
+      expect(resolveStockpileDraw(coloured, { ...pile(), kind, player: 2 }, 0)).toEqual({ bob: 0 });
+    }
+    expect(resolveStockpileDraw(coloured, { ...pile(5, 3), player: 4 }, 0)).toEqual({
+      layer: 'ls_goods.goods_wood',
+      bob: 2,
+    });
+  });
+
   it('draws the flag for an EMPTY pile (no dominant good)', () => {
     expect(resolveStockpileDraw(binding, pile(), 0)).toEqual({ bob: 33, layer: 'ls_temp.human_player01' });
   });

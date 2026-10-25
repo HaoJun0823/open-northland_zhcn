@@ -59,8 +59,8 @@ export type PlacementGhost =
        *  band. A wall's stakes stagger with the walls they will stand in. Defaults to `stake`. */
       readonly marker?: LineMarker;
     }
-  /** A gatherer's work flag about to be planted: the delivery-flag sprite, unowned. */
-  | { readonly kind: 'flag'; readonly col: number; readonly row: number };
+  /** A gatherer's work flag about to be planted: the owner's delivery-flag sprite. */
+  | { readonly kind: 'flag'; readonly col: number; readonly row: number; readonly player: number };
 
 export type LineMarker = 'stake' | 'road' | 'roadCancel';
 
@@ -90,7 +90,7 @@ function ghostKey(ghost: SpriteGhost): string {
     case 'gate':
       return `g:${ghost.gfxIndex}:${ghost.ok}`;
     case 'flag':
-      return 'f';
+      return `f:${ghost.player}`;
     default: {
       const unreachable: never = ghost;
       throw new Error(`unhandled ghost: ${JSON.stringify(unreachable)}`);
@@ -117,7 +117,7 @@ function ghostItem(ghost: SpriteGhost): DrawItem {
     case 'gate':
       return { kind: 'palisade', ref: -1, x: 0, y: 0, depth: 0, gfxIndex: ghost.gfxIndex };
     case 'flag':
-      return { kind: 'stockpile', ref: -1, x: 0, y: 0, depth: 0, isFlag: true };
+      return { kind: 'stockpile', ref: -1, x: 0, y: 0, depth: 0, isFlag: true, player: ghost.player };
     default: {
       const unreachable: never = ghost;
       throw new Error(`unhandled ghost: ${JSON.stringify(unreachable)}`);

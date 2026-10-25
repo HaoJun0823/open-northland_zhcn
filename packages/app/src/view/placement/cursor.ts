@@ -58,7 +58,7 @@ export interface PlacementCursorInput {
   readonly anchored?: boolean;
   /** The line tools' wash: a started line's reach or the gate tool's spans, null when it has none. */
   readonly palisadeWash?: () => PlacementOverlayFrame | null;
-  /** Owner slot for a signpost ghost - the renderer applies the session colour mapping. */
+  /** Owner slot for signpost and work-flag ghosts - the renderer applies the session colour mapping. */
   readonly localPlayer: number;
 }
 
@@ -92,7 +92,10 @@ export function placementCursor(input: PlacementCursorInput): PlacementCursor {
     if (input.dockVehicle !== null) return { overlay: input.dockOverlay(input.dockVehicle), ghost: null };
     if (!input.flagActive) return { overlay: null, ghost: null };
     const tile = input.tileAt();
-    return { overlay: null, ghost: tile === null ? null : { kind: 'flag', col: tile.col, row: tile.row } };
+    return {
+      overlay: null,
+      ghost: tile === null ? null : { kind: 'flag', col: tile.col, row: tile.row, player: input.localPlayer },
+    };
   }
   const signpostFrame = building === null && palisadeGfxIndex === null ? input.signpostOverlay() : null;
   const overlay = building === null ? signpostFrame : input.buildingOverlay(building);

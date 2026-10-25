@@ -320,7 +320,13 @@ export function resolveStockpileDraw(
   tick: number,
 ): BuildingDraw {
   if (typeof binding === 'number') return { bob: binding };
-  if (item.goodType === undefined) return unwrapBobRef(waveFrameAt(binding.flag, tick));
+  if (item.goodType === undefined) {
+    const flag =
+      item.player === undefined || binding.flagsByPlayer === undefined
+        ? binding.flag
+        : binding.flagsByPlayer[item.player];
+    return unwrapBobRef(flag === undefined ? binding.default : waveFrameAt(flag, tick));
+  }
   const frames = binding.byGood[item.goodType];
   if (frames === undefined || frames.length === 0) return unwrapBobRef(binding.default);
   const idx = fillFrameIndex(item.fill ?? 1, frames.length);

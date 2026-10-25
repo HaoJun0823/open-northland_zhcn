@@ -632,12 +632,14 @@ export class WorldRenderer {
   }
 
   /**
-   * A signpost ghost's `player` is the owner slot, mapped to the session colour here - the same boundary
+   * A signpost or work-flag ghost's `player` is the owner slot, mapped to the session colour here - the same boundary
    * pooled sprites are mapped at. A wall line staggers with the walls of `snapshot`.
    */
   updatePlacementGhost(ghost: PlacementGhost | null, snapshot?: WorldSnapshot): void {
     const mapped =
-      ghost !== null && ghost.kind === 'signpost' && this.playerColourOf !== undefined
+      ghost !== null &&
+      (ghost.kind === 'signpost' || ghost.kind === 'flag') &&
+      this.playerColourOf !== undefined
         ? { ...ghost, player: this.playerColourOf(ghost.player) }
         : ghost;
     const walls =

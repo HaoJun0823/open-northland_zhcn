@@ -13,8 +13,8 @@ export const DEFAULT_RESOURCE_STEM = TREE_ATLAS;
 /**
  * The delivery-flag `[GfxLandscape]` record's `EditName` - the player-coloured "work extern" flag in
  * `ls_temp.bmd` (bobs 76-83, a wave loop). Deliberately not the `"… sign"` record (a building-occupancy emblem) nor the
- * `residence`/`construction`/`soldier` markers. Player-01 colour only (source basis "Gathering-economy
- * graphics").
+ * `residence`/`construction`/`soldier` markers. The owned `landscapes.cif` binds variants
+ * `player01` through `player10` to their matching human palettes.
  */
 export const FLAG_EDIT_NAME = 'player01 work extern 01';
 
@@ -70,6 +70,8 @@ export interface GatheringRefs {
   readonly pilesByGood: Readonly<Record<number, GatheringPileRef>>;
   /** The delivery-flag wave loop (`ls_temp` player-01 "work extern"), when the record is present in the IR. */
   readonly flag?: GatheringLoopRef;
+  /** Work flags keyed by zero-based colour slot, as authored in `landscapes.cif`. */
+  readonly flagsByPlayer?: Readonly<Record<number, GatheringLoopRef>>;
 }
 
 /**
@@ -223,10 +225,23 @@ export function resolveGatheringRefs(
     }
   }
 
-  const flagRecord = gfx.find((g) => g.editName === FLAG_EDIT_NAME);
-  const flag = flagRecord !== undefined ? loopRefFrom(flagRecord) : undefined;
+  const flagsByPlayer: Record<number, GatheringLoopRef> = {};
+  for (const record of gfx) {
+    const match = /^player(0[1-9]|10) work extern 01$/.exec(record.editName ?? '');
+    if (match === null) continue;
+    const ref = loopRefFrom(record);
+    if (ref !== undefined) flagsByPlayer[Number(match[1]) - 1] = ref;
+  }
+  const flag = flagsByPlayer[0];
 
-  return { nodesByGood, nodesByGfxIndex, trunksByGood, pilesByGood, ...(flag !== undefined ? { flag } : {}) };
+  return {
+    nodesByGood,
+    nodesByGfxIndex,
+    trunksByGood,
+    pilesByGood,
+    flagsByPlayer,
+    ...(flag !== undefined ? { flag } : {}),
+  };
 }
 
 /**
@@ -247,6 +262,7 @@ export function gatheringAtlasStems(refs: GatheringRefs): Set<string> {
   }
   for (const pile of Object.values(refs.pilesByGood)) stems.add(pile.stem);
   if (refs.flag !== undefined) stems.add(refs.flag.stem);
+  for (const flag of Object.values(refs.flagsByPlayer ?? {})) stems.add(flag.stem);
   return stems;
 }
 

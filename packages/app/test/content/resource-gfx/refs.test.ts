@@ -246,6 +246,22 @@ describe('buildResourceBinding - the default-vs-family layer decision + drop-unl
 });
 
 describe('buildStockpileBinding - per-good heap frames + the flag, drop-unloaded', () => {
+  it('loads each authored player flag and omits unavailable colour families', () => {
+    const second = {
+      ...FLAG,
+      index: 301,
+      editName: 'player02 work extern 01',
+      paletteName: 'human_player02',
+    };
+    const refs = resolveGatheringRefs([], { landscapeGfx: [FLAG, second] });
+    expect([...gatheringAtlasStems(refs)]).toEqual(['ls_temp.human_player01', 'ls_temp.human_player02']);
+    const binding = buildStockpileBinding(refs, new Set(['ls_temp.human_player02']));
+    expect(binding.flagsByPlayer?.[0]).toBeUndefined();
+    expect(binding.flagsByPlayer?.[1]).toEqual(
+      [33, 34, 35].map((bob) => ({ layer: 'ls_temp.human_player02', bob })),
+    );
+  });
+
   const refs = resolveGatheringRefs(GOODS, IR);
 
   it('binds loaded pile families as layer-qualified fill frames + the loaded flag', () => {

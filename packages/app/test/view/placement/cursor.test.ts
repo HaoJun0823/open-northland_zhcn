@@ -265,7 +265,10 @@ describe('placement cursor', () => {
   it('floats the work flag under the cursor without a wash while a flag pick is armed', () => {
     const f = frame({ flagActive: true });
 
-    expect(f.cursor()).toEqual({ overlay: null, ghost: { kind: 'flag', col: TILE.col, row: TILE.row } });
+    expect(f.cursor()).toEqual({
+      overlay: null,
+      ghost: { kind: 'flag', col: TILE.col, row: TILE.row, player: LOCAL_PLAYER },
+    });
     expect(f.signpostProbes()).toBe(0);
   });
 

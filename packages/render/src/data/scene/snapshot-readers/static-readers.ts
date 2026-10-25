@@ -279,6 +279,8 @@ export function assignStaticFields(
       return;
     }
     case 'palisade': {
+      const player = readNumField(components, 'Owner', 'player');
+      if (player !== undefined) target.player = player;
       const gfxIndex = readPalisadeGfxIndex(components);
       if (gfxIndex !== undefined) target.gfxIndex = gfxIndex;
       // Gate art has one state at every health, so a hurt gate takes the building damage look where a
@@ -314,6 +316,8 @@ export function assignStaticFields(
       return;
     }
     case 'stockpile': {
+      const player = readNumField(components, 'Owner', 'player');
+      if (player !== undefined) target.player = player;
       const { goodType, fill } = readStockpile(components);
       if (goodType !== undefined) target.goodType = goodType;
       if (fill !== undefined) target.fill = fill;

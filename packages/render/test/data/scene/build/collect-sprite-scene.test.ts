@@ -216,6 +216,25 @@ describe('collectSpriteScene - the single-pass draw list + liveness set', () => 
     });
   });
 
+  it('maps work and construction flags from owner to the session colour slot', () => {
+    const markers = [
+      { DeliveryFlag: {} },
+      { RoadSite: { reservation: 1 } },
+      { Palisade: { gfxIndex: 2 }, UnderConstruction: {} },
+    ];
+    const scene = collectSpriteScene(
+      snapshotOf(
+        markers.map((components, i) => entity(i + 1, i + 1, 1, { ...components, Owner: { player: 2 } })),
+      ),
+      { playerColourOf: () => 7 },
+    );
+    expect(scene.items.map((item) => [item.kind, item.player])).toEqual([
+      ['stockpile', 7],
+      ['roadsite', 7],
+      ['palisade', 7],
+    ]);
+  });
+
   it('maps an owned item’s team-colour slot through playerColourOf, leaving an unowned one alone', () => {
     const scene = collectSpriteScene(
       snapshotOf([

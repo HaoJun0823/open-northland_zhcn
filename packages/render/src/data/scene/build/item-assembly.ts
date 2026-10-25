@@ -7,6 +7,7 @@ import type { SettlerPose } from '../settler-pose.js';
 import {
   assignStaticFields,
   readHaulingCartDriver,
+  readOwnerPlayer,
   readRoadSiteClaimed,
   readVehicleDriver,
   readVehicleFields,
@@ -64,10 +65,13 @@ export function assembleItem(
     case 'palisade':
       item.x += assignPalisadeFields(item, entity.id, components, build.palisades);
       break;
-    case 'roadsite':
+    case 'roadsite': {
+      const player = readOwnerPlayer(components);
+      if (player !== undefined) item.player = player;
       item.roadSite = readRoadSiteClaimed(components) ? 'claimed' : 'unclaimed';
       if (item.roadSite === 'unclaimed') item.depth = spriteDepth(tileX, tileY, kind, false, true);
       break;
+    }
     case 'resource':
     case 'stump':
     case 'chest':

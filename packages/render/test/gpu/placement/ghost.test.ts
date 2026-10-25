@@ -45,6 +45,32 @@ const sheet: SpriteSheet = {
 };
 
 describe('PlacementGhostLayer', () => {
+  it('rebuilds a work-flag cursor when its colour changes', () => {
+    const flags: SpriteSheet = {
+      ...sheet,
+      bindings: {
+        ...sheet.bindings,
+        stockpile: {
+          byGood: {},
+          flag: [0],
+          default: 0,
+          flagsByPlayer: {
+            1: [{ layer: 'houses', bob: BODY_BOB }],
+            2: [{ layer: 'houses', bob: SARACEN_BOB }],
+          },
+        },
+      },
+    };
+    const layer = new PlacementGhostLayer(flags, new TextureCache());
+    layer.set({ kind: 'flag', col: 2, row: 3, player: 1 }, FLAT);
+    const first = layer.container.children[0] as Sprite;
+    expect(first.texture.frame.x).toBe(0);
+    layer.set({ kind: 'flag', col: 2, row: 3, player: 2 }, FLAT);
+    expect((layer.container.children[0] as Sprite).texture.frame.x).toBe(20);
+    expect(first.destroyed).toBe(true);
+    layer.destroy();
+  });
+
   it("draws a held building's defence range on the ground under its anchor, and drops it with the ghost", () => {
     const layer = new PlacementGhostLayer(sheet, new TextureCache());
     layer.set({ kind: 'building', col: 4, row: 6, buildingType: HOUSE_TYPE, tribe: VIKING }, FLAT);

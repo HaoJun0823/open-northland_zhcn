@@ -32,7 +32,7 @@ export interface CargoPicker {
 }
 
 export function createCargoPicker(
-  deps: VehiclePanelDeps,
+  deps: Pick<VehiclePanelDeps, 'icons'>,
   onPick: (goodType: number) => void,
   onClose: () => void,
 ): CargoPicker {

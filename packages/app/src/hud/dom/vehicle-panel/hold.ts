@@ -75,7 +75,7 @@ export interface HoldSection {
 }
 
 export function createHoldSection(
-  deps: VehiclePanelDeps,
+  deps: Pick<VehiclePanelDeps, 'icons' | 'cue' | 'vehicle'>,
   current: () => VehiclePanelModel | null,
 ): HoldSection {
   const state = createCargoState();
@@ -306,6 +306,7 @@ export function createHoldSection(
       // Another vehicle: the picker closes, the local lines start afresh and the manifest opens at its top.
       const another = shown?.entityId !== model.entityId;
       if (another) {
+        views.clear();
         picker.close();
         manifest.scrollTop = 0;
       }

@@ -87,7 +87,7 @@ describe('a member that stays slow', () => {
     expect(s.a.last('kicked')).toMatchObject({ player: 1, nick: 'Bartek', cause: 'vote' });
   });
 
-  it('stops being waited for and votable once it catches up, and the clock runs at the requested speed', () => {
+  it('stops being waited for and votable after catching up, keeping its load limit until recovery', () => {
     const s = roomOfThree();
     trail(s, [s.a, s.c], s.b, FAR_BEHIND_TICKS, WAITED_AFTER_MS + KICK_COUNTDOWN_MS + MARGIN_MS);
     expect(s.a.last('waiting')?.for).toEqual([{ nick: 'Bartek', reason: 'slow', voteAfterMs: 0 }]);
@@ -96,13 +96,14 @@ describe('a member that stays slow', () => {
 
     trail(s, [s.a, s.c], s.b, RELEASE_TICKS, MARGIN_MS);
     expect(s.a.last('waiting')?.for).toEqual([]);
-    expect(s.a.last('clock')?.governed).toBeNull();
+    expect(s.a.last('clock')?.governed).toMatchObject({ nick: 'Bartek', cause: 'load' });
     s.c.send({ kind: 'kick', player: 1, yes: true });
     expect(s.c.last('rejected')?.reason).toEqual({ code: 'notWaitedFor', nick: 'Bartek' });
     expect(s.a.of('kicked')).toEqual([]);
     const resumed = lastTick(s.a);
-    trail(s, [s.a, s.c], s.b, RELEASE_TICKS, MARGIN_MS, LOAD);
+    trail(s, [s.a, s.c], s.b, RELEASE_TICKS, MARGIN_MS * 2, LOAD);
     expect(lastTick(s.a)).toBeGreaterThan(resumed);
+    expect(s.a.last('clock')?.governed).toBeNull();
   });
 
   it('does not count a hold for its silence toward the bound', () => {

@@ -34,23 +34,26 @@ export function framesIn(ms: number, speed: number): number {
 }
 
 /**
- * The speed the clock runs at for the slowest of `slow`, or null when none is slow. A member's bound is
- * the lower of two: the headroom share of the speed its reported tick cost exactly saturates (the
- * headroom share of the requested speed before its first report), and the catch-up share of the
- * requested speed. `cause` names the binding one, `lag` on a tie. The speed is rounded to whole steps
+ * The clock's bound for members catching up or still limited by load, or null without a limit.
+ * The catch-up share applies only while `catchingUp` says so (all members by default); a caught-up
+ * member keeps only its load bound with headroom. `cause` names the binding one, `lag` on a tie.
+ * The speed is rounded to whole steps
  * and kept within `MIN_GOVERNED_SPEED` and the requested speed. The lowest speed wins; a tie goes to
  * the member furthest behind. A rise from `current` under `GOVERNED_RISE_STEPS` steps is ignored, and
  * the same member at the same speed keeps `current`'s cause.
  */
 export function governedSpeed(
-  slow: Iterable<Member>,
+  limited: Iterable<Member>,
   clockTick: number,
   requestedSpeed: number,
   current: GovernedClock | null = null,
+  catchingUp?: (token: string) => boolean,
 ): GovernedClock | null {
   let limiter: (GovernedClock & { readonly lag: number }) | null = null;
-  for (const member of slow) {
-    const { speed, cause } = memberBound(member, requestedSpeed);
+  for (const member of limited) {
+    const recovering = catchingUp?.(member.token) ?? true;
+    const { speed, cause } = memberBound(member, requestedSpeed, recovering);
+    if (!recovering && speed >= requestedSpeed) continue;
     const lag = clockTick - member.ackedTick;
     if (limiter === null || speed < limiter.speed || (speed === limiter.speed && lag > limiter.lag))
       limiter = { nick: member.nick, speed, cause, lag };
@@ -68,14 +71,17 @@ export function governedSpeed(
 function memberBound(
   member: Member,
   requestedSpeed: number,
+  catchingUp: boolean,
 ): { readonly speed: number; readonly cause: GovernorCause } {
-  const loadBound =
-    member.load === null
-      ? requestedSpeed * GOVERNOR_HEADROOM
-      : (TICK_MS / member.load.tickMs) * GOVERNOR_HEADROOM;
-  const catchUpBound = requestedSpeed * CATCH_UP_SHARE;
+  const loadBound = loadSpeedLimit(member);
+  const catchUpBound = catchingUp ? requestedSpeed * CATCH_UP_SHARE : Number.POSITIVE_INFINITY;
   const cause: GovernorCause = loadBound < catchUpBound ? 'load' : 'lag';
   return { speed: stepSpeed(Math.min(loadBound, catchUpBound), requestedSpeed), cause };
+}
+
+/** Sustainable speed with headroom; an unreported load supplies no capacity limit. */
+export function loadSpeedLimit(member: Pick<Member, 'load'>): number {
+  return member.load === null ? Number.POSITIVE_INFINITY : (TICK_MS / member.load.tickMs) * GOVERNOR_HEADROOM;
 }
 
 /** Whole steps within the floor and the requested speed; a requested speed under the floor wins. */

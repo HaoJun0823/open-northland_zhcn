@@ -332,7 +332,7 @@ describe('pacing the clock for a slow member', () => {
     expect(s.a.last('waiting')?.for).toEqual([]);
   });
 
-  it('paces the clock at a slow member’s sustainable speed without holding it, and releases it lower', () => {
+  it('keeps a slow member’s capacity limit after catching up and releases it once its load improves', () => {
     const s = startedRoom();
     trail(s, s.a, s.b, LAG_TICKS + 1, SLOW_AFTER_MS, SLOW_LOAD);
     expect(s.a.last('waiting')?.for).toEqual([]);
@@ -342,10 +342,12 @@ describe('pacing the clock for a slow member', () => {
     expect(framesOver(s, s.a, s.b, LAG_TICKS + 1, RATE_WINDOW_MS)).toBeGreaterThanOrEqual(governedFrames - 1);
     expect(framesOver(s, s.a, s.b, LAG_TICKS + 1, RATE_WINDOW_MS)).toBeLessThanOrEqual(governedFrames);
 
-    // Between the two thresholds it stays slow; at the lower one it is released.
+    // Catching up clears the lag verdict, but the unchanged machine still needs its capacity limit.
     trail(s, s.a, s.b, RELEASE_TICKS + 1, TICK_MS * 2, SLOW_LOAD);
     expect(s.a.last('clock')?.governed).toEqual(governed);
     trail(s, s.a, s.b, RELEASE_TICKS, TICK_MS * 2, SLOW_LOAD);
+    expect(s.a.last('clock')?.governed).toEqual(governed);
+    trail(s, s.a, s.b, RELEASE_TICKS, TICK_MS * 4, LOAD);
     expect(s.a.last('clock')).toMatchObject({ speed: SETTINGS.speed, governed: null });
     const fullFrames = framesIn(RATE_WINDOW_MS, SETTINGS.speed);
     expect(framesOver(s, s.a, s.b, RELEASE_TICKS, RATE_WINDOW_MS)).toBeGreaterThanOrEqual(fullFrames - 1);

@@ -16,7 +16,7 @@ import { BYTES_PER_KIB, type RelayLog } from '../relay-log.js';
 import { blobMessage, relayBlob } from '../snapshots/blob-relay.js';
 import type { CachedSnapshot } from '../snapshots/catch-up.js';
 import { Resync } from '../snapshots/resync.js';
-import { framesIn, governedSpeed } from '../timing/governor.js';
+import { framesIn, governedSpeed, loadSpeedLimit } from '../timing/governor.js';
 import { Pacing } from '../timing/pacing.js';
 import { RoomClock } from '../timing/room-clock.js';
 import { ClockLog } from './clock-log.js';
@@ -240,7 +240,7 @@ export class Game {
     if (paused !== undefined && paused !== this.clock.paused) this.pausedBy = paused ? member.nick : null;
     if (speed !== undefined) this.clock.setSpeed(speed);
     if (paused !== undefined) this.clock.setPaused(paused);
-    this.governFor(this.slowMembers());
+    this.governFor(this.pacedMembers());
     this.broadcast(this.clockMessage(member.nick));
     return null;
   }
@@ -421,7 +421,13 @@ export class Game {
       const { figures } = member;
       figures.behindMaxTicks = Math.max(figures.behindMaxTicks, this.behindTicks(member));
       if (member !== uploading && this.absentReason(member, now) === null) {
-        this.pacing.observe(member.token, this.backlogTicks(member), this.clock.speed, now);
+        this.pacing.observe(
+          member.token,
+          this.backlogTicks(member),
+          this.clock.speed,
+          now,
+          loadSpeedLimit(member),
+        );
       } else {
         this.pacing.hold(member.token, now);
       }
@@ -432,7 +438,7 @@ export class Game {
     if (told) this.broadcast(this.waiting.message(now));
     for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
-    if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
+    if (this.governFor(this.pacedMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
     const { clock } = this;
     this.clockLog.observe(
       clock.running
@@ -457,17 +463,23 @@ export class Game {
     return this.clock.tick - member.ackedTick - inFlight - this.reserveTicks();
   }
 
-  /** Pace the clock for `slow` at the requested speed; true when the governed clock changed. */
-  private governFor(slow: readonly Member[]): boolean {
-    const governed = governedSpeed(slow, this.clock.tick, this.clock.speed, this.clock.governed);
+  /** Pace the clock for members still catching up or limited by load. */
+  private governFor(limited: readonly Member[]): boolean {
+    const governed = governedSpeed(
+      limited,
+      this.clock.tick,
+      this.clock.speed,
+      this.clock.governed,
+      this.pacing.isSlow,
+    );
     if (sameGoverned(governed, this.clock.governed)) return false;
     this.clock.govern(governed);
     return true;
   }
 
-  private slowMembers(): Member[] {
+  private pacedMembers(): Member[] {
     return [...this.members.values()].filter(
-      (member) => member.seat !== null && this.pacing.isSlow(member.token),
+      (member) => member.seat !== null && this.pacing.governs(member.token),
     );
   }
 

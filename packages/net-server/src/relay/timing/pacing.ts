@@ -23,9 +23,13 @@ export class Pacing {
   private readonly slowSince = new Map<string, number>();
   /** When the hold on each held member began, while it lasts. */
   private readonly heldSince = new Map<string, number>();
+  /** A proven slow member may catch up while its machine still cannot sustain the requested speed. */
+  private readonly capacityLimited = new Set<string>();
 
-  isSlow(token: string): boolean {
-    return this.slowSince.has(token);
+  readonly isSlow = (token: string): boolean => this.slowSince.has(token);
+
+  governs(token: string): boolean {
+    return this.isSlow(token) || this.capacityLimited.has(token);
   }
 
   /** The member has been slow long enough that the room waits for it until it is released. */
@@ -41,10 +45,21 @@ export class Pacing {
   }
 
   /** Judge a member the relay follows from its backlog in ticks at `requestedSpeed`. */
-  observe(token: string, backlogTicks: number, requestedSpeed: number, now: number): void {
+  observe(
+    token: string,
+    backlogTicks: number,
+    requestedSpeed: number,
+    now: number,
+    loadSpeedLimit = Number.POSITIVE_INFINITY,
+  ): void {
     this.resume(token, now);
+    if (loadSpeedLimit >= requestedSpeed) this.capacityLimited.delete(token);
     if (this.slowSince.has(token)) {
-      if (backlogTicks <= framesIn(GOVERN_RELEASE_MS, requestedSpeed)) this.forget(token);
+      if (loadSpeedLimit < requestedSpeed) this.capacityLimited.add(token);
+      if (backlogTicks <= framesIn(GOVERN_RELEASE_MS, requestedSpeed)) {
+        this.slowSince.delete(token);
+        this.laggingSince.delete(token);
+      }
       return;
     }
     if (backlogTicks <= framesIn(LAG_BEHIND_MS, requestedSpeed)) {
@@ -53,8 +68,10 @@ export class Pacing {
     }
     const since = this.laggingSince.get(token) ?? now;
     this.laggingSince.set(token, since);
-    if (now - since >= SLOW_GRACE_MS || backlogTicks > framesIn(SLOW_AT_ONCE_MS, requestedSpeed))
+    if (now - since >= SLOW_GRACE_MS || backlogTicks > framesIn(SLOW_AT_ONCE_MS, requestedSpeed)) {
       this.slowSince.set(token, now);
+      if (loadSpeedLimit < requestedSpeed) this.capacityLimited.add(token);
+    }
   }
 
   /** A member that left, or whose world is being replaced, starts with no lag on record. */
@@ -62,6 +79,7 @@ export class Pacing {
     this.laggingSince.delete(token);
     this.slowSince.delete(token);
     this.heldSince.delete(token);
+    this.capacityLimited.delete(token);
   }
 
   /** Move the member's clocks past the hold that just ended. */

@@ -19,8 +19,10 @@ export const WORLD_FLAG_GLOW = 8;
 /** The element's page is in the indexed layout: palette index in red, coverage in green, opaque. A
  *  paletted element's page always is; an unpaletted one draws its coverage alone, as black. */
 export const WORLD_FLAG_INDEXED = 16;
-/** A paletted element's LUT row, from `aFlags` bit 5 up; a float32 holds it exactly below 2^19 rows. */
-export const WORLD_LUT_ROW_SHIFT = 5;
+/** The element's page has mipmaps, so a sample needs its level from the uv derivatives. */
+export const WORLD_FLAG_MIPMAPPED = 32;
+/** A paletted element's LUT row, from `aFlags` bit 6 up; a float32 holds it exactly below 2^18 rows. */
+export const WORLD_LUT_ROW_SHIFT = 6;
 /**
  * The palette index a hero's glow takes its colour from: step 10 of the team ramp in the body palette's
  * vest band (160-175), which each player's team row of the human LUT carries. Original behavior: the glow
@@ -181,6 +183,7 @@ const int WORLD_FLAG_SHADOW = ${WORLD_FLAG_SHADOW};
 const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
 const int WORLD_FLAG_GLOW = ${WORLD_FLAG_GLOW};
 const int WORLD_FLAG_INDEXED = ${WORLD_FLAG_INDEXED};
+const int WORLD_FLAG_MIPMAPPED = ${WORLD_FLAG_MIPMAPPED};
 const float GLOW_PALETTE_INDEX = ${GLOW_PALETTE_INDEX}.0;
 const int WORLD_LUT_ROW_SHIFT = ${WORLD_LUT_ROW_SHIFT};
 const int LUT_SLOT = ${lutSlotOf(maxTextures)};
@@ -223,6 +226,12 @@ bool hasFlag(int flags, int bit) {
 // Direct3D's compiler hoist it out of the branches and fetch from every slot.
 vec4 sampleTexture(vec2 uv, vec2 uvDx, vec2 uvDy) {
 ${textureChain(maxTextures, 'vTextureId', (i) => `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`)}
+}
+
+// A page without mipmaps has one level, and its min and mag filters match, so level 0 reads what
+// textureGrad would without the gradient sample's cost (Intel UHD 770 on Direct3D 11 measured it).
+vec4 sampleLevelZero(vec2 uv) {
+${textureChain(maxTextures, 'vTextureId', (i) => `return textureLod(uTextures[${i}], uv, 0.0);`)}
 }
 
 ivec2 textureSizeOf() {
@@ -328,7 +337,10 @@ void main(void) {
   vec2 high = vFrame.zw - 0.5 / texSize;
   vec4 outColor;
   if (!filtered || (minified && single)) {
-    vec4 texel = sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
+    // Mode off draws unfiltered pages, which have mipmaps only as art a presentation pack loaded so.
+    vec4 texel = WORLD_MAGNIFY < 0.5 && !hasFlag(flags, WORLD_FLAG_MIPMAPPED)
+      ? sampleLevelZero(vUV)
+      : sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
     outColor = drawnTexel(texel, indexed, paletted, lutRow);
   } else if (minified) {
     // Not a mipmap substitute at extreme zoom-out: sampling cost is deliberately bounded.

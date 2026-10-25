@@ -34,6 +34,7 @@ import {
   WORLD_ATTRIBUTE_OFFSETS,
   WORLD_FLAG_GLOW,
   WORLD_FLAG_INDEXED,
+  WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
@@ -234,6 +235,16 @@ describe('world batcher element flags', () => {
     expect(packedFlags(silhouette)).toBe(WORLD_FLAG_INDEXED | WORLD_FLAG_SHADOW);
 
     silhouette.destroy();
+    page.destroy();
+  });
+
+  it('flags a page with mipmaps, which mode off samples with gradients instead of level 0', () => {
+    const page = new TextureSource({ width: 8, height: 8, autoGenerateMipmaps: true });
+    const texture = new Texture({ source: page });
+
+    expect(packedFlags(texture)).toBe(WORLD_FLAG_MIPMAPPED);
+
+    texture.destroy();
     page.destroy();
   });
 });

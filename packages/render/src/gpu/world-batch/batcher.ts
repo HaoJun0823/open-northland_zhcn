@@ -51,6 +51,7 @@ import {
   WORLD_FLAG_GLOW,
   WORLD_FLAG_INDEXED,
   WORLD_FLAG_MAGNIFY,
+  WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
@@ -63,6 +64,7 @@ export {
   lutSlotOf,
   WORLD_FLAG_GLOW,
   WORLD_FLAG_INDEXED,
+  WORLD_FLAG_MIPMAPPED,
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
@@ -420,8 +422,10 @@ function defineWorldBatcher(): WorldBatcherClass {
    *  silhouette or outline of an indexed body); the shadow lookups are skipped entirely while no shadow
    *  shading is compiled in. */
   function plainFlags(texture: Texture): number {
+    const source = texture.source;
     const magnify = isMagnifiedTexture(texture) ? WORLD_FLAG_MAGNIFY : 0;
-    const plain = isIndexedSource(texture.source) ? magnify | WORLD_FLAG_INDEXED : magnify;
+    const mipmapped = source.autoGenerateMipmaps || source.mipLevelCount > 1 ? WORLD_FLAG_MIPMAPPED : 0;
+    const plain = (isIndexedSource(source) ? WORLD_FLAG_INDEXED : 0) | magnify | mipmapped;
     if (worldShadowStyle() === null || !isShadowTexture(texture)) return plain;
     return plain | WORLD_FLAG_SHADOW;
   }

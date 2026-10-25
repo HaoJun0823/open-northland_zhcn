@@ -22,19 +22,25 @@ function scenario(id, setup, overrides = {}) {
 }
 
 /** Every scenario frames the densest building cluster at x3 with the pointer on the bottom bar, unless
- *  it is about the pointer. `none` is the baseline the others add one HUD surface to. */
+ *  it is about the pointer. `none` is the baseline the others add one HUD surface to. The `-world` twins
+ *  rest the pointer over the world with the panel open, `build-tabs` switches the construction
+ *  window's tab on a timer, and `presses` presses and releases the mouse button on one. */
 export function hudScenarios() {
   return [
     scenario('none', 'none'),
     scenario('settler', 'settler'),
+    scenario('settler-world', 'settler-world'),
     scenario('building', 'building'),
+    scenario('building-world', 'building-world'),
     scenario('residents', 'residents'),
     scenario('mission', 'mission'),
     scenario('diplomacy', 'diplomacy'),
     scenario('build', 'build'),
+    scenario('build-tabs', 'build-tabs'),
     scenario('notices', 'notices'),
     scenario('select50', 'select50', { zoom: MANY_SELECTION_ZOOM }),
     scenario('hover', 'hover'),
+    scenario('presses', 'presses'),
     scenario('fps', 'none', { fpsCounter: true }),
     scenario('groups', 'groups', { groupNumbers: true }),
   ];
@@ -354,14 +360,14 @@ const fixed = (value, digits) => (value === null || value === undefined ? '-' : 
 /** The markdown table `report.md` holds, one row per measured scenario. */
 export function markdownTable(results) {
   const rows = [
-    '| scenario | setup | frames | RAF p50/p95 ms | layouts/f | recalcs/f | layout ms/f | style ms/f | script ms/f | task ms/f | mutations/f | layers (drawing) | layer paints/f | insets | HUD nodes | void because |',
+    '| scenario | setup | frames | RAF p50/p95/max ms | layouts/f | recalcs/f | layout ms/f | style ms/f | script ms/f | task ms/f | mutations/f | layers (drawing) | layer paints/f | insets | HUD nodes | void because |',
     '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   for (const result of results) {
     const { metrics, frames, layers } = result;
     const mutations = frames.frames === 0 ? 0 : result.mutations.records / frames.frames;
     rows.push(
-      `| ${result.id} | ${result.setupNote || '-'} | ${frames.frames} | ${fixed(frames.rafP50, 1)}/${fixed(frames.rafP95, 1)} | ${fixed(metrics.layoutsPerFrame, 2)} | ${fixed(metrics.styleRecalcsPerFrame, 2)} | ${fixed(metrics.layoutMsPerFrame, 3)} | ${fixed(metrics.styleMsPerFrame, 3)} | ${fixed(metrics.scriptMsPerFrame, 2)} | ${fixed(metrics.taskMsPerFrame, 2)} | ${fixed(mutations, 1)} | ${layers.count} (${layers.drawing}) | ${fixed(layers.paintedPerFrame, 2)} | ${result.insets} | ${result.hudNodes} | ${result.invalid.join(', ') || '-'} |`,
+      `| ${result.id} | ${result.setupNote || '-'} | ${frames.frames} | ${fixed(frames.rafP50, 1)}/${fixed(frames.rafP95, 1)}/${fixed(frames.rafMax, 1)} | ${fixed(metrics.layoutsPerFrame, 2)} | ${fixed(metrics.styleRecalcsPerFrame, 2)} | ${fixed(metrics.layoutMsPerFrame, 3)} | ${fixed(metrics.styleMsPerFrame, 3)} | ${fixed(metrics.scriptMsPerFrame, 2)} | ${fixed(metrics.taskMsPerFrame, 2)} | ${fixed(mutations, 1)} | ${layers.count} (${layers.drawing}) | ${fixed(layers.paintedPerFrame, 2)} | ${result.insets} | ${result.hudNodes} | ${result.invalid.join(', ') || '-'} |`,
     );
   }
   return rows.join('\n');

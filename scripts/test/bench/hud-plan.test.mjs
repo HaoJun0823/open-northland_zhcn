@@ -38,7 +38,7 @@ test('the table shows each scenario with its setup, its void reasons and a dash 
   const result = (id, overrides) => ({
     id,
     setupNote: '',
-    frames: { frames: 100, rafP50: 8.25, rafP95: 16.7 },
+    frames: { frames: 100, rafP50: 8.25, rafP95: 16.7, rafMax: 41.2 },
     metrics: {
       layoutsPerFrame: 0.5,
       styleRecalcsPerFrame: 1,
@@ -57,20 +57,23 @@ test('the table shows each scenario with its setup, its void reasons and a dash 
   const lines = markdownTable([
     result('none'),
     result('notices', { setupNote: '7 notice cards, 2 stacks', invalid: ['setup: no card'] }),
-    result('fps', { frames: { frames: 0, rafP50: null, rafP95: null }, mutations: { records: 0 } }),
+    result('fps', {
+      frames: { frames: 0, rafP50: null, rafP95: null, rafMax: null },
+      mutations: { records: 0 },
+    }),
   ]).split('\n');
   assert.equal(lines.length, 5);
   assert.equal(
     lines[2],
-    '| none | - | 100 | 8.3/16.7 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | - |',
+    '| none | - | 100 | 8.3/16.7/41.2 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | - |',
   );
   assert.equal(
     lines[3],
-    '| notices | 7 notice cards, 2 stacks | 100 | 8.3/16.7 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | setup: no card |',
+    '| notices | 7 notice cards, 2 stacks | 100 | 8.3/16.7/41.2 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | setup: no card |',
   );
   assert.equal(
     lines[4],
-    '| fps | - | 0 | -/- | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 0.0 | 22 (9) | 1.25 | 1 | 1234 | - |',
+    '| fps | - | 0 | -/-/- | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 0.0 | 22 (9) | 1.25 | 1 | 1234 | - |',
   );
 });
 

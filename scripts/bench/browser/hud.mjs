@@ -91,9 +91,56 @@ async function openByKey(page, key) {
   return { ready: after > before, note: `${key} opened ${after - before} window(s)` };
 }
 
+/** The window's middle, over the world whatever panel is open. */
+const worldCentre = (viewport) => ({ x: viewport.width / 2, y: viewport.height / 2 });
+
+/** `build-tabs` clicks the construction window's next category tab this often, from inside the page. */
+const TAB_SWITCH_MS = 400;
+
+/** Open the construction window and keep switching its category tabs until the page reloads. */
+async function switchBuildTabs(page) {
+  const opened = await openByKey(page, 'KeyB');
+  const tabs = await page.evaluate((ms) => {
+    const catalogue = [...document.querySelectorAll('.on-hud .on-window')].find(
+      (element) => element.getClientRects().length > 0 && element.querySelector('.on-catalog') !== null,
+    );
+    const shown = [...(catalogue?.querySelectorAll('.on-tabs [role="tab"]') ?? [])].filter(
+      (tab) => tab instanceof HTMLElement && tab.getClientRects().length > 0,
+    );
+    let at = 0;
+    if (shown.length > 1)
+      setInterval(() => {
+        at = (at + 1) % shown.length;
+        shown[at].click();
+      }, ms);
+    return shown.length;
+  }, TAB_SWITCH_MS);
+  return {
+    ready: opened.ready && tabs > 1,
+    note: `${opened.note}; ${tabs} tabs switched every ${TAB_SWITCH_MS} ms`,
+  };
+}
+
+/** `presses` presses or releases the left mouse button this often, as pointer events on the window:
+ *  the cursor theme follows the button, and nothing in the game takes a press there. */
+const PRESS_MS = 250;
+
+/** Keep pressing and releasing the mouse button over the bottom bar until the page reloads. */
+async function pressButtons(page) {
+  await page.evaluate((ms) => {
+    let down = false;
+    setInterval(() => {
+      down = !down;
+      const type = down ? 'pointerdown' : 'pointerup';
+      window.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse', buttons: down ? 1 : 0 }));
+    }, ms);
+  }, PRESS_MS);
+  return { ready: true, note: `button pressed or released every ${PRESS_MS} ms` };
+}
+
 /**
  * Each scenario's HUD state, reached with the player's input. `pointer` is where the pointer rests
- * while measuring: the bottom bar, where no hover card rises, unless the scenario is the hover.
+ * while measuring: the bottom bar, where no hover card rises, unless the scenario is about the pointer.
  */
 const SETUPS = {
   none: async () => ({ ready: true, note: '' }),
@@ -101,14 +148,23 @@ const SETUPS = {
     const ready = await selectOneSettler(page, area);
     return { ready, note: ready ? '' : 'no settler took a click' };
   },
+  'settler-world': async (context) => ({
+    ...(await SETUPS.settler(context)),
+    pointer: worldCentre(context.viewport),
+  }),
   building: async ({ page, area }) => {
     const ready = await selectOneBuilding(page, area);
     return { ready, note: ready ? '' : 'no building took a click' };
   },
+  'building-world': async (context) => ({
+    ...(await SETUPS.building(context)),
+    pointer: worldCentre(context.viewport),
+  }),
   residents: ({ page }) => openByKey(page, 'F2'),
   mission: ({ page }) => openByKey(page, 'F1'),
   diplomacy: ({ page }) => openByKey(page, 'F5'),
   build: ({ page }) => openByKey(page, 'KeyB'),
+  'build-tabs': ({ page }) => switchBuildTabs(page),
   // A restored game starts with an empty column; a few minutes of game time fill it as a player's does.
   notices: async ({ page }) => {
     await page.evaluate(async (speed) => {
@@ -135,11 +191,8 @@ const SETUPS = {
     const selected = await page.evaluate(() => window.__frameInputs.selection);
     return { ready: selected >= MANY_SELECTED, note: `${selected} selected` };
   },
-  hover: async ({ viewport }) => ({
-    ready: true,
-    note: '',
-    pointer: { x: viewport.width / 2, y: viewport.height / 2 },
-  }),
+  hover: async ({ viewport }) => ({ ready: true, note: '', pointer: worldCentre(viewport) }),
+  presses: ({ page }) => pressButtons(page),
   groups: async ({ page, area }) => {
     await drag(page, area);
     const grouped = await page.evaluate(() => window.__frameInputs.selection);
@@ -262,6 +315,8 @@ function stopFrameCount(page) {
       frames: probe.frames,
       rafP50: at(0.5),
       rafP95: at(0.95),
+      rafP99: at(0.99),
+      rafMax: sorted.at(-1) ?? null,
       hidden: probe.hidden || document.hidden,
       drift: window.__measurementGuard.drift,
     };
@@ -362,6 +417,8 @@ async function cssAB(page, cdp, browserCdp, css) {
           fps: frames.frames / (AB_WINDOW_MS / MS_PER_SECOND),
           rafP50: frames.rafP50,
           rafP95: frames.rafP95,
+          rafP99: frames.rafP99,
+          rafMax: frames.rafMax,
           appCpuMsPerFrame: perfWindow.cpuMsPerFrame,
           appDrawMsPerFrame: perfWindow.drawMsPerFrame,
         },

@@ -31,7 +31,7 @@ import { createTooltip } from './tooltip.js';
 
 /** How long the cursor rests on one target before its card opens, so crossing a settlement does not
  *  flash a card over every house and passer-by on the way. */
-const CARD_REST_MS = 250;
+const CARD_REST_MS = 150;
 /** How far, in client px, the pointer may drift and still rest where it is, so a hand's tremor does not
  *  count as moving to another target. */
 const POINTER_REST_SLOP_PX = 4;

@@ -126,10 +126,15 @@ const namesOf = (programs: readonly { readonly name: string }[]): string[] =>
   programs.map((program) => program.name);
 
 describe('boot shader programs', () => {
-  it('selects one batch variant for the device limit and settings beside the fixed programs', () => {
+  it('selects the batch variants for the device limit and settings beside the fixed programs', () => {
     const names = namesOf(bootShaderPrograms(16, { ...EVERY_EFFECT, magnification: 'xbr', shadow: null }));
-    expect(names[0]).toBe('world-batch/textures16/xbr/no-shadow');
-    expect(names.filter((name) => name.startsWith('world-batch/'))).toHaveLength(1);
+    expect(names.filter((name) => name.startsWith('world-batch/'))).toEqual([
+      'world-batch/textures16/xbr/no-shadow',
+      'world-batch/textures16/xbr/no-shadow/unmagnified',
+    ]);
+    expect(
+      namesOf(bootShaderPrograms(16, NO_EFFECT)).filter((name) => name.startsWith('world-batch/')),
+    ).toEqual(['world-batch/textures16/off/no-shadow']);
     expect(names).toContain('shaded-terrain');
     expect(names).toContain('decor-shadow');
     expect(names).toContain('paletted-sprite');
@@ -141,8 +146,10 @@ describe('boot shader programs', () => {
   });
 
   it('leaves out the programs a setting keeps the renderer from drawing', () => {
-    const everything = namesOf(bootShaderPrograms(16, EVERY_EFFECT)).slice(1);
-    const nothing = namesOf(bootShaderPrograms(16, NO_EFFECT)).slice(1);
+    const fixed = (selection: ShaderSelection): string[] =>
+      namesOf(bootShaderPrograms(16, selection)).filter((name) => !name.startsWith('world-batch/'));
+    const everything = fixed(EVERY_EFFECT);
+    const nothing = fixed(NO_EFFECT);
     const turnedOff = everything.filter((name) => !nothing.includes(name));
     expect(turnedOff.sort()).toEqual(
       namesOf([

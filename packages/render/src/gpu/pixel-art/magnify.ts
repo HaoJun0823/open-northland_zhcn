@@ -23,11 +23,13 @@ export const XBR_NEIGHBOURS = [
  * magnifiers hands them in as values, so no tap is addressed at run time. `XBR_NEIGHBOURS_OF(TAP)` builds
  * the neighbourhood from a host macro `TAP(dx, dy)` naming the texel at `centre + (dx, dy) * step`.
  */
-export const PIXEL_ART_MAGNIFY_CORE_GLSL = /* glsl */ `
 /** Texels per pixel under which a page counts as magnified. The uv derivatives of a tall page carry
  *  rounding noise of a few thousandths of a texel, which at one texel per pixel sent a grid of pixel
  *  quads through the magnifier; within one hundredth of a texel per pixel the page is drawn 1:1. */
-const float MAGNIFIED_BELOW = 0.99;
+export const MAGNIFIED_BELOW = 0.99;
+
+export const PIXEL_ART_MAGNIFY_CORE_GLSL = /* glsl */ `
+const float MAGNIFIED_BELOW = ${MAGNIFIED_BELOW.toFixed(6)};
 /** Floor on the screen-pixel footprint, so a degenerate transform cannot divide by zero. */
 const float MIN_TEXELS_PER_PIXEL = 0.0001;
 /** Rec. 601 luma weights, the published grey the texel distance is measured in. */

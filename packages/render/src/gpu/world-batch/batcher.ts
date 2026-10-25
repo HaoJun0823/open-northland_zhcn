@@ -11,6 +11,7 @@ import {
   ExtensionType,
   extensions,
   Geometry,
+  type GlobalUniformGroup,
   getBatchSamplersUniformGroup,
   type InstructionSet,
   type Renderer,
@@ -23,6 +24,7 @@ import {
   WebGLRenderer,
 } from 'pixi.js';
 import { surfaceOf } from '../blood/surface-sprite.js';
+import { MAGNIFIED_BELOW } from '../pixel-art/magnify.js';
 import {
   hasPrescaledPages,
   isCollectingDrawnPages,
@@ -55,6 +57,7 @@ import {
   WORLD_FLAG_PALETTED,
   WORLD_FLAG_SHADOW,
   WORLD_LUT_ROW_SHIFT,
+  type WorldBatchSampling,
   worldBatchProgramSource,
 } from './shader.js';
 import type { ShadowStyle } from './shadow-style.js';
@@ -138,6 +141,7 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
   lutBoundPipes.add(pipe);
   const execute = pipe.execute.bind(pipe);
   pipe.execute = (batch: Batch) => {
+    if (batch.action === 'startBatch') noteDrawScale(renderer);
     const batcher: unknown = batch.batcher;
     const binding = listsLut(batcher) ? batcher.lutBinding(batch) : null;
     const shader = batch.batcher.shader;
@@ -173,6 +177,38 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
       if (swaps !== 0) restoreListedPages(textures.textures, listed);
     }
   };
+}
+
+/**
+ * Screen pixels per render-group unit of the draw starting now, along its larger axis, or infinity when
+ * the group is rotated or sheared, which the unmagnified program's bound does not cover. Read where a
+ * batch run starts, after Pixi pushed the group's transform, and before its shader is chosen.
+ */
+let drawPixelsPerUnit = Number.POSITIVE_INFINITY;
+/** How far a draw's texel bound must clear {@link MAGNIFIED_BELOW} for the unmagnified program: the
+ *  shader's derivative noise of a few thousandths of a texel must not take a fragment below it. */
+const UNMAGNIFIED_MARGIN = 1.01;
+/** The flags of an element whose body may gather: paletted, or on a page marked for magnification. */
+const GATHERING_FLAGS = WORLD_FLAG_PALETTED | WORLD_FLAG_MAGNIFY;
+/** Off-axis terms below this share of the group's scale count as none. */
+const AXIS_ALIGNED_TOLERANCE = 1e-6;
+
+function noteDrawScale(renderer: Renderer): void {
+  const globals: GlobalUniformGroup = renderer.globalUniforms.uniformGroup;
+  const uniforms = globals.uniforms;
+  const projection = uniforms.uProjectionMatrix;
+  const world = uniforms.uWorldTransformMatrix;
+  // Clip space spans two units across the target's pixels.
+  const halfWidth = (uniforms.uResolution[0] ?? 0) / 2;
+  const halfHeight = (uniforms.uResolution[1] ?? 0) / 2;
+  const a = (projection.a * world.a + projection.c * world.b) * halfWidth;
+  const b = (projection.b * world.a + projection.d * world.b) * halfHeight;
+  const c = (projection.a * world.c + projection.c * world.d) * halfWidth;
+  const d = (projection.b * world.c + projection.d * world.d) * halfHeight;
+  const scale = Math.max(Math.abs(a), Math.abs(d));
+  // An empty target has no scale to bound.
+  const aligned = scale > 0 && Math.abs(b) + Math.abs(c) <= scale * AXIS_ALIGNED_TOLERANCE;
+  drawPixelsPerUnit = aligned ? scale : Number.POSITIVE_INFINITY;
 }
 
 /** Notes each listed page as drawn and puts its prescaled twin in its slot, keeping the page in
@@ -306,7 +342,8 @@ function defineWorldBatcher(): WorldBatcherClass {
   // Pixi uploads a batch shader's own uniforms only on that Shader object's first bind, so the
   // magnification mode and the shadow shading are compile-time constants instead: one program per
   // combination, shared by every batcher on the page. The shadow style is one fixed value or absent,
-  // so the map holds at most two programs per magnification mode.
+  // and a magnifying mode also has its unmagnified program, so the map holds at most four programs per
+  // magnification mode.
   const shaders = new Map<string, Shader>();
   let lastShader:
     | {
@@ -315,6 +352,7 @@ function defineWorldBatcher(): WorldBatcherClass {
         readonly alphaGain: number | undefined;
         readonly maxAlpha: number | undefined;
         readonly tint: number | undefined;
+        readonly sampling: WorldBatchSampling;
         readonly shader: Shader;
       }
     | undefined;
@@ -323,7 +361,12 @@ function defineWorldBatcher(): WorldBatcherClass {
     return shadow === null ? 'off' : `${shadow.alphaGain}/${shadow.maxAlpha}/${shadow.tint.toString(16)}`;
   }
 
-  function shaderFor(maxTextures: number, mode: number, shadow: ShadowStyle | null): Shader {
+  function shaderFor(
+    maxTextures: number,
+    mode: number,
+    shadow: ShadowStyle | null,
+    sampling: WorldBatchSampling,
+  ): Shader {
     // Most batches use the same variant; avoid formatting its cache key on every bind.
     if (
       lastShader !== undefined &&
@@ -331,11 +374,12 @@ function defineWorldBatcher(): WorldBatcherClass {
       lastShader.mode === mode &&
       lastShader.alphaGain === shadow?.alphaGain &&
       lastShader.maxAlpha === shadow?.maxAlpha &&
-      lastShader.tint === shadow?.tint
+      lastShader.tint === shadow?.tint &&
+      lastShader.sampling === sampling
     )
       return lastShader.shader;
     const shading = shadowKey(shadow);
-    const key = `${maxTextures}:${mode}:${shading}`;
+    const key = `${maxTextures}:${mode}:${shading}:${sampling}`;
     let shader = shaders.get(key);
     if (shader === undefined) {
       const twinSlots: TwinSlotsUniforms | null =
@@ -343,7 +387,7 @@ function defineWorldBatcher(): WorldBatcherClass {
           ? new UniformGroup({ uTwinSlots: { value: 0, type: 'i32' } })
           : null;
       shader = new Shader({
-        glProgram: glProgramFor(worldBatchProgramSource(maxTextures, mode, shadow)),
+        glProgram: glProgramFor(worldBatchProgramSource(maxTextures, mode, shadow, sampling)),
         resources: {
           batchSamplers: getBatchSamplersUniformGroup(maxTextures),
           ...(twinSlots === null ? {} : { twinSlots }),
@@ -359,6 +403,7 @@ function defineWorldBatcher(): WorldBatcherClass {
       alphaGain: shadow?.alphaGain,
       maxAlpha: shadow?.maxAlpha,
       tint: shadow?.tint,
+      sampling,
       shader,
     };
     return shader;
@@ -399,6 +444,26 @@ function defineWorldBatcher(): WorldBatcherClass {
     packing.maxU = Math.max(x0, x1, x2, x3);
     packing.maxV = Math.max(y0, y1, y2, y3);
     packing.splashes = outline.reachUv;
+  }
+
+  /**
+   * The fewest page texels per render-group unit a quad's fragments see, as the shader measures its
+   * footprint: the larger of the two rows of the unit-to-texel map, each row's absolute sum. Zero when
+   * snapping or a rotated frame leaves it unknown. Reads the frame box {@link beginElement} packed.
+   */
+  function quadTexelsPerUnit(element: DefaultBatchableQuadElement): number {
+    const { a, b, c, d } = element.transform;
+    const { minX, minY, maxX, maxY } = element.bounds;
+    const texture = element.texture;
+    const determinant = Math.abs(a * d - b * c);
+    if (element.roundPixels !== 0 || texture.rotate !== 0 || determinant === 0) return 0;
+    if (maxX <= minX || maxY <= minY) return 0;
+    const source = texture.source;
+    const texelsX = ((packing.maxU - packing.minU) * source.pixelWidth) / (maxX - minX);
+    const texelsY = ((packing.maxV - packing.minV) * source.pixelHeight) / (maxY - minY);
+    return (
+      Math.max(texelsX * (Math.abs(d) + Math.abs(c)), texelsY * (Math.abs(b) + Math.abs(a))) / determinant
+    );
   }
 
   /** Write one vertex after its transformed position; returns the next vertex's index. */
@@ -464,6 +529,10 @@ function defineWorldBatcher(): WorldBatcherClass {
     private readonly leftPages = new Set<TextureSource>();
     /** The render group whose instructions this batcher builds; Pixi keeps one batcher per group. */
     private renderGroup: RenderGroup | null = null;
+    /** The fewest page texels per render-group unit of any element packed since the last `begin` whose
+     *  body may gather; an element repacked in place only lowers it. The still mesh's packer never
+     *  begins, so its bound holds every quad it ever packed. */
+    private texelsPerUnit = Number.POSITIVE_INFINITY;
 
     override updateElement(element: BatchableElement): void {
       const buffer = this.geometry.buffers[0];
@@ -534,7 +603,22 @@ function defineWorldBatcher(): WorldBatcherClass {
 
     override begin(): void {
       this.forgetLeftPages();
+      this.texelsPerUnit = Number.POSITIVE_INFINITY;
       super.begin();
+    }
+
+    /** The sampling the draw starting now needs: unmagnified while no element this batcher packed can be
+     *  magnified, or null while none gathers, so either program draws it alike. */
+    samplingNow(): WorldBatchSampling | null {
+      if (this.texelsPerUnit === Number.POSITIVE_INFINITY) return null;
+      return this.texelsPerUnit >= MAGNIFIED_BELOW * UNMAGNIFIED_MARGIN * drawPixelsPerUnit
+        ? 'unmagnified'
+        : 'magnifying';
+    }
+
+    private noteTexelsPerUnit(texelsPerUnit: number): void {
+      if (packing.selection >= 0 && (packing.flags & GATHERING_FLAGS) !== 0)
+        this.texelsPerUnit = Math.min(this.texelsPerUnit, texelsPerUnit);
     }
 
     override destroy(options?: { shader?: boolean }): void {
@@ -627,6 +711,8 @@ function defineWorldBatcher(): WorldBatcherClass {
       if (surface?.enabled === true && surface.facade) packing.blood = -surface.clipY;
       packing.splashes = surface?.enabled === true ? surface.packed : undefined;
       beginElement(element.texture, textureIdAndRound, element.color, this.flagsOf(element));
+      // A mesh's vertices may stretch its texels anywhere.
+      this.noteTexelsPerUnit(0);
       const { a, b, c, d, tx, ty } = element.transform;
       const { positions, uvs } = element;
       const end = element.attributeOffset + element.attributeSize;
@@ -656,6 +742,7 @@ function defineWorldBatcher(): WorldBatcherClass {
       if (surface?.enabled === true && surface.facade) packing.blood = -surface.clipY;
       packing.splashes = surface?.enabled === true ? surface.packed : undefined;
       beginElement(texture, textureIdAndRound, element.color, this.flagsOf(element));
+      this.noteTexelsPerUnit(quadTexelsPerUnit(element));
       const outline = outlineOf(renderableOf(element));
       if (outline !== null) packOutline(outline);
       const { a, b, c, d, tx, ty } = element.transform;
@@ -681,7 +768,13 @@ function defineWorldBatcher(): WorldBatcherClass {
   // setting change takes effect on the next frame. Pixi's base class never assigns the property.
   Object.defineProperty(WorldBatcher.prototype, 'shader', {
     get(this: WorldBatcher) {
-      return shaderFor(this.maxTextures + LUT_SLOTS, pixelArtMagnifyMode(), worldShadowStyle());
+      const mode = pixelArtMagnifyMode();
+      // A draw that may take either program keeps the one bound, saving a program switch.
+      const sampling: WorldBatchSampling =
+        mode === WORLD_MAGNIFY_MODES.off
+          ? 'magnifying'
+          : (this.samplingNow() ?? lastShader?.sampling ?? 'magnifying');
+      return shaderFor(this.maxTextures + LUT_SLOTS, mode, worldShadowStyle(), sampling);
     },
     set() {}, // Pixi's base class never assigns it; the mode owns the choice
   });

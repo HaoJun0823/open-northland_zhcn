@@ -10,6 +10,7 @@ import {
   type PrescaledScaler,
   prescaledScalerOf,
   WORLD_MAGNIFY_MODE_NUMBERS,
+  WORLD_MAGNIFY_MODES,
   type WorldMagnification,
   worldMagnifyModeNumber,
 } from '../pixel-art/registry.js';
@@ -64,7 +65,7 @@ export function shaderCatalog(): readonly GlslProgramSource[] {
   for (const maxTextures of WORLD_BATCH_TEXTURE_LIMITS) {
     for (const mode of WORLD_MAGNIFY_MODE_NUMBERS) {
       for (const shadow of [null, DEFAULT_SHADOW_STYLE]) {
-        entries.push(worldBatchProgramSource(maxTextures, mode, shadow));
+        entries.push(...worldBatchPrograms(maxTextures, mode, shadow));
       }
     }
   }
@@ -82,6 +83,18 @@ export function shaderCatalog(): readonly GlslProgramSource[] {
 /** The programs a prescaled scaler redraws its pages with. */
 function prescalePrograms(scaler: PrescaledScaler): readonly GlslProgramSource[] {
   return PRESCALE_RECIPES[scaler].map((pass) => pass.program);
+}
+
+/** The batch programs one mode and shadow style draw with: a magnifying mode also draws its unmagnified
+ *  program wherever no page is magnified. */
+function worldBatchPrograms(
+  maxTextures: number,
+  mode: number,
+  shadow: ShadowStyle | null,
+): GlslProgramSource[] {
+  const magnifying = worldBatchProgramSource(maxTextures, mode, shadow, 'magnifying');
+  if (mode === WORLD_MAGNIFY_MODES.off) return [magnifying];
+  return [magnifying, worldBatchProgramSource(maxTextures, mode, shadow, 'unmagnified')];
 }
 
 /** The settings that decide which programs a world can draw with. */
@@ -106,7 +119,7 @@ export function bootShaderPrograms(
   const slots = Math.min(maxBatchTextures, WORLD_BATCH_MAX_TEXTURES);
   const prescaled = selection.magnification === 'off' ? null : prescaledScalerOf(selection.magnification);
   return [
-    worldBatchProgramSource(slots, worldMagnifyModeNumber(selection.magnification), selection.shadow),
+    ...worldBatchPrograms(slots, worldMagnifyModeNumber(selection.magnification), selection.shadow),
     ...(prescaled === null ? [] : prescalePrograms(prescaled)),
     ...unconditionalPrograms(),
     ...(selection.blood ? [BLOOD_GROUND_SOURCE] : []),

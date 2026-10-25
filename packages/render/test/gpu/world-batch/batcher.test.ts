@@ -5,11 +5,15 @@ import {
   BatcherPipe,
   BatchTextureArray,
   Container,
+  type DefaultBatchableMeshElement,
   type DefaultBatchableQuadElement,
   GlBatchAdaptor,
+  type GlProgram,
   InstructionSet,
+  Matrix,
   Rectangle,
   type Renderer,
+  type Shader,
   Sprite,
   Texture,
   TextureSource,
@@ -19,14 +23,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { bloodSurface } from '../../../src/gpu/blood/surface-sprite.js';
 import {
   markIndexedSource,
+  markMagnifiedTexture,
   markPalettedTexture,
+  markPixelArtSource,
   markShadowTexture,
   palettedLutOf,
   setPixelArtMagnification,
   setPrescaledPage,
   setWorldShadowStyle,
+  WORLD_MAGNIFY_MODES,
 } from '../../../src/gpu/pixel-art/registry.js';
 import { OutlineSprite, SelectionSprite } from '../../../src/gpu/selection/sprite-effect.js';
+import { glProgramFor } from '../../../src/gpu/shaders/program-source.js';
 import {
   bindWorldBatchPagesAndLut,
   installWorldBatcher,
@@ -41,6 +49,7 @@ import {
   WORLD_VERTEX_SIZE,
   worldBatched,
 } from '../../../src/gpu/world-batch/batcher.js';
+import { type WorldBatchSampling, worldBatchProgramSource } from '../../../src/gpu/world-batch/shader.js';
 import { DEFAULT_SHADOW_STYLE } from '../../../src/gpu/world-batch/shadow-style.js';
 import { useHeadlessShaderContext } from '../../support/shader-context.js';
 
@@ -657,5 +666,132 @@ describe('world batcher shader selection', () => {
     expect(batcher.shader).toBe(plain);
     batcher.destroy();
     wider.destroy();
+  });
+  /** The program a world batch's run binds through Pixi's batch pipe, drawn under the render group
+   *  transform `world` into a 64 x 32 px target: `world`'s scale is its screen pixels per unit. */
+  function startProgram(batch: Batch, world: Matrix): GlProgram | null {
+    let program: GlProgram | null = null;
+    const width = 64;
+    const height = 32;
+    const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
+    Object.assign(renderer, {
+      runners: { contextChange: { add: () => undefined } },
+      state: { set: () => undefined },
+      texture: { bind: () => undefined, unbindIntegerTextures: () => undefined },
+      geometry: { bind: () => undefined, draw: () => undefined },
+      shader: {
+        bind: (shader: Shader) => {
+          program = shader.glProgram;
+        },
+        updateUniformGroup: () => undefined,
+      },
+      globalUniforms: {
+        uniformGroup: {
+          uniforms: {
+            uProjectionMatrix: new Matrix(2 / width, 0, 0, -2 / height, -1, 1),
+            uWorldTransformMatrix: world,
+            uResolution: [width, height],
+          },
+        },
+      },
+    });
+    const pipe = new BatcherPipe(renderer, new GlBatchAdaptor());
+    Object.assign(renderer, { renderPipes: { batch: pipe } });
+    bindWorldBatchPagesAndLut(renderer);
+    batch.action = 'startBatch';
+    pipe.execute(batch);
+    return program;
+  }
+
+  /** A quad of `texture` drawn `scale` units per texel along both axes. */
+  function scaledQuad(texture: Texture, scale: number, roundPixels = 0) {
+    return {
+      batcherName: 'world',
+      packAsQuad: true,
+      attributeSize: 4,
+      indexSize: 6,
+      topology: 'triangle-list',
+      blendMode: 'normal',
+      texture,
+      transform: { a: scale, b: 0, c: 0, d: scale, tx: 0, ty: 0 },
+      bounds: { minX: 0, minY: 0, maxX: texture.frame.width, maxY: texture.frame.height },
+      color: 0xffffffff,
+      roundPixels,
+      renderable: {},
+    } as unknown as DefaultBatchableQuadElement;
+  }
+
+  /** A two-triangle mesh of `texture` at its texel size. */
+  function texelMesh(texture: Texture) {
+    const { width, height } = texture.frame;
+    return {
+      batcherName: 'world',
+      packAsQuad: false,
+      attributeOffset: 0,
+      attributeSize: 4,
+      indexOffset: 0,
+      indexSize: 6,
+      topology: 'triangle-list',
+      blendMode: 'normal',
+      texture,
+      transform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+      positions: new Float32Array([0, 0, width, 0, width, height, 0, height]),
+      uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
+      indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+      color: 0xffffffff,
+      roundPixels: 0,
+      renderable: {},
+    } as unknown as DefaultBatchableMeshElement;
+  }
+
+  const program = (sampling: WorldBatchSampling): GlProgram =>
+    glProgramFor(worldBatchProgramSource(PAGES_AND_LUT, WORLD_MAGNIFY_MODES.xbr, null, sampling));
+
+  it('draws through the unmagnified program while no gathering element is magnified', () => {
+    setPixelArtMagnification('xbr');
+    const page = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    markPixelArtSource(page.source);
+    markMagnifiedTexture(page);
+    const plain = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const WorldBatcher = installWorldBatcher();
+    const batcher = new WorldBatcher({ maxTextures: PAGES_AND_LUT });
+    const build = (...elements: (DefaultBatchableQuadElement | DefaultBatchableMeshElement)[]): Batch => {
+      batcher.begin();
+      for (const element of elements) batcher.add(element);
+      batcher.break(new InstructionSet());
+      return batcher.batches[0] as Batch;
+    };
+
+    // One texel per pixel, or fewer, never magnifies; a zoom of two does.
+    expect(startProgram(build(scaledQuad(page, 1)), new Matrix())).toBe(program('unmagnified'));
+    expect(startProgram(build(scaledQuad(page, 1)), new Matrix(0.5, 0, 0, 0.5))).toBe(program('unmagnified'));
+    expect(startProgram(build(scaledQuad(page, 1)), new Matrix(2, 0, 0, 2))).toBe(program('magnifying'));
+    // Each next build follows an unmagnified draw, so only its own elements can pick magnifying.
+    const afterUnmagnified = (element: DefaultBatchableQuadElement | DefaultBatchableMeshElement): Batch => {
+      startProgram(build(scaledQuad(page, 1)), new Matrix());
+      return build(element);
+    };
+    // Just under the 1:1 tolerance's margin magnifies.
+    expect(startProgram(afterUnmagnified(scaledQuad(page, 1.005)), new Matrix())).toBe(program('magnifying'));
+    // A snapped quad and a mesh may stretch their texels, so they draw magnifying.
+    expect(startProgram(afterUnmagnified(scaledQuad(page, 1, 1)), new Matrix())).toBe(program('magnifying'));
+    expect(startProgram(afterUnmagnified(texelMesh(page)), new Matrix())).toBe(program('magnifying'));
+    // An element drawn at twice its texels magnifies; a page that never gathers does not count.
+    expect(startProgram(build(scaledQuad(page, 1), scaledQuad(page, 2)), new Matrix())).toBe(
+      program('magnifying'),
+    );
+    expect(startProgram(build(scaledQuad(page, 1), scaledQuad(plain, 4)), new Matrix())).toBe(
+      program('unmagnified'),
+    );
+    // A rotated group is beyond the bound.
+    const turn = Math.SQRT1_2;
+    expect(startProgram(build(scaledQuad(page, 1)), new Matrix(turn, turn, -turn, turn))).toBe(
+      program('magnifying'),
+    );
+    // A draw where nothing gathers keeps whichever program was bound last.
+    expect(startProgram(build(scaledQuad(plain, 4)), new Matrix())).toBe(program('magnifying'));
+    startProgram(build(scaledQuad(page, 1)), new Matrix());
+    expect(startProgram(build(scaledQuad(plain, 4)), new Matrix())).toBe(program('unmagnified'));
+    batcher.destroy();
   });
 });

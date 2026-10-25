@@ -56,7 +56,7 @@ export const WORLD_BATCH_MAX_TEXTURES = 32;
 /** The batch slot a paletted element's LUT is bound at: the last one, whatever the batch's page count,
  *  so the palette lookup indexes a constant sampler instead of walking the page chain. */
 export const lutSlotOf = (maxTextures: number): number => maxTextures - LUT_SLOTS;
-/** The world batch program: one fragment variant per magnification mode and shadow style. */
+/** The world batch program: one fragment variant per magnification mode, shadow style and sampling. */
 export const WORLD_BATCH_VERTEX = /* glsl */ `#version 300 es
 precision highp float;
 in vec2 aPosition;
@@ -140,16 +140,26 @@ const vec3 SHADOW_TINT = vec3(${red}, ${green}, ${blue});`,
   };
 }
 
-/** The batch program for a texture limit, magnification mode and shadow style. */
+/**
+ * Whether a program magnifies: `unmagnified` leaves out xBR and the sharp path, for draws in which
+ * every page holds at least `MAGNIFIED_BELOW` texels per screen pixel. It draws those exactly as the
+ * full program does, and its smaller register footprint lets every fragment run faster (Intel UHD 770
+ * on Direct3D 11 measured it).
+ */
+export type WorldBatchSampling = 'magnifying' | 'unmagnified';
+
+/** The batch program for a texture limit, magnification mode, shadow style and sampling. */
 export function worldBatchProgramSource(
   maxTextures: number,
   mode: number,
   shadow: ShadowStyle | null,
+  sampling: WorldBatchSampling,
 ): GlslProgramSource {
+  const variant = sampling === 'unmagnified' ? '/unmagnified' : '';
   return {
-    name: `world-batch/textures${maxTextures}/${worldMagnifyModeName(mode) ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}`,
+    name: `world-batch/textures${maxTextures}/${worldMagnifyModeName(mode) ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}${variant}`,
     vertex: WORLD_BATCH_VERTEX,
-    fragment: worldBatchFragment(maxTextures, mode, shadow),
+    fragment: worldBatchFragment(maxTextures, mode, shadow, sampling),
   };
 }
 
@@ -168,8 +178,13 @@ float pageTexelScale() {
  * point (bilinear at a texel per pixel, or sharp magnification when `sharp`), else one at each corner of
  * the minified footprint, summed in a fixed order and averaged.
  */
-function windowGather(maxTextures: number): string {
-  return /* glsl */ `    bool one = sharp || single;
+function windowGather(maxTextures: number, sampling: WorldBatchSampling): string {
+  const one = sampling === 'magnifying' ? 'sharp || single' : 'single';
+  const weights =
+    sampling === 'magnifying'
+      ? 'sharp ? magnifySharpWeights(p, texelsPerPixel) : fract(at - 0.5)'
+      : 'fract(at - 0.5)';
+  return /* glsl */ `    bool one = ${one};
     int windows = one ? 1 : MINIFY_WINDOWS;
     vec4 sum = vec4(0.0);
     for (int w = 0; w < MINIFY_WINDOWS; w++) {
@@ -182,7 +197,7 @@ function windowGather(maxTextures: number): string {
 ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < SUB_WINDOW_TAPS; k++) taps[k] = texelFetch(uTextures[${i}], base + WINDOW_OFFSETS[k], 0);`)}
       // Resolved at literal indices, which measured faster than a loop.
 ${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `      taps[${k}] = resolvedTap(taps[${k}], base + WINDOW_OFFSETS[${k}], texSize, indexed, paletted, lutRow);`).join('\n')}
-      vec2 f = sharp ? magnifySharpWeights(p, texelsPerPixel) : fract(at - 0.5);
+      vec2 f = ${weights};
       sum += mix(mix(taps[0], taps[1], f.x), mix(taps[2], taps[3], f.x), f.y);
     }
     outColor = one ? sum : MINIFY_TAP_WEIGHT * sum;`;
@@ -206,21 +221,29 @@ ${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTa
     }`;
 }
 
-/** The filtered body's gather: xBR's window, or the 2x2 windows. */
-function filteredGather(maxTextures: number): string {
+/** The filtered body's gather: xBR's window, or the 2x2 windows. The unmagnified program has no xBR,
+ *  so its largest live set is one window's four taps. */
+function filteredGather(maxTextures: number, sampling: WorldBatchSampling): string {
+  if (sampling === 'unmagnified') return windowGather(maxTextures, sampling);
   return /* glsl */ `    bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || paletted);
     bool sharp = magnified && !xbr;
     if (xbr) {
 ${xbrGather(maxTextures).replace(/^/gm, '  ')}
     } else {
-${windowGather(maxTextures).replace(/^/gm, '  ')}
+${windowGather(maxTextures, sampling).replace(/^/gm, '  ')}
     }`;
 }
 
-export function worldBatchFragment(maxTextures: number, mode: number, shadow: ShadowStyle | null): string {
+export function worldBatchFragment(
+  maxTextures: number,
+  mode: number,
+  shadow: ShadowStyle | null,
+  sampling: WorldBatchSampling,
+): string {
   const shading = shadowShadingGlsl(shadow);
   const prescaled = mode === WORLD_MAGNIFY_MODES.prescaled;
-  const gather = filteredGather(maxTextures);
+  const magnifies = sampling === 'magnifying';
+  const gather = filteredGather(maxTextures, sampling);
   return /* glsl */ `#version 300 es
 precision highp float;
 in vec4 vColor;
@@ -383,7 +406,7 @@ void main(void) {
   }
   bool paletted = hasFlag(flags, WORLD_FLAG_PALETTED);
   int lutRow = flags >> WORLD_LUT_ROW_SHIFT;
-  bool magnified = texelsPerPixel < MAGNIFIED_BELOW;
+  ${magnifies ? 'bool magnified = texelsPerPixel < MAGNIFIED_BELOW;' : '// The batcher draws this program only where no page is magnified.\n  bool magnified = false;'}
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
   bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(flags, WORLD_FLAG_MAGNIFY));
   // A minified plain page spreads four sampler taps over its footprint against sparkle, clamped to the

@@ -62,6 +62,8 @@ export interface ResolvedLayer {
    *  a shade and a cover are also {@link boundsExempt}. Each draws as the original where the ground is
    *  unknown or the art stands on no ground line. */
   readonly groundFoot?: GroundFootPart;
+  /** Which strip of its overlay a shade or a cover draws; the strips together draw the whole overlay. */
+  readonly footStrip?: number;
   /** A settler's head overlay, which the paletted path reads through the LUT's head row. */
   readonly head?: true;
   /** A glow copy of a paletted character layer: its coverage drawn flat in the owner's glow colour at

@@ -5,6 +5,7 @@ import {
   type ResourceDraw,
   type SpriteKind,
 } from '../../../data/sprites/index.js';
+import { FOOT_OVERLAY_STRIPS } from '../../ground-foot/index.js';
 import type { SpriteLayer, SpriteSheet } from '../../textures/sprite-sheet.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
 
@@ -156,11 +157,14 @@ export function shadowLayerFor(layer: SpriteLayer, bobId: number, scale: number)
 }
 
 /** The shade, grounded body and cover records of each body record (see {@link pushGroundedFrom}). */
-const groundedRecords = new WeakMap<ResolvedLayer, readonly [ResolvedLayer, ResolvedLayer, ResolvedLayer]>();
+const groundedRecords = new WeakMap<
+  ResolvedLayer,
+  readonly [readonly ResolvedLayer[], ResolvedLayer, readonly ResolvedLayer[]]
+>();
 
 /**
- * Append a building body set into the ground, ordered `[shade, shadow, body, cover]`; false appends
- * nothing and means the placeholder.
+ * Append a building body set into the ground, ordered `[shade strips, shadow, body, cover strips]`; false
+ * appends nothing and means the placeholder.
  */
 export function pushGroundedBody(
   out: LayerBuffer,
@@ -191,17 +195,19 @@ export function pushGroundedFrom(
   let parts = groundedRecords.get(body);
   if (parts === undefined) {
     const overlay = { source: body.source, frame: body.frame, scale, boundsExempt: true } as const;
+    const strips = (part: ResolvedLayer): ResolvedLayer[] =>
+      Array.from({ length: FOOT_OVERLAY_STRIPS }, (_, footStrip) => ({ ...part, footStrip }));
     parts = [
-      { ...overlay, shadow: true, groundFoot: 'shade' },
+      strips({ ...overlay, shadow: true, groundFoot: 'shade' }),
       { ...body, groundFoot: 'body' },
-      { ...overlay, groundFoot: 'cover' },
+      strips({ ...overlay, groundFoot: 'cover' }),
     ];
     groundedRecords.set(body, parts);
   }
-  out.push(wrap(parts[0]));
+  for (const shade of parts[0]) out.push(wrap(shade));
   const shadow = shadowLayerFor(layer, bob, scale);
   if (shadow !== null) out.push(wrap(shadow));
   out.push(wrap(parts[1]));
-  out.push(wrap(parts[2]));
+  for (const cover of parts[2]) out.push(wrap(cover));
   return true;
 }

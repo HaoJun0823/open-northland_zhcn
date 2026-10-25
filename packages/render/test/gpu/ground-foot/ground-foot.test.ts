@@ -223,17 +223,13 @@ describe('GroundedFootCache', () => {
     const overlays = cache.overlaysAt(source, FRAME, 1, 0, 0);
     expect(overlays?.shade).not.toBeNull();
     expect(overlays?.cover).not.toBeNull();
-    // Each overlay also comes as a few strips of its box, views of the same canvas.
+    // Each overlay comes as a few strips of its box, views of one canvas framed like the body frame.
     for (const overlay of [overlays?.shade, overlays?.cover]) {
-      const whole = overlay?.whole;
-      expect(overlay?.strips.length).toBeGreaterThan(0);
-      expect(overlay?.strips.length).toBeLessThanOrEqual(FOOT_OVERLAY_STRIPS);
-      for (const strip of overlay?.strips ?? []) {
-        expect(strip.source).toBe(whole?.source);
-        expect(strip.trim.x).toBeGreaterThanOrEqual(whole?.trim.x ?? Number.NaN);
-        expect(strip.trim.right).toBeLessThanOrEqual(whole?.trim.right ?? Number.NaN);
-        expect(strip.trim.y).toBeGreaterThanOrEqual(whole?.trim.y ?? Number.NaN);
-        expect(strip.trim.bottom).toBeLessThanOrEqual(whole?.trim.bottom ?? Number.NaN);
+      expect(overlay?.length).toBeGreaterThan(0);
+      expect(overlay?.length).toBeLessThanOrEqual(FOOT_OVERLAY_STRIPS);
+      for (const strip of overlay ?? []) {
+        expect(strip.source).toBe(overlay?.[0]?.source);
+        expect([strip.orig.width, strip.orig.height]).toEqual([FRAME.width, FRAME.height]);
       }
     }
     // A second foot on like ground shares the bake.
@@ -304,9 +300,17 @@ describe('TextureCache ground switch', () => {
 describe('grounded bind', () => {
   const page = new TextureSource({ width: W, height: H });
   const layers: ResolvedLayer[] = [
-    { source: page, frame: FRAME, scale: 1, boundsExempt: true, shadow: true, groundFoot: 'shade' },
+    {
+      source: page,
+      frame: FRAME,
+      scale: 1,
+      boundsExempt: true,
+      shadow: true,
+      groundFoot: 'shade',
+      footStrip: 0,
+    },
     { source: page, frame: FRAME, scale: 1, groundFoot: 'body' },
-    { source: page, frame: FRAME, scale: 1, boundsExempt: true, groundFoot: 'cover' },
+    { source: page, frame: FRAME, scale: 1, boundsExempt: true, groundFoot: 'cover', footStrip: 0 },
   ];
   const item: DrawItem = { ref: 1, kind: 'building', x: 10, y: 50, depth: 0, lift: 6 };
   const frame = { camera: { offsetX: 0, offsetY: 0 }, screenW: 800, screenH: 600 };
@@ -329,7 +333,7 @@ describe('grounded bind', () => {
     const grounded = vi.spyOn(cache, 'groundedPart').mockImplementation((part) => parts[part]);
     const pe = createPooled('building', undefined);
     new LayerBinder(cache, undefined).bind(pe, item, layers, frame, 1);
-    expect(grounded).toHaveBeenCalledWith('cover', page, FRAME, 1, 10, 44, false);
+    expect(grounded).toHaveBeenCalledWith('cover', page, FRAME, 1, 10, 44, false, 0);
     const sprites = pe.container.children as Sprite[];
     expect(sprites.map((s) => [s.visible, s.texture])).toEqual([
       [true, parts.shade],

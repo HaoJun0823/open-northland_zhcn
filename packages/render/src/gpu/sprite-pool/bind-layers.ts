@@ -579,6 +579,7 @@ export class LayerBinder {
             this.feetX + (layer.dx ?? 0),
             this.feetY + (layer.dy ?? 0),
             enhanceBuilding,
+            layer.footStrip,
           );
     if (layer.groundFoot === 'shade' || layer.groundFoot === 'cover') {
       if (grounded === null) {

@@ -28,11 +28,8 @@ export type GroundFootPart = 'shade' | 'body' | 'cover';
 /** Strips an overlay draws as at most: tight quads over its sloping band instead of its mostly clear box. */
 export const FOOT_OVERLAY_STRIPS = 4;
 
-/** One overlay as its whole box, and as strips of that box that draw the same pixels between them. */
-export interface GroundOverlay {
-  readonly whole: Texture;
-  readonly strips: readonly Texture[];
-}
+/** One overlay as strips of its box, views of one canvas, which draw its pixels between them. */
+export type GroundOverlay = readonly Texture[];
 
 /** The two overlays that set one drawn frame into the ground at one spot. */
 export interface GroundedOverlays {
@@ -240,8 +237,8 @@ function readFrame(source: TextureSource, frame: AtlasFrame): Uint8ClampedArray 
 }
 
 /**
- * An overlay's views of one canvas, each framed like its body frame so it shares the body's feet anchor:
- * the whole box, and the strips of it. A strip samples the same canvas texels the whole box draws there.
+ * An overlay's strips, views of one canvas each framed like its body frame so it shares the body's feet
+ * anchor. A strip samples the same canvas texels its box would draw there.
  */
 function overlayTextures(frame: AtlasFrame, bake: FootBake): GroundOverlay | null {
   const write = readable2dContext(bake.width, bake.height);
@@ -262,20 +259,17 @@ function overlayTextures(frame: AtlasFrame, bake: FootBake): GroundOverlay | nul
         orig: new Rectangle(0, 0, frame.width, frame.height),
         trim: new Rectangle(bake.left + x * perPx, bake.top + y * perPx, width * perPx, height * perPx),
       });
-    return {
-      whole: view(0, 0, bake.width, bake.height),
-      strips: footStrips(bake, FOOT_OVERLAY_STRIPS).map((strip) =>
-        view(strip.x, strip.y, strip.width, strip.height),
-      ),
-    };
+    return footStrips(bake, FOOT_OVERLAY_STRIPS).map((strip) =>
+      view(strip.x, strip.y, strip.width, strip.height),
+    );
   } catch {
     return null;
   }
 }
 
-/** Every view of an overlay, then the canvas they share. */
+/** Every strip of an overlay, then the canvas they share. */
 function destroyOverlay(overlay: GroundOverlay | null): void {
-  if (overlay === null) return;
-  for (const strip of overlay.strips) strip.destroy(false);
-  overlay.whole.destroy(true);
+  const canvas = overlay?.[0]?.source;
+  for (const strip of overlay ?? []) strip.destroy(false);
+  canvas?.destroy();
 }

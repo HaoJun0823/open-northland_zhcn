@@ -5,17 +5,25 @@ import { MAGNIFIERS } from './gpu-plan.mjs';
 export const CAMERA_NAMES = ['dense', 'zoom07', 'zoom05', 'wide', 'empty'];
 
 /**
- * Every window `ON_BENCH_BROWSER_WINDOWS` can name: a camera, plus a moving pointer (`pointer`). The
- * camera names measure with the pointer at rest.
+ * Every window `ON_BENCH_BROWSER_WINDOWS` can name: a camera, plus a moving pointer (`pointer`) or a
+ * camera pan from the restore on (`pan`). The camera names measure with the pointer at rest.
  */
 export const WINDOWS = {
-  ...Object.fromEntries(CAMERA_NAMES.map((name) => [name, { camera: name, pointer: 'rest' }])),
-  'dense-move': { camera: 'dense', pointer: 'move' },
-  'wide-move': { camera: 'wide', pointer: 'move' },
+  ...Object.fromEntries(CAMERA_NAMES.map((name) => [name, { camera: name, pointer: 'rest', pan: false }])),
+  'dense-move': { camera: 'dense', pointer: 'move', pan: false },
+  'wide-move': { camera: 'wide', pointer: 'move', pan: false },
+  'first-pan': { camera: 'dense', pointer: 'rest', pan: true },
 };
 
 /** A moving pointer's mean speed over the world, screen px per second. */
 export const POINTER_SPEED_PX_PER_S = 60;
+/** The first pan measures from the restore on, without warm-up, for this long whatever the window
+ *  length: the first uploads and mask builds land in it. */
+export const FIRST_PAN_SECONDS = 10;
+/** The arrow keys' pan rate at scroll speed 1, screen px per second. */
+const FIRST_PAN_PX_PER_S = 900;
+/** The pan's ellipse: half as tall as wide, so it stays over the land around the town. */
+const FIRST_PAN_ASPECT = 0.55;
 
 /** `camera:speed` pairs, e.g. `dense:3,wide-move:3`; undefined when unset (the full baseline matrix). */
 export function parseWindowSpec(text) {
@@ -53,4 +61,24 @@ export function parseGraphicsKnobs(env = {}) {
     renderScale,
   };
   return { filter, renderScale, settings };
+}
+
+/**
+ * The first pan's path from world-screen `point`: an ellipse that leaves the point sideways and comes
+ * back to it after one lap of {@link FIRST_PAN_SECONDS} at the arrow keys' rate. In-page code places the
+ * view centre at `(cx - rx cos(w t), cy + ry sin(w t))` world px, `w` being `radiansPerSecond`.
+ */
+export function firstPanEllipse(point, scale) {
+  const lap = (FIRST_PAN_PX_PER_S / scale) * FIRST_PAN_SECONDS;
+  const ratio = FIRST_PAN_ASPECT;
+  // Ramanujan's perimeter of an ellipse with semi-axes 1 and `ratio`.
+  const unitPerimeter = Math.PI * (3 * (1 + ratio) - Math.sqrt((3 + ratio) * (1 + 3 * ratio)));
+  const rx = lap / unitPerimeter;
+  return {
+    cx: point.x + rx,
+    cy: point.y,
+    rx,
+    ry: rx * ratio,
+    radiansPerSecond: (2 * Math.PI) / FIRST_PAN_SECONDS,
+  };
 }

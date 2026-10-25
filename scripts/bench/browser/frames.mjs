@@ -20,12 +20,14 @@ import {
 } from '../../browser/session.mjs';
 import {
   CAMERA_NAMES,
+  FIRST_PAN_SECONDS,
+  firstPanEllipse,
   POINTER_SPEED_PX_PER_S,
   parseGraphicsKnobs,
   parseWindowSpec,
   WINDOWS,
 } from './frames-plan.mjs';
-import { browserWindowTable, windowName } from './frames-report.mjs';
+import { browserWindowTable, longFrames, spikeTable, windowName } from './frames-report.mjs';
 import {
   busyShare,
   countGlCalls,
@@ -115,6 +117,8 @@ const writeReport = async () => {
     '',
     browserWindowTable(metadata.reports),
     '',
+    spikeTable(metadata.reports),
+    '',
   ];
   await writeFile(resolve(output, 'report.md'), head.join('\n'));
 };
@@ -193,12 +197,38 @@ try {
   metadata.hardware = hardware;
   metadata.cameras = cameras;
   const reports = metadata.reports;
+  /** Pan the camera once a frame along `ellipse` (from firstPanEllipse) at `scale` until the window's
+   *  probe stops it. */
+  function startPan(ellipse, scale) {
+    return page.evaluate(
+      ({ ellipse, scale, viewport }) => {
+        const d = window.__opennorthland;
+        const probe = { stop: false, started: performance.now() };
+        window.__panProbe = probe;
+        const step = (now) => {
+          if (probe.stop) return;
+          const angle = ((now - probe.started) / 1000) * ellipse.radiansPerSecond;
+          const x = ellipse.cx - ellipse.rx * Math.cos(angle);
+          const y = ellipse.cy + ellipse.ry * Math.sin(angle);
+          d.cameraCtl.jumpTo({
+            scale,
+            offsetX: viewport.width / 2 - x * scale,
+            offsetY: viewport.height / 2 - y * scale,
+          });
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      },
+      { ellipse, scale, viewport: VIEWPORT },
+    );
+  }
   async function windowRun(cameraName, speed, suffix = '') {
     const kind = WINDOWS[cameraName];
     const camera = cameras[kind.camera];
+    const windowSeconds = kind.pan ? FIRST_PAN_SECONDS : seconds;
     progress(`condition ${cameraName} x${speed}${suffix}`);
     await restore();
-    await guardCamera(page, camera, { pointerMoves: kind.pointer === 'move' });
+    await guardCamera(page, camera, { pointerMoves: kind.pointer === 'move', panning: kind.pan });
     await page.evaluate(
       async ({ camera, speed }) => {
         const d = window.__opennorthland;
@@ -213,14 +243,16 @@ try {
     const path = kind.pointer === 'move' ? pointerPath(worldArea(), POINTER_SPEED_PX_PER_S) : null;
     const pointerStart = path === null ? POINTER_REST : path(0);
     await page.mouse.move(pointerStart.x, pointerStart.y);
-    await page.waitForTimeout(WARM_MS);
-    progress(`measuring ${cameraName} x${speed}${suffix} for ${seconds}s`);
+    // The first pan measures the restored page's first frames, uploads included.
+    if (!kind.pan) await page.waitForTimeout(WARM_MS);
+    progress(`measuring ${cameraName} x${speed}${suffix} for ${windowSeconds}s`);
     const loadAtStart = machineLoad();
     await countGlCalls(page);
     await page.evaluate(() => {
       window.__opennorthland.resetPerf();
       window.__rafProbe = {
         samples: [],
+        at: [],
         pointerMoves: 0,
         stop: false,
         last: null,
@@ -247,23 +279,29 @@ try {
         if (p.stop) return;
         p.hidden ||= document.hidden;
         window.__measurementGuard.check();
-        if (p.last !== null) p.samples.push(now - p.last);
+        if (p.last !== null) {
+          p.samples.push(now - p.last);
+          p.at.push(now - p.startMs);
+        }
         p.last = now;
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     });
+    if (kind.pan) await startPan(firstPanEllipse(dense.point, camera.scale), camera.scale);
     if (simWorker !== null) {
       await simWorker.send('Profiler.enable');
       await simWorker.send('Profiler.setSamplingInterval', { interval: 200 });
       await simWorker.send('Profiler.start');
     }
-    if (path === null) await page.waitForTimeout(seconds * 1000);
-    else await movePointerAlong(page, path, seconds);
+    if (path === null) await page.waitForTimeout(windowSeconds * 1000);
+    else await movePointerAlong(page, path, windowSeconds);
     const workerProfiled = simWorker === null ? null : (await simWorker.send('Profiler.stop')).profile;
-    const result = await page.evaluate(async () => {
+    const measured = await page.evaluate(async () => {
       window.__rafProbe.stop = true;
       window.__rafProbe.cleanup();
+      if (window.__panProbe !== undefined) window.__panProbe.stop = true;
+      const intervals = [...window.__rafProbe.samples];
       const samples = window.__rafProbe.samples.sort((a, b) => a - b);
       const at = (q) => samples[Math.min(samples.length - 1, Math.floor(samples.length * q))];
       return {
@@ -292,6 +330,8 @@ try {
           max: samples.at(-1),
           over30: samples.filter((x) => x > 30).length,
         },
+        intervals,
+        frameTimes: window.__rafProbe.at,
         camera: window.__opennorthland.cameraCtl.camera(),
         fullscreen: !!document.fullscreenElement,
         hidden: document.hidden,
@@ -301,6 +341,8 @@ try {
         },
       };
     });
+    const { intervals, frameTimes, ...result } = measured;
+    Object.assign(result.raf, longFrames(intervals, frameTimes));
     if (simWorker !== null && workerProfiled !== null) {
       const name = `${cameraName}-x${speed}${suffix}-worker.cpuprofile`;
       await writeFile(resolve(output, name), JSON.stringify(workerProfiled));

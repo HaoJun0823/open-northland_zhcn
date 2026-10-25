@@ -156,11 +156,12 @@ export async function countGlCalls(page) {
 /**
  * Hold the camera at `camera` and block the player's input while a window measures; the guard marks a
  * window void when the camera, canvas or device pixel ratio moves. `pointerMoves` lets pointer moves
- * through to the game, for a window that measures a moving pointer.
+ * through to the game, for a window that measures a moving pointer; `panning` leaves the camera to the
+ * script that pans it, and checks only the canvas and the device pixel ratio.
  */
-export async function guardCamera(page, camera, { pointerMoves = false } = {}) {
+export async function guardCamera(page, camera, { pointerMoves = false, panning = false } = {}) {
   await page.evaluate(
-    ({ expectedCamera, pointerMoves }) => {
+    ({ expectedCamera, pointerMoves, panning }) => {
       const d = window.__opennorthland;
       d.cameraCtl.setSuspended(true);
       d.cameraCtl.jumpTo(expectedCamera);
@@ -176,9 +177,10 @@ export async function guardCamera(page, camera, { pointerMoves = false } = {}) {
       guard.check = () => {
         const actual = d.cameraCtl.camera();
         guard.drift ||=
-          actual.offsetX !== expectedCamera.offsetX ||
-          actual.offsetY !== expectedCamera.offsetY ||
-          (actual.scale ?? 1) !== (expectedCamera.scale ?? 1) ||
+          (!panning &&
+            (actual.offsetX !== expectedCamera.offsetX ||
+              actual.offsetY !== expectedCamera.offsetY ||
+              (actual.scale ?? 1) !== (expectedCamera.scale ?? 1))) ||
           canvas.width !== guard.width ||
           canvas.height !== guard.height ||
           devicePixelRatio !== guard.dpr;
@@ -194,7 +196,7 @@ export async function guardCamera(page, camera, { pointerMoves = false } = {}) {
           { capture: true, passive: false },
         );
     },
-    { expectedCamera: camera, pointerMoves },
+    { expectedCamera: camera, pointerMoves, panning },
   );
 }
 

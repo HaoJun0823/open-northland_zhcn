@@ -154,7 +154,7 @@ decided as `audioFrames`. `bench:gpu` does the same with sound on.
 | Variable | Effect |
 | --- | --- |
 | `ON_BENCH_BROWSER_MODE` | `baseline`, `profile` or default `all` |
-| `ON_BENCH_BROWSER_WINDOWS` | Override baseline windows, e.g. `dense:3,wide:0`; cameras: `dense`, `zoom07`, `zoom05`, `wide`, `empty`; also the [moving windows](#moving-windows) |
+| `ON_BENCH_BROWSER_WINDOWS` | Override baseline windows, e.g. `dense:3,wide:0`; cameras: `dense`, `zoom07`, `zoom05`, `wide`, `empty`; also the [moving and panning windows](#moving-and-panning-windows) |
 | `ON_BENCH_BROWSER_FILTER` | Art filter: `off` (enhanced sampling off), `xbr` (default), `xbrz`, `superxbr` or `mmpx`; every other graphics setting stays at its default |
 | `ON_BENCH_BROWSER_RENDER_SCALE` | Backing-resolution multiplier, 0.5 to 2; default 1 |
 | `ON_BENCH_BROWSER_PROFILE_VIEWS` | Diagnostic views; default dense and wide at ×3 |
@@ -166,18 +166,30 @@ The default matrix covers dense views paused and at ×1/×3/×10, wide views pau
 zoom 0.7/0.5 at ×3, an empty view and a repeated dense ×3 window.
 
 `report.md` tabulates each window's RAF quantiles, delivered speed, app CPU per frame, sim time per
-tick and WebGL calls under a header naming the adapter, device scale, art filter and render scale.
-`report.json` includes RAF quantiles, performance metrics,
+tick and WebGL calls under a header naming the adapter, device scale, art filter and render scale. A
+second table lists each window's frames over 50 ms, its five longest frames with the second they fell
+in, and the textures it uploaded. `report.json` includes RAF quantiles, performance metrics,
 WebGL calls/uploads, camera, canvas, ticks, hardware and errors. Screenshots identify each view.
 Diagnostic runs add CPU/allocation/GPU profiles; their timings include instrumentation overhead.
 
-### Moving windows
+Periodic hitches, such as the minimap's object rebake every 4 s while objects change, show in the
+second table of long windows over a watched seat:
+
+```bash
+ON_BENCH_BROWSER_WINDOWS=dense:3 ON_BENCH_BROWSER_SEAT=0 npm run bench:browser -- <checkpoint> <origin> <out> 30
+```
+
+### Moving and panning windows
 
 `dense-move` and `wide-move` frame the dense and wide views while the real pointer travels a Lissajous
 curve over the middle of the world at a mean 60 px/s, sending a move every 8 ms, which the browser
 coalesces to one per frame. Pointer moves reach the game; keys, wheel and buttons stay blocked. Each
 window's `pointerMoves` in `report.json` counts the moves the game received, none in a window at rest.
 Read `dense-move-x3` against `dense-x3` for what pointer movement costs, such as the scene hit test.
+
+`first-pan` measures from the restore on, without warm-up and for 10 s whatever the window length, while
+the camera pans one lap of an ellipse from the dense view at 900 px/s (the arrow keys' rate at scroll
+speed 1): the first uploads and first-use hitches of a session land in it. Read its spikes row.
 
 Hidden tabs, camera/canvas drift and browser errors invalidate windows and fail the command.
 One-minute OS load per CPU above 1.5 at either boundary also invalidates a window. Platforms without

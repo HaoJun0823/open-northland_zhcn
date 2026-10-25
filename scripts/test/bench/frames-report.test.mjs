@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { browserWindowTable, windowName } from '../../bench/browser/frames-report.mjs';
+import {
+  browserWindowTable,
+  longFrames,
+  spikeTable,
+  windowName,
+} from '../../bench/browser/frames-report.mjs';
 
 function windowReport(overrides = {}) {
   return {
@@ -39,4 +44,41 @@ test('a window without a reading shows a dash', () => {
     }),
   ]).split('\n');
   assert.match(row, /^\| dense-x3 \| yes \| 0 \| - \| - \| - \| - \| 0 \|/);
+});
+
+test('the spikes table lists the slowest frames and the textures uploaded per window', () => {
+  const [header, rule, row] = spikeTable([
+    windowReport({
+      raf: {
+        frames: 900,
+        p50: 16.66,
+        p95: 17.5,
+        p99: 33.4,
+        max: 120.25,
+        over30: 4,
+        over50: 2,
+        longest: [
+          { ms: 120.25, atS: 4.01 },
+          { ms: 61, atS: 8.04 },
+        ],
+      },
+      gl: { frames: 900, textureUploadsPerFrame: 0.1, textureUploadKbPerFrame: 8 },
+    }),
+  ]).split('\n');
+  assert.equal(header.split('|').length, rule.split('|').length);
+  assert.equal(row, '| dense-x3 | 33.40 | 120.3 | 2 | 120 @ 4.0, 61 @ 8.0 | 90 | 7.0 |');
+});
+
+test('long frames count the hitches and keep the longest, with the second each ended in', () => {
+  const folded = longFrames([16, 70, 16, 51, 16, 16, 90, 16], [16, 86, 102, 153, 169, 185, 275, 291]);
+  assert.equal(folded.over50, 3);
+  assert.deepEqual(
+    folded.longest.slice(0, 3).map((frame) => [frame.ms, frame.atS]),
+    [
+      [90, 0.275],
+      [70, 0.086],
+      [51, 0.153],
+    ],
+  );
+  assert.equal(folded.longest.length, 5);
 });

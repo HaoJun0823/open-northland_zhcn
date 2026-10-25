@@ -2,7 +2,8 @@ import { LINK_QUIET_MS, LINK_REPLACE_MS, RelaySocket, TRANSFER_REPLACE_MS } from
 import type { ClientMessage } from '@open-northland/net-protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-/** The relay's close codes, as the socket must read them. */
+/** The relay's close codes, as the socket must read them, and the one it closes with itself. */
+const CLOSE_NORMAL = 1000;
 const CLOSE_ABNORMAL = 1006;
 const CLOSE_PROTOCOL_ERROR = 1002;
 const CLOSE_REPLACED = 4000;
@@ -17,13 +18,16 @@ class FakeSocket {
   onerror: (() => void) | null = null;
   onmessage: ((event: { data: unknown }) => void) | null = null;
   closedByClient = false;
+  /** The code and reason this end closed with, as the relay's log shows them. */
+  closedWith: { code: number | undefined; reason: string | undefined } | null = null;
 
   send(data: string): void {
     this.sent.push(data);
   }
 
-  close(): void {
+  close(code?: number, reason?: string): void {
     this.closedByClient = true;
+    this.closedWith = { code, reason };
   }
 
   open(): void {
@@ -188,6 +192,7 @@ describe('RelaySocket', () => {
     expect(events).toEqual(['open', `quiet:${LINK_QUIET_MS}`, 'heard']);
     expect(received).toEqual([{ kind: 'blob', bytes: 'AAAA' }]);
     socket.close();
+    expect(sockets[0]?.closedWith).toEqual({ code: CLOSE_NORMAL, reason: 'closed' });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -198,7 +203,7 @@ describe('RelaySocket', () => {
     expect(sockets).toHaveLength(1);
     expect(events).toEqual(['open', `quiet:${LINK_QUIET_MS}`]);
     vi.advanceTimersByTime(QUIET_POLL_MS);
-    expect(sockets[0]?.closedByClient).toBe(true);
+    expect(sockets[0]?.closedWith).toEqual({ code: CLOSE_NORMAL, reason: 'linkQuiet' });
     expect(socket.connected).toBe(false);
     expect(events.at(-1)).toBe('retry:1:1000');
     vi.advanceTimersByTime(1000);

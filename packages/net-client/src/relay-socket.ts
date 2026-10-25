@@ -30,6 +30,11 @@ const FINAL_CLOSE_CODES: readonly number[] = [CLOSE_REPLACED, CLOSE_PROTOCOL_ERR
 /** A restarted relay has forgotten every room, so reconnecting to one would only be refused. The
  *  reason tells the relay's own restart from a proxy's, after which the relay may still be there. */
 const SERVER_RESTART: ClosingCode = 'serverRestart';
+/** RFC 6455 normal closure, one of the codes a browser lets a page close with. The reason says why
+ *  this end closed; the relay only logs it, so a client giving up on a quiet link reads apart from a
+ *  page that closed or a network that dropped. */
+const CLOSE_NORMAL = 1000;
+type ClientCloseReason = 'closed' | 'linkQuiet';
 
 function finalClose(event: CloseEvent): boolean {
   if (FINAL_CLOSE_CODES.includes(event.code)) return true;
@@ -109,9 +114,10 @@ export class RelaySocket implements RelayLink {
     this.retry = null;
     this.clearDeadline();
     this.stopQuietWatch();
-    this.socket?.close();
+    const reason: ClientCloseReason = 'closed';
+    this.socket?.close(CLOSE_NORMAL, reason);
     this.socket = null;
-    this.options.onClosed('closed');
+    this.options.onClosed(reason);
   }
 
   private open(): void {
@@ -189,7 +195,8 @@ export class RelaySocket implements RelayLink {
       }
       const awaitsTransfer = this.options.awaitsTransfer;
       if (awaitsTransfer === undefined) return;
-      if (quietMs >= (awaitsTransfer() ? TRANSFER_REPLACE_MS : LINK_REPLACE_MS)) this.abandon(socket);
+      if (quietMs >= (awaitsTransfer() ? TRANSFER_REPLACE_MS : LINK_REPLACE_MS))
+        this.abandon(socket, 'linkQuiet');
     }, QUIET_POLL_MS);
   }
 
@@ -205,17 +212,19 @@ export class RelaySocket implements RelayLink {
     this.deadline = setTimeout(() => {
       this.deadline = null;
       if (this.closed || this.socket !== socket) return;
-      this.abandon(socket);
+      this.abandon(socket, null);
     }, CONNECT_TIMEOUT_MS);
   }
 
   /** A broken link may never finish its close handshake. Detach it before retrying so queued events
-   *  cannot act on the replacement connection. */
-  private abandon(socket: WebSocket): void {
+   *  cannot act on the replacement connection. An attempt that never opened has no close frame to
+   *  carry a reason (null). */
+  private abandon(socket: WebSocket, reason: ClientCloseReason | null): void {
     this.clearDeadline();
     this.socket = null;
     this.stopQuietWatch();
-    socket.close();
+    if (reason === null) socket.close();
+    else socket.close(CLOSE_NORMAL, reason);
     this.scheduleRetry();
   }
 

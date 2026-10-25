@@ -28,6 +28,10 @@ relay shutting down with its rooms) is final; after any other close a client may
 A traffic-budget excess closes with 1013 and `trafficLimit`, also for a stalled TCP upload that releases a
 burst of valid catch-up acknowledgements; the returning client reports its world and tick through
 `loaded`. A fault while the relay handles a message closes that connection with 1011 and `relayFault`.
+A client closes an open socket with 1000 and a reason saying why: `closed` when its player ends the
+session, `linkQuiet` when it replaces a link it heard nothing on (`LINK_REPLACE_MS`, or
+`TRANSFER_REPLACE_MS` while it awaits a large message). The relay only logs the reason, so a page that
+closed (1001) or a link that dropped (1006) reads apart from it.
 
 A message the relay cannot honour gets `rejected { of, reason }` naming its kind, and the connection
 stays. A protocol violation gets `error { reason }` and a close whose reason text is the bare code. A

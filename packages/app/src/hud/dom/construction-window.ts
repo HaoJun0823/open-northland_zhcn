@@ -646,10 +646,13 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
   /** When the entries' availability was last read, and whether a tick or an answer came since. */
   let availabilityReadAt = Number.NEGATIVE_INFINITY;
   let availabilityDue = false;
-  const relist = (): void => {
+  /** Reads availability afresh; true when the cards were laid out again, which already shows the category. */
+  const relist = (): boolean => {
     availabilityDue = false;
     availabilityReadAt = performance.now();
-    if (layoutCards()) showCategory(state.category);
+    const relaid = layoutCards();
+    if (relaid) showCategory(state.category);
+    return relaid;
   };
   // Both pages follow the nation; the new nation's cards get the stock marks the old ones had.
   const relistTribe = (): void => {
@@ -686,8 +689,7 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
       state = { ...state, query: '', category: 'all', scrollTop: 0 };
     }
     layoutNations();
-    relist();
-    showCategory(state.category);
+    if (!relist()) showCategory(state.category);
     layoutPapers();
     shownModel = null;
     present();

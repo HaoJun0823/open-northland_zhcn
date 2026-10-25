@@ -1,14 +1,19 @@
 import {
   type AtlasImageEncoding,
   type AtlasSheetLayout,
-  atlasSourceFromBitmap,
   loadAtlasSource,
+  RecolouredPageSource,
   type TextureSource,
 } from '@open-northland/render';
 import { diag } from '../../diag/log.js';
 import { atlasImagePath, contentUrl } from '../url.js';
-import { colourOnPage } from './page-colour.js';
-import type { PalettedSheetReply, PalettedSheetRequest } from './protocol.js';
+import { colourOnPage, indexedOnPage } from './page-colour.js';
+import type {
+  IndexedSheetPixels,
+  PalettedSheetPayload,
+  PalettedSheetReply,
+  PalettedSheetRequest,
+} from './protocol.js';
 
 /** The manifest fields that say which sheet a stem draws from and how it is coloured. */
 export interface AtlasSheetRef {
@@ -28,9 +33,9 @@ export interface PalettedSheetWorker {
 }
 
 /**
- * Workers colouring paletted sheets, far too slow for the main thread at a boot's ~200 recolours. A
- * few threads keep them from queueing behind each other; each sheet's stems go to one worker, whose
- * cache then decodes the sheet once.
+ * Workers decoding paletted sheets (and colouring a DOM picture's), far too slow for the main thread
+ * at boot. A few threads keep them from queueing behind each other; each sheet's requests go to one
+ * worker, whose cache then decodes the sheet once.
  */
 const MAX_WORKERS = 3;
 
@@ -50,7 +55,7 @@ const spawnWorker = (): PalettedSheetWorker =>
   new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
 
 interface Pending {
-  readonly resolve: (bitmap: ImageBitmap) => void;
+  readonly resolve: (payload: PalettedSheetPayload) => void;
   readonly reject: (err: Error) => void;
 }
 
@@ -62,7 +67,8 @@ interface Slot {
 }
 
 /**
- * A pool of colouring workers, spawned on first use: the coloured page of an indexed sheet. A worker
+ * A pool of colouring workers, spawned on first use: the coloured page of an indexed sheet through a
+ * palette, or without one the sheet's own index and coverage bytes. A worker
  * that fails (its script did not load, a redeploy's 404, a CSP refusal) rejects what it owed and leaves
  * its slot, so the next request spawns a fresh one.
  */
@@ -73,7 +79,7 @@ export function createPalettedSheetClient(
     Math.min(MAX_WORKERS, (globalThis.navigator?.hardwareConcurrency ?? FALLBACK_CORES) - MAIN_THREAD_CORES),
   ),
   idleMs = IDLE_WORKER_TERMINATE_MS,
-): (url: string, palette: string) => Promise<ImageBitmap> {
+): (url: string, palette?: string) => Promise<PalettedSheetPayload> {
   const slots: (Slot | undefined)[] = [];
   let nextId = 0;
   const retire = (index: number, slot: Slot): void => {
@@ -100,9 +106,10 @@ export function createPalettedSheetClient(
       const waiting = slot.pending.get(reply.id);
       slot.pending.delete(reply.id);
       if ('error' in reply) waiting?.reject(new Error(reply.error));
-      // A reply nobody waits for any more (its request was rejected) still holds a bitmap to free.
-      else if (waiting === undefined) reply.bitmap.close();
-      else waiting.resolve(reply.bitmap);
+      // A reply nobody waits for any more (its request was rejected) may still hold a bitmap to free.
+      else if (waiting === undefined) {
+        if ('bitmap' in reply) reply.bitmap.close();
+      } else waiting.resolve(reply);
       idleAfterLastReply(index, slot);
     });
     slot.worker.addEventListener('error', (event) => {
@@ -120,20 +127,36 @@ export function createPalettedSheetClient(
       const slot = slotFor(url);
       clearTimeout(slot.idleTimer);
       slot.pending.set(id, { resolve, reject });
-      slot.worker.postMessage({ id, url, palette });
+      slot.worker.postMessage(palette === undefined ? { id, url } : { id, url, palette });
     });
 }
 
-let colour: ((url: string, palette: string) => Promise<ImageBitmap>) | undefined;
+let workers: ((url: string, palette?: string) => Promise<PalettedSheetPayload>) | undefined;
 
-/**
- * The colouring path, chosen once: the workers decode a sheet with `DecompressionStream`, which reached
- * pages and workers together (Safari 16.4). Without it the page colours through a canvas read.
- */
-function colourer(): (url: string, palette: string) => Promise<ImageBitmap> {
-  colour ??= typeof DecompressionStream === 'function' ? createPalettedSheetClient() : colourOnPage;
-  return colour;
+/** Whether the workers can decode a sheet: they need `DecompressionStream`, which reached pages and
+ *  workers together (Safari 16.4). Without it the page reads a sheet through a canvas. */
+const workersDecode = (): boolean => typeof DecompressionStream === 'function';
+
+function sheetWorkers(): (url: string, palette?: string) => Promise<PalettedSheetPayload> {
+  workers ??= createPalettedSheetClient();
+  return workers;
 }
+
+async function colourInWorkers(url: string, palette: string): Promise<ImageBitmap> {
+  const payload = await sheetWorkers()(url, palette);
+  if (!('bitmap' in payload)) throw new Error(`paletted sheet ${url}: no coloured page in the reply`);
+  return payload.bitmap;
+}
+
+async function indexedInWorkers(url: string): Promise<IndexedSheetPixels> {
+  const payload = await sheetWorkers()(url);
+  if (!('indexed' in payload)) throw new Error(`paletted sheet ${url}: no sheet bytes in the reply`);
+  return payload.indexed;
+}
+
+/** A paletted sheet's absolute URL: a worker resolves a URL against its own script. */
+const sheetUrl = (image: string): string =>
+  new URL(contentUrl(atlasImagePath(image)), globalThis.location.href).href;
 
 /** A stem whose sheet is paletted. */
 export type PalettedSheetRef = AtlasSheetRef & { readonly palette: string };
@@ -143,11 +166,34 @@ export function palettedSheetBitmap(sheet: PalettedSheetRef): Promise<ImageBitma
   if (sheet.imageEncoding !== 'index-coverage-png') {
     return Promise.reject(new Error(`atlas sheet ${sheet.image}: unknown encoding ${sheet.imageEncoding}`));
   }
-  // A worker resolves a URL against its own script, so it gets the page's absolute one.
-  return colourer()(
-    new URL(contentUrl(atlasImagePath(sheet.image)), globalThis.location.href).href,
-    sheet.palette,
-  );
+  return (workersDecode() ? colourInWorkers : colourOnPage)(sheetUrl(sheet.image), sheet.palette);
+}
+
+/** Recoloured pages by sheet image: every recolour of a bob set draws from the one page. */
+const recolouredPages = new Map<string, Promise<RecolouredPageSource>>();
+
+/**
+ * The shared page a paletted stem draws from through its palette: the sheet's index and coverage
+ * bytes, decoded off the main thread, never coloured. Rejects when the sheet cannot be fetched or
+ * decoded; a failure is not kept, so the next stem tries again.
+ */
+export function recolouredPage(sheet: PalettedSheetRef): Promise<RecolouredPageSource> {
+  if (sheet.imageEncoding !== 'index-coverage-png') {
+    return Promise.reject(new Error(`atlas sheet ${sheet.image}: unknown encoding ${sheet.imageEncoding}`));
+  }
+  let page = recolouredPages.get(sheet.image);
+  if (page === undefined) {
+    const url = sheetUrl(sheet.image);
+    page = (workersDecode() ? indexedInWorkers(url) : indexedOnPage(url)).then(
+      ({ pixels, width, height }) => new RecolouredPageSource(pixels, width, height),
+    );
+    recolouredPages.set(sheet.image, page);
+    const pending = page;
+    pending.catch(() => {
+      if (recolouredPages.get(sheet.image) === pending) recolouredPages.delete(sheet.image);
+    });
+  }
+  return page;
 }
 
 /** Sheets whose failed colouring was reported, one warning each. */
@@ -156,9 +202,9 @@ const warnedColouring = new Set<string>();
 const warnedPictures = new Set<string>();
 
 /**
- * A stem's atlas page for the renderer. A paletted stem's indexed sheet is coloured off the main thread
- * into the RGBA page its own sheet used to be, so the renderer sees the same pixels either way. A
- * colouring that fails resolves `undefined`, warned once per sheet, like a missing optional texture.
+ * A stem's atlas page for the renderer: its own sheet, or a paletted stem's shared {@link recolouredPage}.
+ * A paletted sheet that fails resolves `undefined`, warned once per sheet, like a missing optional
+ * texture.
  */
 export async function loadAtlasSheet(
   sheet: AtlasSheetRef,
@@ -168,11 +214,11 @@ export async function loadAtlasSheet(
     return loadAtlasSource(contentUrl(atlasImagePath(sheet.image)), 'nearest', layout);
   }
   try {
-    return atlasSourceFromBitmap(await palettedSheetBitmap({ ...sheet, palette: sheet.palette }));
+    return await recolouredPage({ ...sheet, palette: sheet.palette });
   } catch (err) {
     if (!warnedColouring.has(sheet.image)) {
       warnedColouring.add(sheet.image);
-      diag.warn('content', `atlas sheet ${sheet.image} could not be coloured; its stems draw nothing`, err);
+      diag.warn('content', `atlas sheet ${sheet.image} could not be read; its stems draw nothing`, err);
     }
     return undefined;
   }

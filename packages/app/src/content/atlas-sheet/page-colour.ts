@@ -4,6 +4,10 @@ import {
   decodeAtlasPalette,
 } from '@open-northland/formats/atlas/paletted-sheet';
 import { readImageData } from '../net.js';
+import type { IndexedSheetPixels } from './protocol.js';
+
+/** Bytes per texel of a sheet's own pixels: palette index, coverage. */
+const INDEX_COVERAGE_BYTES = 2;
 
 /** A decoded sheet is kept this long after its last request, so a boot's recolours of one bob set read
  *  it once. */
@@ -44,4 +48,21 @@ export async function colourOnPage(url: string, palette: string): Promise<ImageB
   return createImageBitmap(new ImageData(rgba, sheet.width, sheet.height), {
     premultiplyAlpha: 'premultiply',
   });
+}
+
+/**
+ * A paletted sheet's index and coverage bytes read on the page, for a browser whose workers cannot
+ * decode one. The same approximation as {@link colourOnPage}: below full coverage the index read back
+ * through the canvas drifts.
+ */
+export async function indexedOnPage(url: string): Promise<IndexedSheetPixels> {
+  const sheet = await sheetAt(url);
+  const texels = sheet.width * sheet.height;
+  const pixels = new Uint8Array(texels * INDEX_COVERAGE_BYTES);
+  const { bytesPerPixel, coverage } = CANVAS_READ_INDEXED;
+  for (let t = 0, i = 0, o = 0; t < texels; t++, i += bytesPerPixel, o += INDEX_COVERAGE_BYTES) {
+    pixels[o] = sheet.data[i] ?? 0;
+    pixels[o + 1] = sheet.data[i + coverage] ?? 0;
+  }
+  return { pixels, width: sheet.width, height: sheet.height };
 }

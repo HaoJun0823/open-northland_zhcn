@@ -2,6 +2,7 @@ import { Application, Assets, ImageSource, type Texture, type TextureSource } fr
 import { type AtlasSheetLayout, markIndexedSource, markPixelArtSource } from '../pixel-art/registry.js';
 import { keepAtlasPageResident, registerAtlasPageUploader } from '../textures/atlas-residency.js';
 import { registerHumanPaletteUploader } from '../textures/human-palette-lut.js';
+import { registerRecolouredPageUploader } from '../textures/recoloured-pages.js';
 import { registerWrittenPageUploader } from '../textures/written-page-source.js';
 import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
 
@@ -43,6 +44,7 @@ export async function createPixiApp(
   registerHumanPaletteUploader();
   registerWrittenPageUploader();
   registerAtlasPageUploader();
+  registerRecolouredPageUploader();
   const app = new Application();
   await app.init({ canvas, width, height, ...APP_OPTIONS });
   inheritParentGroupUniforms(app.renderer);
@@ -180,6 +182,7 @@ export async function createWindowPixiApp(
   registerHumanPaletteUploader();
   registerWrittenPageUploader();
   registerAtlasPageUploader();
+  registerRecolouredPageUploader();
   const app = new Application();
   await app.init({
     canvas,

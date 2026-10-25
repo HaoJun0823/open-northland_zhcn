@@ -205,8 +205,8 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     await expect(loadLayer(BODY_STEM)).resolves.toMatchObject({ source: expect.anything() });
   });
 
-  it('degrades a sheet that cannot be coloured to an empty page, and asks again next time', async () => {
-    // No worker can start here, so the colouring fails as a broken sheet would.
+  it('degrades a sheet that cannot be read to an empty page, and asks again next time', async () => {
+    // No worker can start here, so the decode fails as a broken sheet would.
     const paletted = { ...MANIFEST, palette: 'AAAA', imageEncoding: 'index-coverage-png' as const };
     const { impl, urls } = countingFetch({ [BODY_STEM]: paletted });
     vi.stubGlobal('fetch', impl);

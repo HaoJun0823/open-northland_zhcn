@@ -228,11 +228,13 @@ export class CollapseLayer {
     const hiddenTop = box.hiddenTop;
     if (hiddenTop >= frame.height) return null;
     const rows = new Rectangle(0, hiddenTop, frame.width, frame.height - hiddenTop);
-    if (bake === null) {
-      rows.x += frame.x;
-      rows.y += frame.y;
+    // The dismantle shader reads colours, so a recoloured frame comes off its RGBA copy.
+    const whole = bake === null ? this.textures.colouredView(layer.source, frame) : null;
+    if (whole !== null) {
+      rows.x += whole.frame.x;
+      rows.y += whole.frame.y;
     }
-    const view = new Texture({ source: bake?.source ?? layer.source, frame: rows });
+    const view = new Texture({ source: bake?.source ?? whole?.source ?? layer.source, frame: rows });
     markMagnifiedTexture(view, layer.source);
     return { view, hiddenTop, ...(bake !== null ? { bake } : {}) };
   }

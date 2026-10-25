@@ -4,17 +4,24 @@ import { bobAtlasDocument } from '../../support/bob-atlases.js';
 
 /**
  * Palette twins (`ls_trees.tree01`, `ls_trees.tree02`, ...) name one indexed sheet and one geometry and
- * differ only by palette, so each draws from its own coloured page. The renderer's texture caches key a
- * view by the atlas frame object, so twins must not share frames: a shared frame hands every twin the
- * page of whichever stem drew it first.
+ * differ only by palette, so they draw from one recoloured page, each through its own palette. The
+ * renderer's texture caches key a view by the atlas frame object, so twins must not share frames: a
+ * shared frame hands every twin the palette of whichever stem drew it first.
  */
 
-/** One distinct page per colouring the loader asks for, as the colouring workers hand back. */
+/** One page per sheet, as the loader shares a recoloured page between a bob set's recolours. */
 vi.mock('../../../src/content/atlas-sheet/index.js', async () => {
-  const { TextureSource } = await import('pixi.js');
+  const { RecolouredPageSource } = await import('@open-northland/render');
+  const pages = new Map<string, InstanceType<typeof RecolouredPageSource>>();
   return {
-    loadAtlasSheet: (sheet: AtlasSheetRef) =>
-      Promise.resolve(new TextureSource({ label: `${sheet.image}:${sheet.palette ?? 'rgb'}` })),
+    loadAtlasSheet: (sheet: AtlasSheetRef) => {
+      let page = pages.get(sheet.image);
+      if (page === undefined) {
+        page = new RecolouredPageSource(new Uint8Array(8 * 8 * 2), 8, 8);
+        pages.set(sheet.image, page);
+      }
+      return Promise.resolve(page);
+    },
   };
 });
 
@@ -31,8 +38,10 @@ const twin = (palette: string) =>
     palette,
     imageEncoding: 'index-coverage-png',
   }) as const;
-const PALETTE_A = 'palette-a';
-const PALETTE_B = 'palette-b';
+const paletteOf = (value: number): string =>
+  btoa(String.fromCharCode(...new Uint8Array(256 * 3).fill(value)));
+const PALETTE_A = paletteOf(1);
+const PALETTE_B = paletteOf(2);
 
 // Modules are shared across test files, so the loader is re-evaluated here to pick up the mock above.
 vi.resetModules();
@@ -42,7 +51,7 @@ beforeAll(async () => {
 }, COLD_TRANSFORM_TIMEOUT_MS);
 
 describe('palette twins', () => {
-  it('draw each twin from its own page, through frames no other page shares', async () => {
+  it('draw both twins from one page, each through frames of its own that name its palette', async () => {
     const document = bobAtlasDocument({
       'ls_trees.tree01': twin(PALETTE_A),
       'ls_trees.tree02': twin(PALETTE_B),
@@ -50,7 +59,7 @@ describe('palette twins', () => {
     expect(document.geometries).toHaveLength(1); // the pipeline's shape: twins share one geometry
     vi.stubGlobal('fetch', (() => Promise.resolve(new Response(JSON.stringify(document)))) as typeof fetch);
     const { loadLayer } = await import('../../../src/content/ir/load.js');
-    const { TextureCache } = await import('@open-northland/render');
+    const { recolourOf, TextureCache } = await import('@open-northland/render');
 
     const [a, b] = await Promise.all([loadLayer('ls_trees.tree01'), loadLayer('ls_trees.tree02')]);
     const frameA = a.atlas.frames.get(FRAME.bobId);
@@ -58,9 +67,11 @@ describe('palette twins', () => {
     if (frameA === undefined || frameB === undefined) throw new Error('twin frame not indexed');
     const cache = new TextureCache();
 
-    expect(a.source).not.toBe(b.source);
-    expect(cache.get(a.source, frameA).source).toBe(a.source);
-    expect(cache.get(b.source, frameB).source).toBe(b.source);
+    expect(a.source).toBe(b.source);
+    expect(frameA).not.toBe(frameB);
+    expect(recolourOf(frameA)?.[0]).toBe(1);
+    expect(recolourOf(frameB)?.[0]).toBe(2);
+    expect(cache.get(a.source, frameA)).not.toBe(cache.get(b.source, frameB));
     vi.unstubAllGlobals();
   });
 });

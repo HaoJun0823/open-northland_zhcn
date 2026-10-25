@@ -5,6 +5,7 @@ import {
   isDrawableResource,
   readable2dContext,
 } from '../../textures/drawable-resource.js';
+import { RecolouredPageSource } from '../../textures/recoloured-pages.js';
 
 /**
  * Per-atlas alpha masks refining the picker's AABB hit to the drawn texel. Pixel hit-testing is a
@@ -39,19 +40,29 @@ export interface AlphaMask {
   readonly ensureRow?: (y: number) => void;
 }
 
+/** Where a texel's coverage byte sits: its channel, in texels of `stride` bytes. */
+export interface CoverageLayout {
+  readonly channel: number;
+  readonly stride: number;
+}
+
+/** A recoloured page's texels: palette index, then coverage. */
+const RECOLOURED_COVERAGE: CoverageLayout = { channel: 1, stride: 2 };
+const rgbaCoverage = (channel: number): CoverageLayout => ({ channel, stride: RGBA });
+
 /** Sets the bit of every texel of `rows` rows from `y0` whose coverage reaches the threshold. */
 function packRows(
   bits: Uint8Array,
-  rgba: Uint8Array | Uint8ClampedArray,
+  pixels: Uint8Array | Uint8ClampedArray,
   width: number,
   y0: number,
   rows: number,
-  coverageChannel: number,
+  { channel, stride }: CoverageLayout,
 ): void {
   const first = y0 * width;
   const count = rows * width;
   for (let p = 0; p < count; p++) {
-    if ((rgba[p * RGBA + coverageChannel] ?? 0) < SOLID_ALPHA_MIN) continue;
+    if ((pixels[p * stride + channel] ?? 0) < SOLID_ALPHA_MIN) continue;
     const i = first + p;
     bits[i >> 3] = (bits[i >> 3] ?? 0) | (1 << (i & 7));
   }
@@ -64,18 +75,19 @@ export function buildAlphaMask(
   coverageChannel = ALPHA_CHANNEL,
 ): AlphaMask {
   const bits = new Uint8Array(Math.ceil((width * height) / 8));
-  packRows(bits, rgba, width, 0, height, coverageChannel);
+  packRows(bits, rgba, width, 0, height, rgbaCoverage(coverageChannel));
   return { width, height, bits };
 }
 
 /**
- * A mask whose bands are read on demand through `readRows`, which answers the RGBA pixels of `rows`
- * page rows from `y0`, or `null` when they cannot be read (the band then stays transparent).
+ * A mask whose bands are read on demand through `readRows`, which answers the pixels of `rows` page
+ * rows from `y0` laid out as `layout` says, or `null` when they cannot be read (the band then stays
+ * transparent).
  */
 export function lazyAlphaMask(
   width: number,
   height: number,
-  coverageChannel: number,
+  layout: CoverageLayout,
   readRows: (y0: number, rows: number) => Uint8Array | Uint8ClampedArray | null,
 ): AlphaMask {
   const bits = new Uint8Array(Math.ceil((width * height) / 8));
@@ -87,7 +99,7 @@ export function lazyAlphaMask(
     const y0 = band * MASK_BAND_ROWS;
     const rows = Math.min(MASK_BAND_ROWS, height - y0);
     const rgba = readRows(y0, rows);
-    if (rgba !== null) packRows(bits, rgba, width, y0, rows, coverageChannel);
+    if (rgba !== null) packRows(bits, rgba, width, y0, rows, layout);
   };
   return { width, height, bits, ensureRow };
 }
@@ -151,9 +163,17 @@ export function alphaMaskOf(source: TextureSource): AlphaMask | null {
   const width = source.pixelWidth;
   const height = source.pixelHeight;
   let mask: AlphaMask | null = null;
-  if (isDrawableResource(resource) && readRows(resource, width, 0, 1) !== null) {
+  if (source instanceof RecolouredPageSource) {
+    const { stride } = RECOLOURED_COVERAGE;
+    const bytes = source.indexCoverage;
+    mask = lazyAlphaMask(width, height, RECOLOURED_COVERAGE, (y0, rows) =>
+      bytes.subarray(y0 * width * stride, (y0 + rows) * width * stride),
+    );
+  } else if (isDrawableResource(resource) && readRows(resource, width, 0, 1) !== null) {
     const channel = isIndexedSource(source) ? INDEXED_COVERAGE_CHANNEL : ALPHA_CHANNEL;
-    mask = lazyAlphaMask(width, height, channel, (y0, rows) => readRows(resource, width, y0, rows));
+    mask = lazyAlphaMask(width, height, rgbaCoverage(channel), (y0, rows) =>
+      readRows(resource, width, y0, rows),
+    );
   }
   maskCache.set(source, mask);
   return mask;

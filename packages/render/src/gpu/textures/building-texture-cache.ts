@@ -2,6 +2,7 @@ import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { isPixelArtSource, markMagnifiedTexture } from '../pixel-art/registry.js';
 import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import { frameImageData, RecolouredPageSource } from './recoloured-pages.js';
 
 const PADDING = 2;
 const MAX_GPU_BYTES = 32 * 1024 * 1024;
@@ -124,8 +125,7 @@ export class BuildingTextureCache {
     if (width * height > MAX_FRAME_PIXELS || frame.width <= 0 || frame.height <= 0) return null;
     const bytes = this.bake.enhanced ? mipBytes(width, height) : width * height * 4;
     if (this.gpuBytes + bytes > MAX_GPU_BYTES) return null;
-    const resource: unknown = source.resource;
-    if (!isDrawableResource(resource)) {
+    if (!(source instanceof RecolouredPageSource) && !isDrawableResource(source.resource)) {
       this.unavailable.add(frame);
       return null;
     }
@@ -135,18 +135,11 @@ export class BuildingTextureCache {
       return null;
     }
     try {
-      ctx.drawImage(
-        resource,
-        frame.x,
-        frame.y,
-        frame.width,
-        frame.height,
-        PADDING,
-        PADDING,
-        frame.width,
-        frame.height,
-      );
-      const image = ctx.getImageData(0, 0, width, height);
+      const image = frameImageData(ctx, source, frame, PADDING, PADDING);
+      if (image === null) {
+        this.unavailable.add(frame);
+        return null;
+      }
       this.bake.rework?.(frame, image.data, width, PADDING);
       if (this.bake.enhanced) sharpenBuildingInterior(image.data, width, height);
       ctx.putImageData(image, 0, 0);

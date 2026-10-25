@@ -332,12 +332,43 @@ ${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, uvDx, uvDy, near);')}
   }
 `;
 
+/**
+ * A recoloured decor quad's page holds palette index in red and coverage in green, and its row of
+ * `uRecolourLut` colours it, premultiplied in bytes, round(c * a / 255): the bytes createImageBitmap's
+ * premultiply gives a coloured page of the stem.
+ */
+const RECOLOURED_DECOR_GLSL = `
+  const float BYTE_MAX = 255.0;
+  // Added before the integer divide by 255, so the divide rounds to nearest.
+  const int ROUNDING_BIAS = 127;
+  const int BYTE_MAX_INT = 255;
+  vec4 recolouredTexel(vec4 tap, int row) {
+    vec3 colour = texelFetch(uRecolourLut, ivec2(int(tap.r * BYTE_MAX + 0.5), row), 0).rgb;
+    ivec3 c = ivec3(colour * BYTE_MAX + 0.5);
+    int a = int(tap.g * BYTE_MAX + 0.5);
+    return vec4(vec3((c * a + ROUNDING_BIAS) / BYTE_MAX_INT) / BYTE_MAX, tap.g);
+  }
+  // A recoloured page is opaque: its coverage is in green. A macro, since a function called from the
+  // snow taps would be inlined into every branch of the page chain.
+  #define COVERAGE_TAP(page, uv, dx, dy) (vLutRow >= 0.0 ? textureGrad(page, uv, dx, dy).g : textureGrad(page, uv, dx, dy).a)
+`;
+
+/** The decor cover block with its snow taps reading a recoloured page's coverage from green. */
+function recolouredCoverage(glsl: string): string {
+  const taps = /textureGrad\(uTexture, ([^;]*?), dx, dy\)\.a/g;
+  const covered = glsl.replace(taps, 'COVERAGE_TAP(uTexture, $1, dx, dy)');
+  if (covered.includes('textureGrad(uTexture,')) throw new Error('decor snow tap not read as coverage');
+  return covered;
+}
+
 const VERTEX_VERTEX = `#version 300 es
   in vec2 aPosition;
   in vec2 aUV;
   in float aBrightness;
   in float aPage;
   flat out float vPage;
+  in float aLutRow;
+  flat out float vLutRow;
 
   out vec2 vUV;
   out float vBrightness;
@@ -357,6 +388,7 @@ const VERTEX_VERTEX = `#version 300 es
     vUV = uv;
     vBrightness = aBrightness;
     vPage = aPage;
+    vLutRow = aLutRow;
     ${DECOR_COVER_VERTEX_BODY}
   }
 `;
@@ -368,12 +400,15 @@ const VERTEX_FRAGMENT = `#version 300 es
   in vec2 vUV;
   in float vBrightness;
   flat in float vPage;
+  flat in float vLutRow;
 
 ${pageSamplerDeclarations()}
   uniform vec4 uColor;
+  uniform sampler2D uRecolourLut;
 
   out vec4 finalColor;
-  ${withPageParameter(DECOR_COVER_FRAGMENT_DECLARATIONS)}
+  ${RECOLOURED_DECOR_GLSL}
+  ${recolouredCoverage(withPageParameter(DECOR_COVER_FRAGMENT_DECLARATIONS))}
 
   // Everything that reads the fragment's page, given vUV's derivatives dx and dy taken before the page
   // chain; only this runs inside the chain, so the snow shading after it compiles once.
@@ -394,6 +429,13 @@ ${pageSamplerDeclarations()}
     vec3 above;
     float sides;
 ${pageChain('texel = decorPage(uPage$, uvDx, uvDy, pageSize, above, sides);')}
+    // aLutRow is -1 on a quad of a coloured page.
+    if (vLutRow >= 0.0) texel = recolouredTexel(texel, int(vLutRow));
+    // A quad of a mesh's own (no brightness of its own) draws its texel as a plain mesh would.
+    if (vBrightness < 0.0) {
+      finalColor = texel * uColor;
+      return;
+    }
     // Page texels per screen px, taken after the chain; zero on a dry map.
     vec2 footprint = fwidth(vUV * pageSize);
     if (vSnow > 0.0) texel.rgb = decorSnow(texel.rgb, texel.a, footprint, above, sides, vBrightness);
@@ -475,6 +517,7 @@ export function makeShadedDecorShader(
   pages: readonly TextureSource[],
   cover: DecorCoverBinding,
   clips: DecorClipBinding,
+  recolourLut: TextureSource,
 ): Shader {
   const samplers = pageSamplerResources(pages);
   return new Shader({
@@ -486,6 +529,7 @@ export function makeShadedDecorShader(
       uCoverTex: cover.texture,
       decorClipVars: clips.uniforms,
       uDecorFrames: clips.table.source,
+      uRecolourLut: recolourLut,
     },
   });
 }

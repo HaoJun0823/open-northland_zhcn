@@ -141,6 +141,8 @@ export class WorldRenderer {
     this.weatherSky = new WeatherSky(app.renderer);
     const gl = 'gl' in app.renderer ? app.renderer.gl : undefined;
     if (gl !== undefined) opts?.sheet?.palette?.fitTo(gl.getParameter(gl.MAX_TEXTURE_SIZE) as number);
+    // Recoloured frames share the characters' LUT, the one a world batch binds.
+    if (opts?.sheet?.palette !== undefined) this.textureCache.setRecolourLut(opts.sheet.palette);
     this.viewSmoothing = opts?.viewSmoothing === true;
     this.playerColourOf = opts?.playerColourOf;
     // Own Pixi render group over its depth bands' groups: a band appearing or retiring rebuilds only

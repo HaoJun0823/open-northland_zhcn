@@ -195,7 +195,7 @@ export class AnimationGallery {
           spr.place(originX, originY, scale, resW, resH);
           spr.player = i === 0 ? cell.bodyRow : cell.bodyRow + HUMAN_HEAD_ROW_OFFSET;
         } else {
-          spr.texture = this.textures.get(layer.source, frame);
+          spr.texture = this.textures.colouredView(layer.source, frame);
           spr.position.set(frame.offsetX, frame.offsetY);
         }
         spr.visible = true;

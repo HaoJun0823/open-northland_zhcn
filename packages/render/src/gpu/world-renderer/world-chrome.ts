@@ -84,11 +84,13 @@ export class WorldChrome {
     // claims the original's pixel-art pages at any zoom and nothing else, so own art keeps the sampling
     // its loader chose from the sprite-smoothing setting.
     const claimed = (source: TextureSource): boolean => minifying || (enhanced && isPixelArtSource(source));
-    for (const source of this.textures.pageSources()) {
-      if (this.linearPages.has(source) || !claimed(source)) continue;
-      if (source.scaleMode !== 'nearest') continue; // a page someone loaded linear stays theirs
-      source.scaleMode = 'linear';
-      this.linearPages.add(source);
+    for (const pages of [this.textures.pageSources(), this.textures.recolouredPageSources()]) {
+      for (const source of pages) {
+        if (this.linearPages.has(source) || !claimed(source)) continue;
+        if (source.scaleMode !== 'nearest') continue; // a page someone loaded linear stays theirs
+        source.scaleMode = 'linear';
+        this.linearPages.add(source);
+      }
     }
     // A page one condition claimed and neither still wants goes back, rather than waiting for both off.
     let restored = false;

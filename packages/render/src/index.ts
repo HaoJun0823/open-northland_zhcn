@@ -289,6 +289,15 @@ export {
 export type { AnchorRect, ErasedRegion } from './gpu/textures/erased-frame-cache.js';
 export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/textures/human-palette-lut.js';
 export {
+  colourRecolouredFrame,
+  type DrawableFrame,
+  drawableFrame,
+  RecolouredPageSource,
+  recolourOf,
+  registerRecolouredFrames,
+  registerRecolouredPageUploader,
+} from './gpu/textures/recoloured-pages.js';
+export {
   type CartDriveBinding,
   type PaletteLut,
   type SettlerCharacter,

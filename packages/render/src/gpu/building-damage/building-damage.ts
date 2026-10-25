@@ -2,7 +2,8 @@ import type { Container, Sprite, Texture } from 'pixi.js';
 import type { WindSway } from '../../data/weather/climate.js';
 import type { ResolvedLayer } from '../sprite-pool/layers/resolved-layer.js';
 import type { DamagedBuilding } from '../sprite-pool/picking/pick.js';
-import { isDrawableResource, readable2dContext } from '../textures/drawable-resource.js';
+import { readable2dContext } from '../textures/drawable-resource.js';
+import { drawableFrame, drawableTexture } from '../textures/recoloured-pages.js';
 import { DamageAtlas, type DamageTile } from './atlas.js';
 import { DamageEffectTextures } from './effect-textures.js';
 import { DamageEffects, type DamageOrigin } from './effects.js';
@@ -245,13 +246,13 @@ export class BuildingDamage {
 
   private read(sprite: Sprite, seed: number, withScaffold = false): Surface | null {
     const original = sprite.texture;
-    const { width, height, x, y } = original.frame;
+    const { width, height } = original.frame;
     if (width < 8 || height < 8 || width > 1000 || height > 1000) {
       this.unreadable.add(original);
       return null;
     }
-    const resource: unknown = original.source.resource;
-    if (!isDrawableResource(resource)) {
+    const drawable = drawableTexture(original);
+    if (drawable === null) {
       this.unreadable.add(original);
       return null;
     }
@@ -267,7 +268,7 @@ export class BuildingDamage {
     }
     try {
       ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(resource, x, y, width, height, 0, 0, width, height);
+      ctx.drawImage(drawable.image, drawable.x, drawable.y, width, height, 0, 0, width, height);
       const pixels = ctx.getImageData(0, 0, width, height).data;
       const backing =
         withScaffold && this.pixelBytes + pixels.byteLength * 2 <= MAX_PIXEL_BYTES
@@ -314,13 +315,13 @@ export class BuildingDamage {
     ctx.clearRect(0, 0, width, height);
     let drew = false;
     for (const layer of layers) {
-      const resource: unknown = layer.source.resource;
-      if (!isDrawableResource(resource)) continue;
       const f = layer.frame;
+      const drawable = drawableFrame(layer.source, f);
+      if (drawable === null) continue;
       ctx.drawImage(
-        resource,
-        f.x,
-        f.y,
+        drawable.image,
+        drawable.x,
+        drawable.y,
         f.width,
         f.height,
         (f.offsetX * layer.scale - sprite.x) / sprite.scale.x,

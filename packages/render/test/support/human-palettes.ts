@@ -44,6 +44,7 @@ export function syntheticHumanLut(
   armorTierByGood: ReadonlyMap<number, number> = new Map(),
   rows?: number,
   soldierJobs: ReadonlySet<number> = new Set(),
+  fixedRows = 0,
 ): HumanPaletteLut {
   const lane = syntheticLane({ red: flatRamp(255, 0, 0), blue: flatRamp(0, 0, 255) }, [
     { name: 'player_00', patches: [{ band: 15, source: { kind: 'ramp', ramp: 'red' }, weight: 1 }] },
@@ -53,5 +54,6 @@ export function syntheticHumanLut(
     new HumanPaletteBook(lane, TEST_BASE),
     { tierByGood: armorTierByGood, soldierJobs },
     rows,
+    fixedRows,
   );
 }

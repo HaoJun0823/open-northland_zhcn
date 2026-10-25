@@ -1,6 +1,7 @@
 import { Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import { readable2dContext } from './drawable-resource.js';
+import { drawableFrame } from './recoloured-pages.js';
 import { WrittenPageSource } from './written-page-source.js';
 
 /** Binomial blur taps, in source pixels, applied along each axis. */
@@ -106,8 +107,8 @@ export class SoftShadowCache {
       this.deferrals++;
       return null;
     }
-    const resource: unknown = source.resource;
-    if (!isDrawableResource(resource)) {
+    const drawable = drawableFrame(source, frame);
+    if (drawable === null) {
       this.unavailable.add(frame);
       return null;
     }
@@ -130,9 +131,9 @@ export class SoftShadowCache {
       }
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(
-        resource,
-        frame.x,
-        frame.y,
+        drawable.image,
+        drawable.x,
+        drawable.y,
         frame.width,
         frame.height,
         SHADOW_BLUR_PADDING,

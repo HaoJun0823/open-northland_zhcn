@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alphaMaskOf,
   buildAlphaMask,
   lazyAlphaMask,
   MASK_BAND_ROWS,
   maskSolidAt,
   SOLID_ALPHA_MIN,
 } from '../../../../src/gpu/sprite-pool/picking/alpha-mask.js';
+import { RecolouredPageSource } from '../../../../src/gpu/textures/recoloured-pages.js';
 
 /**
  * `alphaMaskOf` needs a real 2d context and returns null without one, leaving the picker on its box hit,
@@ -70,7 +72,7 @@ describe('lazyAlphaMask', () => {
 
   it('answers every texel as the whole-page mask does', () => {
     const whole = buildAlphaMask(rgba, width, height);
-    const lazy = lazyAlphaMask(width, height, ALPHA, rowsOf);
+    const lazy = lazyAlphaMask(width, height, { channel: ALPHA, stride: 4 }, rowsOf);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) expect(maskSolidAt(lazy, x, y)).toBe(maskSolidAt(whole, x, y));
     }
@@ -78,7 +80,7 @@ describe('lazyAlphaMask', () => {
 
   it('reads only the bands its tests land in, once each', () => {
     const reads: number[] = [];
-    const lazy = lazyAlphaMask(width, height, ALPHA, (y0, rows) => {
+    const lazy = lazyAlphaMask(width, height, { channel: ALPHA, stride: 4 }, (y0, rows) => {
       reads.push(y0);
       return rowsOf(y0, rows);
     });
@@ -89,9 +91,23 @@ describe('lazyAlphaMask', () => {
   });
 
   it('leaves a band it cannot read transparent', () => {
-    const lazy = lazyAlphaMask(width, height, ALPHA, () => null);
+    const lazy = lazyAlphaMask(width, height, { channel: ALPHA, stride: 4 }, () => null);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) expect(maskSolidAt(lazy, x, y)).toBe(false);
     }
+  });
+});
+
+describe('alphaMaskOf, recoloured page', () => {
+  it("reads coverage from each texel's second byte, the same mask for every recolour", () => {
+    const bytes = new Uint8Array([7, 0, 7, SOLID_ALPHA_MIN, 9, 255, 9, SOLID_ALPHA_MIN - 1]);
+    const mask = alphaMaskOf(new RecolouredPageSource(bytes, 2, 2));
+    if (mask === null) throw new Error('no mask');
+    expect([
+      maskSolidAt(mask, 0, 0),
+      maskSolidAt(mask, 1, 0),
+      maskSolidAt(mask, 0, 1),
+      maskSolidAt(mask, 1, 1),
+    ]).toEqual([false, true, true, false]);
   });
 });

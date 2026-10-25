@@ -82,12 +82,23 @@ describe('createPalettedSheetClient', () => {
     const bitmap = {} as ImageBitmap;
     for (const request of healthy.requests) healthy.reply({ id: request.id, bitmap });
     for (const [i, url] of urls.entries()) {
-      if (!brokenUrls.includes(url)) await expect(pending[i]).resolves.toBe(bitmap);
+      if (!brokenUrls.includes(url)) await expect(pending[i]).resolves.toHaveProperty('bitmap', bitmap);
     }
     // The failed slot spawns a fresh worker for its next request.
     void colour(brokenUrls[0] ?? '', 'q');
     expect(spawned).toHaveLength(3);
     expect(spawned[2]?.requests.map((r) => r.palette)).toEqual(['q']);
+  });
+
+  it("asks for a sheet's own bytes without a palette, and hands them back", async () => {
+    const worker = new FakeWorker();
+    const ask = createPalettedSheetClient(() => worker, 1);
+    const pending = ask('https://x/bobs/sheet.png');
+    const request = worker.requests[0];
+    expect(request).toEqual({ id: request?.id, url: 'https://x/bobs/sheet.png' });
+    const indexed = { pixels: new Uint8Array([3, 255]), width: 1, height: 1 };
+    worker.reply({ id: request?.id ?? -1, indexed });
+    await expect(pending).resolves.toHaveProperty('indexed', indexed);
   });
 
   it('closes a bitmap that arrives after its request was rejected', async () => {

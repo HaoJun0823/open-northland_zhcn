@@ -59,6 +59,10 @@ export class MapObjectLayer {
     shadow: makeDecorShadowUniforms(),
     cover: { texture: makeGroundCoverTexture(1, 1), uniforms: makeDecorCoverUniforms() },
     clips: { table: new DecorClipTable(), uniforms: makeDecorClipUniforms() },
+    recolour: {
+      lut: () => this.textures.recolourLutSource,
+      rowOf: (source, frame) => this.textures.recolourRow(source, frame),
+    },
   };
   /** The style the decor shadow uniforms hold; it starts as the authored silhouette, which is `null`. */
   private writtenShadowStyle: ShadowStyle | null = null;

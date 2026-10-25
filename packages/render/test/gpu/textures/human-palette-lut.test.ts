@@ -1,5 +1,5 @@
 import type { GlTexture } from 'pixi.js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createHumanPaletteIdentity,
   type HumanPaletteIdentity,
@@ -148,5 +148,47 @@ describe('the human palette LUT', () => {
     lut.rowFor(3, man({ seed: 3 }));
     expect(lut.teamRow(0)).toBe(team);
     expect(texel(lut, team, TEAM_BAND_START)).toEqual([255, 0, 0]);
+  });
+
+  describe('fixed rows of recoloured stems', () => {
+    const FIXED = 4;
+    const ROWS = HumanPaletteLut.rowsFor(PRIVATE_HUMANS, FIXED);
+    const palette = (seed: number): Uint8Array =>
+      Uint8Array.from({ length: 256 * 3 }, (_, i) => (i + seed) % 251);
+    afterEach(() => vi.restoreAllMocks());
+
+    it('keep each stem on a row of its own, apart from every human and team row', () => {
+      const lut = syntheticHumanLut(new Map(), ROWS, new Set(), FIXED);
+      lut.beginFrame();
+      const stem = palette(0);
+      const row = lut.fixedRow(stem);
+      expect(lut.fixedRow(stem.slice())).toBe(row + 1);
+      expect(lut.fixedRow(stem)).toBe(row);
+      expect(texel(lut, row, 2)).toEqual([6, 7, 8]);
+      const humans = [lut.rowFor(1, man()), lut.rowFor(2, man({ seed: 2 })), lut.teamRow(0)];
+      for (const human of humans) expect([human, human + 1]).not.toContain(row);
+      lut.fitTo(ROWS - 2);
+      expect(texel(lut, lut.fixedRow(stem), 2)).toEqual([6, 7, 8]);
+    });
+
+    it('upload a new row before the next draw, whichever layer asked for it', () => {
+      const lut = syntheticHumanLut(new Map(), ROWS, new Set(), FIXED);
+      const updates = vi.fn();
+      lut.source.on('update', updates);
+      lut.fixedRow(palette(1));
+      expect(updates).toHaveBeenCalledTimes(1);
+      lut.fixedRow(palette(2));
+      expect(updates).toHaveBeenCalledTimes(2);
+    });
+
+    it('draw a stem past the reserved rows through the first one, warning once', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const lut = syntheticHumanLut(new Map(), ROWS, new Set(), FIXED);
+      const rows = Array.from({ length: FIXED }, (_, i) => lut.fixedRow(palette(i)));
+      expect(lut.fixedRow(palette(10))).toBe(rows[0]);
+      expect(lut.fixedRow(palette(11))).toBe(rows[0]);
+      expect(lut.stats.fixedOverflows).toBe(2);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
   });
 });

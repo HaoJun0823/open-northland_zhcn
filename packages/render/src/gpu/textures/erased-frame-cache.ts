@@ -1,7 +1,8 @@
 import { CanvasSource, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { isPixelArtSource, markPixelArtSource } from '../pixel-art/registry.js';
-import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import { readable2dContext } from './drawable-resource.js';
+import { drawFrameInto } from './recoloured-pages.js';
 
 /** A box in a body's draw-anchor px (+y down), the space its frame offsets and mast points use;
  *  `max` edges are exclusive. */
@@ -82,12 +83,10 @@ function bakeErased(
     if (x1 > x0 && y1 > y0) boxes.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
   if (boxes.length === 0) return null;
-  const resource: unknown = source.resource;
-  if (!isDrawableResource(resource)) return null;
   const ctx = readable2dContext(frame.width, frame.height);
   if (ctx === null) return null;
   try {
-    ctx.drawImage(resource, frame.x, frame.y, frame.width, frame.height, 0, 0, frame.width, frame.height);
+    if (!drawFrameInto(ctx, source, frame, 0, 0)) return null;
   } catch {
     return null; // a closed or undecodable image
   }

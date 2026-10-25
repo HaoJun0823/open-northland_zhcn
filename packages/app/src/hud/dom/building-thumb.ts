@@ -1,4 +1,4 @@
-import { isDrawableResource, lookupFrame, type SpriteSheet } from '@open-northland/render';
+import { drawableFrame, lookupFrame, type SpriteSheet } from '@open-northland/render';
 import { boundBuildingRef } from '../../content/building-gfx/index.js';
 import { createStaticPictures, showPicture } from './static-picture.js';
 
@@ -51,17 +51,17 @@ export function createBuildingThumbs(sheet: SpriteSheet | undefined, seatTribe: 
       const draw = typeof ref === 'number' ? { bob: ref, layer: undefined } : ref;
       const layer = draw.layer !== undefined ? sheet.families?.[draw.layer] : sheet.kindLayers?.building;
       const frame = layer === undefined ? null : lookupFrame(layer.atlas, draw.bob);
-      const resource: unknown = layer?.source.resource;
-      if (frame === null || !isDrawableResource(resource)) return false;
+      const drawable = frame === null || layer === undefined ? null : drawableFrame(layer.source, frame);
+      if (frame === null || drawable === null) return false;
       const size = boxPx * THUMB_BACKING_SCALE;
       const picture = pictures.picture(`${typeId}:${tribe}:${size}`, size, size, (ctx) => {
         const fit = thumbFit(frame, size);
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(
-          resource,
-          frame.x + fit.sx,
-          frame.y + fit.sy,
+          drawable.image,
+          drawable.x + fit.sx,
+          drawable.y + fit.sy,
           fit.sw,
           fit.sh,
           fit.dx,

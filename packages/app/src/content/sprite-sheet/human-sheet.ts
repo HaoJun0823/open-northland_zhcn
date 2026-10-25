@@ -5,6 +5,7 @@ import { INDEXED_CHARACTER_PALETTE, PLAYER_COLOR_COUNT } from '../../catalog/ros
 import { VEHICLE_HANDCART, VEHICLE_OXCART } from '../../game/sandbox/ids/vehicles.js';
 import type { WorldTribes } from '../../game/world-tribes.js';
 import { loadAnimalCharacters } from '../animal-gfx/index.js';
+import { loadBobAtlasSet } from '../bob-atlases.js';
 import {
   BUILDING_SCALE,
   buildCraftFxBinding,
@@ -47,7 +48,7 @@ import { buildHumanBindings, type GoodRef } from '../settler-gfx/index.js';
 import { loadVehicleSheet } from '../vehicle-gfx/index.js';
 import { loadBuildingSheet } from './buildings.js';
 import { loadCharacters } from './characters.js';
-import { humanPaletteLut } from './human-palettes.js';
+import { humanPaletteLut, recolourRows } from './human-palettes.js';
 
 // Assemble the real decoded SpriteSheet from the loaded atlases and binding reducers. Loads from the
 // gitignored `content/` over the dev/shot vite server.
@@ -131,7 +132,7 @@ export async function loadHumanSpriteSheet(
   // With human palette data every human body loads as the one recolourable atlas, drawn through a palette
   // composed per human; without it each keeps its own authored skin, which for several tribe bodies is the
   // only one decoded (`cr_hum_body_78.egypt_soldier`), and draws single-coloured.
-  const lut = humanPaletteLut(ir);
+  const lut = humanPaletteLut(ir, recolourRows(await loadBobAtlasSet()));
   const characterPalette = lut !== undefined ? INDEXED_CHARACTER_PALETTE : undefined;
   // Per-job characters (the `[jobbasegraphics]` join): a missing extra body degrades per look, never
   // failing the sheet, and `undefined` keeps the legacy single-body settler path. The wildlife looks have

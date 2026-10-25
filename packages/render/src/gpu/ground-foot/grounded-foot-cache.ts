@@ -1,6 +1,7 @@
 import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
-import { isDrawableResource, readable2dContext } from '../textures/drawable-resource.js';
+import { readable2dContext } from '../textures/drawable-resource.js';
+import { readFrameRgba } from '../textures/recoloured-pages.js';
 import { analyseFoot, type FootAnalysis } from './foot-analysis.js';
 import { bakeFootCover, bakeGroundShade, type FootBake } from './foot-bakes.js';
 import { type FootGround, footGround, type GroundColours } from './foot-ground.js';
@@ -224,16 +225,7 @@ export class GroundedFootCache {
 
 /** One atlas frame's straight-alpha RGBA pixels, or null when its page cannot be read back. */
 function readFrame(source: TextureSource, frame: AtlasFrame): Uint8ClampedArray | null {
-  const resource: unknown = source.resource;
-  if (!isDrawableResource(resource)) return null;
-  const read = readable2dContext(frame.width, frame.height);
-  if (read === null) return null;
-  try {
-    read.drawImage(resource, frame.x, frame.y, frame.width, frame.height, 0, 0, frame.width, frame.height);
-    return read.getImageData(0, 0, frame.width, frame.height).data;
-  } catch {
-    return null;
-  }
+  return readFrameRgba(source, frame);
 }
 
 /**

@@ -110,6 +110,11 @@ function serve(request: PalettedSheetRequest): Promise<PalettedSheetReply> {
 
 async function colour(request: PalettedSheetRequest, turns: SheetTurns): Promise<PalettedSheetReply> {
   const sheet = await indexedSheet(request.url);
+  if (request.palette === undefined) {
+    // A copy, since the cache may hand the decoded sheet to the next request.
+    const { width, height } = sheet;
+    return { id: request.id, indexed: { pixels: sheet.pixels.slice(), width, height } };
+  }
   const bytes = sheet.width * sheet.height * 4;
   if (turns.page?.length !== bytes) turns.page = new Uint8ClampedArray(bytes);
   colourIndexedSheet(sheet.pixels, GREY_ALPHA_INDEXED, decodeAtlasPalette(request.palette), turns.page);
@@ -121,6 +126,12 @@ async function colour(request: PalettedSheetRequest, turns: SheetTurns): Promise
   return { id: request.id, bitmap };
 }
 
+function transferablesOf(reply: PalettedSheetReply): Transferable[] {
+  if ('bitmap' in reply) return [reply.bitmap];
+  if ('indexed' in reply) return [reply.indexed.pixels.buffer];
+  return [];
+}
+
 scope.addEventListener('message', (event: MessageEvent<PalettedSheetRequest>) => {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(releaseIdle, IDLE_RELEASE_MS);
@@ -129,7 +140,7 @@ scope.addEventListener('message', (event: MessageEvent<PalettedSheetRequest>) =>
   serve(request)
     .finally(() => inFlight--)
     .then(
-      (reply) => scope.postMessage(reply, 'bitmap' in reply ? [reply.bitmap] : []),
+      (reply) => scope.postMessage(reply, transferablesOf(reply)),
       (err: unknown) =>
         scope.postMessage({ id: request.id, error: String(err) } satisfies PalettedSheetReply),
     );

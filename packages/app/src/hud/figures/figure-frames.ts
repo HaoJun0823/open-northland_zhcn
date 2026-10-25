@@ -2,8 +2,10 @@ import {
   type AtlasFrame,
   createHumanPaletteColours,
   createHumanPaletteIdentity,
+  type DrawableFrame,
   type DrawableResource,
   type DrawItem,
+  drawableFrame,
   GLOW_PALETTE_INDEX,
   HUMAN_PALETTE_BYTES,
   HumanPaletteCache,
@@ -280,15 +282,16 @@ export class FigureFrames {
       const glow =
         layer.glow === undefined || palettes === undefined ? undefined : this.palettes.glow(item, palettes);
       const colours = layerColours(layer, palettes, glow);
-      const resource: unknown = layer.source.resource;
-      if (colours === null || !isDrawableResource(resource)) {
+      const drawable = drawableFrame(layer.source, layer.frame);
+      if (colours === null || drawable === null) {
         out.push(null);
         continue;
       }
       if (colours === undefined) {
-        out.push(this.bakedImage(resource, layer.frame));
+        out.push(this.bakedImage(drawable, layer.frame));
         continue;
       }
+      const resource = drawable.image;
       const cached = this.recoloured.get(layer.frame)?.get(colours);
       if (cached !== undefined) {
         out.push(cached);
@@ -345,10 +348,11 @@ export class FigureFrames {
     this.paint(ctx, layers, this.drawImages, zoom, feetX, feetY);
   }
 
-  private bakedImage(resource: DrawableResource, frame: AtlasFrame): FigureFrameImage {
+  private bakedImage(drawable: DrawableFrame, frame: AtlasFrame): FigureFrameImage {
     let image = this.baked.get(frame);
-    if (image === undefined || image.image !== resource) {
-      image = { image: resource, x: frame.x, y: frame.y, width: frame.width, height: frame.height };
+    if (image === undefined || image.image !== drawable.image) {
+      const { width, height } = frame;
+      image = { image: drawable.image, x: drawable.x, y: drawable.y, width, height };
       this.baked.set(frame, image);
     }
     return image;

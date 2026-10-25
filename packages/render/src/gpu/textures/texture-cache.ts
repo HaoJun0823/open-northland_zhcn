@@ -11,16 +11,26 @@ import {
   isPixelArtSource,
   markMagnifiedTexture,
   markPalettedTexture,
+  markPixelArtSource,
   markShadowTexture,
 } from '../pixel-art/registry.js';
 import { BuildingTextureCache } from './building-texture-cache.js';
-import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import { readable2dContext } from './drawable-resource.js';
 import {
   type ErasedFrame,
   ErasedFrameCache,
   type ErasedRegion,
   type FramePlacement,
 } from './erased-frame-cache.js';
+import { PaletteRowsLut, type RecolourLut } from './palette-rows-lut.js';
+import {
+  colourRecolouredFrame,
+  copyRecolour,
+  frameImageData,
+  RecolouredPageSource,
+  recolourOf,
+  registerRecolouredTexture,
+} from './recoloured-pages.js';
 import { SoftShadowCache } from './soft-shadow-cache.js';
 
 /**
@@ -35,6 +45,10 @@ const REVEAL_QUANT = 4;
  * progress only rises, so an evicted bake is not coming back.
  */
 const REVEAL_BAKES_PER_ATLAS_FRAME = 4;
+
+/** CPU and GPU bytes of the cached RGBA copies of recoloured frames ({@link TextureCache.colouredView}). */
+const COLOURED_COPY_BUDGET_BYTES = 16 * 1024 * 1024;
+const RGBA = 4;
 
 interface RevealBake {
   readonly texture: Texture;
@@ -77,6 +91,9 @@ export class TextureCache {
    *  linear-sampling flip never reaches an indexed sheet, and out of {@link cache} since they need no
    *  magnification mark. */
   private readonly paletteIndexed = new Map<AtlasFrame, Texture>();
+  /** RGBA copies of recoloured frames, for consumers that draw outside the world batch. */
+  private readonly colouredCopies = new Map<AtlasFrame, Texture>();
+  private colouredCopyBytes = 0;
   private readonly pages = new Set<TextureSource>();
   /** The silhouette pages among {@link pages}: coverage only, so a prescaler leaves them. */
   private readonly shadowPages = new Set<TextureSource>();
@@ -89,6 +106,13 @@ export class TextureCache {
   private readonly revealCache = new Map<AtlasFrame, Map<number, RevealBake>>();
   /** {@link unmagnified} twins, keyed by the view they copy. */
   private readonly unmagnifiedTwins = new Map<Texture, Texture>();
+
+  /** The LUT recoloured frames draw through; the sheet's human palette LUT when it has one, so the
+   *  world batch still reads one LUT. */
+  private recolourLut: RecolourLut | undefined;
+  /** The recoloured pages served so far: off {@link pages}, since no prescaler may redraw an index page,
+   *  but under the world's sampling flip like them ({@link RecolouredPageSource.scaleMode}). */
+  private readonly recolouredPages = new Set<TextureSource>();
 
   /** Views of a texture's frame grown by a margin of texels on every side, keyed by that texture, then
    *  by the margin. A view goes when its texture does. */
@@ -123,6 +147,73 @@ export class TextureCache {
     this.framesBegun++;
     this.softShadows.beginFrame(budgeted);
     this.groundedFeet.beginFrame(budgeted);
+  }
+
+  /** Set before the first view of a recoloured frame is minted: every such view names this LUT. */
+  setRecolourLut(lut: RecolourLut): void {
+    this.recolourLut = lut;
+  }
+
+  /** The LUT {@link recolourRow} indexes, the one recoloured views draw through. */
+  get recolourLutSource(): TextureSource {
+    this.recolourLut ??= new PaletteRowsLut();
+    return this.recolourLut.source;
+  }
+
+  /** The LUT row `frame` of `source` draws through, or -1 when it is no recoloured stem's frame. */
+  recolourRow(source: TextureSource, frame: AtlasFrame): number {
+    const palette = source instanceof RecolouredPageSource ? recolourOf(frame) : undefined;
+    if (palette === undefined) return -1;
+    this.recolourLut ??= new PaletteRowsLut();
+    return this.recolourLut.fixedRow(palette);
+  }
+
+  /**
+   * A view of `rect` of `frame`'s page: a recoloured frame's view draws through its stem's LUT row
+   * and stays off the prescaled, sampling-flipped pages, as an indexed character's does; any other
+   * view joins {@link pages} and magnifies like the original's sprites.
+   */
+  private frameView(source: TextureSource, frame: AtlasFrame, rect: Rectangle): Texture {
+    const tex = new Texture({ source, frame: rect });
+    const palette = source instanceof RecolouredPageSource ? recolourOf(frame) : undefined;
+    if (palette !== undefined) {
+      this.recolourLut ??= new PaletteRowsLut();
+      markPalettedTexture(tex, this.recolourLut.source, this.recolourLut.fixedRow(palette));
+      registerRecolouredTexture(tex, palette);
+      markMagnifiedTexture(tex);
+      this.recolouredPages.add(source);
+      return tex;
+    }
+    markMagnifiedTexture(tex);
+    this.pages.add(source);
+    return tex;
+  }
+
+  /**
+   * `frame` on a page holding colours, for a consumer that draws it outside the world batch's palette
+   * path (its own shader, Pixi's default batcher): a recoloured frame gets an RGBA copy of the frame
+   * alone, any other frame its {@link get} view.
+   */
+  colouredView(source: TextureSource, frame: AtlasFrame): Texture {
+    const palette = source instanceof RecolouredPageSource ? recolourOf(frame) : undefined;
+    if (palette === undefined || !(source instanceof RecolouredPageSource)) return this.get(source, frame);
+    let copy = this.colouredCopies.get(frame);
+    if (copy !== undefined) {
+      this.colouredCopies.delete(frame);
+      this.colouredCopies.set(frame, copy);
+      return copy;
+    }
+    copy = colouredCopy(source, frame, palette) ?? Texture.EMPTY;
+    this.colouredCopies.set(frame, copy);
+    this.colouredCopyBytes += frame.width * frame.height * RGBA;
+    // Past the budget the oldest copies leave the cache without being destroyed: a sign or a collapse
+    // still drawing one keeps it, and Pixi's idle GC unloads its GPU copy once nothing draws it.
+    for (const old of this.colouredCopies.keys()) {
+      if (this.colouredCopyBytes <= COLOURED_COPY_BUDGET_BYTES || old === frame) break;
+      this.colouredCopies.delete(old);
+      this.colouredCopyBytes -= old.width * old.height * RGBA;
+    }
+    return copy;
   }
 
   setSoftShadows(enabled: boolean): void {
@@ -264,13 +355,8 @@ export class TextureCache {
   get(source: TextureSource, frame: AtlasFrame): Texture {
     let tex = this.cache.get(frame);
     if (tex === undefined) {
-      tex = new Texture({
-        source,
-        frame: new Rectangle(frame.x, frame.y, frame.width, frame.height),
-      });
-      markMagnifiedTexture(tex);
+      tex = this.frameView(source, frame, new Rectangle(frame.x, frame.y, frame.width, frame.height));
       this.cache.set(frame, tex);
-      this.pages.add(source);
     }
     return tex;
   }
@@ -289,6 +375,11 @@ export class TextureCache {
     return this.pages;
   }
 
+  /** The recoloured pages served so far, which the world's sampling flip sets as it sets {@link pages}. */
+  recolouredPageSources(): ReadonlySet<TextureSource> {
+    return this.recolouredPages;
+  }
+
   /** Whether a page prescaler may redraw `source`: a body page loaded as pixel art (never a silhouette
    *  page, and never art a presentation pack loaded with its own sampling) or an enhanced building bake
    *  cut from such a page. */
@@ -303,6 +394,7 @@ export class TextureCache {
     let twin = this.unmagnifiedTwins.get(texture);
     if (twin === undefined) {
       twin = new Texture({ source: texture.source, frame: texture.frame.clone() });
+      copyRecolour(texture, twin);
       this.unmagnifiedTwins.set(texture, twin);
     }
     return twin;
@@ -322,13 +414,12 @@ export class TextureCache {
     }
     let tex = byTop.get(top);
     if (tex === undefined) {
-      tex = new Texture({
+      tex = this.frameView(
         source,
-        frame: new Rectangle(frame.x, frame.y + top, frame.width, frame.height - top),
-      });
-      markMagnifiedTexture(tex);
+        frame,
+        new Rectangle(frame.x, frame.y + top, frame.width, frame.height - top),
+      );
       byTop.set(top, tex);
-      this.pages.add(source);
     }
     return tex;
   }
@@ -344,10 +435,8 @@ export class TextureCache {
     }
     let tex = byRows.get(kept);
     if (tex === undefined) {
-      tex = new Texture({ source, frame: new Rectangle(frame.x, frame.y, frame.width, kept) });
-      markMagnifiedTexture(tex);
+      tex = this.frameView(source, frame, new Rectangle(frame.x, frame.y, frame.width, kept));
       byRows.set(kept, tex);
-      this.pages.add(source);
     }
     return tex;
   }
@@ -438,6 +527,9 @@ export class TextureCache {
     this.grown.clear();
     for (const tex of this.paletteIndexed.values()) tex.destroy();
     this.paletteIndexed.clear();
+    for (const copy of this.colouredCopies.values()) if (copy !== Texture.EMPTY) copy.destroy(true);
+    this.colouredCopies.clear();
+    this.colouredCopyBytes = 0;
     for (const byTop of this.cropCache.values()) {
       for (const tex of byTop.values()) tex.destroy();
     }
@@ -450,6 +542,7 @@ export class TextureCache {
     this.unmagnifiedTwins.clear();
     this.pages.clear();
     this.shadowPages.clear();
+    this.recolouredPages.clear();
     for (const byThreshold of this.revealCache.values()) {
       for (const bake of byThreshold.values()) bake.texture.destroy(true);
     }
@@ -457,6 +550,22 @@ export class TextureCache {
     // After the views minted on their pages.
     this.erasedFrames.clear();
   }
+}
+
+/** `frame` coloured through `palette` onto a canvas page of its own, marked as pixel art like its
+ *  atlas page; null without a 2d context. */
+function colouredCopy(page: RecolouredPageSource, frame: AtlasFrame, palette: Uint8Array): Texture | null {
+  if (frame.width <= 0 || frame.height <= 0) return null;
+  const ctx = readable2dContext(frame.width, frame.height);
+  if (ctx === null) return null;
+  const image = ctx.createImageData(frame.width, frame.height);
+  colourRecolouredFrame(page, frame, palette, image.data);
+  ctx.putImageData(image, 0, 0);
+  const source = new CanvasSource({ resource: ctx.canvas, scaleMode: page.scaleMode });
+  markPixelArtSource(source);
+  const texture = new Texture({ source });
+  markMagnifiedTexture(texture);
+  return texture;
 }
 
 /**
@@ -470,13 +579,11 @@ function bakeRevealCanvas(
   times: BuildTimeSheet,
   threshold: number,
 ): OffscreenCanvas | HTMLCanvasElement | null {
-  const resource: unknown = source.resource;
-  if (!isDrawableResource(resource)) return null;
   const ctx = readable2dContext(frame.width, frame.height);
   if (ctx === null) return null;
   try {
-    ctx.drawImage(resource, frame.x, frame.y, frame.width, frame.height, 0, 0, frame.width, frame.height);
-    const img = ctx.getImageData(0, 0, frame.width, frame.height);
+    const img = frameImageData(ctx, source, frame, 0, 0);
+    if (img === null) return null;
     const data = img.data;
     for (let y = 0; y < frame.height; y++) {
       const sheetRow = (frame.y + y) * times.width + frame.x;

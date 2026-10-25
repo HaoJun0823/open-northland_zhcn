@@ -32,7 +32,9 @@ const PLAYER_KEYS = 256;
 const SEXES = 2;
 /** Past this many changed humans in one flush, one whole upload beats per-human uploads. */
 const WHOLE_UPLOAD_HUMANS = 256;
-const LUT_WIDTH = 256;
+/** A palette LUT's width: one texel per palette index. */
+export const PALETTE_LUT_WIDTH = 256;
+const LUT_WIDTH = PALETTE_LUT_WIDTH;
 const RGBA = 4;
 const RGB = 3;
 const OPAQUE = 255;
@@ -51,6 +53,8 @@ export interface HumanPaletteLutStats {
   wholeUploads: number;
   /** Shared fallback rows handed out, one per call, while every private row was drawn this frame or last. */
   sharedFallbacks: number;
+  /** Recoloured palettes past the fixed rows, drawn through the first fixed row instead. */
+  fixedOverflows: number;
 }
 
 /** The armor recipe join: worn armor `goodType` to its `TArmorType`, and the soldier jobs, which apply
@@ -177,7 +181,18 @@ export function registerHumanPaletteUploader(): void {
  * pair. Rows go to whoever asks first and return once their human has missed a whole frame.
  */
 export class HumanPaletteLut implements PaletteLut {
-  readonly stats: HumanPaletteLutStats = { composed: 0, rowUploads: 0, wholeUploads: 0, sharedFallbacks: 0 };
+  readonly stats: HumanPaletteLutStats = {
+    composed: 0,
+    rowUploads: 0,
+    wholeUploads: 0,
+    sharedFallbacks: 0,
+    fixedOverflows: 0,
+  };
+  /** The recoloured palettes in fixed-row order, kept to write them again after a resize. */
+  private readonly fixedPalettes: Uint8Array[] = [];
+  private readonly fixedIndex = new Map<Uint8Array, number>();
+  /** Row pairs reserved for recoloured stem palettes, between the private humans and the shared ones. */
+  private readonly fixedSlots: number;
   private rows: number;
   private readonly rowSource: HumanPaletteRowsSource;
   private buffer: Uint8Array;
@@ -199,20 +214,24 @@ export class HumanPaletteLut implements PaletteLut {
   /** A sweep this frame found every private row drawn lately, so the rest of the frame skips it. */
   private exhausted = false;
 
+  /** `fixedRows`: rows reserved for recoloured stem palettes ({@link fixedRow}), one a stem. */
   constructor(
     readonly book: HumanPaletteBook,
     readonly armor: HumanArmorPalettes,
     rows = HUMAN_LUT_ROWS,
+    fixedRows = 0,
   ) {
+    this.fixedSlots = Math.ceil(fixedRows / ROWS_PER_HUMAN);
     this.rows = evenRows(rows);
     this.buffer = new Uint8Array(this.rows * ROW_BYTES);
     this.rowSource = new HumanPaletteRowsSource(this.buffer, this.rows, this.stats);
     this.sharedIdentity = createHumanPaletteIdentity({ body: '', head: '', random: [] });
   }
 
-  /** The row count that gives `humans` humans a private row pair each, for a LUT sized to a known cast. */
-  static rowsFor(humans: number): number {
-    return (humans + SHARED_HUMANS + TEAM_HUMANS) * ROWS_PER_HUMAN;
+  /** The row count that gives `humans` humans a private row pair each, beside `fixedRows` recoloured
+   *  palettes, for a LUT sized to a known cast. */
+  static rowsFor(humans: number, fixedRows = 0): number {
+    return (humans + Math.ceil(fixedRows / ROWS_PER_HUMAN) + SHARED_HUMANS + TEAM_HUMANS) * ROWS_PER_HUMAN;
   }
 
   get source(): TextureSource {
@@ -238,6 +257,40 @@ export class HumanPaletteLut implements PaletteLut {
     this.sharedHand = 0;
     this.exhausted = false;
     this.rowSource.replaceRows(this.buffer, rows);
+    // The fixed rows move with the private ones; a renderer fits the LUT before it mints a view.
+    for (const [index, palette] of this.fixedPalettes.entries()) this.writeFixed(index, palette);
+  }
+
+  /**
+   * The row of a recoloured stem's palette (256 RGB entries), written on first ask, one row per stem.
+   * The row moves with a resize.
+   */
+  fixedRow(palette: Uint8Array): number {
+    let index = this.fixedIndex.get(palette);
+    if (index === undefined) {
+      if (this.fixedPalettes.length >= this.fixedSlots * ROWS_PER_HUMAN) {
+        if (this.stats.fixedOverflows++ === 0) warnFixedOverflow(this.fixedSlots * ROWS_PER_HUMAN);
+        index = 0;
+      } else {
+        index = this.fixedPalettes.length;
+        this.fixedPalettes.push(palette);
+        this.writeFixed(index, palette);
+        // Uploaded before the next draw, whichever layer asks: a sign sheet first drawn after the sprite
+        // pool's flush must not read a zero row.
+        this.rowSource.update();
+      }
+      this.fixedIndex.set(palette, index);
+    }
+    return this.fixedStartRow + index;
+  }
+
+  private get fixedStartRow(): number {
+    return this.privateSlots * ROWS_PER_HUMAN;
+  }
+
+  private writeFixed(index: number, palette: Uint8Array): void {
+    writeRow(this.buffer, this.fixedStartRow + index, palette);
+    this.rowSource.markDirty(this.privateSlots + Math.floor(index / ROWS_PER_HUMAN));
   }
 
   /** Start a frame: rows asked for from here on count as drawn in it. */
@@ -266,7 +319,7 @@ export class HumanPaletteLut implements PaletteLut {
    */
   teamRow(player: number): number {
     const team = player % TEAM_HUMANS;
-    const slot = this.privateSlots + SHARED_HUMANS + team;
+    const slot = this.sharedStart + SHARED_HUMANS + team;
     if (this.teams[team] !== player) {
       this.teams[team] = player;
       this.book.composeTeam(player, this.scratch);
@@ -281,7 +334,12 @@ export class HumanPaletteLut implements PaletteLut {
   }
 
   private get privateSlots(): number {
-    return this.rows / ROWS_PER_HUMAN - SHARED_HUMANS - TEAM_HUMANS;
+    return this.rows / ROWS_PER_HUMAN - this.fixedSlots - SHARED_HUMANS - TEAM_HUMANS;
+  }
+
+  /** The first shared fallback slot, past the private humans and the fixed rows. */
+  private get sharedStart(): number {
+    return this.privateSlots + this.fixedSlots;
   }
 
   private keep(entry: Entry, identity: HumanPaletteIdentity): number {
@@ -350,7 +408,7 @@ export class HumanPaletteLut implements PaletteLut {
       (this.lookId(identity.look) * PLAYER_KEYS + identity.player) * SEXES + Number(identity.female);
     const held = this.shared.get(key);
     if (held !== undefined) return this.keep(held, fallback);
-    const first = this.privateSlots;
+    const first = this.sharedStart;
     let slot = first + this.sharedHand;
     for (let n = 0; n < SHARED_HUMANS; n++) {
       const candidate = first + ((this.sharedHand + n) % SHARED_HUMANS);
@@ -385,6 +443,13 @@ export class HumanPaletteLut implements PaletteLut {
     this.rowSource.markDirty(slot);
     this.stats.composed++;
   }
+}
+
+/** A LUT with too few fixed rows draws further recoloured stems in the first stem's colours; said once. */
+export function warnFixedOverflow(rows: number): void {
+  console.warn(
+    `recolour LUT: all ${rows} fixed rows are taken; further recoloured stems draw through the first row's palette`,
+  );
 }
 
 function evenRows(rows: number): number {

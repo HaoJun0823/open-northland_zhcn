@@ -1,4 +1,4 @@
-import { HumanPalettes } from '@open-northland/data';
+import { type BobAtlasSet, HumanPalettes } from '@open-northland/data';
 import { type CharacterPalette, HumanPaletteBook, HumanPaletteLut } from '@open-northland/render';
 import type { ContentIr } from '../ir/rows.js';
 import { DEFAULT_PALETTE, lookFrom } from '../settler-gfx/index.js';
@@ -23,15 +23,29 @@ function parentJobs(ir: ContentIr | null): ReadonlyMap<number, number> {
   return parents;
 }
 
-/** The human palette LUT the world draws every indexed human through, over {@link humanPaletteBook}. */
-export function humanPaletteLut(ir: ContentIr | null): HumanPaletteLut | undefined {
+/** Headroom over the served paletted stems: a development hot reload registers a stem's palette
+ *  again, and each registration takes a row. */
+const RECOLOUR_ROW_HEADROOM = 1.25;
+
+/** The LUT rows the served pack's recoloured stems need, one a stem, with {@link RECOLOUR_ROW_HEADROOM}. */
+export function recolourRows(set: BobAtlasSet | null): number {
+  let stems = 0;
+  for (const entry of Object.values(set?.stems ?? {})) if (entry.palette !== undefined) stems++;
+  return Math.ceil(stems * RECOLOUR_ROW_HEADROOM);
+}
+
+/** The human palette LUT the world draws every indexed human through, over {@link humanPaletteBook},
+ *  with `fixedRows` rows for the recoloured stems ({@link recolourRows}). */
+export function humanPaletteLut(ir: ContentIr | null, fixedRows: number): HumanPaletteLut | undefined {
   const book = humanPaletteBook(ir);
   return book === undefined
     ? undefined
-    : new HumanPaletteLut(book, {
-        tierByGood: armorTiersByGood(ir),
-        soldierJobs: soldierJobs(ir),
-      });
+    : new HumanPaletteLut(
+        book,
+        { tierByGood: armorTiersByGood(ir), soldierJobs: soldierJobs(ir) },
+        undefined,
+        fixedRows,
+      );
 }
 
 /** The palettes of `tribe`'s first `[jobbasegraphics]` look drawn on `bodyBmd`, for a viewer that shows a

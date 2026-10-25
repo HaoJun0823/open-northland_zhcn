@@ -70,7 +70,7 @@ export class ConstructionSignLayer {
           const sheet = sheetFor(gfx, player);
           if (sheet === undefined) continue;
           const [frame] = sheet.loopByKind.construction;
-          const node = new Sprite(gfx.textures.get(sheet.source, frame));
+          const node = new Sprite(gfx.textures.colouredView(sheet.source, frame));
           // The frame's authored draw offset, applied via pivot so `position` stays the door point.
           node.pivot.set(-frame.offsetX, -frame.offsetY);
           this.container.addChild(node);

@@ -69,8 +69,8 @@ async function writeAtlasImage(outDir: string, image: RgbaImage, paletted = fals
 /**
  * One recolour of a bob set that other recolours share: the indexed atlas
  * (`packIndexedBobAtlas`, with the alpha options the RGB bake would take) and this stem's palette. It
- * is served as the shared indexed sheet (an `index-coverage-png`) plus the palette, which the app
- * colours at load, so the bob set's recolours cost one sheet.
+ * is served as the shared indexed sheet (an `index-coverage-png`) plus the palette, which the app draws
+ * the sheet through, so the bob set's recolours cost one sheet.
  */
 export interface PalettedBobAtlas {
   readonly indexed: BobAtlas;

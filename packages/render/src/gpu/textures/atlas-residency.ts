@@ -95,22 +95,28 @@ function evictStalePages(): void {
   for (const page of residency.victims(performance.now())) page.unload();
 }
 
+/** Counts an uploaded page against the budget, queueing the eviction of stale pages past it. Every
+ *  atlas page uploader calls it after its upload. */
+export function admitResidentPage(source: TextureSource): void {
+  if (!residentPages.has(source)) {
+    residentPages.add(source);
+    source.once('unload', () => {
+      residentPages.delete(source);
+      residency.forget(source);
+    });
+  }
+  if (residency.admit(source, pageBytes(source)) && !evictionQueued) {
+    evictionQueued = true;
+    setTimeout(evictStalePages, 0);
+  }
+}
+
 /** Pixi's image upload, then the budget check. */
 const ATLAS_PAGE_UPLOADER: GLTextureUploader = {
   id: UPLOAD_METHOD,
   upload(source, glTexture, gl, webGLVersion, targetOverride, forceAllocation) {
     glUploadImageResource.upload(source, glTexture, gl, webGLVersion, targetOverride, forceAllocation);
-    if (!residentPages.has(source)) {
-      residentPages.add(source);
-      source.once('unload', () => {
-        residentPages.delete(source);
-        residency.forget(source);
-      });
-    }
-    if (residency.admit(source, pageBytes(source)) && !evictionQueued) {
-      evictionQueued = true;
-      setTimeout(evictStalePages, 0);
-    }
+    admitResidentPage(source);
   },
 };
 

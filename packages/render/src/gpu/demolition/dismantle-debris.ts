@@ -9,7 +9,8 @@ import {
 } from '../../data/effects/dismantle-debris.js';
 import { frac } from '../../data/effects/random.js';
 import type { DamageEffectTextures } from '../building-damage/effect-textures.js';
-import { isDrawableResource, type readable2dContext } from '../textures/drawable-resource.js';
+import type { readable2dContext } from '../textures/drawable-resource.js';
+import { drawableTexture } from '../textures/recoloured-pages.js';
 import { worldBatched } from '../world-batch/batcher.js';
 
 /** Retained, ordinary world-batched chips and local dust. No per-frame geometry or pixel readbacks. */
@@ -31,12 +32,12 @@ export class DismantleDebris {
     ctx: ReturnType<typeof readable2dContext>,
   ): void {
     const { width, height } = view;
-    const resource: unknown = view.source.resource;
-    if (ctx === null || !isDrawableResource(resource) || width > 1024 || height > 1024) return;
+    const drawable = drawableTexture(view);
+    if (ctx === null || drawable === null || width > 1024 || height > 1024) return;
     let pixels: Uint8ClampedArray;
     try {
       ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(resource, view.frame.x, view.frame.y, width, height, 0, 0, width, height);
+      ctx.drawImage(drawable.image, drawable.x, drawable.y, width, height, 0, 0, width, height);
       pixels = ctx.getImageData(0, 0, width, height).data;
     } catch {
       return;

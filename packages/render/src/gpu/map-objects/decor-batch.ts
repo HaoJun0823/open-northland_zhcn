@@ -4,6 +4,7 @@ import { aabbIntersects, screenToCell, TILE_HALF_W, type Viewport } from '../../
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { PAGE_SAMPLER_SLOTS } from '../terrain/page-samplers.js';
 import { type DecorCoverBinding, makeShadedDecorShader } from '../terrain/shading.js';
+import { recolourOf } from '../textures/recoloured-pages.js';
 import { SHADOW_BLUR_PADDING } from '../textures/soft-shadow-cache.js';
 import { updateByteRange } from '../world-batch/attribute-buffer.js';
 import { CLIP_FLOATS, CLIP_SCALE, type DecorClipBinding, NO_CLIP } from './decor-clip.js';
@@ -37,6 +38,10 @@ function laneMargin(lane: DecorLane): number {
 }
 
 const FLOATS_PER_QUAD = 8;
+/** The LUT row of a quad of a coloured page. */
+const NO_LUT_ROW = -1;
+/** The brightness of a quad shaded only to be recoloured, which draws its texel as a plain mesh. */
+const PLAIN_QUAD = -1;
 const VERTICES_PER_QUAD = 4;
 /** `aFrame` is a vec4 per vertex: the frame's min and max texel corner. */
 const FRAME_BOUND_FLOATS = 4;
@@ -109,6 +114,20 @@ export interface DecorBatchStyle {
   readonly shadow: DecorShadowUniforms;
   readonly cover: DecorCoverBinding;
   readonly clips: DecorClipBinding;
+  readonly recolour: DecorRecolour;
+}
+
+/** How a recoloured stem's decor reads its colours: the LUT, and each frame's row of it
+ *  ({@link NO_LUT_ROW} for a frame of a coloured page). */
+export interface DecorRecolour {
+  lut(): TextureSource;
+  rowOf(source: TextureSource, frame: AtlasFrame): number;
+}
+
+/** The LUT row an object's body draws through, -1 for none; every frame of an object is one stem's. */
+function bodyRow(obj: MapObjectSprite, recolour: DecorRecolour): number {
+  const frame = obj.frames[0];
+  return frame === undefined ? -1 : recolour.rowOf(obj.source, frame);
 }
 
 /** The objects of one page on one lane that draw together, still or animated. */
@@ -118,10 +137,17 @@ interface BatchSpec {
   readonly moving: boolean;
 }
 
+/** Whether any of a body batch's objects carries a brightness of its own. */
+const lit = (objects: readonly MapObjectSprite[]): boolean =>
+  objects.some((obj) => obj.brightness !== undefined);
+
 /** Whether a lane batch draws through a paged shader, which lets it share a mesh with other pages: every
- *  cast shadow does, and a body with any per-object brightness takes the shaded ground shader. */
-function paged(lane: DecorLane, objects: readonly MapObjectSprite[]): boolean {
-  return lane === 'shadow' || objects.some((obj) => obj.brightness !== undefined);
+ *  cast shadow does, and a body with any per-object brightness takes the shaded ground shader, as does
+ *  a recoloured body, which only that shader colours. */
+function paged(lane: DecorLane, objects: readonly MapObjectSprite[], recolour: DecorRecolour): boolean {
+  if (lane === 'shadow' || lit(objects)) return true;
+  const first = objects[0];
+  return first !== undefined && bodyRow(first, recolour) >= 0;
 }
 
 /** One mesh's buffers, filled run batch by run batch. A paged mesh carries every quad's feet and clip,
@@ -132,6 +158,8 @@ interface RunBuffers {
   readonly frameBounds: Float32Array | null;
   readonly indices: Uint32Array;
   readonly brightness: Float32Array | null;
+  /** Each body quad's LUT row, -1 for a coloured page. */
+  readonly lutRows: Float32Array | null;
   readonly anchors: Float32Array | null;
   readonly pages: Float32Array | null;
   readonly clips: Float32Array | null;
@@ -154,7 +182,7 @@ function buildRun(
   placed: (obj: MapObjectSprite, quad: DecorQuadRef) => void,
 ): void {
   const quads = run.reduce((n, spec) => n + spec.objects.length, 0);
-  const isPaged = run.every((spec) => paged(lane, spec.objects));
+  const isPaged = run.every((spec) => paged(lane, spec.objects, style.recolour));
   const shaded = lane === 'body' && isPaged;
   const buffers: RunBuffers = {
     positions: new Float32Array(quads * FLOATS_PER_QUAD),
@@ -162,6 +190,7 @@ function buildRun(
     frameBounds: lane === 'shadow' ? new Float32Array(quads * FRAME_FLOATS_PER_QUAD) : null,
     indices: new Uint32Array(quads * 6),
     brightness: shaded ? new Float32Array(quads * VERTICES_PER_QUAD) : null,
+    lutRows: shaded ? new Float32Array(quads * VERTICES_PER_QUAD).fill(NO_LUT_ROW) : null,
     anchors: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD * ANCHOR_FLOATS) : null,
     pages: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD) : null,
     clips: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD * CLIP_FLOATS) : null,
@@ -187,7 +216,7 @@ function buildRun(
       pageW: spec.source.width,
       pageH: spec.source.height,
     };
-    writeBatch(spec, views, buffers, base, pages.indexOf(spec.source), lane);
+    writeBatch(spec, views, buffers, base, pages.indexOf(spec.source), lane, style.recolour);
     let animBatch: AnimatedDecorBatch | null = null;
     let clipBatch: ClipDecorBatch | null = null;
     if (spec.moving && buffers.clips !== null) {
@@ -219,6 +248,7 @@ function buildRun(
     base += spec.objects.length;
   }
   if (buffers.brightness !== null) geometry.addAttribute('aBrightness', { buffer: buffers.brightness });
+  if (buffers.lutRows !== null) geometry.addAttribute('aLutRow', { buffer: buffers.lutRows });
   if (buffers.anchors !== null)
     geometry.addAttribute('aAnchor', { buffer: buffers.anchors, format: 'float32x2' });
   if (buffers.frameBounds !== null) geometry.addAttribute('aFrame', { buffer: buffers.frameBounds });
@@ -229,7 +259,10 @@ function buildRun(
   if (lane === 'shadow')
     mesh = new Mesh({ geometry, shader: makeDecorShadowShader(pages, style.shadow, style.clips) });
   else if (shaded)
-    mesh = new Mesh({ geometry, shader: makeShadedDecorShader(pages, style.cover, style.clips) });
+    mesh = new Mesh({
+      geometry,
+      shader: makeShadedDecorShader(pages, style.cover, style.clips, style.recolour.lut()),
+    });
   else mesh = new Mesh({ geometry, texture: new Texture({ source: pages[0] ?? Texture.EMPTY.source }) });
   container.addChild(mesh);
 }
@@ -287,8 +320,11 @@ function writeBatch(
   base: number,
   page: number,
   lane: DecorLane,
+  recolour: DecorRecolour,
 ): void {
   const { objects } = spec;
+  // A batch shaded only to be recoloured draws its texels as the plain mesh it was: brightness -1.
+  const plain = !lit(objects);
   for (let q = 0; q < objects.length; q++) {
     const quad = base + q;
     // Indexed whatever the pose holds: a quad without a frame stays degenerate until a rewrite fills it.
@@ -307,10 +343,16 @@ function writeBatch(
         buffers.anchors[a + 1] = obj.y - (obj.lift ?? 0);
       }
     }
+    // Before the pose check: a quad without a tick-0 frame keeps its row for the frames a rewrite gives it.
+    buffers.lutRows?.fill(bodyRow(obj, recolour), quad * VERTICES_PER_QUAD, (quad + 1) * VERTICES_PER_QUAD);
     const frame = laneFrameAt(obj, lane, 0);
     if (frame === undefined) continue;
     writeObjectQuad(views, q, obj, frame, laneMargin(lane));
-    buffers.brightness?.fill(obj.brightness ?? 1, quad * VERTICES_PER_QUAD, (quad + 1) * VERTICES_PER_QUAD);
+    buffers.brightness?.fill(
+      plain ? PLAIN_QUAD : (obj.brightness ?? 1),
+      quad * VERTICES_PER_QUAD,
+      (quad + 1) * VERTICES_PER_QUAD,
+    );
   }
 }
 
@@ -507,14 +549,21 @@ function buildLane(
   animation: ChunkAnimation,
   placed: (obj: MapObjectSprite, quad: DecorQuadRef) => void,
 ): void {
-  const bySource = new Map<TextureSource, { still: MapObjectSprite[]; moving: MapObjectSprite[] }>();
+  // One group per page, and per stem on a recoloured page: each stem's quads draw together, in the
+  // order the stems first appear in the block.
+  const groups = new Map<
+    object,
+    { source: TextureSource; still: MapObjectSprite[]; moving: MapObjectSprite[] }
+  >();
   for (const obj of block) {
     const source = laneSource(obj, lane);
     if (source === undefined) continue;
-    let group = bySource.get(source);
+    const first = lane === 'body' ? obj.frames[0] : undefined;
+    const key = (first === undefined ? undefined : recolourOf(first)) ?? source;
+    let group = groups.get(key);
     if (group === undefined) {
-      group = { still: [], moving: [] };
-      bySource.set(source, group);
+      group = { source, still: [], moving: [] };
+      groups.set(key, group);
     }
     (obj.frames.length > 1 ? group.moving : group.still).push(obj);
   }
@@ -525,11 +574,12 @@ function buildLane(
     run = [];
     pages = [];
   };
-  for (const [source, group] of bySource) {
+  for (const group of groups.values()) {
+    const { source } = group;
     for (const objects of [group.still, group.moving]) {
       if (objects.length === 0) continue;
       const spec: BatchSpec = { source, objects, moving: objects === group.moving };
-      if (!paged(lane, objects)) {
+      if (!paged(lane, objects, style.recolour)) {
         flush();
         buildRun([spec], [source], lane, style, container, animation, placed);
         continue;

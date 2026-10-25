@@ -1,8 +1,10 @@
 import { type BobAtlasGeometry, decodeAtlasFrames } from '@open-northland/data';
+import { decodeAtlasPalette } from '@open-northland/formats/atlas/paletted-sheet';
 import {
   type AtlasSheetLayout,
   type BuildTimeSheet,
   indexAtlasFrames,
+  registerRecolouredFrames,
   type SpriteAtlas,
   type SpriteLayer,
 } from '@open-northland/render';
@@ -31,29 +33,46 @@ const layerBodies = new Map<string, Promise<SpriteLayer>>();
 /** Layers whose sheet could not be coloured: they draw nothing and the next caller tries again. */
 const degradedLayers = new WeakSet<SpriteLayer>();
 
-/** Indexed frames by geometry, then by the page they cut. The renderer keys its texture views by frame
- *  object, so a frame belongs to one page: palette twins share a geometry but each colours its own page,
- *  and stems sharing a page (one RGB sheet) share frames. */
-const atlasByGeometry = new WeakMap<BobAtlasGeometry, WeakMap<TextureSource, SpriteAtlas>>();
+/** Indexed frames by geometry, then by the page they cut, then by recoloured stem. The renderer keys its
+ *  texture views by frame object, so a frame names one page and one stem: palette twins share a geometry
+ *  and a recoloured page but each has its own frames (even twins with equal palettes, whose sprite use
+ *  the renderer tracks per stem), and stems sharing an RGB sheet share frames. */
+const atlasByGeometry = new WeakMap<BobAtlasGeometry, WeakMap<TextureSource, Map<string, SpriteAtlas>>>();
+/** The stem key of frames drawn without a palette. */
+const NO_PALETTE = '';
 
-function spriteAtlasOf(geometry: BobAtlasGeometry, source: TextureSource): SpriteAtlas {
+/** `recolour`: the stem and its palette when the page is a recoloured one. */
+function spriteAtlasOf(
+  geometry: BobAtlasGeometry,
+  source: TextureSource,
+  recolour?: { readonly stem: string; readonly palette: string },
+): SpriteAtlas {
   let byPage = atlasByGeometry.get(geometry);
   if (byPage === undefined) {
     byPage = new WeakMap();
     atlasByGeometry.set(geometry, byPage);
   }
-  let atlas = byPage.get(source);
+  let byStem = byPage.get(source);
+  if (byStem === undefined) {
+    byStem = new Map();
+    byPage.set(source, byStem);
+  }
+  const key = recolour?.stem ?? NO_PALETTE;
+  let atlas = byStem.get(key);
   if (atlas === undefined) {
     atlas = indexAtlasFrames(geometry.width, geometry.height, decodeAtlasFrames(geometry));
-    byPage.set(source, atlas);
+    if (recolour !== undefined) {
+      registerRecolouredFrames(atlas.frames.values(), decodeAtlasPalette(recolour.palette));
+    }
+    byStem.set(key, atlas);
   }
   return atlas;
 }
 
 /**
- * One decoded atlas body (the stem's entry in `bobs/atlases.json` and the sheet it names, coloured
- * through the stem's palette when it names one). A sheet that cannot be coloured leaves an empty page,
- * so the stem draws nothing. A stem with a `buildImage` also reads that time sheet CPU-side for the
+ * One decoded atlas body (the stem's entry in `bobs/atlases.json` and the sheet it names; a paletted
+ * stem draws the shared recoloured page through its own palette). A sheet that cannot be read leaves an
+ * empty page, so the stem draws nothing. A stem with a `buildImage` also reads that time sheet CPU-side for the
  * per-pixel construction-reveal thresholds, degrading to the crop reveal when unreadable.
  */
 async function fetchLayerBody(stem: string, layout: AtlasSheetLayout): Promise<SpriteLayer> {
@@ -72,7 +91,12 @@ async function fetchLayerBody(stem: string, layout: AtlasSheetLayout): Promise<S
   ]);
   const page = source ?? Texture.EMPTY.source;
   const layer = {
-    atlas: spriteAtlasOf(geometry, page),
+    // An empty page stands in for a sheet that could not be read; it has no palette to draw through.
+    atlas: spriteAtlasOf(
+      geometry,
+      page,
+      source === undefined || sheet.palette === undefined ? undefined : { stem, palette: sheet.palette },
+    ),
     source: page,
     ...(times !== undefined ? { times } : {}),
   };

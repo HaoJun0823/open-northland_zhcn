@@ -75,6 +75,7 @@ export const gathererFlagFollowScene: SceneDefinition = {
   id: 'gatherer-flag-follow',
   seed: 71,
   terrain: grassTerrain(WIDTH, HEIGHT),
+  initialZoom: 1.5,
   build: (sim) => {
     if (WOOD === undefined) throw new Error('gatherer-flag-follow: no wood gatherer spec');
     for (const at of [...NEAR_TREES, ...GROVE]) placeResourceNode(sim, WOOD, at.x, at.y);
@@ -82,9 +83,24 @@ export const gathererFlagFollowScene: SceneDefinition = {
     const flag: Entity = placeFlag(sim, FLAG_AT.x, FLAG_AT.y);
     spawnBoundGatherer(sim, WOOD.job, FLAG_AT.x, FLAG_AT.y + 1, flag);
     sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: HUMAN_PLAYER, enabled: true });
+    // Stationary colour samples have no worker, so the moving-flag exercise leaves both rows intact.
+    for (let player = 0; player < 10; player++) {
+      const sample = placeFlag(sim, 2 + (player % 5) * 2, player < 5 ? 12 : 15);
+      sim.world.add(sample, components.Owner, { player });
+    }
   },
   runTicks: RUN_TICKS,
   checks: [
+    {
+      label: 'all ten stationary flag colours remain available for comparison',
+      predicate: (sim) => {
+        const colours = new Set<number>();
+        for (const flag of sim.world.query(components.DeliveryFlag, components.Owner)) {
+          colours.add(sim.world.get(flag, components.Owner).player);
+        }
+        return colours.size === 10;
+      },
+    },
     {
       label: 'the flag has moved beside the grove',
       predicate: (sim) => {

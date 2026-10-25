@@ -174,19 +174,26 @@ describe('FogGhostStore', () => {
 
   it('remembers walls, gates and wall sites drawn as they last stood, posts and shifts included', () => {
     const row = 10;
-    const tileOf = (hx: number) => {
-      const { x, y } = positionOfNode(hx, row);
+    const columnX = 20;
+    const columnRows = [9, 10, 11, 12];
+    const tileOf = (hx: number, hy = row) => {
+      const { x, y } = positionOfNode(hx, hy);
       return { x: x / ONE, y: y / ONE };
     };
-    const wall = (id: number, hx: number, marker: Record<string, unknown> = {}) =>
-      entity(id, tileOf(hx).x, tileOf(hx).y, {
+    const wall = (id: number, hx: number, marker: Record<string, unknown> = {}, hy = row) =>
+      entity(id, tileOf(hx, hy).x, tileOf(hx, hy).y, {
         Palisade: { gfxIndex: 691, tribe: 1, built: ONE },
         ...marker,
       });
+    const column = columnRows.map((hy, i) => wall(7 + i, columnX, {}, hy));
+    const nodes = [
+      ...[6, 7, 8, 10, 12, 16].map((hx) => tileOf(hx)),
+      ...columnRows.map((hy) => tileOf(columnX, hy)),
+    ];
     const cellsIn = (state: number) =>
       new Map(
-        [6, 7, 8, 10, 12, 16].map((hx) => {
-          const { cx, cy } = fogCellOfTile(tileOf(hx).x, tileOf(hx).y);
+        nodes.map(({ x, y }) => {
+          const { cx, cy } = fogCellOfTile(x, y);
           return [`${cx},${cy}`, state] as const;
         }),
       );
@@ -203,11 +210,11 @@ describe('FogGhostStore', () => {
       Palisade: { gfxIndex: 691, tribe: 1, built: 0, reservation: 9 },
       UnderConstruction: {},
     });
-    const snapshot = snapshotOf([wall(1, 6), wall(2, 7), wall(3, 8), gate, wall(5, 12), site]);
+    const snapshot = snapshotOf([wall(1, 6), wall(2, 7), wall(3, 8), gate, wall(5, 12), site, ...column]);
     const store = new FogGhostStore();
     store.update(snapshot, viewOf(cellsIn(FOG_STATE.VISIBLE), 1));
     store.update(snapshot, viewOf(cellsIn(FOG_STATE.EXPLORED), 2));
-    expect(drawn(store).map((g) => g.kind)).toEqual(Array(6).fill('palisade'));
+    expect(drawn(store).map((g) => g.kind)).toEqual(Array(10).fill('palisade'));
 
     const drawnFields = (items: readonly SpriteDrawItem[]) =>
       items.map(({ ref, x, y, gfxIndex, palisadePosts, palisadeSite }) => ({
@@ -223,6 +230,9 @@ describe('FogGhostStore', () => {
     // The comparison covers what a bare post would lose.
     expect(live.some((item) => (item.palisadePosts?.length ?? 0) > 0)).toBe(true);
     expect(live.find((item) => item.ref === 4)?.x).toBe(tileToScreen(tileOf(10).x, tileOf(10).y).x);
+    // A column wall draws shifted off its node, and its ghost with it.
+    const columnTop = tileOf(columnX, columnRows[0]);
+    expect(live.find((item) => item.ref === 7)?.x).not.toBe(tileToScreen(columnTop.x, columnTop.y).x);
     expect(live.find((item) => item.ref === 6)?.palisadeSite).toBe('claimed');
   });
 

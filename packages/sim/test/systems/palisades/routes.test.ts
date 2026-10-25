@@ -857,7 +857,8 @@ describe('an attack-move against a sealed palisade', () => {
     const target = sim.world.tryGet(raider, AttackOrder)?.target;
     if (target === undefined) throw new Error('expected the raider to go for the wall');
     expect(sim.world.has(target, Palisade)).toBe(true);
-    expect(nodeRow(sim, raider).hy).toBeLessThan(WALL_ROW);
+    // Still on its own side: three quarters along it reads the post, but never crosses the wall's row.
+    expect(sim.world.get(raider, Position).y).toBeLessThan(post.y);
   });
 
   it('walks a whole squad through the first post to fall', () => {

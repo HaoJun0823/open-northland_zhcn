@@ -1,3 +1,4 @@
+import { halfCellToScreen, TILE_HALF_H, TILE_HALF_W } from '@open-northland/render';
 import { linkedPosts, overlayPostsWithin, signpostOverlayIndex } from '@open-northland/render/data';
 import {
   components,
@@ -25,6 +26,7 @@ function post(id: number, hx: number, hy: number, links: number[] = [], player =
 }
 
 const VIEW = { minX: 0, minY: 0, maxX: 10, maxY: 20 };
+const MAP = { width: 100, height: 100 };
 
 describe('signpost map overlay', () => {
   it('pans retained geometry and never outlines the viewport cut through a covered area', () => {
@@ -143,12 +145,12 @@ describe('signpost map overlay', () => {
   });
 
   it('joins coverage patches along a slope and rejects zoomed patches spilling onto unknown ground', () => {
-    const point = (hx: number, hy: number) => ({ x: hx * 34, y: hy * 19 - (200 - 5 * hy) });
-    const above = overlayPatchPoints(20, 20, 1, { width: 100, height: 100 }, point);
-    const below = overlayPatchPoints(20, 21, 1, { width: 100, height: 100 }, point);
-    expect(above.slice(4, 6)).toEqual(below.slice(2, 4));
-    expect(above.slice(6, 8)).toEqual(below.slice(0, 2));
-    expect(above[5]).toBe(292);
+    const slope = (_x: number, y: number) => 200 - y / 4;
+    const above = overlayPatchPoints(20, 20, 1, MAP, slope);
+    const below = overlayPatchPoints(20, 21, 1, MAP, slope);
+    // The upper patch's bottom joint and right corner are the lower patch's top-left and top joint.
+    expect(above.slice(8, 10)).toEqual(below.slice(0, 2));
+    expect(above.slice(6, 8)).toEqual(below.slice(2, 4));
     const fog: FogView = {
       player: 0,
       mode: FOG_MODE.CLASSIC_FOG_OF_WAR,
@@ -160,6 +162,32 @@ describe('signpost map overlay', () => {
     expect(exploredOverlayPatch(fog, 20, 20, 1)).toBe(true);
     expect(exploredOverlayPatch(fog, 20, 20, 5)).toBe(false);
     expect(exploredOverlayPatch(null, 20, 20, 5)).toBe(true);
+  });
+
+  it('centres each coverage patch on its node and tiles the rows like bricks', () => {
+    const flat = () => 0;
+    for (const step of [1, 2, 3]) {
+      const patches: number[][] = [];
+      for (let hy = 0; hy <= 12 * step; hy += step)
+        for (let hx = 0; hx <= 12 * step; hx += step)
+          patches.push(overlayPatchPoints(hx, hy, step, MAP, flat));
+      // Row 0 is clipped at the map's top edge.
+      for (let hy = step; hy <= 12 * step; hy += step) {
+        const centre = halfCellToScreen(4 * step, hy);
+        const [x0 = 0, y0 = 0, , , x1 = 0, , , y1 = 0] = overlayPatchPoints(4 * step, hy, step, MAP, flat);
+        expect((x0 + x1) / 2).toBe(centre.x);
+        expect((y0 + y1) / 2).toBe(centre.y);
+      }
+      // Probe off the joint lines inside the patched span: each point lies in exactly one patch.
+      const quarter = TILE_HALF_W / 4;
+      for (let y = TILE_HALF_H; y < 10 * step * (TILE_HALF_H / 2); y += quarter + 0.3)
+        for (let x = TILE_HALF_W; x < 10 * step * TILE_HALF_W; x += quarter + 0.3) {
+          const holders = patches.filter(
+            ([x0 = 0, y0 = 0, , , x1 = 0, , , y1 = 0]) => x >= x0 && x < x1 && y >= y0 && y < y1,
+          );
+          expect(holders).toHaveLength(1);
+        }
+    }
   });
 
   it('draws one straight connection over hills and keeps fog gaps on that same line', () => {

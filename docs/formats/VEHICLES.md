@@ -351,8 +351,10 @@ Original behavior: every vehicle, a ship included, walks a column straight, as a
 route is found, each SE+SW, SW+SE, NW+NE or NE+NW pair ending in its start's column, begun more than
 three map points (hex distance) from the goal, becomes one SOUTH or NORTH step that skips the row
 between, faced S or N (`nav/pathfinding/straight-steps.ts`). The original checks only the step's
-destination; here a column step is also refused when both nodes of the row it skips are closed, so a
-vehicle never slips between two posts of a wall. Other vehicles route around parked vehicles' cells
+destination. Deviation: here a column step is also refused when both nodes of the row it skips are
+closed, a node counting closed when something blocks it, the vehicle may not stand on it, or the
+ground does not join it to both ends of the step (one off the map included), so a vehicle never slips
+between two posts of a wall or past water, a cliff or a closed edge. Other vehicles route around parked vehicles' cells
 where a way around exists and pass through them, as in the original, where none does; settlers walk through
 parked vehicles as in the original; the
 shove happens on entering a node only and sends a settler outside the discs of the whole remaining

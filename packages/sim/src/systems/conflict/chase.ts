@@ -20,8 +20,10 @@ import {
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
+import { nearestUnblockedNode } from '../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
+import { dynamicBlockOverlay } from '../footprint/index.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { structureRouteSealed } from '../movement/structure-route.js';
@@ -88,7 +90,19 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
   if (world.has(e, EquipOrder) || anyNeedPressing(world, ctx, e)) return;
   if (holdsStandIn(world, ctx, e, here, anchorCell)) return;
   clearNavState(world, e);
-  if (here !== anchorCell) world.add(e, MoveGoal, { cell: anchorCell });
+  const post = openPost(world, ctx, anchorCell);
+  if (here !== post) world.add(e, MoveGoal, { cell: post });
+}
+
+/** The node a guard walks back to for `anchorCell`: the anchor, or the nearest open node beside it when a
+ *  building or resource stands on it, as on a unit a map places on a mine deposit. No route ends on a
+ *  blocked node, so walking at the anchor itself would fail on every break-off. */
+function openPost(world: World, ctx: SystemContext, anchorCell: NodeId): NodeId {
+  const terrain = ctx.terrain;
+  if (terrain === undefined) return anchorCell;
+  const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  if (!blocked.has(anchorCell)) return anchorCell;
+  return nearestUnblockedNode(terrain, anchorCell, blocked) ?? anchorCell;
 }
 
 /** Whether `e` stands on the stand-in routing gave it beside `anchorCell` while a standing unit still holds

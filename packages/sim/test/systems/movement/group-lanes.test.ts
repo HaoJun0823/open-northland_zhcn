@@ -285,5 +285,10 @@ describe('army route lanes', () => {
     const atSpur = route.filter((node) => terrain.xOf(node) === spurX);
     expect(atSpur.length).toBeGreaterThan(0);
     expect(atSpur.every((node) => roadB.has(node))).toBe(true);
+    // Boarded, not searched: a member's own route crosses to the spur's foot and shares far less of B.
+    const fresh = findPath(terrain, terrain.nodeAt(4, 66), goal, blocked);
+    if (fresh === null) throw new Error('missing fresh route');
+    const onRoadB = (path: readonly NodeId[]): number => path.filter((node) => roadB.has(node)).length;
+    expect(onRoadB(route)).toBeGreaterThan(onRoadB(fresh));
   });
 });

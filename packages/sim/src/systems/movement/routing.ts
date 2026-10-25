@@ -51,7 +51,7 @@ import { GroupRoutes } from './group-routes.js';
 import { dropPath, liveStepEnd, restartLeg } from './nav-state.js';
 import { routeBoundsOf } from './route-bounds.js';
 import { type RouteMemo, routeMemoOf } from './route-memo.js';
-import { routeStartCell } from './route-start.js';
+import { grindStartCell, routeStartCell } from './route-start.js';
 import { settlerTraversal } from './traversal.js';
 import { beginWalkTurn } from './turning.js';
 
@@ -482,7 +482,7 @@ function startBesideBlocks(
 function movedSinceGrindAsk(world: World, terrain: TerrainGraph, e: Entity, start: NodeId): boolean {
   const p = world.tryGet(e, Position);
   if (p === undefined || !world.has(e, PathFollow)) return false;
-  return routeStartCell(terrain, p.x, p.y, settlerTraversal(world, e)) !== start;
+  return grindStartCell(world, terrain, e, p.x, p.y, settlerTraversal(world, e)) !== start;
 }
 
 /** A hold covers only the route a grind ask kept: any route routing installs asks at its next stall. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PathFollow, PathRoute, Position, Settler, type Waypoint } from '../../../src/components/index.js';
 import { type Entity, positionOfNode, Simulation } from '../../../src/index.js';
-import type { TerrainGraph } from '../../../src/nav/terrain/index.js';
+import type { NodeId, TerrainGraph } from '../../../src/nav/terrain/index.js';
 import { invalidateRoutesThrough } from '../../../src/systems/landscape/routes.js';
 import { moveUnit } from '../../../src/systems/orders/index.js';
 import { testContent } from '../../fixtures/content.js';
@@ -72,8 +72,13 @@ describe('a closing ahead of a walker', () => {
 describe('a closing beside a column step', () => {
   /** A person on a route straight down the column from (4,4): column steps to (4,10), then single edges. */
   const COLUMN_GOAL = { hx: 4, hy: 14 };
+  /** The two nodes the live first step, (4,4) to (4,6), passes between on row 5. */
+  const FIRST_STEP_MIDDLES = [
+    { hx: 3, hy: 5 },
+    { hx: 4, hy: 5 },
+  ];
 
-  it('stops the walker on the node before a column step when a node it passes between closes', () => {
+  function columnWalker(): { sim: Simulation; terrain: TerrainGraph; walker: Entity } {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(16, 20) });
     sim.enqueueSetup({ kind: 'spawnSettler', jobType: WOODCUTTER, x: 4, y: 4, tribe: VIKING, owner: OWNER });
     sim.step();
@@ -94,9 +99,46 @@ describe('a closing beside a column step', () => {
       [4, 6],
       [4, 8],
     ]);
+    return { sim, terrain, walker };
+  }
+
+  /** Step `sim` until the walker on its first column step stands before or past the skipped row 5. */
+  function walkUntil(sim: Simulation, walker: Entity, past: boolean): void {
+    const skipped = positionOfNode(4, 5).y;
+    for (let tick = 0; tick < 40; tick++) {
+      const at = sim.world.get(walker, Position).y;
+      if (past ? at > skipped : at > positionOfNode(4, 4).y) break;
+      sim.step();
+    }
+    const at = sim.world.get(walker, Position).y;
+    expect(sim.world.get(walker, PathFollow).index).toBe(1);
+    expect(past ? at > skipped : at < skipped).toBe(true);
+  }
+
+  const middleCells = (terrain: TerrainGraph): Set<NodeId> =>
+    new Set(FIRST_STEP_MIDDLES.map((n) => terrain.nodeAt(n.hx, n.hy)));
+
+  it('stops the walker on the node before a column step when a node it passes between closes', () => {
+    const { sim, terrain, walker } = columnWalker();
     sim.world.mut(walker, PathFollow).index = 1;
     // (3,7) is the west node between (4,6) and (4,8), on no stop of the route.
     invalidateRoutesThrough(sim.world, terrain, new Set([terrain.nodeAt(3, 7)]));
     expect(stops(sim, walker).map((stop) => stop.node)).toEqual([terrain.nodeAt(4, 4), terrain.nodeAt(4, 6)]);
+  });
+
+  it('turns a walker back to the step start when the row it has yet to pass closes', () => {
+    const { sim, terrain, walker } = columnWalker();
+    walkUntil(sim, walker, false);
+    invalidateRoutesThrough(sim.world, terrain, middleCells(terrain));
+    expect(stops(sim, walker).map((stop) => stop.node)).toEqual([terrain.nodeAt(4, 4)]);
+  });
+
+  it('lets a walker past the skipped row finish its step when that row closes behind it', () => {
+    const { sim, terrain, walker } = columnWalker();
+    walkUntil(sim, walker, true);
+    const before = stops(sim, walker);
+    invalidateRoutesThrough(sim.world, terrain, middleCells(terrain));
+    expect(stops(sim, walker)).toEqual(before);
+    expect(sim.world.get(walker, PathFollow).index).toBe(1);
   });
 });

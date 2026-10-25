@@ -342,13 +342,11 @@ class ResumableSearch {
 
 /**
  * The row of `next`, a step from the node on `row` whose row begins at id `rowStart`. A step spans at
- * most two rows, so comparing against row starts is `yOf` exactly, without its division.
+ * most one row, so comparing against row starts is `yOf` exactly, without its division.
  */
 function rowOfStep(next: number, rowStart: number, width: number, row: number): number {
-  if (next < rowStart) return next < rowStart - width ? row - 2 : row - 1;
-  const rowEnd = rowStart + width;
-  if (next < rowEnd) return row;
-  return next < rowEnd + width ? row + 1 : row + 2;
+  if (next < rowStart) return row - 1;
+  return next < rowStart + width ? row : row + 1;
 }
 
 /** Walk `cameFrom` back from the goal to the start, returning the path in start→goal order. `cameFrom`

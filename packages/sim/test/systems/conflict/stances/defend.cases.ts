@@ -14,7 +14,8 @@ import {
   Weapon,
 } from '../../../../src/components/index.js';
 import { fx, ONE } from '../../../../src/core/fixed.js';
-import { Simulation } from '../../../../src/index.js';
+import { hexDistanceBetween, Simulation } from '../../../../src/index.js';
+import { breakOff } from '../../../../src/systems/conflict/chase.js';
 import {
   anchorOnlyFootprint,
   combatSystem,
@@ -24,6 +25,7 @@ import {
   stampResourceFootprintData,
 } from '../../../../src/systems/index.js';
 import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { entityNode } from '../../../../src/systems/spatial/nodes.js';
 import { boardRider, createVehicle } from '../../../../src/systems/vehicles/index.js';
 import { testContent } from '../../../fixtures/content.js';
 import { setNeeds } from '../../../fixtures/settler.js';
@@ -156,6 +158,33 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     expect(ate).toBe(true);
     sim.run(300);
     expect(tileOf(sim, guard)).toEqual({ x: 10, y: 0 }); // fed, back on its post
+  });
+
+  it('walks back beside an anchor a resource stands on, and settles there', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 3) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const [anchorX, row] = [15, 1];
+    const anchor = cell(sim, anchorX, row);
+    const guard = combatant(sim, anchorX - 7, row, P0, MILITARY_MODE.DEFEND, { jobType: SOLDIER });
+    sim.world.mut(guard, Stance).anchorCell = anchor;
+    // A deposit on the anchor, as a map places a unit on one: no route can end there.
+    const deposit = sim.world.create();
+    sim.world.add(deposit, Position, { x: fx.fromInt(anchorX), y: fx.fromInt(row) });
+    sim.world.add(deposit, Resource, { goodType: WOOD, remaining: 100, harvestAtomic: HARVEST_ATOMIC });
+    stampResourceFootprintData(sim.world, deposit, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+    const post = { anchorCell: anchor, leash: DEFEND_LEASH_NODES, hold: true };
+
+    breakOff(sim.world, ctxOf(sim), guard, cell(sim, anchorX - 7, row), post);
+    const goal = sim.world.get(guard, MoveGoal).cell;
+    expect(goal).not.toBe(anchor);
+    const [ax, ay] = [terrain.xOf(anchor), terrain.yOf(anchor)];
+    expect(hexDistanceBetween(terrain.xOf(goal), terrain.yOf(goal), ax, ay)).toBe(1);
+    sim.run(200);
+    const here = entityNode(sim.world, terrain, guard);
+    expect(here).toBe(goal);
+    breakOff(sim.world, ctxOf(sim), guard, here, post);
+    expect(sim.world.has(guard, MoveGoal)).toBe(false);
   });
 
   it('settles beside an anchor another unit stands on instead of re-aiming at it every pass', () => {

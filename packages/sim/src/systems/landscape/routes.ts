@@ -9,7 +9,9 @@ import {
   VehicleYardRefusals,
   type Waypoint,
 } from '../../components/index.js';
+import type { Fixed } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
+import { positionYOfNode } from '../../nav/halfcell.js';
 import { columnStepMiddles, isColumnStep } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { dropPath } from '../movement/nav-state.js';
@@ -64,7 +66,13 @@ export function invalidateRoutesThrough(
   for (const e of world.query(PathFollow, PathRoute, Position)) {
     const waypoints = world.get(e, PathRoute).waypoints;
     if (!boundsMeet(routeBoundsOf(terrain, waypoints), closed)) continue;
-    const stop = firstStopInto(terrain, waypoints, world.get(e, PathFollow).index, cells);
+    const stop = firstStopInto(
+      terrain,
+      waypoints,
+      world.get(e, PathFollow).index,
+      world.get(e, Position).y,
+      cells,
+    );
     if (stop !== null) crossing.push({ e, stop });
   }
   for (const { e, stop } of crossing) haltBefore(world, terrain, e, stop);
@@ -75,13 +83,15 @@ function boundsMeet(a: NodeBounds, b: NodeBounds): boolean {
 }
 
 /** The first route stop whose node has closed, or that a column step reaches between two nodes one of
- *  which has closed. This build's adaptation: the original checks only the step's destination, but a
+ *  which has closed, unless the walker at row `y` has already passed them on its live leg and only
+ *  finishes the step. This build's adaptation: the original checks only the step's destination, but a
  *  column step slipping between two new wall posts would walk through the wall; the new search takes the
  *  column step again while one of the two stays open. */
 function firstStopInto(
   terrain: TerrainGraph,
   waypoints: readonly Waypoint[],
   from: number,
+  y: Fixed,
   cells: ReadonlySet<NodeId>,
 ): number | null {
   for (let at = from; at < waypoints.length; at++) {
@@ -90,11 +100,20 @@ function firstStopInto(
     if (cells.has(stop.node)) return at;
     const previous = waypoints[at - 1];
     if (previous === undefined || !isColumnStep(terrain, previous.node, stop.node)) continue;
+    if (at === from && passedSkippedRow(terrain, previous.node, stop.node, y)) continue;
     for (const middle of columnStepMiddles(terrain, previous.node, stop.node)) {
       if (middle !== undefined && cells.has(middle)) return at;
     }
   }
   return null;
+}
+
+/** Whether row `y` lies beyond the row a column step from `from` to `to` skips, in the step's direction. */
+function passedSkippedRow(terrain: TerrainGraph, from: NodeId, to: NodeId, y: Fixed): boolean {
+  const fromY = terrain.yOf(from);
+  const toY = terrain.yOf(to);
+  const skipped = positionYOfNode((fromY + toY) / 2);
+  return toY > fromY ? y > skipped : y < skipped;
 }
 
 /**

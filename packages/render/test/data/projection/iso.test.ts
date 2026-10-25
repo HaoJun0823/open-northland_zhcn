@@ -4,6 +4,7 @@ import {
   halfCellToScreen,
   ONE,
   screenToHalfCell,
+  screenToHalfCellSum,
   TILE_HALF_H,
   TILE_HALF_W,
   tileToScreen,
@@ -42,5 +43,16 @@ describe('halfCellToScreen', () => {
     const odd = halfCellToScreen(0, 1);
     const nearRow = TILE_HALF_H / 4 - 1;
     expect(screenToHalfCell(odd.x, nearRow)).toEqual({ col: 0, row: 1 });
+  });
+
+  it('sums the nearest node like screenToHalfCell, without the object', () => {
+    // A stride off the lattice period probes many offsets within a node box, negative ones included.
+    const stride = 3.7;
+    for (let y = -2 * TILE_HALF_H; y < 4 * TILE_HALF_H; y += stride) {
+      for (let x = -2 * TILE_HALF_W; x < 4 * TILE_HALF_W; x += stride) {
+        const node = screenToHalfCell(x, y);
+        expect(screenToHalfCellSum(x, y)).toBe(node.col + node.row);
+      }
+    }
   });
 });

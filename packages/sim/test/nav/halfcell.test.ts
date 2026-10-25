@@ -4,6 +4,8 @@ import {
   cellOfAnchorNode,
   cellOfNode,
   fx,
+  type HalfCellNode,
+  hexNeighboursOf,
   nodeOfPosition,
   ONE,
   positionOfNode,
@@ -143,10 +145,47 @@ describe('nodeOfPosition', () => {
     expect(columnStepNodes(6, 4)[SAMPLES_PER_ROW]).toEqual({ hx: 5, hy: 5 });
   });
 
-  it('still rounds a slant edge between rows to its end on the truncated row', () => {
-    // SE from (6, 4) to (6, 5), three quarters along: row 4's frame column 6.375 rounds to 6.
-    const y = fx.add(fx.fromInt(2), fx.div(fx.fromInt(3), fx.fromInt(8)));
-    const wx = fx.add(nodeWorldX(6, 4), fx.div(fx.fromInt(3), fx.fromInt(16)));
-    expect(nodeOfPosition(positionXOfWorld(wx, y), y)).toEqual({ hx: 6, hy: 4 });
+  // Every edge and column step from a node of either row parity, at hx 0 too (negative Position x),
+  // sampled strictly inside with a small offset across the line: the first half reads the start, the
+  // second half the end, never a third node.
+  const PERPENDICULAR_OFFSETS = [-0.02, 0, 0.02];
+  const sampleNode = (from: HalfCellNode, to: HalfCellNode, t: number, offset: number): HalfCellNode => {
+    const fromWx = fx.toFloat(nodeWorldX(from.hx, from.hy));
+    const toWx = fx.toFloat(nodeWorldX(to.hx, to.hy));
+    const along = from.hy === to.hy;
+    const wx = fromWx + (toWx - fromWx) * t + (along ? 0 : offset);
+    const y = fx.fromFloat((from.hy + (to.hy - from.hy) * t) / 2 + (along ? offset : 0));
+    return nodeOfPosition(positionXOfWorld(fx.fromFloat(wx), y), y);
+  };
+  const steps = (hx: number, hy: number): HalfCellNode[] => [
+    ...hexNeighboursOf(hx, hy),
+    { hx, hy: hy - 2 },
+    { hx, hy: hy + 2 },
+  ];
+
+  it.each([
+    ['an even row', 6, 4],
+    ['an odd row', 6, 5],
+    ['an even row at hx 0', 0, 4],
+    ['an odd row at hx 0', 0, 5],
+  ])('reads every step from %s as its start, then its end from half progress', (_, hx, hy) => {
+    const from = { hx, hy };
+    for (const to of steps(hx, hy)) {
+      for (const offset of PERPENDICULAR_OFFSETS) {
+        for (const t of [0.1, 0.3, 0.4, 0.6, 0.7, 0.9]) {
+          // An E/W edge keeps the on-row rule: its column floors, so only the exact row is pinned there.
+          if (from.hy === to.hy && offset !== 0) continue;
+          const expected = from.hy === to.hy ? (to.hx > hx ? from : to) : t < 0.5 ? from : to;
+          expect(sampleNode(from, to, t, offset), `to ${to.hx},${to.hy} t ${t} offset ${offset}`).toEqual(
+            expected,
+          );
+        }
+      }
+    }
+  });
+
+  it('floors a row above the map, so an off-map transient reads row -1', () => {
+    const y = fx.fromFloat(-0.1);
+    expect(nodeOfPosition(positionXOfWorld(nodeWorldX(4, -1), y), y).hy).toBe(-1);
   });
 });

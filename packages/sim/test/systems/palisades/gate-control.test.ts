@@ -4,21 +4,28 @@ import {
   COMPUTER_MODULE_IDS,
   GateControl,
   Health,
+  MoveGoal,
   Palisade,
+  PathFollow,
+  PathRoute,
   Position,
+  pathFollowRecord,
   Settler,
   UnderConstruction,
   Vehicle,
+  type Waypoint,
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import {
   exportSaveGame,
   fx,
+  ONE,
   positionOfNode,
   restoreSimulation,
   type ScriptLandscapeType,
   Simulation,
 } from '../../../src/index.js';
+import { nodeWorldX, positionXOfWorld } from '../../../src/nav/halfcell.js';
 import { settlersByNode } from '../../../src/systems/movement/settler-nodes.js';
 import { aiContent } from '../../fixtures/ai-content.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
@@ -214,6 +221,30 @@ describe('shared gate control', () => {
     expect(isOpen(sim, gate)).toBe(false);
     sim.world.destroy(enemy);
     sim.step();
+    expect(isOpen(sim, gate)).toBe(true);
+  });
+
+  it('does not close on a traveller passing between its nodes on a column step', () => {
+    const sim = gateSim();
+    const gate = placeGate(sim, GATE, true);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('expected a mapped simulation');
+    // Straight down column 39 from row 39 to row 41, between the gate's nodes (39,40) and (40,40); just
+    // past the skipped row the walker reads its destination, off the gate.
+    const from = { hx: GATE.x - 1, hy: GATE.y - 1 };
+    const to = { hx: GATE.x - 1, hy: GATE.y + 1 };
+    const passer = spawn(sim, { x: from.hx, y: from.hy }, CIVILIST, SEAT);
+    const stop = (n: { hx: number; hy: number }): Waypoint => ({
+      ...positionOfNode(n.hx, n.hy),
+      node: terrain.nodeAt(n.hx, n.hy),
+    });
+    const y = fx.add(positionOfNode(GATE.x, GATE.y).y, fx.div(ONE, fx.fromInt(16)));
+    sim.world.add(passer, Position, { x: positionXOfWorld(nodeWorldX(from.hx, from.hy), y), y });
+    sim.world.add(passer, MoveGoal, { cell: terrain.nodeAt(to.hx, to.hy) });
+    sim.world.add(passer, PathRoute, { waypoints: [stop(from), stop(to)] });
+    sim.world.add(passer, PathFollow, pathFollowRecord({ index: 1, legElapsed: 0, legCost: 0 }));
+    spawn(sim, { x: 43, y: 44 }, SPEARMAN);
+    expect(sim.world.get(passer, PathFollow).index).toBe(1);
     expect(isOpen(sim, gate)).toBe(true);
   });
 

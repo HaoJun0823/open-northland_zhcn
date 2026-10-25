@@ -99,9 +99,8 @@ half-cell nodes of the `2W x 2H` lattice that `TerrainEntities` already stores a
 (corpus, pipeline). Range tests use the original's hexagonal map-point distance: one step per row,
 with a diagonal walk carrying one column per two rows for free, so the distance is
 `rows + max(0, columns - floor(rows / 2))`. Over an odd row span one further column step is free, in
-the direction the destination row's parity picks, which makes the selected region lean to one side
-(reading, the same distance every range test uses; the lean is unconfirmed against the running
-game).
+the direction the destination row's parity picks: odd rows sit half a node east, so the region a range
+selects is a hexagon symmetric about its centre (reading, the same distance every range test uses).
 
 ## Mission object ids
 

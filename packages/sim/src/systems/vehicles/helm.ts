@@ -103,8 +103,8 @@ function approachWay(remaining: number, endWay: number, braking: number): number
 
 /**
  * One tick of a ship's leg along `travel`: the hull swings, the way eases toward the most the hull's
- * angle to `travel` ({@link SHIP_WAY_BY_SWING}) and the approach to the leg's end allow (the change onto `nextCourse`, or the goal
- * when it is null), and the leg gains its increment scaled by that way. A leg just `entered` drops at
+ * angle to `travel` ({@link SHIP_WAY_BY_SWING}) and the approach to the leg's end allow (the change onto
+ * `nextCourse`, or the goal when it is null), and the leg gains its increment scaled by that way. A leg just `entered` drops at
  * once to what the hull's angle allows, so a reversed leg never runs backwards at speed. Clears `from`
  * once the leg is complete.
  */

@@ -3,8 +3,12 @@ import {
   cameraViewport,
   type ElevationField,
   halfCellToScreen,
+  halfCellToScreenX,
+  halfCellToScreenY,
+  rowStagger,
   TILE_HALF_H,
   TILE_HALF_W,
+  terrainLiftAt,
 } from '@open-northland/render';
 import {
   linkedPosts,
@@ -49,23 +53,62 @@ export function exploredOverlayPatch(fog: FogView | null, hx: number, hy: number
   return true;
 }
 
+/** A patch's horizontal offset to the patch rows above and below it: rows of opposite node parity
+ *  sit half a node step apart, so an odd `step` lays the patches like bricks. */
+function rowShift(hx: number, hy: number, step: number): number {
+  return halfCellToScreenX(hx, hy + step) - halfCellToScreenX(hx, hy);
+}
+
+/**
+ * The outline of the patch sampled at node `(hx, hy)`: a `step`-node box centred on the node, split
+ * where the brick joints of the rows above and below meet its top and bottom edges. Wound top-left,
+ * top-joint, top-right, bottom-right, bottom-joint, bottom-left. `lift` is the terrain lift at an
+ * unlifted screen point, so vertices shared with neighbouring patches stay joined on slopes.
+ */
 export function overlayPatchPoints(
   hx: number,
   hy: number,
   step: number,
   mapSize: { width: number; height: number },
-  point: (hx: number, hy: number) => { x: number; y: number },
+  lift: (x: number, y: number) => number,
 ): number[] {
-  // Shared lifted corners keep neighbouring patches joined on slopes.
-  const x0 = Math.max(0, hx - step / 2);
-  const x1 = Math.min(mapSize.width * 2 - 1, hx + step / 2);
-  const y0 = Math.max(0, hy - step / 2);
-  const y1 = Math.min(mapSize.height * 2 - 1, hy + step / 2);
-  const a = point(x0, y0);
-  const b = point(x1, y0);
-  const c = point(x1, y1);
-  const d = point(x0, y1);
-  return [a.x, a.y, b.x, b.y, c.x, c.y, d.x, d.y];
+  const cx = halfCellToScreenX(hx, hy);
+  const cy = halfCellToScreenY(hy);
+  const halfWidth = (step * TILE_HALF_W) / 2;
+  const halfHeight = (step * TILE_HALF_H) / 4;
+  const x0 = Math.max(halfCellToScreenX(0, hy), cx - halfWidth);
+  const x1 = Math.min(halfCellToScreenX(mapSize.width * 2 - 1, hy), cx + halfWidth);
+  const y0 = Math.max(halfCellToScreenY(0), cy - halfHeight);
+  const y1 = Math.min(halfCellToScreenY(mapSize.height * 2 - 1), cy + halfHeight);
+  const shift = rowShift(hx, hy, step);
+  const joint = Math.min(
+    x1,
+    Math.max(x0, shift > 0 ? cx - halfWidth + shift : shift < 0 ? cx + halfWidth + shift : cx),
+  );
+  const points = [x0, y0, joint, y0, x1, y0, x1, y1, joint, y1, x0, y1];
+  for (let i = 0; i < points.length; i += 2) {
+    points[i + 1] = (points[i + 1] ?? 0) - lift(points[i] ?? 0, points[i + 1] ?? 0);
+  }
+  return points;
+}
+
+/** For each outline edge of {@link overlayPatchPoints}, the node offset of the patch across it. */
+export function overlayPatchNeighbours(
+  hx: number,
+  hy: number,
+  step: number,
+): readonly (readonly [number, number])[] {
+  const shift = rowShift(hx, hy, step);
+  const left = shift > 0 ? -step : 0;
+  const right = shift < 0 ? step : 0;
+  return [
+    [left, -step],
+    [right, -step],
+    [step, 0],
+    [right, step],
+    [left, step],
+    [-step, 0],
+  ];
 }
 
 /** Connections are schematic straight lines between lifted endpoints; only fog splits a line. */
@@ -146,6 +189,10 @@ export function createSignpostMapOverlay(
   const point = (hx: number, hy: number) => {
     const p = halfCellToScreen(hx, hy);
     return { x: p.x, y: p.y - (elevation?.liftAtNode(hx, hy) ?? 0) };
+  };
+  const lift = (x: number, y: number): number => {
+    const row = y / TILE_HALF_H;
+    return terrainLiftAt(elevation, (x / TILE_HALF_W - rowStagger(row)) / 2, row);
   };
   return {
     update(snapshot, camera, screen, player, fog) {
@@ -232,22 +279,17 @@ export function createSignpostMapOverlay(
         for (let hy = Math.floor(bounds.minY / step) * step; hy <= bounds.maxY; hy += step) {
           for (let hx = Math.floor(bounds.minX / step) * step; hx <= bounds.maxX; hx += step) {
             if (!hasPatch(hx, hy)) continue;
-            const points = overlayPatchPoints(hx, hy, step, mapSize, point);
+            const points = overlayPatchPoints(hx, hy, step, mapSize, lift);
             patches.push({ hx, hy, points });
             field.poly(points);
           }
         }
         field.fill({ color, alpha: muted ? 0.035 : 0.13 });
         for (const { hx, hy, points } of patches) {
-          const neighbours = [
-            [0, -step],
-            [step, 0],
-            [0, step],
-            [-step, 0],
-          ];
-          neighbours.forEach(([dx = 0, dy = 0], edge) => {
+          const neighbours = overlayPatchNeighbours(hx, hy, step);
+          neighbours.forEach(([dx, dy], edge) => {
             if (hasPatch(hx + dx, hy + dy)) return;
-            const next = (edge + 1) % 4;
+            const next = (edge + 1) % neighbours.length;
             field
               .moveTo(points[edge * 2] ?? 0, points[edge * 2 + 1] ?? 0)
               .lineTo(points[next * 2] ?? 0, points[next * 2 + 1] ?? 0);

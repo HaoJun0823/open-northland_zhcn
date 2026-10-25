@@ -1,11 +1,13 @@
 /**
  * A node's edges to its six lattice neighbours: the pathfinder's single steps, and the adjacency of every
  * search that decides where a walker can step, such as stands, evictions and door passages. The range
- * floods (`range-search.ts`) walk the same six neighbours without the edge gate. Source basis for the set: `THexagonDirection` in the shipped `Data/GameSourceIncludes/logicdefines.inc`
- * (E, SE, SW, W, NW, NE, then NORTH = 6 and SOUTH = 7, which only a found route's walk takes:
- * `pathfinding/straight-steps.ts`). Original behavior: the
- * route search expands only those six, each gated by the map's per-node edge lane, on a lattice whose
- * odd rows sit half a node to +x. In integer coordinates that shift is the parity rule of the
+ * floods (`range-search.ts`) walk the same six neighbours without the edge gate. Source basis for the
+ * set: `THexagonDirection` in the shipped `Data/GameSourceIncludes/logicdefines.inc` (E, SE, SW, W, NW,
+ * NE, then NORTH = 6 and SOUTH = 7, which only a found route's walk takes:
+ * `pathfinding/straight-steps.ts`). Original behavior: the route search expands only those six, on a
+ * lattice whose odd rows sit half a node to +x, a person's each gated by the map's per-node edge lane.
+ * Deviation: the original's vehicle search ignores the lane and gates only by the destination's blocked
+ * state and size class; here the lane gates every traversal. In integer coordinates that shift is the parity rule of the
  * row-crossing edges: from an even row NE and SE keep the column and NW and SW shift a column west,
  * from an odd row NW and SW keep it and NE and SE shift a column east. The edges connect exactly what
  * the original's connect, and all four row-crossing edges are one length (`ROW_EDGE`), so the pathfinder

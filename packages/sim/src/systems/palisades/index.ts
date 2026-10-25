@@ -17,7 +17,8 @@ import type { Command } from '../../core/commands/index.js';
 import { fx, ONE } from '../../core/fixed.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { type HalfCellNode, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
+import { type HalfCellNode, hexNeighboursOf, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
+import { columnStepMiddles } from '../../nav/pathfinding/index.js';
 import type { NodeId, ScriptLandscapeType, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { evictLooseGoodsFromCells } from '../economy/goods-evict.js';
@@ -32,7 +33,7 @@ import { canPlacePalisadeAnchor, type PlacementProbe } from '../footprint/placem
 import { anyRouteFollowed, invalidateRoutesThrough, retryFailedRoutes } from '../landscape/routes.js';
 import { landscapeTypes } from '../landscape/view.js';
 import { evictSettlersFromCells, settlersByNode } from '../movement/evict.js';
-import { isTravelling } from '../movement/nav-state.js';
+import { isTravelling, liveColumnStep } from '../movement/nav-state.js';
 import { cancelRoadSitesUnder } from '../roads/sites.js';
 import { canonicalById, NodeBuckets } from '../spatial/nodes.js';
 import { releaseWallBreaches } from './breach.js';
@@ -247,12 +248,41 @@ export function settleClosedWall(world: World, ctx: SystemContext, terrain: Terr
   });
 }
 
-/** Whether a traveller stands where wall site `e` would close, which the finish waits out. */
+/** Whether a traveller stands where wall site `e` would close, or passes between those nodes on a column
+ *  step, which the finish waits out. */
 export function travellerOnClosing(world: World, terrain: TerrainGraph, e: Entity): boolean {
   const byNode = settlersByNode(world);
-  for (const cell of closingCellsOf(world, terrain, e, world.get(e, Palisade).walk)) {
+  const closing = closingCellsOf(world, terrain, e, world.get(e, Palisade).walk);
+  for (const cell of closing) {
     for (const settler of byNode.at(terrain.xOf(cell), terrain.yOf(cell))) {
       if (isTravelling(world, settler)) return true;
+    }
+  }
+  return columnStepperThrough(world, terrain, byNode, closing);
+}
+
+/**
+ * Whether a settler walks a column step between two nodes one of which is in `cells`. Such a walker reads
+ * as standing on the step's start or destination, both row-crossing neighbours of the nodes it passes, so
+ * only the settlers on those neighbours are asked.
+ */
+function columnStepperThrough(
+  world: World,
+  terrain: TerrainGraph,
+  byNode: NodeBuckets,
+  cells: ReadonlySet<NodeId>,
+): boolean {
+  for (const cell of cells) {
+    const hy = terrain.yOf(cell);
+    for (const near of hexNeighboursOf(terrain.xOf(cell), hy)) {
+      if (near.hy === hy) continue;
+      for (const settler of byNode.at(near.hx, near.hy)) {
+        const step = liveColumnStep(world, terrain, settler);
+        if (step === undefined) continue;
+        for (const middle of columnStepMiddles(terrain, step[0].node, step[1].node)) {
+          if (middle !== undefined && cells.has(middle)) return true;
+        }
+      }
     }
   }
   return false;
@@ -279,14 +309,14 @@ export function playerGateAt(
   return null;
 }
 
-/** Whether a settler or creature stands on one of `cells`. Only movers count: dropped goods and the wall
+/** Whether a settler or creature stands on one of `cells`, or passes between them on a column step. Only movers count: dropped goods and the wall
  *  posts a gate's body overlaps are not something a door can crush. */
 function moverOnCells(world: World, terrain: TerrainGraph, cells: ReadonlySet<NodeId>): boolean {
   const byNode = settlersByNode(world);
   for (const cell of cells) {
     if (byNode.at(terrain.xOf(cell), terrain.yOf(cell)).length > 0) return true;
   }
-  return false;
+  return columnStepperThrough(world, terrain, byNode, cells);
 }
 
 /**

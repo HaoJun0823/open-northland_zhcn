@@ -102,6 +102,28 @@ describe('unit body collision - grind reroutes', () => {
     expect(s.world.get(runner, Obstructed).hold).toBeGreaterThan(0);
   });
 
+  it('keeps a column-step route while wedged past the skipped row', () => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const runner = settlerAt(s, 4, 1, SOLDIER, P0);
+    orderTo(s, runner, 4, 11);
+    s.step();
+    const route = s.world.get(runner, PathRoute).waypoints;
+    const first = route[1];
+    if (first === undefined) throw new Error('expected a route');
+    expect([terrain.xOf(first.node), terrain.yOf(first.node)]).toEqual([4, 3]);
+    // Into the step's second half, where the rows bracketing the walker hold the skipped row 2.
+    const skipped = fx.fromInt(1);
+    for (let tick = 0; tick < 40 && s.world.get(runner, Position).y <= skipped; tick++) s.step();
+    expect(s.world.get(runner, PathFollow).index).toBe(1);
+
+    wedge(s, runner, OBSTRUCTED_REROUTE_TICKS * OBSTRUCTED_MAX_REROUTES);
+
+    expect(s.world.get(runner, PathRoute).waypoints).toBe(route);
+    expect(s.world.get(runner, Obstructed).hold).toBeGreaterThan(0);
+  });
+
   it('takes a different route at once, with no wait', () => {
     const s = sim();
     const runner = settlerAt(s, 4, 6, SOLDIER, P0);

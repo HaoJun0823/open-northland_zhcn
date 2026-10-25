@@ -2,12 +2,15 @@ import { hostileMaskOf, hostilePlayerMasks } from '../../../../components/index.
 import type { Fixed } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { BlockOverlay } from '../../../../nav/block-overlay.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
+import { bracketNodes, nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { dynamicBlockOverlay } from '../../../footprint/index.js';
 import { type CalmZones, calmZonesByPlayer } from '../bodies.js';
 import { playerSlotBit } from '../standing-posts.js';
+
+/** {@link bracketNodes}' result, reused so a landing test allocates nothing. */
+const bracket = { lowHx: 0, lowHy: 0, highHx: 0, highHy: 0 };
 
 /** A player id outside every slot, so its slot bit is zero; only for the type, as every listed post has
  *  an owner. */
@@ -71,9 +74,15 @@ export class SeparationGates {
     return this.terrain.inBounds(hx, hy) ? this.terrain.nodeAt(hx, hy) : undefined;
   }
 
+  /** Whether a push may land a body at `(x, y)`: the nearest node of each row bracketing it is walkable and
+   *  unblocked. Between rows the node a position reads changes with its column alone, so a landing beside
+   *  water or a wall must keep clear of that row's nodes, not only of the node it reads now. */
   allowsLanding(x: Fixed, y: Fixed): boolean {
-    const hx = nodeHxOfPosition(x, y);
-    const hy = nodeHyOfPosition(x, y);
+    bracketNodes(x, y, bracket);
+    return this.openNode(bracket.lowHx, bracket.lowHy) && this.openNode(bracket.highHx, bracket.highHy);
+  }
+
+  private openNode(hx: number, hy: number): boolean {
     if (!this.terrain.inBounds(hx, hy)) return false;
     const node = this.terrain.nodeAt(hx, hy);
     if (!this.terrain.isWalkable(node)) return false;

@@ -1,9 +1,15 @@
 /**
  * Column steps: the NORTH and SOUTH walk directions (`THexagonDirection` 6 and 7 in the shipped
- * `logicdefines.inc`), which the route search never expands. Original behavior: once a route is found,
- * a human's or vehicle's walk replaces each SE+SW or SW+SE pair by one SOUTH step and each NW+NE or
- * NE+NW pair by one NORTH step, greedily from the start, so a column is walked straight. The node between
- * the two rows is skipped: the walker never stops on it. The search had already opened both edges.
+ * `logicdefines.inc`), which the route search never expands. A human's or vehicle's walk replaces an
+ * SE+SW or SW+SE pair by one SOUTH step and an NW+NE or NE+NW pair by one NORTH step, so a column is
+ * walked straight. The node between the two rows is skipped: the walker never stops on it. The search
+ * had already opened both edges.
+ *
+ * Approximation: the original merges while walking, whenever the next node's search field holds the
+ * opposite slant among equally cheap directions, and prefers the walker's current direction among them;
+ * it measures the goal tail to its current search target, which can be an intermediate waypoint. This
+ * build merges consecutive slant pairs of the one path found, greedily from the start, and measures the
+ * tail to the route's final goal.
  */
 import { hexDistanceBetween } from '../halfcell.js';
 import type { NodeId, TerrainGraph } from '../terrain/index.js';

@@ -195,8 +195,7 @@ describe('pathfindingSystem - a person walks a column straight', () => {
       const leg = index;
       const p = sim.world.get(e, Position);
       const at = nodeOfPosition(p.x, p.y);
-      const centre = positionOfNode(at.hx, at.hy);
-      if (p.x === centre.x && p.y === centre.y) expect(skipped.has(`${at.hx},${at.hy}`)).toBe(false);
+      expect(skipped.has(`${at.hx},${at.hy}`)).toBe(false);
       if (leg < 7) expect(sim.world.get(e, WalkFacing).direction).toBe(WALK_DIRECTION.S);
       sim.step();
       ticks++;

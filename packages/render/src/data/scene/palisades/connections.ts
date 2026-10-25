@@ -174,6 +174,14 @@ function buildPalisadeLayout(
     refsByNode.set(key, entity.id);
   }
   if (layoutNodes.size === 0 && gates.length === 0) return EMPTY_LAYOUT;
+  // A boundary extension stands in the line like a wall, so a run along a column draws straight.
+  for (const from of nodes) {
+    const fromNode = nodeOfPosition(from.x as Fixed, from.y as Fixed);
+    for (const node of extensionNodes(from, fromNode)) {
+      const key = wallNodeKey(node.hx, node.hy);
+      if (!layoutNodes.has(key)) layoutNodes.set(key, node);
+    }
+  }
 
   const shiftX = new Map<number, number>();
   const terminals = new Map<string, WallNode>();
@@ -202,21 +210,20 @@ function buildPalisadeLayout(
     const fromDrawY = fromScreen.y - terrainLiftAt(elevation, fromTileX, fromTileY);
     // Boundary extensions belong to this post, including their terminal, so damage and removal
     // affect the whole closure. Their walk footprint is the simulation's collision authority.
-    for (const cell of from.walk) {
-      if (cell.dx === 0 && cell.dy === 0) continue;
-      const hx = fromNode.hx + footprintCellDx(fromNode.hy, cell);
-      const hy = fromNode.hy + cell.dy;
+    for (const { hx, hy } of extensionNodes(from, fromNode)) {
       if (byNode.has(wallNodeKey(hx, hy))) continue;
+      const previousHx = hx - Math.sign(hx - fromNode.hx);
+      const previousHy = hy - Math.sign(hy - fromNode.hy);
       const endpoint = positionOfNode(hx, hy);
-      const previous = positionOfNode(hx - Math.sign(hx - fromNode.hx), hy - Math.sign(hy - fromNode.hy));
+      const previous = positionOfNode(previousHx, previousHy);
       const screen = tileToScreen(endpoint.x / ONE, endpoint.y / ONE);
       const start = tileToScreen(previous.x / ONE, previous.y / ONE);
-      const startX = start.x - fromScreen.x;
+      const startX = start.x + shiftOf(previousHx, previousHy) - fromDrawX;
       const startY = start.y - terrainLiftAt(elevation, previous.x / ONE, previous.y / ONE) - fromDrawY;
       appendEdgePosts(
         posts,
         from,
-        screen.x - fromScreen.x - startX,
+        screen.x + shiftOf(hx, hy) - fromDrawX - startX,
         screen.y - terrainLiftAt(elevation, endpoint.x / ONE, endpoint.y / ONE) - fromDrawY - startY,
         from.builtPct,
         null,
@@ -321,6 +328,16 @@ export function planShiftX(plan: readonly WallNode[], layout: PalisadeLayout = E
     const key = wallNodeKey(node.hx, node.hy);
     return layout.nodeShiftX.get(key) ?? (columns.has(key) ? palisadeColumnShiftX(node.hy) : 0);
   });
+}
+
+/** The nodes a wall's boundary extension covers beyond its own anchor. */
+function extensionNodes(from: PalisadeNode, anchor: WallNode): WallNode[] {
+  const nodes: WallNode[] = [];
+  for (const cell of from.walk) {
+    if (cell.dx === 0 && cell.dy === 0) continue;
+    nodes.push({ hx: anchor.hx + footprintCellDx(anchor.hy, cell), hy: anchor.hy + cell.dy });
+  }
+  return nodes;
 }
 
 function footprintCells(value: unknown): FootprintCell[] {

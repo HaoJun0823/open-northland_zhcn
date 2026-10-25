@@ -1,4 +1,4 @@
-import { screenToHalfCell } from '../projection/index.js';
+import { screenToHalfCellSum } from '../projection/index.js';
 import type { DrawItem } from '../scene/index.js';
 import type {
   AuthoredBuildingDraw,
@@ -286,8 +286,7 @@ function loopFrameAt(loop: ResourceLoopRef, item: DrawItem, tick: number | undef
   const n = loop.frames.length;
   const layer = loop.layer === undefined ? {} : { layer: loop.layer };
   if (tick === undefined || n === 1) return { bob: loop.frames[0], ...layer };
-  const node = screenToHalfCell(item.x, item.y);
-  const phase = node.col + node.row;
+  const phase = screenToHalfCellSum(item.x, item.y);
   const bob = loop.frames[(((Math.floor(tick) + phase) % n) + n) % n] ?? loop.frames[0];
   return { bob, ...layer, looping: true };
 }

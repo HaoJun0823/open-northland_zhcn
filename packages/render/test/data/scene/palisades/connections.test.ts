@@ -9,7 +9,7 @@ import {
   PALISADE_COLUMN_SHIFT_PX,
   palisadeColumnShiftX,
 } from '../../../../src/data/scene/palisades/stagger.js';
-import { buildSpriteScene } from '../../../../src/index.js';
+import { buildSpriteScene, halfCellToScreenX, TILE_HALF_H, TILE_HALF_W } from '../../../../src/index.js';
 import { snapshotOf } from '../../../support/fixtures.js';
 
 /**
@@ -18,6 +18,9 @@ import { snapshotOf } from '../../../support/fixtures.js';
  * recovered 68×38 px lattice its longest third is just under 13 px.
  */
 const PALISADE_POST_SPACING_PX = 13;
+/** An odd node row's shift right of the even rows. */
+const STAGGER_PX = TILE_HALF_W / 2;
+const NODE_ROW_PX = TILE_HALF_H / 2;
 
 function palisade(id: number, hx: number, hy: number, built: Fixed = ONE, gfxIndex = 691) {
   const position = positionOfNode(hx, hy);
@@ -61,9 +64,11 @@ describe('palisadePostOffsets', () => {
     };
     const drawn = buildSpriteScene(snapshotOf([extended]));
     expect(drawn[0]?.palisadePosts).toHaveLength(15);
-    // From the odd anchor row to an even one, a quarter cell back west.
-    expect(drawn[0]?.palisadePosts?.at(-1)).toMatchObject({ dx: -17, dy: -95, builtPct: 40 });
+    expect(drawn[0]?.palisadePosts?.at(-1)).toMatchObject({ dx: 0, dy: -95, builtPct: 40 });
+    // The extension runs up the anchor's column, so anchor and posts stand in one straight line.
+    expect(drawn[0]?.x).toBe(halfCellToScreenX(10, 5) + palisadeColumnShiftX(5));
     const posts = drawn[0]?.palisadePosts ?? [];
+    expect(posts.every((post) => post.dx === 0)).toBe(true);
     expect(posts.every((post) => post.builtPct === 40)).toBe(true);
     for (let i = 0; i < posts.length; i++) {
       expect(Math.abs((posts[i]?.dy ?? 0) - (posts[i - 1]?.dy ?? 0))).toBeLessThanOrEqual(
@@ -147,14 +152,14 @@ describe('palisadePostOffsets', () => {
     const items = buildSpriteScene(snapshotOf(run.map(([hx, hy], i) => palisade(i + 1, hx, hy))));
     const drawn = run.map((_, i) => items.find((item) => item.ref === i + 1));
     const xs = drawn.map((item) => item?.x ?? Number.NaN);
-    for (let i = 1; i < xs.length; i++) expect((xs[i] ?? 0) - (xs[i - 1] ?? 0)).toBeCloseTo(17);
-    // Every post sits on the line through the anchors: x advances 17 px per 19 px row.
+    for (let i = 1; i < xs.length; i++) expect((xs[i] ?? 0) - (xs[i - 1] ?? 0)).toBeCloseTo(STAGGER_PX);
+    // Every post sits on the line through the anchors: x advances half a node per node row.
     const first = drawn[0];
     for (const item of drawn) {
       for (const post of item?.palisadePosts ?? []) {
         const x = (item?.x ?? 0) + post.dx - (first?.x ?? 0);
         const y = (item?.y ?? 0) + post.dy - (first?.y ?? 0);
-        expect(x).toBeCloseTo((-y * 17) / 19);
+        expect(x).toBeCloseTo((-y * STAGGER_PX) / NODE_ROW_PX);
       }
     }
 
@@ -173,7 +178,7 @@ describe('palisadePostOffsets', () => {
     const xOf = (items: typeof shallow, ref: number): number =>
       items.find((i) => i.ref === ref)?.x ?? Number.NaN;
     // Row 10 steps up at column 10 to row 9: on its nodes, the riser leans the way the line runs.
-    expect(xOf(shallow, 3) - xOf(shallow, 2)).toBe(17);
+    expect(xOf(shallow, 3) - xOf(shallow, 2)).toBe(STAGGER_PX);
 
     const corner = buildSpriteScene(
       snapshotOf([palisade(1, 10, 10), palisade(2, 10, 11), palisade(3, 10, 12), palisade(4, 11, 12)]),

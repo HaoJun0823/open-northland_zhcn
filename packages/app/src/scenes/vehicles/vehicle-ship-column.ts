@@ -15,8 +15,7 @@ import type { SceneDefinition } from '../types.js';
  * Two crewed ships sail straight up and down open water side by side, the small one north and the big
  * one south, then turn about and sail back. A ship sails a column in N or S column steps, as the original,
  * so each holds its column on its drawn N/S frames instead of zigzagging NE/NW (docs/formats/VEHICLES.md
- * "Movement"). The
- * browser view is the check that the N/S hulls draw with their wake along the course.
+ * "Movement"). The browser view is the check that the N/S hulls draw with their wake along the course.
  */
 
 const MAP_W = 16;

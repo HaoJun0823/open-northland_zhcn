@@ -46,7 +46,8 @@ export function rowStagger(row: number): number {
  * Half-cell `(hx, hy)` → pre-camera screen offset: `hx` half-cells across, and an odd node row a
  * quarter cell further right. Original behavior: the original's map-point projection shifts odd node
  * rows by half a node step. {@link tileToScreen} of an integer cell, and of a sim node's position, lands
- * exactly here.
+ * exactly here. Takes integer nodes: `hy & 1` truncates a fractional row, so a point between nodes
+ * goes through {@link tileToScreen}.
  */
 export function halfCellToScreen(hx: number, hy: number): { x: number; y: number } {
   return { x: halfCellToScreenX(hx, hy), y: halfCellToScreenY(hy) };
@@ -66,16 +67,30 @@ export function halfCellToScreenY(hy: number): number {
  *  the two rows either side, the nearer of those two, so {@link halfCellToScreen}'s points map back
  *  exactly. */
 export function screenToHalfCell(x: number, y: number): { col: number; row: number } {
+  const row = nearestNodeRow(x, y);
+  return { col: nodeColumnNear(x, row), row };
+}
+
+/** {@link screenToHalfCell}'s `col + row`, without allocating, for a per-frame phase. */
+export function screenToHalfCellSum(x: number, y: number): number {
+  const row = nearestNodeRow(x, y);
+  return nodeColumnNear(x, row) + row;
+}
+
+function nodeColumnNear(x: number, row: number): number {
+  return Math.round(x / TILE_HALF_W - (row & 1) / 2);
+}
+
+function nearestNodeRow(x: number, y: number): number {
   const above = Math.floor(y / (TILE_HALF_H / 2));
-  let best = { col: 0, row: above };
+  let best = above;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (const row of [above, above + 1]) {
-    const col = Math.round(x / TILE_HALF_W - (row & 1) / 2);
-    const dx = x - halfCellToScreenX(col, row);
+  for (let row = above; row <= above + 1; row++) {
+    const dx = x - halfCellToScreenX(nodeColumnNear(x, row), row);
     const dy = y - halfCellToScreenY(row);
     const distance = dx * dx + dy * dy;
     if (distance < bestDistance) {
-      best = { col, row };
+      best = row;
       bestDistance = distance;
     }
   }

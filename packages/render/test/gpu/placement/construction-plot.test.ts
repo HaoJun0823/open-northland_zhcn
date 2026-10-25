@@ -157,6 +157,19 @@ describe('plotOutlines', () => {
     const [outer, hole] = [...loops].sort((x, y) => Math.abs(signedArea2(y)) - Math.abs(signedArea2(x)));
     // Opposite windings, so a nonzero-winding fill leaves the enclosed hole empty.
     expect(Math.sign(signedArea2(outer ?? []))).toBe(-Math.sign(signedArea2(hole ?? [])));
+    const inner = nodeBlock(1, 1, 4, 4);
+    for (const loop of [outer, hole]) {
+      for (const { u, v } of loop ?? []) {
+        const { x, y } = projectUV(FLAT, u, v);
+        const norms = ring.map((cell) => diamondNorm(cell, x, y));
+        // On some node's diamond edge, inside none: a vertex of the union.
+        expect(Math.min(...norms)).toBeCloseTo(1, 9);
+        expect(norms.every((n) => n > 1 - EPSILON)).toBe(true);
+        // The hole lies over the missing centre, the outer loop off it.
+        const overCentre = inner.some((cell) => diamondNorm(cell, x, y) < 1 - EPSILON);
+        expect(overCentre).toBe(loop === hole);
+      }
+    }
   });
 });
 

@@ -10,6 +10,7 @@ import { QUARTER_COLUMN, staggerShift, worldX } from './world-metric.js';
 
 const TWO: Fixed = fx.fromInt(2);
 const HALF_ONE: Fixed = fx.div(ONE, TWO);
+const QUARTER_ONE: Fixed = fx.div(HALF_ONE, TWO);
 
 /** An integer half-cell node address on the `2W×2H` navigation lattice. */
 export interface HalfCellNode {
@@ -26,17 +27,19 @@ export interface NodeArea {
 }
 
 /**
- * The half-cell node a fixed-point position occupies: its row scaled to half-cell units and truncated,
- * then its world column in that row, less the row's odd-row shift. On a row the column truncates too;
- * between rows, along a row-crossing edge, it rounds to the edge's end on that row rather than a flank
- * node beside the edge. A position standing exactly on a node maps to it exactly. The result is
- * unclamped, and callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
+ * The half-cell node a fixed-point position occupies: its row scaled to half-cell units and floored, then
+ * its world column in that row, less the row's odd-row shift. On a row the column floors too. Between
+ * rows a column within a quarter node of a whole column of the floored row rounds to that row's node,
+ * and one within a quarter node of a half column rounds to the next row's node. A position standing
+ * exactly on a node maps to it exactly. The result is unclamped, and callers clamp into the grid through
+ * `TerrainGraph.nodeAtClamped`.
  *
- * Between rows, a position halfway between two nodes of its truncated row lies on the column line a
- * column step walks (`pathfinding/straight-steps.ts`): it maps to that column's node on the next row
- * down, so the walker reads its start until the skipped row and its destination after it, never a
- * middle node. Original behavior: the node switches at half progress. On the skipped row itself the
- * position is also an E/W edge's midpoint and keeps that edge's on-row rule.
+ * Along a slant edge this reads the edge's start, then its end from half progress. A column step
+ * (`pathfinding/straight-steps.ts`) reads its start until the skipped row and its destination after it,
+ * never a node it passes between, also when a push or the helm holds the walker slightly off its column
+ * line. Original behavior: the node switches at half progress. A position exactly on the skipped row is
+ * an E/W edge's midpoint and reads the west node it passes; a timed walk's per-tick shares truncate, so
+ * it does not normally land on that instant.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
   locateNode(x, y);
@@ -49,31 +52,67 @@ export function nodeHxOfPosition(x: Fixed, y: Fixed): number {
   return located.hx;
 }
 
-/** {@link nodeOfPosition}'s `hy` alone. */
+/** {@link nodeOfPosition}'s `hy` alone. Called right after {@link nodeHxOfPosition} for the same position,
+ *  it reuses that call's result. */
 export function nodeHyOfPosition(x: Fixed, y: Fixed): number {
   locateNode(x, y);
   return located.hy;
 }
 
-/** {@link locateNode}'s result, reused so the per-entity per-tick node reads allocate nothing. */
-const located = { hx: 0, hy: 0 };
+/** {@link locateNode}'s result and the position it is for, reused so the per-entity per-tick node reads
+ *  allocate nothing and an `hx` then `hy` read of one position computes once. */
+const located = { x: Number.NaN, y: Number.NaN, hx: 0, hy: 0 };
 
-/** Write {@link nodeOfPosition}'s node into {@link located}, the row column computed once. */
+/** Write {@link nodeOfPosition}'s node into {@link located}. */
 function locateNode(x: Fixed, y: Fixed): void {
+  if (x === located.x && y === located.y) return;
+  located.x = x;
+  located.y = y;
   // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
   const twoY = fx.add(y, y);
-  const hy = fx.toInt(twoY);
+  const hy = floorToInt(twoY);
   const column = rowColumn(x, y, hy);
   if (twoY === fx.fromInt(hy)) {
-    located.hx = fx.toInt(column);
+    located.hx = floorToInt(column);
     located.hy = hy;
-  } else if (isHalfColumn(column)) {
-    located.hx = fx.toInt(rowColumn(x, y, hy + 1));
+  } else if (nearHalfColumn(column)) {
+    located.hx = roundToInt(rowColumn(x, y, hy + 1));
     located.hy = hy + 1;
   } else {
-    located.hx = Math.floor((column + HALF_ONE) / ONE);
+    located.hx = roundToInt(column);
     located.hy = hy;
   }
+}
+
+/** The integer floor of a Fixed, negative ones included: an off-map transient keeps its row and column. */
+function floorToInt(v: Fixed): number {
+  return Math.floor(v / ONE);
+}
+
+/** The nearest integer to a Fixed, a half rounding up. */
+function roundToInt(v: Fixed): number {
+  return Math.floor((v + HALF_ONE) / ONE);
+}
+
+/** The rows bracketing position `(x, y)` and, in each, the column of the node nearest it: one row when the
+ *  position lies on a row, else the floored row and the next. Written into `out`, allocation-free. */
+export function bracketNodes(
+  x: Fixed,
+  y: Fixed,
+  out: { lowHx: number; lowHy: number; highHx: number; highHy: number },
+): void {
+  const twoY = fx.add(y, y);
+  const hy = floorToInt(twoY);
+  out.lowHy = hy;
+  if (twoY === fx.fromInt(hy)) {
+    out.lowHx = floorToInt(rowColumn(x, y, hy));
+    out.highHx = out.lowHx;
+    out.highHy = hy;
+    return;
+  }
+  out.lowHx = roundToInt(rowColumn(x, y, hy));
+  out.highHx = roundToInt(rowColumn(x, y, hy + 1));
+  out.highHy = hy + 1;
 }
 
 /** Position `(x, y)`'s world column in half-cell units of node row `hy`, that row's odd-row shift removed. */
@@ -82,9 +121,11 @@ function rowColumn(x: Fixed, y: Fixed, hy: number): Fixed {
   return fx.add(wx, wx);
 }
 
-/** Whether a half-cell column lies exactly halfway between two whole columns, negative ones included. */
-function isHalfColumn(column: Fixed): boolean {
-  return ((column % ONE) + ONE) % ONE === HALF_ONE;
+/** Whether a half-cell column lies less than a quarter node from halfway between two whole columns,
+ *  negative ones included. */
+function nearHalfColumn(column: Fixed): boolean {
+  const fraction = fx.wrap(column, ONE);
+  return fraction > QUARTER_ONE && fraction < fx.sub(ONE, QUARTER_ONE);
 }
 
 /**

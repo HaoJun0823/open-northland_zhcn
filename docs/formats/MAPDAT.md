@@ -190,11 +190,14 @@ the frame band), so shoreline and void margins drawn out of them walk in the ori
 
 `groundLattice` (`packages/data`) replays the rule from each cell's two triangle kinds, and over the
 123 mod maps the pipeline converts with their ground lane its edge masks equal `lmtw` byte for byte.
-Original behavior: the route search expands a node's six edges, each only where its bit is set, so
-this lane is the walk and sail graph itself. The join hands the masks to the sim, where every step
-is one of those edges (`packages/sim/src/nav/terrain/edges.ts`), and the searches over a node's neighbours (nearest free
-node, eviction, door passage, rally spots) walk the same six edges, so with objects stripped our land
-and water components are the components of `lmtw` by construction.
+Original behavior: a person's route search expands a node's six edges, each only where its bit is
+set, so this lane is the walk graph itself. A vehicle's search and stepping ignore the lane and gate a
+step only by the destination's blocked state and the vehicle's size class. The join hands the masks
+to the sim, where every step is one of those edges (`packages/sim/src/nav/terrain/edges.ts`), and the
+searches over a node's neighbours (nearest free node, eviction, door passage, rally spots) walk the
+same six edges, so with objects stripped our land and water components are the components of `lmtw`
+by construction. Deviation: the sim applies the lane to vehicles and ships too
+(`docs/tickets/sim/vehicle-search-ignores-edge-lane.md`).
 
 A node walks when a walkable triangle touches it and an edge leaves it, so the frame is closed, and it
 is sea for ships when every triangle touching it is water. Against the original's continent table

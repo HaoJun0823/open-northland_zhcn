@@ -4,7 +4,7 @@ import type { Entity, World } from '../../../../ecs/world.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { HALF_ROW, worldDistance } from '../../../../nav/world-metric.js';
 import { clearNavState, dropPath, restartLeg } from '../../nav-state.js';
-import { routeStartCell } from '../../route-start.js';
+import { grindStartCell } from '../../route-start.js';
 import { SLOWEST_PACE_PER_TICK } from '../../system.js';
 
 /** Consecutive low-progress ticks before a walker asks for a route around the blockers. */
@@ -120,6 +120,6 @@ function requestGrindReroute(
     return;
   }
   if (world.has(entity, PathRequest)) return;
-  const start = routeStartCell(terrain, position.x, position.y);
+  const start = grindStartCell(world, terrain, entity, position.x, position.y, 'land');
   world.add(entity, PathRequest, { start, goal, failed: false, grind: true });
 }

@@ -69,6 +69,7 @@ export {
   halfCellToScreenX,
   halfCellToScreenY,
   ONE,
+  rowStagger,
   screenToHalfCell,
   TILE_HALF_H,
   TILE_HALF_W,

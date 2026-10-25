@@ -1,8 +1,10 @@
 import { type Fixed, fx, ONE } from '../../core/fixed.js';
+import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { worldDistance, worldX } from '../../nav/world-metric.js';
+import { liveColumnStep } from './nav-state.js';
 
 const TWO: Fixed = fx.fromInt(2);
 /** An odd node row's eastward shift in half-cell node columns: half a node. */
@@ -68,4 +70,18 @@ export function routeStartCell(
   if (best !== undefined) return best;
   const n = nodeOfPosition(x, y);
   return terrain.nodeAtClamped(n.hx, n.hy);
+}
+
+/** The node a grind reroute of walker `e` at `(x, y)` asks from: its live column step's start, since the
+ *  rows bracketing a position mid-step hold the skipped nodes no stop of the step stands on, so an answer
+ *  from one could never match the route walked; otherwise {@link routeStartCell}. */
+export function grindStartCell(
+  world: World,
+  terrain: TerrainGraph,
+  e: Entity,
+  x: Fixed,
+  y: Fixed,
+  traversal: Traversal,
+): NodeId {
+  return liveColumnStep(world, terrain, e)?.[0].node ?? routeStartCell(terrain, x, y, traversal);
 }

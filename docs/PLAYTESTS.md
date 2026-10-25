@@ -159,7 +159,7 @@ does not reach them.
 | `saracen_4_sub_4` | PDP : 04 - WNĘTRZE SFINKSA | 1h/1ai | – | – | sub-mission |
 | `straznicypolnocy` | STRAŻNICY PÓŁNOCY | 1h/12ai | – | – |  |
 | `straznicypolnocy_sub1` | LEGOWISKO POTWORÓW | 2h/3ai | – | – | sub-mission |
-| `straznicypolnocy_sub2` | JOTUNHEIM | 1h/2ai | – | – | sub-mission; ice-wall diagonal blocking covered by a content regression, full playthrough pending |
+| `straznicypolnocy_sub2` | JOTUNHEIM | 1h/2ai | – | – | sub-mission; ice-wall blocking has no content regression, full playthrough pending |
 | `upadek_krola` | UPADEK KRÓLA | 1h/7ai | – | – |  |
 | `upadek_krola_sub` | WIĘŹIENIE ALTERACK | 1h/2ai | – | – | sub-mission |
 | `wielka_bitwa_z_saracenami` | WIELKA BITWA Z SARACENAMI | 1h/12ai | – | – |  |

@@ -270,7 +270,6 @@ export class Relay {
     for (const room of this.rooms.values()) {
       const refusal = this.advanceRoom(room, elapsed, now);
       if (refusal !== null) this.dropRoom(room, refusal);
-      else this.retimeRoom(room);
     }
     this.pollClients(now);
     this.expireEmptyRooms(now);
@@ -322,7 +321,9 @@ export class Relay {
    *  the rooms after it. */
   private advanceRoom(room: Room, elapsed: number, now: number): Refusal {
     try {
-      return room.advance(elapsed, now);
+      const refusal = room.advance(elapsed, now);
+      if (refusal === null) this.retimeRoom(room);
+      return refusal;
     } catch (err) {
       this.log('room fault', { room: room.id, ...faultFields(err) });
       return { code: 'relayFault' };

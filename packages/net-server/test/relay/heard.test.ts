@@ -5,6 +5,8 @@ import {
   ackThrough,
   type MessageStage,
   type Peer,
+  SEATS,
+  SETTINGS,
   silentNicks,
   startedRoom,
   TOKEN_C,
@@ -52,6 +54,39 @@ describe('hearing from a client', () => {
 });
 
 describe('relay poll faults', () => {
+  it('keeps another room running and pinging when a retimed delay cannot be sent', () => {
+    const s = startedRoom();
+    s.advance(PING_INTERVAL_MS);
+    const ping = s.a.last('ping');
+    if (ping === undefined) throw new Error('no ping');
+    s.advance(450);
+    s.a.send({ kind: 'pong', t: ping.t });
+    expect(s.a.last('delay')?.ticks).toBe(7);
+
+    const healthy = s.introduce(TOKEN_C, 'Cezary');
+    healthy.send({ kind: 'createRoom', settings: SETTINGS, seats: SEATS });
+    healthy.send({ kind: 'claimSeat', player: 0 });
+    healthy.send({ kind: 'setReady', ready: true });
+    healthy.send({ kind: 'start' });
+    healthy.send({ kind: 'loaded', tick: 0, world: 0 });
+
+    const { room, member, connection } = s.a.handle;
+    if (room === null || member === null) throw new Error('no room member');
+    // Change the room clock directly, leaving the poll to retime its members as after governing.
+    expect(room.setClock(member, 0.25, undefined)).toBeNull();
+    const deliver = connection.send;
+    connection.send = (message) => {
+      if (message.kind === 'delay') throw new Error('socket gone');
+      deliver(message);
+    };
+
+    expect(() => s.advance(PING_INTERVAL_MS)).not.toThrow();
+    expect(s.a.last('error')?.reason).toEqual({ code: 'relayFault' });
+    expect(s.relay.roomCount).toBe(1);
+    expect(healthy.last('frame')?.tick).toBeGreaterThan(0);
+    expect(healthy.last('ping')?.t).toBe(s.now());
+  });
+
   it('keeps pinging other clients and expiring empty rooms when one connection throws', () => {
     const s = startedRoom();
     const faulty = s.relay.connect({

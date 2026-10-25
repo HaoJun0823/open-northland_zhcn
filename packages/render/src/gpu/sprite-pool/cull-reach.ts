@@ -131,6 +131,9 @@ const RESOURCE_FIELDS: { readonly [K in keyof ResourceTypeBinding]-?: 'levels' |
 const STOCKPILE_FIELDS: { readonly [K in keyof StockpileBinding]-?: 'lists' | 'list' | 'ref' } = {
   byGood: 'lists',
   flag: 'list',
+  flagsByPlayer: 'lists',
+  roadMarkersByPlayer: 'lists',
+  wallMarkersByPlayer: 'lists',
   default: 'ref',
 };
 const SIGNPOST_FIELDS: { readonly [K in keyof SignpostBinding]-?: 'list' | 'ref' | 'bindings' } = {
@@ -274,10 +277,10 @@ function stockpileDraws(binding: number | StockpileBinding | undefined): Buildin
   if (typeof binding === 'number') return [{ bob: binding }];
   const draws: BuildingDraw[] = [];
   for (const key of Object.keys(STOCKPILE_FIELDS) as (keyof StockpileBinding)[]) {
-    const field = STOCKPILE_FIELDS[key];
-    if (field === 'ref') draws.push(unwrap(binding.default));
-    else if (field === 'list') for (const ref of binding.flag) draws.push(unwrap(ref));
-    else for (const list of Object.values(binding.byGood)) for (const ref of list) draws.push(unwrap(ref));
+    if (key === 'default') draws.push(unwrap(binding.default));
+    else if (key === 'flag') for (const ref of binding.flag) draws.push(unwrap(ref));
+    else
+      for (const list of Object.values(binding[key] ?? {})) for (const ref of list) draws.push(unwrap(ref));
   }
   return draws;
 }

@@ -190,6 +190,27 @@ describe('kindReaches - landscape kinds', () => {
     expect(reachOf(sheet, 'signpost').art.up).toBe(TALL);
   });
 
+  it.each(['flagsByPlayer', 'roadMarkersByPlayer', 'wallMarkersByPlayer'] as const)(
+    'includes the full extent of a player marker in %s',
+    (field) => {
+      const sheet = sheetOf({
+        families: { small: family(20), tall: family(TALL) },
+        bindings: {
+          settler: BOB,
+          building: 1,
+          resource: 1,
+          stockpile: {
+            byGood: {},
+            flag: [{ layer: 'small', bob: BOB }],
+            default: { layer: 'small', bob: BOB },
+            [field]: { 4: [{ layer: 'tall', bob: BOB }] },
+          },
+        },
+      });
+      expect(reachOf(sheet, 'stockpile').art.up).toBe(TALL);
+    },
+  );
+
   it('leaves a kind whose art sways to the scene box, since its lean follows the wind', () => {
     const sheet = sheetOf({
       families: { trees: { ...family(TALL), sway: 0.1 } },

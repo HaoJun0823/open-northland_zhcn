@@ -192,10 +192,6 @@ const float PALETTE_INDEX_MAX = 255.0;
 // Below this uv footprint the four minification taps nearly coincide, under 0.01 texel apart, so one
 // tap stands for them: at worst about 1/255 off at a hard edge within a hair of one texel per pixel.
 const float SINGLE_TAP_FOOTPRINT = 0.000001;
-// Texels per pixel under which a page counts as magnified. The uv derivatives of a tall page carry
-// rounding noise of a few thousandths of a texel, which at one texel per pixel sent a grid of pixel
-// quads through the magnifier; within one hundredth of a texel per pixel the page is drawn 1:1.
-const float MAGNIFIED_BELOW = 0.99;
 /** Each of the four minification taps sits a quarter of the footprint out from the sample point, and
  *  they average evenly: four taps cannot cover more, so the spread stops there. */
 const float MINIFY_TAP_OFFSET = 0.25;
@@ -225,8 +221,8 @@ bool hasFlag(int flags, int bit) {
   return (flags & bit) != 0;
 }
 
-// Every mode passes the fragment's own uv derivatives, taken in main before any branch, so mipmapped
-// world art still picks its level. A sample with implicit derivatives inside this chain may make
+// Every read through this chain passes the fragment's own uv derivatives, taken in main before any
+// branch, so mipmapped world art still picks its level (mode off reads other pages at level 0). A sample with implicit derivatives inside this chain may make
 // Direct3D's compiler hoist it out of the branches and fetch from every slot.
 vec4 sampleTexture(vec2 uv, vec2 uvDx, vec2 uvDy) {
 ${textureChain(maxTextures, 'vTextureId', (i) => `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`)}

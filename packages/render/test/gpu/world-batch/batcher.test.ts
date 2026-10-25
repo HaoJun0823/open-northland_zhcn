@@ -243,9 +243,13 @@ describe('world batcher element flags', () => {
     const texture = new Texture({ source: page });
 
     expect(packedFlags(texture)).toBe(WORLD_FLAG_MIPMAPPED);
+    const levels = new TextureSource({ width: 8, height: 8, mipLevelCount: 2 });
+    const leveled = new Texture({ source: levels });
+    expect(packedFlags(leveled)).toBe(WORLD_FLAG_MIPMAPPED);
 
-    texture.destroy();
+    for (const t of [texture, leveled]) t.destroy();
     page.destroy();
+    levels.destroy();
   });
 });
 

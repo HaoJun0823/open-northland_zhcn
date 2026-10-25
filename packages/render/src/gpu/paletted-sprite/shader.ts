@@ -121,7 +121,7 @@ void main(void) {
     atlasSize = vec2(textureSize(uTexture, 0));
     vec2 p = vUV * atlasSize;
     float texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
-    if (texelsPerPixel < 1.0) {
+    if (texelsPerPixel < MAGNIFIED_BELOW) {
       // Magnified: xBR's edge treatment, which converges on bilinear as texels reach pixel size.
       finalColor = magnifyXbr(p, texelsPerPixel);
       return;

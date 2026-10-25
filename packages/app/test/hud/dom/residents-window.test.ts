@@ -4,9 +4,11 @@ import { createResidentsWindow, type ResidentsWindow } from '../../../src/hud/do
 import type { ResidentRow } from '../../../src/hud/tool-panel/residents/rows.js';
 import { currentLocale, messages, setActiveLocale } from '../../../src/i18n/index.js';
 
-/** The row height and list height the stubbed layout reports, layout px. */
+/** The row, list and figure heights the stubbed layout reports, layout px. */
 const ROW_PX = 34;
 const VIEW_PX = 340;
+/** A row figure's box height (foundation.css `.on-res-row__figure`). */
+const FIGURE_PX = 33;
 const PEOPLE = 500;
 const locale = currentLocale();
 
@@ -35,6 +37,7 @@ function stubLayout(): void {
   const height = (el: HTMLElement): number => {
     if (el.tagName === 'LI') return ROW_PX;
     if (el.classList.contains('on-res-list')) return VIEW_PX;
+    if (el.classList.contains('on-res-row__figure')) return FIGURE_PX;
     return 0;
   };
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
@@ -161,6 +164,36 @@ describe('residents list', () => {
     const figures = window?.figureSlots().map((slot) => slot.entity) ?? [];
     expect(figures[0]).toBe(middle + 1);
     expect(figures).toHaveLength(VIEW_PX / ROW_PX);
+  });
+
+  it('paints the row figures off the page and shows their copies on one canvas over the rows', () => {
+    const drawn: HTMLCanvasElement[] = [];
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      () =>
+        ({
+          clearRect: () => undefined,
+          save: () => undefined,
+          restore: () => undefined,
+          beginPath: () => undefined,
+          roundRect: () => undefined,
+          clip: () => undefined,
+          drawImage: (source: HTMLCanvasElement) => drawn.push(source),
+        }) as never,
+    );
+    const { list } = openWindow(() => people(PEOPLE));
+    window?.refresh();
+    const slots = window?.figureSlots() ?? [];
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((slot) => !slot.canvas.isConnected)).toBe(true);
+    expect(list.querySelectorAll('canvas')).toHaveLength(1);
+    for (const slot of slots) slot.canvas.width = 40;
+    window?.markDrawn(new Set(slots.map((slot) => slot.canvas)));
+    // The first paint after the rows were laid places the canvas and copies every attached figure.
+    expect(drawn).toEqual(expect.arrayContaining(slots.map((slot) => slot.canvas)));
+    drawn.length = 0;
+    const [first] = slots;
+    if (first !== undefined) window?.markDrawn(new Set([first.canvas]));
+    expect(drawn).toEqual(first === undefined ? [] : [first.canvas]);
   });
 
   it('shows a selected person as picked on the row a scroll first builds', () => {

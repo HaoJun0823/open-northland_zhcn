@@ -2924,10 +2924,14 @@ body.on-drag-scroll.on-drag-scroll-free * {
   width: 40px;
   height: 33px;
 }
-.on-hud .on-res-row__figure canvas {
-  display: block;
-  width: 40px;
-  height: 33px;
+/* The rows paint their figures off the page and the list shows copies on its one canvas over the
+   figure boxes (residents-window.ts). Its item takes no box, so the canvas places against the list. */
+.on-hud .on-res-figures {
+  display: contents;
+}
+.on-hud .on-res-list__figures {
+  position: absolute;
+  pointer-events: none;
 }
 .on-hud .on-res-row__lacks {
   display: flex;
@@ -4551,11 +4555,9 @@ body.on-drag-scroll.on-drag-scroll-free * {
   mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
 }
 /* The wells paint their figures off the page and the roster shows copies on its one canvas over them,
-   under the bars and badges (roster-figures.ts). */
+   under the bars and badges (figure-overlay.ts). */
 .on-hud .on-roster__figures {
   position: absolute;
-  left: 0;
-  width: 100%;
   z-index: 0;
   pointer-events: none;
 }

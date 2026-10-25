@@ -18,6 +18,7 @@ export function stubResidentsWindow(): ResidentsWindow {
     },
     refresh: () => undefined,
     figureSlots: () => NO_FIGURE_SLOTS,
+    markDrawn: () => undefined,
     state: () => state,
     restore: (next) => {
       state = next;

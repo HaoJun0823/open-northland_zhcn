@@ -951,7 +951,9 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         messageCenter.present(snapshot, events, departed, alpha),
       noteSettingsRestart: (labels) => messageCenter.noteSettingsRestart(labels),
       presentFigures: (snapshot, alpha): void => {
-        residentFigures.paint(snapshot, windows.byId.residents.figureSlots(), snapshot.tick, alpha);
+        const residents = windows.byId.residents;
+        residentFigures.paint(snapshot, residents.figureSlots(), snapshot.tick, alpha);
+        residents.markDrawn(residentFigures.repainted());
       },
       syncSpeed: (control) => speed.restore(control),
       setSpeedLook(look): void {

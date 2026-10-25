@@ -40,6 +40,7 @@ import { type GoodIconPainter, goodIconMarkup } from './good-art.js';
 import { GLYPH, RESIDENTS_TOKEN } from './icons.js';
 import { button, element, onPress, setAttribute, setHidden, setValue, write } from './parts/dom.js';
 import { type DropdownEntry, type DropdownHandle, dropdownControl } from './parts/dropdown.js';
+import { createFigureOverlay, type FigureHolder } from './parts/figure-overlay.js';
 import { quietTextField } from './parts/text-field.js';
 import { professionChoices } from './profession-choices.js';
 import { centralWindowPlacer, createHudWindow } from './window.js';
@@ -108,6 +109,8 @@ export interface ResidentsWindow extends ToolWindow {
   refresh(): void;
   /** The figures of the rows on screen, which the owner paints every frame; none while closed. */
   figureSlots(): readonly FigureSlot[];
+  /** After the owner's paint: show the figures it drew or cleared on `repainted`. */
+  markDrawn(repainted: ReadonlySet<HTMLCanvasElement>): void;
   state(): ResidentsWindowState;
   restore(state: ResidentsWindowState): void;
   /** The close medallion was pressed; the owner returns focus to the beam. */
@@ -118,6 +121,8 @@ export interface ResidentsWindow extends ToolWindow {
 interface RowView {
   readonly item: HTMLLIElement;
   readonly pick: HTMLButtonElement;
+  /** The figure's box in the row, and the canvas off the page its figure is painted on. */
+  readonly figure: HTMLElement;
   readonly canvas: HTMLCanvasElement;
   readonly cells: readonly [HTMLElement, HTMLElement, HTMLElement, HTMLElement];
   /** The profession cell's trade name and the goods after it. */
@@ -397,6 +402,9 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
   let listedRows: readonly ResidentRow[] = [];
   const padTop = element('li', 'on-res-pad');
   const padBottom = element('li', 'on-res-pad');
+  /** Holds the figure canvas among the rows; it takes no box, so the canvas lays out against the list. */
+  const figuresItem = element('li', 'on-res-figures');
+  figuresItem.setAttribute('aria-hidden', 'true');
   /** The attached rows, indices into `listedRows`, both ends inclusive. */
   let attached = { first: 0, last: -1 };
   /** A row's height and the list's visible height, layout px; 0 until measured on a shown list. */
@@ -410,6 +418,13 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
   let shownSelection = -1;
   let listedAnswers = -1;
   let figuresStale = true;
+  /** The rows' figures paint off the page; this canvas over the attached rows shows their copies. */
+  const figures = createFigureOverlay('on-res-list__figures');
+  figuresItem.append(figures.canvas);
+  /** The attached rows moved, so the figure canvas is placed and filled again after the next paint. */
+  let overlayStale = true;
+  /** The device scale the row figures were measured at. */
+  let measuredRatio = 0;
 
   /** The last row pressed without Shift, where a range press starts. */
   let anchor: number | null = null;
@@ -434,12 +449,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const item = element('li', '');
     const control = button(
       'on-res-row',
-      `<span class="on-res-row__figure"><canvas aria-hidden="true"></canvas></span><strong></strong><span class="on-res-row__job"><span></span><span class="on-res-row__goods"></span></span><span></span><span class="on-res-row__lacks"></span>`,
+      `<span class="on-res-row__figure"></span><strong></strong><span class="on-res-row__job"><span></span><span class="on-res-row__goods"></span></span><span></span><span class="on-res-row__lacks"></span>`,
     );
-    const canvas = control.querySelector('canvas');
-    const [name, profession, workplace, lacks] = [...control.children].slice(1);
+    const [figure, name, profession, workplace, lacks] = [...control.children];
     if (
-      canvas === null ||
+      !(figure instanceof HTMLElement) ||
       !(name instanceof HTMLElement) ||
       !(profession instanceof HTMLElement) ||
       !(workplace instanceof HTMLElement) ||
@@ -455,7 +469,8 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     return {
       item,
       pick: control,
-      canvas,
+      figure,
+      canvas: document.createElement('canvas'),
       cells: [name, profession, workplace, lacks],
       trade,
       goods,
@@ -683,10 +698,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       const focused = document.activeElement;
       padTop.style.height = `${range.first * rowPx}px`;
       padBottom.style.height = `${Math.max(0, listedRows.length - range.last - 1) * rowPx}px`;
-      list.replaceChildren(padTop, ...items, padBottom);
+      list.replaceChildren(padTop, ...items, padBottom, figuresItem);
       if (focused instanceof HTMLElement && list.contains(focused)) focused.focus({ preventScroll: true });
       attached = range;
       figuresStale = true;
+      overlayStale = true;
     }
   };
 
@@ -694,13 +710,15 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
    *  window moved, never per frame. */
   const measure = (): void => {
     const first = list.querySelector<HTMLElement>('.on-res-row');
-    const canvas = first?.querySelector('canvas');
-    if (first === null || canvas === null || canvas === undefined) return;
+    const figure = first?.querySelector<HTMLElement>('.on-res-row__figure');
+    if (first === null || figure === null || figure === undefined) return;
     rowPx = first.parentElement?.offsetHeight ?? 0;
     viewPx = list.clientHeight;
     const pixelScale =
-      (canvas.getBoundingClientRect().width / Math.max(1, canvas.offsetWidth)) * devicePixelRatio;
-    figureBox = { width: canvas.clientWidth, height: canvas.clientHeight, pixelScale };
+      (figure.getBoundingClientRect().width / Math.max(1, figure.offsetWidth)) * devicePixelRatio;
+    figureBox = { width: figure.clientWidth, height: figure.clientHeight, pixelScale };
+    measuredRatio = devicePixelRatio;
+    overlayStale = true;
     attach(false);
   };
 
@@ -840,9 +858,29 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
         showSelection();
         shownSelection = deps.selection.version();
       }
+      // Another display resizes the figures' canvases, and the canvas their copies land on.
+      if (measuredRatio !== devicePixelRatio && rowPx > 0) {
+        measure();
+        figuresStale = true;
+      }
       if (figuresStale) measureVisible();
     },
     figureSlots: () => (window.isOpen() ? visibleSlots : NO_FIGURE_SLOTS),
+    markDrawn: (repainted) => {
+      if (!window.isOpen()) return;
+      if (!overlayStale) {
+        figures.copy(repainted);
+        return;
+      }
+      overlayStale = false;
+      const holders: FigureHolder[] = [];
+      for (let at = attached.first; at <= attached.last; at++) {
+        const row = listedRows[at];
+        const view = row === undefined ? undefined : views.get(row.id);
+        if (view !== undefined) holders.push({ node: view.figure, canvas: view.canvas });
+      }
+      figures.place(holders);
+    },
     state: () => state,
     restore: (next) => {
       state = next;

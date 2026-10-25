@@ -4,6 +4,7 @@ import type { FigureSlot } from '../../figures/live-figures.js';
 import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { FIGURE, GLYPH } from '../icons.js';
 import { element, onPress, setClass, setStyleVar, setTip } from '../parts/dom.js';
+import { createFigureOverlay } from '../parts/figure-overlay.js';
 import {
   createFigureWell,
   type FigureWell,
@@ -12,7 +13,6 @@ import {
   showInWell,
   type WellFigureFit,
 } from '../parts/figure-well.js';
-import { createRosterFigures } from './roster-figures.js';
 
 /** A roster well (foundation.css `.on-roster__well`, 32 x 46 design px) shows its person a little larger
  *  than a crew seat, feet above the two bars on its floor; a vehicle fits itself to its double-width well. */
@@ -160,7 +160,8 @@ export function createMemberRoster(
   icons: GoodIconPainter,
 ): MemberRoster {
   const root = element('div', 'on-roster');
-  const figures = createRosterFigures();
+  // The wells paint off the page; this canvas over them shows their copies.
+  const figures = createFigureOverlay('on-roster__figures');
   const padTop = element('i', 'on-roster__pad');
   const padBottom = element('i', 'on-roster__pad');
   /** The wells built for members still in the group, attached or not. */

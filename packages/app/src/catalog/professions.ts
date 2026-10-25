@@ -143,7 +143,7 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
   },
   {
     key: 'hunter',
-    goods: ['prey', 'meat', 'leather'],
+    goods: ['meat', 'leather'],
     jobType: JOB_HUNTER,
     category: 'production',
     icon: 'meat',

@@ -12,7 +12,7 @@ import type { Camera } from '../../data/projection/iso.js';
 import type { AtlasFrame } from '../../data/sprites/atlas.js';
 import { TERRAIN_CHUNK_TILES } from '../terrain/index.js';
 import { type GroundWave, groundWaveFrameAt } from './ground-wave.js';
-import { GroundWaveLift, type ScreenRect } from './ground-wave-filter.js';
+import { FLOATS_PER_RECT, GroundWaveLift, type ScreenRect } from './ground-wave-lift.js';
 
 /** Waves are indexed in square blocks of the terrain chunk's horizontal pitch by their anchors, the
  *  point the cull tests, so a frame looks up only the blocks under the view. */
@@ -259,12 +259,12 @@ export class GroundWaveLayer {
   }
 
   private rectAt(index: number, x0: number, y0: number, x1: number, y1: number): void {
-    if (this.rects.length < (index + 1) * 4) {
-      const grown = new Float32Array(Math.max(this.rects.length * 2, (index + 1) * 4));
+    if (this.rects.length < (index + 1) * FLOATS_PER_RECT) {
+      const grown = new Float32Array(Math.max(this.rects.length * 2, (index + 1) * FLOATS_PER_RECT));
       grown.set(this.rects);
       this.rects = grown;
     }
-    const at = index * 4;
+    const at = index * FLOATS_PER_RECT;
     this.rects[at] = x0;
     this.rects[at + 1] = y0;
     this.rects[at + 2] = x1;
@@ -279,10 +279,10 @@ export class GroundWaveLayer {
     rect.maxX = Number.NEGATIVE_INFINITY;
     rect.maxY = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < count; i++) {
-      rect.minX = Math.min(rect.minX, (this.rects[i * 4] ?? 0) * zoom + camera.offsetX);
-      rect.minY = Math.min(rect.minY, (this.rects[i * 4 + 1] ?? 0) * zoom + camera.offsetY);
-      rect.maxX = Math.max(rect.maxX, (this.rects[i * 4 + 2] ?? 0) * zoom + camera.offsetX);
-      rect.maxY = Math.max(rect.maxY, (this.rects[i * 4 + 3] ?? 0) * zoom + camera.offsetY);
+      rect.minX = Math.min(rect.minX, (this.rects[i * FLOATS_PER_RECT] ?? 0) * zoom + camera.offsetX);
+      rect.minY = Math.min(rect.minY, (this.rects[i * FLOATS_PER_RECT + 1] ?? 0) * zoom + camera.offsetY);
+      rect.maxX = Math.max(rect.maxX, (this.rects[i * FLOATS_PER_RECT + 2] ?? 0) * zoom + camera.offsetX);
+      rect.maxY = Math.max(rect.maxY, (this.rects[i * FLOATS_PER_RECT + 3] ?? 0) * zoom + camera.offsetY);
     }
     return rect;
   }

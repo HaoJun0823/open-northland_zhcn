@@ -1,7 +1,7 @@
 import { WEATHER_KINDS } from '../../data/weather/types.js';
 import { BLOOD_GROUND_SOURCE } from '../blood/ground-shader.js';
 import { DISMANTLE_SOURCE } from '../demolition/dismantle-shader.js';
-import { GROUND_WAVE_FILTER_SOURCE } from '../ground-waves/ground-wave-filter.js';
+import { GROUND_WAVE_LIFT_SOURCE } from '../ground-waves/ground-wave-lift.js';
 import { DECOR_SHADOW_SOURCE } from '../map-objects/decor-shadow-shader.js';
 import { PALETTED_SPRITE_SOURCE } from '../paletted-sprite/shader.js';
 import { PRESCALE_RECIPES } from '../pixel-art/page-prescaler.js';
@@ -73,7 +73,7 @@ export function shaderCatalog(): readonly GlslProgramSource[] {
     ...PRESCALED_SCALERS.flatMap((scaler) => prescalePrograms(scaler)),
     ...unconditionalPrograms(),
     BLOOD_GROUND_SOURCE,
-    GROUND_WAVE_FILTER_SOURCE,
+    GROUND_WAVE_LIFT_SOURCE,
     ...weatherPrograms(),
     WORLD_UPSCALE_SOURCE,
   );
@@ -104,7 +104,7 @@ export interface ShaderSelection {
   readonly weather: boolean;
   /** Blood marks on the ground. */
   readonly blood: boolean;
-  /** The shore-wave filter, which only environment motion draws. */
+  /** The shore-wave lift, which only environment motion draws. */
   readonly groundWaves: boolean;
   /** The pass that magnifies a world drawn at fewer texels than a dense canvas. */
   readonly worldUpscale: boolean;
@@ -123,7 +123,7 @@ export function bootShaderPrograms(
     ...(prescaled === null ? [] : prescalePrograms(prescaled)),
     ...unconditionalPrograms(),
     ...(selection.blood ? [BLOOD_GROUND_SOURCE] : []),
-    ...(selection.groundWaves ? [GROUND_WAVE_FILTER_SOURCE] : []),
+    ...(selection.groundWaves ? [GROUND_WAVE_LIFT_SOURCE] : []),
     ...(selection.weather ? weatherPrograms() : []),
     ...(selection.worldUpscale ? [WORLD_UPSCALE_SOURCE] : []),
   ];

@@ -55,13 +55,15 @@ const FRAGMENT = `#version 300 es
 `;
 
 /** The lift pass program. */
-export const GROUND_WAVE_FILTER_SOURCE: GlslProgramSource = {
+export const GROUND_WAVE_LIFT_SOURCE: GlslProgramSource = {
   name: 'ground-wave-lift',
   vertex: VERTEX,
   fragment: FRAGMENT,
 };
 
 const FLOATS_PER_QUAD = 8;
+/** `[x0, y0, x1, y1]` per wave rectangle. */
+export const FLOATS_PER_RECT = 4;
 const INDICES_PER_QUAD = 6;
 /** Quads the first geometry holds; it doubles when a frame draws more. */
 const INITIAL_QUADS = 64;
@@ -117,7 +119,7 @@ export class GroundWaveLift {
   constructor(map: TextureSource) {
     this.state.blend = false;
     this.shader = new Shader({
-      glProgram: glProgramFor(GROUND_WAVE_FILTER_SOURCE),
+      glProgram: glProgramFor(GROUND_WAVE_LIFT_SOURCE),
       resources: { liftUniforms: this.uniforms, uWaveMap: map, uGround: map },
     });
     this.node = new RenderContainer({
@@ -190,10 +192,10 @@ export class GroundWaveLift {
     const buffer = geometry.getBuffer('aPosition');
     const positions = buffer.data as Float32Array;
     for (let q = 0; q < quads; q++) {
-      const x0 = rects[q * 4] ?? 0;
-      const y0 = rects[q * 4 + 1] ?? 0;
-      const x1 = rects[q * 4 + 2] ?? 0;
-      const y1 = rects[q * 4 + 3] ?? 0;
+      const x0 = rects[q * FLOATS_PER_RECT] ?? 0;
+      const y0 = rects[q * FLOATS_PER_RECT + 1] ?? 0;
+      const x1 = rects[q * FLOATS_PER_RECT + 2] ?? 0;
+      const y1 = rects[q * FLOATS_PER_RECT + 3] ?? 0;
       const at = q * FLOATS_PER_QUAD;
       positions[at] = x0;
       positions[at + 1] = y0;

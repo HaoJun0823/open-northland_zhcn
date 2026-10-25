@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WEATHER_KINDS } from '../../../src/data/weather/types.js';
 import { BLOOD_GROUND_SOURCE } from '../../../src/gpu/blood/ground-shader.js';
-import { GROUND_WAVE_FILTER_SOURCE } from '../../../src/gpu/ground-waves/ground-wave-filter.js';
+import { GROUND_WAVE_LIFT_SOURCE } from '../../../src/gpu/ground-waves/ground-wave-lift.js';
 import { PRESCALED_SCALERS } from '../../../src/gpu/pixel-art/registry.js';
 import { XBRZ_2X_SOURCE } from '../../../src/gpu/pixel-art/xbrz-2x.js';
 import { bootShaderPrograms, type ShaderSelection, shaderCatalog } from '../../../src/gpu/shaders/catalog.js';
@@ -154,7 +154,7 @@ describe('boot shader programs', () => {
     expect(turnedOff.sort()).toEqual(
       namesOf([
         BLOOD_GROUND_SOURCE,
-        GROUND_WAVE_FILTER_SOURCE,
+        GROUND_WAVE_LIFT_SOURCE,
         ATMOSPHERE_NOISE_BAKE_SOURCE,
         WEATHER_GRADE_SOURCE,
         WEATHER_VEIL_SOURCE,

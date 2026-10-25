@@ -338,7 +338,7 @@ export const deContent = {
     'scout-village': {
       title: 'Späher im Dorf',
       summary:
-        'Ein roter Späher geht an blauen Baumeistern vorbei, die weiterbauen, und in ein Computerdorf, das ihn gewähren lässt. Er schlägt einen Dorfbewohner und stiehlt eine Kuh: Zwei Dorfbewohner gehen mit den Fäusten auf ihn los und lassen ihn am Dorfrand ziehen.',
+        'Ein roter Späher geht an blauen Baumeistern vorbei, die weiterbauen, und in ein Computerdorf, das ihn gewähren lässt. Er schlägt einen Dorfbewohner und stiehlt eine Kuh: Zwei Dorfbewohner gehen mit den Fäusten auf ihn los, vertreiben ihn und lassen ihn wenige Schritte von ihrem Platz entfernt ziehen.',
     },
     'cow-raid': {
       title: 'Viehraub',

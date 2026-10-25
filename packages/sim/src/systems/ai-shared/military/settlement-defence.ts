@@ -13,6 +13,7 @@ import type { Entity, World } from '../../../ecs/world.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
 import { leashedAttack, strikeParty } from '../../conflict/leash.js';
 import { forgetOffenders, liveOffenders } from '../../conflict/offenders.js';
+import { strikeBackLeash } from '../../conflict/strike-back.js';
 import type { System, SystemContext } from '../../context.js';
 import { hexNodeDistance } from '../../spatial/metric.js';
 import { entityNode } from '../../spatial/nodes.js';
@@ -246,21 +247,27 @@ export const settlementDefenceSystem: System = (world, ctx) => {
     for (const command of plan.commands) {
       ctx.commands.enqueue(aiCommand(seat.player, command, 'settlement-defence'));
     }
-    answerOffenders(world, ctx, seat.player, plan.offenderAnswers);
+    answerOffenders(world, ctx, terrain, seat.player, plan.offenderAnswers);
     if (autonomous) musterMilitia(world, ctx, terrain, seat.player, plan.threat);
   }
 };
 
-/** Send the soldiers each answer names at its offender, or, with none, the first free civilians it lists. */
+/** Send the soldiers each answer names at its offender on his zone's leash, or, with none, the first free
+ *  civilians it lists on their own strike-back leash. */
 function answerOffenders(
   world: World,
   ctx: SystemContext,
+  terrain: TerrainGraph,
   player: number,
   answers: readonly OffenderAnswer[],
 ): void {
   const origin = { player, source: 'settlement-defence' } as const;
   for (const { offender, leash, soldiers, people } of answers) {
     for (const e of soldiers) leashedAttack(world, ctx, e, offender, { ...leash }, origin);
-    if (people.length > 0) strikeParty(world, ctx, offender, people, null, origin, () => ({ ...leash }));
+    if (people.length > 0) {
+      strikeParty(world, ctx, terrain, offender, people, null, origin, (e) =>
+        strikeBackLeash(world, terrain, e),
+      );
+    }
   }
 }

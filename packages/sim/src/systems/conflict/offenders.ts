@@ -29,18 +29,37 @@ export function noteOffence(world: World, ctx: SystemContext, offender: Entity, 
   if (settler !== undefined && isAnimalTribe(ctx.content, settler.tribe)) return;
   const carrier = aiControlEntity(world, victim);
   if (carrier === null) return;
-  const untilTick = ctx.tick + OFFENDER_MEMORY_TICKS;
+  const record = { entity: offender, untilTick: ctx.tick + OFFENDER_MEMORY_TICKS, drivenOff: false };
   const held = world.tryGet(carrier, SeatOffenders);
   if (held === undefined) {
-    world.add(carrier, SeatOffenders, { offenders: [{ entity: offender, untilTick }] });
+    world.add(carrier, SeatOffenders, { offenders: [record] });
     return;
   }
   const at = held.offenders.findIndex((o) => o.entity >= offender);
   const found = at === -1 ? undefined : held.offenders[at];
-  if (found?.entity === offender && found.untilTick === untilTick) return;
+  if (found?.entity === offender && found.untilTick === record.untilTick && !found.drivenOff) return;
   const offenders = world.mut(carrier, SeatOffenders).offenders;
-  if (found?.entity === offender) offenders[at] = { entity: offender, untilTick };
-  else offenders.splice(at === -1 ? offenders.length : at, 0, { entity: offender, untilTick });
+  if (found?.entity === offender) offenders[at] = record;
+  else offenders.splice(at === -1 ? offenders.length : at, 0, record);
+}
+
+/** Mark that `player`'s civilians let `offender` go at their strike-back leash, so the seat sends no
+ *  civilian at him again until his next offence. A unit the seat does not remember is left alone. */
+export function noteDrivenOff(world: World, player: number, offender: Entity): void {
+  const carrier = aiControlEntity(world, player);
+  const held = carrier === null ? undefined : world.tryGet(carrier, SeatOffenders);
+  if (carrier === null || held === undefined) return;
+  const at = held.offenders.findIndex((o) => o.entity === offender);
+  if (at === -1 || held.offenders[at]?.drivenOff === true) return;
+  const record = world.mut(carrier, SeatOffenders).offenders[at];
+  if (record !== undefined) record.drivenOff = true;
+}
+
+/** Whether `player`'s civilians let `offender` go since his last offence. */
+export function drivenOff(world: World, player: number, offender: Entity): boolean {
+  const carrier = aiControlEntity(world, player);
+  const held = carrier === null ? undefined : world.tryGet(carrier, SeatOffenders);
+  return held?.offenders.find((o) => o.entity === offender)?.drivenOff === true;
 }
 
 /** The offenders `player` still remembers at `tick`, alive, ascending id. */

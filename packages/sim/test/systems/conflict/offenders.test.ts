@@ -9,8 +9,10 @@ import {
   serializeSaveGame,
 } from '../../../src/index.js';
 import {
+  drivenOff,
   forgetOffenders,
   liveOffenders,
+  noteDrivenOff,
   noteOffence,
   OFFENDER_MEMORY_TICKS,
 } from '../../../src/systems/conflict/offenders.js';
@@ -91,10 +93,11 @@ describe('offender memory - whom a computer seat remembers', () => {
     expect(carrier !== null && s.world.has(carrier, SeatOffenders)).toBe(false);
   });
 
-  it('keeps its offenders through a save', () => {
+  it('keeps its offenders and whom its civilians let go through a save', () => {
     const s = sim('computer');
     const scout = woman(s, 5, P1);
     noteOffence(s.world, ctxOf(s), scout, P0);
+    noteDrivenOff(s.world, P0, scout);
 
     const restored = restoreSimulation(parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(s)))), {
       content: s.content,
@@ -103,5 +106,6 @@ describe('offender memory - whom a computer seat remembers', () => {
 
     expect(restored.hashState()).toBe(s.hashState());
     expect(remembered(restored)).toEqual([scout]);
+    expect(drivenOff(restored.world, P0, scout)).toBe(true);
   });
 });

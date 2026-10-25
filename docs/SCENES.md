@@ -100,8 +100,8 @@ walks on past them.
 
 `?scene=scout-village` walks a red scout past blue builders and into a village the computer runs.
 The builders keep building and the villagers let him walk. Then he strikes a villager and goes after
-a cow: the struck one and a neighbour punch him, drop him a few steps from where they stood, and the
-village's own answer sends them after him again until he leaves it with the cow.
+a cow: the struck one and a neighbour punch him and drop him a few steps from where they stood. Nobody
+runs after him again; he leaves the village with the cow.
 
 `?scene=cow-raid` runs a red scout at a blue farm's cattle and back. The cows in his reach run, each
 its own way, the sheep beyond it keep grazing, and once he is gone the cows walk back to the farm.

@@ -335,7 +335,7 @@ export const plContent = {
     'scout-village': {
       title: 'Zwiadowca we wsi',
       summary:
-        'Czerwony zwiadowca mija niebieskich budowniczych, którzy budują dalej, i wchodzi do wioski komputera, która pozwala mu przejść. Uderza mieszkańca i kradnie krowę: dwóch mieszkańców rusza na niego z pięściami i puszcza go na skraju wioski.',
+        'Czerwony zwiadowca mija niebieskich budowniczych, którzy budują dalej, i wchodzi do wioski komputera, która pozwala mu przejść. Uderza mieszkańca i kradnie krowę: dwóch mieszkańców rusza na niego z pięściami, przegania go i nie biegnie za nim dalej niż kilka kroków.',
     },
     'cow-raid': {
       title: 'Napad na krowy',

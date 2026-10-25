@@ -1,4 +1,4 @@
-import { Owner, Person, Settler } from '../../components/index.js';
+import { type AttackLeash, Owner, Person, Settler } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
@@ -46,9 +46,13 @@ export function strikeBack(
   const party = [victim];
   for (const { entity } of people) if (entity !== victim) party.push(entity);
   return (
-    strikeParty(world, ctx, attacker, party, victim, origin, (e) => ({
-      at: entityNode(world, terrain, e),
-      radius: STRIKE_BACK_LEASH_NODES,
-    })) > 0
+    strikeParty(world, ctx, terrain, attacker, party, victim, origin, (e) =>
+      strikeBackLeash(world, terrain, e),
+    ) > 0
   );
+}
+
+/** The leash of a civilian striking back: {@link STRIKE_BACK_LEASH_NODES} around where it stands. */
+export function strikeBackLeash(world: World, terrain: TerrainGraph, e: Entity): AttackLeash {
+  return { at: entityNode(world, terrain, e), radius: STRIKE_BACK_LEASH_NODES };
 }

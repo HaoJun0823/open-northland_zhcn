@@ -27,7 +27,7 @@ import type { SceneDefinition } from '../types.js';
  * An enemy scout in two villages. A red scout walks through the blue settlement past its builders, who keep
  * building, then on into a village the computer runs, which lets him walk. There he strikes a villager:
  * the struck one and a neighbour take him on with their fists. He breaks off after one of the village's
- * cows and takes it; the two chase him out of the village and let him go at its edge.
+ * cows and takes it; the two let him go a few steps from where they stood, and nobody runs after him again.
  */
 
 const MAP_W = 60;
@@ -65,7 +65,7 @@ const ORDER_TICK = 1;
 const SCRIPTED_SEQUENCE = Number.MAX_SAFE_INTEGER;
 /** When the scout leaves off the villager and goes after a cow: a few blows after his first. */
 const CLAIM_TICK = 720;
-/** The walk, the blow, the theft and the chase to the village's edge, with margin. */
+/** The walk, the blow, the theft and his walk out of the village, long enough to see nobody chase him. */
 const RUN_TICKS = 1500;
 
 const { AttackOrder, Building, Fleeing, Health, Livestock, Owner, Settler, UnderConstruction } = components;
@@ -158,6 +158,19 @@ function onTheScout(sim: Simulation): Entity[] {
   );
 }
 
+/** Whether some villager went at the scout again after all of them had let him go. */
+function sentAgain(): boolean {
+  let struckBack = false;
+  let letGo = false;
+  return holdsSometimeDuring(scoutVillageScene, RUN_TICKS, (sim) => {
+    const on = onTheScout(sim).length > 0;
+    if (on && letGo) return true;
+    if (on) struckBack = true;
+    else if (struckBack) letGo = true;
+    return false;
+  });
+}
+
 function unhurt(sim: Simulation, e: Entity): boolean {
   const health = sim.world.get(e, Health);
   return health.hitpoints === health.max;
@@ -234,11 +247,24 @@ export const scoutVillageScene: SceneDefinition = {
         ),
     },
     {
+      label: 'each villager on him held the short strike-back leash of where it stood',
+      predicate: () =>
+        !holdsSometimeDuring(scoutVillageScene, RUN_TICKS, (sim) =>
+          onTheScout(sim).some(
+            (e) => sim.world.get(e, AttackOrder).leash?.radius !== systems.STRIKE_BACK_LEASH_NODES,
+          ),
+        ),
+    },
+    {
+      label: 'once they let him go, nobody went at him again',
+      predicate: () => !sentAgain(),
+    },
+    {
       label: 'he got away with a cow',
       predicate: cowTaken,
     },
     {
-      label: 'the villagers let him go at the edge of their village, alive',
+      label: 'the villagers let him go, alive',
       predicate: (sim) => {
         const scout = scoutOf(sim);
         return (

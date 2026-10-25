@@ -121,6 +121,9 @@ export const RoadTraffic = defineComponent<RoadTrafficState>('RoadTraffic', 'pla
 export interface SeatOffender {
   entity: Entity;
   untilTick: number;
+  /** Whether civilians who struck back let him go at their leash since his last offence: none is sent at
+   *  him again until he offends anew. */
+  drivenOff: boolean;
 }
 
 /**

@@ -55,12 +55,14 @@ export function strayedPastLeash(
 
 /**
  * Send the first free civilians of `people` (nearest first) at `attacker`, up to {@link STRIKE_BACK_PARTY}
- * counting those of them already on it, each on the leash `leashOf` gives it. `struck` is the one the blow
- * fell on, who strikes back even woken from sleep, or null. Answers the party's size.
+ * counting those of them already on it, each on the leash `leashOf` gives it; one whose leash `attacker`
+ * already stands past stays put. `struck` is the one the blow fell on, who strikes back even woken from
+ * sleep, or null. Answers the party's size.
  */
 export function strikeParty(
   world: World,
   ctx: SystemContext,
+  terrain: TerrainGraph,
   attacker: Entity,
   people: readonly Entity[],
   struck: Entity | null,
@@ -72,7 +74,9 @@ export function strikeParty(
   for (const e of people) {
     if (party >= STRIKE_BACK_PARTY) break;
     if (!mayStrikeBack(world, ctx, e, attacker, e === struck)) continue;
-    if (leashedAttack(world, ctx, e, attacker, leashOf(e), origin)) party++;
+    const leash = leashOf(e);
+    if (strayedPastLeash(world, terrain, leash, attacker)) continue;
+    if (leashedAttack(world, ctx, e, attacker, leash, origin)) party++;
   }
   return party;
 }

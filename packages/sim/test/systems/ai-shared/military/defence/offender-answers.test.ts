@@ -11,9 +11,11 @@ import {
   threatWatchNodes,
 } from '../../../../../src/systems/computer-player/index.js';
 import { STRIKE_BACK_PARTY } from '../../../../../src/systems/conflict/leash.js';
-import { noteOffence } from '../../../../../src/systems/conflict/offenders.js';
+import { noteDrivenOff, noteOffence } from '../../../../../src/systems/conflict/offenders.js';
+import { STRIKE_BACK_LEASH_NODES } from '../../../../../src/systems/conflict/strike-back.js';
 import { setAiControl } from '../../../../../src/systems/orders/ai.js';
 import { WEAPON_MAIN_TYPE } from '../../../../../src/systems/readviews/index.js';
+import { entityNode } from '../../../../../src/systems/spatial/nodes.js';
 import { aiContent } from '../../../../fixtures/ai-content.js';
 import { ctxOf } from '../../../../fixtures/context.js';
 import { grassNodeMap } from '../../../../fixtures/terrain.js';
@@ -31,6 +33,8 @@ const HQ_AT = { x: 24, y: 20 };
 const FAR_OFF = { x: 120, y: 90 };
 /** Inside the headquarters' watch band, with room for the seat's people between. */
 const INTRUDER_OFFSET = 10;
+/** Further along the row from the scout than a civilian's strike-back leash reaches, inside the zone. */
+const BEYOND_REACH = 2 * STRIKE_BACK_LEASH_NODES + 4;
 /** The seat's first defence decision while the computer player runs it. */
 const DEFENCE_TICK = SEAT * AI_SEAT_SLOT_STEP_TICKS + MILITARY_DECISION_PHASE;
 
@@ -133,6 +137,68 @@ describe('computer defence - answering unarmed offenders', () => {
     expect(onto(sim, scout)).toEqual([nearest, next]);
     expect(onto(sim, scout)).toHaveLength(STRIKE_BACK_PARTY);
     expect(sim.world.has(farther, AttackOrder)).toBe(false);
+    // Each on the short strike-back leash of where it stood, not the zone's.
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('setup: the map has no terrain');
+    for (const e of [nearest, next]) {
+      expect(sim.world.get(e, AttackOrder).leash).toEqual({
+        at: entityNode(sim.world, terrain, e),
+        radius: STRIKE_BACK_LEASH_NODES,
+      });
+    }
+  });
+
+  it('sends no civilian the thief already stands past the strike-back reach of', () => {
+    const { sim } = town();
+    seat(sim, true);
+    const scout = scoutIn(sim);
+    const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y, SEAT);
+    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+
+    decide(sim);
+
+    expect(sim.world.has(civilian, AttackOrder)).toBe(false);
+  });
+
+  it('sends no civilian again at a thief they let go, until he offends anew', () => {
+    const { sim } = town();
+    seat(sim, true);
+    const scout = scoutIn(sim);
+    const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 2, HQ_AT.y, SEAT);
+    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    decide(sim);
+    expect(onto(sim, scout)).toEqual([civilian]);
+
+    // He steps past the civilian's leash, still inside the zone: the civilian lets him go.
+    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
+    sim.step();
+    expect(onto(sim, scout)).toEqual([]);
+
+    // Back beside the civilian, he is not sent at him again.
+    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET, HQ_AT.y));
+    decide(sim);
+    expect(onto(sim, scout)).toEqual([]);
+
+    // A new offence is a new answer.
+    noteOffence(sim.world, { ...ctxOf(sim), tick: sim.tick + 1 }, scout, SEAT);
+    decide(sim);
+    expect(onto(sim, scout)).toEqual([civilian]);
+  });
+
+  it('keeps a soldier on a thief across the zone, and sends one at a thief the civilians let go', () => {
+    const { sim } = town();
+    seat(sim, true);
+    const soldier = spawn(sim, SPEARMAN, HQ_AT.x, HQ_AT.y + 6, SEAT);
+    const scout = scoutIn(sim);
+    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    noteDrivenOff(sim.world, SEAT, scout);
+
+    decide(sim);
+    expect(onto(sim, scout)).toEqual([soldier]);
+
+    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
+    sim.step();
+    expect(onto(sim, scout)).toEqual([soldier]);
   });
 
   it('leaves a seat closed to the computer as it was: no offender is kept, nobody is sent', () => {

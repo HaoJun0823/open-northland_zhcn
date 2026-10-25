@@ -3,6 +3,7 @@ import type { Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { ALARM_PEOPLE_RADIUS_NODES } from '../../../conflict/hit-alarm.js';
+import { drivenOff } from '../../../conflict/offenders.js';
 import type { SystemContext } from '../../../context.js';
 import { ownedFightersOf } from '../../../movement/collision/owned-fighters.js';
 import { peopleNear } from '../../../movement/settler-nodes.js';
@@ -19,8 +20,9 @@ import {
 /** The most soldiers a computer seat sends at one unarmed offender. Approximation. */
 export const OFFENDER_SQUAD_MAX = 2;
 
-/** How the seat answers one unarmed enemy who struck or robbed it: the free soldiers it sends, or, with
- *  none to send, the civilians near him it asks to strike back (nearest first), all leashed to his zone. */
+/** How the seat answers one unarmed enemy who struck or robbed it: the free soldiers it sends, leashed to
+ *  his zone, or, with none to send, the civilians near him it asks to strike back (nearest first), each on
+ *  the short strike-back leash of where it stands, so they drive him off without running after him. */
 export interface OffenderAnswer {
   readonly offender: Entity;
   readonly leash: AttackLeash;
@@ -32,7 +34,8 @@ export interface OffenderAnswer {
  * Answer every unarmed offender inside a zone whose danger reaches {@link DEFEND_DANGER_THRESHOLD}: send
  * him the nearest free soldiers the zone's danger asks for, one at least and {@link OFFENDER_SQUAD_MAX} at
  * most, counting the seat's men already on him. A seat with no free soldier who can reach him asks its
- * people near him instead. An armed offender is the raid's to answer. `claimed` holds the soldiers spent.
+ * people near him instead, unless its civilians already let him go since his last offence. An armed
+ * offender is the raid's to answer. `claimed` holds the soldiers spent.
  */
 export function offenderAnswers(
   world: World,
@@ -57,6 +60,7 @@ export function offenderAnswers(
       if (soldiers.length > 0) answers.push({ offender, leash, soldiers, people: [] });
       continue;
     }
+    if (drivenOff(world, player, offender)) continue;
     const at = terrain.nodeAtClamped(intruder.x, intruder.y);
     const people = peopleNear(world, terrain, player, at, ALARM_PEOPLE_RADIUS_NODES);
     if (people.length > 0) answers.push({ offender, leash, soldiers: [], people });

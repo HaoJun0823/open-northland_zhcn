@@ -44,6 +44,7 @@ export { ALARM_SOLDIER_RADIUS_NODES } from './conflict/hit-alarm.js';
 export { STRIKE_BACK_PARTY } from './conflict/leash.js';
 // The ground a defence-capable building covers, drawn when it is selected or placed.
 export { shelterFireRadius } from './conflict/shelter-fire.js';
+export { STRIKE_BACK_LEASH_NODES } from './conflict/strike-back.js';
 export { ANIMAL_AGGRO_RADIUS_NODES, SIGHT_RADIUS_NODES } from './conflict/targeting.js';
 export { BERRY_REGROW_TICKS, BERRY_STAGE_TICKS, createBerryBush } from './economy/berries.js';
 export { createMapCrop } from './economy/fields.js';

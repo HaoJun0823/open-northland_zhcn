@@ -63,6 +63,7 @@ import { runsFromBlows, startBlowRun } from './flee.js';
 import { breaksHuntForNeed, holdPrey, preySearchResting, restPreySearch } from './hunting/index.js';
 import { strayedPastLeash } from './leash.js';
 import type { MeleeSlots } from './melee-slots.js';
+import { noteDrivenOff } from './offenders.js';
 import type { CombatPass } from './pass.js';
 import { combatTargetNode, targetBodyNodes } from './target-node.js';
 import { hostileAnimalNow, isValidOrderedTarget, isValidTarget, wildPursuit } from './targeting.js';
@@ -318,13 +319,18 @@ function liveAttackOrder(
     return false;
   }
   // A leashed defender (a civilian striking back, a soldier sent at an offender) lets its target go once
-  // it is gone or strays past the leash, and its work or the next decision takes it back.
+  // it is gone or strays past the leash, and its work or the next decision takes it back. A civilian's
+  // seat then sends no civilian at that target until it offends again.
   if (order.leash !== undefined) {
     const holds =
       ctx.terrain !== undefined &&
       isValidOrderedTarget(world, ctx, e, attacker, order.target) &&
       !strayedPastLeash(world, ctx.terrain, order.leash, order.target);
     if (!holds) {
+      const owner = world.tryGet(e, Owner);
+      if (owner !== undefined && !isFighterJob(ctx.content, attacker.jobType)) {
+        noteDrivenOff(world, owner.player, order.target);
+      }
       world.remove(e, AttackOrder);
       world.remove(e, AiOrder);
     }

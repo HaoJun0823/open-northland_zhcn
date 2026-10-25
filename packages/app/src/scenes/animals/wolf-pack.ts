@@ -40,7 +40,10 @@ const { Engagement, HerdMember, Position, Settler, StayPoint } = components;
 function build(sim: Simulation): void {
   const pack = cellAnchorNode(PACK_AT.x, PACK_AT.y);
   sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: ANIMAL_TRIBE_WOLVES, x: pack.hx, y: pack.hy });
-  spawnSettlerDirect(sim, JOB_CIVILIST, SCOUT_AT.x, SCOUT_AT.y, HUMAN_PLAYER);
+  const scout = spawnSettlerDirect(sim, JOB_CIVILIST, SCOUT_AT.x, SCOUT_AT.y, HUMAN_PLAYER);
+  // He walks off down the row, so the chase keeps to it: a civilian no longer runs from a mere sighting.
+  const flight = cellAnchorNode(MAP_W - 1, ROW);
+  sim.enqueueSetup({ kind: 'moveUnit', entity: scout, x: flight.hx, y: flight.hy });
   for (const y of SWORD_ROWS) {
     const sword = spawnSettlerDirect(sim, JOB_SOLDIER_SWORD, SWORD_X, y, HUMAN_PLAYER);
     const goal = cellAnchorNode(PACK_AT.x, y);

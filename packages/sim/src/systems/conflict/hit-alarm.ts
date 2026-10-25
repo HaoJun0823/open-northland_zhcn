@@ -17,6 +17,7 @@ import { turnOnAttacker } from '../settlers/atomics/effects/combat/hit/reactions
 import { entityNode } from '../spatial/nodes.js';
 import { type CombatIndex, passIndexOf } from './combat-index.js';
 import { runFromBlow, runsFromBlows } from './flee.js';
+import { strikeBack } from './strike-back.js';
 import { isFleeThreat } from './targeting.js';
 import { standsAtPost } from './tower-post.js';
 
@@ -98,7 +99,9 @@ export function answerQueuedAlarms(
  * the struck person first of all, runs from the attacker whatever its stance ({@link runsFromBlows}). A
  * struck person with {@link MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM} answers alone.
  *
- * Intentional deviations: a civilian the player set to ATTACK or DEFEND stays, as that setting says. A tick
+ * Intentional deviations: a civilian the player set to ATTACK or DEFEND stays, as that setting says. A
+ * computer seat answers an unarmed attacker by striking back ({@link strikeBack}), its other people keeping
+ * to their work and the struck one running only when it cannot strike. A tick
  * answers each (player, attacker) pair once, around its first victim, so a second victim of the same area
  * shot does not widen the circle. No one inside a house but a man on his tower answers: a soldier asleep
  * at home would otherwise wake holding a raider long gone and chase it (whether the original's alarm
@@ -131,6 +134,11 @@ function answerAlarm(
         ALARM_SOLDIER_RADIUS_NODES,
         'hex',
       );
+  const people = answering.filter(
+    ({ entity, distance }) =>
+      distance <= ALARM_PEOPLE_RADIUS_NODES && world.has(entity, Person) && !indoors(world, entity),
+  );
+  const struckBack = strikeBack(world, ctx, terrain, alarm.victim, alarm.attacker, people);
   for (const { entity, distance } of answering) {
     if (!world.has(entity, Person) || indoors(world, entity)) continue;
     const settler = world.get(entity, Settler);
@@ -144,6 +152,7 @@ function answerAlarm(
         turnOnAttacker(world, ctx, alarm.attacker, entity);
       }
     } else if (
+      (!struckBack || entity === alarm.victim) &&
       runsFromBlows(ctx, settler, mode) &&
       distance <= ALARM_PEOPLE_RADIUS_NODES &&
       (entity === alarm.victim || !asleep(world, entity)) &&

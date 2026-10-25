@@ -494,16 +494,14 @@ describe('trainSoldier - the barracks drill', () => {
     const away = terrainOf(sim).nodeAt(16, 6);
     sim.world.add(occupant, Sheltering, { shelter: house });
     sim.world.add(runner, MoveGoal, { cell: away });
-    sim.world.add(runner, Fleeing, { repathAt: 42, calmUntil: null });
+    sim.world.add(runner, Fleeing, {});
     sim.enqueueSetup({ kind: 'setDefenceMode', building: house, enabled: true });
     sim.step();
-    const cadence = sim.world.get(runner, Fleeing).repathAt;
 
     plannerSystem(sim.world, ctxOf(sim));
 
     expect(sim.world.has(runner, Sheltering)).toBe(false);
     expect(sim.world.get(runner, MoveGoal).cell).toBe(away);
-    expect(sim.world.get(runner, Fleeing).repathAt).toBe(cadence);
   });
 
   it('calls the drill off when a script fixes the recruit trade mid-term', () => {

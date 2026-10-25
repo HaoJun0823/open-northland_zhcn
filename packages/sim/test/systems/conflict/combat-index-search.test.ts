@@ -237,16 +237,6 @@ function expectRingWalkAgreement(
     expect(index.nearestFew(x, y, minDist, maxDist, accept, FEW, seeker, TAIL_RINGS)).toEqual(
       ringNearestFew(reference, x, y, minDist, maxDist, hostile, FEW),
     );
-    // The unranked existence test answers whether the ranked search finds anything, on either metric.
-    expect(index.anyWithin(x, y, minDist, maxDist, accept, null, 'manhattan')).toBe(
-      reference.nearest(x, y, minDist, maxDist, accept) !== null,
-    );
-    expect(index.anyWithin(x, y, minDist, maxDist, accept, seeker, 'manhattan')).toBe(
-      reference.nearest(x, y, minDist, maxDist, hostile) !== null,
-    );
-    expect(index.anyWithin(x, y, minDist, maxDist, accept, seeker, 'hex')).toBe(
-      index.nearest(x, y, minDist, maxDist, accept, seeker, 'hex') !== null,
-    );
   }
 }
 

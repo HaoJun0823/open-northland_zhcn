@@ -152,7 +152,7 @@ describe('moveUnit order', () => {
     const e = ownedWoodcutter(s, 0, 0);
     orderMove(s, e, 6, 0);
     s.run(5);
-    s.world.add(e, Fleeing, { repathAt: 100, calmUntil: null });
+    s.world.add(e, Fleeing, {});
     s.world.add(e, DeferredOrder, { command: { kind: 'moveUnit', entity: e, x: 0, y: 0 } });
     orderMove(s, e, 6, 0);
     s.step();

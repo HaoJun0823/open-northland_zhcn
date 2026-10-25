@@ -553,7 +553,7 @@ describe('defence mode', () => {
     const sim = new Simulation({ seed: 1, content: defenceContent(), map: grass(14, 4) });
     const tower = buildingAt(sim, 3, 1, TOWER, P1);
     const farmer = settlerAt(sim, 8, 1, P1, FARMER);
-    if (alreadyFleeing) sim.world.add(farmer, Fleeing, { repathAt: 0, calmUntil: null });
+    if (alreadyFleeing) sim.world.add(farmer, Fleeing, {});
     // A raider in sight from the first tick. A claimant that took the flee drive instead would be steered
     // by the threat rather than by its claim, and it holds a seat the whole time it runs: the tower would
     // report itself full while standing empty.

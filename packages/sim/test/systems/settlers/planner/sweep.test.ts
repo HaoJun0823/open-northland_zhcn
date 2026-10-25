@@ -177,7 +177,7 @@ describe('planner sweep order', () => {
 
     world.mut(failing, PathRequest).failed = true;
     world.add(engaged, Engagement, { repathAt: 0 });
-    world.add(supplying, Fleeing, { repathAt: 0, calmUntil: null });
+    world.add(supplying, Fleeing, {});
     expect(swept(world, CONTENT, NO_SHELTERS, EVERY_IDLER)).toEqual([failing, engaged, supplying]);
     expect(world.verifyCaches()).toEqual([]);
   });
@@ -307,12 +307,12 @@ const MARKERS: Record<string, (world: World, e: Entity) => void> = {
   supplyRun: (world, e) => world.add(e, SupplyRun, { site: e, goodType: PLANK, amount: 1 }),
   fleeingSupplyRun: (world, e) => {
     world.add(e, SupplyRun, { site: e, goodType: PLANK, amount: 1 });
-    world.add(e, Fleeing, { repathAt: 0, calmUntil: null });
+    world.add(e, Fleeing, {});
   },
   pickupClaim: (world, e) => world.add(e, PickupClaim, { source: e, goodType: PLANK, amount: 1 }),
   fleeingPickupClaim: (world, e) => {
     world.add(e, PickupClaim, { source: e, goodType: PLANK, amount: 1 });
-    world.add(e, Fleeing, { repathAt: 0, calmUntil: null });
+    world.add(e, Fleeing, {});
   },
   riderSupplyRun: (world, e) => {
     world.add(e, SupplyRun, { site: e, goodType: PLANK, amount: 1 });
@@ -328,7 +328,7 @@ const MARKERS: Record<string, (world: World, e: Entity) => void> = {
   companyChat: (world, e) =>
     world.add(e, Chat, { partner: e, seeker: true, talking: false, speaks: true, kind: 'company' }),
   wedding: (world, e) => world.add(e, Wedding, { partner: e, kissing: false }),
-  fleeing: (world, e) => world.add(e, Fleeing, { repathAt: 0, calmUntil: null }),
+  fleeing: (world, e) => world.add(e, Fleeing, {}),
   farmTask: (world, e) => world.add(e, FarmTask, { farm: e, node: GOAL, sow: false }),
   resting: (world, e) => world.add(e, Resting, { at: e }),
 };

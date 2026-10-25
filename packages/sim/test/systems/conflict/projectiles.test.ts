@@ -51,6 +51,8 @@ const HERO = 70; // a hero trade, by its `hero` id prefix, carrying the same bow
 const HERO_BOW = 21;
 const HUT = 2; // a one-node building that covers the node it stands on
 const IDLE = 0;
+/** A cell at the far end of the 28-cell test row, out of every fight. */
+const FAR_COMRADE_X = 26;
 const BOW = 20; // the bow weapon typeId
 const COIN = 3; // the good the viking tech edge unlocks (makes VIKING read as a civ, not an animal)
 const ARROW = 1; // munitiontype 1 (bow ammo)
@@ -397,8 +399,11 @@ describe('projectiles - frozen flight chord + on-contact damage', () => {
 
       stepToLaunch(sim);
       const shot = shotInFlight(sim);
-      // Only this one shot is under test: the archer leaves, and its arrow still lands.
+      // Only this one shot is under test: the archer leaves, and its arrow still lands. A comrade far off
+      // keeps two players on the map, so the combat pass the landing reads still runs.
       sim.world.destroy(archer);
+      const comrade = fighterAt(sim, FAR_COMRADE_X, 1, VIKING, IDLE);
+      sim.world.add(comrade, Owner, { player: 0 });
       sim.world.mut(target, Position).x = fx.fromInt(11);
       const house = sim.world.create();
       const { aimX, aimY } = sim.world.get(shot, Projectile);

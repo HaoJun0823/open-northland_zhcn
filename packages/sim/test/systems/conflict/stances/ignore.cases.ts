@@ -3,7 +3,6 @@ import {
   AttackOrder,
   CurrentAtomic,
   Engagement,
-  Fleeing,
   Health,
   MoveGoal,
 } from '../../../../src/components/index.js';
@@ -12,7 +11,7 @@ import { combatSystem } from '../../../../src/systems/index.js';
 import { attackUnit, setStance } from '../../../../src/systems/orders/index.js';
 import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
 import { testContent } from '../../../fixtures/content.js';
-import { combatant, combatantAtNode, ctxOf, fleeCheckCtxOf, grassMap, P0, P1 } from './support.js';
+import { combatant, combatantAtNode, ctxOf, grassMap, P0, P1 } from './support.js';
 
 describe('IGNORE - never auto-engage, but an explicit order still fights', () => {
   it('an IGNORE unit does NOT swing at an adjacent enemy', () => {
@@ -64,26 +63,5 @@ describe('stance change mid-chase', () => {
     combatSystem(sim.world, ctxOf(sim));
     expect(sim.world.has(chaser, Engagement)).toBe(false); // IGNORE disengages
     expect(sim.world.has(chaser, MoveGoal)).toBe(false);
-  });
-
-  it('switching ATTACK → FLEE mid-chase sheds the stale Engagement (no permanent bench)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const unit = combatant(sim, 10, 0, P0, MILITARY_MODE.ATTACK);
-    const enemy = combatant(sim, 16, 0, P1, MILITARY_MODE.IGNORE); // 12 nodes - spotted, beyond reach → chase
-
-    combatSystem(sim.world, ctxOf(sim));
-    expect(sim.world.has(unit, Engagement)).toBe(true); // chasing
-
-    setStance(sim.world, ctxOf(sim), { kind: 'setStance', entity: unit, mode: MILITARY_MODE.FLEE });
-    combatSystem(sim.world, fleeCheckCtxOf(sim, unit));
-    expect(sim.world.has(unit, Engagement)).toBe(false); // the attack Engagement is shed on entering flee
-    expect(sim.world.has(unit, Fleeing)).toBe(true); // now fleeing the same enemy
-
-    // Threat gone: after the cool-down the unit fully disengages - crucially NO Engagement is left stuck
-    // (the bug this guards: a leaked Engagement benches the unit forever and keeps combat awake).
-    sim.world.destroy(enemy);
-    sim.run(60);
-    expect(sim.world.has(unit, Engagement)).toBe(false);
-    expect(sim.world.has(unit, Fleeing)).toBe(false);
   });
 });

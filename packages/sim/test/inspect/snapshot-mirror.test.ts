@@ -16,6 +16,7 @@ import {
   SnapshotMirror,
   type WorldSnapshot,
 } from '../../src/index.js';
+import { MILITARY_MODE } from '../../src/systems/readviews/stances.js';
 import { testContent } from '../fixtures/content.js';
 import { expectSameWorld, keepSettlersWalking } from '../fixtures/snapshot-parity.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
@@ -220,7 +221,7 @@ describe('snapshot delta stream', () => {
 
   it('carries records of numbers, booleans, strings and null as scalars, and repeats a layout in a later delta', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
-    const { Fleeing, PathFollow, SettlerNeeds } = components;
+    const { PathFollow, SettlerNeeds, Stance } = components;
     const walker = bareResource(sim, 5);
     const deltas = sim.snapshotDeltas();
     const mirror = new SnapshotMirror();
@@ -242,7 +243,7 @@ describe('snapshot delta stream', () => {
     };
     sim.world.add(walker, PathFollow, follow);
     sim.world.add(walker, SettlerNeeds, needs);
-    sim.world.add(walker, Fleeing, { repathAt: 1, calmUntil: null });
+    sim.world.add(walker, Stance, { mode: MILITARY_MODE.IGNORE, anchorCell: null });
     const first = nonNull(deltas.next());
     expect(first.values).toEqual([]);
     expect(first.recordFields).toEqual(expect.arrayContaining(['nnnb', 'nnnnns', 'nz']));
@@ -255,7 +256,7 @@ describe('snapshot delta stream', () => {
     const held = entityById(mirror.snapshot(), walker)?.components;
     expect(held?.PathFollow).toStrictEqual({ index: 3, legElapsed: 0, legCost: 7, departureCharged: true });
     expect(held?.SettlerNeeds).toStrictEqual({ ...needs });
-    expect(held?.Fleeing).toStrictEqual({ repathAt: 1, calmUntil: null });
+    expect(held?.Stance).toStrictEqual({ mode: MILITARY_MODE.IGNORE, anchorCell: null });
     expect(held).toStrictEqual(entityById(sim.snapshot(), walker)?.components);
   });
 

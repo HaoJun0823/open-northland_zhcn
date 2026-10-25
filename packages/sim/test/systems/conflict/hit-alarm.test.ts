@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AiOrder,
+  AttackOrder,
   addCurrentAtomic,
   Engagement,
   Fleeing,
@@ -24,8 +26,10 @@ import {
   ALARM_PEOPLE_RADIUS_NODES,
   ALARM_SOLDIER_RADIUS_NODES,
 } from '../../../src/systems/conflict/hit-alarm.js';
+import { STRIKE_BACK_LEASH_NODES } from '../../../src/systems/conflict/strike-back.js';
 import { stampResourceFootprintData } from '../../../src/systems/footprint/index.js';
 import { combatSystem, SIGHT_RADIUS_NODES } from '../../../src/systems/index.js';
+import { setAiControl } from '../../../src/systems/orders/ai.js';
 import { moveUnit } from '../../../src/systems/orders/index.js';
 import { MILITARY_MODE, type MilitaryMode } from '../../../src/systems/readviews/index.js';
 import { resolveCombatHit } from '../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
@@ -359,5 +363,80 @@ describe('hit alarm - who does not answer', () => {
 
     const p = s.world.get(soldier, Position);
     expect(nodeOfPosition(p.x, p.y)).toEqual({ hx: MARCH_TO, hy: ROW });
+  });
+});
+
+describe('hit alarm - a computer seat strikes back at an unarmed raider', () => {
+  /** Make `player` a machine seat; `computer` says whether the computer player commands its soldiers, or the
+   *  seat is closed and left to map AI. */
+  function machineSeat(s: Simulation, player: number, computer: boolean): void {
+    setAiControl(s.world, ctxOf(s), {
+      kind: 'setAiControl',
+      player,
+      enabled: true,
+      ...(computer ? {} : { computerEnabled: false }),
+    });
+  }
+
+  /** A computer seat's woman struck by hand, with two free neighbours beside her. */
+  function raided(): { s: Simulation; victim: Entity; raider: Entity; helper: Entity; bystander: Entity } {
+    const s = sim();
+    machineSeat(s, P0, true);
+    const victim = unit(s, VICTIM_AT, P0, MILITARY_MODE.IGNORE, WOMAN);
+    const raider = unit(s, VICTIM_AT - 1, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const helper = unit(s, VICTIM_AT + BESIDE, P0, MILITARY_MODE.IGNORE, WOMAN);
+    const bystander = unit(s, VICTIM_AT + BESIDE + 1, P0, MILITARY_MODE.IGNORE, WOMAN);
+    resolveCombatHit(s.world, ctxOf(s), raider, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+    return { s, victim, raider, helper, bystander };
+  }
+
+  it('sends the struck one and its nearest free neighbour at the raider, the rest keeping to their work', () => {
+    const { s, victim, raider, helper, bystander } = raided();
+    expect(s.world.get(victim, AttackOrder).target).toBe(raider);
+    expect(s.world.get(helper, AttackOrder).target).toBe(raider);
+    for (const e of [victim, helper, bystander]) expect(s.world.has(e, Fleeing)).toBe(false);
+    expect(s.world.has(bystander, AttackOrder)).toBe(false);
+  });
+
+  it('lets the raider go once it strays past the leash, and hands the strikers back to their work', () => {
+    const { s, victim, raider, helper } = raided();
+
+    const SWING_OUT_TICKS = 30; // a swing under way finishes before the order is read again
+    s.world.mut(raider, Position).x = positionOfNode(VICTIM_AT - STRIKE_BACK_LEASH_NODES - 1, ROW).x;
+    for (let t = 0; t < SWING_OUT_TICKS; t++) s.step();
+
+    for (const e of [victim, helper]) {
+      expect(s.world.has(e, AttackOrder)).toBe(false);
+      expect(s.world.has(e, Engagement)).toBe(false);
+      expect(s.world.has(e, AiOrder)).toBe(false);
+    }
+  });
+
+  it('runs from an armed blow as a human seat does', () => {
+    const s = sim();
+    machineSeat(s, P0, true);
+    const { victim, attacker } = struck(s);
+    const near = unit(s, VICTIM_AT + BESIDE, P0, MILITARY_MODE.IGNORE, WOMAN);
+
+    resolveCombatHit(s.world, ctxOf(s), attacker, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+
+    expect(runsEast(s, victim, VICTIM_AT)).toBe(true);
+    expect(runsEast(s, near, VICTIM_AT + BESIDE)).toBe(true);
+    expect(s.world.has(victim, AttackOrder)).toBe(false);
+  });
+
+  it('leaves a seat closed to the computer to run from an unarmed blow', () => {
+    const s = sim();
+    machineSeat(s, P0, false);
+    const victim = unit(s, VICTIM_AT, P0, MILITARY_MODE.IGNORE, WOMAN);
+    const raider = unit(s, VICTIM_AT - 1, P1, MILITARY_MODE.IGNORE, WOMAN);
+
+    resolveCombatHit(s.world, ctxOf(s), raider, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+
+    expect(runsEast(s, victim, VICTIM_AT)).toBe(true);
+    expect(s.world.has(victim, AttackOrder)).toBe(false);
   });
 });

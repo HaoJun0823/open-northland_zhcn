@@ -3,19 +3,16 @@ import {
   DiplomacyRules,
   diplomacyStance,
   Engagement,
-  Fleeing,
   FOG_MODE,
   Health,
   PlayerContacts,
   setDiplomacyStance,
 } from '../../../src/components/index.js';
 import { Simulation } from '../../../src/index.js';
-import { combatSystem } from '../../../src/systems/index.js';
-import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
 import { provokeHostility } from '../../../src/systems/settlers/atomics/effects/combat/hit/reactions.js';
 import { testContent } from '../../fixtures/content.js';
 import { fighterAt, grassMap, P0, P1, VIKING, WOODCUTTER } from './engagement/support.js';
-import { combatant, ctxOf, fleeCheckCtxOf } from './stances/support.js';
+import { ctxOf } from './stances/support.js';
 
 /**
  * The diplomacy table on the owner axis of `mayTarget`: two player-owned combatants engage only when
@@ -174,30 +171,5 @@ describe('diplomacy in combat targeting (owner axis, full step() schedule)', () 
 
     expect(sim.world.has(a, Engagement)).toBe(false);
     expect(sim.world.has(b, Engagement)).toBe(false);
-  });
-
-  it('a civilian flees a one-way aggressor its own stance would not engage', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    // The cn_4 shape: the fleer's player is neutral toward the aggressor, the aggressor enemy back.
-    setDiplomacyStance(sim.world, P0, P1, 'neutral');
-    setDiplomacyStance(sim.world, P1, P0, 'enemy');
-
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
-  });
-
-  it('a civilian does not flee an allied soldier standing beside it', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    setDiplomacyStance(sim.world, P0, P1, 'friend');
-    setDiplomacyStance(sim.world, P1, P0, 'friend');
-
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-
-    expect(sim.world.has(civ, Fleeing)).toBe(false);
   });
 });

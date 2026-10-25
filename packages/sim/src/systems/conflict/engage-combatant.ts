@@ -1,4 +1,5 @@
 import {
+  AiOrder,
   AttackOrder,
   Carrying,
   CurrentAtomic,
@@ -57,12 +58,12 @@ import {
   holdEnemy,
   REPATH_CADENCE,
 } from './chase.js';
-import type { CombatIndex } from './combat-index.js';
 import { type CombatantStance, EngagementSpecs, resolveTarget, stanceMode } from './engagement.js';
-import { fleeDrive, runsFromBlows, startBlowRun } from './flee.js';
+import { runsFromBlows, startBlowRun } from './flee.js';
 import { breaksHuntForNeed, holdPrey, preySearchResting, restPreySearch } from './hunting/index.js';
 import type { MeleeSlots } from './melee-slots.js';
 import type { CombatPass } from './pass.js';
+import { strayedPastLeash } from './strike-back.js';
 import { combatTargetNode, targetBodyNodes } from './target-node.js';
 import { hostileAnimalNow, isValidOrderedTarget, isValidTarget, wildPursuit } from './targeting.js';
 import { garrisonReach, standsAtPost, towerPostFor } from './tower-post.js';
@@ -140,7 +141,7 @@ export function engageCombatant(
   }
   // A manned post is itself the order to hold and shoot, so neither passive stance applies under one.
   if (!manning) {
-    if (resolveFleeState(world, ctx, terrain, index, e, attacker, stance)) return;
+    if (resolveFleeState(world, ctx, terrain, e, attacker, stance)) return;
     // A civilian's fists must not turn the doorway pause into a new fight. Finish the run for
     // cover after shedding any old flight; an explicit attack order outside still takes precedence.
     if (world.has(e, Sheltering) && !ordered) {
@@ -316,6 +317,19 @@ function liveAttackOrder(
     if (!stands) world.remove(e, AttackOrder);
     return false;
   }
+  // A civilian striking back lets its target go once it is gone or strays past the leash, and the economy
+  // takes the civilian back.
+  if (order.leash !== undefined) {
+    const holds =
+      ctx.terrain !== undefined &&
+      isValidOrderedTarget(world, ctx, e, attacker, order.target) &&
+      !strayedPastLeash(world, ctx.terrain, order.leash, order.target);
+    if (!holds) {
+      world.remove(e, AttackOrder);
+      world.remove(e, AiOrder);
+    }
+    return holds;
+  }
   const resume = breach?.resume ?? null;
   // A breach opened for an ordered target lets go once that target is gone.
   if (resume !== null && !isValidOrderedTarget(world, ctx, e, attacker, resume)) {
@@ -332,40 +346,31 @@ function liveAttackOrder(
   return false;
 }
 
-/** Run the FLEE stance's drive, run out the run a blow started under another non-fighting stance, or shed
- *  the flee state of a unit that has stopped fleeing (its stance changed, or an order took over). Returns
- *  whether the run took the combatant for this tick. */
+/** Run out the run a blow started, or shed the flee state of a unit that has stopped fleeing (its stance
+ *  changed, or an order took over). Returns whether the run took the combatant for this tick. */
 function resolveFleeState(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
-  index: CombatIndex,
   e: Entity,
   attacker: SettlerIdentity,
   stance: CombatantStance,
 ): boolean {
+  if (!world.has(e, Fleeing)) return false;
   // A settler that has claimed a shelter never flees: the run for cover is its flight. Running would take
   // it back into the open, or abandon the walk it holds a seat for, leaving the building reporting itself
   // full while standing empty. A player's order holds it back the same way.
   const heldBack = stance.ordered || world.has(e, Sheltering);
-  if (stance.mode !== MILITARY_MODE.FLEE || heldBack) {
-    if (!world.has(e, Fleeing)) return false;
-    // The blow's run under IGNORE: the unit finishes it, then hands itself back where it stands. Only the
-    // marker owns it meanwhile, so the planner and the hunt leave the runner alone.
-    if (!heldBack && stance.mode !== null && runsFromBlows(ctx, attacker, stance.mode)) {
-      world.remove(e, Engagement);
-      world.remove(e, HuntFocus);
-      if (startBlowRun(world, ctx, terrain, e)) return true;
-    }
-    world.remove(e, Fleeing);
-    clearNavState(world, e); // drop the run route with the marker
-    return false;
+  // The unit finishes the run, then hands itself back where it stands. Only the marker owns it meanwhile, so
+  // the planner and the hunt leave the runner alone.
+  if (!heldBack && stance.mode !== null && runsFromBlows(ctx, attacker, stance.mode)) {
+    world.remove(e, Engagement);
+    world.remove(e, HuntFocus);
+    if (startBlowRun(world, ctx, terrain, e)) return true;
   }
-  // A marker outliving the flee would bench the unit and keep combat awake forever.
-  world.remove(e, Engagement);
-  world.remove(e, HuntFocus); // and with it the prey hold, which only the hunting branch can reap
-  fleeDrive(world, ctx, terrain, index, e, attacker);
-  return true;
+  world.remove(e, Fleeing);
+  clearNavState(world, e); // drop the run route with the marker
+  return false;
 }
 
 /** The passive stance auto-engages only a fighter's in-reach enemies. A hunter is exempt too: predation is

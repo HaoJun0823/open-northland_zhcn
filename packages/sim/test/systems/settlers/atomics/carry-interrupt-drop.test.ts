@@ -20,6 +20,7 @@ import { cellAnchorNode, fx, nodeOfPosition, positionOfNode, Simulation } from '
 import { buildingBlockedCells } from '../../../../src/systems/footprint/index.js';
 import { combatSystem } from '../../../../src/systems/index.js';
 import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import {
   dropCarriedLoad,
   dropCarryAtOwnTile,
@@ -27,7 +28,7 @@ import {
 import { DROP_ATOMIC_ID } from '../../../../src/systems/settlers/atomics/start.js';
 import { MAX_GROUND_STACK } from '../../../../src/systems/stores/index.js';
 import { testContent } from '../../../fixtures/content.js';
-import { ctxOf, fleeCheckCtxOf } from '../../../fixtures/context.js';
+import { ctxOf } from '../../../fixtures/context.js';
 import { grassCellMap as grassMap } from '../../../fixtures/terrain.js';
 import { combatant } from '../../conflict/stances/support.js';
 import { HUT, mappedSim, placedBuilding, terrainOf } from '../../footprint/building-placement/support.js';
@@ -39,7 +40,7 @@ import { HUT, mappedSim, placedBuilding, terrainOf } from '../../footprint/build
  * whole load lands on the settler's own tile, spilling any remainder over {@link MAX_GROUND_STACK} to the
  * nearest free hexes. A move order on a carrying settler is honoured too - it sets the load down first, then
  * walks off empty-handed (never hauling it to the ordered spot). Fixture: good 1 = wood, job 1 = woodcutter
- * (a civilian, default FLEE), tribe 1 = viking.
+ * (a civilian, default IGNORE), tribe 1 = viking.
  */
 
 const WOOD = 1;
@@ -276,20 +277,21 @@ describe('a carrying settler with nowhere to deliver - drop, do not stand holdin
   });
 });
 
-describe('an enemy interrupting a carrying settler - drop, then flee', () => {
-  it('sets the load down before it runs (drop atomic first, no Fleeing yet), then flees empty-handed', () => {
+describe('a blow interrupting a carrying settler - drop, then flee', () => {
+  it('sets the load down before it runs, then flees empty-handed', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, HUMAN_PLAYER, MILITARY_MODE.FLEE);
+    const civ = combatant(sim, 20, 0, HUMAN_PLAYER, MILITARY_MODE.IGNORE);
     sim.world.add(civ, Carrying, { goodType: WOOD, amount: 1 });
-    combatant(sim, 24, 0, ENEMY_PLAYER, MILITARY_MODE.IGNORE); // a lasting threat in sight
+    const raider = combatant(sim, 21, 0, ENEMY_PLAYER, MILITARY_MODE.IGNORE);
 
-    // First combat pass: hands full → it drops rather than flees.
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
+    // The blow and the combat pass answering it: hands full, so it drops before it runs.
+    resolveCombatHit(sim.world, ctxOf(sim), raider, civ, { damage: 10 }, [], 'melee');
+    combatSystem(sim.world, ctxOf(sim));
     expect(sim.world.get(civ, CurrentAtomic).effect.kind).toBe('drop');
-    expect(sim.world.has(civ, Fleeing)).toBe(false); // stands to drop; hasn't started running
+    expect(sim.world.has(civ, MoveGoal)).toBe(false); // stands to drop; hasn't started running
     expect(sim.world.has(civ, Carrying)).toBe(true);
 
-    // Play it out: the load lands on the ground and the civilian then flees the threat.
+    // Play it out: the load lands on the ground and the civilian then runs from the blow.
     sim.run(40);
     expect(sim.world.has(civ, Carrying)).toBe(false);
     const totalWood = looseWoodPiles(sim).reduce((sum, p) => sum + p.wood, 0);

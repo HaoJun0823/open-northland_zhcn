@@ -3,227 +3,103 @@ import {
   Carrying,
   CurrentAtomic,
   Fleeing,
-  MoveGoal,
   PathFollow,
   PathRoute,
   Position,
-  WalkFacing,
 } from '../../../../src/components/index.js';
 import { fx, ONE } from '../../../../src/core/fixed.js';
 import type { Entity } from '../../../../src/ecs/world.js';
-import { cellAnchorNode, type NodeId, Simulation } from '../../../../src/index.js';
-import {
-  FLEE_CHECK_STRIDE_TICKS,
-  FLEE_REPATH_CADENCE,
-  FLEE_STEP_NODES,
-} from '../../../../src/systems/conflict/flee.js';
+import { type NodeId, Simulation } from '../../../../src/index.js';
+import { FLEE_STEP_NODES } from '../../../../src/systems/conflict/flee.js';
 import { combatSystem } from '../../../../src/systems/index.js';
 import { movementSystem } from '../../../../src/systems/movement/system.js';
 import { MILITARY_MODE } from '../../../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { hexNodeDistance } from '../../../../src/systems/spatial/metric.js';
 import { entityNode } from '../../../../src/systems/spatial/nodes.js';
+import { spawnSettler } from '../../../../src/systems/spawn/index.js';
 import { testContent } from '../../../fixtures/content.js';
 import { nextTickCtxOf } from '../../../fixtures/context.js';
 import { setNeeds } from '../../../fixtures/settler.js';
-import {
-  cell,
-  combatant,
-  combatantAtNode,
-  ctxOf,
-  fleeCheckCtxOf,
-  grassMap,
-  P0,
-  P1,
-  tileOf,
-} from './support.js';
+import { combatant, ctxOf, grassMap, P0, P1, VIKING, WOOD, WOODCUTTER } from './support.js';
 
-/** How long the ringed civilian is watched: several flee re-aims. */
-const RINGED_WATCH_TICKS = 200;
-/** Heading changes a straight escape through a gap may take: setting off, and bending along the way. */
-const RINGED_MAX_TURNS = 4;
+/** The fixture scout trade, a raider who strikes by hand. */
+const SCOUT = 27;
+const BLOW = { damage: 10 };
+/** Ticks watched: long enough for a run to end and a worker to settle back to its drives. */
+const WATCH_TICKS = 160;
 
-describe('FLEE - civilians run from danger', () => {
-  it('stamps Fleeing and heads AWAY from the nearest threat', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE); // a stationary threat to the RIGHT
-
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
-    const goal = sim.world.get(civ, MoveGoal).cell;
-    const goalX = sim.terrain?.coordsOf(goal).x ?? Number.NaN;
-    expect(goalX).toBeLessThan(cellAnchorNode(20, 0).hx); // running LEFT, away from the threat at node x=50
+/** A woodcutter of `P0` spawned at visual cell (x, 0), stamped with its seat's default stance. */
+function civilianAt(sim: Simulation, x: number): Entity {
+  const e = spawnSettler(sim.world, ctxOf(sim), {
+    kind: 'spawnSettler',
+    jobType: WOODCUTTER,
+    x,
+    y: 0,
+    tribe: VIKING,
+    owner: P0,
   });
+  if (e === null) throw new Error('spawn refused');
+  return e;
+}
 
-  it('a fleeing unit gains distance from a stationary threat', () => {
+function distance(sim: Simulation, a: Entity, b: Entity): number {
+  const terrain = sim.terrain;
+  if (terrain === undefined) throw new Error('mapped sim expected');
+  return hexNodeDistance(terrain, entityNode(sim.world, terrain, a), entityNode(sim.world, terrain, b));
+}
+
+describe('civilians run from a blow, never from the sight of an enemy', () => {
+  it('a civilian keeps to its work beside an idle enemy scout in sight', () => {
+    // A worker never runs at the sight of an enemy, so a scout standing by cannot drive it back and forth.
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    const threat = combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE); // stays put (IGNORE)
-    const start = Math.abs(tileOf(sim, civ).x - tileOf(sim, threat).x);
-    sim.run(40);
-    const end = Math.abs(tileOf(sim, civ).x - tileOf(sim, threat).x);
-    expect(end).toBeGreaterThan(start);
-  });
+    const civ = civilianAt(sim, 20);
+    combatant(sim, 23, 0, P1, MILITARY_MODE.IGNORE, { jobType: SCOUT });
+    sim.world.add(civ, Carrying, { goodType: WOOD, amount: 1 });
 
-  it('resumes work after the threat is gone for the cool-down', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    const threat = combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
-    sim.world.destroy(threat); // the threat vanishes
-    sim.run(60); // > the flee cool-down
-    expect(sim.world.has(civ, Fleeing)).toBe(false); // returned to calm
-  });
-
-  it('a collapsing need overrides the flee (a starving settler yields to eat/sleep)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE); // a lasting threat in sight
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-    expect(sim.world.has(civ, Fleeing)).toBe(true); // fleeing at first
-    setNeeds(sim, civ, { hunger: ONE }); // pin hunger at ONE (collapse)
-    combatSystem(sim.world, ctxOf(sim));
-    expect(sim.world.has(civ, Fleeing)).toBe(false); // yielded to the need despite the threat
-  });
-
-  it('a civilian ringed by raiders runs out through a gap, not back and forth between them', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(60, 60) });
-    const civ = combatant(sim, 30, 30, P0, MILITARY_MODE.FLEE);
-    // Uneven distances, so running from the nearest raider alone leads toward the next.
-    const raiders = [
-      combatant(sim, 25, 30, P1, MILITARY_MODE.IGNORE),
-      combatant(sim, 36, 30, P1, MILITARY_MODE.IGNORE),
-      combatant(sim, 30, 24, P1, MILITARY_MODE.IGNORE),
-      combatant(sim, 30, 37, P1, MILITARY_MODE.IGNORE),
-    ];
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('mapped sim expected');
-    const nodeOf = (e: Entity): NodeId => entityNode(sim.world, terrain, e);
-    const nearestRaider = (): number =>
-      Math.min(...raiders.map((r) => hexNodeDistance(terrain, nodeOf(civ), nodeOf(r))));
-    const origin = nodeOf(civ);
-    const start = nearestRaider();
-    let turns = 0;
-    let heading = sim.world.tryGet(civ, WalkFacing)?.target;
-    for (let i = 0; i < RINGED_WATCH_TICKS; i++) {
+    for (let t = 0; t < WATCH_TICKS; t++) {
       sim.step();
-      const now = sim.world.tryGet(civ, WalkFacing)?.target;
-      if (now !== heading) turns++;
-      heading = now;
-    }
-    expect(turns).toBeLessThanOrEqual(RINGED_MAX_TURNS);
-    expect(nearestRaider()).toBeGreaterThanOrEqual(start);
-    expect(hexNodeDistance(terrain, origin, nodeOf(civ))).toBeGreaterThan(FLEE_STEP_NODES); // out of the ring
-  });
-
-  it('a raider stepping onto the escape line turns the run away from it', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(60, 60) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('mapped sim expected');
-    const civ = combatant(sim, 30, 30, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 28, 30, P1, MILITARY_MODE.IGNORE);
-    const from = fleeCheckCtxOf(sim, civ).tick;
-    combatSystem(sim.world, { ...ctxOf(sim), tick: from });
-    const first = sim.world.get(civ, MoveGoal).cell;
-    // Halfway along the run, where it cannot be passed at a distance.
-    const here = terrain.coordsOf(cell(sim, 30, 30));
-    const aim = terrain.coordsOf(first);
-    const raider = combatantAtNode(
-      sim,
-      Math.trunc((here.x + aim.x) / 2),
-      Math.trunc((here.y + aim.y) / 2),
-      P1,
-      MILITARY_MODE.IGNORE,
-    );
-    const raiderNode = entityNode(sim.world, terrain, raider);
-
-    combatSystem(sim.world, { ...ctxOf(sim), tick: from + FLEE_REPATH_CADENCE });
-
-    const goal = sim.world.get(civ, MoveGoal).cell;
-    expect(hexNodeDistance(terrain, goal, raiderNode)).toBeGreaterThan(
-      hexNodeDistance(terrain, first, raiderNode),
-    );
-  });
-
-  it('a calm civilian with a raider in sight flees on its next check tick and not before', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    const firstCalm = fleeCheckCtxOf(sim, civ).tick + 1; // just past a check tick: a whole stride to wait
-    const checkTick = firstCalm + FLEE_CHECK_STRIDE_TICKS - 1;
-
-    for (let tick = firstCalm; tick < checkTick; tick++) {
-      combatSystem(sim.world, { ...ctxOf(sim), tick });
       expect(sim.world.has(civ, Fleeing)).toBe(false);
     }
-    combatSystem(sim.world, { ...ctxOf(sim), tick: checkTick });
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
+    expect(sim.world.tryGet(civ, CurrentAtomic)?.effect.kind).not.toBe('drop');
   });
 
-  it('a fleeing unit keeps looking every tick, between its calm check ticks', () => {
+  it('a struck civilian runs once and stays calm beside the striker afterwards', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    const threat = combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    const checkTick = fleeCheckCtxOf(sim, civ).tick;
-    combatSystem(sim.world, { ...ctxOf(sim), tick: checkTick });
-    expect(sim.world.get(civ, Fleeing).calmUntil).toBeNull();
+    const civ = civilianAt(sim, 20);
+    const raider = combatant(sim, 21, 0, P1, MILITARY_MODE.IGNORE, { jobType: SCOUT });
 
-    sim.world.destroy(threat);
-    combatSystem(sim.world, { ...ctxOf(sim), tick: checkTick + 1 }); // off the calm stride
-    expect(sim.world.get(civ, Fleeing).calmUntil).not.toBeNull(); // saw the clear sight line at once
-  });
-
-  it('a need collapsing DURING the cool-down yields at once (does not idle out the full cool-down)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    const threat = combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE);
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-    sim.world.destroy(threat); // threat gone → the cool-down begins
-    combatSystem(sim.world, ctxOf(sim));
-    expect(sim.world.has(civ, Fleeing)).toBe(true); // still cooling down (no collapse yet)
-    setNeeds(sim, civ, { hunger: ONE }); // collapse mid-cool-down
-    combatSystem(sim.world, ctxOf(sim));
-    expect(sim.world.has(civ, Fleeing)).toBe(false); // shed at once, not after FLEE_COOLDOWN_TICKS
-  });
-});
-
-describe('FLEE + a carried load - the drop-on-flee rule fires only on a real threat', () => {
-  const WOOD = 5;
-
-  it('keeps its load when no threat is in sight, even with combat awake (two players on the map)', () => {
-    // Regression: fleeDrive runs for every FLEE-stance unit whenever combat is awake at all (two players
-    // present), and an unconditional hands-full drop stripped every carrying civilian on each check - the
-    // pickup→drop livelock that froze builders/porters/gatherers on multi-player maps.
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 2, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 38, 0, P1, MILITARY_MODE.IGNORE); // a rival player far beyond sight - combat is awake
-    sim.world.add(civ, Carrying, { goodType: WOOD, amount: 1 });
-
-    // Several whole strides, so the calm civilian's check runs more than once.
-    for (let t = 0; t < 3 * FLEE_CHECK_STRIDE_TICKS; t++) {
-      combatSystem(sim.world, { ...ctxOf(sim), tick: sim.tick + t });
+    resolveCombatHit(sim.world, ctxOf(sim), raider, civ, BLOW, [], 'melee');
+    combatSystem(sim.world, ctxOf(sim)); // the pass that answers the blow's alarm
+    let runs = 0;
+    let running = false;
+    for (let t = 0; t < WATCH_TICKS; t++) {
+      sim.step();
+      const now = sim.world.has(civ, Fleeing);
+      if (now && !running) runs++;
+      running = now;
     }
-    expect(sim.world.has(civ, Fleeing)).toBe(false); // nothing in sight - never fled
-    expect(sim.world.get(civ, Carrying)).toEqual({ goodType: WOOD, amount: 1 }); // load kept
-    expect(sim.world.has(civ, CurrentAtomic)).toBe(false); // no drop atomic was started
+
+    expect(runs).toBe(1);
+    expect(running).toBe(false);
+    expect(distance(sim, civ, raider)).toBeGreaterThan(FLEE_STEP_NODES / 2);
   });
 
-  it('drops its load first when a threat IS in sight, then flees empty-handed', () => {
+  it('a struck civilian whose need is collapsing stands to eat or sleep', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE); // a stationary threat in sight
-    sim.world.add(civ, Carrying, { goodType: WOOD, amount: 1 });
+    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.IGNORE);
+    const raider = combatant(sim, 21, 0, P1, MILITARY_MODE.IGNORE, { jobType: SCOUT });
+    setNeeds(sim, civ, { hunger: ONE });
 
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
-    expect(sim.world.tryGet(civ, CurrentAtomic)?.effect.kind).toBe('drop'); // set the load down first
-    sim.run(30); // play the drop out; the flee takes over empty-handed
-    expect(sim.world.has(civ, Carrying)).toBe(false);
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
+    resolveCombatHit(sim.world, ctxOf(sim), raider, civ, BLOW, [], 'melee');
+    combatSystem(sim.world, ctxOf(sim)); // the pass that answers the blow's alarm
+    sim.step();
+
+    expect(sim.world.has(civ, Fleeing)).toBe(false);
   });
 });
 
-describe('FLEE pace - a Fleeing unit moves at its normal pace (no sprint exists)', () => {
+describe('a runner moves at its normal pace (no sprint exists)', () => {
   it('a Fleeing path-follower walks at the same step cost as a calm one', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(10, 1) });
     const stop = { x: fx.fromFloat(0.5), y: fx.fromInt(0), node: sim.terrain?.nodeAt(1, 0) ?? (0 as NodeId) };
@@ -235,7 +111,7 @@ describe('FLEE pace - a Fleeing unit moves at its normal pace (no sprint exists)
     sim.world.add(runner, Position, { x: fx.fromInt(0), y: fx.fromInt(0) });
     sim.world.add(runner, PathRoute, { waypoints: [{ ...stop }] });
     sim.world.add(runner, PathFollow, { index: 0, legElapsed: 0, legCost: 0 });
-    sim.world.add(runner, Fleeing, { repathAt: 0, calmUntil: null });
+    sim.world.add(runner, Fleeing, {});
 
     // Fleeing grants no speed boost: both read the same step cost and advance step-for-step alike.
     movementSystem(sim.world, nextTickCtxOf(sim));
@@ -247,18 +123,5 @@ describe('FLEE pace - a Fleeing unit moves at its normal pace (no sprint exists)
     movementSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(runner, Position).x).toBe(sim.world.get(walker, Position).x);
     expect(sim.world.get(runner, Position).x).toBeGreaterThan(fx.fromInt(0));
-  });
-
-  it('a flee re-aim keeps the live route - the gait never resets mid-flight', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
-    const civ = combatant(sim, 20, 0, P0, MILITARY_MODE.FLEE);
-    combatant(sim, 25, 0, P1, MILITARY_MODE.IGNORE); // a lasting stationary threat
-    sim.run(8); // stamp Fleeing, route the first away-goal
-    // Two full re-aim cycles (FLEE_REPATH_CADENCE = 6): the redirect keeps a live route, so the fleer
-    // is walking a path through every re-aim instead of standing to wait for one.
-    for (let i = 0; i < 12; i++) {
-      sim.step();
-      expect(sim.world.has(civ, PathFollow)).toBe(true);
-    }
   });
 });

@@ -291,7 +291,7 @@ describe('constructionSystem - material-DELIVERY dispatch (carrier path)', () =>
     const builder = builderAt(sim, 0, 0);
     sim.world.add(builder, SupplyRun, { site, goodType: STONE, amount: 1 });
     sim.world.add(builder, PickupClaim, { source, goodType: STONE, amount: 1 });
-    sim.world.add(builder, Fleeing, { repathAt: 0, calmUntil: null });
+    sim.world.add(builder, Fleeing, {});
     sim.world.add(builder, MoveGoal, { cell: 1 });
 
     plannerSystem(sim.world, ctxOf(sim));

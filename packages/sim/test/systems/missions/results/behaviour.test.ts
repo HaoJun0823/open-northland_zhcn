@@ -22,6 +22,7 @@ import { aiCommand, playerCommand } from '../../../../src/core/commands/index.js
 import type { Entity } from '../../../../src/ecs/world.js';
 import type { Simulation } from '../../../../src/index.js';
 import { hexDistance, nodeOfPosition } from '../../../../src/nav/halfcell.js';
+import { combatSystem } from '../../../../src/systems/index.js';
 import { grantWorkExperience } from '../../../../src/systems/progression/index.js';
 import { resolveCombatHit } from '../../../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { ctxOf } from '../../../fixtures/context.js';
@@ -195,9 +196,15 @@ describe('the bits the sim reads', () => {
     const sim = plainSim();
     spawn(sim, { player: OWNER, behaviourFlags: MISSION_BEHAVIOUR.PASSIVE });
     spawn(sim, { player: OWNER + 1 });
-    sim.run(20);
-    expect(sim.world.has(only(sim, OWNER), Fleeing)).toBe(false);
-    expect(sim.world.has(only(sim, OWNER + 1), Fleeing)).toBe(true);
+    sim.run(LOAD_PASS);
+    const passive = only(sim, OWNER);
+    const neighbour = only(sim, OWNER + 1);
+    // Each strikes the other once, and the combat pass answers both blows.
+    resolveCombatHit(sim.world, ctxOf(sim), neighbour, passive, { damage: 1 }, [], 'melee');
+    resolveCombatHit(sim.world, ctxOf(sim), passive, neighbour, { damage: 1 }, [], 'melee');
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(passive, Fleeing)).toBe(false);
+    expect(sim.world.has(neighbour, Fleeing)).toBe(true);
   });
 
   it('spares an invulnerable human the blow that lands on it', () => {

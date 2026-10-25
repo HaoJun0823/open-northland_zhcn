@@ -4,7 +4,6 @@ import {
   addCurrentAtomic,
   CurrentAtomic,
   Engagement,
-  Fleeing,
   Frightened,
   Health,
   HerdMember,
@@ -28,7 +27,7 @@ import { KIN_ALARM_RADIUS_NODES } from '../../../src/systems/settlers/atomics/ef
 import { hexNodeDistance } from '../../../src/systems/spatial/metric.js';
 import { entityNode } from '../../../src/systems/spatial/nodes.js';
 import { testContent } from '../../fixtures/content.js';
-import { fleeCheckCtxOf, nextTickCtxOf } from '../../fixtures/context.js';
+import { nextTickCtxOf } from '../../fixtures/context.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
 import { wildAt } from '../../fixtures/wildlife.js';
 import {
@@ -401,22 +400,21 @@ describe('wild pack targeting', () => {
     expect(sim.world.get(bear, Engagement).target).toBe(near);
   });
 
-  it('a boar whose anger lapsed mid-attack stays an enemy: a fighter takes it up and its victim runs', () => {
+  it('a boar whose anger lapsed mid-attack stays an enemy: a fighter takes it up and its blow still sends its victim running', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(16, 1) });
     const boar = animalAt(sim, BOAR, 10);
     joinHerd(sim, boar);
-    const victim = combatantAtNode(sim, 12, 0, P0, MILITARY_MODE.FLEE);
+    const victim = combatantAtNode(sim, 12, 0, P0, MILITARY_MODE.IGNORE);
     const fighter = combatantAtNode(sim, 16, 0, P0, MILITARY_MODE.ATTACK);
     sim.world.add(boar, Anger, { until: sim.tick }); // lapsed this very tick
     sim.world.add(boar, Engagement, { repathAt: 0, target: victim });
-    const ctx = fleeCheckCtxOf(sim, victim);
+    const ctx = ctxOf(sim);
     expect(isFleeThreat(sim.world, ctx, victim, sim.world.get(victim, Settler), boar, new Set())).toBe(true);
 
     combatSystem(sim.world, ctx);
 
     expect(sim.world.get(boar, Engagement).target).toBe(victim);
     expect(sim.world.get(fighter, Engagement).target).toBe(boar);
-    expect(sim.world.has(victim, Fleeing)).toBe(true);
   });
 
   it('an animal whose walk to a walled-in victim fails does not take the victim up again at once', () => {

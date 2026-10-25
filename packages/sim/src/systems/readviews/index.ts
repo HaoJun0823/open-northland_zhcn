@@ -89,6 +89,7 @@ export {
   keepsAnchor,
   MILITARY_MODE,
   type MilitaryMode,
+  seatStrikesBackUnarmed,
   stanceFights,
   stanceMode,
 } from './stances.js';

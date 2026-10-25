@@ -27,8 +27,9 @@ import { towerPostFor } from '../../../src/systems/conflict/tower-post.js';
 import { attackerWeapon } from '../../../src/systems/conflict/weapons.js';
 import { combatSystem } from '../../../src/systems/index.js';
 import { MILITARY_MODE, type MilitaryMode } from '../../../src/systems/readviews/index.js';
+import { entityNode } from '../../../src/systems/spatial/nodes.js';
 import { testContent } from '../../fixtures/content.js';
-import { ctxOf, fleeCheckCtxOf } from '../../fixtures/context.js';
+import { ctxOf } from '../../fixtures/context.js';
 import { addSettlerOfTribe } from '../../fixtures/settler.js';
 import { grassCellMap } from '../../fixtures/terrain.js';
 
@@ -188,40 +189,42 @@ describe('engage ladder - the post rung sits above the busy rung', () => {
   });
 });
 
-describe('engage ladder - the two silent bench rungs sit above the flee rung', () => {
-  /** A FLEE-stance civilian with a rival player's unit close enough to run from. Each pass below runs on its
-   *  flee-check tick, so a missing flee is the rung's doing, not the stride's. */
-  function threatenedCiv(): { sim: Simulation; civ: Entity } {
+describe('engage ladder - the two silent bench rungs sit above the blow-run rung', () => {
+  /** A civilian owing a run from a blow struck from the east, a rival player's unit keeping combat awake. */
+  function owingRun(): { sim: Simulation; civ: Entity } {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(40, 1) });
-    const civ = personAt(sim, 20, 0, WOODCUTTER, { owner: P0, mode: MILITARY_MODE.FLEE });
-    personAt(sim, 25, 0, WOODCUTTER, { owner: P1, mode: MILITARY_MODE.IGNORE });
+    const civ = personAt(sim, 20, 0, WOODCUTTER, { owner: P0, mode: MILITARY_MODE.IGNORE });
+    const raider = personAt(sim, 25, 0, WOODCUTTER, { owner: P1, mode: MILITARY_MODE.IGNORE });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    sim.world.add(civ, Fleeing, { blow: entityNode(sim.world, terrain, raider) });
     return { sim, civ };
   }
 
-  it('stamps the flee when nothing benches the civilian first', () => {
-    const { sim, civ } = threatenedCiv();
+  it('starts the run when nothing benches the civilian first', () => {
+    const { sim, civ } = owingRun();
 
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
+    combatSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.has(civ, Fleeing)).toBe(true);
+    expect(sim.world.has(civ, MoveGoal)).toBe(true);
   });
 
-  it('does not stamp the flee on a mid-atomic civilian', () => {
-    const { sim, civ } = threatenedCiv();
+  it('does not start the run on a mid-atomic civilian', () => {
+    const { sim, civ } = owingRun();
     startAtomic(sim, civ);
 
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
+    combatSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.has(civ, Fleeing)).toBe(false);
+    expect(sim.world.has(civ, MoveGoal)).toBe(false);
   });
 
-  it('does not stamp the flee on a civilian under a plain move order', () => {
-    const { sim, civ } = threatenedCiv();
+  it('does not start the run on a civilian under a plain move order', () => {
+    const { sim, civ } = owingRun();
     sim.world.add(civ, PlayerOrder, {});
 
-    combatSystem(sim.world, fleeCheckCtxOf(sim, civ));
+    combatSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.has(civ, Fleeing)).toBe(false);
+    expect(sim.world.has(civ, MoveGoal)).toBe(false);
   });
 });
 
@@ -254,12 +257,12 @@ describe('engage ladder - the bench rungs sit above the stale attack-order reap'
   });
 });
 
-describe('engage ladder - the flee rung sits above the passive-stance rung', () => {
+describe('engage ladder - the blow-run rung sits above the passive-stance rung', () => {
   it('sheds the stale flee state of an IGNORE-stance civilian before standing it down', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(40, 1) });
     const civ = personAt(sim, 20, 0, WOODCUTTER, { owner: P0, mode: MILITARY_MODE.IGNORE });
     personAt(sim, 25, 0, WOODCUTTER, { owner: P1, mode: MILITARY_MODE.IGNORE });
-    sim.world.add(civ, Fleeing, { repathAt: 0, calmUntil: null });
+    sim.world.add(civ, Fleeing, {});
     sim.world.add(civ, Engagement, { repathAt: sim.tick });
 
     engage(sim);

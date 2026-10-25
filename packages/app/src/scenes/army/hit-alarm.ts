@@ -49,7 +49,6 @@ function setStance(sim: Simulation, e: Entity, mode: MilitaryMode): void {
 
 function build(sim: Simulation): void {
   const woman = spawnSettlerDirect(sim, JOB_WOMAN, WOMAN_AT.x, WOMAN_AT.y, HUMAN_PLAYER);
-  setStance(sim, woman, systems.MILITARY_MODE.IGNORE); // told to ignore the enemy, not to run at the sight of him
   sim.world.mut(woman, Health).hitpoints = MARK_HITPOINTS;
   sim.world.mut(woman, Health).max = MARK_HITPOINTS;
   spawnSettlerDirect(sim, JOB_HUNTER, HUNTER_AT.x, HUNTER_AT.y, HUMAN_PLAYER); // IGNORE by trade

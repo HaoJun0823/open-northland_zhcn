@@ -69,7 +69,7 @@ export interface MemberList {
  * One coarse cell: its early-out tallies and its members. Counts are per member, not per node - every
  * query reduces to "does a member of some class exist here?", which no weighting can change. The tallies
  * the queries read are the sum of three layers, re-derived by {@link refresh}: the held buildings, the kept
- * units, and this build's vehicles and firing buildings.
+ * units, and this build's vehicles.
  */
 export interface CoarseCell {
   readonly index: number;
@@ -81,10 +81,6 @@ export interface CoarseCell {
   undiscounted: number;
   /** The {@link playerBit}s of the players owning a member here. */
   ownerMask: number;
-  /** What a fleer might run from this build: the {@link playerBit}s owning a unit or a building able to fire
-   *  here, and how many such members no diplomacy can discount. A plain building adds to neither. */
-  threatMask: number;
-  threatUndiscounted: number;
   /** The held buildings at each of their nodes, then this build's vehicles past {@link bodyBase}. */
   readonly bodies: MemberList;
   /** The kept units, one node each. */
@@ -94,23 +90,20 @@ export interface CoarseCell {
   baseTotal: number;
   baseUndiscounted: number;
   baseOwnerMask: number;
-  /** The unit layer's share; a unit threatens where it stands, so its threat share is its owner share. */
+  /** The unit layer's share. */
   unitPassive: number;
   unitHostileAnimal: number;
   unitUndiscounted: number;
   /** Per player slot, the units it owns here, which keep {@link unitOwnerMask} exact as units leave. */
   readonly unitOwners: number[];
   unitOwnerMask: number;
-  /** This build's share: the vehicles, and the buildings able to fire. */
+  /** This build's share: the vehicles. */
   buildTotal: number;
   buildUndiscounted: number;
   buildOwnerMask: number;
-  buildThreatMask: number;
-  buildThreatUndiscounted: number;
   /** The last vehicle tallied, so its several nodes in one cell count once. */
   countedLast: Entity | null;
-  /** Whether this build admitted a vehicle or a firing building here, so the next reset visits only such
-   *  cells. */
+  /** Whether this build admitted a vehicle here, so the next reset visits only such cells. */
   builtOn: boolean;
   /** Over the cells within the stranger reach of this one: the owner bits, and whether any holds an
    *  undiscounted member. Current unless {@link nearDirty}. */
@@ -149,8 +142,8 @@ interface BuildingEntry {
   readonly nodes: readonly NodeId[];
 }
 
-/** A held building with the distinct cells its nodes fall in and how many nodes each holds, so marking it
- *  firing touches each cell once instead of re-deriving every node's cell per build. */
+/** A held building with the distinct cells its nodes fall in and how many nodes each holds, so an update
+ *  touches each cell once instead of re-deriving every node's cell. */
 interface HeldBuilding extends BuildingEntry {
   readonly cells: readonly CoarseCell[];
   readonly cellNodes: readonly number[];
@@ -170,8 +163,8 @@ const grids = new WeakMap<World, CombatGrid>();
  * The per-world cell grid under the combat tick's target index. Buildings form a layer held across ticks,
  * updated for each building placed, removed, retyped or gaining or losing its Position or Health pool, and
  * rebuilt when one is re-owned. Units form a layer kept across ticks from a change feed, so a build costs
- * the units that moved, joined, left or changed owner, tribe or Anger. Vehicles and the firing marks are
- * appended each build on top.
+ * the units that moved, joined, left or changed owner, tribe or Anger. Vehicles are appended each build on
+ * top.
  * A building's hitpoints are not a key: one felled this tick stays in the layer until cleanup removes it,
  * which only over-counts the presence tallies, and every target filter already rejects a dead target. The
  * cells hold owner bits only, never a stance, so a diplomacy change needs no rebuild. Derived state, never
@@ -238,8 +231,8 @@ export class CombatGrid {
     this.cells = new Array<CoarseCell | undefined>(this.cols * this.rows).fill(undefined);
   }
 
-  /** Bring both held layers up to date and drop the previous build's vehicles and firing marks, leaving
-   *  the grid ready for this build's admissions. */
+  /** Bring both held layers up to date and drop the previous build's vehicles, leaving the grid ready for
+   *  this build's admissions. */
   startBuild(world: World, ctx: SystemContext): void {
     for (const scan of this.bandScans) scan.valid = false;
     for (let i = 0; i < this.builtCount; i++) {
@@ -248,8 +241,6 @@ export class CombatGrid {
       cell.buildTotal = 0;
       cell.buildUndiscounted = 0;
       cell.buildOwnerMask = 0;
-      cell.buildThreatMask = 0;
-      cell.buildThreatUndiscounted = 0;
       cell.countedLast = null;
       cell.builtOn = false;
       this.refresh(cell);
@@ -265,19 +256,16 @@ export class CombatGrid {
     this.syncUnits(world, ctx.tick);
   }
 
-  /** The node visitor that appends moving body `e` (a vehicle) at each node it is handed for this build; an
-   *  armed one threatens there as a firing building does, an unarmed one no more than a plain building.
+  /** The node visitor that appends moving body `e` (a vehicle) at each node it is handed for this build.
    *  One visitor serves every body, re-aimed by each call, so admitting a body allocates nothing. */
-  bodyAdmitter(e: Entity, bit: number, armed: boolean): (x: number, y: number) => void {
+  bodyAdmitter(e: Entity, bit: number): (x: number, y: number) => void {
     this.body = e;
     this.bodyBit = bit;
-    this.bodyArmed = armed;
     return this.admitBodyNode;
   }
 
   private body = 0 as Entity;
   private bodyBit = 0;
-  private bodyArmed = false;
   private readonly admitBodyNode = (x: number, y: number): void => {
     const e = this.body;
     const bit = this.bodyBit;
@@ -289,25 +277,8 @@ export class CombatGrid {
       if (bit !== 0) cell.buildOwnerMask |= bit;
       else cell.buildUndiscounted++;
     }
-    if (this.bodyArmed) addBuildThreat(cell, bit);
     this.refresh(cell);
   };
-
-  /** Mark held building `b` as able to fire this build, in the threat tallies of the cells its body spans. */
-  admitFiring(b: Entity): void {
-    const held = this.buildings.get(b);
-    if (held === undefined) return;
-    const { cells, cellNodes, bit } = held;
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      if (cell === undefined) continue;
-      this.touchForBuild(cell);
-      // Each node counts toward an unowned body's threat, as a vehicle's do.
-      if (bit !== 0) cell.buildThreatMask |= bit;
-      else cell.buildThreatUndiscounted += cellNodes[i] ?? 0;
-      this.refresh(cell);
-    }
-  }
 
   /** Whether `e` is a plain building - the siege tier a warrior turns on only when nothing better is in
    *  sight. */
@@ -462,8 +433,6 @@ export class CombatGrid {
       cell.buildTotal = 0;
       cell.buildUndiscounted = 0;
       cell.buildOwnerMask = 0;
-      cell.buildThreatMask = 0;
-      cell.buildThreatUndiscounted = 0;
       cell.countedLast = null;
       cell.builtOn = false;
     }
@@ -648,8 +617,6 @@ export class CombatGrid {
     cell.hostileAnimal = cell.unitHostileAnimal;
     cell.undiscounted = cell.baseUndiscounted + cell.unitUndiscounted + cell.buildUndiscounted;
     cell.ownerMask = cell.baseOwnerMask | cell.unitOwnerMask | cell.buildOwnerMask;
-    cell.threatMask = cell.unitOwnerMask | cell.buildThreatMask;
-    cell.threatUndiscounted = cell.unitUndiscounted + cell.buildThreatUndiscounted;
     if (cell.ownerMask !== wasOwners || cell.undiscounted > 0 !== wasUndiscounted) this.markNearDirty(cell);
   }
 
@@ -864,8 +831,6 @@ export class CombatGrid {
         hostileAnimal: 0,
         undiscounted: 0,
         ownerMask: 0,
-        threatMask: 0,
-        threatUndiscounted: 0,
         bodies: memberList(),
         units: memberList(),
         bodyBase: 0,
@@ -880,8 +845,6 @@ export class CombatGrid {
         buildTotal: 0,
         buildUndiscounted: 0,
         buildOwnerMask: 0,
-        buildThreatMask: 0,
-        buildThreatUndiscounted: 0,
         countedLast: null,
         builtOn: false,
         nearMask: 0,
@@ -1037,11 +1000,6 @@ function tallyUnit(cell: UnitTallies, bit: number, wild: WildClass, sign: 1 | -1
   cell.unitOwners[player] = owned;
   if (owned > 0) cell.unitOwnerMask |= bit;
   else cell.unitOwnerMask &= ~bit;
-}
-
-function addBuildThreat(cell: CoarseCell, bit: number): void {
-  if (bit !== 0) cell.buildThreatMask |= bit;
-  else cell.buildThreatUndiscounted++;
 }
 
 export function coarseOf(node: number): number {

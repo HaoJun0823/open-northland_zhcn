@@ -300,7 +300,7 @@ export function isValidOrderedTarget(
 
 /**
  * The buildings able to shoot this tick: a tower whose post a live fighter mans, and a defence-mode
- * building holding anyone, whose tribe has a house bow. The only buildings the FLEE drive runs from.
+ * building holding anyone, whose tribe has a house bow. The only buildings a struck civilian runs from.
  */
 export function firingBuildings(world: World, ctx: SystemContext): Set<Entity> {
   const firing = new Set<Entity>();
@@ -360,11 +360,11 @@ function forEachFiringBuilding(
 }
 
 /**
- * Whether `t` is a threat the FLEE drive runs from: any valid target of the fleer, or - where the
- * directed diplomacy pair is hostile the other way only - a live enemy-stance settler in the open. A
- * building counts either way only while it is among the `firing` ones, so a civilian living beside an
- * enemy's houses keeps working; a vehicle counts only while armed, so nobody runs from a cart. Fear staying symmetric on the owner axis while engagement is directed is
- * an approximation, so a pacified player's civilians still run from a one-way aggressor.
+ * Whether a blow from `t` sends the struck side running: `t` is any valid target of the runner, or - where
+ * the directed diplomacy pair is hostile the other way only - a live enemy-stance settler in the open. A
+ * building counts either way only while it is among the `firing` ones; a vehicle counts only while armed.
+ * Fear staying symmetric on the owner axis while engagement is directed is an approximation, so a pacified
+ * player's civilians still run from a one-way aggressor.
  */
 export function isFleeThreat(
   world: World,

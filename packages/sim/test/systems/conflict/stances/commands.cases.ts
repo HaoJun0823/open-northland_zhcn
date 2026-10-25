@@ -49,18 +49,18 @@ describe('stance defaults - the job → military-mode lookup', () => {
     return sim.world.get(spawn(sim, jobType, tribe, behaviourFlags), Stance).mode;
   }
 
-  it('classifies the roster: soldiers/heroes DEFEND, scout/hunter IGNORE, everyone else FLEE', () => {
+  it('classifies the roster: soldiers/heroes DEFEND, everyone else IGNORE', () => {
     expect(spawnedStance(SOLDIER)).toBe(MILITARY_MODE.DEFEND);
     expect(spawnedStance(45)).toBe(MILITARY_MODE.DEFEND); // hero_saber
     expect(spawnedStance(27)).toBe(MILITARY_MODE.IGNORE); // scout
     expect(spawnedStance(15)).toBe(MILITARY_MODE.IGNORE); // hunter (toward humans)
-    expect(spawnedStance(WOODCUTTER)).toBe(MILITARY_MODE.FLEE); // civilian
-    expect(spawnedStance(0)).toBe(MILITARY_MODE.FLEE); // idle
+    expect(spawnedStance(WOODCUTTER)).toBe(MILITARY_MODE.IGNORE); // civilian
+    expect(spawnedStance(0)).toBe(MILITARY_MODE.IGNORE); // idle
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
     const e = spawn(sim, WOODCUTTER);
-    expect(defaultStance(sim.world, sim.content, e, null)).toBe(MILITARY_MODE.FLEE); // jobless / child
+    expect(defaultStance(sim.world, sim.content, e, null)).toBe(MILITARY_MODE.IGNORE); // jobless / child
     // A job id this content declares no record for is a civilian, not a fighter by numeric band.
-    expect(defaultStance(sim.world, sim.content, e, 41)).toBe(MILITARY_MODE.FLEE);
+    expect(defaultStance(sim.world, sim.content, e, 41)).toBe(MILITARY_MODE.IGNORE);
   });
 
   it('starts a weresnake or werewolf fighter in ATTACK unless its behaviour bit asks for DEFEND', () => {
@@ -75,7 +75,9 @@ describe('stance defaults - the job → military-mode lookup', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
     setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);
     expect(sim.world.get(spawn(sim, SOLDIER), Stance).mode).toBe(MILITARY_MODE.DEFEND);
-    expect(sim.world.get(spawn(sim, WOODCUTTER, VIKING, undefined, 2), Stance).mode).toBe(MILITARY_MODE.FLEE);
+    expect(sim.world.get(spawn(sim, WOODCUTTER, VIKING, undefined, 2), Stance).mode).toBe(
+      MILITARY_MODE.IGNORE,
+    );
   });
 
   it('stands a seat’s placed fighters down to DEFEND at their places once the seat is closed', () => {
@@ -133,7 +135,7 @@ describe('stance defaults - the job → military-mode lookup', () => {
     });
     spawnSettler(sim.world, ctx, { kind: 'spawnSettler', jobType: WOODCUTTER, x: 1, y: 0, tribe: VIKING });
     const [owned, unowned] = [...sim.world.query(Settler)];
-    expect(sim.world.get(owned as Entity, Stance).mode).toBe(MILITARY_MODE.FLEE); // owned civilian → FLEE
+    expect(sim.world.get(owned as Entity, Stance).mode).toBe(MILITARY_MODE.IGNORE); // owned civilian → IGNORE
     expect(sim.world.has(unowned as Entity, Stance)).toBe(false); // unowned carries no Stance (golden-safe)
   });
 
@@ -141,7 +143,7 @@ describe('stance defaults - the job → military-mode lookup', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
     const e = combatant(sim, 0, 0, P0, MILITARY_MODE.ATTACK); // starts ATTACK
     setJob(sim.world, ctxOf(sim), { kind: 'setJob', entity: e, jobType: WOODCUTTER });
-    expect(sim.world.get(e, Stance).mode).toBe(MILITARY_MODE.FLEE); // woodcutter default
+    expect(sim.world.get(e, Stance).mode).toBe(MILITARY_MODE.IGNORE); // woodcutter default
   });
 });
 

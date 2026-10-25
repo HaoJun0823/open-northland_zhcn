@@ -32,8 +32,8 @@ export const Anger = defineComponent<{ until: number }>('Anger', 'combat');
 /**
  * An animal's flight from a blow. A herd leader runs from `from`, the node its attacker struck from, to
  * `dest`, null until the flight is aimed; a follower runs after its fleeing leader, `dest` naming the leader's
- * destination it last aimed at. Separate from {@link Fleeing}, which the stance ladder strips from any unit
- * not in FLEE stance - an unowned animal carries no stance.
+ * destination it last aimed at. Separate from {@link Fleeing}, which the stance ladder owns - an unowned
+ * animal carries no stance.
  */
 export const Frightened = defineComponent<{ from: NodeId; dest: NodeId | null }>('Frightened', 'combat');
 
@@ -89,16 +89,11 @@ export const UnreachableTargets = defineComponent<{ entries: readonly Unreachabl
 export const Stance = defineComponent<{ mode: MilitaryMode; anchorCell: NodeId | null }>('Stance', 'combat');
 
 /**
- * A running unit's state, distinct from the persistent {@link Stance}: a FLEE unit with no threat in sight
- * carries none, and a unit of any other non-fighting stance carries it only for the run a blow started.
- * `repathAt` throttles the flee-destination recompute; `calmUntil` is null while a threat is in sight, and
- * set to `tick + cool-down` when the last one leaves. `blow` is the node a blow came from whose run is
- * still owed, held while a clip has the runner; absent (never null) once the run is issued, so a runner
- * without one keeps its serialized shape.
+ * A struck unit's run from a blow, distinct from the persistent {@link Stance}. `blow` is the node the blow
+ * came from whose run is still owed, held while a clip has the runner; absent (never null) once the run is
+ * issued, and the marker goes when the runner arrives.
  */
 export const Fleeing = defineComponent<{
-  repathAt: number;
-  calmUntil: number | null;
   blow?: NodeId | undefined;
 }>('Fleeing', 'combat');
 
@@ -119,10 +114,13 @@ export const Garrison = defineComponent<{ post: Entity; returnTo: { x: Fixed; y:
  * of its line falls and returns to `resume`, the player's target, or to the march when that is null.
  * `enemy` marks a fighter's own breach instead, walled off from that enemy: no player order, so the unit's
  * stance still governs it. `stand` is the near-side node dealt to this breaker, null when none was free.
+ * `leash` is the node a civilian striking back stood on: the order lets go once its target strays past
+ * the strike-back leash of it (`conflict/strike-back.ts`); absent (never null) on every other order.
  */
 export const AttackOrder = defineComponent<{
   target: Entity;
   breach?: { resume: Entity | null; stand: NodeId | null; enemy?: Entity | undefined };
+  leash?: NodeId | undefined;
 }>('AttackOrder', 'combat');
 
 /**

@@ -24,7 +24,6 @@ import {
   type SearchMetric,
 } from './combat-grid.js';
 import { HeldFiringBuildings } from './targeting.js';
-import { vehicleWeapon } from './weapons.js';
 
 /** A candidate packs as `distance * CANDIDATE_ID_SPAN + entity`, so a numeric sort orders by distance and then
  *  id. Entity ids stay below 2^32 and distances below 2^21, so the key is an exact double. */
@@ -97,8 +96,8 @@ export class CombatIndex {
    *  build: every stance writer ahead of `combat` in the tick schedule has run by then and none runs inside
    *  it, so a stance flipped earlier this tick is already seen. */
   private readonly hostileMasks: readonly number[];
-  /** The buildings able to shoot this build, the only ones a fleer runs from. The next index built for the
-   *  same world refreshes this set in place. */
+  /** The buildings able to shoot this build, the only ones a struck civilian runs from. The next index
+   *  built for the same world refreshes this set in place. */
   readonly firing: ReadonlySet<Entity>;
   /** {@link firing} as the getter `strikeRank` reads. */
   readonly firingNow = (): ReadonlySet<Entity> => this.firing;
@@ -114,16 +113,11 @@ export class CombatIndex {
     this.grid = combatGridOf(world, ctx, terrain);
     this.grid.startBuild(world, ctx);
     const firing = heldFiringOf(world).refresh(world, ctx);
-    for (const b of firing) this.grid.admitFiring(b);
     this.firing = firing;
     // A vehicle moves, so it joins per build rather than in a held layer.
     for (const v of world.query(Vehicle, Health, Position)) {
       const owner = world.tryGet(v, Owner);
-      const admit = this.grid.bodyAdmitter(
-        v,
-        owner === undefined ? 0 : playerBit(owner.player),
-        vehicleWeapon(ctx, world.get(v, Vehicle)) !== null,
-      );
+      const admit = this.grid.bodyAdmitter(v, owner === undefined ? 0 : playerBit(owner.player));
       forEachVehicleFootprintNode(world, ctx.content, terrain, v, admit);
     }
   }
@@ -213,33 +207,6 @@ export class CombatIndex {
   }
 
   /**
-   * Whether {@link nearest} over the same band would find anything: some indexed target `accept` takes. The
-   * members are asked in cell order with no sort and the first yes ends the scan, so `accept` must be pure
-   * and must not query this index.
-   */
-  anyWithin(
-    fromX: number,
-    fromY: number,
-    minDist: number,
-    maxDist: number,
-    accept: (e: Entity) => boolean,
-    seeker: number | null,
-    metric: SearchMetric,
-  ): boolean {
-    const hostile = seeker === null ? EVERY_PLAYER : hostileMaskOf(this.hostileMasks, seeker);
-    const { cx0, cx1, cy0, cy1 } = boxCellRange(fromX, fromY, maxDist);
-    for (let cx = cx0; cx <= cx1; cx++) {
-      for (let cy = cy0; cy <= cy1; cy++) {
-        const cell = this.grid.cellAt(cx, cy);
-        if (cell === undefined) continue;
-        if (anyInBand(cell.bodies, fromX, fromY, minDist, maxDist, hostile, metric, accept)) return true;
-        if (anyInBand(cell.units, fromX, fromY, minDist, maxDist, hostile, metric, accept)) return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Every unit or building owned by `player` within `maxDist` of node (fromX, fromY) by `metric`, each once at
    * its nearest admitted node, in ascending (distance, id) order. Only the owner's own members are measured,
    * so the cost is the owner's members in the box, however crowded the box is with anyone else.
@@ -286,15 +253,6 @@ export class CombatIndex {
    */
   othersWithin(player: number, hx: number, hy: number, radius: number): boolean {
     return this.someCell(hx, hy, radius, 'others', hostileMaskOf(this.hostileMasks, player));
-  }
-
-  /**
-   * Whether anything `player` might flee from lies within `radius` map points of node (hx, hy): the
-   * {@link othersWithin} test over units and {@link firing} buildings only, since a plain building is no
-   * flee threat. `false` is a proof of absence; `true` only means "run the real search".
-   */
-  threatsWithin(player: number, hx: number, hy: number, radius: number): boolean {
-    return this.someCell(hx, hy, radius, 'threats', hostileMaskOf(this.hostileMasks, player));
   }
 
   /**
@@ -395,16 +353,14 @@ export class CombatIndex {
   }
 }
 
-/** The presence tests {@link CombatIndex.someCell} runs: {@link CombatIndex.othersWithin},
- *  {@link CombatIndex.threatsWithin} and {@link CombatIndex.civsWithin}. */
-type CellTest = 'others' | 'threats' | 'civs';
+/** The presence tests {@link CombatIndex.someCell} runs: {@link CombatIndex.othersWithin} and
+ *  {@link CombatIndex.civsWithin}. */
+type CellTest = 'others' | 'civs';
 
 function passes(cell: CoarseCell, test: CellTest, hostile: number): boolean {
   switch (test) {
     case 'others':
       return cell.undiscounted > 0 || (cell.ownerMask & hostile) !== 0;
-    case 'threats':
-      return cell.threatUndiscounted > 0 || (cell.threatMask & hostile) !== 0;
     case 'civs':
       return cell.total - cell.passive - cell.hostileAnimal > 0;
   }
@@ -446,33 +402,6 @@ function growKeys(scan: BandScan): void {
   const grown = new Float64Array(scan.keys.length * 2);
   grown.set(scan.keys);
   scan.keys = grown;
-}
-
-/** Whether `accept` takes a member of `list` that {@link appendBand} would key for the same band. */
-function anyInBand(
-  list: MemberList,
-  fromX: number,
-  fromY: number,
-  minDist: number,
-  maxDist: number,
-  hostile: number,
-  metric: SearchMetric,
-  accept: (e: Entity) => boolean,
-): boolean {
-  const { members, x, y, bit } = list;
-  for (let i = 0; i < list.count; i++) {
-    const memberBit = bit[i] ?? 0;
-    if (memberBit !== 0 && (memberBit & hostile) === 0) continue;
-    const mx = x[i] ?? 0;
-    const my = y[i] ?? 0;
-    const distance =
-      metric === 'hex'
-        ? hexDistanceBetween(fromX, fromY, mx, my)
-        : Math.abs(mx - fromX) + Math.abs(my - fromY);
-    const member = members[i];
-    if (member !== undefined && distance >= minDist && distance <= maxDist && accept(member)) return true;
-  }
-  return false;
 }
 
 /** Append to `scan` from `count` every member of `list` owned by `bit` within `maxDist` of (fromX, fromY),

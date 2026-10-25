@@ -484,24 +484,22 @@ describe('combatSystem - the hunter hunting ground and prey pick', () => {
   });
 
   it('sheds the hold when the hunter stops hunting - it never outlives the engagement', () => {
-    for (const mode of [MILITARY_MODE.FLEE, MILITARY_MODE.DEFEND] as const) {
-      const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-      const hunter = combatantAtNode(sim, 40, 40, P0, MILITARY_MODE.IGNORE, { jobType: HUNTER });
-      bindFlagAtNode(sim, hunter, 40, 40, 12);
-      const deer = fighterAtNode(sim, 45, 40, DEER, null);
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = combatantAtNode(sim, 40, 40, P0, MILITARY_MODE.IGNORE, { jobType: HUNTER });
+    bindFlagAtNode(sim, hunter, 40, 40, 12);
+    const deer = fighterAtNode(sim, 45, 40, DEER, null);
 
-      combatSystem(sim.world, ctxOf(sim));
-      expect(sim.world.get(hunter, HuntFocus).target).toBe(deer);
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(hunter, HuntFocus).target).toBe(deer);
 
-      // The player re-tasks the hunter. Nothing but the hunting branch can reap the hold, so a stance
-      // that no longer runs it must shed the hold itself or a dead animal id rides the state hash on.
-      drawFinished(sim, hunter);
-      sim.world.mut(hunter, Stance).mode = mode;
-      combatSystem(sim.world, { ...ctxOf(sim), tick: 1 });
+    // The player re-tasks the hunter. Nothing but the hunting branch can reap the hold, so a stance
+    // that no longer runs it must shed the hold itself or a dead animal id rides the state hash on.
+    drawFinished(sim, hunter);
+    sim.world.mut(hunter, Stance).mode = MILITARY_MODE.DEFEND;
+    combatSystem(sim.world, { ...ctxOf(sim), tick: 1 });
 
-      expect(sim.world.has(hunter, HuntFocus), `mode ${mode}`).toBe(false);
-      expect(checkInvariants(sim.world, sim.content), `mode ${mode}`).toEqual([]);
-    }
+    expect(sim.world.has(hunter, HuntFocus)).toBe(false);
+    expect(checkInvariants(sim.world, sim.content)).toEqual([]);
   });
 
   it('never takes game across a static terrain seam - unreachable prey is not its game', () => {

@@ -1,4 +1,4 @@
-export { ctxOf, fleeCheckCtxOf } from '../../../fixtures/context.js';
+export { ctxOf } from '../../../fixtures/context.js';
 
 import { grassCellMap as grassMap } from '../../../fixtures/terrain.js';
 
@@ -12,19 +12,19 @@ import type { NodeId } from '../../../../src/nav/terrain/index.js';
 import type { MilitaryMode } from '../../../../src/systems/readviews/index.js';
 
 /**
- * The four **military stances** (`MILITARY_MODE`) as a per-unit auto-engagement mode, plus the civilian
- * **flee** drive. This file pins the stance layer on top of the engagement half (engagement.test.ts):
- * the job-based defaults, the `setStance` command, the ATTACK/DEFEND/IGNORE/FLEE gates, and the
- * order-over-stance precedence - all deterministic, no RNG.
+ * The military stances (`MILITARY_MODE`) as a per-unit auto-engagement mode, plus a civilian's reaction
+ * to enemies. This file pins the stance layer on top of the engagement half (engagement.test.ts): the
+ * job-based defaults, the `setStance` command, the ATTACK/DEFEND/IGNORE gates, and the order-over-stance
+ * precedence - all deterministic, no RNG.
  *
  * The fixture's `test_axe` (viking tribe 1, job 1) has band `[1, 2]`, damage 50 vs unarmored; job 1
- * (woodcutter) is a CIVILIAN, so it defaults to FLEE - the tests give a combatant an explicit ATTACK/
- * DEFEND/IGNORE stance where they mean it to fight.
+ * (woodcutter) is a CIVILIAN, so it defaults to IGNORE - the tests give a combatant an explicit ATTACK/
+ * DEFEND stance where they mean it to fight.
  */
 
 export const GRASS = 0;
 export const VIKING = 1;
-export const WOODCUTTER = 1; // has the axe weapon; a civilian job (default FLEE)
+export const WOODCUTTER = 1; // has the axe weapon; a civilian job (default IGNORE)
 export const P0 = 0;
 export const P1 = 1;
 

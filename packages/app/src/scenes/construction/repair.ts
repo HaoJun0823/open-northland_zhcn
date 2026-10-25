@@ -1,5 +1,4 @@
-import type { Entity, Simulation } from '@open-northland/sim';
-import { components } from '@open-northland/sim';
+import { cellAnchorNode, components, type Entity, type Simulation, setupCommand } from '@open-northland/sim';
 import { grassTerrain } from '../../catalog/buildings.js';
 import { JOB_BUILDER, JOB_SOLDIER_SWORD } from '../../catalog/jobs.js';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../../game/rules.js';
@@ -7,15 +6,17 @@ import {
   BUILDING_HOME_00,
   placeBuiltSandboxBuilding,
   spawnSandboxSettler,
+  spawnSettlerDirect,
   WEAPON_SWORD,
 } from '../../game/sandbox/index.js';
 import type { SceneDefinition } from '../types.js';
 
 /**
  * The repair scene: builders mend damaged homes without walking into a fight. The builders start nearest
- * the embattled home in the east, where a red raid meets the blue defence, so they mend the quiet home in
- * the west first; without the safety gate they would take the nearer one. Once the quiet home is whole
- * they cross to the embattled one, long after the raid is beaten. Nobody orders them.
+ * the embattled home in the east, where a red raid meets the blue defence, and step aside until the fight
+ * is on, so they mend the quiet home in the west first; without the safety gate they would take the
+ * nearer one. Once the quiet home is whole they cross to the embattled one, long after the raid is
+ * beaten. Nobody orders them to a home.
  *
  * The headless twin stops between the two repairs, so its end state shows the order. The calm period
  * after a blow is proven in the sim's own suite: the raid here fights the defence, not the home.
@@ -50,11 +51,18 @@ const DEFENDERS: readonly (readonly [number, number])[] = [
   [31, 17],
   [32, 17],
 ];
+/** How many rows south the builders first walk, so they pick a home once the raid is on: the safety gate
+ *  weighs the fight on at the moment a builder picks. */
+const HOLD_OFF_ROWS = 2;
+/** The tick the builders are sent on that walk, and the sequence that orders the first of their orders
+ *  after the tick's other commands; each further builder's order takes the sequence below. */
+const HOLD_OFF_TICK = 1;
+const SCRIPTED_SEQUENCE = Number.MAX_SAFE_INTEGER;
 /** The share of its pool each home starts with. */
 const STARTING_HP_PERCENT = 90;
 const PERCENT = 100;
-/** The fight ends by tick 130. The quiet home is whole by tick 600 and the embattled one by 1220; without
- *  the gate the order flips (630 and 1240), so this stop falls between the two repairs either way. */
+/** The fight ends by tick 130. The quiet home is whole by tick 620 and the embattled one by 1220; without
+ *  the gate the order flips, so this stop falls between the two repairs either way. */
 const RUN_TICKS = 900;
 
 const { Damaged, Health, Owner, Person, Settler } = components;
@@ -70,7 +78,15 @@ function damagedHome(sim: Simulation, x: number, y: number): Entity {
 function build(sim: Simulation): void {
   damagedHome(sim, QUIET_HOME.x, QUIET_HOME.y);
   damagedHome(sim, EMBATTLED_HOME.x, EMBATTLED_HOME.y);
-  for (const [x, y] of BUILDERS) spawnSandboxSettler(sim, JOB_BUILDER, x, y, HUMAN_PLAYER);
+  BUILDERS.forEach(([x, y], i) => {
+    const builder = spawnSettlerDirect(sim, JOB_BUILDER, x, y, HUMAN_PLAYER);
+    const to = cellAnchorNode(x, y + HOLD_OFF_ROWS);
+    sim.enqueueAt(
+      setupCommand({ kind: 'moveUnit', entity: builder, x: to.hx, y: to.hy }),
+      HOLD_OFF_TICK,
+      SCRIPTED_SEQUENCE - i,
+    );
+  });
   for (const [x, y] of DEFENDERS) {
     spawnSandboxSettler(sim, JOB_SOLDIER_SWORD, x, y, HUMAN_PLAYER, { weaponTypeId: WEAPON_SWORD });
   }

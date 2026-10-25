@@ -4,8 +4,6 @@ import {
   Fleeing,
   hasMissionBehaviour,
   MISSION_BEHAVIOUR,
-  MoveGoal,
-  Owner,
   PathRequest,
   PlayerOrder,
   type SettlerIdentity,
@@ -22,25 +20,14 @@ import { dynamicBlockOverlay } from '../footprint/index.js';
 import { needLevel } from '../lifecycle/needs/levels.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { settlerMovementNode, settlerTraversal } from '../movement/traversal.js';
-import { isFighterJob, isHunterJob, type MilitaryMode, stanceFights } from '../readviews/index.js';
+import { isFighterJob, type MilitaryMode, stanceFights } from '../readviews/index.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { startDrop } from '../settlers/atomics/start.js';
-import { COMPASS_DIRECTIONS, entityNode } from '../spatial/nodes.js';
+import { COMPASS_DIRECTIONS } from '../spatial/nodes.js';
 import { parkHaulingCart, pullsHaulingCart } from '../vehicles/hauling-cart.js';
-import { playerSeesEntity } from '../vision/index.js';
-import type { CombatIndex } from './combat-index.js';
-import { isFleeThreat, SIGHT_RADIUS_NODES } from './targeting.js';
 
-// The FLEE drive - the civilian raid reaction: path away from the threats in sight at the unit's normal pace
-// (no run gait exists), wind a cool-down down once clear, and yield to a collapsing need. The run a blow
-// starts for anyone who is not a fighter lives here too.
-
-/**
- * FLEE stance - how many ticks a fleeing unit must go with no threat in sight before it returns to the
- * economy, so it does not twitch in and out of flee as a threat flickers at the sight edge. Approximated
- * (source basis "Combat flee").
- */
-const FLEE_COOLDOWN_TICKS = 40;
+// The run a blow starts for anyone who is not a fighter. Original behavior: no one runs at the mere sight
+// of an enemy.
 
 /** A carrier pulling its cart parks it where it stands, the load stowed, since no gesture drops a cart's
  *  load; anyone else plays the drop clip. */
@@ -50,161 +37,19 @@ function shedLoad(world: World, ctx: SystemContext, e: Entity): void {
 }
 
 /**
- * FLEE stance - how many half-cell nodes a fleeing unit runs away from the threats in sight each time it
- * re-aims, and a frightened animal from its scare, along one of the eight walk directions. The original
- * runs a struck civilian 10 map points from its attacker; this is 10 map points along a row or a column and
- * up to 15 on a diagonal, an approximation. Running from any threat in sight, not only from a blow, is
- * this sim's FLEE stance.
+ * How many half-cell nodes a struck unit runs from its attacker, and a frightened animal from its scare,
+ * along one of the eight walk directions. The original runs a struck civilian 10 map points from its
+ * attacker; this is 10 map points along a row or a column and up to 15 on a diagonal, an approximation.
  */
 export const FLEE_STEP_NODES = 10;
 
 /**
- * FLEE stance - how many ticks a fleeing unit holds its current route before re-aiming away from the moving
- * threat. A per-tick re-path of every fleer would breach the scale budget; between re-aims the unit walks
- * its last route. Approximation (source basis "Combat flee").
- */
-export const FLEE_REPATH_CADENCE = 6;
-
-/**
- * FLEE stance - a calm unit looks for a threat only on ticks where `tick + entity` is a multiple of this
- * stride, which spreads the checks evenly; a unit already fleeing looks every tick. Approximation for scale:
- * a raider coming into sight is noticed up to three ticks (a quarter second) late.
- */
-export const FLEE_CHECK_STRIDE_TICKS = 4;
-
-/**
- * FLEE stance - how many of the nearest threats in sight a re-aim steers away from at once, so a civilian
- * caught between raiders does not run from the nearest one straight at the next. Approximation for scale:
- * one per walk direction.
- */
-const FLEE_THREAT_LIMIT = 8;
-
-const NO_THREATS: readonly { entity: Entity; distance: number }[] = [];
-
-/**
- * The need level (fixed-point, in [0, ONE]) at or above which a collapsing hunger or fatigue overrides the
- * FLEE drive, while every lesser need yields to it. Set well above the ¾ eat/sleep thresholds. Approximated
- * (source basis "Combat flee"): the original's flee-vs-need arbitration is unreadable.
+ * The need level (fixed-point, in [0, ONE]) at or above which a collapsing hunger or fatigue keeps a struck
+ * unit from running, while every lesser need yields to the run. Set well above the 3/4 eat/sleep
+ * thresholds. Approximated (source basis "Combat flee"): the original's flee-vs-need arbitration is
+ * unreadable.
  */
 const NEED_COLLAPSE_THRESHOLD: Fixed = fx.div(fx.fromInt(19), fx.fromInt(20)); // 0.95·ONE
-
-/**
- * The FLEE drive - run a unit away from the threats in sight. It reuses the combat target index rather
- * than opening a scan of its own: a hostile within {@link SIGHT_RADIUS_NODES} is a threat, looked for on
- * the {@link FLEE_CHECK_STRIDE_TICKS} stride while calm. A collapsing need outranks the flee,
- * and a clear sight line winds the cool-down down; otherwise the unit re-aims away on the
- * {@link FLEE_REPATH_CADENCE} throttle at its normal pace, since escape comes from steering away rather
- * than speed.
- */
-export function fleeDrive(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  index: CombatIndex,
-  e: Entity,
-  attacker: SettlerIdentity,
-): void {
-  // Checked first so it wins over both the threat and the cool-down. Yield only on the transition out of
-  // fleeing; once yielded, leave the need-walk alone so the eat/sleep goal the AI sets each tick survives.
-  if (needCollapsing(world, ctx.tick, e)) {
-    if (world.has(e, Fleeing)) {
-      world.remove(e, Fleeing);
-      clearNavState(world, e);
-    }
-    return;
-  }
-  if (!world.has(e, Fleeing) && (ctx.tick + e) % FLEE_CHECK_STRIDE_TICKS !== 0) return;
-  // A blow's run still owed, its runner's clip over: it goes before any look around.
-  if (world.tryGet(e, Fleeing)?.blow !== undefined) {
-    startBlowRun(world, ctx, terrain, e);
-    return;
-  }
-
-  const here = settlerMovementNode(world, terrain, e);
-  const x = terrain.xOf(here);
-  const y = terrain.yOf(here);
-  // Fog gate: a fleer reacts only to threats its player currently sees. Any of the player's eyes counts, so
-  // a watchtower spotting the raider warns a civilian whose own sight does not reach it.
-  const viewer = world.tryGet(e, Owner);
-  const accept = (t: Entity): boolean =>
-    isFleeThreat(world, ctx, e, attacker, t, index.firing) &&
-    (viewer === undefined || playerSeesEntity(world, ctx.fog, viewer.player, t));
-  const fleeing = world.tryGet(e, Fleeing);
-  // A re-aim steers from the nearest few threats; any other tick only asks whether one is still in sight,
-  // which needs no ranking.
-  const reaims = fleeing === undefined || ctx.tick >= fleeing.repathAt;
-  // Near bound 0, not the weapon-reach floor of 1: fear has no dead zone, so a fleeing unit reacts to a
-  // hostile on its very tile too. The coarse presence early-out (perf-only) spares a calm civilian its
-  // full-sight scan; a FLEE-stance hunter is exempt from it, like every hunter spec. The tail reaches the
-  // whole sight radius, so only the limit ends the take.
-  const seeker = viewer?.player ?? null;
-  const cleared =
-    viewer !== undefined &&
-    !isHunterJob(ctx.content, attacker.jobType) &&
-    !index.threatsWithin(viewer.player, x, y, SIGHT_RADIUS_NODES);
-  const threats =
-    cleared || !reaims
-      ? NO_THREATS
-      : index.nearestFew(
-          x,
-          y,
-          0,
-          SIGHT_RADIUS_NODES,
-          accept,
-          FLEE_THREAT_LIMIT,
-          seeker,
-          SIGHT_RADIUS_NODES,
-          'hex',
-        );
-  const threatened = reaims
-    ? threats.length > 0
-    : !cleared && index.anyWithin(x, y, 0, SIGHT_RADIUS_NODES, accept, seeker, 'hex');
-
-  if (!threatened) {
-    if (fleeing === undefined) return; // never in danger - the economy owns this unit
-    let calmUntil = fleeing.calmUntil;
-    if (calmUntil === null) {
-      calmUntil = ctx.tick + FLEE_COOLDOWN_TICKS;
-      world.mut(e, Fleeing).calmUntil = calmUntil;
-    }
-    if (ctx.tick >= calmUntil) {
-      world.remove(e, Fleeing); // safe long enough - return to work
-      clearNavState(world, e);
-    }
-    return;
-  }
-
-  // A settler cannot flee carrying a haul, so it drops its load and stands this tick, then runs empty-handed
-  // the next. Strictly after the threat scan: an unconditional drop here strips every carrying civilian each
-  // tick, a pickup-drop livelock that freezes builders, porters and gatherers on multi-player maps.
-  if (world.has(e, Carrying)) {
-    shedLoad(world, ctx, e);
-    return;
-  }
-
-  // A threat back in sight ends the cool-down; a flee in progress is otherwise left unwritten.
-  if (fleeing === undefined) world.add(e, Fleeing, { repathAt: ctx.tick, calmUntil: null });
-  else if (fleeing.calmUntil !== null) world.mut(e, Fleeing).calmUntil = null;
-  if (world.tryGet(e, PathRequest)?.failed) clearNavState(world, e); // the last flee route was unreachable
-  // Run the live route, or stand out a refused or boxed-in one, until the throttle re-aims.
-  if (!reaims) return;
-
-  const threatCells = threats.map((t) => entityNode(world, terrain, t.entity));
-  const dest = fleeDestination(terrain, dynamicBlockOverlay(world, ctx, terrain), here, threatCells);
-  // The run under way holds while the fresh aim points the same way or lies no farther from the nearest
-  // threat: re-routing to a cell one step on only churns the path, and a threat flickering at the sight edge
-  // must not turn the fleer back and forth.
-  const goal = fleeing === undefined ? undefined : world.tryGet(e, MoveGoal)?.cell;
-  const holds = goal !== undefined && goal !== here && runHolds(terrain, here, goal, dest, threatCells);
-  if (!holds && dest === here) {
-    clearNavState(world, e); // boxed in (no walkable away-cell) - stand and hope
-  } else if (!holds) {
-    // Keep the live route: dropping it resets the gait every re-aim, and a lurching fleer falls behind even
-    // an equal-pace pursuer.
-    redirectRoute(world, e, dest);
-  }
-  world.mut(e, Fleeing).repathAt = ctx.tick + FLEE_REPATH_CADENCE;
-}
 
 /**
  * Who runs from a blow on itself or beside it: anyone who is not a fighter, under any stance but one the
@@ -221,9 +66,7 @@ export function runsFromBlows(ctx: SystemContext, runner: SettlerIdentity, mode:
  * player's order, too worn out to run or script-passive: gates of this sim's own (approximation: the
  * original's own gates are not all mapped onto these). A runner a clip holds, the struck one flinching or
  * a worker mid-stroke, owes the run until the clip ends, and one that carries a haul sets it down first.
- * Under FLEE the drive then keeps it running from what it sees and winds down after
- * {@link FLEE_COOLDOWN_TICKS} in the clear; under any other stance the run is the whole reaction, and the
- * unit goes back to its work where it ends.
+ * The run is the whole reaction: the unit goes back to its work where it ends.
  */
 export function runFromBlow(
   world: World,
@@ -235,7 +78,7 @@ export function runFromBlow(
   if (world.has(e, Fleeing) || world.has(e, Sheltering) || world.has(e, PlayerOrder)) return;
   if (world.has(e, AttackOrder) || needCollapsing(world, ctx.tick, e)) return;
   if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.PASSIVE)) return; // a script-passive unit stands and takes it
-  world.add(e, Fleeing, { repathAt: ctx.tick + FLEE_REPATH_CADENCE, calmUntil: null, blow: from });
+  world.add(e, Fleeing, { blow: from });
   if (!atomicHoldsSettler(world, e)) startBlowRun(world, ctx, terrain, e);
 }
 
@@ -326,29 +169,6 @@ export function fleeDestination(
     }
   }
   return best;
-}
-
-/** Whether the run from `here` to `goal` should hold against the fresh aim `dest`: it heads the same way, or
- *  `goal` lies no nearer the nearest threat in `threatCells` than `dest` does. */
-function runHolds(
-  terrain: TerrainGraph,
-  here: NodeId,
-  goal: NodeId,
-  dest: NodeId,
-  threatCells: readonly NodeId[],
-): boolean {
-  const h = terrain.coordsOf(here);
-  const g = terrain.coordsOf(goal);
-  const d = terrain.coordsOf(dest);
-  if (
-    dest !== here &&
-    Math.sign(g.x - h.x) === Math.sign(d.x - h.x) &&
-    Math.sign(g.y - h.y) === Math.sign(d.y - h.y)
-  ) {
-    return true;
-  }
-  const threats = threatCells.map((t) => terrain.coordsOf(t));
-  return nearestThreat(threats, g.x, g.y) >= nearestThreat(threats, d.x, d.y);
 }
 
 type NodeCoords = { readonly x: number; readonly y: number };

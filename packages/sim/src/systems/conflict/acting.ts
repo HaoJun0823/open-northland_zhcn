@@ -83,8 +83,8 @@ export function mayEngage(
       : marching
         ? MILITARY_MODE.ATTACK
         : stanceMode(world, ctx.content, e, settler.jobType);
-  // Only the flee drive and a march run ahead of the rung that leaves a walker to the drive that sent it.
-  if (!marching && mode !== MILITARY_MODE.FLEE && isTravelling(world, e)) return false;
+  // Only a march runs ahead of the rung that leaves a walker to the drive that sent it.
+  if (!marching && isTravelling(world, e)) return false;
   const here = entityNode(world, terrain, e);
   if (owner === undefined || mode === null) {
     if (!isAnimalTribe(ctx.content, settler.tribe)) return true; // a scenario civ's search is ungated
@@ -107,7 +107,7 @@ export function mayEngage(
   if (garrisoned && mannedPostOf(world, ctx, e) !== null) {
     return index.othersWithin(owner.player, x, y, reachOf(world, ctx, e) + TOWER_RANGE_BONUS_NODES);
   }
-  // The flee drive and every owned search stay inside this, bar a guard's search further out.
+  // Every owned search stays inside this, bar a guard's search further out.
   let radius = Math.max(SIGHT_RADIUS_NODES, DEFEND_RADIUS_NODES);
   const reachGuard = mode === MILITARY_MODE.IGNORE && isFighterJob(ctx.content, settler.jobType);
   if (guardsAnchor(ctx.content, mode, settler.jobType)) {

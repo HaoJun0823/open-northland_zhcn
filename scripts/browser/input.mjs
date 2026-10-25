@@ -96,14 +96,16 @@ export async function drag(page, box) {
 }
 
 /**
- * The one selected entity's id; null unless exactly one entity is selected. Reads
+ * Whether exactly one entity is selected and it carries `component` (`Settler`, `Building`). Reads
  * `window.__frameInputs`, which {@link watchFrameInputs} keeps.
  */
-function selectedId(page) {
-  return page.evaluate(() => {
+function selectedHas(page, component) {
+  return page.evaluate((name) => {
     const { selection, selectedId } = window.__frameInputs;
-    return selection === 1 ? selectedId : null;
-  });
+    if (selection !== 1) return false;
+    const entity = window.__opennorthland.host.snapshot().entities.find((e) => e.id === selectedId);
+    return entity?.components[name] !== undefined;
+  }, component);
 }
 
 /** Record what each frame hands the renderer: selection size and portrait insets. */
@@ -126,21 +128,21 @@ export function watchFrameInputs(page) {
   });
 }
 
-/** Click drawn settlers until the clicked one alone is selected, not a signpost or house in front of
- *  it; false when none in `area` would take. */
+/** Click drawn settlers until a settler alone is selected, not a signpost in front of one; false when
+ *  none in `area` would take. */
 export async function selectOneSettler(page, area) {
   for (const settler of (await drawnOnScreen(page, 'settler', area)).slice(0, SINGLE_PICK_TRIES)) {
     await click(page, { x: settler.x, y: settler.y - SETTLER_BODY_LIFT });
-    if ((await selectedId(page)) === settler.id) return true;
+    if (await selectedHas(page, 'Settler')) return true;
   }
   return false;
 }
 
-/** Click drawn buildings until the clicked one alone is selected; false when none in `area` would take. */
+/** Click drawn buildings until a building alone is selected; false when none in `area` would take. */
 export async function selectOneBuilding(page, area) {
   for (const building of (await drawnOnScreen(page, 'building', area)).slice(0, SINGLE_PICK_TRIES)) {
     await click(page, { x: building.x, y: building.y - BUILDING_BODY_LIFT });
-    if ((await selectedId(page)) === building.id) return true;
+    if (await selectedHas(page, 'Building')) return true;
   }
   return false;
 }

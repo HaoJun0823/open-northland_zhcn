@@ -20,6 +20,38 @@ describe('colourIndexedSheet', () => {
     expect([...out]).toEqual([200, 100, 50, 255, 10, 20, 30, 0x60, 0, 0, 0, 0]);
   });
 
+  it('writes each pixel from its index and coverage alone, for every index and coverage', () => {
+    // Every (index, coverage) pair once, through a palette with a distinct colour per entry, against
+    // the definition: palette colour and coverage where covered, all zero where not.
+    const full = Uint8Array.from({ length: ATLAS_PALETTE_BYTES }, (_, i) => (i * 37 + 11) & 0xff);
+    const pairs = 256 * 256;
+    const indexed = new Uint8Array(pairs * 2);
+    for (let i = 0; i < pairs; i++) {
+      indexed[i * 2] = i & 0xff;
+      indexed[i * 2 + 1] = i >> 8;
+    }
+    const out = new Uint8ClampedArray(pairs * 4).fill(99);
+    colourIndexedSheet(indexed, GREY_ALPHA_INDEXED, full, out);
+    const expected = new Uint8ClampedArray(pairs * 4);
+    for (let i = 0; i < pairs; i++) {
+      const index = i & 0xff;
+      const coverage = i >> 8;
+      if (coverage === 0) continue;
+      expected[i * 4] = full[index * 3] ?? 0;
+      expected[i * 4 + 1] = full[index * 3 + 1] ?? 0;
+      expected[i * 4 + 2] = full[index * 3 + 2] ?? 0;
+      expected[i * 4 + 3] = coverage;
+    }
+    expect(out.findIndex((byte, i) => byte !== expected[i])).toBe(-1);
+  });
+
+  it('colours into an output that does not start on a 4-byte boundary', () => {
+    const indexed = Uint8Array.from([7, 255, 0, 0x60]);
+    const backing = new Uint8Array(9).fill(99);
+    colourIndexedSheet(indexed, GREY_ALPHA_INDEXED, palette, backing.subarray(1));
+    expect([...backing.subarray(1)]).toEqual([200, 100, 50, 255, 10, 20, 30, 0x60]);
+  });
+
   it('reads a canvas readback of the sheet: index in red, coverage in alpha', () => {
     const indexed = Uint8Array.from([7, 7, 7, 255, 0, 0, 0, 0x60]);
     const out = new Uint8ClampedArray(8);

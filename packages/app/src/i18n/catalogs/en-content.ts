@@ -334,6 +334,16 @@ export const enContent = {
       summary:
         'A warband ordered across the map cuts down the picket blocking its path, then walks on to the ordered spot.',
     },
+    'scout-village': {
+      title: 'Scout in a village',
+      summary:
+        'A red scout walks past blue builders, who keep building, and into a computer village that lets him walk. He strikes a villager and steals a cow: two villagers take him on with their fists and let him go at the village edge.',
+    },
+    'cow-raid': {
+      title: 'Cow raid',
+      summary:
+        "A red scout runs at a blue farm's cattle and turns back. The cows in his reach run, each its own way, the sheep beyond his reach keep grazing, and the herd walks back to the farm once it calms.",
+    },
     'hit-alarm': {
       title: 'Alarm',
       summary:

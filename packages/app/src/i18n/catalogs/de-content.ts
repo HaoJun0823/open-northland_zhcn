@@ -335,6 +335,16 @@ export const deContent = {
       summary:
         'Eine Kriegerschar erhält den Befehl, die Karte zu durchqueren, schlägt den Wachposten nieder, der ihr den Weg versperrt, und zieht dann zum befohlenen Ziel weiter.',
     },
+    'scout-village': {
+      title: 'Späher im Dorf',
+      summary:
+        'Ein roter Späher geht an blauen Baumeistern vorbei, die weiterbauen, und in ein Computerdorf, das ihn gewähren lässt. Er schlägt einen Dorfbewohner und stiehlt eine Kuh: Zwei Dorfbewohner gehen mit den Fäusten auf ihn los und lassen ihn am Dorfrand ziehen.',
+    },
+    'cow-raid': {
+      title: 'Viehraub',
+      summary:
+        'Ein roter Späher läuft auf die Rinder eines blauen Hofs zu und kehrt um. Die Kühe in seiner Reichweite fliehen, jede in ihre eigene Richtung, die Schafe außer seiner Reichweite grasen weiter, und die Herde kehrt zum Hof zurück, sobald sie sich beruhigt hat.',
+    },
     'hit-alarm': {
       title: 'Alarm',
       summary:

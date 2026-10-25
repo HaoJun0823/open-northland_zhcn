@@ -41,6 +41,7 @@ export {
 export { REST_CLEARANCE_NODES } from './conflict/battle-alert.js';
 export { FLEE_STEP_NODES } from './conflict/flee.js';
 export { ALARM_SOLDIER_RADIUS_NODES } from './conflict/hit-alarm.js';
+export { STRIKE_BACK_PARTY } from './conflict/leash.js';
 // The ground a defence-capable building covers, drawn when it is selected or placed.
 export { shelterFireRadius } from './conflict/shelter-fire.js';
 export { ANIMAL_AGGRO_RADIUS_NODES, SIGHT_RADIUS_NODES } from './conflict/targeting.js';
@@ -94,9 +95,9 @@ export {
   needLevels,
 } from './lifecycle/needs/index.js';
 export { TEMPLE_AURA_RANGE } from './lifecycle/temple-aura.js';
-// The herding ring bound, asserted by the livestock scene; the slaughter clip's wares, so the
-// real-content suite reads them the way the sim does.
-export { LIVESTOCK_GRAZE_RANGE_NODES } from './livestock/assignment.js';
+// The herding ring bound and the farm herd's leash, asserted by the livestock scenes; the slaughter
+// clip's wares, so the real-content suite reads them the way the sim does.
+export { FARM_HERD_LEASH_NODES, LIVESTOCK_GRAZE_RANGE_NODES } from './livestock/assignment.js';
 export { slayDepositGoods } from './livestock/slay-clip.js';
 // The match cadence, so an acceptance scene can run past the first verdict without restating it.
 export {

@@ -1,4 +1,5 @@
 import { bearHuntScene } from './animals/bear-hunt.js';
+import { cowRaidScene } from './animals/cow-raid.js';
 import { creatureFormsScene } from './animals/creature-forms.js';
 import { creaturesScene } from './animals/creatures.js';
 import { huntingScene } from './animals/hunting.js';
@@ -19,6 +20,7 @@ import { collisionScene } from './army/collision.js';
 import { hitAlarmScene } from './army/hit-alarm.js';
 import { meleeFrontScene } from './army/melee-front.js';
 import { openGateAttackScene } from './army/open-gate-attack.js';
+import { scoutVillageScene } from './army/scout-village.js';
 import { siegeScene } from './army/siege.js';
 import { towerDefenceScene } from './army/tower-defence.js';
 import { towerGarrisonScene } from './army/tower-garrison.js';
@@ -156,6 +158,7 @@ export const SCENES: readonly SceneDefinition[] = [
   towerDefenceScene,
   attackMoveScene,
   hitAlarmScene,
+  scoutVillageScene,
   meleeFrontScene,
   diplomacyScene,
   alliedVisionScene,
@@ -200,6 +203,7 @@ export const SCENES: readonly SceneDefinition[] = [
   farPostScene,
   livestockScene,
   livestockYardScene,
+  cowRaidScene,
   scoutClaimScene,
   scoutExploreScene,
   palisadeScene,

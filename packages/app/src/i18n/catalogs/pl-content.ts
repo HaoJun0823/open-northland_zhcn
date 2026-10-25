@@ -332,6 +332,16 @@ export const plContent = {
       summary:
         'Drużyna wysłana przez mapę wycina posterunek stojący jej na drodze, po czym maszeruje dalej we wskazane miejsce.',
     },
+    'scout-village': {
+      title: 'Zwiadowca we wsi',
+      summary:
+        'Czerwony zwiadowca mija niebieskich budowniczych, którzy budują dalej, i wchodzi do wioski komputera, która pozwala mu przejść. Uderza mieszkańca i kradnie krowę: dwóch mieszkańców rusza na niego z pięściami i puszcza go na skraju wioski.',
+    },
+    'cow-raid': {
+      title: 'Napad na krowy',
+      summary:
+        'Czerwony zwiadowca biegnie na bydło niebieskiej farmy i zawraca. Krowy w jego zasięgu uciekają, każda w swoją stronę, owce poza jego zasięgiem pasą się dalej, a stado wraca na farmę, gdy się uspokoi.',
+    },
     'hit-alarm': {
       title: 'Alarm',
       summary:

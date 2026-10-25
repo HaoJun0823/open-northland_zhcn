@@ -98,6 +98,14 @@ swordsmen on an attack-move into the pack as it walks home. Watch the first blow
 the leader included, on the swordsmen while they are still far from the pack's stay point; no wolf
 walks on past them.
 
+`?scene=scout-village` walks a red scout past blue builders and into a village the computer runs.
+The builders keep building and the villagers let him walk. Then he strikes a villager and goes after
+a cow: the struck one and a neighbour punch him, drop him a few steps from where they stood, and the
+village's own answer sends them after him again until he leaves it with the cow.
+
+`?scene=cow-raid` runs a red scout at a blue farm's cattle and back. The cows in his reach run, each
+its own way, the sheep beyond it keep grazing, and once he is gone the cows walk back to the farm.
+
 `?scene=creature-forms` lines up the five animal-body looks authored for the weresnake tribe: sheep,
 chicken, lion, wolf and bear. The lion, wolf and bear forms have soldiers nearby for observing their
 combat motions; the sheep and chicken forms remain clear for inspecting their idle and walk poses.

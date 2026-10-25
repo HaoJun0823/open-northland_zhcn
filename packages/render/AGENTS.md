@@ -82,8 +82,8 @@ each branch of a sampler if-chain compiles once per branch; that shape took minu
 Windows and froze the game at the loading screen while Metal compiled it in milliseconds, and a chain
 walked once per magnifier tap still compiled for tens of seconds there. Gather every tap a fragment
 reads in one pass over the chain, as `gpu/world-batch/shader.ts` does for a body's magnifier taps,
-and keep xBR and the other magnifiers out of per-slot code. Its selection outline walks the chain once
-per coverage tap (eight plain taps), a cost the budget below and the Windows compile check bound. `test/gpu/shaders/budget.test.ts` bounds the inlined texture operations
+and keep xBR and the other magnifiers out of per-slot code. Its selection outline picks the page once
+and reads its eight plain coverage taps there, a cost the budget below and the Windows compile check bound. `test/gpu/shaders/budget.test.ts` bounds the inlined texture operations
 of every program; a new GL program or generated variant joins `gpu/shaders/catalog.ts` in the same
 commit so the budget and the Windows compile check (`npm run test:shaders`) see it.
 

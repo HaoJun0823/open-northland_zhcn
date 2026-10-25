@@ -29,6 +29,7 @@ import {
   sortieOrders,
   towerPostOrders,
 } from './defence/index.js';
+import { musterMilitia } from './defence/militia.js';
 import { type OffenderAnswer, offenderAnswers } from './defence/offenders.js';
 import {
   type Raider,
@@ -246,6 +247,7 @@ export const settlementDefenceSystem: System = (world, ctx) => {
       ctx.commands.enqueue(aiCommand(seat.player, command, 'settlement-defence'));
     }
     answerOffenders(world, ctx, seat.player, plan.offenderAnswers);
+    if (autonomous) musterMilitia(world, ctx, terrain, seat.player, plan.threat);
   }
 };
 

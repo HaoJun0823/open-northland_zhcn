@@ -1,4 +1,11 @@
-import { BuildMode, Female, JobAssignment, Settler, TrainingOrder } from '../../../components/index.js';
+import {
+  BuildMode,
+  Female,
+  JobAssignment,
+  Militia,
+  Settler,
+  TrainingOrder,
+} from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
@@ -59,11 +66,11 @@ export function civilianCount(world: World, ctx: SystemContext, player: number):
 }
 
 /** Whether the settler is labour the allocator may move: an adult man, neither a fighter nor committed
- *  to a drill. */
+ *  to a drill or the militia. */
 export function isAllocatableMan(world: World, ctx: SystemContext, e: Entity): boolean {
   if (world.has(e, Female) || !isAdultSettler(world, e)) return false;
   if (isFighterJob(ctx.content, world.get(e, Settler).jobType)) return false;
-  return !world.has(e, TrainingOrder);
+  return !world.has(e, TrainingOrder) && !world.has(e, Militia);
 }
 
 /**

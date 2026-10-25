@@ -112,12 +112,18 @@ export function deferOrderDuringAtomic(
   command: DeferrableOrderCommand,
   { scripted = false }: { readonly scripted?: boolean } = {},
 ): boolean {
-  if (!atomicHoldsSettler(world, e)) return false;
-  const clip = atomicClipName(ctx.content, world.get(e, Settler), world.get(e, CurrentAtomic).atomicId);
-  if (clip !== undefined && isInterruptibleAtomic(ctx.content, clip)) return false;
+  if (!atomicBlocksOrder(world, ctx, e)) return false;
   // Copied, not aliased: the caller's command object also sits in the replay log, and a shared reference
   // would let a post-enqueue mutation silently rewrite hashed component state.
   world.remove(e, AiOrder);
   world.add(e, DeferredOrder, { command: { ...command }, ...(scripted ? { scripted: true } : {}) });
   return true;
+}
+
+/** Whether `e` runs an atomic an order may not cut short: one that holds the settler and is not
+ *  interruptible. */
+export function atomicBlocksOrder(world: World, ctx: SystemContext, e: Entity): boolean {
+  if (!atomicHoldsSettler(world, e)) return false;
+  const clip = atomicClipName(ctx.content, world.get(e, Settler), world.get(e, CurrentAtomic).atomicId);
+  return clip === undefined || !isInterruptibleAtomic(ctx.content, clip);
 }

@@ -67,13 +67,17 @@ export function setJob(
   if (isHeroJob(ctx.content, command.jobType)) return; // a hero is only ever spawned as one
   if (!canChooseJob(world, ctx, needSubjectOf(world, e), command.jobType)) return; // unearned trade
   if (deferOrderDuringAtomic(world, ctx, e, command)) return;
+  takeUpTrade(world, ctx, e, command.jobType);
+}
 
+/** {@link setJob}'s change once its checks pass: drop the old post and re-idle `e` as `jobType`. */
+export function takeUpTrade(world: World, ctx: SystemContext, e: Entity, jobType: number): void {
   if (world.has(e, JobAssignment)) {
     // The old post is not the new trade's - the player picks the next one - and its counters go with it.
     world.remove(e, JobAssignment);
     world.remove(e, ProductionCounters);
   }
-  reidleAsJob(world, ctx, e, command.jobType);
+  reidleAsJob(world, ctx, e, jobType);
 }
 
 /**

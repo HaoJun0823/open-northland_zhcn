@@ -1,5 +1,6 @@
 import { defineComponent, type Entity } from '../../ecs/world.js';
 import type { HalfCellNode } from '../../nav/halfcell.js';
+import type { AttackLeash } from '../combat.js';
 
 export interface MusterPlanState {
   /** Soldiers to gather before the wave marches. */
@@ -128,3 +129,19 @@ export interface SeatOffender {
  * Absent while the seat remembers no one.
  */
 export const SeatOffenders = defineComponent<{ offenders: SeatOffender[] }>('SeatOffenders', 'players');
+
+/** A computer seat's civilian armed as a hunter while a zone of its settlement is desperate. */
+export interface MilitiaState {
+  /** The building whose zone he defends, and the leash his attack orders hold him to. */
+  zone: Entity;
+  leash: AttackLeash;
+  /** The trade and the workplace he goes back to. */
+  previousJob: number;
+  previousWorkplace: Entity | null;
+  /** The tick he goes back to work unless his zone is desperate again before it. */
+  releaseTick: number;
+}
+
+/** The computer seat's emergency militia, one per armed civilian (`ai-shared/military/defence/militia.ts`).
+ *  An extension of this engine: the original never arms its civilians. */
+export const Militia = defineComponent<MilitiaState>('Militia', 'combat');

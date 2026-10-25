@@ -15,6 +15,13 @@ export {
   type ZoneThreat,
 } from './danger.js';
 export { enlistOrders } from './enlist.js';
+export {
+  MILITIA_HOLD_TICKS,
+  MILITIA_PEOPLE_SHARE,
+  MILITIA_PER_SEAT_MAX,
+  MILITIA_PER_ZONE_MAX,
+  musterMilitia,
+} from './militia.js';
 export { OFFENDER_SQUAD_MAX, type OffenderAnswer, offenderAnswers } from './offenders.js';
 export {
   MAP_AI_DEFENCE_REACH_POINTS,

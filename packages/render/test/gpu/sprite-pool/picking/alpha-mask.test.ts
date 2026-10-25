@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAlphaMask,
+  lazyAlphaMask,
+  MASK_BAND_ROWS,
   maskSolidAt,
   SOLID_ALPHA_MIN,
 } from '../../../../src/gpu/sprite-pool/picking/alpha-mask.js';
@@ -53,5 +55,43 @@ describe('buildAlphaMask / maskSolidAt', () => {
     expect(maskSolidAt(mask, -1, 0)).toBe(false);
     expect(maskSolidAt(mask, 2, 0)).toBe(false);
     expect(maskSolidAt(mask, 0, 1)).toBe(false);
+  });
+});
+
+describe('lazyAlphaMask', () => {
+  const ALPHA = 3;
+  // An odd width, so packed rows do not start on byte boundaries, and a partial last band.
+  const width = 37;
+  const height = MASK_BAND_ROWS * 2 + 5;
+  const rgba = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) rgba[i * 4 + ALPHA] = (i * 97 + 13) % 256;
+  const rowsOf = (y0: number, rows: number): Uint8Array =>
+    rgba.subarray(y0 * width * 4, (y0 + rows) * width * 4);
+
+  it('answers every texel as the whole-page mask does', () => {
+    const whole = buildAlphaMask(rgba, width, height);
+    const lazy = lazyAlphaMask(width, height, ALPHA, rowsOf);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) expect(maskSolidAt(lazy, x, y)).toBe(maskSolidAt(whole, x, y));
+    }
+  });
+
+  it('reads only the bands its tests land in, once each', () => {
+    const reads: number[] = [];
+    const lazy = lazyAlphaMask(width, height, ALPHA, (y0, rows) => {
+      reads.push(y0);
+      return rowsOf(y0, rows);
+    });
+    maskSolidAt(lazy, 3, MASK_BAND_ROWS + 1);
+    maskSolidAt(lazy, 30, MASK_BAND_ROWS * 2 - 1);
+    maskSolidAt(lazy, 0, height - 1);
+    expect(reads).toEqual([MASK_BAND_ROWS, MASK_BAND_ROWS * 2]);
+  });
+
+  it('leaves a band it cannot read transparent', () => {
+    const lazy = lazyAlphaMask(width, height, ALPHA, () => null);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) expect(maskSolidAt(lazy, x, y)).toBe(false);
+    }
   });
 });

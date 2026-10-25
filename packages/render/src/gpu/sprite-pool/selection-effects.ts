@@ -12,15 +12,7 @@ import {
 import type { TextureCache } from '../textures/texture-cache.js';
 import { worldBatched } from '../world-batch/batcher.js';
 import { OUTLINE_DIRECTIONS, SELECTION_STAMP, SELECTION_TONE_BAND } from '../world-batch/shader.js';
-import type { PalettedPooledEntity, PlainPooledEntity } from './pooled-entity.js';
-
-/** Body layers shared by pooled markers and placement cursors. */
-export type EffectSubject =
-  | Pick<PlainPooledEntity, 'container' | 'sprites' | 'paletted' | 'pickExempt' | 'placeholder'>
-  | Pick<PalettedPooledEntity, 'container' | 'sprites' | 'paletted' | 'placeholder'>;
-
-/** A quiet, permanent marker edge; selection keeps its wider, brighter outline. */
-export const FLAG_OUTLINE_STYLE = 'flag' as const;
+import type { PooledEntity } from './pooled-entity.js';
 
 const WHITE = LIFT_TONE_CODE.order;
 
@@ -42,16 +34,16 @@ export const OUTLINE_REACH = Math.max(...OUTLINE_PASSES.map((pass) => pass.radiu
 /** Outline quads sit behind the complete body, so overlapping layers leave no internal outlines.
  * They use the world batch and the existing atlas alpha, without filters or per-entity render targets. */
 export class SelectionEffects {
-  private readonly outlines = new Map<EffectSubject, Container<OutlineSprite | SelectionGraphics>>();
+  private readonly outlines = new Map<PooledEntity, Container<OutlineSprite | SelectionGraphics>>();
   private readonly transform = new Matrix();
   /** Each lit entity's lift, packed by {@link packLift}. */
-  private readonly lit = new Map<EffectSubject, number>();
+  private readonly lit = new Map<PooledEntity, number>();
 
   constructor(private readonly textures: TextureCache) {}
 
   update(
-    pe: EffectSubject,
-    style: SelectionStyle | typeof FLAG_OUTLINE_STYLE | undefined,
+    pe: PooledEntity,
+    style: SelectionStyle | undefined,
     zoom: number,
     seconds: number,
     outlineColour = 0xf2e8c9,
@@ -71,7 +63,7 @@ export class SelectionEffects {
       if (lift === 0) this.lit.delete(pe);
       else this.lit.set(pe, lift);
     }
-    if (style !== 'outline' && style !== FLAG_OUTLINE_STYLE) {
+    if (style !== 'outline') {
       this.clearOutline(pe);
       return;
     }
@@ -83,8 +75,8 @@ export class SelectionEffects {
     }
     let count = 0;
     for (const pass of OUTLINE_PASSES) {
-      const reach = (pass.radius * (style === FLAG_OUTLINE_STYLE ? 0.6 : 1)) / zoom;
-      const colour = pass.colour ?? (style === FLAG_OUTLINE_STYLE ? 0xdacba6 : outlineColour);
+      const reach = pass.radius / zoom;
+      const colour = pass.colour ?? outlineColour;
       for (let i = 0; i < pe.sprites.length; i++) {
         const body = pe.sprites[i];
         if (body === undefined || !body.visible || body.alpha === 0 || (!pe.paletted && pe.pickExempt[i]))
@@ -174,7 +166,7 @@ export class SelectionEffects {
     for (const [pe, lift] of this.lit) this.light(pe, visible ? lift : 0);
   }
 
-  private light(pe: EffectSubject, lift: number): void {
+  private light(pe: PooledEntity, lift: number): void {
     // The paletted shader takes the amount and the tone apart.
     const tone = Math.floor(lift / SELECTION_TONE_BAND);
     const amount = lift - tone * SELECTION_TONE_BAND;
@@ -188,11 +180,11 @@ export class SelectionEffects {
     if (pe.placeholder !== undefined) pe.placeholder.selectionEffect = lift;
   }
 
-  clear(pe: EffectSubject): void {
+  clear(pe: PooledEntity): void {
     this.update(pe, undefined, 1, 0);
   }
 
-  private clearOutline(pe: EffectSubject): void {
+  private clearOutline(pe: PooledEntity): void {
     const outline = this.outlines.get(pe);
     if (outline === undefined) return;
     outline.destroy({ children: true });

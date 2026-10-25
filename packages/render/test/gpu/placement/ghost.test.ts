@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { PALISADE_STAGGER_PX } from '../../../src/data/scene/palisades/stagger.js';
 import type { ElevationField } from '../../../src/data/terrain/index.js';
 import { PlacementGhostLayer } from '../../../src/gpu/placement/ghost.js';
-import { OutlineSprite } from '../../../src/gpu/selection/sprite-effect.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
 import type { SpriteAtlas, SpriteSheet } from '../../../src/index.js';
 
@@ -64,16 +63,10 @@ describe('PlacementGhostLayer', () => {
     };
     const layer = new PlacementGhostLayer(flags, new TextureCache());
     layer.set({ kind: 'flag', col: 2, row: 3, player: 1 }, FLAT);
-    const first = layer.container.children.at(-1) as Sprite;
+    const first = layer.container.children[0] as Sprite;
     expect(first.texture.frame.x).toBe(0);
-    const edge = layer.container.children[0]?.children[1];
-    if (!(edge instanceof OutlineSprite)) throw new Error('Missing cursor edge');
-    const reach = edge.reachUv[0] ?? 0;
-    layer.set({ kind: 'flag', col: 2, row: 3, player: 1 }, FLAT, undefined, 2);
-    expect(edge.reachUv[0]).toBeCloseTo(reach / 2);
-
     layer.set({ kind: 'flag', col: 2, row: 3, player: 2 }, FLAT);
-    expect((layer.container.children.at(-1) as Sprite).texture.frame.x).toBe(20);
+    expect((layer.container.children[0] as Sprite).texture.frame.x).toBe(20);
     expect(first.destroyed).toBe(true);
     layer.destroy();
   });

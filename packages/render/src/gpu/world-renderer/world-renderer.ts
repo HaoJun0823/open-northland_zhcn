@@ -646,7 +646,7 @@ export class WorldRenderer {
       mapped?.kind === 'line' && snapshot !== undefined
         ? palisadeLayoutOf(snapshot, this.elevation)
         : undefined;
-    this.placementGhost.set(mapped, this.elevation, walls, this.worldLayer.scale.x);
+    this.placementGhost.set(mapped, this.elevation, walls);
   }
 
   stats(): { drawn: number; pooled: number } {

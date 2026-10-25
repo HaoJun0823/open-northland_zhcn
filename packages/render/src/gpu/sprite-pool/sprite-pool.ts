@@ -60,7 +60,7 @@ import { presentEntity } from './presentation/present-entity.js';
 import { repeatsInTick } from './presentation/present-item.js';
 import { reconcileSprites } from './reconcile.js';
 import { SpriteSceneCache } from './scene-cache.js';
-import { FLAG_OUTLINE_STYLE, SelectionEffects } from './selection-effects.js';
+import { SelectionEffects } from './selection-effects.js';
 
 /** The retained per-entity sprite pool, keyed by the entity's monotonic, never-reused id. */
 
@@ -578,9 +578,7 @@ export class SpritePool {
           ? 'outline'
           : frame.selection?.has(item.ref)
             ? frame.selectionStyle
-            : item.isFlag === true || item.roadSite === 'claimed' || item.palisadeSite === 'claimed'
-              ? FLAG_OUTLINE_STYLE
-              : undefined;
+            : undefined;
     this.selectionEffects.update(
       pe,
       style,

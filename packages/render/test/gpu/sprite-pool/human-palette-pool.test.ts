@@ -63,7 +63,8 @@ function frameOf(snapshot: ReturnType<typeof snapshotOf>, viewport: Viewport = A
     viewport,
     tick: snapshot.tick,
     camera: { offsetX: 0, offsetY: 0 },
-    screenW: 800,
+    // A screen wide enough to show both sides, so the viewport alone decides who is off screen.
+    screenW: 2 * SPLIT_X + 1000,
     screenH: 600,
     elevation: FLAT,
     alpha: 1,

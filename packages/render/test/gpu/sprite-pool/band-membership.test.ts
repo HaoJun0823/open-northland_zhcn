@@ -43,8 +43,9 @@ function frameOf(tick: number, settlers: ReturnType<typeof settlerAt>[]): PoolFr
     viewport: VIEW_ALL,
     tick,
     camera: CAMERA,
+    // Tall enough to show the far row, so every settler here stays on screen.
     screenW: 800,
-    screenH: 600,
+    screenH: 2000,
     elevation: FLAT,
     alpha: 1,
   };

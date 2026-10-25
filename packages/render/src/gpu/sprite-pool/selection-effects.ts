@@ -28,6 +28,9 @@ const OUTLINE_PASSES = [
   { radius: 1.25, colour: undefined },
 ] as const;
 
+/** Screen px the outline reaches past the body art. */
+export const OUTLINE_REACH = Math.max(...OUTLINE_PASSES.map((pass) => pass.radius));
+
 /** Outline quads sit behind the complete body, so overlapping layers leave no internal outlines.
  * They use the world batch and the existing atlas alpha, without filters or per-entity render targets. */
 export class SelectionEffects {

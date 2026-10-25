@@ -38,6 +38,9 @@ const GLOW_COPIES: readonly { readonly dx: number; readonly dy: number; readonly
   { dx: 2, dy: 2, alpha: 64 / 256 },
 ];
 
+/** Bob px the farthest glow copy stands off its layer, on any side. */
+export const GLOW_REACH = Math.max(...GLOW_COPIES.map(({ dx, dy }) => Math.max(Math.abs(dx), Math.abs(dy))));
+
 function glowLayersFor(of: ResolvedLayer): readonly ResolvedLayer[] {
   let records = glowRecords.get(of);
   if (records === undefined) {
@@ -196,7 +199,8 @@ export function pushComposedCharacterLayers(
   return body !== null || head !== null;
 }
 
-function characterScale(sheet: Pick<SpriteSheet, 'kindScales'>, char: SettlerCharacter): number {
+/** The scale a look's layers draw at. */
+export function characterScale(sheet: Pick<SpriteSheet, 'kindScales'>, char: SettlerCharacter): number {
   return layerScale(sheet, 'settler', char.scale);
 }
 

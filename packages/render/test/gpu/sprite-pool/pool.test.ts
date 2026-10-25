@@ -1,11 +1,12 @@
 import type { WorldSnapshot } from '@open-northland/sim';
-import { Container } from 'pixi.js';
+import { Container, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { type Camera, ONE, tileToScreen, type Viewport } from '../../../src/data/projection/index.js';
 import type { ElevationField } from '../../../src/data/terrain/index.js';
 import { SelectionGraphics } from '../../../src/gpu/selection/sprite-effect.js';
 import { type PoolFrame, SpritePool } from '../../../src/gpu/sprite-pool/index.js';
 import { SNAP_DISTANCE } from '../../../src/gpu/sprite-pool/presentation/motion.js';
+import type { SpriteSheet } from '../../../src/gpu/textures/sprite-sheet.js';
 import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
 import { entity, snapshotOf } from '../../support/fixtures.js';
 
@@ -179,6 +180,65 @@ function firstPlaceholderRotation(layer: Container): number {
   if (placeholder === undefined) throw new Error('projectile placeholder was not drawn');
   return placeholder.rotation;
 }
+
+/** A one-look sheet: every settler draws a 16x32 body standing on its feet. */
+const SETTLER_BODY = 1;
+const settlerSheet: SpriteSheet = {
+  source: new TextureSource({ width: 64, height: 64 }),
+  atlas: { width: 0, height: 0, frames: new Map() },
+  bindings: { settler: SETTLER_BODY, resource: 1, building: 1 },
+  characters: {
+    byJob: {},
+    default: {
+      body: {
+        source: new TextureSource({ width: 64, height: 64 }),
+        atlas: {
+          width: 32,
+          height: 32,
+          frames: new Map([[SETTLER_BODY, { x: 0, y: 0, width: 16, height: 32, offsetX: -8, offsetY: -32 }]]),
+        },
+      },
+      binding: { idle: SETTLER_BODY },
+    },
+  },
+};
+
+describe('SpritePool - entities off the screen', () => {
+  // The screen is 800x600 from the origin. Row 16 stands just under its bottom edge, close enough for the
+  // body to rise into view; row 26 stands hundreds of px lower, inside the scene's box but beyond reach.
+  const NEAR = settler(1, 2, 16);
+  const FAR = settler(2, 4, 26);
+  const OTHER = settler(3, 1, 1);
+
+  it('leaves a settler whose drawing cannot reach the screen detached, while the draw list keeps it', () => {
+    expect(tileToScreen(2, 16).y).toBeGreaterThan(600);
+    expect(tileToScreen(2, 16).y).toBeLessThan(600 + 32);
+    const layer = new Container();
+    const pool = new SpritePool(layer, new TextureCache(), settlerSheet);
+    pool.reconcile(poolFrame(snapshotOf([NEAR, FAR]), FRAMES_EVERYTHING));
+    expect(pool.anchorOf(1)).toBeDefined();
+    expect(pool.anchorOf(2)).toBeUndefined();
+    expect(layer.children.length).toBe(1);
+    expect(pool.drawnItems().map((item) => item.ref)).toEqual([1, 2]);
+  });
+
+  it('keeps the settlers a portrait inset framed last frame, and every settler before it framed', () => {
+    const LOST = settler(4, 20, 26);
+    const layer = new Container();
+    const pool = new SpritePool(layer, new TextureCache(), settlerSheet);
+    const frame = { ...poolFrame(snapshotOf([NEAR, FAR, OTHER, LOST]), FRAMES_EVERYTHING), portraitRef: 3 };
+    pool.reconcile(frame);
+    expect(pool.anchorOf(4)).toBeDefined();
+    // An inset of 100x100 px at zoom 1 centred on the far settler.
+    const far = tileToScreen(4, 26);
+    const inset = { camera: { offsetX: 50 - far.x, offsetY: 50 - far.y, scale: 1 }, width: 100, height: 100 };
+    const main = { camera: CAMERA, width: 800, height: 600 };
+    pool.portraitPass([3], inset, main, () => {});
+    pool.reconcile({ ...frame, snapshot: snapshotOf([NEAR, FAR, OTHER, LOST], 2), tick: 1 });
+    expect(pool.anchorOf(2)).toBeDefined();
+    expect(pool.anchorOf(4)).toBeUndefined();
+  });
+});
 
 /**
  * A pooled entity keeps its motion track while it is not drawn (indoors, fogged, culled), so the pool

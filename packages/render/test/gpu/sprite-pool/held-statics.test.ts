@@ -78,8 +78,9 @@ function frameOf(snapshot: WorldSnapshot, fields: Partial<PoolFrame> = {}): Pool
     viewport: VIEW,
     tick: snapshot.tick,
     camera: { offsetX: 0, offsetY: 0 },
-    screenW: 800,
-    screenH: 600,
+    // Large enough to show every entity these specs place, so only the scene's box culls them.
+    screenW: 1600,
+    screenH: 1000,
     elevation: FLAT,
     alpha: 1,
     ...fields,
@@ -136,6 +137,28 @@ describe('SpritePool - held self-contained entities', () => {
       }),
     );
     expect(refs()).toContain(TREE);
+  });
+});
+
+describe('SpritePool - a held tree off the screen', () => {
+  it('detaches a held tree the screen leaves and draws it again when the screen returns', () => {
+    const mirror = mirrorOf([
+      entity(SETTLER, 1, 1, walker),
+      entity(TREE, 4, 1, { Resource: { goodType: 1 } }),
+    ]);
+    const layer = new Container();
+    const pool = new SpritePool(layer, new TextureCache(), sheet);
+    // The scene's box keeps the tree throughout; only the screen moves away from it and back.
+    const away = { camera: { offsetX: -2000, offsetY: 0 } };
+    pool.reconcile(frameOf(mirror.snapshot()));
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 2, walker)])));
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 3, walker)]), away));
+    expect(pool.anchorOf(TREE)).toBeUndefined();
+    expect(pool.drawnItems().map((item) => item.ref)).toContain(TREE);
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 2, walker)]), away));
+    pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 3, walker)])));
+    expect(pool.anchorOf(TREE)).toBeDefined();
+    expect(pool.boundsOf(TREE)).toBeDefined();
   });
 });
 

@@ -6,6 +6,7 @@ import {
   type Camera,
   cameraScreenX,
   cameraScreenY,
+  cameraViewport,
   snapToDevicePixels,
   type Viewport,
 } from '../../data/projection/index.js';
@@ -39,6 +40,7 @@ import { restoreStash, type StashedVisibility, stashHidden } from '../world-view
 import { LayerBinder } from './bind-layers.js';
 import { FrameEpoch } from './bind-stamp.js';
 import { coatBody } from './blood-coats.js';
+import { cullBox, type KindReaches, kindReaches } from './cull-reach.js';
 import { GroundPileCover } from './ground-pile-cover.js';
 import { damageScaffoldLayers } from './layers/building.js';
 import { resolvesWithoutClock } from './layers/resolve.js';
@@ -53,7 +55,7 @@ import {
 } from './picking/pick.js';
 import { type EntityBounds, meshablePooled, type PooledEntity } from './pooled-entity.js';
 import { PortraitSubject } from './portrait-subject.js';
-import { atRest } from './presentation/motion.js';
+import { atRest, SNAP_DISTANCE } from './presentation/motion.js';
 import { presentEntity } from './presentation/present-entity.js';
 import { repeatsInTick } from './presentation/present-item.js';
 import { reconcileSprites } from './reconcile.js';
@@ -189,6 +191,41 @@ function pooledDepth(pe: PooledEntity, item: DrawItem): number {
   );
 }
 
+/** Whether `item`'s drawn feet, its anchor raised by its lift, stand inside `box`. */
+function shows(boxes: readonly Viewport[], item: DrawItem): boolean {
+  const y = item.y - (item.lift ?? 0);
+  for (const box of boxes) {
+    if (item.x >= box.minX && item.x <= box.maxX && y >= box.minY && y <= box.maxY) return true;
+  }
+  return false;
+}
+
+/** World px a portrait inset's view may move between two frames that frame the same subjects: a
+ *  subject that moves farther snaps, as a teleport does. */
+const INSET_FOLLOW_SLACK = SNAP_DISTANCE;
+
+/** The world box one portrait inset framed, and the subjects it framed. */
+interface FramedInset {
+  readonly subjects: readonly number[];
+  readonly view: Viewport;
+  readonly zoom: number;
+}
+
+/** The refs this frame's portrait insets frame. */
+function portraitSubjectsOf(frame: PoolFrame): number[] {
+  const subjects = [...(frame.insetRefs ?? [])];
+  if (frame.portraitRef !== undefined) subjects.push(frame.portraitRef);
+  if (frame.portraitHouse !== undefined) subjects.push(frame.portraitHouse);
+  return subjects;
+}
+
+/** Whether `framed` framed each of `subjects` and nothing else. */
+function framesSubjects(framed: readonly FramedInset[], subjects: readonly number[]): boolean {
+  const seen = new Set<number>();
+  for (const inset of framed) for (const ref of inset.subjects) seen.add(ref);
+  return seen.size === new Set(subjects).size && subjects.every((ref) => seen.has(ref));
+}
+
 export class SpritePool {
   readonly groundContainer = new Container({ sortableChildren: true });
 
@@ -279,6 +316,11 @@ export class SpritePool {
   private readonly selectionEffects: SelectionEffects;
   private readonly bloodCoats = new BloodCoats();
   private readonly epoch = new FrameEpoch();
+  /** What each kind can draw around its anchor; a kind absent here is culled by the scene's box alone. */
+  private readonly reaches: KindReaches;
+  /** The insets the last frame framed, and those this frame frames so far. */
+  private framed: FramedInset[] = [];
+  private framing: FramedInset[] = [];
   /** Last {@link reconcile}'s device grid, so the portrait pass re-places the meshes the way it drew
    *  them. */
   private snapResolution: number | undefined;
@@ -309,6 +351,7 @@ export class SpritePool {
     this.selectionEffects = new SelectionEffects(textures);
     this.portrait = new PortraitSubject(spriteLayer);
     this.binder = new LayerBinder(textures, sheet, stakes, roads);
+    this.reaches = kindReaches(sheet);
   }
 
   /**
@@ -316,6 +359,8 @@ export class SpritePool {
    * and reap the ones that left the snapshot.
    */
   reconcile(frame: PoolFrame): void {
+    [this.framed, this.framing] = [this.framing, this.framed];
+    this.framing.length = 0;
     const scene = this.sceneFor(frame);
     this.sheet?.palette?.beginFrame();
     this.epoch.advance(frame, this.textures.textureRevision);
@@ -341,9 +386,17 @@ export class SpritePool {
     this.passHasPortrait = false;
     const kept = scene.kept;
     const generation = this.holdGeneration;
+    const culls = this.cullBoxes(frame);
     for (let i = 0; i < scene.items.length; i++) {
       const item = scene.items[i];
       if (item === undefined) continue;
+      // An item drawing nothing on screen stays detached; the draw list keeps it for every other reader.
+      const boxes = culls?.[item.kind];
+      if (boxes !== undefined && item.portraitOnly !== true && !shows(boxes, item)) {
+        this.lastPooled[i] = undefined;
+        this.release(item);
+        continue;
+      }
       // A self-contained item kept from the last build, its entity holding still: nothing to present.
       if (kept !== undefined && kept[i] === 1 && (item as unknown as HoldMarked)[HELD] === generation) {
         this.lastPooled[i] = undefined;
@@ -424,6 +477,48 @@ export class SpritePool {
       this.moving.push(index);
       this.movingRefs.add(item.ref);
     }
+  }
+
+  /**
+   * Per kind with a reach, where an item's drawn feet must stand to show this frame; undefined keeps every
+   * item of the scene. An item shows on screen or in a portrait inset, which frames the world around its
+   * subjects off the main screen too. The insets frame after this reconcile, so their views are the last
+   * frame's; until the insets have framed the frame's subjects once, the scene's own box decides.
+   */
+  private cullBoxes(frame: PoolFrame): Partial<Record<DrawItem['kind'], Viewport[]>> | undefined {
+    const subjects = portraitSubjectsOf(frame);
+    if (subjects.length > 0 && !framesSubjects(this.framed, subjects)) return undefined;
+    const castShear = frame.shadowStyle?.castShear ?? 0;
+    const screen = cameraViewport(frame.camera, frame.screenW, frame.screenH);
+    const boxes: Partial<Record<DrawItem['kind'], Viewport[]>> = {};
+    for (const kind of Object.keys(this.reaches) as (keyof KindReaches)[]) {
+      const reach = this.reaches[kind];
+      if (reach === undefined) continue;
+      const kindBoxes = [cullBox(screen, reach, castShear, frame.camera.scale ?? 1)];
+      if (subjects.length > 0) {
+        for (const inset of this.framed) {
+          const box = cullBox(inset.view, reach, castShear, inset.zoom);
+          kindBoxes.push({
+            minX: box.minX - INSET_FOLLOW_SLACK,
+            minY: box.minY - INSET_FOLLOW_SLACK,
+            maxX: box.maxX + INSET_FOLLOW_SLACK,
+            maxY: box.maxY + INSET_FOLLOW_SLACK,
+          });
+        }
+      }
+      boxes[kind] = kindBoxes;
+    }
+    return boxes;
+  }
+
+  /** Let go of a culled item's hold, so the detach sweep takes its entity and a later frame tests the
+   *  item again instead of standing it unvisited. */
+  private release(item: SpriteDrawItem): void {
+    const marked = item as unknown as HoldMarked;
+    if (marked[HELD] === undefined || marked[HELD] === -1) return;
+    marked[HELD] = -1;
+    const pe = this.pool.get(item.ref);
+    if (pe !== undefined) pe.held = -1;
   }
 
   /**
@@ -787,6 +882,11 @@ export class SpritePool {
     main: PortraitView,
     render: (soloKeep: Container | null) => void,
   ): void {
+    this.framing.push({
+      subjects: [...subjects],
+      view: cameraViewport(inset.camera, inset.width, inset.height),
+      zoom: inset.camera.scale ?? 1,
+    });
     this.selectionEffects.setVisible(false);
     this.placePaletted(inset.camera, inset.width, inset.height);
     this.portrait.show(subjects);

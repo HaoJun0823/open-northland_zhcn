@@ -293,6 +293,39 @@ export class CombatGrid {
   }
 
   /**
+   * Every unit owned by a player among `owners` ({@link playerBit}s) whose node lies in the inclusive node
+   * box, ascending id, read after the unit layer catches up on its feeds. Costs the coarse cells the box
+   * spans and the units of the cells such an owner holds one in, never the owners' whole rosters.
+   */
+  ownedUnitsInBox(
+    world: World,
+    tick: number,
+    owners: number,
+    box: { readonly minX: number; readonly maxX: number; readonly minY: number; readonly maxY: number },
+  ): Entity[] {
+    const found: Entity[] = [];
+    if (owners === 0) return found;
+    this.syncUnits(world, tick);
+    const cx1 = Math.min(this.cols - 1, coarseOf(box.maxX));
+    const cy1 = Math.min(this.rows - 1, coarseOf(box.maxY));
+    for (let cy = Math.max(0, coarseOf(box.minY)); cy <= cy1; cy++) {
+      for (let cx = Math.max(0, coarseOf(box.minX)); cx <= cx1; cx++) {
+        const cell = this.cells[cy * this.cols + cx];
+        if (cell === undefined || (cell.unitOwnerMask & owners) === 0) continue;
+        const { members, x, y, bit } = cell.units;
+        for (let i = 0; i < cell.units.count; i++) {
+          const e = members[i];
+          if (e === undefined || ((bit[i] ?? 0) & owners) === 0) continue;
+          const hx = x[i] ?? 0;
+          const hy = y[i] ?? 0;
+          if (hx >= box.minX && hx <= box.maxX && hy >= box.minY && hy <= box.maxY) found.push(e);
+        }
+      }
+    }
+    return found.sort((a, b) => a - b);
+  }
+
+  /**
    * The cells whose neighbourhood of `radius` map points holds an undiscounted member or two owners: a
    * query of at most `radius` from any node in any other cell sees one owner at most and nothing
    * undiscounted. Kept per change; a new radius re-derives every cell once.

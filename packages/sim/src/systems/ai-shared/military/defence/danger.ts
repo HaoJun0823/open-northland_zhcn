@@ -6,6 +6,7 @@ import {
   Health,
   MAX_PLAYERS,
   Owner,
+  Person,
   Position,
   type SeatOffender,
   Settler,
@@ -14,6 +15,7 @@ import {
 import type { DeepReadonly, Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
+import { combatGridOf, playerBit } from '../../../conflict/combat-grid.js';
 import { towerPostFor } from '../../../conflict/tower-post.js';
 import type { SystemContext } from '../../../context.js';
 import { isAdultSettler } from '../../../family/eligibility.js';
@@ -148,8 +150,8 @@ function fighterDefence(world: World, ctx: SystemContext, player: number, away: 
  * ({@link fighterDefence}; `away` are those marching off), wherever they stand, and the manned towers and
  * standing shelters inside its band.
  *
- * Costs the raiders near the settlement, the enemy seats' people and the remembered offenders, times the
- * seat's buildings and people only when someone is near.
+ * Costs the raiders near the settlement, the enemy people inside its box (read off the combat grid's unit
+ * layer) and the remembered offenders, times the seat's buildings and people only when someone is near.
  */
 export function assessSeatThreat(
   world: World,
@@ -213,15 +215,16 @@ function intrudersOf(
     listed.add(r.entity);
     intruders.push(intruderOf(world, ctx, r.entity, r.x, r.y, r.component, remembered.has(r.entity), true));
   }
+  let enemies = 0;
   for (let side = 0; side < MAX_PLAYERS; side++) {
-    if (side === player || diplomacyStance(world, side, player) !== 'enemy') continue;
-    for (const e of ownedSettlers(world, side)) {
-      if (!isCivilian(world, ctx, e) || !isAdultSettler(world, e)) continue;
-      const at = boxedNode(world, terrain, box, e);
-      if (at === null || unitDanger(world, ctx, e) === 0) continue;
-      listed.add(e);
-      intruders.push(intruderOf(world, ctx, e, at.x, at.y, at.component, remembered.has(e), false));
-    }
+    if (side !== player && diplomacyStance(world, side, player) === 'enemy') enemies |= playerBit(side);
+  }
+  for (const e of combatGridOf(world, ctx, terrain).ownedUnitsInBox(world, ctx.tick, enemies, box)) {
+    if (!world.has(e, Person) || !isCivilian(world, ctx, e) || !isAdultSettler(world, e)) continue;
+    const at = boxedNode(world, terrain, box, e);
+    if (at === null || unitDanger(world, ctx, e) === 0) continue;
+    listed.add(e);
+    intruders.push(intruderOf(world, ctx, e, at.x, at.y, at.component, remembered.has(e), false));
   }
   for (const o of offenders) {
     const e = o.entity;

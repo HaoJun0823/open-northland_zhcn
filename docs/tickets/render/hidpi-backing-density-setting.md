@@ -19,9 +19,12 @@ from `WorldRendererOptions`.
   (`translations/AGENTS.md` names the rule). Choices: auto, native, sharp, xbr. Remove `whole`: it cannot
   do 150 %, and it doubles the minimap and the action ring.
 - Pass the upscale as an explicit `WorldRendererOptions` field instead of the `WeakMap`.
+- The value is read once when the Pixi application is created, so add `backingDensity` to
+  `SETTINGS_NEEDING_MAP_RESTART` and its label key in `view/runtime/settings-restart.ts`, or the restart
+  notice will not name it.
 - Keep `auto` as the default (`resolveBackingDensity` and `AUTO_UPSCALE_RATIO` in `gpu/pixi-app/pixi-app.ts`).
 
-## Verification
+## Verify
 
 - `test:shaders` on D3D11 and Metal (the upscale programs are in the warm-up).
 - Headless `bench:browser-shots` at `ON_BENCH_DEVICE_SCALE=2` for each choice: `auto` byte-identical to

@@ -17,7 +17,7 @@ cache, the grounded-building overlay strips and the shore-wave ground lift, and 
 nearest sampling of fighters. Fix the found cost if it can be removed without a visual change; otherwise
 record the cause and the trade in `docs/GRAPHICS.md`'s cost basis.
 
-## Verification
+## Verify
 
 `battle-x3` on the UHD 770 within noise of the pre-pass value (about 6.8 ms) with the other
 battle and town scenarios unchanged.

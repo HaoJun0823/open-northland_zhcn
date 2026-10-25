@@ -22,7 +22,7 @@ are nearest by design and document that the mode never reaches their sampler.
   +0.1 ms (xBR zoom 1) on the UHD 770 and is not part of this ticket; file it only if the owner asks
   for it after seeing the fixed flip.
 
-## Verification
+## Verify
 
 - A render test that uploads a page, flips the mode and reads back the GL `TEXTURE_MIN_FILTER` or the
   texture style revision, failing on the current code.

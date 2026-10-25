@@ -17,7 +17,7 @@ of that checkpoint, and their baked bytes. Then either raise the budget to the m
 or evict least recently drawn frames with a hook that re-bakes on the next draw of a retained sprite.
 Keep the fallback to the hard silhouette for overflow.
 
-## Verification
+## Verify
 
 - `bench:browser-shots` of the dense and wide views: no hard-silhouette fallback while the budget is
   under its cap (compare against a capture with an unbounded budget).

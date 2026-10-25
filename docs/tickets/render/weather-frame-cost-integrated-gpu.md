@@ -12,9 +12,8 @@ and in the sandstorm the wisps 2.47 ms (`PUFF_SHARE` of the sand particles in
 snow and sand ground cover and the ground reactions (`gpu/weather/ground-weather.ts`,
 `ground-cover-shading.ts`, `ground-reactions.ts`) are the untested candidates.
 
-Measured and rejected on this GPU, do not repeat: `discard` of zero-alpha fragments (sand +2.5 ms,
-snow within noise), folding the vignette into the weather grade (not pixel-identical, at most 0.38 ms),
-a half-resolution grade or veil (the full-resolution composite blend is the cost).
+Already measured on this GPU and not a win: zero-alpha `discard`, the vignette folded into the grade, a
+half-resolution grade or veil.
 
 ## Scope
 
@@ -23,7 +22,7 @@ on the Intel, then make one bounded change per found cost. For the wisps the opt
 smaller puffs (the 2.47 ms scales with their area, pixels change) or plain round puffs (-0.74 ms,
 max 15/255, visibly smoother); both need the owner's picture sign-off before merging.
 
-## Verification
+## Verify
 
 `bench:gpu` `weather-rain-x3,weather-snow-x3,weather-sand-x3,weather-storm-x3,weather-blizzard-x3,weather-clear-x3`
 on the UHD 770 in one session, before and after; a pixel diff of each weather view against the current

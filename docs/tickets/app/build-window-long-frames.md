@@ -20,7 +20,7 @@ into the static thumbnail pictures and good icons (canvas `filter: drop-shadow` 
 live CSS filters, accepting slightly different shadow pixels after the owner has seen a before/after
 picture; any change that keeps the window's content and layout.
 
-## Verification
+## Verify
 
 `bench:hud` scenarios `none`, `build` and `build-tabs` on the UHD 770: `build` p95 within 2 ms of `none`,
 `build-tabs` p95 below 18 ms, layouts per frame not above today's 0.31. `test:hud` green.

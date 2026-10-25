@@ -746,7 +746,6 @@ export const plGame = {
         atSea: 'Najpierw zacumuj przy brzegu',
         noSeat: 'Brak wolnych miejsc',
         notMoored: 'Najpierw zacumuj przy brzegu',
-        noShore: 'Najpierw podpłyń do brzegu',
         deckFull: 'Pokład jest zajęty',
       },
       stances: { attack: 'Atak', defence: 'Obrona', hold: 'Ignorowanie' },

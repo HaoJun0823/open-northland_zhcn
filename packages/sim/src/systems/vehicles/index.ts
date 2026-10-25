@@ -23,8 +23,8 @@ export {
   detachBeforeOrder,
   detachFromVehicle,
   forcesDetach,
+  landingOf,
   passengerJobAllowed,
-  unloadLandingOf,
   unloadPeople,
 } from './crew.js';
 export { dockVehicle, type MooringProbe, type MooringSpots, mooringProbe, mooringSpotsOf } from './dock.js';

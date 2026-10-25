@@ -16,7 +16,7 @@ import {
 import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { type HalfCellNode, hexagonRing, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
+import { type HalfCellNode, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
 import { nearestUnblockedNode } from '../../nav/nearest.js';
 import { STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
@@ -37,7 +37,7 @@ import { releaseTowerPost } from '../settlers/drives/tower-post.js';
 import { stepOut } from '../settlers/indoors.js';
 import { endChat } from '../social/gossip/drive.js';
 import { abandonCargoRun } from './cargo.js';
-import { dropHeldGoal, endMarch, isOpenLand, vacateSeat } from './movement.js';
+import { dropHeldGoal, endMarch, vacateSeat } from './movement.js';
 
 // The crew of docs/formats/VEHICLES.md "Crew": who may attach, where a rider boards and leaves, and what
 // a rider gives up when it joins. The boarding drives live in `boarding.ts`.
@@ -243,33 +243,6 @@ export function landingOf(world: World, ctx: MapContext, vehicle: Entity): HalfC
   return node === null ? null : { hx: terrain.xOf(node), hy: terrain.yOf(node) };
 }
 
-/** How far from an unmoored ship's door point the unload still finds the shore, in hexagon rings: the
- *  point itself or a node beside it. */
-const UNLOAD_SHORE_REACH = 1;
-
-/**
- * Where an unload sets the riders of `vehicle` down. Original behavior (unconfirmed against the running
- * original): unloading needs no mooring, only a door point on land, so a ship lying unmoored unloads onto
- * its door point or the first open land node beside it; null while neither is open land. Any other
- * vehicle lands its riders where {@link landingOf} does.
- */
-export function unloadLandingOf(world: World, ctx: MapContext, vehicle: Entity): HalfCellNode | null {
-  const state = world.tryGet(vehicle, Vehicle);
-  const terrain = ctx.terrain;
-  if (state === undefined || terrain === undefined || state.carrier !== null || !isShipAtSea(ctx, state)) {
-    return landingOf(world, ctx, vehicle);
-  }
-  const door = vehicleDoorNode(world, ctx, vehicle);
-  if (door === null) return null;
-  const blocked = dynamicBlockOverlay(world, ctx, terrain);
-  for (let radius = 0; radius <= UNLOAD_SHORE_REACH; radius++) {
-    for (const { point } of hexagonRing(door, radius)) {
-      if (isOpenLand(terrain, blocked, point)) return point;
-    }
-  }
-  return null;
-}
-
 /** Stand `e` on `point`, restoring the Position that boarding gave up. */
 export function placeOnNode(world: World, e: Entity, point: HalfCellNode): void {
   const at = positionOfNode(point.hx, point.hy);
@@ -346,7 +319,7 @@ export function unloadPeople(
   const vehicle = command.vehicle;
   const state = world.tryGet(vehicle, Vehicle);
   if (state === undefined) return;
-  const landing = unloadLandingOf(world, ctx, vehicle);
+  const landing = landingOf(world, ctx, vehicle);
   if (landing === null) return;
   for (const seat of vehiclePassengers(state)) {
     if (!world.isAlive(seat.entity)) continue;

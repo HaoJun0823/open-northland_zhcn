@@ -811,7 +811,6 @@ export const deGame = {
         atSea: 'Zuerst am Ufer anlegen',
         noSeat: 'Keine freien Plätze',
         notMoored: 'Zuerst am Ufer anlegen',
-        noShore: 'Zuerst ans Ufer heranfahren',
         deckFull: 'Das Deck ist belegt',
       },
       stances: {

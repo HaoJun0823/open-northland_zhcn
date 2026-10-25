@@ -395,11 +395,10 @@ ship moors on the arrival tick with a `vehicleDocked` event (approximation: the 
 to a 12-tick dock clip, which is not played); a goto clears the pending mooring point; any drive that
 was no dock and ends with the commander not inside moors the ship on the first open land node of its
 door ring, with the same event (`moorByShore`, `movement.ts`), and with the commander inside the ship stays
-at sea; unload people on a ship lying unmoored sets the crew down on its door point when that is
-open land, else on the first open land node of the ring around it, and is ignored when neither is
-(`unloadLandingOf`, `crew.ts`); open land is walkable and free of building, resource and landscape
-bodies (`isOpenLand`); the player's crew panel enables the button exactly when that unload would land
-(`Simulation.canUnloadPeople`), so an unmoored ship beside land unloads and one in open water does not; a dock
+at sea. Unload people uses the ordinary boarding landing (`landingOf`, `crew.ts`). Deviation
+(owner's choice): a ship must be moored before its crew can unload, even beside land, so they can
+board it again. The crew panel disables unloading while unmoored; rejected unload orders preserve
+an ongoing dock drive. A dock
 walk that loses its route drops the mooring point behind the `vehicleNoPath` note. A sunk ship's
 crew aboard is reaped like any death, so the owner's casualty tallies count it. Deviation (owner's
 choice): a rider still walking to a ship lost at sea, and a cart still driving to it, stand on land

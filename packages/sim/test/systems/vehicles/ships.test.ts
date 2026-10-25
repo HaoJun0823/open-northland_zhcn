@@ -44,7 +44,6 @@ import {
   createVehicle,
   mooringProbe,
   removeVehicle,
-  unloadLandingOf,
 } from '../../../src/systems/vehicles/index.js';
 import { stockVehicleGoods } from '../../../src/systems/vehicles/stock.js';
 import { testContent } from '../../fixtures/content.js';
@@ -465,61 +464,44 @@ describe('dockVehicle', () => {
     expect(s.world.has(rider, Position)).toBe(false);
   });
 
-  it('unloads an unmoored ship with no dock order onto the land beside its door point', () => {
-    const s = sim();
-    const terrain = s.terrain;
-    if (terrain === undefined) throw new Error('map missing');
-    const { ship, riders } = crewedShip(s, NEAR_WEST_SHORE_X, MID_ROW, 2);
-    castOff(s, ship); // its door point at sea one node off the shore
-    const door = vehicleDoorNode(s.world, ctxOf(s), ship);
-    if (door === null) throw new Error('no door');
-    expect(terrain.isWalkable(terrain.nodeAt(door.hx, door.hy))).toBe(false);
-    expect(s.canUnloadPeople(ship)).toBe(true);
-    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
-    s.step();
-    for (const rider of riders) {
-      expect(s.world.has(rider, Rider)).toBe(false);
-      const at = anchorOf(s, rider);
-      expect(terrain.isWalkable(terrain.nodeAt(at.hx, at.hy))).toBe(true);
-      expect(distanceTo(at, door)).toBeLessThanOrEqual(2); // landed beside the door, then spread a node
+  it('keeps the crew aboard until moored, including beside land and during docking', () => {
+    for (const x of [NEAR_WEST_SHORE_X, OPEN_WATER_X]) {
+      const s = sim();
+      const { ship, riders } = crewedShip(s, x, MID_ROW, 2);
+      castOff(s, ship);
+      expect(s.canUnloadPeople(ship)).toBe(false);
+      s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
+      s.step();
+      for (const rider of riders) {
+        expect(s.world.has(rider, Rider)).toBe(true);
+        expect(s.world.has(rider, Position)).toBe(false);
+      }
+      const point = { hx: EAST_SHORE_X + 1, hy: MID_ROW };
+      dock(s, ship, point.hx, point.hy);
+      s.step();
+      expect(s.world.get(ship, Vehicle).moored).toBe(false);
+      s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
+      s.step();
+      expect(s.world.get(ship, Vehicle).task).toBe('docks');
+      expect(vehiclePassengers(s.world.get(ship, Vehicle))).toHaveLength(2);
+      sailOut(s, ship);
+      expect(s.world.get(ship, Vehicle).moored).toBe(true);
+      expect(s.canUnloadPeople(ship)).toBe(true);
+      s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
+      s.step();
+      for (const rider of riders) {
+        expect(s.world.has(rider, Rider)).toBe(false);
+        expect(s.world.has(rider, Position)).toBe(true);
+        expect(s.canAttachToVehicle(rider, ship)).toBe(true);
+        s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: rider, vehicle: ship }));
+      }
+      let ticks = 0;
+      while (riders.some((rider) => s.world.has(rider, Position))) {
+        s.step();
+        if (++ticks > SAIL_TICKS) throw new Error('the crew could not reboard');
+      }
+      expect(vehiclePassengers(s.world.get(ship, Vehicle))).toHaveLength(2);
     }
-    expect(s.world.get(ship, Vehicle).moored).toBe(false);
-  });
-
-  it('refuses to unload an unmoored ship in open water, its crew staying aboard', () => {
-    const s = sim();
-    const { ship, riders } = crewedShip(s, OPEN_WATER_X, MID_ROW);
-    castOff(s, ship);
-    expect(s.canUnloadPeople(ship)).toBe(false);
-    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
-    s.step();
-    for (const rider of riders) {
-      expect(s.world.has(rider, Rider)).toBe(true);
-      expect(s.world.has(rider, Position)).toBe(false);
-    }
-  });
-
-  it("lands an unmoored ship's crew past a resource standing on the shore, and not at all when it covers the shore", () => {
-    const s = sim();
-    const terrain = s.terrain;
-    if (terrain === undefined) throw new Error('map missing');
-    const { ship } = crewedShip(s, NEAR_WEST_SHORE_X, MID_ROW);
-    castOff(s, ship);
-    const ctx = ctxOf(s);
-    const first = unloadLandingOf(s.world, ctx, ship);
-    if (first === null) throw new Error('no landing beside the door');
-    blockNode(s, first);
-    const second = unloadLandingOf(s.world, ctx, ship);
-    if (second === null) throw new Error('no landing past the blocker');
-    expect(second).not.toEqual(first);
-    expect(dynamicBlockOverlay(s.world, ctx, terrain).has(terrain.nodeAt(second.hx, second.hy))).toBe(false);
-    blockNode(s, second);
-    let rest = unloadLandingOf(s.world, ctx, ship);
-    while (rest !== null) {
-      blockNode(s, rest);
-      rest = unloadLandingOf(s.world, ctx, ship);
-    }
-    expect(s.canUnloadPeople(ship)).toBe(false);
   });
 
   it('stays at sea after a goto to the shore while its commander is aboard', () => {

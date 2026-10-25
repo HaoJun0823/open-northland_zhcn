@@ -148,9 +148,9 @@ import {
 import {
   canAttachToVehicle,
   canTakeHaulingCart,
+  landingOf,
   type MooringProbe,
   mooringProbe,
-  unloadLandingOf,
   type VehicleView,
   vehiclesOf,
   vehicleView,
@@ -803,7 +803,7 @@ export class Simulation {
       this.terrain === undefined
         ? { content: this.content }
         : { content: this.content, terrain: this.terrain };
-    return unloadLandingOf(this.world, ctx, vehicle) !== null;
+    return landingOf(this.world, ctx, vehicle) !== null;
   }
 
   /** Every mission of the map's script with its live flags, for the mission window's goal list;

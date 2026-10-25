@@ -442,7 +442,7 @@ function crewModel(
     deck,
     assign: own ? (hauled ? copy.hauled : full ? copy.noSeat : doorless) : null,
     leave: own ? (hauled ? copy.hauled : doorless) : null,
-    unload: own && passengers.length > 0 ? unloadControl(ctx, inputs, doorless) : null,
+    unload: own && passengers.length > 0 ? doorless : null,
     load:
       own && deck !== null
         ? !inputs.moored
@@ -453,15 +453,6 @@ function crewModel(
         : null,
     unloadVehicle: own && deck !== null ? (inputs.moored ? true : atSea) : null,
   };
-}
-
-/** An unmoored ship unloads wherever the sim finds land at its door point; anything else follows the
- *  ordinary door rule. */
-function unloadControl(ctx: UnitPanelModelContext, inputs: CrewInputs, doorless: SeatControl): SeatControl {
-  if (!inputs.atSea) return doorless;
-  return ctx.canUnloadPeople?.(inputs.entityId) === true
-    ? true
-    : messages().hud.vehiclePanel.refusals.noShore;
 }
 
 function holdModel(

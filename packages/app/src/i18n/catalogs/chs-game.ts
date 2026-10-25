@@ -743,7 +743,6 @@ export const chsGame = {
         atSea: '请先在岸边靠岸',
         noSeat: '没有空座位',
         notMoored: '请先在岸边靠岸',
-        noShore: '请先驶近岸边',
         deckFull: '甲板已被占用',
       },
       stances: { attack: '进攻', defence: '防御', hold: '无视' },

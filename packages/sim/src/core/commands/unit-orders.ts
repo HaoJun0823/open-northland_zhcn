@@ -382,7 +382,7 @@ export type UnitOrderCommand =
     }
   | {
       /** Put one owned vehicle's whole crew onto its door node and free them (the original's `f` on a
-       *  ship). Ignored while the door is at sea. */
+       *  ship). Ignored for an unmoored ship, even beside land. */
       readonly kind: 'unloadPeople';
       readonly vehicle: Entity;
     }

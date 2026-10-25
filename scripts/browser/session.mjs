@@ -291,3 +291,82 @@ export function densestBattle(page) {
     },
   );
 }
+
+/** A coast view keeps the shore waves this far inside the view's half-size, the rest towards the town. */
+const COAST_EDGE_SHARE = 0.7;
+
+/**
+ * The world-screen point a coast view frames: the shore waves nearest world-screen `town` kept inside
+ * the view at `scale`, the view shifted towards the town as far as that allows; null on a map without
+ * shore waves. Reads the renderer's placed waves, which the app projects from the map's wave objects.
+ */
+export function nearestCoast(page, town, scale, viewport = VIEWPORT) {
+  return page.evaluate(
+    ({ town, scale, viewport, edgeShare }) => {
+      // The world renderer's ground-wave layer and its wave blocks: private fields, read for framing only.
+      const blocks = window.__opennorthland.renderer.groundWaves?.blocks;
+      const waves = blocks === undefined ? [] : [...blocks.values()].flatMap((block) => block.waves);
+      if (waves.length === 0) return null;
+      let nearest = waves[0];
+      for (const wave of waves)
+        if (Math.hypot(wave.x - town.x, wave.y - town.y) < Math.hypot(nearest.x - town.x, nearest.y - town.y))
+          nearest = wave;
+      const halfW = viewport.width / 2 / scale;
+      const halfH = viewport.height / 2 / scale;
+      const dx = town.x - nearest.x;
+      const dy = town.y - nearest.y;
+      const share = Math.min(
+        1,
+        dx === 0 ? 1 : (edgeShare * halfW) / Math.abs(dx),
+        dy === 0 ? 1 : (edgeShare * halfH) / Math.abs(dy),
+      );
+      const point = { x: nearest.x + dx * share, y: nearest.y + dy * share };
+      const inView = waves.filter(
+        (wave) => Math.abs(wave.x - point.x) < halfW && Math.abs(wave.y - point.y) < halfH,
+      ).length;
+      return { point, waves: waves.length, inView, townDistance: Math.hypot(dx, dy) };
+    },
+    { town, scale, viewport, edgeShare: COAST_EDGE_SHARE },
+  );
+}
+
+/**
+ * The `limit` traders nearest world-screen `point` whose route runs between two houses of their own
+ * owner, nearest first, each with its world-screen position and trade cart; the trade window opens for
+ * those.
+ */
+export function ownTradeRoutes(page, point, limit) {
+  return page.evaluate(
+    async ({ modules, point, limit }) => {
+      const { ONE } = await import(modules.fixed);
+      const { tileToScreen } = await import(modules.projection);
+      const host = window.__opennorthland.host;
+      const entities = host.snapshot().entities;
+      const ownerOf = new Map(entities.map((e) => [e.id, e.components.Owner?.player]));
+      const routes = [];
+      for (const e of entities) {
+        const { TradeRoute, Position, Owner } = e.components;
+        if (TradeRoute?.stops?.length !== 2 || !Position || Owner === undefined) continue;
+        if (!TradeRoute.stops.every((stop) => ownerOf.get(stop.house) === Owner.player)) continue;
+        const at = tileToScreen(Position.x / ONE, Position.y / ONE);
+        routes.push({
+          id: e.id,
+          point: { x: at.x, y: at.y },
+          distance: Math.hypot(at.x - point.x, at.y - point.y),
+        });
+      }
+      routes.sort((a, b) => a.distance - b.distance);
+      const nearest = routes.slice(0, limit);
+      for (const route of nearest) route.cart = (await host.traderView(route.id))?.cart?.entity ?? null;
+      return nearest;
+    },
+    {
+      modules: {
+        fixed: `/@fs${resolve(repoRoot, 'packages/sim/src/core/fixed.ts')}`,
+        projection: `/@fs${resolve(repoRoot, 'packages/render/src/data/projection/iso.ts')}`,
+      },
+      point,
+      limit,
+    },
+  );
+}

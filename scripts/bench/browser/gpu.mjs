@@ -5,6 +5,7 @@ import {
   boxAround,
   drag,
   drawnOnScreen,
+  openTradeWindow,
   SETTLE_MS,
   selectOneSettler,
   watchFrameInputs,
@@ -20,9 +21,11 @@ import {
   loadGateNote,
   MAX_LOAD_PER_CPU,
   machineLoad,
+  nearestCoast,
   openBenchBrowser,
   openBenchPage,
   overloaded,
+  ownTradeRoutes,
   restoreCheckpoint,
   unlockAudio,
   VIEWPORT,
@@ -53,8 +56,12 @@ const PRESCALE_SETTLE_MS = 30000;
 const PRESCALE_POLL_MS = 100;
 /** The FPS counter folds half-second windows; sampling at that rate sees each reading about once. */
 const READING_MS = 500;
-/** The pointer rests on the bottom HUD bar, where no world hover card can rise. */
+/** The pointer rests on the bottom HUD bar, where no world hover card can rise, or for
+ *  `pointer: 'world'` over the middle of the world. */
 const POINTER_REST = { x: VIEWPORT.width / 2, y: VIEWPORT.height - 3 };
+const POINTER_WORLD = { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+/** The trade view tries this many of the traders nearest the dense view before giving up. */
+const TRADE_CANDIDATES = 10;
 const FAILURE_SHOT_TIMEOUT_MS = 10000;
 
 const saveText = await readFile(options.checkpoint, 'utf8');
@@ -82,6 +89,7 @@ const metadata = {
     ...[loadGateNote()].filter((note) => note !== null),
   ],
   scenarios: [],
+  skipped: [],
   errors: [],
 };
 const progress = (message) => {
@@ -102,6 +110,7 @@ const writeReport = async () => {
     '',
     markdownTable(metadata.scenarios),
     '',
+    ...metadata.skipped.map((skip) => `Skipped ${skip.id}: ${skip.reason}.`),
   ];
   await writeFile(resolve(output, 'report.md'), head.join('\n'));
 };
@@ -124,6 +133,38 @@ async function select(page, target, dense) {
   }
   const box = boxAround(await drawnOnScreen(page, 'settler', area), target, area);
   if (box !== null) await drag(page, box);
+}
+
+/**
+ * Open a trade window with the player's clicks, trying the own trade routes nearest `dense` in turn,
+ * each framed at `zoom`: the camera that shows the trader and the window's state, or the reason none
+ * opened.
+ */
+async function openTrade(page, dense, zoom) {
+  const routes = await ownTradeRoutes(page, dense, TRADE_CANDIDATES);
+  for (const route of routes) {
+    const camera = cameraAt(route.point, zoom);
+    await page.evaluate((c) => window.__opennorthland.cameraCtl.jumpTo(c), camera);
+    await page.waitForTimeout(SETTLE_MS);
+    const state = await openTradeWindow(page, route, worldArea());
+    if (state !== null) return { camera, trader: route.id, cart: route.cart, ...state };
+  }
+  return {
+    failed:
+      routes.length === 0
+        ? 'no trader plies between two houses of its own owner'
+        : `none of the ${routes.length} nearest traders between own houses opened its trade window`,
+  };
+}
+
+/** Hide the named world layers (`HIDEABLE_LAYERS`) for the rest of the page's life. */
+function hideLayers(page, names) {
+  return page.evaluate((hidden) => {
+    // The world renderer's terrain layer is a private field, reached for this measurement only.
+    const terrain = window.__opennorthland.renderer.terrain;
+    const layers = { roads: terrain.roadContainer };
+    for (const name of hidden) layers[name].visible = false;
+  }, names);
 }
 
 /** The prescaler's state once two consecutive frames found no page waiting for a twin, or the last
@@ -245,16 +286,35 @@ try {
       battle = found.point;
       metadata.battle = found;
     }
+    if (scenario.view === 'coast' && metadata.coast === undefined)
+      metadata.coast = await nearestCoast(page, dense, scenario.zoom);
+    if (scenario.view === 'coast' && metadata.coast === null) {
+      metadata.skipped.push({ id: scenario.id, reason: 'the map has no shore waves' });
+      await writeReport();
+      continue;
+    }
     await watchFrameInputs(page);
-    const camera = cameraAt(scenario.view === 'battle' ? battle : dense, scenario.zoom);
+    const views = { dense, battle, coast: metadata.coast?.point, trade: dense };
+    let camera = cameraAt(views[scenario.view], scenario.zoom);
     await page.evaluate((c) => {
       const d = window.__opennorthland;
       d.cameraCtl.setSuspended(true);
       d.cameraCtl.jumpTo(c);
     }, camera);
     await page.waitForTimeout(SETTLE_MS);
-    if (scenario.selection > 0) await select(page, scenario.selection, dense);
-    await page.mouse.move(POINTER_REST.x, POINTER_REST.y);
+    if (scenario.hidden.length > 0) await hideLayers(page, scenario.hidden);
+    if (scenario.view === 'trade') {
+      const trade = await openTrade(page, dense, scenario.zoom);
+      if (trade.failed !== undefined) {
+        metadata.skipped.push({ id: scenario.id, reason: trade.failed });
+        await writeReport();
+        continue;
+      }
+      camera = trade.camera;
+      metadata.trade = trade;
+    } else if (scenario.selection > 0) await select(page, scenario.selection, dense);
+    const pointer = scenario.pointer === 'world' ? POINTER_WORLD : POINTER_REST;
+    await page.mouse.move(pointer.x, pointer.y);
     await guardCamera(page, camera);
     await page.evaluate(async (speed) => {
       const d = window.__opennorthland;

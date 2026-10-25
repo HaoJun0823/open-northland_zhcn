@@ -136,3 +136,47 @@ export function boxAround(points, target, area, viewport = VIEWPORT) {
   }
   return null;
 }
+
+/** A vehicle's anchor is its wheels; a click this far above lands on its body. */
+const VEHICLE_BODY_LIFT = 20;
+
+/** The open trade window's portrait insets, and whether it shows at all. */
+function tradeWindowState(page) {
+  return page.evaluate(() => ({
+    open: [...document.querySelectorAll('.on-hud .on-window--trade')].some(
+      (e) => e.getClientRects().length > 0,
+    ),
+    insets: window.__frameInputs.insets,
+  }));
+}
+
+/**
+ * Open the trade window of `route` (from `ownTradeRoutes`) with the player's clicks: the trader, or its
+ * cart when it rides one, then the panel's configure button. The camera must show the trader in `area`.
+ * Returns the window's state, or null when no click took.
+ */
+export async function openTradeWindow(page, route, area) {
+  const targets = [
+    ...(await drawnOnScreen(page, 'settler', area))
+      .filter((item) => item.id === route.id)
+      .map((item) => ({ x: item.x, y: item.y - SETTLER_BODY_LIFT })),
+    ...(await drawnOnScreen(page, 'vehicle', area))
+      .filter((item) => item.id === route.cart)
+      .map((item) => ({ x: item.x, y: item.y - VEHICLE_BODY_LIFT })),
+  ];
+  for (const target of targets) {
+    await click(page, target);
+    const configure = await page.evaluate(() => {
+      const button = [...document.querySelectorAll('.on-hud .on-trade-configure')].find(
+        (e) => e.getClientRects().length > 0,
+      );
+      const box = button?.getBoundingClientRect();
+      return box === undefined ? null : { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    });
+    if (configure === null) continue;
+    await click(page, configure);
+    const state = await tradeWindowState(page);
+    if (state.open) return state;
+  }
+  return null;
+}

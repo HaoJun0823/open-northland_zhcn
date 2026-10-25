@@ -72,14 +72,19 @@ function scenario(id, overrides = {}) {
     weather: null,
     view: 'dense',
     patch: {},
+    pointer: 'bar',
+    hidden: [],
     ...overrides,
   };
 }
 
 /**
- * Every scenario frames the densest building cluster, a `battle` view the densest fighting. Pairs to read together: `off-*` against
- * `magnify-*-z1` and `on-x3`; `panel-*` against `magnify-xbr-z1` and `on-x3`; `select*` against
- * `magnify-xbr-z1`; every `weather-*-x3` against `weather-clear-x3`.
+ * Every scenario frames the densest building cluster, a `battle` view the densest fighting, a `coast`
+ * view the shore waves nearest it and a `trade` view a trader whose window shows. The pointer rests on
+ * the bottom bar, or over the middle of the world for `pointer: 'world'`; `hidden` names world layers a
+ * scenario hides. Pairs to read together: `off-*` against `magnify-*-z1` and `on-x3`; `panel-*` against
+ * `magnify-xbr-z1` and `on-x3`; `select*` against `magnify-xbr-z1`; every `weather-*-x3` against
+ * `weather-clear-x3`; then the framing scenarios ({@link framingScenarios}).
  */
 export function gpuScenarios() {
   return [
@@ -104,6 +109,29 @@ export function gpuScenarios() {
     scenario('wide-x3', { zoom: WIDE_ZOOM, speed: FAST }),
     ...toggleScenarios(),
     ...renderScaleScenarios(),
+    ...framingScenarios(),
+  ];
+}
+
+/** The world layers a scenario can hide through the renderer. */
+export const HIDEABLE_LAYERS = ['roads'];
+
+/**
+ * `coast-x3` against `coast-no-environmentMotion-x3`, which drops the shore-wave pass; the paused view
+ * with the road layer hidden, `roads-hidden-paused` against `magnify-xbr-z1` and
+ * `roads-hidden-off-paused` against `magnify-off-z1`; `panel-hover-x3`, the settler panel with the
+ * pointer over the world, against `panel-x3`; `trade-x3`, a trader's trade window with its two house
+ * portraits, against `panel-x3`.
+ */
+function framingScenarios() {
+  const coast = { view: 'coast', speed: FAST };
+  return [
+    scenario('coast-x3', coast),
+    scenario('coast-no-environmentMotion-x3', { ...coast, patch: { environmentMotion: false } }),
+    scenario('roads-hidden-paused', { hidden: ['roads'] }),
+    scenario('roads-hidden-off-paused', { magnifier: 'off', hidden: ['roads'] }),
+    scenario('panel-hover-x3', { selection: PANEL_SELECTION, speed: FAST, pointer: 'world' }),
+    scenario('trade-x3', { view: 'trade', selection: PANEL_SELECTION, speed: FAST }),
   ];
 }
 

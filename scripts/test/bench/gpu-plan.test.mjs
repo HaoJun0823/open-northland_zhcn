@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   ENHANCEMENT_SETTINGS,
   gpuScenarios,
+  HIDEABLE_LAYERS,
   MAGNIFIERS,
   markdownTable,
   parseGpuBenchArgs,
@@ -95,7 +96,11 @@ test('each toggled setting runs off alone at zoom 1 and 0.5, blood and bones in 
     assert.deepEqual(baseline.patch, {});
     for (const key of TOGGLED_SETTINGS) {
       const toggled = scenarios.filter(
-        (entry) => entry.zoom === zoom && Object.keys(entry.patch).length === 1 && entry.patch[key] === false,
+        (entry) =>
+          entry.zoom === zoom &&
+          entry.view !== 'coast' &&
+          Object.keys(entry.patch).length === 1 &&
+          entry.patch[key] === false,
       );
       assert.equal(toggled.length, 1, `${key} at zoom ${zoom}`);
       const [entry] = toggled;
@@ -125,6 +130,19 @@ test('render-scale scenarios set the backing multiplier with everything on', () 
     assert.equal(settings.renderScale, renderScale);
     for (const key of TOGGLED_SETTINGS) assert.equal(settings[key], true);
   }
+});
+
+test('the framing scenarios pair a coast, hidden roads, a hovered panel and the trade window', () => {
+  const byId = new Map(gpuScenarios().map((entry) => [entry.id, entry]));
+  assert.equal(byId.get('coast-x3').view, 'coast');
+  assert.deepEqual(byId.get('coast-no-environmentMotion-x3').patch, { environmentMotion: false });
+  assert.deepEqual(byId.get('roads-hidden-paused').hidden, ['roads']);
+  assert.equal(scenarioSettings(byId.get('roads-hidden-off-paused')).enhancedSampling, false);
+  assert.equal(byId.get('panel-hover-x3').pointer, 'world');
+  assert.equal(byId.get('panel-x3').pointer, 'bar');
+  assert.equal(byId.get('trade-x3').view, 'trade');
+  for (const entry of byId.values())
+    for (const layer of entry.hidden) assert.ok(HIDEABLE_LAYERS.includes(layer), entry.id);
 });
 
 test('the quantile is the nearest rank and null for no values', () => {

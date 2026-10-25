@@ -227,6 +227,18 @@ and portrait, groups of 10 and at least 50 settlers, rain, snow, sand, a thunder
 clear weather, and zoom 0.35.
 `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` selects specific scenarios.
 
+Framing scenarios:
+
+| Scenario | Shows | Read against |
+| --- | --- | --- |
+| `coast-x3` | The shore waves nearest the densest town, kept inside the view, the view shifted towards the town | `coast-no-environmentMotion-x3`, the same view without the wave pass |
+| `roads-hidden-paused`, `roads-hidden-off-paused` | The paused dense view with the road layer hidden, art filter xBR or off | `magnify-xbr-z1`, `magnify-off-z1` |
+| `panel-hover-x3` | One selected settler's panel with the pointer over the middle of the world | `panel-x3` |
+| `trade-x3` | The trade window of the nearest trader whose route joins two own houses, opened with clicks, with its house portraits | `panel-x3` |
+
+A map without shore waves, or without a trader whose trade window opens, skips that view; `report.md`
+says so under the table.
+
 Toggle scenarios run at ×3 with every graphics setting on but one: `no-<setting>-x3` against `on-x3`,
 and `-z0.5` twins at zoom 0.5, for soft shadows, enhanced water, environment motion, grounded buildings,
 building damage, post-processing (`postFxEnabled`) and sprite smoothing. Blood and bone fading show only

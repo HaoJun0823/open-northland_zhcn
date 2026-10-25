@@ -33,8 +33,16 @@ export function registerAppScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: APP_SCHEME,
-      // corsEnabled lets a fetch cross app:// hosts at all; CORS_HEADER below decides which may.
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+      // corsEnabled lets a fetch cross app:// hosts at all; CORS_HEADER below decides which may. codeCache
+      // keeps V8's compiled scripts in the profile, so a later launch skips compiling the bundles.
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        corsEnabled: true,
+        codeCache: true,
+      },
     },
   ]);
 }

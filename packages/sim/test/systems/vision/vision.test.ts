@@ -172,7 +172,11 @@ describe('vision radii - buildings and vehicles', () => {
     sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
     const upgrade = house(sim, 34, SAWMILL);
     sim.world.add(upgrade, UnderConstruction, { labor: fx.fromInt(0) });
-    sim.world.add(upgrade, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(upgrade, Upgrading, {
+      target: sim.world.get(upgrade, Building).buildingType,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
     const radii = radiiOfFirstRebuild(sim);
     expect(radii.get(hq)).toBe(HEADQUARTERS_VISION_NODES);
     expect(radii.get(sawmill)).toBe(BUILDING_VISION_NODES);

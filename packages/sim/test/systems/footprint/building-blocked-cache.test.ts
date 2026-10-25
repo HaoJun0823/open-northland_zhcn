@@ -239,6 +239,7 @@ function twoTierHome() {
   sim.world.add(home, Stockpile, { amounts: new Map<number, number>([[STONE, 1]]) });
   sim.world.add(home, UnderConstruction, { labor: ONE }); // hammering complete - only materials gate
   sim.world.add(home, Upgrading, {
+    target: HOME_L,
     savedStock: new Map<number, number>(),
     seeded: new Map<number, number>(),
   });

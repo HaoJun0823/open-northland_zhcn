@@ -14,6 +14,7 @@ import {
   BUILDING_FARM,
   BUILDING_HEADQUARTERS,
   BUILDING_HOME_00,
+  BUILDING_HOME_04,
   BUILDING_JOINERY,
   BUILDING_MILL,
   BUILDING_WATCHTOWER,
@@ -570,7 +571,13 @@ describe('building orders', () => {
   const copy = messages().hud.buildingPanel;
 
   const orders = (patch: Partial<BuildingOrdersModel>): BuildingOrdersModel => ({
-    upgrade: { control: true, cost: [{ goodType: 1, label: 'Drewno', amount: 4 }] },
+    upgrade: {
+      typeId: 3,
+      level: 2,
+      control: true,
+      cost: [{ goodType: 1, label: 'Drewno', amount: 4 }],
+      further: [],
+    },
     cancelUpgrade: false,
     alarm: null,
     hire: { jobType: JOB_CARRIER, label: 'Tragarz' },
@@ -591,7 +598,10 @@ describe('building orders', () => {
 
   it('fades a refused tile in its place with the reason, and sets Cancel where Upgrade stood', () => {
     const refused = orderViews({
-      orders: orders({ upgrade: { control: copy.upgradeUnfinished, cost: [] }, hire: null }),
+      orders: orders({
+        upgrade: { typeId: 3, level: 2, control: copy.upgradeUnfinished, cost: [], further: [] },
+        hire: null,
+      }),
       name: 'Dom',
     });
     expect(refused.map((view) => view.order)).toEqual(['workers', 'knowledge', 'demolish', 'upgrade']);
@@ -623,6 +633,7 @@ describe('building orders', () => {
         return Promise.resolve(answers.shift() ?? false);
       },
     });
+    actions.upgrade(1, BUILDING_HOME_04);
     actions.setAlarm(1, true);
     actions.demolish(2, 'Obca');
     actions.demolish(1, 'Kwatera');
@@ -637,6 +648,7 @@ describe('building orders', () => {
     const question = `${copy.demolishTitle}: ${formatMessage(copy.demolishQuestion, { name: 'Kwatera' })}`;
     expect(asked).toEqual([question, question]);
     expect(sent).toEqual([
+      { kind: 'upgradeBuilding', building: 1 as Entity, target: BUILDING_HOME_04 },
       { kind: 'setDefenceMode', building: 1 as Entity, enabled: true },
       { kind: 'setHouseholdGoodUse', player: HUMAN_PLAYER, effect: 'rest', allowed: false },
       { kind: 'setStorageMinimum', player: HUMAN_PLAYER, goodType: GOOD_WOOD, amount: 30 },
@@ -646,6 +658,7 @@ describe('building orders', () => {
     ]);
     expect(selected).toEqual([[6, 7]]);
     expect(cues).toEqual([
+      'confirm',
       'confirm',
       'fail',
       'confirm',

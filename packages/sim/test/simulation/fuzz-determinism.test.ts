@@ -66,6 +66,10 @@ const HOME_TYPE = 12;
  *  ACCEPT path: the home re-opens as an upgrade site (stash + separate hold + difference bill) and can
  *  organically finish when the fuzzed stream happens to deliver its wood and hammer it. */
 const HOME_TIER2_TYPE = 10;
+/** The fuzz home's top tier, so a targeted roll can skip a tier in one site. */
+const HOME_TIER3_TYPE = 98;
+/** What an upgrade roll names: the next tier (omitted), a skip, its own tier, an unknown type. */
+const UPGRADE_TARGETS = [undefined, HOME_TIER2_TYPE, HOME_TIER3_TYPE, HOME_TYPE, INVALID_TYPE] as const;
 /** The garrison-capable type the harness alarms. */
 const SHELTER_TYPE = 30;
 /** The fixture's `food_simple` good - what the fuzz home's larder stocks and the preamble drops. */
@@ -174,6 +178,15 @@ function fuzzContent() {
         homeSize: 3,
         stock: [{ goodType: FOOD_GOOD, capacity: 5 }],
         // The upgrade difference bill: 1 wood - deliverable by the fuzzed carriers/drops.
+        construction: [{ goodType: RESOURCE_GOOD, amount: 1 }],
+        upgradeTarget: HOME_TIER3_TYPE,
+      },
+      {
+        typeId: HOME_TIER3_TYPE,
+        id: 'fuzz_home_tier3',
+        kind: 'home',
+        homeSize: 4,
+        stock: [{ goodType: FOOD_GOOD, capacity: 5 }],
         construction: [{ goodType: RESOURCE_GOOD, amount: 1 }],
       },
       {
@@ -759,10 +772,15 @@ function nextCommand(rng: Rng): Command {
       return { kind: 'setProfessionProgression', enabled: rng.int(2) === 0 };
     case 30:
       // An upgrade order at a random id: built chained homes (re-opened as an upgrade site - stash,
-      // separate hold, difference bill), plus unbuilt sites / top-tier or unchained types / non-building
-      // / dead ids (skipped). Exercises the upgradeBuilding accept + skip paths, the Upgrading stash in
-      // hashState, and the upgrade-finish flip when the stream feeds the site.
-      return { kind: 'upgradeBuilding', building: (rng.int(TARGET_ID_RANGE) + 1) as Entity };
+      // separate hold, difference bill, or a skip's merged bill), plus unbuilt sites / top-tier or
+      // unchained types / non-building / dead ids / off-chain targets (skipped). Exercises the
+      // upgradeBuilding accept + skip paths, the Upgrading stash in hashState, and the upgrade-finish
+      // flip when the stream feeds the site.
+      return {
+        kind: 'upgradeBuilding',
+        building: (rng.int(TARGET_ID_RANGE) + 1) as Entity,
+        ...withTarget(UPGRADE_TARGETS[rng.int(UPGRADE_TARGETS.length)]),
+      };
     case 32:
       // An upgrade abort at a random id: live upgrade sites (stash restored, site hold discarded,
       // `built` back to ONE - the markers must come off in hashState), plus plain construction sites /
@@ -1458,3 +1476,7 @@ describe('fuzz: randomized command streams stay deterministic, replayable, and i
     });
   }
 });
+
+function withTarget(target: number | undefined): { target?: number } {
+  return target === undefined ? {} : { target };
+}

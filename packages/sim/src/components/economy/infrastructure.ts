@@ -76,9 +76,9 @@ export function consumeGoods(world: World, store: Entity, cost: readonly GoodsLi
 export const UnderConstruction = defineComponent<{ labor: Fixed }>('UnderConstruction', 'economy');
 
 /**
- * Marks a {@link Building} being upgraded into its type's `upgradeTarget` level. It rides beside
+ * Marks a {@link Building} being upgraded into a higher tier of its chain. It rides beside
  * {@link UnderConstruction} - the upgrade re-opens the building as a construction site, dropping `built`
- * to 0 - and its presence switches the site's bill to the target tier's own `construction`, the level
+ * to 0 - and its presence switches the site's bill to the raised tiers' own `construction`, the level
  * difference rather than the cumulative from-scratch bill.
  *
  * The become-a-site-again flow, the separate build store, the difference-only cost, and the kept workers
@@ -88,6 +88,8 @@ export const UnderConstruction = defineComponent<{ labor: Fixed }>('UnderConstru
  * can deadlock the economy.
  */
 export const Upgrading = defineComponent<{
+  /** The tier the site raises: the next one up, or one further up the chain the order skipped to. */
+  target: number;
   /** The building's ordinary, still-accessible inventory. {@link Stockpile} serves as the separate build
    *  hold until completion, when both stores are merged again. */
   savedStock: Map<number, number>;

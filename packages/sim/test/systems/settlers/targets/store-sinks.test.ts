@@ -13,6 +13,7 @@ import { StoreSinks } from '../../../../src/systems/settlers/targets/stores/sink
 import { testContent } from '../../../fixtures/content.js';
 import {
   HOME_L0,
+  HOME_L1,
   levelChainContent,
   placeBuiltHome,
   STONE,
@@ -112,7 +113,11 @@ describe('StoreSinks - the per-good delivery sink ledger kept across ticks', () 
     const sim = new Simulation({ seed: 1, content: levelChainContent(), map: grassMap(4, 4) });
     const home = placeBuiltHome(sim, HOME_L0, 0);
     sim.world.mut(home, Building).built = fx.fromInt(0);
-    sim.world.add(home, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(home, Upgrading, {
+      target: HOME_L1,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
 
     expect(sinksOf(sim, STONE)).toEqual([home]);
     expect(sim.world.verifyCaches()).toEqual([]);

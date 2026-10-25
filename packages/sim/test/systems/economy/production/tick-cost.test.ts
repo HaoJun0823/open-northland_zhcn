@@ -1,6 +1,7 @@
 import { parseContentSet } from '@open-northland/data';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  Building,
   Carrying,
   discoverTechnology,
   JobAssignment,
@@ -191,7 +192,11 @@ describe('workshopWorkforce', () => {
   it('drops a fetched load whose source starts an upgrade', () => {
     const sim = new Simulation({ seed: 1, content: technologyContent(), map: grassMap(8, 1) });
     const { shop, store } = fetchFromStore(sim);
-    sim.world.add(store, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(store, Upgrading, {
+      target: sim.world.get(store, Building).buildingType,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
     expect(workshopWorkforce(sim.world, ctxOf(sim)).incomingOf(shop, WOOD)).toBe(0);
     expect(sim.world.verifyCaches()).toEqual([]);
   });

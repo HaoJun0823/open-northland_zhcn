@@ -48,6 +48,7 @@ import { roadUpgradeScene } from './construction/road-upgrade.js';
 import { roadsScene } from './construction/roads.js';
 import { towerFinialsScene } from './construction/tower-finials.js';
 import { upgradeScene } from './construction/upgrade.js';
+import { upgradeLevelsScene } from './construction/upgrade-levels.js';
 import { upgradeTribesScene } from './construction/upgrade-tribes.js';
 import { wallRepairScene } from './construction/wall-repair.js';
 import { wonderLevelsScene } from './construction/wonder-levels.js';
@@ -170,6 +171,7 @@ export const SCENES: readonly SceneDefinition[] = [
   farmConstructionScene,
   upgradeScene,
   upgradeTribesScene,
+  upgradeLevelsScene,
   nationFootprintsScene,
   frankConstructionScene,
   wonderLevelsScene,

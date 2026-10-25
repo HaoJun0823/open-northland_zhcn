@@ -14,6 +14,7 @@ import {
 } from '../parts/dom.js';
 import { meterFill, meterTone } from '../parts/meter-row.js';
 import type { BuildingPanelDeps } from './actions.js';
+import { createUpgradeLevels } from './upgrade-levels.js';
 
 export type BuildingOrder = 'upgrade' | 'cancelUpgrade' | 'workers' | 'knowledge' | 'demolish';
 
@@ -142,6 +143,7 @@ export function createPortraitSection(
   beside.append(orders, status);
   row.append(shot, beside);
 
+  const levels = createUpgradeLevels(deps, current);
   let shape = '';
   let tiles: { order: BuildingOrder; element: HTMLButtonElement }[] = [];
 
@@ -186,7 +188,9 @@ export function createPortraitSection(
         node.addEventListener('click', () => press(view.order));
         return { order: view.order, element: node };
       });
-      orders.replaceChildren(...tiles.map((entry) => entry.element));
+      orders.replaceChildren(
+        ...tiles.map((entry) => (entry.order === 'upgrade' ? levels.slot(entry.element) : entry.element)),
+      );
     }
     views.forEach((view, index) => {
       const node = tiles[index]?.element;
@@ -196,6 +200,7 @@ export function createPortraitSection(
       setTip(node, view.tooltip);
       setDisabled(node, !view.enabled);
     });
+    levels.update(model);
   };
 
   return {

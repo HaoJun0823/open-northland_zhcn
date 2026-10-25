@@ -91,8 +91,8 @@ export function pushBuildingLayers(
 
 /**
  * The layers above a finished building's body: its animated state overlay (the mill's rotor) and, for an
- * upgrading building that keeps its old-tier body, the next tier's revealing stack (its upgrade rows, or
- * without them its construction stack).
+ * upgrading building that keeps its old-tier body, the target tier's revealing stack (its upgrade rows,
+ * or its construction stack when the rows cannot show it).
  */
 export function pushBuildingExtras(out: LayerBuffer, sheet: SpriteSheet, item: DrawItem, tick: number): void {
   const overlayDraw = resolveBuildingOverlayDraw(sheet.bindings.building, item, tick);

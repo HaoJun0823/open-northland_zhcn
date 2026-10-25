@@ -668,6 +668,11 @@ export const plContent = {
         wonder_8th_wonder: 'Ósmy cud',
       },
     },
+    'upgrade-levels': {
+      title: 'Rozbudowa o kilka poziomów',
+      summary:
+        'Dom rozbudowany od razu z poziomu 1 na 5; obok dom, magazyn i stolarnia na poziomie 1 do wypróbowania wyboru poziomu.',
+    },
     'upgrade-tribes': {
       title: 'Rozbudowa u innych plemion',
       summary:

@@ -219,7 +219,7 @@ describe('SpritePool - a tribe without upgrade rows rebuilds its next tier aroun
     return entity(1, 0, 0, {
       Building: { buildingType: 13, tribe: FRANK, built: Math.round((pct * SIM_ONE) / 100) },
       UnderConstruction: {},
-      Upgrading: {},
+      Upgrading: { target: NEXT_TIER },
     });
   }
   function visibleAlphas(layer: Container): number[] {

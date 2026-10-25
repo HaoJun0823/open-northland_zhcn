@@ -38,7 +38,16 @@ export function warmBuildingModel(goodIds: readonly string[]): BuildingPanelMode
     health: { hitpoints: 1, max: 10 },
     status: { label: 'Warm', detail: 'Warm', tone: 'trouble' },
     orders: {
-      upgrade: { control: 'warm', cost: [] },
+      upgrade: {
+        typeId: -1,
+        level: 2,
+        control: 'warm',
+        cost: [],
+        further: [
+          { typeId: -1, level: 3, control: true, cost: [] },
+          { typeId: -1, level: 4, control: 'warm', cost: [] },
+        ],
+      },
       cancelUpgrade: false,
       alarm: { on: true },
       hire: { jobType: 0, label: 'Warm' },
@@ -55,7 +64,7 @@ export function warmBuildingModel(goodIds: readonly string[]): BuildingPanelMode
       })),
       status: 'missing-materials',
       pct: 40,
-      upgrade: false,
+      upgradeTo: null,
     },
     staff: {
       kind: 'workers',

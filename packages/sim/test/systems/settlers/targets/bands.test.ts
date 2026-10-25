@@ -128,7 +128,11 @@ describe('TargetBands.holding - the band a producer fetches a missing input from
     sim.world.mut(site, Building).built = fx.fromInt(0);
     sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
     const upgrade = hqAt(sim, 8, 1, 0); // its build hold is empty, its kept inventory holds the wood
-    sim.world.add(upgrade, Upgrading, { savedStock: new Map([[WOOD, 4]]), seeded: new Map() });
+    sim.world.add(upgrade, Upgrading, {
+      target: sim.world.get(upgrade, Building).buildingType,
+      savedStock: new Map([[WOOD, 4]]),
+      seeded: new Map(),
+    });
     const sawmill = hqAt(sim, 11, 1, 5);
     sim.world.mut(sawmill, Building).buildingType = SAWMILL;
     setStockAmount(sim.world, sawmill, PLANK, 3);

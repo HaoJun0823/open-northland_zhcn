@@ -642,6 +642,10 @@ export const chtContent = {
         wonder_8th_wonder: '世界第八奇蹟',
       },
     },
+    'upgrade-levels': {
+      title: '跨級升級',
+      summary: '一座民居從1級直接升到5級；旁邊有一座1級民居、倉庫和木工坊，可試用等級選擇。',
+    },
     'upgrade-tribes': {
       title: '各民族的升級',
       summary: '一座維京民居與一座法蘭克民居並排升級，各自保有自己民族的外觀。',

@@ -640,6 +640,10 @@ export const chsContent = {
         wonder_8th_wonder: '世界第八奇迹',
       },
     },
+    'upgrade-levels': {
+      title: '跨级升级',
+      summary: '一座民居从1级直接升到5级；旁边有一座1级民居、仓库和木工坊，可试用等级选择。',
+    },
     'upgrade-tribes': {
       title: '各民族的升级',
       summary: '一座维京民居和一座法兰克民居并排升级，各自保持本民族的外观。',

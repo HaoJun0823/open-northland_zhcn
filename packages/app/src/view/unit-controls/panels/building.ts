@@ -23,7 +23,9 @@ export function buildingPanelActions(host: BuildingPanelHost): BuildingPanelActi
   const order = ownedOrder(host.snapshot, host.viewer, host.cue);
   const send = host.enqueue;
   return {
-    upgrade: order((id) => send({ kind: 'upgradeBuilding', building: id as Entity })),
+    upgrade: order((id, target?: number) =>
+      send({ kind: 'upgradeBuilding', building: id as Entity, ...(target === undefined ? {} : { target }) }),
+    ),
     cancelUpgrade: order((id) => send({ kind: 'cancelUpgrade', building: id as Entity })),
     demolish: order((id, name: string) => {
       const copy = messages().hud.buildingPanel;

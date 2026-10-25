@@ -21,7 +21,7 @@ import { atomicAnimationTable, atomicBindingTables, harvestCapableJobs } from '.
 import { byKey, byOptionalKey, byPairKey, lastByPairKey, valueByKey } from './content-index/by-key.js';
 import { cadaverGoodCycle } from './content-index/cadaver.js';
 import { civilianJobTypes, militaryGoodTypes } from './content-index/combat.js';
-import { constructionBills } from './content-index/construction.js';
+import { constructionBills, upgradeBills } from './content-index/construction.js';
 import { jobRoleSets } from './content-index/jobs.js';
 import { livestockTables } from './content-index/livestock.js';
 import {
@@ -35,7 +35,7 @@ import {
 import { type EnablingJobTables, enablingJobTables } from './content-index/progression.js';
 import { maxWorkCellOffset } from './content-index/terrain.js';
 
-export { constructionBillForType } from './content-index/construction.js';
+export { constructionBillForType, upgradeBillForType } from './content-index/construction.js';
 
 /** The job types whose atomics can harvest a standing resource ({@link harvestCapableJobs}). */
 export function harvestJobsOf(content: ContentSet): ReadonlySet<number> {
@@ -169,11 +169,13 @@ export interface ContentIndex {
   /**
    * Per building type: the from-scratch construction bill a newly-placed site must be delivered. A
    * leveled type sums every tier's own `construction` up to and including it, so placing tier N costs
-   * tier 1 plus N-1 upgrades; an upgrading site instead pays the target tier's own cost. The per-tier
+   * tier 1 plus N-1 upgrades; an upgrading site instead pays {@link upgradeBillByTarget}. The per-tier
    * costs and `upgradeTarget` chain are extracted; the merge is authored, because the original only ever
    * places a chain's base tier.
    */
   readonly constructionBillByBuilding: ReadonlyMap<number, readonly GoodsLine[]>;
+  /** Per chained type, per tier above it: the bill of upgrading straight to that tier. */
+  readonly upgradeBillByTarget: ReadonlyMap<number, ReadonlyMap<number, readonly GoodsLine[]>>;
   /**
    * The largest Manhattan node-offset any resource's work cell can sit from its anchor, floored at the
    * lattice's widest single step ({@link maxWorkCellOffset}). A radius-bounded candidate query widened by
@@ -242,6 +244,7 @@ function buildIndex(content: ContentSet): ContentIndex {
     landscapeGfxByIndex: new Map(content.landscapeGfx.map((g) => [g.index, g])), // last-wins
     atomicsByJob: resolveJobAtomics(content.jobs),
     constructionBillByBuilding: constructionBills(content),
+    upgradeBillByTarget: upgradeBills(content.buildings),
     harvestJobs: harvestCapableJobs(content),
     harvestAtomicByGood: harvestAtomicsByGood(content),
     soldierJobs: roles.soldier,

@@ -89,7 +89,7 @@ it.each([false, true])(
       const stain = [...before.surface.packed];
       expect(stain[0]).toBeGreaterThan(0);
 
-      const upgraded = bind({ ...item, upgradePct: 50 });
+      const upgraded = bind({ ...item, upgradePct: 50, upgradeTypeId: 14 });
       expect(upgraded.slot).not.toBe(before.slot);
       expect(upgraded.surface.packed).toEqual(new Float32Array(stain));
       expect(surfaceOf(before.sprite ?? null)).toBeUndefined(); // The old slot now draws a shade.

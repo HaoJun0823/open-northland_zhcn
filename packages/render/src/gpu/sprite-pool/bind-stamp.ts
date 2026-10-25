@@ -109,6 +109,7 @@ export class BindStamp {
   private site: DrawItem['palisadeSite'] | DrawItem['roadSite'];
   private builtPct: number | undefined;
   private upgradePct: number | undefined;
+  private upgradeTypeId: number | undefined;
   private player: number | undefined;
   /** Whether a bound layer leans with the vegetation clock or steps a looping record. */
   private clocked = false;
@@ -147,6 +148,7 @@ export class BindStamp {
       this.site === planSiteOf(item) &&
       this.builtPct === item.builtPct &&
       this.upgradePct === item.upgradePct &&
+      this.upgradeTypeId === item.upgradeTypeId &&
       this.player === item.player
     );
   }
@@ -226,6 +228,7 @@ export class BindStamp {
     this.site = planSiteOf(item);
     this.builtPct = item.builtPct;
     this.upgradePct = item.upgradePct;
+    this.upgradeTypeId = item.upgradeTypeId;
     this.player = item.player;
     this.drawX = motion.drawX;
     this.drawY = motion.drawY;

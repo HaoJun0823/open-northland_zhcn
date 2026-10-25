@@ -33,6 +33,7 @@ import {
   stockRows,
   type UpgradeCostRow,
   upgradeCostRows,
+  upgradeTargetOf,
 } from './building-materials.js';
 import { type ProductionModel, productionModel } from './building-production.js';
 import { type BuildingStaffModel, buildingStaff, garrisonPosts, siteCrew } from './building-staff.js';
@@ -100,11 +101,22 @@ export interface StorageMinimumModel {
   readonly control: SeatControl;
 }
 
+/** A tier an Upgrade order can raise the building to. */
+export interface UpgradeLevelModel {
+  readonly typeId: number;
+  /** Counted from 1, as the panel's header names levels. */
+  readonly level: number;
+  /** True, or the refusal: an unfinished site, or a technology some tier up to this one lacks. */
+  readonly control: SeatControl;
+  /** Every raised tier's bill together. */
+  readonly cost: readonly UpgradeCostRow[];
+}
+
 /** The orders beside the portrait. A null order is not offered for this house. */
 export interface BuildingOrdersModel {
-  /** Upgrade: true or the refusal (an unfinished site, a technology), with the next tier's bill; null
-   *  for a type with no higher tier. */
-  readonly upgrade: { readonly control: SeatControl; readonly cost: readonly UpgradeCostRow[] } | null;
+  /** Upgrade to the next tier, with the tiers above it the order can skip to; null for a type with no
+   *  higher tier. */
+  readonly upgrade: (UpgradeLevelModel & { readonly further: readonly UpgradeLevelModel[] }) | null;
   /** Cancel upgrade, while a tier is being raised; it stands in Upgrade's place. */
   readonly cancelUpgrade: boolean;
   /** The alarm toggle of a house that shelters civilians, and whether it is up. */
@@ -146,7 +158,10 @@ export interface BuildingPanelModel {
   readonly status: BuildingStatusModel;
   readonly orders: BuildingOrdersModel | null;
   /** Present while the building is a site, raised from nothing or a tier up. */
-  readonly construction: (ConstructionModel & { readonly pct: number; readonly upgrade: boolean }) | null;
+  /** `upgradeTo`: the level, counted from 1, an upgrade raises the building to; null for a plain site. */
+  readonly construction:
+    | (ConstructionModel & { readonly pct: number; readonly upgradeTo: number | null })
+    | null;
   readonly staff: BuildingStaffModel | null;
   /** A site's builders, beside the staff it already has; null once it stands. */
   readonly crew: BuildingStaffModel | null;
@@ -305,21 +320,66 @@ function ordersModel(
   finished: boolean,
   hire: number | null,
 ): BuildingOrdersModel {
-  const copy = messages().hud.buildingPanel;
-  const tribe = buildingTribeOf(ent) ?? 0;
-  const next = def?.upgradeTarget;
-  const upgradeControl = (target: number): SeatControl =>
-    !finished
-      ? copy.upgradeUnfinished
-      : (ctx.technologyReason?.(snapshot, 'house', target, tribe, ownerPlayerOf(ent)) ?? true);
+  const [next, ...further] = upgradeLevels(ctx, snapshot, def, ent, finished);
   const shelters = (def?.shelterCapacity ?? 0) > 0;
   return {
-    upgrade: next === undefined ? null : { control: upgradeControl(next), cost: upgradeCostRows(ctx, def) },
+    upgrade: next === undefined ? null : { ...next, further },
     cancelUpgrade: ent.components.Upgrading !== undefined,
     // `shelterCapacity` is the gate the sim's `setDefenceMode` reads, so the toggle is never refused.
     alarm: shelters && finished ? { on: ent.components.DefenceMode !== undefined } : null,
     hire: hire === null ? null : { jobType: hire, label: jobDisplayName(ctx, hire) },
   };
+}
+
+/** The tiers above `def` on its upgrade chain, nearest first. */
+function tiersAbove(ctx: UnitPanelModelContext, def: BuildingDef): number[] {
+  const tiers: number[] = [];
+  const visited = new Set([def.typeId]);
+  for (
+    let at = def.upgradeTarget;
+    at !== undefined && !visited.has(at);
+    at = buildingDef(ctx, at)?.upgradeTarget
+  ) {
+    visited.add(at);
+    tiers.push(at);
+  }
+  return tiers;
+}
+
+/** The building's own level, counted from 1. */
+function shownLevel(ent: SnapshotEntity): number {
+  return (num((ent.components.Building as { level?: unknown } | undefined)?.level) ?? 0) + 1;
+}
+
+/** Every tier above the building's own, in chain order; a tier past a refused one inherits its refusal. */
+function upgradeLevels(
+  ctx: UnitPanelModelContext,
+  snapshot: WorldSnapshot,
+  def: BuildingDef | undefined,
+  ent: SnapshotEntity,
+  finished: boolean,
+): UpgradeLevelModel[] {
+  if (def === undefined) return [];
+  const tribe = buildingTribeOf(ent) ?? 0;
+  const own = shownLevel(ent);
+  let refusal: SeatControl = finished ? true : messages().hud.buildingPanel.upgradeUnfinished;
+  return tiersAbove(ctx, def).map((typeId, i) => {
+    if (refusal === true)
+      refusal = ctx.technologyReason?.(snapshot, 'house', typeId, tribe, ownerPlayerOf(ent)) ?? true;
+    return { typeId, level: own + i + 1, control: refusal, cost: upgradeCostRows(ctx, def.typeId, typeId) };
+  });
+}
+
+/** The level, counted from 1, an upgrading building rises to; null when it is not upgrading. */
+function upgradeToLevel(
+  ctx: UnitPanelModelContext,
+  def: BuildingDef | undefined,
+  ent: SnapshotEntity,
+): number | null {
+  const target = upgradeTargetOf(ent);
+  if (def === undefined || target === undefined) return null;
+  const step = tiersAbove(ctx, def).indexOf(target);
+  return step < 0 ? null : shownLevel(ent) + step + 1;
 }
 
 /** The shelves marked for Storage: the inputs its posted workers wait for, its products' full shelves,
@@ -455,7 +515,10 @@ export function buildingPanelModel(
     health: health === undefined || health.max <= 0 ? null : health,
     status,
     orders: foreign ? null : ordersModel(ctx, snapshot, def, ent, finished, hireJob(def, staff)),
-    construction: construction === null || foreign ? null : { ...construction, pct: builtPct, upgrade },
+    construction:
+      construction === null || foreign
+        ? null
+        : { ...construction, pct: builtPct, upgradeTo: upgradeToLevel(ctx, def, ent) },
     staff,
     crew,
     production: foreign || site ? null : productionModel(ctx, snapshot, def, ent),

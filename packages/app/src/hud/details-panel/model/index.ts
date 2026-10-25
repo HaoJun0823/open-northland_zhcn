@@ -44,6 +44,7 @@ export {
   type StockRow,
   type StorageMinimumModel,
   type UpgradeCostRow,
+  type UpgradeLevelModel,
 } from './building.js';
 export {
   type DiplomacyStance,

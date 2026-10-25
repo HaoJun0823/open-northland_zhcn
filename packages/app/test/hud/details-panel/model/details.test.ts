@@ -1,4 +1,11 @@
-import { fx, ONE, PRODUCTION_UNLIMITED, systems, type WorldSnapshot } from '@open-northland/sim';
+import {
+  fx,
+  ONE,
+  PRODUCTION_UNLIMITED,
+  systems,
+  upgradeBillForType,
+  type WorldSnapshot,
+} from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { shelterCapacityById } from '../../../../src/catalog/defence.js';
 import {
@@ -25,7 +32,10 @@ import {
   BUILDING_HANDCART_YARD,
   BUILDING_HEADQUARTERS,
   BUILDING_HOME_00,
+  BUILDING_HOME_01,
   BUILDING_HOME_02,
+  BUILDING_HOME_03,
+  BUILDING_HOME_04,
   BUILDING_JOINERY,
   BUILDING_JOINERY_02,
   BUILDING_MILL,
@@ -316,7 +326,7 @@ describe('selection details panel model', () => {
     const model = buildUnitPanelModel(snapshot, new Set([1]), sandboxCtx());
     expect(model.kind).toBe('building');
     if (model.kind !== 'building') return;
-    expect(model.construction).toMatchObject({ pct: 25, upgrade: false });
+    expect(model.construction).toMatchObject({ pct: 25, upgradeTo: null });
     // A site carries the health gauge too: the sim ramps its hitpoints with `built`, so the bar fills as
     // the foundation rises (user rule - a house under construction shows its HP growing).
     expect(model.health).toEqual({ hitpoints: 25, max: 100 });
@@ -425,11 +435,11 @@ describe('selection details panel model', () => {
     const model = buildUnitPanelModel(
       snapshotOf(
         [
-          buildingEntity(1, BUILDING_FARM, {
+          buildingEntity(1, BUILDING_HOME_00, {
             built: 0,
             components: {
               UnderConstruction: { labor: 0 },
-              Upgrading: { savedStock: [] },
+              Upgrading: { target: BUILDING_HOME_01, savedStock: [] },
               Health: { hitpoints: 1000, max: 1000 },
               Stockpile: { amounts: [] },
             },
@@ -444,7 +454,7 @@ describe('selection details panel model', () => {
     // The sim never ramps an upgrading building's pool (`construction.ts` skips the ramp for
     // `Upgrading`): the old tier stands at full health while `built` restarts from 0. Both readouts are
     // real and different - the panel must not render one of them twice.
-    expect(model.construction).toMatchObject({ pct: 0, upgrade: true });
+    expect(model.construction).toMatchObject({ pct: 0, upgradeTo: 2 });
     expect(model.health).toEqual({ hitpoints: 1000, max: 1000 });
   });
 
@@ -623,6 +633,18 @@ describe('selection details panel model', () => {
       expect.objectContaining({ goodType: GOOD_WOOD, amount: 4 }),
       expect.objectContaining({ goodType: GOOD_STONE, amount: 3 }),
     ]);
+    // The tiers past the next one, each costing every raised tier together.
+    const further = built.orders?.upgrade?.further ?? [];
+    expect(further.map((tier) => [tier.typeId, tier.level])).toEqual([
+      [BUILDING_HOME_02, 3],
+      [BUILDING_HOME_03, 4],
+      [BUILDING_HOME_04, 5],
+    ]);
+    expect(further[0]?.cost).toEqual(
+      upgradeBillForType(sandboxCtx().buildings, BUILDING_HOME_00, BUILDING_HOME_02).map((line) =>
+        expect.objectContaining(line),
+      ),
+    );
 
     const upgrading = buildUnitPanelModel(
       snapshotOf(
@@ -631,7 +653,7 @@ describe('selection details panel model', () => {
             built: 0,
             components: {
               UnderConstruction: { labor: 0 },
-              Upgrading: { savedStock: [] },
+              Upgrading: { target: BUILDING_HOME_02, savedStock: [] },
               Stockpile: { amounts: [] },
             },
           }),
@@ -645,6 +667,7 @@ describe('selection details panel model', () => {
     // A running upgrade site offers Cancel in Upgrade's place; Upgrade itself waits for the house.
     expect(upgrading.orders?.upgrade?.control).toBe(messages().hud.buildingPanel.upgradeUnfinished);
     expect(upgrading.orders?.cancelUpgrade).toBe(true);
+    expect(upgrading.construction?.upgradeTo).toBe(3);
   });
 
   it('keeps Magazyn rows in declared slot order while amounts change (Pszenica before Mąka, always)', () => {

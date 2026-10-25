@@ -137,19 +137,28 @@ export function resolveConstructionDraws(
 }
 
 /**
- * The stage stack of an upgrading building whose tribe has no upgrade rows for its type, or `null`: the
- * next tier's from-scratch construction stack at the upgrade progress, raised around the old body. The
- * mod authors upgrade rows almost only for the viking skin, so this is nearly every other civilization's
- * upgrade site; raising the next tier as a fresh build is a named approximation.
+ * The stage stack of an upgrading building its tribe's upgrade rows cannot show, or `null`: the target
+ * tier's from-scratch construction stack at the upgrade progress, raised around the old body. The mod
+ * authors upgrade rows almost only for the viking skin, and only for the next tier, so this is nearly every
+ * other civilization's upgrade site and every site skipping tiers; raising the target as a fresh build is
+ * a named approximation.
  */
 export function resolveUpgradeRebuildDraws(
   binding: number | BuildingTypeBinding,
   item: DrawItem,
 ): ConstructionDraw[] | null {
-  if (typeof binding === 'number' || item.upgradePct === undefined || item.typeId === undefined) return null;
-  if (tablesFor(binding, item).upgradeByType?.[item.typeId] !== undefined) return null;
-  const target = binding.upgradeTargetByType?.[item.typeId];
-  return target === undefined ? null : constructionStack(binding, item, target, item.upgradePct);
+  if (typeof binding === 'number' || item.upgradePct === undefined || item.upgradeTypeId === undefined)
+    return null;
+  if (raisesUpgradeRows(binding, item)) return null;
+  return constructionStack(binding, item, item.upgradeTypeId, item.upgradePct);
+}
+
+/** Whether the drawing tribe's upgrade rows show this upgrade: they hold only the next tier's body, so
+ *  a site skipping tiers rises as its target's construction stack instead. */
+function raisesUpgradeRows(binding: BuildingTypeBinding, item: DrawItem): boolean {
+  if (item.typeId === undefined || tablesFor(binding, item).upgradeByType?.[item.typeId] === undefined)
+    return false;
+  return item.upgradeTypeId === binding.upgradeTargetByType?.[item.typeId];
 }
 
 function constructionStack(
@@ -197,6 +206,7 @@ export function resolveUpgradeDraws(
   item: DrawItem,
 ): ConstructionDraw[] | null {
   if (typeof binding === 'number' || item.upgradePct === undefined || item.typeId === undefined) return null;
+  if (!raisesUpgradeRows(binding, item)) return null;
   const layers = tablesFor(binding, item).upgradeByType?.[item.typeId];
   if (layers === undefined || layers.length === 0) return null;
   const pct = item.upgradePct;

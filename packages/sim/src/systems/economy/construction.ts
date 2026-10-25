@@ -17,7 +17,7 @@ import {
   Upgrading,
   writeProductionCount,
 } from '../../components/index.js';
-import { contentIndex } from '../../core/content-index.js';
+import { buildingLevelOf, contentIndex } from '../../core/content-index.js';
 import { type Fixed, fx, ONE } from '../../core/fixed.js';
 import type { DeepReadonly, Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
@@ -36,7 +36,6 @@ import {
   constructionTotalUnits,
   deliveredConstructionFraction,
   isWorkplaceOperator,
-  upgradeTierOf,
 } from '../stores/index.js';
 import { createVehicle } from '../vehicles/create.js';
 import { evictVehiclesFromFootprint } from '../vehicles/evict.js';
@@ -198,17 +197,18 @@ function finishBuilding(
       : null;
   let adoptedTier = false;
   if (upgrading !== undefined) {
-    const type = contentIndex(ctx.content).buildings.get(building.buildingType);
-    const target = type === undefined ? undefined : upgradeTierOf(type, ctx);
+    const index = contentIndex(ctx.content);
+    const target = index.buildings.get(upgrading.target);
     // Malformed content only: the site then finishes as its old tier, reported as a plain finish.
     if (target !== undefined) {
       adoptedTier = true;
       preserveProductionChoices(world, ctx, e, building.buildingType, target.typeId);
       // The type swap changes every buildingType-derived answer, so it goes through the mut seam and
       // version-keyed caches re-scan.
+      const raised = buildingLevelOf(index, target.typeId) - buildingLevelOf(index, building.buildingType);
       const b = world.mut(e, Building);
       b.buildingType = target.typeId;
-      b.level += 1;
+      b.level += raised;
       clearUpgradeGround(world, ctx, e, target.typeId);
       const health = world.tryMut(e, Health);
       const max = buildingHitpointsFor(target, b.tribe);

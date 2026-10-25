@@ -8,7 +8,8 @@ import type { SettlerPanelActions } from '../settler-panel/actions.js';
  * leaves; the panel only decides which control was pressed.
  */
 export interface BuildingPanelActions {
-  readonly upgrade: (building: number) => void;
+  /** Raise `building` to the `target` tier; the next one when omitted. */
+  readonly upgrade: (building: number, target?: number) => void;
   readonly cancelUpgrade: (building: number) => void;
   /** Ask the player whether to raze the building named `name`, then raze it. */
   readonly demolish: (building: number, name: string) => void;

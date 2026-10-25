@@ -187,7 +187,11 @@ describe('a razed building spills its contents on the ground', () => {
   it("spills an upgrading building's stashed inventory along with its build hold", () => {
     const sim = mappedSim();
     const hut = stockedHut(sim, ANCHOR, [[WOOD, 2]]); // mid-upgrade the live stockpile IS the build hold
-    sim.world.add(hut, Upgrading, { savedStock: new Map([[PLANK, 4]]), seeded: new Map() });
+    sim.world.add(hut, Upgrading, {
+      target: sim.world.get(hut, Building).buildingType,
+      savedStock: new Map([[PLANK, 4]]),
+      seeded: new Map(),
+    });
 
     demolish(sim, hut);
 
@@ -286,7 +290,11 @@ describe('a razed standing building gives back half its construction bill, round
     const sim = costedHutSim();
     const hut = stockedHut(sim, ANCHOR, [[PLANK, 1]]); // the upgrade's delivered hold
     reopenAsSite(sim, hut);
-    sim.world.add(hut, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(hut, Upgrading, {
+      target: sim.world.get(hut, Building).buildingType,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
 
     demolish(sim, hut);
 

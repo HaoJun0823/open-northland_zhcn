@@ -87,7 +87,7 @@ describe('building hover card model', () => {
     const target = ctx.buildings.find((b) => b.typeId === BUILDING_JOINERY_01);
     const snapshot = snapshotOf([
       buildingEntity(3, BUILDING_JOINERY, {
-        components: { UnderConstruction: { labor: 0 }, Upgrading: {} },
+        components: { UnderConstruction: { labor: 0 }, Upgrading: { target: BUILDING_JOINERY_01 } },
       }),
     ]);
 

@@ -14,6 +14,42 @@ export function constructionBills(content: ContentSet): ReadonlyMap<number, read
   return bills;
 }
 
+/**
+ * The bill of each upgrade a building can be ordered: from a chained tier to every tier above it, the
+ * skipped tiers' own `construction` merged per goodType and sorted ascending. A one-tier step is the
+ * target's own cost. Jumping several tiers in one order is authored; the original raises one per order.
+ */
+export function upgradeBills(
+  list: readonly BuildingType[],
+): ReadonlyMap<number, ReadonlyMap<number, readonly GoodsLine[]>> {
+  const buildings = byKey(list, (b) => b.typeId);
+  const bills = new Map<number, ReadonlyMap<number, readonly GoodsLine[]>>();
+  for (const from of buildings.values()) {
+    const targets = new Map<number, readonly GoodsLine[]>();
+    const merged = new Map<number, number>();
+    const visited = new Set<number>([from.typeId]);
+    for (let at = from.upgradeTarget; at !== undefined && !visited.has(at); ) {
+      visited.add(at);
+      const tier = buildings.get(at);
+      if (tier === undefined) break;
+      for (const line of tier.construction) {
+        merged.set(line.goodType, (merged.get(line.goodType) ?? 0) + line.amount);
+      }
+      targets.set(
+        at,
+        targets.size === 0
+          ? tier.construction
+          : [...merged.entries()]
+              .sort((x, y) => x[0] - y[0])
+              .map(([goodType, amount]) => ({ goodType, amount })),
+      );
+      at = tier.upgradeTarget;
+    }
+    if (targets.size > 0) bills.set(from.typeId, targets);
+  }
+  return bills;
+}
+
 /** The reverse of the `upgradeTarget` chain links: target typeId → the tier that upgrades into it.
  *  First-wins on a duplicate target (matching `byKey`), so a malformed double-link is deterministic. */
 function prevTierLinks(buildings: readonly BuildingType[]): ReadonlyMap<number, number> {
@@ -73,4 +109,27 @@ export function constructionBillForType(
   }
   const building = views.byId.get(buildingType);
   return building === undefined ? [] : billOf(views.byId, views.prev, building);
+}
+
+const upgradeBillCache = new WeakMap<
+  readonly BuildingType[],
+  ReadonlyMap<number, ReadonlyMap<number, readonly GoodsLine[]>>
+>();
+
+/**
+ * The bill of upgrading a `from` building straight to `target` over a plain building list, as
+ * {@link upgradeBills} reads it; empty when `target` is not above `from` on its chain. Sim systems read
+ * the memoized `upgradeBillByTarget` table instead.
+ */
+export function upgradeBillForType(
+  buildings: readonly BuildingType[],
+  from: number,
+  target: number,
+): readonly GoodsLine[] {
+  let bills = upgradeBillCache.get(buildings);
+  if (bills === undefined) {
+    bills = upgradeBills(buildings);
+    upgradeBillCache.set(buildings, bills);
+  }
+  return bills.get(from)?.get(target) ?? [];
 }

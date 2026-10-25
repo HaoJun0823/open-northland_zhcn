@@ -230,7 +230,11 @@ describe('building repair', () => {
     const site = siteAt(sim, HOUSE, 6, 1);
     sim.world.mut(site, Stockpile).amounts.set(STONE, 2);
     sim.world.mut(site, Stockpile).amounts.set(WOOD, 1);
-    sim.world.add(site, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(site, Upgrading, {
+      target: HOUSE,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
     sim.world.add(site, Health, { hitpoints: 300, max: DAMAGED_MAX_HP });
     sim.world.add(site, Damaged, { lastHitTick: sim.tick });
     const builder = builderAt(sim, 5, 1);
@@ -265,7 +269,11 @@ describe('building repair', () => {
     sim.world.add(foundation, Damaged, { lastHitTick: 0 });
     expect(needsRepair(sim.world, foundation)).toBe(false);
 
-    sim.world.add(foundation, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    sim.world.add(foundation, Upgrading, {
+      target: HOUSE,
+      savedStock: new Map(),
+      seeded: new Map(),
+    });
     expect(needsRepair(sim.world, foundation)).toBe(true);
   });
 

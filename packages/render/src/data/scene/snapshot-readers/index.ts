@@ -21,6 +21,7 @@ export {
   readProducing,
   readRoadSiteClaimed,
   readUpgradePct,
+  readUpgradeTypeId,
 } from './static-readers.js';
 export { readStockpile } from './stockpile-readers.js';
 export {

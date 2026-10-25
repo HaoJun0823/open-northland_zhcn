@@ -27,7 +27,11 @@ export function createConstructionSection(deps: BuildingPanelDeps): Construction
       setHidden(root, site === null);
       if (site === null) return;
       const copy = messages().hud.buildingPanel;
-      title.update(site.upgrade ? copy.upgradeSection : copy.construction);
+      title.update(
+        site.upgradeTo === null
+          ? copy.construction
+          : formatMessage(copy.upgradeSectionTo, { level: site.upgradeTo }),
+      );
       write(progress, `${site.pct}%`);
       const shown = syncLines(
         list,

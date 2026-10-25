@@ -77,7 +77,7 @@ function ownedTally(
     byType.set(type, (byType.get(type) ?? 0) + 1);
     const ownedType = index.buildings.get(type);
     if (ownedType?.kind === 'home') homes++;
-    const becoming = world.has(e, Upgrading) ? ownedType?.upgradeTarget : undefined;
+    const becoming = world.tryGet(e, Upgrading)?.target;
     if (becoming !== undefined) upgrading.push([type, becoming]);
   }
   const tally = { byType, homes, upgrading };

@@ -465,7 +465,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   unequipGood: {
     required: { entity: 'integer', group: { oneOf: EQUIP_CATEGORIES }, slot: 'integer' },
   },
-  upgradeBuilding: { required: { building: 'integer' } },
+  upgradeBuilding: { required: { building: 'integer' }, optional: { target: 'integer' } },
 };
 
 /**

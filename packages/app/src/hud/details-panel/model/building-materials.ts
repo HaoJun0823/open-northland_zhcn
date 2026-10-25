@@ -1,6 +1,13 @@
 import { buildHud } from '@open-northland/render';
 import { empireInventoryContains } from '@open-northland/render/data';
-import { constructionBillForType, type Fixed, fx, systems, type WorldSnapshot } from '@open-northland/sim';
+import {
+  constructionBillForType,
+  type Fixed,
+  fx,
+  systems,
+  upgradeBillForType,
+  type WorldSnapshot,
+} from '@open-northland/sim';
 import {
   isSettler,
   num,
@@ -148,19 +155,14 @@ export function stockRows(
   });
 }
 
-/** The upgrade target tier's own construction bill: the level-difference cost the sim charges to raise
- *  `def` one tier. Empty when the type has no upgrade target or the target declares no cost. */
-function upgradeTargetBill(
-  ctx: BuildingStockContext,
-  def: BuildingDef | undefined,
-): readonly { readonly goodType: number; readonly amount: number }[] {
-  if (def?.upgradeTarget === undefined) return [];
-  return ctx.buildings.find((b) => b.typeId === def.upgradeTarget)?.construction ?? [];
+/** The tier an upgrading building rises into, as its `Upgrading` marker names it. */
+export function upgradeTargetOf(ent: SnapshotEntity): number | undefined {
+  return num((ent.components.Upgrading as { target?: unknown } | undefined)?.target);
 }
 
 /**
  * One row per line of the bill a site is being raised against - the type's from-scratch cumulative
- * bill, or for an upgrading building the target tier's level-difference cost - each with how much the
+ * bill, or for an upgrading building the raised tiers' level-difference cost - each with how much the
  * building's hold already has. A finished building has no site, so the caller decides whether its bill
  * means anything; this is the reading, not that test.
  */
@@ -170,12 +172,14 @@ export function constructionBillRows(
   ent: SnapshotEntity,
 ): ConstructionBillRow[] {
   const live = liveAmounts(ent.components.Stockpile);
-  const upgrading = ent.components.Upgrading !== undefined;
+  const target = upgradeTargetOf(ent);
   const bill =
     def === undefined
       ? []
-      : upgrading
-        ? upgradeTargetBill(ctx, def)
+      : ent.components.Upgrading !== undefined
+        ? target === undefined
+          ? []
+          : upgradeBillForType(ctx.buildings, def.typeId, target)
         : constructionBillForType(ctx.buildings, def.typeId);
   return bill.map((line) => {
     const goodId = goodDef(ctx, line.goodType)?.id;
@@ -324,9 +328,9 @@ function constructionStatus(
   return null;
 }
 
-/** The Upgrade button's pre-commit cost rows: the same level-difference bill a running upgrade shows. */
-export function upgradeCostRows(ctx: UnitPanelModelContext, def: BuildingDef | undefined): UpgradeCostRow[] {
-  return upgradeTargetBill(ctx, def).map((line) => ({
+/** An Upgrade order's pre-commit cost rows: the same level-difference bill the running upgrade shows. */
+export function upgradeCostRows(ctx: UnitPanelModelContext, from: number, target: number): UpgradeCostRow[] {
+  return upgradeBillForType(ctx.buildings, from, target).map((line) => ({
     goodType: line.goodType,
     label: goodLabel(ctx, line.goodType),
     amount: line.amount,

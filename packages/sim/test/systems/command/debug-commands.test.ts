@@ -203,7 +203,12 @@ describe('debugSetHealth', () => {
       });
       sim.world.add(site, Health, { hitpoints: 500, max: 1000 });
       sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
-      if (index === 1) sim.world.add(site, Upgrading, { savedStock: new Map(), seeded: new Map() });
+      if (index === 1)
+        sim.world.add(site, Upgrading, {
+          target: sim.world.get(site, Building).buildingType,
+          savedStock: new Map(),
+          seeded: new Map(),
+        });
       sim.enqueue(adminCommand({ kind: 'debugSetHealth', target: site, percent: 1 }));
     }
     commandSystem(sim.world, nextTickCtxOf(sim));

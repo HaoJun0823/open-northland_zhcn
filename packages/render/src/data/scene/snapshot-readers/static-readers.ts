@@ -86,6 +86,12 @@ export function readUpgradePct(components: Readonly<Record<string, unknown>>): n
   return risingPct(components);
 }
 
+/** The type an upgrading building rises into, or `undefined` when it is not mid-upgrade. */
+export function readUpgradeTypeId(components: Readonly<Record<string, unknown>>): number | undefined {
+  const upgrading = components.Upgrading as { target?: unknown } | undefined;
+  return typeof upgrading?.target === 'number' ? upgrading.target : undefined;
+}
+
 /** The shared read behind the two above: `Building.built`, a fixed-point fraction of ONE, floored to a
  *  0..99 percent so a nearly-done site never reads as finished. `undefined` once `built >= ONE`. */
 function risingPct(components: Readonly<Record<string, unknown>>): number | undefined {

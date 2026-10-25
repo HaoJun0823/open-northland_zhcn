@@ -31,6 +31,7 @@ import {
   readScriptedLook,
   readSettlerTribe,
   readUpgradePct,
+  readUpgradeTypeId,
 } from '../snapshot-readers/index.js';
 import type { DrawList } from './draw-list.js';
 import { anchorTileBox } from './entity-source.js';
@@ -88,6 +89,8 @@ export function assignBuildingFields(
   assignStaticFields(item, 'building', components);
   const upgradePct = readUpgradePct(components);
   if (upgradePct !== undefined) item.upgradePct = upgradePct;
+  const upgradeTypeId = readUpgradeTypeId(components);
+  if (upgradeTypeId !== undefined) item.upgradeTypeId = upgradeTypeId;
   if (readProducing(components)) item.working = true;
 }
 

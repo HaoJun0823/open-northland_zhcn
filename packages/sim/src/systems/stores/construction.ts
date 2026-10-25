@@ -27,7 +27,7 @@ export function upgradeTierOf(type: BuildingType, ctx: ContentContext): Building
 
 /**
  * The material cost of raising a building: a plain site carries its type's from-scratch bill, merged over
- * every chain stage for a leveled type, while an {@link Upgrading} building costs the target tier's own
+ * every chain stage for a leveled type, while an {@link Upgrading} building costs the raised tiers' own
  * `construction`, the level difference the source encodes per tier.
  */
 export function constructionBillOf(world: World, ctx: ContentContext, site: Entity): readonly GoodsLine[] {
@@ -35,10 +35,10 @@ export function constructionBillOf(world: World, ctx: ContentContext, site: Enti
   if (solo !== undefined) return solo.construction;
   const b = world.tryGet(site, Building);
   if (b === undefined) return EMPTY_CONSTRUCTION;
-  if (world.has(site, Upgrading)) {
-    const type = contentIndex(ctx.content).buildings.get(b.buildingType);
-    if (type === undefined) return EMPTY_CONSTRUCTION;
-    return upgradeTierOf(type, ctx)?.construction ?? EMPTY_CONSTRUCTION;
+  const upgrading = world.tryGet(site, Upgrading);
+  if (upgrading !== undefined) {
+    const bills = contentIndex(ctx.content).upgradeBillByTarget.get(b.buildingType);
+    return bills?.get(upgrading.target) ?? EMPTY_CONSTRUCTION;
   }
   return contentIndex(ctx.content).constructionBillByBuilding.get(b.buildingType) ?? EMPTY_CONSTRUCTION;
 }

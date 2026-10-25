@@ -275,8 +275,8 @@ describe('resolveConstructionDraws - construction-stage stack for an under-const
 });
 
 describe('resolveUpgradeDraws / resolveUpgradeRebuildDraws - an upgrading building', () => {
-  const upgrading = (tribe: number, upgradePct = 50): DrawItem =>
-    drawItem('building', { typeId: 2, tribe, upgradePct });
+  const upgrading = (tribe: number, upgradePct = 50, upgradeTypeId = 3): DrawItem =>
+    drawItem('building', { typeId: 2, tribe, upgradePct, upgradeTypeId });
   // Only the viking skin has upgrade rows, as in the mod's `[GfxHouse]` data; the frank skin rises its
   // next tier (type 3) from its own from-scratch stack instead.
   const vikingNextTier = { bob: 11, fromPct: 0, toPct: 100 };
@@ -313,8 +313,16 @@ describe('resolveUpgradeDraws / resolveUpgradeRebuildDraws - an upgrading buildi
     ]);
   });
 
-  it('keeps the old body for a type with no next tier or a finished building', () => {
-    expect(resolveUpgradeRebuildDraws({ ...binding, upgradeTargetByType: {} }, upgrading(2))).toBeNull();
+  it('raises a site skipping tiers as its target from scratch, since upgrade rows hold the next tier only', () => {
+    const vikingTop = { bob: 40, fromPct: 0, toPct: 100 };
+    const skipping = { ...binding, constructionByType: { 4: [vikingTop] } };
+    const jump = upgrading(1, 50, 4);
+    expect(resolveUpgradeDraws(skipping, jump)).toBeNull();
+    expect(resolveUpgradeRebuildDraws(skipping, jump)).toEqual([vikingTop]);
+  });
+
+  it('keeps the old body for a target with no construction stack or a finished building', () => {
+    expect(resolveUpgradeRebuildDraws(binding, upgrading(2, 50, 4))).toBeNull();
     expect(resolveUpgradeRebuildDraws(binding, drawItem('building', { typeId: 2, tribe: 2 }))).toBeNull();
   });
 });

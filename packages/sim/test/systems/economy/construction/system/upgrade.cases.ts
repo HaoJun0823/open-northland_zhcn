@@ -10,6 +10,7 @@ import {
   Owner,
   Resting,
   Stockpile,
+  setMapPermission,
   UnderConstruction,
   Upgrading,
 } from '../../../../../src/components/index.js';
@@ -232,6 +233,54 @@ describe('constructionSystem - manual upgrade lifecycle', () => {
     expect(sim.world.get(e, Building).buildingType).toBe(HOME_L1);
     expect(sim.world.has(e, UnderConstruction)).toBe(false); // finished - not rolling into L2 by itself
     expect(sim.world.get(e, Building).built).toBe(ONE);
+  });
+
+  it('jumps straight to an ordered higher tier, billing every raised tier at once', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    // A target at or below the building's own tier is refused.
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e, target: HOME_L0 });
+    sim.step();
+    expect(sim.world.has(e, Upgrading)).toBe(false);
+
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e, target: HOME_L2 });
+    sim.step();
+    // L1's 2 stone plus L2's 1 wood.
+    expect(stockCapacity(sim.world, ctxOf(sim), e, STONE)).toBe(2);
+    expect(stockCapacity(sim.world, ctxOf(sim), e, WOOD)).toBe(1);
+    sim.world.mut(e, Stockpile).amounts = new Map([
+      [STONE, 2],
+      [WOOD, 1],
+    ]);
+    sim.world.mut(e, UnderConstruction).labor = ONE;
+    constructionSystem(sim.world, ctxOf(sim));
+
+    const b = sim.world.get(e, Building);
+    expect([b.buildingType, b.level, b.built]).toEqual([HOME_L2, 2, ONE]);
+    expect(housingCapacity(sim.world, ctxOf(sim), VIKING)).toBe(3);
+  });
+
+  it('refuses a jump past a tier the seat may not raise', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    const e = placeBuiltHome(sim, HOME_L0, 0);
+    sim.world.add(e, Owner, { player: 1 });
+    setMapPermission(sim.world, { player: 1, tribe: VIKING, kind: 'house', typeId: HOME_L1, allowed: false });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e, target: HOME_L2 });
+    sim.step();
+    expect(sim.world.has(e, Upgrading)).toBe(false);
+  });
+
+  it('cancelling a jump hands back the goods the merged bill seeded', () => {
+    const sim = new Simulation({ seed: 1, content: levelChainContent() });
+    // L1 wants 2 stone and L2 1 wood; the home holds both, so the merged bill seeds them.
+    const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 3, [WOOD]: 1 });
+    sim.enqueueSetup({ kind: 'upgradeBuilding', building: e, target: HOME_L2 });
+    sim.step();
+    expect(sim.world.get(e, Stockpile).amounts.get(WOOD)).toBe(1);
+    sim.enqueueSetup({ kind: 'cancelUpgrade', building: e });
+    sim.step();
+    expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(3);
+    expect(sim.world.get(e, Stockpile).amounts.get(WOOD)).toBe(1);
   });
 
   it('cancelUpgrade restores the previous level: stash + seeded goods back, deliveries lost', () => {

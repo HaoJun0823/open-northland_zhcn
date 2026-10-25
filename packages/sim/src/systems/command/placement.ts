@@ -37,7 +37,6 @@ import { buildingEnabled } from '../progression/index.js';
 import { cancelRoadSitesUnder } from '../roads/sites.js';
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
 import { displaceSignpostsFromFootprint } from '../signposts/index.js';
-import { upgradeTierOf } from '../stores/index.js';
 import { evictVehiclesFromFootprint } from '../vehicles/evict.js';
 
 /**
@@ -210,7 +209,7 @@ export function assembleBuilding(
 }
 
 /**
- * Begin upgrading a built building into its type's `upgradeTarget` level - see the command doc. The
+ * Begin upgrading a built building into a higher tier - see the command doc. The
  * inventory is stashed on the {@link Upgrading} marker and the emptied {@link Stockpile} becomes the
  * site's build hold, seeded with the bill goods the building already holds.
  *
@@ -227,16 +226,23 @@ export function upgradeBuilding(
   const building = world.tryGet(command.building, Building);
   if (building === undefined || building.built < ONE) return;
   if (world.has(command.building, UnderConstruction)) return;
-  const type = contentIndex(ctx.content).buildings.get(building.buildingType);
-  const target = type === undefined ? undefined : upgradeTierOf(type, ctx);
-  if (target === undefined) return; // top level, unchained, or malformed content
-  if (!buildingEnabled(world, ctx, ownerOf(world, command.building), building.tribe, target.typeId)) return;
+  const index = contentIndex(ctx.content);
+  const target = command.target ?? index.buildings.get(building.buildingType)?.upgradeTarget;
+  // Undefined for a top level, a target off the chain or below it, or malformed content.
+  const bill =
+    target === undefined ? undefined : index.upgradeBillByTarget.get(building.buildingType)?.get(target);
+  if (target === undefined || bill === undefined) return;
+  const owner = ownerOf(world, command.building);
+  for (let tier = index.buildings.get(building.buildingType)?.upgradeTarget; tier !== undefined; ) {
+    if (!buildingEnabled(world, ctx, owner, building.tribe, tier)) return;
+    tier = tier === target ? undefined : index.buildings.get(tier)?.upgradeTarget;
+  }
 
   const stock = world.tryMut(command.building, Stockpile);
   if (stock === undefined) return; // no build hold, so the site could never advance
   const hold = new Map<number, number>();
   const seeded = new Map<number, number>();
-  for (const line of target.construction) {
+  for (const line of bill) {
     const take = Math.min(stock.amounts.get(line.goodType) ?? 0, line.amount);
     if (take <= 0) continue;
     // Accumulate rather than overwrite so a schema-legal duplicated bill line degrades like
@@ -247,7 +253,7 @@ export function upgradeBuilding(
     if (rest > 0) stock.amounts.set(line.goodType, rest);
     else stock.amounts.delete(line.goodType);
   }
-  world.add(command.building, Upgrading, { savedStock: stock.amounts, seeded });
+  world.add(command.building, Upgrading, { target, savedStock: stock.amounts, seeded });
   world.mut(command.building, Stockpile).amounts = hold;
   world.mut(command.building, Building).built = fx.fromInt(0);
   world.add(command.building, UnderConstruction, { labor: fx.fromInt(0) });
@@ -255,7 +261,7 @@ export function upgradeBuilding(
   // The panel hides the defence window for a site, so an alarm left standing could be neither seen nor
   // lowered and would silently call the garrison back once the upgrade finished.
   world.remove(command.building, DefenceMode);
-  clearUpgradeGround(world, ctx, command.building, target.typeId);
+  clearUpgradeGround(world, ctx, command.building, target);
   evictSettlersFromFootprint(world, ctx, command.building);
   evictVehiclesFromFootprint(world, ctx, command.building);
 }

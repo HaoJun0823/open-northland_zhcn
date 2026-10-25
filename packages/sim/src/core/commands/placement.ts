@@ -198,14 +198,16 @@ export interface DropGoodCommand {
 }
 
 /**
- * Begin upgrading a built building into its type's `upgradeTarget` level: it re-opens as a construction
- * site at the target tier's own `construction` cost, keeping its occupants' job and residence bindings,
- * and completion adopts that tier. Skipped for a target that is dead, not a building, still unbuilt,
- * already a site, of a top-level or unchained type, or not tech-unlocked by the tribe.
+ * Begin upgrading a built building into a higher tier of its chain: it re-opens as a construction site
+ * at the raised tiers' own `construction` costs, keeping its occupants' job and residence bindings, and
+ * completion adopts the target tier. Skipped for a building that is dead, still unbuilt or already a
+ * site, for a target not above it on its chain, or when a tier up to the target is not tech-unlocked.
  */
 export interface UpgradeBuildingCommand {
   readonly kind: 'upgradeBuilding';
   readonly building: Entity;
+  /** The building type to raise it to; the next tier when omitted. */
+  readonly target?: number;
 }
 
 /**

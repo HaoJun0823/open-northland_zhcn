@@ -671,6 +671,11 @@ export const enContent = {
         wonder_8th_wonder: 'Eighth Wonder',
       },
     },
+    'upgrade-levels': {
+      title: 'Upgrade several levels',
+      summary:
+        'A dwelling raised straight from level 1 to 5; beside it a dwelling, a warehouse and a joinery at level 1 to try the level choice on.',
+    },
     'upgrade-tribes': {
       title: 'Upgrades across tribes',
       summary:

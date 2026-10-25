@@ -180,11 +180,13 @@ export interface DrawItem extends Readonly<StaticDrawFields> {
   readonly female?: boolean;
   /** For a settler: the palette recipes its map laid over it (`ScriptedLook`), in file order. */
   readonly scriptedLook?: readonly string[];
-  /** For a building upgrading into its next level: upgrade progress as a whole percent (0..99, floored
+  /** For a building upgrading into a higher level: upgrade progress as a whole percent (0..99, floored
    *  `Building.built`). Distinct from {@link builtPct}, since an upgrading building keeps its finished
    *  old-tier body and the next tier's overlay (the `[GfxHouse]` `upgrade === 1` rows) reveals over it
    *  at this progress. */
   readonly upgradePct?: number;
+  /** For an upgrading building: the type it rises into, the next tier or one an order skipped to. */
+  readonly upgradeTypeId?: number;
   /** For a finished building: mid production cycle (`Production` present), which switches on an animated
    *  state overlay such as the mill's rotor. Approximation of the original's overlay state 1:
    *  `Production` persists through a brief worker-away pause, whose exact behaviour is unobserved. */
@@ -303,6 +305,7 @@ export function newDrawItem(
     female: undefined,
     scriptedLook: undefined,
     upgradePct: undefined,
+    upgradeTypeId: undefined,
     working: undefined,
     landscapeOverlayMask: undefined,
     hpFrac: undefined,

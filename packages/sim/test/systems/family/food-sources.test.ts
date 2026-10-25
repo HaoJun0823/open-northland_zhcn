@@ -142,7 +142,11 @@ describe('foodSourcesOf', () => {
     sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
     sim.world.destroy(heap);
     sim.world.add(warehouse, UnderConstruction, { labor: fx.fromInt(0) });
-    sim.world.add(warehouse, Upgrading, { savedStock: new Map([[FOOD, 1]]), seeded: new Map() });
+    sim.world.add(warehouse, Upgrading, {
+      target: sim.world.get(warehouse, Building).buildingType,
+      savedStock: new Map([[FOOD, 1]]),
+      seeded: new Map(),
+    });
     sim.world.mut(warehouse, Stockpile).amounts.clear(); // the build hold, now empty
     sim.world.mut(home, Building).buildingType = WAREHOUSE;
     expect(foodSourcesOf(sim.world, sim.content).candidates).toEqual([home, warehouse]);
@@ -153,7 +157,11 @@ describe('foodSourcesOf', () => {
     const sim = new Simulation({ seed: 1, content: foodContent() });
     const warehouse = storeAt(sim, 1, WOOD, 1, WAREHOUSE);
     sim.world.add(warehouse, UnderConstruction, { labor: fx.fromInt(0) });
-    sim.world.add(warehouse, Upgrading, { savedStock: new Map([[WOOD, 1]]), seeded: new Map() });
+    sim.world.add(warehouse, Upgrading, {
+      target: sim.world.get(warehouse, Building).buildingType,
+      savedStock: new Map([[WOOD, 1]]),
+      seeded: new Map(),
+    });
     expect(foodSourcesOf(sim.world, sim.content).candidates).toEqual([]);
     setAccessibleStockAmount(sim.world, warehouse, FOOD, 1);
     expect(foodSourcesOf(sim.world, sim.content).candidates).toEqual([warehouse]);

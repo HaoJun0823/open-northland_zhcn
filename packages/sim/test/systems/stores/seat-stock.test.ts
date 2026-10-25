@@ -83,7 +83,11 @@ describe('seatStockOf: the one seat-stock rule the summary bar and the AI share'
   it("counts the unit in an own settler's hands and the stock an upgrading building keeps aside", () => {
     const sim = fixture();
     const house = houseAt(sim, 10, 10, P0, [[WOOD, 2]]);
-    sim.world.add(house, Upgrading, { savedStock: new Map([[STONE, 3]]), seeded: new Map() });
+    sim.world.add(house, Upgrading, {
+      target: sim.world.get(house, Building).buildingType,
+      savedStock: new Map([[STONE, 3]]),
+      seeded: new Map(),
+    });
     const carrier = sim.world.create();
     sim.world.add(carrier, Position, positionOfNode(12, 10));
     sim.world.add(carrier, Owner, { player: P0 });
@@ -149,7 +153,11 @@ describe('seatStockOf: the one seat-stock rule the summary bar and the AI share'
     world.add(carrier, Carrying, { goodType: STONE, amount: 1 });
     expectCoherent();
     world.mut(carrier, Carrying).amount = 2;
-    world.add(house, Upgrading, { savedStock: new Map([[WOOD, 3]]), seeded: new Map() });
+    world.add(house, Upgrading, {
+      target: world.get(house, Building).buildingType,
+      savedStock: new Map([[WOOD, 3]]),
+      seeded: new Map(),
+    });
     expectCoherent();
     world.mut(house, Upgrading).savedStock.set(WOOD, 5);
     world.remove(carrier, Carrying);

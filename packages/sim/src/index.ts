@@ -74,6 +74,7 @@ export {
   harvestJobsOf,
   jobAllowsAtomic,
   stockSlotsForType,
+  upgradeBillForType,
 } from './core/content-index.js';
 export {
   EventBuffer,

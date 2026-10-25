@@ -675,6 +675,11 @@ export const deContent = {
         wonder_8th_wonder: 'Achtes Weltwunder',
       },
     },
+    'upgrade-levels': {
+      title: 'Ausbau über mehrere Stufen',
+      summary:
+        'Ein Wohnhaus wird direkt von Stufe 1 auf 5 ausgebaut; daneben ein Wohnhaus, ein Lager und eine Schreinerei auf Stufe 1, um die Stufenwahl auszuprobieren.',
+    },
     'upgrade-tribes': {
       title: 'Ausbau verschiedener Kulturen',
       summary:

@@ -47,7 +47,11 @@ import {
 function startUpgrade(sim: Simulation, b: Entity): void {
   sim.world.mut(b, Building).built = fx.fromInt(0);
   sim.world.add(b, UnderConstruction, { labor: fx.fromInt(0) });
-  sim.world.add(b, Upgrading, { savedStock: new Map(), seeded: new Map() });
+  sim.world.add(b, Upgrading, {
+    target: sim.world.get(b, Building).buildingType,
+    savedStock: new Map(),
+    seeded: new Map(),
+  });
 }
 
 /** Assert `settler` is waiting out `site`'s build: standing on one of its work cells, or walking to one. */

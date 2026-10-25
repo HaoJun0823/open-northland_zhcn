@@ -1,5 +1,6 @@
 import { TICKS_PER_SECOND, type WireFrame } from '@open-northland/net-protocol';
 import { type Deliver, isSilent, isSynced, type Member, type Refusal } from '../member.js';
+import type { RelayLog } from '../relay-log.js';
 import {
   type CachedSnapshot,
   CatchUpStore,
@@ -16,6 +17,7 @@ export const SNAPSHOT_RETRY_MS = 10_000;
  *  about what a donor's export and upload hold the room for. */
 const RETURN_REPLAY_SECONDS = 10;
 export const RETURN_SNAPSHOT_MAX_TICKS = RETURN_REPLAY_SECONDS * TICKS_PER_SECOND;
+const BYTES_PER_KIB = 1024;
 
 /**
  * The room's cached snapshot, the frames since it, and the members waiting to be brought back to
@@ -41,6 +43,7 @@ export class Resync {
     private readonly members: ReadonlyMap<string, Member>,
     private readonly deliver: Deliver,
     now: number,
+    private readonly log: RelayLog = () => undefined,
   ) {
     this.lastRefreshAt = now;
   }
@@ -141,6 +144,14 @@ export class Resync {
   /** Take a snapshot at `tick`; true when it is newer than the cached one. Whoever waits is served. */
   take(from: string, tick: number, bytes: string, now: number): boolean {
     const newer = this.catchUp.cache({ tick, from, bytes }, this.snapshotInvalid);
+    // From the request to the cache: the donor's export and upload, the time a refresh costs the room.
+    if (newer)
+      this.log('snapshot cached', {
+        from,
+        tick,
+        kib: Math.round(bytes.length / BYTES_PER_KIB),
+        ...(this.requestedAt === null ? {} : { askedMs: Math.round(now - this.requestedAt) }),
+      });
     if (newer || (this.catchUp.bytes === 0 && this.catchUp.snapshot?.tick === tick)) {
       this.lastRefreshAt = now;
       this.refreshing = false;
@@ -195,10 +206,12 @@ export class Resync {
       }
     }
     if (donor === null) return;
+    const retry = this.triedDonors.size > 0;
     this.requestedAt = now;
     this.askedDonor = donor.token;
     this.triedDonors.add(donor.token);
     this.deliver(donor, { kind: 'snapshotRequest' });
+    this.log('snapshot asked', { donor: donor.nick, ...(retry ? { retry } : {}) });
   }
 
   /** While any seated player remains, only seated players donate. */

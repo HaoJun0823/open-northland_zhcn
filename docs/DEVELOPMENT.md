@@ -257,7 +257,13 @@ check at `/healthz` on the same port. It loads no content and runs no simulation
 speaks is [`NETWORK.md`](NETWORK.md). `HOST` binds one address, `RELAY_MAX_ROOMS` and
 `RELAY_MAX_CONNECTIONS` cap the rooms and the open sockets, and `RELAY_PUBLIC_URL` and `RELAY_BUILD`
 are what the health check reports as the address and the build; the log is one JSON record per
-line, a failed start included. Every message it handles is exercised by the tests under
+line, a failed start included. Beside joins, drops and each room's life, it records what tells a slow
+machine from a slow link after the fact: `waiting` names whom the running clock holds for and why,
+`governed` each change of the paced speed, `snapshot asked` and `snapshot cached` each refresh with its
+donor, size and the time from request to cache, and `room status`, every five minutes, each member's
+round trip, jitter, input delay, ticks behind and reported tick cost. `disconnect` carries the close
+code (1005 for a close without one, 1006 for a dropped link) and the relay's `cause` when it closed
+the socket itself. Every message it handles is exercised by the tests under
 `packages/net-server/test`, and the decoded-map run in `npm run test:content` plays real sessions
 through it in memory. `ON_RELAY_URL=wss://…` points the socket test at a deployed relay instead:
 

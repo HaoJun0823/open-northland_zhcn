@@ -1,10 +1,12 @@
 import { TICK_MS } from '@open-northland/net-protocol';
-import { STATUS_LOG_INTERVAL_MS } from '@open-northland/net-server';
+import { SILENT_AFTER_MS, SNAPSHOT_REFRESH_MS, STATUS_LOG_INTERVAL_MS } from '@open-northland/net-server';
 import { describe, expect, it } from 'vitest';
 import {
   ackThrough,
   digest,
   LOAD,
+  type MessageStage,
+  type Peer,
   SEATS,
   SETTINGS,
   stage,
@@ -16,6 +18,11 @@ import {
 /** The diagnostic lines an operator reads to see who plays, in which room, and for how long. */
 
 const SECOND_MS = 1000;
+/** Long enough without an acknowledgement for a heard member to trail into `slow`. */
+const SLOW_SECONDS = 8;
+/** RFC 6455: the connection closed without a close frame. */
+const ABNORMAL_CLOSURE = 1006;
+const SNAPSHOT_BYTES = Buffer.from('opaque snapshot').toString('base64');
 
 function logged() {
   const lines: { event: string; fields: Record<string, unknown> }[] = [];
@@ -35,6 +42,39 @@ function seatedPair(s: ReturnType<typeof logged>) {
   for (const peer of [a, b]) peer.send({ kind: 'setReady', ready: true });
   return { a, b, roomId };
 }
+
+/** A started room both members of `seatedPair` loaded, its clock running. */
+function runningPair(s: ReturnType<typeof logged>) {
+  const pair = seatedPair(s);
+  pair.a.send({ kind: 'start' });
+  for (const peer of [pair.a, pair.b]) peer.send({ kind: 'loaded', tick: 0, world: 0 });
+  s.advance(TICK_MS);
+  return pair;
+}
+
+/** `seconds` of play in whole seconds: `answering` answer each ping and acknowledge every frame,
+ *  `heard` only answer pings. */
+function play(
+  s: MessageStage,
+  answering: readonly Peer[],
+  seconds: number,
+  heard: readonly Peer[] = [],
+): void {
+  for (let second = 0; second < seconds; second++) {
+    s.advance(SECOND_MS);
+    for (const peer of [...answering, ...heard]) {
+      const ping = peer.last('ping');
+      if (ping !== undefined) peer.send({ kind: 'pong', t: ping.t });
+    }
+    for (const peer of answering) {
+      const from = acked.get(peer) ?? 0;
+      const tick = peer.last('frame')?.tick ?? 0;
+      ackThrough(peer, from + 1, tick);
+      acked.set(peer, tick);
+    }
+  }
+}
+const acked = new WeakMap<Peer, number>();
 
 describe('relay log', () => {
   it('follows a room from creation through a played match to its drop', () => {
@@ -130,6 +170,70 @@ describe('relay log', () => {
         domains: ['rng'],
       },
     ]);
+  });
+
+  it('notes whom the clock holds for or paces, and why', () => {
+    const s = logged();
+    const { a, b, roomId } = runningPair(s);
+    const room = { room: roomId, name: SETTINGS.name };
+    // Bartek answers nothing: silent, and the clock holds for him until he is heard again.
+    play(s, [a], SILENT_AFTER_MS / SECOND_MS + 1);
+    expect(s.events('waiting').at(-1)).toMatchObject({
+      ...room,
+      for: [{ nick: 'Bartek', reason: 'silent' }],
+    });
+    play(s, [a, b], 2);
+    expect(s.events('waiting').at(-1)).toMatchObject({ ...room, for: [] });
+    // Heard but acknowledging nothing, he trails the clock and the room is paced for him.
+    play(s, [a], SLOW_SECONDS, [b]);
+    expect(s.events('governed').at(-1)).toMatchObject({ ...room, governed: { nick: 'Bartek' } });
+    play(s, [a, b], 2);
+    expect(s.events('governed').at(-1)).toMatchObject({ ...room, governed: null });
+  });
+
+  it('notes each snapshot request, what it cost the donor, and every link on the cadence', () => {
+    const s = logged();
+    const { a, b, roomId } = runningPair(s);
+    play(s, [a, b], SNAPSHOT_REFRESH_MS / SECOND_MS - 1);
+    expect(s.events('snapshot asked')).toEqual([]);
+    for (let second = 0; second < 2 && s.events('snapshot asked').length === 0; second++) play(s, [a, b], 1);
+    const asked = s.events('snapshot asked');
+    expect(asked).toHaveLength(1);
+    const donor = asked[0]?.donor === 'Ania' ? a : b;
+    play(s, [a, b], 2);
+    const tick = donor.last('frame')?.tick ?? 0;
+    donor.send({ kind: 'blob', type: 'snapshot', world: 0, to: null, tick, bytes: SNAPSHOT_BYTES });
+    expect(s.events('snapshot cached')).toEqual([
+      { room: roomId, name: SETTINGS.name, from: asked[0]?.donor, tick, kib: 0, askedMs: 2 * SECOND_MS },
+    ]);
+
+    play(s, [a, b], STATUS_LOG_INTERVAL_MS / SECOND_MS);
+    const status = s.events('room status').at(-1);
+    expect(status).toMatchObject({ room: roomId, speed: 1, paused: false, governed: null });
+    expect(status?.members).toEqual([
+      expect.objectContaining({ nick: 'Ania', seat: 0, connected: true, delayTicks: expect.any(Number) }),
+      expect.objectContaining({
+        nick: 'Bartek',
+        roundTripMs: 0,
+        behindTicks: expect.any(Number),
+        tickMs: LOAD.tickMs,
+      }),
+    ]);
+  });
+
+  it('says how a connection ended', () => {
+    const s = logged();
+    const first = s.introduce(TOKEN_A, 'Ania');
+    s.introduce(TOKEN_A, 'Ania');
+    expect(s.events('hello').at(-1)).toEqual({ nick: 'Ania', rejoined: false, replaced: true });
+    expect(first.closed()).toBe('replaced');
+
+    const b = s.introduce(TOKEN_B, 'Bartek');
+    s.relay.disconnect(b.handle, { code: ABNORMAL_CLOSURE });
+    expect(s.events('disconnect').at(-1)).toMatchObject({ nick: 'Bartek', closeCode: ABNORMAL_CLOSURE });
+    const stranger = s.peer();
+    stranger.send({ kind: 'listRooms' });
+    expect(s.events('disconnect').at(-1)).toMatchObject({ nick: '', cause: 'helloFirst' });
   });
 
   it('counts clients, rooms and players on a cadence, and keeps quiet while idle', () => {

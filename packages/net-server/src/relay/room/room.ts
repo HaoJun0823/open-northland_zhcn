@@ -462,6 +462,31 @@ export class Room {
     };
   }
 
+  /** The running room's clock and each member's link as the relay measures it, for the periodic
+   *  status: what an operator needs to tell a slow machine from a slow link after the fact. */
+  logStatus(): void {
+    const clock = this.game?.clockMessage(null);
+    this.log('room status', {
+      ...(clock === undefined
+        ? {}
+        : { tick: clock.tick, speed: clock.speed, paused: clock.paused, governed: clock.governed }),
+      members: [...this.members.values()].map((member) => ({
+        nick: member.nick,
+        seat: member.seat,
+        connected: member.connected,
+        ...(member.connected
+          ? {
+              roundTripMs: Math.round(member.roundTripMs),
+              jitterMs: Math.round(member.jitterMs),
+              delayTicks: member.delayTicks,
+            }
+          : {}),
+        behindTicks: this.behindTicks(member),
+        ...(member.load === null ? {} : { tickMs: member.load.tickMs, buffered: member.load.buffered }),
+      })),
+    });
+  }
+
   /** The clock's start and the match's end happen inside the game; each is logged once, on the first
    *  poll after it or when the room is dropped. */
   noteMilestones(now: number): void {

@@ -67,6 +67,13 @@ class Client {
 
 export type ClientHandle = Client;
 
+/** How a connection ended, for the log: the WebSocket close code its socket reported (1005 for a
+ *  close without one, 1006 for one with no close frame), and `cause` when the relay closed it. */
+export interface ConnectionEnd {
+  readonly code?: number;
+  readonly cause?: string;
+}
+
 /** Transport-free and clock-free: the host feeds it connections, one `receive` per message, and one
  *  `advance` per poll of its clock. */
 export class Relay {
@@ -112,7 +119,7 @@ export class Relay {
     return client;
   }
 
-  disconnect(client: ClientHandle): void {
+  disconnect(client: ClientHandle, end: ConnectionEnd = {}): void {
     if (!this.clients.delete(client)) return;
     if (client.token !== null && this.byToken.get(client.token) === client) this.byToken.delete(client.token);
     const room = client.room;
@@ -125,6 +132,8 @@ export class Relay {
       ...(room === null ? {} : { room: room.id }),
       connectedSeconds: wholeSeconds(this.now() - client.connectedAt),
       clients: this.clients.size,
+      ...(end.code === undefined ? {} : { closeCode: end.code }),
+      ...(end.cause === undefined ? {} : { cause: end.cause }),
     });
   }
 
@@ -219,7 +228,8 @@ export class Relay {
     }
   }
 
-  /** Who is connected and what the rooms are doing; nothing while the relay is idle. */
+  /** Who is connected and what the rooms are doing, then each running room's clock and links; nothing
+   *  while the relay is idle. */
   private logStatus(): void {
     if (this.clients.size === 0 && this.rooms.size === 0) return;
     const rooms = { lobby: 0, running: 0, ended: 0 };
@@ -229,6 +239,7 @@ export class Relay {
       if (room.state === 'running') playing += room.connectedCount;
     }
     this.log('status', { clients: this.clients.size, rooms, playing });
+    for (const room of this.rooms.values()) if (room.state === 'running') room.logStatus();
   }
 
   /** A fault in one room's clock ends that room; it would otherwise recur on every poll and stall
@@ -320,6 +331,8 @@ export class Relay {
       nick: message.nick,
       rejoined: member !== null,
       ...(room === undefined || member === null ? {} : { room: room.id }),
+      // The token's older connection was still open: the client gave up on a link the relay still held.
+      ...(previous === undefined ? {} : { replaced: true }),
     });
   }
 
@@ -492,6 +505,6 @@ export class Relay {
   private fail(client: Client, reason: ClosingReason): void {
     client.connection.send({ kind: 'error', reason });
     client.connection.close(reason.code);
-    this.disconnect(client);
+    this.disconnect(client, { cause: reason.code });
   }
 }

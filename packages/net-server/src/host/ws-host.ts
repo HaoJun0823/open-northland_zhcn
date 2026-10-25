@@ -12,7 +12,7 @@ import {
   type ServerMessage,
 } from '@open-northland/net-protocol';
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
-import { type Connection, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
+import { type Connection, type ConnectionEnd, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
 import type { RelayLog } from '../relay/relay-log.js';
 import {
   ControlPings,
@@ -41,6 +41,8 @@ const HTTP_CONNECTION_HEADROOM = 16;
 /** A connection that has sent nothing for this long is dead to the relay, whose ping it answers every
  *  second while alive; closing it lets the seat be waited for and the token return on a new socket. */
 export const SILENT_SOCKET_MS = 30_000;
+/** The log's cause for a socket closed by `SILENT_SOCKET_MS`. */
+const SILENT_SOCKET = 'silentSocket';
 const SILENCE_CHECK_MS = 5000;
 /** TCP keepalive so a peer that vanished without a FIN is noticed by the kernel as well. */
 const TCP_KEEPALIVE_MS = 10_000;
@@ -163,6 +165,8 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   };
   const sockets = new WebSocketServer(socketOptions);
   const lastHeardAt = new Map<WebSocket, number>();
+  /** Sockets the host terminated for their silence, which close as a dropped link would. */
+  const silenced = new WeakSet<WebSocket>();
   server.on('upgrade', (request, socket, head) => {
     if (sockets.clients.size >= maxConnections) {
       socket.on('error', () => socket.destroy());
@@ -224,16 +228,16 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       },
     };
     const client = relay.connect(connection);
-    const disconnect = (): void => {
+    const disconnect = (end: ConnectionEnd): void => {
       try {
-        relay.disconnect(client);
+        relay.disconnect(client, end);
       } catch (err) {
         log('disconnect failed', { error: String(err) });
       }
     };
     const refuseTraffic = (): void => {
       socket.close(CLOSE_TRY_AGAIN_LATER, TRAFFIC_LIMIT);
-      disconnect();
+      disconnect({ code: CLOSE_TRY_AGAIN_LATER, cause: TRAFFIC_LIMIT });
     };
     const acceptTraffic = (bytes: number, messageCost: 0 | 1 = 1): boolean => {
       if (socket.readyState !== socket.OPEN) return false;
@@ -286,14 +290,15 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       } catch (err) {
         log('receive failed', { error: String(err) });
         socket.close(CLOSE_INTERNAL_ERROR, RELAY_FAULT);
+        disconnect({ code: CLOSE_INTERNAL_ERROR, cause: RELAY_FAULT });
       }
     });
     // A fault in departure handling is logged; it never reaches the process.
-    socket.on('close', () => {
+    socket.on('close', (code) => {
       request.socket.off('data', countBytes);
       request.socket.off('data', receivedBytes);
       lastHeardAt.delete(socket);
-      disconnect();
+      disconnect({ code, ...(silenced.has(socket) ? { cause: SILENT_SOCKET } : {}) });
     });
     // `ws` closes the socket itself after a protocol error; a transport error is followed by `close`.
     socket.on('error', (err) => log('socket error', { error: String(err) }));
@@ -308,7 +313,9 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const silence = setInterval(() => {
     const now = performance.now();
     for (const [socket, at] of lastHeardAt) {
-      if (now - at >= SILENT_SOCKET_MS) socket.terminate();
+      if (now - at < SILENT_SOCKET_MS) continue;
+      silenced.add(socket);
+      socket.terminate();
     }
   }, SILENCE_CHECK_MS);
   return new Promise((resolve, reject) => {

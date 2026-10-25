@@ -46,6 +46,8 @@ export class Game {
   private builtTick: number | null = null;
   private readonly initialSaveTick: number | null;
   private readonly departures: Departures;
+  /** The waited set as last logged, as `nick:reason` pairs. */
+  private loggedWait = '';
 
   constructor(
     speed: number,
@@ -65,7 +67,7 @@ export class Game {
       onEnded();
     });
     this.departures = new Departures(this.clock);
-    this.resync = new Resync(members, deliver, now);
+    this.resync = new Resync(members, deliver, now, log);
     this.orders = new SaveOrders(this.clock, this.resync, () => this.builtTick, deliver);
     if (initialSave !== null) {
       this.builtTick = initialSave.tick;
@@ -121,7 +123,7 @@ export class Game {
     return this.resync.snapshot?.tick ?? null;
   }
 
-  clockMessage(by: string | null): ServerMessage {
+  clockMessage(by: string | null): Extract<ServerMessage, { kind: 'clock' }> {
     return {
       kind: 'clock',
       tick: this.clock.nextTick,
@@ -370,6 +372,7 @@ export class Game {
     }
     const told = this.waiting.update(waited, now);
     if (told) this.broadcast(this.waiting.message(now));
+    this.logWait(waited);
     for (const tally of this.kickVotes.follow(this.members, this.waiting)) this.broadcast(tally);
     this.clock.hold(waited.length > 0);
     if (this.governFor(this.slowMembers()) && this.clock.running) this.broadcast(this.clockMessage(null));
@@ -388,7 +391,19 @@ export class Game {
     const governed = governedSpeed(slow, this.clock.tick, this.clock.speed, this.clock.governed);
     if (sameGoverned(governed, this.clock.governed)) return false;
     this.clock.govern(governed);
+    this.log('governed', { tick: this.clock.tick, speed: this.clock.speed, governed });
     return true;
+  }
+
+  /** Each change of whom the clock holds for, and why; an empty `for` ends the hold. */
+  private logWait(waited: readonly Waited[]): void {
+    const key = waited.map(({ nick, reason }) => `${nick}:${reason}`).join(',');
+    if (key === this.loggedWait) return;
+    this.loggedWait = key;
+    this.log('waiting', {
+      tick: this.clock.tick,
+      for: waited.map(({ nick, reason }) => ({ nick, reason })),
+    });
   }
 
   private slowMembers(): Member[] {

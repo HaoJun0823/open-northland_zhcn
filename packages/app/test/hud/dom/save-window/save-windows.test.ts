@@ -11,10 +11,6 @@ import {
   readStoredSettings,
 } from '../../../../src/view/settings/store.js';
 
-vi.mock('../../../../src/view/runtime/save-load/world-names.js', () => ({
-  worldNameIndex: async () => (token: string | null) => (token === null ? null : `World ${token}`),
-}));
-
 const HERE = 'here';
 const ELSEWHERE = 'elsewhere';
 
@@ -166,11 +162,11 @@ describe('save window', () => {
 
   it('offers a free name, saves it, and exports the written slot from the same window', async () => {
     const copy = messages().saveList;
-    const { menu, saveLoad } = mount([slot('World here - Save 2', 5)]);
+    const { menu, saveLoad } = mount([slot('here - Save 2', 5)]);
     menu.openPage('save');
     const save = page('save');
     const input = save.querySelector('input');
-    await settle(() => expect(input?.value).toBe('World here - Save 3'));
+    await settle(() => expect(input?.value).toBe('here - Save 3'));
     expect(document.activeElement).toBe(button(copy.save, save));
     const exportButton = button(copy.export, save);
     expect(exportButton.disabled).toBe(true);
@@ -178,16 +174,16 @@ describe('save window', () => {
     button(copy.save, save).click();
     await settle(() =>
       expect(save.querySelector('.on-saves__status')?.textContent).toBe(
-        formatMessage(copy.savedNamed, { name: 'World here - Save 3' }),
+        formatMessage(copy.savedNamed, { name: 'here - Save 3' }),
       ),
     );
-    expect(saveLoad.saveGame).toHaveBeenCalledWith('World here - Save 3');
-    expect(selectedName(save)).toBe('World here - Save 3');
+    expect(saveLoad.saveGame).toHaveBeenCalledWith('here - Save 3');
+    expect(selectedName(save)).toBe('here - Save 3');
     expect(exportButton.disabled).toBe(false);
     expect(document.activeElement).toBe(exportButton);
 
     exportButton.click();
-    await settle(() => expect(saveLoad.exportSave).toHaveBeenCalledWith('World here - Save 3'));
+    await settle(() => expect(saveLoad.exportSave).toHaveBeenCalledWith('here - Save 3'));
   });
 
   it('warns before overwriting a listed name and asks with the overwrite focused', async () => {
@@ -260,7 +256,7 @@ describe('save window', () => {
     await settle(() => question());
     button(copy.del, question()).click();
     await settle(() => expect(rowNames(save)).toEqual([]));
-    expect(input.value).toBe('World here - Save 1');
+    expect(input.value).toBe('here - Save 1');
   });
 });
 

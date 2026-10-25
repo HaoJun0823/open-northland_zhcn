@@ -267,7 +267,7 @@ export const enContent = {
     'weapon-facings': {
       title: 'Weapon facings',
       summary:
-        'Every weapon class strikes a sturdy target in each of the eight directions, fists to longbow.',
+        'Every weapon class strikes a sturdy target in each direction its reach allows, fists to longbow.',
     },
     'battle-weary': {
       title: 'Weary warband',

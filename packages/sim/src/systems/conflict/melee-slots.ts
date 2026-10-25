@@ -167,7 +167,7 @@ export class MeleeSlots {
   claim(cell: NodeId, side: Side, chaser?: SlotChaser): void {
     const prior = this.claimants.get(cell) ?? this.enRoute?.get(cell);
     if (prior !== undefined && this.canYield(cell, chaser)) {
-      stopAtNextNode(this.world, this.terrain, prior.entity);
+      stopAtNextNode(this.world, prior.entity);
       const engagement = this.world.tryMut(prior.entity, Engagement);
       if (engagement !== undefined) engagement.repathAt = this.ctx.tick;
       const order = this.world.tryMut(prior.entity, AttackOrder);
@@ -198,7 +198,7 @@ export class MeleeSlots {
     const follow = this.world.tryGet(prior.entity, PathFollow);
     const route = this.world.tryGet(prior.entity, PathRoute)?.waypoints;
     if (follow !== undefined && route !== undefined) {
-      const end = liveStepEnd(this.terrain, follow.index, route);
+      const end = liveStepEnd(follow.index, route);
       if (end !== undefined && route[end]?.node === cell) return false;
     }
     const remaining = hexNodeDistance(this.terrain, there, cell);

@@ -96,28 +96,30 @@ it.each(['tie', 'arriving', 'other owner', 'other target', 'occupied'] as const)
   },
 );
 
-it('keeps the destination of a final diagonal step reserved', () => {
+it('keeps the destination of a final step under way reserved', () => {
   const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(20, 20) });
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('expected terrain');
   const target = fighterAtNode(sim, 20, 13, OTHER, WOMAN);
-  const far = fighterAtNode(sim, 20, 10, VIKING, SOLDIER_SWORD_SHORT);
+  const far = fighterAtNode(sim, 20, 11, VIKING, SOLDIER_SWORD_SHORT);
   const near = fighterAtNode(sim, 22, 12, VIKING, SOLDIER_SWORD_SHORT);
   for (const e of [far, near]) sim.world.add(e, Owner, { player: 0 });
+  // Partway along the SE edge from (20,11) to (21,12), its final step.
   const cell = terrain.nodeAt(21, 12);
-  const midpoint = positionOfNode(20, 11);
+  const from = positionOfNode(20, 11);
+  const to = positionOfNode(21, 12);
   const start = sim.world.mut(far, Position);
-  start.x = fx.add(start.x, fx.fromFloat(0.125));
-  start.y = fx.add(start.y, fx.fromFloat(0.125));
+  start.x = fx.add(from.x, fx.div(fx.sub(to.x, from.x), fx.fromInt(2)));
+  start.y = fx.add(from.y, fx.div(fx.sub(to.y, from.y), fx.fromInt(2)));
   sim.world.add(far, MoveGoal, { cell });
   sim.world.add(far, Engagement, { target, repathAt: 100 });
   sim.world.add(far, PathRoute, {
     waypoints: [
-      { ...midpoint, x: fx.add(midpoint.x, fx.fromFloat(0.125)), node: terrain.nodeAt(20, 11) },
-      { ...positionOfNode(21, 12), node: cell },
+      { ...from, node: terrain.nodeAt(20, 11) },
+      { ...to, node: cell },
     ],
   });
-  sim.world.add(far, PathFollow, { index: 0, legElapsed: 1, legCost: 8 });
+  sim.world.add(far, PathFollow, { index: 1, legElapsed: 1, legCost: 8 });
   const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
   expect(slots.isTaken(cell, undefined, undefined, { entity: near, target })).toBe(true);
   expect(sim.world.get(far, MoveGoal).cell).toBe(cell);

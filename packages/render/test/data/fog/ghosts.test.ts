@@ -172,7 +172,7 @@ describe('FogGhostStore', () => {
     expect(drawn(seeded).map((g) => g.ref)).toEqual([6]);
   });
 
-  it('remembers walls, gates and wall sites drawn as they last stood, posts and stagger included', () => {
+  it('remembers walls, gates and wall sites drawn as they last stood, posts and shifts included', () => {
     const row = 10;
     const tileOf = (hx: number) => {
       const { x, y } = positionOfNode(hx, row);
@@ -222,7 +222,7 @@ describe('FogGhostStore', () => {
     expect(drawnFields(collectSpriteScene(snapshotOf([]), { ghosts: store }).items)).toEqual(live);
     // The comparison covers what a bare post would lose.
     expect(live.some((item) => (item.palisadePosts?.length ?? 0) > 0)).toBe(true);
-    expect(live.find((item) => item.ref === 4)?.x).not.toBe(tileToScreen(tileOf(10).x, tileOf(10).y).x);
+    expect(live.find((item) => item.ref === 4)?.x).toBe(tileToScreen(tileOf(10).x, tileOf(10).y).x);
     expect(live.find((item) => item.ref === 6)?.palisadeSite).toBe('claimed');
   });
 

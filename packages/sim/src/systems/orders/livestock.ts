@@ -89,7 +89,7 @@ export const claimAnimalOrderSystem: System = (world, ctx) => {
       world.remove(e, ClaimAnimalOrder);
       if (walk !== undefined) {
         world.remove(e, PlayerOrder);
-        stopAtNextNode(world, terrain, e);
+        stopAtNextNode(world, e);
       }
       continue;
     }

@@ -8,15 +8,13 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   buildTerrainGraph,
-  DIAGONAL_STEP,
   HALF_COLUMN,
-  HALF_ROW,
   halfCellMapFromCells,
   type NodeId,
   TerrainGraph,
   type TerrainMap,
 } from '../../../src/index.js';
-import { SLANT_STEP } from '../../../src/nav/world-metric.js';
+import { ROW_EDGE } from '../../../src/nav/world-metric.js';
 import { testContent } from '../../fixtures/content.js';
 import { crossMap, GRASS, rawGrid, WATER } from './support.js';
 
@@ -180,20 +178,16 @@ function groundEdgesClosing(closed: readonly (readonly [number, number, number])
 }
 
 describe('steps - the pathfinder half-cell lattice edge set', () => {
-  it('emits the six edges then the composed diagonals in canonical order with their world-length costs', () => {
+  it('emits the six edges in canonical order with their world-length costs', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(5, 5));
     const steps = g.steps(g.nodeAt(2, 2)).map((s) => ({ ...g.coordsOf(s.node), cost: s.cost }));
     expect(steps).toEqual([
       { x: 3, y: 2, cost: HALF_COLUMN }, // E - one half-column (34 px)
-      { x: 2, y: 3, cost: HALF_ROW }, // SE - straight down the column from an even row (19 px)
-      { x: 1, y: 3, cost: SLANT_STEP }, // SW - one column west (39 px)
+      { x: 2, y: 3, cost: ROW_EDGE }, // SE - a quarter column east and half a row down (25.5 px)
+      { x: 1, y: 3, cost: ROW_EDGE }, // SW
       { x: 1, y: 2, cost: HALF_COLUMN }, // W
-      { x: 1, y: 1, cost: SLANT_STEP }, // NW
-      { x: 2, y: 1, cost: HALF_ROW }, // NE
-      { x: 3, y: 4, cost: DIAGONAL_STEP }, // SE twice - the 51 px cell diagonal
-      { x: 1, y: 4, cost: DIAGONAL_STEP }, // SW twice
-      { x: 1, y: 0, cost: DIAGONAL_STEP }, // NW twice
-      { x: 3, y: 0, cost: DIAGONAL_STEP }, // NE twice
+      { x: 1, y: 1, cost: ROW_EDGE }, // NW
+      { x: 2, y: 1, cost: ROW_EDGE }, // NE
     ]);
   });
 
@@ -202,51 +196,12 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     const steps = g.steps(g.nodeAt(2, 3)).map((s) => ({ ...g.coordsOf(s.node), cost: s.cost }));
     expect(steps).toEqual([
       { x: 3, y: 3, cost: HALF_COLUMN }, // E
-      { x: 3, y: 4, cost: SLANT_STEP }, // SE
-      { x: 2, y: 4, cost: HALF_ROW }, // SW
+      { x: 3, y: 4, cost: ROW_EDGE }, // SE
+      { x: 2, y: 4, cost: ROW_EDGE }, // SW
       { x: 1, y: 3, cost: HALF_COLUMN }, // W
-      { x: 2, y: 2, cost: HALF_ROW }, // NW
-      { x: 3, y: 2, cost: SLANT_STEP }, // NE
-      { x: 3, y: 5, cost: DIAGONAL_STEP }, // SE twice lands where it does from an even row
-      { x: 1, y: 5, cost: DIAGONAL_STEP },
-      { x: 1, y: 1, cost: DIAGONAL_STEP },
-      { x: 3, y: 1, cost: DIAGONAL_STEP },
+      { x: 2, y: 2, cost: ROW_EDGE }, // NW
+      { x: 3, y: 2, cost: ROW_EDGE }, // NE
     ]);
-  });
-
-  it('drops a composed diagonal with an unwalkable middle node', () => {
-    // From (1,1), SE twice lands on (2,3) through (2,2); the grass destination cannot bypass that water.
-    const g = buildTerrainGraph(
-      testContent(),
-      rawGrid(4, 5, [
-        [1, 2],
-        [2, 2],
-      ]),
-    );
-    const se = g
-      .steps(g.nodeAt(1, 1))
-      .map((s) => g.coordsOf(s.node))
-      .filter((c) => c.x === 2 && c.y === 3);
-    expect(se).toEqual([]);
-  });
-
-  it('keeps a composed diagonal whose middle node is walkable beside an unwalkable one', () => {
-    const g = buildTerrainGraph(testContent(), rawGrid(4, 5, [[1, 2]]));
-    const se = g
-      .steps(g.nodeAt(1, 1))
-      .map((s) => g.coordsOf(s.node))
-      .filter((c) => c.x === 2 && c.y === 3);
-    expect(se).toEqual([{ x: 2, y: 3 }]);
-  });
-
-  it('gates the composed diagonal middle node on the dynamic blocked overlay too', () => {
-    const g = buildTerrainGraph(testContent(), rawGrid(4, 5));
-    const blocked = new Set<NodeId>([g.nodeAt(1, 2), g.nodeAt(2, 2)]); // the middle of (1,1)→(2,3) and its neighbour
-    const se = g
-      .steps(g.nodeAt(1, 1), blocked)
-      .map((s) => g.coordsOf(s.node))
-      .filter((c) => c.x === 2 && c.y === 3);
-    expect(se).toEqual([]);
   });
 
   it('omits an unwalkable destination (walkability gates the DESTINATION node)', () => {
@@ -265,7 +220,6 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
         // Straight up from an even row is its NE edge, straight down from an odd row its SW one.
         [2, 2, HEX_EDGE.NORTH_EAST],
         [2, 3, HEX_EDGE.SOUTH_WEST],
-        // SE twice from even (2,2) runs SE to (2,3), then SE again to (3,4): the middle node's edge decides.
         [2, 3, HEX_EDGE.SOUTH_EAST],
       ]),
     });
@@ -274,17 +228,13 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
       { x: 2, y: 3 }, // SE, straight down from an even row
       { x: 1, y: 3 }, // SW
       { x: 1, y: 2 }, // W
-      { x: 1, y: 1 }, // NW
-      { x: 1, y: 4 }, // SW twice, through (1,3)
-      { x: 1, y: 0 }, // NW twice, through (1,1); SE twice is cut at (2,3), NE at this node
+      { x: 1, y: 1 }, // NW; NE is cut at this node
     ]);
     expect(from(2, 3)).toEqual([
       { x: 3, y: 3 }, // E
       { x: 1, y: 3 }, // W
       { x: 2, y: 2 }, // NW, straight up from an odd row
-      { x: 3, y: 2 }, // NE
-      { x: 1, y: 1 }, // NW twice, through (2,2)
-      { x: 3, y: 1 }, // NE twice, through (3,2)
+      { x: 3, y: 2 }, // NE; SE and SW are cut at this node
     ]);
   });
 
@@ -318,7 +268,7 @@ describe('steps - the pathfinder half-cell lattice edge set', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(2, 2));
     const blocked = new Set<NodeId>([g.nodeAt(1, 0)]); // dynamically block the E node
     const steps = g.steps(g.nodeAt(0, 0), blocked).map((s) => g.coordsOf(s.node));
-    // E blocked; SE (0,1) survives - the composed SE diagonal (1,2) is off-map.
+    // E blocked; SE (0,1) survives.
     expect(steps).toEqual([{ x: 0, y: 1 }]);
   });
 });

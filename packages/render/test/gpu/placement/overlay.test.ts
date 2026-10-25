@@ -13,9 +13,9 @@ describe('overlayBounds', () => {
     const b = overlayBounds(frame, 0);
     // Frame cells are half-cell nodes whose diamonds have half-extents (TILE_HALF_W, TILE_HALF_H/2)
     // grown by a few-px fusing pad, so the box clears every border node's centre by a half-extent and
-    // the strict comparison is the pad's own room. The node lattice is rectangular, with no overhang.
+    // the strict comparison is the pad's own room. An odd row's eastmost node sits a quarter cell further.
     const topLeft = halfCellToScreen(frame.minCol, frame.minRow);
-    const bottomRight = halfCellToScreen(frame.maxCol, frame.maxRow);
+    const bottomRight = halfCellToScreen(frame.maxCol, frame.maxRow | 1);
     expect(b.x).toBeLessThan(topLeft.x - TILE_HALF_W);
     expect(b.x + b.width).toBeGreaterThan(bottomRight.x + TILE_HALF_W);
     expect(b.y).toBeLessThan(topLeft.y - TILE_HALF_H / 2);

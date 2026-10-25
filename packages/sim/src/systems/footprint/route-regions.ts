@@ -32,9 +32,9 @@ const MAX_STAMP = 0xffff;
 const POCKET_ID_LIMIT = 2 ** 20;
 
 /** Every node whose step edges a block flip at the origin can add or remove, as offsets from it: the
- *  flipped node's own steps and both ends of each composed diagonal it is the middle node of. */
+ *  flipped node's own steps. */
 const FLIP_REACH_X = 1;
-const FLIP_REACH_Y = 2;
+const FLIP_REACH_Y = 1;
 
 interface RouteRegionCache {
   readonly terrain: TerrainGraph;

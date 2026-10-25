@@ -23,7 +23,7 @@ import {
 import { type Fixed, fx } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { positionOfNode, positionXOfNode, positionXOfWorld, positionYOfNode } from '../../nav/halfcell.js';
+import { positionXOfNode, positionYOfNode } from '../../nav/halfcell.js';
 import { nearestUnblockedNode } from '../../nav/nearest.js';
 import { findPath, RACE_SLICE_EXPLORED, type SearchStats } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
@@ -297,7 +297,7 @@ export function drainPathRequests(
     const stepEnd =
       req.retainRoute || req.grind || !finishesStepOnReroute(world, e)
         ? undefined
-        : freeStepEnd(world, terrain, e, blocked);
+        : freeStepEnd(world, e, blocked);
     const asked = startBesideBlocks(world, terrain, e, req, traversal, structures);
     const start = stepEnd ?? asked;
     // A goal taken only by a standing unit, of any side, is recoverable: re-aim at the nearest free node so
@@ -374,7 +374,7 @@ export function drainPathRequests(
     const previous = world.tryGet(e, PathFollow);
     const previousStops = world.tryGet(e, PathRoute)?.waypoints;
     // A topology reroute starts at the end of the retained safe prefix. Finish that prefix
-    // before the detour, including any diagonal midpoint on the way back from a closed edge.
+    // before the detour.
     if (req.retainRoute && previous !== undefined && previousStops?.at(-1)?.node === req.start) {
       const spliced = [...previousStops, ...waypoints.slice(1)];
       world.mut(e, PathRoute).waypoints = spliced;
@@ -415,16 +415,10 @@ export function drainPathRequests(
         ? 0
         : 1;
     // Keep the departed leg in the route history when its new start is still ahead. A later
-    // closure needs that history to turn back safely, including the far half of a diagonal.
-    if (index === 0 && oldStart !== undefined && previous !== undefined) {
-      const centre = positionOfNode(terrain.xOf(oldStart.node), terrain.yOf(oldStart.node));
-      const before = previousStops?.[previous.index - 2];
-      const history =
-        before !== undefined && (oldStart.x !== centre.x || oldStart.y !== centre.y)
-          ? [before, oldStart]
-          : [oldStart];
-      waypoints = [...history, ...waypoints];
-      index = history.length;
+    // closure needs that history to turn back safely.
+    if (index === 0 && oldStart !== undefined) {
+      waypoints = [oldStart, ...waypoints];
+      index = 1;
     }
     world.add(e, PathRoute, { waypoints });
     routeBoundsOf(terrain, waypoints);
@@ -528,19 +522,14 @@ function finishesStepOnReroute(world: World, e: Entity): boolean {
  * Approximation of the original, whose walk is an atomic one-step action; whether an order can cut that
  * step short is unconfirmed.
  */
-function freeStepEnd(
-  world: World,
-  terrain: TerrainGraph,
-  e: Entity,
-  blocked: BlockOverlay,
-): NodeId | undefined {
+function freeStepEnd(world: World, e: Entity, blocked: BlockOverlay): NodeId | undefined {
   const follow = world.tryGet(e, PathFollow);
   const stops = world.tryGet(e, PathRoute)?.waypoints;
   const p = world.tryGet(e, Position);
   if (follow === undefined || stops === undefined || p === undefined) return undefined;
   const from = stops[follow.index - 1];
   if (from === undefined || (from.x === p.x && from.y === p.y)) return undefined;
-  const end = liveStepEnd(terrain, follow.index, stops);
+  const end = liveStepEnd(follow.index, stops);
   const node = end === undefined ? undefined : stops[end]?.node;
   return node === undefined || blocked.has(node) ? undefined : node;
 }
@@ -557,51 +546,15 @@ function startIsAhead(position: { x: Fixed; y: Fixed }, waypoints: readonly Wayp
   return approachX * outgoingX + approachY * outgoingY > 0;
 }
 
-/**
- * Turn a node path into the stops a walker steps between, each with the lattice node whose roughness
- * paces the step that leaves it. A diagonal lattice edge is two of the original's steps through the
- * node between its rows, so it gets its midpoint as a stop: the edge's world-straight middle, which is
- * also where the stagger's triangle wave kinks for a leg leaving an odd half-row, so interpolating each
- * half linearly in grid coordinates stays straight on screen. The midpoint's node is the original's own
- * neighbour there, an odd-row node half a column to +x of this lattice's (`hexNeighboursOf`).
- */
+/** Turn a node path into the stops a walker steps between, each on its node's centre with the lattice
+ *  node whose roughness paces the step that leaves it. */
 function pathToWaypoints(terrain: TerrainGraph, path: ReadonlyArray<NodeId>): Waypoint[] {
-  // Sized up front: a march's route holds a thousand stops, and growing it doubles what it allocates.
-  let diagonals = 0;
-  for (let i = 1; i < path.length; i++) {
-    const from = path[i - 1];
-    const to = path[i];
-    if (from !== undefined && to !== undefined && Math.abs(terrain.yOf(to) - terrain.yOf(from)) === 2)
-      diagonals++;
-  }
-  const waypoints = new Array<Waypoint>(path.length + diagonals);
-  let count = 0;
-  let prevX = 0;
-  let prevY = 0;
-  for (let i = 0; i < path.length; i++) {
-    const node = path[i];
-    if (node === undefined) continue;
+  return path.map((node) => {
     // `yOf` once and the column by subtraction: `xOf` exactly, one division fewer.
     const y = terrain.yOf(node);
     const x = node - y * terrain.width;
-    if (i > 0 && Math.abs(y - prevY) === 2) {
-      // (hy₁+hy₂)/4 is the row the leg's middle lies on; the middle's world x is (hx₁+hx₂)/4 columns, a
-      // quarter and so exact in fixed point.
-      const rowY = fx.fromInt((prevY + y) / 4);
-      const midWorldX = fx.div(fx.fromInt(prevX + x), fx.fromInt(4));
-      const midX = x > prevX ? prevX + (prevY & 1) : prevX + (prevY & 1) - 1;
-      waypoints[count++] = {
-        x: positionXOfWorld(midWorldX, rowY),
-        y: rowY,
-        node: terrain.nodeAt(midX, (prevY + y) / 2),
-      };
-    }
-    waypoints[count++] = { x: positionXOfNode(x, y), y: positionYOfNode(y), node };
-    prevX = x;
-    prevY = y;
-  }
-  waypoints.length = count;
-  return waypoints;
+    return { x: positionXOfNode(x, y), y: positionYOfNode(y), node };
+  });
 }
 
 /** {@link resolvePath} through the route memo, for a collider seen as `player`. */

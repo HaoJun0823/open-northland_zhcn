@@ -5,7 +5,10 @@ import {
   palisadePostOffsets,
   planShiftX,
 } from '../../../../src/data/scene/palisades/connections.js';
-import { PALISADE_STAGGER_PX } from '../../../../src/data/scene/palisades/stagger.js';
+import {
+  PALISADE_COLUMN_SHIFT_PX,
+  palisadeColumnShiftX,
+} from '../../../../src/data/scene/palisades/stagger.js';
 import { buildSpriteScene } from '../../../../src/index.js';
 import { snapshotOf } from '../../../support/fixtures.js';
 
@@ -58,7 +61,8 @@ describe('palisadePostOffsets', () => {
     };
     const drawn = buildSpriteScene(snapshotOf([extended]));
     expect(drawn[0]?.palisadePosts).toHaveLength(15);
-    expect(drawn[0]?.palisadePosts?.at(-1)).toMatchObject({ dx: 0, dy: -95, builtPct: 40 });
+    // From the odd anchor row to an even one, a quarter cell back west.
+    expect(drawn[0]?.palisadePosts?.at(-1)).toMatchObject({ dx: -17, dy: -95, builtPct: 40 });
     const posts = drawn[0]?.palisadePosts ?? [];
     expect(posts.every((post) => post.builtPct === 40)).toBe(true);
     for (let i = 0; i < posts.length; i++) {
@@ -155,26 +159,26 @@ describe('palisadePostOffsets', () => {
     }
 
     const row = buildSpriteScene(snapshotOf([palisade(1, 10, 10), palisade(2, 11, 10)]));
-    for (const item of row) expect((item.x + PALISADE_STAGGER_PX) % 34).toBe(0);
+    for (const item of row) expect(item.x % 34).toBe(0);
     const column = buildSpriteScene(
       snapshotOf([palisade(1, 10, 9), palisade(2, 10, 10), palisade(3, 10, 11), palisade(4, 10, 12)]),
     );
-    for (const item of column) expect(item.x % 34).toBe(0);
+    for (const item of column) expect((item.x - PALISADE_COLUMN_SHIFT_PX) % 34).toBe(0);
   });
 
-  it('staggers the riser of a shallow line and keeps the corners of a rectangle square', () => {
+  it('leans the riser of a shallow line and keeps the corners of a rectangle square', () => {
     const shallow = buildSpriteScene(
       snapshotOf([palisade(1, 9, 10), palisade(2, 10, 10), palisade(3, 10, 9), palisade(4, 11, 9)]),
     );
     const xOf = (items: typeof shallow, ref: number): number =>
       items.find((i) => i.ref === ref)?.x ?? Number.NaN;
-    // Row 10 steps up at column 10 to row 9: staggered, the riser leans the way the line runs.
-    expect(xOf(shallow, 3) - xOf(shallow, 2)).toBe(2 * PALISADE_STAGGER_PX);
+    // Row 10 steps up at column 10 to row 9: on its nodes, the riser leans the way the line runs.
+    expect(xOf(shallow, 3) - xOf(shallow, 2)).toBe(17);
 
     const corner = buildSpriteScene(
       snapshotOf([palisade(1, 10, 10), palisade(2, 10, 11), palisade(3, 10, 12), palisade(4, 11, 12)]),
     );
-    for (const ref of [1, 2, 3]) expect(xOf(corner, ref) % 34).toBe(0);
+    for (const ref of [1, 2, 3]) expect((xOf(corner, ref) - PALISADE_COLUMN_SHIFT_PX) % 34).toBe(0);
   });
 
   it('plans a line where its walls will stand among the standing ones, and a standing piece where it is', () => {
@@ -183,7 +187,7 @@ describe('palisadePostOffsets', () => {
     const rowEnd = buildSpriteScene(standing).find((item) => item.ref === 2);
     // The row's end under the cursor, and a lone stake beside it that extends the row.
     expect(planShiftX([{ hx: 11, hy: 10 }], row)).toEqual([(rowEnd?.x ?? 0) - 11 * 34]);
-    expect(planShiftX([{ hx: 12, hy: 10 }], row)).toEqual([-PALISADE_STAGGER_PX]);
+    expect(planShiftX([{ hx: 12, hy: 10 }], row)).toEqual([0]);
     expect(planShiftX([{ hx: 12, hy: 10 }])).toEqual([0]);
 
     const column = palisadeLayoutOf(
@@ -193,7 +197,7 @@ describe('palisadePostOffsets', () => {
       { hx: 10, hy: 10 },
       { hx: 10, hy: 11 },
     ];
-    expect(planShiftX(extended, column)).toEqual([0, 0]);
+    expect(planShiftX(extended, column)).toEqual([palisadeColumnShiftX(10), palisadeColumnShiftX(11)]);
   });
 
   it('draws unfinished segments as ground markers and excludes them from wall connections', () => {
@@ -251,7 +255,7 @@ describe('palisadePostOffsets', () => {
     expect(items.flatMap((item) => item.palisadePosts ?? [])).toEqual([]);
   });
 
-  it('staggers the outer posts a gate leaves standing on its terminals with the gate', () => {
+  it('draws the outer posts a gate leaves standing on its terminals on their nodes, as the gate', () => {
     const gate = palisade(2, 10, 10, ONE, 697);
     const items = buildSpriteScene(
       snapshotOf([
@@ -272,7 +276,7 @@ describe('palisadePostOffsets', () => {
     );
     for (const ref of [1, 2, 3]) {
       const x = items.find((item) => item.ref === ref)?.x ?? Number.NaN;
-      expect((x + PALISADE_STAGGER_PX) % 34, `ref ${ref}`).toBe(0);
+      expect(x % 34, `ref ${ref}`).toBe(0);
     }
   });
 

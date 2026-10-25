@@ -19,7 +19,7 @@ import {
   type TerrainMap,
 } from '../../../src/index.js';
 import { walkTurnSteps } from '../../../src/systems/movement/turning.js';
-import { facingOfStep, SHIP_FULL_WAY } from '../../../src/systems/vehicles/helm.js';
+import { facingOfStep, SHIP_FULL_WAY, shipCourse } from '../../../src/systems/vehicles/helm.js';
 import {
   boardRider,
   createVehicle,
@@ -101,6 +101,27 @@ function drawnY(s: Simulation, ship: Entity): number {
 }
 
 describe('ship helm', () => {
+  it('reads a column zigzag as north up to its last leg', () => {
+    // Up the column from (6,10): NE and NW edges in turn, each a quarter column sideways.
+    const route = [9, 8, 7, 6].map((hy) => ({ hx: 6, hy }));
+    const start = { hx: 6, hy: 10 };
+    for (let step = 0; step < route.length; step++) {
+      const from = route[step - 1] ?? start;
+      expect(shipCourse(from, route, step)).toBe(WALK_DIRECTION.N);
+    }
+  });
+
+  it('steers into a closing turn on its last leg', () => {
+    // East along row 10, then a SW edge onto the goal.
+    const route = [
+      { hx: 7, hy: 10 },
+      { hx: 8, hy: 10 },
+      { hx: 9, hy: 10 },
+      { hx: 8, hy: 11 },
+    ];
+    expect(shipCourse({ hx: 9, hy: 10 }, route, 3)).toBe(WALK_DIRECTION.SW);
+  });
+
   it('gathers way from rest: its first tick covers less than a leg increment at full way', () => {
     const s = new Simulation({ seed: 5, content: testContent(), map: lakeMap() });
     const ship = crewedShip(s);

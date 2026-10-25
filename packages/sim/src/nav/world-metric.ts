@@ -12,12 +12,12 @@ import { type Fixed, fx, ONE } from '../core/fixed.js';
  *  length of one E/W navigation step. */
 export const HALF_COLUMN: Fixed = fx.div(ONE, fx.fromInt(2));
 
-/**
- * Half a row step, the N/S pitch of the navigation lattice: 19 px over the 68 px column step, 19/68
- * exactly. The N/S edge cost and `nodeLatticeDistance`'s per-half-row term both compose from this same
- * integer, so a vertical run's heuristic and its summed edges agree exactly. Not interchangeable with
- * {@link ROW_STEP}, the full-row extent: `2*HALF_ROW` truncates an ulp under it.
- */
+/** A quarter column step (17 px): how far an odd node row sits east of the even rows around it. */
+export const QUARTER_COLUMN: Fixed = fx.div(ONE, fx.fromInt(4));
+
+/** Half a row step, the N/S pitch of the navigation lattice: 19 px over the 68 px column step, 19/68
+ *  exactly. Not interchangeable with {@link ROW_STEP}, the full-row extent: `2*HALF_ROW` truncates an ulp
+ *  under it. */
 export const HALF_ROW: Fixed = fx.div(fx.fromInt(19), fx.fromInt(68));
 
 /**
@@ -27,24 +27,13 @@ export const HALF_ROW: Fixed = fx.div(fx.fromInt(19), fx.fromInt(68));
 export const ROW_STEP: Fixed = fx.div(fx.fromInt(19), fx.fromInt(34));
 
 /**
- * The world length of a row-crossing lattice edge, half a column sideways and one row up or down:
- * sqrt(1/4 + ROW_STEP^2), about 0.7498 of ONE, the measured 51 px over the 68 px column step. The
- * truncated isqrt sits below the true value, so a heuristic built on it stays admissible.
+ * The world length of each of the four row-crossing lattice edges, a quarter column sideways and half a
+ * row up or down: sqrt(QUARTER_COLUMN^2 + HALF_ROW^2), about 0.3749 of ONE, 25.5 px. Original behavior:
+ * odd node rows sit a quarter column east, so the four edges are one length. The truncated isqrt sits
+ * below the true value, so a heuristic built on it stays admissible.
  */
-export const DIAGONAL_STEP: Fixed = fx.isqrt(
-  fx.add(fx.mul(HALF_COLUMN, HALF_COLUMN), fx.mul(ROW_STEP, ROW_STEP)),
-);
-
-/**
- * The world length of a column-shifting lattice edge, half a column sideways and half a row up or down:
- * sqrt(HALF_COLUMN^2 + HALF_ROW^2), about 0.5728 of ONE, 39 px. Approximation: the original's odd node
- * rows likely sit a quarter column to +x (unverified against the running original), where this edge and
- * the straight half-row edge are mirror images of one length; on this rectangular lattice the straight
- * edge is the shorter, so a route leans by row parity. Under HALF_COLUMN + HALF_ROW, the two straight
- * steps it replaces, and over half a DIAGONAL_STEP, so two slants never beat a composed diagonal.
- */
-export const SLANT_STEP: Fixed = fx.isqrt(
-  fx.add(fx.mul(HALF_COLUMN, HALF_COLUMN), fx.mul(HALF_ROW, HALF_ROW)),
+export const ROW_EDGE: Fixed = fx.isqrt(
+  fx.add(fx.mul(QUARTER_COLUMN, QUARTER_COLUMN), fx.mul(HALF_ROW, HALF_ROW)),
 );
 
 /** The stagger's row period. */

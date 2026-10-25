@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildTerrainGraph,
-  DIAGONAL_STEP,
-  fx,
-  HALF_COLUMN,
-  HALF_ROW,
-  nodeLatticeDistance,
-} from '../../../src/index.js';
+import { buildTerrainGraph, fx, HALF_COLUMN, nodeLatticeDistance } from '../../../src/index.js';
 import { latticeOffsetDistance, latticeOffsetFloor } from '../../../src/nav/terrain/index.js';
-import { SLANT_STEP } from '../../../src/nav/world-metric.js';
+import { ROW_EDGE } from '../../../src/nav/world-metric.js';
 import { testContent } from '../../fixtures/content.js';
 import { stepDijkstra } from '../../fixtures/step-dijkstra.js';
 import { rawGrid } from './support.js';
@@ -24,44 +17,33 @@ const EVEN_ROW = 0;
 const ODD_ROW = 1;
 
 describe('nodeLatticeDistance', () => {
-  it('prices a sideways-dominant offset with all rows crossed diagonally plus half-column steps', () => {
+  it('prices a sideways offset as a row-crossing edge per half-row plus the half-columns left over', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(8, 8));
-    // (0,0)->(5,3): ax=5, ay=3 → ⌊3/2⌋=1 diagonal + 4 half-columns + the odd leftover half-row. The slant
-    // from an even row leads west, so eastward it saves nothing.
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(5, 3))).toBe(
-      fx.add(fx.add(DIAGONAL_STEP, fx.mul(fx.fromInt(4), HALF_COLUMN)), HALF_ROW),
-    );
-    // From an odd row the slant leads east: (1,3)->(6,6) replaces one half-column and the odd half-row.
-    expect(nodeLatticeDistance(g, g.nodeAt(1, 3), g.nodeAt(6, 6))).toBe(
-      fx.add(fx.add(DIAGONAL_STEP, fx.mul(fx.fromInt(3), HALF_COLUMN)), SLANT_STEP),
-    );
+    // (0,0)->(5,3): eleven quarter columns and three half-rows - three edges and four half-columns.
+    const threeRowsFourColumns = fx.add(fx.mulInt(ROW_EDGE, 3), fx.mulInt(HALF_COLUMN, 4));
+    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(5, 3))).toBe(threeRowsFourColumns);
+    // From an odd row the same eleven quarter columns: (1,3)->(7,6).
+    expect(nodeLatticeDistance(g, g.nodeAt(1, 3), g.nodeAt(7, 6))).toBe(threeRowsFourColumns);
     // Pure E: (0,0)->(4,0) = four half-columns = two full columns.
     expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(4, 0))).toBe(fx.fromInt(2));
-    // The diagonal edge itself: (0,0)->(1,2).
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(1, 2))).toBe(DIAGONAL_STEP);
     expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(0, 0))).toBe(fx.fromInt(0));
   });
 
-  it('prices a vertical-dominant offset with straight half-row steps, diagonals only for the offset', () => {
+  it('prices a climb no wider than its rows as one row-crossing edge per half-row', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(8, 8));
-    // Straight down the screen, (2,0)->(2,4): four half-row steps, no weave premium.
-    expect(nodeLatticeDistance(g, g.nodeAt(2, 0), g.nodeAt(2, 4))).toBe(fx.mul(fx.fromInt(4), HALF_ROW));
-    // (0,0)->(1,4): 2·ax=2 ≤ ay=4 - one diagonal absorbs the column, two half-rows remain.
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(1, 4))).toBe(
-      fx.add(DIAGONAL_STEP, fx.mul(fx.fromInt(2), HALF_ROW)),
-    );
-    // (0,0)->(0,3): three straight half-rows.
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(0, 3))).toBe(fx.mul(fx.fromInt(3), HALF_ROW));
+    expect(nodeLatticeDistance(g, g.nodeAt(2, 0), g.nodeAt(2, 4))).toBe(fx.mulInt(ROW_EDGE, 4));
+    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(1, 4))).toBe(fx.mulInt(ROW_EDGE, 4));
+    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(0, 3))).toBe(fx.mulInt(ROW_EDGE, 3));
   });
 
-  it('prices the slant edge itself only the way the row leans, the same from either end', () => {
+  it('prices every row-crossing edge alike, whichever way its row leans, the same from either end', () => {
     const g = buildTerrainGraph(testContent(), rawGrid(8, 8));
-    // Even rows slant west, odd rows east.
-    expect(nodeLatticeDistance(g, g.nodeAt(1, 0), g.nodeAt(0, 1))).toBe(SLANT_STEP);
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 1), g.nodeAt(1, 2))).toBe(SLANT_STEP);
-    // The other way is a half-column and a half-row, no edge joins them directly.
-    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(1, 1))).toBe(fx.add(HALF_COLUMN, HALF_ROW));
-    expect(nodeLatticeDistance(g, g.nodeAt(1, 1), g.nodeAt(0, 0))).toBe(fx.add(HALF_COLUMN, HALF_ROW));
+    expect(nodeLatticeDistance(g, g.nodeAt(1, 0), g.nodeAt(0, 1))).toBe(ROW_EDGE);
+    expect(nodeLatticeDistance(g, g.nodeAt(1, 0), g.nodeAt(1, 1))).toBe(ROW_EDGE);
+    expect(nodeLatticeDistance(g, g.nodeAt(0, 1), g.nodeAt(1, 2))).toBe(ROW_EDGE);
+    // Three quarter columns across one half-row: an edge and a half-column.
+    expect(nodeLatticeDistance(g, g.nodeAt(0, 0), g.nodeAt(1, 1))).toBe(fx.add(HALF_COLUMN, ROW_EDGE));
+    expect(nodeLatticeDistance(g, g.nodeAt(1, 1), g.nodeAt(0, 0))).toBe(fx.add(HALF_COLUMN, ROW_EDGE));
   });
 
   it('equals the cheapest walk over the graph steps from an even and from an odd row', () => {

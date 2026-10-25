@@ -9,11 +9,11 @@ import {
 } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { pairBySpace } from '../../../nav/formation.js';
-import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../nav/halfcell.js';
+import { type HalfCellNode, hexDistance, nodeOfPosition, nodeWorldX } from '../../../nav/halfcell.js';
 import { hasOpenSide, NEAREST_NODE_SEARCH_CAP } from '../../../nav/nearest.js';
 import { ringSearch } from '../../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
-import { HALF_COLUMN, HALF_ROW } from '../../../nav/world-metric.js';
+import { HALF_ROW } from '../../../nav/world-metric.js';
 import type { SystemContext } from '../../context.js';
 import { dynamicBlockOverlay } from '../../footprint/blocked.js';
 import { buildingDoorwayNodes } from '../../footprint/building-blocked-cache.js';
@@ -174,7 +174,7 @@ function formationPlaces(
 
 /** A node in world units, so a band splits on the axis it is widest across on screen. */
 function worldPoint(node: HalfCellNode): { readonly x: number; readonly y: number } {
-  return { x: node.hx * HALF_COLUMN, y: node.hy * HALF_ROW };
+  return { x: nodeWorldX(node.hx, node.hy), y: node.hy * HALF_ROW };
 }
 
 /** The nodes a standing fighter outside the band holds, read off the standing-body index, and the

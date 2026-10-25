@@ -1,14 +1,15 @@
 /**
  * The single seam between fixed-point positions (fractional visual-tile coordinates, stagger applied by
- * the projection) and the navigation lattice's integer half-cell nodes. The lattice is rectangular in
- * world space and carries no stagger of its own. Every integer grid coordinate inside the sim is a
- * half-cell coordinate.
+ * the projection) and the navigation lattice's integer half-cell nodes. Node `(hx, hy)` sits at world
+ * column `hx/2`, a quarter column further east on an odd `hy`: original behavior, the original's own
+ * map-point projection. Every integer grid coordinate inside the sim is a half-cell coordinate.
  */
 import { type FootprintCell, footprintCellDx } from '@open-northland/data';
-import { type Fixed, fx } from '../core/fixed.js';
-import { staggerShift, worldX } from './world-metric.js';
+import { type Fixed, fx, ONE, ZERO } from '../core/fixed.js';
+import { QUARTER_COLUMN, staggerShift, worldX } from './world-metric.js';
 
 const TWO: Fixed = fx.fromInt(2);
+const HALF_ONE: Fixed = fx.div(ONE, TWO);
 
 /** An integer half-cell node address on the `2W×2H` navigation lattice. */
 export interface HalfCellNode {
@@ -25,9 +26,12 @@ export interface NodeArea {
 }
 
 /**
- * The half-cell node a fixed-point position occupies: its world coordinates scaled to half-cell units and
- * truncated, so a position standing exactly on a node maps to it exactly. The result is unclamped, and
- * callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
+ * The half-cell node a fixed-point position occupies: its row scaled to half-cell units and truncated,
+ * then its world column in that row, less the row's odd-row shift. On a row the column truncates too;
+ * between rows, along a row-crossing edge, it rounds to the edge's end on that row rather than a flank
+ * node beside the edge. A position standing exactly on
+ * a node maps to it exactly. The result is unclamped, and callers clamp into the grid through
+ * `TerrainGraph.nodeAtClamped`.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
   return { hx: nodeHxOfPosition(x, y), hy: nodeHyOfPosition(y) };
@@ -35,9 +39,13 @@ export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
 
 /** {@link nodeOfPosition}'s `hx` alone, so a per-tick loop allocates no node object per call. */
 export function nodeHxOfPosition(x: Fixed, y: Fixed): number {
-  // Doubled by an add: `fx.mul(wx, TWO)` exactly, without the product, on a per-entity per-tick path.
-  const wx = worldX(x, y);
-  return fx.toInt(fx.add(wx, wx));
+  // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
+  const twoY = fx.add(y, y);
+  const hy = fx.toInt(twoY);
+  const wx = fx.sub(worldX(x, y), oddRowShift(hy));
+  const column = fx.add(wx, wx);
+  if (twoY === fx.fromInt(hy)) return fx.toInt(column);
+  return Math.floor((column + HALF_ONE) / ONE);
 }
 
 /** {@link nodeOfPosition}'s `hy` alone. */
@@ -47,8 +55,8 @@ export function nodeHyOfPosition(y: Fixed): number {
 
 /**
  * The fixed-point Position of a half-cell node's centre: row `hy/2`, and `x` the node's world column
- * `hx/2` with that row's stagger shift removed, which the projection re-adds. Exact, because ONE divides
- * by 4 and the stagger at a half-integer row is exactly a quarter.
+ * ({@link nodeWorldX}) with that row's stagger shift removed, which the projection re-adds. Exact,
+ * because ONE divides by 4 and the stagger at a half-integer row is exactly a quarter.
  */
 export function positionOfNode(hx: number, hy: number): { x: Fixed; y: Fixed } {
   return { x: positionXOfNode(hx, hy), y: positionYOfNode(hy) };
@@ -56,7 +64,17 @@ export function positionOfNode(hx: number, hy: number): { x: Fixed; y: Fixed } {
 
 /** {@link positionOfNode}'s `x` alone, so a loop building its own records allocates no point. */
 export function positionXOfNode(hx: number, hy: number): Fixed {
-  return positionXOfWorld(fx.div(fx.fromInt(hx), TWO), positionYOfNode(hy));
+  return positionXOfWorld(nodeWorldX(hx, hy), positionYOfNode(hy));
+}
+
+/** Node `(hx, hy)`'s world column in column units: `hx/2`, plus a quarter on an odd row. */
+export function nodeWorldX(hx: number, hy: number): Fixed {
+  return fx.add(fx.div(fx.fromInt(hx), TWO), oddRowShift(hy));
+}
+
+/** The eastward shift of node row `hy`: a quarter column on an odd row, none on an even one. */
+function oddRowShift(hy: number): Fixed {
+  return (hy & 1) === 0 ? ZERO : QUARTER_COLUMN;
 }
 
 /** {@link positionOfNode}'s `y` alone. */
@@ -138,13 +156,12 @@ export function hexNeighboursOf(hx: number, hy: number): HalfCellNode[] {
 
 /**
  * The map-point distance a script's `range` parameter and every guidepost range are measured in: one
- * step per row, with a diagonal walk covering one column per two rows for free. Over an odd row span
- * one further column step is free, in the direction the destination row's parity picks, so the region
- * a range selects leans to one side instead of being symmetric about its centre.
+ * step per row, with a walk across rows covering one column per two rows for free. Over an odd row span
+ * one further column step is free, in the direction the destination row's parity picks: the odd row's
+ * quarter-column shift, so the region a range selects is a hexagon symmetric about its centre.
  *
  * The six nodes this makes adjacent are the edges a unit walks (`nav/terrain/edges.ts`), each counted
- * as one step here where the walk prices them by world length; the lean is not this lattice's
- * geometry, which carries no stagger, but the original's own map-point grid. Original behavior: the
+ * as one step here where the walk prices them by world length. Original behavior: the
  * hexagon-direction distance every range test uses (`docs/formats/MISSIONS.md`, "Tokens and parameter
  * kinds").
  */

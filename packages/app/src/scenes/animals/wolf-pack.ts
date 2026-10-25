@@ -29,7 +29,9 @@ const ROW = 7;
 const PACK_AT = { x: 6, y: ROW } as const;
 /** Inside the leader's search circle, so the pack sets off after him. */
 const SCOUT_AT = { x: 14, y: ROW } as const;
-const SWORD_X = 39;
+/** Times the march to meet the pack where it turns at the end of its leash: the wolves outpace swordsmen,
+ *  so a march that arrives after the turn only trails them home into the circle. */
+const SWORD_X = 36;
 const SWORD_ROWS: readonly number[] = [ROW - 1, ROW, ROW + 1];
 const RUN_TICKS = 900;
 

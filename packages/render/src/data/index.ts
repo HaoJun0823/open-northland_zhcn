@@ -57,6 +57,8 @@ export {
   type Camera,
   cameraViewport,
   halfCellToScreen,
+  halfCellToScreenX,
+  halfCellToScreenY,
   ONE,
   type TileRange,
   tileToScreen,

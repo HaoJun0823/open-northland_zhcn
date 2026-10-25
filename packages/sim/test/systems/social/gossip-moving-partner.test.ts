@@ -12,7 +12,7 @@ import {
   setSettlerJob,
   Wedding,
 } from '../../../src/components/index.js';
-import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
+import { type Fixed, fx, nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
 import { findPath } from '../../../src/nav/pathfinding/index.js';
 import { driveWeddings, startWedding } from '../../../src/systems/family/weddings.js';
 import { dynamicBlockOverlay } from '../../../src/systems/footprint/index.js';
@@ -27,6 +27,13 @@ import { ctxOf, fixtureTick, nextTickCtxOf } from '../../fixtures/context.js';
 import { setNeeds } from '../../fixtures/settler.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
 import { ownedWoodcutter } from '../conflict/orders/support.js';
+
+/** Whether `p` lies on half-row `hy` between node centres: a partner still walking its leg. */
+function midLegOnRow(p: { x: Fixed; y: Fixed }, hy: number): boolean {
+  const n = nodeOfPosition(p.x, p.y);
+  const centre = positionOfNode(n.hx, n.hy);
+  return n.hy === hy && (centre.x !== p.x || centre.y !== p.y);
+}
 
 it.each(['water', 'resource'] as const)(
   'meets a moving partner on safe ground beside a %s flank',
@@ -59,7 +66,7 @@ it.each(['water', 'resource'] as const)(
       const node = terrain.nodeAt(n.hx, n.hy);
       expect(terrain.isWalkable(node)).toBe(true);
       expect(dynamicBlockOverlay(s.world, ctxOf(s), terrain).has(node)).toBe(false);
-      if (n.hy === 5) break;
+      if (midLegOnRow(p, 5)) break;
     }
     expect(s.world.has(b, PathFollow)).toBe(true);
     expect(
@@ -127,8 +134,7 @@ it.each(['gossip', 'wedding'] as const)(
     pathfindingSystem(sim.world, ctxOf(sim));
     for (let i = 0; i < 30; i++) {
       movementSystem(sim.world, nextTickCtxOf(sim));
-      const p = sim.world.get(b, Position);
-      if (nodeOfPosition(p.x, p.y).hy === 5) break;
+      if (midLegOnRow(sim.world.get(b, Position), 5)) break;
     }
     const before = { ...sim.world.get(b, Position) };
     expect(nodeOfPosition(before.x, before.y)).toEqual({ hx: 5, hy: 5 });
@@ -163,7 +169,8 @@ it.each(['gossip', 'wedding'] as const)(
     for (let tick = 0; tick < 30 && sim.world.has(b, PathFollow); tick++)
       movementSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.has(b, PathFollow)).toBe(false);
-    expect(sim.world.get(b, Position)).toEqual(positionOfNode(6, 6));
+    // It finishes the edge it was crossing, from half-row 5 onto the node below.
+    expect(sim.world.get(b, Position)).toEqual(positionOfNode(5, 6));
     expect(sim.checkInvariants()).toEqual([]);
   },
 );

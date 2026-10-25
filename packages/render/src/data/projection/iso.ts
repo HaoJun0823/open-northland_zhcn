@@ -43,17 +43,43 @@ export function rowStagger(row: number): number {
 }
 
 /**
- * Half-cell `(hx, hy)` → pre-camera screen offset: a plain rectangular mapping, so an object authored
- * at a half-cell never picks up the fractional-row stagger a walking entity interpolates through.
- * {@link tileToScreen} of an integer cell lands exactly here. Placing odd half-cell rows at the
- * rectangular spot is a named approximation: `lmwb` byte evidence suggests they sit a quarter cell
- * further +x.
+ * Half-cell `(hx, hy)` → pre-camera screen offset: `hx` half-cells across, and an odd node row a
+ * quarter cell further right. Original behavior: the original's map-point projection shifts odd node
+ * rows by half a node step. {@link tileToScreen} of an integer cell, and of a sim node's position, lands
+ * exactly here.
  */
 export function halfCellToScreen(hx: number, hy: number): { x: number; y: number } {
-  return {
-    x: hx * TILE_HALF_W,
-    y: (hy * TILE_HALF_H) / 2,
-  };
+  return { x: halfCellToScreenX(hx, hy), y: halfCellToScreenY(hy) };
+}
+
+/** {@link halfCellToScreen}'s X axis, so a per-object loop allocates no `{x,y}` per call. */
+export function halfCellToScreenX(hx: number, hy: number): number {
+  return (hx + (hy & 1) / 2) * TILE_HALF_W;
+}
+
+/** {@link halfCellToScreen}'s Y axis. */
+export function halfCellToScreenY(hy: number): number {
+  return (hy * TILE_HALF_H) / 2;
+}
+
+/** Pre-camera screen offset → the half-cell node nearest it on a flat map: the nearest node of each of
+ *  the two rows either side, the nearer of those two, so {@link halfCellToScreen}'s points map back
+ *  exactly. */
+export function screenToHalfCell(x: number, y: number): { col: number; row: number } {
+  const above = Math.floor(y / (TILE_HALF_H / 2));
+  let best = { col: 0, row: above };
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const row of [above, above + 1]) {
+    const col = Math.round(x / TILE_HALF_W - (row & 1) / 2);
+    const dx = x - halfCellToScreenX(col, row);
+    const dy = y - halfCellToScreenY(row);
+    const distance = dx * dx + dy * dy;
+    if (distance < bestDistance) {
+      best = { col, row };
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 /**

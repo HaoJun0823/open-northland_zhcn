@@ -264,7 +264,7 @@ export const plContent = {
     'weapon-facings': {
       title: 'Kierunki broni',
       summary:
-        'Każdy rodzaj broni, od pięści po długi łuk, uderza wytrzymały cel we wszystkich ośmiu kierunkach.',
+        'Każdy rodzaj broni, od pięści po długi łuk, uderza wytrzymały cel w każdym kierunku, na jaki pozwala jego zasięg.',
     },
     'battle-weary': {
       title: 'Zmęczona drużyna',

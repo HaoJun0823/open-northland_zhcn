@@ -231,7 +231,7 @@ function drivePair(
     approachPartner(world, ctx, a, b, nb, () => endChat(world, ctx.tick, a));
     return;
   }
-  if (terrain !== undefined && stopAtNextNode(world, terrain, b)) return;
+  if (terrain !== undefined && stopAtNextNode(world, b)) return;
   if (standsBeside(na, nb)) {
     if (terrain !== undefined && haltBeside(world, terrain, a)) return;
     // Standing together: run one talk/listen round on a shared clock, the longer of the two bound clips.

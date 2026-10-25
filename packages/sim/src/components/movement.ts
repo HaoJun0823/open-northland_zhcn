@@ -92,8 +92,7 @@ export const WalkFacing = defineComponent<{ direction: WalkDirection; target: Wa
 );
 
 /** One stop of a route: a fixed-point position and the lattice node the walker stands on there, whose
- *  roughness paces and shoes the step that leaves it. A diagonal lattice edge carries its midpoint as a
- *  stop of its own, the original's intermediate node on that edge. */
+ *  roughness paces and shoes the step that leaves it. */
 export interface Waypoint {
   x: Fixed;
   y: Fixed;

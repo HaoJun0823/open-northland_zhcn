@@ -44,7 +44,7 @@ import {
 } from '../footprint/index.js';
 import { landVehicleFits, vehicleStandable } from '../footprint/vehicle-clearance.js';
 import { isTravelling, redirectRoute } from '../movement/nav-state.js';
-import { walkTurnSteps } from '../movement/turning.js';
+import { hexTurnSteps } from '../movement/turning.js';
 import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import {
   awaitsDraughtAnimal,
@@ -985,7 +985,7 @@ export const vehicleMovementSystem: System = (world, ctx) => {
       live.progress = 0;
     } else {
       // A land vehicle turns on `from`: progress below zero draws it there, facing the new way.
-      const turnTicks = walkTurnSteps(state.facing, facing) * VEHICLE_TURN_TICKS_PER_DIRECTION;
+      const turnTicks = hexTurnSteps(state.facing, facing) * VEHICLE_TURN_TICKS_PER_DIRECTION;
       live.progress = live.increment * (1 - turnTicks);
       vehicle.facing = facing;
     }

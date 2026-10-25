@@ -4,7 +4,6 @@ import { Simulation } from '../../../../src/index.js';
 import type { BlockOverlay } from '../../../../src/nav/block-overlay.js';
 import { CountedBlocks, NodeMask } from '../../../../src/nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../../src/nav/terrain/index.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../../../../src/nav/world-metric.js';
 import {
   budgetCertainBelow,
   SeedWalks,
@@ -88,21 +87,15 @@ describe('computer-player walk flood', () => {
     expect(spent.costFloor(far)).toBeUndefined();
   });
 
-  it('bounds no step above its cost', () => {
-    const steps: [number, number, number][] = [
-      [1, 0, HALF_COLUMN],
-      [0, 1, HALF_ROW],
-      [1, 1, SLANT_STEP],
-      [1, 2, DIAGONAL_STEP],
-    ];
-    for (const [dx, dy, cost] of steps) {
-      for (const [sx, sy] of [
-        [1, 1],
-        [-1, 1],
-        [1, -1],
-        [-1, -1],
-      ] as const) {
-        expect(walkLowerBound(sx * dx, sy * dy)).toBeLessThanOrEqual(cost);
+  it('bounds no step above its cost, from an even and an odd row', () => {
+    const terrain = new Simulation({ seed: 1, content: aiContent(), map: grassNodeMap(8, 8) }).terrain;
+    if (terrain === undefined) throw new Error('mapped sim');
+    for (const from of [terrain.nodeAt(6, 6), terrain.nodeAt(6, 7)]) {
+      const fromX = terrain.xOf(from);
+      const fromY = terrain.yOf(from);
+      for (const step of terrain.steps(from)) {
+        const bound = walkLowerBound(fromX, fromY, terrain.xOf(step.node), terrain.yOf(step.node));
+        expect(bound).toBeLessThanOrEqual(step.cost);
       }
     }
   });

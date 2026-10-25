@@ -33,7 +33,7 @@ import { grassNodeMap as grassMap } from '../../fixtures/terrain.js';
  * components, runs A* on `ctx.terrain`, and writes the route into {@link PathFollow}. The fixture's
  * landscape table has typeId 0 = grass (walkable) and 1 = water (not walkable); grids are authored
  * directly at NODE (half-cell) resolution. These pin the request→path handoff, the node-position
- * waypoints (with the diagonal midpoint splice), the failure flagging, the per-tick budget, and
+ * waypoints (each on its node's centre), the failure flagging, the per-tick budget, and
  * the mapless no-op.
  */
 
@@ -85,23 +85,22 @@ describe('pathfindingSystem - request to PathFollow handoff', () => {
     const c = sim.terrain?.nodeAt(1, 1) as number;
     const e = request(c, c);
     sim.step();
-    // Node (1,1): row ½ (stagger ¼) → grid x = ½ − ¼ = ¼.
-    expect(sim.world.get(e, PathRoute).waypoints).toEqual([{ x: Q(1), y: Q(2), node: c }]);
+    // Node (1,1): world ½ + ¼ (an odd row), row ½ (stagger ¼) → grid x = ¾ − ¼ = ½.
+    expect(sim.world.get(e, PathRoute).waypoints).toEqual([{ x: Q(2), y: Q(2), node: c }]);
     expect(sim.world.get(e, PathFollow).index).toBe(0);
   });
 
   it("splices the midpoint into a diagonal leg leaving an odd row, as the original's between node", () => {
     // (2,1) -> (3,3) is a single SE diagonal from odd hy=1: rows ½ → 1½ cross the integer row 1
-    // mid-leg, where the stagger wave kinks. The midpoint sits at the edge's world middle
-    // ((2+3)/4 = 1¼ columns) expressed at row 1 (stagger ½): grid x = 1¼ − ½ = ¾. Its node is the
-    // original's SE neighbour of (2,1), which from an odd row is (3,2).
+    // mid-leg, where the stagger wave kinks. The midpoint is the original's SE neighbour of (2,1),
+    // which from an odd row is (3,2), at the edge's world middle 1½ columns, row 1 (stagger ½): 1.
     const { sim, request } = mappedSim(grassMap(5, 5));
     const e = request(sim.terrain?.nodeAt(2, 1) as number, sim.terrain?.nodeAt(3, 3) as number);
     sim.step();
     expect(sim.world.get(e, PathRoute).waypoints).toEqual([
-      { x: Q(3), y: Q(2), node: sim.terrain?.nodeAt(2, 1) }, // node (2,1): 1 − ¼
-      { x: Q(3), y: Q(4), node: sim.terrain?.nodeAt(3, 2) }, // the midpoint at row 1
-      { x: Q(5), y: Q(6), node: sim.terrain?.nodeAt(3, 3) }, // node (3,3): 1½ − ¼
+      { x: Q(4), y: Q(2), node: sim.terrain?.nodeAt(2, 1) }, // node (2,1): 1¼ − ¼
+      { x: Q(4), y: Q(4), node: sim.terrain?.nodeAt(3, 2) }, // the midpoint at row 1
+      { x: Q(6), y: Q(6), node: sim.terrain?.nodeAt(3, 3) }, // node (3,3): 1¾ − ¼
     ]);
   });
 

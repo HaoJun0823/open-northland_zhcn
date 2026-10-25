@@ -16,7 +16,7 @@ interface NetworkBox {
 /**
  * The connected road networks of a half-cell grid as a union-find over its road nodes: two road nodes
  * share a network when a chain of road nodes joins them over the pathfinder's steps, the six lattice
- * edges and the composed diagonals. Roads are only added between rebuilds, so a lay only merges
+ * edges. Roads are only added between rebuilds, so a lay only merges
  * networks. A root is the least node id of its network, so labels are a pure function of the road set;
  * path halving on lookup changes no label.
  */
@@ -55,16 +55,6 @@ export class RoadNetworks {
     if (x + slant >= 0 && x + slant < width) {
       if (y > 0) this.join(node, node - width + slant);
       if (y < height - 1) this.join(node, node + width + slant);
-    }
-    if (y > 1) {
-      const up = node - 2 * width;
-      if (x > 0) this.join(node, up - 1);
-      if (x < width - 1) this.join(node, up + 1);
-    }
-    if (y < height - 2) {
-      const down = node + 2 * width;
-      if (x > 0) this.join(node, down - 1);
-      if (x < width - 1) this.join(node, down + 1);
     }
   }
 

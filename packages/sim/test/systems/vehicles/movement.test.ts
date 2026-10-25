@@ -227,41 +227,42 @@ describe('vehicle move period', () => {
     expect(walkTurnSteps(SW, NE)).toBe(4);
   });
 
-  it('holds on its node through the turn, then crosses a two-point diagonal in twice the period', () => {
+  it('holds on its node through the turn, then crosses two SE edges in twice the period', () => {
     const s = sim();
     const cart = commanded(s, HANDCART, 4, 8);
-    order(s, cart, 5, 10); // one SE lattice diagonal, (+1, +2): two map points, a turn from the spawn's east
+    order(s, cart, 5, 10); // two SE edges, through (4,9): a turn from the spawn's east, then none
     s.step();
-    expect(anchorOf(s, cart)).toEqual({ hx: 5, hy: 10 });
+    expect(anchorOf(s, cart)).toEqual({ hx: 4, hy: 9 });
     expect(s.world.get(cart, Vehicle).facing).toBe(SE);
-    const legTicks = ONE_DIRECTION_TURN + 2 * CART_PERIOD_GRASS;
     // Drawn on `from` while it turns: the leg's progress stays at or below zero.
     for (let t = 0; t < ONE_DIRECTION_TURN; t++) {
       expect(s.vehicleView(cart)?.leg?.progress).toBeLessThanOrEqual(0);
       s.step();
     }
-    for (let t = ONE_DIRECTION_TURN; t < legTicks - 1; t++) {
-      expect(s.vehicleView(cart)?.leg).not.toBeNull();
+    // The first edge takes a period, the second, facing the same way, another with no turn.
+    for (let t = 0; t < CART_PERIOD_GRASS; t++) {
+      expect(anchorOf(s, cart)).toEqual({ hx: 4, hy: 9 });
       s.step();
     }
-    expect(s.vehicleView(cart)?.leg).toBeNull();
-    s.step();
+    expect(anchorOf(s, cart)).toEqual({ hx: 5, hy: 10 });
+    expect(s.world.get(cart, Vehicle).facing).toBe(SE);
+    for (let t = 0; t < CART_PERIOD_GRASS; t++) s.step();
     expect(s.world.has(cart, VehicleDrive)).toBe(false);
   });
 
-  it('faces the screen heading of a lattice step, straight up or down on a vertical one', () => {
+  it('faces the screen heading of a lattice step, the row parity deciding a column step', () => {
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 5, hy: 4 })).toBe(E);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 3, hy: 4 })).toBe(W);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 5, hy: 6 })).toBe(SE);
     expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 3, hy: 2 })).toBe(NW);
-    // Whatever the row's parity: no NE/NW zigzag up a column.
-    expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 5 })).toBe(S);
-    expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 6 })).toBe(S);
-    expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 3 })).toBe(N);
-    expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 4 })).toBe(N);
+    // The same column: an odd row sits a quarter cell east, so the step leans by the parity.
+    expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 5 })).toBe(SE);
+    expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 6 })).toBe(SW);
+    expect(facingOfStep({ hx: 4, hy: 4 }, { hx: 4, hy: 3 })).toBe(NE);
+    expect(facingOfStep({ hx: 4, hy: 5 }, { hx: 4, hy: 4 })).toBe(NW);
   });
 
-  it('drives straight north facing north, with no turn between its legs', () => {
+  it('drives up a column facing NE and NW in turn, one hexagon step between its legs', () => {
     const s = sim();
     const cart = commanded(s, HANDCART, 8, 12);
     order(s, cart, 8, 6);
@@ -274,9 +275,10 @@ describe('vehicle move period', () => {
       s.step();
     }
     expect(anchorOf(s, cart)).toEqual({ hx: 8, hy: 6 });
-    expect([...facings]).toEqual([N]);
-    // Only the first leg turns, from the spawn's east through NE to N: two ring steps.
-    expect(turnHolds).toBeLessThanOrEqual(2 * ONE_DIRECTION_TURN);
+    expect([...facings].sort()).toEqual([NW, NE].sort());
+    // The first leg turns from the spawn's east by at most two steps, each later one NE to NW or back.
+    const legs = 12 - 6;
+    expect(turnHolds).toBeLessThanOrEqual((2 + legs - 1) * ONE_DIRECTION_TURN);
   });
 });
 

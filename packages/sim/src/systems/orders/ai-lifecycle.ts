@@ -81,7 +81,7 @@ export function withdrawAiEntityOrder(world: World, ctx: SystemContext, entity: 
   world.remove(entity, ErectSignpostOrder);
   if (world.tryGet(entity, CurrentAtomic)?.effect.kind === 'erectSignpost')
     removeCurrentAtomic(world, entity);
-  if (ctx.terrain !== undefined) stopAtNextNode(world, ctx.terrain, entity);
+  if (ctx.terrain !== undefined) stopAtNextNode(world, entity);
   stopVehicle(world, { kind: 'stopVehicle', vehicle: entity });
   if (world.has(entity, Settler)) anchorAtFeet(world, ctx, entity);
   world.remove(entity, AiOrder);

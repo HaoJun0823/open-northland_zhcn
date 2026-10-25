@@ -58,6 +58,6 @@ export function retireCompletedSiteErrands(world: World, ctx: SystemContext, sit
     const goal = world.tryGet(e, MoveGoal)?.cell;
     if (!supplying && (goal === undefined || perimeter?.has(goal) !== true)) continue;
     if (terrain === undefined) clearNavState(world, e);
-    else stopAtNextNode(world, terrain, e);
+    else stopAtNextNode(world, e);
   }
 }

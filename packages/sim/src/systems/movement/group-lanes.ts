@@ -92,9 +92,8 @@ export class GroupLanes {
     return path;
   }
 
-  /** Translate a neighbour's detour into this unit's lane. Every edge is revalidated, the composed
-   * diagonal's middle node included, and a slanted edge the shifted row leans away from is walked as two
-   * straight edges; a wall, bank or map boundary falls back to the shared corridor. */
+  /** Translate a neighbour's detour into this unit's lane. Every edge is revalidated, and a slanted edge
+   * the shifted row leans away from is walked as two straight edges; a wall, bank or map boundary falls back to the shared corridor. */
   translated(
     blocked: BlockOverlay,
     route: readonly NodeId[],

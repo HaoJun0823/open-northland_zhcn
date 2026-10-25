@@ -74,7 +74,7 @@ export function haltBeside(world: World, terrain: TerrainGraph, walker: Entity):
       .some((e) => e !== walker)
   )
     return true;
-  return stopAtNextNode(world, terrain, walker);
+  return stopAtNextNode(world, walker);
 }
 
 /** The node {@link stopAtNextNode} would halt `walker` on, when its route goes on past that node. */
@@ -86,7 +86,7 @@ function haltMidRoute(world: World, terrain: TerrainGraph, walker: Entity): Half
   const here = nodeOfPosition(p.x, p.y);
   const centre = positionOfNode(here.hx, here.hy);
   if (p.x === centre.x && p.y === centre.y) return follow.index < stops.length ? here : undefined;
-  const end = liveStepEnd(terrain, follow.index, stops);
+  const end = liveStepEnd(follow.index, stops);
   if (end === undefined || end + 1 >= stops.length) return undefined;
   const stop = stops[end];
   return stop === undefined ? undefined : { hx: terrain.xOf(stop.node), hy: terrain.yOf(stop.node) };
@@ -109,8 +109,8 @@ export function approachPartner(
   const terrain = ctx.terrain;
   if (world.tryGet(a, PathRequest)?.failed === true || world.tryGet(b, PathRequest)?.failed === true) {
     if (terrain !== undefined) {
-      stopAtNextNode(world, terrain, a);
-      stopAtNextNode(world, terrain, b);
+      stopAtNextNode(world, a);
+      stopAtNextNode(world, b);
     } else {
       clearNavState(world, a);
       clearNavState(world, b);
@@ -119,7 +119,7 @@ export function approachPartner(
     return;
   }
   if (terrain === undefined) return;
-  if (stopAtNextNode(world, terrain, b)) return;
+  if (stopAtNextNode(world, b)) return;
   // A walk aimed beside the partner, one a player order, flight or fight owns, and a step finishing without
   // a goal all go on. Any other walk, such as one to work taken up before the pair met, is re-aimed now.
   // Approximation: how the original treats a walk under way when a pair is matched is unconfirmed.

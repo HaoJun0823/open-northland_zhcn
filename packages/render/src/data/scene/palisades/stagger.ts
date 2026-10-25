@@ -2,16 +2,16 @@ import { hexNeighboursOf } from '@open-northland/sim';
 import { TILE_HALF_W } from '../../projection/index.js';
 
 /**
- * Walls join hex neighbours, but the half-cell lattice draws with no row stagger, so a wall along a hex
- * diagonal steps one column across and then one row straight up: a two-post stair. A staggered wall node
- * draws a quarter cell sideways, odd rows right and even rows left, which puts it on the hex lattice its
- * joints assume: diagonals and shallow lines run straight and a row stays a row. Sim, collision and joints
- * keep the lattice node. Project choice, not observed in the original.
+ * Walls join hex neighbours, and odd node rows draw a quarter cell right of the even ones, so diagonals
+ * and shallow lines run straight but a column, whose joints alternate NE and NW, zigzags. A column wall
+ * node draws an eighth of a cell back toward the column's middle, odd rows left and even rows right, so
+ * a column stands straight. Sim, collision and joints keep the lattice node. Project choice, not observed
+ * in the original.
  */
-export const PALISADE_STAGGER_PX = TILE_HALF_W / 4;
+export const PALISADE_COLUMN_SHIFT_PX = TILE_HALF_W / 4;
 
-export function palisadeStaggerX(hy: number): number {
-  return (hy & 1) === 1 ? PALISADE_STAGGER_PX : -PALISADE_STAGGER_PX;
+export function palisadeColumnShiftX(hy: number): number {
+  return (hy & 1) === 1 ? -PALISADE_COLUMN_SHIFT_PX : PALISADE_COLUMN_SHIFT_PX;
 }
 
 export interface WallNode {
@@ -42,14 +42,14 @@ function slantsOff(own: Joints): boolean {
 }
 
 /**
- * The wall nodes drawn staggered: every joined node except a column's, which the stagger would bend into
- * a zigzag. A column node has a joint straight up or down and no slanted joint. With a single vertical
+ * The wall nodes drawn as a column ({@link palisadeColumnShiftX}): a column node has a joint straight up
+ * or down and no slanted joint. With a single vertical
  * joint it also needs a column partner: one without a slanted joint that does not leave the vertical
  * joint to the opposite side, as a shallow line's riser does. Columns keep their corners with rows, and a
- * steep line keeps its straight stretches. `terminals`, the ends of a gate, which always draws staggered,
- * join like walls.
+ * steep line keeps its straight stretches. `terminals`, the ends of a gate, which never draws as a
+ * column, join like walls but are never columns themselves.
  */
-export function staggeredNodeKeys(
+export function columnNodeKeys(
   walls: ReadonlyMap<string, WallNode>,
   terminals: ReadonlySet<string>,
 ): Set<string> {
@@ -65,9 +65,9 @@ export function staggeredNodeKeys(
     }
     joints.set(key, own);
   }
-  const staggered = new Set<string>();
+  const columns = new Set<string>();
   for (const [key, own] of joints) {
-    if (own.vertical.length === 0 && own.slanted.length === 0 && own.sides === 0) continue;
+    if (terminals.has(key)) continue;
     const column =
       !slantsOff(own) &&
       own.vertical.length > 0 &&
@@ -76,7 +76,7 @@ export function staggeredNodeKeys(
           const partner = joints.get(wallNodeKey(v.hx, v.hy));
           return partner !== undefined && !slantsOff(partner) && !isRiser(own.sides, partner.sides);
         }));
-    if (!column) staggered.add(key);
+    if (column) columns.add(key);
   }
-  return staggered;
+  return columns;
 }

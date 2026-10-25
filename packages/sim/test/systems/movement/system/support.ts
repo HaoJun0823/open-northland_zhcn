@@ -31,7 +31,7 @@ export const LAND_STEP_TICKS_SHOD = 6;
 
 /** Build a mapped sim and place an entity at (x,y) with a straight-line PathFollow to the waypoints, minted
  *  as routing mints one: the first stop is where the walker stands, so the walk starts toward the second.
- *  Waypoints go through `fx.fromFloat` (exact for the test values used) so a diagonal midpoint's
+ *  Waypoints go through `fx.fromFloat` (exact for the test values used) so a node centre's
  *  fractional x can be expressed directly; each stop's node is the lattice node under it. */
 export function followerAt(
   sim: Simulation,

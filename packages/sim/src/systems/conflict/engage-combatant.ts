@@ -419,7 +419,8 @@ function standsDownAsPassiveAnimal(
  * still in reach from there, else back on the node it is crossing, whichever no body holds. It arrives,
  * stands and strikes. Original behavior: an attacker walks up step by step and strikes once its target is in
  * reach. Without this a chaser walks on to the contact cell it was dealt at its last re-path, which a target
- * walking toward it has already passed. Answers whether the walk now ends in reach.
+ * walking toward it has already passed. A breaker walking to the stand its breach dealt it walks on: a wall
+ * does not move, and the stand keeps the squad's breakers apart. Answers whether the walk now ends in reach.
  */
 function pullUpInReach(
   world: World,
@@ -434,6 +435,8 @@ function pullUpInReach(
   const follow = world.tryGet(e, PathFollow);
   const stop = follow === undefined ? undefined : world.tryGet(e, PathRoute)?.waypoints[follow.index]?.node;
   const goal = world.tryGet(e, MoveGoal)?.cell;
+  const order = world.tryGet(e, AttackOrder);
+  if (goal !== undefined && order?.target === target && order.breach?.stand === goal) return false;
   const chaser = { entity: e, target };
   for (const cell of stop === undefined ? [here] : [stop, here]) {
     if (

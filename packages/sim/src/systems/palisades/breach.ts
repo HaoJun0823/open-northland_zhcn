@@ -171,7 +171,7 @@ export function palisadeBarring(
   };
   const path = findPath(terrain, route.start, route.goal, breachable);
   if (path === null) return null;
-  const hit = firstWallOn(terrain, wallAt, path);
+  const hit = firstWallOn(wallAt, path);
   if (hit === null) return null;
   // Only a breaker that strikes from beside the wall needs a node of its own; a shooter keeps its range.
   // One standing on a post has no near side to be dealt.
@@ -256,7 +256,6 @@ function joinedWalls(
 
 /** Where `path` first meets a wall: the wall and the node it arrives from. */
 function firstWallOn(
-  terrain: TerrainGraph,
   wallAt: ReadonlyMap<NodeId, Entity>,
   path: readonly NodeId[],
 ): { readonly wall: Entity; readonly approach: NodeId } | null {
@@ -265,10 +264,6 @@ function firstWallOn(
     if (node === undefined) continue;
     const wall = wallAt.get(node);
     if (wall !== undefined) return { wall, approach: path[at - 1] ?? node };
-    const next = path[at + 1];
-    if (next === undefined) continue;
-    const middleWall = postOnDiagonal(terrain, wallAt, node, next);
-    if (middleWall !== null) return { wall: middleWall, approach: node };
   }
   return null;
 }
@@ -390,19 +385,4 @@ function walkStrip(
     }
   }
   return seen;
-}
-
-/** A walls-open path can cross a post at a diagonal's midpoint without listing that node as a stop. */
-function postOnDiagonal(
-  terrain: TerrainGraph,
-  wallAt: ReadonlyMap<NodeId, Entity>,
-  from: NodeId,
-  to: NodeId,
-): Entity | null {
-  const a = terrain.coordsOf(from);
-  const c = terrain.coordsOf(to);
-  if (Math.abs(c.y - a.y) !== 2) return null;
-  const row = (a.y + c.y) / 2;
-  const column = Math.min(a.x, c.x) + (a.y & 1);
-  return wallAt.get(terrain.nodeAt(column, row)) ?? null;
 }

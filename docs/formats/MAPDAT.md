@@ -154,10 +154,11 @@ verified stamp rule, per placement at half-cell `(x, y)` and per block-area row 
   object stamps every state's rows, a sapling only its lowest);
 - each row stamps `run` nodes starting at `(x + dx, y + dy)` along +x, clipped to the grid;
 - **odd-row parity shift**: when the anchor row `y` is odd and the target row `y + dy` is even, the
-  whole row lands one node further +x. That stamp rule is the verified fact; the consistent
-  geometric READING - offsets authored in the even-row frame, odd lattice rows half a node to +x
-  (matching `lmtw`'s parity-dependent 6-neighbour table) - is an interpretation, not yet verified
-  visually against the running original.
+  whole row lands one node further +x. Offsets are authored in the even-row frame, and odd lattice
+  rows sit half a node (17 px) to +x, matching `lmtw`'s parity-dependent 6-neighbour table. Original
+  behavior: the running original draws odd-row landscape objects half a node right of the even rows,
+  confirmed against a screenshot of the same map spot; the sim and renderer place node `(x, y)` there
+  (`packages/sim/src/nav/halfcell.ts`, `halfCellToScreen`).
 
 `lmbb` follows the same rule; it replays byte-identically on most maps, with residues consistent with
 stale sections (several maps carry an empty or outdated `lmbb`). The original's runtime stamping is what
@@ -191,8 +192,7 @@ the frame band), so shoreline and void margins drawn out of them walk in the ori
 123 mod maps the pipeline converts with their ground lane its edge masks equal `lmtw` byte for byte.
 Original behavior: the route search expands a node's six edges, each only where its bit is set, so
 this lane is the walk and sail graph itself. The join hands the masks to the sim, where every step
-is one of those edges or, for the composed diagonal, two of one heading
-(`packages/sim/src/nav/terrain/edges.ts`), and the searches over a node's neighbours (nearest free
+is one of those edges (`packages/sim/src/nav/terrain/edges.ts`), and the searches over a node's neighbours (nearest free
 node, eviction, door passage, rally spots) walk the same six edges, so with objects stripped our land
 and water components are the components of `lmtw` by construction.
 

@@ -12,12 +12,12 @@ const WOODCUTTER = 1;
 const VIKING = 1;
 const OWNER = 0;
 const START = { hx: 4, hy: 4 };
-/** Two diagonals the same way: (4,4) to (5,6) to (6,8), a midpoint stop inside each. */
+/** Four SE edges: (4,4) to (5,6) to (6,8). */
 const GOAL = { hx: 6, hy: 8 };
-/** The node between the two diagonals, index 2 of the route. */
+/** The route's middle node, index 2 of the route. */
 const JOINT = { hx: 5, hy: 6 };
 
-/** A walker on its fresh route from {@link START} to {@link GOAL}, heading for the first midpoint. */
+/** A walker on its fresh route from {@link START} to {@link GOAL}, heading for its first step. */
 function walkerOnTwoDiagonals(): { sim: Simulation; terrain: TerrainGraph; walker: Entity } {
   const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(16, 16) });
   sim.enqueueSetup({
@@ -58,21 +58,13 @@ function onNodeCentre(stop: Waypoint | undefined, terrain: TerrainGraph): boolea
 }
 
 describe('a closing ahead of a walker', () => {
-  it('reads the node between two same-way diagonals as a node, not a midpoint', () => {
-    const { sim, terrain, walker } = walkerOnTwoDiagonals();
-    const route = stops(sim, walker);
-    // The cell west of the joint node lines up as a flank only under the midpoint misreading.
-    invalidateRoutesThrough(sim.world, terrain, new Set([terrain.nodeAt(JOINT.hx - 1, JOINT.hy)]));
-    expect(stops(sim, walker)).toBe(route);
-  });
-
-  it('turns a walker heading for a midpoint back to the node it left, not onto the edge middle', () => {
+  it('finishes a walker heading for a between node onto it when the node past it closes', () => {
     const { sim, terrain, walker } = walkerOnTwoDiagonals();
     invalidateRoutesThrough(sim.world, terrain, new Set([terrain.nodeAt(JOINT.hx, JOINT.hy)]));
     const route = stops(sim, walker);
-    expect(route).toHaveLength(1);
+    expect(route).toHaveLength(2);
     expect(onNodeCentre(route.at(-1), terrain)).toBe(true);
-    expect(route[0]?.node).toBe(terrain.nodeAt(START.hx, START.hy));
-    expect(sim.world.get(walker, PathFollow).index).toBe(0);
+    expect(route.at(-1)?.node).toBe(terrain.nodeAt(START.hx, START.hy + 1));
+    expect(sim.world.get(walker, PathFollow).index).toBe(1);
   });
 });

@@ -2,18 +2,19 @@ import { type Fixed, fx, ULP, ZERO } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { HalfCellNode } from '../../nav/halfcell.js';
 import {
+  doubledColumnDistance,
   NO_COMPONENT,
   type NodeId,
   StepBuffer,
   slantDx,
   type TerrainGraph,
 } from '../../nav/terrain/index.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../../nav/world-metric.js';
+import { HALF_COLUMN, QUARTER_COLUMN, ROW_EDGE } from '../../nav/world-metric.js';
 import { firstRingNode } from '../ai-shared/node-geometry.js';
 import { WalkBlockMask } from '../footprint/walk-block-mask.js';
 
 /** Walking costs from a seed set over the pathfinder's own edges, in the tile units their lengths carry
- *  (a half column is half a tile, a diagonal edge three quarters; ground is not weighed): a spot search
+ *  (a half column is half a tile, a row-crossing edge about three eighths; ground is not weighed): a spot search
  *  ranks candidates by the trip a man walks round what blocks him, not as the crow flies. */
 export interface WalkDistances {
   /** The cheapest walk from a seed to `node`, or undefined off the seeds' ground or past the flood budget. */
@@ -312,46 +313,32 @@ export class WalkFlood implements WalkDistances {
   }
 }
 
-/** How far from a node the lattice's steps out of it read the overlay: a diagonal's target and middle. */
+/** How far from a node the lattice's steps out of it read the overlay: one node either way. */
 const STEP_REACH_X = 1;
-const STEP_REACH_Y = 2;
+const STEP_REACH_Y = 1;
 
-/** Per node of E/W offset and of N/S offset, a lower bound on the walk across mostly E/W ground: half
- *  columns, each row climbed by a slant at its cost over a half column. */
-const SHALLOW_PER_COLUMN = HALF_COLUMN;
-const SHALLOW_PER_ROW = fx.sub(SLANT_STEP, HALF_COLUMN);
-/** The same up mostly N/S ground: half rows, each column crossed by a diagonal at its cost over two. */
-const STEEP_PER_COLUMN = fx.sub(DIAGONAL_STEP, fx.mulInt(HALF_ROW, 2));
-const STEEP_PER_ROW = HALF_ROW;
+/** What a row-crossing edge costs beyond the quarter column of sideways ground it covers. */
+const ROW_EDGE_OVER_QUARTER: Fixed = fx.sub(ROW_EDGE, QUARTER_COLUMN);
 
-/** A lower bound on any walk `dx` E/W and `dy` N/S half-cell nodes long. Both estimates are seminorms no
- *  single step costs less than, so the bound never overestimates and falls by at most a step's cost per
- *  step: a consistent A* heuristic. */
-export function walkLowerBound(dx: number, dy: number): Fixed {
-  const x = Math.abs(dx);
-  const y = Math.abs(dy);
-  const shallow = fx.add(fx.mulInt(SHALLOW_PER_COLUMN, x), fx.mulInt(SHALLOW_PER_ROW, y));
-  const steep = fx.add(fx.mulInt(STEEP_PER_COLUMN, x), fx.mulInt(STEEP_PER_ROW, y));
-  return shallow > steep ? shallow : steep;
+/** A lower bound on any walk from node `(ax, ay)` to node `(bx, by)`: the open-lattice distance, a
+ *  metric over doubled columns that no single step undercuts, so it never overestimates and falls by at
+ *  most a step's cost per step: a consistent A* heuristic. */
+export function walkLowerBound(ax: number, ay: number, bx: number, by: number): Fixed {
+  return doubledColumnDistance(2 * (bx - ax) + (by & 1) - (ay & 1), by - ay);
 }
 
 type OpenStep = readonly [dx: number, dy: number, cost: Fixed];
 
 /** The unobstructed lattice's step offsets and costs from a row whose slants shift `slant` columns:
- *  {@link TerrainGraph.stepsInto}'s edge set on open ground, where every edge is open and no diagonal
- *  lacks a passable middle. */
+ *  {@link TerrainGraph.stepsInto}'s edge set on open ground, where every edge is open. */
 function openSteps(slant: number): readonly OpenStep[] {
   return [
     [1, 0, HALF_COLUMN],
-    [0, 1, HALF_ROW],
-    [slant, 1, SLANT_STEP],
+    [0, 1, ROW_EDGE],
+    [slant, 1, ROW_EDGE],
     [-1, 0, HALF_COLUMN],
-    [slant, -1, SLANT_STEP],
-    [0, -1, HALF_ROW],
-    [1, 2, DIAGONAL_STEP],
-    [-1, 2, DIAGONAL_STEP],
-    [-1, -2, DIAGONAL_STEP],
-    [1, -2, DIAGONAL_STEP],
+    [slant, -1, ROW_EDGE],
+    [0, -1, ROW_EDGE],
   ];
 }
 /** Any even and any odd row: only the parity matters. */
@@ -460,7 +447,7 @@ export class SeedWalks {
   private mayProveNear(toward: HalfCellNode, reach: number): boolean {
     const { terrain, seed } = this;
     const least = fx.sub(
-      walkLowerBound(toward.hx - terrain.xOf(seed), toward.hy - terrain.yOf(seed)),
+      walkLowerBound(terrain.xOf(seed), terrain.yOf(seed), toward.hx, toward.hy),
       reachSlack(reach),
     );
     return this.ranksWithin(least > ZERO ? least : ZERO);
@@ -508,18 +495,15 @@ export class SeedWalks {
     const seedX = terrain.xOf(seed);
     const seedY = terrain.yOf(seed);
     let count = terrain.isWalkable(seed) && !blocked.has(seed) ? 0 : 1;
-    const rows = fx.toInt(fx.div(cost, STEEP_PER_ROW));
+    const rows = fx.toInt(fx.div(cost, ROW_EDGE));
     for (let dy = -rows; dy <= rows; dy++) {
       const y = seedY + dy;
-      const rise = Math.abs(dy);
-      const shallowLeft = fx.sub(cost, fx.mulInt(SHALLOW_PER_ROW, rise));
-      const steepLeft = fx.sub(cost, fx.mulInt(STEEP_PER_ROW, rise));
-      if (y < 0 || shallowLeft < ZERO || steepLeft < ZERO) continue;
-      const shallowWidth = fx.toInt(fx.div(shallowLeft, SHALLOW_PER_COLUMN));
-      const steepWidth = fx.toInt(fx.div(steepLeft, STEEP_PER_COLUMN));
-      const width = Math.min(shallowWidth, steepWidth);
+      if (y < 0) continue;
+      // Past this many half-columns even the sideways bound alone exceeds the cost.
+      const sidewaysLeft = fx.sub(cost, fx.mulInt(ROW_EDGE_OVER_QUARTER, Math.abs(dy)));
+      const width = fx.toInt(fx.div(sidewaysLeft, HALF_COLUMN)) + 1;
       for (let x = seedX - width; x <= seedX + width; x++) {
-        if (!terrain.inBounds(x, y)) continue;
+        if (!terrain.inBounds(x, y) || walkLowerBound(seedX, seedY, x, y) > cost) continue;
         const node = terrain.nodeAt(x, y);
         const reachable = component === NO_COMPONENT || terrain.componentOf(node) === component;
         if (reachable && terrain.isWalkable(node) && !blocked.has(node)) count++;
@@ -531,11 +515,11 @@ export class SeedWalks {
 }
 
 /** The most {@link walkLowerBound} spans between `toward` and any node within `reach` Manhattan nodes of
- *  it, the bound being the larger of two seminorms, each largest at a corner of that diamond. A walk to
- *  any of those nodes costs at least the bound to `toward` less this. */
+ *  it, the bound being a metric, largest at a corner of that diamond. A walk to any of those nodes costs
+ *  at least the bound to `toward` less this. */
 function reachSlack(reach: number): Fixed {
-  const across = walkLowerBound(reach, 0);
-  const along = walkLowerBound(0, reach);
+  const across = doubledColumnDistance(2 * reach, 0);
+  const along = doubledColumnDistance(reach & 1, reach);
   return across > along ? across : along;
 }
 
@@ -647,7 +631,7 @@ class DirectedWalk implements WalkDistances {
     const { toward } = this;
     const { terrain } = this.walks;
     const bound = fx.sub(
-      walkLowerBound(terrain.xOf(node) - toward.hx, terrain.yOf(node) - toward.hy),
+      walkLowerBound(toward.hx, toward.hy, terrain.xOf(node), terrain.yOf(node)),
       this.slack,
     );
     return bound > ZERO ? bound : ZERO;

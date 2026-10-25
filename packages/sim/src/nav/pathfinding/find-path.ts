@@ -129,9 +129,8 @@ export function findPath(
 /**
  * The goal side of {@link findPath}'s race, whose verdicts are exact for the forward search: a search
  * back from the goal with a blocked start re-admitted as its target, the mirror of the forward search's
- * step-off exemption. Every other edge is symmetric, and a composed diagonal through the re-admitted
- * start joins two nodes the start reaches by a single edge each, so the side reaches the start exactly
- * when the forward search reaches the goal.
+ * step-off exemption. Every other edge is symmetric, so the side reaches the start exactly when the
+ * forward search reaches the goal.
  */
 function goalSideSearch(
   graph: TerrainGraph,
@@ -181,10 +180,9 @@ const UNCAPPED = Number.POSITIVE_INFINITY;
 /**
  * The land heuristic's per-length weight far from roads: common ground (grass, roughness 2), not a road's
  * 1. A deliberately inflated heuristic (weighted A*), a named approximation trading exactness for search
- * cost: scaled by the least weight, a long route on magiczny_las settled about 40k nodes. Unweighted
- * lattice distance is consistent (no step weighs under 1), so with this term alone a route costs at most
- * this factor over the cheapest even without reopening settled nodes; measured there with the composed
- * diagonals as the only slanted steps, 0.3 to 1.2% over on average. On uniform grass it is exact.
+ * cost. Unweighted lattice distance is consistent (no step weighs under 1), so with this term alone a route
+ * costs at most this factor over the cheapest even without reopening settled nodes; the average excess on
+ * the six-edge lattice is unmeasured. On uniform grass it is exact.
  */
 const LAND_HEURISTIC_WEIGHT = fx.fromInt(DEFAULT_NODE_ROUGHNESS);
 
@@ -192,14 +190,15 @@ const LAND_HEURISTIC_WEIGHT = fx.fromInt(DEFAULT_NODE_ROUGHNESS);
  * The inflation of the road-aware estimate `d + min(d, r)`, with `d` the lattice distance to the goal and
  * `r` to the nearest road: ground (grass, 2) up to the step onto the first road (1) makes a route cost at
  * least `d + r - 1`, and `2d` without a road. The inflated term is no scaled consistent heuristic, so the
- * grass weight's bound does not cover it; its cost is measured. On magiczny_las with town streets laid,
- * the composed diagonals the only slanted steps: uninflated, searches in and into a town settled 6 to 11
- * times what the grass weight does; at 3/2, 1.2 to
- * 1.4 times, routes cost 1.9 to 2.7% over the cheapest on average, and 93 to 98% of the routes a road
- * shortens by 2% take it (the grass weight alone: 61 to 90%). Approximation: native resistance-1 ground
- * and map-border nodes are not counted as roads.
+ * grass weight's bound does not cover it, and its settles and route excess on the six-edge lattice are
+ * unmeasured. Approximation: native resistance-1 ground and map-border nodes are not counted as roads.
  */
 const ROAD_HEURISTIC_INFLATION = fx.div(fx.fromInt(3), fx.fromInt(2));
+
+/** Node `(hx, hy)`'s column in quarter-column units, where an odd row's shift is a whole unit. */
+function doubledColumn(hx: number, hy: number): number {
+  return 2 * hx + (hy & 1);
+}
 
 /** Below every road network label, so a search's first gap read always computes. */
 const NO_GAP_READ = -2;
@@ -218,9 +217,10 @@ class ResumableSearch {
   explored = 0;
   private readonly query: number;
   // Deviation is the unnormalised cross product of the node offset with the start-to-goal line, zero on
-  // the line and growing with sideways drift. Exact integers over raw half-cell coordinates: each axis's
-  // world scale multiplies both cross terms alike and the shared |line| factor cancels within one search,
-  // so only the ordering matters and it is unchanged. Magnitudes stay near 2*span^2, exact past any map.
+  // the line and growing with sideways drift. Exact integers over doubled columns (`2*hx + (hy & 1)`,
+  // the odd-row shift made integral) and half-rows: each axis's world scale multiplies both cross terms
+  // alike and the shared |line| factor cancels within one search, so only the ordering matters and it is
+  // unchanged. Magnitudes stay near 4*span^2, exact past any map.
   private readonly startX: number;
   private readonly startY: number;
   private readonly goalX: number;
@@ -264,7 +264,8 @@ class ResumableSearch {
     const { stamps, g, cameFrom, heapIdx, steps } = scratch;
     if (scratch.query !== query) throw new Error('a newer search on this scratch overwrote a paused one');
     const width = graph.width;
-    const lineHX = this.goalX - startX;
+    const startD = doubledColumn(startX, startY);
+    const lineD = doubledColumn(this.goalX, this.goalY) - startD;
     const lineHY = this.goalY - startY;
     for (;;) {
       if (scratch.heapSize === 0) return 'unreachable';
@@ -296,7 +297,7 @@ class ResumableSearch {
           cameFrom[next] = current;
           const nextY = rowOfStep(next, rowStart, width, currentY);
           const nextX = next - nextY * width;
-          const dev = Math.abs((nextX - startX) * lineHY - (nextY - startY) * lineHX);
+          const dev = Math.abs((doubledColumn(nextX, nextY) - startD) * lineHY - (nextY - startY) * lineD);
           heapPush(scratch, next, tentativeG + this.heuristic(next, nextX, nextY), tentativeG, dev);
           continue;
         }
@@ -318,9 +319,7 @@ class ResumableSearch {
    * {@link ROAD_HEURISTIC_INFLATION}'s road-aware bound. That bound never drops under `d + r + g`, with
    * `g` the goal's distance to the bounding box of the network holding the nearest road: a route over
    * that network still crosses `g` of ground to the goal. Without it a road node reads 1.5d however far
-   * its network lies, and a search between towns no road joins floods each town's streets. Measured on
-   * 150 routes between magiczny_las towns with the composed diagonals as the only slanted steps: 43% fewer
-   * settles, and 4.3% over the cheapest route, not 3.2%.
+   * its network lies, and a search between towns no road joins floods each town's streets.
    */
   private heuristic(node: NodeId, x: number, y: number): Fixed {
     const toGoal = latticeOffsetDistance(this.goalX - x, this.goalY - y, y);

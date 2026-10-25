@@ -2,7 +2,7 @@ import { footprintCellDx } from '@open-northland/data';
 import { HEX_NEIGHBOUR_OFFSETS, hexDistanceBetween } from '../../nav/halfcell.js';
 import { type IndexedHeapRecord, siftDown, siftUp } from '../../nav/pathfinding/heap.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
-import { HALF_COLUMN, HALF_ROW } from '../../nav/world-metric.js';
+import { HALF_COLUMN, HALF_ROW, QUARTER_COLUMN } from '../../nav/world-metric.js';
 
 /**
  * What entering a node costs a road route, or null where the route may not pass. The AI weighs a node
@@ -23,14 +23,15 @@ interface OpenRecord extends IndexedHeapRecord {
 const better = (a: OpenRecord, b: OpenRecord): boolean =>
   a.f < b.f || (a.f === b.f && (a.g > b.g || (a.g === b.g && a.node < b.node)));
 
-// A node's step across and down the screen, as raw fixed-point integers: the lattice has no stagger there.
+// A node's step across and down the screen, as raw fixed-point integers, and an odd row's eastward shift.
 const NODE_SCREEN_X: number = HALF_COLUMN;
 const NODE_SCREEN_Y: number = HALF_ROW;
+const ODD_ROW_SCREEN_X: number = QUARTER_COLUMN;
 
 /**
  * A road route from `from` to `to` over the six-node ring a road paints across (`hexNeighboursOf`), the
  * walkers' own lattice edges, so each step joins two nodes one road triangle spans and the laid road has
- * no gap; the walkers' composed two-row diagonal would leave its middle unpaved.
+ * no gap.
  *
  * A* under the hex distance at `leastStepCost` per step, a lower bound, so the route is a cheapest one
  * and a road one row aside is taken rather than paralleled. Among the predecessors that keep the found
@@ -107,13 +108,14 @@ function walkBack(
   closed: ReadonlySet<NodeId>,
   stepCost: RoadStepCost,
 ): NodeId[] {
-  const ax = terrain.xOf(from) * NODE_SCREEN_X;
+  const screenX = (x: number, y: number): number => x * NODE_SCREEN_X + (y & 1) * ODD_ROW_SCREEN_X;
+  const ax = screenX(terrain.xOf(from), terrain.yOf(from));
   const ay = terrain.yOf(from) * NODE_SCREEN_Y;
-  const vx = terrain.xOf(to) * NODE_SCREEN_X - ax;
+  const vx = screenX(terrain.xOf(to), terrain.yOf(to)) - ax;
   const vy = terrain.yOf(to) * NODE_SCREEN_Y - ay;
   // The distance from the line through the ends, times the segment's length.
   const offLine = (x: number, y: number): number =>
-    Math.abs((x * NODE_SCREEN_X - ax) * vy - (y * NODE_SCREEN_Y - ay) * vx);
+    Math.abs((screenX(x, y) - ax) * vy - (y * NODE_SCREEN_Y - ay) * vx);
   const route: NodeId[] = [to];
   let node = to;
   while (node !== from) {

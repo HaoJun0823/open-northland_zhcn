@@ -51,7 +51,7 @@ export function mapEdgeWallWalk(
         break;
       }
       const offsetY = ey - hy;
-      // Footprints use staggered offsets; the extension follows the rectangular navigation lattice.
+      // Footprints use even-row-frame offsets; the extension steps in the lattice's integer coordinates.
       extension.push({ dx: ex - hx - ((hy & 1) !== 0 && (offsetY & 1) !== 0 ? 1 : 0), dy: offsetY });
     }
     if (clear) walk.push(...extension);

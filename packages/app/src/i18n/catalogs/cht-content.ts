@@ -259,7 +259,7 @@ export const chtContent = {
     },
     'weapon-facings': {
       title: '武器朝向',
-      summary: '從拳頭到長弓，每種武器類別都朝八個方向攻擊一個耐打的目標。',
+      summary: '從拳頭到長弓，每種武器類別都朝其射程所及的每個方向攻擊一個耐打的目標。',
     },
     'battle-weary': {
       title: '疲憊的戰團',

@@ -438,8 +438,7 @@ describe('building walk-block - houses have collision', () => {
       failed: false,
     });
     sim.step();
-    // Waypoints back to node coords. A diagonal leg's mid-edge SEAM waypoint sits on an integer row
-    // (even hy), so it can never alias the odd-row wall nodes checked below.
+    // Waypoints back to node coords.
     const path = sim.world.get(walker, PathRoute).waypoints.map((w) => {
       const n = nodeOfPosition(w.x, w.y);
       return `${n.hx},${n.hy}`;

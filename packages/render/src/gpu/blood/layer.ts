@@ -12,10 +12,10 @@ import {
 } from '../../data/effects/blood.js';
 import { BloodHistory } from '../../data/effects/blood-history.js';
 import {
+  halfCellToScreenX,
+  halfCellToScreenY,
   isVisible,
   rowStagger,
-  TILE_HALF_H,
-  TILE_HALF_W,
   type Viewport,
 } from '../../data/projection/index.js';
 import { screenDepth } from '../../data/scene/index.js';
@@ -265,9 +265,9 @@ export class BloodLayer {
   private place(mark: BloodMark, frame: BloodFrame): Place {
     let place = this.places.get(mark);
     if (place === undefined) {
-      const baseY = (mark.hy * TILE_HALF_H) / 2;
+      const baseY = halfCellToScreenY(mark.hy);
       place = {
-        x: mark.hx * TILE_HALF_W,
+        x: halfCellToScreenX(mark.hx, mark.hy),
         baseY,
         rise: undefined,
         elevation: frame.elevation,

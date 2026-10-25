@@ -1,5 +1,11 @@
 import { Container, Graphics, type Renderer, RenderTexture, Sprite } from 'pixi.js';
-import { halfCellToScreen, nodeDiamondPoly, TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
+import {
+  halfCellToScreenX,
+  halfCellToScreenY,
+  nodeDiamondPoly,
+  TILE_HALF_H,
+  TILE_HALF_W,
+} from '../../data/projection/index.js';
 import { type ElevationField, projectNode } from '../../data/terrain/index.js';
 import { hashCells } from './cell-signature.js';
 
@@ -57,23 +63,28 @@ interface OverlayBounds {
 }
 
 /**
- * The world-space bounds of a band's composite: the node centres' extent grown on every side by a border
- * diamond's half-extents (`TILE_HALF_W` × `TILE_HALF_H/2` - the rectangular node lattice has no stagger
- * overhang) plus the fusing pad, and by the map's max terrain lift upward. Pure, so it tests without GL.
+ * The world-space bounds of a band's composite: the node centres' extent, odd rows a quarter cell right
+ * of even ones, grown on every side by a border diamond's half-extents (`TILE_HALF_W` × `TILE_HALF_H/2`)
+ * plus the fusing pad, and by the map's max terrain lift upward. Pure, so it tests without GL.
  */
 export function overlayBounds(
   frame: Pick<PlacementOverlayFrame, 'minCol' | 'maxCol' | 'minRow' | 'maxRow'>,
   maxLift: number,
 ): OverlayBounds {
-  const topLeft = halfCellToScreen(frame.minCol, frame.minRow);
-  const bottomRight = halfCellToScreen(frame.maxCol, frame.maxRow);
+  // The westmost centre stands on an even row unless the band is one odd row; the eastmost on an odd one
+  // unless it is one even row.
+  const singleRow = frame.minRow === frame.maxRow;
+  const left = halfCellToScreenX(frame.minCol, singleRow ? frame.minRow : 0);
+  const right = halfCellToScreenX(frame.maxCol, singleRow ? frame.maxRow : 1);
+  const top = halfCellToScreenY(frame.minRow);
+  const bottom = halfCellToScreenY(frame.maxRow);
   const padX = TILE_HALF_W + CELL_OVERLAP;
   const padY = TILE_HALF_H / 2 + CELL_OVERLAP;
   return {
-    x: topLeft.x - padX,
-    y: topLeft.y - padY - maxLift,
-    width: bottomRight.x - topLeft.x + 2 * padX,
-    height: bottomRight.y - topLeft.y + 2 * padY + maxLift,
+    x: left - padX,
+    y: top - padY - maxLift,
+    width: right - left + 2 * padX,
+    height: bottom - top + 2 * padY + maxLift,
   };
 }
 
@@ -141,8 +152,8 @@ export class PlacementOverlayLayer {
     const blockedG = this.blockedG.clear();
     const buildableG = this.buildableG.clear();
     const reservedG = this.reservedG.clear();
-    // The node lattice is a (HALF_W, HALF_H/2)-pitch rectangle, so a diamond of those half-extents on
-    // every node covers the plane: the worst gap point between four nodes lands on four diamond edges.
+    // Nodes stand HALF_W apart in a row and HALF_H/2 between rows, odd rows offset by HALF_W/2, so a
+    // diamond of those half-extents on every node covers the plane with room to spare.
     const hw = (TILE_HALF_W + CELL_OVERLAP) * COMPOSITE_RESOLUTION;
     const hh = (TILE_HALF_H / 2 + CELL_OVERLAP) * COMPOSITE_RESOLUTION;
     for (let row = frame.minRow; row <= frame.maxRow; row++) {

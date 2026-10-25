@@ -66,8 +66,9 @@ const BARRACKS = { x: 30, y: 30 };
 const FOE_HQ = { x: 110, y: 70 };
 /** A far corner the enemy's men wait in, out of sight of everyone, until a case moves them in. */
 const FOE_CAMP = { x: 100, y: 6 };
-/** Open ground between the two seats, out of the watch band of either settlement. */
-const MIDFIELD = { hx: 70, hy: 50 };
+/** Open ground between the two seats, out of the watch band of either settlement and well south of the
+ *  march route, so a band marching on reads no charge. */
+const MIDFIELD = { hx: 70, hy: 58 };
 /** How far east of the wave the enemy body stands, in files of {@link ENEMY_FILE} men two nodes apart:
  *  inside the charge radius of the wave's centre. */
 const ENEMY_OFFSET = 12;

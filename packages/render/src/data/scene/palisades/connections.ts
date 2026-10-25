@@ -18,7 +18,7 @@ import {
   readPalisadeStatePct,
   readPosition,
 } from '../snapshot-readers/index.js';
-import { palisadeStaggerX, staggeredNodeKeys, type WallNode, wallNodeKey } from './stagger.js';
+import { columnNodeKeys, palisadeColumnShiftX, type WallNode, wallNodeKey } from './stagger.js';
 
 /** One repeated post between two neighbouring palisade anchors, relative to the first anchor. */
 export interface PalisadePostOffset {
@@ -95,8 +95,8 @@ const lastByElevation = new WeakMap<ElevationField, BuiltLayout>();
  * stands nearer. A post then sorts within a third of an edge of its own place, so in a wall two posts
  * thick no row paints over a post standing in front of it. Deleting either endpoint makes the join
  * disappear on the next snapshot. The inserted posts use the lower id's art variant and the construction
- * state interpolated between the endpoints. Walls, sites and gates draw staggered where that keeps lines
- * straight ({@link staggeredNodeKeys}), and the posts between them follow.
+ * state interpolated between the endpoints. Walls and sites in a column draw shifted so it stands straight
+ * ({@link columnNodeKeys}), and the posts between them follow.
  *
  * An untouched entity keeps its snapshot object, so while every palisade entity is the one the last
  * layout was built from, that layout object is returned again.
@@ -178,19 +178,17 @@ function buildPalisadeLayout(
   const shiftX = new Map<number, number>();
   const terminals = new Map<string, WallNode>();
   for (const gate of gates) {
-    shiftX.set(gate.ref, palisadeStaggerX(gate.hy));
     for (const end of gateEndpoints(gate)) terminals.set(wallNodeKey(end.hx, end.hy), end);
   }
   const nodeShiftX = new Map<string, number>();
   for (const key of layoutNodes.keys()) nodeShiftX.set(key, 0);
   const terminalKeys = new Set(terminals.keys());
-  const staggered = staggeredNodeKeys(layoutNodes, terminalKeys);
-  // A gate leaves its span's outer posts standing on its terminals; they stagger with it.
-  for (const [key, node] of [...layoutNodes, ...terminals]) {
-    if (!staggered.has(key) && !terminalKeys.has(key)) continue;
-    nodeShiftX.set(key, palisadeStaggerX(node.hy));
+  for (const key of columnNodeKeys(layoutNodes, terminalKeys)) {
+    const node = layoutNodes.get(key);
+    if (node === undefined) continue;
+    nodeShiftX.set(key, palisadeColumnShiftX(node.hy));
     const ref = refsByNode.get(key);
-    if (ref !== undefined) shiftX.set(ref, palisadeStaggerX(node.hy));
+    if (ref !== undefined) shiftX.set(ref, palisadeColumnShiftX(node.hy));
   }
   const shiftOf = (hx: number, hy: number): number => nodeShiftX.get(wallNodeKey(hx, hy)) ?? 0;
 
@@ -302,7 +300,7 @@ export function assignPalisadeFields(
 /**
  * Screen px each node of a planned wall line draws beside its node once laid among `layout`'s walls, so
  * the plan stands where its walls will. A node already standing keeps the shift it draws with now. The
- * stagger reads a node's joints and its column partner's, so walls two steps off the plan decide it.
+ * column test reads a node's joints and its column partner's, so walls two steps off the plan decide it.
  */
 export function planShiftX(plan: readonly WallNode[], layout: PalisadeLayout = EMPTY_LAYOUT): number[] {
   const walls = new Map<string, WallNode>();
@@ -318,10 +316,10 @@ export function planShiftX(plan: readonly WallNode[], layout: PalisadeLayout = E
       }
     }
   }
-  const staggered = staggeredNodeKeys(walls, layout.terminals);
+  const columns = columnNodeKeys(walls, layout.terminals);
   return plan.map((node) => {
     const key = wallNodeKey(node.hx, node.hy);
-    return layout.nodeShiftX.get(key) ?? (staggered.has(key) ? palisadeStaggerX(node.hy) : 0);
+    return layout.nodeShiftX.get(key) ?? (columns.has(key) ? palisadeColumnShiftX(node.hy) : 0);
   });
 }
 

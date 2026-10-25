@@ -21,8 +21,8 @@ import { testContent } from '../fixtures/content.js';
 /**
  * Unit tests for A* on the terrain HALF-CELL ADJACENCY GRAPH. The fixture's landscape table has
  * typeId 0 = grass (walkable) and 1 = water (not walkable). Grids here are authored directly at
- * NODE resolution (the `2W×2H` lattice - edges: E/W (±1,0) @ ½, the straight row edge (0,±1) @ ≈0.28,
- * the slanted row edge (±1,±1) @ ≈0.57, composed diagonals (±1,±2) @ ≈¾). These pin route correctness
+ * NODE resolution (the `2W×2H` lattice - edges: E/W (±1,0) @ ½ and the four row-crossing edges, each a
+ * quarter column sideways, @ ≈0.375). These pin route correctness
  * AND the deterministic, history-independent tie-breaking the lockstep replay invariant depends on.
  */
 
@@ -82,57 +82,60 @@ describe('findPath - shortest route on an open grid', () => {
     ]);
   });
 
-  it('takes ⌊Δhy/2⌋ diagonals plus the un-absorbed half-columns and half-rows', () => {
+  it('takes one row-crossing edge per half-row plus the half-columns those leave over', () => {
     const g = open(10, 8);
     const a = g.nodeAt(0, 0);
     const b = g.nodeAt(5, 3);
     const path = findPath(g, a, b);
     expect(path).not.toBeNull();
-    // ax=5, ay=3: one diagonal (absorbing two half-rows and one half-column), four E steps, one
-    // half-row step - 6 steps, 7 nodes; no cheaper composition exists (heuristic exactness).
-    expect(path?.length).toBe(7);
+    // Eleven quarter columns east and three half-rows: three row-crossing edges cover three quarters,
+    // four E steps the other eight - 7 steps, 8 nodes; no cheaper composition exists.
+    expect(path?.length).toBe(8);
     expect(path?.[0]).toBe(a);
     expect(path?.[path.length - 1]).toBe(b);
   });
 
-  it('a screen-straight diagonal target is reached by pure diagonal edges (a straight line)', () => {
-    // (0,0) -> (2,4) lies exactly down-right on screen: two SE lattice edges. Strictly cheaper than
-    // any straight-step substitute (2·DIAGONAL_STEP ≈ 1.50 vs e.g. 2 E + 4 N ≈ 2.12), so tie-free.
+  it('a screen-straight diagonal target is reached along one heading (a straight line)', () => {
+    // (0,0) -> (2,4) lies exactly down-right on screen: four SE edges, each a quarter column east, the
+    // only walk of four row-crossing edges that ends there.
     const g = open(5, 5);
     const path = findPath(g, g.nodeAt(0, 0), g.nodeAt(2, 4));
     expect(coords(g, path)).toEqual([
       { x: 0, y: 0 },
+      { x: 0, y: 1 },
       { x: 1, y: 2 },
+      { x: 1, y: 3 },
       { x: 2, y: 4 },
     ]);
   });
 
-  it('a straight-down-the-screen target routes as straight half-row steps - no weave', () => {
-    // (2,0) -> (2,4): four N/S half-row steps (4·HALF_ROW ≈ 1.12) strictly beat any diagonal pair
-    // (2·DIAGONAL_STEP ≈ 1.50), so the pick is tie-free - the walker holds its world column exactly.
+  it('a straight-down-the-screen target zigzags a quarter column either side of the line', () => {
+    // (2,0) -> (2,4): four row-crossing edges, alternating SW and SE; every such walk ties, and the
+    // line-deviation key keeps it within a quarter column of the line.
     const g = open(5, 5);
     const path = findPath(g, g.nodeAt(2, 0), g.nodeAt(2, 4));
     expect(coords(g, path)).toEqual([
       { x: 2, y: 0 },
-      { x: 2, y: 1 },
+      { x: 1, y: 1 },
       { x: 2, y: 2 },
-      { x: 2, y: 3 },
+      { x: 1, y: 3 },
       { x: 2, y: 4 },
     ]);
   });
 
-  it('slides half a column to pass a blocked node, west slide winning the mirror tie canonically', () => {
-    // (2,0) -> (2,4) with water at (2,2): the straight half-row column is broken. The two mirror
-    // slides (via (1,2) or (3,2), each two diagonal edges, cost 2·DIAGONAL_STEP ≈ 1.50) tie on cost
-    // AND on line-deviation, so the cell-id tie-break pins the WEST slide - a pinned canonical pick
-    // (a moved expectation here is a lockstep replay-compatibility event, not a style nit).
+  it('slides a quarter column further to pass a blocked node at no cost, west winning the mirror tie', () => {
+    // (2,0) -> (2,4) with water at (2,2): the walk takes (1,2) instead, still four row-crossing edges.
+    // The mirror slide through (3,2) ties on cost and line deviation, so the cell id pins the WEST one -
+    // a pinned canonical pick (a moved expectation here is a lockstep replay-compatibility event).
     const typeIds = new Array(25).fill(GRASS);
     typeIds[2 * 5 + 2] = WATER;
     const g = grid(5, 5, typeIds);
     const path = findPath(g, g.nodeAt(2, 0), g.nodeAt(2, 4));
     expect(coords(g, path)).toEqual([
       { x: 2, y: 0 },
+      { x: 1, y: 1 },
       { x: 1, y: 2 },
+      { x: 1, y: 3 },
       { x: 2, y: 4 },
     ]);
   });
@@ -144,7 +147,7 @@ describe('findPath - shortest route on an open grid', () => {
     for (let i = 1; i < (path?.length ?? 0); i++) {
       const prev = path?.[i - 1] as NodeId;
       const cur = path?.[i] as NodeId;
-      // steps() is the pathfinder's edge set: the six lattice edges and the composed diagonals.
+      // steps() is the pathfinder's edge set: the six lattice edges.
       expect(g.steps(prev).map((s) => s.node)).toContain(cur);
     }
   });
@@ -168,35 +171,6 @@ describe('findPath - routes around obstacles', () => {
     expect(cells[0]).toEqual({ x: 0, y: 2 });
     expect(cells[cells.length - 1]).toEqual({ x: 5, y: 2 });
   });
-
-  it('a diagonal needs its actual midpoint even when the opposite flank is blocked', () => {
-    // The SE edge (1,1) -> (2,3) crosses (2,2). Water beside it at (1,2) does not block that step.
-    const oneFlank = grid(
-      4,
-      4,
-      (() => {
-        const t = new Array(16).fill(GRASS);
-        t[2 * 4 + 1] = WATER; // (1,2)
-        return t;
-      })(),
-    );
-    expect(findPath(oneFlank, oneFlank.nodeAt(1, 1), oneFlank.nodeAt(2, 3))?.length).toBe(2); // the single SE edge through (2,2)
-
-    const sealed = grid(
-      4,
-      4,
-      (() => {
-        const t = new Array(16).fill(GRASS);
-        t[2 * 4 + 0] = WATER;
-        t[2 * 4 + 1] = WATER;
-        t[2 * 4 + 2] = WATER;
-        t[2 * 4 + 3] = WATER; // the whole row hy=2 is water
-        return t;
-      })(),
-    );
-    // With row 2 sealed, no diagonal seam stays open and no half-row step survives - unreachable.
-    expect(findPath(sealed, sealed.nodeAt(1, 1), sealed.nodeAt(2, 3))).toBeNull();
-  });
 });
 
 /** The pocket's inner corners: 16 by 16 nodes, past the goal side's 128-settle probe. */
@@ -205,8 +179,8 @@ const POCKET_HIGH = 40;
 
 describe('findPath - deterministic tie-breaking', () => {
   /** A walk-block ANNULUS sealing node (40,40) on an 80×80 grid: nodes at Chebyshev distance 3..4
-   *  from it. Thickness 2 in y seals the ±2 diagonal/step reach (any escape from max ≤ 2 lands at
-   *  max ≤ 4 - inside the ring), leaving a ~25-node pocket around the centre. */
+   *  from it. Thickness 2 seals the one-node step reach with room to spare, leaving a ~25-node pocket
+   *  around the centre. */
   function sealedAnnulus(g: TerrainGraph): Set<NodeId> {
     const blocked = new Set<NodeId>();
     for (let dx = -4; dx <= 4; dx++) {
@@ -399,17 +373,17 @@ describe('findPath - deterministic tie-breaking', () => {
   });
 
   it('breaks a cost-tie between equal lattice routes canonically (a pinned pick)', () => {
-    // Open 6×6, (1,1) -> (3,3): cost DIAGONAL_STEP + HALF_COLUMN, reachable by equal-cost step
-    // orders (E before or after the diagonal). The canonical (f, h, dev, cell-id) tie-break picks
-    // ONE of them history-independently - the h key settles it (diagonal-first leaves the smaller
-    // remaining heuristic), so the route runs the diagonal before the half-column. This pins that
+    // Open 6×6, (1,1) -> (3,3): two row-crossing edges and one half-column, reachable by equal-cost
+    // step orders. The canonical (f, h, dev, cell-id) tie-break picks ONE of them history-independently -
+    // the h key settles it (the half-column first leaves the smaller remaining heuristic). This pins that
     // pick - a moved expectation here means the lockstep path choice changed, which is a
     // replay-compatibility event, not a style nit.
     const g = open(6, 6);
     const path = findPath(g, g.nodeAt(1, 1), g.nodeAt(3, 3));
     expect(coords(g, path)).toEqual([
       { x: 1, y: 1 },
-      { x: 2, y: 3 },
+      { x: 2, y: 1 },
+      { x: 3, y: 2 },
       { x: 3, y: 3 },
     ]);
   });
@@ -433,6 +407,7 @@ describe('nearestCorridorStop', () => {
       const from = rng.int(corridor.length);
       let expected: { index: number; node: NodeId } | undefined;
       let best = 0;
+      let bestSideways = 0;
       for (let index = from; index < corridor.length; index++) {
         const node = corridor[index];
         if (node === undefined || blocked.has(node)) continue;
@@ -441,9 +416,14 @@ describe('nearestCorridorStop', () => {
           g.yOf(node) - g.yOf(target),
           g.yOf(target),
         );
-        if (expected !== undefined && distance >= best) continue;
+        const sideways = Math.abs(
+          2 * g.xOf(node) + (g.yOf(node) & 1) - 2 * g.xOf(target) - (g.yOf(target) & 1),
+        );
+        if (expected !== undefined && (distance > best || (distance === best && sideways >= bestSideways)))
+          continue;
         expected = { index, node };
         best = distance;
+        bestSideways = sideways;
       }
       expect(nearestCorridorStop(g, corridor, target, from, blocked)).toEqual(expected);
     }

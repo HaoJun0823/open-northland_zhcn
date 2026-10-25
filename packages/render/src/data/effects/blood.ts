@@ -1,5 +1,5 @@
 import { entityById, type SimEvent, type WorldSnapshot } from '@open-northland/sim';
-import { ONE, TILE_HALF_H, TILE_HALF_W, tileToScreen } from '../projection/index.js';
+import { halfCellToScreen, halfCellToScreenX, ONE, TILE_HALF_H, tileToScreen } from '../projection/index.js';
 import { type BloodPalette, bloodAppearance } from './blood-appearance.js';
 import { type BloodHit, bloodLoss, isBloodHit } from './blood-damage.js';
 import { frac } from './random.js';
@@ -67,11 +67,11 @@ export function makeBloodMarks(
     const launch = event.kind === 'projectileHit' ? projectileOrigins?.get(event.projectile) : undefined;
     const from =
       launch !== undefined
-        ? { x: launch.hx * TILE_HALF_W, y: (launch.hy * TILE_HALF_H) / 2 }
+        ? halfCellToScreen(launch.hx, launch.hy)
         : origin === undefined
           ? undefined
           : tileToScreen(origin.x / ONE, origin.y / ONE);
-    const dx = from === undefined ? 0 : event.at.hx * TILE_HALF_W - from.x;
+    const dx = from === undefined ? 0 : halfCellToScreenX(event.at.hx, event.at.hy) - from.x;
     const dy = from === undefined ? 0 : event.at.hy * TILE_HALF_H - from.y * 2;
     next.push({
       ...event.at,

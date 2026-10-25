@@ -2,7 +2,6 @@ import { Container, Graphics } from 'pixi.js';
 import { depthKey, halfCellToScreen, TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { type PalisadeLayout, planShiftX } from '../../data/scene/palisades/connections.js';
-import { palisadeStaggerX } from '../../data/scene/palisades/stagger.js';
 import { type ElevationField, terrainLiftAtNode } from '../../data/terrain/index.js';
 import { mintRangeRing } from '../selection/range-ring.js';
 import { resolveLayers } from '../sprite-pool/index.js';
@@ -240,9 +239,7 @@ export class PlacementGhostLayer {
     }
     const p = halfCellToScreen(ghost.col, ghost.row);
     const lift = terrainLiftAtNode(elevation, ghost.col, ghost.row);
-    // A gate draws staggered with the wall it stands in.
-    const shift = ghost.kind === 'gate' ? palisadeStaggerX(ghost.row) : 0;
-    this.container.position.set(p.x + shift, p.y - lift);
+    this.container.position.set(p.x, p.y - lift);
     // Depth by the pre-lift feet anchor, like every pooled sprite - the ghost interleaves correctly. A gate
     // stands on the walls it replaces, so it reads over them instead.
     this.container.zIndex = ghost.kind === 'gate' ? Number.MAX_SAFE_INTEGER : depthKey(p.x, p.y);

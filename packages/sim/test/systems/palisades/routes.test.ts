@@ -348,10 +348,11 @@ describe('walls that start blocking a route', () => {
     // An odd half-row, where the routes through a one-post gap step diagonally past its neighbours.
     const row = 11;
     postRow(sim, row, P0, [GATE_X]);
+    // Each crosses the wall row at the gap, SE, zigzagging and SW, so all three reach it together.
     const trips = [
-      { from: { hx: 4, hy: 2 }, to: { hx: 20, hy: 18 } },
-      { from: { hx: 6, hy: 2 }, to: { hx: 18, hy: 18 } },
-      { from: { hx: 16, hy: 2 }, to: { hx: 8, hy: 18 } },
+      { from: { hx: 8, hy: 2 }, to: { hx: 16, hy: 18 } },
+      { from: { hx: 10, hy: 2 }, to: { hx: 14, hy: 18 } },
+      { from: { hx: 17, hy: 2 }, to: { hx: 9, hy: 18 } },
     ];
     const walkers = trips.map(({ from, to }) => {
       const walker = fighter(sim, from, P0);
@@ -544,7 +545,7 @@ describe('walls as targets', () => {
       ),
     ),
   )(
-    'recognizes the diagonal midpoint wall from row $hy toward ($dx,$dy), opposite wall: $otherWall',
+    'recognizes the wall on the between node from row $hy toward ($dx,$dy), opposite wall: $otherWall',
     ({ hy, dx, dy, otherWall }) => {
       const start = { hx: 3, hy };
       const goal = { hx: start.hx + dx, hy: hy + dy };
@@ -561,7 +562,7 @@ describe('walls as targets', () => {
           landscapes: { types: [WALL], placements: [] },
         },
       });
-      // The opposite post has the lower ID, but removing it cannot open this diagonal.
+      // The opposite post has the lower ID, but removing it cannot open this way.
       if (otherWall)
         sim.enqueueSetup({
           kind: 'placePalisade',
@@ -585,7 +586,7 @@ describe('walls as targets', () => {
       expect(wall).toBeDefined();
       expect(sealed(sim, start, goal)).toBe(true);
       expect(barring(sim, raider, goal)).toBe(wall);
-      if (wall === undefined) throw new Error('expected the midpoint wall');
+      if (wall === undefined) throw new Error('expected the between-node wall');
       sim.world.mut(wall, Health).hitpoints = 1;
       attackMoveUnit(sim.world, ctxOf(sim), {
         kind: 'attackMoveUnit',
@@ -661,7 +662,8 @@ describe('attack-move planning around open enemy gates', () => {
         run.world.mut(fallen, Health).hitpoints = 0;
         run.step();
         expect(squad.every((e) => !run.world.has(e, AttackOrder))).toBe(true);
-        run.run(600);
+        // Where each stands once its order is done: an idle settler then goes about its own errands.
+        for (let tick = 0; tick < 600 && squad.some((e) => run.world.has(e, PlayerOrder)); tick++) run.step();
         expect(squad.every((e) => nodeRow(run, e).hy === SOUTH.hy)).toBe(true);
         expect(run.world.verifyCaches()).toEqual([]);
       }

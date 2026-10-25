@@ -10,10 +10,10 @@ import {
   wreckAlpha,
 } from '../../data/effects/index.js';
 import {
+  halfCellToScreenX,
+  halfCellToScreenY,
   isVisible,
   rowStagger,
-  TILE_HALF_H,
-  TILE_HALF_W,
   type Viewport,
 } from '../../data/projection/index.js';
 import { anchorTileBox } from '../../data/scene/build/entity-source.js';
@@ -153,7 +153,7 @@ export class CombatEffectsLayer {
       }
       const sprite = node.children[0];
       if (held.lift !== lift && sprite instanceof BloodSurfaceSprite)
-        this.surface?.(sprite, pile.id, (pile.hy * TILE_HALF_H) / 2, lift);
+        this.surface?.(sprite, pile.id, halfCellToScreenY(pile.hy), lift);
       held.lift = lift;
       node.alpha = alpha;
       this.drawnBones.add(pile.id);
@@ -194,8 +194,8 @@ export class CombatEffectsLayer {
     held: Container | undefined,
     mint: () => Container,
   ): Container | undefined {
-    const x = hx * TILE_HALF_W;
-    const feetY = (hy * TILE_HALF_H) / 2 - lift;
+    const x = halfCellToScreenX(hx, hy);
+    const feetY = halfCellToScreenY(hy) - lift;
     if (!isVisible(viewport, x, feetY)) return undefined;
     const node = held ?? mint();
     if (held === undefined) this.groundContainer.addChild(node);

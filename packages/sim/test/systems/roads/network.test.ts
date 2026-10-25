@@ -28,7 +28,7 @@ const ROAD = 1;
 /** The straight walk every route test asks for: 20 half columns east along row 10. */
 const FROM = { hx: 0, hy: 10 };
 const TO = { hx: 20, hy: 10 };
-/** The row the road detour runs along, two diagonals north of the straight line. */
+/** The row the road detour runs along, four half-rows north of the straight line. */
 const ROAD_ROW = 6;
 /** A map wide enough that a road at {@link FAR_ROAD_HX} lies farther from every node of the route than its goal. */
 const FAR_MAP_WIDTH = 160;
@@ -50,10 +50,16 @@ function mappedSim(map: TerrainMap): { sim: Simulation; terrain: TerrainGraph } 
 
 /** A road that leaves the straight line at FROM by two NE diagonals, runs east along ROAD_ROW and
  *  rejoins it at TO by two SE diagonals. */
+/** NE edges up from the start to the road row, along it, then SE edges down to the goal. */
 function detourRoad(terrain: TerrainGraph): NodeId[] {
-  const nodes = [terrain.nodeAt(1, 8)];
+  const nodes = [terrain.nodeAt(0, 9), terrain.nodeAt(1, 8), terrain.nodeAt(1, 7)];
   for (let hx = 2; hx <= 18; hx++) nodes.push(terrain.nodeAt(hx, ROAD_ROW));
-  nodes.push(terrain.nodeAt(19, 8), terrain.nodeAt(TO.hx, TO.hy));
+  nodes.push(
+    terrain.nodeAt(18, 7),
+    terrain.nodeAt(19, 8),
+    terrain.nodeAt(19, 9),
+    terrain.nodeAt(TO.hx, TO.hy),
+  );
   return nodes;
 }
 

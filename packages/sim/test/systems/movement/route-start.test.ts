@@ -100,7 +100,10 @@ describe('routeStartCell beside walk blocks', () => {
     const { terrain } = walledMap();
     const { x, y } = besideWall();
     const blocked = new NodeMask(SIZE * SIZE);
+    // The walker's leg leans a quarter column, so each row brackets it with two nodes.
     blocked.set(terrain.nodeAt(WALKER_X, WALL_ROW), true);
+    blocked.set(terrain.nodeAt(WALKER_X + 1, WALL_ROW), true);
+    blocked.set(terrain.nodeAt(WALKER_X - 1, WALL_ROW - 1), true);
     blocked.set(terrain.nodeAt(WALKER_X, WALL_ROW - 1), true);
     expect(routeStartCell(terrain, x, y, 'land', blocked)).toBe(terrain.nodeAt(WALKER_X, WALL_ROW));
   });

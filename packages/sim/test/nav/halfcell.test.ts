@@ -83,8 +83,8 @@ describe('positionOfNode', () => {
     expect(positionOfNode(1, 0)).toEqual({ x: Q(2), y: Q(0) });
     // Node (0,2): row 1 (odd, stagger ½): x = 0 − ½ = −½ - the west-border seam transient.
     expect(positionOfNode(0, 2)).toEqual({ x: Q(-2), y: fx.fromInt(1) });
-    // Node (2,1): row ½ (stagger ¼): x = 1 − ¼ = ¾.
-    expect(positionOfNode(2, 1)).toEqual({ x: Q(3), y: Q(2) });
+    // Node (2,1): an odd row, world 1 + ¼; row ½ (stagger ¼): x = 1¼ − ¼ = 1.
+    expect(positionOfNode(2, 1)).toEqual({ x: Q(4), y: Q(2) });
   });
 });
 

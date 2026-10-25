@@ -9,7 +9,7 @@ import {
   Position,
 } from '../../../src/components/index.js';
 import { exportSaveGame, fx, positionOfNode, restoreSimulation, Simulation } from '../../../src/index.js';
-import { positionXOfWorld } from '../../../src/nav/halfcell.js';
+import { nodeWorldX, positionXOfWorld } from '../../../src/nav/halfcell.js';
 import { findPath } from '../../../src/nav/pathfinding/index.js';
 import { dynamicBlockOverlay, stampResourceFootprintData } from '../../../src/systems/footprint/index.js';
 import { invalidateLandscapeRoutes, invalidateRoutesThrough } from '../../../src/systems/landscape/routes.js';
@@ -29,10 +29,10 @@ describe('topology reroutes', () => {
     'landscape',
     'sealed-landscape',
     'redirect-sealed',
-  ] as const)('reroutes from walkable ground after %s changes beside a diagonal', (change) => {
+  ] as const)('reroutes from walkable ground after %s changes beside a two-row walk', (change) => {
     const map = grassNodeMap(16, 16);
     const typeIds = [...map.typeIds];
-    // The opposite flank is water; the actual midpoint (4,5) stays open.
+    // The opposite flank is water; the between node (4,5) stays open.
     typeIds[5 * 16 + 5] = 1;
     const options = {
       seed: 1,
@@ -153,7 +153,8 @@ describe('topology reroutes', () => {
     }
     expect(lost).toBe(change.includes('sealed'));
     expect(sim.world.get(e, Position)).toEqual(
-      change.includes('sealed') ? positionOfNode(4, 4) : positionOfNode(6, 8),
+      // Sealed, it holds the between node it last left.
+      change.includes('sealed') ? positionOfNode(4, 5) : positionOfNode(6, 8),
     );
   });
 });
@@ -162,7 +163,7 @@ const closureCases = [4, 5].flatMap((row) =>
   [-1, 1].flatMap((dx) =>
     [-2, 2].flatMap((dy) =>
       [0.2, 0.5, 0.8].flatMap((progress) =>
-        (['midpoint', 'opposite', 'destination'] as const).map((closing) => ({
+        (['between', 'opposite', 'destination'] as const).map((closing) => ({
           row,
           dx,
           dy,
@@ -190,7 +191,7 @@ it.each(closureCases)(
     const goal = terrain.nodeAt(endX, endY);
     const midX = x + (row & 1) - (dx < 0 ? 1 : 0),
       midY = row + dy / 2;
-    const midpoint = terrain.nodeAt(midX, midY);
+    const between = terrain.nodeAt(midX, midY);
     addPerson(world, e, {
       tribe: 1,
       jobType: 1,
@@ -206,17 +207,17 @@ it.each(closureCases)(
     pathfindingSystem(world, ctxOf(sim));
     const oldStops = world.get(e, PathRoute).waypoints;
     expect(oldStops).toHaveLength(3);
-    expect(oldStops[1]?.node).toBe(midpoint);
+    expect(oldStops[1]?.node).toBe(between);
 
-    // At exactly half the diagonal the midpoint has been reached; the destination is next.
+    // At exactly half the two-row walk the between node has been reached; the destination is next.
     world.mut(e, PathFollow).index = progress < 0.5 ? 1 : 2;
     const y = fx.fromFloat((row + dy * progress) / 2);
     world.add(e, Position, {
-      x: positionXOfWorld(fx.fromFloat((x + dx * progress) / 2), y),
+      x: positionXOfWorld(fx.add(nodeWorldX(x, row), fx.fromFloat((dx * progress) / 2)), y),
       y,
     });
     const closed =
-      closing === 'midpoint'
+      closing === 'between'
         ? { x: midX, y: midY }
         : closing === 'opposite'
           ? { x: 2 * x + dx - midX, y: midY }
@@ -230,10 +231,13 @@ it.each(closureCases)(
     });
     invalidateRoutesThrough(world, terrain, new Set([terrain.nodeAt(closed.x, closed.y)]));
 
-    const unaffected = closing === 'opposite' || (closing === 'midpoint' && progress >= 0.5);
+    const unaffected = closing === 'opposite' || (closing === 'between' && progress >= 0.5);
     if (unaffected) expect(world.get(e, PathRoute).waypoints).toBe(oldStops);
     else {
-      expect(world.get(e, PathRoute).waypoints.at(-1)?.node).toBe(start);
+      // A closed destination ends the live step on the between node.
+      expect(world.get(e, PathRoute).waypoints.at(-1)?.node).toBe(
+        closing === 'destination' ? between : start,
+      );
       expect(world.get(e, PathRequest).retainRoute).toBe(true);
     }
     const restored = restoreSimulation(exportSaveGame(sim), options);

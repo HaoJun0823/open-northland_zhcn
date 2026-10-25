@@ -1,4 +1,4 @@
-import { TILE_HALF_H, TILE_HALF_W, type WorldBounds } from '@open-northland/render';
+import { halfCellToScreenX, halfCellToScreenY, type WorldBounds } from '@open-northland/render';
 import { roadRevisionOf, roadShardOf } from '@open-northland/render/data';
 import { entitiesWith, FOG_STATE, type FogMode, type FogView, type WorldSnapshot } from '@open-northland/sim';
 import { BufferImageSource, type Container, Sprite, Texture } from 'pixi.js';
@@ -77,8 +77,8 @@ export function createRoadRaster(
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i] ?? 0;
         const { hx, hy } = nodeOfId(node, nodeWidth);
-        pxX[count] = (hx * TILE_HALF_W - bounds.minX) * scale;
-        pxY[count] = ((hy * TILE_HALF_H) / 2 - bounds.minY) * scale;
+        pxX[count] = (halfCellToScreenX(hx, hy) - bounds.minX) * scale;
+        pxY[count] = (halfCellToScreenY(hy) - bounds.minY) * scale;
         cellX[count] = fogCellXOfNode(hx, hy);
         cellY[count] = hy >> 1;
         count++;

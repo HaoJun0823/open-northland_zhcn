@@ -1,7 +1,7 @@
 import { WALK_DIRECTION, type WalkDirection, WalkFacing } from '../../components/index.js';
 import { type Fixed, fx } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { HEX_HEADING, type HexHeading } from '../../nav/halfcell.js';
+import { HEX_HEADING, HEX_HEADING_COUNT, type HexHeading } from '../../nav/halfcell.js';
 import { ROW_STEP, worldX } from '../../nav/world-metric.js';
 
 const { E, SE, SW, W, NW, NE, N, S } = WALK_DIRECTION;
@@ -33,6 +33,13 @@ export function nextWalkDirection(from: WalkDirection, to: WalkDirection): WalkD
 export function walkTurnSteps(from: WalkDirection, to: WalkDirection): number {
   const d = Math.abs(TURN_RING.indexOf(to) - TURN_RING.indexOf(from));
   return Math.min(d, RING_SIZE - d);
+}
+
+/** {@link walkTurnSteps} on the original's six-direction ring, each facing read as its map-point heading
+ *  ({@link hexHeadingOfWalk}): NE to NW is one step, as a lattice zigzag up a column turns. */
+export function hexTurnSteps(from: WalkDirection, to: WalkDirection): number {
+  const d = Math.abs(hexHeadingOfWalk(to) - hexHeadingOfWalk(from));
+  return Math.min(d, HEX_HEADING_COUNT - d);
 }
 
 /** Original behavior: a walk facing reads as a map-point heading, north as NE and south as SW. */

@@ -113,7 +113,8 @@ describe('blood event history', () => {
       snapshotOf([{ id: 1, components: { Position: positionOfNode(hx, hy) } }]);
     expect(makeBloodMarks([hit(2, 3, 5, 7)], 0, source(4, 7))[0]?.heading).toBeCloseTo(0);
     expect(makeBloodMarks([hit(2, 3, 5, 7)], 0, source(6, 7))[0]?.heading).toBeCloseTo(Math.PI);
-    expect(makeBloodMarks([hit(2, 3, 5, 7)], 0, source(5, 6))[0]?.heading).toBeCloseTo(Math.PI / 2);
+    // Two half-rows straight up the column; one half-row up is a slanted edge.
+    expect(makeBloodMarks([hit(2, 3, 5, 7)], 0, source(5, 5))[0]?.heading).toBeCloseTo(Math.PI / 2);
   });
 
   it('uses a projectile launch origin after the shooter moves or disappears', () => {

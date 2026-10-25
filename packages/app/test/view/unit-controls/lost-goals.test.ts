@@ -1,4 +1,4 @@
-import { TILE_HALF_H, TILE_HALF_W, terrainWorldBounds } from '@open-northland/render';
+import { halfCellToScreen, terrainWorldBounds } from '@open-northland/render';
 import { Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createGoalMarks, goalMarkPoints } from '../../../src/hud/minimap/goal-marks.js';
@@ -103,7 +103,8 @@ describe('goalMarkPoints - a refused goal on the minimap', () => {
 
   it('stands on the projected node, by the formula the roads and the camera box use', () => {
     const [at] = goalMarkPoints(layout, bounds, [{ hx: 5, hy: 7 }]);
-    const expected = worldToMinimap(layout, bounds, 5 * TILE_HALF_W, (7 * TILE_HALF_H) / 2);
+    const node = halfCellToScreen(5, 7);
+    const expected = worldToMinimap(layout, bounds, node.x, node.y);
     expect(at?.x).toBeCloseTo(expected.x);
     expect(at?.y).toBeCloseTo(expected.y);
   });

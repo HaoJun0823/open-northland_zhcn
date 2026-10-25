@@ -38,17 +38,18 @@ interface NodeStep {
 
 /**
  * One column of lanes per heading, as the half-cell node step from attacker to target, one node and two
- * nodes of reach. A node is 34 px across and 19 px down, so (1, 1) and (1, 2) are south-east and (0, 1)
- * and (0, 2) straight south.
+ * nodes of reach. A node is 34 px across and 19 px down, and an odd row sits 17 px east, so (1, 2) is
+ * south-east and (0, 2) straight south. No neighbour lies straight north or south: one row away is
+ * always a quarter column east or west, so a one-node weapon has no lane on those two headings.
  */
-const HEADINGS: readonly { facing: number; near: NodeStep; far: NodeStep }[] = [
+const HEADINGS: readonly { facing: number; near: NodeStep | null; far: NodeStep }[] = [
   { facing: E, near: { hx: 1, hy: 0 }, far: { hx: 2, hy: 0 } },
   { facing: SE, near: { hx: 1, hy: 1, fromOddRow: true }, far: { hx: 1, hy: 2 } },
-  { facing: S, near: { hx: 0, hy: 1 }, far: { hx: 0, hy: 2 } },
+  { facing: S, near: null, far: { hx: 0, hy: 2 } },
   { facing: SW, near: { hx: -1, hy: 1 }, far: { hx: -1, hy: 2 } },
   { facing: W, near: { hx: -1, hy: 0 }, far: { hx: -2, hy: 0 } },
   { facing: NW, near: { hx: -1, hy: -1 }, far: { hx: -1, hy: -2 } },
-  { facing: N, near: { hx: 0, hy: -1 }, far: { hx: 0, hy: -2 } },
+  { facing: N, near: null, far: { hx: 0, hy: -2 } },
   { facing: NE, near: { hx: 1, hy: -1, fromOddRow: true }, far: { hx: 1, hy: -2 } },
 ];
 
@@ -71,14 +72,14 @@ interface Lane {
 }
 
 const LANES: readonly Lane[] = WEAPON_JOBS.flatMap((job, row) =>
-  HEADINGS.map(({ facing, near, far }, column): Lane => {
+  HEADINGS.flatMap(({ facing, near, far }, column): Lane[] => {
     const anchor = cellAnchorNode(MARGIN + column * LANE_COLUMNS, MARGIN + row * LANE_ROWS);
-    const short = SHORT_REACH_JOBS.includes(job);
-    const step = short ? near : far;
+    const step = SHORT_REACH_JOBS.includes(job) ? near : far;
+    if (step === null) return [];
     const steps = RANGED_JOBS.includes(job) ? RANGED_STEPS : 1;
     const attacker = { hx: anchor.hx, hy: anchor.hy + (step.fromOddRow === true ? 1 : 0) };
     const target = { hx: attacker.hx + step.hx * steps, hy: attacker.hy + step.hy * steps };
-    return { facing, job, attacker, target };
+    return [{ facing, job, attacker, target }];
   }),
 );
 
@@ -122,7 +123,7 @@ export const weaponFacingsScene: SceneDefinition = {
   initialZoom: 1.1,
   checks: [
     {
-      label: 'every weapon class swings at its target from its own spot along each of the eight headings',
+      label: 'every weapon class swings at its target from its own spot along each heading its reach allows',
       predicate: everyLaneFacesItsTarget,
     },
   ],

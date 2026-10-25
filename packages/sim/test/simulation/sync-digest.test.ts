@@ -286,6 +286,13 @@ describe('sync digest', () => {
     sim.world.add(walker, MoveGoal, { cell: terrain.nodeAt(WALK_GOAL_NODE, WALK_GOAL_NODE) });
     for (let tick = 0; tick < ROUTE_DELIVERY_TICKS && !sim.world.has(walker, PathFollow); tick++) sim.step();
     expect(sim.world.has(walker, PathFollow)).toBe(true);
+    // Past the turn onto its first edge, which starts the leg's clock.
+    for (
+      let tick = 0;
+      tick < ROUTE_DELIVERY_TICKS && sim.world.get(walker, PathFollow).legStartedAt === undefined;
+      tick++
+    )
+      sim.step();
     sim.step();
 
     const written = new Set<string>();

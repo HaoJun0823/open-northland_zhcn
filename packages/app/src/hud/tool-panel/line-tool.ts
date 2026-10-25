@@ -1,4 +1,4 @@
-import { halfCellToScreen, palisadeStaggerX, TILE_HALF_H, TILE_HALF_W } from '@open-northland/render';
+import { halfCellToScreen, palisadeColumnShiftX, TILE_HALF_H, TILE_HALF_W } from '@open-northland/render';
 import { hexDistanceBetween, hexNeighboursOf } from '@open-northland/sim';
 
 /** A half-cell node on the sim lattice. */
@@ -39,8 +39,8 @@ const TIE_PX = 1e-6;
 /**
  * The line from `start` toward `end` as it looks on screen, at most `maxEdges` steps: each step takes the
  * hex neighbour that advances along the segment and strays least from it. A line flatter than the hex
- * diagonal is measured where its walls draw, on the staggered rows; a steeper one on the lattice without a
- * sideways step, so it runs as straight columns joined by slants. A cube-coordinate line would zigzag
+ * diagonal is measured where its walls draw, on the nodes; a steeper one where a column's walls draw
+ * ({@link palisadeColumnShiftX}), so it runs as straight columns joined by slants. A cube-coordinate line would zigzag
  * across a column the screen shows straight.
  */
 export function screenLine(start: LineNode, end: LineNode, maxEdges: number): LineNode[] {
@@ -50,7 +50,7 @@ export function screenLine(start: LineNode, end: LineNode, maxEdges: number): Li
   const steep = Math.abs(target.x - origin.x) * TILE_HALF_H < Math.abs(target.y - origin.y) * TILE_HALF_W;
   const at = (col: number, row: number): { x: number; y: number } => {
     const p = halfCellToScreen(col, row);
-    return steep ? p : { x: p.x + palisadeStaggerX(row), y: p.y };
+    return steep ? { x: p.x + palisadeColumnShiftX(row), y: p.y } : p;
   };
   const from = at(start.col, start.row);
   const to = at(end.col, end.row);

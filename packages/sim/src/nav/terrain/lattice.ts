@@ -4,9 +4,9 @@
  * `LogicWalkBlockArea`/`LogicBuildBlockArea` footprint offsets all address `2W x 2H`; the half-cell
  * anchoring is the best-aligned reading of the `lmlt` blocking lane, measured in docs/formats/MAPDAT.md.
  *
- * Node `(hx, hy)` sits at world `(hx/2 column, hy/2 row)`, a 34 px by 19 px pitch under the measured
- * 68x38 px projection, and cell `(c, r)` is node `(2c + (r&1), 2r)`, so the staggered raster becomes a
- * rectangular lattice whose six edges per node follow the original's row parity (`edges.ts`).
+ * Node `(hx, hy)` sits at world `(hx/2 column, hy/2 row)`, a quarter column further east on an odd row, a
+ * 34 px by 19 px pitch under the measured 68x38 px projection, and cell `(c, r)` is node
+ * `(2c + (r&1), 2r)`; the six edges per node follow the original's row parity (`edges.ts`).
  */
 import {
   GROUND_WATER,

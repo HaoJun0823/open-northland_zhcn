@@ -22,7 +22,7 @@ export type {
 export { type HolyFireBinding, type HolyFireLookup, holyFireOverlays } from './holy-fire.js';
 export type { InHouseProgramLookup } from './in-house.js';
 export { type PalisadeLayout, palisadeLayoutOf } from './palisades/connections.js';
-export { palisadeStaggerX } from './palisades/stagger.js';
+export { palisadeColumnShiftX } from './palisades/stagger.js';
 export {
   BOW_LAUNCH_HEIGHT_PX,
   COVER_LAUNCH_HEIGHT_PX,

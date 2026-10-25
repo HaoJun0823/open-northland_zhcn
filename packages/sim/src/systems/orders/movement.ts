@@ -313,7 +313,7 @@ export const playerOrderSystem: System = (world, ctx) => {
         markLostWay(world, ctx, e, request.goal);
       }
       world.remove(e, PlayerOrder);
-      stopAtNextNode(world, ctx.terrain, e);
+      stopAtNextNode(world, e);
       continue;
     }
     if (world.has(e, CurrentAtomic)) {

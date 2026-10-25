@@ -122,7 +122,7 @@ function drivePair(
     approachPartner(world, ctx, a, b, nb, () => cancelWedding(world, a));
     return;
   }
-  if (terrain !== undefined && stopAtNextNode(world, terrain, b)) return;
+  if (terrain !== undefined && stopAtNextNode(world, b)) return;
   if (standsBeside(na, nb)) {
     if (terrain !== undefined && haltBeside(world, terrain, a)) return;
     // Both play the paired kiss on one clock: the longer of the two bound clips.

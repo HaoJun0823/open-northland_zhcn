@@ -6,9 +6,8 @@ import {
   type ElevationField,
   type EntityBounds,
   hitsGarrisonFlag,
+  screenToHalfCell,
   signRowAt,
-  TILE_HALF_H,
-  TILE_HALF_W,
 } from '@open-northland/render';
 
 /**
@@ -69,14 +68,6 @@ export function screenToWorld(camera: Camera, sx: number, sy: number): { x: numb
   return { x: (sx - camera.offsetX) / scale, y: (sy - camera.offsetY) / scale };
 }
 
-/**
- * Invert the flat half-cell projection: `halfCellToScreen(col,row) = (col*HALF_W, row*HALF_H/2)` is a
- * rectangular lattice, so the inverse is an independent half-up rounding per axis.
- */
-function worldToTileFlat(wx: number, wy: number): Tile {
-  return { col: Math.round(wx / TILE_HALF_W), row: Math.round(wy / (TILE_HALF_H / 2)) };
-}
-
 /** Correction passes the elevation-aware inverse takes before giving up; it also stops once the estimate settles. */
 const PICK_ELEVATION_PASSES = 8;
 
@@ -86,11 +77,11 @@ const PICK_ELEVATION_PASSES = 8;
  * is iterated to a fixed point.
  */
 export function worldToTile(wx: number, wy: number, elevation?: ElevationField): Tile {
-  if (elevation === undefined || elevation.maxLift === 0) return worldToTileFlat(wx, wy);
-  let guess = worldToTileFlat(wx, wy);
+  if (elevation === undefined || elevation.maxLift === 0) return screenToHalfCell(wx, wy);
+  let guess = screenToHalfCell(wx, wy);
   for (let pass = 0; pass < PICK_ELEVATION_PASSES; pass++) {
     const lift = elevation.liftAtNode(guess.col, guess.row);
-    const next = worldToTileFlat(wx, wy + lift);
+    const next = screenToHalfCell(wx, wy + lift);
     if (next.col === guess.col && next.row === guess.row) return next;
     guess = next;
   }

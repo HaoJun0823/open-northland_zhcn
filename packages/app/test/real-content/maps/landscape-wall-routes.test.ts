@@ -9,39 +9,6 @@ const WONDER = 'wonder-campaign_03_02_sub';
 
 // Real map files stay local; the regression loads the same placements and rules as the app.
 describe.runIf(hasRealIr())('landscape walls and dungeon doors', () => {
-  it.skipIf(!existsSync(realMapPath('straznicypolnocy_sub2')))(
-    'blocks diagonal shortcuts through the ice fortifications on the Guardians map',
-    async () => {
-      const { sim, content } = await realMapWorld({ mapId: 'straznicypolnocy_sub2', machineSeats: [] });
-      const terrain = sim.terrain;
-      if (terrain === undefined) throw new Error('expected terrain');
-      const blocked = dynamicBlockOverlay(sim.world, { content }, terrain);
-      let joints = 0;
-      // The fortification occupies this rectangle; inspect its actual placed collision cells.
-      for (let y = 115; y <= 218; y++)
-        for (let x = 105; x <= 190; x++) {
-          const start = terrain.nodeAt(x, y);
-          if (blocked.has(start)) continue;
-          for (const step of terrain.steps(start)) {
-            const dx = terrain.xOf(step.node) - x,
-              dy = terrain.yOf(step.node) - y;
-            if (Math.abs(dx) !== 1 || Math.abs(dy) !== 2 || blocked.has(step.node)) continue;
-            const mx = x + (dx > 0 ? y & 1 : (y & 1) - 1),
-              my = y + dy / 2;
-            const middle = terrain.nodeAt(mx, my);
-            const flank = terrain.nodeAt(mx === x ? x + dx : x, my);
-            if (!blocked.has(middle) || blocked.has(flank)) continue;
-            joints++;
-            expect(
-              terrain.steps(start, blocked).some((s) => s.node === step.node),
-              `${x},${y}`,
-            ).toBe(false);
-          }
-        }
-      expect(joints).toBeGreaterThan(100);
-    },
-  );
-
   it.skipIf(!existsSync(realMapPath(WONDER)))(
     'keeps the exit sealed until the authored gate-opening result runs',
     async () => {

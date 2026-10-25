@@ -8,7 +8,7 @@ const HEIGHT = 23;
 const RANDOM_ROADS = 120;
 
 /** The pathfinder's step offsets from `node`, the edge set the networks join over: the six lattice edges,
- *  whose slants shift west from an even row and east from an odd one, and the composed diagonals. */
+ *  whose slants shift west from an even row and east from an odd one. */
 function neighbours(node: number): number[] {
   const x = node % WIDTH;
   const y = (node - x) / WIDTH;
@@ -21,10 +21,6 @@ function neighbours(node: number): number[] {
     [0, -1],
     [slant, 1],
     [slant, -1],
-    [1, 2],
-    [-1, 2],
-    [1, -2],
-    [-1, -2],
   ] as const) {
     const nx = x + dx;
     const ny = y + dy;

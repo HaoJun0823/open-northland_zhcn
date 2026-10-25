@@ -219,9 +219,10 @@ function manhattanOutside(lattice: CorridorLattice, x: number, y: number): numbe
 /** No corridor index: {@link nearestStop} has found no stop yet. */
 const NO_STOP = -1;
 
-/** The unblocked corridor node at or after index `from` nearest `target`, the earliest on a tie. Only a
- *  node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. A block whose
- *  box lies no nearer than the best so far holds no such node and is skipped whole. */
+/** The unblocked corridor node at or after index `from` nearest `target` by lattice distance, then by
+ *  sideways offset in quarter columns, since a climb across rows drifts sideways for free; the earliest on
+ *  a tie. Only a node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. A
+ *  block whose box can hold no nearer node is skipped whole. */
 function nearestStop(
   graph: TerrainGraph,
   lattice: CorridorLattice,
@@ -235,23 +236,33 @@ function nearestStop(
   const { xs, ys, blocks } = lattice;
   let best = NO_STOP;
   let bestDistance = fx.fromInt(0);
+  let bestSideways = 0;
   for (let index = from; index < corridor.length; ) {
     if (best !== NO_STOP && index % STOP_BLOCK_NODES === 0) {
       const at = (index / STOP_BLOCK_NODES) * BLOCK_FIELDS;
       const ax = Math.max(0, (blocks[at + BLOCK_MIN_X] ?? 0) - x, x - (blocks[at + BLOCK_MAX_X] ?? 0));
       const ay = Math.max(0, (blocks[at + BLOCK_MIN_Y] ?? 0) - y, y - (blocks[at + BLOCK_MAX_Y] ?? 0));
-      if (latticeOffsetFloor(ax, ay) >= bestDistance) {
+      const floor = latticeOffsetFloor(ax, ay);
+      if (floor > bestDistance || (floor === bestDistance && Math.max(0, 2 * ax - 1) >= bestSideways)) {
         index += STOP_BLOCK_NODES;
         continue;
       }
     }
-    const distance = latticeOffsetDistance((xs[index] ?? 0) - x, (ys[index] ?? 0) - y, y);
+    const dx = (xs[index] ?? 0) - x;
+    const dy = (ys[index] ?? 0) - y;
+    const distance = latticeOffsetDistance(dx, dy, y);
+    const sideways = Math.abs(2 * dx + ((y + dy) & 1) - (y & 1));
     const node = corridor[index];
     index++;
-    if (best !== NO_STOP && distance >= bestDistance) continue;
+    if (
+      best !== NO_STOP &&
+      (distance > bestDistance || (distance === bestDistance && sideways >= bestSideways))
+    )
+      continue;
     if (node === undefined || blocked.has(node)) continue;
     best = index - 1;
     bestDistance = distance;
+    bestSideways = sideways;
   }
   const node = corridor[best];
   return node === undefined ? undefined : { index: best, node };

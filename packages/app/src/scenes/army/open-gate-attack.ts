@@ -12,6 +12,15 @@ import type { SceneDefinition } from '../types.js';
 const WIDTH = 36;
 const WALL_ROW = 22;
 const GATE_X = 58;
+const SQUAD_FIRST_COLUMN = 5;
+const SQUAD_COLUMNS = 8;
+const SQUAD_FIRST_ROW = 15;
+const SQUAD_ROWS = 5;
+/** The squad's easternmost spawn node: the last column on an odd row, a half-cell further east. */
+const SQUAD_EAST_HX = 2 * (SQUAD_FIRST_COLUMN + SQUAD_COLUMNS - 1) + 1;
+/** Halfway from the squad to the gate. The easternmost dealt breach stand lies well west of it, and
+ *  an attacker heading for the gate passes it within the run. */
+const DETOUR_LIMIT_HX = (SQUAD_EAST_HX + GATE_X) / 2;
 const { AttackOrder, Health, Owner, Palisade, Position, Settler } = components;
 
 /** The open gate is far east of the attack. The squad should breach the western wall from the south. */
@@ -33,9 +42,15 @@ function build(sim: Simulation): void {
     if (wall === null) throw new Error('missing palisade');
     if (hx === GATE_X) sim.enqueueSetup({ kind: 'setPalisadeGate', palisade: wall, open: true });
   }
-  for (let row = 0; row < 5; row++) {
-    for (let column = 0; column < 8; column++) {
-      const entity = spawnSettlerDirect(sim, JOB_SOLDIER_SWORD, 5 + column, 15 + row, HUMAN_PLAYER);
+  for (let row = 0; row < SQUAD_ROWS; row++) {
+    for (let column = 0; column < SQUAD_COLUMNS; column++) {
+      const entity = spawnSettlerDirect(
+        sim,
+        JOB_SOLDIER_SWORD,
+        SQUAD_FIRST_COLUMN + column,
+        SQUAD_FIRST_ROW + row,
+        HUMAN_PLAYER,
+      );
       sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: 10 + column * 2, y: 10 });
     }
   }
@@ -74,7 +89,7 @@ export const openGateAttackScene: SceneDefinition = {
           .filter((e) => sim.world.get(e, Owner).player === HUMAN_PLAYER)
           .every((e) => {
             const p = sim.world.get(e, Position);
-            return nodeOfPosition(p.x, p.y).hx < 35;
+            return nodeOfPosition(p.x, p.y).hx < DETOUR_LIMIT_HX;
           }),
     },
   ],

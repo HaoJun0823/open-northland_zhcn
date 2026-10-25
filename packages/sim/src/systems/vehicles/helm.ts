@@ -10,15 +10,15 @@ import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, positionOfNode } from '../../nav/halfcell.js';
 import { headingToward, nextWalkDirection, walkTurnSteps } from '../movement/turning.js';
 
-/** The ticks a vehicle takes to swing through one step of its heading ring (original behavior per
- *  hexagon direction; a human takes 1). Approximation: the ring here has eight headings, N and S
- *  between the diagonals, so a half turn takes 8 ticks where the original's six-direction one takes 6. */
+/** The ticks a vehicle takes to swing through one heading step, original behavior per hexagon
+ *  direction; a human takes 1. A land vehicle counts six-direction steps (`hexTurnSteps`); a ship's hull
+ *  swings the eight-heading ring, an approximation. */
 export const VEHICLE_TURN_TICKS_PER_DIRECTION = 2;
 
 /**
- * The heading a vehicle faces along a lattice step, the screen octant a walker would face: a vertical
- * half-row step is N or S, so a vehicle sails straight up or down on its drawn N/S frames. A zero step
- * keeps east.
+ * The heading a vehicle faces along a lattice step, the screen octant a walker would face: E or W along
+ * a row, and NE, SE, SW or NW across one, so a column climb faces NE and NW in turn. A zero step keeps
+ * east.
  */
 export function facingOfStep(from: HalfCellNode, to: HalfCellNode): WalkDirection {
   return headingToward(positionOfNode(from.hx, from.hy), positionOfNode(to.hx, to.hy)) ?? WALK_DIRECTION.E;
@@ -33,10 +33,14 @@ export function facingOfStep(from: HalfCellNode, to: HalfCellNode): WalkDirectio
 /** How many legs ahead a ship aims its course. */
 const SHIP_AIM_LEGS = 3;
 
+/** The heading steps a lattice zigzag's legs lie off the course they follow. */
+const ZIGZAG_STEPS = 1;
+
 /** A ship's way at full speed: a tick adds the leg's whole increment. */
 export const SHIP_FULL_WAY = 1000;
-/** The most way a ship keeps with its hull this many heading steps off the leg it travels, 0..4: a
- *  lattice zigzag costs little, a reversal nearly stops it while the hull swings round. */
+/** The most way a ship keeps with its hull this many heading steps off the leg it travels, 0..4, one step
+ *  fewer once the hull is on its course: a lattice zigzag along the course costs nothing, a reversal
+ *  nearly stops it while the hull swings round. */
 const SHIP_WAY_BY_SWING: readonly number[] = [SHIP_FULL_WAY, 850, 600, 200, 50];
 /** The way a ship gathers or loses in one tick: from rest to full in under a second. */
 const SHIP_WAY_GAIN = 100;
@@ -49,15 +53,23 @@ const SHIP_CORNER_BRAKING = NODE_PROGRESS_FULL / 2;
 const SHIP_LANDFALL_BRAKING = NODE_PROGRESS_FULL;
 
 /** The course a ship steers from `from` with `route` the nodes to enter from index `step` on: toward
- *  the node {@link SHIP_AIM_LEGS} legs on, or the last one. Null with nothing ahead. */
+ *  the node {@link SHIP_AIM_LEGS} legs on, or the last one. Near the end the course reads over the last
+ *  {@link SHIP_AIM_LEGS} legs while that stays within a heading step of the legs ahead, so a column
+ *  zigzag still reads as the column and a closing turn as the turn. Null with nothing ahead. */
 export function shipCourse(
   from: HalfCellNode,
   route: readonly HalfCellNode[],
   step: number,
 ): WalkDirection | null {
   if (step >= route.length) return null;
-  const aim = route[Math.min(step + SHIP_AIM_LEGS, route.length) - 1];
-  return aim === undefined ? null : facingOfStep(from, aim);
+  const aimIndex = Math.min(step + SHIP_AIM_LEGS, route.length) - 1;
+  const aim = route[aimIndex];
+  if (aim === undefined) return null;
+  const ahead = facingOfStep(from, aim);
+  const origin = route[aimIndex - SHIP_AIM_LEGS];
+  if (origin === undefined) return ahead;
+  const span = facingOfStep(origin, aim);
+  return walkTurnSteps(span, ahead) <= ZIGZAG_STEPS ? span : ahead;
 }
 
 /** The helm of a ship starting a drive from rest, facing `facing`. */
@@ -93,7 +105,7 @@ function approachWay(remaining: number, endWay: number, braking: number): number
 
 /**
  * One tick of a ship's leg along `travel`: the hull swings, the way eases toward the most the hull's
- * angle to `travel` and the approach to the leg's end allow (the change onto `nextCourse`, or the goal
+ * angle to `travel` ({@link SHIP_WAY_BY_SWING}) and the approach to the leg's end allow (the change onto `nextCourse`, or the goal
  * when it is null), and the leg gains its increment scaled by that way. A leg just `entered` drops at
  * once to what the hull's angle allows, so a reversed leg never runs backwards at speed. Clears `from`
  * once the leg is complete.
@@ -109,7 +121,8 @@ export function sailLeg(
   const helm = drive.helm;
   if (helm === null) throw new Error(`vehicle ${e} sails without a helm`);
   const facing = swingHull(world, e, helm);
-  const hullLimit = wayForSwing(walkTurnSteps(facing, travel));
+  const offLeg = walkTurnSteps(facing, travel);
+  const hullLimit = wayForSwing(facing === helm.heading ? Math.max(0, offLeg - ZIGZAG_STEPS) : offLeg);
   if (entered && helm.way > hullLimit) helm.way = hullLimit;
   const remaining = NODE_PROGRESS_FULL - drive.progress;
   const approach =

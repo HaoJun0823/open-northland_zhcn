@@ -106,23 +106,21 @@ describe('plannerSystem - navigation planner: MoveGoal -> PathRequest', () => {
     expect(sim.world.get(e, PathRequest).start).toBe(anchorCell(sim, 3, 0));
   });
 
-  it('routes from a walkable bracket node when the NEAREST node is impassable (mid-seam redirect)', () => {
-    // A diagonal (±1,±2) leg is legal with one impassable flank (terrain.ts steps), so a walker
-    // part-way along it can sit nearest a WATER node. findPath rejects an unwalkable start outright -
-    // routing from that node would fail the request and strand the walker mid-leg; the planner must
-    // skip to the nearest walkable bracket node instead. Node-level water needs a hand-authored
-    // half-cell map (a cell fixture stamps uniform 2×2 blocks).
+  it('routes from a walkable bracket node when the NEAREST node is impassable (off-lattice redirect)', () => {
+    // A walker shoved off its leg (unit separation) can sit nearest a WATER node. findPath rejects an
+    // unwalkable start outright - routing from that node would fail the request and strand the walker;
+    // the planner must skip to the nearest walkable bracket node instead. Node-level water needs a
+    // hand-authored half-cell map (a cell fixture stamps uniform 2×2 blocks).
     const WATER = 1;
     const typeIds = new Array(16).fill(GRASS);
-    typeIds[1 * 4 + 2] = WATER; // node (2,1) - a flank of the diagonal leg (1,0) -> (2,2)
+    typeIds[1 * 4 + 1] = WATER; // node (1,1), world (0.75, 0.5)
     const sim = new Simulation({
       seed: 1,
       content: testContent(),
       map: { resolution: 'half-cell', width: 4, height: 4, typeIds },
     });
     const e = travellerAt(sim, 0, 0, sim.terrain?.nodeAt(0, 0) as number);
-    // Part-way along the diagonal leg (1,0) -> (2,2): world (0.85, 0.7) - nearest bracket node is
-    // the water flank (2,1); the walkable (2,2) must win instead.
+    // World (0.85, 0.7): the nearest bracket node is the water (1,1); the walkable (2,2) must win instead.
     sim.world.mut(e, Position).x = fx.fromFloat(0.5);
     sim.world.mut(e, Position).y = fx.fromFloat(0.7);
     plannerSystem(sim.world, ctxOf(sim));

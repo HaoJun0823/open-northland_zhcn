@@ -445,8 +445,8 @@ describe('gossip chat rounds (GossipSystem)', () => {
     expect(sim.checkInvariants()).toEqual([]);
   });
 
-  // A steep diagonal route reaches the partner's node through a diagonal midpoint, where the seeker
-  // already stands beside it but its live step still ends on the partner's node.
+  // A steep route ends with a step onto the partner's node, the seeker already standing beside it while
+  // its live step still ends there.
   it.each([
     [3, -6],
     [-3, 6],

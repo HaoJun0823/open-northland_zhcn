@@ -53,15 +53,15 @@ function manhattan(a: { hx: number; hy: number }, b: { hx: number; hy: number })
   return Math.abs(a.hx - b.hx) + Math.abs(a.hy - b.hy);
 }
 
-/** The grove trees still standing. */
-function groveStanding(sim: Simulation): number {
+/** The anchor nodes of the grove trees still standing. */
+function standingGrove(sim: Simulation): { hx: number; hy: number }[] {
   const grove = GROVE.map((tree) => cellAnchorNode(tree.x, tree.y));
-  let standing = 0;
+  const standing: { hx: number; hy: number }[] = [];
   for (const e of sim.world.query(components.Resource, components.Position)) {
     if (sim.world.get(e, components.Resource).remaining <= 0) continue;
     const p = sim.world.get(e, components.Position);
     const at = nodeOfPosition(p.x, p.y);
-    if (grove.some((node) => node.hx === at.hx && node.hy === at.hy)) standing += 1;
+    if (grove.some((node) => node.hx === at.hx && node.hy === at.hy)) standing.push(at);
   }
   return standing;
 }
@@ -69,7 +69,8 @@ function groveStanding(sim: Simulation): number {
 /**
  * A collector works the two trees beside his flag with the assistant's "gatherers move flags to resources"
  * switch on. Once they are felled the flag moves 3-5 tiles from a tree of the grove to the east, between
- * the grove and the headquarters, and he goes on felling there.
+ * the grove and the headquarters, and he goes on felling there; once a felled grove tree leaves the rest
+ * past the band, the flag follows again, still on the headquarters side of the trees left.
  */
 export const gathererFlagFollowScene: SceneDefinition = {
   id: 'gatherer-flag-follow',
@@ -117,12 +118,14 @@ export const gathererFlagFollowScene: SceneDefinition = {
         const flag = flagNodeOf(sim);
         if (flag === null) return false;
         const hq = cellAnchorNode(HQ_AT.x, HQ_AT.y);
-        return GROVE.every((tree) => manhattan(flag, hq) < manhattan(cellAnchorNode(tree.x, tree.y), hq));
+        // Against the trees still standing: a felled one's node is open ground the follow may plant on.
+        const standing = standingGrove(sim);
+        return standing.length > 0 && standing.every((tree) => manhattan(flag, hq) < manhattan(tree, hq));
       },
     },
     {
       label: 'he fells the grove from the moved flag',
-      predicate: (sim) => groveStanding(sim) < GROVE.length,
+      predicate: (sim) => standingGrove(sim).length < GROVE.length,
     },
   ],
 };

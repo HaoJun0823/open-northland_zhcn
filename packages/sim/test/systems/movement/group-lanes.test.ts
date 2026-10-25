@@ -98,7 +98,7 @@ describe('army route lanes', () => {
   it('translates a detour with a slanted edge for followers an odd number of rows off', () => {
     const { terrain, blocked, lanes } = fixture();
     for (let y = 0; y <= 30; y++) blocked.set(terrain.nodeAt(80, y), true);
-    for (let x = 100; x <= 104; x++) for (let y = 30; y <= 60; y++) blocked.set(terrain.nodeAt(x, y), true);
+    for (let x = 100; x <= 104; x++) for (let y = 41; y <= 60; y++) blocked.set(terrain.nodeAt(x, y), true);
     const lead = findPath(terrain, terrain.nodeAt(10, 20), terrain.nodeAt(180, 20), blocked);
     if (lead === null) throw new Error('missing lead route');
     // The premise: the detour takes a column-shifting edge, which a row of the other parity leans away
@@ -214,9 +214,9 @@ describe('army route lanes', () => {
     expect(route?.length).toBeLessThan(100);
   });
 
-  it('refuses a translated diagonal across two blocked midpoint flanks', () => {
+  it('refuses a translated slant whose landing and bridge are both blocked', () => {
     const { terrain, blocked, lanes } = fixture();
-    const corridor: NodeId[] = [terrain.nodeAt(10, 10), terrain.nodeAt(11, 12)];
+    const corridor: NodeId[] = [terrain.nodeAt(10, 10), terrain.nodeAt(10, 11), terrain.nodeAt(11, 12)];
     blocked.set(terrain.nodeAt(10, 12), true);
     blocked.set(terrain.nodeAt(11, 12), true);
     expect(
@@ -265,7 +265,7 @@ describe('army route lanes', () => {
     for (let x = 0; x < width - 10; x++) blocked.set(terrain.nodeAt(x, wallY), true);
     // A spur below it that B's road rounds at its foot, so no straight lane runs to B's slots.
     const spurX = 200;
-    const spurFoot = 145;
+    const spurFoot = 149;
     for (let y = wallY + 1; y <= spurFoot; y++) blocked.set(terrain.nodeAt(spurX, y), true);
     const routes = new GroupRoutes(terrain);
     // Order A marches above the wall, order B below it, both searched in one drain under one view.
@@ -280,7 +280,10 @@ describe('army route lanes', () => {
     if (route === null) throw new Error('the member found no route to ride');
     expect(route.at(-1)).toBe(goal);
     expect(route.every((node) => terrain.yOf(node) > wallY)).toBe(true);
+    // It rounds the spur on B's own road, and may leave it toward its slot only past the spur.
     const roadB = new Set(orderB);
-    expect(route.filter((node) => roadB.has(node)).length).toBeGreaterThan(route.length / 2);
+    const atSpur = route.filter((node) => terrain.xOf(node) === spurX);
+    expect(atSpur.length).toBeGreaterThan(0);
+    expect(atSpur.every((node) => roadB.has(node))).toBe(true);
   });
 });

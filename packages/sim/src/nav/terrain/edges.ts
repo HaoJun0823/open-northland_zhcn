@@ -4,22 +4,17 @@
  * floods (`range-search.ts`) walk the same six neighbours without the edge gate. Source basis for the set: `THexagonDirection` in the shipped `Data/GameSourceIncludes/logicdefines.inc`
  * (E, SE, SW, W, NW, NE, then NORTH = 6 and SOUTH = 7, which no route takes). Original behavior: the
  * route search expands only those six, each gated by the map's per-node edge lane, on a lattice whose
- * odd rows sit half a node to +x. Here the odd-row shift is the parity rule of the row-crossing edges:
- * from an even row NE and SE run straight up and down the column and NW and SW shift a column west,
- * from an odd row NW and SW run straight and NE and SE shift a column east. The edges connect exactly
- * what the original's connect.
- *
- * The pathfinder also takes a composed diagonal `(+-1, +-2)`: the same heading's edge twice, walked as
- * one straight leg, because on this rectangular lattice the two edges differ in length and would be
- * walked as a bend (`DIAGONAL_STEP` in `world-metric.ts`). It needs both edges open and its middle
- * node passable, so it joins nothing the single edges do not. Approximation: route shapes and step
- * lengths, not connectivity.
+ * odd rows sit half a node to +x. In integer coordinates that shift is the parity rule of the
+ * row-crossing edges: from an even row NE and SE keep the column and NW and SW shift a column west,
+ * from an odd row NW and SW keep it and NE and SE shift a column east. The edges connect exactly what
+ * the original's connect, and all four row-crossing edges are one length (`ROW_EDGE`), so the pathfinder
+ * takes these six steps alone.
  *
  * Neighbours are emitted in a fixed canonical order so traversal is byte-identical across runs.
  */
 import { HEX_EDGE, HEX_EDGE_COUNT, hexEdgeNeighbourX, hexEdgeNeighbourY } from '@open-northland/data';
 import { type BlockOverlay, NodeMask } from '../block-overlay.js';
-import { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, SLANT_STEP } from '../world-metric.js';
+import { HALF_COLUMN, ROW_EDGE } from '../world-metric.js';
 
 import { TerrainLattice, type Traversal } from './lattice.js';
 import type { NodeId } from './node-id.js';
@@ -77,7 +72,7 @@ export abstract class TerrainEdges extends TerrainLattice {
 
   /**
    * The walkable subset of {@link neighbours} a walkable `node` is {@link joined} to, in the same order:
-   * the nodes a walker standing on `node` can step to in one edge, the composed diagonals aside.
+   * the nodes a walker standing on `node` can step to in one edge.
    */
   walkableNeighbours(node: NodeId): NodeId[] {
     const out: NodeId[] = [];
@@ -106,11 +101,9 @@ export abstract class TerrainEdges extends TerrainLattice {
   }
 
   /**
-   * The pathfinder's edge set from `node`: the six lattice edges in canonical order, then the composed
-   * diagonals SE, SW, NW, NE. A step costs the edge's world length; the pathfinder weighs it by the
-   * destination's ground. A step onto a blocked or unwalkable destination is omitted, and so is one
-   * along ground the original's edges do not join; a diagonal additionally needs the node its two
-   * edges share passable.
+   * The pathfinder's edge set from `node`: the six lattice edges in canonical order. A step costs the
+   * edge's world length; the pathfinder weighs it by the destination's ground. A step onto a blocked or
+   * unwalkable destination is omitted, and so is one along ground the original's edges do not join.
    *
    * The allocating form; hot callers use {@link stepsInto}.
    */
@@ -164,59 +157,23 @@ export abstract class TerrainEdges extends TerrainLattice {
     const southWest = odd ? node + width : node + width - 1;
     const eastwardIn = odd ? east : true;
     const westwardIn = odd ? true : west;
-    const eastwardCost = odd ? SLANT_STEP : HALF_ROW;
-    const westwardCost = odd ? HALF_ROW : SLANT_STEP;
     if (east && (edges & EAST) !== 0 && this.open(node + 1, blocked, bytes, land)) {
       out.push((node + 1) as NodeId, HALF_COLUMN);
     }
-    const se = down && eastwardIn && (edges & SOUTH_EAST) !== 0 && this.open(southEast, blocked, bytes, land);
-    if (se) out.push(southEast as NodeId, eastwardCost);
-    const sw = down && westwardIn && (edges & SOUTH_WEST) !== 0 && this.open(southWest, blocked, bytes, land);
-    if (sw) out.push(southWest as NodeId, westwardCost);
+    if (down && eastwardIn && (edges & SOUTH_EAST) !== 0 && this.open(southEast, blocked, bytes, land)) {
+      out.push(southEast as NodeId, ROW_EDGE);
+    }
+    if (down && westwardIn && (edges & SOUTH_WEST) !== 0 && this.open(southWest, blocked, bytes, land)) {
+      out.push(southWest as NodeId, ROW_EDGE);
+    }
     if (west && (edges & WEST) !== 0 && this.open(node - 1, blocked, bytes, land)) {
       out.push((node - 1) as NodeId, HALF_COLUMN);
     }
-    const nw = up && westwardIn && (edges & NORTH_WEST) !== 0 && this.open(northWest, blocked, bytes, land);
-    if (nw) out.push(northWest as NodeId, westwardCost);
-    const ne = up && eastwardIn && (edges & NORTH_EAST) !== 0 && this.open(northEast, blocked, bytes, land);
-    if (ne) out.push(northEast as NodeId, eastwardCost);
-    // A composed diagonal continues an open edge by the same heading's edge from its landing, which is
-    // the diagonal's middle node, already known passable. The landing two rows off is one column east
-    // for SE and NE and one column west for SW and NW, whatever the parity.
-    const twoRows = 2 * width;
-    const twoDown = y + 2 < this.height;
-    const twoUp = y >= 2;
-    if (
-      se &&
-      twoDown &&
-      east &&
-      this.edgeOpen(southEast, SOUTH_EAST, node + twoRows + 1, blocked, bytes, land)
-    ) {
-      out.push((node + twoRows + 1) as NodeId, DIAGONAL_STEP);
+    if (up && westwardIn && (edges & NORTH_WEST) !== 0 && this.open(northWest, blocked, bytes, land)) {
+      out.push(northWest as NodeId, ROW_EDGE);
     }
-    if (
-      sw &&
-      twoDown &&
-      west &&
-      this.edgeOpen(southWest, SOUTH_WEST, node + twoRows - 1, blocked, bytes, land)
-    ) {
-      out.push((node + twoRows - 1) as NodeId, DIAGONAL_STEP);
-    }
-    if (
-      nw &&
-      twoUp &&
-      west &&
-      this.edgeOpen(northWest, NORTH_WEST, node - twoRows - 1, blocked, bytes, land)
-    ) {
-      out.push((node - twoRows - 1) as NodeId, DIAGONAL_STEP);
-    }
-    if (
-      ne &&
-      twoUp &&
-      east &&
-      this.edgeOpen(northEast, NORTH_EAST, node - twoRows + 1, blocked, bytes, land)
-    ) {
-      out.push((node - twoRows + 1) as NodeId, DIAGONAL_STEP);
+    if (up && eastwardIn && (edges & NORTH_EAST) !== 0 && this.open(northEast, blocked, bytes, land)) {
+      out.push(northEast as NodeId, ROW_EDGE);
     }
   }
 
@@ -240,19 +197,6 @@ export abstract class TerrainEdges extends TerrainLattice {
   /** The open ground edge bits of the in-bounds node id `c`, every bit when the map carries no edges. */
   private edgeMaskAt(c: number): number {
     return this.groundEdges === undefined ? ALL_EDGES : (this.groundEdges[c] ?? 0);
-  }
-
-  /** Whether the edge `bit` leaves the in-bounds node id `from` and its in-bounds landing `to` is
-   *  {@link open}. */
-  private edgeOpen(
-    from: number,
-    bit: number,
-    to: number,
-    blocked: BlockOverlay | undefined,
-    bytes: Uint8Array | undefined,
-    land: boolean,
-  ): boolean {
-    return (this.edgeMaskAt(from) & bit) !== 0 && this.open(to, blocked, bytes, land);
   }
 
   /** Whether the in-bounds node id `c` is open to a land mover (`land`) or a ship and not masked by the

@@ -267,7 +267,7 @@ export const deContent = {
     'weapon-facings': {
       title: 'Angriffsrichtungen der Waffen',
       summary:
-        'Jede Waffenklasse schlägt in allen acht Richtungen auf ein widerstandsfähiges Ziel ein, von den Fäusten bis zum Langbogen.',
+        'Jede Waffenklasse schlägt in jeder Richtung, die ihre Reichweite erlaubt, auf ein widerstandsfähiges Ziel ein, von den Fäusten bis zum Langbogen.',
     },
     'battle-weary': {
       title: 'Erschöpfte Kriegerschar',

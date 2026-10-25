@@ -18,7 +18,7 @@ const neighbourScratch: NodeId[] = [];
  * Whether `node` keeps an exit: one lattice neighbour it is joined to that a mover of `traversal` may
  * stand on and `blocked` leaves open. Every stand a search returns must pass it, so nobody is parked in
  * a one-node nook between footprints. Exactly when the pathfinder has a step out of `node` under the
- * same overlay, since its composed diagonals pass through such a neighbour.
+ * same overlay.
  */
 export function hasOpenSide(
   terrain: TerrainGraph,

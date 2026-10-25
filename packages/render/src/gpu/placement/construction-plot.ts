@@ -1,5 +1,5 @@
 import { Container, Graphics, GraphicsContext } from 'pixi.js';
-import { halfCellToScreen } from '../../data/projection/index.js';
+import { TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import { type ElevationField, terrainLiftAt } from '../../data/terrain/index.js';
 import type { EntityBounds } from '../sprite-pool/pooled-entity.js';
 import { hashCells } from './cell-signature.js';
@@ -363,13 +363,19 @@ function startedOutlines(
   return loops;
 }
 
-/** Project a `(u,v)` outline vertex to world px; fractional node coords use the `(hx/2, hy/2)` cell-space
- *  approximation. */
+/** Half the odd-row shift of a node, in node columns: a quarter of one. */
+const ODD_ROW_SHIFT_HALVED = 1 / 4;
+
+/** Project a `(u,v)` outline vertex to world px. The outline is a union of node diamonds on an affine
+ *  lattice, so every row takes half the odd-row shift: approximation, each vertex at most an eighth of a
+ *  cell off its node's own column. */
 function projectUV(elevation: ElevationField, u: number, v: number): { x: number; y: number } {
   const col = (u + v) / 2;
   const row = (u - v) / 2;
-  const p = halfCellToScreen(col, row);
-  return { x: p.x, y: p.y - terrainLiftAt(elevation, col / 2, row / 2) };
+  return {
+    x: (col + ODD_ROW_SHIFT_HALVED) * TILE_HALF_W,
+    y: (row * TILE_HALF_H) / 2 - terrainLiftAt(elevation, col / 2, row / 2),
+  };
 }
 
 /** Per-vertex corner radii: half the shorter adjacent edge, capped at {@link MAX_CORNER_RADIUS}. */

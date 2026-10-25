@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseGraphicsKnobs, parseWindowSpec } from '../../bench/browser/frames-plan.mjs';
+import { parseGraphicsKnobs, parseWindowSpec, WINDOWS } from '../../bench/browser/frames-plan.mjs';
 
-test('a window spec names cameras with a speed each', () => {
+test('a window spec names cameras and the moving windows, with a speed each', () => {
   assert.equal(parseWindowSpec(undefined), undefined);
-  assert.deepEqual(parseWindowSpec('dense:3,wide:0'), [
+  assert.deepEqual(parseWindowSpec('dense:3,wide-move:3'), [
     { cameraName: 'dense', speed: 3 },
-    { cameraName: 'wide', speed: 0 },
+    { cameraName: 'wide-move', speed: 3 },
   ]);
-  assert.throws(() => parseWindowSpec('nope:3'), /camera:speed/);
-  assert.throws(() => parseWindowSpec('dense:1.5'), /camera:speed/);
+  assert.equal(WINDOWS['wide-move'].camera, 'wide');
+  assert.equal(WINDOWS['wide-move'].pointer, 'move');
+  assert.throws(() => parseWindowSpec('nope:3'), /window:speed/);
+  assert.throws(() => parseWindowSpec('dense:1.5'), /window:speed/);
 });
 
 test('the graphics knobs default to xBR at render scale 1 and switch the filter off on request', () => {

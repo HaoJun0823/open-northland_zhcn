@@ -4,14 +4,27 @@ import { MAGNIFIERS } from './gpu-plan.mjs';
 /** The views a window frames, all on the densest building cluster but `empty`. */
 export const CAMERA_NAMES = ['dense', 'zoom07', 'zoom05', 'wide', 'empty'];
 
-/** `camera:speed` pairs, e.g. `dense:3,wide:0`; undefined when unset (the full baseline matrix). */
+/**
+ * Every window `ON_BENCH_BROWSER_WINDOWS` can name: a camera, plus a moving pointer (`pointer`). The
+ * camera names measure with the pointer at rest.
+ */
+export const WINDOWS = {
+  ...Object.fromEntries(CAMERA_NAMES.map((name) => [name, { camera: name, pointer: 'rest' }])),
+  'dense-move': { camera: 'dense', pointer: 'move' },
+  'wide-move': { camera: 'wide', pointer: 'move' },
+};
+
+/** A moving pointer's mean speed over the world, screen px per second. */
+export const POINTER_SPEED_PX_PER_S = 60;
+
+/** `camera:speed` pairs, e.g. `dense:3,wide-move:3`; undefined when unset (the full baseline matrix). */
 export function parseWindowSpec(text) {
   if (text === undefined) return undefined;
   return text.split(',').map((pair) => {
     const [cameraName, speedText] = pair.split(':');
     const speed = Number(speedText);
-    if (!CAMERA_NAMES.includes(cameraName) || !Number.isInteger(speed) || speed < 0)
-      throw new Error(`ON_BENCH_BROWSER_WINDOWS entry ${pair} is not camera:speed (${CAMERA_NAMES})`);
+    if (!(cameraName in WINDOWS) || !Number.isInteger(speed) || speed < 0)
+      throw new Error(`ON_BENCH_BROWSER_WINDOWS entry ${pair} is not window:speed (${Object.keys(WINDOWS)})`);
     return { cameraName, speed };
   });
 }

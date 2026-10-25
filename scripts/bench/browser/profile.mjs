@@ -153,40 +153,49 @@ export async function countGlCalls(page) {
   });
 }
 
-export async function guardCamera(page, camera) {
-  await page.evaluate((expectedCamera) => {
-    const d = window.__opennorthland;
-    d.cameraCtl.setSuspended(true);
-    d.cameraCtl.jumpTo(expectedCamera);
-    const canvas = d.renderer.app.canvas;
-    const guard = {
-      expectedCamera,
-      width: canvas.width,
-      height: canvas.height,
-      dpr: devicePixelRatio,
-      drift: false,
-    };
-    window.__measurementGuard = guard;
-    guard.check = () => {
-      const actual = d.cameraCtl.camera();
-      guard.drift ||=
-        actual.offsetX !== expectedCamera.offsetX ||
-        actual.offsetY !== expectedCamera.offsetY ||
-        (actual.scale ?? 1) !== (expectedCamera.scale ?? 1) ||
-        canvas.width !== guard.width ||
-        canvas.height !== guard.height ||
-        devicePixelRatio !== guard.dpr;
-    };
-    for (const name of ['keydown', 'keyup', 'wheel', 'pointerdown', 'pointermove', 'pointerup'])
-      window.addEventListener(
-        name,
-        (event) => {
-          event.stopImmediatePropagation();
-          if (event.cancelable) event.preventDefault();
-        },
-        { capture: true, passive: false },
-      );
-  }, camera);
+/**
+ * Hold the camera at `camera` and block the player's input while a window measures; the guard marks a
+ * window void when the camera, canvas or device pixel ratio moves. `pointerMoves` lets pointer moves
+ * through to the game, for a window that measures a moving pointer.
+ */
+export async function guardCamera(page, camera, { pointerMoves = false } = {}) {
+  await page.evaluate(
+    ({ expectedCamera, pointerMoves }) => {
+      const d = window.__opennorthland;
+      d.cameraCtl.setSuspended(true);
+      d.cameraCtl.jumpTo(expectedCamera);
+      const canvas = d.renderer.app.canvas;
+      const guard = {
+        expectedCamera,
+        width: canvas.width,
+        height: canvas.height,
+        dpr: devicePixelRatio,
+        drift: false,
+      };
+      window.__measurementGuard = guard;
+      guard.check = () => {
+        const actual = d.cameraCtl.camera();
+        guard.drift ||=
+          actual.offsetX !== expectedCamera.offsetX ||
+          actual.offsetY !== expectedCamera.offsetY ||
+          (actual.scale ?? 1) !== (expectedCamera.scale ?? 1) ||
+          canvas.width !== guard.width ||
+          canvas.height !== guard.height ||
+          devicePixelRatio !== guard.dpr;
+      };
+      const blocked = ['keydown', 'keyup', 'wheel', 'pointerdown', 'pointerup'];
+      for (const name of pointerMoves ? blocked : [...blocked, 'pointermove'])
+        window.addEventListener(
+          name,
+          (event) => {
+            event.stopImmediatePropagation();
+            if (event.cancelable) event.preventDefault();
+          },
+          { capture: true, passive: false },
+        );
+    },
+    { expectedCamera: camera, pointerMoves },
+  );
 }
 
 // Instrumented windows stay separate from the baseline frame measurements.

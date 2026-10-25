@@ -137,6 +137,55 @@ export function boxAround(points, target, area, viewport = VIEWPORT) {
   return null;
 }
 
+/** The moving-pointer windows' path: a 3:2 Lissajous curve over the middle of the world area. */
+const LISSAJOUS_X = 3;
+const LISSAJOUS_Y = 2;
+const LISSAJOUS_PHASE = Math.PI / 2;
+/** The curve's reach as a share of the world area's half-width and half-height. */
+const PATH_REACH = 0.6;
+/** Samples per period when the curve's length is measured. */
+const PATH_LENGTH_SAMPLES = 4096;
+
+/**
+ * A pointer path over `area`: the screen point `seconds` into the move, travelling the curve at a
+ * steady parameter rate whose mean speed is `pxPerSecond`.
+ */
+export function pointerPath(area, pxPerSecond) {
+  const cx = (area.left + area.right) / 2;
+  const cy = (area.top + area.bottom) / 2;
+  const ax = ((area.right - area.left) / 2) * PATH_REACH;
+  const ay = ((area.bottom - area.top) / 2) * PATH_REACH;
+  const at = (theta) => ({
+    x: cx + ax * Math.sin(LISSAJOUS_X * theta + LISSAJOUS_PHASE),
+    y: cy + ay * Math.sin(LISSAJOUS_Y * theta),
+  });
+  let length = 0;
+  let previous = at(0);
+  for (let i = 1; i <= PATH_LENGTH_SAMPLES; i++) {
+    const next = at((2 * Math.PI * i) / PATH_LENGTH_SAMPLES);
+    length += Math.hypot(next.x - previous.x, next.y - previous.y);
+    previous = next;
+  }
+  const radiansPerSecond = (2 * Math.PI * pxPerSecond) / length;
+  return (seconds) => at(seconds * radiansPerSecond);
+}
+
+/** A real mouse sends moves faster than any frame rate; the browser coalesces them to one per frame. */
+const MOVE_INTERVAL_MS = 8;
+
+/** Move the real pointer along `path` (from {@link pointerPath}) for `seconds`; resolves when done. */
+export async function movePointerAlong(page, path, seconds) {
+  const started = Date.now();
+  for (;;) {
+    const elapsed = (Date.now() - started) / 1000;
+    if (elapsed >= seconds) return;
+    const point = path(elapsed);
+    await page.mouse.move(point.x, point.y);
+    const wait = MOVE_INTERVAL_MS - ((Date.now() - started) % MOVE_INTERVAL_MS);
+    await new Promise((done) => setTimeout(done, wait));
+  }
+}
+
 /** A vehicle's anchor is its wheels; a click this far above lands on its body. */
 const VEHICLE_BODY_LIFT = 20;
 

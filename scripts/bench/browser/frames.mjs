@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, loadavg, platform, release } from 'node:os';
 import { resolve } from 'node:path';
+import { movePointerAlong, pointerPath, worldArea } from '../../browser/input.mjs';
 import {
   benchBrowserInfo,
   cameraAt,
@@ -17,7 +18,13 @@ import {
   VIEWPORT,
   verifyDevServer,
 } from '../../browser/session.mjs';
-import { CAMERA_NAMES, parseGraphicsKnobs, parseWindowSpec } from './frames-plan.mjs';
+import {
+  CAMERA_NAMES,
+  POINTER_SPEED_PX_PER_S,
+  parseGraphicsKnobs,
+  parseWindowSpec,
+  WINDOWS,
+} from './frames-plan.mjs';
 import { browserWindowTable, windowName } from './frames-report.mjs';
 import {
   busyShare,
@@ -34,13 +41,15 @@ if (!checkpoint || !origin || process.argv.length > 6)
 const seconds = Number(secondsText);
 /** Where the pointer rests while a window measures: the middle of the world view. */
 const POINTER_REST = { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
+/** Unmeasured settling after a window's restore, camera and speed. */
+const WARM_MS = 5000;
 const mode = process.env.ON_BENCH_BROWSER_MODE ?? 'all';
 if (!['all', 'baseline', 'profile'].includes(mode))
   throw new Error('ON_BENCH_BROWSER_MODE must be all, baseline or profile');
 if (!Number.isFinite(seconds) || seconds < 1) throw new Error('window seconds must be positive');
 const throttle = Number(process.env.ON_BENCH_BROWSER_CPU_THROTTLE ?? '1');
 if (!Number.isFinite(throttle) || throttle < 1) throw new Error('ON_BENCH_BROWSER_CPU_THROTTLE must be >= 1');
-/** `camera:speed` pairs, e.g. `dense:3,wide:0`; unset runs the full baseline matrix. */
+/** Window `name:speed` pairs, e.g. `dense:3,wide-move:3`; unset runs the full baseline matrix. */
 const windowSpec = parseWindowSpec(process.env.ON_BENCH_BROWSER_WINDOWS);
 const graphics = parseGraphicsKnobs(process.env);
 /** A seat the spectator watches, which draws through that seat's fog and fills its HUD figures; unset
@@ -185,9 +194,11 @@ try {
   metadata.cameras = cameras;
   const reports = metadata.reports;
   async function windowRun(cameraName, speed, suffix = '') {
+    const kind = WINDOWS[cameraName];
+    const camera = cameras[kind.camera];
     progress(`condition ${cameraName} x${speed}${suffix}`);
     await restore();
-    await guardCamera(page, cameras[cameraName]);
+    await guardCamera(page, camera, { pointerMoves: kind.pointer === 'move' });
     await page.evaluate(
       async ({ camera, speed }) => {
         const d = window.__opennorthland;
@@ -195,12 +206,14 @@ try {
         d.setSpeed(speed || 1);
         await d.setPaused(speed === 0);
       },
-      { camera: cameras[cameraName], speed },
+      { camera, speed },
     );
     // A player's pointer rests over the world, so every window pays the hover's cost the same way
-    // instead of whatever the OS cursor happens to cover.
-    await page.mouse.move(POINTER_REST.x, POINTER_REST.y);
-    await page.waitForTimeout(5000);
+    // instead of whatever the OS cursor happens to cover; a moving window starts it on its path.
+    const path = kind.pointer === 'move' ? pointerPath(worldArea(), POINTER_SPEED_PX_PER_S) : null;
+    const pointerStart = path === null ? POINTER_REST : path(0);
+    await page.mouse.move(pointerStart.x, pointerStart.y);
+    await page.waitForTimeout(WARM_MS);
     progress(`measuring ${cameraName} x${speed}${suffix} for ${seconds}s`);
     const loadAtStart = machineLoad();
     await countGlCalls(page);
@@ -208,6 +221,7 @@ try {
       window.__opennorthland.resetPerf();
       window.__rafProbe = {
         samples: [],
+        pointerMoves: 0,
         stop: false,
         last: null,
         hidden: document.hidden,
@@ -218,8 +232,16 @@ try {
       const visibility = () => {
         if (document.hidden) window.__rafProbe.hidden = true;
       };
+      // Moves the game receives; the guard stops them before this listener in a window at rest.
+      const pointerMove = () => {
+        window.__rafProbe.pointerMoves++;
+      };
       document.addEventListener('visibilitychange', visibility);
-      window.__rafProbe.cleanup = () => document.removeEventListener('visibilitychange', visibility);
+      window.addEventListener('pointermove', pointerMove);
+      window.__rafProbe.cleanup = () => {
+        document.removeEventListener('visibilitychange', visibility);
+        window.removeEventListener('pointermove', pointerMove);
+      };
       const tick = (now) => {
         const p = window.__rafProbe;
         if (p.stop) return;
@@ -236,7 +258,8 @@ try {
       await simWorker.send('Profiler.setSamplingInterval', { interval: 200 });
       await simWorker.send('Profiler.start');
     }
-    await page.waitForTimeout(seconds * 1000);
+    if (path === null) await page.waitForTimeout(seconds * 1000);
+    else await movePointerAlong(page, path, seconds);
     const workerProfiled = simWorker === null ? null : (await simWorker.send('Profiler.stop')).profile;
     const result = await page.evaluate(async () => {
       window.__rafProbe.stop = true;
@@ -260,6 +283,7 @@ try {
             ? null
             : window.__opennorthland.audioStats().frames - window.__rafProbe.startAudioFrames,
         gl: window.__glCalls.report(),
+        pointerMoves: window.__rafProbe.pointerMoves,
         raf: {
           frames: samples.length,
           p50: at(0.5),

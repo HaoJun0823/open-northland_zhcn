@@ -1,15 +1,16 @@
 import type { ContentSet } from '@open-northland/data';
-import { Position, Settler } from '../../components/index.js';
+import { Position, Rider, Settler } from '../../components/index.js';
 import { MAX_UNIT_ORDER_MEMBERS } from '../../core/commands/unit-orders.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { formationNodes } from '../../nav/formation.js';
-import { type HalfCellNode, nodeOfPosition } from '../../nav/halfcell.js';
+import { type HalfCellNode, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
 import { hasOpenSide } from '../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { buildingDoorwayNodes } from '../footprint/building-blocked-cache.js';
 import { walkBlockMask } from '../footprint/walk-block-mask.js';
 import { routeStartCell } from '../movement/route-start.js';
 import { commandedVehicleOf } from '../vehicles/commander.js';
+import { landingOf } from '../vehicles/crew.js';
 
 /** Foot members share a land component; each vehicle commander keeps the click in its own group. */
 export interface FormationSlotGroup {
@@ -85,7 +86,12 @@ export function formationSlotGroups(
       result.push({ members: [entity], slots: [{ ...seat }], commandedVehicle });
       continue;
     }
-    const position = world.tryGet(entity, Position);
+    let position = world.tryGet(entity, Position);
+    if (position === undefined) {
+      const rider = world.tryGet(entity, Rider);
+      const landing = rider === undefined ? null : landingOf(world, { content, terrain }, rider.vehicle);
+      if (landing !== null) position = positionOfNode(landing.hx, landing.hy);
+    }
     if (position === undefined) continue;
     const { hx, hy } = nodeOfPosition(position.x, position.y);
     if (!terrain.inBounds(hx, hy)) continue;

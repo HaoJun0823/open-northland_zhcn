@@ -23,16 +23,22 @@ import { queueVehicleOrder } from './order-queue.js';
 import type { VehicleOrderRoutes } from './order-routes.js';
 
 // A vehicle's commander drives it: a walk order given to the commander goes to the vehicle, whether the
-// commander is aboard or stands beside it (the deviation named in docs/formats/VEHICLES.md "Crew").
+// commander is aboard or stands beside it. A commander aboard a moored ship walks ashore instead.
 
 /** The vehicle `e` commands and that stands on the map: the vehicle its `Rider` names when `e` holds the
- *  commander seat. Null for a settler on foot, an ordinary passenger, a vehicle riding a carrier, or one
- *  a script handed to another player while its commander kept its own owner. */
+ *  commander seat. Null for an ordinary passenger, a rider aboard a moored ship, a carried vehicle,
+ *  or a vehicle a script handed to another player while its commander kept its own owner. */
 export function commandedVehicleOf(world: World, e: Entity): Entity | null {
   const rider = world.tryGet(e, Rider);
   if (rider === undefined) return null;
   const state = world.tryGet(rider.vehicle, Vehicle);
-  if (state === undefined || vehicleCommander(state) !== e || state.carrier !== null) return null;
+  if (
+    state === undefined ||
+    vehicleCommander(state) !== e ||
+    state.carrier !== null ||
+    (state.moored && !world.has(e, Position))
+  )
+    return null;
   if (ownerOf(world, rider.vehicle) !== ownerOf(world, e)) return null;
   return vehicleAnchor(world, rider.vehicle) === null ? null : rider.vehicle;
 }

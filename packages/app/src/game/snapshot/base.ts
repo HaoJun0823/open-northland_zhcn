@@ -201,7 +201,7 @@ export function vehicleSeatsOf(slots: unknown): VehicleSeatSnapshot[] {
 }
 
 /** The vehicle `e` commands and that stands on the map: the one its `Rider` names when `e` holds the
- *  commander seat, both have one owner and the vehicle rides no carrier (the sim's `commandedVehicleOf`). */
+ *  commander seat, both have one owner, the vehicle rides no carrier and the rider is not aboard a moored ship (the sim's `commandedVehicleOf`). */
 export function commandedVehicleOf(snapshot: WorldSnapshot, e: SnapshotEntity): number | undefined {
   const vehicle = num((e.components.Rider as { vehicle?: unknown } | undefined)?.vehicle);
   if (vehicle === undefined) return undefined;
@@ -209,8 +209,10 @@ export function commandedVehicleOf(snapshot: WorldSnapshot, e: SnapshotEntity): 
   if (self === undefined || vehicleCommanderOf(self) !== e.id || positionOf(self) === undefined)
     return undefined;
   if (ownerPlayerOf(self) !== ownerPlayerOf(e)) return undefined;
-  const carrier = (self.components.Vehicle as { carrier?: unknown }).carrier;
-  return carrier === null ? vehicle : undefined;
+  const state = self.components.Vehicle as { carrier?: unknown; moored?: unknown };
+  return state.carrier === null && (state.moored !== true || positionOf(e) !== undefined)
+    ? vehicle
+    : undefined;
 }
 
 /** A settler or a building, the entities {@link actorsOf} lists. */

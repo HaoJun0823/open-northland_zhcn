@@ -6,12 +6,13 @@ import {
   projectTile,
   tileToScreen,
 } from '@open-northland/render';
-import { entitiesWith, entityById, type WorldSnapshot } from '@open-northland/sim';
+import { entitiesWith, entityById, positionOfNode, type WorldSnapshot } from '@open-northland/sim';
 import {
   flagHolderOf,
   isPlayerControllable,
   isSettler,
   isWildlife,
+  num,
   ownerPlayerOf,
   positionOf,
   type SnapshotEntity,
@@ -49,6 +50,27 @@ export interface UnitTargetsDeps {
   /** Whether the point is on a claimed wall or road site's work flag, which then stands for its builder;
    *  absent, the flag is part of the site. */
   readonly siteFlagHitOf?: ((ref: number, wx: number, wy: number) => boolean) | undefined;
+}
+
+/** A passenger orders from the mooring, including one seated in a vehicle on the ship's deck. */
+function passengerPosition(snapshot: WorldSnapshot, entity: SnapshotEntity): ReturnType<typeof positionOf> {
+  let vehicle = num((entity.components.Rider as { vehicle?: unknown } | undefined)?.vehicle);
+  const seen = new Set<number>();
+  while (vehicle !== undefined && !seen.has(vehicle)) {
+    seen.add(vehicle);
+    const carrier = entityById(snapshot, vehicle);
+    const state = carrier?.components.Vehicle as
+      | { carrier?: unknown; moored?: unknown; mooring?: { hx?: unknown; hy?: unknown } }
+      | undefined;
+    if (state === undefined) return undefined;
+    if (state.moored === true) {
+      const hx = num(state.mooring?.hx);
+      const hy = num(state.mooring?.hy);
+      return hx === undefined || hy === undefined ? undefined : positionOfNode(hx, hy);
+    }
+    vehicle = num(state.carrier);
+  }
+  return undefined;
 }
 
 /** World px a road plot's click box reaches past its drawn plot. Tuned by eye. */
@@ -436,7 +458,7 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
         if (e === undefined || !isSettler(e) || !pickableOwner(ownerPlayerOf(e))) continue;
         if (isLivestock(e)) continue;
         if (!isPlayerControllable(e)) continue;
-        const pos = positionOf(e);
+        const pos = positionOf(e) ?? passengerPosition(snapshot, e);
         if (pos === undefined) continue;
         // No elevation lift and no cull: this set pairs units to formation slots against each other
         // rather than against the screen.

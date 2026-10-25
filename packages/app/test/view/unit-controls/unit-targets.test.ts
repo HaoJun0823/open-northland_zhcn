@@ -535,6 +535,36 @@ describe('unit-controls targets over the renderer frame', () => {
     expect(targets.wildlife().map((t) => t.ref)).toEqual([deer.id]);
   });
 
+  it('orders passengers from the mooring, including crew inside a carried vehicle, but not at sea', () => {
+    const ship = 90060;
+    const cart = 90061;
+    const riders = [90062, 90063];
+    const entities = [
+      { id: ship, components: { Vehicle: { moored: true, mooring: { hx: 10, hy: 8 }, carrier: null } } },
+      { id: cart, components: { Vehicle: { moored: false, mooring: null, carrier: ship } } },
+      ...riders.map((id, i) => ({
+        id,
+        components: {
+          Settler: { jobType: 31 },
+          Owner: { player: HUMAN_PLAYER },
+          Rider: { vehicle: i === 0 ? ship : cart },
+        },
+      })),
+    ];
+    snapshot = { ...snapshot, entities: [...snapshot.entities, ...entities] };
+    const targets = targetsOver([]);
+    expect(targets.ownedSettlersIn(new Set(riders)).map(({ ref }) => ref)).toEqual(riders);
+    snapshot = {
+      ...snapshot,
+      entities: snapshot.entities.map((e) =>
+        e.id === ship
+          ? { ...e, components: { Vehicle: { moored: false, mooring: null, carrier: null } } }
+          : e,
+      ),
+    };
+    expect(targets.ownedSettlersIn(new Set(riders))).toEqual([]);
+  });
+
   it('orders a settler the frame never draws, such as one standing inside a building', () => {
     // Indoor settlers (the `Resting` marker, or mid-exchange in a store) are deliberately not drawn, so
     // the frame cannot supply them - the order set reads the snapshot instead and still reaches them.

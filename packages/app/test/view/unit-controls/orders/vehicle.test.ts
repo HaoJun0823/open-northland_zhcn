@@ -46,6 +46,8 @@ const CART_PASSENGER = 32;
 /** A cart riding inside the moored ship and the commander aboard it: nothing to drive on the map. */
 const CARRIED_CART = 14;
 const CARRIED_COMMANDER = 33;
+const SHIP_COMMANDER = 34;
+const SEA_COMMANDER = 35;
 const ENEMY_PLAYER = 1;
 /** Boarding candidates, numbered from an id no other fixture entity takes. */
 const BOARDING_GROUP = 3;
@@ -102,8 +104,10 @@ const WORLD: WorldSnapshot = snapshotOf([
     SHIP,
   ),
   aboard(CARRIED_COMMANDER, CARRIED_CART),
-  vehicle(SHIP, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, true),
-  vehicle(SHIP_AT_SEA, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, false),
+  vehicle(SHIP, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, true, [{ entity: SHIP_COMMANDER, inside: true }]),
+  aboard(SHIP_COMMANDER, SHIP),
+  vehicle(SHIP_AT_SEA, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, false, [{ entity: SEA_COMMANDER, inside: true }]),
+  aboard(SEA_COMMANDER, SHIP_AT_SEA),
   vehicle(ENEMY_CART, VEHICLE_HANDCART, ENEMY_PLAYER),
   {
     id: ENEMY_SOLDIER,
@@ -385,6 +389,15 @@ describe('vehicle right-click defaults', () => {
     expect(group.controller.issueDriveTo(shore)).toBe(true);
     expect(group.issued.map((command) => command.kind)).toEqual(['moveVehicleGroup']);
     expect(harness([OWN_SETTLER], {}).controller.issueDriveTo(shore)).toBe(false);
+  });
+
+  it('leaves a moored captain’s click to the settler orders while direct ship selection still sails', () => {
+    expect(harness([SHIP_COMMANDER], {}).controller.issueRightClick(rightClick)).toBe(false);
+    expect(harness([SHIP], {}).controller.issueRightClick(rightClick)).toBe(true);
+    expect(harness([SEA_COMMANDER], {}).controller.selectedVehicle()).toBe(SHIP_AT_SEA);
+    const carried = harness([CARRIED_CART], {});
+    expect(carried.controller.issueRightClick(rightClick)).toBe(true);
+    expect(carried.issued[0]).toMatchObject({ kind: 'moveVehicle', vehicle: CARRIED_CART });
   });
 
   it('drives the vehicle for its commander selected aboard it, and nothing for a passenger aboard', () => {

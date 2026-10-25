@@ -681,6 +681,33 @@ describe('leaving', () => {
     expect(s.world.has(scout, Position)).toBe(false);
   });
 
+  it('walks selected crew off a moored ship to the ordered land destination', () => {
+    for (const job of [SCOUT, SOLDIER]) {
+      for (const captainSelected of [true, false]) {
+        const s = sim();
+        const ship = spawn(s, SHIP_SMALL, 22, 8);
+        const captain = spawnSettler(s, 2, 6, job);
+        attach(s, captain, ship);
+        const passenger = spawnSettler(s, 4, 6, job);
+        attach(s, passenger, ship);
+        boardOut(s, ship, captain, SAIL_TICKS);
+        boardOut(s, ship, passenger, SAIL_TICKS);
+        const selected = captainSelected ? captain : passenger;
+        const goal = { hx: 8, hy: 8 };
+        expect(s.formationSlots(goal, [selected])).toEqual([{ members: [selected], slots: [goal] }]);
+        s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: selected, x: goal.hx, y: goal.hy }));
+        s.step();
+        expect(s.world.has(selected, Rider)).toBe(false);
+        expect(s.world.get(ship, Vehicle).moored).toBe(true);
+        let ticks = 0;
+        while (nodeOf(s, selected).hx !== goal.hx || nodeOf(s, selected).hy !== goal.hy) {
+          s.step();
+          if (++ticks > SAIL_TICKS) throw new Error('the passenger did not reach the click');
+        }
+      }
+    }
+  });
+
   it("sails a ship on its captain's walk order to water and refuses one to land", () => {
     const s = sim();
     const ship = spawn(s, SHIP_SMALL, 22, 8);
@@ -688,6 +715,7 @@ describe('leaving', () => {
     attach(s, captain, ship);
     s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: captain }));
     boardOut(s, ship, captain, SAIL_TICKS);
+    s.world.mut(ship, Vehicle).moored = false;
     s.enqueue(playerCommand(P0, { kind: 'moveUnit', entity: captain, x: 2, y: 6 }));
     s.step();
     expect(moveRefusals(s)).toEqual([`${ship}:noPath:${P0}`]);
@@ -810,6 +838,30 @@ describe('carried vehicles', () => {
     expect(s.world.get(cart, Vehicle).carrier).toBeNull();
     expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
     expect(seatOf(s, cart, scout)?.inside).toBe(true);
+  });
+
+  it('drives a selected carried cart ashore to its destination only after mooring', () => {
+    const s = sim();
+    const { ship, cart, scout } = loadedCart(s);
+    s.enqueue(playerCommand(P0, { kind: 'loadIntoVehicle', vehicle: cart, carrier: ship }));
+    s.run(SAIL_TICKS);
+    expect(s.world.has(cart, Position)).toBe(false);
+    s.world.mut(ship, Vehicle).moored = false;
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 6, y: 10 }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).carrier).toBe(ship);
+    expect(s.world.has(cart, Position)).toBe(false);
+    s.world.mut(ship, Vehicle).moored = true;
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 6, y: 10 }));
+    s.step();
+    expect(s.world.get(cart, Vehicle).carrier).toBeNull();
+    expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
+    expect(seatOf(s, cart, scout)?.inside).toBe(true);
+    let ticks = 0;
+    while (nodeOf(s, cart).hx !== 6 || nodeOf(s, cart).hy !== 10) {
+      s.step();
+      if (++ticks > SAIL_TICKS) throw new Error('the cart did not reach the click');
+    }
   });
 
   it('a Shift-queued load waits for the drive ahead, then drives into the ship', () => {

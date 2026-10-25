@@ -56,6 +56,7 @@ import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { stationaryOwnedSettlers } from '../settlers/planner/spacing.js';
 import { endChat } from '../social/index.js';
 import type { NodeBuckets } from '../spatial/nodes.js';
+import { leaveCarrier } from './boarding.js';
 import { cartDragTicks, cartSpeedLossPercent } from './drag.js';
 import {
   facingOfStep,
@@ -753,8 +754,10 @@ export function moveVehicle(
   if (terrain === undefined) return false; // mapless sim: nothing to drive over
   const e = command.vehicle;
   const state = world.tryGet(e, Vehicle);
+  if (state === undefined) return false;
+  if (state.carrier !== null && !leaveCarrier(world, ctx, { kind: 'leaveCarrier', vehicle: e })) return false;
   const anchor = vehicleAnchor(world, e);
-  if (state === undefined || anchor === null || state.carrier !== null) return false;
+  if (anchor === null) return false;
   dropVehicleOrderQueue(world, e);
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
   if (type !== undefined && awaitsDraughtAnimal(type, state)) {

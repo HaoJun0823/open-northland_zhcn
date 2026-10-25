@@ -197,6 +197,7 @@ describe('vehicle commanders in fresh formations', () => {
     for (let tick = 0; tick < 512 && crew.some((id) => h.sim.world.has(id, components.Position)); tick++)
       h.sim.step();
     expect(crew.some((id) => h.sim.world.has(id, components.Position))).toBe(false);
+    h.sim.world.mut(h.vehicle, components.Vehicle).moored = false;
     const before = h.sim.hashState();
     expect(await h.host.formationSlots({ hx: 99, hy: -5 }, [h.passenger, h.captain, h.captain], 2)).toEqual([
       { members: [h.captain], slots: [{ hx: 31, hy: 0 }], commandedVehicle: h.vehicle },

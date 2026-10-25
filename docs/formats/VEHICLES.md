@@ -167,7 +167,10 @@ vehicle's commander, aboard or standing beside it, is handed to the vehicle as i
 the vehicle's refusals apply and a refused point leaves the commander seated. The original detaches
 the commander and walks him off alone, leaving the cart standing. A commander outside drops its own
 walk to board at once, while one held by an atomic finishes it first (a trader completes the unit it
-is loading). Detach and unload people remain the way to leave a vehicle behind.
+is loading). A moored ship is the exception: a selected crew member aboard, including its commander,
+walks ashore to the ordered destination. A selected carried vehicle likewise leaves a moored ship
+and drives to the destination with its own crew aboard; at sea it stays inside. Detach and unload
+people also leave a vehicle behind.
 
 ## Cargo
 

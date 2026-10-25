@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupMemberModel } from '../../../../src/hud/details-panel/model/index.js';
 import { createMemberRoster, type MemberRoster } from '../../../../src/hud/dom/group-panel/members.js';
+import { createFigureOverlay } from '../../../../src/hud/dom/parts/figure-overlay.js';
 
 /** The compact grid: wells 24 x 34 design px, ten to a row, 3 px apart (foundation.css). */
 const WELL_W = 24;
@@ -52,6 +53,12 @@ function fakeLayout(): void {
     configurable: true,
     get(this: HTMLElement) {
       return wellBox(this).top;
+    },
+  });
+  Object.defineProperty(button, 'offsetLeft', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return wellBox(this).left;
     },
   });
   vi.spyOn(button, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -118,9 +125,41 @@ describe('roster figure canvas', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    for (const name of ['offsetWidth', 'clientWidth', 'clientHeight', 'offsetHeight', 'offsetTop'])
+    for (const name of [
+      'offsetWidth',
+      'clientWidth',
+      'clientHeight',
+      'offsetHeight',
+      'offsetTop',
+      'offsetLeft',
+    ])
       Reflect.deleteProperty(HTMLButtonElement.prototype, name);
     document.body.replaceChildren();
+  });
+
+  it('spans the canvas over the laid wells in both directions', () => {
+    const roster = laidRoster();
+    frame(roster);
+    const style = figureCanvas(roster)?.style;
+    expect([style?.left, style?.width, style?.top]).toEqual(['0px', `${ROSTER_W - GAP_PX}px`, '0px']);
+  });
+
+  it("places the canvas over its holders' offset box", () => {
+    const box = (left: number, top: number) => {
+      const node = document.createElement('span');
+      for (const [name, value] of [
+        ['offsetLeft', left],
+        ['offsetTop', top],
+        ['offsetWidth', 40],
+        ['offsetHeight', 33],
+      ] as const)
+        Object.defineProperty(node, name, { value });
+      return { node, canvas: document.createElement('canvas') };
+    };
+    const overlay = createFigureOverlay('figures');
+    overlay.place([box(9, 68), box(9, 102)]);
+    const { left, top, width, height } = overlay.canvas.style;
+    expect([left, top, width, height]).toEqual(['9px', '68px', '40px', '67px']);
   });
 
   it('lays the canvas again at a new device scale, so the copies keep their size and place', () => {

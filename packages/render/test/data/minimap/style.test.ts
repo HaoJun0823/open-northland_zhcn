@@ -235,11 +235,13 @@ describe('a changed region of the minimap raster', () => {
     water: lane((col, row) => ((col - 16) ** 2 + (row - 8) ** 2 < 12 ? 1 : 0)),
     colourOfCell: (cell) => (cell % 5 === 0 ? SAND : GREY),
   });
-  const forest = (extra: readonly number[]) => ({
+  const STONE = 1;
+  /** Trees over the left of the map, less the `felled` cells, and the `[hx, hy, type]` triples of `extra`. */
+  const forest = (extra: readonly number[] = [], felled: readonly number[] = []) => ({
     types: ['wood', 'stone'],
     placements: [...lane((col, row) => (col < 9 && row % 3 !== 0 ? 1 : 0))]
       .flatMap((trees, cell) =>
-        trees === 0
+        trees === 0 || felled.includes(cell)
           ? []
           : [2 * (cell % SIZE) + (Math.floor(cell / SIZE) & 1), 2 * Math.floor(cell / SIZE), 0],
       )
@@ -249,14 +251,21 @@ describe('a changed region of the minimap raster', () => {
     ...terrain,
     ...minimapObjectLanes(SIZE, SIZE, objects, featureOf),
   });
+  const LAST = SIZE - 1;
+  /** A tree planted in the open, one deep in the forest felled and a stone found by the lake. */
+  const inside = forest([40, 30, 0, 30, 12, STONE], [4 * SIZE + 4]);
+  /** At the map's edges, where the sampler clamps: a tree planted in the first cell and in the last
+   *  row and column, and one felled on the left edge. */
+  const edges = forest([0, 0, 0, 2 * LAST + 1, 2 * LAST, 0, 2 * LAST + 1, 20, 0], [SIZE]);
 
   it.each([
-    ['supersampled', PX_W, PX_H],
-    ['textured and warped', 1200, 640],
-  ])('repaints the tiles a change reaches into the whole new picture, %s', (_case, pxW, pxH) => {
-    const before = sceneOf(forest([]));
-    // A tree planted in the open, one deep in the forest felled, and a stone found by the lake.
-    const after = sceneOf(forest([40, 30, 0, 30, 12, 1]));
+    ['inside, supersampled', PX_W, PX_H, inside],
+    ['inside, textured and warped', 1200, 640, inside],
+    ['at the edges, supersampled', PX_W, PX_H, edges],
+    ['at the edges, textured and warped', 1200, 640, edges],
+  ])('repaints the tiles a change reaches into the whole new picture, %s', (_case, pxW, pxH, changed) => {
+    const before = sceneOf(forest());
+    const after = sceneOf(changed);
     const beforeField = buildMinimapCellField(before);
     const afterField = buildMinimapCellField(after);
     const picture = rasterizeMinimap(before, pxW, pxH);
@@ -286,7 +295,7 @@ describe('a changed region of the minimap raster', () => {
   });
 
   it('marks no tile when no cell changed', () => {
-    const field = buildMinimapCellField(sceneOf(forest([])));
+    const field = buildMinimapCellField(sceneOf(forest()));
     expect(changedMinimapTiles(terrain, field, field.slice(), PX_W, PX_H)).toBeNull();
   });
 });

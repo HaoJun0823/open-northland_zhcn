@@ -58,6 +58,8 @@ it('lists a house a script allowed while the world is paused, once the answer la
   try {
     // The paused world's one model: the window opens on the answer held from before the script's result.
     const model: HudModel = { tick: 8, player: 0, population: 0, jobs: [], stocks: [] };
+    const opened = 1000;
+    const now = vi.spyOn(performance, 'now').mockReturnValue(opened);
     window.update(model);
     window.toggle();
     expect(listed()).toBe(0);
@@ -66,12 +68,11 @@ it('lists a house a script allowed while the world is paused, once the answer la
     window.update(model);
     expect(listed()).toBe(0);
 
+    // The answer lands, but the entries' availability is read at most every quarter second.
     answers += 1;
-    const now = vi.spyOn(performance, 'now');
-    now.mockReturnValue(performance.now());
     window.update(model);
-    // The entries' availability is read at most every quarter second, so the answer lists then.
-    now.mockReturnValue(performance.now() + AVAILABILITY_REFRESH_MS);
+    expect(listed()).toBe(0);
+    now.mockReturnValue(opened + AVAILABILITY_REFRESH_MS);
     window.update(model);
     expect(listed()).toBe(1);
   } finally {

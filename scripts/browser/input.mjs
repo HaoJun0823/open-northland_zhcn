@@ -76,18 +76,13 @@ export async function drag(page, box) {
 }
 
 /**
- * The one selected entity's id and whether it is a building, vehicle or settler; null unless exactly
- * one entity is selected. Reads `window.__frameInputs`, which {@link watchFrameInputs} keeps.
+ * The one selected entity's id; null unless exactly one entity is selected. Reads
+ * `window.__frameInputs`, which {@link watchFrameInputs} keeps.
  */
-function selectedKind(page) {
+function selectedId(page) {
   return page.evaluate(() => {
     const { selection, selectedId } = window.__frameInputs;
-    if (selection !== 1) return null;
-    const entity = window.__opennorthland.host.snapshot().entities.find((e) => e.id === selectedId);
-    if (entity === undefined) return null;
-    if (entity.components.Building) return 'building';
-    if (entity.components.Vehicle) return 'vehicle';
-    return 'settler';
+    return selection === 1 ? selectedId : null;
   });
 }
 
@@ -111,20 +106,21 @@ export function watchFrameInputs(page) {
   });
 }
 
-/** Click drawn settlers until one alone is selected; false when none in `area` would take. */
+/** Click drawn settlers until the clicked one alone is selected, not a signpost or house in front of
+ *  it; false when none in `area` would take. */
 export async function selectOneSettler(page, area) {
   for (const settler of (await drawnOnScreen(page, 'settler', area)).slice(0, SINGLE_PICK_TRIES)) {
     await click(page, { x: settler.x, y: settler.y - SETTLER_BODY_LIFT });
-    if ((await selectedKind(page)) === 'settler') return true;
+    if ((await selectedId(page)) === settler.id) return true;
   }
   return false;
 }
 
-/** Click drawn buildings until one alone is selected; false when none in `area` would take. */
+/** Click drawn buildings until the clicked one alone is selected; false when none in `area` would take. */
 export async function selectOneBuilding(page, area) {
   for (const building of (await drawnOnScreen(page, 'building', area)).slice(0, SINGLE_PICK_TRIES)) {
     await click(page, { x: building.x, y: building.y - BUILDING_BODY_LIFT });
-    if ((await selectedKind(page)) === 'building') return true;
+    if ((await selectedId(page)) === building.id) return true;
   }
   return false;
 }

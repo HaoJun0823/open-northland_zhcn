@@ -557,19 +557,23 @@ export function raidOnTheSettlement(
   return best?.raider ?? null;
 }
 
-/**
- * The `raiders` inside the box round `owned` widened by the widest watch band, in their order: a man
- * outside it lies past every building's band, since a hex distance is never under the row span nor under
- * the column span less one.
- */
-export function raidersNearAny(
+/** The box round a seat's buildings widened by their widest watch band: a man outside it lies past every
+ *  building's band, since a hex distance is never under the row span nor under the column span less one. */
+export interface SettlementBox {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+/** The {@link SettlementBox} of `owned`, or null when it owns nothing. */
+export function settlementBox(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   owned: readonly Entity[],
-  raiders: readonly Raider[],
-): readonly Raider[] {
-  if (raiders.length === 0 || owned.length === 0) return [];
+): SettlementBox | null {
+  if (owned.length === 0) return null;
   let minX = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -585,7 +589,22 @@ export function raidersNearAny(
     if (y > maxY) maxY = y;
     band = Math.max(band, watchBandOf(world, ctx, e));
   }
-  return raiders.filter(
-    (r) => r.x >= minX - band - 1 && r.x <= maxX + band + 1 && r.y >= minY - band && r.y <= maxY + band,
-  );
+  return { minX: minX - band - 1, maxX: maxX + band + 1, minY: minY - band, maxY: maxY + band };
+}
+
+export function insideBox(box: SettlementBox, x: number, y: number): boolean {
+  return x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY;
+}
+
+/** The `raiders` inside the {@link SettlementBox} of `owned`, in their order. */
+export function raidersNearAny(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  owned: readonly Entity[],
+  raiders: readonly Raider[],
+): readonly Raider[] {
+  if (raiders.length === 0) return [];
+  const box = settlementBox(world, ctx, terrain, owned);
+  return box === null ? [] : raiders.filter((r) => insideBox(box, r.x, r.y));
 }

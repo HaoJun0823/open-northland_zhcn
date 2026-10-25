@@ -141,8 +141,11 @@ export interface MilitiaState {
   /** The trade and the workplace he goes back to. */
   previousJob: number;
   previousWorkplace: Entity | null;
-  /** The tick he goes back to work unless his zone is desperate again before it. */
+  /** The tick he goes back to work unless his zone is desperate again, or his quarry back inside his
+   *  leash, before it. */
   releaseTick: number;
+  /** The enemy scout he was armed to drive off, or null for a man armed against a desperate raid. */
+  quarry: Entity | null;
 }
 
 /** The computer seat's emergency militia, one per armed civilian (`ai-shared/military/defence/militia.ts`).

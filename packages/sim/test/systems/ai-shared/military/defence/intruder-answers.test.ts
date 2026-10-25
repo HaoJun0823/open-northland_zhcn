@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { AttackOrder, Building, Position, Settler } from '../../../../../src/components/index.js';
 import type { Entity } from '../../../../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../../../../src/index.js';
-import { settlementDefenceSystem } from '../../../../../src/systems/ai-shared/military/settlement-defence.js';
+import {
+  planSettlementDefence,
+  settlementDefenceSystem,
+} from '../../../../../src/systems/ai-shared/military/settlement-defence.js';
 import {
   AI_SEAT_SLOT_STEP_TICKS,
   COMPUTER_DECISION_INTERVAL_TICKS,
@@ -74,12 +77,16 @@ function seat(sim: Simulation, computer: boolean): void {
   });
 }
 
-/** The enemy scout, stepped into the town with no tick between, so no soldier sees him before the decision. */
-function scoutIn(sim: Simulation): Entity {
-  const scout = spawn(sim, SCOUT, FAR_OFF.x, FAR_OFF.y, FOE);
-  sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET, HQ_AT.y));
-  return scout;
+/** An enemy of `jobType`, stepped into the town with no tick between, so no soldier sees him before the
+ *  decision. */
+function intruderIn(sim: Simulation, jobType: number): Entity {
+  const intruder = spawn(sim, jobType, FAR_OFF.x, FAR_OFF.y, FOE);
+  sim.world.add(intruder, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET, HQ_AT.y));
+  return intruder;
 }
+
+const scoutIn = (sim: Simulation): Entity => intruderIn(sim, SCOUT);
+const thiefIn = (sim: Simulation): Entity => intruderIn(sim, CIVILIST);
 
 function decide(sim: Simulation): void {
   settlementDefenceSystem(sim.world, { ...ctxOf(sim), tick: DEFENCE_TICK });
@@ -89,53 +96,79 @@ function onto(sim: Simulation, target: Entity): Entity[] {
   return [...sim.world.query(AttackOrder)].filter((e) => sim.world.get(e, AttackOrder).target === target);
 }
 
-describe('computer defence - answering unarmed offenders', () => {
-  it('lets an enemy scout who only walks through the town go unanswered', () => {
-    const { sim } = town();
-    seat(sim, true);
-    spawn(sim, SPEARMAN, HQ_AT.x, HQ_AT.y + 6, SEAT);
-    spawn(sim, CIVILIST, HQ_AT.x + 2, HQ_AT.y + 6, SEAT);
-    const scout = scoutIn(sim);
+function scoutChases(sim: Simulation): Entity[] {
+  const terrain = sim.terrain;
+  if (terrain === undefined) throw new Error('setup: the map has no terrain');
+  const plan = planSettlementDefence(sim.world, { ...ctxOf(sim), tick: DEFENCE_TICK }, terrain, SEAT, true);
+  return plan.intruders.scoutChases.map((c) => c.scout);
+}
 
-    decide(sim);
+describe('computer defence - answering unarmed intruders', () => {
+  it('sends one free soldier at any enemy civilian walking into the town, scout or not, before he offends', () => {
+    for (const jobType of [SCOUT, CIVILIST]) {
+      const { sim } = town();
+      seat(sim, true);
+      spawn(sim, SPEARMAN, HQ_AT.x, HQ_AT.y + 6, SEAT);
+      const nearest = spawn(sim, SPEARMAN, HQ_AT.x + 2, HQ_AT.y + 6, SEAT);
+      const civilian = spawn(sim, CIVILIST, HQ_AT.x + 2, HQ_AT.y + 8, SEAT);
+      const intruder = intruderIn(sim, jobType);
 
-    expect(onto(sim, scout)).toEqual([]);
+      decide(sim);
+
+      expect(onto(sim, intruder)).toEqual([nearest]);
+      expect(sim.world.has(civilian, AttackOrder)).toBe(false);
+      // The leash reaches past the band he was answered inside, so the chase ends at the town's edge.
+      expect(sim.world.get(nearest, AttackOrder).leash?.radius).toBeGreaterThan(
+        threatWatchNodes(ctxOf(sim), VIKING),
+      );
+    }
   });
 
-  it('sends a free soldier at a scout who robbed it, leashed to the zone, and its people keep working', () => {
+  it('with no soldier, hands a walking scout to the militia and leaves a walking civilian alone', () => {
+    const { sim } = town();
+    seat(sim, true);
+    const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 2, HQ_AT.y, SEAT);
+    const walker = thiefIn(sim);
+    expect(scoutChases(sim)).toEqual([]);
+
+    const scout = scoutIn(sim);
+    decide(sim);
+
+    expect(scoutChases(sim)).toEqual([scout]);
+    expect(onto(sim, walker)).toEqual([]);
+    // The militia arms nobody in content without a hunter's trade, and nobody strikes him with fists.
+    expect(sim.world.has(civilian, AttackOrder)).toBe(false);
+  });
+
+  it('sends a free soldier at a thief, and nobody more once one is on him', () => {
     const { sim } = town();
     seat(sim, true);
     const soldier = spawn(sim, SPEARMAN, HQ_AT.x, HQ_AT.y + 6, SEAT);
     const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 2, HQ_AT.y, SEAT);
-    const scout = scoutIn(sim);
-    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    const thief = thiefIn(sim);
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
 
     decide(sim);
-
-    expect(onto(sim, scout)).toEqual([soldier]);
+    expect(onto(sim, thief)).toEqual([soldier]);
     expect(sim.world.has(civilian, AttackOrder)).toBe(false);
-    // The leash reaches past the band the scout was answered inside, so the chase ends at the town's edge.
-    expect(sim.world.get(soldier, AttackOrder).leash?.radius).toBeGreaterThan(
-      threatWatchNodes(ctxOf(sim), VIKING),
-    );
     // A second decision sends nobody more: the soldier already on him is counted.
     decide(sim);
-    expect(onto(sim, scout)).toEqual([soldier]);
+    expect(onto(sim, thief)).toEqual([soldier]);
   });
 
   it('with no soldier, sends the civilians nearest the thief at him, two at most', () => {
     const { sim } = town();
     seat(sim, true);
-    const scout = scoutIn(sim);
+    const thief = thiefIn(sim);
     const nearest = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 2, HQ_AT.y, SEAT);
     const next = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 4, HQ_AT.y, SEAT);
     const farther = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 6, HQ_AT.y, SEAT);
-    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
 
     decide(sim);
 
-    expect(onto(sim, scout)).toEqual([nearest, next]);
-    expect(onto(sim, scout)).toHaveLength(STRIKE_BACK_PARTY);
+    expect(onto(sim, thief)).toEqual([nearest, next]);
+    expect(onto(sim, thief)).toHaveLength(STRIKE_BACK_PARTY);
     expect(sim.world.has(farther, AttackOrder)).toBe(false);
     // Each on the short strike-back leash of where it stood, not the zone's.
     const terrain = sim.terrain;
@@ -151,9 +184,9 @@ describe('computer defence - answering unarmed offenders', () => {
   it('sends no civilian the thief already stands past the strike-back reach of', () => {
     const { sim } = town();
     seat(sim, true);
-    const scout = scoutIn(sim);
+    const thief = thiefIn(sim);
     const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y, SEAT);
-    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
 
     decide(sim);
 
@@ -163,42 +196,42 @@ describe('computer defence - answering unarmed offenders', () => {
   it('sends no civilian again at a thief they let go, until he offends anew', () => {
     const { sim } = town();
     seat(sim, true);
-    const scout = scoutIn(sim);
+    const thief = thiefIn(sim);
     const civilian = spawn(sim, CIVILIST, HQ_AT.x + INTRUDER_OFFSET + 2, HQ_AT.y, SEAT);
-    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
     decide(sim);
-    expect(onto(sim, scout)).toEqual([civilian]);
+    expect(onto(sim, thief)).toEqual([civilian]);
 
     // He steps past the civilian's leash, still inside the zone: the civilian lets him go.
-    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
+    sim.world.add(thief, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
     sim.step();
-    expect(onto(sim, scout)).toEqual([]);
+    expect(onto(sim, thief)).toEqual([]);
 
     // Back beside the civilian, he is not sent at him again.
-    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET, HQ_AT.y));
+    sim.world.add(thief, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET, HQ_AT.y));
     decide(sim);
-    expect(onto(sim, scout)).toEqual([]);
+    expect(onto(sim, thief)).toEqual([]);
 
     // A new offence is a new answer.
-    noteOffence(sim.world, { ...ctxOf(sim), tick: sim.tick + 1 }, scout, SEAT);
+    noteOffence(sim.world, { ...ctxOf(sim), tick: sim.tick + 1 }, thief, SEAT);
     decide(sim);
-    expect(onto(sim, scout)).toEqual([civilian]);
+    expect(onto(sim, thief)).toEqual([civilian]);
   });
 
   it('keeps a soldier on a thief across the zone, and sends one at a thief the civilians let go', () => {
     const { sim } = town();
     seat(sim, true);
     const soldier = spawn(sim, SPEARMAN, HQ_AT.x, HQ_AT.y + 6, SEAT);
-    const scout = scoutIn(sim);
-    noteOffence(sim.world, ctxOf(sim), scout, SEAT);
-    noteDrivenOff(sim.world, SEAT, scout);
+    const thief = thiefIn(sim);
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
+    noteDrivenOff(sim.world, SEAT, thief);
 
     decide(sim);
-    expect(onto(sim, scout)).toEqual([soldier]);
+    expect(onto(sim, thief)).toEqual([soldier]);
 
-    sim.world.add(scout, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
+    sim.world.add(thief, Position, positionOfNode(HQ_AT.x + INTRUDER_OFFSET + BEYOND_REACH, HQ_AT.y));
     sim.step();
-    expect(onto(sim, scout)).toEqual([soldier]);
+    expect(onto(sim, thief)).toEqual([soldier]);
   });
 
   it('leaves a seat closed to the computer as it was: no offender is kept, nobody is sent', () => {

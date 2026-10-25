@@ -16,14 +16,23 @@ export {
 } from './danger.js';
 export { enlistOrders } from './enlist.js';
 export {
+  INTRUDER_SQUAD_MAX,
+  type IntruderAnswer,
+  type IntruderAnswers,
+  intruderAnswers,
+  type ScoutChase,
+} from './intruder-answers.js';
+export {
   disbandMilitia,
   MILITIA_HOLD_TICKS,
   MILITIA_PEOPLE_SHARE,
   MILITIA_PER_SEAT_MAX,
   MILITIA_PER_ZONE_MAX,
   musterMilitia,
+  SCOUT_CHASE_HOLD_TICKS,
+  SCOUT_CHASERS_PER_SCOUT,
+  SCOUT_CHASERS_PER_SEAT_MAX,
 } from './militia.js';
-export { OFFENDER_SQUAD_MAX, type OffenderAnswer, offenderAnswers } from './offender-answers.js';
 export {
   MAP_AI_DEFENCE_REACH_POINTS,
   MAP_AI_PEACE_ARCHERS_PER_CLASS,

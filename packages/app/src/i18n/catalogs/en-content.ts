@@ -337,7 +337,7 @@ export const enContent = {
     'scout-village': {
       title: 'Scout in a village',
       summary:
-        'A red scout walks past blue builders, who keep building, and into a computer village that lets him walk. He strikes a villager and steals a cow: two villagers take him on with their fists, drive him off and let him go a few steps from where they stood.',
+        'A red scout walks past blue builders, who keep building and leave him be, into a computer village with no soldier. Two villagers take up bows as hunters and shoot at him until he runs, then go back to their work.',
     },
     'cow-raid': {
       title: 'Cow raid',

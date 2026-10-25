@@ -17,63 +17,86 @@ import {
   type ZoneThreat,
 } from './danger.js';
 
-/** The most soldiers a computer seat sends at one unarmed offender. Approximation. */
-export const OFFENDER_SQUAD_MAX = 2;
+/** The most soldiers a computer seat sends at one unarmed intruder. Approximation. */
+export const INTRUDER_SQUAD_MAX = 2;
 
-/** How the seat answers one unarmed enemy who struck or robbed it: the free soldiers it sends, leashed to
- *  his zone, or, with none to send, the civilians near him it asks to strike back (nearest first), each on
- *  the short strike-back leash of where it stands, so they drive him off without running after him. */
-export interface OffenderAnswer {
-  readonly offender: Entity;
+/** How the seat answers one unarmed enemy inside its settlement: the free soldiers it sends, leashed to
+ *  his zone, or, with none to send at an offender, the civilians near him it asks to strike back (nearest
+ *  first), each on the short strike-back leash of where it stands, so they drive him off without running
+ *  after him. */
+export interface IntruderAnswer {
+  readonly intruder: Entity;
   readonly leash: AttackLeash;
   readonly soldiers: readonly Entity[];
   readonly people: readonly Entity[];
 }
 
+/** An enemy scout inside a zone the seat has no soldier to send at: the militia's to chase off. */
+export interface ScoutChase {
+  readonly scout: Entity;
+  readonly zone: ZoneThreat;
+}
+
+export interface IntruderAnswers {
+  readonly answers: readonly IntruderAnswer[];
+  /** The soldiers the answers spend. */
+  readonly claimed: ReadonlySet<Entity>;
+  /** Ascending scout id. */
+  readonly scoutChases: readonly ScoutChase[];
+}
+
+export const NO_INTRUDER_ANSWERS: IntruderAnswers = { answers: [], claimed: new Set(), scoutChases: [] };
+
 /**
- * Answer every unarmed offender inside a zone whose danger reaches {@link DEFEND_DANGER_THRESHOLD}: send
- * him the nearest free soldiers the zone's danger asks for, one at least and {@link OFFENDER_SQUAD_MAX} at
- * most, counting the seat's men already on him. A seat with no free soldier who can reach him asks its
- * people near him instead, unless its civilians already let him go since his last offence. An armed
- * offender is the raid's to answer. `claimed` holds the soldiers spent.
+ * Answer every unarmed enemy inside a zone, whether or not he has offended yet: send him the nearest free
+ * soldiers the zone's danger asks for, one at least and {@link INTRUDER_SQUAD_MAX} at most, counting the
+ * seat's men already on him. With no free soldier who can reach him, a scout is left to the militia
+ * ({@link ScoutChase}), and an offender whose zone's danger reaches {@link DEFEND_DANGER_THRESHOLD} meets
+ * the people near him instead, unless they already let him go since his last offence. Any other civilian
+ * walks on unanswered, so the economy keeps running. An armed intruder is the raid's to answer.
  */
-export function offenderAnswers(
+export function intruderAnswers(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   player: number,
   threat: SeatThreat,
   free: readonly Entity[],
-): { readonly answers: readonly OffenderAnswer[]; readonly claimed: ReadonlySet<Entity> } {
+): IntruderAnswers {
+  const homes = intruderZones(threat);
+  if (homes.size === 0) return NO_INTRUDER_ANSWERS;
   const claimed = new Set<Entity>();
-  const answers: OffenderAnswer[] = [];
-  const homes = offenderZones(threat);
-  if (homes.size === 0) return { answers, claimed };
+  const answers: IntruderAnswer[] = [];
+  const scoutChases: ScoutChase[] = [];
   const chasing = chasersOf(world, ctx, player);
-  for (const [offender, { zone, intruder }] of [...homes].sort(([a], [b]) => a - b)) {
-    if (zone.danger < DEFEND_DANGER_THRESHOLD) continue;
+  for (const [entity, { zone, intruder }] of [...homes].sort(([a], [b]) => a - b)) {
     const leash = { at: terrain.nodeAtClamped(zone.x, zone.y), radius: zone.radius };
-    const on = chasing.get(offender) ?? 0;
-    const want = Math.min(Math.max(soldiersWanted(zone.danger), 1), OFFENDER_SQUAD_MAX) - on;
+    const on = chasing.get(entity) ?? 0;
+    const want = Math.min(Math.max(soldiersWanted(zone.danger), 1), INTRUDER_SQUAD_MAX) - on;
     const soldiers = nearestSoldiers(world, terrain, free, claimed, intruder, want);
     if (soldiers.length > 0 || on > 0) {
-      if (soldiers.length > 0) answers.push({ offender, leash, soldiers, people: [] });
+      if (soldiers.length > 0) answers.push({ intruder: entity, leash, soldiers, people: [] });
       continue;
     }
-    if (drivenOff(world, player, offender)) continue;
+    if (intruder.scout) {
+      scoutChases.push({ scout: entity, zone });
+      continue;
+    }
+    if (!intruder.offender || zone.danger < DEFEND_DANGER_THRESHOLD) continue;
+    if (drivenOff(world, player, entity)) continue;
     const at = terrain.nodeAtClamped(intruder.x, intruder.y);
     const people = peopleNear(world, terrain, player, at, ALARM_PEOPLE_RADIUS_NODES);
-    if (people.length > 0) answers.push({ offender, leash, soldiers: [], people });
+    if (people.length > 0) answers.push({ intruder: entity, leash, soldiers: [], people });
   }
-  return { answers, claimed };
+  return { answers, claimed, scoutChases };
 }
 
-/** Each unarmed offender with the zone whose anchor stands nearest him, ties to the lower anchor id. */
-function offenderZones(threat: SeatThreat): Map<Entity, { zone: ZoneThreat; intruder: Intruder }> {
+/** Each unarmed intruder with the zone whose anchor stands nearest him, ties to the lower anchor id. */
+function intruderZones(threat: SeatThreat): Map<Entity, { zone: ZoneThreat; intruder: Intruder }> {
   const homes = new Map<Entity, { zone: ZoneThreat; intruder: Intruder; distance: number }>();
   for (const zone of threat.zones) {
     for (const intruder of zone.intruders) {
-      if (!intruder.offender || intruder.armed) continue;
+      if (intruder.armed) continue;
       const distance = hexDistanceBetween(intruder.x, intruder.y, zone.x, zone.y);
       const held = homes.get(intruder.entity);
       // Zones arrive ascending anchor id, so the strict `<` keeps the lower one on a tie.

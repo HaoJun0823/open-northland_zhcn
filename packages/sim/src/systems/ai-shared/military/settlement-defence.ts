@@ -30,8 +30,13 @@ import {
   sortieOrders,
   towerPostOrders,
 } from './defence/index.js';
+import {
+  type IntruderAnswer,
+  type IntruderAnswers,
+  intruderAnswers,
+  NO_INTRUDER_ANSWERS,
+} from './defence/intruder-answers.js';
 import { musterMilitia } from './defence/militia.js';
-import { type OffenderAnswer, offenderAnswers } from './defence/offender-answers.js';
 import {
   type Raider,
   THREAT_STAND_DOWN_MARGIN_NODES,
@@ -48,9 +53,9 @@ export interface SettlementDefence {
   readonly mapSorties: readonly { entity: Entity; state: MapAiDefenceState }[];
   /** The computer seat's weighed zones; empty for a seat the map AI defends. */
   readonly threat: SeatThreat;
-  /** The computer seat's answers to unarmed offenders, applied by the defence system itself, since a
-   *  leashed attack order has no command. */
-  readonly offenderAnswers: readonly OffenderAnswer[];
+  /** The computer seat's answers to unarmed intruders, applied by the defence system itself, since a
+   *  leashed attack order has no command; the scouts it has no soldier for go to its militia. */
+  readonly intruders: IntruderAnswers;
 }
 
 /** The last plan per world, with everything it was derived from. The defence system and the computer
@@ -141,14 +146,14 @@ function deriveSettlementDefence(
         owned,
         raiders,
         liveOffenders(world, player, ctx.tick),
-        free,
+        marching,
       )
     : NO_THREAT;
-  // A raid sends the whole free band, offenders among the raiders' targets.
+  // A raid sends the whole free band, intruders among the raiders' targets.
   const answered =
     raid === null && threat.zones.length > 0
-      ? offenderAnswers(world, ctx, terrain, player, threat, free)
-      : { answers: [], claimed: new Set<Entity>() };
+      ? intruderAnswers(world, ctx, terrain, player, threat, free)
+      : NO_INTRUDER_ANSWERS;
   // Approximation: a map-controlled camp answers with nearby free soldiers, using the same reach
   // as its extra tower guards. A distant camp must not empty merely because both share a player.
   const threatened =
@@ -211,7 +216,7 @@ function deriveSettlementDefence(
     raid,
     mapSorties,
     threat,
-    offenderAnswers: answered.answers,
+    intruders: answered,
     commands: [
       ...enlistOrders(world, ctx, player),
       ...alarmOrders(world, ctx, terrain, owned, raiders),
@@ -247,25 +252,25 @@ export const settlementDefenceSystem: System = (world, ctx) => {
     for (const command of plan.commands) {
       ctx.commands.enqueue(aiCommand(seat.player, command, 'settlement-defence'));
     }
-    answerOffenders(world, ctx, terrain, seat.player, plan.offenderAnswers);
-    if (autonomous) musterMilitia(world, ctx, terrain, seat.player, plan.threat);
+    answerIntruders(world, ctx, terrain, seat.player, plan.intruders.answers);
+    if (autonomous) musterMilitia(world, ctx, terrain, seat.player, plan.threat, plan.intruders.scoutChases);
   }
 };
 
-/** Send the soldiers each answer names at its offender on his zone's leash, or, with none, the first free
+/** Send the soldiers each answer names at its intruder on his zone's leash, or, with none, the first free
  *  civilians it lists on their own strike-back leash. */
-function answerOffenders(
+function answerIntruders(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   player: number,
-  answers: readonly OffenderAnswer[],
+  answers: readonly IntruderAnswer[],
 ): void {
   const origin = { player, source: 'settlement-defence' } as const;
-  for (const { offender, leash, soldiers, people } of answers) {
-    for (const e of soldiers) leashedAttack(world, ctx, e, offender, { ...leash }, origin);
+  for (const { intruder, leash, soldiers, people } of answers) {
+    for (const e of soldiers) leashedAttack(world, ctx, e, intruder, { ...leash }, origin);
     if (people.length > 0) {
-      strikeParty(world, ctx, terrain, offender, people, null, origin, (e) =>
+      strikeParty(world, ctx, terrain, intruder, people, null, origin, (e) =>
         strikeBackLeash(world, terrain, e),
       );
     }

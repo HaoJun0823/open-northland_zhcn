@@ -1,8 +1,10 @@
 import {
   Armor,
   Building,
+  DefenceMode,
   diplomacyStance,
   Health,
+  MAX_PLAYERS,
   Owner,
   Position,
   type SeatOffender,
@@ -12,14 +14,24 @@ import {
 import type { DeepReadonly, Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
+import { towerPostFor } from '../../../conflict/tower-post.js';
 import type { SystemContext } from '../../../context.js';
-import { isAnimalTribe, isFighterJob, shelterCapacityOf } from '../../../readviews/index.js';
+import { isAdultSettler } from '../../../family/eligibility.js';
+import { isAnimalTribe, isFighterJob, isScoutJob, shelterCapacityOf } from '../../../readviews/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { assignedWorkers } from '../../../stores/assigned-workers.js';
-import { isBuilt } from '../../seat-roster.js';
+import { isBuilt, ownedSettlers } from '../../seat-roster.js';
 import { fighterWeaponClass } from '../census.js';
 import { garrisonSlots } from './posts.js';
-import { type Raider, raidersNearAny, THREAT_STAND_DOWN_MARGIN_NODES, watchBandOf } from './threat.js';
+import {
+  insideBox,
+  type Raider,
+  raidersNearAny,
+  type SettlementBox,
+  settlementBox,
+  THREAT_STAND_DOWN_MARGIN_NODES,
+  watchBandOf,
+} from './threat.js';
 
 // A computer seat weighing the enemies inside its settlement against what it can answer them with. The
 // weights are the original's per-unit danger values; the zones are an approximation of its per-position
@@ -41,8 +53,7 @@ export const TOWER_DEFENCE = 40;
 export const SHELTER_DEFENCE = 5;
 
 /** How many times its plain danger an enemy civilian who struck or robbed the seat weighs; a soldier or
- *  vehicle already weighs his own. Approximation: an offending civilian then weighs a soldier, while a
- *  scout who only walks past weighs nothing. */
+ *  vehicle already weighs his own. Approximation: an offending civilian then weighs a soldier. */
 export const OFFENDER_DANGER_MULTIPLIER = 10;
 
 /** The zone danger from which the seat answers. Original behavior for its defend task. */
@@ -50,8 +61,8 @@ export const DEFEND_DANGER_THRESHOLD = 6;
 /** What the original rounds the danger by before dividing it into soldiers wanted. */
 const SOLDIERS_WANTED_ROUNDING = 5;
 
-/** How far over its defence a zone's danger must stand to count as desperate where a tower or shelter
- *  covers it; an uncovered zone is desperate as soon as the danger passes the defence. Approximation. */
+/** How many times its defence a zone's armed danger must pass to count as desperate: forces roughly a
+ *  match for the seat's leave its civilians at work. Approximation. */
 export const DESPERATE_DANGER_RATIO = 2;
 
 /** One enemy unit inside the settlement, where he stands and what he weighs. */
@@ -63,6 +74,8 @@ export interface Intruder {
   readonly danger: number;
   /** He struck or robbed the seat lately. */
   readonly offender: boolean;
+  /** An enemy scout, who can drive off the seat's livestock at any moment. */
+  readonly scout: boolean;
   /** No civilian: a fighter, whom the raid path answers, or a vehicle. The offender ladder and the
    *  offender weight are for civilians alone. */
   readonly armed: boolean;
@@ -80,8 +93,9 @@ export interface ZoneThreat {
   /** The share of {@link danger} its armed intruders pose: soldiers, heroes and vehicles. */
   readonly armedDanger: number;
   readonly defence: number;
-  /** A manned tower or a standing shelter lies inside the zone. */
-  readonly fortified: boolean;
+  /** No standing shelter lies inside the zone, or one of them is already in defence mode: its people
+   *  have had their chance to take cover before any is armed. */
+  readonly sheltersRung: boolean;
 }
 
 /** The seat's threatened zones, ascending anchor id. */
@@ -110,22 +124,32 @@ export function unitDanger(world: World, ctx: SystemContext, e: Entity): number 
   );
 }
 
-/** What the seat's free soldiers add to a zone's defence: each the danger he would pose himself. */
-function soldierDefence(world: World, ctx: SystemContext, free: readonly Entity[]): number {
+/**
+ * What the seat's fighters add to every zone's defence: each the danger he would pose himself, by the
+ * weights its enemies are weighed by. Every live fighter of the seat counts, whether idle, already in the
+ * fight or still waiting for a weapon, but the men marching away (`away`) and those holding a tower post,
+ * whose tower counts for them where it stands.
+ */
+function fighterDefence(world: World, ctx: SystemContext, player: number, away: ReadonlySet<Entity>): number {
   let defence = 0;
-  for (const e of free) defence += unitDanger(world, ctx, e);
+  for (const e of ownedSettlers(world, player)) {
+    const jobType = world.get(e, Settler).jobType;
+    if (jobType === null || !isFighterJob(ctx.content, jobType) || away.has(e)) continue;
+    if (towerPostFor(world, ctx, e, jobType) !== null) continue;
+    defence += unitDanger(world, ctx, e);
+  }
   return defence;
 }
 
 /**
- * Weigh the enemies inside `player`'s settlement: its loose enemy fighters near any building (`raiders`)
- * and the offenders it remembers, each counted once, an offending civilian
- * {@link OFFENDER_DANGER_MULTIPLIER} times over. Enemy civilians who struck or stole nothing are left out (approximation: the original counts each
- * at {@link CIVILIAN_DANGER}, under its threshold alone). A zone's defence is the seat's free soldiers,
- * wherever they stand, and the manned towers and standing shelters inside its band.
+ * Weigh the enemies inside `player`'s settlement: its loose enemy fighters near any building (`raiders`),
+ * the enemy civilians walking in it and the offenders it remembers, each counted once, an offending
+ * civilian {@link OFFENDER_DANGER_MULTIPLIER} times over. A zone's defence is the seat's fighters at home
+ * ({@link fighterDefence}; `away` are those marching off), wherever they stand, and the manned towers and
+ * standing shelters inside its band.
  *
- * Costs the raiders near the settlement and the remembered offenders, times the seat's buildings only
- * when someone is near.
+ * Costs the raiders near the settlement, the enemy seats' people and the remembered offenders, times the
+ * seat's buildings and people only when someone is near.
  */
 export function assessSeatThreat(
   world: World,
@@ -135,7 +159,7 @@ export function assessSeatThreat(
   owned: readonly Entity[],
   raiders: readonly Raider[],
   offenders: readonly DeepReadonly<SeatOffender>[],
-  free: readonly Entity[],
+  away: ReadonlySet<Entity>,
 ): SeatThreat {
   const intruders = intrudersOf(world, ctx, terrain, player, owned, raiders, offenders);
   if (intruders.length === 0) return NO_THREAT;
@@ -152,7 +176,7 @@ export function assessSeatThreat(
       danger += i.danger;
       if (i.armed) armedDanger += i.danger;
     }
-    soldiers ??= soldierDefence(world, ctx, free);
+    soldiers ??= fighterDefence(world, ctx, player, away);
     const works = fortificationOf(world, ctx, terrain, owned, at.x, at.y, band);
     zones.push({
       anchor,
@@ -163,7 +187,7 @@ export function assessSeatThreat(
       danger,
       armedDanger,
       defence: soldiers + works.defence,
-      fortified: works.fortified,
+      sheltersRung: works.sheltersRung,
     });
   }
   return { zones };
@@ -179,6 +203,8 @@ function intrudersOf(
   raiders: readonly Raider[],
   offenders: readonly DeepReadonly<SeatOffender>[],
 ): Intruder[] {
+  const box = settlementBox(world, ctx, terrain, owned);
+  if (box === null) return [];
   const remembered = new Set<Entity>();
   for (const o of offenders) remembered.add(o.entity);
   const intruders: Intruder[] = [];
@@ -187,24 +213,42 @@ function intrudersOf(
     listed.add(r.entity);
     intruders.push(intruderOf(world, ctx, r.entity, r.x, r.y, r.component, remembered.has(r.entity), true));
   }
-  const loose: Raider[] = [];
+  for (let side = 0; side < MAX_PLAYERS; side++) {
+    if (side === player || diplomacyStance(world, side, player) !== 'enemy') continue;
+    for (const e of ownedSettlers(world, side)) {
+      if (!isCivilian(world, ctx, e) || !isAdultSettler(world, e)) continue;
+      const at = boxedNode(world, terrain, box, e);
+      if (at === null || unitDanger(world, ctx, e) === 0) continue;
+      listed.add(e);
+      intruders.push(intruderOf(world, ctx, e, at.x, at.y, at.component, remembered.has(e), false));
+    }
+  }
   for (const o of offenders) {
     const e = o.entity;
     if (listed.has(e)) continue;
     const side = world.tryGet(e, Owner)?.player;
     if (side === undefined || diplomacyStance(world, side, player) !== 'enemy') continue;
-    if (!world.has(e, Position)) continue;
-    const node = entityNode(world, terrain, e);
-    const x = terrain.xOf(node);
-    const y = terrain.yOf(node);
-    const component = terrain.componentOf(node);
-    loose.push({ entity: e, target: e, x, y, component, reach: 0 });
-  }
-  for (const r of raidersNearAny(world, ctx, terrain, owned, loose)) {
-    const civilian = isCivilian(world, ctx, r.entity);
-    intruders.push(intruderOf(world, ctx, r.entity, r.x, r.y, r.component, true, !civilian));
+    const at = boxedNode(world, terrain, box, e);
+    if (at === null) continue;
+    const civilian = isCivilian(world, ctx, e);
+    intruders.push(intruderOf(world, ctx, e, at.x, at.y, at.component, true, !civilian));
   }
   return intruders.sort((a, b) => a.entity - b.entity);
+}
+
+/** The node `e` stands on with its walkable component, or null when it has no place inside `box`. */
+function boxedNode(
+  world: World,
+  terrain: TerrainGraph,
+  box: SettlementBox,
+  e: Entity,
+): { x: number; y: number; component: number } | null {
+  if (!world.has(e, Position)) return null;
+  const node = entityNode(world, terrain, e);
+  const x = terrain.xOf(node);
+  const y = terrain.yOf(node);
+  if (!insideBox(box, x, y)) return null;
+  return { x, y, component: terrain.componentOf(node) };
 }
 
 function intruderOf(
@@ -219,7 +263,8 @@ function intruderOf(
 ): Intruder {
   const plain = unitDanger(world, ctx, entity);
   const danger = offender && !armed ? plain * OFFENDER_DANGER_MULTIPLIER : plain;
-  return { entity, x, y, component, danger, offender, armed };
+  const scout = !armed && isScoutJob(ctx.content, world.tryGet(entity, Settler)?.jobType ?? null);
+  return { entity, x, y, component, danger, offender, scout, armed };
 }
 
 /** Whether `e` is a person of no fighting trade: no soldier, hero, animal or vehicle. */
@@ -232,7 +277,8 @@ function isCivilian(world: World, ctx: SystemContext, e: Entity): boolean {
   );
 }
 
-/** The manned towers and standing shelters of `owned` within `band` of `(x, y)`. */
+/** The manned towers and standing shelters of `owned` within `band` of `(x, y)`: what they add to the
+ *  defence, and whether the shelters among them stand rung ({@link ZoneThreat.sheltersRung}). */
 function fortificationOf(
   world: World,
   ctx: SystemContext,
@@ -241,8 +287,10 @@ function fortificationOf(
   x: number,
   y: number,
   band: number,
-): { defence: number; fortified: boolean } {
+): { defence: number; sheltersRung: boolean } {
   let defence = 0;
+  let shelters = false;
+  let rung = false;
   for (const e of owned) {
     if (!isBuilt(world, e)) continue;
     const tower = garrisonSlots(world, ctx, e).size > 0 && assignedWorkers(world, e).length > 0;
@@ -251,8 +299,12 @@ function fortificationOf(
     const at = terrain.coordsOf(entityNode(world, terrain, e));
     if (hexDistanceBetween(at.x, at.y, x, y) > band) continue;
     defence += (tower ? TOWER_DEFENCE : 0) + (shelter ? SHELTER_DEFENCE : 0);
+    if (shelter) {
+      shelters = true;
+      if (world.has(e, DefenceMode)) rung = true;
+    }
   }
-  return { defence, fortified: defence > 0 };
+  return { defence, sheltersRung: !shelters || rung };
 }
 
 /** How many soldiers the original sends at a zone of `danger`. */
@@ -261,15 +313,15 @@ export function soldiersWanted(danger: number): number {
 }
 
 /**
- * Whether `zone` is past what its defence can hold: armed danger at the defend threshold and far over the
- * defence, or over it at all where no tower or shelter covers the zone. The signal for arming civilians.
- * Unarmed offenders count for nothing here: the offender answer alone meets them, so a lone thief never
- * arms the village.
+ * Whether `zone` is past what its defence can hold, the signal for arming civilians: its shelters rung
+ * first, and its armed danger at the defend threshold and over {@link DESPERATE_DANGER_RATIO} times its
+ * defence, towers and shelters or none. Unarmed intruders count for nothing here: the intruder answers
+ * meet them, so a lone thief never arms the village.
  */
 export function isDesperate(zone: ZoneThreat): boolean {
   const danger = zone.armedDanger;
-  if (danger < DEFEND_DANGER_THRESHOLD) return false;
-  return zone.fortified ? danger > zone.defence * DESPERATE_DANGER_RATIO : danger > zone.defence;
+  if (danger < DEFEND_DANGER_THRESHOLD || !zone.sheltersRung) return false;
+  return danger > zone.defence * DESPERATE_DANGER_RATIO;
 }
 
 /** The desperate zones of `threat`, ascending anchor id. */

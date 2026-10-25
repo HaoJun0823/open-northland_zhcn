@@ -52,7 +52,7 @@ describe('computer defence - danger', () => {
     expect(unitDanger(s.world, ctx, armoured)).toBe(30);
   });
 
-  it('sums the raiders and the offenders inside a zone, an offender ten times over, and leaves a passer-by out', () => {
+  it('sums the raiders, the offenders and the passers-by inside a zone, an offender ten times over', () => {
     const s = sim();
     s.enqueueSetup({ kind: 'placeBuilding', buildingType: HQ_TYPE, ...HQ_AT, tribe: VIKING, owner: SEAT });
     s.step();
@@ -71,12 +71,13 @@ describe('computer defence - danger', () => {
     const { zones } = planSettlementDefence(s.world, ctxOf(s), terrain, SEAT, true).threat;
 
     expect(zones.map((z) => z.anchor)).toEqual([hq]);
-    expect(zones[0]?.intruders.map((i) => i.entity)).toEqual([raider, thief]);
-    expect(zones[0]?.danger).toBe(20 + 1 * 10);
+    expect(zones[0]?.intruders.map((i) => i.entity)).toEqual([raider, thief, passerBy]);
+    expect(zones[0]?.danger).toBe(20 + 1 * 10 + 1);
+    expect(zones[0]?.armedDanger).toBe(20);
   });
 
-  it('calls a zone desperate when its armed danger is far over its defence, or merely over it where nothing shelters it', () => {
-    const zone = (armedDanger: number, defence: number, fortified: boolean, unarmed = 0): ZoneThreat => ({
+  it('calls a zone desperate only when its shelters are rung and its armed danger is twice its defence', () => {
+    const zone = (armedDanger: number, defence: number, sheltersRung = true, unarmed = 0): ZoneThreat => ({
       anchor: 1 as Entity,
       x: 0,
       y: 0,
@@ -85,15 +86,19 @@ describe('computer defence - danger', () => {
       danger: armedDanger + unarmed,
       armedDanger,
       defence,
-      fortified,
+      sheltersRung,
     });
 
-    expect(isDesperate(zone(30, 20, false))).toBe(true);
-    expect(isDesperate(zone(30, 20, true))).toBe(false);
-    expect(isDesperate(zone(50, 20, true))).toBe(true);
+    // Forces roughly a match leave the people at work.
+    expect(isDesperate(zone(30, 20))).toBe(false);
+    expect(isDesperate(zone(40, 20))).toBe(false);
+    expect(isDesperate(zone(50, 20))).toBe(true);
+    expect(isDesperate(zone(20, 0))).toBe(true);
+    // The shelters are rung first.
+    expect(isDesperate(zone(50, 20, false))).toBe(false);
     // Under the defend threshold nothing is desperate, defenceless or not.
-    expect(isDesperate(zone(5, 0, false))).toBe(false);
-    // Unarmed offenders alone never make a zone desperate, however heavily they weigh.
-    expect(isDesperate(zone(0, 0, false, 30))).toBe(false);
+    expect(isDesperate(zone(5, 0))).toBe(false);
+    // Unarmed intruders alone never make a zone desperate, however heavily they weigh.
+    expect(isDesperate(zone(0, 0, true, 30))).toBe(false);
   });
 });

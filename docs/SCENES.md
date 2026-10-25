@@ -98,10 +98,10 @@ swordsmen on an attack-move into the pack as it walks home. Watch the first blow
 the leader included, on the swordsmen while they are still far from the pack's stay point; no wolf
 walks on past them.
 
-`?scene=scout-village` walks a red scout past blue builders and into a village the computer runs.
-The builders keep building and the villagers let him walk. Then he strikes a villager and goes after
-a cow: the struck one and a neighbour punch him and drop him a few steps from where they stood. Nobody
-runs after him again; he leaves the village with the cow.
+`?scene=scout-village` walks a red scout past blue builders and into a village the computer runs,
+which has no soldier. The builders keep building and nobody blue goes at him. In the village two
+villagers turn hunter and shoot at him, never more than two, held to the village's edge; once he has
+run they go back to their trade.
 
 `?scene=cow-raid` runs a red scout at a blue farm's cattle and back. The cows in his reach run, each
 its own way, the sheep beyond it keep grazing, and once he is gone the cows walk back to the farm.

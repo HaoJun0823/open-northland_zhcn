@@ -25,9 +25,8 @@ import type { SceneDefinition } from '../types.js';
 
 /**
  * An enemy scout in two villages. A red scout walks through the blue settlement past its builders, who keep
- * building, then on into a village the computer runs, which lets him walk. There he strikes a villager:
- * the struck one and a neighbour take him on with their fists. He breaks off after one of the village's
- * cows and takes it; the two let him go a few steps from where they stood, and nobody runs after him again.
+ * building, then on into a village the computer runs, which has no soldier. There two villagers take up the
+ * bow as hunters and shoot at him; once he is down or gone, they go back to their work.
  */
 
 const MAP_W = 60;
@@ -47,11 +46,16 @@ const BUILDERS: readonly (readonly [number, number])[] = [
 const BILL_MULTIPLE = 4;
 
 const HEADQUARTERS = { x: 47, y: 6 } as const;
+/** Enough villagers that the seat may arm two of them: one in four at most. */
 const VILLAGERS: readonly (readonly [number, number])[] = [
   [42, 12],
   [44, 13],
   [46, 12],
   [48, 13],
+  [43, 15],
+  [45, 16],
+  [47, 15],
+  [49, 16],
 ];
 const CATTLE_AT = { x: 52, y: 16 } as const;
 const CATTLE = 2;
@@ -59,16 +63,15 @@ const CATTLE = 2;
 const SCOUT_FROM = { x: 2, y: 12 } as const;
 /** Past the blue site, out of the settlement on the east side. */
 const SCOUT_PAST_BLUE = { x: 28, y: 12 } as const;
-/** In the computer's village, beside the villager he strikes. */
-const SCOUT_IN_VILLAGE = { x: 41, y: 12 } as const;
+/** In the computer's village, among its people. */
+const SCOUT_IN_VILLAGE = { x: 40, y: 12 } as const;
 const ORDER_TICK = 1;
 const SCRIPTED_SEQUENCE = Number.MAX_SAFE_INTEGER;
-/** When the scout leaves off the villager and goes after a cow: a few blows after his first. */
-const CLAIM_TICK = 720;
-/** The walk, the blow, the theft and his walk out of the village, long enough to see nobody chase him. */
+/** The walk in, the hunters' shots, and long enough after for them to go back to work. */
 const RUN_TICKS = 1500;
 
-const { AttackOrder, Building, Fleeing, Health, Livestock, Owner, Settler, UnderConstruction } = components;
+const { AttackOrder, Building, Fleeing, Health, Militia, Owner, Projectile, Settler, UnderConstruction } =
+  components;
 
 function build(sim: Simulation): void {
   // The viewer's settlement: a farm site and its crew, the goods beside them.
@@ -89,8 +92,8 @@ function build(sim: Simulation): void {
 
   // The computer's village: its headquarters, villagers and cattle, and no soldier.
   placeBuiltSandboxBuilding(sim, BUILDING_HEADQUARTERS, HEADQUARTERS.x, HEADQUARTERS.y, COMPUTER_PLAYER);
-  const villagers = VILLAGERS.map(([x, y]) => spawnSettlerDirect(sim, JOB_COLLECTOR, x, y, COMPUTER_PLAYER));
-  const cattle = spawnAnimalHerdDirect(sim, ANIMAL_TRIBE_CATTLE, CATTLE_AT.x, CATTLE_AT.y, {
+  for (const [x, y] of VILLAGERS) spawnSettlerDirect(sim, JOB_COLLECTOR, x, y, COMPUTER_PLAYER);
+  spawnAnimalHerdDirect(sim, ANIMAL_TRIBE_CATTLE, CATTLE_AT.x, CATTLE_AT.y, {
     count: CATTLE,
     owner: COMPUTER_PLAYER,
   });
@@ -118,25 +121,16 @@ function build(sim: Simulation): void {
   });
 
   const scout = spawnSettlerDirect(sim, JOB_SCOUT, SCOUT_FROM.x, SCOUT_FROM.y, ENEMY_PLAYER);
-  const victim = villagers[0];
-  const cow = cattle[0];
-  if (victim === undefined || cow === undefined) throw new Error('scout-village: the village is empty');
   const pastBlue = cellAnchorNode(SCOUT_PAST_BLUE.x, SCOUT_PAST_BLUE.y);
   const inVillage = cellAnchorNode(SCOUT_IN_VILLAGE.x, SCOUT_IN_VILLAGE.y);
   const walk = [
     { kind: 'moveUnit', entity: scout, x: pastBlue.hx, y: pastBlue.hy },
     { kind: 'moveUnit', entity: scout, x: inVillage.hx, y: inVillage.hy, queued: true },
-    { kind: 'attackUnit', entity: scout, target: victim, queued: true },
   ] as const;
-  // One tick apart, so each queued order lands behind the one before it.
+  // One tick apart, so the queued order lands behind the one before it.
   walk.forEach((command, i) => {
     sim.enqueueAt(setupCommand(command), ORDER_TICK + i, SCRIPTED_SEQUENCE);
   });
-  sim.enqueueAt(
-    setupCommand({ kind: 'claimAnimal', entity: scout, animal: cow }),
-    CLAIM_TICK,
-    SCRIPTED_SEQUENCE,
-  );
 }
 
 function scoutOf(sim: Simulation): Entity | undefined {
@@ -158,22 +152,11 @@ function onTheScout(sim: Simulation): Entity[] {
   );
 }
 
-/** Whether some villager went at the scout again after all of them had let him go. */
-function sentAgain(): boolean {
-  let struckBack = false;
-  let letGo = false;
-  return holdsSometimeDuring(scoutVillageScene, RUN_TICKS, (sim) => {
-    const on = onTheScout(sim).length > 0;
-    if (on && letGo) return true;
-    if (on) struckBack = true;
-    else if (struckBack) letGo = true;
-    return false;
-  });
-}
-
-function unhurt(sim: Simulation, e: Entity): boolean {
-  const health = sim.world.get(e, Health);
-  return health.hitpoints === health.max;
+/** The computer's villagers armed against the scout. */
+function chasers(sim: Simulation): Entity[] {
+  return [...sim.world.query(Militia, Owner)].filter(
+    (e) => sim.world.get(e, Owner).player === COMPUTER_PLAYER,
+  );
 }
 
 function blueFled(sim: Simulation): boolean {
@@ -183,14 +166,14 @@ function blueFled(sim: Simulation): boolean {
   return false;
 }
 
-/** Whether the computer's people went at the scout while none of them was hurt: his blow is the only
- *  harm the scene does them. */
-function answeredAWalk(sim: Simulation): boolean {
-  if (onTheScout(sim).length === 0) return false;
-  for (const e of sim.world.query(Settler, Owner, Health)) {
-    if (sim.world.get(e, Owner).player === COMPUTER_PLAYER && !unhurt(sim, e)) return false;
+function blueWentAtHim(sim: Simulation): boolean {
+  const scout = scoutOf(sim);
+  if (scout === undefined) return false;
+  for (const e of sim.world.query(AttackOrder, Owner)) {
+    if (sim.world.get(e, Owner).player === HUMAN_PLAYER && sim.world.get(e, AttackOrder).target === scout)
+      return true;
   }
-  return true;
+  return false;
 }
 
 function siteRose(sim: Simulation): boolean {
@@ -201,11 +184,30 @@ function siteRose(sim: Simulation): boolean {
   return true; // finished
 }
 
-function cowTaken(sim: Simulation): boolean {
-  for (const e of sim.world.query(Livestock, Owner)) {
-    if (sim.world.get(e, Owner).player === ENEMY_PLAYER) return true;
+/** Whether an arrow of an armed villager is in flight at the scout. */
+function shotAtHim(sim: Simulation): boolean {
+  const scout = scoutOf(sim);
+  if (scout === undefined) return false;
+  for (const shot of sim.world.query(Projectile)) {
+    const { source, target } = sim.world.get(shot, Projectile);
+    if (target === scout && sim.world.has(source, Militia)) return true;
   }
   return false;
+}
+
+/** The computer's people: its herd carries a Settler too, with no trade. */
+function villagersOf(sim: Simulation): Entity[] {
+  return sim.world
+    .canonicalQuery(Settler, Owner)
+    .filter(
+      (e) => sim.world.get(e, Owner).player === COMPUTER_PLAYER && sim.world.get(e, Settler).jobType !== null,
+    );
+}
+
+/** Whether the scout is down or out of the village with nobody on him. */
+function scoutDealtWith(sim: Simulation): boolean {
+  const scout = scoutOf(sim);
+  return scout === undefined || sim.world.get(scout, Health).hitpoints <= 0 || onTheScout(sim).length === 0;
 }
 
 export const scoutVillageScene: SceneDefinition = {
@@ -217,24 +219,21 @@ export const scoutVillageScene: SceneDefinition = {
   initialZoom: 0.7,
   checks: [
     {
-      label: 'no blue settler ran from the scout',
-      predicate: () => !holdsSometimeDuring(scoutVillageScene, RUN_TICKS, blueFled),
+      label: 'no blue settler ran from the scout or went at him',
+      predicate: () =>
+        !holdsSometimeDuring(scoutVillageScene, RUN_TICKS, (sim) => blueFled(sim) || blueWentAtHim(sim)),
     },
     {
       label: 'the builders kept building as he passed',
       predicate: siteRose,
     },
     {
-      label: 'the village let him walk in: nobody went at him before he struck',
-      predicate: () => !holdsSometimeDuring(scoutVillageScene, RUN_TICKS, answeredAWalk),
-    },
-    {
-      label: 'his blow sent two villagers at him',
+      label: 'the computer armed two villagers as hunters against him',
       predicate: () =>
         holdsSometimeDuring(
           scoutVillageScene,
           RUN_TICKS,
-          (sim) => onTheScout(sim).length === systems.STRIKE_BACK_PARTY,
+          (sim) => chasers(sim).length === systems.SCOUT_CHASERS_PER_SCOUT,
         ),
     },
     {
@@ -243,34 +242,28 @@ export const scoutVillageScene: SceneDefinition = {
         !holdsSometimeDuring(
           scoutVillageScene,
           RUN_TICKS,
-          (sim) => onTheScout(sim).length > systems.STRIKE_BACK_PARTY,
+          (sim) => chasers(sim).length > systems.SCOUT_CHASERS_PER_SCOUT,
         ),
     },
     {
-      label: 'each villager on him held the short strike-back leash of where it stood',
-      predicate: () =>
-        !holdsSometimeDuring(scoutVillageScene, RUN_TICKS, (sim) =>
-          onTheScout(sim).some(
-            (e) => sim.world.get(e, AttackOrder).leash?.radius !== systems.STRIKE_BACK_LEASH_NODES,
-          ),
-        ),
+      label: 'the hunters shot at him',
+      predicate: () => holdsSometimeDuring(scoutVillageScene, RUN_TICKS, shotAtHim),
     },
     {
-      label: 'once they let him go, nobody went at him again',
-      predicate: () => !sentAgain(),
-    },
-    {
-      label: 'he got away with a cow',
-      predicate: cowTaken,
-    },
-    {
-      label: 'the villagers let him go, alive',
+      label: 'he took their arrows',
       predicate: (sim) => {
         const scout = scoutOf(sim);
-        return (
-          scout !== undefined && sim.world.get(scout, Health).hitpoints > 0 && onTheScout(sim).length === 0
-        );
+        if (scout === undefined) return true;
+        const health = sim.world.get(scout, Health);
+        return health.hitpoints < health.max;
       },
+    },
+    {
+      label: 'once he was dealt with, the hunters went back to their work',
+      predicate: (sim) =>
+        scoutDealtWith(sim) &&
+        chasers(sim).length === 0 &&
+        villagersOf(sim).every((e) => sim.world.get(e, Settler).jobType === JOB_COLLECTOR),
     },
   ],
 };

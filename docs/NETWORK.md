@@ -268,11 +268,13 @@ sample, when its ping was outstanding while a message from the client was still 
 snapshot upload), or was sent while a fragmented message to the client was unread (a snapshot or map it
 downloads) until the client answers the control ping after that message's last fragment.
 
-The assigned delay is `ceil((rtt + jitter) / tickLength) + 1` ticks of the smoothed values, `tickLength`
-being the tick at speed 1. It starts at `INITIAL_INPUT_DELAY_TICKS` and stays between 1 and
-`MAX_INPUT_DELAY_TICKS`. The first sample sets it directly; after that it rises at most one tick per
-sample, and drops to the budget once the budget has stayed below it for three samples in a row. A change
-is sent as `delay { ticks }`. A delay lower than the link needs never splits state: a command whose
+The assigned delay is `ceil((rtt + jitter) * effectiveSpeed / TICK_MS) + 1` ticks of the smoothed
+values, where `effectiveSpeed` is the requested speed or the governed speed while the relay limits the
+clock. It starts at `INITIAL_INPUT_DELAY_TICKS` and stays between 1 and `MAX_INPUT_DELAY_TICKS` at any
+speed. The first sample sets it directly; after that it rises at most one tick per sample, and drops to
+the budget once the budget has stayed below it for three samples in a row. A clock speed change
+recalculates it immediately from the existing smoothed link measurements. A change is sent as
+`delay { ticks }`. A delay lower than the link needs never splits state: a command whose
 stamped tick plus delay has passed lands on the next unemitted tick, applying as soon as it arrives, with
 a click-to-apply time that follows the link's jitter. A higher delay only adds latency, which is why the
 cap holds even on a slower link.
@@ -420,7 +422,11 @@ The lowest bound wins, a tie going to the member furthest behind. The governed s
 rises only by `GOVERNED_RISE_STEPS` steps or more at a time, and while the same member stays governed at
 the same speed its `cause` stays as announced, so a load report jittering across a rounding boundary or
 the bounds' crossing does not broadcast a `clock` per advance. Once nobody is slow the clock runs at the
-requested speed again.
+requested speed again, unless a previously slow member's reported load still cannot sustain that speed
+with headroom. Such a member keeps only the capacity limit after catching up, without the catch-up share;
+it no longer counts toward a slow wait while its backlog is small. A sufficient load improvement releases
+the limit. This prevents the room repeatedly returning to full speed and falling behind on the same
+unchanged slow machine.
 
 The `slow` wait exists because a seat that cannot keep up even at the floor would otherwise hold the room
 there indefinitely. The clock holds for it as for any waited member, so it catches up while the others
@@ -702,7 +708,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `SILENT_AFTER_MS` [server] | 4 s | Nothing heard before a member is `silent`. |
 | `LOAD_VIEW_INTERVAL_MS`, `LOADING_STALL_MS` [server] | 1 s, 2 min | Views for moved figures alone; unmoved boot before the clock runs. |
 | `KICK_COUNTDOWN_MS`, `WAIT_FORGIVENESS` [server] | 60 s, 0.1 | Waited time before a vote opens, and the most a member owes; waited ms forgiven per ms not waited for. |
-| `INITIAL_INPUT_DELAY_TICKS`, `MAX_INPUT_DELAY_TICKS` [server] | 2, 12 | Input delay at the start, and its cap (one second). |
+| `INITIAL_INPUT_DELAY_TICKS`, `MAX_INPUT_DELAY_TICKS` [server] | 2, 12 | Input delay at the start, and its cap in ticks at any speed. |
 | `AUTO_INITIAL_BUFFER_TICKS`, `MAX_RESPONSIVENESS_BUFFER_TICKS` [protocol] | 2, 6 | Auto reserve before measurement, and its cap; manual reserves are 1, 2, 3. |
 | `LAG_BEHIND_MS`, `SLOW_GRACE_MS`, `SLOW_AT_ONCE_MS` [server] | 1 s, 4 s, 5 s | Backlog that lags; lag before slow; backlog slow at once (the sum of the two). |
 | `SLOW_WAIT_AFTER_MS`, `GOVERN_RELEASE_MS` [server] | 30 s, 0.5 s | Slow time before it is waited for; backlog that releases. |
@@ -768,7 +774,9 @@ later still, under a delay raised on the lost socket, takes a newer command's st
 - An open socket that carried nothing from the relay for `LINK_QUIET_MS` is reported quiet, and the player
   sees the lost-link screen. A quiet poll that runs more than two poll intervals after the one before
   found its thread blocked (by a world build or restore, for instance) with messages possibly queued, so
-  it counts the silence from that moment instead of judging the link.
+  it counts the silence from that moment instead of judging the link. Only the first delayed poll since
+  the last relay message gets this grace; repeated delayed polls without a message still replace a dead
+  link.
 - A browser socket reports a large message only once it is complete, so silence cannot tell a stalled
   route from a transfer still arriving; what the client awaits decides. A socket quiet for
   `LINK_REPLACE_MS` is replaced by a new one on the same token, which rejoins within a second, since a

@@ -188,8 +188,12 @@ export function livestockContent(): ContentSet {
   });
 }
 
+export function livestockMap(): ReturnType<typeof grassCellMap> {
+  return grassCellMap(32, 32);
+}
+
 export function livestockSim(): Simulation {
-  return new Simulation({ seed: 1, content: livestockContent(), map: grassCellMap(32, 32) });
+  return new Simulation({ seed: 1, content: livestockContent(), map: livestockMap() });
 }
 
 /** A built farm-type building anchored on half-cell node (hx, hy), optionally owned and stocked. */

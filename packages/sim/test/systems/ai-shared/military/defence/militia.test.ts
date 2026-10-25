@@ -7,6 +7,7 @@ import {
   Militia,
   Position,
   Projectile,
+  SeatOffenders,
   Settler,
 } from '../../../../../src/components/index.js';
 import type { Entity } from '../../../../../src/ecs/world.js';
@@ -19,15 +20,20 @@ import {
   serializeSaveGame,
 } from '../../../../../src/index.js';
 import {
+  DEFEND_DANGER_THRESHOLD,
   MILITIA_HOLD_TICKS,
   MILITIA_PER_ZONE_MAX,
 } from '../../../../../src/systems/ai-shared/military/defence/index.js';
-import { settlementDefenceSystem } from '../../../../../src/systems/ai-shared/military/settlement-defence.js';
+import {
+  planSettlementDefence,
+  settlementDefenceSystem,
+} from '../../../../../src/systems/ai-shared/military/settlement-defence.js';
 import {
   AI_SEAT_SLOT_STEP_TICKS,
   COMPUTER_DECISION_INTERVAL_TICKS,
   MILITARY_DECISION_PHASE,
 } from '../../../../../src/systems/computer-player/index.js';
+import { noteOffence } from '../../../../../src/systems/conflict/offenders.js';
 import { setAiControl } from '../../../../../src/systems/orders/ai.js';
 import { assignWorker } from '../../../../../src/systems/orders/work/employment.js';
 import { WEAPON_MAIN_TYPE } from '../../../../../src/systems/readviews/index.js';
@@ -39,15 +45,20 @@ const VIKING = 1;
 const SEAT = 2;
 const FOE = 3;
 const HQ_TYPE = 1;
+/** A building that shelters nobody. */
+const FARM_TYPE = 5;
 const CIVILIST = 6;
 const HUNTER = 15;
 const CARRIER = 24;
+const SCOUT = 27;
 const SPEARMAN = 32;
 const HUNTER_BOW = 30;
 /** The bow's damage against an unarmoured man. */
 const HUNTER_BOW_DAMAGE = 700;
 const MAP = { width: 128, height: 96 };
 const HQ_AT = { x: 24, y: 20 };
+/** Far from the headquarters, so the farm's zone stands alone. */
+const FARM_AT = { x: 80, y: 60 };
 /** Where the raider waits while the town is set up, out of every soldier's sight. */
 const FAR_OFF = { x: 120, y: 90 };
 /** Inside the headquarters' watch band, beyond the bow's near reach of the seat's people. */
@@ -202,6 +213,56 @@ describe('computer defence - desperate militia', () => {
       expect(sim.world.get(e, Settler).jobType).toBe(CARRIER);
       expect(sim.world.get(e, JobAssignment).workplace).toBe(hq);
     }
+  });
+
+  it('stands its militia down and forgets its offenders once the computer stops running the seat', () => {
+    const handovers = [
+      { kind: 'setAiControl', player: SEAT, enabled: false },
+      { kind: 'setAiControl', player: SEAT, enabled: true, computerEnabled: false },
+    ] as const;
+    for (const handover of handovers) {
+      const { sim } = town();
+      control(sim, 'computer');
+      const people = crowd(sim, CROWD);
+      noteOffence(sim.world, ctxOf(sim), raiderIn(sim), SEAT);
+      const trades = new Map(people.map((e) => [e, sim.world.get(e, Settler).jobType]));
+      decide(sim);
+      const armed = militia(sim);
+      expect(armed).toHaveLength(MILITIA_PER_ZONE_MAX);
+      expect([...sim.world.query(SeatOffenders)]).toHaveLength(1);
+
+      setAiControl(sim.world, ctxOf(sim), handover);
+
+      expect(militia(sim)).toEqual([]);
+      for (const e of armed) expect(sim.world.get(e, Settler).jobType).toBe(trades.get(e));
+      expect([...sim.world.query(SeatOffenders)]).toEqual([]);
+    }
+  });
+
+  it('arms nobody against a lone cow thief at an outlying farm, however much he weighs', () => {
+    const { sim } = town();
+    sim.enqueueSetup({
+      kind: 'placeBuilding',
+      buildingType: FARM_TYPE,
+      ...FARM_AT,
+      tribe: VIKING,
+      owner: SEAT,
+    });
+    sim.step();
+    control(sim, 'computer');
+    for (let i = 0; i < CROWD; i++) spawn(sim, CIVILIST, FARM_AT.x - 8 + i, FARM_AT.y + 8, SEAT);
+    const thief = spawn(sim, SCOUT, FAR_OFF.x, FAR_OFF.y, FOE);
+    sim.world.add(thief, Position, positionOfNode(FARM_AT.x + RAIDER_OFFSET, FARM_AT.y));
+    noteOffence(sim.world, ctxOf(sim), thief, SEAT);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('setup: no terrain');
+    // The premise: his theft weighs him past the defend threshold in a zone nothing shelters.
+    const zones = planSettlementDefence(sim.world, ctxOf(sim), terrain, SEAT, true).threat.zones;
+    expect(zones.some((z) => !z.fortified && z.danger >= DEFEND_DANGER_THRESHOLD)).toBe(true);
+
+    decide(sim);
+
+    expect(militia(sim)).toEqual([]);
   });
 
   it('never arms the people of a human seat or one only the map AI runs', () => {

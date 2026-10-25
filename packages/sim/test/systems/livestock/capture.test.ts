@@ -11,13 +11,29 @@ import {
   setSettlerJob,
 } from '../../../src/components/index.js';
 import type { Entity, Simulation } from '../../../src/index.js';
-import { positionOfNode } from '../../../src/index.js';
+import {
+  exportSaveGame,
+  parseSaveGame,
+  positionOfNode,
+  restoreSimulation,
+  serializeSaveGame,
+} from '../../../src/index.js';
 import { liveOffenders } from '../../../src/systems/conflict/offenders.js';
 import { livestockCaptureSystem } from '../../../src/systems/index.js';
 import { hasValidLeader } from '../../../src/systems/movement/herd-leader.js';
 import { setAiControl } from '../../../src/systems/orders/ai.js';
 import { settlerAt } from '../../fixtures/settler.js';
-import { BEAR_TRIBE, COW_GOOD, cowAt, ctxOf, farmAt, livestockSim, SCOUT, scoutAt } from './support.js';
+import {
+  BEAR_TRIBE,
+  COW_GOOD,
+  cowAt,
+  ctxOf,
+  farmAt,
+  livestockMap,
+  livestockSim,
+  SCOUT,
+  scoutAt,
+} from './support.js';
 
 const P0 = 0;
 const P1 = 1;
@@ -158,6 +174,26 @@ describe('livestock capture - a scout claims the catchable animals it passes', (
     stepTo(sim, scout, 10, 11);
     capturePass(sim);
     expect(sim.world.tryGet(cow, Owner)?.player).toBe(P0);
+  });
+
+  it('a restored run claims on the same steps: a scout that has not moved since the save claims nothing', () => {
+    const sim = livestockSim();
+    const scout = scoutAt(sim, 10, 10, P0);
+    cowAt(sim, 60, 40); // out of reach: the pass runs only while livestock exists
+    capturePass(sim);
+    const cow = cowAt(sim, 11, 10);
+
+    const restored = restoreSimulation(parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(sim)))), {
+      content: sim.content,
+      map: livestockMap(),
+    });
+    expect(restored.hashState()).toBe(sim.hashState());
+
+    capturePass(restored);
+    expect(restored.world.has(cow, Owner)).toBe(false);
+    stepTo(restored, scout, 10, 11);
+    capturePass(restored);
+    expect(restored.world.tryGet(cow, Owner)?.player).toBe(P0);
   });
 
   it('two enemy scouts standing by one animal do not trade it back and forth', () => {

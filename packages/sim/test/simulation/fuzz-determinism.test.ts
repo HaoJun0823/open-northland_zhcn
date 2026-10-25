@@ -630,7 +630,7 @@ function nextCommand(rng: Rng): Command {
       };
     case 7:
       // A stance change at a random id: valid + out-of-range modes, owned/unowned/dead targets.
-      // Exercises the setStance skip paths + the stance-gated engagement/flee drives under a fuzzed stream.
+      // Exercises the setStance skip paths + the stance-gated engagement drive under a fuzzed stream.
       return {
         kind: 'setStance',
         entity: (rng.int(TARGET_ID_RANGE) + 1) as Entity,

@@ -75,14 +75,15 @@ describe('computer defence - danger', () => {
     expect(zones[0]?.danger).toBe(20 + 1 * 10);
   });
 
-  it('calls a zone desperate far over its defence, or merely over it where nothing shelters it', () => {
-    const zone = (danger: number, defence: number, fortified: boolean): ZoneThreat => ({
+  it('calls a zone desperate when its armed danger is far over its defence, or merely over it where nothing shelters it', () => {
+    const zone = (armedDanger: number, defence: number, fortified: boolean, unarmed = 0): ZoneThreat => ({
       anchor: 1 as Entity,
       x: 0,
       y: 0,
       radius: 0,
       intruders: [],
-      danger,
+      danger: armedDanger + unarmed,
+      armedDanger,
       defence,
       fortified,
     });
@@ -92,5 +93,7 @@ describe('computer defence - danger', () => {
     expect(isDesperate(zone(50, 20, true))).toBe(true);
     // Under the defend threshold nothing is desperate, defenceless or not.
     expect(isDesperate(zone(5, 0, false))).toBe(false);
+    // Unarmed offenders alone never make a zone desperate, however heavily they weigh.
+    expect(isDesperate(zone(0, 0, false, 30))).toBe(false);
   });
 });

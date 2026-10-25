@@ -215,17 +215,17 @@ describe('carrier at a PRODUCING building - hauls the finished output OUT to a w
     expect(sim.world.get(granary, Stockpile).amounts.get(WHEAT) ?? 0).toBe(5); // all of it reached the granary
   });
 
-  it('still hauls when the carrier carries Health and the default civilian FLEE stance', () => {
-    // A real spawned carrier carries a Health pool and the civilian default FLEE stance (mode 4). Neither
-    // blocks the haul: the planner only steps aside for the transient Fleeing MARKER (a threat in sight) and
-    // the DEFEND stance, and this peaceful field has no enemy. Guards against a regression that would let a
+  it('still hauls when the carrier carries Health and the default civilian IGNORE stance', () => {
+    // A real spawned carrier carries a Health pool and the civilian default IGNORE stance. Neither blocks
+    // the haul: the planner only steps aside for the transient Fleeing marker (a run from a blow) and the
+    // DEFEND stance, and this peaceful field has no enemy. Guards against a regression that would let a
     // stray stance/health gate the field carrier out of the economy ladder.
     const sim = new Simulation({ seed: 2, content: testContent(), map: grassMap(8, 1) });
     const farm = buildingAt(sim, FARM, 2, 0, [[WHEAT, 5]]);
     const granary = buildingAt(sim, GRANARY, 6, 0);
     const carrier = settlerAt(sim, 2, 0, CARRIER, farm);
     sim.world.add(carrier, Health, { hitpoints: 100, max: 100 });
-    sim.world.add(carrier, Stance, { mode: MILITARY_MODE.FLEE, anchorCell: null });
+    sim.world.add(carrier, Stance, { mode: MILITARY_MODE.IGNORE, anchorCell: null });
 
     for (let i = 0; i < 1200; i++) sim.step();
 

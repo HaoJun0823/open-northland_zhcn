@@ -14,8 +14,10 @@ import {
 } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
+import { disbandMilitia } from '../ai-shared/military/defence/militia.js';
 import { COMPUTER_PUBLISHED_COUNTERS } from '../computer-player/assistant-counters.js';
 import { soldierOutfitGoods } from '../computer-player/military/outfit.js';
+import { forgetAllOffenders } from '../conflict/offenders.js';
 import type { SystemContext } from '../context.js';
 import { defaultStance, MILITARY_MODE, seatLeftToMapAi } from '../readviews/stances.js';
 import { retireComputerCampaign, standDownAutonomousSorties, withdrawAiOrders } from './ai-lifecycle.js';
@@ -63,6 +65,7 @@ function applyAiControl(
   const carrier = aiControlEntity(world, command.player);
   if (!command.enabled) {
     if (carrier === null) return; // never AI-driven: nothing standing to withdraw
+    disbandMilitia(world, ctx, command.player);
     withdrawAiOrders(world, ctx, command.player, () => true);
     retireComputerCampaign(world, command.player);
     world.destroy(carrier);
@@ -101,7 +104,11 @@ function applyAiControl(
   const next = computerModuleEnables(
     Object.fromEntries(Object.entries(modules).map(([id, enabled]) => [id, computerEnabled && enabled])),
   );
-  if (previous.military && !next.military) standDownAutonomousSorties(world, ctx, command.player);
+  if (previous.military && !next.military) {
+    standDownAutonomousSorties(world, ctx, command.player);
+    disbandMilitia(world, ctx, command.player);
+    forgetAllOffenders(world, command.player);
+  }
   withdrawAiOrders(world, ctx, command.player, (source) => {
     if (source === 'map-ai') return !mapAiEnabled;
     // Autonomous sorties have no camp leash. A map-only controller must plan a bounded replacement.

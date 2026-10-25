@@ -77,6 +77,8 @@ export interface ZoneThreat {
   readonly radius: number;
   readonly intruders: readonly Intruder[];
   readonly danger: number;
+  /** The share of {@link danger} its armed intruders pose: soldiers, heroes and vehicles. */
+  readonly armedDanger: number;
   readonly defence: number;
   /** A manned tower or a standing shelter lies inside the zone. */
   readonly fortified: boolean;
@@ -145,7 +147,11 @@ export function assessSeatThreat(
     const inside = intruders.filter((i) => hexDistanceBetween(i.x, i.y, at.x, at.y) <= band);
     if (inside.length === 0) continue;
     let danger = 0;
-    for (const i of inside) danger += i.danger;
+    let armedDanger = 0;
+    for (const i of inside) {
+      danger += i.danger;
+      if (i.armed) armedDanger += i.danger;
+    }
     soldiers ??= soldierDefence(world, ctx, free);
     const works = fortificationOf(world, ctx, terrain, owned, at.x, at.y, band);
     zones.push({
@@ -155,6 +161,7 @@ export function assessSeatThreat(
       radius: band + THREAT_STAND_DOWN_MARGIN_NODES,
       intruders: inside,
       danger,
+      armedDanger,
       defence: soldiers + works.defence,
       fortified: works.fortified,
     });
@@ -254,12 +261,15 @@ export function soldiersWanted(danger: number): number {
 }
 
 /**
- * Whether `zone` is past what its defence can hold: danger at the defend threshold and far over the
+ * Whether `zone` is past what its defence can hold: armed danger at the defend threshold and far over the
  * defence, or over it at all where no tower or shelter covers the zone. The signal for arming civilians.
+ * Unarmed offenders count for nothing here: the offender answer alone meets them, so a lone thief never
+ * arms the village.
  */
 export function isDesperate(zone: ZoneThreat): boolean {
-  if (zone.danger < DEFEND_DANGER_THRESHOLD) return false;
-  return zone.fortified ? zone.danger > zone.defence * DESPERATE_DANGER_RATIO : zone.danger > zone.defence;
+  const danger = zone.armedDanger;
+  if (danger < DEFEND_DANGER_THRESHOLD) return false;
+  return zone.fortified ? danger > zone.defence * DESPERATE_DANGER_RATIO : danger > zone.defence;
 }
 
 /** The desperate zones of `threat`, ascending anchor id. */

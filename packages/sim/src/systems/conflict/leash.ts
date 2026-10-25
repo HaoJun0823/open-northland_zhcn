@@ -14,6 +14,7 @@ import {
 import type { Entity, World } from '../../ecs/world.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
+import { isAdultSettler } from '../family/eligibility.js';
 import { attackUnit } from '../orders/combat.js';
 import { isFighterJob } from '../readviews/index.js';
 import { hexNodeDistance } from '../spatial/metric.js';
@@ -76,8 +77,8 @@ export function strikeParty(
   return party;
 }
 
-/** Whether civilian `e` is free to strike back at `attacker`: armed (fists count), in the open and awake
- *  unless it is the struck one, and under no order, run or shelter of its own. */
+/** Whether civilian `e` is free to strike back at `attacker`: a grown-up, armed (fists count), in the open
+ *  and awake unless it is the struck one, and under no order, run or shelter of its own. */
 function mayStrikeBack(
   world: World,
   ctx: SystemContext,
@@ -85,6 +86,7 @@ function mayStrikeBack(
   attacker: Entity,
   struck: boolean,
 ): boolean {
+  if (!isAdultSettler(world, e)) return false;
   const settler = world.get(e, Settler);
   if (isFighterJob(ctx.content, settler.jobType)) return false;
   if (world.has(e, PlayerOrder) || world.has(e, AttackOrder) || world.has(e, Fleeing)) return false;

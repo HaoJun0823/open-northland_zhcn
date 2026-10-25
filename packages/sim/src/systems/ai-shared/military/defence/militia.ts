@@ -19,8 +19,9 @@ import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { leashedAttack } from '../../../conflict/leash.js';
 import { attackerWeapon } from '../../../conflict/weapons.js';
 import type { SystemContext } from '../../../context.js';
+import { isAdultSettler } from '../../../family/eligibility.js';
 import { peopleNear } from '../../../movement/settler-nodes.js';
-import { atomicBlocksOrder, mayChangeTrade } from '../../../orders/guards.js';
+import { atomicBlocksOrder, deferOrderDuringAtomic, mayChangeTrade } from '../../../orders/guards.js';
 import { assignWorker, takeUpTrade } from '../../../orders/work/employment.js';
 import { canChooseJob, needSubjectOf } from '../../../progression/index.js';
 import { hunterJobType, isFighterJob, isHunterJob } from '../../../readviews/index.js';
@@ -100,6 +101,20 @@ export function musterMilitia(
   }
 }
 
+/**
+ * Send every militiaman of `player` home at once, as the computer stops running the seat's military and
+ * nothing else would. One a clip holds takes up his old trade once it ends, unposted.
+ */
+export function disbandMilitia(world: World, ctx: SystemContext, player: number): void {
+  for (const e of militiaOf(world, player)) {
+    const member = world.get(e, Militia);
+    const previousJob = member.previousJob;
+    if (standDown(world, ctx, e, member)) continue;
+    world.remove(e, Militia);
+    deferOrderDuringAtomic(world, ctx, e, { kind: 'setJob', entity: e, jobType: previousJob });
+  }
+}
+
 /** `player`'s militiamen, ascending id. */
 function militiaOf(world: World, player: number): Entity[] {
   const members: Entity[] = [];
@@ -130,9 +145,10 @@ function recruits(
   return ranked.slice(0, want).map((r) => r.e);
 }
 
-/** Whether `e` is a free civilian man the seat may arm: alive, out of every shelter, tower, drill and
+/** Whether `e` is a free grown-up civilian the seat may arm: alive, out of every shelter, tower, drill and
  *  fight, his trade his own to change, and the hunter's weapon one his tribe holds. */
 function mayArm(world: World, ctx: SystemContext, e: Entity, hunterJob: number): boolean {
+  if (!isAdultSettler(world, e)) return false;
   const settler = world.get(e, Settler);
   if (isFighterJob(ctx.content, settler.jobType) || isHunterJob(ctx.content, settler.jobType)) return false;
   if (settler.jobType === null || (world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) return false;
@@ -174,7 +190,8 @@ function arm(
   engage(world, ctx, terrain, e, zone);
 }
 
-/** Send `e` at the raider of `zone` nearest him, ascending (distance, id), on the militia's leash. */
+/** Send `e` at the armed raider of `zone` nearest him, ascending (distance, id), on the militia's leash. An
+ *  unarmed offender is the offender answer's, not the militia's. */
 function engage(world: World, ctx: SystemContext, terrain: TerrainGraph, e: Entity, zone: ZoneThreat): void {
   const at = entityNode(world, terrain, e);
   const x = terrain.xOf(at);
@@ -183,6 +200,7 @@ function engage(world: World, ctx: SystemContext, terrain: TerrainGraph, e: Enti
   let best = Number.POSITIVE_INFINITY;
   // The intruders arrive ascending id, so the strict `<` keeps the lower one on a tie.
   for (const intruder of zone.intruders) {
+    if (!intruder.armed) continue;
     const distance = hexDistanceBetween(x, y, intruder.x, intruder.y);
     if (distance < best) {
       target = intruder.entity;

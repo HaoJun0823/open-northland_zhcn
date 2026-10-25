@@ -244,7 +244,7 @@ function expectRingWalkAgreement(
 const CROWD_SEED = 1;
 
 describe('CombatIndex nearest search - equivalent to the node ring walk', () => {
-  it('agrees with the ring walk on nearest, nearestFew and anyWithin over a random crowd', () => {
+  it('agrees with the ring walk on nearest and nearestFew over a random crowd', () => {
     const draw = lcg(CROWD_SEED);
     const sim = mappedSim(CROWD_SEED);
     for (const [from, to] of [

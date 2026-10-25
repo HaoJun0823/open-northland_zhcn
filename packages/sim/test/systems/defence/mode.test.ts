@@ -554,9 +554,8 @@ describe('defence mode', () => {
     const tower = buildingAt(sim, 3, 1, TOWER, P1);
     const farmer = settlerAt(sim, 8, 1, P1, FARMER);
     if (alreadyFleeing) sim.world.add(farmer, Fleeing, {});
-    // A raider in sight from the first tick. A claimant that took the flee drive instead would be steered
-    // by the threat rather than by its claim, and it holds a seat the whole time it runs: the tower would
-    // report itself full while standing empty.
+    // A raider in sight from the first tick. A claimant steered by the threat rather than by its claim
+    // would hold a seat the whole time it runs: the tower would report itself full while standing empty.
     settlerAt(sim, 12, 1, P2, SOLDIER);
 
     sim.enqueueSetup({ kind: 'setDefenceMode', building: tower, enabled: true });

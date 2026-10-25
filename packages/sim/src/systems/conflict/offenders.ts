@@ -75,3 +75,10 @@ function remembered(world: World, offender: DeepReadonly<SeatOffender>, tick: nu
     (world.tryGet(offender.entity, Health)?.hitpoints ?? 1) > 0
   );
 }
+
+/** Drop every offender `player` remembers, as the computer stops running its military: a later run starts
+ *  from a clean record. */
+export function forgetAllOffenders(world: World, player: number): void {
+  const carrier = aiControlEntity(world, player);
+  if (carrier !== null) world.remove(carrier, SeatOffenders);
+}

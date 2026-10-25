@@ -50,8 +50,7 @@ export const PALISADE_WORK_SITES = {
     { hx: 5, hy: 36 },
     { hx: 6, hy: 36 },
   ],
-  // Enemy ground, north of the barrier: a civilian flees any hostile structure inside its sight radius,
-  // so an enemy marker beside the work yard would freeze the builders instead of demonstrating them.
+  // Enemy ground, north of the barrier, well away from the owned work yard.
   unclaimed: { hx: 44, hy: 12 },
 } as const;
 /** Authored at 100 of 150 hitpoints: ten repair swings. */

@@ -53,7 +53,7 @@ function mixedScene(): Simulation {
   combatantAtNode(sim, 30, 104, P0, MILITARY_MODE.DEFEND); // on its own anchor
   const offAnchor = combatantAtNode(sim, 34, 104, P0, MILITARY_MODE.DEFEND);
   sim.world.mut(offAnchor, Stance).anchorCell = cell(sim, 10, 25);
-  // Calm and walking to work past the enemy line: the flee drive still looks around it.
+  // A civilian walking to work past the enemy line, whom only a blow would turn.
   const walker = combatantAtNode(sim, 30, 40, P0, MILITARY_MODE.FLEE);
   sim.world.add(walker, MoveGoal, { cell: cell(sim, 30, 20) });
   const stranded = combatantAtNode(sim, 38, 104, P0, MILITARY_MODE.DEFEND);

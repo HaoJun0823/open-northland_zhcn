@@ -16,6 +16,7 @@ export {
 } from './danger.js';
 export { enlistOrders } from './enlist.js';
 export {
+  disbandMilitia,
   MILITIA_HOLD_TICKS,
   MILITIA_PEOPLE_SHARE,
   MILITIA_PER_SEAT_MAX,

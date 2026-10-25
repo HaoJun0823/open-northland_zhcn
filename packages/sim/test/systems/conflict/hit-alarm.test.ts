@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Age,
   AiOrder,
   AttackOrder,
   addCurrentAtomic,
@@ -411,6 +412,22 @@ describe('hit alarm - a computer seat strikes back at an unarmed raider', () => 
       expect(s.world.has(e, Engagement)).toBe(false);
       expect(s.world.has(e, AiOrder)).toBe(false);
     }
+  });
+
+  it('never sends a child: the grown-up neighbour goes past a nearer child', () => {
+    const s = sim();
+    machineSeat(s, P0, true);
+    const victim = unit(s, VICTIM_AT, P0, MILITARY_MODE.IGNORE, WOMAN);
+    const raider = unit(s, VICTIM_AT - 1, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const child = unit(s, VICTIM_AT + 1, P0, MILITARY_MODE.IGNORE, WOMAN);
+    s.world.add(child, Age, { ticks: 0, asOf: null });
+    const grownUp = unit(s, VICTIM_AT + BESIDE, P0, MILITARY_MODE.IGNORE, WOMAN);
+
+    resolveCombatHit(s.world, ctxOf(s), raider, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+
+    for (const e of [victim, grownUp]) expect(s.world.get(e, AttackOrder).target).toBe(raider);
+    expect(s.world.has(child, AttackOrder)).toBe(false);
   });
 
   it('leaves the answer to its soldiers while it fields one: the struck one runs', () => {

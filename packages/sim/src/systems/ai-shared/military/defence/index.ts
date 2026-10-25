@@ -2,7 +2,20 @@
 // here are approximations.
 
 export { alarmOrders } from './alarm.js';
+export {
+  assessSeatThreat,
+  DEFEND_DANGER_THRESHOLD,
+  desperateZones,
+  type Intruder,
+  isDesperate,
+  OFFENDER_DANGER_MULTIPLIER,
+  type SeatThreat,
+  soldiersWanted,
+  unitDanger,
+  type ZoneThreat,
+} from './danger.js';
 export { enlistOrders } from './enlist.js';
+export { OFFENDER_SQUAD_MAX, type OffenderAnswer, offenderAnswers } from './offenders.js';
 export {
   MAP_AI_DEFENCE_REACH_POINTS,
   MAP_AI_PEACE_ARCHERS_PER_CLASS,

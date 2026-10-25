@@ -11,12 +11,15 @@ import {
 import { aiCommand, type PlayerCommand } from '../../../core/commands/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
+import { forgetOffenders, liveOffenders } from '../../conflict/offenders.js';
+import { leashedAttack, strikeParty } from '../../conflict/strike-back.js';
 import type { System, SystemContext } from '../../context.js';
 import { hexNodeDistance } from '../../spatial/metric.js';
 import { entityNode } from '../../spatial/nodes.js';
 import { militaryDecisionDue } from '../cadence.js';
 import { ownedBuildings } from '../seat-roster.js';
 import { type ArmyCensus, takeCensus } from './census.js';
+import { assessSeatThreat, NO_THREAT, type SeatThreat } from './defence/danger.js';
 import {
   alarmOrders,
   enlistOrders,
@@ -26,6 +29,7 @@ import {
   sortieOrders,
   towerPostOrders,
 } from './defence/index.js';
+import { type OffenderAnswer, offenderAnswers } from './defence/offenders.js';
 import {
   type Raider,
   THREAT_STAND_DOWN_MARGIN_NODES,
@@ -40,6 +44,11 @@ export interface SettlementDefence {
   readonly available: readonly Entity[];
   readonly raid: Raider | null;
   readonly mapSorties: readonly { entity: Entity; state: MapAiDefenceState }[];
+  /** The computer seat's weighed zones; empty for a seat the map AI defends. */
+  readonly threat: SeatThreat;
+  /** The computer seat's answers to unarmed offenders, applied by the defence system itself, since a
+   *  leashed attack order has no command. */
+  readonly offenderAnswers: readonly OffenderAnswer[];
 }
 
 /** The last plan per world, with everything it was derived from. The defence system and the computer
@@ -121,6 +130,23 @@ function deriveSettlementDefence(
   );
   const free = without(home, posts.claimed);
   const raid = raidOnTheSettlement(world, ctx, terrain, owned, raiders);
+  const threat = autonomous
+    ? assessSeatThreat(
+        world,
+        ctx,
+        terrain,
+        player,
+        owned,
+        raiders,
+        liveOffenders(world, player, ctx.tick),
+        free,
+      )
+    : NO_THREAT;
+  // A raid sends the whole free band, offenders among the raiders' targets.
+  const answered =
+    raid === null && threat.zones.length > 0
+      ? offenderAnswers(world, ctx, terrain, player, threat, free)
+      : { answers: [], claimed: new Set<Entity>() };
   // Approximation: a map-controlled camp answers with nearby free soldiers, using the same reach
   // as its extra tower guards. A distant camp must not empty merely because both share a player.
   const threatened =
@@ -179,9 +205,11 @@ function deriveSettlementDefence(
   }
   return {
     army,
-    available: raid === null ? free : [],
+    available: raid === null ? without(free, answered.claimed) : [],
     raid,
     mapSorties,
+    threat,
+    offenderAnswers: answered.answers,
     commands: [
       ...enlistOrders(world, ctx, player),
       ...alarmOrders(world, ctx, terrain, owned, raiders),
@@ -209,11 +237,28 @@ export const settlementDefenceSystem: System = (world, ctx) => {
   seats.sort((a, b) => a.player - b.player);
   for (const seat of seats) {
     if (isPlayerDead(world, seat.player)) continue;
-    if (!seat.mapAiEnabled && !computerModuleRuns(world, seat.player, 'military')) continue;
-    const plan = planSettlementDefence(world, ctx, terrain, seat.player);
+    const autonomous = computerModuleRuns(world, seat.player, 'military');
+    if (!seat.mapAiEnabled && !autonomous) continue;
+    if (autonomous) forgetOffenders(world, seat.player, ctx.tick);
+    const plan = planSettlementDefence(world, ctx, terrain, seat.player, autonomous);
     for (const { entity, state } of plan.mapSorties) world.add(entity, MapAiDefence, state);
     for (const command of plan.commands) {
       ctx.commands.enqueue(aiCommand(seat.player, command, 'settlement-defence'));
     }
+    answerOffenders(world, ctx, seat.player, plan.offenderAnswers);
   }
 };
+
+/** Send the soldiers each answer names at its offender, or, with none, the first free civilians it lists. */
+function answerOffenders(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  answers: readonly OffenderAnswer[],
+): void {
+  const origin = { player, source: 'settlement-defence' } as const;
+  for (const { offender, leash, soldiers, people } of answers) {
+    for (const e of soldiers) leashedAttack(world, ctx, e, offender, { ...leash }, origin);
+    if (people.length > 0) strikeParty(world, ctx, offender, people, null, origin, () => ({ ...leash }));
+  }
+}

@@ -12,8 +12,10 @@ import {
 } from '../../../src/components/index.js';
 import type { Entity, Simulation } from '../../../src/index.js';
 import { positionOfNode } from '../../../src/index.js';
+import { liveOffenders } from '../../../src/systems/conflict/offenders.js';
 import { livestockCaptureSystem } from '../../../src/systems/index.js';
 import { hasValidLeader } from '../../../src/systems/movement/herd-leader.js';
+import { setAiControl } from '../../../src/systems/orders/ai.js';
 import { settlerAt } from '../../fixtures/settler.js';
 import { BEAR_TRIBE, COW_GOOD, cowAt, ctxOf, farmAt, livestockSim, SCOUT, scoutAt } from './support.js';
 
@@ -115,6 +117,18 @@ describe('livestock capture - a scout claims the catchable animals it passes', (
         at: { hx: 10, hy: 11 },
       },
     ]);
+  });
+
+  it('leaves its thief in the memory of a robbed computer seat', () => {
+    const sim = livestockSim();
+    setAiControl(sim.world, ctxOf(sim), { kind: 'setAiControl', player: P1, enabled: true });
+    const scout = scoutAt(sim, 10, 10, P0);
+    cowAt(sim, 10, 11, { owner: P1 });
+    setDiplomacyStance(sim.world, P0, P1, 'enemy');
+
+    capturePass(sim);
+
+    expect(liveOffenders(sim.world, P1, sim.tick).map((o) => o.entity)).toEqual([scout]);
   });
 
   it("takes a stolen animal out of the enemy farm's herd and its row", () => {

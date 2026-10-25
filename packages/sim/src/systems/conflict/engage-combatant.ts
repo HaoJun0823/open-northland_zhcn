@@ -317,8 +317,8 @@ function liveAttackOrder(
     if (!stands) world.remove(e, AttackOrder);
     return false;
   }
-  // A civilian striking back lets its target go once it is gone or strays past the leash, and the economy
-  // takes the civilian back.
+  // A leashed defender (a civilian striking back, a soldier sent at an offender) lets its target go once
+  // it is gone or strays past the leash, and its work or the next decision takes it back.
   if (order.leash !== undefined) {
     const holds =
       ctx.terrain !== undefined &&

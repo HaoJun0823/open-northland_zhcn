@@ -120,14 +120,20 @@ export const Garrison = defineComponent<{ post: Entity; returnTo: { x: Fixed; y:
  * of its line falls and returns to `resume`, the player's target, or to the march when that is null.
  * `enemy` marks a fighter's own breach instead, walled off from that enemy: no player order, so the unit's
  * stance still governs it. `stand` is the near-side node dealt to this breaker, null when none was free.
- * `leash` is the node a civilian striking back stood on: the order lets go once its target strays past
- * the strike-back leash of it (`conflict/strike-back.ts`); absent (never null) on every other order.
+ * `leash` bounds a defender's chase: the order lets go once its target strays more than `radius` map
+ * points from `at` (`conflict/strike-back.ts`); absent (never null) on every other order.
  */
 export const AttackOrder = defineComponent<{
   target: Entity;
   breach?: { resume: Entity | null; stand: NodeId | null; enemy?: Entity | undefined };
-  leash?: NodeId | undefined;
+  leash?: AttackLeash | undefined;
 }>('AttackOrder', 'combat');
+
+/** Where a leashed {@link AttackOrder} is held from, and how far (map points) its target may stray. */
+export interface AttackLeash {
+  at: NodeId;
+  radius: number;
+}
 
 /**
  * A projectile in flight - a first-class entity carrying a `Position` advanced each tick toward the point

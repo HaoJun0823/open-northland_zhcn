@@ -13,6 +13,7 @@ import {
 import { eventAt } from '../../core/events.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId } from '../../nav/terrain/index.js';
+import { noteOffence } from '../conflict/offenders.js';
 import type { System, SystemContext } from '../context.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { entityNode } from '../spatial/nodes.js';
@@ -118,6 +119,7 @@ function claim(world: World, ctx: SystemContext, animal: Entity, scout: Entity, 
       thiefPlayer: player,
       at: eventAt(p.x, p.y),
     });
+    noteOffence(world, ctx, scout, victim);
   }
   world.add(animal, Owner, { player });
   // Its wild herd re-leads itself on the herding drive's next pass.

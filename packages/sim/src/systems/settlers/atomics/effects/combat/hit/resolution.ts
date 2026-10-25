@@ -20,6 +20,7 @@ import { eventAt } from '../../../../../../core/events.js';
 import type { Fixed } from '../../../../../../core/fixed.js';
 import type { Entity, World } from '../../../../../../ecs/world.js';
 import { raiseHitAlarm } from '../../../../../conflict/hit-alarm.js';
+import { noteOffence } from '../../../../../conflict/offenders.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
 import { isStructureTarget } from '../../../../../conflict/targeting.js';
 import type { SystemContext } from '../../../../../context.js';
@@ -182,6 +183,10 @@ export function resolveCombatHit(
   if (dealtDamage && source !== 'collateral') provokeHostility(world, ctx, attacker, target);
   turnOnAttacker(world, ctx, attacker, target);
   raiseHitAlarm(world, ctx, attacker, target);
+  const struckSide = ownerOf(world, target);
+  if (dealtDamage && source !== 'collateral' && struckSide !== undefined) {
+    noteOffence(world, ctx, attacker, struckSide);
+  }
   // A damaging blow on a human marks its owner as attacked by the striker's owner, shield or no shield:
   // the original marks it on the computed damage, before the pool is touched.
   if (dealtDamage && source !== 'collateral' && world.has(target, Person)) {

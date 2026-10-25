@@ -413,6 +413,20 @@ describe('hit alarm - a computer seat strikes back at an unarmed raider', () => 
     }
   });
 
+  it('leaves the answer to its soldiers while it fields one: the struck one runs', () => {
+    const s = sim();
+    machineSeat(s, P0, true);
+    const victim = unit(s, VICTIM_AT, P0, MILITARY_MODE.IGNORE, WOMAN);
+    const raider = unit(s, VICTIM_AT - 1, P1, MILITARY_MODE.IGNORE, WOMAN);
+    unit(s, MAP_CELLS * 2 - 1, P0, MILITARY_MODE.IGNORE); // far off, out of the alarm
+
+    resolveCombatHit(s.world, ctxOf(s), raider, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+
+    expect(runsEast(s, victim, VICTIM_AT)).toBe(true);
+    expect(s.world.has(victim, AttackOrder)).toBe(false);
+  });
+
   it('runs from an armed blow as a human seat does', () => {
     const s = sim();
     machineSeat(s, P0, true);

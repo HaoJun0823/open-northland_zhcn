@@ -114,3 +114,17 @@ export interface RoadTrafficState {
  * as small as its steps. The road decision paves the busiest (`systems/computer-player/traffic.ts`).
  */
 export const RoadTraffic = defineComponent<RoadTrafficState>('RoadTraffic', 'players');
+
+/** One enemy unit a computer seat remembers for a blow on its people or buildings, or a theft of its
+ *  stock, until `untilTick`. */
+export interface SeatOffender {
+  entity: Entity;
+  untilTick: number;
+}
+
+/**
+ * The enemy units that struck or robbed one computer seat lately, ascending entity id, held on its
+ * {@link AiControl} carrier so a later defence decision still sees them (`conflict/offenders.ts`).
+ * Absent while the seat remembers no one.
+ */
+export const SeatOffenders = defineComponent<{ offenders: SeatOffender[] }>('SeatOffenders', 'players');

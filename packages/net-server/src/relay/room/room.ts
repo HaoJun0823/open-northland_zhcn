@@ -607,6 +607,8 @@ export class Room {
       state: this.state,
       members: this.members.size,
       ...(seatTo === null ? {} : { seatTo }),
+      // Where a boot that stood still stopped, in percent; null when it never reported progress.
+      ...(cause === 'loadingTimedOut' ? { loading: member.loading } : {}),
     });
     this.hooks.removed(member, farewell);
     this.deliver(member, { kind: 'left' });

@@ -61,12 +61,15 @@ class Client {
   member: Member | null = null;
   /** A message from this connection is still arriving. */
   uploading = false;
+  /** When the connection last delivered a message, or progress on one. */
+  heardAt: number;
   readonly probe: LatencyProbe;
 
   constructor(
     readonly connection: Connection,
     readonly connectedAt: number,
   ) {
+    this.heardAt = connectedAt;
     this.probe = new LatencyProbe(connectedAt);
   }
 }
@@ -74,10 +77,12 @@ class Client {
 export type ClientHandle = Client;
 
 /** How a connection ended, for the log: the WebSocket close code its socket reported (1005 for a
- *  close without one, 1006 for one with no close frame), `cause` when the relay closed it, and the
- *  transport error that ended it. */
+ *  close without one, 1006 for one with no close frame) and the reason text that came with it, as
+ *  the peer sent it and printable; `cause` when the relay closed it, and the transport error that
+ *  ended it. */
 export interface ConnectionEnd {
   readonly code?: number;
+  readonly reason?: string;
   readonly cause?: string;
   readonly error?: string;
 }
@@ -148,6 +153,7 @@ export class Relay {
     const now = this.now();
     const { room, member } = client;
     if (room !== null && member !== null) {
+      member.receivingBytes = 0;
       room.disconnect(member, now);
       this.dropIfEmpty(room);
     }
@@ -158,10 +164,12 @@ export class Relay {
       connectedSeconds: wholeSeconds(now - client.connectedAt),
       clients: this.clients.size,
       ...(end.code === undefined ? {} : { closeCode: end.code }),
+      ...(end.reason === undefined || end.reason === '' ? {} : { closeReason: end.reason }),
       ...(end.cause === undefined ? {} : { cause: end.cause }),
       ...(end.error === undefined ? {} : { error: end.error }),
-      // How long the link had been quiet, and its round trip before: a dying link or an abrupt close.
-      ...(member === null ? {} : { quietMs: Math.round(now - member.lastHeardAt) }),
+      // How long the link had been quiet, and its smoothed round trip before: a dying link or an
+      // abrupt close.
+      quietMs: Math.round(now - client.heardAt),
       ...(delay.samples === 0 ? {} : { roundTripMs: Math.round(delay.roundTripMs) }),
     });
   }
@@ -203,18 +211,20 @@ export class Relay {
   receiving(client: ClientHandle, bytes: number): void {
     if (!this.clients.has(client)) return;
     client.uploading = bytes > 0;
+    if (client.member !== null) client.member.receivingBytes = bytes;
     if (!client.uploading) return;
     client.probe.held();
-    if (client.member !== null) client.member.lastHeardAt = this.now();
+    client.heardAt = this.now();
+    if (client.member !== null) client.member.lastHeardAt = client.heardAt;
   }
 
   /** `client` took another part of a large message the transport is still sending it. Its frames and
    *  pings wait behind that message, so this progress is what keeps it heard meanwhile; a download that
    *  stops leaves it silent as before. */
   downloading(client: ClientHandle): void {
-    const member = client.member;
-    if (!this.clients.has(client) || member === null) return;
-    member.lastHeardAt = this.now();
+    if (!this.clients.has(client)) return;
+    client.heardAt = this.now();
+    if (client.member !== null) client.member.lastHeardAt = client.heardAt;
   }
 
   /** The transport has queued `client` a message it sends in parts and the client has not read to
@@ -238,7 +248,10 @@ export class Relay {
     // The message that ends an upload holds the answer to a ping sent since the upload's last progress.
     if (client.uploading) client.probe.held();
     client.uploading = false;
-    if (client.member !== null) client.member.lastHeardAt = this.now();
+    client.heardAt = this.now();
+    if (client.member === null) return;
+    client.member.lastHeardAt = client.heardAt;
+    client.member.receivingBytes = 0;
   }
 
   advance(): void {
@@ -340,7 +353,7 @@ export class Relay {
         }
         const since = this.emptySince.get(room) ?? now;
         this.emptySince.set(room, since);
-        if (now - since >= EMPTY_ROOM_TTL_MS) this.dropRoom(room);
+        if (now - since >= EMPTY_ROOM_TTL_MS) this.dropRoom(room, undefined, { expired: true });
       });
     }
   }
@@ -356,6 +369,7 @@ export class Relay {
     if (previous !== undefined) {
       // The same identity on a newer connection: the old one loses its identity and its room, so a
       // message still in flight from it can act for nobody; the membership itself stays.
+      if (previous.member !== null) previous.member.figures.drops++;
       this.clients.delete(previous);
       this.byToken.delete(message.token);
       previous.token = null;
@@ -385,8 +399,11 @@ export class Relay {
       nick: message.nick,
       rejoined: member !== null,
       ...(room === undefined || member === null ? {} : { room: room.id }),
-      // The token's older connection was still open: the client gave up on a link the relay still held.
-      ...(previous === undefined ? {} : { replaced: true }),
+      // The token's older connection was still open: the client gave up on a link the relay still held,
+      // after hearing nothing on it for a while, or a second tab took the identity at once.
+      ...(previous === undefined
+        ? {}
+        : { replaced: true, quietMs: Math.round(this.now() - previous.heardAt) }),
     });
   }
 
@@ -532,22 +549,48 @@ export class Relay {
     if (this.rooms.get(room.id) === room && room.memberTokens().length === 0) this.dropRoom(room);
   }
 
-  private dropRoom(room: Room, reason?: RelayReason): void {
+  /** The host is stopping, and every room ends with it: each logs its last figures and its drop. The
+   *  members hear of it from their sockets' close; the census of the interval closes the log. */
+  stop(): void {
+    const reason: RelayReason = { code: 'serverRestart' };
+    for (const room of this.rooms.values()) this.dropRoom(room, reason, { quiet: true });
+    this.logStatus(this.now());
+  }
+
+  /** The members still connected hear `reason`, unless `quiet`; `expired` drops a room nobody came
+   *  back to. */
+  private dropRoom(
+    room: Room,
+    reason?: RelayReason,
+    how: { readonly quiet?: boolean; readonly expired?: boolean } = {},
+  ): void {
     const now = this.now();
-    room.noteDrop(now);
+    // A fault in the room's last figures must not keep it, or it would fault again on every poll.
+    this.guarded('room fault', { room: room.id }, () => room.noteDrop(now));
     this.rooms.delete(room.id);
     this.emptySince.delete(room);
     for (const [token, farewell] of this.farewells) if (farewell.room === room) this.farewells.delete(token);
-    retireRoomMembers(room, (token) => this.detach(token, room), this.hooks.deliver, reason);
+    retireRoomMembers(
+      room,
+      (token) => this.detach(token, room),
+      this.hooks.deliver,
+      how.quiet === true ? undefined : reason,
+    );
     this.log('room dropped', {
       room: room.id,
       name: room.name,
       ...room.lifeFields(now),
       ...(reason === undefined ? {} : { reason }),
+      ...(how.expired === true ? { expired: true } : {}),
     });
   }
 
   private reject(client: Client, of: ClientMessage['kind'], reason: RelayReason, raw?: unknown): void {
+    const refused = client.member?.figures.refused;
+    if (refused !== undefined) {
+      const key = `${of}:${reason.code}`;
+      refused[key] = (refused[key] ?? 0) + 1;
+    }
     const requestId = saveOrdersRequestId(raw);
     client.connection.send({
       kind: 'rejected',

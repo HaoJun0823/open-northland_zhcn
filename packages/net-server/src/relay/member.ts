@@ -18,6 +18,8 @@ export interface Member {
   joinOrder: number;
   /** When the client's last message, or progress on one still arriving, reached the relay. */
   lastHeardAt: number;
+  /** Bytes of a message from the client still arriving, such as a snapshot upload; 0 when none. */
+  receivingBytes: number;
   /** The connection's input delay and round trip, as the relay last measured them. */
   delayTicks: number;
   roundTripMs: number;
@@ -54,7 +56,11 @@ export interface MemberFigures {
   behindMaxTicks: number;
   tickMaxMs: number | null;
   bufferedMaxTicks: number | null;
+  /** Connections lost, closed or replaced by a newer one. */
   drops: number;
+  /** Messages the relay refused, by `kind:code`: a client stuck on a refused `loaded`, or orders over
+   *  its budget. */
+  readonly refused: Partial<Record<string, number>>;
   /** Milliseconds the clock held for the member, by reason. */
   readonly waitedMs: Partial<Record<WaitReason, number>>;
   /** Milliseconds the clock was governed for the member. */
@@ -72,6 +78,7 @@ export function freshFigures(member: Pick<Member, 'delayTicks' | 'load'>): Membe
     tickMaxMs: member.load?.tickMs ?? null,
     bufferedMaxTicks: member.load?.buffered ?? null,
     drops: 0,
+    refused: {},
     waitedMs: {},
     governedMs: 0,
   };
@@ -84,10 +91,13 @@ export function figureFields(member: Member): Record<string, unknown> {
     nick: member.nick,
     seat: member.seat,
     ...(member.connected ? {} : { connected: false }),
+    // A boot still in progress, in percent.
+    ...(member.loaded || member.loading === null ? {} : { loading: member.loading }),
+    // The mean of the interval's samples; a `disconnect` line carries the smoothed estimate instead.
     ...(figures.roundTrips === 0
       ? {}
       : {
-          roundTripMs: Math.round(figures.roundTripSumMs / figures.roundTrips),
+          roundTripMeanMs: Math.round(figures.roundTripSumMs / figures.roundTrips),
           roundTripMaxMs: Math.round(figures.roundTripMaxMs),
         }),
     delayMaxTicks: figures.delayMaxTicks,
@@ -95,6 +105,7 @@ export function figureFields(member: Member): Record<string, unknown> {
     ...(figures.tickMaxMs === null ? {} : { tickMaxMs: Math.round(figures.tickMaxMs) }),
     ...(figures.bufferedMaxTicks === null ? {} : { bufferedMaxTicks: figures.bufferedMaxTicks }),
     ...(figures.drops === 0 ? {} : { drops: figures.drops }),
+    ...(Object.keys(figures.refused).length === 0 ? {} : { refused: figures.refused }),
     ...msFields(figures.waitedMs),
     ...(figures.governedMs === 0 ? {} : { governedMs: Math.round(figures.governedMs) }),
   };
@@ -124,6 +135,7 @@ export function createMember(token: string, nick: string, now: number, link: Mea
     connectedSince: now,
     joinOrder: 0,
     lastHeardAt: now,
+    receivingBytes: 0,
     delayTicks: link.delayTicks,
     roundTripMs: link.roundTripMs,
     jitterMs: link.jitterMs ?? 0,

@@ -48,7 +48,14 @@ describe('host resource limits', () => {
   });
 
   it('refuses excess upgrades while keeping admitted clients and HTTP health available', async () => {
-    host = await startRelayHost({ port: 0, maxConnections: 1 });
+    const statuses: Record<string, unknown>[] = [];
+    host = await startRelayHost({
+      port: 0,
+      maxConnections: 1,
+      log: (event, fields = {}) => {
+        if (event === 'status') statuses.push(fields);
+      },
+    });
     const url = `ws://127.0.0.1:${host.port}`;
     const admitted = new WebSocket(url);
     await once(admitted, 'open');
@@ -65,6 +72,10 @@ describe('host resource limits', () => {
     expect(host.relay.clientCount).toBe(1);
     expect(admitted.readyState).toBe(WebSocket.OPEN);
     expect((await fetch(`http://127.0.0.1:${host.port}/healthz`)).status).toBe(200);
+    // The census the stop closes the log with counts the refusal.
+    await host.close();
+    host = null;
+    expect(statuses).toEqual([expect.objectContaining({ refusedUpgrades: 1 })]);
     admitted.terminate();
   });
 

@@ -37,11 +37,12 @@ export class Resync {
   private lastRefreshAt: number;
   private refreshing = false;
   private readonly triedDonors = new Set<string>();
-  /** The first request since the cache last answered one, and the requests and the unusable uploads
-   *  since, for the log. */
+  /** The first request since the cache last answered one, the requests and the unusable uploads
+   *  since, and the donors logged as unanswered, for the log. */
   private roundAt: number | null = null;
   private roundAsks = 0;
   private roundRefusals = 0;
+  private readonly roundUnanswered = new Set<string>();
 
   constructor(
     private readonly members: ReadonlyMap<string, Member>,
@@ -188,6 +189,13 @@ export class Resync {
     return newer;
   }
 
+  /** The round of requests still unanswered, for the room status: how long since its first request,
+   *  and how many it took so far. */
+  pendingFields(now: number): Record<string, unknown> {
+    if (this.roundAt === null) return {};
+    return { snapshotPending: { askedMs: Math.round(now - this.roundAt), asks: this.roundAsks } };
+  }
+
   /** An upload the cache cannot use. The first of a round gets a line; the rest, which a client could
    *  send one per message, are counted on the round's `snapshot` line. */
   refused(from: string, tick: number, reason: string): void {
@@ -231,13 +239,23 @@ export class Resync {
       }
     }
     if (donor === null) return;
-    // A donor still asked when the next is had the whole retry window and sent nothing.
+    // A donor still asked when the next is had the whole retry window: it sent nothing, or its upload
+    // was still arriving. Each donor gets one line a round; the round's `snapshot` counts the asks.
     const unanswered = this.askedDonor === null ? undefined : this.members.get(this.askedDonor);
-    if (unanswered !== undefined && this.requestedAt !== null)
+    if (
+      unanswered !== undefined &&
+      this.requestedAt !== null &&
+      !this.roundUnanswered.has(unanswered.token)
+    ) {
+      this.roundUnanswered.add(unanswered.token);
       this.log('snapshot unanswered', {
         donor: unanswered.nick,
         askedMs: Math.round(now - this.requestedAt),
+        ...(unanswered.receivingBytes === 0
+          ? {}
+          : { receivingKib: Math.round(unanswered.receivingBytes / BYTES_PER_KIB) }),
       });
+    }
     this.requestedAt = now;
     this.askedDonor = donor.token;
     this.triedDonors.add(donor.token);
@@ -290,6 +308,7 @@ export class Resync {
     this.roundAt = null;
     this.roundAsks = 0;
     this.roundRefusals = 0;
+    this.roundUnanswered.clear();
   }
 }
 

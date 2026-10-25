@@ -16,6 +16,14 @@ export function msFields(split: Readonly<Partial<Record<string, number>>>): Reco
   return fields;
 }
 
+const UNPRINTABLE = /[\p{C}\p{Zl}\p{Zp}]/gu;
+
+/** Text a peer chose, such as a close reason, as a log field: one line of at most `maxLength` code
+ *  points, each control character replaced. It is logged, never interpreted. */
+export function printable(text: string, maxLength: number): string {
+  return Array.from(text.replace(UNPRINTABLE, '?')).slice(0, maxLength).join('');
+}
+
 /** A fault in the relay's own code: the message, and the stack that locates it in the build. */
 export function faultFields(err: unknown): Record<string, string> {
   return err instanceof Error && err.stack !== undefined

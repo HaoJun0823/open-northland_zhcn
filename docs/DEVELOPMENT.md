@@ -257,21 +257,34 @@ check at `/healthz` on the same port. It loads no content and runs no simulation
 speaks is [`NETWORK.md`](NETWORK.md). `HOST` binds one address, `RELAY_MAX_ROOMS` and
 `RELAY_MAX_CONNECTIONS` cap the rooms and the open sockets, and `RELAY_PUBLIC_URL` and `RELAY_BUILD`
 are what the health check reports as the address and the build; the log is one JSON record per
-line, a failed start included. Beside joins, departures and each room's life, it records why a game
-froze, slowed or ended. `held` and `governed` close each hold or paced run of the running clock of 5 s
-or more, with whom it was for, why and how long; `snapshot` closes each refresh with its donor, size
-and time from the first request, and `snapshot unanswered` and `snapshot refused` name a donor that
-sent nothing or an upload of no use. Every five minutes `status` counts clients, rooms, players and
-the sockets that closed without `hello` (`anonymous`; they get no line of their own), with the
-longest gap between the relay's own polls (`pollMaxMs`) and the process memory (`rssMib`), and
-`room status` sums up the interval for each running room and member: time held by reason, governed
-time, mean and highest round trip, highest input delay, ticks behind, tick cost and buffered frames,
-and drops. A game's end or drop adds a last `room status`. `disconnect` carries the close code
-(1005 for a close without one, 1006 for a dropped link), the relay's `cause` when it closed the
-socket, the transport `error`, and how long the link had been quiet. Every message it handles is
-exercised by the tests under `packages/net-server/test`, and the decoded-map run in
-`npm run test:content` plays real sessions through it in memory. `ON_RELAY_URL=wss://…` points the
-socket test at a deployed relay instead:
+line, a failed start included.
+
+The log is meant to be read after the fact by someone holding only the file. Beside joins,
+departures and each room's life, it says why a game froze, slowed or ended. `held`, `governed` and
+`paused` close each hold, governed episode or pause of the running clock of 5 s or more, with whom it
+was for or who paused, why and how long. Governed runs less than a minute apart are one episode, whose
+line comes once the clock has run that long without the governor, and governed time counts only while
+the clock runs. `snapshot` closes each refresh with its donor, size, time from the first request and
+the requests it took; `snapshot unanswered` names, once a round, a donor that let its retry window
+pass, with what of its upload had arrived when it was still uploading (`receivingKib`), and
+`snapshot refused` an upload of no use. Every five minutes `status` counts clients, rooms, players,
+the sockets that closed without `hello` (`anonymous`; they get no line of their own) and the upgrades
+refused at `RELAY_MAX_CONNECTIONS` (`refusedUpgrades`), with the longest gap between the relay's own
+polls (`pollMaxMs`) and the process memory (`rssMib`). `room status` sums up the interval for each
+running room: time held by reason, governed and paused time, who set the speed or paused, a hold or a
+snapshot request still open (`waitingFor` and `waitingMs`, `snapshotPending`), and for each member the
+mean and highest round trip of the interval's samples, highest input delay, ticks behind, tick cost
+and buffered frames, boot progress, drops, and refused messages by `kind:code`. A game's end, a room's
+drop and the relay's stop add a last `room status`. `disconnect` carries the close code (1000 with the
+client's reason in `closeReason`, 1001 for a page that closed, 1005 for a close without a code, 1006
+for a dropped link), the relay's `cause` when it closed the socket, the transport `error`, how long the
+link had been quiet and its smoothed round trip. `hello` with `replaced` is a client that took its
+identity over from a connection the relay still held, quiet for `quietMs`: a link the client gave up
+on, or a second tab.
+
+Every message the relay handles is exercised by the tests under `packages/net-server/test`, and the
+decoded-map run in `npm run test:content` plays real sessions through it in memory.
+`ON_RELAY_URL=wss://…` points the socket test at a deployed relay instead:
 
 ```bash
 ON_RELAY_URL=wss://relay.opennorthland.org npx vitest run --project core packages/net-server/test/host/ws-host.test.ts

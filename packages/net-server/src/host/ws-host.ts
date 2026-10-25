@@ -13,7 +13,7 @@ import {
 } from '@open-northland/net-protocol';
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
 import { type Connection, type ConnectionEnd, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
-import { faultFields, type RelayLog } from '../relay/relay-log.js';
+import { faultFields, printable, type RelayLog } from '../relay/relay-log.js';
 import {
   ControlPings,
   DEFAULT_MAX_CONNECTIONS,
@@ -44,6 +44,10 @@ const HTTP_CONNECTION_HEADROOM = 16;
 export const SILENT_SOCKET_MS = 30_000;
 /** The log's cause for a socket closed by `SILENT_SOCKET_MS`. */
 const SILENT_SOCKET = 'silentSocket';
+/** The log's cause for a socket closed because what it was sent outgrew `MAX_BUFFERED_BYTES` unread. */
+const SEND_BACKLOG = 'sendBacklog';
+/** RFC 6455 bounds a close reason to 123 bytes; the log keeps at most as many characters. */
+const MAX_CLOSE_REASON_LENGTH = 123;
 const SILENCE_CHECK_MS = 5000;
 /** TCP keepalive so a peer that vanished without a FIN is noticed by the kernel as well. */
 const TCP_KEEPALIVE_MS = 10_000;
@@ -116,11 +120,20 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const log = options.log ?? (() => undefined);
   const maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
   const maxConnections = options.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
+  /** WebSocket upgrades turned away at `maxConnections` since the last `status` line. */
+  let refusedUpgrades = 0;
   const relay = new Relay({
     log,
     maxRooms,
     build: options.build ?? null,
-    hostStatus: () => ({ rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB) }),
+    hostStatus: () => {
+      const refused = refusedUpgrades;
+      refusedUpgrades = 0;
+      return {
+        rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB),
+        ...(refused === 0 ? {} : { refusedUpgrades: refused }),
+      };
+    },
   });
   const startedAt = performance.now();
   const health = (): RelayHealth => ({
@@ -171,10 +184,11 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   };
   const sockets = new WebSocketServer(socketOptions);
   const lastHeardAt = new Map<WebSocket, number>();
-  /** Sockets the host terminated for their silence, which close as a dropped link would. */
-  const silenced = new WeakSet<WebSocket>();
+  /** Sockets the host terminated, which close as a dropped link would, and why. */
+  const terminated = new WeakMap<WebSocket, string>();
   server.on('upgrade', (request, socket, head) => {
     if (sockets.clients.size >= maxConnections) {
+      refusedUpgrades++;
       socket.on('error', () => socket.destroy());
       socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;
@@ -227,7 +241,9 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     };
     const connection: Connection = {
       send: (message) => {
+        const open = socket.readyState === socket.OPEN;
         if (sendBounded(socket, encode(message), ping) && !downloadInFlight) reportDownload(true);
+        if (open && socket.readyState !== socket.OPEN) terminated.set(socket, SEND_BACKLOG);
       },
       close: (reason) => {
         socket.close(reason === 'replaced' ? CLOSE_REPLACED : CLOSE_PROTOCOL_ERROR, reason);
@@ -302,14 +318,16 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
       }
     });
     // A fault in departure handling is logged; it never reaches the process.
-    socket.on('close', (code) => {
+    socket.on('close', (code, reason) => {
       closed = true;
       request.socket.off('data', countBytes);
       request.socket.off('data', receivedBytes);
       lastHeardAt.delete(socket);
+      const cause = terminated.get(socket);
       disconnect({
         code,
-        ...(silenced.has(socket) ? { cause: SILENT_SOCKET } : {}),
+        reason: printable(reason.toString(), MAX_CLOSE_REASON_LENGTH),
+        ...(cause === undefined ? {} : { cause }),
         ...(transportError === undefined ? {} : { error: transportError }),
       });
     });
@@ -331,7 +349,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
     const now = performance.now();
     for (const [socket, at] of lastHeardAt) {
       if (now - at < SILENT_SOCKET_MS) continue;
-      silenced.add(socket);
+      terminated.set(socket, SILENT_SOCKET);
       socket.terminate();
     }
   }, SILENCE_CHECK_MS);
@@ -367,6 +385,11 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
         close: () => {
           clearInterval(poll);
           clearInterval(silence);
+          try {
+            relay.stop();
+          } catch (err) {
+            log('stop failed', faultFields(err));
+          }
           // Rooms live in memory and end here; the close code tells a client not to wait for them.
           // `closeTimeout` bounds a client that never answers the close.
           for (const socket of sockets.clients) socket.close(CLOSE_SERVICE_RESTART, SERVER_RESTART);

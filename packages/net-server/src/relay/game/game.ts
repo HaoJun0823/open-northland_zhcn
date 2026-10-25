@@ -48,6 +48,9 @@ export class Game {
   private readonly initialSaveTick: number | null;
   private readonly departures: Departures;
   private readonly clockLog: ClockLog;
+  /** Who last set the requested speed, and who paused the clock while it is paused, for the log. */
+  private speedBy: string | null = null;
+  private pausedBy: string | null = null;
 
   constructor(
     speed: number,
@@ -141,17 +144,24 @@ export class Game {
     const totals = this.clockLog.takeTotals(now);
     const { governed } = this.clock;
     const waited = this.clockLog.waited;
+    const holdMs = this.clockLog.holdMs;
     return {
       tick: this.clock.tick,
       speed: this.clock.speed,
-      ...(this.clock.paused && this.endedTick === null ? { paused: true } : {}),
+      ...(this.speedBy === null ? {} : { speedBy: this.speedBy }),
+      ...(this.clock.paused && this.endedTick === null
+        ? { paused: true, ...(this.pausedBy === null ? {} : { pausedBy: this.pausedBy }) }
+        : {}),
       ...(governed === null ? {} : { governed }),
       ...(waited.length === 0 ? {} : { waitingFor: waited.map(({ nick, reason }) => ({ nick, reason })) }),
+      // How long the hold still open has lasted; it gets its `held` line when it ends.
+      ...(holdMs === null ? {} : { waitingMs: Math.round(holdMs) }),
       ...(totals.heldMs === 0 ? {} : { holds: totals.holds, heldMs: Math.round(totals.heldMs) }),
       ...(totals.governedMs === 0
         ? {}
         : { governedMs: Math.round(totals.governedMs), minSpeed: totals.minSpeed }),
       ...(totals.pausedMs === 0 ? {} : { pausedMs: Math.round(totals.pausedMs) }),
+      ...this.resync.pendingFields(now),
       historyKib: Math.round(this.resync.historyBytes / BYTES_PER_KIB),
     };
   }
@@ -226,6 +236,8 @@ export class Game {
   setClock(member: Member, speed: number | undefined, paused: boolean | undefined): Refusal {
     if (member.seat === null) return { code: 'seatRequired' };
     if (this.endedTick !== null) return { code: 'matchEnded' };
+    if (speed !== undefined && speed !== this.clock.speed) this.speedBy = member.nick;
+    if (paused !== undefined && paused !== this.clock.paused) this.pausedBy = paused ? member.nick : null;
     if (speed !== undefined) this.clock.setSpeed(speed);
     if (paused !== undefined) this.clock.setPaused(paused);
     this.governFor(this.slowMembers());
@@ -421,7 +433,14 @@ export class Game {
     const { clock } = this;
     this.clockLog.observe(
       clock.running
-        ? { tick: clock.tick, speed: clock.speed, paused: clock.paused, waited, governed: clock.governed }
+        ? {
+            tick: clock.tick,
+            speed: clock.speed,
+            paused: clock.paused,
+            pausedBy: this.pausedBy,
+            waited,
+            governed: clock.governed,
+          }
         : null,
       now,
     );

@@ -28,6 +28,8 @@ const SETTINGS: RoomSettings = {
   speed: MAX_SPEED,
 };
 const RUN_TICKS = 24;
+/** RFC 6455 normal closure, which a browser may close with and give a reason. */
+const NORMAL_CLOSURE = 1000;
 const CLIENTS = 2;
 const POLL_MS = 10;
 const STEP_TIMEOUT_MS = 5000;
@@ -226,6 +228,28 @@ describe('websocket host', () => {
     expect(client.errors).toEqual([{ code: 'helloFirst' }]);
     expect(event.reason).toBe('helloFirst');
   });
+
+  it.skipIf(REMOTE_URL !== undefined)(
+    'logs the reason a client closed with, as one printable line',
+    async () => {
+      const disconnects: Record<string, unknown>[] = [];
+      host = await startRelayHost({
+        port: 0,
+        log: (event, fields = {}) => {
+          if (event === 'disconnect') disconnects.push(fields);
+        },
+      });
+      const { client, socket } = await connect(`ws://127.0.0.1:${host.port}`, 'Ewa');
+      const welcomed = new Promise((resolve) => socket.addEventListener('message', resolve, { once: true }));
+      client.hello();
+      await welcomed;
+      socket.close(NORMAL_CLOSURE, 'link\nquiet');
+      await until(() => disconnects.length > 0, 'the disconnect line');
+      expect(disconnects).toEqual([
+        expect.objectContaining({ nick: 'Ewa', closeCode: NORMAL_CLOSURE, closeReason: 'link?quiet' }),
+      ]);
+    },
+  );
 
   it.skipIf(REMOTE_URL !== undefined)('tells its clients it restarts when it shuts down', async () => {
     const local = await startRelayHost({ port: 0 });

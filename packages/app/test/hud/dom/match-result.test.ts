@@ -99,11 +99,14 @@ it('defers campaign victory until the script finishes, and still reports a defea
   won.overlay.setSuspended('missionBook', false);
   expect(document.querySelector('.on-result__title')?.textContent).toBe(messages().hud.matchWonTitle);
   expect(won.pause).toHaveBeenCalledOnce();
-  expect(won.body.buttons().map((button) => button.textContent)).toEqual([messages().hud.returnToMenu]);
+  expect(won.body.buttons().map((button) => button.textContent)).toEqual([
+    messages().hud.matchContinue,
+    messages().hud.returnToMenu,
+  ]);
   expect(document.activeElement).toBe(won.body.buttons()[0]);
   won.body.buttons()[0]?.click();
-  expect(won.onQuit).toHaveBeenCalledOnce();
-  expect(won.onContinue).not.toHaveBeenCalled();
+  expect(won.onContinue).toHaveBeenCalledOnce();
+  expect(won.onQuit).not.toHaveBeenCalled();
   expect(won.resume).toHaveBeenCalledOnce();
   won.overlay.finish('victory');
   expect(won.overlay.isOpen()).toBe(false);
@@ -117,10 +120,10 @@ it('defers campaign victory until the script finishes, and still reports a defea
   expect(lost.onQuit).not.toHaveBeenCalled();
 });
 
-it('returns to the campaign menu with Escape after a scripted ending', () => {
+it('returns to the campaign menu without a confirmation after a scripted ending', () => {
   const h = setup(false, () => [], { scriptedEnding: true });
   h.overlay.finish('victory');
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  h.body.buttons()[1]?.click();
   expect(h.onQuit).toHaveBeenCalledOnce();
   expect(h.onContinue).not.toHaveBeenCalled();
   expect(h.overlay.isOpen()).toBe(false);

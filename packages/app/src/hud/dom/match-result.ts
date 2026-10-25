@@ -8,7 +8,7 @@ import { createHudWindow } from './window.js';
 export interface MatchResultDeps {
   readonly localPlayer: number;
   readonly sharedClock?: boolean;
-  /** Defer victory until `finish`, after the script's unlocks; its ending offers only the menu. */
+  /** Defer victory until `finish`, after the script's unlocks have persisted. */
   readonly scriptedEnding?: boolean;
   /** A goal table's verdicts in the order they landed, read when the window opens; empty shows no list. */
   readonly ranking?: () => readonly MatchRank[];
@@ -95,7 +95,6 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     deps.onOpen();
     const scope = new AbortController();
     const actions = matchResultActions(deps.sharedClock === true, terminal);
-    const canContinue = !terminal || deps.scriptedEnding !== true;
     const copy = messages().hud;
     const won = verdict === 'victory';
     const watching = deps.sharedClock === true;
@@ -180,9 +179,8 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       return el;
     };
     const dismiss = (): void => {
-      if (canContinue) deps.onContinue();
+      deps.onContinue();
       hide();
-      if (!canContinue) deps.onQuit();
     };
     const resume = button(watching ? copy.matchWatch : copy.matchContinue, GLYPH.next, dismiss);
     resume.classList.add('on-result__continue');
@@ -205,7 +203,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       ),
     );
     const row = line('div', 'on-result__actions', '');
-    if (canContinue) row.append(resume);
+    row.append(resume);
     const onPlayAgain = deps.onPlayAgain;
     if (onPlayAgain !== undefined && verdict === 'defeat') {
       row.append(
@@ -287,7 +285,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       { signal: scope.signal },
     );
     frame.open();
-    (canContinue ? resume : quit).focus();
+    resume.focus();
   };
 
   const announce = (outcome: MatchOutcome, scripted = false): void => {

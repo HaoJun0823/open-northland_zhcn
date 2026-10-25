@@ -9,7 +9,7 @@ import {
   type UnitSelectionCommand,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { professionDefForJob } from '../../../catalog/professions.js';
+import { professionDefForJob, professionGoods } from '../../../catalog/professions.js';
 import {
   buildingTypeOf,
   ownerPlayerOf,
@@ -175,11 +175,11 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
   let lastAnswers = -1;
   let reasons = new Map<string, string | undefined>();
   const courseKey = (course: SchoolCourse): string => `${course.target}:${course.typeId}`;
-  // A method shows the good it teaches; the trade's own course shows the trade's good.
-  const courseIcon = (course: SchoolCourse): string | undefined =>
+  // A method shows the good it teaches; the trade's own course shows all its products.
+  const courseIcons = (course: SchoolCourse): readonly string[] =>
     course.target === 'good'
-      ? content.goods.find((good) => good.typeId === course.typeId)?.id
-      : professionDefForJob(course.typeId)?.icon;
+      ? content.goods.filter((good) => good.typeId === course.typeId).map((good) => good.id)
+      : professionGoods(course.typeId);
   const dispose = (): void => {
     closed = true;
     dialog.dispose();
@@ -294,14 +294,14 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
     }
     const reasonProps = (reason: string | undefined): { reason?: string } =>
       reason === undefined ? {} : { reason };
-    const iconProps = (goodId: string | undefined): { goodId?: string } =>
-      goodId === undefined ? {} : { goodId };
+    const iconProps = (goodIds: readonly string[]): { goodIds?: readonly string[] } =>
+      goodIds.length === 0 ? {} : { goodIds };
     const rows =
       selected === undefined
         ? choices.map((group) => ({
             key: String(group.jobType),
             label: group.label,
-            ...iconProps(professionDefForJob(group.jobType)?.icon),
+            ...iconProps(professionGoods(group.jobType)),
             ...reasonProps(
               group.courses.every((course) => reasons.get(courseKey(course)) !== undefined)
                 ? group.courses
@@ -313,7 +313,7 @@ export function openSchoolDialog(opts: SchoolDialogOptions): SchoolDialog | unde
         : selected.courses.map((course) => ({
             key: courseKey(course),
             label: course.label,
-            ...iconProps(courseIcon(course)),
+            ...iconProps(courseIcons(course)),
             ...reasonProps(reasons.get(courseKey(course))),
           }));
     dialog.update(

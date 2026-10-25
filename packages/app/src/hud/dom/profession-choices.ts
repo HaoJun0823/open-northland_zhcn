@@ -1,4 +1,4 @@
-import { type PickerEntry, professionDefForJob } from '../../catalog/professions.js';
+import { type PickerEntry, professionGoods } from '../../catalog/professions.js';
 import { compareLabels, messages } from '../../i18n/index.js';
 import type { ChoiceGroup, ChoiceRow } from './choice-window.js';
 
@@ -18,11 +18,11 @@ export function professionChoices(
       continue;
     }
     if (!visible(entry.jobType)) continue;
-    const icon = professionDefForJob(entry.jobType)?.icon;
+    const goods = professionGoods(entry.jobType);
     group.rows.push({
       key: String(entry.jobType),
       label: entry.label,
-      ...(icon === undefined ? {} : { goodId: icon }),
+      ...(goods.length === 0 ? {} : { goodIds: goods }),
       ...(unlocked(entry.jobType)
         ? {}
         : { reason: reason?.(entry.jobType) ?? messages().hud.technologyExperience }),

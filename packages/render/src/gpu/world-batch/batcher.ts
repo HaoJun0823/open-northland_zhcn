@@ -122,13 +122,20 @@ const worldBatchShaders = new WeakSet<Shader>();
  *  read a frame in its page's own texels. */
 type TwinSlotsUniforms = UniformGroup<{ uTwinSlots: { value: number; type: 'i32' } }>;
 const twinSlotsOf = new WeakMap<Shader, TwinSlotsUniforms>();
+/** Every world batch program's per-draw list of page sizes, two floats per slot. */
+type PageSizeUniforms = UniformGroup<{
+  uPageSizes: { value: Float32Array; type: 'vec2<f32>'; size: number };
+}>;
+const pageSizesOf = new WeakMap<Shader, PageSizeUniforms>();
 
 /**
  * A paletted world batch lists its LUT in every slot between its pages and the LUT's own, so the list has
  * no holes; no element samples those slots, so its draw binds only the pages and the LUT, and the slots a
  * neighbouring batch's pages hold stay bound. Any batcher that names its batches' LUT binding draws this
  * way, the still mesh's bands among them. A draw through a world batch program binds each listed page's
- * prescaled twin in the page's place, whichever batcher built it. Idempotent per renderer.
+ * prescaled twin in the page's place, whichever batcher built it, and hands the program the listed
+ * textures' sizes, which a world batch program reads its pages' sizes from: without this binding its
+ * draws see zero-sized pages. Idempotent per renderer.
  *
  * Undocumented Pixi behaviour, verified on pixi.js 8.21, re-verify on a bump: the WebGL batch adaptor
  * binds every slot below `batch.textures.count` before it draws and reads the list nowhere else.
@@ -156,15 +163,22 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
       twins && (hasPrescaledPages() || isCollectingDrawnPages())
         ? swapInPrescaledPages(textures.textures, listed)
         : 0;
-    const twinSlots = twins ? twinSlotsOf.get(shader) : undefined;
-    if (twinSlots !== undefined) {
-      if (twinSlots.uniforms.uTwinSlots !== swaps) {
-        twinSlots.uniforms.uTwinSlots = swaps;
-        twinSlots.update();
-      }
-      // The program must be current for the upload; a batch that starts a run binds it again, unsynced.
+    if (twins) {
+      // The program must be current for the uploads; a batch that starts a run binds it again, unsynced.
       renderer.shader.bind(shader, true);
-      renderer.shader.updateUniformGroup(twinSlots);
+      const pageSizes = pageSizesOf.get(shader);
+      if (pageSizes !== undefined) {
+        if (writePageSizes(pageSizes.uniforms.uPageSizes, textures.textures, listed)) pageSizes.update();
+        renderer.shader.updateUniformGroup(pageSizes);
+      }
+      const twinSlots = twinSlotsOf.get(shader);
+      if (twinSlots !== undefined) {
+        if (twinSlots.uniforms.uTwinSlots !== swaps) {
+          twinSlots.uniforms.uTwinSlots = swaps;
+          twinSlots.update();
+        }
+        renderer.shader.updateUniformGroup(twinSlots);
+      }
     }
     if (binding !== null) {
       renderer.texture.bind(binding.lut, binding.slot);
@@ -209,6 +223,23 @@ function noteDrawScale(renderer: Renderer): void {
   // An empty target has no scale to bound.
   const aligned = scale > 0 && Math.abs(b) + Math.abs(c) <= scale * AXIS_ALIGNED_TOLERANCE;
   drawPixelsPerUnit = aligned ? scale : Number.POSITIVE_INFINITY;
+}
+
+/** Writes each listed slot's texture size, in texels, as the program's `uPageSizes`; whether any
+ *  changed. */
+function writePageSizes(sizes: Float32Array, slots: readonly TextureSource[], count: number): boolean {
+  let changed = false;
+  for (let slot = 0; slot < count; slot++) {
+    const page = slots[slot];
+    if (page === undefined) continue;
+    const at = 2 * slot;
+    if (sizes[at] !== page.pixelWidth || sizes[at + 1] !== page.pixelHeight) {
+      sizes[at] = page.pixelWidth;
+      sizes[at + 1] = page.pixelHeight;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 /** Notes each listed page as drawn and puts its prescaled twin in its slot, keeping the page in
@@ -386,14 +417,21 @@ function defineWorldBatcher(): WorldBatcherClass {
         mode === WORLD_MAGNIFY_MODES.prescaled
           ? new UniformGroup({ uTwinSlots: { value: 0, type: 'i32' } })
           : null;
+      // Static: Pixi uploads it only after an update(), when a draw's list changed.
+      const pageSizes: PageSizeUniforms = new UniformGroup(
+        { uPageSizes: { value: new Float32Array(2 * maxTextures), type: 'vec2<f32>', size: maxTextures } },
+        { isStatic: true },
+      );
       shader = new Shader({
         glProgram: glProgramFor(worldBatchProgramSource(maxTextures, mode, shadow, sampling)),
         resources: {
           batchSamplers: getBatchSamplersUniformGroup(maxTextures),
+          pageSizes,
           ...(twinSlots === null ? {} : { twinSlots }),
         },
       });
       worldBatchShaders.add(shader);
+      pageSizesOf.set(shader, pageSizes);
       if (twinSlots !== null) twinSlotsOf.set(shader, twinSlots);
       shaders.set(key, shader);
     }

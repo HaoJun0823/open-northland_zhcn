@@ -350,6 +350,8 @@ describe('world batcher palette LUT', () => {
     const drawn: number[] = [];
     /** The twin slot mask each upload carried, with the program current at the time. */
     const uploads: { slots: number; program: unknown }[] = [];
+    /** The first two slots' page sizes each page size upload carried. */
+    const pageSizes: number[][] = [];
     let program: unknown = null;
     const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
     Object.assign(renderer, {
@@ -364,8 +366,11 @@ describe('world batcher palette LUT', () => {
         bind: (shader: { glProgram: unknown }) => {
           program = shader.glProgram;
         },
-        updateUniformGroup: (group: { uniforms: { uTwinSlots?: number } }) =>
-          uploads.push({ slots: group.uniforms.uTwinSlots ?? -1, program }),
+        updateUniformGroup: (group: { uniforms: { uTwinSlots?: number; uPageSizes?: Float32Array } }) => {
+          const sizes = group.uniforms.uPageSizes;
+          if (sizes !== undefined) pageSizes.push(Array.from(sizes.subarray(0, 4)));
+          else uploads.push({ slots: group.uniforms.uTwinSlots ?? -1, program });
+        },
       },
     });
     const pipe = new BatcherPipe(renderer, new GlBatchAdaptor());
@@ -376,7 +381,7 @@ describe('world batcher palette LUT', () => {
       batch.action = 'renderBatch';
       renderer.renderPipes.batch.execute(batch);
     };
-    return { bound, drawn, draw, uploads };
+    return { bound, drawn, draw, uploads, pageSizes };
   }
 
   function builtBatch(
@@ -501,7 +506,7 @@ describe('world batcher palette LUT', () => {
     } as unknown as Batcher;
     still.textures = new BatchTextureArray();
     still.textures.textures[still.textures.count++] = barn.source;
-    const { draw, uploads } = recordingPipe();
+    const { draw, uploads, pageSizes } = recordingPipe();
     setPixelArtMagnification('xbrz');
     setPrescaledPage(barn.source, twin);
     try {
@@ -510,6 +515,11 @@ describe('world batcher palette LUT', () => {
       expect(uploads).toEqual([
         { slots: 0b10, program: batch.batcher.shader?.glProgram },
         { slots: 0b1, program: batch.batcher.shader?.glProgram },
+      ]);
+      // Each draw lists the sizes of the textures it binds, the twin's in the page's place.
+      expect(pageSizes).toEqual([
+        [8, 8, 16, 16],
+        [16, 16, 16, 16],
       ]);
     } finally {
       setPrescaledPage(barn.source, null);

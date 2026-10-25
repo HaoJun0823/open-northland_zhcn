@@ -256,6 +256,8 @@ flat in float vBlood;
 flat in vec4 vSplashes;
 out vec4 finalColor;
 uniform sampler2D uTextures[${maxTextures}];
+// Each listed page's size in texels, set per draw.
+uniform vec2 uPageSizes[${maxTextures}];
 // 0 off (Pixi's default sampling) / 3 xbr / 4 prescaled: plain pages arrive at twice their texels and
 // magnify sharp, paletted ones take xbr
 const float WORLD_MAGNIFY = ${mode}.0;
@@ -321,8 +323,10 @@ vec4 sampleLevelZero(vec2 uv) {
 ${textureChain(maxTextures, 'vTextureId', (i) => `return textureLod(uTextures[${i}], uv, 0.0);`)}
 }
 
-ivec2 textureSizeOf() {
-${textureChain(maxTextures, 'vTextureId', (i) => `return textureSize(uTextures[${i}], 0);`)}
+// The fragment's page size in texels, from the per-draw list: a size query through the sampler chain
+// cost every fragment more (Intel UHD 770 on Direct3D 11 measured it).
+vec2 pageSize() {
+  return uPageSizes[int(vTextureId + 0.5)];
 }
 
 vec2 outlineUV(int k) {
@@ -370,7 +374,7 @@ void main(void) {
   vec2 uvDx = dFdx(vUV);
   vec2 uvDy = dFdy(vUV);
   if (WORLD_MAGNIFY > 0.5) {
-    texSize = vec2(textureSizeOf());
+    texSize = pageSize();
     p = vUV * texSize;
     texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
     uvFootprint = fwidth(vUV);
@@ -448,7 +452,7 @@ ${gather}
     outColor.rgb = coatBlood(outColor.rgb / outColor.a, bodyUV, vBlood) * outColor.a;
   }
   if (vSplashes.w != 0.0 && outColor.a > 0.0) {
-    if (WORLD_MAGNIFY < 0.5) texSize = vec2(textureSizeOf());
+    if (WORLD_MAGNIFY < 0.5) texSize = pageSize();
     vec2 size = max((vFrame.zw - vFrame.xy) * texSize${prescaled ? ' / pageTexelScale()' : ''}, vec2(1.0));
     vec2 uv = (vUV - vFrame.xy) / max(vFrame.zw - vFrame.xy, vec2(0.000001));
     // Negative coat data is a facade cutoff: crop the imprint, never shrink the entire splash.

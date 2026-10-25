@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JOB_CIVILIST, JOB_POTTER } from '../../../src/catalog/jobs.js';
+import { JOB_BUILDER, JOB_CIVILIST, JOB_POTTER } from '../../../src/catalog/jobs.js';
 import { type PickerEntry, pickerEntries } from '../../../src/catalog/professions.js';
 import { professionChoices } from '../../../src/hud/dom/profession-choices.js';
 
@@ -47,7 +47,7 @@ describe('professionChoices', () => {
     ]);
   });
 
-  it('leads each trade with its products, and the civilist with none', () => {
+  it('leads each trade with its products, and non-producing trades with none', () => {
     const rows = professionChoices(
       pickerEntries(),
       () => true,
@@ -58,6 +58,7 @@ describe('professionChoices', () => {
       'tile',
       'crockery',
     ]);
+    expect(rows.find((row) => row.key === String(JOB_BUILDER))?.goodIds).toBeUndefined();
     const civilist = rows.find((row) => row.key === String(JOB_CIVILIST));
     expect(civilist).toBeDefined();
     expect(civilist?.goodIds).toBeUndefined();

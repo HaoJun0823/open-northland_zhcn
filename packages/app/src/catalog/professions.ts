@@ -73,7 +73,6 @@ export const PROFESSIONS: readonly ProfessionDef[] = [
     key: 'builder',
     jobType: JOB_BUILDER,
     category: 'production',
-    icon: 'tool_iron',
     source: 'jobtypes.ini 7 "builder"',
   },
   {

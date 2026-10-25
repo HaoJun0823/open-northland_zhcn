@@ -63,7 +63,7 @@ export interface MemberFigures {
   readonly refused: Partial<Record<string, number>>;
   /** Milliseconds the clock held for the member, by reason. */
   readonly waitedMs: Partial<Record<WaitReason, number>>;
-  /** Milliseconds the clock was governed for the member. */
+  /** Milliseconds the clock ran governed for the member, neither held nor paused. */
   governedMs: number;
 }
 

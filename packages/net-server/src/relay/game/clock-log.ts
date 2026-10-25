@@ -6,9 +6,10 @@ import type { Waited } from './waiting.js';
 /** A hold, governed run or pause shorter than this is a hiccup: the room status counts it, and it gets
  *  no line of its own. */
 export const NOTABLE_EPISODE_MS = 5000;
-/** A governed run that starts again within this of the last one's end belongs to its episode: a member
- *  that cannot keep up at the requested speed is paced again a few seconds after each release, and
- *  that is one slowdown. The episode's line comes once the clock has run this long without it. */
+/** A governed run that starts again before the clock has run this long, neither held nor paused, since
+ *  the last one's end belongs to its episode: a member that cannot keep up at the requested speed is
+ *  paced again a few seconds after each release, and that is one slowdown. The episode's line comes
+ *  once the clock has run this long without the governor. */
 export const GOVERNED_GAP_MS = 60_000;
 
 /** The running clock as one update of the waited set left it. */
@@ -42,13 +43,13 @@ interface Episode<K extends string> {
 }
 
 /** A governed episode, with the requested speed and the lowest governed one during it, its runs, and
- *  since when and from which tick the clock has run without the governor; null while it is governed. */
+ *  the tick its last run ended on and how long the clock has run free since; null while governed. */
 interface GovernedEpisode extends Episode<GovernorCause> {
   speed: number;
   minSpeed: number;
   runs: number;
-  freeSince: number | null;
   endTick: number;
+  freeMs: number | null;
 }
 
 /**
@@ -97,21 +98,21 @@ export class ClockLog {
     if (state === null || !state.paused) this.endPause();
     else this.pause ??= { tick: state.tick, by: state.pausedBy, ms: 0 };
     if (state === null) this.endRun();
-    else this.followRun(state, now);
+    else this.followRun(state);
   }
 
   /** A governed run starts the episode or continues it; the clock running `GOVERNED_GAP_MS` without
    *  the governor ends it. */
-  private followRun(state: ClockState, now: number): void {
+  private followRun(state: ClockState): void {
     const { governed } = state;
     let run = this.run;
     if (governed === null) {
       this.governing = null;
       if (run === null) return;
-      if (run.freeSince === null) {
-        run.freeSince = now;
+      if (run.freeMs === null) {
+        run.freeMs = 0;
         run.endTick = state.tick;
-      } else if (now - run.freeSince >= GOVERNED_GAP_MS) this.endRun();
+      } else if (run.freeMs >= GOVERNED_GAP_MS) this.endRun();
       return;
     }
     if (run === null) {
@@ -122,12 +123,12 @@ export class ClockLog {
         speed: state.speed,
         minSpeed: governed.speed,
         runs: 1,
-        freeSince: null,
         endTick: state.tick,
+        freeMs: null,
       };
       this.run = run;
-    } else if (run.freeSince !== null) {
-      run.freeSince = null;
+    } else if (run.freeMs !== null) {
+      run.freeMs = null;
       run.runs++;
     }
     run.speed = state.speed;
@@ -161,12 +162,16 @@ export class ClockLog {
         if (waited !== undefined) waited[reason] = (waited[reason] ?? 0) + ms;
       }
     }
-    if (this.run !== null && state.governed !== null && this.hold === null && !state.paused) {
-      this.run.ms += ms;
-      this.totals.governedMs += ms;
-      addShare(this.run.shares, state.governed.nick, state.governed.cause, ms);
-      if (this.governing !== null) this.governing.figures.governedMs += ms;
+    const run = this.run;
+    if (run === null || this.hold !== null || state.paused) return;
+    if (state.governed === null) {
+      if (run.freeMs !== null) run.freeMs += ms;
+      return;
     }
+    run.ms += ms;
+    this.totals.governedMs += ms;
+    addShare(run.shares, state.governed.nick, state.governed.cause, ms);
+    if (this.governing !== null) this.governing.figures.governedMs += ms;
   }
 
   private endHold(): void {
@@ -194,7 +199,7 @@ export class ClockLog {
     if (run === null || run.ms < NOTABLE_EPISODE_MS) return;
     this.log('governed', {
       tick: run.tick,
-      ...(run.freeSince === null ? {} : { endTick: run.endTick }),
+      ...(run.freeMs === null ? {} : { endTick: run.endTick }),
       ms: Math.round(run.ms),
       ...(run.runs === 1 ? {} : { runs: run.runs }),
       speed: run.speed,

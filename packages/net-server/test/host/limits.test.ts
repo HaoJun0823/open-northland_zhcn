@@ -75,7 +75,7 @@ describe('host resource limits', () => {
     // The census the stop closes the log with counts the refusal.
     await host.close();
     host = null;
-    expect(statuses).toEqual([expect.objectContaining({ refusedUpgrades: 1 })]);
+    expect(statuses).toEqual([expect.objectContaining({ refusedConnections: 1 })]);
     admitted.terminate();
   });
 

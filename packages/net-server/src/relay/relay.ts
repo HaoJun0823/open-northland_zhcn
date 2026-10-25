@@ -106,9 +106,11 @@ export class Relay {
   private readonly hostStatus: () => Readonly<Record<string, unknown>>;
   private lastAdvanceAt: number;
   private nextStatusAt: number;
-  /** Since the last `status` line: connections that closed without introducing themselves, the
-   *  longest gap between two polls and the polls later than `LATE_POLL_MS`. */
+  /** Since the last `status` line: connections that closed without introducing themselves, those the
+   *  host turned away at its connection limit, the longest gap between two polls and the polls later
+   *  than `LATE_POLL_MS`. */
   private anonymous = 0;
+  private refusedConnections = 0;
   private pollMaxMs = 0;
   private latePolls = 0;
   /** Poll faults logged since the last `status`, by event and message, and the repeats left unlogged:
@@ -140,6 +142,11 @@ export class Relay {
     const client = new Client(connection, this.now());
     this.clients.add(client);
     return client;
+  }
+
+  /** The host turned a connection away at its limit; the next `status` counts it. */
+  connectionRefused(): void {
+    this.refusedConnections++;
   }
 
   /** A connection that never introduced itself is only counted in the next `status`. */
@@ -275,13 +282,21 @@ export class Relay {
   /** Who is connected, what the rooms are doing and how the relay's own polls kept time, then each
    *  running room's figures; nothing for an interval in which the relay held nothing. */
   private logStatus(now: number): void {
-    const { anonymous, pollMaxMs, latePolls, repeatedFaults } = this;
+    const { anonymous, refusedConnections, pollMaxMs, latePolls, repeatedFaults } = this;
     this.anonymous = 0;
+    this.refusedConnections = 0;
     this.pollMaxMs = 0;
     this.latePolls = 0;
     this.repeatedFaults = 0;
     this.faultsLogged.clear();
-    if (this.clients.size === 0 && this.rooms.size === 0 && anonymous === 0 && repeatedFaults === 0) return;
+    if (
+      this.clients.size === 0 &&
+      this.rooms.size === 0 &&
+      anonymous === 0 &&
+      refusedConnections === 0 &&
+      repeatedFaults === 0
+    )
+      return;
     const rooms = { lobby: 0, running: 0, ended: 0 };
     let playing = 0;
     for (const room of this.rooms.values()) {
@@ -293,6 +308,7 @@ export class Relay {
       rooms,
       playing,
       ...(anonymous === 0 ? {} : { anonymous }),
+      ...(refusedConnections === 0 ? {} : { refusedConnections }),
       pollMaxMs: Math.round(pollMaxMs),
       ...(latePolls === 0 ? {} : { latePolls }),
       ...(repeatedFaults === 0 ? {} : { repeatedFaults }),

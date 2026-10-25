@@ -120,20 +120,11 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const log = options.log ?? (() => undefined);
   const maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
   const maxConnections = options.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
-  /** WebSocket upgrades turned away at `maxConnections` since the last `status` line. */
-  let refusedUpgrades = 0;
   const relay = new Relay({
     log,
     maxRooms,
     build: options.build ?? null,
-    hostStatus: () => {
-      const refused = refusedUpgrades;
-      refusedUpgrades = 0;
-      return {
-        rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB),
-        ...(refused === 0 ? {} : { refusedUpgrades: refused }),
-      };
-    },
+    hostStatus: () => ({ rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB) }),
   });
   const startedAt = performance.now();
   const health = (): RelayHealth => ({
@@ -188,7 +179,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const terminated = new WeakMap<WebSocket, string>();
   server.on('upgrade', (request, socket, head) => {
     if (sockets.clients.size >= maxConnections) {
-      refusedUpgrades++;
+      relay.connectionRefused();
       socket.on('error', () => socket.destroy());
       socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;

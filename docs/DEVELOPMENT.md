@@ -262,15 +262,16 @@ line, a failed start included.
 The log is meant to be read after the fact by someone holding only the file. Beside joins,
 departures and each room's life, it says why a game froze, slowed or ended. `held`, `governed` and
 `paused` close each hold, governed episode or pause of the running clock of 5 s or more, with whom it
-was for or who paused, why and how long. Governed runs less than a minute apart are one episode, whose
-line comes once the clock has run that long without the governor, and governed time counts only while
-the clock runs. `snapshot` closes each refresh with its donor, size, time from the first request and
-the requests it took; `snapshot unanswered` names, once a round, a donor that let its retry window
-pass, with what of its upload had arrived when it was still uploading (`receivingKib`), and
-`snapshot refused` an upload of no use. Every five minutes `status` counts clients, rooms, players,
-the sockets that closed without `hello` (`anonymous`; they get no line of their own) and the upgrades
-refused at `RELAY_MAX_CONNECTIONS` (`refusedUpgrades`), with the longest gap between the relay's own
-polls (`pollMaxMs`) and the process memory (`rssMib`). `room status` sums up the interval for each
+was for or who paused, why and how long. Governed runs with less than a minute of running clock
+between them are one episode, whose line comes once the clock has run that long without the
+governor, and governed time counts only while the clock runs, neither held nor paused. `snapshot`
+closes each refresh with its donor, size, time from the first request and the requests it took;
+`snapshot unanswered` names, once a round, a donor that let its retry window pass, with what of its
+upload had arrived when it was still uploading (`receivingKib`), and `snapshot refused` an upload of
+no use. Every five minutes `status` counts clients, rooms, players, the sockets that closed without
+`hello` (`anonymous`; they get no line of their own) and those turned away at `RELAY_MAX_CONNECTIONS`
+(`refusedConnections`), with the longest gap between the relay's own polls (`pollMaxMs`) and the
+process memory (`rssMib`). `room status` sums up the interval for each
 running room: time held by reason, governed and paused time, who set the speed or paused, a hold or a
 snapshot request still open (`waitingFor` and `waitingMs`, `snapshotPending`), and for each member the
 mean and highest round trip of the interval's samples, highest input delay, ticks behind, tick cost

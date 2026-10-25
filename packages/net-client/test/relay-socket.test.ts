@@ -227,6 +227,19 @@ describe('RelaySocket', () => {
     expect(sockets[0]?.closedByClient).toBe(true);
   });
 
+  it('replaces a dead link when delayed polls keep recurring without a message', () => {
+    const { sockets, events } = harness(undefined, () => false);
+    sockets[0]?.open();
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    vi.setSystemTime(Date.now() + LINK_REPLACE_MS * 2);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[0]?.closedByClient).toBe(false);
+    vi.setSystemTime(Date.now() + LINK_REPLACE_MS * 2);
+    vi.advanceTimersByTime(QUIET_POLL_MS);
+    expect(sockets[0]?.closedWith).toEqual({ code: CLOSE_NORMAL, reason: 'linkQuiet' });
+    expect(events.at(-1)).toBe('retry:1:1000');
+  });
+
   it('counts the replacement bound from the last message', () => {
     const { sockets } = harness(undefined, () => false);
     sockets[0]?.open();

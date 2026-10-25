@@ -84,6 +84,8 @@ export class RelaySocket implements RelayLink {
   private quietPoll: ReturnType<typeof setInterval> | null = null;
   private quiet = false;
   private lastPollAt = 0;
+  /** One delayed poll may allow queued socket events to run before judging the link. */
+  private starvedGraceUsed = false;
   /** When the relay was last heard on the current socket, or the attempt began. */
   private heardAt: number;
   private closed = false;
@@ -169,6 +171,7 @@ export class RelaySocket implements RelayLink {
 
   private heard(): void {
     this.heardAt = this.now();
+    this.starvedGraceUsed = false;
     if (!this.quiet) return;
     this.quiet = false;
     this.options.onHeard?.();
@@ -177,6 +180,7 @@ export class RelaySocket implements RelayLink {
   private watchQuiet(socket: WebSocket): void {
     this.stopQuietWatch();
     this.lastPollAt = this.now();
+    this.starvedGraceUsed = false;
     this.quietPoll = setInterval(() => {
       if (this.closed || this.socket !== socket) {
         this.stopQuietWatch();
@@ -185,8 +189,11 @@ export class RelaySocket implements RelayLink {
       const now = this.now();
       const starved = now - this.lastPollAt > STARVED_POLL_MS;
       this.lastPollAt = now;
-      // A blocked thread heard nothing because it listened to nothing; the silence counts from here.
-      if (starved) this.heardAt = now;
+      // Allow one delayed poll for queued messages, but repeated delays cannot hide a dead link.
+      if (starved && !this.starvedGraceUsed) {
+        this.heardAt = now;
+        this.starvedGraceUsed = true;
+      }
       const quietMs = now - this.heardAt;
       if (quietMs < LINK_QUIET_MS) return;
       if (!this.quiet) {

@@ -42,7 +42,8 @@ import {
 import { type Siege, seatSiege } from './siege.js';
 import { StalledSearches } from './stalled-searches.js';
 import { coverageOf, coverageSpotSearch, firstUncovered } from './tower-coverage.js';
-import { upgradeKeepsSupply } from './upgrade-supply.js';
+import { upgradeReach } from './upgrade-reach.js';
+import { suppliedUpgrade } from './upgrade-supply.js';
 
 export * from './entries.js';
 export {
@@ -74,9 +75,11 @@ function constructionSites(world: World, ctx: SystemContext, owned: readonly Ent
  * goods it waits for: most retry next decision, a placement that found no spot every
  * {@link STALLED_PLACEMENT_RETRY_DECISIONS} decisions, and an upgrade holds while a bill good only it or
  * another site could make is not yet in store, or while it would idle a good's last working maker
- * ({@link upgradeKeepsSupply}). The exceptions are passed over instead ({@link Verdict}): a serving
- * placement with no room beside what it serves, a grass building other than an `essential` one with no
- * grass left in reach, and a coverage entry with no target it can cover.
+ * ({@link suppliedUpgrade}). An upgrade raises its building straight to the highest tier that entry and
+ * the unmet upgrade entries right after it want, as far as the seat has the tiers enabled
+ * ({@link upgradeReach}) and the store backs the merged bill. The exceptions are passed over instead
+ * ({@link Verdict}): a serving placement with no room beside what it serves, a grass building other than
+ * an `essential` one with no grass left in reach, and a coverage entry with no target it can cover.
  * Builders are never pinned to a site; the builder drive picks its own.
  *
  * Three rules keep a site from rising under the enemy's bows only to be knocked down again, and a razed
@@ -227,12 +230,12 @@ function runBuildOrder(
         if (target === undefined) return []; // unreachable after 'skip', kept for the type system
         const candidate = upgradeCandidate(world, index, owned, target);
         if (candidate === null) return [];
-        const building = world.get(candidate, Building);
-        const nextTier = index.buildings.get(building.buildingType)?.upgradeTarget;
-        if (nextTier === undefined || !buildingEnabled(world, ctx, player, building.tribe, nextTier))
-          return [];
-        if (!upgradeKeepsSupply(world, ctx, player, owned, candidate)) return [];
-        return started({ kind: 'upgradeBuilding', building: candidate });
+        // A jump the store cannot back yet falls back to the highest tier it can, down to the next one.
+        const tiers = upgradeReach(world, ctx, player, order, statuses, entryIndex, candidate);
+        const reach = suppliedUpgrade(world, ctx, player, owned, candidate, tiers);
+        return reach === undefined
+          ? []
+          : started({ kind: 'upgradeBuilding', building: candidate, target: reach });
       }
       case 'collector':
         return []; // the workforce module hires it

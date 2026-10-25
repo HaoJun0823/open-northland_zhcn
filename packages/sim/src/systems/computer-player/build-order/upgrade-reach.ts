@@ -1,0 +1,65 @@
+import { Building } from '../../../components/index.js';
+import { contentIndex } from '../../../core/content-index.js';
+import type { Entity, World } from '../../../ecs/world.js';
+import { buildingTypeByContentId, countedTiers } from '../../ai-shared/content-lookup.js';
+import type { SystemContext } from '../../context.js';
+import { buildingEnabled } from '../../progression/index.js';
+import { type BuildOrderEntry, isLaneEntry } from './entries.js';
+import type { EntryStatus } from './progress.js';
+
+/**
+ * The tiers the upgrade entry at `entryIndex` may raise `candidate` to, ascending from its next tier,
+ * empty while that tier is not enabled for the seat. The entry's tier is extended by the unmet upgrade
+ * entries right after it whose tier stands at or above it on the same chain and still counts for every
+ * entry before it, so one site jumps the building as far as that run wants instead of one tier per site.
+ * The list stops below the first tier the seat has not enabled, the check `upgradeBuilding` itself
+ * makes. Lanes and skipped entries do not break a run.
+ */
+export function upgradeReach(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  order: readonly BuildOrderEntry[],
+  statuses: readonly EntryStatus[],
+  entryIndex: number,
+  candidate: Entity,
+): readonly number[] {
+  const top = wantedTop(ctx, order, statuses, entryIndex);
+  if (top === undefined) return [];
+  const index = contentIndex(ctx.content);
+  const building = world.get(candidate, Building);
+  const tiers: number[] = [];
+  for (let tier = index.buildings.get(building.buildingType)?.upgradeTarget; tier !== undefined; ) {
+    if (tiers.includes(tier) || !buildingEnabled(world, ctx, player, building.tribe, tier)) break;
+    tiers.push(tier);
+    if (tier === top) break;
+    tier = index.buildings.get(tier)?.upgradeTarget;
+  }
+  return tiers;
+}
+
+/** The highest tier the run of upgrade entries starting at `entryIndex` wants. */
+function wantedTop(
+  ctx: SystemContext,
+  order: readonly BuildOrderEntry[],
+  statuses: readonly EntryStatus[],
+  entryIndex: number,
+): number | undefined {
+  const first = order[entryIndex];
+  if (first?.kind !== 'upgrade') return undefined;
+  const firstType = buildingTypeByContentId(ctx.content, first.building);
+  if (firstType === undefined) return undefined;
+  const counting = [countedTiers(ctx.content, firstType, first.belowTier)];
+  let top = firstType.typeId;
+  for (let i = entryIndex + 1; i < order.length; i++) {
+    const entry = order[i];
+    const status = statuses[i];
+    if (entry === undefined || status === 'skip' || isLaneEntry(entry)) continue;
+    if (entry.kind !== 'upgrade' || status !== 'unmet') break;
+    const type = buildingTypeByContentId(ctx.content, entry.building);
+    if (type === undefined || !counting.every((tiers) => tiers.has(type.typeId))) break;
+    counting.push(countedTiers(ctx.content, type, entry.belowTier));
+    top = type.typeId;
+  }
+  return top;
+}

@@ -146,8 +146,8 @@ function memoRoles(
 }
 
 /** `owned` is the seat's {@link ownedBuildings} list and `memo` this decision's, both passed in so one
- *  decision computes them once. An upgrade in flight counts toward its next tier, as a placed site counts
- *  toward its entry, unless `inFlightUpgrades` is false. */
+ *  decision computes them once. An upgrade in flight counts toward the tier it is becoming, as a placed
+ *  site counts toward its entry, unless `inFlightUpgrades` is false. */
 export function entryStatus(
   world: World,
   ctx: SystemContext,
@@ -203,8 +203,8 @@ export function entryStatus(
       const done = countedTiers(ctx.content, target, entry.belowTier);
       const tally = ownedTally(world, index, owned, memo);
       let have = countOfTypes(tally, done);
-      // `upgradeBuilding` keeps the lower type until the site finishes, so the tier it is becoming is that
-      // type's next one.
+      // `upgradeBuilding` keeps the lower type until the site finishes, so a site counts by the tier it is
+      // becoming, which may skip tiers and so meet several entries at once.
       if (inFlightUpgrades) {
         for (const [type, becoming] of tally.upgrading) if (!done.has(type) && done.has(becoming)) have++;
       }

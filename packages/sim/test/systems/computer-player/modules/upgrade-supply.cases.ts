@@ -6,6 +6,7 @@ import type { Simulation } from '../../../../src/index.js';
 import {
   type BuildOrderEntry,
   buildOrderModule,
+  entryStatuses,
   WELL_REACH_NODES,
 } from '../../../../src/systems/computer-player/index.js';
 import { aiContent } from '../../../fixtures/ai-content.js';
@@ -31,9 +32,11 @@ const POTTERY = 50;
 const POTTERY_UPGRADED = 51;
 const MASON_HUT = 52;
 const MASON_HUT_UPGRADED = 53;
+const POTTERY_TOP = 54;
 /** The upgraded tiers' bills, shaped like the real ones: each needs the other's good as well as its own. */
 const POTTERY_BILL = { bricks: 2, pillars: 2 };
 const MASON_BILL = { bricks: 2, pillars: 1 };
+const POTTERY_TOP_BRICKS = 3;
 
 function workshop(typeId: number, id: string, output: number, upgradeTarget?: number) {
   return {
@@ -48,7 +51,7 @@ function workshop(typeId: number, id: string, output: number, upgradeTarget?: nu
 }
 
 /** The AI content with a pottery and a mason hut that each make one good and upgrade into a tier
- *  billing both. */
+ *  billing both; the pottery has a third tier billing bricks alone. */
 function materialsContent(): ContentSet {
   const base = aiContent();
   return parseContentSet({
@@ -58,11 +61,15 @@ function materialsContent(): ContentSet {
       ...base.buildings,
       workshop(POTTERY, 'work_pottery_00', BRICK, POTTERY_UPGRADED),
       {
-        ...workshop(POTTERY_UPGRADED, 'work_pottery_01', BRICK),
+        ...workshop(POTTERY_UPGRADED, 'work_pottery_01', BRICK, POTTERY_TOP),
         construction: [
           { goodType: BRICK, amount: POTTERY_BILL.bricks },
           { goodType: PILLAR, amount: POTTERY_BILL.pillars },
         ],
+      },
+      {
+        ...workshop(POTTERY_TOP, 'work_pottery_03', BRICK),
+        construction: [{ goodType: BRICK, amount: POTTERY_TOP_BRICKS }],
       },
       workshop(MASON_HUT, 'work_mason_hut_00', PILLAR, MASON_HUT_UPGRADED),
       {
@@ -106,7 +113,11 @@ describe('build order - material gates', () => {
     // The stone blocks come from the working mason hut, so only the bricks are waited for.
     expect(next()).toBeUndefined();
     store(sim, BRICK, POTTERY_BILL.bricks);
-    expect(next()).toEqual({ kind: 'upgradeBuilding', building: entityOfBuilding(sim, POTTERY) });
+    expect(next()).toEqual({
+      kind: 'upgradeBuilding',
+      building: entityOfBuilding(sim, POTTERY),
+      target: POTTERY_UPGRADED,
+    });
   });
 
   it('holds the mason upgrade while the upgrading pottery still lacks the bricks in store', () => {
@@ -123,7 +134,11 @@ describe('build order - material gates', () => {
     store(sim, PILLAR, POTTERY_BILL.pillars);
     expect(next()).toBeUndefined();
     store(sim, PILLAR, MASON_BILL.pillars);
-    expect(next()).toEqual({ kind: 'upgradeBuilding', building: entityOfBuilding(sim, MASON_HUT) });
+    expect(next()).toEqual({
+      kind: 'upgradeBuilding',
+      building: entityOfBuilding(sim, MASON_HUT),
+      target: MASON_HUT_UPGRADED,
+    });
   });
 
   it('counts the bricks a site already holds as spoken for, not as stock the pottery can spend', () => {
@@ -138,7 +153,41 @@ describe('build order - material gates', () => {
     store(sim, BRICK, POTTERY_BILL.bricks - 1);
     expect(next()).toBeUndefined();
     store(sim, BRICK, 1);
-    expect(next()).toEqual({ kind: 'upgradeBuilding', building: entityOfBuilding(sim, POTTERY) });
+    expect(next()).toEqual({
+      kind: 'upgradeBuilding',
+      building: entityOfBuilding(sim, POTTERY),
+      target: POTTERY_UPGRADED,
+    });
+  });
+
+  it('jumps the pottery past a tier the next entry raises too, once the merged bill is in store', () => {
+    const { sim, content } = workshopsSeat();
+    const order: readonly BuildOrderEntry[] = [
+      { kind: 'upgrade', building: 'work_pottery_01', count: 1 },
+      { kind: 'upgrade', building: 'work_pottery_03', count: 1 },
+    ];
+    const toTop = buildOrderModule(order);
+    const next = () => [...toTop.run(sim.world, { ...ctxOf(sim), content }, SEAT)][0];
+    // The jump bills both tiers' bricks summed; one short of that covers only the next tier, so the order
+    // falls back to it.
+    store(sim, BRICK, POTTERY_BILL.bricks + POTTERY_TOP_BRICKS - 1);
+    expect(next()).toMatchObject({ kind: 'upgradeBuilding', target: POTTERY_UPGRADED });
+    store(sim, BRICK, 1);
+    const jump = next();
+    expect(jump).toEqual({
+      kind: 'upgradeBuilding',
+      building: entityOfBuilding(sim, POTTERY),
+      target: POTTERY_TOP,
+    });
+    if (jump === undefined) return;
+    sim.enqueueSetup(jump);
+    sim.step();
+    // The one site meets both entries, so no second upgrade is ordered meanwhile.
+    expect(entryStatuses(sim.world, { ...ctxOf(sim), content }, SEAT, order)).toEqual([
+      'satisfied',
+      'satisfied',
+    ]);
+    expect(next()).toBeUndefined();
   });
 
   it('keeps one maker of a good working while another upgrades', () => {

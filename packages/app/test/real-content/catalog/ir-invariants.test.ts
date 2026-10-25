@@ -313,7 +313,7 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
   });
 
   it('the upgradeTarget lane carries the known level chains and never chains a wonder', async () => {
-    // The whole upgrade mechanic hangs on this optional lane (`upgradeTierOf`, the HUD Upgrade button);
+    // The whole upgrade mechanic hangs on this optional lane (`upgradeBuilding`, the HUD Upgrade button);
     // a pipeline regression dropping it would fail no schema check and silently delete the feature.
     // One pinned link per leveled kind (stable string ids), plus the wonders staying unchained (each
     // record maps every size level to its own typeId - a self-link the extractor skips).

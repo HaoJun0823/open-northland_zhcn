@@ -513,7 +513,11 @@ describe('build order - the top-tier joineries', () => {
 
       const sim = world(landMap(), [{ buildingType: JOINERY_TYPE, ...TOOLS_AT }, ...topSites]);
       const upgrade = first(sim, [toolsUpgrade]);
-      expect(upgrade).toEqual({ kind: 'upgradeBuilding', building: entityOfBuilding(sim, JOINERY_TYPE) });
+      expect(upgrade).toEqual({
+        kind: 'upgradeBuilding',
+        building: entityOfBuilding(sim, JOINERY_TYPE),
+        target: JOINERY_02_TYPE,
+      });
       const upgraded = world(landMap(), [{ buildingType: JOINERY_02_TYPE, ...TOOLS_AT }, ...topSites]);
       expect(entryStatuses(upgraded.world, fleetCtx(upgraded), SEAT, [toolsJoinery, toolsUpgrade])).toEqual([
         'satisfied',

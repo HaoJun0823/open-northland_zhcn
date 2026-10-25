@@ -1,4 +1,3 @@
-import type { BuildingType } from '@open-northland/data';
 import {
   Building,
   type GoodsLine,
@@ -14,16 +13,6 @@ import { type Fixed, fx, ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext, SystemContext } from '../context.js';
 import type { SupplyTally } from './supply-tally.js';
-
-/**
- * The next level in `type`'s upgrade chain, or undefined for a top-level or unchained type. Source basis:
- * extracted - the `[GfxHouse]` record's `LogicType` table gives the typeId at the next `sizeIdx`; the
- * wonder maps every size level to one typeId, a self-link the extractor skips.
- */
-export function upgradeTierOf(type: BuildingType, ctx: ContentContext): BuildingType | undefined {
-  if (type.upgradeTarget === undefined) return undefined;
-  return contentIndex(ctx.content).buildings.get(type.upgradeTarget);
-}
 
 /**
  * The material cost of raising a building: a plain site carries its type's from-scratch bill, merged over

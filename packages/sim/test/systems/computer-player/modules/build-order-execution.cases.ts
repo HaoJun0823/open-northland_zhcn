@@ -146,10 +146,11 @@ describe('build-order module (houseBuild)', () => {
       applyAndFinish(sim, next);
     }
 
-    // The home-upgrade entry walks each home to the top tier, one upgrade site at a time.
-    for (let i = 0; i < 6; i++) {
+    // The home-upgrade entry raises each home straight to the top tier, skipping the middle one.
+    for (let i = 0; i < 3; i++) {
       const next = nextPlacement(sim);
       if (next?.kind !== 'upgradeBuilding') throw new Error(`expected upgrade ${i}, got ${next?.kind}`);
+      expect(next.target).toBe(HOME_TOP_TYPE);
       applyAndFinish(sim, next);
     }
     const homes = [...sim.world.query(Building)]
@@ -680,7 +681,20 @@ it('does not issue an upgrade blocked by map permissions and resumes once a scri
   grantScriptUnlock(sim.world, 'enabled', SEAT, VIKING, 'house', next);
   expect([...module.run(sim.world, ctxOf(sim), SEAT)]).toEqual([]);
   grantScriptUnlock(sim.world, 'allowed', SEAT, VIKING, 'house', next);
-  expect([...module.run(sim.world, ctxOf(sim), SEAT)]).toMatchObject([{ kind: 'upgradeBuilding' }]);
+  expect([...module.run(sim.world, ctxOf(sim), SEAT)]).toMatchObject([
+    { kind: 'upgradeBuilding', target: HOME_TOP_TYPE },
+  ]);
+  // With the entry's own tier banned, the home still rises as far as it may.
+  setMapPermission(sim.world, {
+    player: SEAT,
+    tribe: VIKING,
+    kind: 'house',
+    typeId: HOME_TOP_TYPE,
+    allowed: false,
+  });
+  expect([...module.run(sim.world, ctxOf(sim), SEAT)]).toMatchObject([
+    { kind: 'upgradeBuilding', target: next },
+  ]);
 });
 
 /** The enemy seat in the bakery well cases. */

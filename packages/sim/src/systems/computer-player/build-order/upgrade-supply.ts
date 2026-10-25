@@ -1,43 +1,55 @@
-import { Building, Stockpile, UnderConstruction } from '../../../components/index.js';
+import { Building, type GoodsLine, Stockpile, UnderConstruction } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
-import { constructionBillOf, seatStockOf, upgradeTierOf } from '../../stores/index.js';
+import { constructionBillOf, seatStockOf } from '../../stores/index.js';
 
 /**
- * Whether the seat can start upgrading `candidate` without starving the site or the seat. An upgrade
- * sends the crew out, so a bill good that only the candidate or another site could make (the pottery's
- * own bricks, or the bricks a mason hut needs while the pottery is upgrading) must already be in stock,
- * beyond what the seat's sites hold or still lack of it. A good no owned building makes is gathered, and
- * never holds an upgrade back. Nor does an upgrade idle the seat's last working maker of a good while
- * another maker of it is still a site: the second bakery waits for the first to come back.
+ * The highest of `tiers` the seat can start upgrading `candidate` to without starving the site or the
+ * seat, judged against the merged bill of every tier the jump raises; undefined when none can. An
+ * upgrade sends the crew out, so a bill good that only the candidate or another site could make (the
+ * pottery's own bricks, or the bricks a mason hut needs while the pottery is upgrading) must already be
+ * in stock, beyond what the seat's sites hold or still lack of it. A good no owned building makes is
+ * gathered, and never holds an upgrade back. Nor does an upgrade idle the seat's last working maker of a
+ * good while another maker of it is still a site: the second bakery waits for the first to come back.
  */
-export function upgradeKeepsSupply(
+export function suppliedUpgrade(
   world: World,
   ctx: SystemContext,
   player: number,
   owned: readonly Entity[],
   candidate: Entity,
-): boolean {
+  tiers: readonly number[],
+): number | undefined {
   const index = contentIndex(ctx.content);
-  const type = index.buildings.get(world.get(candidate, Building).buildingType);
-  const target = type === undefined ? undefined : upgradeTierOf(type, ctx);
-  if (type === undefined || target === undefined) return true;
+  const typeId = world.get(candidate, Building).buildingType;
+  const type = index.buildings.get(typeId);
+  if (type === undefined) return undefined;
   for (const recipe of type.recipes) {
     for (const output of recipe.outputs) {
       const makers = makersOf(world, ctx, owned, candidate, output.goodType);
-      if (makers.working === 0 && makers.sites > 0) return false;
+      if (makers.working === 0 && makers.sites > 0) return undefined;
     }
   }
   const stock = seatStockOf(world, player);
   const claimed = sitesClaims(world, ctx, owned);
-  for (const line of target.construction) {
-    const makers = makersOf(world, ctx, owned, candidate, line.goodType);
-    if (makers.working > 0 || (!makers.candidate && makers.sites === 0)) continue;
-    const committed = claimed.get(line.goodType) ?? 0;
-    if (!stock.exceeds(line.goodType, committed + line.amount - 1)) return false;
+  const madeElsewhere = new Map<number, boolean>();
+  const backed = (bill: readonly GoodsLine[]): boolean =>
+    bill.every((line) => {
+      let free = madeElsewhere.get(line.goodType);
+      if (free === undefined) {
+        const makers = makersOf(world, ctx, owned, candidate, line.goodType);
+        free = makers.working > 0 || (!makers.candidate && makers.sites === 0);
+        madeElsewhere.set(line.goodType, free);
+      }
+      return free || stock.exceeds(line.goodType, (claimed.get(line.goodType) ?? 0) + line.amount - 1);
+    });
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    const tier = tiers[i];
+    const bill = tier === undefined ? undefined : index.upgradeBillByTarget.get(typeId)?.get(tier);
+    if (bill !== undefined && backed(bill)) return tier;
   }
-  return true;
+  return undefined;
 }
 
 /** The seat's makers of one good, `candidate` counted apart from the rest. */

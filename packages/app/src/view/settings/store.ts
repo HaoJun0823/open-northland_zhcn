@@ -9,12 +9,14 @@ import {
 import { SOUND_QUALITIES, type SoundQuality } from '@open-northland/data';
 import {
   type BackingDensity,
+  type BackingDensitySetting,
   DEFAULT_PIXEL_ART_SCALER,
   DEFAULT_SELECTION_STYLE,
   type PixelArtScaler,
-  parseBackingDensity,
+  parseBackingDensitySetting,
   parsePixelArtScaler,
   parseSelectionStyle,
+  resolveBackingDensity,
   type SelectionStyle,
 } from '@open-northland/render';
 import {
@@ -73,9 +75,10 @@ export interface MenuSettings {
   readonly displayMode: 'fullscreen' | 'window';
   /** Backing-resolution multiplier for the game canvas; 1 keeps the plain device oversample. */
   readonly renderScale: number;
-  /** How a display denser than its CSS pixels draws the game (`BackingDensity`): every device pixel, or
-   *  fewer texels upscaled; applies from the next game. */
-  readonly backingDensity: BackingDensity;
+  /** How a display denser than its CSS pixels draws the game (`BackingDensitySetting`): every device
+   *  pixel, fewer texels upscaled, or `auto` (upscaled from 1.5 device pixels per CSS pixel); applies
+   *  from the next game. */
+  readonly backingDensity: BackingDensitySetting;
   /** Relative factor over the display-derived HUD base scale (`uiScaleFor`); the menu's own
    *  scale follows the viewport. */
   readonly uiScaleFactor: number;
@@ -160,7 +163,7 @@ export function defaultSettings(): MenuSettings {
   return {
     displayMode: 'window',
     renderScale: DEFAULT_RENDER_SCALE,
-    backingDensity: 'native',
+    backingDensity: 'auto',
     uiScaleFactor: DEFAULT_UI_SCALE_FACTOR,
     postFxEnabled: true,
     spriteSmoothing: true,
@@ -247,12 +250,24 @@ function clampFactor(value: unknown): number {
   return clampUiScaleFactor(value);
 }
 
-/** The game canvas's backing store from the stored settings, for `createWindowPixiApp`. */
-export function windowBacking(settings: MenuSettings): {
+/** The game canvas's backing store from the stored settings at the window's device-pixel ratio, for
+ *  `createWindowPixiApp`. */
+export function windowBacking(
+  settings: MenuSettings,
+  devicePixelRatio: number,
+): {
   readonly resolutionScale: number;
   readonly density: BackingDensity;
 } {
-  return { resolutionScale: settings.renderScale, density: settings.backingDensity };
+  return {
+    resolutionScale: settings.renderScale,
+    density: resolveBackingDensity(
+      settings.backingDensity,
+      devicePixelRatio,
+      settings.renderScale,
+      settings.enhancedSampling,
+    ),
+  };
 }
 
 function clampRenderScale(value: unknown): number {
@@ -311,7 +326,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     autosaveCount: AUTOSAVE_COUNTS.find((count) => count === record.autosaveCount) ?? DEFAULT_AUTOSAVE_COUNT,
     displayMode: record.displayMode === 'fullscreen' ? 'fullscreen' : 'window',
     renderScale: clampRenderScale(record.renderScale),
-    backingDensity: parseBackingDensity(record.backingDensity) ?? 'native',
+    backingDensity: parseBackingDensitySetting(record.backingDensity) ?? 'auto',
     uiScaleFactor: clampFactor(record.uiScaleFactor),
     postFxEnabled: typeof record.postFxEnabled === 'boolean' ? record.postFxEnabled : defaults.postFxEnabled,
     spriteSmoothing:

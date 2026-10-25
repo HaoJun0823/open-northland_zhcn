@@ -52,6 +52,7 @@ HD 4000 match tier 1. These are tested library outputs, not performance measurem
 | Blood | Combat-event history and visible spray/stain rendering; not a constant full-screen workload. | CPU only: about 0.6 ms a frame at ×3 in a battle, mostly the contact walk of fresh bursts |
 | Bone fading | Age-based opacity. Disabling it retains piles indefinitely. | No cost above noise |
 | Render scale | Every world pixel at the scale squared, and at zoom 1 every sprite magnified. | 1.5 costs about 3.6 times the frame and 2 about 6.5 times; a DPR 2 display at scale 1 about 7 times |
+| Dense displays (`backingDensity`, default `auto`) | From 1.5 device pixels per CSS pixel times render scale, the world draws at one texel per CSS pixel and one pass upscales it: xBR with enhanced sampling on, sharp-bilinear with it off; the HUD, minimap and portraits stay native. `native` keeps every device pixel. | Intel UHD 770 at 3840x2160 (DPR 2), dense `magiczny_las` town at zoom 1 with xBR: 98.6 ms native, 15.9 ms sharp, 19.5 ms xbr; Apple M2 Pro at 1440x900 DPR 2: 18.8 ms native, 2.9 ms sharp, 3.5 ms xbr |
 
 The measured column comes from an Apple M2 Pro at 1440×900 with every other option on, `magiczny_las`
 (six hard AI) and `piec_dolin` (fifteen) at tick 100000: GPU time of the paused, GPU-bound

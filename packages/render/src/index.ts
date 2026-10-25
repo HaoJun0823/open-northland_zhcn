@@ -233,10 +233,12 @@ export { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from './gpu/pix
 export {
   atlasSourceFromBitmap,
   type BackingDensity,
+  type BackingDensitySetting,
   createPixiApp,
   createWindowPixiApp,
   loadAtlasSource,
-  parseBackingDensity,
+  parseBackingDensitySetting,
+  resolveBackingDensity,
   windowResolutionFor,
 } from './gpu/pixi-app/pixi-app.js';
 export {

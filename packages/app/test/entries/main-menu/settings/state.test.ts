@@ -106,7 +106,7 @@ describe('parseStoredSettings', () => {
     expect(parsed.uiScaleFactor).toBe(defaultSettings().uiScaleFactor);
     expect(parsed.displayMode).toBe('window');
     expect(parsed.renderScale).toBe(defaultSettings().renderScale);
-    expect(parsed.backingDensity).toBe('native');
+    expect(parsed.backingDensity).toBe('auto');
     expect(parsed.postFxEnabled).toBe(defaultSettings().postFxEnabled);
     expect(parsed.fpsLimit).toBe(defaultSettings().fpsLimit);
     expect(parsed.soundEnabled).toBe(defaultSettings().soundEnabled);

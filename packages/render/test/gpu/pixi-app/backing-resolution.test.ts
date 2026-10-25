@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTO_UPSCALE_RATIO,
   backingResolutionFor,
+  resolveBackingDensity,
   windowResolutionFor,
   worldUpscaleFor,
 } from '../../../src/gpu/pixi-app/pixi-app.js';
@@ -70,5 +72,29 @@ describe('the upscaling densities', () => {
   it('leave the world native under the other densities', () => {
     expect(worldUpscaleFor('native', 1)).toBeNull();
     expect(worldUpscaleFor('whole', 1)).toBeNull();
+  });
+});
+
+describe('resolveBackingDensity', () => {
+  it('passes an explicit choice through at any ratio', () => {
+    for (const dpr of [1, 1.5, 2])
+      for (const density of ['native', 'whole', 'sharp', 'xbr'] as const)
+        expect(resolveBackingDensity(density, dpr, 1, true)).toBe(density);
+  });
+
+  it('draws natively under auto below the upscale ratio', () => {
+    expect(resolveBackingDensity('auto', 1, 1, true)).toBe('native');
+    expect(resolveBackingDensity('auto', 1.25, 1, true)).toBe('native');
+    expect(resolveBackingDensity('auto', 2, 0.5, true)).toBe('native');
+    expect(resolveBackingDensity('auto', Number.NaN, 1, true)).toBe('native');
+  });
+
+  it('upscales under auto from the ratio on, keeping the filter choice', () => {
+    expect(AUTO_UPSCALE_RATIO).toBe(1.5);
+    expect(resolveBackingDensity('auto', 1.5, 1, true)).toBe('xbr');
+    expect(resolveBackingDensity('auto', 2, 1, true)).toBe('xbr');
+    expect(resolveBackingDensity('auto', 1.25, 1.2, true)).toBe('xbr');
+    expect(resolveBackingDensity('auto', 2, 1, false)).toBe('sharp');
+    expect(resolveBackingDensity('auto', 1, 1.5, false)).toBe('sharp');
   });
 });

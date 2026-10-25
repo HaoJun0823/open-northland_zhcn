@@ -70,9 +70,38 @@ export type BackingDensity = 'native' | 'whole' | 'sharp' | 'xbr';
 
 const BACKING_DENSITIES: readonly BackingDensity[] = ['native', 'whole', 'sharp', 'xbr'];
 
-/** A stored value as a {@link BackingDensity}; null for anything else. */
-export function parseBackingDensity(value: unknown): BackingDensity | null {
-  return BACKING_DENSITIES.find((density) => density === value) ?? null;
+/**
+ * The stored choice: a {@link BackingDensity}, or `auto`, which draws natively on an ordinary display and
+ * upscales the world on a dense one, keeping the player's filter choice (`xbr` with enhanced sampling on,
+ * `sharp` with it off). Resolved once per window by {@link resolveBackingDensity}.
+ */
+export type BackingDensitySetting = BackingDensity | 'auto';
+
+const BACKING_DENSITY_SETTINGS: readonly BackingDensitySetting[] = [...BACKING_DENSITIES, 'auto'];
+
+/** A stored value as a {@link BackingDensitySetting}; null for anything else. */
+export function parseBackingDensitySetting(value: unknown): BackingDensitySetting | null {
+  return BACKING_DENSITY_SETTINGS.find((density) => density === value) ?? null;
+}
+
+/**
+ * Device pixels per CSS pixel, times the render scale, from which `auto` stops drawing the world natively.
+ * From 1.5 on the native world costs 3.5 to 7 times the 1:1 frame (docs/GRAPHICS.md, cost basis) and the
+ * upscale enlarges evenly; below it a 1.25 display gains little and would upscale unevenly.
+ */
+export const AUTO_UPSCALE_RATIO = 1.5;
+
+/** The density a window draws at under `setting`, given its device-pixel ratio, the render scale and
+ *  whether enhanced sampling (the pixel-art filter) is on. */
+export function resolveBackingDensity(
+  setting: BackingDensitySetting,
+  dpr: number,
+  resolutionScale: number,
+  filtered: boolean,
+): BackingDensity {
+  if (setting !== 'auto') return setting;
+  if (windowResolutionFor(dpr, resolutionScale) < AUTO_UPSCALE_RATIO) return 'native';
+  return filtered ? 'xbr' : 'sharp';
 }
 
 /** The world's own resolution and magnifier under an upscaling {@link BackingDensity}. */

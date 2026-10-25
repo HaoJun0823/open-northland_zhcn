@@ -228,7 +228,7 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
   await boot.begin('graphics');
   // Before the renderer starts, so a map opened by its link compiles through every loading step.
   const shaders = graphicsShaderWarmup();
-  const app = await createWindowPixiApp(canvas, windowBacking(readStoredSettings()));
+  const app = await createWindowPixiApp(canvas, windowBacking(readStoredSettings(), window.devicePixelRatio));
   let assembled = false;
   let early: EarlyHosting<H> | null = null;
   try {

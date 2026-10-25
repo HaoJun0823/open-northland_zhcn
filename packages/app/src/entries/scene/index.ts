@@ -107,7 +107,7 @@ export async function renderSceneMode(canvas: HTMLCanvasElement, params: URLSear
   await boot.begin('graphics');
   // Window-tracking backing store at the stored render scale times the device oversample: resizing
   // changes the visible field, never the scale.
-  const app = await createWindowPixiApp(canvas, windowBacking(readStoredSettings()));
+  const app = await createWindowPixiApp(canvas, windowBacking(readStoredSettings(), window.devicePixelRatio));
   const terrainGrid = terrainMapToScene(scene.terrain);
   await boot.begin('content');
   // Served real content makes the browser scene collide and place exactly like the live map view. The

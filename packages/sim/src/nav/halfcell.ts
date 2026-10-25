@@ -39,26 +39,41 @@ export interface NodeArea {
  * position is also an E/W edge's midpoint and keeps that edge's on-row rule.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
-  return { hx: nodeHxOfPosition(x, y), hy: nodeHyOfPosition(x, y) };
+  locateNode(x, y);
+  return { hx: located.hx, hy: located.hy };
 }
 
 /** {@link nodeOfPosition}'s `hx` alone, so a per-tick loop allocates no node object per call. */
 export function nodeHxOfPosition(x: Fixed, y: Fixed): number {
-  // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
-  const twoY = fx.add(y, y);
-  const hy = fx.toInt(twoY);
-  const column = rowColumn(x, y, hy);
-  if (twoY === fx.fromInt(hy)) return fx.toInt(column);
-  if (isHalfColumn(column)) return fx.toInt(rowColumn(x, y, hy + 1));
-  return Math.floor((column + HALF_ONE) / ONE);
+  locateNode(x, y);
+  return located.hx;
 }
 
 /** {@link nodeOfPosition}'s `hy` alone. */
 export function nodeHyOfPosition(x: Fixed, y: Fixed): number {
+  locateNode(x, y);
+  return located.hy;
+}
+
+/** {@link locateNode}'s result, reused so the per-entity per-tick node reads allocate nothing. */
+const located = { hx: 0, hy: 0 };
+
+/** Write {@link nodeOfPosition}'s node into {@link located}, the row column computed once. */
+function locateNode(x: Fixed, y: Fixed): void {
+  // Doubled by an add: `fx.mul(v, TWO)` exactly, without the product, on a per-entity per-tick path.
   const twoY = fx.add(y, y);
   const hy = fx.toInt(twoY);
-  if (twoY === fx.fromInt(hy) || !isHalfColumn(rowColumn(x, y, hy))) return hy;
-  return hy + 1;
+  const column = rowColumn(x, y, hy);
+  if (twoY === fx.fromInt(hy)) {
+    located.hx = fx.toInt(column);
+    located.hy = hy;
+  } else if (isHalfColumn(column)) {
+    located.hx = fx.toInt(rowColumn(x, y, hy + 1));
+    located.hy = hy + 1;
+  } else {
+    located.hx = Math.floor((column + HALF_ONE) / ONE);
+    located.hy = hy;
+  }
 }
 
 /** Position `(x, y)`'s world column in half-cell units of node row `hy`, that row's odd-row shift removed. */

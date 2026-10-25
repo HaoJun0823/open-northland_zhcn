@@ -3,7 +3,6 @@ import {
   type Entity,
   type MissionGoalOp,
   type MissionResultOp,
-  type SimEvent,
   type Simulation,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
@@ -14,16 +13,18 @@ const { MissionObjectId, Position, Rider } = components;
 
 /**
  * The story map's first raid, run by its own script: the wave boards a ship, sails for the defended
- * coast, and a timed line orders the crew off a little before the ship can get there. A crew whose
- * detach is refused at sea stays aboard until the ship is sunk, so the raid never lands and the
- * defence objective, which waits for every raider's death, never completes.
+ * coast, and a timed line orders the crew off near the ship's arrival. Whichever comes first, the crew
+ * steps ashore once both the order and the mooring hold: a crew whose detach is refused at sea stays
+ * aboard until the ship is sunk, so the raid never lands and the defence objective, which waits for
+ * every raider's death, never completes. Holding an order taken at sea is covered by
+ * `packages/sim/test/systems/missions/results/vehicles.test.ts`.
  */
 const MAP_ID = 'mroczny_swiat';
 /** The seat the map's story player holds. */
 const STORY_PLAYER = 0;
 /** Ticks from the trigger for the wave to spawn, board, sail and dock. */
 const RAID_BUDGET_TICKS = 1500;
-/** The tick after the mooring, by which the crew held for the detach has stepped ashore. */
+/** The tick after both the detach and the mooring, by which the crew has stepped ashore. */
 const LANDING_TICKS = 1;
 
 interface Wave {
@@ -86,16 +87,8 @@ function crewOf(sim: Simulation, crewId: number): readonly Entity[] {
   return [...sim.world.query(MissionObjectId)].filter((e) => sim.world.get(e, MissionObjectId).id === crewId);
 }
 
-function runUntil(sim: Simulation, budget: number, done: (events: readonly SimEvent[]) => boolean): boolean {
-  for (let tick = 0; tick < budget; tick++) {
-    sim.step();
-    if (done(sim.events.current())) return true;
-  }
-  return false;
-}
-
 describe.runIf(hasRealIr())(`${MAP_ID}: the first scripted raid`, () => {
-  it('lands its crew the moment the ship moors, although the script ordered them off at sea', async () => {
+  it('lands its crew once the ship moors and the script has ordered them off', async () => {
     const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [] });
     const wave = firstWave(sim);
     const trigger = raidTrigger(sim, wave);
@@ -108,25 +101,29 @@ describe.runIf(hasRealIr())(`${MAP_ID}: the first scripted raid`, () => {
       owner: STORY_PLAYER,
       missionId: trigger.humanId,
     });
-    const detached = runUntil(
-      sim,
-      RAID_BUDGET_TICKS,
-      () => sim.missionStatus()[wave.detachMission]?.done === true,
-    );
-    expect(detached, 'the timed detach fires').toBe(true);
-    const crew = crewOf(sim, wave.crewId);
-    expect(crew.length).toBeGreaterThan(0);
-    // The author timed the line to the original's crossing, which this ship has not finished: nobody
-    // left, nobody was refused, the order holds.
-    for (const e of crew) {
-      expect(sim.world.has(e, Position), 'aboard').toBe(false);
-      expect(sim.world.get(e, Rider).leaving).toEqual({ to: null });
+    let detached = false;
+    let moored = false;
+    const refused: string[] = [];
+    let crew: readonly Entity[] = [];
+    for (let tick = 0; tick < RAID_BUDGET_TICKS && !(detached && moored); tick++) {
+      sim.step();
+      for (const e of sim.events.current()) {
+        if (e.kind === 'vehicleDocked' && e.player !== STORY_PLAYER) moored = true;
+        if (e.kind === 'riderRefused') refused.push(JSON.stringify(e));
+      }
+      if (!detached && sim.missionStatus()[wave.detachMission]?.done === true) {
+        detached = true;
+        crew = crewOf(sim, wave.crewId);
+      }
+      // A moored ship keeps a scripted crew aboard until its line orders them off.
+      if (moored && !detached) {
+        for (const e of crewOf(sim, wave.crewId)) expect(sim.world.has(e, Position), 'aboard').toBe(false);
+      }
     }
-    expect(sim.events.current().filter((e) => e.kind === 'riderRefused')).toEqual([]);
-    const moored = runUntil(sim, RAID_BUDGET_TICKS, (events) =>
-      events.some((e) => e.kind === 'vehicleDocked' && e.player !== STORY_PLAYER),
-    );
+    expect(detached, 'the timed detach fires').toBe(true);
     expect(moored, 'the raiding ship docks').toBe(true);
+    expect(refused).toEqual([]);
+    expect(crew.length).toBeGreaterThan(0);
     sim.run(LANDING_TICKS);
     for (const e of crew) {
       expect(sim.world.has(e, Position), 'ashore').toBe(true);

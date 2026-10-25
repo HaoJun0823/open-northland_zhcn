@@ -186,6 +186,24 @@ const GAP_ROW = 20;
 /** An odd node row a fence closes from edge to edge, which a column step north from an even row skips. */
 const FENCE_ROW = 15;
 
+/** A half-cell map's size, and the column whose odd-row node is the shore's first water node. */
+const WATERLINE_NODES = 32;
+const SHORE_COLUMN = 15;
+/** A column step north along the shore: of the two nodes it skips, (15, 21) is water. */
+const SQUEEZE_FROM: HalfCellNode = { hx: SHORE_COLUMN, hy: 22 };
+const SQUEEZE_TO: HalfCellNode = { hx: SHORE_COLUMN, hy: 20 };
+const SQUEEZE_MIDDLE: HalfCellNode = { hx: SHORE_COLUMN - 1, hy: 21 };
+
+/** Grass west of a straight north-south shore: water from column 16 on an even row, 15 on an odd one. */
+function waterlineMap(): TerrainMap {
+  const typeIds = new Array<number>(WATERLINE_NODES * WATERLINE_NODES).fill(GRASS);
+  for (let hy = 0; hy < WATERLINE_NODES; hy++) {
+    const shore = (hy & 1) === 0 ? SHORE_COLUMN + 1 : SHORE_COLUMN;
+    for (let hx = shore; hx < WATERLINE_NODES; hx++) typeIds[hy * WATERLINE_NODES + hx] = WATER;
+  }
+  return { resolution: 'half-cell', width: WATERLINE_NODES, height: WATERLINE_NODES, typeIds };
+}
+
 /** A one-node wall post: the walk cell of a resource footprint. */
 function post(s: Simulation, x: number, y: number): Entity {
   const e = s.world.create();
@@ -674,6 +692,27 @@ describe('moveVehicle', () => {
       expect(anchorOf(s, cart).hy).toBeGreaterThan(FENCE_ROW);
     }
     expect(seen).toEqual([`${cart}:noPath:${P0}`]);
+  });
+
+  it('never squeezes a column step past a post on its one land middle with water on the other', () => {
+    const s = sim(waterlineMap());
+    const cart = commanded(s, HANDCART, SHORE_COLUMN, 26);
+    order(s, cart, SHORE_COLUMN, 4);
+    s.step();
+    const route = s.world.get(cart, VehicleRoute).nodes;
+    const squeezes = route.some(
+      (n, i) => sameNode(n, SQUEEZE_TO) && sameNode(route[i - 1] ?? n, SQUEEZE_FROM),
+    );
+    expect(squeezes).toBe(true);
+    post(s, SQUEEZE_MIDDLE.hx, SQUEEZE_MIDDLE.hy);
+    let last = anchorOf(s, cart);
+    for (let ticks = 0; s.world.has(cart, VehicleDrive); ticks++) {
+      if (ticks > LONG_DRIVE_TICKS) throw new Error('drive never ended');
+      s.step();
+      const here = anchorOf(s, cart);
+      expect(sameNode(last, SQUEEZE_FROM) && sameNode(here, SQUEEZE_TO)).toBe(false);
+      last = here;
+    }
   });
 
   it('parks beside a goal another vehicle reached first instead of giving up', () => {

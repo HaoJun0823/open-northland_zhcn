@@ -37,7 +37,7 @@ import {
   straightenColumnSteps,
 } from '../../nav/pathfinding/index.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
-import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
+import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
 import {
   buildingDoorwayNodes,
@@ -511,22 +511,36 @@ function rerouteAtBlock(
   const aimedNode = terrain.nodeAtClamped(aimed.hx, aimed.hy);
   const goal = freeGoal(world, ctx, terrain, e, aimedNode);
   const ground = vehicleGroundBlocks(world, ctx, terrain, e, type);
-  if (goal === aimedNode && !stepClosed(terrain, ground, from, next)) return 'enter';
+  if (goal === aimedNode && !stepClosed(terrain, ground, vehicleTraversal(type), from, next)) return 'enter';
   return startVehicleDrive(world, ctx, terrain, e, goal) ? 'rerouted' : 'none';
 }
 
 /**
  * Whether `blocks` closes the step from `from` to `next`: its destination, or, on a column step, both
- * nodes of the row it skips (one off the map counts closed). A human's walk is cut when either closes
+ * nodes of the row it skips. A middle is open only where a `traversal` mover may stand on it, `blocks`
+ * leaves it and the ground joins it to both ends, so a column step never squeezes past water, a cliff or
+ * a closed edge (one off the map counts closed). A human's walk is cut when either closes
  * (`landscape/routes.ts`) and its new search takes the column step again while the other stays open; a
  * leg test reads the blocks standing now, so it allows the step past one closed side, or a side closed
  * before the search would refuse it forever.
  */
-function stepClosed(terrain: TerrainGraph, blocks: BlockOverlay, from: NodeId, next: NodeId): boolean {
+function stepClosed(
+  terrain: TerrainGraph,
+  blocks: BlockOverlay,
+  traversal: Traversal,
+  from: NodeId,
+  next: NodeId,
+): boolean {
   if (blocks.has(next)) return true;
   if (!isColumnStep(terrain, from, next)) return false;
   const [west, east] = columnStepMiddles(terrain, from, next);
-  return (west === undefined || blocks.has(west)) && (east === undefined || blocks.has(east));
+  const passable = (middle: NodeId | undefined): boolean =>
+    middle !== undefined &&
+    terrain.traversable(middle, traversal) &&
+    !blocks.has(middle) &&
+    terrain.joined(from, middle) &&
+    terrain.joined(middle, next);
+  return !passable(west) && !passable(east);
 }
 
 /** End `vehicle`'s drive, its route with it. */
@@ -974,7 +988,8 @@ export const vehicleMovementSystem: System = (world, ctx) => {
     }
     const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
     const nextNode = terrain.nodeAtClamped(next.hx, next.hy);
-    const blocked = stepClosed(terrain, vehicleWalkBlocks(world, ctx, terrain, e, type), here, nextNode);
+    const walkBlocks = vehicleWalkBlocks(world, ctx, terrain, e, type);
+    const blocked = stepClosed(terrain, walkBlocks, vehicleTraversal(type), here, nextNode);
     const outcome = blocked
       ? rerouteAtBlock(world, ctx, terrain, e, type, drive.goal, here, nextNode)
       : 'enter';

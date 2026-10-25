@@ -4,18 +4,21 @@ import {
   FarmAnimal,
   HerdMember,
   Livestock,
+  LivestockSweep,
   Owner,
   ownerOf,
   Position,
   WildHabitat,
 } from '../../components/index.js';
+import { eventAt } from '../../core/events.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import { hexDistanceBetween } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
-import type { System } from '../context.js';
+import type { System, SystemContext } from '../context.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { entityNode } from '../spatial/nodes.js';
+import { recountHerdRows } from './herd.js';
 import { claimingScouts } from './scouts.js';
 
 /** How close a scout claims from, in hex map points: the original runs the claim over the centre and the
@@ -35,16 +38,14 @@ export function claimableBy(world: World, animal: Entity, player: number): boole
 }
 
 /**
- * A player's scout claims livestock it passes: every {@link claimableBy} creature within
- * {@link LIVESTOCK_CAPTURE_RANGE} of an owned scout becomes that player's, leaving its wild herd or the
- * enemy farm that held it.
- *
- * Approximation: the original runs the claim on each new map position the scout reaches, this on every
- * tick, so an animal that wanders up to a standing scout is claimed too.
+ * A player's scout claims livestock it passes: each time an owned scout stands on a map point it has not
+ * claimed from, every {@link claimableBy} creature within {@link LIVESTOCK_CAPTURE_RANGE} becomes that
+ * player's, leaving its wild herd or the enemy farm that held it. As in the original, a scout that stands
+ * still claims nothing more, so an animal that wanders up to it stays free and two enemy scouts beside
+ * one animal do not trade it back and forth. A scout seen for the first time claims where it stands.
  *
  * Determinism: scouts claim in ascending id order, so two scouts reaching one animal in the same tick
- * leave the higher-id claim standing, and two enemy scouts in range trade it each tick. No-ops in a
- * mapless sim.
+ * leave the higher-id claim standing. No-ops in a mapless sim.
  */
 export const livestockCaptureSystem: System = (world, ctx) => {
   if (ctx.terrain === undefined) return;
@@ -52,13 +53,14 @@ export const livestockCaptureSystem: System = (world, ctx) => {
   // The candidate store first, so a map with no livestock never syncs the scout index.
   if (world.query(Livestock, Position).next().done === true) return;
   const scouts = claimingScouts(world, ctx.content);
-  if (scouts.length === 0) return;
   // A claim never moves an animal, so the index caught up once holds every node for the whole pass.
-  const herd = herdNodesOf(world, terrain);
+  let herd: HerdNodes | undefined;
   const found: Entity[] = [];
   for (const scout of scouts) {
-    const player = world.get(scout, Owner).player;
     const at = entityNode(world, terrain, scout);
+    if (!steppedOnto(world, scout, at)) continue;
+    herd ??= herdNodesOf(world, terrain);
+    const player = world.get(scout, Owner).player;
     const x = terrain.xOf(at);
     const y = terrain.yOf(at);
     found.length = 0;
@@ -71,26 +73,41 @@ export const livestockCaptureSystem: System = (world, ctx) => {
         for (const animal of animals) if (claimableBy(world, animal, player)) found.push(animal);
       }
     }
-    claimInQueryOrder(world, found, player);
+    claimInQueryOrder(world, ctx, found, scout, player);
   }
 };
+
+/** Records `at` as the point `scout` claims from, returning whether it differs from the last one. */
+function steppedOnto(world: World, scout: Entity, at: NodeId): boolean {
+  const swept = world.tryGet(scout, LivestockSweep);
+  if (swept === undefined) world.add(scout, LivestockSweep, { node: at });
+  else if (swept.node !== at) world.mut(scout, LivestockSweep).node = at;
+  else return false;
+  return true;
+}
 
 /** The half-cell columns a hex distance of {@link LIVESTOCK_CAPTURE_RANGE} can span on either side; the
  *  exact distance test filters the box. */
 const CAPTURE_COLUMN_REACH = 2 * LIVESTOCK_CAPTURE_RANGE + 1;
 
 /** Claims `found` in the livestock store's query order, the order its stamps land in the Owner store. */
-function claimInQueryOrder(world: World, found: readonly Entity[], player: number): void {
+function claimInQueryOrder(
+  world: World,
+  ctx: SystemContext,
+  found: readonly Entity[],
+  scout: Entity,
+  player: number,
+): void {
   if (found.length === 0) return;
   const only = found[0];
   if (found.length === 1 && only !== undefined) {
-    claim(world, only, player);
+    claim(world, ctx, only, scout, player);
     return;
   }
   const pending = new Set(found);
   for (const animal of world.query(Livestock, Position)) {
     if (!pending.has(animal)) continue;
-    claim(world, animal, player);
+    claim(world, ctx, animal, scout, player);
     if (pending.size === 1) return;
     pending.delete(animal);
   }
@@ -186,17 +203,31 @@ function verifyHerdNodes(world: World): string[] {
   return wrong === 0 ? [] : [`livestockHerdNodes: ${wrong} animals disagree with their stores`];
 }
 
-/** Stamp the claim and cut whatever held the animal before it: a wild herd, or an enemy farm mid-summon. */
-function claim(world: World, animal: Entity, player: number): void {
+/** Stamp the claim and cut whatever held the animal before it: a wild herd, or an enemy farm mid-summon.
+ *  Taking an owned animal is reported as a theft. */
+function claim(world: World, ctx: SystemContext, animal: Entity, scout: Entity, player: number): void {
+  const victim = ownerOf(world, animal);
+  if (victim !== undefined) {
+    const p = world.get(animal, Position);
+    ctx.events.emit({
+      kind: 'livestockStolen',
+      animal,
+      victim,
+      thief: scout,
+      thiefPlayer: player,
+      at: eventAt(p.x, p.y),
+    });
+  }
   world.add(animal, Owner, { player });
   // Its wild herd re-leads itself on the herding drive's next pass.
   world.remove(animal, HerdMember);
   world.remove(animal, WildHabitat);
   if (world.has(animal, FarmAnimal)) {
     // A steal off an enemy farm abandons its herd and any walk to that farm's door with it.
-    const summoned = world.get(animal, FarmAnimal).summoner !== null;
+    const { farm, summoner } = world.get(animal, FarmAnimal);
     world.remove(animal, FarmAnimal);
-    if (summoned) clearNavState(world, animal);
+    if (summoner !== null) clearNavState(world, animal);
+    recountHerdRows(world, ctx, farm);
   }
   if (world.has(animal, DraughtAnimal)) {
     // A steal mid-walk abandons the cart's recruitment and the walk to its door with it.

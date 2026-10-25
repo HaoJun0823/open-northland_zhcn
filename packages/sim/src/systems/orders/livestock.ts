@@ -1,6 +1,7 @@
 import {
   ClaimAnimalOrder,
   CurrentAtomic,
+  LivestockSweep,
   Owner,
   PathRequest,
   PlayerOrder,
@@ -108,9 +109,11 @@ export const claimAnimalOrderSystem: System = (world, ctx) => {
     if (!arrived && ctx.tick < order.retargetAt) continue;
     const goal = animalGoal(world, ctx, terrain, order.animal);
     if (arrived) {
-      // Standing in claim reach of the animal's node, the capture pass has had its go: nothing nearer to walk.
+      // Standing in claim reach of the animal's node: nothing nearer to walk. The animal may have come into
+      // reach after the scout's last step, so the capture pass claims from where it stands this tick.
       if (nodeHexDistance(terrain, entityNode(world, terrain, e), goal) <= LIVESTOCK_CAPTURE_RANGE) {
         world.remove(e, ClaimAnimalOrder);
+        world.remove(e, LivestockSweep);
         continue;
       }
     } else if (nodeHexDistance(terrain, goal, order.goal) <= LIVESTOCK_CAPTURE_RANGE) {

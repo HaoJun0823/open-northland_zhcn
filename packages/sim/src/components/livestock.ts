@@ -41,3 +41,10 @@ export const ClaimAnimalOrder = defineComponent<{
   /** The first tick the walk may be re-aimed at a moved animal. */
   retargetAt: number;
 }>('ClaimAnimalOrder', 'settlers');
+
+/**
+ * The map point a scout last claimed livestock from: the capture pass claims again only once the scout
+ * stands on another one, as the original claims on each new position a scout reaches. Persisted so a
+ * restored run claims on the same steps as an uninterrupted one.
+ */
+export const LivestockSweep = defineComponent<{ node: NodeId }>('LivestockSweep', 'settlers');

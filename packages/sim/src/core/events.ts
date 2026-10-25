@@ -140,6 +140,18 @@ export type SimEvent =
       readonly entity: Entity;
     }
   | {
+      /**
+       * An enemy scout claimed an animal `victim` owned. Emitted before the AI systems run in the same
+       * tick, so they read it off this tick's buffer; a wild claim emits nothing.
+       */
+      readonly kind: 'livestockStolen';
+      readonly animal: Entity;
+      readonly victim: number;
+      readonly thief: Entity;
+      readonly thiefPlayer: number;
+      readonly at: HalfCellNode;
+    }
+  | {
       /** A barracks or school course granted this settler a new job or production qualification. */
       readonly kind: 'settlerTrained';
       readonly entity: Entity;

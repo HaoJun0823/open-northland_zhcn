@@ -64,6 +64,21 @@ describe('claimAnimal - a scout sent after an animal follows it until it is clai
     expect(sim.world.has(scout, ClaimAnimalOrder)).toBe(false);
   });
 
+  it('claims an animal that came into reach of the scout after its last step', () => {
+    const sim = livestockSim();
+    const scout = scoutAt(sim, 10, 10, P0);
+    const cow = cowAt(sim, 30, 30);
+    sim.enqueue(playerCommand(P0, { kind: 'claimAnimal', entity: scout, animal: cow }));
+    sim.step();
+    // The scout stands where its last step left it, and the cow walks up beside it.
+    clearNavState(sim.world, scout);
+    const at = nodeOfPosition(sim.world.get(scout, Position).x, sim.world.get(scout, Position).y);
+    relocate(sim, cow, at.hx + 1, at.hy);
+    sim.step();
+    expect(sim.world.tryGet(cow, Owner)?.player).toBe(P0);
+    expect(sim.world.has(scout, ClaimAnimalOrder)).toBe(false);
+  });
+
   it('re-aims an arrival short of a moved animal before the player-order pass would retire the walk', () => {
     const sim = livestockSim();
     const scout = scoutAt(sim, 10, 10, P0);

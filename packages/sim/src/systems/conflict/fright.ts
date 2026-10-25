@@ -18,7 +18,7 @@ import { herdLeaderOf } from '../movement/herd-leader.js';
 import { herdRoster } from '../movement/herd-roster.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { settlerMovementNode, settlerTraversal } from '../movement/traversal.js';
-import { fleeDestination } from './flee.js';
+import { fleeCandidates, fleeDestination } from './flee.js';
 
 // An animal's flight from a blow. Original behavior: a struck herd leader that does not turn on its attacker
 // runs once, at run speed, to the point farthest from the attacker within 20 map points, and its followers
@@ -34,7 +34,7 @@ export const FLIGHT_REACH_NODES = 20;
  * Run every {@link Frightened} animal. A leader aims its one flight on its first tick, and calms once it has
  * arrived, its route was refused, or no point gains it distance. A follower walks to its leader's
  * destination and calms with its leader. A fleeing leader's followers take fright from the next tick,
- * however far they stand.
+ * however far they stand. A scattering animal aims a point of its own, so stock standing together fans out.
  */
 export const animalFrightSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
@@ -73,8 +73,14 @@ export const animalFrightSystem: System = (world, ctx) => {
       terrain.traversable(cell, traversal) &&
       !overlay.has(cell) &&
       (bank < 0 || terrain.componentOf(cell) === bank);
-    const dest = fleeDestination(terrain, overlay, here, [f.from], FLIGHT_REACH_NODES, routeEnd, traversal);
-    if (dest === here) {
+    const dest =
+      f.scatter === true
+        ? scatterPoint(
+            fleeCandidates(terrain, overlay, here, [f.from], FLIGHT_REACH_NODES, routeEnd, traversal),
+            e,
+          )
+        : fleeDestination(terrain, overlay, here, [f.from], FLIGHT_REACH_NODES, routeEnd, traversal);
+    if (dest === undefined || dest === here) {
       calm(world, e); // boxed in: no walkable point gains distance from the attacker
       continue;
     }
@@ -85,6 +91,16 @@ export const animalFrightSystem: System = (world, ctx) => {
   }
   if (fleeing.length > 0) alarmFollowers(world, fleeing);
 };
+
+/** How many of the best flight points a scattering animal picks among, by its id, so a herd standing
+ *  together fans out instead of running one way. Our addition, tuned by eye. */
+const SCATTER_FAN = 3;
+
+/** A scattering animal's flight point: one of the {@link SCATTER_FAN} best `candidates`, by `e`'s id. */
+function scatterPoint(candidates: readonly NodeId[], e: Entity): NodeId | undefined {
+  if (candidates.length === 0) return undefined;
+  return candidates[e % Math.min(SCATTER_FAN, candidates.length)];
+}
 
 /** Original behavior: a wild leader's flight goal becomes its stay point and work center, so its herd
  *  settles where it fled. */

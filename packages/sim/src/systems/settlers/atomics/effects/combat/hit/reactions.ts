@@ -229,6 +229,7 @@ function answerBlow(world: World, ctx: SystemContext, attacker: Entity, e: Entit
     // A fresh blow re-aims the flight: it may come from the other side.
     fright.from = threat;
     fright.dest = null;
+    fright.scatter = undefined;
   }
 }
 

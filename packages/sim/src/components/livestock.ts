@@ -48,3 +48,10 @@ export const ClaimAnimalOrder = defineComponent<{
  * restored run claims on the same steps as an uninterrupted one.
  */
 export const LivestockSweep = defineComponent<{ node: NodeId }>('LivestockSweep', 'settlers');
+
+/**
+ * An owned animal that scattered from an enemy scout, and the tick from which it may scatter again, so a
+ * scout walking beside the herd does not set it running every step. Left in place once the tick passes;
+ * the next scatter overwrites it.
+ */
+export const Scattered = defineComponent<{ until: number }>('Scattered', 'economy');

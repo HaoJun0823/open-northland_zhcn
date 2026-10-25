@@ -120,14 +120,7 @@ export function startBlowRun(world: World, ctx: SystemContext, terrain: TerrainG
   return true;
 }
 
-/** The cell a fleeing unit should run to: the cell `step` nodes away, of the eight compass directions, that is
- *  farthest from the nearest threat in `threatCells`, so a runner does not head from one threat at another,
- *  then farthest from them all together, which picks the gap in a ring of threats, tie-broken by min cell
- *  id. Distances are map points. Where `admits` refuses that cell, the direction's nearer cells stand in
- *  for it, the farthest admitted first. A candidate must be one a route can reach: walkable, outside the
- *  `blocked` walk-block, and in the runner's static walk component (a runner on an unwalkable node is
- *  unlabelled and admits every component). It must also strictly beat staying put, so a boxed-in unit
- *  returns `here` rather than running toward a threat. */
+/** The cell a fleeing unit should run to: the best of {@link fleeCandidates}, or `here` when boxed in. */
 export function fleeDestination(
   terrain: TerrainGraph,
   blocked: BlockOverlay,
@@ -137,13 +130,32 @@ export function fleeDestination(
   admits: (cell: NodeId) => boolean = () => true,
   traversal: Traversal = 'land',
 ): NodeId {
+  return fleeCandidates(terrain, blocked, here, threatCells, step, admits, traversal)[0] ?? here;
+}
+
+/** The cells a fleeing unit may run to, best first: per each of the eight compass directions, the cell `step`
+ *  nodes away, ranked farthest from the nearest threat in `threatCells`, so a runner does not head from one
+ *  threat at another, then farthest from them all together, which picks the gap in a ring of threats, then
+ *  by min cell id. Distances are map points. Where `admits` refuses that cell, the direction's nearer cells
+ *  stand in for it, the farthest admitted first. A candidate must be one a route can reach: walkable, outside
+ *  the `blocked` walk-block, and in the runner's static walk component (a runner on an unwalkable node is
+ *  unlabelled and admits every component). It must also strictly beat staying put, so a boxed-in unit gets
+ *  none rather than running toward a threat. */
+export function fleeCandidates(
+  terrain: TerrainGraph,
+  blocked: BlockOverlay,
+  here: NodeId,
+  threatCells: readonly NodeId[],
+  step: number,
+  admits: (cell: NodeId) => boolean,
+  traversal: Traversal,
+): NodeId[] {
   const h = terrain.coordsOf(here);
   const threats = threatCells.map((t) => terrain.coordsOf(t));
   const bank = terrain.componentOf(here);
-  let best: NodeId = here;
-  // A candidate must beat staying put.
-  let bestClearance = nearestThreat(threats, h.x, h.y);
-  let bestTotal = allThreats(threats, h.x, h.y);
+  const stayClearance = nearestThreat(threats, h.x, h.y);
+  const stayTotal = allThreats(threats, h.x, h.y);
+  const found: { cell: NodeId; clearance: number; total: number }[] = [];
   for (const [dx, dy] of COMPASS_DIRECTIONS) {
     if (!terrain.inBounds(h.x + dx * step, h.y + dy * step)) continue;
     let reach = step;
@@ -156,19 +168,11 @@ export function fleeDestination(
     if (bank >= 0 && terrain.componentOf(cell) !== bank) continue;
     const clearance = nearestThreat(threats, x, y);
     const total = allThreats(threats, x, y);
-    const better =
-      clearance !== bestClearance
-        ? clearance > bestClearance
-        : total !== bestTotal
-          ? total > bestTotal
-          : best !== here && cell < best;
-    if (better) {
-      best = cell;
-      bestClearance = clearance;
-      bestTotal = total;
-    }
+    if (clearance < stayClearance || (clearance === stayClearance && total <= stayTotal)) continue;
+    found.push({ cell, clearance, total });
   }
-  return best;
+  found.sort((a, b) => b.clearance - a.clearance || b.total - a.total || a.cell - b.cell);
+  return found.map((c) => c.cell);
 }
 
 type NodeCoords = { readonly x: number; readonly y: number };

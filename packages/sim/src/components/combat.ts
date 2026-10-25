@@ -35,7 +35,13 @@ export const Anger = defineComponent<{ until: number }>('Anger', 'combat');
  * destination it last aimed at. Separate from {@link Fleeing}, which the stance ladder owns - an unowned
  * animal carries no stance.
  */
-export const Frightened = defineComponent<{ from: NodeId; dest: NodeId | null }>('Frightened', 'combat');
+export const Frightened = defineComponent<{
+  from: NodeId;
+  dest: NodeId | null;
+  /** A scatter from an enemy scout: the animal picks among the best flight points by its id, so animals
+   *  standing together run different ways. Absent for a flight from a blow. */
+  scatter?: true | undefined;
+}>('Frightened', 'combat');
 
 /**
  * A hunter's empty-search breather: skip prey acquisition until the `until` tick. A cost throttle only -

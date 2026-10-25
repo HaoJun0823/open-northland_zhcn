@@ -270,6 +270,7 @@ describe('a relayed session under faults', () => {
     const { stage, ania, bartek, links } = await twoClients(23);
     await runUntil(stage, [ania, bartek], 40, { onTick: orderAt });
     ania.say('gotowi?');
+    await runFor(stage, [ania, bartek], SETTLE_MS);
     bartek.say('tak');
     await runFor(stage, [ania, bartek], SETTLE_MS);
     links[1].close();

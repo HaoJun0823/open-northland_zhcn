@@ -700,7 +700,7 @@ describe('leaving', () => {
         expect(s.world.has(selected, Rider)).toBe(false);
         expect(s.world.get(ship, Vehicle).moored).toBe(true);
         let ticks = 0;
-        while (nodeOf(s, selected).hx !== goal.hx || nodeOf(s, selected).hy !== goal.hy) {
+        while (nodeOf(s, selected)?.hx !== goal.hx || nodeOf(s, selected)?.hy !== goal.hy) {
           s.step();
           if (++ticks > SAIL_TICKS) throw new Error('the passenger did not reach the click');
         }
@@ -858,7 +858,7 @@ describe('carried vehicles', () => {
     expect(s.world.get(ship, Vehicle).vehicles).toEqual([null]);
     expect(seatOf(s, cart, scout)?.inside).toBe(true);
     let ticks = 0;
-    while (nodeOf(s, cart).hx !== 6 || nodeOf(s, cart).hy !== 10) {
+    while (nodeOf(s, cart)?.hx !== 6 || nodeOf(s, cart)?.hy !== 10) {
       s.step();
       if (++ticks > SAIL_TICKS) throw new Error('the cart did not reach the click');
     }

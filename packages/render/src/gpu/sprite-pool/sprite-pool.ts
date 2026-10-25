@@ -978,14 +978,17 @@ export class SpritePool {
   private placePaletted(camera: Camera, resWidth: number, resHeight: number): void {
     const camScale = camera.scale ?? 1;
     const snap = this.snapResolution;
+    // Without a device grid a quad stands at its offset under every camera: only a vehicle's
+    // self-placing meshes need placing then.
+    const quadsHold = snap === undefined;
     for (const pe of this.attached) {
-      if (!pe.paletted) continue;
+      if (!pe.paletted || (quadsHold && pe.kind !== 'vehicle')) continue;
       const originX = snapToDevicePixels(cameraScreenX(camera, pe.motion.drawX), snap);
       const originY = snapToDevicePixels(cameraScreenY(camera, pe.motion.drawY), snap);
       for (const spr of pe.sprites) {
         if (!spr.visible) continue;
         if (spr instanceof PalettedQuad) {
-          spr.placeFor(camera, pe.motion.drawX, pe.motion.drawY, snap);
+          if (!quadsHold) spr.placeFor(camera, pe.motion.drawX, pe.motion.drawY, snap);
           continue;
         }
         spr.place(

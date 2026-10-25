@@ -63,7 +63,7 @@ function nodeOf(sim: Simulation, e: Entity) {
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('missing pond');
   // A diagonal shoreline leg may interpolate between a wet and a dry bracket node.
-  // Its truncated node is not its navigation node; use the same wet bracket as replanning.
+  // The node its position reads is not its navigation node; use the same wet bracket as replanning.
   return routeStartCell(terrain, p.x, p.y, 'water');
 }
 
@@ -147,7 +147,7 @@ describe('water wildlife', () => {
     const duck = [...sim.world.query(Settler)][0];
     const terrain = sim.terrain;
     if (duck === undefined || terrain === undefined) throw new Error('missing duck');
-    // Midpoint of a legal diagonal beside the island: truncation alone selects dry node (17, 8).
+    // Midpoint of a legal diagonal beside the island: the position alone reads dry node (17, 8).
     const p = sim.world.mut(duck, Position);
     p.x = fx.fromInt(8.75);
     p.y = fx.fromInt(4);

@@ -30,17 +30,19 @@ export interface NodeArea {
  * plus row scaled by {@link ROW_STEP}) among the nearest node of each row bracketing it, one row when it
  * lies on a row. Along every lattice edge that reads the edge's start until half progress and its end
  * after. A column step (`pathfinding/straight-steps.ts`) passes the skipped row between two of its nodes,
- * which lie nearer there than the step's own ends, so inside a strip of {@link COLUMN_LINE_TOLERANCE}
- * around a node's column line, between its row and the row it skips, the position reads the bracketing
- * row's node on that line. The strip narrows to nothing at the skipped row: a position nearer that row
- * than the line is taken as an E/W walker off its row, which keeps a body pushed sideways off a node
- * reading it. Original behavior: a mover's node switches from start to destination at half progress and
- * is never another node.
+ * which lie nearer there than the step's own ends. Between a node's row and the row its column step skips,
+ * a position reads that node while its sideways offset from the node's column line is under both
+ * {@link COLUMN_LINE_TOLERANCE} and its screen distance from the skipped row; otherwise it reads the
+ * nearest node, which keeps a body pushed sideways off a node reading it. So a position on the line reads
+ * the step's start or end everywhere but exactly on the skipped row, while one held off the line reads a
+ * skipped node in a band around that row as wide as its offset. A mover on a live column step therefore
+ * reads its node through `moverNode` (`systems/spatial/mover-node.ts`), which takes the step's own ends
+ * whatever its offset. Original behavior: a mover's node switches from start to destination at half
+ * progress and is never another node.
  *
  * Ties: on a row the west node wins, between rows the north one. So an E/W edge's midpoint reads its west
- * node, and a column step exactly on its skipped row reads that row's west node beside it; a timed walk's
- * per-tick shares truncate, so it does not normally land on that instant. The result is unclamped, and
- * callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
+ * node, and a position exactly on a column step's skipped row reads that row's west node beside it. The
+ * result is unclamped, and callers clamp into the grid through `TerrainGraph.nodeAtClamped`.
  */
 export function nodeOfPosition(x: Fixed, y: Fixed): HalfCellNode {
   locateNode(x, y);
@@ -60,9 +62,10 @@ export function nodeHyOfPosition(x: Fixed, y: Fixed): number {
   return located.hy;
 }
 
-/** Half the width of the strip around a column step's line inside which the step reads its own ends, in
- *  column units: 1/16 column, 4.25 px. Wide enough for a push or the helm holding a walker off the line,
- *  narrow enough that a slant edge leaves its start's strip well before half progress. */
+/** Half the width of the strip around a column step's line inside which a position reads the step's own
+ *  ends away from the skipped row, in column units: 1/16 column, 4.25 px. Wide enough for a push or the
+ *  helm holding a body off the line, narrow enough that a slant edge leaves its start's strip well before
+ *  half progress. */
 const COLUMN_LINE_TOLERANCE: Fixed = fx.div(ONE, fx.fromInt(16));
 
 /** The nodes a position stands between, as {@link nodesBesidePosition} writes them. */

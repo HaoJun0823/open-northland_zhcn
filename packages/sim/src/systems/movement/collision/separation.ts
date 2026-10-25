@@ -4,7 +4,7 @@ import type { Entity, World } from '../../../ecs/world.js';
 import { positionXOfWorld } from '../../../nav/halfcell.js';
 import { ROW_STEP, worldDistance, worldX } from '../../../nav/world-metric.js';
 import type { System } from '../../context.js';
-import { liveColumnStep } from '../nav-state.js';
+import { liveColumnStep } from '../../spatial/mover-node.js';
 import { REFERENCE_PACE_PER_TICK, walkPacePerTick } from '../system.js';
 import { collectColliders, moverGoal, moverHeading } from './separation/colliders.js';
 import { SeparationGates } from './separation/gates.js';
@@ -138,14 +138,14 @@ export const separationSystem: System = (world, ctx) => {
     // Drop the offending axis, then the whole displacement: the walker's own path point always stands.
     // Mut only on a landed displacement, so a crowd standing in equilibrium does not churn the touched log.
     if (candidate.x !== px || candidate.y !== py) {
-      const onColumnStep = liveColumnStep(world, terrain, e) !== undefined;
-      if (gates.allowsLanding(candidate.x, candidate.y, onColumnStep)) {
+      const step = liveColumnStep(world, e);
+      if (gates.allowsLanding(candidate.x, candidate.y, step)) {
         const moved = world.mut(e, Position);
         moved.x = candidate.x;
         moved.y = candidate.y;
-      } else if (gates.allowsLanding(candidate.x, py, onColumnStep)) {
+      } else if (gates.allowsLanding(candidate.x, py, step)) {
         world.mut(e, Position).x = candidate.x;
-      } else if (gates.allowsLanding(px, candidate.y, onColumnStep)) {
+      } else if (gates.allowsLanding(px, candidate.y, step)) {
         world.mut(e, Position).y = candidate.y;
       }
     }

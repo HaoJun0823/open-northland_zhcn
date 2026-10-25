@@ -1,9 +1,9 @@
 import { Position } from '../../components/index.js';
 import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { ringOffsetCount, ringOffsetDx, ringOffsetDy } from './metric.js';
+import { moverNode } from './mover-node.js';
 
 /**
  * Ascending entity-id order: the same canonical order `World.canonicalEntities` uses, so a distance or
@@ -57,9 +57,10 @@ interface NodeBucket {
 }
 
 /**
- * Entities grouped by their {@link Position}'s half-cell node, each bucket preserving input order. Feed the
- * constructor or {@link NodeBuckets.refill} an ascending-id list: {@link NodeBuckets.nearest} is only
- * canonical because buckets hold ascending ids, and a fill appends rather than sorts.
+ * Entities grouped by their half-cell node, a mover's by {@link moverNode}, each bucket preserving input
+ * order. Feed the constructor or {@link NodeBuckets.refill} an ascending-id list:
+ * {@link NodeBuckets.nearest} is only canonical because buckets hold ascending ids, and a fill appends
+ * rather than sorts.
  * {@link NodeBuckets.insert} is the seam for a caller placing an entity at a node of its own - a
  * building's wall cells, or a bucket filled out of order. An entity without a Position is dropped.
  * Derived state, never hashed.
@@ -98,7 +99,8 @@ export class NodeBuckets {
       if (e === undefined) continue;
       const p = world.tryGet(e, Position);
       if (p === undefined) continue;
-      const bucket = this.filledBucket(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+      const node = moverNode(world, e, p);
+      const bucket = this.filledBucket(node.hx, node.hy);
       if (bucket.count < bucket.entities.length) bucket.entities[bucket.count] = e;
       else bucket.entities.push(e);
       bucket.count++;
@@ -287,13 +289,13 @@ export function isValidNodeId(terrain: TerrainGraph, node: number): node is Node
 }
 
 /**
- * The half-cell node an entity occupies: its {@link Position} snapped to the navigation lattice. A building
- * a settler must reach through a door needs the AI planner's interaction-aware resolver instead, because
- * walls are walk-blocked.
+ * The half-cell node an entity occupies, clamped into the grid: its {@link Position}'s node, the
+ * {@link moverNode} rule for a mover. A building a settler must reach through a door needs the AI
+ * planner's interaction-aware resolver instead, because walls are walk-blocked.
  */
 export function entityNode(world: World, terrain: TerrainGraph, e: Entity): NodeId {
-  const p = world.get(e, Position);
-  return terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+  const node = moverNode(world, e, world.get(e, Position));
+  return terrain.nodeAtClamped(node.hx, node.hy);
 }
 
 /**

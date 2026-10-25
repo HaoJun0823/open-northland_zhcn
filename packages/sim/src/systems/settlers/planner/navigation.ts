@@ -105,8 +105,9 @@ export function navigationPlanner(world: World, terrain: TerrainGraph): void {
       }
     }
 
-    // Routing from the nearest walkable bracket cell rather than the truncated one keeps a spliced
-    // first leg short and forward, since truncation binds a walker to the centre behind it.
+    // Routing from the nearest walkable bracket cell rather than the node the position reads keeps the
+    // start walkable beside a slanted leg, which passes nodes it never steps on, and the spliced first
+    // leg short.
     world.add(e, PathRequest, {
       start: routeStartCell(terrain, p.x, p.y, settlerTraversal(world, e)),
       goal: goalNode,

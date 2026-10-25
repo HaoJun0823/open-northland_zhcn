@@ -48,7 +48,7 @@ export function followerAt(
   return e;
 }
 
-/** A stop at fractional tile coordinates whose node is the lattice node its position truncates to. */
+/** A stop at fractional tile coordinates whose node is the lattice node its position reads. */
 export function waypointAt(sim: Simulation, x: number, y: number): Waypoint {
   const fxX = fx.fromFloat(x);
   const fxY = fx.fromFloat(y);

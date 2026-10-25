@@ -1,4 +1,4 @@
-import { hostileMaskOf, hostilePlayerMasks } from '../../../../components/index.js';
+import { hostileMaskOf, hostilePlayerMasks, type Waypoint } from '../../../../components/index.js';
 import type { Fixed } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { BlockOverlay } from '../../../../nav/block-overlay.js';
@@ -8,9 +8,11 @@ import {
   nodeHyOfPosition,
   nodesBesidePosition,
 } from '../../../../nav/halfcell.js';
+import { columnStepMiddles } from '../../../../nav/pathfinding/straight-steps.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { dynamicBlockOverlay } from '../../../footprint/index.js';
+import { columnStepStopAt } from '../../../spatial/mover-node.js';
 import { type CalmZones, calmZonesByPlayer } from '../bodies.js';
 import { playerSlotBit } from '../standing-posts.js';
 
@@ -79,11 +81,21 @@ export class SeparationGates {
     return this.terrain.inBounds(hx, hy) ? this.terrain.nodeAt(hx, hy) : undefined;
   }
 
-  /** Whether a push may land a body at `(x, y)`: the node it reads there is walkable and unblocked, and so,
-   *  off a column step, are the nodes it stands between, since walking on it reads either. A column step
-   *  never reads the nodes of the row it skips, so they do not hold it. */
-  allowsLanding(x: Fixed, y: Fixed, onColumnStep: boolean): boolean {
-    if (onColumnStep) return this.openNode(nodeHxOfPosition(x, y), nodeHyOfPosition(x, y));
+  /** Whether a push may land a body at `(x, y)`: off a column step, the nodes it stands between are
+   *  walkable and unblocked, since walking on it reads either. On column step `step` the stop it reads
+   *  there is, and so is the node under it unless that is one the step passes between: the step reads only
+   *  its own stops, so a closed middle does not hold it. */
+  allowsLanding(x: Fixed, y: Fixed, step: readonly [Waypoint, Waypoint] | undefined): boolean {
+    if (step !== undefined) {
+      const stop = columnStepStopAt(step[0], step[1], y);
+      if (!this.openNode(nodeHxOfPosition(stop.x, stop.y), nodeHyOfPosition(stop.x, stop.y))) return false;
+      const hx = nodeHxOfPosition(x, y);
+      const hy = nodeHyOfPosition(x, y);
+      if (this.openNode(hx, hy)) return true;
+      if (!this.terrain.inBounds(hx, hy)) return false;
+      const under = this.terrain.nodeAt(hx, hy);
+      return columnStepMiddles(this.terrain, step[0].node, step[1].node).includes(under);
+    }
     nodesBesidePosition(x, y, beside);
     return this.openNode(beside.northHx, beside.northHy) && this.openNode(beside.southHx, beside.southHy);
   }

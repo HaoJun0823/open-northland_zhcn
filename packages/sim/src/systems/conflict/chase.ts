@@ -23,7 +23,8 @@ import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/h
 import { nearestUnblockedNode } from '../../nav/nearest.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { dynamicBlockOverlay, routeRegions } from '../footprint/index.js';
+import { routeRegions } from '../footprint/index.js';
+import { walkBlockMask } from '../footprint/walk-block-mask.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { structureRouteSealed } from '../movement/structure-route.js';
@@ -94,10 +95,26 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
   if (here !== post) world.add(e, MoveGoal, { cell: post });
 }
 
+/** The posts {@link guardPost} found beside covered anchors, by anchor and guard node, valid while the
+ *  walk-block mask holds `version`: the route regions the reach test reads derive from that mask alone.
+ *  Derived state, never hashed. */
+interface GuardPosts {
+  readonly terrain: TerrainGraph;
+  version: number;
+  readonly posts: Map<number, NodeId>;
+}
+
+const guardPostsByWorld = new WeakMap<World, GuardPosts>();
+
+/** Held posts past which the cache starts over, so guards standing at many nodes under one mask version
+ *  keep it bounded. */
+const GUARD_POST_CACHE_CAP = 4096;
+
 /** The node a guard on `here` holds for `anchorCell`: the anchor, or, when a building or resource stands
  *  on it, as on a unit a map places on a mine deposit, the nearest open node beside it the guard can reach
  *  (same land, not proven walled off). No route ends on a blocked node, so walking at the anchor itself
- *  would fail on every break-off. The anchor itself when no such node is near. */
+ *  would fail on every break-off. The anchor itself when no such node is near. A guard settled beside a
+ *  covered anchor asks every combat pass, so the search is held until a walk block changes. */
 export function guardPost(
   world: World,
   ctx: SystemContext,
@@ -105,12 +122,26 @@ export function guardPost(
   anchorCell: NodeId,
   here: NodeId,
 ): NodeId {
-  const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  const blocked = walkBlockMask(world, ctx, terrain);
   if (!blocked.has(anchorCell)) return anchorCell;
+  const version = blocked.version;
+  let held = guardPostsByWorld.get(world);
+  if (held === undefined || held.terrain !== terrain) {
+    held = { terrain, version, posts: new Map() };
+    guardPostsByWorld.set(world, held);
+  } else if (held.version !== version || held.posts.size >= GUARD_POST_CACHE_CAP) {
+    held.version = version;
+    held.posts.clear();
+  }
+  const key = anchorCell * terrain.nodeCount + here;
+  const known = held.posts.get(key);
+  if (known !== undefined) return known;
   const land = terrain.componentOf(here);
   const regions = routeRegions(world, ctx, terrain);
   const reachable = (n: NodeId): boolean => terrain.componentOf(n) === land && !regions.unroutable(here, n);
-  return nearestUnblockedNode(terrain, anchorCell, blocked, { reachable }) ?? anchorCell;
+  const post = nearestUnblockedNode(terrain, anchorCell, blocked, { reachable }) ?? anchorCell;
+  held.posts.set(key, post);
+  return post;
 }
 
 /** Whether `e` stands on the stand-in routing gave it beside `anchorCell` while a standing unit still holds

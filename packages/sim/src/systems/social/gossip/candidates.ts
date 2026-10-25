@@ -1,9 +1,10 @@
 import type { ContentSet } from '@open-northland/data';
 import { Age, Person, Position, Settler, settlerTradeLog } from '../../../components/index.js';
+import type { Fixed } from '../../../core/fixed.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import { isFighterJob } from '../../readviews/index.js';
 import { HeldNodes, NO_NODE } from '../../spatial/held-nodes.js';
+import { moverNode } from '../../spatial/mover-node.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../../spatial/node-moves.js';
 
 /** Nodes per side of a candidate block, as a shift: a walker re-files only when it crosses into another
@@ -97,7 +98,7 @@ export class ChatCandidates {
   private refresh(e: Entity): void {
     const p = isCandidate(this.world, this.content, e) ? this.world.tryGet(e, Position) : undefined;
     if (p === undefined) this.release(e);
-    else this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+    else this.holdAt(e, p);
   }
 
   /** Runs after the membership and job changes, so only a held entity can be a candidate. */
@@ -106,7 +107,12 @@ export class ChatCandidates {
     const p = this.world.tryGet(e, Position);
     // A removal after the write, which the membership feed carries.
     if (p === undefined) return;
-    this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+    this.holdAt(e, p);
+  }
+
+  private holdAt(e: Entity, p: { readonly x: Fixed; readonly y: Fixed }): void {
+    const node = moverNode(this.world, e, p);
+    this.hold(e, node.hx, node.hy);
   }
 
   private hold(e: Entity, hx: number, hy: number): void {
@@ -161,7 +167,7 @@ export class ChatCandidates {
     for (const list of this.blocks.values()) list.length = 0;
     for (const e of freshCandidates(this.world, this.content)) {
       const p = this.world.get(e, Position);
-      this.hold(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+      this.holdAt(e, p);
     }
   }
 
@@ -169,9 +175,7 @@ export class ChatCandidates {
     this.catchUp();
     const fresh = freshCandidates(this.world, this.content);
     for (const e of fresh) {
-      const p = this.world.get(e, Position);
-      const hx = nodeHxOfPosition(p.x, p.y);
-      const hy = nodeHyOfPosition(p.x, p.y);
+      const { hx, hy } = moverNode(this.world, e, this.world.get(e, Position));
       const list = this.blocks.get(blockKey(hx, hy));
       if (this.nodes.hx(e) !== hx || this.nodes.hy(e) !== hy || list?.[this.slots[e] as number] !== e) {
         return [`gossipCandidates holds ${e} off its node (${hx}, ${hy})`];

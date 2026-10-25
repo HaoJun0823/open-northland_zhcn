@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   Building,
   CurrentAtomic,
@@ -13,7 +13,8 @@ import {
   seatPassenger,
   Weapon,
 } from '../../../../src/components/index.js';
-import { fx, ONE } from '../../../../src/core/fixed.js';
+import { type Fixed, fx, ONE } from '../../../../src/core/fixed.js';
+import type { Entity } from '../../../../src/ecs/world.js';
 import { hexDistanceBetween, positionOfNode, Simulation } from '../../../../src/index.js';
 import { mayEngage } from '../../../../src/systems/conflict/acting.js';
 import { breakOff, guardPost } from '../../../../src/systems/conflict/chase.js';
@@ -199,6 +200,50 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     }
     expect(walks).toBe(0);
     expect(entityNode(sim.world, terrain, guard)).toBe(goal);
+  });
+
+  it('holds the post beside a covered anchor without searching again until a walk block changes', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 3) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    const [anchorX, row] = [15, 1];
+    const anchor = cell(sim, anchorX, row);
+    const cover = (x: Fixed, y: Fixed): Entity => {
+      const deposit = sim.world.create();
+      sim.world.add(deposit, Position, { x, y });
+      sim.world.add(deposit, Resource, { goodType: WOOD, remaining: 100, harvestAtomic: HARVEST_ATOMIC });
+      stampResourceFootprintData(sim.world, deposit, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+      return deposit;
+    };
+    const anchorDeposit = cover(fx.fromInt(anchorX), fx.fromInt(row));
+    const ctx = ctxOf(sim);
+    const first = guardPost(sim.world, ctx, terrain, anchor, anchor);
+    expect(first).not.toBe(anchor);
+    const guard = combatantAtNode(sim, terrain.xOf(first), terrain.yOf(first), P0, MILITARY_MODE.DEFEND, {
+      jobType: SOLDIER,
+    });
+    sim.world.mut(guard, Stance).anchorCell = anchor;
+    const here = entityNode(sim.world, terrain, guard);
+    expect(guardPost(sim.world, ctx, terrain, anchor, here)).toBe(first);
+
+    const searches = vi.spyOn(terrain, 'componentOf');
+    const index = new CombatIndex(sim.world, ctx, terrain);
+    for (let pass = 0; pass < 10; pass++) {
+      expect(mayEngage(sim.world, ctx, terrain, index, guard, false)).toBe(false);
+    }
+    expect(guardPost(sim.world, ctx, terrain, anchor, here)).toBe(first);
+    expect(searches).not.toHaveBeenCalled();
+
+    // A deposit on the held post moves it; clearing the anchor makes the anchor itself the post again.
+    const at = positionOfNode(terrain.xOf(first), terrain.yOf(first));
+    cover(at.x, at.y);
+    const moved = guardPost(sim.world, ctx, terrain, anchor, here);
+    expect(moved).not.toBe(first);
+    expect(moved).not.toBe(anchor);
+    expect(searches).toHaveBeenCalled();
+    sim.world.destroy(anchorDeposit);
+    expect(guardPost(sim.world, ctx, terrain, anchor, here)).toBe(anchor);
+    searches.mockRestore();
   });
 
   it('never takes a post beside a covered anchor that it cannot reach', () => {

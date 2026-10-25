@@ -1,13 +1,14 @@
 import { Position, Settler } from '../../components/index.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import { HeldNodes, NO_NODE } from '../spatial/held-nodes.js';
+import { moverNode } from '../spatial/mover-node.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 
-/** Shared occupancy for gate retries and evictions. Only changed memberships and node crossings
- * update buckets; fractional steps within the same node leave the index alone. The bucketed nodes are
- * held in typed columns, so catching up on a backlog of moves allocates nothing. */
+/** Shared occupancy for gate retries and evictions, a walker on its {@link moverNode}. Only changed
+ * memberships and node crossings update buckets; fractional steps within the same node leave the index
+ * alone. The bucketed nodes are held in typed columns, so catching up on a backlog of moves allocates
+ * nothing. */
 class SettlerNodes {
   private readonly membership: ChangeFeed;
   private readonly moves: NodeMoveFeed;
@@ -21,8 +22,9 @@ class SettlerNodes {
     let hx = NO_NODE;
     let hy = 0;
     if (p !== undefined) {
-      hx = nodeHxOfPosition(p.x, p.y);
-      hy = nodeHyOfPosition(p.x, p.y);
+      const node = moverNode(world, e, p);
+      hx = node.hx;
+      hy = node.hy;
     }
     const nodes = this.nodes;
     const heldX = nodes.hx(e);
@@ -54,8 +56,8 @@ class SettlerNodes {
     this.buckets.refill(world, entities);
     this.nodes.reset(idLimit);
     for (const e of entities) {
-      const p = world.get(e, Position);
-      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y), idLimit);
+      const node = moverNode(world, e, world.get(e, Position));
+      this.nodes.set(e, node.hx, node.hy, idLimit);
     }
   }
 }

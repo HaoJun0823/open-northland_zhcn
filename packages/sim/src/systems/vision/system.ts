@@ -33,6 +33,7 @@ import {
   isShipVehicle,
   isSiegeVehicle,
 } from '../readviews/index.js';
+import { moverNode } from '../spatial/mover-node.js';
 import { alliedVisionGroups } from './allies.js';
 import { eyeChangesOf } from './eye-changes.js';
 import { cellOfNode } from './gates.js';
@@ -267,8 +268,8 @@ function verifyEyeMemo(world: World, { fog, content }: EyeMemoSubject): string[]
       const radius = visionRadiusOf(world, radii, e);
       if (radius === null) continue;
       eyes.add(e);
-      const p = world.get(e, Position);
-      const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+      const node = moverNode(world, e, world.get(e, Position));
+      const { cx, cy } = cellOfNode(node.hx, node.hy);
       if (!fog.holdsEyeStamp(e, world.get(e, Owner).player, cx, cy, radius)) {
         violations.push(`fog: eye ${e} has no memo for its footprint, a change no feed reported`);
       }
@@ -290,8 +291,8 @@ function isOwnedEyeKind(world: World, e: Entity): boolean {
 
 /** Stamp the sight of eye `e`, owned and positioned, `radius` nodes wide; whether a byte rose. */
 function stampEyeOf(world: World, fog: FogState, e: Entity, radius: number): boolean {
-  const p = world.get(e, Position);
-  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+  const node = moverNode(world, e, world.get(e, Position));
+  const { cx, cy } = cellOfNode(node.hx, node.hy);
   return fog.stampEye(e, world.get(e, Owner).player, cx, cy, radius);
 }
 

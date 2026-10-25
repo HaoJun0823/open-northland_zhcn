@@ -95,12 +95,12 @@ describe('plannerSystem - navigation planner: MoveGoal -> PathRequest', () => {
     expect(sim.world.has(e, PathFollow)).toBe(true);
   });
 
-  it('routes from the NEAREST node centre, not the truncated one, when the walker is mid-leg', () => {
+  it('routes from the NEAREST node centre, not the one behind, when the walker is mid-leg', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
     const e = travellerAt(sim, 0, 0, anchorCell(sim, 0, 0));
     // Past the midpoint between nodes (5,0) and (6,0) - the nearest node is (6,0) AHEAD (cell (3,0)'s
-    // anchor), truncation says (5,0) behind. Routing from behind made a redirected walker visibly
-    // backtrack through that node.
+    // anchor), not (5,0) behind. Routing from behind made a redirected walker visibly backtrack through
+    // that node.
     sim.world.mut(e, Position).x = fx.fromFloat(2.8);
     plannerSystem(sim.world, ctxOf(sim));
     expect(sim.world.get(e, PathRequest).start).toBe(anchorCell(sim, 3, 0));

@@ -203,9 +203,10 @@ export function targetBodyNodes(
  * cell the block overlay covers still admits here, and a candidate the overlay seals off is given up by the
  * chase.
  *
- * A seeker on an unwalkable node (truncated onto it mid-stride) admits everything, as the chase does; the
- * node's own label is not consulted there, since water nodes carry one for the ships. The ring walk is the melee case alone - a candidate inside the seeker's own band answers in O(1), so
- * a garrison, a shelter and every bow seeker skip it.
+ * A seeker reading an unwalkable node (the nearest one mid-stride) admits everything, as the chase does;
+ * the node's own label is not consulted there, since water nodes carry one for the ships. The ring walk is
+ * the melee case alone - a candidate inside the seeker's own band answers in O(1), so a garrison, a
+ * shelter and every bow seeker skip it.
  *
  * Nothing readable records how the original filtered candidates, so refusing one here is an approximation
  * (source basis "Combat chase"), held to the chase's own release rule so the two cannot disagree.

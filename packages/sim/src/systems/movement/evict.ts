@@ -8,7 +8,7 @@ import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js
 import type { SystemContext } from '../context.js';
 import { buildingDoorwayNodes, buildingWalkBodyOf, dynamicBlockOverlay } from '../footprint/index.js';
 import { anyRouteFollowed, invalidateRoutesThrough } from '../landscape/routes.js';
-import { canonicalById, type NodeBuckets } from '../spatial/nodes.js';
+import { canonicalById, entityNode, type NodeBuckets } from '../spatial/nodes.js';
 import { settlersByNode } from './settler-nodes.js';
 
 export { settlersByNode } from './settler-nodes.js';
@@ -72,7 +72,7 @@ export function evictSettlersFromCells(
   // A door and the passage behind it are designated ground rather than a nook, so they are spared here as
   // the blocked set spares them.
   for (const e of nookCandidates) {
-    const at = settlerNode(world, terrain, e);
+    const at = entityNode(world, terrain, e);
     if (blocked.has(at) || doors.has(at)) continue;
     if (!hasOpenSide(terrain, at, blocked, settlerTraversal(world, e))) evicteesUnsorted.push(e);
   }
@@ -86,7 +86,7 @@ export function evictSettlersFromCells(
   for (const e of evictees) {
     const free = nearestFreeCellOutside(
       terrain,
-      settlerNode(world, terrain, e),
+      entityNode(world, terrain, e),
       body,
       blocked,
       doors,
@@ -170,13 +170,6 @@ export function spawnLanding(
     avoid: doorways,
     sealedFallback: true,
   });
-}
-
-/** The half-cell node a settler stands on, clamped into bounds. */
-function settlerNode(world: World, terrain: TerrainGraph, e: Entity): NodeId {
-  const p = world.get(e, Position);
-  const n = nodeOfPosition(p.x, p.y);
-  return terrain.nodeAtClamped(n.hx, n.hy);
 }
 
 /**

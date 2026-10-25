@@ -11,10 +11,10 @@ import {
   Settler,
 } from '../../components/index.js';
 import type { ChangeFeed, Component, Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { MapContext, SystemContext } from '../context.js';
 import { isAggressiveAnimal, isAnimalTribe, isLowPriorityBuildingTarget } from '../readviews/index.js';
+import { moverNode } from '../spatial/mover-node.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { entityNode } from '../spatial/nodes.js';
 import { EpochMarks } from './epoch-marks.js';
@@ -557,9 +557,9 @@ export class CombatGrid {
       if (held !== undefined) this.dropUnit(e, held);
       return;
     }
-    const p = world.get(e, Position);
-    const x = this.terrain.clampX(nodeHxOfPosition(p.x, p.y));
-    const y = this.terrain.clampY(nodeHyOfPosition(p.x, p.y));
+    const node = moverNode(world, e, world.get(e, Position));
+    const x = this.terrain.clampX(node.hx);
+    const y = this.terrain.clampY(node.hy);
     const owner = world.tryGet(e, Owner);
     const bit = owner === undefined ? 0 : playerBit(owner.player);
     const unowned = owner === undefined ? world.get(e, Settler) : undefined;
@@ -582,9 +582,9 @@ export class CombatGrid {
     const held = this.units[e];
     if (held === undefined) return;
     // `entityNode`'s clamped coordinates, read without minting the id and dividing it apart again.
-    const p = world.get(e, Position);
-    const x = this.terrain.clampX(nodeHxOfPosition(p.x, p.y));
-    const y = this.terrain.clampY(nodeHyOfPosition(p.x, p.y));
+    const node = moverNode(world, e, world.get(e, Position));
+    const x = this.terrain.clampX(node.hx);
+    const y = this.terrain.clampY(node.hy);
     const units = held.cell.units;
     if (units.x[held.slot] === x && units.y[held.slot] === y) return;
     const cell = this.cellFor(x, y);

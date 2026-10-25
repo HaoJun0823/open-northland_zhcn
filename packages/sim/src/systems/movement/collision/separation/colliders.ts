@@ -1,10 +1,10 @@
 import { Engagement, Obstructed, PathFollow, PathRoute, Position } from '../../../../components/index.js';
 import { type Fixed, ZERO } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { worldX } from '../../../../nav/world-metric.js';
 import type { SystemContext } from '../../../context.js';
+import { moverNode } from '../../../spatial/mover-node.js';
 import { writeLegHeading } from '../../stepping.js';
 import { colliderKinds, FIRM_COLLIDER, NOT_A_COLLIDER } from '../collider-kinds.js';
 import { hasBodyCollision } from '../owned-fighters.js';
@@ -42,7 +42,8 @@ export function collectColliders(
     if (kind === NOT_A_COLLIDER) continue;
     const slot = moverCount++;
     const p = world.get(e, Position);
-    place(movers, slot, e, p.x, p.y);
+    const node = moverNode(world, e, p);
+    place(movers, slot, e, p.x, p.y, node.hx, node.hy);
     const firm = kind === FIRM_COLLIDER;
     movers.firm[slot] = firm;
     if (firm) firmCount++;
@@ -57,14 +58,22 @@ export function collectColliders(
   return true;
 }
 
-function place(columns: ColliderColumns, slot: number, e: Entity, x: Fixed, y: Fixed): void {
+function place(
+  columns: ColliderColumns,
+  slot: number,
+  e: Entity,
+  x: Fixed,
+  y: Fixed,
+  hx: number,
+  hy: number,
+): void {
   columns.entity[slot] = e;
   columns.x[slot] = x;
   columns.y[slot] = y;
   columns.worldX[slot] = worldX(x, y);
   columns.worldY[slot] = worldYOf(y);
-  columns.hx[slot] = nodeHxOfPosition(x, y);
-  columns.hy[slot] = nodeHyOfPosition(x, y);
+  columns.hx[slot] = hx;
+  columns.hy[slot] = hy;
 }
 
 /**

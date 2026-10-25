@@ -455,16 +455,16 @@ function pullUpInReach(
   return false;
 }
 
-/** Inside the weapon's reach band and standing still. Node positions truncate to the lattice, so a walker
- *  can read as in-band mid-stride and swinging there would freeze it off any node centre, reading as a
- *  glide; gated, it finishes its braked last leg onto the slot's centre first. */
+/** Inside the weapon's reach band and standing still. A walker reads the node it nears from half a step
+ *  out, so it can read as in-band mid-stride and swinging there would freeze it off any node centre, reading
+ *  as a glide; gated, it finishes its braked last leg onto the slot's centre first. */
 function inReachAndStanding(dist: number, weapon: ArmedWith, moving: boolean): boolean {
   return withinBand(weapon, dist) && !moving;
 }
 
 /** Whether `e` is route-free and standing on the exact centre of the goal it still carries - the remnant
  *  between a walk ending and next tick's planner retiring the goal, which is not motion. The centre test is
- *  the planner's own; the truncated node alone would also admit a walker parked half a node off centre. */
+ *  the planner's own; the node it reads alone would also admit a walker parked half a step off centre. */
 function arrivedAtGoal(world: World, e: Entity, terrain: TerrainGraph): boolean {
   const goal = world.tryGet(e, MoveGoal)?.cell;
   if (goal === undefined || !isStanding(world, e)) return false;

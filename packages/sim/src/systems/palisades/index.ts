@@ -33,8 +33,9 @@ import { canPlacePalisadeAnchor, type PlacementProbe } from '../footprint/placem
 import { anyRouteFollowed, invalidateRoutesThrough, retryFailedRoutes } from '../landscape/routes.js';
 import { landscapeTypes } from '../landscape/view.js';
 import { evictSettlersFromCells, settlersByNode } from '../movement/evict.js';
-import { isTravelling, liveColumnStep } from '../movement/nav-state.js';
+import { isTravelling } from '../movement/nav-state.js';
 import { cancelRoadSitesUnder } from '../roads/sites.js';
+import { liveColumnStep } from '../spatial/mover-node.js';
 import { canonicalById, NodeBuckets } from '../spatial/nodes.js';
 import { releaseWallBreaches } from './breach.js';
 import { mapEdgeWallWalk } from './map-edge.js';
@@ -277,7 +278,7 @@ function columnStepperThrough(
     for (const near of hexNeighboursOf(terrain.xOf(cell), hy)) {
       if (near.hy === hy) continue;
       for (const settler of byNode.at(near.hx, near.hy)) {
-        const step = liveColumnStep(world, terrain, settler);
+        const step = liveColumnStep(world, settler);
         if (step === undefined) continue;
         for (const middle of columnStepMiddles(terrain, step[0].node, step[1].node)) {
           if (middle !== undefined && cells.has(middle)) return true;

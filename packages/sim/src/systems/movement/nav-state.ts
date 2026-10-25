@@ -12,28 +12,12 @@ import {
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
-import { isColumnStep } from '../../nav/pathfinding/straight-steps.js';
-import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
+import type { NodeId } from '../../nav/terrain/index.js';
 import { beginWalkTurn } from './turning.js';
 
 /** Whether `e` has a navigation goal, a pending path request, or a path it is walking. */
 export function isTravelling(world: World, e: Entity): boolean {
   return world.has(e, MoveGoal) || world.has(e, PathRequest) || world.has(e, PathFollow);
-}
-
-/** The start and destination stops of the column step `e` walks now, or undefined on any other leg. */
-export function liveColumnStep(
-  world: World,
-  terrain: TerrainGraph,
-  e: Entity,
-): readonly [Waypoint, Waypoint] | undefined {
-  const index = world.tryGet(e, PathFollow)?.index;
-  const stops = world.tryGet(e, PathRoute)?.waypoints;
-  if (index === undefined || stops === undefined) return undefined;
-  const from = stops[index - 1];
-  const to = stops[index];
-  if (from === undefined || to === undefined || !isColumnStep(terrain, from.node, to.node)) return undefined;
-  return [from, to];
 }
 
 /** Whether `e` stands on a node's exact centre. A path follower snaps onto each waypoint before advancing

@@ -573,7 +573,7 @@ export type SubMissionTransition =
 
 export type SimEventKind = SimEvent['kind'];
 
-/** Mint a positioned event's `at` from a fixed-point Position: the half-cell node it truncates to. */
+/** Mint a positioned event's `at` from a fixed-point Position: the nearest half-cell node it reads. */
 export function eventAt(x: Fixed, y: Fixed): HalfCellNode {
   return nodeOfPosition(x, y);
 }

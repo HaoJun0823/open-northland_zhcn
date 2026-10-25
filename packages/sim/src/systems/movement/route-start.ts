@@ -4,7 +4,7 @@ import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { worldDistance, worldX } from '../../nav/world-metric.js';
-import { liveColumnStep } from './nav-state.js';
+import { liveColumnStep } from '../spatial/mover-node.js';
 
 const TWO: Fixed = fx.fromInt(2);
 /** An odd node row's eastward shift in half-cell node columns: half a node. */
@@ -84,5 +84,5 @@ export function grindStartCell(
   y: Fixed,
   traversal: Traversal,
 ): NodeId {
-  return liveColumnStep(world, terrain, e)?.[0].node ?? routeStartCell(terrain, x, y, traversal);
+  return liveColumnStep(world, e)?.[0].node ?? routeStartCell(terrain, x, y, traversal);
 }

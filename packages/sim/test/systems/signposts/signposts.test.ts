@@ -124,8 +124,8 @@ describe('placeSignpost - the scout erects a guidepost', () => {
     expect(fx.toInt(p.x)).toBe(8); // node (16,4) = tile (8,2)
   });
 
-  // Position truncation puts a westbound walker on the goal node a step short of its centre, and a mid-walk
-  // order first finishes the step it is on, away from the goal.
+  // A walker reads the goal node from half a step short of its centre, and a mid-walk order first finishes
+  // the step it is on, away from the goal.
   it.each([
     { name: 'arriving from the east', start: 10, walkTo: null },
     { name: 'ordered mid-walk past the goal', start: 2, walkTo: 30 },

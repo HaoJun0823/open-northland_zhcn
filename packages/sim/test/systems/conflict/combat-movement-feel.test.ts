@@ -26,8 +26,8 @@ import { grassCellMap as grassMap } from '../../fixtures/terrain.js';
  *     moveUnit redirect pattern: goal swap + routing splice) instead of dropping it; clearing the
  *     nav state reset the gait to zero every 8 ticks, so a charging unit lurched cell-by-cell
  *     (accelerate → brake → stall) while a player-ordered walk glided - the chase stutter.
- *  2. **Swing from a standstill** - node positions truncate, so a walker reads as in-band
- *     mid-stride; swinging there froze the walker off any node centre (the wind-up glide/teleport).
+ *  2. **Swing from a standstill** - a walker reads its next node from half a step out, so it reads
+ *     as in-band mid-stride; swinging there froze the walker off any node centre (the wind-up glide/teleport).
  *     A swing may only start once the walker has finished its braked last leg onto a node centre.
  *  3. **The arrived hold does not suppress a fighter's combat drive** - a unit holding at an
  *     ordered spot on ATTACK/DEFEND engages an enemy per its stance instead of standing through
@@ -103,12 +103,10 @@ describe('chase route continuity - a repath re-aims the live route, never stops 
 });
 
 describe('swing from a standstill - no wind-up mid-stride, off a node centre', () => {
-  it('a WESTWARD chaser swings EXACTLY on a node centre (truncation reads the band early)', () => {
-    // Node coords TRUNCATE, so a walker moving −x reads as standing on its next node one step after
-    // LEAVING the previous centre - nearly half a column early. A westward chaser therefore enters
-    // the weapon band MID-STRIDE; without the standstill gate the first swing started there, frozen
-    // off any centre (the reported wind-up glide/teleport). Eastward legs flip exactly ON the centre,
-    // which is why an east-walking chaser can't reproduce it.
+  it('a WESTWARD chaser swings EXACTLY on a node centre (the nearest node reads the band early)', () => {
+    // A walker reads its next node from half a step out, so a westward chaser enters the weapon band
+    // MID-STRIDE; without the standstill gate the first swing started there, frozen off any centre (the
+    // reported wind-up glide/teleport).
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(10, 1) });
     const a = fighterAt(sim, 7, 0, P0); // charges WEST
     fighterAt(sim, 0, 0, P1, MILITARY_MODE.IGNORE); // stands

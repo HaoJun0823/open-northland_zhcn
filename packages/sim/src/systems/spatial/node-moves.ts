@@ -1,8 +1,8 @@
-import { Position } from '../../components/index.js';
+import { PathFollow, PathRoute, Position } from '../../components/index.js';
 import { ChangeFeed } from '../../ecs/change-feed.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import { HeldNodes, NO_NODE } from './held-nodes.js';
+import { moverNode } from './mover-node.js';
 
 /** The read side of a {@link NodeMoves} subscription: a {@link ChangeFeed} of node changes. */
 export interface NodeMoveFeed {
@@ -12,11 +12,11 @@ export interface NodeMoveFeed {
 }
 
 /**
- * The entities whose half-cell node changed, fanned out to every index keyed on a Position's node. One
- * feed takes every Position write and the shared pass forwards only a node change, so a walker's
- * in-node steps cost one compare instead of one replay per index. Each subscriber gets an entity at
- * least once whenever its node at the subscriber's drain differs from its node at the previous drain;
- * an index that reads a sub-node position watches Position values itself.
+ * The entities whose half-cell node changed, fanned out to every index keyed on an entity's node, a
+ * mover's by {@link moverNode}. One feed takes every Position and route write and the shared pass forwards
+ * only a node change, so a walker's in-node steps cost one compare instead of one replay per index. Each
+ * subscriber gets an entity at least once whenever its node at the subscriber's drain differs from its
+ * node at the previous drain; an index that reads a sub-node position watches Position values itself.
  */
 class NodeMoves {
   private readonly writes: ChangeFeed;
@@ -29,8 +29,9 @@ class NodeMoves {
     let hx = NO_NODE;
     let hy = 0;
     if (p !== undefined) {
-      hx = nodeHxOfPosition(p.x, p.y);
-      hy = nodeHyOfPosition(p.x, p.y);
+      const node = moverNode(this.world, e, p);
+      hx = node.hx;
+      hy = node.hy;
     }
     const nodes = this.nodes;
     if (nodes.hx(e) === hx && nodes.hy(e) === hy) return;
@@ -41,8 +42,9 @@ class NodeMoves {
 
   constructor(private readonly world: World) {
     // Membership too: a Position re-added elsewhere must move the held node, or a later step back
-    // onto the old node would compare equal and go unseen.
-    this.writes = world.watchChanges([Position], [Position]);
+    // onto the old node would compare equal and go unseen. A route installed, advanced or dropped can
+    // start or end a column step without a Position write.
+    this.writes = world.watchChanges([Position, PathFollow, PathRoute], [Position, PathFollow, PathRoute]);
     this.resync();
   }
 
@@ -65,8 +67,8 @@ class NodeMoves {
     const idLimit = this.world.nextEntityId;
     this.nodes.reset(idLimit);
     for (const e of this.world.query(Position)) {
-      const p = this.world.get(e, Position);
-      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y), idLimit);
+      const node = moverNode(this.world, e, this.world.get(e, Position));
+      this.nodes.set(e, node.hx, node.hy, idLimit);
     }
   }
 
@@ -76,8 +78,9 @@ class NodeMoves {
     this.pump();
     for (let e = 0; e < this.nodes.size; e++) {
       const p = this.world.tryGet(e as Entity, Position);
-      const hx = p === undefined ? NO_NODE : nodeHxOfPosition(p.x, p.y);
-      const hy = p === undefined ? 0 : nodeHyOfPosition(p.x, p.y);
+      const node = p === undefined ? undefined : moverNode(this.world, e as Entity, p);
+      const hx = node === undefined ? NO_NODE : node.hx;
+      const hy = node === undefined ? 0 : node.hy;
       if (this.nodes.hx(e as Entity) !== hx || (p !== undefined && this.nodes.hy(e as Entity) !== hy)) {
         return [`nodeMoves holds a stale node for entity ${e}`];
       }
@@ -113,7 +116,7 @@ class Subscription implements NodeMoveFeed {
 
 const byWorld = new WeakMap<World, NodeMoves>();
 
-/** A new feed of the entities whose Position node changed from now on, shared with every other
+/** A new feed of the entities whose node changed from now on, shared with every other
  *  subscriber of `world`. */
 export function watchNodeMoves(world: World): NodeMoveFeed {
   let moves = byWorld.get(world);

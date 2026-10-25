@@ -401,7 +401,8 @@ is not taken off: a client that cannot keep up holds its backlog there. A member
 | slow | Lagging for `SLOW_GRACE_MS` of wall time on end, or a backlog over `SLOW_AT_ONCE_MS` of frames at once; until its backlog is no more than `GOVERN_RELEASE_MS` of frames. |
 | waited for as `slow` | Slow for `SLOW_WAIT_AFTER_MS` of wall time on end; released, no longer votable, once its backlog is no more than `GOVERN_RELEASE_MS` of frames. |
 
-A member the clock holds for is not judged for lag while held, since the held clock adds none; it keeps its
+A member the clock holds for is not judged for lag while held, since the held clock adds none, and neither
+is a snapshot donor while its upload arrives ([Resync and catching up](#resync-and-catching-up)). Either keeps its
 verdict, and wall time under a hold for it counts toward neither `SLOW_GRACE_MS` nor `SLOW_WAIT_AFTER_MS`.
 The pause is per member: a hold for another member stops the clock, so a lagging member closes its gap,
 but its own grace keeps running. A slow member that goes silent is slow again on its return; one that had
@@ -588,7 +589,9 @@ Snapshot refresh:
   donate, observer uploads are refused and observers are not retried; with none, observers keep the cache.
 - An unanswered request is repeated every `SNAPSHOT_RETRY_MS` to the next eligible donor, at once when the
   asked donor drops or diverges; one request is outstanding however many members wait. A donor that goes
-  silent keeps the request until the retry: its export runs on the thread that answers pings.
+  silent keeps the request until the retry: its export runs on the thread that answers pings. One whose
+  upload is still arriving keeps it past the retry, up to `SNAPSHOT_UPLOAD_MAX_MS` from the request, and
+  meanwhile is not judged for lag ([Pacing](#pacing)): its acknowledgements wait behind the upload.
 - A snapshot prunes the frames it covers. With no retained frames, a same-tick upload also satisfies a
   paused refresh. An older upload leaves the cache unchanged.
 - When the cached snapshot's donor is found out of sync, the cache is held back, since a drop forgets held
@@ -706,7 +709,7 @@ Each value verified against its constant; the owning package is in brackets.
 | `GOVERNOR_HEADROOM`, `CATCH_UP_SHARE`, `MIN_GOVERNED_SPEED` [server] | 0.8, 0.8, 0.25 | Governed speed bounds. |
 | `GOVERNED_SPEED_STEP`, `GOVERNED_RISE_STEPS` [server] | 0.05, 2 | Governed speed rounding and rise. |
 | `MAX_REPORTED_TICK_MS`, `MAX_REPORTED_BUFFERED`, `MAX_LOADING_PROGRESS` [protocol] | 60 s, 345600, 100 | `load` values (an hour of ticks at `MAX_SPEED`) and `loading` percent. |
-| `SNAPSHOT_REFRESH_MS`, `SNAPSHOT_RETRY_MS` [server] | 5 min, 10 s | Snapshot refresh cadence and retry. |
+| `SNAPSHOT_REFRESH_MS`, `SNAPSHOT_RETRY_MS`, `SNAPSHOT_UPLOAD_MAX_MS` [server] | 5 min, 10 s, 60 s | Snapshot refresh cadence, retry, and the longest an arriving upload keeps the request. |
 | `RETURN_SNAPSHOT_MAX_TICKS` [server] | 120 | Cache age a returning client replays (10 s at speed 1). |
 | `DISPUTE_WINDOW_TICKS`, `DISPUTE_RING_BYTES` [client] | 960, 24 MiB | Digest inputs a client keeps for a dispute. |
 | `MAX_QUEUED_COMMANDS` [client] | 100 | Local command outbox. |

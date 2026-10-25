@@ -414,10 +414,13 @@ export class Game {
    *  has stayed slow long enough to hold it too. True when it broadcast the waited set. */
   private updateWaiting(now: number): boolean {
     const waited: Waited[] = [];
+    // The donor's acknowledgements queue behind its snapshot on the one link: its lag says nothing of
+    // its pace until the upload ends, so its verdict stands still meanwhile.
+    const uploading = this.resync.uploadingDonor(now);
     for (const member of this.members.values()) {
       const { figures } = member;
       figures.behindMaxTicks = Math.max(figures.behindMaxTicks, this.behindTicks(member));
-      if (this.absentReason(member, now) === null) {
+      if (member !== uploading && this.absentReason(member, now) === null) {
         this.pacing.observe(member.token, this.backlogTicks(member), this.clock.speed, now);
       } else {
         this.pacing.hold(member.token, now);

@@ -12,6 +12,9 @@ import {
 export const SNAPSHOT_REFRESH_MS = HISTORY_REFRESH_AGE_MS;
 /** A snapshot request unanswered this long is repeated, to the next eligible donor. */
 export const SNAPSHOT_RETRY_MS = 10_000;
+/** The longest an asked donor's upload may keep arriving before the request moves on: a large map's
+ *  snapshot over a weak uplink outlasts the retry window, and asking the next donor then wastes it. */
+export const SNAPSHOT_UPLOAD_MAX_MS = 60_000;
 /** Seconds of play at normal speed a returning member replays from the cache rather than hold the room
  *  for a fresh snapshot. At the 25 to 40 ms a developed map's tick costs, that is 3 to 5 s of replay,
  *  about what a donor's export and upload hold the room for. */
@@ -90,7 +93,7 @@ export class Resync {
     if (member.outOfSync !== null && this.catchUp.snapshot?.from === member.nick) this.snapshotInvalid = true;
     this.awaiting.add(member);
     this.releaseUnfitDonor();
-    if (this.requestedAt === null || now - this.requestedAt >= SNAPSHOT_RETRY_MS) this.request(now);
+    if (this.retryDue(now)) this.request(now);
   }
 
   /** The member no longer waits, and a donor that dropped cannot answer: the next poll asks another
@@ -212,12 +215,23 @@ export class Resync {
       this.refreshing = true;
       this.lastRefreshAt = now;
     }
-    if (
-      (this.awaiting.size > 0 || this.refreshing) &&
-      (this.requestedAt === null || now - this.requestedAt >= SNAPSHOT_RETRY_MS)
-    )
-      this.request(now);
+    if ((this.awaiting.size > 0 || this.refreshing) && this.retryDue(now)) this.request(now);
     return null;
+  }
+
+  /** The asked donor whose answer is still arriving, heard and within `SNAPSHOT_UPLOAD_MAX_MS` of
+   *  the request; null when none. Its acknowledgements wait behind the upload on the same link. */
+  uploadingDonor(now: number): Member | null {
+    if (this.askedDonor === null || this.requestedAt === null) return null;
+    const donor = this.members.get(this.askedDonor);
+    if (donor === undefined || donor.receivingBytes === 0 || isSilent(donor, now)) return null;
+    return now - this.requestedAt < SNAPSHOT_UPLOAD_MAX_MS ? donor : null;
+  }
+
+  /** No request is out, or the one out had its retry window and is not still arriving. */
+  private retryDue(now: number): boolean {
+    if (this.requestedAt === null) return true;
+    return now - this.requestedAt >= SNAPSHOT_RETRY_MS && this.uploadingDonor(now) === null;
   }
 
   private request(now: number): void {
@@ -239,8 +253,8 @@ export class Resync {
       }
     }
     if (donor === null) return;
-    // A donor still asked when the next is had the whole retry window: it sent nothing, or its upload
-    // was still arriving. Each donor gets one line a round; the round's `snapshot` counts the asks.
+    // A donor still asked when the next is sent nothing in the retry window, or its upload outlasted
+    // `SNAPSHOT_UPLOAD_MAX_MS`. Each donor gets one line a round; the round's `snapshot` counts the asks.
     const unanswered = this.askedDonor === null ? undefined : this.members.get(this.askedDonor);
     if (
       unanswered !== undefined &&

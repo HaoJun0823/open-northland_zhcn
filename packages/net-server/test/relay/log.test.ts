@@ -7,6 +7,7 @@ import {
   SLOW_GRACE_MS,
   SNAPSHOT_REFRESH_MS,
   SNAPSHOT_RETRY_MS,
+  SNAPSHOT_UPLOAD_MAX_MS,
   STATUS_LOG_INTERVAL_MS,
 } from '@open-northland/net-server';
 import { describe, expect, it } from 'vitest';
@@ -312,7 +313,7 @@ describe('relay log', () => {
     }
     const second = first === a ? b : a;
     // The first donor sends nothing within the retry window, so the request moves on; the second's
-    // upload is still arriving when its own window ends.
+    // upload is still arriving when the upload cap ends.
     while (second.of('snapshotRequest').length === 0) play(s, 1, [a, b]);
     while (first.of('snapshotRequest').length === 1) {
       // Its pongs and acknowledgements wait behind the upload; the transport reports its progress.
@@ -321,13 +322,20 @@ describe('relay log', () => {
     }
     expect(s.events('snapshot unanswered')).toEqual([
       { ...room, donor: nick(first), askedMs: SNAPSHOT_RETRY_MS },
-      { ...room, donor: nick(second), askedMs: SNAPSHOT_RETRY_MS, receivingKib: ARRIVED_KIB },
+      { ...room, donor: nick(second), askedMs: SNAPSHOT_UPLOAD_MAX_MS, receivingKib: ARRIVED_KIB },
     ]);
 
     const tick = second.last('frame')?.tick ?? 0;
     second.send({ kind: 'blob', type: 'snapshot', world: 0, to: null, tick, bytes: SNAPSHOT_BYTES });
     expect(s.events('snapshot')).toEqual([
-      { ...room, from: nick(second), tick, kib: 0, askedMs: 2 * SNAPSHOT_RETRY_MS, asks: 3 },
+      {
+        ...room,
+        from: nick(second),
+        tick,
+        kib: 0,
+        askedMs: SNAPSHOT_RETRY_MS + SNAPSHOT_UPLOAD_MAX_MS,
+        asks: 3,
+      },
     ]);
     // The first donor's late answer is older than the cache. A refused upload is a line once a round;
     // the round's snapshot counts the rest.

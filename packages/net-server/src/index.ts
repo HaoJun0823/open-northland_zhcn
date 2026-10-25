@@ -19,7 +19,7 @@ export {
 } from './relay/relay.js';
 export type { RelayLog } from './relay/relay-log.js';
 export { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS } from './relay/room/room.js';
-export { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from './relay/snapshots/resync.js';
+export { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS, SNAPSHOT_UPLOAD_MAX_MS } from './relay/snapshots/resync.js';
 export {
   CATCH_UP_SHARE,
   GOVERN_RELEASE_MS,

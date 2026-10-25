@@ -266,8 +266,8 @@ was for or who paused, why and how long. Governed runs with less than a minute o
 between them are one episode, whose line comes once the clock has run that long without the
 governor, and governed time counts only while the clock runs, neither held nor paused. `snapshot`
 closes each refresh with its donor, size, time from the first request and the requests it took;
-`snapshot unanswered` names, once a round, a donor that let its retry window pass, with what of its
-upload had arrived when it was still uploading (`receivingKib`), and `snapshot refused` an upload of
+`snapshot unanswered` names, once a round, a donor that let its retry window pass, or whose upload
+outlasted `SNAPSHOT_UPLOAD_MAX_MS` with what of it had arrived (`receivingKib`), and `snapshot refused` an upload of
 no use. Every five minutes `status` counts clients, rooms, players, the sockets that closed without
 `hello` (`anonymous`; they get no line of their own) and those turned away at `RELAY_MAX_CONNECTIONS`
 (`refusedConnections`), with the longest gap between the relay's own polls (`pollMaxMs`) and the

@@ -34,7 +34,8 @@ export class Pacing {
     return since !== undefined && !this.heldSince.has(token) && now - since >= SLOW_WAIT_AFTER_MS;
   }
 
-  /** The clock waits for the member at `now`: its clocks stop until the next `observe`. */
+  /** The member's lag says nothing at `now`, as when the clock waits for it: its clocks stop until the
+   *  next `observe`. */
   hold(token: string, now: number): void {
     if (!this.heldSince.has(token)) this.heldSince.set(token, now);
   }

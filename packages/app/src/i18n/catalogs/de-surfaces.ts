@@ -223,6 +223,9 @@ export const deSurfaces = {
         'Glättet die Kanten eigener Figurengrafiken und verkleinerter Weltgrafiken. Die Textdarstellung bleibt unverändert.',
       postFx: 'Nachbearbeitung',
       postFxTip: 'Legt eine Vignette und warme Farbtöne über die Spielwelt.',
+      pixelPerfectZoom: 'Pixelgenauer Zoom',
+      pixelPerfectZoomTip:
+        'Zoomt nur in ganzen Stufen (½×, 1×, 2×, 3×…), sodass jedes Pixel der Grafik eine ganze Zahl von Bildschirmpixeln abdeckt und nie durch einen gebrochenen Maßstab neu abgetastet wird. Die Ansicht springt zwischen den Stufen, statt zu gleiten.',
       displayHeading: 'Bildschirm',
       cursorHeading: 'Mauszeiger',
       cursorTheme: 'Aussehen des Mauszeigers',

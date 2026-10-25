@@ -72,7 +72,8 @@ export function createGameSettingsRuntime(deps: GameSettingsRuntimeDeps): GameSe
       patch.edgeScrollSpeed !== undefined ||
       patch.dragScrollSpeed !== undefined ||
       patch.edgeScrollEnabled !== undefined ||
-      patch.invertDragScroll !== undefined
+      patch.invertDragScroll !== undefined ||
+      patch.pixelPerfectZoom !== undefined
     ) {
       deps.setCameraInputSettings(current);
     }

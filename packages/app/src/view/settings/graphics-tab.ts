@@ -133,6 +133,11 @@ export function graphicsSettingsRows(
     },
   );
   markSegment(filter.root, 'pixel-art-filter');
+  const pixelPerfectZoom = togglePill(settings.pixelPerfectZoom, (enabled) => {
+    void store.update({ pixelPerfectZoom: enabled });
+  });
+  pixelPerfectZoom.setAttribute('aria-label', text.pixelPerfectZoom);
+  pixelPerfectZoom.dataset.settingsFocus = 'pixel-perfect-zoom';
   const selectionStyle = segControl<SelectionStyle>(
     SELECTION_STYLES.map((id) => ({ id, label: text.selectionStyles[id] })),
     settings.selectionStyle,
@@ -203,6 +208,7 @@ export function graphicsSettingsRows(
     settingRow(text.fpsCounter, fpsCounter, { tip: liveTip(text.fpsCounterTip) }),
     settingsHeading(text.worldHeading),
     settingRow(text.pixelArtFilter, filter.root, { tip: liveTip(text.pixelArtFilterTip) }),
+    settingRow(text.pixelPerfectZoom, pixelPerfectZoom, { tip: text.pixelPerfectZoomTip }),
     ...enhancementToggles,
     settingRow(text.spriteSmoothing, smoothing, { tip: deferredTip(text.spriteSmoothingTip) }),
     settingRow(text.postFx, postFx, { tip: deferredTip(text.postFxTip) }),

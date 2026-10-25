@@ -77,6 +77,42 @@ export function stepZoomToward(
   return zoomCameraAt(cam, next / scale, cursorX, cursorY, minZoom);
 }
 
+/** Device px per art px of the one pixel-perfect level below 1: each device px takes every other texel. */
+const HALF_PIXEL_LEVEL = 0.5;
+
+/**
+ * The pixel-perfect zoom levels within `[minZoom, MAX_ZOOM]`, ascending: the scales at which one art
+ * pixel covers ½ or a whole number of device px. `resolution` is device px per screen px, so a 2× display
+ * reaches 1.5 (three device px) and a 1.25× display has no level at scale 1. Never empty, since
+ * consecutive levels differ by at most a factor of 2 and the bounds span more.
+ */
+export function pixelPerfectZoomLevels(resolution: number, minZoom: number = MIN_ZOOM): number[] {
+  const levels: number[] = [];
+  const add = (devicePerArt: number): void => {
+    const scale = devicePerArt / resolution;
+    if (scale >= minZoom && scale <= MAX_ZOOM) levels.push(scale);
+  };
+  add(HALF_PIXEL_LEVEL);
+  for (let device = 1; device / resolution <= MAX_ZOOM; device++) add(device);
+  return levels;
+}
+
+/** The level nearest `scale` in log-zoom space, so 0.7 between ½ and 1 snaps to the closer ratio. */
+export function nearestZoomLevel(levels: readonly number[], scale: number): number {
+  let best = levels[0] ?? scale;
+  for (const level of levels) {
+    if (Math.abs(Math.log(level / scale)) < Math.abs(Math.log(best / scale))) best = level;
+  }
+  return best;
+}
+
+/** The level one step from `scale` toward `direction` (+1 in, -1 out), or the end level at a bound. */
+export function stepZoomLevel(levels: readonly number[], scale: number, direction: 1 | -1): number {
+  const current = nearestZoomLevel(levels, scale);
+  const index = levels.indexOf(current) + direction;
+  return levels[Math.min(levels.length - 1, Math.max(0, index))] ?? current;
+}
+
 /** Pan the camera by a screen-pixel delta, preserving `scale`. */
 export function panCamera(cam: Camera, dx: number, dy: number): Camera {
   return { ...cam, offsetX: cam.offsetX + dx, offsetY: cam.offsetY + dy };

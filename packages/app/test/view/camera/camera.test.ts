@@ -10,8 +10,11 @@ import {
   edgePanVelocity,
   MAX_ZOOM,
   MIN_ZOOM,
+  nearestZoomLevel,
   panCamera,
+  pixelPerfectZoomLevels,
   screenScale,
+  stepZoomLevel,
   stepZoomToward,
   zoomCameraAt,
 } from '../../../src/view/camera/index.js';
@@ -233,5 +236,29 @@ describe('stepZoomToward', () => {
     const early = stepZoomToward({ offsetX: 0, offsetY: 0, scale: 1 }, 8, 0, 0, 100, RATE);
     const late = stepZoomToward({ offsetX: 0, offsetY: 0, scale: 4 }, 8, 0, 0, 100, RATE);
     expect(Math.log((late.scale ?? 1) / 4)).toBeCloseTo(Math.log(early.scale ?? 1));
+  });
+});
+
+describe('pixelPerfectZoomLevels', () => {
+  it('maps one art pixel to half or a whole number of device px within the zoom bounds', () => {
+    expect(pixelPerfectZoomLevels(1)).toEqual([0.5, 1, 2, 3, 4, 5, 6, 7, 8]);
+    // A 2x display reaches 1.5 (three device px), and its half level falls below MIN_ZOOM.
+    expect(pixelPerfectZoomLevels(2).slice(0, 3)).toEqual([0.5, 1, 1.5]);
+    expect(pixelPerfectZoomLevels(2).at(-1)).toBe(MAX_ZOOM);
+    // A 1.25x display has no level at scale 1.
+    const fractional = pixelPerfectZoomLevels(1.25);
+    expect(fractional).not.toContain(1);
+    expect(fractional[1]).toBeCloseTo(0.8);
+    expect(fractional[2]).toBeCloseTo(1.6);
+  });
+
+  it('snaps to the nearest level in log space and steps one level at a time, holding at the bounds', () => {
+    const levels = pixelPerfectZoomLevels(1);
+    expect(nearestZoomLevel(levels, 0.75)).toBe(1);
+    expect(nearestZoomLevel(levels, 0.68)).toBe(0.5);
+    expect(stepZoomLevel(levels, 1.3, 1)).toBe(2);
+    expect(stepZoomLevel(levels, 1, -1)).toBe(0.5);
+    expect(stepZoomLevel(levels, 0.5, -1)).toBe(0.5);
+    expect(stepZoomLevel(levels, MAX_ZOOM, 1)).toBe(MAX_ZOOM);
   });
 });

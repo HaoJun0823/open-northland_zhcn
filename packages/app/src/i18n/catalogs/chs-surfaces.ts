@@ -184,6 +184,9 @@ export const chsSurfaces = {
       spriteSmoothingTip: '平滑本项目自制角色的边缘以及缩小显示的世界图像。不影响文字渲染。',
       postFx: '后期处理',
       postFxTip: '叠加在世界画面上的暗角和暖色调色。',
+      pixelPerfectZoom: '像素级精确缩放',
+      pixelPerfectZoomTip:
+        '仅以整数级缩放（½×、1×、2×、3×…），使图像的每个像素都占据整数个屏幕像素，不会被小数比例重新采样。视图在各级之间直接切换，而非平滑过渡。',
       displayHeading: '显示',
       cursorHeading: '鼠标指针',
       cursorTheme: '指针外观',

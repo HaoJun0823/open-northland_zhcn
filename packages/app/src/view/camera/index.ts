@@ -13,7 +13,10 @@ export {
   edgePanVelocity,
   MAX_ZOOM,
   MIN_ZOOM,
+  nearestZoomLevel,
   panCamera,
+  pixelPerfectZoomLevels,
+  stepZoomLevel,
   stepZoomToward,
   zoomCameraAt,
 } from './pan-zoom.js';

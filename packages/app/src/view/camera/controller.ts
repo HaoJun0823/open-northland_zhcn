@@ -9,7 +9,10 @@ import {
   edgePanVelocity,
   MAX_ZOOM,
   MIN_ZOOM,
+  nearestZoomLevel,
   panCamera,
+  pixelPerfectZoomLevels,
+  stepZoomLevel,
   stepZoomToward,
   zoomCameraAt,
 } from './pan-zoom.js';
@@ -22,6 +25,9 @@ import { clientToScreen, screenScale } from './screen-scale.js';
 
 /** Per-wheel-notch zoom factor (one notch in multiplies, one out divides). */
 const WHEEL_ZOOM_STEP = 1.1;
+/** Approximation: ms one pixel-perfect level step holds off the next, so a trackpad's stream of small
+ *  wheel events walks the levels at a readable pace instead of leaping to a bound. */
+const LEVEL_STEP_COOLDOWN_MS = 150;
 /** Max wall-clock ms one held-key pan step integrates - a backgrounded tab resumes smoothly, not with a lurch. */
 const MAX_PAN_STEP_MS = 100;
 
@@ -71,6 +77,8 @@ export interface CameraInputSettings {
   readonly dragScrollSpeed: number;
   readonly edgeScrollEnabled: boolean;
   readonly invertDragScroll: boolean;
+  /** Zoom only to {@link pixelPerfectZoomLevels}, jumping instead of gliding. */
+  readonly pixelPerfectZoom: boolean;
 }
 
 /** `resolution` reads the owning renderer's live device px per screen px, needed to map mouse deltas on
@@ -106,6 +114,27 @@ export function createCameraController(
   let minZoom = MIN_ZOOM;
   let zoomAnchorX = 0;
   let zoomAnchorY = 0;
+  let lastLevelStepMs = Number.NEGATIVE_INFINITY;
+  // Rebuilt only when the resolution or the zoom-out floor moves, since `onLevel` runs every frame.
+  let levelsKey = { resolution: 0, minZoom: 0 };
+  let levels: readonly number[] = [];
+  const zoomLevels = (): readonly number[] => {
+    const res = resolution();
+    if (levelsKey.resolution !== res || levelsKey.minZoom !== minZoom) {
+      levelsKey = { resolution: res, minZoom };
+      levels = pixelPerfectZoomLevels(res, minZoom);
+    }
+    return levels;
+  };
+  /** `next` on a pixel-perfect level about the screen centre when the mode is on; else unchanged. */
+  const onLevel = (next: Camera): Camera => {
+    if (!activeInputSettings.pixelPerfectZoom) return next;
+    const scale = next.scale ?? 1;
+    const level = nearestZoomLevel(zoomLevels(), scale);
+    if (level === scale) return next;
+    const res = resolution();
+    return zoomCameraAt(next, level / scale, canvas.width / res / 2, canvas.height / res / 2, minZoom);
+  };
   // The edge-scroll probe: the last `mousemove` sample in client px, whatever element it hit, so HUD
   // chrome along a screen edge still scrolls. Null once the cursor leaves the window or before any
   // move, so a parked cursor waits.
@@ -153,6 +182,15 @@ export function createCameraController(
     if (pointerGuard?.(e.clientX, e.clientY)) return;
     e.preventDefault(); // don't scroll the page
     const { x, y } = clientToScreen(canvas, resolution(), e.clientX, e.clientY);
+    if (activeInputSettings.pixelPerfectZoom) {
+      if (e.timeStamp - lastLevelStepMs < LEVEL_STEP_COOLDOWN_MS) return;
+      lastLevelStepMs = e.timeStamp;
+      const scale = cam.scale ?? 1;
+      const level = stepZoomLevel(zoomLevels(), scale, e.deltaY < 0 ? 1 : -1);
+      cam = zoomCameraAt(cam, level / scale, x, y, minZoom);
+      targetScale = cam.scale ?? 1;
+      return;
+    }
     // Retarget the glide rather than zoom outright, so stacked notches read as one magnification.
     const factor = e.deltaY < 0 ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP;
     targetScale = Math.min(MAX_ZOOM, Math.max(minZoom, targetScale * factor));
@@ -198,6 +236,9 @@ export function createCameraController(
     pointerSample = null;
   };
 
+  cam = onLevel(cam);
+  targetScale = cam.scale ?? 1;
+
   canvas.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
@@ -211,15 +252,17 @@ export function createCameraController(
     camera: () => cam,
     setInputSettings: (next) => {
       activeInputSettings = next;
+      cam = onLevel(cam);
+      targetScale = cam.scale ?? 1;
     },
     setBindings: (next) => {
       activeBindings = next;
       held.clear();
     },
     jumpTo: (next) => {
-      cam = next;
+      cam = onLevel(next);
       // Retargeted, so a jump never carries the old glide into the new view.
-      targetScale = next.scale ?? 1;
+      targetScale = cam.scale ?? 1;
     },
     setZoomOutUnlocked: (unlocked) => {
       minZoom = unlocked ? DEBUG_MIN_ZOOM : MIN_ZOOM;
@@ -227,7 +270,10 @@ export function createCameraController(
       const scale = cam.scale ?? 1;
       if (scale >= minZoom) return;
       const res = resolution();
-      cam = zoomCameraAt(cam, minZoom / scale, canvas.width / res / 2, canvas.height / res / 2, minZoom);
+      cam = onLevel(
+        zoomCameraAt(cam, minZoom / scale, canvas.width / res / 2, canvas.height / res / 2, minZoom),
+      );
+      targetScale = cam.scale ?? 1;
     },
     setSuspended: (next) => {
       suspended = next;
@@ -247,6 +293,12 @@ export function createCameraController(
     update: (dtMs) => {
       if (suspended) return;
       const dt = Math.min(dtMs, MAX_PAN_STEP_MS);
+      // A display or render-scale change moves the device px under a level, so it is checked per frame.
+      const settled = onLevel(cam);
+      if (settled !== cam) {
+        cam = settled;
+        targetScale = cam.scale ?? 1;
+      }
       if (targetScale !== (cam.scale ?? 1)) {
         cam = stepZoomToward(cam, targetScale, zoomAnchorX, zoomAnchorY, dt, tuning.zoomGlideRate, minZoom);
       }

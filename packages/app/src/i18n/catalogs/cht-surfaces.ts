@@ -183,6 +183,9 @@ export const chtSurfaces = {
       spriteSmoothingTip: '平滑本專案角色的邊緣以及縮小顯示的世界圖像。不會改變文字的算繪。',
       postFx: '後製處理',
       postFxTip: '在世界畫面上疊加暗角與暖色調色。',
+      pixelPerfectZoom: '像素級精確縮放',
+      pixelPerfectZoomTip:
+        '僅以整數級縮放（½×、1×、2×、3×…），使圖像的每個像素都佔據整數個螢幕像素，不會被小數比例重新取樣。視圖在各級之間直接切換，而非平滑過渡。',
       displayHeading: '顯示',
       cursorHeading: '滑鼠游標',
       cursorTheme: '游標外觀',

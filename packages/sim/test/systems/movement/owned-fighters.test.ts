@@ -13,6 +13,7 @@ import { positionOfNode, type Simulation } from '../../../src/index.js';
 import {
   OFF_LATTICE_NODE,
   ownedFighters,
+  ownedFightersOf,
   type StandingPostGrid,
   standingFighterPosts,
   standingPostGrid,
@@ -21,6 +22,9 @@ import {
 import { P0, P1, SOLDIER, settlerAt, sim, WOODCUTTER, walkStraightTo } from './separation/support.js';
 
 const fightersOf = (s: Simulation): readonly Entity[] => [...ownedFighters(s.world, s.content)];
+const fightersOfPlayer = (s: Simulation, player: number): readonly Entity[] => [
+  ...ownedFightersOf(s.world, s.content, player),
+];
 
 /** A half-cell column west of the lattice. */
 const OFF_LATTICE = -1;
@@ -38,7 +42,7 @@ function gridOf(s: Simulation): StandingPostGrid {
 }
 
 describe('ownedFighters index', () => {
-  it('follows trade, owner, death and spawn changes between reads, in ascending id', () => {
+  it('follows trade, owner, death and spawn changes between reads, in ascending id, in all and per owner', () => {
     const s = sim();
     const soldier = settlerAt(s, 2, 2, SOLDIER, P0);
     const cutter = settlerAt(s, 4, 2, WOODCUTTER, P0);
@@ -55,9 +59,16 @@ describe('ownedFighters index', () => {
     s.world.remove(rival, Owner);
     expect(fightersOf(s)).toEqual([cutter, unowned]);
 
+    expect(fightersOfPlayer(s, P1)).toEqual([unowned]);
+
     s.world.destroy(cutter);
     const recruit = settlerAt(s, 10, 2, SOLDIER, P0);
     expect(fightersOf(s)).toEqual([unowned, recruit]);
+    expect(fightersOfPlayer(s, P0)).toEqual([recruit]);
+
+    s.world.mut(unowned, Owner).player = P0;
+    expect(fightersOfPlayer(s, P0)).toEqual([unowned, recruit]);
+    expect(fightersOfPlayer(s, P1)).toEqual([]);
     expect(s.world.verifyCaches()).toEqual([]);
   });
 

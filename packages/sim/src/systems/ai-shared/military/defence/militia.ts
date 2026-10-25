@@ -16,9 +16,10 @@ import {
 import type { DeepReadonly, Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
-import { leashedAttack, peopleNear } from '../../../conflict/strike-back.js';
+import { leashedAttack } from '../../../conflict/leash.js';
 import { attackerWeapon } from '../../../conflict/weapons.js';
 import type { SystemContext } from '../../../context.js';
+import { peopleNear } from '../../../movement/settler-nodes.js';
 import { atomicBlocksOrder, mayChangeTrade } from '../../../orders/guards.js';
 import { assignWorker, takeUpTrade } from '../../../orders/work/employment.js';
 import { canChooseJob, needSubjectOf } from '../../../progression/index.js';

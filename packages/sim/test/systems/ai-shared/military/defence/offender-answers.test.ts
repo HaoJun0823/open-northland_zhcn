@@ -10,8 +10,8 @@ import {
   MILITARY_DECISION_PHASE,
   threatWatchNodes,
 } from '../../../../../src/systems/computer-player/index.js';
+import { STRIKE_BACK_PARTY } from '../../../../../src/systems/conflict/leash.js';
 import { noteOffence } from '../../../../../src/systems/conflict/offenders.js';
-import { STRIKE_BACK_PARTY } from '../../../../../src/systems/conflict/strike-back.js';
 import { setAiControl } from '../../../../../src/systems/orders/ai.js';
 import { WEAPON_MAIN_TYPE } from '../../../../../src/systems/readviews/index.js';
 import { aiContent } from '../../../../fixtures/ai-content.js';

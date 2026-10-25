@@ -1,11 +1,11 @@
-import { type AttackLeash, AttackOrder, Owner } from '../../../../components/index.js';
+import { type AttackLeash, AttackOrder } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { ALARM_PEOPLE_RADIUS_NODES } from '../../../conflict/hit-alarm.js';
-import { peopleNear } from '../../../conflict/strike-back.js';
 import type { SystemContext } from '../../../context.js';
-import { ownedFighters } from '../../../movement/collision/owned-fighters.js';
+import { ownedFightersOf } from '../../../movement/collision/owned-fighters.js';
+import { peopleNear } from '../../../movement/settler-nodes.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { spokenFor } from '../errand.js';
 import {
@@ -83,8 +83,7 @@ function offenderZones(threat: SeatThreat): Map<Entity, { zone: ZoneThreat; intr
 /** How many of `player`'s fighters each target is under an attack order on. */
 function chasersOf(world: World, ctx: SystemContext, player: number): Map<Entity, number> {
   const chasing = new Map<Entity, number>();
-  for (const e of ownedFighters(world, ctx.content)) {
-    if (world.get(e, Owner).player !== player) continue;
+  for (const e of ownedFightersOf(world, ctx.content, player)) {
     const target = world.tryGet(e, AttackOrder)?.target;
     if (target !== undefined) chasing.set(target, (chasing.get(target) ?? 0) + 1);
   }

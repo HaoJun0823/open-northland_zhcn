@@ -22,7 +22,7 @@ export {
   MILITIA_PER_ZONE_MAX,
   musterMilitia,
 } from './militia.js';
-export { OFFENDER_SQUAD_MAX, type OffenderAnswer, offenderAnswers } from './offenders.js';
+export { OFFENDER_SQUAD_MAX, type OffenderAnswer, offenderAnswers } from './offender-answers.js';
 export {
   MAP_AI_DEFENCE_REACH_POINTS,
   MAP_AI_PEACE_ARCHERS_PER_CLASS,

@@ -1,5 +1,8 @@
-import { Position, Settler } from '../../components/index.js';
+import { Owner, Person, Position, Resting, Settler } from '../../components/index.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
+import { hexDistanceBetween, rowReachLeft, rowReachRight } from '../../nav/halfcell.js';
+import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
+import { standsAtPost } from '../conflict/tower-post.js';
 import { HeldNodes, NO_NODE } from '../spatial/held-nodes.js';
 import { moverNode } from '../spatial/mover-node.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
@@ -84,4 +87,30 @@ function verify(world: World): string[] {
     }
   }
   return [];
+}
+
+/** `player`'s people out in the open within `radius` map points of `at`, ascending (distance, id). */
+export function peopleNear(
+  world: World,
+  terrain: TerrainGraph,
+  player: number,
+  at: NodeId,
+  radius: number,
+): Entity[] {
+  const centre = { hx: terrain.xOf(at), hy: terrain.yOf(at) };
+  const byNode = settlersByNode(world);
+  const near: { entity: Entity; distance: number }[] = [];
+  const lastRow = Math.min(terrain.height - 1, centre.hy + radius);
+  for (let hy = Math.max(0, centre.hy - radius); hy <= lastRow; hy++) {
+    const right = Math.min(terrain.width - 1, rowReachRight(centre, hy, radius));
+    for (let hx = Math.max(0, rowReachLeft(centre, hy, radius)); hx <= right; hx++) {
+      for (const e of byNode.at(hx, hy)) {
+        if (world.tryGet(e, Owner)?.player !== player || !world.has(e, Person)) continue;
+        if (world.has(e, Resting) && standsAtPost(world, e) === null) continue; // indoors
+        near.push({ entity: e, distance: hexDistanceBetween(hx, hy, centre.hx, centre.hy) });
+      }
+    }
+  }
+  near.sort((a, b) => a.distance - b.distance || a.entity - b.entity);
+  return near.map((n) => n.entity);
 }

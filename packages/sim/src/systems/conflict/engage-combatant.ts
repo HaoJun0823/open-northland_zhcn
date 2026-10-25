@@ -61,9 +61,9 @@ import {
 import { type CombatantStance, EngagementSpecs, resolveTarget, stanceMode } from './engagement.js';
 import { runsFromBlows, startBlowRun } from './flee.js';
 import { breaksHuntForNeed, holdPrey, preySearchResting, restPreySearch } from './hunting/index.js';
+import { strayedPastLeash } from './leash.js';
 import type { MeleeSlots } from './melee-slots.js';
 import type { CombatPass } from './pass.js';
-import { strayedPastLeash } from './strike-back.js';
 import { combatTargetNode, targetBodyNodes } from './target-node.js';
 import { hostileAnimalNow, isValidOrderedTarget, isValidTarget, wildPursuit } from './targeting.js';
 import { garrisonReach, standsAtPost, towerPostFor } from './tower-post.js';

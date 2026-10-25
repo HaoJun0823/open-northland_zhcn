@@ -11,8 +11,8 @@ import {
 import { aiCommand, type PlayerCommand } from '../../../core/commands/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
+import { leashedAttack, strikeParty } from '../../conflict/leash.js';
 import { forgetOffenders, liveOffenders } from '../../conflict/offenders.js';
-import { leashedAttack, strikeParty } from '../../conflict/strike-back.js';
 import type { System, SystemContext } from '../../context.js';
 import { hexNodeDistance } from '../../spatial/metric.js';
 import { entityNode } from '../../spatial/nodes.js';
@@ -30,7 +30,7 @@ import {
   towerPostOrders,
 } from './defence/index.js';
 import { musterMilitia } from './defence/militia.js';
-import { type OffenderAnswer, offenderAnswers } from './defence/offenders.js';
+import { type OffenderAnswer, offenderAnswers } from './defence/offender-answers.js';
 import {
   type Raider,
   THREAT_STAND_DOWN_MARGIN_NODES,

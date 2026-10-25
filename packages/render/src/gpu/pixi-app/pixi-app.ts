@@ -1,5 +1,6 @@
 import { Application, Assets, ImageSource, type Texture, type TextureSource } from 'pixi.js';
 import { type AtlasSheetLayout, markIndexedSource, markPixelArtSource } from '../pixel-art/registry.js';
+import { keepAtlasPageResident, registerAtlasPageUploader } from '../textures/atlas-residency.js';
 import { registerHumanPaletteUploader } from '../textures/human-palette-lut.js';
 import { registerWrittenPageUploader } from '../textures/written-page-source.js';
 import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
@@ -41,6 +42,7 @@ export async function createPixiApp(
 ): Promise<Application> {
   registerHumanPaletteUploader();
   registerWrittenPageUploader();
+  registerAtlasPageUploader();
   const app = new Application();
   await app.init({ canvas, width, height, ...APP_OPTIONS });
   inheritParentGroupUniforms(app.renderer);
@@ -116,6 +118,7 @@ export async function createWindowPixiApp(
   const resolutionScale = options?.resolutionScale ?? 1;
   registerHumanPaletteUploader();
   registerWrittenPageUploader();
+  registerAtlasPageUploader();
   const app = new Application();
   await app.init({
     canvas,
@@ -161,6 +164,7 @@ export async function loadAtlasSource(
     markIndexedSource(texture.source);
     texture.source.format = 'rg8unorm';
   }
+  keepAtlasPageResident(texture.source);
   return texture.source;
 }
 
@@ -172,5 +176,6 @@ export function atlasSourceFromBitmap(bitmap: ImageBitmap): TextureSource {
   const source = new ImageSource({ resource: bitmap, alphaMode: 'premultiply-alpha-on-upload' });
   source.scaleMode = 'nearest';
   markPixelArtSource(source);
+  keepAtlasPageResident(source);
   return source;
 }

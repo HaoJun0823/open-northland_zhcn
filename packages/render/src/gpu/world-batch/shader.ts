@@ -386,13 +386,19 @@ void main(void) {
     if (vSelection < SELECTION_OUTLINE + 0.5) {
       // The union of the offset copies blended over one another: a copy covers this fragment only
       // where its quad, the body's frame moved by its offset, does.
+      vec2 tapUV[OUTLINE_TAPS];
+      for (int k = 0; k < OUTLINE_TAPS; k++) {
+        vec2 uv = outlineUV(k);
+        tapUV[k] = WORLD_MAGNIFY > 0.5 ? clamp(uv, stampLow, stampHigh) : uv;
+      }
+      // The page is chosen once for all the taps, as the body's gather does.
+      float coverage[OUTLINE_TAPS];
+${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < OUTLINE_TAPS; k++) { vec4 texel = textureGrad(uTextures[${i}], tapUV[k], uvDx, uvDy); coverage[k] = indexed ? texel.g : texel.a; }`)}
       float uncovered = 1.0;
       for (int k = 0; k < OUTLINE_TAPS; k++) {
         vec2 uv = outlineUV(k);
-        vec4 texel = sampleTexture(WORLD_MAGNIFY > 0.5 ? clamp(uv, stampLow, stampHigh) : uv, uvDx, uvDy);
-        float tap = indexed ? texel.g : texel.a;
         bool inside = all(greaterThanEqual(uv, vFrame.xy)) && all(lessThan(uv, vFrame.zw));
-        uncovered *= 1.0 - (inside ? vColor.a * tap : 0.0);
+        uncovered *= 1.0 - (inside ? vColor.a * coverage[k] : 0.0);
       }
       float alpha = 1.0 - uncovered;
       finalColor = vColor.a > 0.0 ? vec4(vColor.rgb * (alpha / vColor.a), alpha) : vec4(0.0);

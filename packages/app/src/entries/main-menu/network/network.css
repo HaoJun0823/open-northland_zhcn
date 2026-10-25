@@ -65,7 +65,8 @@
 }
 .network-menu__connection,
 .network-menu__create,
-.network-menu__room-list {
+.network-menu__room-list,
+.network-hall__card {
   padding: calc(var(--u) * 26);
   border: 1px solid var(--bronze-lo);
   border-radius: 4px;

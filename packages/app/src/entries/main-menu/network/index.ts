@@ -2,7 +2,7 @@ import type { MapText } from '@open-northland/data';
 import { MAX_NICK_LENGTH, type RoomView } from '@open-northland/net-protocol';
 import { apiBaseUrl, loadMapSources } from '../../../content/map-source/index.js';
 import type { MapVerifyNotice } from '../../../content/transfer/index.js';
-import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
+import { formatMessage, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import { type ConnectionEvent, NetworkConnection } from '../../../net/connection.js';
 import { type RelayMapRequest, relayMapRequest } from '../../../net/map-request.js';
@@ -18,8 +18,8 @@ import { roomAssets } from './assets.js';
 import { connectionForm } from './connection-form.js';
 import { createPanel } from './create.js';
 import { prepareRoomCreation } from './creation.js';
-import { escapeLeavesRoom, openRooms, relayAddress, validNetworkNick, worldTitle } from './model.js';
-import { button } from './parts.js';
+import { networkHall } from './hall/index.js';
+import { escapeLeavesRoom, relayAddress, validNetworkNick, worldTitle } from './model.js';
 import { mountNetworkRoom } from './room/index.js';
 import { pingRelay, type RelayPing } from './server/ping.js';
 import { launchNetworkGame } from './start.js';
@@ -86,8 +86,9 @@ export function networkScreen(
       mapNames = new Map(sources.map((source) => [source.entry.id, source.entry.name]));
       mapPreviews = new Map(sources.map((source) => [source.entry.id, mapSourceItem(source, api)]));
       const current = connection;
-      if (!disposed && room !== null && current?.client.room)
-        room.update(current.client.room, current.connected);
+      if (disposed) return;
+      hall.showRooms();
+      if (room !== null && current?.client.room) room.update(current.client.room, current.connected);
     });
   };
   loadMapNames();
@@ -133,12 +134,17 @@ export function networkScreen(
     sync();
     nick.focus();
   };
-  const list = node('div', 'network-menu__rooms');
-  const refresh = button(copy.refresh, () => connection?.client.listRooms());
-  const rooms = node('section', 'network-menu__room-list');
-  const roomsHead = node('header', 'network-menu__section-head');
-  roomsHead.append(node('h2', '', copy.rooms), refresh);
-  rooms.append(roomsHead, list);
+  const hall = networkHall({
+    client: () => connection?.client ?? null,
+    worldTitle: (world) => worldTitle(world, mapNames),
+    join(roomId) {
+      const current = connection;
+      if (current === null || !current.connected || busy) return;
+      busy = true;
+      sync();
+      current.client.joinRoom(roomId);
+    },
+  });
   const head = screenHead('multiplayer', open);
   const create = createPanel({
     async create(choice) {
@@ -163,7 +169,11 @@ export function networkScreen(
       browser.hidden = on;
     },
   });
-  columns.append(rooms, create.card);
+  const games = node('div', 'network-hall__column');
+  games.append(hall.rooms, hall.chat);
+  const side = node('div', 'network-hall__column');
+  side.append(create.card, hall.players);
+  columns.append(games, side);
   browser.append(form, account, columns);
   element.append(head, status, browser, create.mapList, roomHost);
 
@@ -187,51 +197,8 @@ export function networkScreen(
     if (!connected && connection !== null) form.append(disconnect);
     else account.append(disconnect);
     disconnect.hidden = connection === null;
-    refresh.disabled = !connected || busy;
     create.enable(connected && !busy);
-    for (const item of list.querySelectorAll<HTMLButtonElement>('button')) item.disabled = !connected || busy;
-  }
-
-  function paintRooms(): void {
-    const current = connection;
-    if (current === null) return;
-    const available = openRooms(current.client.rooms);
-    list.replaceChildren(
-      ...available.map((summary) => {
-        const row = node('div', 'network-menu__room-row');
-        const title = node('div');
-        title.append(
-          node('strong', '', summary.name),
-          node(
-            'p',
-            '',
-            formatMessage(copy.roomCapacity, {
-              members: formatMessage(pluralForm(summary.members, copy.members, bcp47Tag()), {
-                count: summary.members,
-              }),
-              seats: summary.seats,
-            }),
-          ),
-        );
-        row.append(
-          title,
-          button(copy.join, () => {
-            if (current.connected && !busy) {
-              busy = true;
-              sync();
-              current.client.joinRoom(summary.id);
-            }
-          }),
-        );
-        return row;
-      }),
-    );
-    if (available.length === 0) {
-      const empty = node('div', 'network-menu__empty');
-      empty.append(node('h3', '', copy.emptyTitle), node('p', '', copy.empty));
-      list.append(empty);
-    }
-    sync();
+    hall.enable(connected && !busy);
   }
 
   function leaveRoom(): void {
@@ -343,14 +310,22 @@ export function networkScreen(
     if (mapRequest?.observe(message)) return;
     switch (message.kind) {
       case 'welcome':
-        list.replaceChildren(node('p', 'network-menu__muted', copy.loadingRooms));
-        current.client.listRooms();
         notice('');
         sync();
-        refresh.focus();
+        hall.rooms.focus();
         break;
       case 'rooms':
-        paintRooms();
+        hall.showRooms();
+        break;
+      case 'presence':
+        hall.showPresence();
+        break;
+      case 'hallChatHistory':
+        hall.showChat();
+        break;
+      case 'hallChat':
+        hall.observeChat(message);
+        if (message.from !== current.client.nick) sound.cue('chat');
         break;
       case 'room':
         busy = false;
@@ -370,9 +345,8 @@ export function networkScreen(
         assets?.observe(null);
         resetRoom();
         notice(copy.left);
-        current.client.listRooms();
         sync();
-        refresh.focus();
+        hall.rooms.focus();
         break;
       case 'chatHistory':
         room?.showChat(current.client.chat);
@@ -468,6 +442,7 @@ export function networkScreen(
       mapRequest?.cancel();
       unsubscribe();
       create.dispose();
+      hall.dispose();
       disposeForm();
       room?.dispose();
       assets?.dispose();

@@ -1,0 +1,98 @@
+import { MAX_HALL_CHAT_LINES } from '@open-northland/net-protocol';
+import { describe, expect, it } from 'vitest';
+import {
+  ChatAllowance,
+  HALL_CHAT_BURST,
+  HALL_CHAT_KEPT_MS,
+  HALL_CHAT_REFILL_MS,
+  Hall,
+  SEEN_KEPT_MS,
+} from '../../../src/relay/hall/hall.js';
+import { HALL_RECORD_VERSION, parseHallRecord } from '../../../src/relay/hall/record.js';
+
+const NOW = Date.UTC(2026, 9, 25, 12);
+
+describe('hall', () => {
+  it('keeps the newest chat lines within their age, oldest first', () => {
+    const hall = new Hall(null, () => undefined);
+    hall.say('Ania', 'stara', NOW - HALL_CHAT_KEPT_MS);
+    for (let i = 0; i <= MAX_HALL_CHAT_LINES; i++) hall.say('Bartek', `${i}`, NOW - 1000 + i);
+    const { lines } = hall.history(NOW);
+    expect(lines).toHaveLength(MAX_HALL_CHAT_LINES);
+    expect(lines[0]?.text).toBe('1');
+    expect(lines.at(-1)?.text).toBe(String(MAX_HALL_CHAT_LINES));
+    expect(new Hall(null, () => undefined).history(NOW).lines).toEqual([]);
+  });
+
+  it('lists each online nick once, in its room if any, and the recently gone newest first', () => {
+    const hall = new Hall(null, () => undefined);
+    hall.saw('Celina', NOW - SEEN_KEPT_MS);
+    hall.saw('Bartek', NOW - 3000);
+    hall.saw('Dawid', NOW - 2000);
+    hall.saw('Ania', NOW - 1000);
+    expect(
+      hall.presence(
+        [
+          { nick: 'Ania', room: null },
+          { nick: 'Ania', room: 'r1' },
+          { nick: 'Emil', room: null },
+        ],
+        NOW,
+      ),
+    ).toEqual({
+      kind: 'presence',
+      online: [
+        { nick: 'Ania', room: 'r1' },
+        { nick: 'Emil', room: null },
+      ],
+      recent: [
+        { nick: 'Dawid', at: NOW - 2000 },
+        { nick: 'Bartek', at: NOW - 3000 },
+      ],
+    });
+  });
+
+  it('survives a restart through its record, the connected seen as of the record', () => {
+    let changes = 0;
+    const hall = new Hall(null, () => changes++);
+    hall.say('Ania', 'hej', NOW - 5000);
+    hall.saw('Bartek', NOW - 4000);
+    const record = parseHallRecord(JSON.parse(JSON.stringify(hall.record(['Ania'], NOW))));
+    expect(changes).toBe(2);
+    expect(record).toEqual({
+      version: HALL_RECORD_VERSION,
+      chat: [{ from: 'Ania', text: 'hej', at: NOW - 5000 }],
+      seen: [
+        { nick: 'Bartek', at: NOW - 4000 },
+        { nick: 'Ania', at: NOW },
+      ],
+    });
+    const restored = new Hall(record, () => undefined);
+    expect(restored.history(NOW).lines).toEqual(record.chat);
+    expect(restored.presence([], NOW).recent.map((player) => player.nick)).toEqual(['Ania', 'Bartek']);
+  });
+
+  it('reads only its own record version, and no line a client would refuse', () => {
+    expect(() => parseHallRecord({ version: HALL_RECORD_VERSION + 1, chat: [], seen: [] })).toThrow(
+      /version/,
+    );
+    expect(() =>
+      parseHallRecord({
+        version: HALL_RECORD_VERSION,
+        chat: [{ from: 'Ania', text: 'a\nb', at: 1 }],
+        seen: [],
+      }),
+    ).toThrow(/chat\[0\]\.text/);
+  });
+});
+
+describe('hall chat allowance', () => {
+  it('lets a burst through, then one line per refill', () => {
+    const allowance = new ChatAllowance(0);
+    for (let i = 0; i < HALL_CHAT_BURST; i++) expect(allowance.take(0)).toBe(true);
+    expect(allowance.take(HALL_CHAT_REFILL_MS - 1)).toBe(false);
+    expect(allowance.take(HALL_CHAT_REFILL_MS)).toBe(true);
+    expect(allowance.take(HALL_CHAT_REFILL_MS)).toBe(false);
+    expect(allowance.take(HALL_CHAT_REFILL_MS * (HALL_CHAT_BURST + 10))).toBe(true);
+  });
+});

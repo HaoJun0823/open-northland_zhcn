@@ -317,8 +317,10 @@ export function parseRoomSummary(value: unknown, at: string): RoomSummary {
     id: asString(raw.id, `${at}.id`, MAX_ROOM_ID_LENGTH),
     name: parseLine(raw.name, `${at}.name`, MAX_ROOM_NAME_LENGTH),
     state: asOneOf(raw.state, ROOM_STATES, `${at}.state`),
-    members: asCount(raw.members, `${at}.members`),
+    members: asArray(raw.members, `${at}.members`).map((nick, i) => parseNick(nick, `${at}.members[${i}]`)),
     seats: asCount(raw.seats, `${at}.seats`),
+    world: parseSessionWorld(raw.world, `${at}.world`),
+    playedMs: raw.playedMs === null ? null : asNonNegativeNumber(raw.playedMs, `${at}.playedMs`),
   };
 }
 

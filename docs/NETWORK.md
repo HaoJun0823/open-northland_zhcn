@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 44` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 45` in
 `packages/net-protocol`. A change one side of the current version could not honour (a message shape, or
 the value set of a validated field such as the fog mode ids) bumps the version; the relay refuses a
 `hello` that names another.
@@ -61,7 +61,10 @@ so a client can answer it immediately.
 
 ## Rooms and seats
 
-`listRooms` returns `rooms { rooms: [{ id, name, state, members, seats }] }`.
+`listRooms` returns `rooms { rooms: [{ id, name, state, members, seats, world, playedMs }] }`: `members`
+holds the nicks of the members connected now, `world` is the room's `settings.world`, and `playedMs` the
+wall milliseconds since the room's clock first ran, null before it runs and once the match ended. A client
+outside a room also gets the list unasked, see [The hall](#the-hall).
 `createRoom { settings, seats }` makes a room with the sender in it as creator. `joinRoom { roomId }`
 joins a room in the lobby; a started room refuses. A duplicate nick within a room gets a numeric suffix
 (`Ania`, `Ania2`). Observers occupy no map seat and have no slot limit; the lobby shows each observer and
@@ -651,6 +654,26 @@ newest `MAX_CHAT_HISTORY_LINES` lines, the lobby's included, and the log ends wi
 enters the room: on creating it, on joining it, and on every return of its token, before `start` and
 `clock`.
 
+## The hall
+
+A client outside a room is in the hall: the room list, who is on the relay, and the relay's own chat.
+Each time a client arrives there (after `welcome` unless its token was put back into a room, and after
+leaving a room) it gets `rooms`, `presence` and `hallChatHistory`, then, at most once per
+`HALL_REFRESH_MS`, `rooms` and `presence` again when either changed. A running clock's advance alone is no
+change; the client counts `playedMs` on from when the list arrived. A member of a room gets none of these.
+
+`presence { online: [{ nick, room }], recent: [{ nick, at }] }` names each introduced connection by its
+`hello` nick, once per nick, with the id of the room it is in or null; `recent` lists the nicks seen within
+`SEEN_KEPT_MS` that are not online, newest first, `at` being when the relay last saw them, in Unix epoch
+milliseconds. Each list carries at most `MAX_PRESENCE_ENTRIES`.
+
+`hallChat { text }` from a client in the hall is broadcast to the hall as `hallChat { from, text, at }`,
+`from` being the sender's `hello` nick; the text follows the room chat's rules. A connection may say
+`HALL_CHAT_BURST` lines at once and one more every `HALL_CHAT_REFILL_MS`; past that it is refused with
+`retryTooSoon`. The relay keeps the newest `MAX_HALL_CHAT_LINES` lines of the last `HALL_CHAT_KEPT_MS`, and
+`hallChatHistory { lines: [{ from, text, at }] }` replays them oldest first. With `RELAY_HALL_FILE` set the
+chat and the seen times survive a restart ([Relay image](BUILDING.md#relay-image)).
+
 ## Refusal codes
 
 By message, what the relay answers with `rejected` (the connection stays) or `error` (the connection
@@ -661,6 +684,7 @@ closes or the room ends). `RelayReason` holds each code's values.
 | first message | `helloFirst` (not a `hello`), `helloOverdue`, `protocolUnsupported`; `replaced` to the older connection |
 | any | Closing: `messageTooLarge`, `malformed` (unknown kind or before `hello`), `trafficLimit`, `relayFault`, `serverRestart`. Refused: `malformed`, `alreadyIntroduced` (a second `hello`), `notInRoom` (a room message outside a room) |
 | `createRoom`, `joinRoom` | `alreadyInRoom`; `relayFull` to create; `noRoom`, `gameStarted` to join |
+| `hallChat` | `alreadyInRoom`, `retryTooSoon` |
 | `leaveRoom` | `notInRoom` |
 | `claimSeat` | `noSeat`, `seatNotClaimable`, `seatTaken`; `gameStarted` for a seat after the start |
 | `setSeat` | `gameStarted`, `creatorOnly`, `savedSeatsFixed`, `noSeat`, `seatTribeUnavailable`, `seatDifficultyUnavailable`, `seatTaken` (a mode for a taken seat), `seatModeUnavailable` |
@@ -728,6 +752,9 @@ Each value verified against its constant; the owning package is in brackets.
 | `MAX_TRIBE_ID`, `MAX_SEED` [protocol] | 255, 2^32 - 1 | Seat tribe id; room seed. |
 | `MIN_TOKEN_LENGTH`, `MAX_TOKEN_LENGTH` [protocol] | 16, 128 | Token, URL-safe characters. |
 | `MAX_NICK_LENGTH`, `MAX_ROOM_NAME_LENGTH`, `MAX_CHAT_LENGTH`, `MAX_CHAT_HISTORY_LINES` [protocol] | 24, 48, 500, 500 | Characters; chat lines kept per room. |
+| `MAX_HALL_CHAT_LINES`, `HALL_CHAT_KEPT_MS` [protocol, server] | 200, 14 days | Server chat lines kept and replayed. |
+| `HALL_CHAT_BURST`, `HALL_CHAT_REFILL_MS` [server] | 5, 2 s | Server chat lines per connection. |
+| `MAX_PRESENCE_ENTRIES`, `SEEN_KEPT_MS`, `HALL_REFRESH_MS` [protocol, server, server] | 500, 7 days, 1 s | Entries of each `presence` list; how long a nick stays recent; the hall's update cadence. |
 | `MAX_ROOM_ID_LENGTH`, `MAX_WORLD_ID_LENGTH`, `MAX_COMMAND_KIND_LENGTH`, `MAX_REASON_LENGTH` [protocol] | 32, 128, 64, 200 | Characters; the last bounds `malformed`'s `detail`. |
 | `MAX_CLIENT_VERSION_LENGTH`, `MAX_RELAY_BUILD_LENGTH` [protocol] | 128, 128 | Printable characters of a report's `client` and of `welcome`'s `build`. |
 
@@ -747,7 +774,8 @@ applied tick still sends its digest. A wait for a frame keeps at most one tick o
 hold the pacer refills the buffer and a burst of late frames runs one tick per display frame rather than
 five. A `snapshotRequest` is skipped while the world stands behind the newest snapshot tick the client has
 seen the relay cache. The client keeps the room's chat as the relay logs it: `chatHistory` replaces it on
-every entry and return, and each `chat` appends to it, up to `MAX_CHAT_HISTORY_LINES`.
+every entry and return, and each `chat` appends to it, up to `MAX_CHAT_HISTORY_LINES`; the hall's chat
+likewise, from `hallChatHistory` and `hallChat`, up to `MAX_HALL_CHAT_LINES`.
 
 The command outbox sends a gesture only while fewer than `MAX_COMMANDS_PER_TICK` of the client's own are
 in flight (sent and not yet applied or refused) and their JSON bytes with its own stay within

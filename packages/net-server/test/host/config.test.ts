@@ -11,6 +11,7 @@ describe('relay configuration from the environment', () => {
       maxRooms: DEFAULT_MAX_ROOMS,
       maxConnections: 256,
       build: null,
+      hallFile: null,
     });
     expect(relayConfigFromEnvironment({ PORT: '', RELAY_BUILD: '  ' })).toEqual(
       relayConfigFromEnvironment({}),
@@ -26,6 +27,7 @@ describe('relay configuration from the environment', () => {
         RELAY_MAX_ROOMS: '8',
         RELAY_MAX_CONNECTIONS: '32',
         RELAY_BUILD: 'abc1234',
+        RELAY_HALL_FILE: '/data/hall.json',
       }),
     ).toEqual({
       port: 9000,
@@ -34,6 +36,7 @@ describe('relay configuration from the environment', () => {
       maxRooms: 8,
       maxConnections: 32,
       build: 'abc1234',
+      hallFile: '/data/hall.json',
     });
   });
 

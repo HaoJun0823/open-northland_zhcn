@@ -2,9 +2,12 @@ import {
   type BlobUpload,
   type ChatLine,
   type ClientMessage,
+  type HallChatLine,
   type LobbyCompatibility,
   type LobbySettings,
+  type OnlinePlayer,
   PROTOCOL_VERSION,
+  type RecentPlayer,
   type RoomSeatSetup,
   type RoomSettings,
   type RoomSummary,
@@ -48,6 +51,18 @@ export class RelayLobby {
 
   get chat(): readonly ChatLine[] {
     return this.state.chat;
+  }
+
+  get online(): readonly OnlinePlayer[] {
+    return this.state.online;
+  }
+
+  get recent(): readonly RecentPlayer[] {
+    return this.state.recent;
+  }
+
+  get hallChat(): readonly HallChatLine[] {
+    return this.state.hallChat;
   }
 
   get relayBuild(): string | null {
@@ -120,6 +135,11 @@ export class RelayLobby {
 
   say(text: string): void {
     this.send({ kind: 'chat', text });
+  }
+
+  /** A line for the relay's own chat, said outside a room. */
+  sayInHall(text: string): void {
+    this.send({ kind: 'hallChat', text });
   }
 
   /** How far this client's boot is, in whole percent, before its world reports `loaded`. */

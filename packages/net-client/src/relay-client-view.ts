@@ -2,6 +2,9 @@ import type { GameSession } from '@open-northland/lockstep';
 import type {
   ChatLine,
   GovernedClock,
+  HallChatLine,
+  OnlinePlayer,
+  RecentPlayer,
   ResponsivenessMode,
   ResponsivenessState,
   RoomSummary,
@@ -29,6 +32,7 @@ const LOBBY_ACTIONS = [
   'start',
   'reportLoading',
   'say',
+  'sayInHall',
   'kick',
   'sendBlob',
 ] as const satisfies readonly (keyof RelayLobby)[];
@@ -46,6 +50,10 @@ export interface RelayClientView extends Pick<RelayLobby, LobbyAction> {
   readonly welcomed: boolean;
   readonly relayBuild: string | null;
   readonly rooms: readonly RoomSummary[];
+  readonly online: readonly OnlinePlayer[];
+  readonly recent: readonly RecentPlayer[];
+  /** The relay's own chat outside rooms, oldest first; a new array per change. */
+  readonly hallChat: readonly HallChatLine[];
   readonly room: RoomView | null;
   /** The room's chat, oldest first, the relay's history included; a new array per change. */
   readonly chat: readonly ChatLine[];

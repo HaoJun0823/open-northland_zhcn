@@ -1,9 +1,19 @@
 import type { GameSession } from '@open-northland/lockstep';
-import { MAX_CHAT_HISTORY_LINES, MAX_CHAT_LENGTH, MAX_SPEED } from '../limits.js';
+import {
+  MAX_CHAT_HISTORY_LINES,
+  MAX_CHAT_LENGTH,
+  MAX_HALL_CHAT_LINES,
+  MAX_PRESENCE_ENTRIES,
+  MAX_ROOM_ID_LENGTH,
+  MAX_SPEED,
+} from '../limits.js';
 import type {
   ChatLine,
   GovernedClock,
   GovernorCause,
+  HallChatLine,
+  OnlinePlayer,
+  RecentPlayer,
   ServerMessage,
   WaitedMember,
   WaitReason,
@@ -16,6 +26,7 @@ import {
   asOneOf,
   asPositiveNumber,
   asRecord,
+  asString,
   keysOf,
 } from '../untrusted.js';
 import { CLIENT_KINDS } from './client.js';
@@ -35,6 +46,9 @@ import { BLOB_TYPES, parseBlobBytes, parseStateHash, parseWireCommands, SYNC_DOM
 const SERVER_KINDS = keysOf<ServerMessage['kind']>({
   welcome: true,
   rooms: true,
+  presence: true,
+  hallChat: true,
+  hallChatHistory: true,
   room: true,
   left: true,
   start: true,
@@ -91,6 +105,26 @@ export function parseServerMessage(
       return {
         kind,
         rooms: asArray(raw.rooms, 'rooms.rooms').map((room, i) => parseRoomSummary(room, `rooms[${i}]`)),
+      };
+    case 'presence':
+      return {
+        kind,
+        online: bounded(raw.online, 'presence.online', MAX_PRESENCE_ENTRIES).map((entry, i) =>
+          parseOnlinePlayer(entry, `presence.online[${i}]`),
+        ),
+        recent: bounded(raw.recent, 'presence.recent', MAX_PRESENCE_ENTRIES).map((entry, i) =>
+          parseRecentPlayer(entry, `presence.recent[${i}]`),
+        ),
+      };
+    case 'hallChat':
+      return { kind, ...parseHallChatLine(raw, 'hallChat') };
+    case 'hallChatHistory':
+      return {
+        kind,
+        lines: bounded(raw.lines, 'hallChatHistory.lines', MAX_HALL_CHAT_LINES).map((line, i) => {
+          const at = `hallChatHistory.lines[${i}]`;
+          return parseHallChatLine(asRecord(line, at), at);
+        }),
       };
     case 'room':
       return { kind, room: parseRoomView(raw.room, 'room.room') };
@@ -228,11 +262,36 @@ function parseGovernedClock(value: unknown, at: string): GovernedClock {
 
 function parseChatLine(raw: Record<string, unknown>, at: string): ChatLine {
   return {
+    ...parseHallChatLine(raw, at),
+    tick: raw.tick === null ? null : asCount(raw.tick, `${at}.tick`),
+  };
+}
+
+function parseHallChatLine(raw: Record<string, unknown>, at: string): HallChatLine {
+  return {
     from: parseNick(raw.from, `${at}.from`),
     text: parseLine(raw.text, `${at}.text`, MAX_CHAT_LENGTH),
     at: asTimestamp(raw.at, `${at}.at`),
-    tick: raw.tick === null ? null : asCount(raw.tick, `${at}.tick`),
   };
+}
+
+function parseOnlinePlayer(value: unknown, at: string): OnlinePlayer {
+  const raw = asRecord(value, at);
+  return {
+    nick: parseNick(raw.nick, `${at}.nick`),
+    room: raw.room === null ? null : asString(raw.room, `${at}.room`, MAX_ROOM_ID_LENGTH),
+  };
+}
+
+function parseRecentPlayer(value: unknown, at: string): RecentPlayer {
+  const raw = asRecord(value, at);
+  return { nick: parseNick(raw.nick, `${at}.nick`), at: asTimestamp(raw.at, `${at}.at`) };
+}
+
+function bounded(value: unknown, at: string, max: number): readonly unknown[] {
+  const list = asArray(value, at);
+  if (list.length > max) throw new Error(`${at}: more than ${max} entries`);
+  return list;
 }
 
 function parseWaitedMember(value: unknown, at: string): WaitedMember {

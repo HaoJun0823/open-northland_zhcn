@@ -1,8 +1,8 @@
 import type { MapText } from '@open-northland/data';
 import type { SessionWorld } from '@open-northland/lockstep';
-import { parseNick, type RoomSummary } from '@open-northland/net-protocol';
+import { parseNick } from '@open-northland/net-protocol';
 import { localizedMapText } from '../../../game/map/strings.js';
-import { compareLabels, currentLocale, type Locale, sceneCopy } from '../../../i18n/index.js';
+import { currentLocale, type Locale, sceneCopy } from '../../../i18n/index.js';
 
 export { relayAddress } from '../../../net/address.js';
 
@@ -23,14 +23,6 @@ export function escapeLeavesRoom(target: EventTarget | null): boolean {
   const field = target as { readonly tagName: unknown; readonly value: unknown };
   const editable = field.tagName === 'INPUT' || field.tagName === 'TEXTAREA';
   return !(editable && typeof field.value === 'string' && field.value !== '');
-}
-
-/** The lobbies by the name each row shows; the id only breaks a tie between alike names. */
-export function openRooms(rooms: readonly RoomSummary[]): readonly RoomSummary[] {
-  const compare = compareLabels();
-  return rooms
-    .filter((room) => room.state === 'lobby')
-    .sort((a, b) => compare(a.name, b.name) || a.id.localeCompare(b.id));
 }
 
 /** A room's world as the player reads it: the map's or scene's title in `lang`, else its id. */

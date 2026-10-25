@@ -1,0 +1,233 @@
+/* The server hall: games, players and the server chat, in the network screen's panels (network.css). */
+.network-hall__column {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 20);
+  min-width: 0;
+}
+.network-hall__games:focus {
+  outline: none;
+}
+.network-hall__card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 14);
+  min-width: 0;
+}
+.network-hall__subhead {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 10);
+  margin-top: calc(var(--u) * 22);
+  color: var(--muted);
+  font: 600 calc(var(--u) * 13) / 1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.network-hall__card > .network-hall__subhead:first-of-type {
+  margin-top: calc(var(--u) * 4);
+}
+.network-hall__games > header + .network-hall__subhead {
+  margin-top: calc(var(--u) * 16);
+}
+.network-menu .network-hall__subhead {
+  font-family: var(--font-body);
+  font-size: calc(var(--u) * 13);
+  color: var(--muted);
+}
+.network-hall__count {
+  min-width: calc(var(--u) * 22);
+  padding: calc(var(--u) * 1) calc(var(--u) * 7);
+  border: 1px solid var(--wood-hi);
+  border-radius: 999px;
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-align: center;
+}
+.network-hall__games .network-menu__rooms {
+  margin-top: calc(var(--u) * 10);
+}
+.network-hall__room-main {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 4);
+}
+.network-hall__room-name {
+  color: var(--text-hi);
+  font-size: calc(var(--u) * 18);
+}
+.network-menu .network-hall__room-meta {
+  margin: 0;
+}
+.network-hall__nicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 6);
+  margin: calc(var(--u) * 4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.network-hall__nicks > li {
+  padding: calc(var(--u) * 1) calc(var(--u) * 8);
+  border-radius: 2px;
+  background: #ffffff0d;
+  color: var(--text);
+  font-size: calc(var(--u) * 14);
+}
+.network-hall__clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  gap: calc(var(--u) * 2);
+}
+.network-hall__clock > span {
+  color: var(--muted);
+  font-size: calc(var(--u) * 12);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.network-hall__clock > time {
+  color: var(--bronze-hi);
+  font: 600 calc(var(--u) * 22) / 1.1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+.network-hall__badge {
+  flex: none;
+  padding: calc(var(--u) * 4) calc(var(--u) * 10);
+  border: 1px solid var(--wood-hi);
+  border-radius: 999px;
+  color: var(--warning);
+  font-size: calc(var(--u) * 14);
+}
+.network-hall__none {
+  color: var(--muted);
+  font-size: calc(var(--u) * 15);
+  font-style: italic;
+}
+
+.network-hall__people {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.network-hall__people > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: calc(var(--u) * 10);
+  padding: calc(var(--u) * 7) 0;
+  border-bottom: 1px solid #7a5f4030;
+}
+.network-hall__people > li.network-hall__none {
+  display: block;
+  border: 0;
+}
+.network-hall__people--recent {
+  max-height: calc(var(--u) * 260);
+  overflow-y: auto;
+  scrollbar-color: var(--wood-hi) var(--deep);
+}
+.network-hall__dot {
+  --dot: var(--ok);
+  width: calc(var(--u) * 9);
+  height: calc(var(--u) * 9);
+  border-radius: 50%;
+  background: var(--dot);
+  box-shadow: 0 0 calc(var(--u) * 6) var(--dot);
+  align-self: center;
+}
+.is-lobby > .network-hall__dot {
+  --dot: var(--warning);
+}
+.is-playing > .network-hall__dot {
+  --dot: var(--bronze);
+}
+.is-away > .network-hall__dot {
+  --dot: var(--wood-hi);
+  box-shadow: none;
+}
+.network-hall__nick {
+  overflow: hidden;
+  color: var(--text-hi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-away > .network-hall__nick {
+  color: var(--text);
+}
+.network-hall__nick > em {
+  color: var(--muted);
+  font-style: normal;
+}
+.network-hall__where {
+  overflow: hidden;
+  max-width: calc(var(--u) * 220);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-hall__chat-head {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 4);
+}
+.network-hall__chat-log {
+  height: calc(var(--u) * 320);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding-right: calc(var(--u) * 6);
+  scrollbar-color: var(--wood-hi) var(--deep);
+}
+.network-hall__chat-log > p {
+  padding: calc(var(--u) * 6) calc(var(--u) * 8);
+  border-left: 2px solid transparent;
+}
+.network-hall__chat-log > p + p {
+  border-top: 1px solid #7a5f4026;
+}
+.network-hall__chat-log > p.is-mention {
+  border-left-color: var(--bronze-hi);
+  background: #efd28f12;
+}
+.network-hall__chat-log strong {
+  margin-right: calc(var(--u) * 8);
+  color: var(--bronze-hi);
+}
+.network-hall__chat-log .is-own strong {
+  color: var(--ok);
+}
+.network-hall__chat-time {
+  margin-right: calc(var(--u) * 8);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
+  font-variant-numeric: tabular-nums;
+}
+.network-hall__chat-empty {
+  padding: calc(var(--u) * 32) calc(var(--u) * 16);
+  color: var(--muted);
+  text-align: center;
+}
+.network-hall__chat-empty:not([hidden]) + .network-hall__chat-log {
+  height: auto;
+  min-height: 0;
+}
+.network-hall__chat-form {
+  display: flex;
+  gap: calc(var(--u) * 10);
+}
+.network-hall__chat-form > input {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .network-hall__chat-log {
+    height: 260px;
+  }
+}

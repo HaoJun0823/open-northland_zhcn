@@ -59,6 +59,10 @@ export const MAX_ROOM_NAME_LENGTH = 48;
 export const MAX_CHAT_LENGTH = 500;
 /** Chat lines a room keeps for members who join or return; the oldest go first. */
 export const MAX_CHAT_HISTORY_LINES = 500;
+/** Lines of the relay's own chat a client receives on arriving outside a room; the oldest go first. */
+export const MAX_HALL_CHAT_LINES = 200;
+/** Entries each list of a `presence` message carries at most; the relay leaves out the rest. */
+export const MAX_PRESENCE_ENTRIES = 500;
 export const MAX_ROOM_ID_LENGTH = 32;
 export const MAX_WORLD_ID_LENGTH = 128;
 export const MAX_COMMAND_KIND_LENGTH = 64;

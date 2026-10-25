@@ -43,6 +43,7 @@ export const CLIENT_KINDS = keysOf<ClientMessageKind>({
   kick: true,
   blob: true,
   chat: true,
+  hallChat: true,
   pong: true,
 });
 
@@ -177,7 +178,8 @@ export function parseClientMessage(value: unknown): ClientMessage {
         : { ...payload, type };
     }
     case 'chat':
-      return { kind, text: parseLine(raw.text, 'chat.text', MAX_CHAT_LENGTH) };
+    case 'hallChat':
+      return { kind, text: parseLine(raw.text, `${kind}.text`, MAX_CHAT_LENGTH) };
     case 'pong':
       return { kind, t: asTimestamp(raw.t, 'pong.t') };
     default:

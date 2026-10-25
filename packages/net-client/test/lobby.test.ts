@@ -88,7 +88,17 @@ describe('RelayClient lobby API', () => {
   it('retains room summaries and server-assigned names before notifying the display', () => {
     const { client } = harness();
     client.receive({ kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania (2)' });
-    const rooms = [{ id: 'ab12', name: 'Forest', state: 'lobby', members: 1, seats: 2 }] as const;
+    const rooms = [
+      {
+        id: 'ab12',
+        name: 'Forest',
+        state: 'lobby',
+        members: ['Ania'],
+        seats: 2,
+        world: { kind: 'map', mapId: 'zatoka' },
+        playedMs: null,
+      },
+    ] as const;
     client.receive({ kind: 'rooms', rooms });
     expect(client.nick).toBe('Ania (2)');
     expect(client.welcomed).toBe(true);

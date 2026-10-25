@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
-import { PROTOCOL_VERSION, type RoomView, type ServerMessage } from '@open-northland/net-protocol';
+import {
+  type HallChatLine,
+  type OnlinePlayer,
+  PROTOCOL_VERSION,
+  type RecentPlayer,
+  type RoomSummary,
+  type RoomView,
+  type ServerMessage,
+} from '@open-northland/net-protocol';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   type NetworkScreenServices,
@@ -47,9 +55,13 @@ function fakeConnection() {
     nick: NICK,
     welcomed: true,
     room: null as RoomView | null,
-    rooms: [],
+    rooms: [] as readonly RoomSummary[],
+    online: [] as readonly OnlinePlayer[],
+    recent: [] as readonly RecentPlayer[],
+    hallChat: [] as readonly HallChatLine[],
     chat: [],
     listRooms: vi.fn(),
+    sayInHall: vi.fn(),
     leaveRoom: vi.fn(),
     requestMap: vi.fn(),
   };
@@ -65,6 +77,12 @@ function fakeConnection() {
   };
   const relay = (message: ServerMessage): void => {
     if (message.kind === 'room') client.room = message.room;
+    if (message.kind === 'rooms') client.rooms = message.rooms;
+    if (message.kind === 'presence') {
+      client.online = message.online;
+      client.recent = message.recent;
+    }
+    if (message.kind === 'hallChat') client.hallChat = [...client.hallChat, message];
     listener?.({ kind: 'message', message });
   };
   return {
@@ -121,6 +139,38 @@ function connectedScreen(
   fake.relay({ kind: 'welcome', nick: NICK } as ServerMessage);
   return screen;
 }
+
+it('shows the games, players and chat the relay pushes to the hall, and says a line to it', () => {
+  const fake = fakeConnection();
+  const screen = connectedScreen(fake, vi.fn());
+  const world = { kind: 'map', mapId: 'forest' } as const;
+  fake.relay({
+    kind: 'rooms',
+    rooms: [
+      { id: 'r1', name: 'Open', state: 'lobby', members: ['Bjorn'], seats: 4, world, playedMs: null },
+      { id: 'r2', name: 'Battle', state: 'running', members: ['Emil'], seats: 2, world, playedMs: 3_661_000 },
+    ],
+  });
+  fake.relay({
+    kind: 'presence',
+    online: [
+      { nick: NICK, room: null },
+      { nick: 'Emil', room: 'r2' },
+    ],
+    recent: [{ nick: 'Space', at: Date.now() - 3 * 60 * 60 * 1000 }],
+  });
+  fake.relay({ kind: 'hallChat', from: 'Emil', text: 'gg', at: Date.now() });
+  const text = screen.element.textContent ?? '';
+  for (const shown of ['Open', 'Bjorn', 'Battle', '1:01:01', 'Space', 'gg']) expect(text).toContain(shown);
+  const copy = messages().network;
+  expect(text).toContain(copy.playingIn.replace('{room}', 'Battle'));
+  const input = screen.element.querySelector<HTMLInputElement>('.network-hall__chat-form input');
+  if (input === null) throw new Error('no chat field');
+  input.value = ' hej ';
+  input.form?.requestSubmit();
+  expect(fake.client.sayInHall).toHaveBeenCalledExactlyOnceWith('hej');
+  screen.dispose();
+});
 
 it('keeps a started room up when the game it hands over to never loads, instead of leaving it', async () => {
   const fake = fakeConnection();

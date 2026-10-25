@@ -117,8 +117,33 @@ export interface RoomSummary {
   readonly id: string;
   readonly name: string;
   readonly state: RoomState;
-  readonly members: number;
+  /** The nicks of the members connected now; a room nobody is connected to waits for them to return. */
+  readonly members: readonly string[];
   readonly seats: number;
+  readonly world: SessionWorld;
+  /** Wall milliseconds the clock had run when the relay sent the summary; null before it runs. */
+  readonly playedMs: number | null;
+}
+
+/** Someone connected to the relay by the nick they introduced themselves with; `room` is the id of
+ *  the room they are in, null outside one. */
+export interface OnlinePlayer {
+  readonly nick: string;
+  readonly room: string | null;
+}
+
+/** Someone the relay saw recently who is no longer connected: `at` is when, in Unix epoch ms. */
+export interface RecentPlayer {
+  readonly nick: string;
+  readonly at: number;
+}
+
+/** One line of the relay's own chat, which everyone outside a room shares; `at` is the relay's wall
+ *  clock in Unix epoch milliseconds. */
+export interface HallChatLine {
+  readonly from: string;
+  readonly text: string;
+  readonly at: number;
 }
 
 /** A seat envelope as the wire carries it. The relay reads the authority half and stamps `player`; the
@@ -272,6 +297,8 @@ export type ClientMessage =
    *  snapshot or a save, since the relay serves the frames after it. */
   | ({ readonly kind: 'blob' } & BlobUpload)
   | { readonly kind: 'chat'; readonly text: string }
+  /** A line for the relay's own chat, said outside a room. */
+  | { readonly kind: 'hallChat'; readonly text: string }
   | { readonly kind: 'pong'; readonly t: number };
 
 export type ClientMessageKind = ClientMessage['kind'];
@@ -287,7 +314,17 @@ export type ServerMessage =
   | { readonly kind: 'ended'; readonly tick: number; readonly hash: string }
   /** `build` names the relay's build when its operator gave it one. */
   | { readonly kind: 'welcome'; readonly protocol: number; readonly nick: string; readonly build?: string }
+  /** Every room; pushed to a client outside a room when it arrives there and whenever the list changes. */
   | { readonly kind: 'rooms'; readonly rooms: readonly RoomSummary[] }
+  /** Who is connected and who left recently, newest first; pushed like `rooms`. */
+  | {
+      readonly kind: 'presence';
+      readonly online: readonly OnlinePlayer[];
+      readonly recent: readonly RecentPlayer[];
+    }
+  | ({ readonly kind: 'hallChat' } & HallChatLine)
+  /** The relay's chat so far, oldest first, sent to a client each time it arrives outside a room. */
+  | { readonly kind: 'hallChatHistory'; readonly lines: readonly HallChatLine[] }
   | { readonly kind: 'room'; readonly room: RoomView }
   | { readonly kind: 'left' }
   /** `snapshotTick` is the tick of the room's cached snapshot, which a client holding no world asks

@@ -480,13 +480,16 @@ export class Room {
     );
   }
 
-  summary(): RoomSummary {
+  summary(now: number): RoomSummary {
+    const state = this.state;
     return {
       id: this.id,
       name: this.lobby.settings.name,
-      state: this.state,
-      members: this.members.size,
+      state,
+      members: [...this.members.values()].flatMap((member) => (member.connected ? [member.nick] : [])),
       seats: this.seats.count,
+      world: this.lobby.settings.world,
+      playedMs: state === 'running' && this.runningAt !== null ? Math.round(now - this.runningAt) : null,
     };
   }
 

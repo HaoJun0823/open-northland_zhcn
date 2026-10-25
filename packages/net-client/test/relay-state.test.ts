@@ -69,7 +69,20 @@ it('brings a mirror fed the client’s messages to the client’s lobby and sess
   client.attach(() => undefined);
   const messages: readonly unknown[] = [
     { kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania', build: 'relay-1' },
-    { kind: 'rooms', rooms: [{ id: 'room', name: 'Game', state: 'lobby', members: 1, seats: 1 }] },
+    {
+      kind: 'rooms',
+      rooms: [
+        {
+          id: 'room',
+          name: 'Game',
+          state: 'lobby',
+          members: ['Ania'],
+          seats: 1,
+          world: { kind: 'map', mapId: 'zatoka' },
+          playedMs: null,
+        },
+      ],
+    },
     { kind: 'room', room: ROOM },
     { kind: 'chatHistory', lines: [{ from: 'Bartek', text: 'cześć', at: 1, tick: null }] },
     { kind: 'chat', from: 'Ania', text: 'hej', at: 2, tick: null },

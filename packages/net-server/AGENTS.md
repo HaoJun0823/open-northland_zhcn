@@ -25,10 +25,11 @@ seats, identities), and session settings (speed, pause), and for nothing else. T
 
 ## Layout
 
-- `src/host/`: the WebSocket/HTTP host, environment config, per-socket budgets.
+- `src/host/`: the WebSocket/HTTP host, environment config, per-socket budgets, the hall file.
 - `src/relay/`: `Relay`, `Member` and `RelayLog`, shared by the features below.
   `room/` orchestration and views, `lobby/` pre-start seats and transfers, `game/` the running match,
-  `timing/` clock, governor, pacing and input delay, `snapshots/` blobs, catch-up and resync.
+  `timing/` clock, governor, pacing and input delay, `snapshots/` blobs, catch-up and resync, `hall/`
+  the server chat and who was seen, for clients outside a room.
 - `test/` mirrors `src/`; `test/relay/*.test.ts` drive the whole relay, and `test/support/` holds the
   in-memory network and headless client that the app tests reuse.
 

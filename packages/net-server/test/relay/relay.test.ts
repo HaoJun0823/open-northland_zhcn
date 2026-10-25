@@ -238,7 +238,15 @@ describe('relay rooms', () => {
     a.send({ kind: 'createRoom', settings: SETTINGS, seats: SEATS });
     a.send({ kind: 'listRooms' });
     expect(a.last('rooms')?.rooms).toEqual([
-      { id: expect.any(String), name: 'Zatoka', state: 'lobby', members: 1, seats: 3 },
+      {
+        id: expect.any(String),
+        name: 'Zatoka',
+        state: 'lobby',
+        members: ['Ania'],
+        seats: 3,
+        world: SETTINGS.world,
+        playedMs: null,
+      },
     ]);
     a.send({ kind: 'leaveRoom' });
     expect(a.last('left')).toBeDefined();

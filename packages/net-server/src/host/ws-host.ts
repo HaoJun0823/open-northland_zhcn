@@ -14,6 +14,7 @@ import {
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
 import { type Connection, type ConnectionEnd, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
 import { faultFields, printable, type RelayLog } from '../relay/relay-log.js';
+import { type HallFile, hallFile } from './hall-file.js';
 import {
   ControlPings,
   DEFAULT_MAX_CONNECTIONS,
@@ -69,6 +70,8 @@ export interface RelayHostOptions {
   readonly maxConnections?: number;
   readonly publicUrl?: string | null;
   readonly build?: string | null;
+  /** The file the hall is kept in across restarts; absent or null keeps it in memory only. */
+  readonly hallFile?: string | null;
 }
 
 /** The health endpoint's body: the relay is up, what it speaks, and how busy it is. */
@@ -120,11 +123,15 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
   const log = options.log ?? (() => undefined);
   const maxRooms = options.maxRooms ?? DEFAULT_MAX_ROOMS;
   const maxConnections = options.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
-  const relay = new Relay({
+  const hallPath = options.hallFile ?? null;
+  const hall: HallFile | null = hallPath === null ? null : hallFile(hallPath, () => relay.hallRecord(), log);
+  const relay: Relay = new Relay({
     log,
     maxRooms,
     build: options.build ?? null,
     hostStatus: () => ({ rssMib: Math.round(process.memoryUsage.rss() / BYTES_PER_MIB) }),
+    hall: hall?.initial ?? null,
+    hallChanged: () => hall?.changed(),
   });
   const startedAt = performance.now();
   const health = (): RelayHealth => ({
@@ -381,6 +388,7 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
           } catch (err) {
             log('stop failed', faultFields(err));
           }
+          hall?.flush();
           // Rooms live in memory and end here; the close code tells a client not to wait for them.
           // `closeTimeout` bounds a client that never answers the close.
           for (const socket of sockets.clients) socket.close(CLOSE_SERVICE_RESTART, SERVER_RESTART);

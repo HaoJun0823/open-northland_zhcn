@@ -2,7 +2,11 @@ import type { GameSession } from '@open-northland/lockstep';
 import {
   AUTO_INITIAL_BUFFER_TICKS,
   type ChatLine,
+  type HallChatLine,
   MAX_CHAT_HISTORY_LINES,
+  MAX_HALL_CHAT_LINES,
+  type OnlinePlayer,
+  type RecentPlayer,
   type ResponsivenessState,
   type RoomSummary,
   type RoomView,
@@ -26,6 +30,11 @@ export class RelayState {
   /** The relay's build as its last `welcome` named it; null when it named none. */
   relayBuild: string | null = null;
   rooms: readonly RoomSummary[] = [];
+  /** Who is connected to the relay and who left it recently, as its last `presence` said. */
+  online: readonly OnlinePlayer[] = [];
+  recent: readonly RecentPlayer[] = [];
+  /** The relay's own chat, oldest first, as heard outside a room. A new array per change. */
+  hallChat: readonly HallChatLine[] = [];
   room: RoomView | null = null;
   session: GameSession | null = null;
   /** The relay's last word on the clock. */
@@ -57,6 +66,18 @@ export class RelayState {
       case 'rooms':
         this.rooms = message.rooms;
         break;
+      case 'presence':
+        this.online = message.online;
+        this.recent = message.recent;
+        break;
+      case 'hallChatHistory':
+        this.hallChat = message.lines;
+        break;
+      case 'hallChat': {
+        const line: HallChatLine = { from: message.from, text: message.text, at: message.at };
+        this.hallChat = [...this.hallChat.slice(1 - MAX_HALL_CHAT_LINES), line];
+        break;
+      }
       case 'room':
         this.room = message.room;
         if (this.session !== null) {

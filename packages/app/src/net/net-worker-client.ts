@@ -9,6 +9,9 @@ import {
 import type {
   ChatLine,
   GovernedClock,
+  HallChatLine,
+  OnlinePlayer,
+  RecentPlayer,
   ResponsivenessMode,
   ResponsivenessState,
   RoomSummary,
@@ -93,6 +96,15 @@ export class RelayClientMirror implements RelayClientView {
   }
   get chat(): readonly ChatLine[] {
     return this.state.chat;
+  }
+  get online(): readonly OnlinePlayer[] {
+    return this.state.online;
+  }
+  get recent(): readonly RecentPlayer[] {
+    return this.state.recent;
+  }
+  get hallChat(): readonly HallChatLine[] {
+    return this.state.hallChat;
   }
   get relayBuild(): string | null {
     return this.state.relayBuild;
@@ -210,6 +222,9 @@ export class RelayClientMirror implements RelayClientView {
   }
   say(...args: Parameters<RelayLobby['say']>): void {
     this.lobby('say', args);
+  }
+  sayInHall(...args: Parameters<RelayLobby['sayInHall']>): void {
+    this.lobby('sayInHall', args);
   }
   kick(...args: Parameters<RelayLobby['kick']>): void {
     this.lobby('kick', args);

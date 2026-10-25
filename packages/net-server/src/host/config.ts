@@ -19,6 +19,8 @@ export interface RelayConfig {
   readonly maxConnections: number;
   /** The build this image came from, for the health endpoint. */
   readonly build: string | null;
+  /** Where the hall's chat and recent players survive a restart; null keeps them in memory only. */
+  readonly hallFile: string | null;
 }
 
 function setting(env: Environment, name: string): string | null {
@@ -65,5 +67,6 @@ export function relayConfigFromEnvironment(env: Environment): RelayConfig {
     maxRooms: integerSetting(env, 'RELAY_MAX_ROOMS', DEFAULT_MAX_ROOMS, 1, Number.MAX_SAFE_INTEGER),
     maxConnections: integerSetting(env, 'RELAY_MAX_CONNECTIONS', DEFAULT_MAX_CONNECTIONS, 1, 65535),
     build: buildSetting(env, 'RELAY_BUILD'),
+    hallFile: setting(env, 'RELAY_HALL_FILE'),
   };
 }

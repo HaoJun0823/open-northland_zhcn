@@ -255,8 +255,9 @@ PORT=9000 npm run relay
 Builds the workspace and serves the multiplayer relay over WebSockets on `PORT`, with its health
 check at `/healthz` on the same port. It loads no content and runs no simulation; the protocol it
 speaks is [`NETWORK.md`](NETWORK.md). `HOST` binds one address, `RELAY_MAX_ROOMS` and
-`RELAY_MAX_CONNECTIONS` cap the rooms and the open sockets, and `RELAY_PUBLIC_URL` and `RELAY_BUILD`
-are what the health check reports as the address and the build; the log is one JSON record per
+`RELAY_MAX_CONNECTIONS` cap the rooms and the open sockets, `RELAY_PUBLIC_URL` and `RELAY_BUILD`
+are what the health check reports as the address and the build, and `RELAY_HALL_FILE` names the file
+the server chat and recently seen players survive a restart in; the log is one JSON record per
 line, a failed start included.
 
 The log is meant to be read after the fact by someone holding only the file. Beside joins,

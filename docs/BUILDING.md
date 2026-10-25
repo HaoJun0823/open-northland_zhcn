@@ -136,8 +136,12 @@ compiled relay, protocol and `ws`, with no simulation or game content.
 | `RELAY_MAX_ROOMS` | `64` | Room limit |
 | `RELAY_MAX_CONNECTIONS` | `256` | WebSocket limit |
 | `RELAY_BUILD` | unset | Printable build name, at most 128 characters; also a Docker build argument |
+| `RELAY_HALL_FILE` | unset | JSON file keeping the server chat and recently seen players across restarts; mount a volume for it |
 
-Rooms exist only in memory: restarting ends all matches. `docker logs -f <container>` shows JSON
+Rooms exist only in memory: restarting ends all matches. Without `RELAY_HALL_FILE` the server chat and
+the recently seen list start empty after each restart too; with it, the relay writes the file at most
+every ten seconds after a change and once more on a clean stop, and moves a file it cannot read aside
+to `<file>.rejected`. `docker logs -f <container>` shows JSON
 room events, disconnects, desyncs and durations. While clients are connected, a status line reports
 counts every five minutes. The operator supplies TLS and deployment configuration.
 

@@ -6,14 +6,18 @@ import {
   clientMessageKind,
   MAX_CLIENT_MESSAGE_BYTES,
   MAX_REASON_LENGTH,
+  type OnlinePlayer,
   PROTOCOL_VERSION,
   parseClientMessage,
   parseRelayBuild,
   type RelayReason,
+  type RoomSummary,
   type ServerMessage,
   TICK_MS,
 } from '@open-northland/net-protocol';
 import { saveOrdersRequestId } from './game/save-orders.js';
+import { ChatAllowance, Hall } from './hall/hall.js';
+import type { HallRecord } from './hall/record.js';
 import { createMember, type Member, type Refusal } from './member.js';
 import { faultFields, type RelayLog, wholeSeconds } from './relay-log.js';
 import { dispatchRoomMessage } from './room/dispatch.js';
@@ -39,6 +43,10 @@ export interface RelayOptions {
   readonly build?: string | null;
   /** What the host adds to each `status` line about its process, such as its memory. */
   readonly hostStatus?: () => Readonly<Record<string, unknown>>;
+  /** The hall's chat and recent players as the host kept them before a restart. */
+  readonly hall?: HallRecord | null;
+  /** The hall has something new for the host to keep; `hallRecord` reads it. */
+  readonly hallChanged?: () => void;
 }
 
 /** A room with nobody connected is kept this long for reconnects, then dropped. */
@@ -48,6 +56,8 @@ export const DEFAULT_MAX_ROOMS = 64;
 export const HELLO_TIMEOUT_MS = 10_000;
 /** How often the relay logs a census of its clients and rooms while it holds any. */
 export const STATUS_LOG_INTERVAL_MS = 5 * 60 * 1000;
+/** How often clients outside a room hear what changed in the room list and among who is online. */
+export const HALL_REFRESH_MS = 1000;
 /** A poll this much later than the last leaves a frame due at speed 1 unsent past its time: the
  *  process was busy or starved. */
 const LATE_POLL_MS = TICK_MS;
@@ -57,6 +67,10 @@ const ROOM_ID_BYTES = 4;
 class Client {
   token: string | null = null;
   nick = '';
+  /** The nick of `hello`, which a room may have suffixed in `nick`; the hall knows the player by it. */
+  helloNick = '';
+  /** The client heard the whole hall since it last arrived outside a room. */
+  hallSynced = false;
   room: Room | null = null;
   member: Member | null = null;
   /** A message from this connection is still arriving. */
@@ -64,6 +78,7 @@ class Client {
   /** When the connection last delivered a message, or progress on one. */
   heardAt: number;
   readonly probe: LatencyProbe;
+  readonly chatAllowance: ChatAllowance;
 
   constructor(
     readonly connection: Connection,
@@ -71,6 +86,7 @@ class Client {
   ) {
     this.heardAt = connectedAt;
     this.probe = new LatencyProbe(connectedAt);
+    this.chatAllowance = new ChatAllowance(connectedAt);
   }
 }
 
@@ -104,6 +120,11 @@ export class Relay {
   private readonly maxRooms: number;
   private readonly build: { readonly build?: string };
   private readonly hostStatus: () => Readonly<Record<string, unknown>>;
+  private readonly hall: Hall;
+  private nextHallAt: number;
+  /** What the hall's clients last heard of the room list and of presence, to send only a change. */
+  private hallRoomsKey = '';
+  private hallPresenceKey = '';
   private lastAdvanceAt: number;
   private nextStatusAt: number;
   /** Since the last `status` line: connections that closed without introducing themselves, those the
@@ -126,7 +147,9 @@ export class Relay {
     const build = options.build ?? null;
     this.build = build === null ? {} : { build: parseRelayBuild(build, 'build') };
     this.hostStatus = options.hostStatus ?? (() => ({}));
+    this.hall = new Hall(options.hall ?? null, options.hallChanged ?? (() => undefined));
     this.lastAdvanceAt = this.now();
+    this.nextHallAt = this.lastAdvanceAt;
     this.nextStatusAt = this.lastAdvanceAt + STATUS_LOG_INTERVAL_MS;
   }
 
@@ -136,6 +159,14 @@ export class Relay {
 
   get clientCount(): number {
     return this.clients.size;
+  }
+
+  /** The hall as the host should keep it across a restart. */
+  hallRecord(): HallRecord {
+    return this.hall.record(
+      this.onlinePlayers().map((player) => player.nick),
+      this.wallClock(),
+    );
   }
 
   connect(connection: Connection): ClientHandle {
@@ -157,6 +188,7 @@ export class Relay {
       return;
     }
     if (this.byToken.get(client.token) === client) this.byToken.delete(client.token);
+    this.hall.saw(client.helloNick, this.wallClock());
     const now = this.now();
     const { room, member } = client;
     if (room !== null && member !== null) {
@@ -273,6 +305,7 @@ export class Relay {
     }
     this.pollClients(now);
     this.expireEmptyRooms(now);
+    this.guarded('hall fault', {}, () => this.pollHall(now));
     if (now >= this.nextStatusAt) {
       this.nextStatusAt = now + STATUS_LOG_INTERVAL_MS;
       this.logStatus(now);
@@ -362,6 +395,53 @@ export class Relay {
     }
   }
 
+  /** Clients outside a room hear the hall: all of it on arriving there, then each change to the room
+   *  list or to who is online at most once per `HALL_REFRESH_MS`, and each chat line at once. */
+  private pollHall(now: number): void {
+    const arriving: Client[] = [];
+    const present: Client[] = [];
+    for (const client of this.clients) {
+      if (client.token === null || client.room !== null) continue;
+      (client.hallSynced ? present : arriving).push(client);
+    }
+    const refresh = now >= this.nextHallAt && present.length > 0;
+    if (arriving.length === 0 && !refresh) return;
+    const rooms = this.roomsMessage(now);
+    const presence = this.hall.presence(this.onlinePlayers(), this.wallClock());
+    if (refresh) {
+      this.nextHallAt = now + HALL_REFRESH_MS;
+      const roomsKey = JSON.stringify(rooms.rooms.map(roomListing));
+      const presenceKey = JSON.stringify(presence);
+      for (const client of present) {
+        if (roomsKey !== this.hallRoomsKey) client.connection.send(rooms);
+        if (presenceKey !== this.hallPresenceKey) client.connection.send(presence);
+      }
+      this.hallRoomsKey = roomsKey;
+      this.hallPresenceKey = presenceKey;
+    }
+    if (arriving.length === 0) return;
+    const history = this.hall.history(this.wallClock());
+    for (const client of arriving) {
+      client.connection.send(rooms);
+      client.connection.send(presence);
+      client.connection.send(history);
+      client.hallSynced = true;
+    }
+  }
+
+  private roomsMessage(now: number): Extract<ServerMessage, { kind: 'rooms' }> {
+    return { kind: 'rooms', rooms: [...this.rooms.values()].map((room) => room.summary(now)) };
+  }
+
+  /** Every introduced connection by its `hello` nick, and the room it is in. */
+  private onlinePlayers(): OnlinePlayer[] {
+    const online: OnlinePlayer[] = [];
+    for (const client of this.clients) {
+      if (client.token !== null) online.push({ nick: client.helloNick, room: client.room?.id ?? null });
+    }
+    return online;
+  }
+
   private expireEmptyRooms(now: number): void {
     for (const room of this.rooms.values()) {
       this.guarded('expiry fault', { room: room.id }, () => {
@@ -398,6 +478,8 @@ export class Relay {
     }
     client.token = message.token;
     client.nick = message.nick;
+    client.helloNick = message.nick;
+    this.hall.saw(message.nick, this.wallClock());
     this.byToken.set(message.token, client);
     const room = this.roomOfToken.get(message.token);
     const member = room?.memberOf(message.token) ?? null;
@@ -435,11 +517,17 @@ export class Relay {
       case 'hello':
         return { code: 'alreadyIntroduced' };
       case 'listRooms':
-        client.connection.send({
-          kind: 'rooms',
-          rooms: [...this.rooms.values()].map((room) => room.summary()),
-        });
+        client.connection.send(this.roomsMessage(this.now()));
         return null;
+      case 'hallChat': {
+        if (client.room !== null) return { code: 'alreadyInRoom' };
+        if (!client.chatAllowance.take(this.now())) return { code: 'retryTooSoon' };
+        const line = this.hall.say(client.helloNick, message.text, this.wallClock());
+        for (const other of this.clients) {
+          if (other.token !== null && other.room === null && other.hallSynced) other.connection.send(line);
+        }
+        return null;
+      }
       case 'createRoom': {
         if (client.room !== null) return { code: 'alreadyInRoom' };
         if (this.rooms.size >= this.maxRooms) return { code: 'relayFull', rooms: this.maxRooms };
@@ -578,6 +666,7 @@ export class Relay {
   private enter(client: Client, room: Room, member: Member): void {
     client.room = room;
     client.member = member;
+    client.hallSynced = false;
     this.roomOfToken.set(member.token, room);
     this.farewells.delete(member.token);
   }
@@ -649,4 +738,9 @@ export class Relay {
     client.connection.close(reason.code);
     this.disconnect(client, { cause: reason.code });
   }
+}
+
+/** A room summary as a change to the list: a running clock's advance is no change. */
+function roomListing(summary: RoomSummary): unknown {
+  return { ...summary, playedMs: summary.playedMs !== null };
 }

@@ -6,8 +6,10 @@ import {
   closingCode,
   MAX_BLOB_BYTES,
   MAX_CHAT_HISTORY_LINES,
+  MAX_HALL_CHAT_LINES,
   MAX_LOADING_PROGRESS,
   MAX_NICK_LENGTH,
+  MAX_PRESENCE_ENTRIES,
   MAX_REPORTED_BUFFERED,
   MAX_REPORTED_TICK_MS,
   MAX_TRIBE_ID,
@@ -150,6 +152,7 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
   { kind: 'blob', type: 'save', to: 'Ania', tick: 40, bytes: BLOB },
   { kind: 'blob', type: 'map', to: null, tick: null, bytes: BLOB },
   { kind: 'chat', text: 'gotowi?' },
+  { kind: 'hallChat', text: 'ktoś gra?' },
   { kind: 'pong', t: 1234.5 },
 ];
 
@@ -379,7 +382,44 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
   { kind: 'ended', tick: 12, hash: '0123abcd' },
   { kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania2' },
   { kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania', build: 'relay-1' },
-  { kind: 'rooms', rooms: [{ id: 'a1b2c3d4', name: settings.name, state: 'lobby', members: 1, seats: 4 }] },
+  {
+    kind: 'rooms',
+    rooms: [
+      {
+        id: 'a1b2c3d4',
+        name: settings.name,
+        state: 'lobby',
+        members: ['Ania'],
+        seats: 4,
+        world: settings.world,
+        playedMs: null,
+      },
+    ],
+  },
+  {
+    kind: 'rooms',
+    rooms: [
+      {
+        id: 'e5f6',
+        name: 'Bitwa',
+        state: 'running',
+        members: [],
+        seats: 2,
+        world: settings.world,
+        playedMs: 61_500,
+      },
+    ],
+  },
+  {
+    kind: 'presence',
+    online: [
+      { nick: 'Ania', room: 'a1b2c3d4' },
+      { nick: 'Bartek', room: null },
+    ],
+    recent: [{ nick: 'Celina', at: 1_767_297_600_000 }],
+  },
+  { kind: 'hallChat', from: 'Ania', text: 'ktoś gra?', at: 1_767_297_600_000 },
+  { kind: 'hallChatHistory', lines: [{ from: 'Ania', text: 'ktoś gra?', at: 1_767_297_600_000 }] },
   {
     kind: 'room',
     room: {
@@ -701,6 +741,20 @@ describe('server messages', () => {
     expect(() => parseServerMessage({ kind: 'chatHistory', lines: [...full, line] }, parseSession)).toThrow(
       /more than/,
     );
+  });
+
+  it('refuses a hall history or presence list past its cap, and a room summary with a negative clock', () => {
+    const line = { from: 'Ania', text: 'hej', at: 1 };
+    const lines = Array.from({ length: MAX_HALL_CHAT_LINES + 1 }, () => line);
+    expect(() => parseServerMessage({ kind: 'hallChatHistory', lines }, parseSession)).toThrow(/more than/);
+    const online = Array.from({ length: MAX_PRESENCE_ENTRIES + 1 }, () => ({ nick: 'Ania', room: null }));
+    expect(() => parseServerMessage({ kind: 'presence', online, recent: [] }, parseSession)).toThrow(
+      /presence\.online/,
+    );
+    const rooms = SERVER_MESSAGES.find((message) => message.kind === 'rooms');
+    if (rooms?.kind !== 'rooms') throw new Error('no rooms fixture');
+    const negative = { ...rooms, rooms: [{ ...rooms.rooms[0], playedMs: -1 }] };
+    expect(() => parseServerMessage(negative, parseSession)).toThrow(/playedMs/);
   });
 
   it('refuses a room member whose link or lag figures are missing or out of range', () => {

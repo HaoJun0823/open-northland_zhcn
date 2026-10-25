@@ -191,7 +191,7 @@ function pooledDepth(pe: PooledEntity, item: DrawItem): number {
   );
 }
 
-/** Whether `item`'s drawn feet, its anchor raised by its lift, stand inside `box`. */
+/** Whether `item`'s drawn feet, its anchor raised by its lift, stand inside one of `boxes`. */
 function shows(boxes: readonly Viewport[], item: DrawItem): boolean {
   const y = item.y - (item.lift ?? 0);
   for (const box of boxes) {
@@ -254,6 +254,8 @@ export class SpritePool {
   private readonly itemMemo = new SceneItemMemo();
   private readonly incremental = new IncrementalScene();
   private lastItems: readonly SpriteDrawItem[] = [];
+  /** The items of {@link lastItems} the last full pass drew: those its cull boxes kept. */
+  private drawn: readonly SpriteDrawItem[] = [];
   /** Indices into {@link lastItems} of the entities the last full pass found moving with the frame clock
    *  or emphasised, and their refs: what a still frame presents. */
   private readonly moving: number[] = [];
@@ -387,16 +389,19 @@ export class SpritePool {
     const kept = scene.kept;
     const generation = this.holdGeneration;
     const culls = this.cullBoxes(frame);
+    // A new list per full pass: a reader keying on the list sees a rebuild as a new one.
+    const drawn: SpriteDrawItem[] | null = culls === undefined ? null : [];
     for (let i = 0; i < scene.items.length; i++) {
       const item = scene.items[i];
       if (item === undefined) continue;
-      // An item drawing nothing on screen stays detached; the draw list keeps it for every other reader.
+      // An item drawing nothing on screen stays detached, and out of the drawn list the pickers read.
       const boxes = culls?.[item.kind];
       if (boxes !== undefined && item.portraitOnly !== true && !shows(boxes, item)) {
         this.lastPooled[i] = undefined;
         this.release(item);
         continue;
       }
+      drawn?.push(item);
       // A self-contained item kept from the last build, its entity holding still: nothing to present.
       if (kept !== undefined && kept[i] === 1 && (item as unknown as HoldMarked)[HELD] === generation) {
         this.lastPooled[i] = undefined;
@@ -415,6 +420,7 @@ export class SpritePool {
       }
     }
     this.lastItems = scene.items;
+    this.drawn = drawn ?? scene.items;
     this.lastPooled.length = scene.items.length;
     this.passEpoch = this.epoch.current;
     this.passHighlight = frame.highlight;
@@ -841,9 +847,10 @@ export class SpritePool {
     return { drawn: this.lastItems.length, pooled: this.pool.size };
   }
 
-  /** The last {@link reconcile}'s culled, depth-sorted draw list, valid until the next reconcile. */
+  /** The last {@link reconcile}'s drawn, depth-sorted items, valid until the next reconcile: the scene's
+   *  draw list less the items culled for drawing nothing on screen, which have no bounds to pick by. */
   drawnItems(): readonly DrawItem[] {
-    return this.lastItems;
+    return this.drawn;
   }
 
   boundsOf(ref: number): EntityBounds | undefined {
@@ -1017,6 +1024,7 @@ export class SpritePool {
     this.pool.clear();
     this.attached.clear();
     this.lastItems = [];
+    this.drawn = [];
     this.lastPooled.length = 0;
     this.moving.length = 0;
     this.movingRefs.clear();

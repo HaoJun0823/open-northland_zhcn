@@ -210,7 +210,7 @@ describe('SpritePool - entities off the screen', () => {
   const FAR = settler(2, 4, 26);
   const OTHER = settler(3, 1, 1);
 
-  it('leaves a settler whose drawing cannot reach the screen detached, while the draw list keeps it', () => {
+  it('leaves a settler whose drawing cannot reach the screen detached and out of the drawn items', () => {
     expect(tileToScreen(2, 16).y).toBeGreaterThan(600);
     expect(tileToScreen(2, 16).y).toBeLessThan(600 + 32);
     const layer = new Container();
@@ -219,7 +219,19 @@ describe('SpritePool - entities off the screen', () => {
     expect(pool.anchorOf(1)).toBeDefined();
     expect(pool.anchorOf(2)).toBeUndefined();
     expect(layer.children.length).toBe(1);
-    expect(pool.drawnItems().map((item) => item.ref)).toEqual([1, 2]);
+    expect(pool.drawnItems().map((item) => item.ref)).toEqual([1]);
+  });
+
+  it('culls a settler lifted above the top edge though its unlifted anchor is on screen', () => {
+    // A hill lifts everyone 300 px: the anchor of row 2 stands on screen, its drawn body far above it.
+    const HILL: ElevationField = { maxLift: 300, liftAt: () => 300, liftAtNode: () => 300 };
+    const onHill = settler(5, 2, 2);
+    expect(tileToScreen(2, 2).y).toBeGreaterThan(0);
+    const pool = new SpritePool(new Container(), new TextureCache(), settlerSheet);
+    pool.reconcile({ ...poolFrame(snapshotOf([onHill]), FRAMES_EVERYTHING), elevation: HILL });
+    expect(pool.anchorOf(5)).toBeUndefined();
+    // Nothing a picker reads offers it: its fallback box would sit on screen where it draws nothing.
+    expect(pool.drawnItems()).toEqual([]);
   });
 
   it('keeps the settlers a portrait inset framed last frame, and every settler before it framed', () => {

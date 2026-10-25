@@ -1,4 +1,5 @@
 import type { Viewport } from '../../data/projection/index.js';
+import { OVERHEAD_BASE_GAP, OVERHEAD_STEP } from '../../data/scene/overhead-column.js';
 import {
   type AtlasFrame,
   type BuildingDraw,
@@ -43,23 +44,50 @@ export interface KindReach {
   /** How far its drawn feet may stand from the item's anchor: an interpolating look lerps from the last
    *  tick's anchor, within the snap distance; every other drawing stands on the anchor. */
   readonly slack: number;
-  /** The marks drawn off its drawn bounds or feet: world px at zoom 1 and closer, screen px zoomed out,
-   *  where the marks keep their screen size. */
-  readonly marks: Reach;
+  /** The marks drawn off its drawn bounds or feet at world size (the over-head column, the feet ring). */
+  readonly worldMarks: Reach;
+  /** The marks that keep their screen size when zoomed out (the selection outline, the control-group
+   *  label): screen px below zoom 1, world px at zoom 1 and closer. */
+  readonly screenMarks: Reach;
 }
 
 /** The kinds the pool culls on their own reach; another kind keeps the scene's box. */
 export type KindReaches = Partial<Record<SpriteKind, KindReach>>;
 
-/** A settler wears the over-head column of bubble, stars, heart and import marker above its art, the
- *  control-group label around its feet and the selection outline. */
-const SETTLER_MARKS: Reach = { up: 128, down: 48, left: 96, right: 96 };
-/** A landscape entity wears only the selection outline. */
+/** World px the tallest over-head icon stands over its hot spot. Approximation: the need bubble's
+ *  32 px frame draws 27 px tall; this leaves the import marker's icon up to 36 px. */
+const OVERHEAD_ICON_HEIGHT = 36;
+/** The over-head column at its fullest: the base gap, every slot's step and the top icon. */
+const OVERHEAD_COLUMN =
+  OVERHEAD_BASE_GAP +
+  Object.values(OVERHEAD_STEP).reduce((sum, step) => sum + step, 0) +
+  OVERHEAD_ICON_HEIGHT;
+/** World px the settler's feet ring and the bubble reach around the feet and the art's centre: the
+ *  ring's 20 x 11 ellipse and half the 54 px wide bubble. */
+const SETTLER_RING = { side: 28, down: 12 } as const;
+/** Screen px (zoomed out) the control-group label reaches from the feet: a list of up to ten groups
+ *  centred under them, about 68 px wide and 10 px deep at its 7 px font. */
+const GROUP_LABEL = { side: 40, down: 12 } as const;
+
+const NO_MARKS: Reach = { up: 0, down: 0, left: 0, right: 0 };
+/** The selection outline, the screen-sized mark every culled kind wears. */
 const OUTLINE_MARKS: Reach = {
   up: OUTLINE_REACH,
   down: OUTLINE_REACH,
   left: OUTLINE_REACH,
   right: OUTLINE_REACH,
+};
+const SETTLER_WORLD_MARKS: Reach = {
+  up: OVERHEAD_COLUMN,
+  down: SETTLER_RING.down,
+  left: SETTLER_RING.side,
+  right: SETTLER_RING.side,
+};
+const SETTLER_SCREEN_MARKS: Reach = {
+  up: OUTLINE_REACH,
+  down: GROUP_LABEL.down + OUTLINE_REACH,
+  left: GROUP_LABEL.side,
+  right: GROUP_LABEL.side,
 };
 
 /** The fields of a look table, checked against the interface so a new one cannot be missed. */
@@ -207,7 +235,13 @@ function settlerReach(sheet: SpriteSheet): KindReach {
   table(characters);
   for (const tribe of Object.values(characters?.byTribe ?? {})) table(tribe);
   for (const animal of Object.values(characters?.animals?.byTribe ?? {})) look(animal);
-  return { art: union.reach(), casts: true, slack, marks: SETTLER_MARKS };
+  return {
+    art: union.reach(),
+    casts: true,
+    slack,
+    worldMarks: SETTLER_WORLD_MARKS,
+    screenMarks: SETTLER_SCREEN_MARKS,
+  };
 }
 
 function unwrap(ref: LayeredBobRef): BuildingDraw {
@@ -289,7 +323,7 @@ function landscapeReach(
       for (const overlay of sheet.overlays ?? []) union.bob(overlay, draw.bob, kindScale, false);
     }
   }
-  return { art: union.reach(), casts: false, slack: 0, marks: OUTLINE_MARKS };
+  return { art: union.reach(), casts: false, slack: 0, worldMarks: NO_MARKS, screenMarks: OUTLINE_MARKS };
 }
 
 /** What each kind the pool culls on its own can draw from `sheet`; none without a sheet, where every
@@ -327,13 +361,13 @@ export function kindReaches(sheet: SpriteSheet | undefined): KindReaches {
  * caster height, its slack and its marks.
  */
 export function cullBox(screen: Viewport, reach: KindReach, castShear: number, zoom: number): Viewport {
-  const { art, slack, marks } = reach;
+  const { art, slack, worldMarks: world, screenMarks: held } = reach;
   const cast = reach.casts ? castShear * (art.up + art.down) : 0;
-  const markScale = 1 / Math.min(zoom, 1);
+  const screenScale = 1 / Math.min(zoom, 1);
   return {
-    minX: screen.minX - art.right - cast - slack - marks.right * markScale,
-    maxX: screen.maxX + art.left + cast + slack + marks.left * markScale,
-    minY: screen.minY - art.down - slack - marks.down * markScale,
-    maxY: screen.maxY + art.up + slack + marks.up * markScale,
+    minX: screen.minX - art.right - cast - slack - world.right - held.right * screenScale,
+    maxX: screen.maxX + art.left + cast + slack + world.left + held.left * screenScale,
+    minY: screen.minY - art.down - slack - world.down - held.down * screenScale,
+    maxY: screen.maxY + art.up + slack + world.up + held.up * screenScale,
   };
 }

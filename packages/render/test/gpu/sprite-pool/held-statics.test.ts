@@ -154,11 +154,12 @@ describe('SpritePool - a held tree off the screen', () => {
     pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 2, walker)])));
     pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 3, walker)]), away));
     expect(pool.anchorOf(TREE)).toBeUndefined();
-    expect(pool.drawnItems().map((item) => item.ref)).toContain(TREE);
+    expect(pool.drawnItems().map((item) => item.ref)).not.toContain(TREE);
     pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 2, walker)]), away));
     pool.reconcile(frameOf(advance(mirror, [moved(SETTLER, 3, walker)])));
     expect(pool.anchorOf(TREE)).toBeDefined();
     expect(pool.boundsOf(TREE)).toBeDefined();
+    expect(pool.drawnItems().map((item) => item.ref)).toContain(TREE);
   });
 });
 

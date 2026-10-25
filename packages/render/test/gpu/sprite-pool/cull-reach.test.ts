@@ -1,8 +1,11 @@
 import { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import type { DrawItem } from '../../../src/data/scene/index.js';
 import type { AtlasFrame, SpriteAtlas } from '../../../src/data/sprites/index.js';
 import { cullBox, type KindReach, kindReaches } from '../../../src/gpu/sprite-pool/cull-reach.js';
+import { resolveLayers } from '../../../src/gpu/sprite-pool/index.js';
 import { GLOW_REACH } from '../../../src/gpu/sprite-pool/layers/character.js';
+import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/layers/resolved-layer.js';
 import { SNAP_DISTANCE } from '../../../src/gpu/sprite-pool/presentation/motion.js';
 import { SHADOW_BLUR_PADDING } from '../../../src/gpu/textures/soft-shadow-cache.js';
 import type {
@@ -11,6 +14,7 @@ import type {
   SpriteLayer,
   SpriteSheet,
 } from '../../../src/gpu/textures/sprite-sheet.js';
+import { drawItem } from '../../support/fixtures.js';
 
 const source = new TextureSource({ width: 64, height: 64 });
 const BOB = 1;
@@ -219,9 +223,105 @@ describe('cullBox', () => {
     expect(cast.maxY).toBe(still.maxY);
   });
 
-  it('keeps the marks at their screen size zoomed out and at their world size zoomed in', () => {
+  it('keeps the screen-sized marks at their screen size zoomed out, and the rest at world size', () => {
     const margin = (zoom: number) => cullBox(SCREEN, reach, 0, zoom).maxY - SCREEN.maxY - reach.art.up;
-    expect(margin(0.5)).toBeCloseTo(2 * margin(1));
+    expect(margin(0.5) - margin(1)).toBeCloseTo(reach.screenMarks.up);
     expect(margin(2)).toBe(margin(1));
+  });
+});
+
+describe('kindReaches - against the resolver', () => {
+  /** Every px a resolved layer covers about the feet, a shadow widened by its soft blur. */
+  function layerBox(layer: ResolvedLayer): { up: number; down: number; left: number; right: number } {
+    const pad = layer.shadow === true && layer.cast !== true ? SHADOW_BLUR_PADDING * layer.scale : 0;
+    const x = layer.frame.offsetX * layer.scale + (layer.dx ?? 0);
+    const y = layer.frame.offsetY * layer.scale + (layer.dy ?? 0);
+    return {
+      up: pad - y,
+      down: y + layer.frame.height * layer.scale + pad,
+      left: pad - x,
+      right: x + layer.frame.width * layer.scale + pad,
+    };
+  }
+  const LOOP = [BOB, 2, 3] as const;
+  const famOf = (heights: readonly number[]): SpriteLayer => ({
+    source,
+    atlas: atlasOf(Object.fromEntries(heights.map((h, i) => [i + 1, standing(h)]))),
+    shadow: { source, atlas: atlasOf({ [BOB]: { width: 90, height: 6, offsetX: -10, offsetY: -6 } }) },
+  });
+  const sheet = sheetOf({
+    families: {
+      trees: famOf([70, 90, 110]),
+      piles: famOf([20, 30]),
+      flags: famOf([40, 44]),
+      posts: famOf([50, 60]),
+      stumps: famOf([12]),
+    },
+    familyScales: { trees: 1.5 },
+    kindLayers: { resource: famOf([80]) },
+    characters: {
+      byJob: { 2: look(64, { scale: 1.2, heads: [{ source, atlas: atlasOf({ [BOB]: standing(80) }) }] }) },
+      default: look(48),
+    },
+    bindings: {
+      settler: BOB,
+      building: 1,
+      resource: {
+        byGood: {
+          1: [
+            { layer: 'trees', frames: LOOP },
+            { layer: 'trees', bob: 2 },
+          ],
+          2: [BOB],
+        },
+        default: { layer: 'missing', bob: BOB },
+      },
+      stockpile: {
+        byGood: {
+          3: [
+            { layer: 'piles', bob: BOB },
+            { layer: 'piles', bob: 2 },
+          ],
+        },
+        flag: [
+          { layer: 'flags', bob: BOB },
+          { layer: 'flags', bob: 2 },
+        ],
+        default: { layer: 'piles', bob: BOB },
+      },
+      stump: { byGood: { 1: [{ layer: 'stumps', bob: BOB }] }, default: { layer: 'stumps', bob: BOB } },
+      signpost: { post: { layer: 'posts', bob: BOB }, boards: [{ layer: 'posts', bob: 2 }] },
+    },
+  });
+  const items: DrawItem[] = [
+    drawItem('resource', { goodType: 1, level: 1, levels: 2 }),
+    drawItem('resource', { goodType: 1, level: 2, levels: 2 }),
+    drawItem('resource', { goodType: 2 }),
+    drawItem('resource', { goodType: 9 }),
+    drawItem('stockpile', { goodType: 3, fill: 1 }),
+    drawItem('stockpile', { goodType: 3, fill: 2 }),
+    drawItem('stockpile'),
+    drawItem('stump', { goodType: 1 }),
+    drawItem('signpost'),
+    drawItem('signpost', { boardIndex: 0 }),
+    drawItem('settler', { jobType: 2, glow: true }),
+    drawItem('settler'),
+  ];
+
+  it("holds every layer the resolver draws for a culled kind inside that kind's reach", () => {
+    const reaches = kindReaches(sheet);
+    for (const item of items) {
+      const reach = reaches[item.kind as keyof typeof reaches];
+      if (reach === undefined) throw new Error(`no ${item.kind} reach`);
+      for (let tick = 0; tick < LOOP.length; tick++) {
+        const layers = resolveLayers(sheet, item, tick) ?? [];
+        expect(layers.length, `${item.kind} draws`).toBeGreaterThan(0);
+        for (const layer of layers) {
+          const box = layerBox(layer);
+          for (const side of ['up', 'down', 'left', 'right'] as const)
+            expect(box[side], `${item.kind} ${side}`).toBeLessThanOrEqual(reach.art[side] + 1e-9);
+        }
+      }
+    }
   });
 });

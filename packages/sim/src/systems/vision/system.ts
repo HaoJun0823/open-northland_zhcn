@@ -20,7 +20,7 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import type { Fixed } from '../../core/fixed.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { System } from '../context.js';
 import { isNonWorkingAge } from '../lifecycle/ageclass.js';
 import { SCOUT_EXPERIENCE_TYPE, scoutVisionBonusNodes } from '../progression/index.js';
@@ -307,8 +307,8 @@ function meetOwnerOf(world: World, contacts: ContactPass, e: Entity): void {
   if (!isValidPlayer(owner)) return; // never meetable - skip before any per-entity work
   const ownerBit = 1 << owner;
   if ((contacts.unmetOwners & ownerBit) === 0) return;
-  const p = world.get(e, Position);
-  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.x, p.y));
+  const node = moverNode(world, e, world.get(e, Position));
+  const { cx, cy } = cellOfNode(node.hx, node.hy);
   const { cellsWide, cellsHigh } = contacts;
   if (cx < 0 || cy < 0 || cx >= cellsWide || cy >= cellsHigh) return; // off-grid reads UNEXPLORED
   const index = cy * cellsWide + cx;

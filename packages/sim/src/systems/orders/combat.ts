@@ -24,7 +24,6 @@ import {
 } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { clearNavState } from '../movement/nav-state.js';
@@ -35,6 +34,7 @@ import {
   keepsAnchor,
   MILITARY_MODE,
 } from '../readviews/index.js';
+import { entityNode } from '../spatial/nodes.js';
 import { recordAiOrder } from './ai-lifecycle.js';
 import { isOrderableSettler, supersedeStandingOrders } from './guards.js';
 
@@ -57,8 +57,7 @@ export function anchorAtFeet(world: World, ctx: SystemContext, e: Entity): void 
   const at = world.tryGet(e, Position);
   if (ctx.terrain === undefined || at === undefined) return;
   if (!isFighterJob(ctx.content, world.get(e, Settler).jobType)) return;
-  const n = nodeOfPosition(at.x, at.y);
-  moveAnchor(world, ctx.content, e, ctx.terrain.nodeAtClamped(n.hx, n.hy));
+  moveAnchor(world, ctx.content, e, entityNode(world, ctx.terrain, e));
 }
 
 /** Move `e`'s anchor to `cell` if its stance keeps one; any other stance keeps its null anchor. */
@@ -93,9 +92,7 @@ export function setStance(
   const anchored = keepsAnchor(ctx.content, command.mode, world.get(e, Settler).jobType);
   if (anchored && kept !== null) anchorCell = kept;
   else if (anchored && ctx.terrain !== undefined && world.has(e, Position)) {
-    const p = world.get(e, Position);
-    const n = nodeOfPosition(p.x, p.y);
-    anchorCell = ctx.terrain.nodeAtClamped(n.hx, n.hy);
+    anchorCell = entityNode(world, ctx.terrain, e);
   }
   world.add(e, Stance, { mode: command.mode, anchorCell });
 }
@@ -151,9 +148,7 @@ export function attackUnit(
   // Original behavior: a fighter ordered onto a unit takes the node it stood on as its anchor. A building
   // or vehicle target leaves the anchor alone, its body standing on nodes nobody walks to.
   if (world.has(target, Settler) && isFighterJob(ctx.content, world.get(e, Settler).jobType)) {
-    const at = world.get(target, Position);
-    const n = nodeOfPosition(at.x, at.y);
-    moveAnchor(world, ctx.content, e, ctx.terrain.nodeAtClamped(n.hx, n.hy));
+    moveAnchor(world, ctx.content, e, entityNode(world, ctx.terrain, target));
   }
   // Stamped up front so plannerSystem skips economy for this unit on the tick the order lands rather than
   // leaking one tick; `repathAt = tick` makes the CombatSystem re-path the chase on its first pass.

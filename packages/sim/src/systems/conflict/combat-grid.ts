@@ -576,7 +576,7 @@ export class CombatGrid {
     this.addUnit(e, x, y, bit, wild);
   }
 
-  /** Follow held unit `e` to the node its Position now stands on; the membership feed, replayed first,
+  /** Follow held unit `e` to the node it now reads (`moverNode`); the membership feed, replayed first,
    *  has already dropped one that left the layer. */
   private moveUnit(world: World, e: Entity): void {
     const held = this.units[e];

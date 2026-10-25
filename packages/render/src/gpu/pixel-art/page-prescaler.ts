@@ -34,8 +34,9 @@ export const PRESCALE_RECIPES: Readonly<Record<PrescaledScaler, readonly Prescal
 };
 
 /** Output texels the prescaler draws in one frame, across passes: a pass draws a band of rows at a
- *  time, so a tall page's twin spreads over frames instead of stalling one. */
-const PRESCALE_TEXELS_PER_FRAME = 4 * 1024 * 1024;
+ *  time, so a tall page's twin spreads over frames instead of stalling one. Four times this held an
+ *  Intel UHD 770 panning at 1920x1080 to a 99th percentile frame of 70 to 79 ms. */
+const PRESCALE_TEXELS_PER_FRAME = 1024 * 1024;
 /** Texture memory the twins may hold, mip levels included. A page that would pass it keeps the sharp
  *  path until twins of pages no longer drawn free their memory. */
 const PRESCALE_BUDGET_BYTES = 1536 * 1024 * 1024;

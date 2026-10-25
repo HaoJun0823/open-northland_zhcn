@@ -188,9 +188,17 @@ export function isIndexedSource(source: TextureSource): boolean {
  * colour up in the sprite's `lutRow` of that LUT, which rides in the batch's own texture list.
  */
 const palettedTextures = new WeakMap<Texture, TextureSource>();
+/** The LUT row of a paletted texture that names its own, a recoloured stem's frame; a character's row
+ *  rides on its sprite instead. */
+const palettedRows = new WeakMap<Texture, number>();
 
-export function markPalettedTexture(texture: Texture, lut: TextureSource): void {
+export function markPalettedTexture(texture: Texture, lut: TextureSource, row?: number): void {
   palettedTextures.set(texture, lut);
+  if (row !== undefined) palettedRows.set(texture, row);
+}
+
+export function palettedRowOf(texture: Texture): number | undefined {
+  return palettedRows.get(texture);
 }
 
 export function palettedLutOf(texture: Texture): TextureSource | undefined {

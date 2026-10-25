@@ -33,6 +33,7 @@ import {
   isShadowTexture,
   noteDrawnPage,
   palettedLutOf,
+  palettedRowOf,
   pixelArtMagnifyMode,
   prescaledPageOf,
   WORLD_MAGNIFY_MODES,
@@ -298,10 +299,13 @@ function renderableOf(element: BatchableElement): object | null {
   return typeof renderable === 'object' ? renderable : null;
 }
 
+/** The sprite's own row, else the row its texture names (a recoloured stem's frame). */
 function lutRowOf(element: BatchableElement): number {
   const renderable = renderableOf(element);
-  if (renderable === null || !('lutRow' in renderable)) return 0;
-  return typeof renderable.lutRow === 'number' ? renderable.lutRow : 0;
+  if (renderable !== null && 'lutRow' in renderable && typeof renderable.lutRow === 'number') {
+    return renderable.lutRow;
+  }
+  return palettedRowOf(element.texture) ?? 0;
 }
 
 function glowOf(element: BatchableElement): boolean {

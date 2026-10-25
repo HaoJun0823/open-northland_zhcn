@@ -13,7 +13,7 @@ import type { AtlasFrame } from '../../data/sprites/index.js';
 import { scaleColour } from '../../data/terrain/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
 import { BloodSurfaceSprite, bloodSurface } from '../blood/surface-sprite.js';
-import type { GroundFootPart } from '../ground-foot/index.js';
+import { FOOT_OVERLAY_STRIPS, type GroundFootPart } from '../ground-foot/index.js';
 import { castShadowShear, setVegetationShear, vegetationShear } from '../sway/vegetation.js';
 import type { TextureCache } from '../textures/texture-cache.js';
 import { worldBatched } from '../world-batch/batcher.js';
@@ -41,9 +41,9 @@ interface PooledObject {
   sprite: BloodSurfaceSprite | null;
   /** The cast-shadow twin, minted with {@link sprite} only when the object carries shadow frames. */
   shadowSprite: Sprite | null;
-  /** A {@link MapObjectSprite.grounded} object's ground shade and foot cover, minted with {@link sprite}. */
-  shadeSprite: Sprite | null;
-  coverSprite: Sprite | null;
+  /** A {@link MapObjectSprite.grounded} object's ground shade strips, then its foot cover strips, minted
+   *  with {@link sprite}; empty otherwise. */
+  overlaySprites: Sprite[];
   attached: boolean;
   /** The undimmed tint, computed at mint so the per-frame fog grading picks between two cached
    *  colours instead of recomputing. */
@@ -130,8 +130,7 @@ export class TallObjectLayer {
           obj,
           sprite: null,
           shadowSprite: null,
-          shadeSprite: null,
-          coverSprite: null,
+          overlaySprites: [],
           attached: false,
           baseTint: 0xffffff,
           ghostTint: 0xffffff,
@@ -159,8 +158,7 @@ export class TallObjectLayer {
       if (this.detach(po)) block.attachedCount--;
       po.sprite?.destroy();
       po.shadowSprite?.destroy();
-      po.shadeSprite?.destroy();
-      po.coverSprite?.destroy();
+      for (const overlay of po.overlaySprites) overlay.destroy();
       block.objects.splice(i, 1);
       if (block.objects.length === 0) this.blocks.delete(block.key);
       else fitBox(block);
@@ -173,8 +171,7 @@ export class TallObjectLayer {
     if (!po.attached || po.sprite === null) return false;
     this.spriteLayer.removeChild(po.sprite);
     if (po.shadowSprite !== null) this.spriteLayer.removeChild(po.shadowSprite);
-    if (po.shadeSprite !== null) this.spriteLayer.removeChild(po.shadeSprite);
-    if (po.coverSprite !== null) this.spriteLayer.removeChild(po.coverSprite);
+    for (const overlay of po.overlaySprites) this.spriteLayer.removeChild(overlay);
     po.attached = false;
     return true;
   }
@@ -195,12 +192,15 @@ export class TallObjectLayer {
       po.shadowSprite.zIndex = depth - SHADOW_DEPTH_EPS;
     }
     if (obj.grounded === true) {
-      po.shadeSprite = worldBatched(new Sprite());
-      po.shadeSprite.scale.set(obj.scale);
-      po.shadeSprite.zIndex = depth - GROUND_SHADE_DEPTH_EPS;
-      po.coverSprite = worldBatched(new Sprite());
-      po.coverSprite.scale.set(obj.scale);
-      po.coverSprite.zIndex = depth + FOOT_COVER_DEPTH_EPS;
+      // The strips of one overlay never overlap, so they share its depth.
+      for (const zIndex of [depth - GROUND_SHADE_DEPTH_EPS, depth + FOOT_COVER_DEPTH_EPS]) {
+        for (let i = 0; i < FOOT_OVERLAY_STRIPS; i++) {
+          const overlay = worldBatched(new Sprite());
+          overlay.scale.set(obj.scale);
+          overlay.zIndex = zIndex;
+          po.overlaySprites.push(overlay);
+        }
+      }
     }
     po.sprite = sprite;
     return sprite;
@@ -209,14 +209,16 @@ export class TallObjectLayer {
   /** Set a grounded object's pose into the ground: its sunk body and two overlays, placed at the body's
    *  `(x, y)`. Where the foot has no grounding, the body keeps its plain texture and the overlays hide. */
   private bindGrounded(po: PooledObject, sprite: Sprite, frame: AtlasFrame, x: number, y: number): void {
-    const { obj, shadeSprite, coverSprite } = po;
-    if (shadeSprite === null || coverSprite === null) return;
+    const { obj, overlaySprites } = po;
+    if (overlaySprites.length === 0) return;
     const feetY = obj.y - (obj.lift ?? 0);
-    const grounded = (part: GroundFootPart): Texture | null =>
-      this.textures.groundedPart(part, obj.source, frame, obj.scale, obj.x, feetY, false);
+    const grounded = (part: GroundFootPart, strip?: number): Texture | null =>
+      this.textures.groundedPart(part, obj.source, frame, obj.scale, obj.x, feetY, false, strip);
     sprite.texture = grounded('body') ?? sprite.texture;
-    placeOverlay(shadeSprite, grounded('shade'), x, y);
-    placeOverlay(coverSprite, grounded('cover'), x, y);
+    overlaySprites.forEach((overlay, i) => {
+      const part = i < FOOT_OVERLAY_STRIPS ? 'shade' : 'cover';
+      placeOverlay(overlay, grounded(part, i % FOOT_OVERLAY_STRIPS), x, y);
+    });
   }
 
   /** Bind the pose at `clock` onto a member's sprites. False when that pose has no frame, which
@@ -307,8 +309,7 @@ export class TallObjectLayer {
         const tint = watched ? po.baseTint : po.ghostTint;
         if (sprite.tint !== tint) sprite.tint = tint;
         const overlayTint = watched ? WATCHED_OVERLAY_TINT : GHOST_OVERLAY_TINT;
-        if (po.shadeSprite !== null && po.shadeSprite.tint !== overlayTint) po.shadeSprite.tint = overlayTint;
-        if (po.coverSprite !== null && po.coverSprite.tint !== overlayTint) po.coverSprite.tint = overlayTint;
+        for (const overlay of po.overlaySprites) if (overlay.tint !== overlayTint) overlay.tint = overlayTint;
         // The frozen/live pose switches with the tint.
         const rebind =
           !po.attached ||
@@ -337,8 +338,7 @@ export class TallObjectLayer {
         if (!po.attached) {
           this.spriteLayer.addChild(sprite);
           if (po.shadowSprite !== null) this.spriteLayer.addChild(po.shadowSprite);
-          if (po.shadeSprite !== null) this.spriteLayer.addChild(po.shadeSprite);
-          if (po.coverSprite !== null) this.spriteLayer.addChild(po.coverSprite);
+          for (const overlay of po.overlaySprites) this.spriteLayer.addChild(overlay);
           po.attached = true;
           block.attachedCount++;
         }
@@ -357,8 +357,7 @@ export class TallObjectLayer {
       for (const po of block.objects) {
         po.sprite?.destroy();
         po.shadowSprite?.destroy();
-        po.shadeSprite?.destroy();
-        po.coverSprite?.destroy();
+        for (const overlay of po.overlaySprites) overlay.destroy();
       }
     }
     this.blocks.clear();

@@ -16,7 +16,7 @@ import {
   type GroundColours,
   groundKinds,
 } from '../../../src/gpu/ground-foot/foot-ground.js';
-import { GroundedFootCache } from '../../../src/gpu/ground-foot/grounded-foot-cache.js';
+import { FOOT_OVERLAY_STRIPS, GroundedFootCache } from '../../../src/gpu/ground-foot/grounded-foot-cache.js';
 import { LayerBinder } from '../../../src/gpu/sprite-pool/bind-layers.js';
 import type { ResolvedLayer } from '../../../src/gpu/sprite-pool/layers/resolved-layer.js';
 import { createPooled } from '../../../src/gpu/sprite-pool/pooled-entity.js';
@@ -223,6 +223,19 @@ describe('GroundedFootCache', () => {
     const overlays = cache.overlaysAt(source, FRAME, 1, 0, 0);
     expect(overlays?.shade).not.toBeNull();
     expect(overlays?.cover).not.toBeNull();
+    // Each overlay also comes as a few strips of its box, views of the same canvas.
+    for (const overlay of [overlays?.shade, overlays?.cover]) {
+      const whole = overlay?.whole;
+      expect(overlay?.strips.length).toBeGreaterThan(0);
+      expect(overlay?.strips.length).toBeLessThanOrEqual(FOOT_OVERLAY_STRIPS);
+      for (const strip of overlay?.strips ?? []) {
+        expect(strip.source).toBe(whole?.source);
+        expect(strip.trim.x).toBeGreaterThanOrEqual(whole?.trim.x ?? Number.NaN);
+        expect(strip.trim.right).toBeLessThanOrEqual(whole?.trim.right ?? Number.NaN);
+        expect(strip.trim.y).toBeGreaterThanOrEqual(whole?.trim.y ?? Number.NaN);
+        expect(strip.trim.bottom).toBeLessThanOrEqual(whole?.trim.bottom ?? Number.NaN);
+      }
+    }
     // A second foot on like ground shares the bake.
     expect(cache.overlaysAt(source, FRAME, 1, 100, 50)).toBe(overlays);
     cache.setGround(null);

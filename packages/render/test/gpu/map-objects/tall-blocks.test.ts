@@ -1,0 +1,43 @@
+import { Container, type Sprite, Texture } from 'pixi.js';
+import { describe, expect, it, vi } from 'vitest';
+import { FOOT_OVERLAY_STRIPS, type GroundFootPart } from '../../../src/gpu/ground-foot/index.js';
+import { MapObjectLayer } from '../../../src/gpu/map-objects/index.js';
+import { TextureCache } from '../../../src/gpu/textures/texture-cache.js';
+import { FRAME_0, WIDE } from './support.js';
+
+describe('grounded tall objects', () => {
+  it('draws each overlay strip the cache bakes, the shade under the body and the cover over it', () => {
+    const textures = new TextureCache();
+    const body = new Texture();
+    const shades = [new Texture(), new Texture()];
+    const covers = [new Texture()];
+    vi.spyOn(textures, 'groundedPart').mockImplementation((part: GroundFootPart, ...rest) => {
+      const strip = rest[6] ?? 0;
+      return part === 'body' ? body : ((part === 'shade' ? shades : covers)[strip] ?? null);
+    });
+    const spriteLayer = new Container();
+    const layer = new MapObjectLayer(spriteLayer, textures);
+    layer.set([
+      {
+        x: 0,
+        y: 0,
+        source: Texture.WHITE.source,
+        frames: [FRAME_0],
+        scale: 1,
+        decor: false,
+        phase: 0,
+        grounded: true,
+      },
+    ]);
+    layer.update(WIDE, 0);
+
+    const sprites = spriteLayer.children as Sprite[];
+    expect(sprites).toHaveLength(1 + 2 * FOOT_OVERLAY_STRIPS);
+    const drawn = sprites.filter((s) => s.visible);
+    const bodySprite = drawn.find((s) => s.texture === body);
+    const depth = bodySprite?.zIndex ?? Number.NaN;
+    expect(drawn.filter((s) => shades.includes(s.texture)).every((s) => s.zIndex < depth)).toBe(true);
+    expect(drawn.filter((s) => covers.includes(s.texture)).every((s) => s.zIndex > depth)).toBe(true);
+    expect(drawn.map((s) => s.texture)).toHaveLength(1 + shades.length + covers.length);
+  });
+});

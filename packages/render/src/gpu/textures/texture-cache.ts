@@ -224,8 +224,8 @@ export class TextureCache {
   /**
    * One part of a building frame set into the ground, drawn at `scale` with its feet at the lifted
    * pre-camera point `(x, y)`: the ground's shade, the sunk body in the enhanced or the page's own look,
-   * or the cover over its foot. Null draws the part as the original would: a plain body, no shade, no
-   * cover.
+   * or the cover over its foot. A `strip` index draws that strip of an overlay, the strips together drawing
+   * it whole. Null draws the part as the original would: a plain body, no shade, no cover.
    */
   groundedPart(
     part: GroundFootPart,
@@ -235,13 +235,17 @@ export class TextureCache {
     x: number,
     y: number,
     enhanced: boolean,
+    strip?: number,
   ): Texture | null {
     const overlays = this.groundedFeet.overlaysAt(source, frame, scale, x, y);
     if (overlays === null) return null;
     // An overlay without its sunk body would shade a foot that still stands on the ground.
     const body = (enhanced ? this.groundedEnhanced : this.groundedPlain).get(source, frame);
     if (body === null) return null;
-    return part === 'body' ? body : part === 'shade' ? overlays.shade : overlays.cover;
+    if (part === 'body') return body;
+    const overlay = part === 'shade' ? overlays.shade : overlays.cover;
+    if (overlay === null) return null;
+    return strip === undefined ? overlay.whole : (overlay.strips[strip] ?? null);
   }
 
   /** `frame` copied onto a page of its own with `region` cleared, served like an atlas frame; null when

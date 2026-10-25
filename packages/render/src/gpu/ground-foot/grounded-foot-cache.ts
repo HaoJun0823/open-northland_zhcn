@@ -4,6 +4,7 @@ import { isDrawableResource, readable2dContext } from '../textures/drawable-reso
 import { analyseFoot, type FootAnalysis } from './foot-analysis.js';
 import { bakeFootCover, bakeGroundShade, type FootBake } from './foot-bakes.js';
 import { type FootGround, footGround, type GroundColours } from './foot-ground.js';
+import { footStrips } from './foot-strips.js';
 
 const RGBA = 4;
 /** Overlay bytes retained on the GPU across every frame and ground, plus as much again in CPU canvas
@@ -24,12 +25,21 @@ interface Spot {
  *  the body's cast shadow, the sunk body, and the cover over its foot. */
 export type GroundFootPart = 'shade' | 'body' | 'cover';
 
+/** Strips an overlay draws as at most: tight quads over its sloping band instead of its mostly clear box. */
+export const FOOT_OVERLAY_STRIPS = 4;
+
+/** One overlay as its whole box, and as strips of that box that draw the same pixels between them. */
+export interface GroundOverlay {
+  readonly whole: Texture;
+  readonly strips: readonly Texture[];
+}
+
 /** The two overlays that set one drawn frame into the ground at one spot. */
 export interface GroundedOverlays {
   /** The ground's shade around the foot, drawn under the body. */
-  readonly shade: Texture | null;
+  readonly shade: GroundOverlay | null;
   /** The stain, tufts or drift over the foot, drawn over the body. */
-  readonly cover: Texture | null;
+  readonly cover: GroundOverlay | null;
 }
 
 /**
@@ -175,15 +185,15 @@ export class GroundedFootCache {
     const bytes =
       RGBA * ((shade?.width ?? 0) * (shade?.height ?? 0) + (cover?.width ?? 0) * (cover?.height ?? 0));
     if (this.gpuBytes + bytes > MAX_GPU_BYTES) return null;
-    const shadeTexture = shade === null ? null : overlayTexture(frame, shade);
-    const coverTexture = cover === null ? null : overlayTexture(frame, cover);
-    if ((shade !== null && shadeTexture === null) || (cover !== null && coverTexture === null)) {
-      shadeTexture?.destroy(true);
-      coverTexture?.destroy(true);
+    const shadeOverlay = shade === null ? null : overlayTextures(frame, shade);
+    const coverOverlay = cover === null ? null : overlayTextures(frame, cover);
+    if ((shade !== null && shadeOverlay === null) || (cover !== null && coverOverlay === null)) {
+      destroyOverlay(shadeOverlay);
+      destroyOverlay(coverOverlay);
       return null;
     }
     this.gpuBytes += bytes;
-    return { shade: shadeTexture, cover: coverTexture };
+    return { shade: shadeOverlay, cover: coverOverlay };
   }
 
   private spend(pixels: number): boolean {
@@ -206,8 +216,8 @@ export class GroundedFootCache {
     this.forgetSpots();
     for (const byGround of this.baked.values()) {
       for (const overlays of byGround.values()) {
-        overlays?.shade?.destroy(true);
-        overlays?.cover?.destroy(true);
+        destroyOverlay(overlays?.shade ?? null);
+        destroyOverlay(overlays?.cover ?? null);
       }
     }
     this.baked.clear();
@@ -229,19 +239,43 @@ function readFrame(source: TextureSource, frame: AtlasFrame): Uint8ClampedArray 
   }
 }
 
-/** An overlay texture framed like its body frame, so it shares the body's feet anchor. */
-function overlayTexture(frame: AtlasFrame, bake: FootBake): Texture | null {
+/**
+ * An overlay's views of one canvas, each framed like its body frame so it shares the body's feet anchor:
+ * the whole box, and the strips of it. A strip samples the same canvas texels the whole box draws there.
+ */
+function overlayTextures(frame: AtlasFrame, bake: FootBake): GroundOverlay | null {
   const write = readable2dContext(bake.width, bake.height);
   if (write === null) return null;
   try {
     write.putImageData(new ImageData(bake.pixels, bake.width, bake.height), 0, 0);
-    return new Texture({
-      // The source's resolution scales a lower-resolution bake back up to frame px.
-      source: new CanvasSource({ resource: write.canvas, scaleMode: 'linear', resolution: bake.resolution }),
-      orig: new Rectangle(0, 0, frame.width, frame.height),
-      trim: new Rectangle(bake.left, bake.top, bake.width / bake.resolution, bake.height / bake.resolution),
+    // The source's resolution scales a lower-resolution bake back up to frame px.
+    const source = new CanvasSource({
+      resource: write.canvas,
+      scaleMode: 'linear',
+      resolution: bake.resolution,
     });
+    const perPx = 1 / bake.resolution;
+    const view = (x: number, y: number, width: number, height: number): Texture =>
+      new Texture({
+        source,
+        frame: new Rectangle(x * perPx, y * perPx, width * perPx, height * perPx),
+        orig: new Rectangle(0, 0, frame.width, frame.height),
+        trim: new Rectangle(bake.left + x * perPx, bake.top + y * perPx, width * perPx, height * perPx),
+      });
+    return {
+      whole: view(0, 0, bake.width, bake.height),
+      strips: footStrips(bake, FOOT_OVERLAY_STRIPS).map((strip) =>
+        view(strip.x, strip.y, strip.width, strip.height),
+      ),
+    };
   } catch {
     return null;
   }
+}
+
+/** Every view of an overlay, then the canvas they share. */
+function destroyOverlay(overlay: GroundOverlay | null): void {
+  if (overlay === null) return;
+  for (const strip of overlay.strips) strip.destroy(false);
+  overlay.whole.destroy(true);
 }

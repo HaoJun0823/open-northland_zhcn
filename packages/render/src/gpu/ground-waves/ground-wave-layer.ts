@@ -121,6 +121,7 @@ export class GroundWaveLayer {
    * Render this frame's lift map and switch the lift on, or off when no wave is on screen or `enabled`
    * is false. With any wave on screen the frame copies the ground under the waves and draws their
    * quads, plus a lift-map render whenever the tick, the camera, the screen or the waves changed.
+   * `resolution` is the texels per CSS pixel the world draws at, the renderer's unless it is upscaled.
    */
   update(
     vp: Viewport,
@@ -129,9 +130,9 @@ export class GroundWaveLayer {
     screenH: number,
     tick: number,
     enabled: boolean,
+    resolution: number = this.renderer.resolution,
   ): void {
     const zoom = camera.scale ?? 1;
-    const resolution = this.renderer.resolution;
     if (enabled && this.unchanged(tick, camera, zoom, screenW, screenH, resolution)) return;
     let drawn = 0;
     // One target pixel round each quad covers whatever the lift map's own rasterisation of it touches.

@@ -140,6 +140,24 @@ describe('GroundWaveLayer', () => {
     expect(target.pixiBind).toHaveBeenCalledWith(frame);
   });
 
+  it('copies and lifts in target pixels at the world resolution', () => {
+    const { renderer, render } = fakeRenderer();
+    const ground = new Container();
+    const layer = new GroundWaveLayer(renderer, ground);
+    layer.set([wave()]);
+    layer.update(WIDE, { offsetX: 100, offsetY: 50, scale: 1 }, SCREEN, SCREEN, 0, true, 2);
+    // At two texels per CSS pixel the wave, padded by one pixel, spans pixels 191..209 by 95..105.
+    const { container } = render.mock.calls[0]?.[0] ?? {};
+    expect(container.children[0].position).toMatchObject({ x: 9, y: 5 });
+    const target = fakeTarget(
+      false,
+      { x: 0, y: 0, width: 2 * SCREEN, height: 2 * SCREEN },
+      { resolution: 2 },
+    );
+    liftNode(ground).render(target.renderer);
+    expect(target.blitFramebuffer.mock.calls[0]?.slice(0, 4)).toEqual([191, 95, 209, 615]);
+  });
+
   it('writes each redraw into the next of three quad geometries, growing only the one it writes', () => {
     const { renderer } = fakeRenderer();
     const ground = new Container();

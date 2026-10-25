@@ -557,6 +557,7 @@ export class WorldRenderer {
       this.app.screen.height,
       tick,
       this.enhancements.environmentMotion,
+      this.upscale?.drawResolution() ?? this.app.renderer.resolution,
     );
     if (this.upscale === null) this.app.render();
     else this.upscale.render();

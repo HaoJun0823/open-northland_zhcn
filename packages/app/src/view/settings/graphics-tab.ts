@@ -87,6 +87,11 @@ export function graphicsSettingsRows(
   });
   const renderScaleInput = renderScale.querySelector<HTMLInputElement>('input[type="range"]');
   if (renderScaleInput !== null) renderScaleInput.dataset.settingsFocus = 'render-scale';
+  const integerScaling = togglePill(settings.integerScaling, (enabled) => {
+    void store.update({ integerScaling: enabled });
+  });
+  integerScaling.setAttribute('aria-label', text.integerScaling);
+  integerScaling.dataset.settingsFocus = 'integer-scaling';
   const fpsSeg = segControl<FpsChoice>(
     [
       { id: 'fps30', label: '30 FPS' },
@@ -133,11 +138,6 @@ export function graphicsSettingsRows(
     },
   );
   markSegment(filter.root, 'pixel-art-filter');
-  const pixelPerfectZoom = togglePill(settings.pixelPerfectZoom, (enabled) => {
-    void store.update({ pixelPerfectZoom: enabled });
-  });
-  pixelPerfectZoom.setAttribute('aria-label', text.pixelPerfectZoom);
-  pixelPerfectZoom.dataset.settingsFocus = 'pixel-perfect-zoom';
   const selectionStyle = segControl<SelectionStyle>(
     SELECTION_STYLES.map((id) => ({ id, label: text.selectionStyles[id] })),
     settings.selectionStyle,
@@ -199,6 +199,7 @@ export function graphicsSettingsRows(
       tip: store.pinnedUiScale === null ? text.uiScaleTip : text.uiScalePinnedTip,
     }),
     settingRow(text.renderScale, renderScale, { tip: deferredTip(text.renderScaleTip) }),
+    settingRow(text.integerScaling, integerScaling, { tip: text.integerScalingTip }),
     settingRow(text.fpsLimit, fpsSeg.root, { tip: liveTip(text.fpsLimitTip) }),
     ...cursorSettingsRows(store, markSegment),
     settingsHeading(text.interfaceHeading),
@@ -208,7 +209,6 @@ export function graphicsSettingsRows(
     settingRow(text.fpsCounter, fpsCounter, { tip: liveTip(text.fpsCounterTip) }),
     settingsHeading(text.worldHeading),
     settingRow(text.pixelArtFilter, filter.root, { tip: liveTip(text.pixelArtFilterTip) }),
-    settingRow(text.pixelPerfectZoom, pixelPerfectZoom, { tip: text.pixelPerfectZoomTip }),
     ...enhancementToggles,
     settingRow(text.spriteSmoothing, smoothing, { tip: deferredTip(text.spriteSmoothingTip) }),
     settingRow(text.postFx, postFx, { tip: deferredTip(text.postFxTip) }),

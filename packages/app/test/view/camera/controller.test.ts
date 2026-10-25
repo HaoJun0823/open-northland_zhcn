@@ -27,7 +27,7 @@ const DEFAULT_INPUT_SETTINGS: CameraInputSettings = {
   dragScrollSpeed: 1,
   edgeScrollEnabled: true,
   invertDragScroll: false,
-  pixelPerfectZoom: false,
+  integerScaling: false,
 };
 
 type Listener = (event: unknown) => void;
@@ -536,8 +536,8 @@ describe('createCameraController zoom-out unlock', () => {
   });
 });
 
-describe('createCameraController pixel-perfect zoom', () => {
-  const PIXEL_PERFECT: CameraInputSettings = { ...DEFAULT_INPUT_SETTINGS, pixelPerfectZoom: true };
+describe('createCameraController integer scaling', () => {
+  const INTEGER_SCALING: CameraInputSettings = { ...DEFAULT_INPUT_SETTINGS, integerScaling: true };
   const wheelIn = (
     canvasEvents: ReturnType<typeof install>['canvasEvents'],
     timeStamp: number,
@@ -553,7 +553,7 @@ describe('createCameraController pixel-perfect zoom', () => {
   };
 
   it('jumps one level per wheel step about the cursor, and a burst inside the cooldown is one step', () => {
-    const { ctl, canvasEvents } = install(DEFAULT_KEY_BINDINGS, PIXEL_PERFECT);
+    const { ctl, canvasEvents } = install(DEFAULT_KEY_BINDINGS, INTEGER_SCALING);
     wheelIn(canvasEvents, 1000);
     expect(ctl.camera()).toEqual({ offsetX: -100, offsetY: -100, scale: 2 });
     wheelIn(canvasEvents, 1010);
@@ -569,7 +569,7 @@ describe('createCameraController pixel-perfect zoom', () => {
     wheelIn(canvasEvents, 1000);
     for (let i = 0; i < GLIDE_FRAMES; i++) ctl.update(FRAME_MS);
     expect(ctl.camera().scale).toBeCloseTo(1.1);
-    ctl.setInputSettings(PIXEL_PERFECT);
+    ctl.setInputSettings(INTEGER_SCALING);
     expect(ctl.camera().scale).toBe(1);
     ctl.jumpTo({ offsetX: 0, offsetY: 0, scale: 1.7 });
     ctl.update(FRAME_MS);
@@ -579,7 +579,7 @@ describe('createCameraController pixel-perfect zoom', () => {
 
   it('moves to a level of the new resolution when the display changes', () => {
     let resolution = 1;
-    const { ctl } = install(DEFAULT_KEY_BINDINGS, PIXEL_PERFECT, CHROME_USER_AGENT, () => resolution);
+    const { ctl } = install(DEFAULT_KEY_BINDINGS, INTEGER_SCALING, CHROME_USER_AGENT, () => resolution);
     resolution = 1.25;
     ctl.update(FRAME_MS);
     expect(ctl.camera().scale).toBeCloseTo(0.8);

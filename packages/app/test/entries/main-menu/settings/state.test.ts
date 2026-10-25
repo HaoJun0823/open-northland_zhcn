@@ -84,7 +84,7 @@ describe('parseStoredSettings', () => {
       dragScrollSpeed: 1.75,
       edgeScrollEnabled: false,
       invertDragScroll: true,
-      pixelPerfectZoom: true,
+      integerScaling: true,
       netNick: 'Ania',
       netRelayUrl: 'ws://localhost:8768',
       debugToolsEnabled: true,

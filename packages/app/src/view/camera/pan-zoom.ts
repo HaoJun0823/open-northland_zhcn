@@ -77,16 +77,16 @@ export function stepZoomToward(
   return zoomCameraAt(cam, next / scale, cursorX, cursorY, minZoom);
 }
 
-/** Device px per art px of the one pixel-perfect level below 1: each device px takes every other texel. */
+/** Device px per art px of the one integer zoom level below 1: each device px takes every other texel. */
 const HALF_PIXEL_LEVEL = 0.5;
 
 /**
- * The pixel-perfect zoom levels within `[minZoom, MAX_ZOOM]`, ascending: the scales at which one art
+ * The integer zoom levels within `[minZoom, MAX_ZOOM]`, ascending: the scales at which one art
  * pixel covers ½ or a whole number of device px. `resolution` is device px per screen px, so a 2× display
  * reaches 1.5 (three device px) and a 1.25× display has no level at scale 1. Never empty, since
  * consecutive levels differ by at most a factor of 2 and the bounds span more.
  */
-export function pixelPerfectZoomLevels(resolution: number, minZoom: number = MIN_ZOOM): number[] {
+export function integerZoomLevels(resolution: number, minZoom: number = MIN_ZOOM): number[] {
   const levels: number[] = [];
   const add = (devicePerArt: number): void => {
     const scale = devicePerArt / resolution;

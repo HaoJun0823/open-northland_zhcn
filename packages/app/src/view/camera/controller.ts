@@ -7,11 +7,11 @@ import {
   DEBUG_MIN_ZOOM,
   DEFAULT_CAMERA_TUNING,
   edgePanVelocity,
+  integerZoomLevels,
   MAX_ZOOM,
   MIN_ZOOM,
   nearestZoomLevel,
   panCamera,
-  pixelPerfectZoomLevels,
   stepZoomLevel,
   stepZoomToward,
   zoomCameraAt,
@@ -25,7 +25,7 @@ import { clientToScreen, screenScale } from './screen-scale.js';
 
 /** Per-wheel-notch zoom factor (one notch in multiplies, one out divides). */
 const WHEEL_ZOOM_STEP = 1.1;
-/** Approximation: ms one pixel-perfect level step holds off the next, so a trackpad's stream of small
+/** Approximation: ms one integer zoom level step holds off the next, so a trackpad's stream of small
  *  wheel events walks the levels at a readable pace instead of leaping to a bound. */
 const LEVEL_STEP_COOLDOWN_MS = 150;
 /** Max wall-clock ms one held-key pan step integrates - a backgrounded tab resumes smoothly, not with a lurch. */
@@ -77,8 +77,8 @@ export interface CameraInputSettings {
   readonly dragScrollSpeed: number;
   readonly edgeScrollEnabled: boolean;
   readonly invertDragScroll: boolean;
-  /** Zoom only to {@link pixelPerfectZoomLevels}, jumping instead of gliding. */
-  readonly pixelPerfectZoom: boolean;
+  /** Zoom only to {@link integerZoomLevels}, jumping instead of gliding. */
+  readonly integerScaling: boolean;
 }
 
 /** `resolution` reads the owning renderer's live device px per screen px, needed to map mouse deltas on
@@ -122,13 +122,13 @@ export function createCameraController(
     const res = resolution();
     if (levelsKey.resolution !== res || levelsKey.minZoom !== minZoom) {
       levelsKey = { resolution: res, minZoom };
-      levels = pixelPerfectZoomLevels(res, minZoom);
+      levels = integerZoomLevels(res, minZoom);
     }
     return levels;
   };
-  /** `next` on a pixel-perfect level about the screen centre when the mode is on; else unchanged. */
+  /** `next` on an integer zoom level about the screen centre when the mode is on; else unchanged. */
   const onLevel = (next: Camera): Camera => {
-    if (!activeInputSettings.pixelPerfectZoom) return next;
+    if (!activeInputSettings.integerScaling) return next;
     const scale = next.scale ?? 1;
     const level = nearestZoomLevel(zoomLevels(), scale);
     if (level === scale) return next;
@@ -182,7 +182,7 @@ export function createCameraController(
     if (pointerGuard?.(e.clientX, e.clientY)) return;
     e.preventDefault(); // don't scroll the page
     const { x, y } = clientToScreen(canvas, resolution(), e.clientX, e.clientY);
-    if (activeInputSettings.pixelPerfectZoom) {
+    if (activeInputSettings.integerScaling) {
       if (e.timeStamp - lastLevelStepMs < LEVEL_STEP_COOLDOWN_MS) return;
       lastLevelStepMs = e.timeStamp;
       const scale = cam.scale ?? 1;

@@ -187,8 +187,8 @@ export const enSurfaces = {
         'Smooths own character edges and zoomed-out world sprites. Does not change text rendering.',
       postFx: 'Post-processing',
       postFxTip: 'A vignette and warm colour grade layered over the world.',
-      pixelPerfectZoom: 'Pixel-perfect zoom',
-      pixelPerfectZoomTip:
+      integerScaling: 'Integer scaling',
+      integerScalingTip:
         'Zooms only in whole steps (½×, 1×, 2×, 3×…), so every pixel of the art covers a whole number of screen pixels and is never resampled by a fractional scale. The view jumps between steps instead of gliding.',
       displayHeading: 'Display',
       cursorHeading: 'Mouse cursor',

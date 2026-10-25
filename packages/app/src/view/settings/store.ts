@@ -132,7 +132,7 @@ export interface MenuSettings {
   readonly invertDragScroll: boolean;
   /** Zoom only where art pixels map to whole device pixels; off by default, since the fixed steps are
    *  coarse and the zoom no longer glides. */
-  readonly pixelPerfectZoom: boolean;
+  readonly integerScaling: boolean;
   /** A launching game resolves its hotkeys from here, like the HUD scale factor. */
   readonly keyBindings: KeyBindings;
   /** The display name shown to other players over a relay; null until one was chosen. */
@@ -201,7 +201,7 @@ export function defaultSettings(): MenuSettings {
     dragScrollSpeed: DEFAULT_SCROLL_SPEED,
     edgeScrollEnabled: true,
     invertDragScroll: true,
-    pixelPerfectZoom: false,
+    integerScaling: false,
     keyBindings: DEFAULT_KEY_BINDINGS,
     netNick: null,
     netRelayUrl: null,
@@ -374,8 +374,8 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
       typeof record.edgeScrollEnabled === 'boolean' ? record.edgeScrollEnabled : defaults.edgeScrollEnabled,
     invertDragScroll:
       typeof record.invertDragScroll === 'boolean' ? record.invertDragScroll : defaults.invertDragScroll,
-    pixelPerfectZoom:
-      typeof record.pixelPerfectZoom === 'boolean' ? record.pixelPerfectZoom : defaults.pixelPerfectZoom,
+    integerScaling:
+      typeof record.integerScaling === 'boolean' ? record.integerScaling : defaults.integerScaling,
     keyBindings: parseKeyBindings(record.changedKeyBindings),
     netNick: optionalText(record.netNick),
     netRelayUrl: optionalText(record.netRelayUrl),

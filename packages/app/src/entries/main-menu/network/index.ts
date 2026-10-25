@@ -21,18 +21,21 @@ import { prepareRoomCreation } from './creation.js';
 import { escapeLeavesRoom, openRooms, relayAddress, validNetworkNick, worldTitle } from './model.js';
 import { button } from './parts.js';
 import { mountNetworkRoom } from './room/index.js';
+import { pingRelay, type RelayPing } from './server/ping.js';
 import { launchNetworkGame } from './start.js';
 
 export interface NetworkScreenServices {
   readonly connect: (url: string, nick: string) => NetworkConnection;
   readonly assets: typeof roomAssets;
   readonly startGame: typeof launchNetworkGame;
+  readonly ping: RelayPing;
 }
 
 const SERVICES: NetworkScreenServices = {
   connect: (url, nick) => new NetworkConnection(url, relayIdentity(url, nick)),
   assets: roomAssets,
   startGame: launchNetworkGame,
+  ping: pingRelay,
 };
 
 export function networkScreen(
@@ -55,11 +58,12 @@ export function networkScreen(
     address,
     nick,
     advanced,
-    resetServer,
     connect,
     disconnect,
     rememberAddress,
-  } = connectionForm(params.get('relay'), () => dropConnection(''));
+    lockServer,
+    dispose: disposeForm,
+  } = connectionForm(params.get('relay'), () => dropConnection(''), services.ping);
   const columns = node('div', 'network-menu__columns');
   let connection: NetworkConnection | null = null;
   let assets: ReturnType<typeof roomAssets> | null = null;
@@ -176,8 +180,7 @@ export function networkScreen(
     columns.hidden = !connected;
     element.classList.toggle('is-entry', !connected && room === null);
     accountName.textContent = formatMessage(copy.connected, { nick: connection?.client.nick ?? nick.value });
-    resetServer.disabled = connection !== null;
-    address.disabled = connection !== null;
+    lockServer(connection !== null);
     nick.disabled = connection !== null;
     connect.disabled = connection !== null;
     connect.textContent = connection === null ? copy.connect : copy.connecting;
@@ -465,6 +468,7 @@ export function networkScreen(
       mapRequest?.cancel();
       unsubscribe();
       create.dispose();
+      disposeForm();
       room?.dispose();
       assets?.dispose();
       // Only the Leave button gives a seat in a started game up; leaving the screen keeps it.

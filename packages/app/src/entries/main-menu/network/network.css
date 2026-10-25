@@ -176,6 +176,80 @@
 .network-menu__advanced > :not(summary) {
   margin-top: calc(var(--u) * 12);
 }
+.network-server {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--u) * 10);
+}
+.network-menu .network-server__region {
+  --signal: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 8);
+  min-height: calc(var(--u) * 40);
+  padding: calc(var(--u) * 6) calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: var(--cursor-pointer, pointer);
+}
+.network-menu .network-server__region.is-selected {
+  border-color: var(--bronze-hi);
+  background: linear-gradient(135deg, #3a3a28, #23281d);
+  box-shadow: inset 0 0 0 1px var(--bronze-hi);
+}
+.network-server__region[data-quality="good"] {
+  --signal: #8fc46a;
+}
+.network-server__region[data-quality="fair"] {
+  --signal: #e0b44c;
+}
+.network-server__region[data-quality="poor"] {
+  --signal: #d9694c;
+}
+.network-server__name {
+  font-size: calc(var(--u) * 16);
+  font-weight: 700;
+}
+.network-server__reading {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
+  font-variant-numeric: tabular-nums;
+}
+.network-server__region:not([data-quality="unknown"]) .network-server__ping {
+  color: var(--signal);
+}
+.network-server__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 2);
+  height: calc(var(--u) * 12);
+}
+.network-server__bars > i {
+  width: calc(var(--u) * 3);
+  background: var(--wood-hi);
+}
+.network-server__bars > i:nth-child(1) {
+  height: 40%;
+}
+.network-server__bars > i:nth-child(2) {
+  height: 70%;
+}
+.network-server__bars > i:nth-child(3) {
+  height: 100%;
+}
+.network-server__region[data-quality="poor"] .network-server__bars > i:nth-child(1),
+.network-server__region[data-quality="fair"] .network-server__bars > i:nth-child(-n + 2),
+.network-server__region[data-quality="good"] .network-server__bars > i {
+  background: var(--signal);
+}
 .network-menu__account,
 .network-menu__section-head {
   display: flex;

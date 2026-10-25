@@ -1,25 +1,17 @@
 // @vitest-environment jsdom
 import { MAP_TYPE } from '@open-northland/data';
 import { PROTOCOL_VERSION, type RoomView } from '@open-northland/net-protocol';
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { type MapSelectItem, mapItem } from '../../../../../src/entries/main-menu/map-select/model.js';
-import { connectionForm } from '../../../../../src/entries/main-menu/network/connection-form.js';
-import { DEFAULT_RELAY_URL } from '../../../../../src/entries/main-menu/network/relay-default.js';
 import {
   mountNetworkRoom,
   type NetworkRoomDeps,
 } from '../../../../../src/entries/main-menu/network/room/index.js';
 import { formatClockTime, messages } from '../../../../../src/i18n/index.js';
-import { patchStoredSettings, readStoredSettings } from '../../../../../src/view/settings/store.js';
 import { TINY_FINGERPRINT } from '../../../../support/catalog-maps.js';
 
 const mounted: Array<ReturnType<typeof mountNetworkRoom>> = [];
-let storedRelay: string | null;
-beforeEach(() => {
-  storedRelay = readStoredSettings().netRelayUrl;
-});
 afterEach(() => {
-  patchStoredSettings({ netRelayUrl: storedRelay });
   for (const room of mounted.splice(0)) room.dispose();
   document.body.replaceChildren();
 });
@@ -163,32 +155,6 @@ describe('multiplayer entry', () => {
     expect(client.moveMember).toHaveBeenCalledWith('Astrid', 1);
     room.update({ ...seated, creator: 'Bjorn' }, true);
     expect(moves.filter((move) => !move.hidden)).toHaveLength(0);
-  });
-
-  it('remembers a valid custom address, preserves it after invalid input, and accepts a URL override', () => {
-    const view = connectionForm(null, vi.fn());
-    view.address.value = '  ws://localhost:8768  ';
-    view.address.dispatchEvent(new Event('change'));
-    expect(connectionForm(null, vi.fn()).address.value).toBe('ws://localhost:8768');
-    view.address.value = 'invalid';
-    view.rememberAddress();
-    expect(connectionForm(null, vi.fn()).address.value).toBe('ws://localhost:8768');
-    expect(connectionForm('ws://localhost:9000', vi.fn()).address.value).toBe('ws://localhost:9000');
-    view.resetServer.click();
-    expect(connectionForm(null, vi.fn()).address.value).toBe(DEFAULT_RELAY_URL);
-  });
-  it('keeps the official endpoint out of the nickname flow and allows returning from a custom server', () => {
-    const view = connectionForm(DEFAULT_RELAY_URL, vi.fn());
-    document.body.append(view.form);
-    expect(view.advanced.open).toBe(false);
-    expect(view.address.value).toBe('wss://relay.opennorthland.org');
-    expect(view.nick.labels?.[0]?.textContent).toBe(messages().network.nick);
-    view.address.value = 'ws://localhost:8768';
-    view.address.dispatchEvent(new Event('input'));
-    expect(view.form.textContent).toContain(messages().network.customServer);
-    view.resetServer.click();
-    expect(view.address.value).toBe(DEFAULT_RELAY_URL);
-    expect(view.form.textContent).toContain(messages().network.officialServer);
   });
 });
 

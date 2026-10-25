@@ -86,7 +86,7 @@ describe('parseStoredSettings', () => {
       invertDragScroll: true,
       integerScaling: true,
       netNick: 'Ania',
-      netRelayUrl: 'ws://localhost:8768',
+      netCustomRelayUrl: 'ws://localhost:8768',
       debugToolsEnabled: true,
       originalGameVerified: true,
       originalGameLabel: 'Cultures: Northland (PL)',

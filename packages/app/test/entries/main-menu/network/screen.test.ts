@@ -111,7 +111,7 @@ function connectedScreen(
     vi.fn(),
     new URLSearchParams({ relay: 'ws://relay.test/' }),
     { cue: vi.fn() } as unknown as Parameters<typeof networkScreen>[3],
-    { connect: () => fake.connection, assets: fakeAssets, startGame },
+    { connect: () => fake.connection, assets: fakeAssets, startGame, ping: async () => null },
   );
   document.body.append(screen.element);
   const nick = screen.element.querySelector<HTMLInputElement>('input[autocomplete="nickname"]');

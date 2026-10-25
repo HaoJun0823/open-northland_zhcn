@@ -22,8 +22,8 @@ const SETTLER = 3;
 const HOUSE = 9;
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Viking male ok 01', sfx: [{ file: 'humantalk/m1ok02.wav', params: [80] }] },
-    { name: 'Viking male ok 02', sfx: [{ file: 'humantalk/m2ok08.wav', params: [80] }] },
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: [{ file: 'humantalk/m1ok02.wav', params: [80] }] },
+    { name: 'Viking male ok 02', logicSoundTypes: [], sfx: [{ file: 'humantalk/m2ok08.wav', params: [80] }] },
   ],
   ambient: [],
   jingles: [],

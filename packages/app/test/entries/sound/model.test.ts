@@ -17,24 +17,25 @@ const bank: SoundBank = {
   staticGroups: [
     {
       name: 'Woodcutter Axe',
-      logicSoundType: 9,
+      logicSoundTypes: [9],
       sfx: [f('static/axe01.wav'), f('static/dummy.wav'), f('static/axe02.wav'), f('static/axe03.wav')],
     },
-    { name: 'Silent Slot', logicSoundType: 12, sfx: [f('static/dummy.wav')] },
-    { name: 'Hammer Wood', sfx: [f('static/hammer01.wav'), f('static/hammer02.wav')] },
-    { name: 'Carpenter Saw', sfx: [f('static/carpenter_saw01.wav')] },
-    { name: 'Generic Viking Male', sfx: [f('generic/m1.wav')] },
-    { name: 'Man Get Hit', sfx: [f('static/hit m 01.wav')] },
-    { name: 'Viking male ok 01', sfx: [f('humantalk/m1ok01.wav')] },
-    { name: 'Viking male no 01', sfx: [f('humantalk/m1no01.wav')] },
-    { name: 'Generic Viking Children', sfx: [f('generic/c1.wav')] },
-    { name: 'Bear Sounds', sfx: [f('generic/bear1.wav')] },
+    { name: 'Silent Slot', logicSoundTypes: [12], sfx: [f('static/dummy.wav')] },
+    { name: 'Hammer Wood', logicSoundTypes: [], sfx: [f('static/hammer01.wav'), f('static/hammer02.wav')] },
+    { name: 'Carpenter Saw', logicSoundTypes: [], sfx: [f('static/carpenter_saw01.wav')] },
+    { name: 'Generic Viking Male', logicSoundTypes: [], sfx: [f('generic/m1.wav')] },
+    { name: 'Man Get Hit', logicSoundTypes: [], sfx: [f('static/hit m 01.wav')] },
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: [f('humantalk/m1ok01.wav')] },
+    { name: 'Viking male no 01', logicSoundTypes: [], sfx: [f('humantalk/m1no01.wav')] },
+    { name: 'Generic Viking Children', logicSoundTypes: [], sfx: [f('generic/c1.wav')] },
+    { name: 'Bear Sounds', logicSoundTypes: [], sfx: [f('generic/bear1.wav')] },
     {
       name: 'Attack Alert Viking Settlement',
+      logicSoundTypes: [],
       sfx: [f('alerts/viking_base1.wav'), f('alerts/viking_base2.wav')],
     },
-    { name: 'Attack Alert Viking Field', sfx: [f('alerts/viking_units1.wav')] },
-    { name: 'Attack Alert Saracen Settlement', sfx: [f('alerts/saracen_base1.wav')] },
+    { name: 'Attack Alert Viking Field', logicSoundTypes: [], sfx: [f('alerts/viking_units1.wav')] },
+    { name: 'Attack Alert Saracen Settlement', logicSoundTypes: [], sfx: [f('alerts/saracen_base1.wav')] },
   ],
   ambient: [
     {
@@ -110,7 +111,7 @@ describe('buildSoundGalleryModel', () => {
     // A settler's work sounds are not bound here - the animation names them - so the gallery auditions
     // the groups themselves, keyed by the id an `event <at> 34 <id>` row carries.
     const axe = model.cues.find((c) => c.group === 'Woodcutter Axe');
-    expect(axe?.soundType).toBe(9);
+    expect(axe?.soundTypes).toEqual([9]);
     expect(axe?.clips).toEqual(['static/axe01.wav', 'static/axe02.wav', 'static/axe03.wav']);
     // The index's own array, so a play shares the game's pool, volume and no-repeat memory.
     expect(axe?.clips).toBe(index.groupsByName.get('woodcutter axe'));

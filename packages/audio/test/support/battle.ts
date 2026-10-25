@@ -33,12 +33,12 @@ function pool(prefix: string, count: number): { file: string; params: number[] }
 
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Weapon Sword Short', sfx: pool('static/swing', 5) },
-    { name: 'Weapon Sword Short Hit', logicSoundType: SWORD_HIT_SOUND, sfx: pool('static/swordhit', 4) },
-    { name: 'Man Get Hit', sfx: pool('static/hit m ', 10) },
-    { name: 'Woman Get Hit', sfx: pool('static/hit f ', 8) },
-    { name: 'Generic Viking Male', sfx: pool('generic/m ', 6) },
-    { name: 'Viking male ok 01', sfx: pool('humantalk/m1ok', 3) },
+    { name: 'Weapon Sword Short', logicSoundTypes: [], sfx: pool('static/swing', 5) },
+    { name: 'Weapon Sword Short Hit', logicSoundTypes: [SWORD_HIT_SOUND], sfx: pool('static/swordhit', 4) },
+    { name: 'Man Get Hit', logicSoundTypes: [], sfx: pool('static/hit m ', 10) },
+    { name: 'Woman Get Hit', logicSoundTypes: [], sfx: pool('static/hit f ', 8) },
+    { name: 'Generic Viking Male', logicSoundTypes: [], sfx: pool('generic/m ', 6) },
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: pool('humantalk/m1ok', 3) },
   ],
   ambient: [],
   jingles: [],

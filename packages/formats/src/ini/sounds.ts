@@ -52,6 +52,13 @@ function soundInt(sec: RuleSection, key: string): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
+/** The first value of every case-insensitively-matching property parsed as a base-10 int, NaN dropped. */
+function soundInts(sec: RuleSection, key: string): number[] {
+  return soundProps(sec, key)
+    .map((p) => Number.parseInt(p.values[0] ?? '', 10))
+    .filter((n) => !Number.isNaN(n));
+}
+
 /** Every `SFX "<path>" <n...>` line of a group as `{ file, params }`, in file order, empty paths dropped. */
 function soundSfx(sec: RuleSection): { file: string; params: number[] }[] {
   return soundProps(sec, 'SFX')
@@ -92,7 +99,7 @@ export function extractSounds(
         staticGroups.push(
           SoundStaticGroup.parse({
             name: soundStr(sec, 'Name') ?? '',
-            logicSoundType: soundInt(sec, 'LogicSoundType'),
+            logicSoundTypes: soundInts(sec, 'LogicSoundType'),
             sfx: soundSfx(sec),
           }),
         );

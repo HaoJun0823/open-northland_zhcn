@@ -212,7 +212,7 @@ export function createSoundStudio(
 
   const groupRow = (row: ClipList, head?: HTMLElement): HTMLElement => {
     const box = el('div', ROW_STYLE);
-    const id = row.soundType !== undefined ? `  ·  id ${row.soundType}` : '';
+    const id = row.soundTypes !== undefined ? `  ·  id ${row.soundTypes.join(', ')}` : '';
     box.append(head ?? el('div', 'font-weight:700', `${row.group}${id}`));
     const lengthLine = el('span', '', lengths(row));
     const factLine = el('div', FACTS_STYLE, `${facts(row)} · `);

@@ -24,48 +24,60 @@ import {
  */
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Hammer Wood', sfx: [{ file: 'static/hammer01.wav', params: [80] }] },
-    { name: 'Open Wooden Chest', sfx: [{ file: 'static/woodenchest.wav', params: [80] }] },
-    { name: 'Open Magical Chest', sfx: [{ file: 'static/magicalchest.wav', params: [80] }] },
-    { name: 'Woodcutter Axe', logicSoundType: 9, sfx: [{ file: 'static/axe01.wav', params: [80] }] },
-    { name: 'Watering Can', logicSoundType: 13, sfx: [{ file: 'static/wateringcan.wav', params: [30] }] },
+    { name: 'Hammer Wood', logicSoundTypes: [], sfx: [{ file: 'static/hammer01.wav', params: [80] }] },
+    {
+      name: 'Open Wooden Chest',
+      logicSoundTypes: [],
+      sfx: [{ file: 'static/woodenchest.wav', params: [80] }],
+    },
+    {
+      name: 'Open Magical Chest',
+      logicSoundTypes: [],
+      sfx: [{ file: 'static/magicalchest.wav', params: [80] }],
+    },
+    { name: 'Woodcutter Axe', logicSoundTypes: [9], sfx: [{ file: 'static/axe01.wav', params: [80] }] },
+    { name: 'Watering Can', logicSoundTypes: [13], sfx: [{ file: 'static/wateringcan.wav', params: [30] }] },
     // Combat impact groups, named by id like every cue group: the weapon's `soundtype_Hit` / `_NoHit`
     // tables carry the id onto the hit and miss events.
     {
       name: 'Weapon Sword Short Hit',
-      logicSoundType: 82,
+      logicSoundTypes: [82],
       sfx: [{ file: 'static/swordhit01.wav', params: [80] }],
     },
     {
       name: 'Weapon Sword Short Hit House',
-      logicSoundType: 84,
+      logicSoundTypes: [84],
       sfx: [{ file: 'static/swordhouse01.wav', params: [80] }],
     },
-    { name: 'Weapon Bow Long', logicSoundType: 75, sfx: [{ file: 'static/bow01.wav', params: [80] }] },
-    { name: 'Weapon Bow Hit', logicSoundType: 77, sfx: [{ file: 'static/arrowhit01.wav', params: [80] }] },
+    { name: 'Weapon Bow Long', logicSoundTypes: [75], sfx: [{ file: 'static/bow01.wav', params: [80] }] },
+    { name: 'Weapon Bow Hit', logicSoundTypes: [77], sfx: [{ file: 'static/arrowhit01.wav', params: [80] }] },
     {
       name: 'Weapon Bow Hit Dirt',
-      logicSoundType: 79,
+      logicSoundTypes: [79],
       sfx: [{ file: 'static/arrowdirt01.wav', params: [80] }],
     },
     {
       name: 'Weapon Bow Hit Water',
-      logicSoundType: 78,
+      logicSoundTypes: [78],
       sfx: [{ file: 'static/arrowwater01.wav', params: [80] }],
     },
-    { name: 'House Crash', sfx: [{ file: 'static/housecrash01.wav', params: [80] }] },
+    { name: 'House Crash', logicSoundTypes: [], sfx: [{ file: 'static/housecrash01.wav', params: [80] }] },
     // The viking voices `humans/sounds.cif` names below.
-    { name: 'Man Get Hit', sfx: [{ file: 'static/hit m 01.wav', params: [80] }] },
-    { name: 'Woman Get Hit', sfx: [{ file: 'static/hit f 01.wav', params: [80] }] },
-    { name: 'Generic Viking Male', sfx: [{ file: 'generic/m 01.wav', params: [40] }] },
-    { name: 'Viking male ok 01', sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] },
-    { name: 'Viking male ok 02', sfx: [{ file: 'humantalk/m2ok01.wav', params: [80] }] },
-    { name: 'Bear Sounds', sfx: [{ file: 'generic/animals_bear01.wav', params: [80] }] },
+    { name: 'Man Get Hit', logicSoundTypes: [], sfx: [{ file: 'static/hit m 01.wav', params: [80] }] },
+    { name: 'Woman Get Hit', logicSoundTypes: [], sfx: [{ file: 'static/hit f 01.wav', params: [80] }] },
+    { name: 'Generic Viking Male', logicSoundTypes: [], sfx: [{ file: 'generic/m 01.wav', params: [40] }] },
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] },
+    { name: 'Viking male ok 02', logicSoundTypes: [], sfx: [{ file: 'humantalk/m2ok01.wav', params: [80] }] },
+    { name: 'Bear Sounds', logicSoundTypes: [], sfx: [{ file: 'generic/animals_bear01.wav', params: [80] }] },
     // The chat voice pair - like every cue group, resolved by its logicSoundType id.
-    { name: 'SocialTalk Male', logicSoundType: 61, sfx: [{ file: 'voice/male_social.wav', params: [80] }] },
+    {
+      name: 'SocialTalk Male',
+      logicSoundTypes: [61],
+      sfx: [{ file: 'voice/male_social.wav', params: [80] }],
+    },
     {
       name: 'SocialTalk Female',
-      logicSoundType: 62,
+      logicSoundTypes: [62],
       sfx: [{ file: 'voice/female_social.wav', params: [80] }],
     },
   ],

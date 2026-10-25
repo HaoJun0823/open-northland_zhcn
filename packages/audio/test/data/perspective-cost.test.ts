@@ -33,7 +33,11 @@ const MEADOW = 1;
 const VIKING = 1;
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Hammer Wood', logicSoundType: WORK_SOUND, sfx: [{ file: 'static/hammer01.wav', params: [] }] },
+    {
+      name: 'Hammer Wood',
+      logicSoundTypes: [WORK_SOUND],
+      sfx: [{ file: 'static/hammer01.wav', params: [] }],
+    },
   ],
   ambient: [
     {

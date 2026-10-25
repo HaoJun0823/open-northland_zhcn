@@ -42,7 +42,13 @@ describe('defaultBindings', () => {
     const files = ['static/treefalling01.wav'];
     const index = buildSoundIndex(
       {
-        staticGroups: [{ name: 'Woodcutter TreeFalling', sfx: files.map((file) => ({ file, params: [] })) }],
+        staticGroups: [
+          {
+            name: 'Woodcutter TreeFalling',
+            logicSoundTypes: [],
+            sfx: files.map((file) => ({ file, params: [] })),
+          },
+        ],
         ambient: [],
         jingles: [],
         humanVoices: [],

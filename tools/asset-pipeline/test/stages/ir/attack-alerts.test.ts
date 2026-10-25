@@ -21,7 +21,7 @@ const BANK_GROUP = 'Magic Horn';
 const VOLUME = 90;
 
 function bank(): SoundBank {
-  return { ...emptySoundBank(), staticGroups: [{ name: BANK_GROUP, sfx: [] }] };
+  return { ...emptySoundBank(), staticGroups: [{ name: BANK_GROUP, logicSoundTypes: [], sfx: [] }] };
 }
 
 function alerts(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -69,6 +69,7 @@ describe('attack alert pools', () => {
     ]);
     expect(sounds.staticGroups[1]).toEqual({
       name: 'Attack Alert Viking Settlement',
+      logicSoundTypes: [],
       sfx: [
         { file: 'attack-alerts/viking/a.wav', params: [VOLUME] },
         { file: 'attack-alerts/viking/b.wav', params: [VOLUME] },

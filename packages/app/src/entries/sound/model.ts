@@ -35,9 +35,9 @@ export type GalleryPlay =
 export interface ClipList {
   readonly group: string;
   readonly clips: readonly string[];
-  /** The group's `logicSoundType` id, when it carries one - the id an animation's `event <at> 34 <id>`
-   *  names to play this group. */
-  readonly soundType?: number;
+  /** The group's `logicSoundType` ids - the ids an animation's `event <at> 34 <id>` names to play this
+   *  group; absent for a group no cue names. */
+  readonly soundTypes?: readonly number[];
   readonly play: GalleryPlay;
 }
 
@@ -272,9 +272,10 @@ export function buildSoundGalleryModel(
 
   const cues: ClipList[] = [];
   for (const g of sounds.staticGroups) {
-    if (g.logicSoundType === undefined) continue; // no cue can name it
+    if (g.logicSoundTypes.length === 0) continue; // no cue can name it
     const clips = groupClips(index, g.name);
-    if (clips.length > 0) cues.push({ group: g.name, clips, soundType: g.logicSoundType, play: pool(WORK) });
+    if (clips.length > 0)
+      cues.push({ group: g.name, clips, soundTypes: g.logicSoundTypes, play: pool(WORK) });
   }
 
   return {

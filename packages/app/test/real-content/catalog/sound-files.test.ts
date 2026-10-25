@@ -10,8 +10,12 @@ import {
   soundBankPath,
   soundClipPath,
 } from '@open-northland/data';
+import { systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { contentDir, hasRealIr, loadContentUnderTest } from '../helpers.js';
+
+/** The one cued sound id the bank leaves unbound. */
+const CHICKEN_ATTACK_SOUND = 0;
 
 /** The subtree the `/sounds/` route serves; the IR's `file` values are relative to it. */
 const SOUNDS_DIR = 'sounds';
@@ -71,7 +75,7 @@ describe.runIf(hasRealIr())('decoded sound bank', () => {
   it('names creature voices and weapon impacts the bank resolves', async () => {
     const { real } = await loadContentUnderTest();
     const groups = new Set(real.sounds.staticGroups.map((g) => g.name.toLowerCase()));
-    const ids = new Set(real.sounds.staticGroups.map((g) => g.logicSoundType));
+    const ids = new Set(real.sounds.staticGroups.flatMap((g) => g.logicSoundTypes));
     expect(real.sounds.humanVoices.length).toBeGreaterThan(0);
     expect(real.sounds.animalCalls.length).toBeGreaterThan(0);
     const voiceGroups = real.sounds.humanVoices.flatMap((v) => [
@@ -88,5 +92,20 @@ describe.runIf(hasRealIr())('decoded sound bank', () => {
     ]);
     expect(weaponIds.length).toBeGreaterThan(0);
     expect(weaponIds.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it('binds a group to every sound an animation cues', async () => {
+    const { real } = await loadContentUnderTest();
+    const ids = new Set(real.sounds.staticGroups.flatMap((g) => g.logicSoundTypes));
+    const unbound = new Set(
+      real.atomicAnimations.flatMap((a) =>
+        a.events
+          .filter((e) => e.type === systems.ATOMIC_EVENT_TYPE_PLAY_SOUND_FX && e.value !== undefined)
+          .map((e) => e.value as number)
+          .filter((id) => !ids.has(id)),
+      ),
+    );
+    // The chicken's attack cues id 0, which no group binds in the original either.
+    expect([...unbound]).toEqual([CHICKEN_ATTACK_SOUND]);
   });
 });

@@ -132,24 +132,27 @@ const FIELD_TAKES = ['attack-alerts/local/field1.wav'];
 
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Magic Horn', logicSoundType: 60, sfx: [{ file: 'static/horn01.wav', params: [80] }] },
+    { name: 'Magic Horn', logicSoundTypes: [60], sfx: [{ file: 'static/horn01.wav', params: [80] }] },
     {
       name: 'Alert Local Settlement',
+      logicSoundTypes: [],
       sfx: SETTLEMENT_TAKES.map((file) => ({ file, params: [SETTLEMENT_ALERT_VOLUME] })),
     },
     {
       name: 'Alert Local Field',
+      logicSoundTypes: [],
       sfx: FIELD_TAKES.map((file) => ({ file, params: [FIELD_ALERT_VOLUME] })),
     },
-    { name: 'Yawn Man', logicSoundType: 35, sfx: [{ file: 'generic/human_yawn m 01.wav', params: [80] }] },
+    { name: 'Yawn Man', logicSoundTypes: [35], sfx: [{ file: 'generic/human_yawn m 01.wav', params: [80] }] },
     {
       name: 'Yawn Woman',
-      logicSoundType: 38,
+      logicSoundTypes: [38],
       sfx: [{ file: 'generic/human_yawn f 01.wav', params: [80] }],
     },
     // The sighs sit only in a murmur group, among its louder lines.
     {
       name: 'Talk Viking Female',
+      logicSoundTypes: [],
       sfx: [
         { file: 'humantalk/f1ok01.wav', params: [80] },
         { file: 'generic/human_sigh f 01.wav', params: [SIGH_VOLUME] },

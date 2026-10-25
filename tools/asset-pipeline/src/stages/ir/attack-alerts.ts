@@ -141,6 +141,7 @@ function toStaticGroup(
 ): SoundStaticGroup {
   return {
     name,
+    logicSoundTypes: [],
     sfx: files.map((file, i) => {
       if (file !== file.toLowerCase() || !file.endsWith(WAV_SUFFIX)) {
         fail(`${where}.files[${i}] "${file}" must be a lower-case ${WAV_SUFFIX} path`);

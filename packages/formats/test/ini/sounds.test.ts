@@ -21,6 +21,7 @@ describe('extractSounds (soundfx.cif)', () => {
     { level: 1, text: 'SoundFXStatic' },
     { level: 2, text: 'Name "Bear Sounds"' },
     { level: 2, text: 'LogicSoundType 42' },
+    { level: 2, text: 'logicSoundType 7' },
     { level: 2, text: 'SFX "Data\\Engine2D\\Bin\\Sounds\\Static\\bear1.wav" 100' },
     { level: 2, text: 'sfx "Data\\Engine2D\\Bin\\Sounds\\Static\\bear2.wav" 100' },
     { level: 1, text: 'SoundFXAmbient' },
@@ -45,10 +46,11 @@ describe('extractSounds (soundfx.cif)', () => {
     // Path is made relative to the sounds root and lower-cased; volume param preserved.
     expect(bank.staticGroups[0]).toEqual({
       name: 'Gui_Click',
+      logicSoundTypes: [],
       sfx: [{ file: 'gui/click_confirm.wav', params: [80] }],
     });
-    // LogicSoundType captured; the case-varied second `sfx` line is folded into the same group.
-    expect(bank.staticGroups[1]?.logicSoundType).toBe(42);
+    // Every LogicSoundType line kept in order; case-varied lines fold into the same group.
+    expect(bank.staticGroups[1]?.logicSoundTypes).toEqual([42, 7]);
     expect(bank.staticGroups[1]?.sfx.map((s) => s.file)).toEqual(['static/bear1.wav', 'static/bear2.wav']);
 
     expect(bank.ambient).toHaveLength(2);

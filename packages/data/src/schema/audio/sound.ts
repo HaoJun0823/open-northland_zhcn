@@ -21,8 +21,9 @@ export type SoundSfx = z.infer<typeof SoundSfx>;
 export const SoundStaticGroup = z.strictObject({
   /** `Name` - the group's join key (e.g. `"Gui_Click"`). */
   name: z.string(),
-  /** `LogicSoundType` - the engine trigger this group answers to; absent = never auto-triggered. */
-  logicSoundType: z.number().int().nonnegative().optional(),
+  /** Every `LogicSoundType` line, in file order - the engine triggers this group answers to (one group can
+   *  serve several, e.g. `Stone Ore` for stone, iron and gold); empty = never auto-triggered. */
+  logicSoundTypes: z.array(z.number().int().nonnegative()).default([]),
   sfx: z.array(SoundSfx).default([]),
 });
 export type SoundStaticGroup = z.infer<typeof SoundStaticGroup>;

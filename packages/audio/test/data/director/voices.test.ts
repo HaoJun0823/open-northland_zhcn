@@ -22,14 +22,26 @@ import {
 
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Viking male ok 01', sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] },
-    { name: 'Viking male ok 02', sfx: [{ file: 'humantalk/m2ok01.wav', params: [80] }] },
-    { name: 'Viking female ok 01', sfx: [{ file: 'humantalk/f1ok01.wav', params: [80] }] },
-    { name: 'Viking female ok 02', sfx: [{ file: 'humantalk/f2ok01.wav', params: [80] }] },
-    { name: 'Generic Viking Male', sfx: [{ file: 'generic/m 01.wav', params: [40] }] },
-    { name: 'Generic Viking Children', sfx: [{ file: 'generic/c 01.wav', params: [40] }] },
-    { name: 'Bear Sounds', sfx: [{ file: 'generic/bear01.wav', params: [80] }] },
-    { name: 'Sheep Sounds', sfx: [{ file: 'generic/sheep01.wav', params: [80] }] },
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] },
+    { name: 'Viking male ok 02', logicSoundTypes: [], sfx: [{ file: 'humantalk/m2ok01.wav', params: [80] }] },
+    {
+      name: 'Viking female ok 01',
+      logicSoundTypes: [],
+      sfx: [{ file: 'humantalk/f1ok01.wav', params: [80] }],
+    },
+    {
+      name: 'Viking female ok 02',
+      logicSoundTypes: [],
+      sfx: [{ file: 'humantalk/f2ok01.wav', params: [80] }],
+    },
+    { name: 'Generic Viking Male', logicSoundTypes: [], sfx: [{ file: 'generic/m 01.wav', params: [40] }] },
+    {
+      name: 'Generic Viking Children',
+      logicSoundTypes: [],
+      sfx: [{ file: 'generic/c 01.wav', params: [40] }],
+    },
+    { name: 'Bear Sounds', logicSoundTypes: [], sfx: [{ file: 'generic/bear01.wav', params: [80] }] },
+    { name: 'Sheep Sounds', logicSoundTypes: [], sfx: [{ file: 'generic/sheep01.wav', params: [80] }] },
   ],
   ambient: [],
   jingles: [],

@@ -27,7 +27,7 @@ import { messages } from '../../../src/i18n/index.js';
 const AXE = ['static/axe01.wav', 'static/axe02.wav'];
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Woodcutter Axe', logicSoundType: 9, sfx: AXE.map((file) => ({ file, params: [] })) },
+    { name: 'Woodcutter Axe', logicSoundTypes: [9], sfx: AXE.map((file) => ({ file, params: [] })) },
   ],
   ambient: [
     {

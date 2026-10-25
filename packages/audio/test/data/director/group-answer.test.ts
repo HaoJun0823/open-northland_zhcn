@@ -42,6 +42,7 @@ const MURMUR_VOLUME = 40;
 
 const group = (name: string, files: readonly string[], volume = ANSWER_VOLUME) => ({
   name,
+  logicSoundTypes: [],
   sfx: files.map((file) => ({ file, params: [volume] })),
 });
 

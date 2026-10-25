@@ -15,23 +15,34 @@ import {
  * The sound index build: the raw bank's lookups plus the ground→ambient joins that bridge a ground
  * pattern's `editGroups` (or a cell `typeId`'s representative pattern) to the pattern-GROUP-keyed beds.
  */
+/** A second id the hammer group answers to, as `Stone Ore` lists three. */
+const STONE_SOUND = 3;
+
 const bank: SoundBank = {
   staticGroups: [
-    { name: 'Hammer Wood', logicSoundType: 1, sfx: [{ file: 'static/hammer01.wav', params: [80] }] },
-    { name: '', sfx: [{ file: 'static/skip.wav', params: [] }] }, // nameless → skipped
-    // A duplicated logicSoundType: the first-listed group keeps the id (the bank's one known collision).
-    { name: 'SocialTalk Male', logicSoundType: 61, sfx: [{ file: 'voice/male_social.wav', params: [80] }] },
-    { name: 'SocialTalk Dup', logicSoundType: 61, sfx: [{ file: 'voice/dup.wav', params: [80] }] },
-    { name: 'Stag Sounds', sfx: [{ file: SILENT_PLACEHOLDER_FILE, params: [80] }] },
+    {
+      name: 'Hammer Wood',
+      logicSoundTypes: [1, STONE_SOUND],
+      sfx: [{ file: 'static/hammer01.wav', params: [80] }],
+    },
+    { name: '', logicSoundTypes: [], sfx: [{ file: 'static/skip.wav', params: [] }] }, // nameless → skipped
+    // A duplicated logicSoundTypes: [the] first-listed group keeps the id (the bank's one known collision).
+    {
+      name: 'SocialTalk Male',
+      logicSoundTypes: [61],
+      sfx: [{ file: 'voice/male_social.wav', params: [80] }],
+    },
+    { name: 'SocialTalk Dup', logicSoundTypes: [61], sfx: [{ file: 'voice/dup.wav', params: [80] }] },
+    { name: 'Stag Sounds', logicSoundTypes: [], sfx: [{ file: SILENT_PLACEHOLDER_FILE, params: [80] }] },
     {
       name: 'Yawn Man',
-      logicSoundType: 35,
+      logicSoundTypes: [35],
       sfx: [
         { file: SILENT_PLACEHOLDER_FILE, params: [80] },
         { file: 'generic/human_yawn m 01.wav', params: [80] },
       ],
     },
-    { name: 'Sleep Woman', logicSoundType: 36, sfx: [{ file: SILENT_PLACEHOLDER_FILE, params: [80] }] },
+    { name: 'Sleep Woman', logicSoundTypes: [36], sfx: [{ file: SILENT_PLACEHOLDER_FILE, params: [80] }] },
   ],
   ambient: [
     {
@@ -100,9 +111,10 @@ describe('buildSoundIndex', () => {
     ]);
   });
 
-  it('indexes groups by logicSoundType, first-listed winning a duplicated id', () => {
+  it('indexes groups by every logicSoundType they list, a later group winning a repeated id', () => {
     expect(index.groupsByLogicSoundType.get(1)).toEqual(['static/hammer01.wav']);
-    expect(index.groupsByLogicSoundType.get(61)).toEqual(['voice/male_social.wav']);
+    expect(index.groupsByLogicSoundType.get(STONE_SOUND)).toEqual(['static/hammer01.wav']);
+    expect(index.groupsByLogicSoundType.get(61)).toEqual(['voice/dup.wav']);
   });
 
   it("drops the data's silent placeholder slots, so a group of only placeholders plays nothing", () => {
@@ -172,6 +184,7 @@ describe('buildSoundIndex', () => {
         staticGroups: [
           {
             name: 'Talk',
+            logicSoundTypes: [],
             sfx: [
               { file: 'laugh.wav', params: [40] },
               { file: 'line.wav', params: [80] },

@@ -25,7 +25,9 @@ const VIKING = 1;
 const SETTLER = 3;
 const BUILDING = 7;
 const bank: SoundBank = {
-  staticGroups: [{ name: 'Viking male ok 01', sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] }],
+  staticGroups: [
+    { name: 'Viking male ok 01', logicSoundTypes: [], sfx: [{ file: 'humantalk/m1ok01.wav', params: [80] }] },
+  ],
   ambient: [],
   jingles: [],
   humanVoices: [{ tribe: VIKING, voiceClass: 'male', respondOk: ['Viking male ok 01'], respondNo: [] }],

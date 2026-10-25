@@ -19,8 +19,8 @@ export interface SoundIndex {
   /** Lower-cased static-group name → its interchangeable wav files (the arbiter picks one per play). */
   readonly groupsByName: ReadonlyMap<string, readonly string[]>;
   /** A static group's `logicSoundType` id → its wav files - the id space animation events reference
-   *  (`event <frame> 34 <id>`; the sim's `atomicSound` carries it as `soundType`). First-listed group
-   *  wins a duplicated id (one known collision: 44, tribe variants of the generic female voice). */
+   *  (`event <frame> 34 <id>`; the sim's `atomicSound` carries it as `soundType`). A later group
+   *  wins a repeated id (one known collision: 44, tribe variants of the generic female voice). */
   readonly groupsByLogicSoundType: ReadonlyMap<number, readonly string[]>;
   /** `MusicType` → the jingle's wav file(s). */
   readonly jinglesByMusicType: ReadonlyMap<number, readonly string[]>;
@@ -232,9 +232,8 @@ export function buildSoundIndex(
         wavGains.set(s.file, authoredVolumeGain(s.params[VOLUME_PARAM] ?? DEFAULT_AUTHORED_VOLUME));
     }
     groupsByName.set(g.name.toLowerCase(), files);
-    if (g.logicSoundType !== undefined && !groupsByLogicSoundType.has(g.logicSoundType)) {
-      groupsByLogicSoundType.set(g.logicSoundType, files);
-    }
+    // Original behavior: each `LogicSoundType` line binds its group, a later group taking a repeated id.
+    for (const id of g.logicSoundTypes) groupsByLogicSoundType.set(id, files);
   }
 
   const jinglesByMusicType = new Map<number, readonly string[]>();

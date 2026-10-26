@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   apiConfigFromEnvironment,
   DEFAULT_PORT,
+  DEFAULT_REPORT_ORIGINS,
   DEFAULT_UPSTREAM,
   parseSyncInterval,
 } from '../src/config.js';
 
 const MS_PER_HOUR = 3_600_000;
+const MIB = 1024 * 1024;
 const SIX_HOURS = 6;
 
 describe('apiConfigFromEnvironment', () => {
@@ -21,7 +23,52 @@ describe('apiConfigFromEnvironment', () => {
       convertConcurrency: 1,
       convertTimeoutMs: 120_000,
       build: null,
+      reports: {
+        dir: resolve('/checkout', '.api-reports'),
+        trustForwardedFor: false,
+        origins: DEFAULT_REPORT_ORIGINS,
+        limits: {
+          maxReportBytes: MIB / 2,
+          maxAddendumBytes: 8 * MIB,
+          maxInflatedBytes: 16 * MIB,
+          ipReportsPerHour: 6,
+          ipReportsPerDay: 20,
+          ipAddendaPerHour: 6,
+          uploadsPerHour: 200,
+          uploadBytesPerHour: 256 * MIB,
+          fingerprintPerDay: 10,
+          maxStoredBytes: 2048 * MIB,
+          maxStoredReports: 20_000,
+        },
+      },
     });
+  });
+
+  it('reads and validates the report settings', () => {
+    const { reports } = apiConfigFromEnvironment(
+      {
+        ON_API_REPORTS_DIR: '/reports',
+        API_TRUST_FORWARDED_FOR: '1',
+        API_REPORT_ORIGINS: 'https://Game.Example, app://game',
+        API_REPORT_IP_HOURLY: '3',
+      },
+      '/checkout',
+    );
+    expect(reports).toMatchObject({
+      dir: resolve('/reports'),
+      trustForwardedFor: true,
+      origins: ['https://game.example', 'app://game'],
+      limits: { ipReportsPerHour: 3 },
+    });
+    expect(() => apiConfigFromEnvironment({ API_TRUST_FORWARDED_FOR: 'yes' }, '/')).toThrow(
+      /API_TRUST_FORWARDED_FOR/,
+    );
+    expect(() => apiConfigFromEnvironment({ API_REPORT_ORIGINS: 'https://game.example/path' }, '/')).toThrow(
+      /API_REPORT_ORIGINS/,
+    );
+    expect(() => apiConfigFromEnvironment({ API_REPORT_MAX_STORED: '0' }, '/')).toThrow(
+      /API_REPORT_MAX_STORED/,
+    );
   });
 
   it('reads and validates the environment', () => {

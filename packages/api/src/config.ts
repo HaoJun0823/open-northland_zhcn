@@ -5,6 +5,10 @@ const MAX_PORT = 65535;
 export const DEFAULT_UPSTREAM = 'https://api.culturesnation.pl';
 /** Relative to the directory the server starts in, which `npm run api` makes the checkout root. */
 export const DEFAULT_DATA_DIR = '.api-data';
+/** A separate volume from the data dir, so a deploy's data snapshot never copies player reports. */
+export const DEFAULT_REPORTS_DIR = '.api-reports';
+/** The web game and the desktop shell's page; a loopback http origin is always allowed besides. */
+export const DEFAULT_REPORT_ORIGINS = ['https://game.opennorthland.org', 'app://game'] as const;
 
 const SECONDS_PER_UNIT = { s: 1, m: 60, h: 3600, d: 86_400 } as const;
 type IntervalUnit = keyof typeof SECONDS_PER_UNIT;
@@ -19,6 +23,46 @@ const DEFAULT_CONVERT_CONCURRENCY = 1;
 const MAX_CONVERT_CONCURRENCY = 8;
 const DEFAULT_CONVERT_TIMEOUT_SECONDS = 120;
 const MAX_CONVERT_TIMEOUT_SECONDS = 600;
+const KIB = 1024;
+const MIB = KIB * KIB;
+const GIB = KIB * MIB;
+/** Bounds of the report limits a deployment may set: wide enough to tune, never unbounded. */
+const MAX_REPORT_BODY_BYTES = 64 * MIB;
+const MAX_REPORT_INFLATED_BYTES = 256 * MIB;
+const MAX_REPORT_RATE = 100_000;
+const MAX_REPORT_STORE_BYTES = 1024 * GIB;
+const MAX_REPORT_STORE_COUNT = 10_000_000;
+const ORIGIN = /^[a-z][a-z0-9+.-]*:\/\/[^/\s?#]+$/;
+
+/** Report limits and their defaults: setting name, default, and the largest value accepted. */
+const REPORT_LIMIT_SETTINGS = {
+  /** Compressed: a report carries logs and a screenshot, its addendum the heavy attachments. */
+  maxReportBytes: ['API_REPORT_MAX_BYTES', 512 * KIB, MAX_REPORT_BODY_BYTES],
+  maxAddendumBytes: ['API_REPORT_ADDENDUM_MAX_BYTES', 8 * MIB, MAX_REPORT_BODY_BYTES],
+  maxInflatedBytes: ['API_REPORT_MAX_INFLATED_BYTES', 16 * MIB, MAX_REPORT_INFLATED_BYTES],
+  ipReportsPerHour: ['API_REPORT_IP_HOURLY', 6, MAX_REPORT_RATE],
+  ipReportsPerDay: ['API_REPORT_IP_DAILY', 20, MAX_REPORT_RATE],
+  ipAddendaPerHour: ['API_REPORT_IP_ADDENDA_HOURLY', 6, MAX_REPORT_RATE],
+  uploadsPerHour: ['API_REPORT_GLOBAL_HOURLY', 200, MAX_REPORT_RATE],
+  /** Compressed bytes of every upload read in an hour. */
+  uploadBytesPerHour: ['API_REPORT_GLOBAL_HOURLY_BYTES', 256 * MIB, MAX_REPORT_STORE_BYTES],
+  fingerprintPerDay: ['API_REPORT_FINGERPRINT_DAILY', 10, MAX_REPORT_RATE],
+  maxStoredBytes: ['API_REPORT_MAX_STORED_BYTES', 2 * GIB, MAX_REPORT_STORE_BYTES],
+  maxStoredReports: ['API_REPORT_MAX_STORED', 20_000, MAX_REPORT_STORE_COUNT],
+} as const satisfies Record<string, readonly [string, number, number]>;
+
+export type ReportLimits = { readonly [K in keyof typeof REPORT_LIMIT_SETTINGS]: number };
+
+export interface ReportsConfig {
+  /** Absolute path of the directory the report store writes. */
+  readonly dir: string;
+  /** Key the limiter on `X-Forwarded-For` instead of the socket address: set only behind a proxy
+   *  that overwrites it. */
+  readonly trustForwardedFor: boolean;
+  /** Exact origins a browser may post a report from, lowercase. */
+  readonly origins: readonly string[];
+  readonly limits: ReportLimits;
+}
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -39,6 +83,7 @@ export interface ApiConfig {
   readonly convertTimeoutMs: number;
   /** The build this image came from, for the health endpoint. */
   readonly build: string | null;
+  readonly reports: ReportsConfig;
 }
 
 function setting(env: Environment, name: string): string | null {
@@ -73,16 +118,61 @@ function upstreamSetting(env: Environment): string {
   return url.origin;
 }
 
-function convertConcurrencySetting(env: Environment): number {
-  const raw = setting(env, 'API_CONVERT_CONCURRENCY');
-  if (raw === null) return DEFAULT_CONVERT_CONCURRENCY;
+function integerSetting(env: Environment, name: string, fallback: number, max: number): number {
+  const raw = setting(env, name);
+  if (raw === null) return fallback;
   const value = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
-  if (!Number.isInteger(value) || value < 1 || value > MAX_CONVERT_CONCURRENCY) {
-    throw new Error(
-      `API_CONVERT_CONCURRENCY must be an integer from 1 to ${MAX_CONVERT_CONCURRENCY}, got ${raw}`,
-    );
+  if (!Number.isSafeInteger(value) || value < 1 || value > max) {
+    throw new Error(`${name} must be an integer from 1 to ${max}, got ${raw}`);
   }
   return value;
+}
+
+function flagSetting(env: Environment, name: string): boolean {
+  const raw = setting(env, name);
+  if (raw === null || raw === '0') return false;
+  if (raw === '1') return true;
+  throw new Error(`${name} must be 0 or 1, got ${raw}`);
+}
+
+function originsSetting(env: Environment): readonly string[] {
+  const raw = setting(env, 'API_REPORT_ORIGINS');
+  if (raw === null) return DEFAULT_REPORT_ORIGINS;
+  const origins = raw
+    .split(',')
+    .map((origin) => origin.trim().toLowerCase())
+    .filter((origin) => origin !== '');
+  for (const origin of origins) {
+    if (!ORIGIN.test(origin)) {
+      throw new Error(`API_REPORT_ORIGINS must list origins like scheme://host[:port], got ${origin}`);
+    }
+  }
+  return origins;
+}
+
+function reportsConfig(env: Environment, cwd: string): ReportsConfig {
+  const limit = (key: keyof ReportLimits): number => {
+    const [name, fallback, max] = REPORT_LIMIT_SETTINGS[key];
+    return integerSetting(env, name, fallback, max);
+  };
+  return {
+    dir: resolve(cwd, setting(env, 'ON_API_REPORTS_DIR') ?? DEFAULT_REPORTS_DIR),
+    trustForwardedFor: flagSetting(env, 'API_TRUST_FORWARDED_FOR'),
+    origins: originsSetting(env),
+    limits: {
+      maxReportBytes: limit('maxReportBytes'),
+      maxAddendumBytes: limit('maxAddendumBytes'),
+      maxInflatedBytes: limit('maxInflatedBytes'),
+      ipReportsPerHour: limit('ipReportsPerHour'),
+      ipReportsPerDay: limit('ipReportsPerDay'),
+      ipAddendaPerHour: limit('ipAddendaPerHour'),
+      uploadsPerHour: limit('uploadsPerHour'),
+      uploadBytesPerHour: limit('uploadBytesPerHour'),
+      fingerprintPerDay: limit('fingerprintPerDay'),
+      maxStoredBytes: limit('maxStoredBytes'),
+      maxStoredReports: limit('maxStoredReports'),
+    },
+  };
 }
 
 function convertTimeoutSetting(env: Environment): number {
@@ -122,8 +212,14 @@ export function apiConfigFromEnvironment(env: Environment, cwd: string): ApiConf
     upstream: upstreamSetting(env),
     syncIntervalMs:
       interval === null ? DEFAULT_SYNC_INTERVAL_SECONDS * MS_PER_SECOND : parseSyncInterval(interval),
-    convertConcurrency: convertConcurrencySetting(env),
+    convertConcurrency: integerSetting(
+      env,
+      'API_CONVERT_CONCURRENCY',
+      DEFAULT_CONVERT_CONCURRENCY,
+      MAX_CONVERT_CONCURRENCY,
+    ),
     convertTimeoutMs: convertTimeoutSetting(env),
     build: setting(env, 'API_BUILD'),
+    reports: reportsConfig(env, cwd),
   };
 }

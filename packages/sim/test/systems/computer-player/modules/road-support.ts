@@ -18,8 +18,8 @@ export const HOME_Y = HQ_Y;
 export const HQ_DOOR = { x: HQ_X, y: HQ_Y + 4 };
 
 /** A seat at the road clock with its stocked HQ, a built home to the west and `men` builders. */
-export function roadSim(seed: number, men: number): Simulation {
-  const sim = new Simulation({ seed, content: aiContent(), map: grassNodeMap(64, 32) });
+export function roadSim(seed: number, men: number, content = aiContent()): Simulation {
+  const sim = new Simulation({ seed, content, map: grassNodeMap(64, 32) });
   sim.restoreTick(ROADS_FROM_TICKS);
   sim.enqueueSetup({ kind: 'setPlayerPlacementTribes', player: SEAT, tribes: [VIKING] });
   sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });

@@ -74,6 +74,9 @@ import {
   terrainOf,
 } from './road-support.js';
 
+/** A nation the seat may play other than its viking HQ's. */
+const SARACEN = 2;
+
 /** The first row the crew cases lay their hand-placed road sites on, clear of the HQ's body, and the
  *  rows between two of their rows. */
 const SITE_ROW = HQ_Y + 8;
@@ -183,6 +186,25 @@ describe('road build module (roadBuild)', () => {
     for (const c of next) {
       if (c.kind === 'placeRoadSite') expect(taken.has(`${c.x},${c.y}`)).toBe(false);
     }
+  });
+
+  it("lays the seat's own nation's road even from a base of another nation", () => {
+    const content = aiContent();
+    const [viking] = content.tribes;
+    if (viking === undefined) throw new Error('fixture tribe');
+    const sim = roadSim(1, 0, {
+      ...content,
+      tribes: [...content.tribes, { ...viking, typeId: SARACEN, id: 'saracen' }],
+    });
+    // A map may hand a seat houses of a nation other than the one it plays.
+    sim.enqueueSetup({ kind: 'setPlayerPlacementTribes', player: SEAT, tribes: [SARACEN] });
+    sim.step();
+    const placed = roadBuildModule.run(sim.world, ctxOf(sim, ROADS_FROM_TICKS), SEAT);
+    expect(placed.length).toBeGreaterThan(0);
+    for (const c of placed) if (c.kind === 'placeRoadSite') expect(c.tribe).toBe(SARACEN);
+    // The seat may lay only its declared nation's road, so a viking site would never stand.
+    apply(sim, placed);
+    expect(sitesOf(sim)).toBe(placed.length);
   });
 
   it('places a route node by node from the home to the base, around ground a road may not take', () => {

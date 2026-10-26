@@ -1,4 +1,4 @@
-import { Building, Position } from '../../components/index.js';
+import { Building, Position, playerPlacementTribes } from '../../components/index.js';
 import type { PlayerCommand } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
@@ -107,6 +107,9 @@ export function roadBuildPlan(world: World, ctx: SystemContext, player: number):
     ROAD_SITES_PER_DECISION,
   );
   if (room <= 0) return none;
+  // A seat lays roads of its own nation, whatever nation its base house is: the map may hand it another's.
+  const tribe = playerPlacementTribes(world, player)?.[0];
+  if (tribe === undefined) return none;
   const base = seatBaseOf(world, ctx, player);
   if (base === null) return none;
   const decision = Math.floor(ctx.tick / COMPUTER_DECISION_INTERVAL_TICKS);
@@ -117,7 +120,7 @@ export function roadBuildPlan(world: World, ctx: SystemContext, player: number):
   const turn = Math.floor(decision / ROAD_TURNS) + (trafficTurn ? Math.ceil(linked.length / ROAD_TURNS) : 0);
   const building = linked[turn % linked.length];
   if (hot === null && building === undefined) return none;
-  const roads = roadPlanner(world, ctx, terrain, player, base, room);
+  const roads = roadPlanner(world, ctx, terrain, player, tribe, base, room);
   if (roads === null) return none;
   if (hot !== null) {
     const commands = trafficRoad(world, ctx.tick, roads, hot);
@@ -171,6 +174,7 @@ function roadPlanner(
   ctx: SystemContext,
   terrain: TerrainGraph,
   player: number,
+  tribe: number,
   base: Entity,
   room: number,
 ): RoadPlanner | null {
@@ -194,7 +198,6 @@ function roadPlanner(
     if (laid(node)) return ROAD_STEP_LAID;
     return pavable(node) ? ROAD_STEP_NEW : ROAD_STEP_UNPAVABLE;
   };
-  const tribe = world.get(base, Building).tribe;
   return {
     terrain,
     player,

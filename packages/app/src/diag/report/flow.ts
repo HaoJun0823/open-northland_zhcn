@@ -139,6 +139,21 @@ interface DialogState {
   readonly fatal: boolean;
 }
 
+/** Start `send`, and run `then` once its report is answered or queued, or the send ended without. */
+function afterReportAnswered(kase: ReportCase, send: () => Promise<void>, then: () => Promise<void>): void {
+  let started = false;
+  const start = (): void => {
+    if (started) return;
+    started = true;
+    stopWatching();
+    void then();
+  };
+  const stopWatching = kase.onChange(() => {
+    if (kase.reportAnswered()) start();
+  });
+  void send().finally(start);
+}
+
 function showDialog(kase: ReportCase, problem: Problem | null, state: DialogState): void {
   // Read once the draft is in, when the dialog first offers the part.
   const defaults = (kind: AttachmentKind): boolean => {
@@ -159,10 +174,16 @@ function showDialog(kase: ReportCase, problem: Problem | null, state: DialogStat
       onReload: reloadDocument,
       onSend: (input, alsoHeld) => {
         const others = alsoHeld ? held.splice(0) : [];
-        // The player's own report goes first: the held ones must not spend the server's limits on it.
-        void kase.sendFromPlayer(input).then(async () => {
-          for (const other of others) await other.sendAutomatically();
-        });
+        // The player's own report goes first, so the held ones do not spend the server's limits before
+        // it. Its addendum may take minutes on a slow link: they start as soon as the report is
+        // answered, and so reach the outbox before a reload could lose them.
+        afterReportAnswered(
+          kase,
+          () => kase.sendFromPlayer(input),
+          async () => {
+            for (const other of others) await other.sendAutomatically();
+          },
+        );
       },
       onDownload: (input) => void downloadReport(kase, input),
       onClose: () => {

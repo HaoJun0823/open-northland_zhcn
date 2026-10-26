@@ -209,6 +209,11 @@ export class ReportCase {
     return this.delivery === 'sending' || this.delivery === 'sent' || this.delivery === 'queued';
   }
 
+  /** The report got its answer or waits in the outbox; an addendum may still be on its way. */
+  reportAnswered(): boolean {
+    return this.delivery !== 'preparing' && this.delivery !== 'unsent' && this.delivery !== 'sending';
+  }
+
   /** The server only counted the report, so Send needs the player's words to file a new one. */
   needsWords(): boolean {
     return this.delivery === 'counted';

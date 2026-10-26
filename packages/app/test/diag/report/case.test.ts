@@ -145,4 +145,27 @@ describe('bug report case', () => {
     expect(refiled).toMatchObject({ part: 'report', comment: 'The bridge vanished.' });
     expect(refiled?.id).not.toBe(posted[0]?.id);
   });
+
+  it('has its report answered while its addendum is still on its way', async () => {
+    let addendumAnswer: (result: SendResult) => void = () => undefined;
+    const kase = new ReportCase(
+      () => ({
+        deliver: (entry) =>
+          entry.part === 'report'
+            ? Promise.resolve({ kind: 'sent' })
+            : new Promise((resolve) => (addendumAnswer = resolve)),
+        queue: async () => undefined,
+        now: () => 0,
+      }),
+      false,
+    );
+    await kase.prepare(await buildReportDraft({ trigger: 'error' }), OFFERS);
+    const sending = kase.sendFromPlayer(INPUT);
+    expect(kase.reportAnswered()).toBe(false);
+
+    await vi.waitFor(() => expect(kase.additions).toBe('sending'));
+    expect(kase.reportAnswered()).toBe(true);
+    addendumAnswer({ kind: 'sent' });
+    await sending;
+  });
 });

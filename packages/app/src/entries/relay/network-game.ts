@@ -10,6 +10,7 @@ import {
   REPORT_ANSWER_TIMEOUT_MS,
   setDiagGameSession,
 } from '../../diag/index.js';
+import { reportProblem } from '../../diag/report/problem.js';
 import type { NetPanelSource } from '../../hud/network/model.js';
 import { desyncNotice } from '../../hud/network/text.js';
 import { formatMessage, messages } from '../../i18n/index.js';
@@ -197,6 +198,9 @@ export function renderNetworkGame(
     if (event.message.kind === 'desync') {
       lastDesync = event.message;
       resyncing = event.message;
+      // The report's game part reads the room's digests and verdict through `reportNet`'s `net`.
+      const { tick, domains, reference } = event.message;
+      reportProblem({ trigger: 'desync', facts: { tick, domains, reference } });
       // The frozen game says why, before the snapshot arrives and the loading card replaces it.
       showPlaque(desyncNotice(event.message.reference, event.message.tick).text);
     }

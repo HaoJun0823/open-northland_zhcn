@@ -26,6 +26,9 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 export const OUTBOX_MAX_ENTRIES = 10;
 export const OUTBOX_MAX_BYTES = 16 * MIB;
 export const OUTBOX_MAX_ATTEMPTS = 8;
+/** An upload this large costs the player minutes on a slow link each try, so it gets fewer. */
+export const OUTBOX_LARGE_BYTES = MIB;
+export const OUTBOX_LARGE_MAX_ATTEMPTS = 3;
 export const OUTBOX_MAX_AGE_MS = 7 * DAY_MS;
 const RETRY_BASE_MS = 30_000;
 const RETRY_MAX_MS = 30 * MINUTE_MS;
@@ -56,7 +59,9 @@ export type AttemptOutcome =
 export function afterAttempt(entry: OutboxEntry, result: SendResult, now: number): AttemptOutcome {
   if (result.kind !== 'retry') return { kind: 'drop', reason: result.kind };
   const attempts = entry.attempts + 1;
-  if (attempts >= OUTBOX_MAX_ATTEMPTS || now - entry.createdAt > OUTBOX_MAX_AGE_MS) {
+  const maxAttempts =
+    entry.body.byteLength >= OUTBOX_LARGE_BYTES ? OUTBOX_LARGE_MAX_ATTEMPTS : OUTBOX_MAX_ATTEMPTS;
+  if (attempts >= maxAttempts || now - entry.createdAt > OUTBOX_MAX_AGE_MS) {
     return { kind: 'drop', reason: 'expired' };
   }
   return {

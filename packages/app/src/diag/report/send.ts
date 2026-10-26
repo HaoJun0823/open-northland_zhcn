@@ -2,12 +2,24 @@
 import type { ReportPart } from '@open-northland/data';
 import { apiBaseUrl } from '../../content/map-source/api.js';
 
-/** A slow, lossy link moves a few hundred kilobytes in well under this; a stuck one gives up. */
-export const REPORT_REQUEST_TIMEOUT_MS = 90_000;
+const MS_PER_SECOND = 1000;
+/** A request's time for its round trips; a stuck link gives up after it. */
+const REQUEST_BASE_TIMEOUT_MS = 90_000;
+/** The slowest upload rate the timeout still waits for, bytes per second: a slow, lossy link to a
+ *  distant server, so a large addendum is not cut off and sent again from its start. */
+const SLOWEST_UPLOAD_BYTES_PER_S = 4 * 1024;
+const MAX_REQUEST_TIMEOUT_MS = 30 * 60_000;
+
+/** How long a request carrying `bytes` may take. */
+export function requestTimeoutMs(bytes: number): number {
+  return Math.min(
+    MAX_REQUEST_TIMEOUT_MS,
+    REQUEST_BASE_TIMEOUT_MS + (bytes / SLOWEST_UPLOAD_BYTES_PER_S) * MS_PER_SECOND,
+  );
+}
 /** A 429 without a usable Retry-After waits this long. */
 const DEFAULT_RETRY_AFTER_MS = 60_000;
 const MAX_RETRY_AFTER_MS = 60 * 60_000;
-const MS_PER_SECOND = 1000;
 
 const HTTP_NOT_FOUND = 404;
 const HTTP_TOO_MANY = 429;
@@ -68,7 +80,7 @@ export async function postReport(
       headers: { 'content-type': 'text/plain' },
       body,
       credentials: 'omit',
-      signal: AbortSignal.timeout(REPORT_REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(requestTimeoutMs(body.byteLength)),
     });
     return sendResultOf(response.status, response.headers.get('retry-after'));
   } catch {

@@ -3,6 +3,8 @@ import {
   admit,
   afterAttempt,
   dueEntries,
+  OUTBOX_LARGE_BYTES,
+  OUTBOX_LARGE_MAX_ATTEMPTS,
   OUTBOX_MAX_ATTEMPTS,
   OUTBOX_MAX_ENTRIES,
   type OutboxEntry,
@@ -24,6 +26,9 @@ describe('report outbox', () => {
     ).toBe('drop');
     for (const kind of ['sent', 'full', 'unknown'] as const)
       expect(afterAttempt(entry, { kind }, NOW).kind).toBe('drop');
+    const large = outboxEntry('c'.repeat(32), 'addendum', body(OUTBOX_LARGE_BYTES), NOW);
+    const lastTry = { ...large, attempts: OUTBOX_LARGE_MAX_ATTEMPTS - 1 };
+    expect(afterAttempt(lastTry, { kind: 'retry', afterMs: null }, NOW).kind).toBe('drop');
   });
 
   it('lets the oldest uploads go when it is full', () => {

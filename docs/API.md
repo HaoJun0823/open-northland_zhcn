@@ -8,7 +8,7 @@ PORT=9000 API_SYNC_INTERVAL=30m npm run api
 ```
 
 `npm run api` builds the workspace and starts `packages/api`. The server keeps a local catalogue,
-archives and converted maps. It runs no simulation and accepts no player uploads.
+archives and converted maps, and stores the bug reports players send. It runs no simulation.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -20,6 +20,24 @@ archives and converted maps. It runs no simulation and accepts no player uploads
 | `API_SYNC_INTERVAL` | `6h` | Whole seconds or one `s`, `m`, `h`, `d` unit; 1 minute to 7 days |
 | `API_CONVERT_CONCURRENCY` | `1` | Concurrent download/conversion jobs; 1 to 8 |
 | `API_CONVERT_TIMEOUT_SECONDS` | `120` | Worker lifetime including startup; 1 to 600 seconds |
+| `ON_API_REPORTS_DIR` | `.api-reports` | Bug report directory, relative to the working directory |
+| `API_TRUST_FORWARDED_FOR` | `0` | `1` keys report limits on the last `X-Forwarded-For` entry; set only behind a proxy that overwrites it |
+| `API_REPORT_ORIGINS` | `https://game.opennorthland.org,app://game` | Comma-separated browser origins allowed to post reports; loopback `http` origins are always allowed |
+
+Report limits ([bug reports](#bug-reports)), each a positive integer:
+
+| Variable | Default |
+| --- | --- |
+| `API_REPORT_MAX_BYTES` | 524288 (512 KiB compressed report) |
+| `API_REPORT_ADDENDUM_MAX_BYTES` | 8388608 (8 MiB compressed addendum) |
+| `API_REPORT_MAX_INFLATED_BYTES` | 16777216 (16 MiB inflated, either part) |
+| `API_REPORT_IP_HOURLY`, `API_REPORT_IP_DAILY` | 6, 20 reports per client |
+| `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client |
+| `API_REPORT_GLOBAL_HOURLY` | 200 uploads from all clients |
+| `API_REPORT_GLOBAL_HOURLY_BYTES` | 268435456 (256 MiB compressed from all clients) |
+| `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint |
+| `API_REPORT_MAX_STORED_BYTES` | 2147483648 (2 GiB stored) |
+| `API_REPORT_MAX_STORED` | 20000 stored reports |
 
 The app defaults to `https://api.opennorthland.org`. Set `ON_API_URL` when starting Vite or building
 the app, or use `?api=http://127.0.0.1:8790` for one session. Electron uses the build's API setting.
@@ -69,23 +87,24 @@ kept archive on the next catalogue, without an IR change; the other entries keep
 
 ## Endpoints
 
-All resource routes accept `GET` and `HEAD`.
+All resource routes accept `GET` and `HEAD`; the report routes accept only `POST`.
 
 | Path | Response |
 | --- | --- |
-| `/healthz` | Build, last sync time, staleness, entry count and conversion counts; 503 until a catalogue is loaded |
+| `/healthz` | Build, last sync time, staleness, entry count, conversion counts and the report store (`count`, `bytes`, `full`); 503 until a catalogue is loaded |
 | `/v1/catalog` | Compact `CatalogBrowse` list, sorted by id |
 | `/v1/maps/<id>` | Full `CatalogEntry`, including map indexes and lobby rosters |
 | `/v1/maps/<id>/thumbnail` | Screenshot or 404 |
 | `/v1/maps/<id>/file` | Original archive as an attachment, or 404 |
 | `/v1/content/<irVersion>/maps/<mapId><suffix>` | Converted map file; another IR version returns 404 and names the served version |
+| `POST /v1/reports`, `POST /v1/reports/<id>` | A bug report and its addendum; see [bug reports](#bug-reports) |
 
 Map suffixes: `.json`, `.meta.json`, `.strings.json`, `.script.json`, `.briefing.json`, `.png` and
 `.pictures-<16hex>.png`. Schemas live in `packages/data`.
 
 HTTP behavior:
 
-- `/v1` allows all CORS origins. `OPTIONS` returns 204 and allows `GET`, `HEAD`, `If-None-Match`.
+- `/v1` reads allow all CORS origins. `OPTIONS` returns 204 and allows `GET`, `HEAD`, `If-None-Match`.
 - Resources have SHA-256 ETags and cache policies. Matching `If-None-Match` returns 304.
   Errors are non-cacheable JSON: `{ "error": "..." }`.
 - The list supports precompressed gzip, `Vary: Accept-Encoding` and a separate ETag per representation.
@@ -113,6 +132,56 @@ On an IR version change, the API deletes old converted versions and rebuilds fro
 Removed catalogue entries lose their archive and conversion. A replacement writes a complete
 new generation before atomically replacing its manifest; existing readers keep their open files.
 Incompatible manifests trigger reconversion.
+
+## Bug reports
+
+The game posts `ReportUpload` (`packages/data`) as gzipped JSON with `Content-Type: text/plain`, a
+type browsers send without a preflight. `POST /v1/reports` takes `part: 'report'`. `POST
+/v1/reports/<id>` takes `part: 'addendum'` with the same 32-hex `id`: the player's comment, contact
+and heavier attachments. It answers 404 before reading the body unless `id` names a stored report
+without an addendum, so each report takes one addendum. The random `id` is the addendum's only key.
+
+| Status | Meaning |
+| --- | --- |
+| 204 | Stored; also a retried report already stored, and a report only counted past its fingerprint cap |
+| 400 | Not JSON, refused by the schema, the wrong part for the path, or an attachment whose bytes are not its type |
+| 403 | An `Origin` header that is not allowed |
+| 404 | The addendum's report is not stored, or already has an addendum |
+| 413 | Compressed body or inflated JSON over its limit, by `Content-Length` or while reading |
+| 415 | Not `text/plain`, a `Content-Encoding`, or a body that is not gzip |
+| 429, 503 | Rate limited or busy, with `Retry-After` |
+| 507 | Storage full; the server never deletes reports to make room |
+
+Error bodies are fixed `{ "error": "..." }` texts that never echo the input. Requests without
+`Origin` (tools, Node) are allowed. An allowed origin gets `Access-Control-Allow-Origin: <origin>`
+and `Vary: Origin`. A body past its limit stops being read and the connection closes.
+
+Limits are in the table above. Per-client limits use sliding windows; a body the server cannot read
+or validate spends the client's report and addendum slots. Uploads in flight are capped, and one
+upload at a time is inflated and validated. Clients are keyed by a keyed hash of their address (an
+IPv6 address by its /64) held only in memory. Client addresses are never logged or stored.
+Fingerprint counts are in memory, so a restart starts the day's counts over.
+
+### Stored reports
+
+Paths are relative to `ON_API_REPORTS_DIR`; the server names every file. The default
+`.api-reports/` is gitignored.
+
+| Path | Content |
+| --- | --- |
+| `<YYYY-MM-DD>/<HHMMSS>Z-<trigger>-<id>/report.json` | The report without attachments, pretty JSON; date and time in UTC |
+| `.../commands.json` | `{ commandsFromTick, commands }` |
+| `.../save.json.gz` | The save file as sent, after a gzip signature check |
+| `.../screenshot.webp`, `.jpg` or `.png` | The decoded screenshot, after a signature check |
+| `.../settings.json` | The player's settings |
+| `.../addendum.json` | The addendum's `comment`, `contact` and `receivedAt` |
+| `<YYYY-MM-DD>/suppressed.json` | Reports only counted, by fingerprint |
+
+Attachments sent with the report or its addendum land in the same directory. An addendum never
+replaces a file the report already has. Each report is written in `.tmp/` and renamed into place;
+an addendum's files are linked in with `addendum.json` last. Delete report directories by hand at
+any time: every 5 minutes, and at start, the server recounts reports and bytes and rebuilds its id
+index from the directory names. The contact field is the only personal data, and it is optional.
 
 ## Import and play flow
 
@@ -185,14 +254,15 @@ npx vitest run --project core packages/api
 
 ```bash
 npm run api:image
-docker run --rm -p 127.0.0.1:8790:8790 -v on-api-data:/data open-northland-api
+docker run --rm -p 127.0.0.1:8790:8790 -v on-api-data:/data -v on-api-reports:/reports open-northland-api
 curl -s http://127.0.0.1:8790/healthz
 ```
 
 `packages/api/Dockerfile` supports `linux/amd64` and `linux/arm64`. It includes compiled API,
 map-import, formats, data and translations packages, the repository's `translations/` overlays at
 `/app/translations`, and runtime dependencies. It contains no Pixi or game content. Archives and
-converted maps stay in `/data`. A new overlay reaches the catalogue with the next image.
+converted maps stay in `/data`, bug reports in their own volume `/reports`. A new overlay reaches the
+catalogue with the next image.
 
-Defaults: `PORT=8790`, `ON_API_DATA_DIR=/data`. The `API_BUILD` build argument sets the reported build.
+Defaults: `PORT=8790`, `ON_API_DATA_DIR=/data`, `ON_API_REPORTS_DIR=/reports`. The `API_BUILD` build argument sets the reported build.
 Health becomes ready after the first catalogue sync; conversion continues in the background.

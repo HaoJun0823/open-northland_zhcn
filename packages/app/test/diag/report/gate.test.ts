@@ -21,6 +21,10 @@ describe('problem gate', () => {
     gate.decide(error, 'a', true, false);
     expect(gate.decide(fatal, 'a', true, false)).toMatchObject({ show: 'dialog', send: false });
     expect(gate.decide(fatal, 'b', true, true)).toMatchObject({ show: 'stopped', send: true });
+    expect(gate.decide({ ...fatal, reported: true }, 'c', true, true)).toMatchObject({
+      show: 'stopped',
+      send: false,
+    });
   });
 
   it('holds reports for the open dialog only with automatic sending off, within the same caps', () => {

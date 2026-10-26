@@ -161,6 +161,7 @@ function frameFailed(error: unknown, stage: FrameStage): void {
     error: reportErrorOf('main', error),
     facts: { frameStage: stage },
     fatal: true,
+    reported: true,
   });
 }
 

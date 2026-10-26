@@ -47,8 +47,9 @@ export class ProblemGate {
       if (this.earlierIds.has(earlierId)) return IGNORED;
       this.earlierIds.add(earlierId);
     }
-    const send = automatic && this.sent.take(key);
-    const hold = !automatic && dialogOpen && this.held.take(key);
+    const fresh = problem.reported !== true;
+    const send = fresh && automatic && this.sent.take(key);
+    const hold = fresh && !automatic && dialogOpen && this.held.take(key);
     let show: Gate['show'] = 'none';
     if (problem.fatal === true) show = dialogOpen ? 'stopped' : 'dialog';
     else if (!dialogOpen && !this.shown.has(key)) show = 'dialog';

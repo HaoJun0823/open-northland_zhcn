@@ -6,6 +6,9 @@ export interface Problem {
   readonly error?: ReportError;
   /** The game stopped for good with it: the dialog always shows, whatever the session's limits. */
   readonly fatal?: boolean;
+  /** Its error was reported already, under another thread: it may change what the dialog shows, but
+   *  sends nothing. */
+  readonly reported?: boolean;
   /** Facts the report's `perf` carries, such as a freeze's length. */
   readonly facts?: Readonly<Record<string, unknown>>;
   /** A problem a previous page recorded: the report keeps its id and time, and its log stands in for

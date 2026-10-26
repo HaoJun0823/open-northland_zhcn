@@ -14,6 +14,8 @@ const SUPPRESSED_FILE = 'suppressed.json';
 const SCREENSHOT_EXTENSIONS = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 const ISO_DATE_LENGTH = 10;
 const PRETTY_INDENT = 2;
+/** Error codes of a volume out of space or quota: the store is full whatever its counters say. */
+const DISK_FULL: ReadonlySet<string> = new Set(['ENOSPC', 'EDQUOT']);
 
 export interface ReportStoreLimits {
   readonly maxStoredBytes: number;
@@ -124,7 +126,12 @@ export class ReportStore {
     if (this.full()) return 'full';
     const { attachments, ...rest } = report;
     const files: StoredFile[] = [[REPORT_FILE, pretty(rest)], ...attachmentFiles(attachments)];
-    this.index.set(report.id, await this.writeEntry(at, report.trigger, report.id, files));
+    try {
+      this.index.set(report.id, await this.writeEntry(at, report.trigger, report.id, files));
+    } catch (error) {
+      if (DISK_FULL.has(errorCode(error) ?? '')) return 'full';
+      throw error;
+    }
     if (fingerprint !== undefined) {
       this.fingerprints.counts.set(fingerprint, this.storedToday(fingerprint, at) + 1);
     }
@@ -142,8 +149,15 @@ export class ReportStore {
       contact: addendum.contact,
       receivedAt: this.now().toISOString(),
     });
-    // The note goes last: once it is there, the addendum is complete.
-    await this.addToEntry(path, [...attachmentFiles(addendum.attachments), [ADDENDUM_FILE, note]]);
+    // The note goes last: once it is there, the addendum is complete. A retry after a failure
+    // links only the files still missing.
+    try {
+      await this.addToEntry(path, [...attachmentFiles(addendum.attachments), [ADDENDUM_FILE, note]]);
+    } catch (error) {
+      if (DISK_FULL.has(errorCode(error) ?? '')) return 'full';
+      if (isMissing(error)) return 'missing';
+      throw error;
+    }
     return 'stored';
   }
 
@@ -181,7 +195,7 @@ export class ReportStore {
           await link(join(temporary, name), join(this.dir, path, name));
           this.bytes += bytes.length;
         } catch (error) {
-          if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
+          if (errorCode(error) !== 'EEXIST') throw error;
         }
         await unlink(join(temporary, name));
       }
@@ -249,6 +263,10 @@ function attachmentFiles(attachments: ReportAttachments | undefined): StoredFile
   }
   if (settings !== undefined) files.push(['settings.json', pretty(settings)]);
   return files;
+}
+
+function errorCode(error: unknown): string | null {
+  return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null;
 }
 
 function pretty(value: unknown): Buffer {

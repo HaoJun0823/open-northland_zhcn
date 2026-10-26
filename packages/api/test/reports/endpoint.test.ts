@@ -12,6 +12,7 @@ import { DataStore } from '../../src/store.js';
 import { addendum, REPORT_ID, report, wire } from '../support/report-fixture.js';
 
 const KIB = 1024;
+const MIB = KIB * KIB;
 const GAME = 'https://game.opennorthland.org';
 const LIMITS = {
   maxReportBytes: 64 * KIB,
@@ -100,10 +101,23 @@ describe('POST /v1/reports', () => {
   });
 
   it("takes one addendum at its report's path and answers 404 for any other id before the body", async () => {
-    const { url, post } = await start();
+    const { url, post } = await start({ maxAddendumBytes: 2 * MIB });
     const toReport = (body: Uint8Array<ArrayBuffer>) =>
       fetch(`${url}/${REPORT_ID}`, { method: 'POST', body, headers: { 'content-type': 'text/plain' } });
-    expect((await toReport(wire(addendum()))).status).toBe(404);
+    // The refusal reaches a client still sending its body.
+    const early = await new Promise<number | undefined>((resolve, reject) => {
+      const request = httpRequest(`${url}/${REPORT_ID}`, {
+        method: 'POST',
+        headers: { 'content-type': 'text/plain' },
+      });
+      request.on('response', (response) => {
+        response.resume();
+        resolve(response.statusCode);
+      });
+      request.on('error', reject);
+      request.end(Buffer.alloc(MIB));
+    });
+    expect(early).toBe(404);
     expect((await post(wire(report()))).status).toBe(204);
     expect((await post(wire(addendum()))).status).toBe(400);
     expect((await toReport(wire(addendum({ id: 'b2'.repeat(16) })))).status).toBe(400);

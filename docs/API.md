@@ -154,10 +154,12 @@ without an addendum, so each report takes one addendum. The random `id` is the a
 
 Error bodies are fixed `{ "error": "..." }` texts that never echo the input. Requests without
 `Origin` (tools, Node) are allowed. An allowed origin gets `Access-Control-Allow-Origin: <origin>`
-and `Vary: Origin`. A body past its limit stops being read and the connection closes.
+and `Vary: Origin`. A body refused before it was read whole, or past its limit, is read and dropped
+for up to 2 seconds so the client gets the answer; then the connection closes.
 
-Limits are in the table above. Per-client limits use sliding windows; a body the server cannot read
-or validate spends the client's report and addendum slots. Uploads in flight are capped, and one
+Limits are in the table above. Per-client limits use sliding windows and are checked for the path's
+part before the body is read; a body the server cannot read or validate also spends the client's
+slot for the other part. A disk out of space answers 507 as well. Uploads in flight are capped, and one
 upload at a time is inflated and validated. Clients are keyed by a keyed hash of their address (an
 IPv6 address by its /64) held only in memory. Client addresses are never logged or stored.
 Fingerprint counts are in memory, so a restart starts the day's counts over.

@@ -11,10 +11,9 @@ const LIMITS = {
   uploadBytesPerHour: 1000,
 };
 
-/** Admits and takes one upload, as the endpoint does; the refusal's wait, or null when accepted. */
+/** The refusal's wait in seconds, or null when the upload is admitted. */
 function send(limiter: ReportLimiter, key: string, part: 'report' | 'addendum', now: number): number | null {
-  const refused = limiter.admit(key, now) ?? limiter.take(key, part, now);
-  return refused?.retryAfterSeconds ?? null;
+  return limiter.admit(key, part, now)?.retryAfterSeconds ?? null;
 }
 
 describe('ReportLimiter', () => {
@@ -37,27 +36,25 @@ describe('ReportLimiter', () => {
     const key = limiter.senderKey('198.51.100.1');
     limiter.countBytes(600, 0);
     limiter.countBytes(300, 10 * MINUTE);
-    expect(limiter.admit(key, 20 * MINUTE)).toBeNull();
+    expect(send(limiter, key, 'report', 20 * MINUTE)).toBeNull();
     limiter.countBytes(200, 20 * MINUTE);
     // 1100 bytes: the first upload's 600 must leave the window first.
-    expect(limiter.admit(key, 30 * MINUTE)?.retryAfterSeconds).toBe(30 * 60);
-    expect(limiter.admit(key, HOUR)).toBeNull();
+    expect(send(limiter, key, 'report', 30 * MINUTE)).toBe(30 * 60);
+    expect(send(limiter, key, 'report', HOUR)).toBeNull();
   });
 
-  it('caps all uploads per hour and refuses a sender with nothing left before its body', () => {
-    const limiter = new ReportLimiter({ ...LIMITS, uploadsPerHour: 2 });
-    const garbage = limiter.senderKey('198.51.100.1');
-    expect(limiter.admit(garbage, 0)).toBeNull();
-    limiter.spend(garbage, 0);
-    expect(limiter.admit(garbage, 0)).toBeNull();
-    limiter.spend(garbage, 0);
-    expect(limiter.admit(limiter.senderKey('198.51.100.2'), MINUTE)?.retryAfterSeconds).toBe(59 * 60);
-    const fresh = new ReportLimiter(LIMITS);
-    const spent = fresh.senderKey('198.51.100.1');
-    fresh.spend(spent, 0);
-    expect(fresh.admit(spent, MINUTE)).toBeNull();
-    fresh.spend(spent, MINUTE);
-    expect(fresh.admit(spent, MINUTE)).not.toBeNull();
+  it('caps all uploads per hour, where a refused sender takes no slot and garbage spends both parts', () => {
+    const limiter = new ReportLimiter({ ...LIMITS, uploadsPerHour: 3 });
+    const sender = limiter.senderKey('198.51.100.1');
+    expect(send(limiter, sender, 'report', 0)).toBeNull();
+    limiter.penalize(sender, 'report', 0);
+    expect(send(limiter, sender, 'addendum', 0)).not.toBeNull();
+    expect(send(limiter, sender, 'report', 0)).toBeNull();
+    for (let attempt = 0; attempt < LIMITS.uploadsPerHour; attempt++) {
+      expect(send(limiter, sender, 'report', MINUTE)).not.toBeNull();
+    }
+    expect(send(limiter, limiter.senderKey('198.51.100.2'), 'report', MINUTE)).toBeNull();
+    expect(send(limiter, limiter.senderKey('198.51.100.3'), 'report', 2 * MINUTE)).toBe(58 * 60);
   });
 
   it('counts an IPv6 sender per /64', () => {

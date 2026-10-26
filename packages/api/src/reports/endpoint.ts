@@ -30,6 +30,8 @@ const RESCAN_INTERVAL_MS = 5 * 60_000;
 /** Uploads past their header checks at once; each holds at most one compressed body. */
 const MAX_UPLOADS_IN_FLIGHT = 8;
 const BUSY_RETRY_SECONDS = 5;
+/** How long a refused body may keep arriving before the connection closes. */
+const LINGER_MS = 2000;
 const REPORT_TYPE = 'text/plain';
 const LOOPBACK_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 const REPORTS_PATH = '/v1/reports';
@@ -146,7 +148,7 @@ export class ReportEndpoint {
       });
       return;
     }
-    const { maxReportBytes, maxAddendumBytes, maxInflatedBytes } = this.options.config.limits;
+    const { maxReportBytes, maxAddendumBytes } = this.options.config.limits;
     const maxBytes = target.part === 'report' ? maxReportBytes : maxAddendumBytes;
     if (Number(request.headers['content-length'] ?? 0) > maxBytes) {
       const error = 'report too large';
@@ -169,18 +171,28 @@ export class ReportEndpoint {
       return;
     }
     const key = limiter.senderKey(this.clientAddress(request));
-    const now = this.now();
-    const admitted = limiter.admit(key, now);
+    const admitted = limiter.admit(key, target.part, this.now());
     if (admitted !== null) {
       this.retryLater(request, response, TOO_MANY, admitted, cors);
       return;
     }
+    // The slot holds until the upload is stored, so decoded uploads cannot queue up behind the store.
     this.inFlight += 1;
+    try {
+      await this.receive(request, response, { target, key, maxBytes, cors });
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
+
+  private async receive(request: IncomingMessage, response: ServerResponse, intake: Intake): Promise<void> {
+    const { target, key, maxBytes, cors } = intake;
+    const { limiter, store } = this.options;
     let upload: ReportUpload;
     try {
       const body = await readLimited(request, maxBytes);
-      limiter.countBytes(body.length, now);
-      upload = await this.decode(body, maxInflatedBytes);
+      limiter.countBytes(body.length, this.now());
+      upload = await this.decode(body, this.options.config.limits.maxInflatedBytes);
       if (upload.part !== target.part || (target.part === 'addendum' && upload.id !== target.id)) {
         throw new IntakeError('invalid');
       }
@@ -192,8 +204,8 @@ export class ReportEndpoint {
         response.destroy();
         return;
       }
-      limiter.spend(key, now);
-      if (error.reason === 'too-large') limiter.countBytes(maxBytes, now);
+      limiter.penalize(key, target.part, this.now());
+      if (error.reason === 'too-large') limiter.countBytes(maxBytes, this.now());
       const [status, message] = FAILURES[error.reason];
       this.refuse(request, response, {
         status,
@@ -202,13 +214,6 @@ export class ReportEndpoint {
         headers: cors,
         unread: error.reason === 'too-large',
       });
-      return;
-    } finally {
-      this.inFlight -= 1;
-    }
-    const limited = limiter.take(key, upload.part, now);
-    if (limited !== null) {
-      this.retryLater(request, response, TOO_MANY, limited, cors);
       return;
     }
     const outcome: StoreOutcome = await store.save(upload);
@@ -287,11 +292,17 @@ export class ReportEndpoint {
 
   private refuse(request: IncomingMessage, response: ServerResponse, refusal: Refusal): void {
     this.log('report rejected', { ...refusal.fields, reason: refusal.reason, status: refusal.status });
-    sendError(request, response, refusal.status, refusal.error, {
-      ...refusal.headers,
-      ...(refusal.unread === true ? { connection: 'close' } : {}),
-    });
+    sendError(request, response, refusal.status, refusal.error, refusal.headers);
+    if (refusal.unread === true) linger(request);
   }
+}
+
+/** An admitted upload: what its path takes, its sender's key, its byte limit, its CORS headers. */
+interface Intake {
+  readonly target: ReportTarget;
+  readonly key: string;
+  readonly maxBytes: number;
+  readonly cors: Readonly<Record<string, string>>;
 }
 
 interface Refusal {
@@ -301,9 +312,22 @@ interface Refusal {
   /** The log line's reason. */
   readonly reason: string;
   readonly headers?: Readonly<Record<string, string>>;
-  /** Close the connection instead of reading the rest of the body. */
+  /** The body was not read: discard it for a moment, then close the connection. */
   readonly unread?: boolean;
   readonly fields?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Reads and drops the rest of a refused body for a moment before closing. Closing at once with bytes
+ * still unread makes the socket reset, and the client then loses the answer it was sent.
+ */
+function linger(request: IncomingMessage): void {
+  if (request.complete) return;
+  const timer = setTimeout(() => request.socket.destroy(), LINGER_MS);
+  const stop = (): void => clearTimeout(timer);
+  request.once('end', stop);
+  request.socket.once('close', stop);
+  request.resume();
 }
 
 function isReportType(request: IncomingMessage): boolean {

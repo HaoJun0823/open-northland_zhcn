@@ -19,7 +19,7 @@ export interface RateLimits {
   readonly uploadBytesPerHour: number;
 }
 
-/** Accepted upload times of one sender, newest last; each list stays within its longest window. */
+/** Upload times of one sender, oldest first, as long as they fall in that part's longest window. */
 interface SenderLog {
   readonly reports: number[];
   readonly addenda: number[];
@@ -33,7 +33,8 @@ export interface Limited {
 /**
  * Sliding-window upload limits in memory. Senders are keyed by an HMAC of their address under a
  * secret made at start, so the address itself is never kept and the keys mean nothing after a
- * restart. Only uploads the server read create entries, so the global hourly cap bounds the map.
+ * restart. Every time is the clock when it is recorded, so each list stays in order. Only admitted
+ * uploads create entries, so the global hourly count bounds the map.
  */
 export class ReportLimiter {
   private readonly secret = randomBytes(KEY_SECRET_BYTES);
@@ -50,31 +51,20 @@ export class ReportLimiter {
     return createHmac('sha256', this.secret).update(senderOf(address)).digest('base64url');
   }
 
-  /** Before reading a body: refuses while an hourly cap is spent or the sender can send nothing.
-   *  An admitted upload takes a slot of the global count at once, so concurrent ones cannot pass it;
-   *  the bytes count once read, so the uploads in flight may overshoot the byte budget. */
-  admit(key: string, now: number): Limited | null {
+  /** Before reading a body: refuses while a global hourly budget or the sender's limit for `part` is
+   *  spent, else takes a slot of both at once, so concurrent uploads cannot pass them. The bytes count
+   *  once read, so uploads in flight may overshoot the byte budget. */
+  admit(key: string, part: ReportPart, now: number): Limited | null {
     this.sweep(now);
     prune(this.uploads, now - HOUR_MS);
-    const global = waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ?? this.bytesWait(now);
-    if (global !== null) return global;
-    const sender = this.senders.get(key);
-    if (sender !== undefined) {
-      const report = this.partWait(sender, 'report', now);
-      const addendum = this.partWait(sender, 'addendum', now);
-      if (report !== null && addendum !== null) {
-        return report.retryAfterSeconds < addendum.retryAfterSeconds ? report : addendum;
-      }
-    }
-    this.uploads.push(now);
-    return null;
-  }
-
-  /** After parsing: takes the sender's slot for `part`, or refuses when that limit is spent. */
-  take(key: string, part: ReportPart, now: number): Limited | null {
-    const sender = this.senderLog(key);
-    const wait = this.partWait(sender, part, now);
+    const known = this.senders.get(key);
+    const wait =
+      waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ??
+      this.bytesWait(now) ??
+      (known === undefined ? null : this.partWait(known, part, now));
     if (wait !== null) return wait;
+    this.uploads.push(now);
+    const sender = known ?? this.senderLog(key);
     (part === 'report' ? sender.reports : sender.addenda).push(now);
     return null;
   }
@@ -84,11 +74,11 @@ export class ReportLimiter {
     this.received.push({ time: now, bytes });
   }
 
-  /** An unreadable upload spends a slot of every limit the sender has, so garbage stops soonest. */
-  spend(key: string, now: number): void {
+  /** An upload the server could not read or validate also spends the sender's slot for the other
+   *  part, so a sender of garbage runs out soonest. */
+  penalize(key: string, part: ReportPart, now: number): void {
     const sender = this.senderLog(key);
-    sender.reports.push(now);
-    sender.addenda.push(now);
+    (part === 'report' ? sender.addenda : sender.reports).push(now);
   }
 
   private partWait(sender: SenderLog, part: ReportPart, now: number): Limited | null {

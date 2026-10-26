@@ -16,7 +16,14 @@ import {
   reportSettings,
 } from './attachments.js';
 import { buildReportDraft } from './build.js';
-import { type AttachmentKind, type CaseDeps, type PlayerInput, ReportCase, shownNumber } from './case.js';
+import {
+  type AttachmentKind,
+  type CaseDeps,
+  type PlayerInput,
+  ReportCase,
+  shownNumber,
+  uploadList,
+} from './case.js';
 import { openReportDialog, type ReportDialog } from './dialog.js';
 import { reportFingerprint } from './fingerprint.js';
 import { gzipSize } from './gzip.js';
@@ -37,15 +44,18 @@ interface OpenDialog {
   readonly kase: ReportCase;
   /** Problems that came while it was open. */
   more: number;
-  /** Their reports, sent with the player's Send when the game did not send them by itself. */
-  readonly held: ReportCase[];
+  /** Sends of their reports, run on the player's Send when the game did not send them by itself. */
+  readonly held: (() => void)[];
 }
 
 let outbox: OutboxStore | null = null;
 let open: OpenDialog | null = null;
 const limits = new AutomaticLimits();
+/** The same caps for reports an open dialog's Send takes along while automatic sending is off. */
+const heldLimits = new AutomaticLimits();
 /** A problem whose fingerprint already had a dialog this session raises none again. */
 const shownFingerprints = new Set<string>();
+/** The cases with an upload in the outbox, by report id, so a later try can update their dialog. */
 const cases = new Map<string, ReportCase>();
 /** An earlier page's problem can reach this page twice (a frozen tab seen by a new one, then its own
  *  recovery), and its id stays the same. */
@@ -83,19 +93,20 @@ function scheduleFlush(afterMs: number | null): void {
   );
 }
 
-const caseDeps: CaseDeps = {
-  post,
-  queue: (entry) =>
-    outboxStore()
-      .put(entry)
-      .catch((error: unknown) => diag.warn('report', 'outbox write failed', error)),
-  unqueue: (keys) =>
-    outboxStore()
-      .remove(keys)
-      .catch((error: unknown) => diag.warn('report', 'outbox write failed', error)),
-  scheduleRetry: scheduleFlush,
-  now: () => Date.now(),
-};
+function depsFor(kase: ReportCase): CaseDeps {
+  return {
+    post,
+    queue: (entry) => {
+      // Keyed by the entry, whose id is the report's current one after a refile.
+      cases.set(entry.id, kase);
+      return outboxStore()
+        .put(entry)
+        .catch((error: unknown) => diag.warn('report', 'outbox write failed', error));
+    },
+    scheduleRetry: scheduleFlush,
+    now: () => Date.now(),
+  };
+}
 
 /** Send what the outbox holds and is due, oldest first, until the link fails again. */
 export async function flushOutbox(): Promise<void> {
@@ -114,7 +125,10 @@ export async function flushOutbox(): Promise<void> {
         if (outcome.reason !== 'sent')
           diag.warn('report', `dropped a queued ${entry.part}: ${outcome.reason}`, { id: entry.id });
       }
-      cases.get(entry.id)?.settled(entry.part, result);
+      cases.get(entry.id)?.settled(entry.part, result, outcome.kind === 'drop');
+      if (outcome.kind === 'drop' && !(await store.list()).some((left) => left.id === entry.id)) {
+        cases.delete(entry.id);
+      }
       if (result.kind === 'retry') break;
     }
     const due = nextDue(await store.list());
@@ -133,7 +147,6 @@ async function prepareCase(
 ): Promise<void> {
   const [draft, gathered] = await Promise.all([buildReportDraft(problem), offers()]);
   await kase.prepare(draft, gathered);
-  cases.set(draft.report.id, kase);
 }
 
 /** Only the dialog's own report offers the player's files; a further problem carries its facts. */
@@ -152,9 +165,7 @@ async function downloadReport(kase: ReportCase, input: PlayerInput): Promise<voi
   const draft = kase.draft;
   if (draft === null) return;
   const uploads = await kase.compose(input);
-  const pending = [uploads.report, uploads.addendum].filter(
-    (upload): upload is ReportUpload => upload !== undefined,
-  );
+  const pending = uploadList(uploads);
   const report = [...kase.delivered, ...pending];
   const bundle = { ...draft.bundle, report };
   downloadJsonFile(
@@ -172,7 +183,7 @@ function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolea
     if (kind === 'save') return kase.draft?.report.game?.restoredAtTick !== undefined;
     return true;
   };
-  const held: ReportCase[] = [];
+  const held: (() => void)[] = [];
   const dialog = openReportDialog(
     {
       kase,
@@ -182,7 +193,7 @@ function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolea
       defaults,
       onSend: (input) => {
         void kase.sendFromPlayer(input);
-        for (const other of held.splice(0)) void other.sendAutomatically();
+        for (const sendHeld of held.splice(0)) sendHeld();
       },
       onDownload: (input) => void downloadReport(kase, input),
       onClose: () => {
@@ -202,21 +213,33 @@ function onProblem(problem: Problem): void {
   }
   const fingerprint = reportFingerprint(problem.trigger, problem.error);
   const automatic = readStoredSettings().autoErrorReports;
-  const allowed = automatic && limits.take(fingerprint);
-  diag.info('report', `problem: ${problem.trigger}`, { fingerprint, automatic: allowed });
-  const kase = new ReportCase(caseDeps, false);
   const opening = open === null && !shownFingerprints.has(fingerprint);
-  // The screen and the saves of this page say nothing about a problem an earlier page saw.
-  const offers = opening && problem.earlier === undefined ? problemOffers : settingsOnly;
-  const ready = prepareCase(kase, problem, offers).then(() => {
-    if (allowed) return kase.sendAutomatically();
-  });
-  ready.catch((error: unknown) => diag.error('report', 'building a report failed', error));
+  const allowed = automatic && limits.take(fingerprint);
+  // With automatic sending off, the open dialog's Send takes along what came after, as sparingly.
+  const held = !automatic && open !== null && heldLimits.take(fingerprint);
+  diag.info('report', `problem: ${problem.trigger}`, { fingerprint, sent: allowed, held });
   if (open !== null) {
     open.more++;
     open.dialog.setMore(open.more);
-    if (!allowed) open.held.push(kase);
-    return;
+  }
+  // A repeat nobody sends, holds or shows costs no world hash and no gzip.
+  if (!opening && !allowed && !held) return;
+  const kase = new ReportCase(depsFor, false);
+  // The screen and the saves of this page say nothing about a problem an earlier page saw.
+  const offers = opening && problem.earlier === undefined ? problemOffers : settingsOnly;
+  const prepared = prepareCase(kase, problem, offers);
+  prepared.then(
+    () => (allowed ? kase.sendAutomatically() : undefined),
+    (error: unknown) => diag.error('report', 'building a report failed', error),
+  );
+  if (held && open !== null) {
+    // A report still being built goes out once it is ready.
+    open.held.push(() => {
+      prepared.then(
+        () => kase.sendAutomatically(),
+        () => undefined,
+      );
+    });
   }
   if (!opening) return;
   shownFingerprints.add(fingerprint);
@@ -229,7 +252,7 @@ export function openBugReportForm(): void {
     open.dialog.focus();
     return;
   }
-  const kase = new ReportCase(caseDeps, true);
+  const kase = new ReportCase(depsFor, true);
   void prepareCase(kase, null, gatherOffers).catch((error: unknown) =>
     diag.error('report', 'building a report failed', error),
   );

@@ -28,5 +28,9 @@ describe('report redaction', () => {
       'href=/?room=[redacted]&nick=[redacted] joined [redacted]',
     );
     expect(redactRouteParams(new URLSearchParams('room=new')).params).toEqual({ room: 'new' });
+    // A page the document showed before, logged before the player left it for the menu.
+    expect(scrubText('boot https://u:pw@game.example/?relay=wss://r/x&room=Zz99&nick=Ola&map=a', [])).toBe(
+      'boot https://game.example/?relay=wss://r/x&room=[redacted]&nick=[redacted]&map=a',
+    );
   });
 });

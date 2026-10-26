@@ -1,7 +1,9 @@
 /**
  * One report from its first draft to its addendum. The first part (`POST /v1/reports`, 512 KiB)
- * carries the light report, the player's words and settings; the heavy attachments follow as the
- * report's one addendum (`POST /v1/reports/<id>`, 8 MiB) once the server holds the report.
+ * carries the light report and, when the player sends it, their words and settings; the heavy
+ * attachments follow as the report's one addendum (`POST /v1/reports/<id>`, 8 MiB). The server keeps
+ * the first copy of an id, so once a first part went out or waits in the outbox, only those bytes are
+ * ever sent again under its id, and whatever the player adds rides in the addendum.
  */
 import {
   type FullReport,
@@ -25,7 +27,7 @@ import {
 } from './budget.js';
 import { type CommandSlice, commandsAttachment, fitCommands, type ReportDraft } from './build.js';
 import { canGzip, type GzipBytes, gzipJson, gzipSize } from './gzip.js';
-import { type OutboxEntry, outboxEntry, outboxKey } from './outbox.js';
+import { type OutboxEntry, outboxEntry } from './outbox.js';
 import type { SendResult } from './send.js';
 
 /** Where the report itself stands. */
@@ -39,6 +41,8 @@ export type Delivery =
   | 'queued'
   | 'full'
   | 'rejected'
+  /** The outbox gave up on it after its tries. */
+  | 'expired'
   | 'unsupported';
 
 /** Where the player's additions stand once the report is out. */
@@ -55,8 +59,7 @@ export interface PlayerInput {
 export interface CaseDeps {
   readonly post: (body: GzipBytes, part: ReportPart, id: string) => Promise<SendResult>;
   readonly queue: (entry: OutboxEntry) => Promise<void>;
-  readonly unqueue: (keys: readonly string[]) => Promise<void>;
-  /** A queued upload's retry fell due; the outbox owner schedules it. */
+  /** Ask the outbox owner to try its queue again after `afterMs`, or after its own backoff. */
   readonly scheduleRetry: (afterMs: number | null) => void;
   readonly now: () => number;
 }
@@ -70,6 +73,11 @@ export interface CommandsOffer {
 export interface Uploads {
   readonly report?: FullReport;
   readonly addendum?: ReportAddendum;
+}
+
+/** The uploads in the order they go out. */
+export function uploadList(uploads: Uploads): ReportUpload[] {
+  return [uploads.report, uploads.addendum].filter((upload): upload is ReportUpload => upload !== undefined);
 }
 
 function trimmed(text: string, max: number): string | undefined {
@@ -89,15 +97,22 @@ export class ReportCase {
   commands: CommandsOffer | null = null;
   /** What the delivered first part carried, so an addendum does not send it again. */
   private carried: { commands: boolean; settings: boolean } = { commands: false, settings: false };
+  /** The player pressed Send; a report takes one. */
+  submitted = false;
+  private running = 0;
   /** The uploads the server took, for the download. */
   readonly delivered: ReportUpload[] = [];
   private readonly listeners = new Set<() => void>();
   private inFlight: Promise<void> | null = null;
 
+  private readonly deps: CaseDeps;
+
   constructor(
-    private readonly deps: CaseDeps,
+    depsOf: (kase: ReportCase) => CaseDeps,
     readonly manual: boolean,
-  ) {}
+  ) {
+    this.deps = depsOf(this);
+  }
 
   get id(): string | null {
     return this.draft?.report.id ?? null;
@@ -164,7 +179,12 @@ export class ReportCase {
     return (await fitCommands(draft.report, paired, LIGHT_REPORT_BUDGET_BYTES)) ?? this.commands.slice;
   }
 
-  /** What Send would post now: the first part while the server lacks it, then the addendum. */
+  /** A first part went out or waits in the outbox, so it can no longer change. */
+  firstPartOut(): boolean {
+    return this.delivery === 'sending' || this.delivery === 'sent' || this.delivery === 'queued';
+  }
+
+  /** What Send would post now: a first part while none went out, then the addendum. */
   async compose(input: PlayerInput): Promise<Uploads> {
     const draft = this.draft;
     if (draft === null) return {};
@@ -174,6 +194,8 @@ export class ReportCase {
       ...(comment !== undefined ? { comment } : {}),
       ...(contact !== undefined ? { contact } : {}),
     };
+    const settings =
+      input.include.settings && this.offers !== null ? { settings: this.offers.settings.value } : {};
     const heavy: ReportAttachments = {
       ...(input.include.screenshot && this.offers?.screenshot
         ? { screenshot: this.offers.screenshot.value }
@@ -181,15 +203,10 @@ export class ReportCase {
       ...(input.include.save && this.offers?.save ? { save: this.offers.save.value } : {}),
     };
     const envelope = { kind: REPORT_KIND, version: REPORT_VERSION, id: draft.report.id } as const;
-    if (this.delivery === 'sent') {
-      const attachments: ReportAttachments = {
-        ...(input.include.settings && !this.carried.settings && this.offers
-          ? { settings: this.offers.settings.value as ReportAttachments['settings'] }
-          : {}),
-        ...heavy,
-      };
+    if (this.firstPartOut()) {
+      const attachments: ReportAttachments = { ...(this.carried.settings ? {} : settings), ...heavy };
       const any = Object.keys(words).length > 0 || Object.keys(attachments).length > 0;
-      if (!any || this.additions === 'sent') return {};
+      if (!any) return {};
       return {
         addendum: {
           ...envelope,
@@ -202,9 +219,7 @@ export class ReportCase {
     const commands = await this.commandsFor(input);
     const light: ReportAttachments = {
       ...(commands !== null ? commandsAttachment(commands) : {}),
-      ...(input.include.settings && this.offers
-        ? { settings: this.offers.settings.value as ReportAttachments['settings'] }
-        : {}),
+      ...settings,
     };
     const report: FullReport = {
       ...draft.report,
@@ -241,42 +256,58 @@ export class ReportCase {
     return this.run(() => this.deliverReport(upload));
   }
 
-  /** The player's Send: the report if the server lacks it, then their additions. */
+  /** The player's Send, once per report: the first part if none went out, then their additions. */
   sendFromPlayer(input: PlayerInput): Promise<void> {
+    if (this.submitted) return Promise.resolve();
+    this.submitted = true;
+    this.changed();
     return this.run(() => this.sendUploads(input, true));
   }
 
+  /** A send is running or waiting for one; the dialog holds Send meanwhile. */
+  get busy(): boolean {
+    return this.running > 0;
+  }
+
   private async sendUploads(input: PlayerInput, mayRefile: boolean): Promise<void> {
+    // Composed inside the run, so a Send pressed while the automatic report was on its way sees
+    // whether it went out.
     const uploads = await this.compose(input);
+    const { addendum } = uploads;
     if (uploads.report !== undefined) {
       this.carried = {
         commands: uploads.report.attachments?.commands !== undefined,
         settings: uploads.report.attachments?.settings !== undefined,
       };
       const stored = await this.deliverReport(uploads.report);
-      if (!stored) {
-        if (uploads.addendum !== undefined && this.delivery === 'queued') {
-          await this.queueUpload(uploads.addendum);
-          this.additions = 'queued';
-          this.changed();
-        }
-        return;
-      }
-      if (uploads.addendum === undefined) {
+      if (stored && addendum === undefined) {
         this.additions = 'sent';
         this.changed();
       }
     }
-    if (uploads.addendum !== undefined) await this.deliverAddendum(uploads.addendum, input, mayRefile);
+    if (addendum === undefined) return;
+    if (this.delivery === 'queued') {
+      // The first part waits in the outbox, which sends an addendum only after it.
+      await this.queueUpload(addendum);
+      this.additions = 'queued';
+      this.changed();
+      this.deps.scheduleRetry(0);
+    } else if (this.delivery === 'sent') await this.deliverAddendum(addendum, input, mayRefile);
   }
 
-  /** One send at a time: a Send pressed while the automatic report is on its way waits for it. */
   private run(task: () => Promise<unknown>): Promise<void> {
+    this.running++;
     const previous = this.inFlight ?? Promise.resolve();
-    const next = previous.then(task).then(
-      () => undefined,
-      (error: unknown) => diag.error('report', 'sending a report failed', error),
-    );
+    const next = previous
+      .then(task)
+      .then(
+        () => undefined,
+        (error: unknown) => diag.error('report', 'sending a report failed', error),
+      )
+      .finally(() => {
+        this.running--;
+        this.changed();
+      });
     this.inFlight = next;
     return next;
   }
@@ -295,8 +326,6 @@ export class ReportCase {
     }
     this.delivery = 'sending';
     this.changed();
-    // A copy queued earlier is replaced by what goes out now; the server keeps the first copy of an id.
-    await this.deps.unqueue([outboxKey(report.id, 'report')]);
     const body = await gzipJson(report);
     if (body.byteLength > REPORT_UPLOAD_CAP_BYTES) {
       diag.error('report', 'the report is over the upload cap', { bytes: body.byteLength });
@@ -375,19 +404,23 @@ export class ReportCase {
     };
     this.delivery = 'unsent';
     this.additions = 'none';
+    this.carried = { commands: false, settings: false };
     diag.warn('report', 'the server did not know the report; sending the additions as a new one', {
       previous,
     });
     await this.sendUploads(input, false);
   }
 
-  /** The outbox delivered or gave up on one of this case's uploads. */
-  settled(part: ReportPart, result: SendResult): void {
+  /** The outbox delivered one of this case's uploads, or gave up on it when `dropped`. */
+  settled(part: ReportPart, result: SendResult, dropped: boolean): void {
     if (part === 'report' && this.delivery === 'queued') {
-      if (result.kind !== 'retry') this.delivery = this.deliveryOf(result);
+      if (result.kind === 'retry' && !dropped) return;
+      this.delivery = result.kind === 'retry' ? 'expired' : this.deliveryOf(result);
+      // Additions queued behind a report that never arrived cannot follow it.
+      if (this.delivery !== 'sent' && this.additions === 'queued') this.additions = 'failed';
     } else if (part === 'addendum' && this.additions === 'queued') {
-      if (result.kind === 'sent') this.additions = 'sent';
-      else if (result.kind !== 'retry') this.additions = 'failed';
+      if (result.kind === 'retry' && !dropped) return;
+      this.additions = result.kind === 'sent' ? 'sent' : 'failed';
     } else return;
     this.changed();
   }

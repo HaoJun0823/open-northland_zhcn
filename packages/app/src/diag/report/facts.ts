@@ -18,6 +18,8 @@ const TEXT_CHARS = 512;
 const VERSION_KEY_CHARS = 64;
 const MAX_LANGUAGES = 16;
 const LANGUAGE_CHARS = 64;
+/** The schema's bound on a BCP-47 tag of the game's own languages. */
+const UI_LANGUAGE_CHARS = 16;
 
 const clip = (text: string, max = TEXT_CHARS): string => text.slice(0, max);
 const count = (value: unknown): number | null =>
@@ -60,7 +62,7 @@ export function environmentFacts(): ReportEnvironment {
     languages: [...(navigator.languages ?? [])]
       .slice(0, MAX_LANGUAGES)
       .map((tag) => clip(tag, LANGUAGE_CHARS)),
-    uiLanguage: clip(bcp47Tag(), 16),
+    uiLanguage: clip(bcp47Tag(), UI_LANGUAGE_CHARS),
     timeZone: timeZone(),
     hardwareConcurrency: count(navigator.hardwareConcurrency),
     deviceMemoryGb: typeof memory === 'number' && memory >= 0 ? memory : null,

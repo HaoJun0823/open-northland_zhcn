@@ -40,6 +40,8 @@ import { reportGameView } from './view.js';
 
 const TEXT_CHARS = 512;
 const HASH_CHARS = 128;
+/** The schema's bound on the route's entry name. */
+const ENTRY_CHARS = 64;
 /** A command budget is approached by rescaling, one gzip per pass. */
 const FIT_PASSES = 4;
 const FIT_MARGIN = 0.9;
@@ -154,7 +156,7 @@ export async function buildReportDraft(problem: Problem | null): Promise<ReportD
     ...(error !== undefined ? { error } : {}),
     build,
     env: environmentFacts(),
-    route: { entry: clip(route.entry, 64), params: route.params },
+    route: { entry: clip(route.entry, ENTRY_CHARS), params: route.params },
     ...(game !== null ? { game: reportGame(game, secrets) } : {}),
     ...(perf !== undefined ? { perf } : {}),
     log,

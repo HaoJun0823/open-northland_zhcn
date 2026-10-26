@@ -17,6 +17,7 @@ import { reportGameView } from './view.js';
 
 export type Screenshot = NonNullable<ReportAttachments['screenshot']>;
 export type SaveAttachment = NonNullable<ReportAttachments['save']>;
+export type SettingsAttachment = NonNullable<ReportAttachments['settings']>;
 
 export interface Offer<T> {
   readonly value: T;
@@ -25,7 +26,7 @@ export interface Offer<T> {
 }
 
 export interface AttachmentOffers {
-  readonly settings: Offer<unknown>;
+  readonly settings: Offer<SettingsAttachment>;
   readonly screenshot: Offer<Screenshot> | null;
   /** The world's newest autosave, with the tick it stands at. */
   readonly save: (Offer<SaveAttachment> & { readonly tick: number | null }) | null;
@@ -46,15 +47,17 @@ export function base64Of(bytes: Uint8Array): string {
  * The settings as the store keeps them, less what names the player: the relay nick and the name of
  * the folder they picked. A relay address they typed keeps only its host and path.
  */
-export function reportSettings(): unknown {
+export function reportSettings(): SettingsAttachment {
   const { netNick, originalGameFolder, netCustomRelayUrl, ...settings } = readStoredSettings();
-  return {
+  // Plain JSON: the store keeps the same fields as JSON text.
+  const shown: unknown = {
     ...settings,
     netNick: netNick === null ? null : REDACTED,
     originalGameFolder: originalGameFolder === null ? null : REDACTED,
     netCustomRelayUrl:
       netCustomRelayUrl === null ? null : (addressWithoutSecrets(netCustomRelayUrl) ?? REDACTED),
   };
+  return shown as SettingsAttachment;
 }
 
 function screenshotType(type: string): Screenshot['type'] | null {

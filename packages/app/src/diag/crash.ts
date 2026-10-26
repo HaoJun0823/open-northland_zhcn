@@ -8,7 +8,6 @@ import { isBrave } from '../view/platform/browser-support.js';
 import { servedByBrowser } from '../view/platform/host.js';
 import { downloadDiagnosticsBundle } from './bundle.js';
 import { reportError } from './capture/report-error.js';
-import { diag } from './log.js';
 
 /** Above every game overlay; the system menu and tooltips sit at 2000. */
 const CRASH_BANNER_Z_INDEX = '2200';

@@ -31,8 +31,9 @@ export const plBugReport = {
     full: 'Serwer zgłoszeń jest teraz pełny. Pobierz zgłoszenie i prześlij je w inny sposób.',
     rejected: 'Serwer nie przyjął zgłoszenia. Pobierz je i prześlij w inny sposób.',
     unsupported: 'Ta przeglądarka nie potrafi wysyłać zgłoszeń. Pobierz zgłoszenie.',
+    expired: 'Nie udało się wysłać zgłoszenia. Pobierz je i prześlij w inny sposób.',
     unsent: 'Nic jeszcze nie zostało wysłane.',
-    limited: 'Ta sesja wysłała już swoje automatyczne zgłoszenia. To możesz wysłać samodzielnie.',
+    limited: 'Ta sesja wysłała już swoje automatyczne zgłoszenia. To zgłoszenie możesz wysłać samodzielnie.',
   },
   additionsHint: 'Możesz dodać do niego komentarz i więcej plików.',
   additions: {
@@ -50,7 +51,8 @@ export const plBugReport = {
   comment: 'Komentarz (opcjonalnie)',
   commentPlaceholder: 'Co działo się tuż przed tym?',
   description: 'Co się stało?',
-  descriptionHint: 'Opisz kroki prowadzące do błędu, czego się spodziewać i co dzieje się zamiast tego.',
+  descriptionHint:
+    'Opisz po kolei, co prowadzi do błędu, jaki był oczekiwany efekt i co stało się zamiast tego.',
   descriptionRequired: 'Najpierw opisz problem.',
   contact: 'Kontakt (opcjonalnie)',
   contactPlaceholder: 'E-mail lub nazwa na Discordzie',
@@ -72,7 +74,7 @@ export const plBugReport = {
   download: 'Pobierz',
   close: 'Zamknij',
   privacy:
-    'Wysyłane są tylko dane techniczne o grze i komputerze. Adres IP nie jest zapisywany, a kontakt jest opcjonalny.',
+    'Zgłoszenie zawiera dane techniczne o grze i komputerze oraz to, co tu wpiszesz. Adres IP nie jest zapisywany.',
   sizeKb: '{size} KB',
   sizeMb: '{size} MB',
 } as const;

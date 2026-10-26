@@ -29,6 +29,7 @@ export const chsBugReport = {
     full: '报告服务器目前已满。请下载报告并通过其他方式发送。',
     rejected: '服务器没有接受报告。请下载报告并通过其他方式发送。',
     unsupported: '此浏览器无法发送报告。请改为下载报告。',
+    expired: '报告无法发送。请下载报告并通过其他方式发送。',
     unsent: '尚未发送任何内容。',
     limited: '本次会话已发送过自动报告。你仍可以手动发送这份报告。',
   },
@@ -69,7 +70,7 @@ export const chsBugReport = {
   sendAdditions: '发送补充内容',
   download: '下载',
   close: '关闭',
-  privacy: '只发送关于游戏和电脑的技术数据。不会保存你的 IP 地址，联系方式可不填。',
+  privacy: '报告包含关于游戏和电脑的技术数据，以及你在此填写的内容。不会保存你的 IP 地址。',
   sizeKb: '{size} KB',
   sizeMb: '{size} MB',
 } as const;

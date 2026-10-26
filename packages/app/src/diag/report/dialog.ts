@@ -4,13 +4,12 @@
  * The stylesheet gives it the game's look; the inline styles keep it on screen and readable if the
  * stylesheet never arrived.
  */
-import type { ReportTrigger, ReportUpload } from '@open-northland/data';
+import { REPORT_LIMITS, type ReportTrigger, type ReportUpload } from '@open-northland/data';
 import { bcp47Tag, formatMessage, type Messages, messages, pluralForm } from '../../i18n/index.js';
 import { isBrave } from '../../view/platform/browser-support.js';
 import { servedByBrowser } from '../../view/platform/host.js';
 import { diag } from '../log.js';
-import type { AttachmentKind, PlayerInput, ReportCase, Uploads } from './case.js';
-import { shownNumber } from './case.js';
+import { type AttachmentKind, type PlayerInput, type ReportCase, shownNumber, uploadList } from './case.js';
 import './dialog.css';
 import { reportUrl } from './send.js';
 
@@ -31,6 +30,9 @@ const ROOT_STYLE = [
 const PROBLEM_PLACE = 'top:16px;left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 32px))';
 const MANUAL_PLACE = 'position:relative;width:min(600px,calc(100vw - 32px))';
 const SHADE_STYLE = `position:fixed;inset:0;z-index:${DIALOG_Z_INDEX};display:grid;place-items:center;background:rgba(8,17,14,0.7)`;
+
+/** The dialog's outermost element, which a modal opened later must leave usable. */
+export const REPORT_DIALOG_SELECTOR = '.on-report, .on-report-shade';
 
 const KIB = 1024;
 const MIB = KIB * KIB;
@@ -92,11 +94,8 @@ function previewReplacer(_key: string, value: unknown): unknown {
   return out;
 }
 
-export function previewText(uploads: Uploads, api: string): string {
-  const parts = [uploads.report, uploads.addendum].filter(
-    (upload): upload is ReportUpload => upload !== undefined,
-  );
-  const text = parts
+export function previewText(uploads: readonly ReportUpload[], api: string): string {
+  const text = uploads
     .map(
       (upload) =>
         `POST ${reportUrl(api, upload.part, upload.id)}\n${JSON.stringify(upload, previewReplacer, 2)}`,
@@ -158,7 +157,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   text.id = `${uid}-text`;
   textLabel.htmlFor = text.id;
   text.rows = manual ? 5 : 3;
-  text.maxLength = 4000;
+  text.maxLength = REPORT_LIMITS.comment;
   if (!manual) text.placeholder = copy.commentPlaceholder;
   const textHint = element('p', 'on-report__hint', copy.descriptionHint);
   textHint.id = `${uid}-text-hint`;
@@ -172,7 +171,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   contactLabel.htmlFor = contact.id;
   contact.type = 'text';
   contact.autocomplete = 'email';
-  contact.maxLength = 200;
+  contact.maxLength = REPORT_LIMITS.contact;
   contact.placeholder = copy.contactPlaceholder;
   const contactHint = element('p', 'on-report__hint', copy.contactHint);
 
@@ -258,7 +257,8 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
         return opts.limited ? copy.status.limited : opts.automatic ? copy.status.sending : copy.status.unsent;
       case 'sent':
         if (manual || kase.additions === 'sent') return formatMessage(copy.thanks, { number });
-        return `${formatMessage(copy.status.sent, { number })} ${kase.additions === 'none' ? copy.additionsHint : ''}`.trim();
+        if (kase.submitted) return formatMessage(copy.status.sent, { number });
+        return `${formatMessage(copy.status.sent, { number })} ${copy.additionsHint}`;
       default:
         return copy.status[kase.delivery];
     }
@@ -266,7 +266,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
 
   const paintFiles = (): void => {
     const offers = kase.offers;
-    const sent = kase.delivery === 'sent';
+    const fixed = kase.firstPartOut();
     const want = input().include;
     for (const kind of ATTACHMENT_ORDER) {
       const entry = boxes.get(kind);
@@ -276,11 +276,11 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
       let locked = false;
       if (kind === 'commands') {
         bytes = kase.commands?.bytes ?? null;
-        if (sent) {
-          // The first part already carried them, or a later part cannot.
+        if (fixed) {
+          // The first part carries them, or no later part can.
           if (!kase.carriedCommands()) bytes = null;
           locked = true;
-          note = copy.included;
+          if (kase.delivery === 'sent') note = copy.included;
         } else if (kase.commands !== null && !kase.commands.slice.whole) note = copy.shortened;
       } else if (kind === 'settings') {
         bytes = offers?.settings.bytes ?? null;
@@ -297,7 +297,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
       if (locked) entry.box.checked = true;
       const heavy = kind === 'screenshot' || kind === 'save';
       const over = heavy && !entry.box.checked && !kase.fitsAddendum({ ...want, [kind]: true });
-      entry.box.disabled = locked || over || kase.additions === 'sent' || kase.additions === 'sending';
+      entry.box.disabled = locked || over || kase.submitted;
       entry.note.textContent = over ? copy.overCap : note;
     }
   };
@@ -308,16 +308,15 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     status.dataset.state = kase.delivery;
     if (kase.additions !== 'none' && kase.additions !== 'sent')
       status.textContent = copy.additions[kase.additions];
-    const finished = manual
-      ? kase.delivery === 'sent' && kase.additions !== 'sending'
-      : kase.additions === 'sent';
-    const blocked = ['preparing', 'sending', 'full', 'rejected', 'unsupported'].includes(kase.delivery);
-    send.textContent = kase.delivery === 'sent' && !manual ? copy.sendAdditions : copy.send;
-    send.disabled = blocked || finished || kase.additions === 'sending';
+    // A report takes one Send; it then shows how that went until the dialog closes.
+    const finished = kase.submitted && !kase.busy;
+    const blocked = ['preparing', 'full', 'rejected', 'expired', 'unsupported'].includes(kase.delivery);
+    send.textContent = kase.firstPartOut() && !manual ? copy.sendAdditions : copy.send;
+    send.disabled = blocked || kase.submitted || kase.busy;
     send.hidden = finished;
     download.disabled = kase.delivery === 'preparing';
-    text.readOnly = finished;
-    contact.readOnly = finished;
+    text.readOnly = kase.submitted;
+    contact.readOnly = kase.submitted;
     paintFiles();
     if (preview.open) schedulePreview();
   };
@@ -325,13 +324,16 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
   const schedulePreview = (): void => {
     if (previewTimer !== null) clearTimeout(previewTimer);
+    // After Send the preview shows what went out.
+    if (kase.submitted) {
+      pre.textContent = previewText(kase.delivered, api);
+      return;
+    }
     previewTimer = setTimeout(() => {
       previewTimer = null;
       void kase.compose(input()).then(
         (uploads) => {
-          // Once everything went out, the preview keeps showing what was sent.
-          if (uploads.report !== undefined || uploads.addendum !== undefined)
-            pre.textContent = previewText(uploads, api);
+          pre.textContent = previewText(uploadList(uploads), api);
         },
         (error: unknown) => diag.warn('report', 'preview failed', error),
       );
@@ -356,10 +358,10 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     closed = true;
     unsubscribe();
     if (previewTimer !== null) clearTimeout(previewTimer);
+    // Read before the removal, which leaves the focus on the body.
+    const focused = root.contains(document.activeElement);
     (shade ?? root).remove();
-    if (root.contains(document.activeElement) || manual) {
-      if (prior instanceof HTMLElement && prior.isConnected) prior.focus();
-    }
+    if ((focused || manual) && prior instanceof HTMLElement && prior.isConnected) prior.focus();
     opts.onClose();
   };
   dismiss.addEventListener('click', finish);

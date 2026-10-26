@@ -34,7 +34,7 @@ async function caseWith(answers: SendResult[]) {
   const posted: Posted[] = [];
   const queued: OutboxEntry[] = [];
   const kase = new ReportCase(
-    {
+    () => ({
       post: async (body, part, id) => {
         posted.push({ part, id, upload: ReportUpload.parse(await gunzipJson(body)) });
         return answers.shift() ?? { kind: 'sent' };
@@ -42,10 +42,9 @@ async function caseWith(answers: SendResult[]) {
       queue: async (entry) => {
         queued.push(entry);
       },
-      unqueue: async () => undefined,
       scheduleRetry: () => undefined,
       now: () => 0,
-    },
+    }),
     false,
   );
   await kase.prepare(await buildReportDraft({ trigger: 'error' }), OFFERS);
@@ -85,6 +84,19 @@ describe('bug report case', () => {
     expect(refiled.perf).toMatchObject({ refiledFrom: first });
     expect(refiled.comment).toBe('The bridge vanished.');
     expect(posted[3]).toMatchObject({ part: 'addendum', id: refiled.id });
+  });
+
+  it('never sends a second first part under an id: words for a report still queued follow in its addendum', async () => {
+    const { kase, posted, queued } = await caseWith([{ kind: 'retry', afterMs: null }]);
+    await kase.sendAutomatically();
+    await kase.sendFromPlayer(INPUT);
+
+    expect(posted.map((post) => post.part)).toEqual(['report']);
+    expect(queued.map((entry) => entry.part)).toEqual(['report', 'addendum']);
+    expect(await gunzipJson(queued[1]?.body ?? new Uint8Array())).toMatchObject({
+      part: 'addendum',
+      comment: 'The bridge vanished.',
+    });
   });
 
   it('keeps an unsent report and its attachments for a later try, the report first', async () => {

@@ -29,6 +29,7 @@ export const chtBugReport = {
     full: '回報伺服器目前已滿。請下載回報並透過其他方式傳送。',
     rejected: '伺服器沒有接受回報。請下載回報並透過其他方式傳送。',
     unsupported: '此瀏覽器無法傳送回報。請改為下載回報。',
+    expired: '回報無法傳送。請下載回報並透過其他方式傳送。',
     unsent: '尚未傳送任何內容。',
     limited: '本次工作階段已傳送過自動回報。你仍可以手動傳送這份回報。',
   },
@@ -69,7 +70,7 @@ export const chtBugReport = {
   sendAdditions: '傳送補充內容',
   download: '下載',
   close: '關閉',
-  privacy: '只傳送關於遊戲和電腦的技術資料。不會儲存你的 IP 位址，聯絡方式可不填。',
+  privacy: '回報包含關於遊戲和電腦的技術資料，以及你在此填寫的內容。不會儲存你的 IP 位址。',
   sizeKb: '{size} KB',
   sizeMb: '{size} MB',
 } as const;

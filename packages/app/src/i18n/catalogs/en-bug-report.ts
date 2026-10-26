@@ -30,6 +30,7 @@ export const enBugReport = {
     full: 'The report server is full right now. Please download the report and send it another way.',
     rejected: 'The server did not accept the report. Please download it and send it another way.',
     unsupported: 'This browser cannot send reports. Please download the report instead.',
+    expired: 'The report could not be sent. Please download it and send it another way.',
     unsent: 'Nothing has been sent yet.',
     limited: 'This session has already sent its automatic reports. You can still send this one yourself.',
   },
@@ -71,7 +72,7 @@ export const enBugReport = {
   download: 'Download',
   close: 'Close',
   privacy:
-    'Only technical data about the game and your computer is sent. Your IP address is not stored, and the contact is optional.',
+    'The report holds technical data about the game and your computer, and what you write here. Your IP address is not stored.',
   sizeKb: '{size} KB',
   sizeMb: '{size} MB',
 } as const;

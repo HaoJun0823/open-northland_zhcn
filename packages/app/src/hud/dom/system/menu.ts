@@ -1,4 +1,5 @@
 import { downloadDiagnosticsBundle, downloadTraceFile, isTraceRecording } from '../../../diag/index.js';
+import { REPORT_DIALOG_SELECTOR } from '../../../diag/report/dialog.js';
 import { openBugReportForm } from '../../../diag/report/flow.js';
 import { messages } from '../../../i18n/index.js';
 import { dismissOnBackdropClick } from '../../../view/backdrop-dismiss.js';
@@ -227,7 +228,8 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   const show = (): void => {
     previousFocus = document.activeElement;
     for (const child of document.body.children) {
-      if (child instanceof HTMLElement && child !== backdrop) {
+      // An open bug report dialog stands above the menu and stays usable.
+      if (child instanceof HTMLElement && child !== backdrop && !child.matches(REPORT_DIALOG_SELECTOR)) {
         inert.set(child, child.inert);
         child.inert = true;
       }

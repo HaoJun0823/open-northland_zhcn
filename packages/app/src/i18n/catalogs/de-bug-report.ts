@@ -35,6 +35,8 @@ export const deBugReport = {
     rejected:
       'Der Server hat den Bericht nicht angenommen. Bitte lade ihn herunter und schicke ihn auf anderem Weg.',
     unsupported: 'Dieser Browser kann keine Berichte senden. Bitte lade den Bericht stattdessen herunter.',
+    expired:
+      'Der Bericht konnte nicht gesendet werden. Bitte lade ihn herunter und schicke ihn auf anderem Weg.',
     unsent: 'Es wurde noch nichts gesendet.',
     limited:
       'Diese Sitzung hat ihre automatischen Berichte bereits gesendet. Diesen kannst du selbst senden.',
@@ -77,7 +79,7 @@ export const deBugReport = {
   download: 'Herunterladen',
   close: 'Schließen',
   privacy:
-    'Gesendet werden nur technische Daten über das Spiel und deinen Computer. Deine IP-Adresse wird nicht gespeichert, die Kontaktangabe ist freiwillig.',
+    'Der Bericht enthält technische Daten über das Spiel und deinen Computer sowie das, was du hier schreibst. Deine IP-Adresse wird nicht gespeichert.',
   sizeKb: '{size} KB',
   sizeMb: '{size} MB',
 } as const;

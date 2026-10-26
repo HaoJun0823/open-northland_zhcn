@@ -25,6 +25,17 @@ const POSIX_HOME = /(\/(?:Users|home)\/)[^/\s"'\\:]+/g;
 const WINDOWS_HOME = /([A-Za-z]:[\\/]+(?:Users|Documents and Settings)[\\/]+)[^\\/\s"':]+/gi;
 const HOME_MARK = '~';
 
+/** A `key=value` pair of a query or fragment inside free text, such as a logged page address. */
+const QUERY_PAIR = /([?&#;])([^=&#\s"'<>]+)=([^&#\s"'<>]*)/g;
+/** The `user:password@` part of an address. */
+const USER_INFO = /(\b[a-z][a-z0-9+.-]*:\/\/)[^/\s@"'<>]+@/gi;
+
+function secretParam(key: string, value: string): boolean {
+  return (
+    SECRET_PARAM_NAME.test(key) || PERSONAL_PARAMS.has(key) || (key === ROOM_PARAM && value !== NEW_ROOM)
+  );
+}
+
 /** `/Users/<name>/`, `/home/<name>/` and `C:\Users\<name>\` with the account name taken out. */
 export function redactHomePaths(text: string): string {
   return text.replace(POSIX_HOME, `$1${HOME_MARK}`).replace(WINDOWS_HOME, `$1${HOME_MARK}`);
@@ -59,11 +70,7 @@ export function redactRouteParams(params: URLSearchParams): RedactedRoute {
   const secrets = new Set<string>();
   for (const [key, value] of [...params].slice(0, MAX_PARAMS)) {
     let kept = value;
-    if (
-      SECRET_PARAM_NAME.test(key) ||
-      PERSONAL_PARAMS.has(key) ||
-      (key === ROOM_PARAM && value !== NEW_ROOM)
-    ) {
+    if (secretParam(key, value)) {
       kept = value === '' ? '' : REDACTED;
     } else {
       const address = addressWithoutSecrets(value);
@@ -79,9 +86,16 @@ export function redactRouteParams(params: URLSearchParams): RedactedRoute {
   return { params: shown, secrets: [...secrets].sort((a, b) => b.length - a.length) };
 }
 
-/** Free text with home paths and the given secret values taken out. */
+/**
+ * Free text with home paths, credentials in addresses, secret query values (whatever page the
+ * document showed when the text was logged) and the given secret values taken out.
+ */
 export function scrubText(text: string, secrets: readonly string[]): string {
-  let scrubbed = redactHomePaths(text);
+  let scrubbed = redactHomePaths(text)
+    .replace(USER_INFO, '$1')
+    .replace(QUERY_PAIR, (pair, mark: string, key: string, value: string) =>
+      value !== '' && secretParam(key, value) ? `${mark}${key}=${REDACTED}` : pair,
+    );
   for (const secret of secrets) scrubbed = scrubbed.replaceAll(secret, REDACTED);
   return scrubbed;
 }

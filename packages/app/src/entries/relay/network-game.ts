@@ -10,7 +10,6 @@ import {
   REPORT_ANSWER_TIMEOUT_MS,
   setDiagGameSession,
 } from '../../diag/index.js';
-import { fnv1a64 } from '../../diag/report/fingerprint.js';
 import { reportProblem } from '../../diag/report/problem.js';
 import type { NetPanelSource } from '../../hud/network/model.js';
 import { desyncNotice } from '../../hud/network/text.js';
@@ -201,11 +200,10 @@ export function renderNetworkGame(
       resyncing = event.message;
       // The report's game part reads the room's digests and verdict through `reportNet`'s `net`.
       const { tick, domains, reference } = event.message;
-      // Every client of the room reports its desync; the room's hash lines their reports up without
-      // carrying the id that joins the room.
-      const room = roomId === null ? null : fnv1a64(roomId);
+      // Every client of the room reports its desync; the world's seed and tick line their reports up,
+      // and the seat tells them apart. The room id stays out: it is the key that joins the room.
       const seat = client.session?.localSeat ?? null;
-      reportProblem({ trigger: 'desync', facts: { tick, domains, reference, room, seat } });
+      reportProblem({ trigger: 'desync', facts: { tick, domains, reference, seat } });
       // The frozen game says why, before the snapshot arrives and the loading card replaces it.
       showPlaque(desyncNotice(event.message.reference, event.message.tick).text);
     }

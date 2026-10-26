@@ -129,6 +129,16 @@ it('keeps the newest lines up to the relay’s cap', () => {
   expect(state.chat.at(-1)).toEqual(line(MAX_CHAT_HISTORY_LINES));
 });
 
+it('replaces the server chat with a whole history and appends a catch-up to it', () => {
+  const state = new RelayState('Ania');
+  const said = (text: string) => ({ from: 'Bartek', text, at: 1 });
+  state.apply({ kind: 'hallChatHistory', lines: [said('a')], replaces: true });
+  state.apply({ kind: 'hallChatHistory', lines: [said('b')], replaces: false });
+  expect(state.hallChat).toEqual([said('a'), said('b')]);
+  state.apply({ kind: 'hallChatHistory', lines: [said('c')], replaces: true });
+  expect(state.hallChat).toEqual([said('c')]);
+});
+
 it('reads the relay build off each welcome', () => {
   const state = new RelayState('Ania');
   state.apply({ kind: 'welcome', protocol: PROTOCOL_VERSION, nick: 'Ania', build: 'relay-1' });

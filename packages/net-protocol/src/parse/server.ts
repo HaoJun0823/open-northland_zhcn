@@ -125,6 +125,7 @@ export function parseServerMessage(
           const at = `hallChatHistory.lines[${i}]`;
           return parseHallChatLine(asRecord(line, at), at);
         }),
+        replaces: asBoolean(raw.replaces, 'hallChatHistory.replaces'),
       };
     case 'room':
       return { kind, room: parseRoomView(raw.room, 'room.room') };

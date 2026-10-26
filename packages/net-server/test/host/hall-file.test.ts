@@ -47,9 +47,9 @@ describe('hall file', () => {
     ).toEqual(RECORD);
   });
 
-  it('writes at once on flush', () => {
+  it('writes at once on flush', async () => {
     const file = path();
-    hallFile(
+    await hallFile(
       file,
       () => RECORD,
       () => undefined,
@@ -69,10 +69,10 @@ describe('hall file', () => {
     kept.changed();
     await vi.advanceTimersByTimeAsync(HALL_SAVE_DELAY_MS);
     record = RECORD;
-    kept.flush();
+    const flushed = kept.flush();
     kept.changed();
     vi.useRealTimers();
-    await new Promise((done) => setTimeout(done, 50));
+    await flushed;
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(RECORD);
   });
 

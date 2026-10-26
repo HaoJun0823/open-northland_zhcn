@@ -419,7 +419,11 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
     recent: [{ nick: 'Celina', at: 1_767_297_600_000 }],
   },
   { kind: 'hallChat', from: 'Ania', text: 'ktoś gra?', at: 1_767_297_600_000 },
-  { kind: 'hallChatHistory', lines: [{ from: 'Ania', text: 'ktoś gra?', at: 1_767_297_600_000 }] },
+  {
+    kind: 'hallChatHistory',
+    lines: [{ from: 'Ania', text: 'ktoś gra?', at: 1_767_297_600_000 }],
+    replaces: false,
+  },
   {
     kind: 'room',
     room: {

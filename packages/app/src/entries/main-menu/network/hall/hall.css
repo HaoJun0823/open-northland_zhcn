@@ -60,6 +60,7 @@
   list-style: none;
 }
 .network-hall__nicks > li {
+  overflow: hidden;
   padding: calc(var(--u) * 1) calc(var(--u) * 8);
   border-radius: 2px;
   background: #ffffff0d;
@@ -178,6 +179,7 @@
   scrollbar-color: var(--wood-hi) var(--deep);
 }
 .network-hall__chat-log > p {
+  overflow: hidden;
   padding: calc(var(--u) * 6) calc(var(--u) * 8);
   border-left: 2px solid transparent;
 }

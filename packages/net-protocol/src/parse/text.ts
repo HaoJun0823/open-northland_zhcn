@@ -29,8 +29,13 @@ export function parseLine(value: unknown, at: string, maxLength: number): string
   return line;
 }
 
+/** The latest time a JavaScript `Date` holds, in epoch milliseconds. */
+const MAX_DATE_MS = 8.64e15;
+
 export function asTimestamp(value: unknown, at: string): number {
-  return asNonNegativeNumber(value, at);
+  const time = asNonNegativeNumber(value, at);
+  if (time > MAX_DATE_MS) throw new Error(`${at}: ${time} is past the last date`);
+  return time;
 }
 
 export function assertNever(value: never): never {

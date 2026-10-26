@@ -13,15 +13,32 @@ import { HALL_RECORD_VERSION, parseHallRecord } from '../../../src/relay/hall/re
 const NOW = Date.UTC(2026, 9, 25, 12);
 
 describe('hall', () => {
+  it('catches a listener up on the lines said since it last heard, wholly once some are gone', () => {
+    const hall = new Hall(null, () => undefined);
+    hall.say('Ania', 'heard', NOW);
+    const heard = hall.said;
+    for (let i = 0; i < 3; i++) hall.say('Bartek', `${i}`, NOW);
+    expect(hall.history(NOW, heard)).toEqual({
+      kind: 'hallChatHistory',
+      lines: ['0', '1', '2'].map((text) => ({ from: 'Bartek', text, at: NOW })),
+      replaces: false,
+    });
+    for (let i = 0; i < MAX_HALL_CHAT_LINES; i++) hall.say('Celina', `${i}`, NOW);
+    expect(hall.history(NOW, heard)).toMatchObject({
+      replaces: true,
+      lines: { length: MAX_HALL_CHAT_LINES },
+    });
+  });
+
   it('keeps the newest chat lines within their age, oldest first', () => {
     const hall = new Hall(null, () => undefined);
     hall.say('Ania', 'stara', NOW - HALL_CHAT_KEPT_MS);
     for (let i = 0; i <= MAX_HALL_CHAT_LINES; i++) hall.say('Bartek', `${i}`, NOW - 1000 + i);
-    const { lines } = hall.history(NOW);
+    const { lines } = hall.history(NOW, null);
     expect(lines).toHaveLength(MAX_HALL_CHAT_LINES);
     expect(lines[0]?.text).toBe('1');
     expect(lines.at(-1)?.text).toBe(String(MAX_HALL_CHAT_LINES));
-    expect(new Hall(null, () => undefined).history(NOW).lines).toEqual([]);
+    expect(new Hall(null, () => undefined).history(NOW, null).lines).toEqual([]);
   });
 
   it('lists each online nick once, in its room if any, and the recently gone newest first', () => {
@@ -68,7 +85,7 @@ describe('hall', () => {
       ],
     });
     const restored = new Hall(record, () => undefined);
-    expect(restored.history(NOW).lines).toEqual(record.chat);
+    expect(restored.history(NOW, null).lines).toEqual(record.chat);
     expect(restored.presence([], NOW).recent.map((player) => player.nick)).toEqual(['Ania', 'Bartek']);
   });
 

@@ -41,8 +41,8 @@ export interface MessageStage {
   readonly relay: Relay;
   readonly now: () => number;
   advance(ms: number): void;
-  peer(): Peer;
-  introduce(token: string, nick: string): Peer;
+  peer(address?: string): Peer;
+  introduce(token: string, nick: string, address?: string): Peer;
 }
 
 /** The stage's wall clock at its start, in Unix epoch ms; it runs with the stage's own clock. */
@@ -64,10 +64,11 @@ export function stage(
     time.ms += ms;
     relay.advance();
   };
-  const peer = (): Peer => {
+  const peer = (address?: string): Peer => {
     const sent: ServerMessage[] = [];
     let closedFor: string | null = null;
     const handle = relay.connect({
+      ...(address === undefined ? {} : { address }),
       send: (message) => sent.push(message),
       close: (reason) => {
         closedFor = reason;
@@ -95,8 +96,8 @@ export function stage(
       last: (kind) => of(kind).at(-1),
     };
   };
-  const introduce = (token: string, nick: string): Peer => {
-    const p = peer();
+  const introduce = (token: string, nick: string, address?: string): Peer => {
+    const p = peer(address);
     p.send({ kind: 'hello', protocol: PROTOCOL_VERSION, token, nick });
     return p;
   };

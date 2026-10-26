@@ -13,7 +13,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export const HALL_CHAT_KEPT_MS = 14 * MS_PER_DAY;
 /** How long a nick that left stays in the recent list. */
 export const SEEN_KEPT_MS = 7 * MS_PER_DAY;
-/** Lines one connection may say at once; after that one more each `HALL_CHAT_REFILL_MS`. */
+/** Lines one peer address may say at once; after that one more each `HALL_CHAT_REFILL_MS`. */
 export const HALL_CHAT_BURST = 5;
 export const HALL_CHAT_REFILL_MS = 2000;
 
@@ -26,6 +26,8 @@ type PresenceMessage = Extract<ServerMessage, { kind: 'presence' }>;
  */
 export class Hall {
   private lines: HallChatLine[];
+  /** Lines said since the hall began, kept ones included: the count a listener has heard up to. */
+  said: number;
   /** Nick to when it was last seen, oldest first. */
   private readonly seen = new Map<string, number>();
 
@@ -34,6 +36,7 @@ export class Hall {
     private readonly changed: () => void,
   ) {
     this.lines = [...(record?.chat ?? [])].slice(-MAX_HALL_CHAT_LINES);
+    this.said = this.lines.length;
     const seen = [...(record?.seen ?? [])].sort((a, b) => a.at - b.at);
     for (const { nick, at } of seen) this.seen.set(nick, at);
   }
@@ -42,13 +45,19 @@ export class Hall {
     const line = { from, text, at };
     this.lines.push(line);
     if (this.lines.length > MAX_HALL_CHAT_LINES) this.lines.shift();
+    this.said++;
     this.changed();
     return { kind: 'hallChat', ...line };
   }
 
-  history(now: number): Extract<ServerMessage, { kind: 'hallChatHistory' }> {
+  /** Every kept line, or with `heard` (a `said` count) only the kept ones said after it. */
+  history(now: number, heard: number | null): Extract<ServerMessage, { kind: 'hallChatHistory' }> {
     this.forgetChat(now);
-    return { kind: 'hallChatHistory', lines: [...this.lines] };
+    const first = this.said - this.lines.length;
+    // A listener that missed lines no longer kept gets the whole chat, so no gap stays on its screen.
+    if (heard === null || heard < first)
+      return { kind: 'hallChatHistory', lines: [...this.lines], replaces: true };
+    return { kind: 'hallChatHistory', lines: this.lines.slice(heard - first), replaces: false };
   }
 
   /** `nick` arrived or left at `at`. */
@@ -102,21 +111,31 @@ export class Hall {
   }
 }
 
-/** A connection's allowance of hall chat lines: a burst, then a steady trickle. */
+/** An allowance of hall chat lines: a burst, then a steady trickle. */
 export class ChatAllowance {
   private lines = HALL_CHAT_BURST;
 
   constructor(private refilledAt: number) {}
 
+  /** Whether it is back to its whole burst. */
+  full(now: number): boolean {
+    this.refill(now);
+    return this.lines === HALL_CHAT_BURST;
+  }
+
   take(now: number): boolean {
+    this.refill(now);
+    if (this.lines === 0) return false;
+    if (this.lines === HALL_CHAT_BURST) this.refilledAt = now;
+    this.lines--;
+    return true;
+  }
+
+  private refill(now: number): void {
     const earned = Math.floor((now - this.refilledAt) / HALL_CHAT_REFILL_MS);
     if (earned > 0) {
       this.lines = Math.min(HALL_CHAT_BURST, this.lines + earned);
       this.refilledAt += earned * HALL_CHAT_REFILL_MS;
     }
-    if (this.lines === 0) return false;
-    if (this.lines === HALL_CHAT_BURST) this.refilledAt = now;
-    this.lines--;
-    return true;
   }
 }

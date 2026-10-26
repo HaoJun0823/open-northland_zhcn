@@ -20,7 +20,6 @@ import { Lobby } from '../lobby/lobby.js';
 import { type SeatChange, SeatTable } from '../lobby/seats.js';
 import { LobbyTransfers } from '../lobby/transfers.js';
 import { broadcast, type Deliver, figureFields, freshFigures, type Member, type Refusal } from '../member.js';
-import { uniqueNick } from '../nick.js';
 import { type RelayLog, wholeSeconds } from '../relay-log.js';
 import { Responsiveness } from '../timing/responsiveness.js';
 import { ChatLog } from './chat-log.js';
@@ -144,9 +143,9 @@ export class Room {
     return this.members.get(token) ?? null;
   }
 
-  /** A room-unique nick for someone joining as `nick`. */
-  uniqueNick(nick: string): string {
-    return uniqueNick(nick, new Set([...this.members.values()].map((member) => member.nick)));
+  /** Every member's nick, a disconnected member's held for its return. */
+  nicks(): string[] {
+    return [...this.members.values()].map((member) => member.nick);
   }
 
   /** Show a member that just entered the room the room and its chat so far. */

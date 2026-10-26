@@ -97,6 +97,15 @@ function byteLength(data: RawData): number {
   return data instanceof ArrayBuffer ? data.byteLength : data.length;
 }
 
+/** The player's address: the proxy's `X-Forwarded-For` when it set one, which the deployed proxies
+ *  replace rather than extend, otherwise the socket's peer. A client reaching the relay directly can
+ *  forge the header, which only gives it allowances of its own, as it would have per connection. */
+function peerAddress(request: IncomingMessage): string | undefined {
+  const forwarded = request.headers['x-forwarded-for'];
+  const last = (Array.isArray(forwarded) ? forwarded.join(',') : forwarded)?.split(',').at(-1)?.trim();
+  return last !== undefined && last !== '' ? last : request.socket.remoteAddress;
+}
+
 /** The request target up to its query, taken as text: a URL parser would refuse targets the HTTP
  *  parser accepts, and nothing here needs more than the path. */
 function pathOf(request: IncomingMessage): string {
@@ -237,7 +246,9 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
         log('sending failed', faultFields(err));
       }
     };
+    const address = peerAddress(request);
     const connection: Connection = {
+      ...(address === undefined ? {} : { address }),
       send: (message) => {
         const open = socket.readyState === socket.OPEN;
         if (sendBounded(socket, encode(message), ping) && !downloadInFlight) reportDownload(true);
@@ -388,13 +399,14 @@ export function startRelayHost(options: RelayHostOptions): Promise<RelayHost> {
           } catch (err) {
             log('stop failed', faultFields(err));
           }
-          hall?.flush();
+          const saved = hall?.flush();
           // Rooms live in memory and end here; the close code tells a client not to wait for them.
           // `closeTimeout` bounds a client that never answers the close.
           for (const socket of sockets.clients) socket.close(CLOSE_SERVICE_RESTART, SERVER_RESTART);
           sockets.close();
           server.closeAllConnections();
-          return new Promise((done, fail) => server.close((err) => (err ? fail(err) : done())));
+          const closed = new Promise<void>((done, fail) => server.close((err) => (err ? fail(err) : done())));
+          return Promise.all([saved, closed]).then(() => undefined);
         },
       });
     });

@@ -323,8 +323,9 @@ export type ServerMessage =
       readonly recent: readonly RecentPlayer[];
     }
   | ({ readonly kind: 'hallChat' } & HallChatLine)
-  /** The relay's chat so far, oldest first, sent to a client each time it arrives outside a room. */
-  | { readonly kind: 'hallChatHistory'; readonly lines: readonly HallChatLine[] }
+  /** The relay's chat, oldest first, as a client arrives outside a room: all it keeps when `replaces`,
+   *  otherwise the lines said since the client last heard the hall, to append. */
+  | { readonly kind: 'hallChatHistory'; readonly lines: readonly HallChatLine[]; readonly replaces: boolean }
   | { readonly kind: 'room'; readonly room: RoomView }
   | { readonly kind: 'left' }
   /** `snapshotTick` is the tick of the room's cached snapshot, which a client holding no world asks

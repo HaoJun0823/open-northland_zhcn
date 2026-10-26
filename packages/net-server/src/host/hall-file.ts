@@ -11,33 +11,30 @@ export interface HallFile {
   readonly initial: HallRecord | null;
   /** Something changed: write `read()` after `HALL_SAVE_DELAY_MS`. */
   changed(): void;
-  /** Write at once, as the host stops; nothing after it is written. */
-  flush(): void;
+  /** Write once a save in flight has landed, as the host stops; nothing after it is written. */
+  flush(): Promise<void>;
 }
 
 /** The hall kept in one JSON file, replaced whole through a temporary beside it. A file that does not
  *  parse is moved aside to `<path>.rejected` and the hall starts empty. */
 export function hallFile(path: string, read: () => HallRecord, log: RelayLog): HallFile {
   const temporary = `${path}.tmp`;
-  /** The stop's own temporary, which a save still in flight never writes into. */
-  const final = `${path}.final.tmp`;
   let flushed = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let writing = false;
+  let writing: Promise<void> | null = null;
   let again = false;
 
   const write = (): void => {
     timer = null;
-    if (writing) {
+    if (writing !== null) {
       again = true;
       return;
     }
-    writing = true;
-    writeFile(temporary, JSON.stringify(read()))
-      .then(() => (flushed ? undefined : rename(temporary, path)))
+    writing = writeFile(temporary, JSON.stringify(read()))
+      .then(() => rename(temporary, path))
       .catch((err: unknown) => log('hall save failed', { path, ...faultFields(err) }))
       .finally(() => {
-        writing = false;
+        writing = null;
         if (again && !flushed) {
           again = false;
           write();
@@ -50,13 +47,14 @@ export function hallFile(path: string, read: () => HallRecord, log: RelayLog): H
     changed(): void {
       if (!flushed) timer ??= setTimeout(write, HALL_SAVE_DELAY_MS);
     },
-    flush(): void {
+    async flush(): Promise<void> {
       if (timer !== null) clearTimeout(timer);
       timer = null;
       flushed = true;
+      await writing;
       try {
-        writeFileSync(final, JSON.stringify(read()));
-        renameSync(final, path);
+        writeFileSync(temporary, JSON.stringify(read()));
+        renameSync(temporary, path);
       } catch (err) {
         log('hall save failed', { path, ...faultFields(err) });
       }

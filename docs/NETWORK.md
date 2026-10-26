@@ -55,8 +55,8 @@ A `hello` with a token already connected replaces that connection: the older one
 `error { reason: { code: "replaced" } }` and is closed, and its room membership carries over. A token that
 belongs to a started room, connected or not, is put back into that room by `hello` alone, and its
 `welcome` uses the room's retained canonical nick; in the lobby a dropped connection is a leave. Any
-other `hello` whose nick another connection holds gets the lowest free numeric suffix in its `welcome`,
-as a room join does. When a
+other `hello` whose nick another connection or a room member holds, ignoring case, compatibility forms and invisible characters,
+gets the lowest free numeric suffix in its `welcome`, as a room join does. When a
 join assigns a numeric suffix, a further `welcome` announces that canonical nick before the first room
 view, as a name update, not a new connection. The relay attaches membership before publishing the view,
 so a client can answer it immediately.
@@ -660,20 +660,24 @@ enters the room: on creating it, on joining it, and on every return of its token
 
 A client outside a room is in the hall: the room list, who is on the relay, and the relay's own chat.
 Each time a client arrives there (after `welcome` unless its token was put back into a room, and after
-leaving a room) it gets `rooms`, `presence` and `hallChatHistory`, then, at most once per
-`HALL_REFRESH_MS`, `rooms` and `presence` again when either changed. A running clock's advance alone is no
+leaving a room) it gets, within `HALL_ARRIVAL_MS`, what changed since it last heard the hall on this
+connection: `rooms` and `presence` when they differ (`rooms` also whenever a game is running, for its clock), and `hallChatHistory`, whole the first time
+(`replaces: true`) and later with only the lines said since (`replaces: false`, sent when there are any),
+whole again when some it missed are no longer kept.
+Then, at most once per `HALL_REFRESH_MS`, it gets `rooms` and `presence` again when either changed. A running clock's advance alone is no
 change; the client counts `playedMs` on from when the list arrived. A member of a room gets none of these.
 
 `presence { online: [{ nick, room }], recent: [{ nick, at }] }` names each introduced connection by its
 last `welcome` nick, once per nick, with the id of the room it is in or null; `recent` lists the nicks seen within
 `SEEN_KEPT_MS` that are not online, newest first, `at` being when the relay last saw them, in Unix epoch
-milliseconds. Each list carries at most `MAX_PRESENCE_ENTRIES`.
+milliseconds. Only an identity online for `SEEN_AFTER_MS`, across connections that replaced one another, is remembered. Each list carries at most `MAX_PRESENCE_ENTRIES`.
 
 `hallChat { text }` from a client in the hall is broadcast to the hall as `hallChat { from, text, at }`,
 `from` being the sender's last `welcome` nick; the text follows the room chat's rules. A connection may say
-`HALL_CHAT_BURST` lines at once and one more every `HALL_CHAT_REFILL_MS`; past that it is refused with
-`retryTooSoon`. The relay keeps the newest `MAX_HALL_CHAT_LINES` lines of the last `HALL_CHAT_KEPT_MS`, and
-`hallChatHistory { lines: [{ from, text, at }] }` replays them oldest first. With `RELAY_HALL_FILE` set the
+`HALL_CHAT_BURST` lines at once and one more every `HALL_CHAT_REFILL_MS`, an allowance its peer address
+shares with its other connections (the proxy's `X-Forwarded-For`, else the socket's peer); past that it is
+refused with `retryTooSoon`. The relay keeps the newest `MAX_HALL_CHAT_LINES` lines of the last `HALL_CHAT_KEPT_MS`, and
+`hallChatHistory { lines: [{ from, text, at }], replaces }` replays them oldest first. With `RELAY_HALL_FILE` set the
 chat and the seen times survive a restart ([Relay image](BUILDING.md#relay-image)).
 
 ## Refusal codes
@@ -755,8 +759,9 @@ Each value verified against its constant; the owning package is in brackets.
 | `MIN_TOKEN_LENGTH`, `MAX_TOKEN_LENGTH` [protocol] | 16, 128 | Token, URL-safe characters. |
 | `MAX_NICK_LENGTH`, `MAX_ROOM_NAME_LENGTH`, `MAX_CHAT_LENGTH`, `MAX_CHAT_HISTORY_LINES` [protocol] | 24, 48, 500, 500 | Characters; chat lines kept per room. |
 | `MAX_HALL_CHAT_LINES`, `HALL_CHAT_KEPT_MS` [protocol, server] | 200, 14 days | Server chat lines kept and replayed. |
-| `HALL_CHAT_BURST`, `HALL_CHAT_REFILL_MS` [server] | 5, 2 s | Server chat lines per connection. |
-| `MAX_PRESENCE_ENTRIES`, `SEEN_KEPT_MS`, `HALL_REFRESH_MS` [protocol, server, server] | 500, 7 days, 1 s | Entries of each `presence` list; how long a nick stays recent; the hall's update cadence. |
+| `HALL_CHAT_BURST`, `HALL_CHAT_REFILL_MS` [server] | 5, 2 s | Server chat lines per peer address. |
+| `MAX_PRESENCE_ENTRIES`, `SEEN_KEPT_MS`, `SEEN_AFTER_MS` [protocol, server, server] | 500, 7 days, 15 s | Entries of each `presence` list; how long a nick stays recent; how long a connection stays to be remembered. |
+| `HALL_REFRESH_MS`, `HALL_ARRIVAL_MS` [server] | 1 s, 100 ms | The hall's update cadence; how often arrivals in the hall are served. |
 | `MAX_ROOM_ID_LENGTH`, `MAX_WORLD_ID_LENGTH`, `MAX_COMMAND_KIND_LENGTH`, `MAX_REASON_LENGTH` [protocol] | 32, 128, 64, 200 | Characters; the last bounds `malformed`'s `detail`. |
 | `MAX_CLIENT_VERSION_LENGTH`, `MAX_RELAY_BUILD_LENGTH` [protocol] | 128, 128 | Printable characters of a report's `client` and of `welcome`'s `build`. |
 
@@ -777,7 +782,8 @@ hold the pacer refills the buffer and a burst of late frames runs one tick per d
 five. A `snapshotRequest` is skipped while the world stands behind the newest snapshot tick the client has
 seen the relay cache. The client keeps the room's chat as the relay logs it: `chatHistory` replaces it on
 every entry and return, and each `chat` appends to it, up to `MAX_CHAT_HISTORY_LINES`; the hall's chat
-likewise, from `hallChatHistory` and `hallChat`, up to `MAX_HALL_CHAT_LINES`.
+likewise, from `hallChatHistory` (replacing or appending, as it says) and `hallChat`, up to
+`MAX_HALL_CHAT_LINES`.
 
 The command outbox sends a gesture only while fewer than `MAX_COMMANDS_PER_TICK` of the client's own are
 in flight (sent and not yet applied or refused) and their JSON bytes with its own stay within

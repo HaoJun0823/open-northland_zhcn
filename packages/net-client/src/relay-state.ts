@@ -71,7 +71,9 @@ export class RelayState {
         this.recent = message.recent;
         break;
       case 'hallChatHistory':
-        this.hallChat = message.lines;
+        this.hallChat = (message.replaces ? message.lines : [...this.hallChat, ...message.lines]).slice(
+          -MAX_HALL_CHAT_LINES,
+        );
         break;
       case 'hallChat': {
         const line: HallChatLine = { from: message.from, text: message.text, at: message.at };

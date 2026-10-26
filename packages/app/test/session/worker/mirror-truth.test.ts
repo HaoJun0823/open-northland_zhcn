@@ -15,6 +15,7 @@ import type { FromWorker, WorkerSessionOptions } from '../../../src/session/work
 import { type HostedBuild, serveSession } from '../../../src/session/worker/serve.js';
 import { startWorkerSession, type WorkerSession } from '../../../src/session/worker/worker-session.js';
 import { nodeParentPort } from '../../support/session-worker/node-ports.js';
+import { SILENT_STALL_REPORTS } from '../../support/session-worker/start-worker.js';
 
 /**
  * A `debug=diag` worker session checks the mirror it draws from against the worker's world: a delta
@@ -25,7 +26,6 @@ import { nodeParentPort } from '../../support/session-worker/node-ports.js';
 const SPEED = 8;
 const TURN_MS = 10;
 const RUN_TIMEOUT_MS = 30_000;
-const SILENT_STALL_REPORTS = { stalled: () => undefined, recovered: () => undefined };
 const OPTIONS: WorkerSessionOptions = {
   speed: SPEED,
   paused: false,

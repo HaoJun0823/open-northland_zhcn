@@ -6,8 +6,8 @@ import type { MapWorldDocuments } from '../../src/entries/map/world-inputs.js';
 import { RelayedWorlds, WorldNotAdoptedError } from '../../src/net/relayed-worlds.js';
 import type { WorkerSessionOptions } from '../../src/session/worker/protocol.js';
 import * as bootstrap from '../../src/view/runtime/world-bootstrap.js';
+import { SILENT_STALL_REPORTS } from '../support/session-worker/start-worker.js';
 
-const SILENT_STALL_REPORTS = { stalled: () => undefined, recovered: () => undefined };
 const OPTIONS = { speed: 1 } as WorkerSessionOptions;
 const DOCUMENTS = {} as MapWorldDocuments;
 

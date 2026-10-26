@@ -53,6 +53,8 @@ export interface WorkerSession<E> {
   offThreadTickCost(): OffThreadTickCost;
   /** The driver's capture as file bytes, serialized and compressed on the worker. */
   captureSaveFile(options: ExportSaveOptions): Promise<SaveFile>;
+  /** The worker's own diag ring as it stands; never settles once the session is disposed. */
+  workerLog(): Promise<readonly DiagEntry[]>;
   /** Stop the worker; answers still pending never land, save captures fail. Idempotent. */
   dispose(): void;
 }
@@ -67,6 +69,13 @@ export interface WorkerBootCost {
   readonly readyReceiveMs: number;
   /** From the post to the first delta applied. */
   readonly totalMs: number;
+}
+
+/** What a session tells the app of its worker: a silence, and an error the worker raised. */
+export interface WorkerReports extends StallReports {
+  /** The worker posted an uncaught error or rejection, or a tick threw there. A fatal fault's error is
+   *  the one the session then fails with. */
+  faulted(error: Error, source?: string): void;
 }
 
 export interface WorkerSessionTimings {
@@ -124,7 +133,7 @@ export interface WorkerSessionOpening<E> {
 export function sessionOverPort<E>(
   port: SessionOutlet,
   options: WorkerSessionOptions,
-  reports: StallReports,
+  reports: WorkerReports,
   timings: WorkerSessionTimings = {},
 ): WorkerSessionOpening<E> {
   let client: WorkerClient<E> | null = null;
@@ -151,6 +160,14 @@ export function sessionOverPort<E>(
       else refuse(error);
     },
     receive: (message, receiveMs) => {
+      if (message.kind === 'fault') {
+        const error = errorFromWire(message.fault.error);
+        reports.faulted(error, message.fault.source);
+        if (!message.fault.fatal) return;
+        if (client !== null) client.fail(error);
+        else refuse(error);
+        return;
+      }
       if (client !== null) {
         client.receive(message, receiveMs);
         return;
@@ -180,7 +197,7 @@ export function startWorkerSession<B, E>(
   port: SessionPort,
   boot: B,
   options: WorkerSessionOptions,
-  reports: StallReports,
+  reports: WorkerReports,
   timings: WorkerSessionTimings = {},
 ): Promise<WorkerSession<E>> {
   const opening = sessionOverPort<E>(port, options, reports, timings);
@@ -227,7 +244,7 @@ class WorkerClient<E> {
     private readonly port: SessionOutlet,
     private readonly ready: WorkerReady<E>,
     options: WorkerSessionOptions,
-    reports: StallReports,
+    private readonly reports: WorkerReports,
     timings: WorkerSessionTimings,
   ) {
     this.mirror.apply(ready.delta);
@@ -272,12 +289,16 @@ class WorkerClient<E> {
         else call?.reject(errorFromWire(message.error));
         return;
       }
-      case 'tickError':
+      case 'tickError': {
         diag.error('session', `worker tick ${message.tick} threw; the view keeps an earlier whole tick`);
-        this.fail(errorFromWire(message.error));
+        const error = errorFromWire(message.error);
+        this.reports.faulted(error);
+        this.fail(error);
         return;
+      }
       case 'ready':
       case 'bootFailed':
+      case 'fault':
       case 'pong':
         return;
     }
@@ -294,6 +315,7 @@ class WorkerClient<E> {
       offThreadTickCost: () => this.lastCost,
       captureSaveFile: (options) =>
         this.call({ method: 'captureSaveFile', options }, true).then(({ value }) => value as SaveFile),
+      workerLog: () => this.call({ method: 'diagLog' }).then(({ value }) => value as readonly DiagEntry[]),
       dispose: () => this.dispose(),
     };
   }

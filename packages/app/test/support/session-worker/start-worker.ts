@@ -6,9 +6,9 @@ import { Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
 import type { SessionPort } from '../../../src/session/worker/port.js';
 import type { FromWorker, WorkerSessionOptions } from '../../../src/session/worker/protocol.js';
-import type { StallReports } from '../../../src/session/worker/stall-watch.js';
 import {
   startWorkerSession,
+  type WorkerReports,
   type WorkerSession,
   type WorkerSessionTimings,
 } from '../../../src/session/worker/worker-session.js';
@@ -39,7 +39,11 @@ export async function bundleTestWorker(
   return { path, dispose: () => rm(dir, { recursive: true, force: true }) };
 }
 
-export const SILENT_STALL_REPORTS: StallReports = { stalled: () => undefined, recovered: () => undefined };
+export const SILENT_STALL_REPORTS: WorkerReports = {
+  stalled: () => undefined,
+  recovered: () => undefined,
+  faulted: () => undefined,
+};
 
 export const DEFAULT_TEST_OPTIONS: WorkerSessionOptions = {
   speed: 1,
@@ -70,7 +74,7 @@ export function startTestSession(
   workerPath: string,
   boot: TestWorldBoot,
   options: Partial<WorkerSessionOptions> = {},
-  reports: StallReports = SILENT_STALL_REPORTS,
+  reports: WorkerReports = SILENT_STALL_REPORTS,
   timings: WorkerSessionTimings = {},
   observe?: (message: FromWorker<null>) => void,
 ): Promise<WorkerSession<null>> {

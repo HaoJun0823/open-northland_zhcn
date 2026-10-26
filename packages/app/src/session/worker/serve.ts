@@ -663,6 +663,8 @@ export class ServedSession<E> {
         return saveFileOf(await this.driver.captureSave(call.options));
       case 'profileRows':
         return this.profile?.rows() ?? [];
+      case 'diagLog':
+        return diag.entries();
     }
   }
 

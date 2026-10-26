@@ -9,11 +9,15 @@ import {
 } from '@open-northland/render';
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import type { createSoundDriver } from '../../content/audio/sound-driver.js';
+import { alreadyReported, reportError } from '../../diag/capture/report-error.js';
+import { errorText } from '../../diag/error-text.js';
 import {
+  diag,
   type FrameSample,
   type FrameStats,
   framePhaseEmitter,
   recordTickDiagnostics,
+  showCrashBanner,
 } from '../../diag/index.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
@@ -128,6 +132,28 @@ export interface FrameLoopDeps {
   readonly pointer: () => { clientX: number; clientY: number } | null;
   /** Reconcile Pixi's live screen size before camera and HUD work. */
   readonly syncViewport: (nowMs: number) => void;
+}
+
+/** The part of a frame running when it threw, for the report. */
+type FrameStage =
+  | 'viewport'
+  | 'advance'
+  | 'snapshot'
+  | 'hud'
+  | 'controls'
+  | 'render'
+  | 'overlays'
+  | 'audio'
+  | 'stats';
+
+/** A frame threw, and the loop stopped for good: a frame that threw midway leaves the HUD and the
+ *  renderer half updated, and a failed driver throws again on every advance, so a loop going on would
+ *  draw a broken world or report the same error sixty times a second. A worker's error that failed
+ *  the driver was reported as that worker's. */
+function frameFailed(error: unknown, stage: FrameStage): void {
+  if (alreadyReported(error)) diag.error('crash', `the frame loop stopped in ${stage}`);
+  else reportError('main', error, { facts: { frameStage: stage } });
+  showCrashBanner(errorText(error));
 }
 
 /** The entity ids of the settlers and animals in a culled draw list - both draw as the `settler` kind. */
@@ -271,7 +297,9 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     }
   };
 
+  let stage: FrameStage = 'viewport';
   function frame(nowMs: number): void {
+    stage = 'viewport';
     if (loop.suspended?.() === true && !deps.sharedClock) driver.setPaused(true);
     syncViewport(nowMs);
     const pointer = pointerAt();
@@ -283,6 +311,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     combatTicks.length = 0;
     // A persistently high step count is the sim falling behind wall-clock.
     steps = 0;
+    stage = 'advance';
     const renderAlpha = driver.advance(elapsed, collect);
     // A synchronous driver failure can tear down the view while advance is on the stack.
     if (loop.isDisposed?.()) return;
@@ -297,9 +326,11 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     // same frame the pool starts drawing it.
     if (frameEvents.length > 0) deps.onEvents?.(frameEvents);
     if (deps.sharedClock && deps.confirmedMatchEnd?.() != null) loop.onMatchEnd?.();
+    stage = 'snapshot';
     const snap0 = performance.now();
     const snap = host.snapshot();
     const snapMs = performance.now() - snap0;
+    stage = 'hud';
     // One fog read shared by the renderer, the minimap mask and the event filter, so no consumer can
     // disagree about a cell. `null` is fog off; a spectator gets it view-only, sim fog state untouched.
     const fogView = loop.fogView();
@@ -365,6 +396,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     );
     // Before `renderer.update`, so the panel a rebuild bakes and the portrait inset painted over it both
     // show this frame's state.
+    stage = 'controls';
     controls.tick(snap);
     controls.presentFigures(snap, renderAlpha);
     // World cutouts centred on the selection and on the trade window's houses, rendered into their boxes
@@ -377,6 +409,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     renderer.setBuildingHighlight(
       toolPanel.controller.gateSites()?.highlight ?? wallDemolish ?? controls.assignHighlight(),
     );
+    stage = 'render';
     const constructionSigns = constructionSignsFor(snap);
     const settlerBubbles = settlerBubblesFor(snap);
     // Blood and bones decay against the sim tick, so a pause or a screenshot reproduces.
@@ -430,12 +463,14 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       gpuTimer: perfReadout.gpuTimer(),
     });
     const worldMs = performance.now() - world0;
+    stage = 'overlays';
     loop.mapOverlay?.update(snap, drawnCamera, app.screen, loop.viewer.seat(), fogView);
     controls.refreshCursor(snap);
     worldHover.update(snap, nowMs); // after controls, so the pointer-claim state is current
     presentation?.frame(snap, drawnCamera, nowMs);
     deps.onFrame?.(snap);
     // Timed only while a recording asks: the audio path's own share of the frame.
+    stage = 'audio';
     const audio0 = emitPhase === null ? 0 : performance.now();
     // After `renderer.update`, which stepped the weather this frame.
     soundDriver?.updateWeather(renderer.weatherConditions(), (snap.tick + renderAlpha) / TICKS_PER_SECOND);
@@ -467,6 +502,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       });
     }
     if (emitPhase !== null) emitPhase('frame/audio', audio0, performance.now());
+    stage = 'stats';
     const cpuMs = performance.now() - cpu0;
     // The remainder after the driver and the snapshot, so the three sum to cpuMs.
     const drawMs = cpuMs - advanceMs - snapMs;
@@ -502,6 +538,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
   }
   return startRafLoop(frame, {
     fpsLimit: loop.fpsLimit,
+    onFrameError: (error) => frameFailed(error, stage),
     ...(loop.onFirstFrameShown === undefined ? {} : { onFirstFrameShown: loop.onFirstFrameShown }),
   });
 }

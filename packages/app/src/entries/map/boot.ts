@@ -32,7 +32,7 @@ import { loadMapObjects } from '../../content/object-gfx/objects.js';
 import { resolveSpriteSheet } from '../../content/sprite-sheet/index.js';
 import { readVerifiedMapDocuments, type VerifiedMapDocuments } from '../../content/transfer/index.js';
 import { contentFetch } from '../../content/url.js';
-import { diag, hashTraceFor, setDiagGameSession } from '../../diag/index.js';
+import { type DiagEntry, diag, hashTraceFor, setDiagGameSession } from '../../diag/index.js';
 import { assertMultiplayerMap } from '../../game/map/multiplayer.js';
 import { sessionSeating } from '../../game/match/seat-tribes.js';
 import { onOffParam } from '../../game/match/session-rules.js';
@@ -83,6 +83,8 @@ export interface HostedMapWorld {
   /** As the world stood when built, for the briefing's skirmish goal. */
   readonly matchRules: MatchRulesView;
   readonly seed: number;
+  /** The worker's diag ring, where the world runs in one. */
+  readonly workerLog?: () => Promise<readonly DiagEntry[]>;
 }
 
 /** What the boot reads of the save a world restores from; the host holds the save itself. */
@@ -369,6 +371,7 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
       restoredAtTick: stagedSave !== null ? host.tick : null,
       host,
       hashTrace: hashTraceFor(params),
+      ...(hosted.workerLog === undefined ? {} : { workerLog: hosted.workerLog }),
     });
     assembled = true;
     return {

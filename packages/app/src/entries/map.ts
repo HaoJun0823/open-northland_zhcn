@@ -10,7 +10,7 @@ import { replaceEntryUrl } from '../view/platform/navigation-guard.js';
 import { type StagedSession, takeStagedSession } from '../view/runtime/save-load/index.js';
 import { haltOnFailedRestore } from '../view/runtime/world-bootstrap.js';
 import { assembleMapWorld, type HostedMapWorld, presentMapWorld } from './map/boot.js';
-import { workerStallReports } from './map/stall-reports.js';
+import { workerReports } from './map/worker-reports.js';
 import type { MapWorkerBoot, MapWorldDocuments, MapWorldPlacements } from './map/world-inputs.js';
 
 export { MAP_BOOT_PHASES, RELAYED_MAP_BOOT_PHASES } from './map/boot.js';
@@ -59,7 +59,7 @@ export async function renderMap(canvas: HTMLCanvasElement, params: URLSearchPara
         diagnostics: hasDebugFlag(params, HASH_TRACE_DEBUG_FLAG),
         pauseOnSubMission: true,
       },
-      workerStallReports,
+      workerReports('sim-worker'),
     );
     booted.session = session;
     diag.info('boot', 'sim worker ready', { ...session.boot });
@@ -69,6 +69,7 @@ export async function renderMap(canvas: HTMLCanvasElement, params: URLSearchPara
       placements: session.extras,
       matchRules: session.matchRules,
       seed: session.seed,
+      workerLog: session.workerLog,
     };
   };
   const world = await assembleMapWorld(canvas, params, {

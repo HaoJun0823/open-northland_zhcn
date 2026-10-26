@@ -3,7 +3,7 @@ import type { DisputeRecord, TickDigest } from '@open-northland/net-client';
 import type { ClosingCode, RelayReason, ServerMessage } from '@open-northland/net-protocol';
 import { errorText } from '../diag/error-text.js';
 import { diag } from '../diag/index.js';
-import { workerStallReports } from '../entries/map/stall-reports.js';
+import { workerReports } from '../entries/map/worker-reports.js';
 import type { MapWorkerBoot, MapWorldPlacements } from '../entries/map/world-inputs.js';
 import {
   type FromNetWorker,
@@ -17,8 +17,8 @@ import {
   type ToNetWorker,
 } from '../session/worker/net-protocol.js';
 import { endpointPort, type SessionPort } from '../session/worker/port.js';
-import { type WorkerSessionOptions, wireError } from '../session/worker/protocol.js';
-import type { WorkerSession } from '../session/worker/worker-session.js';
+import { errorFromWire, type WorkerSessionOptions, wireError } from '../session/worker/protocol.js';
+import type { WorkerReports, WorkerSession } from '../session/worker/worker-session.js';
 import { holdRelayPlace, requestUpdateCheck } from '../update/watcher.js';
 import { RelayClientMirror } from './net-worker-client.js';
 import { type RejoinOutcome, rejoinProbe } from './rejoin.js';
@@ -91,6 +91,7 @@ export class NetworkConnection {
   private readonly port: SessionPort;
   private readonly listeners = new Set<(event: ConnectionEvent) => void>();
   private readonly worlds: RelayedWorlds<MapWorldPlacements>;
+  private readonly reports: WorkerReports = workerReports('net-worker');
   private readonly rejoin: (message: ServerMessage) => RejoinOutcome;
   /** The requests the worker has not answered yet; they reject once it never will. */
   private readonly answers = new Map<
@@ -118,17 +119,13 @@ export class NetworkConnection {
       this.resolveWorldPort = resolve;
     });
     this.port = openPort();
-    this.worlds = new RelayedWorlds((message) => this.port.post(message), workerStallReports);
+    this.worlds = new RelayedWorlds((message) => this.port.post(message), this.reports);
     this.client = new RelayClientMirror(identity.nick, (message) => this.post(message));
     this.rejoin = rejoinProbe(this.client);
     // A room is a relayed game to the update notice even while the menu shows it.
     this.releasePlace = holdRelayPlace(() => this.client.room !== null);
     this.port.listen((data, receiveMs) => this.receive(data as FromNetWorker<MapWorldPlacements>, receiveMs));
-    this.port.listenFailure((error) => {
-      if (this.workerError !== null) return;
-      this.stopWorker(error);
-      this.emit({ kind: 'failure', what: 'worker', error });
-    });
+    this.port.listenFailure((error) => this.workerFailed(error));
     this.post({ kind: 'connect', url, ...identity });
   }
 
@@ -207,6 +204,12 @@ export class NetworkConnection {
     }
     if (this.disposed || this.workerError !== null) return;
     switch (message.kind) {
+      case 'fault': {
+        const error = errorFromWire(message.fault.error);
+        this.reports.faulted(error, message.fault.source);
+        if (message.fault.fatal) this.workerFailed(error);
+        return;
+      }
       case 'message': {
         const relayed = message.message;
         this.client.apply(relayed);
@@ -327,6 +330,12 @@ export class NetworkConnection {
   private rejectAnswers(error: Error): void {
     for (const pending of this.answers.values()) pending.reject(error);
     this.answers.clear();
+  }
+
+  private workerFailed(error: Error): void {
+    if (this.workerError !== null) return;
+    this.stopWorker(error);
+    this.emit({ kind: 'failure', what: 'worker', error });
   }
 
   private stopWorker(error: Error): void {

@@ -13,6 +13,9 @@ export interface RafLoopOptions {
    *  presented what that frame drew, first-use GPU work it blocked on included. A hidden page runs no
    *  animation frames, so there it is called at once, after one `frame` outside them if none ran. */
   readonly onFirstFrameShown?: () => void;
+  /** Hears what a frame threw, once the loop has stopped for good: a frame that threw midway leaves
+   *  the view half updated. Without it the error leaves the animation frame uncaught. */
+  readonly onFrameError?: (error: unknown) => void;
 }
 
 /** rAF timestamps jitter a few ms around the display's refresh grid; admitting a frame this early
@@ -56,9 +59,20 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
   let running = true;
   let drawn = false;
   let shown = false;
+  let rafId = 0;
+  const { onFrameError } = options;
   const draw = (nowMs: number): void => {
     lastDrawnMs = nowMs;
-    frame(nowMs);
+    if (onFrameError === undefined) frame(nowMs);
+    else {
+      try {
+        frame(nowMs);
+      } catch (error) {
+        stop();
+        onFrameError(error);
+        return;
+      }
+    }
     drawn = true;
   };
   const markShown = (): void => {
@@ -81,7 +95,12 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
     document.addEventListener('visibilitychange', whenHidden);
     queueMicrotask(whenHidden);
   }
-  let rafId = requestAnimationFrame(function tick(nowMs) {
+  function stop(): void {
+    running = false;
+    stopWatchingHidden();
+    cancelAnimationFrame(rafId);
+  }
+  rafId = requestAnimationFrame(function tick(nowMs) {
     if (!running) return;
     if (drawn && !shown) markShown();
     if (admits(nowMs)) draw(nowMs);
@@ -89,11 +108,7 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
     if (running) rafId = requestAnimationFrame(tick);
   });
   return {
-    stop(): void {
-      running = false;
-      stopWatchingHidden();
-      cancelAnimationFrame(rafId);
-    },
+    stop,
     setFpsLimit(fpsLimit): void {
       admits = createFrameLimiter(fpsLimit, lastDrawnMs);
     },

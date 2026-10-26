@@ -38,6 +38,25 @@ describe('startRafLoop', () => {
     vi.unstubAllGlobals();
   });
 
+  it('stops for good on a frame that throws and hands the error to its handler once', () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+    const thrown = new Error('frame broke');
+    const heard: unknown[] = [];
+    let frames = 0;
+    startRafLoop(
+      () => {
+        frames++;
+        throw thrown;
+      },
+      { onFrameError: (error) => heard.push(error) },
+    );
+    clock.flush();
+    clock.flush();
+    expect({ frames, heard, pending: clock.pending() }).toEqual({ frames: 1, heard: [thrown], pending: 0 });
+  });
+
   it('drives the frame once per animation frame until stopped, then cancels the pending frame', () => {
     const clock = fakeRaf();
     vi.stubGlobal('requestAnimationFrame', clock.raf);

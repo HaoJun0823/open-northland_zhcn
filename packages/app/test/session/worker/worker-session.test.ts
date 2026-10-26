@@ -373,6 +373,7 @@ describe('session worker host', () => {
       { kind: 'scene', id: 'sandbox', fault: { tick: faultTick, kind: 'block', blockMs: BLOCK_MS } },
       { speed: FAST_SPEED, paused: false },
       {
+        ...SILENT_STALL_REPORTS,
         stalled: (silentMs) => reports.push(`stalled ${silentMs >= STALL_TIMEOUT_MS}`),
         recovered: (silentMs) => reports.push(`recovered ${silentMs >= STALL_TIMEOUT_MS}`),
       },

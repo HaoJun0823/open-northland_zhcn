@@ -13,6 +13,8 @@ export interface StallReports {
   stalled(silentMs: number): void;
   /** A reported silence ended after `silentMs`. */
   recovered(silentMs: number): void;
+  /** A reported silence still lasts, `silentMs` so far; told on every check after `stalled`. */
+  lasting?(silentMs: number): void;
 }
 
 /** A check this many heartbeats late means this thread, not the worker, was blocked. */
@@ -52,7 +54,11 @@ export class StallWatch {
       this.lastHeardMs = nowMs;
     }
     this.lastCheckMs = nowMs;
-    if (this.reported || nowMs - this.lastHeardMs <= this.timeoutMs) return;
+    if (this.reported) {
+      this.reports.lasting?.(nowMs - this.lastHeardMs);
+      return;
+    }
+    if (nowMs - this.lastHeardMs <= this.timeoutMs) return;
     this.reported = true;
     this.reports.stalled(nowMs - this.lastHeardMs);
   }

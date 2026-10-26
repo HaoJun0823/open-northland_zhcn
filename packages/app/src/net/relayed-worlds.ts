@@ -1,7 +1,7 @@
 import type { FromWorker, WorkerSessionOptions } from '../session/worker/protocol.js';
-import type { StallReports } from '../session/worker/stall-watch.js';
 import {
   sessionOverPort,
+  type WorkerReports,
   type WorkerSession,
   type WorkerSessionOpening,
 } from '../session/worker/worker-session.js';
@@ -29,7 +29,7 @@ export class RelayedWorlds<E> {
 
   constructor(
     private readonly post: (message: unknown) => void,
-    private readonly reports: StallReports,
+    private readonly reports: WorkerReports,
   ) {}
 
   /** Post the world's inputs and resolve once the worker serves it; a world still opening is dropped. */

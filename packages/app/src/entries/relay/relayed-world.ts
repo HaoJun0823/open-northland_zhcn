@@ -35,6 +35,7 @@ export async function hostRelayedWorld(
     placements: worker.extras,
     matchRules: worker.matchRules,
     seed: worker.seed,
+    workerLog: worker.workerLog,
   };
 }
 

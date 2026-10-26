@@ -96,7 +96,9 @@ export type WorkerCall =
   | { readonly method: 'settle' }
   | { readonly method: 'captureSave'; readonly options: ExportSaveOptions }
   | { readonly method: 'captureSaveFile'; readonly options: ExportSaveOptions }
-  | { readonly method: 'profileRows' };
+  | { readonly method: 'profileRows' }
+  /** The worker's own diag ring, as it stands. */
+  | { readonly method: 'diagLog' };
 
 export type ToWorker<B> =
   | { readonly kind: 'boot'; readonly boot: B; readonly options: WorkerSessionOptions }
@@ -127,12 +129,22 @@ export function wireError(err: unknown): WireError {
   return { name: 'Error', message: String(err), stack: undefined };
 }
 
-/** The error the receiving side throws: the sender's message and stack under the sender's name. */
+/** The error the receiving side throws: the sender's message and stack under the sender's name. A
+ *  sender without a stack gives none, rather than the receiver's frames, which a report would group by. */
 export function errorFromWire(wire: WireError): Error {
   const error = new Error(wire.message);
   error.name = wire.name;
-  if (wire.stack !== undefined) error.stack = wire.stack;
+  error.stack = wire.stack ?? `${wire.name}: ${wire.message}`;
   return error;
+}
+
+/** An uncaught error or rejection in the worker's scope. An error is `fatal`: uncaught, it would have
+ *  reached the runtime's `Worker` and ended the session there. */
+export interface WorkerFault {
+  readonly fatal: boolean;
+  readonly error: WireError;
+  /** `file:line:column` of an uncaught error. */
+  readonly source?: string;
 }
 
 /** The per-frame reads that are no snapshot component, as the worker last posted them. */
@@ -256,4 +268,5 @@ export type FromWorker<E> =
       readonly tick: number;
       readonly error: WireError;
     }
+  | { readonly kind: 'fault'; readonly fault: WorkerFault }
   | { readonly kind: 'pong' };

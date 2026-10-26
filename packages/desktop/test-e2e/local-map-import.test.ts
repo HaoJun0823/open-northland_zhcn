@@ -1,18 +1,15 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { zipSync } from 'fflate';
-import { _electron, type ElectronApplication, type Page } from 'playwright';
+import type { ElectronApplication, Page } from 'playwright';
 import { expect, test } from 'vitest';
 import { IR_VERSION } from '../../data/src/schema/content/ir-version.js';
 import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
 import { plaintextMap } from '../../map-import/test/support/maps.js';
 import { installedMapsRoot } from '../src/paths.js';
-
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const MENU = 'app://game/index.html?lang=eng&sound=off&fullscreen=off';
+import { E2E_API_URL, launchShell, MENU } from './launch.js';
 
 test('imports ZIP, C2M and folder through native picks, reloads retained input on request and plays after relaunch', {
   timeout: 240_000,
@@ -38,14 +35,11 @@ test('imports ZIP, C2M and folder through native picks, reloads retained input o
   let desktop: ElectronApplication | undefined;
   const errors: string[] = [];
   async function launch(): Promise<Page> {
-    desktop = await _electron.launch({
-      args: [packageRoot, `--user-data-dir=${profile}`, '--mute-audio'],
-      env: { ...process.env, ON_ORIGINAL_GAME_CHECK: '0', ON_API_URL: 'http://127.0.0.1:18799' },
-    });
+    desktop = await launchShell(profile, { ON_ORIGINAL_GAME_CHECK: '0' });
     const page = await desktop.firstWindow();
     page.setDefaultTimeout(30_000);
     page.on('pageerror', (error) => errors.push(String(error)));
-    await page.route('http://127.0.0.1:18799/**', (route) =>
+    await page.route(`${E2E_API_URL}/**`, (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { access, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { _electron, type ElectronApplication, type Page } from 'playwright';
+import { join, resolve } from 'node:path';
+import type { ElectronApplication, Page } from 'playwright';
 import { test } from 'vitest';
 import { ORIGINAL_GAME_CHECK_ENV, ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
 import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
@@ -11,15 +10,14 @@ import { resolveShellRoots } from '../src/paths.js';
 import { FIRST_RUN_WINDOW_STATE, WINDOW_STATE_FILE } from '../src/window/state.js';
 import { libraryHead } from '../test/original-game/fixture.js';
 import { installedMapFixture } from './installed-map.js';
+import { launchShell, MENU, packageRoot, START_URL } from './launch.js';
 
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const roots = resolveShellRoots({
   packaged: false,
   resourcesPath: '',
   repoRoot: resolve(packageRoot, '../..'),
   contentDirOverride: process.env.ON_CONTENT_DIR,
 });
-const MENU = 'app://game/index.html?lang=eng&sound=off&fullscreen=off';
 const SAVE_NAME = 'Desktop relaunch test';
 const testFullscreen = process.env.ON_DESKTOP_RESTORE_WINDOW === '1';
 
@@ -40,13 +38,6 @@ test('boots app://, lists map previews, and restores a save and the window mode 
   const originalGame = join(profile, 'original-game');
   await mkdir(join(originalGame, 'DataX', 'Libs'), { recursive: true });
   await writeFile(join(originalGame, 'DataX', 'Libs', 'data0001.lib'), libraryHead());
-  const launchEnv: Record<string, string> = {
-    [ORIGINAL_GAME_CHECK_ENV]: '1',
-    [ORIGINAL_GAME_DIR_ENV]: originalGame,
-  };
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && launchEnv[key] === undefined) launchEnv[key] = value;
-  }
   let desktop: ElectronApplication | undefined;
   const errors: string[] = [];
   async function windowFullscreen(): Promise<boolean> {
@@ -81,10 +72,9 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     return launch();
   }
   async function launch() {
-    desktop = await _electron.launch({
-      args: [packageRoot, `--user-data-dir=${profile}`, '--mute-audio'],
-      env: launchEnv,
-      timeout: 30_000,
+    desktop = await launchShell(profile, {
+      [ORIGINAL_GAME_CHECK_ENV]: '1',
+      [ORIGINAL_GAME_DIR_ENV]: originalGame,
     });
     const page = await desktop.firstWindow();
     page.setDefaultTimeout(30_000);
@@ -93,7 +83,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
       if (message.type() === 'error') errors.push(message.text());
     });
     // Assert the shell's own initial route before pinning language and display preferences.
-    await page.waitForURL('app://game/index.html');
+    await page.waitForURL(START_URL);
     await page.locator('[data-nav-id="newGame"]').waitFor();
     await page.goto(MENU);
     return page;

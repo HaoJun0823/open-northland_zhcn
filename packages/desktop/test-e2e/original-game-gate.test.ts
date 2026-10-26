@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { _electron, type ElectronApplication } from 'playwright';
+import { join } from 'node:path';
+import type { ElectronApplication } from 'playwright';
 import { test } from 'vitest';
 import { ORIGINAL_GAME_CHECK_ENV, ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
 import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { libraryHead } from '../test/original-game/fixture.js';
+import { launchShell, MENU, START_URL } from './launch.js';
 
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const MENU = 'app://game/index.html?lang=eng&sound=off&fullscreen=off';
 const STEAM_PAGE = 'https://store.steampowered.com/app/351870/';
 
 const POLL_MS = 100;
@@ -42,27 +40,19 @@ test('shows the gate in the window when detection misses, and opens the menu on 
   await mkdir(empty);
   await mkdir(join(originalGame, 'DataX', 'Libs'), { recursive: true });
   await writeFile(join(originalGame, 'DataX', 'Libs', 'data0001.lib'), libraryHead());
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-  // Detection looks only in the empty folder, so the window opens on the gate.
-  env[ORIGINAL_GAME_CHECK_ENV] = '1';
-  env[ORIGINAL_GAME_DIR_ENV] = empty;
 
   let desktop: ElectronApplication | undefined;
   const errors: string[] = [];
   try {
-    desktop = await _electron.launch({
-      args: [packageRoot, `--user-data-dir=${profile}`, '--mute-audio'],
-      env,
-      timeout: 30_000,
-    });
+    // Detection looks only in the empty folder, so the window opens on the gate.
+    desktop = await launchShell(profile, { [ORIGINAL_GAME_CHECK_ENV]: '1', [ORIGINAL_GAME_DIR_ENV]: empty });
     const page = await desktop.firstWindow();
     page.setDefaultTimeout(30_000);
     page.on('pageerror', (error) => errors.push(String(error)));
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
     });
-    await page.waitForURL('app://game/index.html');
+    await page.waitForURL(START_URL);
     await page.goto(MENU);
     const pick = page.getByRole('button', { name: 'Pick the game folder', exact: true });
     await pick.waitFor();

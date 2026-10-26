@@ -100,8 +100,8 @@ export class ReportCase {
   /** The player pressed Send; a report takes one. */
   submitted = false;
   private running = 0;
-  /** The uploads the server took, for the download. */
-  readonly delivered: ReportUpload[] = [];
+  /** The uploads posted or queued, in that order, for the preview after Send and the download. */
+  readonly handedOver: ReportUpload[] = [];
   private readonly listeners = new Set<() => void>();
   private inFlight: Promise<void> | null = null;
 
@@ -313,6 +313,7 @@ export class ReportCase {
   }
 
   private async queueUpload(upload: ReportUpload): Promise<void> {
+    this.handedOver.push(upload);
     const body = await gzipJson(upload);
     await this.deps.queue(outboxEntry(upload.id, upload.part, body, this.deps.now()));
   }
@@ -333,8 +334,8 @@ export class ReportCase {
       this.changed();
       return false;
     }
+    this.handedOver.push(report);
     const result = await this.deps.post(body, 'report', report.id);
-    if (result.kind === 'sent') this.delivered.push(report);
     this.delivery = this.deliveryOf(result);
     if (result.kind === 'retry') {
       await this.deps.queue(outboxEntry(report.id, 'report', body, this.deps.now()));
@@ -373,8 +374,8 @@ export class ReportCase {
       this.changed();
       return;
     }
+    this.handedOver.push(addendum);
     const result = await this.deps.post(body, 'addendum', addendum.id);
-    if (result.kind === 'sent') this.delivered.push(addendum);
     if (result.kind === 'unknown' && mayRefile) {
       await this.refile(input);
       return;

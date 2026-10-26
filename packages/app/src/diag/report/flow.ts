@@ -160,13 +160,13 @@ async function problemOffers(): Promise<AttachmentOffers> {
   return { ...base, screenshot, save };
 }
 
-/** The download: this page's diagnostics with the uploads the server took and those Send would post. */
+/** The download: this page's diagnostics with the report's uploads, sent, queued or still to send. */
 async function downloadReport(kase: ReportCase, input: PlayerInput): Promise<void> {
   const draft = kase.draft;
   if (draft === null) return;
-  const uploads = await kase.compose(input);
-  const pending = uploadList(uploads);
-  const report = [...kase.delivered, ...pending];
+  // Before Send, what Send would add; after it, only what went out or waits to.
+  const pending = kase.submitted ? [] : uploadList(await kase.compose(input));
+  const report = [...kase.handedOver, ...pending];
   const bundle = { ...draft.bundle, report };
   downloadJsonFile(
     `opennorthland-report-${shownNumber(draft.report.id)}.json`,

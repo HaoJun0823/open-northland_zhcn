@@ -326,7 +326,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     if (previewTimer !== null) clearTimeout(previewTimer);
     // After Send the preview shows what went out.
     if (kase.submitted) {
-      pre.textContent = previewText(kase.delivered, api);
+      pre.textContent = previewText(kase.handedOver, api);
       return;
     }
     previewTimer = setTimeout(() => {

@@ -20,6 +20,9 @@ const THUMBNAIL_CACHE = 'public, max-age=86400';
 const MS_PER_SECOND = 1000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const HEADERS_TIMEOUT_MS = 5000;
+/** How often Node enforces the two timeouts above; its 30-second default lets a slow body hold a
+ *  report upload slot for that long. */
+const TIMEOUT_CHECK_INTERVAL_MS = 1000;
 const OK = 200;
 const NO_CONTENT = 204;
 /** How long a browser may reuse a `/v1` preflight answer. */
@@ -198,7 +201,11 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
   };
 
   const server: Server = createServer(
-    { headersTimeout: HEADERS_TIMEOUT_MS, requestTimeout: REQUEST_TIMEOUT_MS },
+    {
+      headersTimeout: HEADERS_TIMEOUT_MS,
+      requestTimeout: REQUEST_TIMEOUT_MS,
+      connectionsCheckingInterval: TIMEOUT_CHECK_INTERVAL_MS,
+    },
     (request, response) => {
       // A fault in one request costs that request, never the server.
       serve(request, response).catch((error: unknown) => {

@@ -1,19 +1,21 @@
 import { gunzipSync } from 'node:zlib';
-import { type REPORT_SCREENSHOT_TYPES, type ReportPart, ReportUpload } from '@open-northland/data';
+import {
+  REPORT_JSON_SHAPE,
+  type REPORT_SCREENSHOT_TYPES,
+  type ReportPart,
+  ReportUpload,
+} from '@open-northland/data';
 import { attachmentFiles, readableJson, type StoredFile } from './files.js';
 import { GZIP_MAGIC, IntakeError, isGzip } from './intake.js';
-
-/** Bracket nesting of the whole document: leaves the free-form fields at least 12 levels. */
-export const MAX_JSON_DEPTH = 16;
-/** Values allowed per inflated byte, as bytes per value: dense enough for a real command log, sparse
- *  enough that a body of empty arrays cannot parse into a heap many times its size. */
-const BYTES_PER_JSON_VALUE = 8;
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
 const COMMA = 0x2c;
-const OPENERS: ReadonlySet<number> = new Set([0x5b, 0x7b]);
+const OPEN_ARRAY = 0x5b;
+const OPEN_OBJECT = 0x7b;
 const CLOSERS: ReadonlySet<number> = new Set([0x5d, 0x7d]);
+/** The member count kept for an open array, which has no member cap. */
+const IN_ARRAY = -1;
 
 type Signature = readonly (readonly [offset: number, bytes: readonly number[]])[];
 const GZIP_SIGNATURE: Signature = [[0, GZIP_MAGIC]];
@@ -39,6 +41,8 @@ export type DecodedUpload =
       readonly id: string;
       readonly trigger: string;
       readonly fingerprint?: string;
+      /** Carries the player's comment or contact. */
+      readonly annotated: boolean;
       readonly files: readonly StoredFile[];
     }
   | {
@@ -73,6 +77,7 @@ export function decodeUpload(body: Uint8Array, part: ReportPart, maxInflated: nu
     part: 'report',
     id: upload.id,
     trigger: upload.trigger,
+    annotated: (upload.comment ?? '').trim() !== '' || (upload.contact ?? '').trim() !== '',
     ...(upload.fingerprint === undefined ? {} : { fingerprint: upload.fingerprint }),
     files: [[REPORT_FILE, readableJson(rest)], ...files],
   };
@@ -91,7 +96,7 @@ const utf8 = new TextDecoder('utf-8', { fatal: true });
 
 /** The upload in `json` (UTF-8 bytes), or `invalid` for any shape or value the server refuses. */
 function parseUpload(json: Uint8Array, maxInflated: number): ReportUpload {
-  if (!withinShape(json, MAX_JSON_DEPTH, Math.floor(maxInflated / BYTES_PER_JSON_VALUE))) {
+  if (!withinShape(json, Math.floor(maxInflated / REPORT_JSON_SHAPE.bytesPerValue))) {
     throw new IntakeError('invalid');
   }
   let value: unknown;
@@ -112,10 +117,15 @@ function parseUpload(json: Uint8Array, maxInflated: number): ReportUpload {
 }
 
 /**
- * One pass over the raw JSON: false past `maxDepth` nested brackets or `maxValues` containers and
- * separated values. It only bounds the parse; malformed JSON is the parser's to refuse.
+ * One pass over the raw JSON: false past the shape's nesting depth or members per object, or past
+ * `maxValues` containers and separated values. Measured, the parse and the schema's copy of it take
+ * up to about 120 bytes of heap per value, the most for objects of unique keys. It only bounds the
+ * parse; malformed JSON is the parser's to refuse.
  */
-function withinShape(json: Uint8Array, maxDepth: number, maxValues: number): boolean {
+function withinShape(json: Uint8Array, maxValues: number): boolean {
+  const { depth: maxDepth, objectMembers } = REPORT_JSON_SHAPE;
+  /** Members so far of each open container's object, by depth; `IN_ARRAY` for an array. */
+  const members = new Int32Array(maxDepth + 1).fill(IN_ARRAY);
   let depth = 0;
   let values = 0;
   let inString = false;
@@ -125,12 +135,20 @@ function withinShape(json: Uint8Array, maxDepth: number, maxValues: number): boo
       if (byte === BACKSLASH) index++;
       else if (byte === QUOTE) inString = false;
     } else if (byte === QUOTE) inString = true;
-    else if (OPENERS.has(byte)) {
+    else if (byte === OPEN_ARRAY || byte === OPEN_OBJECT) {
       depth++;
       values++;
       if (depth > maxDepth) return false;
-    } else if (CLOSERS.has(byte)) depth--;
-    else if (byte === COMMA) values++;
+      members[depth] = byte === OPEN_OBJECT ? 1 : IN_ARRAY;
+    } else if (CLOSERS.has(byte)) depth = Math.max(0, depth - 1);
+    else if (byte === COMMA) {
+      values++;
+      const open = members[depth] ?? IN_ARRAY;
+      if (open !== IN_ARRAY) {
+        members[depth] = open + 1;
+        if (open + 1 > objectMembers) return false;
+      }
+    }
     if (values > maxValues) return false;
   }
   return true;

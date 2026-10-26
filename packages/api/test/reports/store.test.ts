@@ -104,14 +104,21 @@ describe('ReportStore', () => {
     expect(await put(store, failing('d4'.repeat(16)), 'sender-c')).toBe('suppressed');
     expect(await json(`${DAY}/suppressed.json`)).toEqual({ [FINGERPRINT]: 2 });
     expect(await readdir(join(dir, DAY))).toHaveLength(3);
+    // The player's own words pass the cap, and do not use it up.
+    const noted = report({ id: 'e5'.repeat(16), fingerprint: FINGERPRINT, comment: 'it froze again' });
+    expect(await put(store, noted, SENDER)).toBe('stored');
+    expect(await put(store, { ...noted, id: 'f6'.repeat(16), comment: ' ' }, SENDER)).toBe('suppressed');
   });
 
   it('refuses new entries when full and takes them again once a rescan sees deleted files', async () => {
     const store = await open({ ...LIMITS, maxStoredReports: 1 });
     await put(store, report(), SENDER);
     expect(await put(store, report({ id: OTHER_ID }), SENDER)).toBe('full');
-    expect(await put(store, addendum(), SENDER)).toBe('full');
+    expect(store.refuses('report')).toBe(true);
     expect(store.health().full).toBe(true);
+    // The count caps new reports only: the stored one still takes its addendum.
+    expect(store.refuses('addendum')).toBe(false);
+    expect(await put(store, addendum({ comment: 'later' }), SENDER)).toBe('stored');
     await rm(join(dir, DAY), { recursive: true });
     expect(await put(store, report({ id: OTHER_ID }), SENDER)).toBe('full');
     await store.rescan();
@@ -123,5 +130,22 @@ describe('ReportStore', () => {
     const nearlyFull = await open({ ...LIMITS, maxStoredBytes: held + 10 });
     expect(nearlyFull.health().full).toBe(false);
     expect(await put(nearlyFull, report({ id: OTHER_ID }), SENDER)).toBe('full');
+    expect(await put(nearlyFull, addendum({ comment: 'x'.repeat(20) }), SENDER)).toBe('full');
+  });
+
+  it('keeps an entry written while a rescan walks the disk', async () => {
+    const store = await open();
+    const scan = store.rescan();
+    expect(await put(store, report(), SENDER)).toBe('stored');
+    await scan;
+    expect(await store.holdsReport(REPORT_ID)).toBe(true);
+  });
+
+  it('keeps writing after the owner deleted everything, its temporary directory included', async () => {
+    const store = await open();
+    await rm(dir, { recursive: true });
+    expect(await put(store, report(), SENDER)).toBe('stored');
+    expect(await put(store, addendum({ comment: 'still here' }), SENDER)).toBe('stored');
+    expect(await readdir(join(dir, ENTRY))).toContain('addendum.json');
   });
 });

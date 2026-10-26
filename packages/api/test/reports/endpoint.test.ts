@@ -3,8 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { REPORT_COUNTED_BODY, REPORT_JSON_SHAPE } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
-import { WorkerReportDecoder } from '../../src/reports/decoder.js';
+import { ProcessReportDecoder } from '../../src/reports/decoder.js';
 import { ReportEndpoint } from '../../src/reports/endpoint.js';
 import { ReportLimiter } from '../../src/reports/limiter.js';
 import { ReportStore } from '../../src/reports/store.js';
@@ -14,8 +15,8 @@ import { addendum, REPORT_ID, report, wire } from '../support/report-fixture.js'
 
 const KIB = 1024;
 const MIB = KIB * KIB;
-/** The compiled worker: vitest runs the sources, a worker needs JavaScript. */
-const DECODE_WORKER = new URL('../../dist/reports/decode-worker.js', import.meta.url);
+/** The compiled child: vitest runs the sources, a child process needs JavaScript. */
+const DECODE_PROCESS = new URL('../../dist/reports/decode-process.js', import.meta.url);
 /** Nesting far past the decode bound. */
 const DEEP = 1000;
 const GAME = 'https://game.opennorthland.org';
@@ -52,8 +53,9 @@ describe('POST /v1/reports', () => {
       config,
       store,
       limiter,
-      decoder: new WorkerReportDecoder(DECODE_WORKER),
+      decoder: new ProcessReportDecoder({ script: DECODE_PROCESS }),
     });
+    cleanup.push(() => reports.close());
     const server: ApiServer = await startApiServer({
       port: 0,
       host: '127.0.0.1',
@@ -78,6 +80,7 @@ describe('POST /v1/reports', () => {
     expect(sent.status).toBe(204);
     expect(sent.headers.get('access-control-allow-origin')).toBe(GAME);
     expect(sent.headers.get('vary')).toBe('Origin');
+    expect(sent.headers.get('access-control-expose-headers')).toBe('Retry-After');
     expect((await post(wire(report()), { origin: 'http://127.0.0.1:5173' })).status).toBe(204);
     expect(server.health().reports).toEqual({ full: false });
     expect((await fetch(url)).status).toBe(405);
@@ -148,9 +151,13 @@ describe('POST /v1/reports', () => {
     const trusted = await start({ ipReportsPerHour: 1 }, true);
     const from = (ip: string, id: string) => trusted.post(wire(report({ id })), { 'x-forwarded-for': ip });
     expect((await from('203.0.113.1', idOf(1))).status).toBe(204);
-    const limited = await from('203.0.113.1', idOf(2));
+    const limited = await trusted.post(wire(report({ id: idOf(2) })), {
+      'x-forwarded-for': '203.0.113.1',
+      origin: GAME,
+    });
     expect(limited.status).toBe(429);
     expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(limited.headers.get('access-control-expose-headers')).toBe('Retry-After');
     expect((await from('203.0.113.2', idOf(3))).status).toBe(204);
 
     const direct = await start({ ipReportsPerHour: 1 });
@@ -160,10 +167,53 @@ describe('POST /v1/reports', () => {
     expect((await fromProxy('203.0.113.2', idOf(2))).status).toBe(429);
   });
 
-  it('answers 507 while the store is full and still accepts a retry it holds', async () => {
-    const { post } = await start({ maxStoredReports: 1 });
-    expect((await post(wire(report({ id: idOf(1) })))).status).toBe(204);
+  it('spends no global slot on a body of the wrong type or one refused at intake', async () => {
+    const { post } = await start({ uploadsPerHour: 1 }, true);
+    const from = (ip: string) => ({ 'x-forwarded-for': ip });
+    // Refused before the limiter: a probe of the route costs nothing.
+    expect((await post(wire(report()), { 'content-type': 'application/json' })).status).toBe(415);
+    expect((await post(new Uint8Array([1]), from('203.0.113.1'))).status).toBe(415);
+    expect((await post(wire({ ...report(), trigger: '?' }), from('203.0.113.2'))).status).toBe(400);
+    expect((await post(wire(report()), from('203.0.113.3'))).status).toBe(204);
+    expect((await post(wire(report({ id: idOf(1) })), from('203.0.113.4'))).status).toBe(429);
+  });
+
+  it('refuses an addendum of a key-heavy object and keeps answering', async () => {
+    const { url, post } = await start({ maxAddendumBytes: 2 * MIB, maxAddendumInflatedBytes: 16 * MIB });
+    expect((await post(wire(report()))).status).toBe(204);
+    const keys = Array.from({ length: REPORT_JSON_SHAPE.objectMembers + 1 }, (_, key) => [`k${key}`, 1]);
+    const heavy = addendum({ attachments: { settings: Object.fromEntries(keys) } });
+    const toReport = (value: unknown) =>
+      fetch(`${url}/${REPORT_ID}`, {
+        method: 'POST',
+        body: wire(value),
+        headers: { 'content-type': 'text/plain' },
+      });
+    expect((await toReport(heavy)).status).toBe(400);
+    expect((await toReport(addendum({ comment: 'still up' }))).status).toBe(204);
+  });
+
+  it('answers a report only counted with 202 and its fixed body', async () => {
+    const { post } = await start({ fingerprintPerDay: 1 });
+    const failing = (id: string) => report({ id, fingerprint: '0123456789abcdef' });
+    expect((await post(wire(failing(idOf(1))))).status).toBe(204);
+    const counted = await post(wire(failing(idOf(2))));
+    expect(counted.status).toBe(202);
+    expect(await counted.json()).toEqual(REPORT_COUNTED_BODY);
+  });
+
+  it('answers 507 while the store is full, before reading, and still takes addenda that fit', async () => {
+    const { url, post } = await start({ maxStoredReports: 1 });
+    expect((await post(wire(report()))).status).toBe(204);
     expect((await post(wire(report({ id: idOf(2) })))).status).toBe(507);
-    expect((await post(wire(report({ id: idOf(1) })))).status).toBe(204);
+    // Refused from the header alone: not even a valid body is read.
+    expect((await post('not gzip')).status).toBe(507);
+    const extra = wire(addendum({ comment: 'one more thing' }));
+    const added = await fetch(`${url}/${REPORT_ID}`, {
+      method: 'POST',
+      body: extra,
+      headers: { 'content-type': 'text/plain' },
+    });
+    expect(added.status).toBe(204);
   });
 });

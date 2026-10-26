@@ -1,15 +1,17 @@
-import { Worker } from 'node:worker_threads';
+import { type ChildProcess, fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { ReportPart } from '@open-northland/data';
-import { errorMessage } from '../log.js';
 import type { DecodedUpload } from './decode.js';
 import { IntakeError, type IntakeFailure } from './intake.js';
 
-/** Wall-clock budget of one decode, worker start included. */
+/** Wall-clock budget of one decode, process start included. */
 const DECODE_TIMEOUT_MS = 10_000;
-/** Old-generation heap of one decode worker. Measured: a 15 MB addendum of 150k commands decodes
- *  within 192 MB; a 15 MB object of a million keys runs out at this size and is refused. */
+/** Old-generation heap of the decode process. The shape check holds the costliest upload within the
+ *  default caps (16 MiB of objects with unique keys) to about 170 MB; past the heap, V8 aborts the
+ *  process and only that upload is refused. */
 const DECODE_HEAP_MB = 256;
-const OUT_OF_MEMORY = 'ERR_WORKER_OUT_OF_MEMORY';
+/** An idle decode process exits after this long, so a large decode's heap is not kept resident. */
+const IDLE_EXIT_MS = 60_000;
 
 export interface DecodeJob {
   readonly body: Uint8Array;
@@ -19,63 +21,115 @@ export interface DecodeJob {
 
 export type DecodeReply =
   | { readonly kind: 'decoded'; readonly upload: DecodedUpload }
-  | { readonly kind: 'refused'; readonly reason: IntakeFailure };
+  | { readonly kind: 'refused'; readonly reason: IntakeFailure }
+  /** A fault of the decoder itself, not of the upload. */
+  | { readonly kind: 'failed'; readonly error: string };
 
 export interface ReportDecoder {
   /** The decoded upload; throws `IntakeError` for a body the server refuses. */
   decode(body: Uint8Array, part: ReportPart, maxInflated: number): Promise<DecodedUpload>;
+  /** Stops the decoder's process, if any. */
+  close?(): void;
+}
+
+export interface DecoderOptions {
+  /** The compiled `decode-process.js`. */
+  readonly script?: URL;
+  readonly timeoutMs?: number;
+  readonly heapMb?: number;
 }
 
 /**
- * Decodes each upload in a disposable worker with a bounded heap and a deadline, one at a time, so a
- * hostile body can neither stall the event loop that serves the catalogue nor exhaust the process.
- * A worker that runs out of either refuses the upload as `too-complex`.
+ * Decodes uploads one at a time in a child process with a bounded heap and a deadline, so a hostile
+ * body can neither stall the event loop that serves the catalogue nor take the server down: a fatal
+ * out-of-memory aborts only the child. The child is reused, started again after it ends, and killed
+ * past the deadline. An upload whose decode ends the child or runs out of time is `too-complex`.
  */
-export class WorkerReportDecoder implements ReportDecoder {
+export class ProcessReportDecoder implements ReportDecoder {
   private queue: Promise<unknown> = Promise.resolve();
+  private child: ChildProcess | null = null;
+  private idle: NodeJS.Timeout | null = null;
+  private readonly script: string;
+  private readonly timeoutMs: number;
+  private readonly heapMb: number;
 
-  constructor(
-    private readonly workerUrl = new URL('./decode-worker.js', import.meta.url),
-    private readonly timeoutMs = DECODE_TIMEOUT_MS,
-  ) {}
+  constructor(options: DecoderOptions = {}) {
+    this.script = fileURLToPath(options.script ?? new URL('./decode-process.js', import.meta.url));
+    this.timeoutMs = options.timeoutMs ?? DECODE_TIMEOUT_MS;
+    this.heapMb = options.heapMb ?? DECODE_HEAP_MB;
+  }
 
   decode(body: Uint8Array, part: ReportPart, maxInflated: number): Promise<DecodedUpload> {
-    const run = this.queue.then(() => this.run(body, part, maxInflated));
+    const run = this.queue.then(() => this.run({ body, part, maxInflated }));
     this.queue = run.catch(() => undefined);
     return run;
   }
 
-  private run(body: Uint8Array, part: ReportPart, maxInflated: number): Promise<DecodedUpload> {
-    // A dedicated copy, so the transfer never takes a pooled buffer from under its other users.
-    const input = new Uint8Array(body);
-    const worker = new Worker(this.workerUrl, {
-      execArgv: [],
-      workerData: { body: input, part, maxInflated } satisfies DecodeJob,
-      transferList: [input.buffer],
-      resourceLimits: { maxOldGenerationSizeMb: DECODE_HEAP_MB },
-    });
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (outcome: DecodedUpload | Error): void => {
-        if (settled) return;
-        settled = true;
+  close(): void {
+    if (this.idle !== null) clearTimeout(this.idle);
+    this.child?.kill();
+    this.child = null;
+  }
+
+  private run(job: DecodeJob): Promise<DecodedUpload> {
+    if (this.idle !== null) clearTimeout(this.idle);
+    const child = this.child ?? this.spawn();
+    this.child = child;
+    return new Promise<DecodedUpload>((resolve, reject) => {
+      let outcome: DecodedUpload | Error | null = null;
+      const settle = (result: DecodedUpload | Error): void => {
         clearTimeout(timer);
-        // The next decode starts only once this worker's heap is gone.
-        void worker.terminate().then(
-          () => (outcome instanceof Error ? reject(outcome) : resolve(outcome)),
-          (failure: unknown) => reject(failure),
+        child.off('message', onMessage).off('exit', onExit).off('error', onError);
+        if (result instanceof Error) reject(result);
+        else resolve(result);
+      };
+      const onMessage = (reply: DecodeReply): void => {
+        if (reply.kind === 'decoded') settle(reply.upload);
+        else settle(reply.kind === 'refused' ? new IntakeError(reply.reason) : new Error(reply.error));
+      };
+      // Killed by a signal: V8's abort on a fatal out-of-memory, or the deadline below.
+      const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
+        if (this.child === child) this.child = null;
+        settle(
+          outcome ??
+            (signal !== null
+              ? new IntakeError('too-complex')
+              : new Error(`report decode process exited with code ${code}`)),
         );
       };
-      const timer = setTimeout(() => finish(new IntakeError('too-complex')), this.timeoutMs);
-      worker.on('message', (reply: DecodeReply) =>
-        finish(reply.kind === 'decoded' ? reply.upload : new IntakeError(reply.reason)),
-      );
-      worker.once('error', (error: Error & { code?: string }) =>
-        finish(
-          error.code === OUT_OF_MEMORY ? new IntakeError('too-complex') : new Error(errorMessage(error)),
-        ),
-      );
-      worker.once('exit', (code) => finish(new Error(`report decode worker exited with code ${code}`)));
+      const onError = (error: Error): void => {
+        outcome = error;
+        child.kill();
+      };
+      // The next decode starts only once this process and its heap are gone.
+      const timer = setTimeout(() => {
+        outcome = new IntakeError('too-complex');
+        if (this.child === child) this.child = null;
+        child.kill('SIGKILL');
+      }, this.timeoutMs);
+      child.on('message', onMessage).on('exit', onExit).on('error', onError);
+      child.send(job, (error) => {
+        if (error !== null) onError(error);
+      });
+    }).finally(() => this.retireWhenIdle());
+  }
+
+  private spawn(): ChildProcess {
+    const child = fork(this.script, [], {
+      execArgv: [`--max-old-space-size=${this.heapMb}`],
+      serialization: 'advanced',
+      // V8's out-of-memory report would land in the server's JSON log; the refusal is logged instead.
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     });
+    // An idle child must not keep the server's process alive; a decode holds its own timer.
+    child.unref();
+    child.channel?.unref();
+    return child;
+  }
+
+  private retireWhenIdle(): void {
+    if (this.child === null) return;
+    this.idle = setTimeout(() => this.close(), IDLE_EXIT_MS);
+    this.idle.unref();
   }
 }

@@ -1,24 +1,30 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
-import { REPORT_ID_SHOWN_CHARS } from '@open-northland/data';
+import { REPORT_COUNTED_BODY, REPORT_ID_SHOWN_CHARS, REPORT_STATUS } from '@open-northland/data';
+import { jsonBody } from '../catalog/snapshot.js';
 import type { Log } from '../catalog/thumbnails.js';
 import type { ReportsConfig } from '../config.js';
-import { sendError } from '../http/response.js';
+import { send, sendError } from '../http/response.js';
 import type { DecodedUpload } from './decode.js';
-import { type ReportDecoder, WorkerReportDecoder } from './decoder.js';
+import { ProcessReportDecoder, type ReportDecoder } from './decoder.js';
 import { AbortedError, IntakeError, type IntakeFailure, isGzip, readLimited } from './intake.js';
-import { type Limited, ReportLimiter } from './limiter.js';
+import { type Limited, ReportLimiter, type ReportSender } from './limiter.js';
 import { ReportStore, type ReportStoreHealth, type StoreOutcome } from './store.js';
 
 const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
 const FORBIDDEN = 403;
-const NOT_FOUND = 404;
 const TOO_LARGE = 413;
 const UNSUPPORTED_TYPE = 415;
-const TOO_MANY = 429;
-const UNAVAILABLE = 503;
-const STORAGE_FULL = 507;
+const {
+  stored: STORED,
+  counted: COUNTED,
+  missing: NOT_FOUND,
+  rateLimited: TOO_MANY,
+  busy: UNAVAILABLE,
+} = REPORT_STATUS;
+const STORAGE_FULL = REPORT_STATUS.full;
+const COUNTED_BODY = jsonBody(REPORT_COUNTED_BODY);
 const PREFLIGHT_MAX_AGE_SECONDS = 86_400;
 /** How often the store recounts what the owner deleted by hand. */
 const RESCAN_INTERVAL_MS = 5 * 60_000;
@@ -59,7 +65,7 @@ export interface ReportEndpointOptions {
   };
   readonly store: ReportStore;
   readonly limiter: ReportLimiter;
-  /** Defaults to a worker per upload; see `WorkerReportDecoder`. */
+  /** Defaults to a child process; see `ProcessReportDecoder`. */
   readonly decoder?: ReportDecoder;
   readonly log?: Log;
   /** Epoch milliseconds, for the limiter's windows. */
@@ -81,7 +87,7 @@ export class ReportEndpoint {
 
   constructor(private readonly options: ReportEndpointOptions) {
     this.origins = new Set(options.config.origins);
-    this.decoder = options.decoder ?? new WorkerReportDecoder();
+    this.decoder = options.decoder ?? new ProcessReportDecoder();
     this.log = options.log ?? (() => undefined);
     this.now = options.now ?? Date.now;
   }
@@ -98,9 +104,10 @@ export class ReportEndpoint {
     return endpoint;
   }
 
-  /** Stops the rescans and waits for the write in progress. */
+  /** Stops the rescans and the decoder and waits for the write in progress. */
   async close(): Promise<void> {
     if (this.rescans !== null) clearInterval(this.rescans);
+    this.decoder.close?.();
     await this.options.store.close();
   }
 
@@ -164,27 +171,39 @@ export class ReportEndpoint {
       this.missing(request, response, cors, true);
       return;
     }
+    if (store.refuses(target.part)) {
+      this.full(request, response, cors, true);
+      return;
+    }
     if (this.inFlight >= MAX_UPLOADS_IN_FLIGHT) {
       this.retryLater(request, response, UNAVAILABLE, { retryAfterSeconds: BUSY_RETRY_SECONDS }, cors);
       return;
     }
-    const key = limiter.senderKey(this.clientAddress(request));
-    const admitted = limiter.admit(key, target.part, this.now());
-    if (admitted !== null) {
-      this.retryLater(request, response, TOO_MANY, admitted, cors);
+    const sender = limiter.senderKey(this.clientAddress(request));
+    const admittedAt = this.now();
+    const limited = limiter.admit(sender, target.part, admittedAt);
+    if (limited !== null) {
+      this.retryLater(request, response, TOO_MANY, limited, cors);
       return;
     }
     // The slot holds until the upload is stored, so decoded uploads cannot queue up behind the store.
     this.inFlight += 1;
     try {
-      await this.receive(request, response, { target, key, maxBytes, cors });
+      const kept = await this.receive(request, response, { target, sender, maxBytes, cors });
+      // The global count bounds what is kept; an upload refused or lost on the way gives its slot back.
+      if (!kept) limiter.refund(admittedAt);
     } finally {
       this.inFlight -= 1;
     }
   }
 
-  private async receive(request: IncomingMessage, response: ServerResponse, intake: Intake): Promise<void> {
-    const { target, key, maxBytes, cors } = intake;
+  /** Reads, decodes and stores an admitted upload and answers it; whether anything was kept. */
+  private async receive(
+    request: IncomingMessage,
+    response: ServerResponse,
+    intake: Intake,
+  ): Promise<boolean> {
+    const { target, sender, maxBytes, cors } = intake;
     const { limiter, store } = this.options;
     const { maxReportInflatedBytes, maxAddendumInflatedBytes } = this.options.config.limits;
     const maxInflated = target.part === 'report' ? maxReportInflatedBytes : maxAddendumInflatedBytes;
@@ -192,9 +211,11 @@ export class ReportEndpoint {
     try {
       const body = await readLimited(request, maxBytes);
       limiter.countBytes(body.length, this.now());
-      // Checked here too, so the commonest garbage costs no worker.
+      // Checked here too, so the commonest garbage costs no decode.
       if (!isGzip(body)) throw new IntakeError('not-gzip');
       upload = await this.decoder.decode(body, target.part, maxInflated);
+      // The budget bounds disk growth too: a small body may decode to much larger files.
+      limiter.countBytes(Math.max(0, bytesOf(upload) - body.length), this.now());
       if (target.part === 'addendum' && upload.id !== target.id) throw new IntakeError('invalid');
     } catch (error) {
       if (!(error instanceof IntakeError)) {
@@ -202,9 +223,9 @@ export class ReportEndpoint {
         // The client went away mid-body: nobody is left to answer.
         this.log('report rejected', { reason: 'aborted' });
         response.destroy();
-        return;
+        return false;
       }
-      limiter.penalize(key, target.part, this.now());
+      limiter.penalize(sender, target.part, this.now());
       if (error.reason === 'too-large') limiter.countBytes(maxBytes, this.now());
       const [status, message] = FAILURES[error.reason];
       this.refuse(request, response, {
@@ -214,9 +235,9 @@ export class ReportEndpoint {
         headers: cors,
         unread: error.reason === 'too-large',
       });
-      return;
+      return false;
     }
-    const outcome: StoreOutcome = await store.save(upload, key);
+    const outcome: StoreOutcome = await store.save(upload, sender.key);
     const fields = {
       part: upload.part,
       id: upload.id.slice(0, REPORT_ID_SHOWN_CHARS),
@@ -224,15 +245,17 @@ export class ReportEndpoint {
     };
     if (outcome === 'missing') {
       this.missing(request, response, cors, false);
-      return;
+      return false;
     }
     if (outcome === 'full') {
-      const error = 'report storage full';
-      this.refuse(request, response, { status: STORAGE_FULL, error, reason: 'full', headers: cors, fields });
-      return;
+      this.full(request, response, cors, false, fields);
+      return false;
     }
     this.log('report stored', { ...fields, outcome });
-    response.writeHead(NO_CONTENT, { ...cors, 'cache-control': 'no-store' }).end();
+    const headers = { ...cors, 'cache-control': 'no-store' };
+    if (outcome === 'suppressed') send(request, response, COUNTED, COUNTED_BODY, headers);
+    else response.writeHead(STORED, headers).end();
+    return true;
   }
 
   /** The CORS headers for the request's origin, none without one, null for a refused origin. */
@@ -241,7 +264,12 @@ export class ReportEndpoint {
     if (origin === undefined) return {};
     const lower = origin.toLowerCase();
     if (!this.origins.has(lower) && !LOOPBACK_ORIGIN.test(lower)) return null;
-    return { 'access-control-allow-origin': origin, vary: 'Origin' };
+    // Without the expose header a page cannot read how long a 429 or 503 asks it to wait.
+    return {
+      'access-control-allow-origin': origin,
+      'access-control-expose-headers': 'Retry-After',
+      vary: 'Origin',
+    };
   }
 
   /** The proxy's last `X-Forwarded-For` entry when trusted, else the socket's peer. */
@@ -268,6 +296,23 @@ export class ReportEndpoint {
     });
   }
 
+  private full(
+    request: IncomingMessage,
+    response: ServerResponse,
+    cors: Readonly<Record<string, string>>,
+    unread: boolean,
+    fields?: Readonly<Record<string, unknown>>,
+  ): void {
+    this.refuse(request, response, {
+      status: STORAGE_FULL,
+      error: 'report storage full',
+      reason: 'full',
+      headers: cors,
+      unread,
+      ...(fields === undefined ? {} : { fields }),
+    });
+  }
+
   private retryLater(
     request: IncomingMessage,
     response: ServerResponse,
@@ -291,10 +336,10 @@ export class ReportEndpoint {
   }
 }
 
-/** An admitted upload: what its path takes, its sender's key, its byte limit, its CORS headers. */
+/** An admitted upload: what its path takes, its sender's keys, its byte limit, its CORS headers. */
 interface Intake {
   readonly target: ReportTarget;
-  readonly key: string;
+  readonly sender: ReportSender;
   readonly maxBytes: number;
   readonly cors: Readonly<Record<string, string>>;
 }
@@ -322,6 +367,10 @@ function linger(request: IncomingMessage): void {
   request.once('end', stop);
   request.socket.once('close', stop);
   request.resume();
+}
+
+function bytesOf(upload: DecodedUpload): number {
+  return upload.files.reduce((sum, [, bytes]) => sum + bytes.length, 0);
 }
 
 function isReportType(request: IncomingMessage): boolean {

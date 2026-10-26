@@ -15,15 +15,74 @@ export const REPORT_ID_SHOWN_CHARS = 8;
 /** 64 bits of a stable hash of the error's kind and its top frames. */
 export const REPORT_FINGERPRINT = /^[0-9a-f]{16}$/;
 
+const KIB = 1024;
+const MIB = KIB * KIB;
+
+/** Field bounds of `ReportUpload`: characters of a string, entries of a list or record. */
 export const REPORT_LIMITS = {
   comment: 4000,
   contact: 200,
   message: 2000,
   stack: 16_000,
+  /** Any other string. */
   text: 512,
+  /** Short names: record keys, language tags, the time zone, a log channel, the route's entry. */
+  label: 64,
+  /** The game's own BCP-47 tag. */
+  uiLanguage: 16,
+  /** A state hash. */
+  hash: 128,
+  languages: 16,
+  desktopVersions: 16,
+  routeParams: 32,
   logEntries: 2000,
   commands: 200_000,
 } as const;
+
+/** The API's default caps on one upload's body, per part: gzip bytes on the wire and the JSON they
+ *  inflate to. A deployment may change them; the game budgets against these. */
+export const REPORT_UPLOAD_LIMITS = {
+  report: { bytes: 512 * KIB, inflatedBytes: 2 * MIB },
+  addendum: { bytes: 8 * MIB, inflatedBytes: 16 * MIB },
+} as const;
+
+/**
+ * The shape the API parses, checked on the raw JSON before parsing so the decoder's heap stays
+ * bounded. Values are counted as containers plus separators (`[`, `{`, `,`); a part may hold its
+ * inflated cap divided by `bytesPerValue` of them, wherever in the document they are. A real command
+ * log takes about 13.5 bytes per value.
+ */
+export const REPORT_JSON_SHAPE = {
+  /** Bracket nesting of the whole document: leaves the free-form fields at least 12 levels. */
+  depth: 16,
+  /** Members of one object. */
+  objectMembers: 1024,
+  bytesPerValue: 12,
+} as const;
+
+/**
+ * What the API's answer to an upload means. Any other 4xx is a refusal that a resend would only
+ * repeat; any other 5xx is worth a later retry.
+ */
+export const REPORT_STATUS = {
+  /** Stored, or a retry of an upload already stored. */
+  stored: 204,
+  /**
+   * A report only counted, not stored: its fingerprint passed its daily cap or its client already has
+   * one stored today. It takes no addendum, so the game sends the player's comment and attachments as
+   * a new report; a report with a comment or contact is never only counted.
+   */
+  counted: 202,
+  /** An addendum whose report is not stored (any more). */
+  missing: 404,
+  /** Rate limited or busy: wait `Retry-After` seconds. */
+  rateLimited: 429,
+  busy: 503,
+  /** The store keeps no more for now. */
+  full: 507,
+} as const;
+/** The fixed body of a `counted` answer. */
+export const REPORT_COUNTED_BODY = { outcome: 'counted' } as const;
 
 /** What raised the report. */
 export const REPORT_TRIGGERS = [
@@ -51,6 +110,9 @@ export const REPORT_THREADS = ['main', 'sim-worker', 'net-worker', 'watchdog', '
 export type ReportThread = (typeof REPORT_THREADS)[number];
 
 const text = (max: number = REPORT_LIMITS.text) => z.string().max(max);
+const label = text(REPORT_LIMITS.label);
+const record = (max: number) =>
+  z.record(label, text()).refine((entries) => Object.keys(entries).length <= max);
 const count = z.number().int().nonnegative();
 
 export const ReportError = z.strictObject({
@@ -73,15 +135,15 @@ export const ReportBuild = z.strictObject({
   irVersion: count.nullable(),
   shell: z.enum(['web', 'desktop']),
   /** Versions the desktop shell reports: app, electron, chrome, os. */
-  desktop: z.record(text(64), text()).optional(),
+  desktop: record(REPORT_LIMITS.desktopVersions).optional(),
 });
 export type ReportBuild = z.infer<typeof ReportBuild>;
 
 export const ReportEnvironment = z.strictObject({
   userAgent: text(),
-  languages: z.array(text(64)).max(16),
-  uiLanguage: text(16),
-  timeZone: text(64).nullable(),
+  languages: z.array(label).max(REPORT_LIMITS.languages),
+  uiLanguage: text(REPORT_LIMITS.uiLanguage),
+  timeZone: label.nullable(),
   hardwareConcurrency: count.nullable(),
   /** `navigator.deviceMemory` in GiB, Chromium only. */
   deviceMemoryGb: z.number().nonnegative().nullable(),
@@ -101,7 +163,7 @@ export type ReportEnvironment = z.infer<typeof ReportEnvironment>;
 
 const DiagEntry = z.strictObject({
   timeMs: z.number(),
-  channel: text(64),
+  channel: label,
   level: z.enum(['debug', 'info', 'warn', 'error']),
   message: text(REPORT_LIMITS.message),
   data: z.json().optional(),
@@ -121,9 +183,9 @@ export const ReportGame = z.strictObject({
   seed: z.number().int(),
   tick: count,
   restoredAtTick: count.optional(),
-  finalHash: text(128).nullable(),
+  finalHash: text(REPORT_LIMITS.hash).nullable(),
   hashes: z
-    .array(z.strictObject({ tick: count, hash: text(128) }))
+    .array(z.strictObject({ tick: count, hash: text(REPORT_LIMITS.hash) }))
     .max(REPORT_LIMITS.logEntries)
     .optional(),
   /** A relayed session's room, seat and sync report, free-form diagnostics. */
@@ -172,7 +234,7 @@ export const ReportUpload = z.discriminatedUnion('part', [
     build: ReportBuild,
     env: ReportEnvironment,
     /** The page's entry and its query, with secret values removed. */
-    route: z.strictObject({ entry: text(64), params: z.record(text(64), text()) }),
+    route: z.strictObject({ entry: label, params: record(REPORT_LIMITS.routeParams) }),
     game: ReportGame.optional(),
     /** Frame timing and freeze facts, free-form diagnostics. */
     perf: z.json().optional(),

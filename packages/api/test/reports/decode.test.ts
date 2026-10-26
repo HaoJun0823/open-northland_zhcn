@@ -1,6 +1,7 @@
 import { gzipSync } from 'node:zlib';
+import { REPORT_JSON_SHAPE } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { decodeUpload, MAX_JSON_DEPTH } from '../../src/reports/decode.js';
+import { decodeUpload } from '../../src/reports/decode.js';
 import { IntakeError } from '../../src/reports/intake.js';
 import { addendum, PNG_SIGNATURE, REPORT_ID, report, SAVE_FILE } from '../support/report-fixture.js';
 
@@ -24,6 +25,9 @@ function withPerf(perf: string): string {
   return JSON.stringify(report({ perf: 0 })).replace('"perf":0', `"perf":${perf}`);
 }
 
+const MAX_JSON_DEPTH = REPORT_JSON_SHAPE.depth;
+const objectOf = (members: number): string =>
+  `{${Array.from({ length: members }, (_, key) => `"${key}":0`).join(',')}}`;
 const nested = (depth: number, inner: string): string => '['.repeat(depth) + inner + ']'.repeat(depth);
 
 describe('decodeUpload', () => {
@@ -55,15 +59,21 @@ describe('decodeUpload', () => {
     expect(refusal(gzipSync(JSON.stringify(attached)))).toBe('accepted');
   });
 
-  it('refuses JSON nested too deep or holding too many values for its size', () => {
+  it('refuses JSON nested too deep, with too many members in an object or too many values for its size', () => {
     expect(refusal(gzipSync(withPerf(nested(MAX_JSON_DEPTH, '0'))))).toBe('invalid');
     expect(refusal(gzipSync(withPerf(nested(MAX_JSON_DEPTH - 2, '0'))))).toBe('accepted');
+    // An object's members are counted, an array's elements are not.
+    const members = REPORT_JSON_SHAPE.objectMembers;
+    expect(refusal(gzipSync(withPerf(objectOf(members + 1))))).toBe('invalid');
+    expect(refusal(gzipSync(withPerf(`[${objectOf(members)},"a,b",[${Array(members).fill(0)}]]`)))).toBe(
+      'accepted',
+    );
     // Empty arrays cost three bytes each, far denser than any real field.
     expect(refusal(gzipSync(withPerf(`[${Array(100_000).fill('[]').join(',')}]`)))).toBe('invalid');
   });
 
   it('stores a deep, wide free-form field within a small factor of its JSON', () => {
-    const json = withPerf(nested(MAX_JSON_DEPTH - 2, Array(30_000).fill('[0,1]').join(',')));
+    const json = withPerf(nested(MAX_JSON_DEPTH - 2, Array(20_000).fill('[0,1]').join(',')));
     const decoded = decodeUpload(gzipSync(json), 'report', MIB);
     const stored = decoded.files.reduce((sum, [, bytes]) => sum + bytes.length, 0);
     expect(stored).toBeLessThan(json.length * STORED_FACTOR);

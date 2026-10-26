@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ReportLimiter } from '../../src/reports/limiter.js';
+import { ReportLimiter, type ReportSender } from '../../src/reports/limiter.js';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -12,7 +12,12 @@ const LIMITS = {
 };
 
 /** The refusal's wait in seconds, or null when the upload is admitted. */
-function send(limiter: ReportLimiter, key: string, part: 'report' | 'addendum', now: number): number | null {
+function send(
+  limiter: ReportLimiter,
+  key: ReportSender,
+  part: 'report' | 'addendum',
+  now: number,
+): number | null {
   return limiter.admit(key, part, now)?.retryAfterSeconds ?? null;
 }
 
@@ -57,10 +62,26 @@ describe('ReportLimiter', () => {
     expect(send(limiter, limiter.senderKey('198.51.100.3'), 'report', 2 * MINUTE)).toBe(58 * 60);
   });
 
-  it('counts an IPv6 sender per /64', () => {
+  it('gives back the global slot of an upload refunded at its admission time', () => {
+    const limiter = new ReportLimiter({ ...LIMITS, uploadsPerHour: 1 });
+    expect(send(limiter, limiter.senderKey('198.51.100.1'), 'report', 0)).toBeNull();
+    limiter.refund(0);
+    expect(send(limiter, limiter.senderKey('198.51.100.2'), 'report', MINUTE)).toBeNull();
+    expect(send(limiter, limiter.senderKey('198.51.100.3'), 'report', MINUTE)).not.toBeNull();
+  });
+
+  it('counts an IPv6 sender per /64, and its /56 at a small multiple of that', () => {
     const limiter = new ReportLimiter(LIMITS);
-    expect(limiter.senderKey('2001:db8:0:1::5')).toBe(limiter.senderKey('2001:0db8:0000:0001:ffff::9'));
-    expect(limiter.senderKey('2001:db8:0:1::5')).not.toBe(limiter.senderKey('2001:db8:0:2::5'));
-    expect(limiter.senderKey('::ffff:192.0.2.1')).toBe(limiter.senderKey('192.0.2.1'));
+    expect(limiter.senderKey('2001:db8:0:1::5')).toEqual(limiter.senderKey('2001:0db8:0000:0001:ffff::9'));
+    expect(limiter.senderKey('2001:db8:0:1::5').key).not.toBe(limiter.senderKey('2001:db8:0:2::5').key);
+    expect(limiter.senderKey('::ffff:192.0.2.1')).toEqual(limiter.senderKey('192.0.2.1'));
+    expect(limiter.senderKey('192.0.2.1').network).toBeNull();
+
+    // Every /64 of one /56 has its own two reports an hour until the /56 has spent three times that.
+    const admitted = Array.from({ length: 8 }, (_, subnet) => `2001:db8:0:${subnet.toString(16)}::1`).map(
+      (address) => [0, 1].map(() => send(limiter, limiter.senderKey(address), 'report', 0) === null),
+    );
+    expect(admitted.flat().filter(Boolean)).toHaveLength(3 * LIMITS.ipReportsPerHour);
+    expect(send(limiter, limiter.senderKey('2001:db8:0:100::1'), 'report', 0)).toBeNull();
   });
 });

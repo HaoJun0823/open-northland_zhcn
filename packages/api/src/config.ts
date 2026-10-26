@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { REPORT_UPLOAD_LIMITS } from '@open-northland/data';
 
 export const DEFAULT_PORT = 8790;
 const MAX_PORT = 65535;
@@ -28,7 +29,8 @@ const MIB = KIB * KIB;
 const GIB = KIB * MIB;
 /** Bounds of the report limits a deployment may set: wide enough to tune, never unbounded. */
 const MAX_REPORT_BODY_BYTES = 64 * MIB;
-/** Within what the decode worker's heap can parse and validate. */
+/** Twice the default addendum: the shape check's value budget grows with the inflated cap, and an
+ *  upload whose decode outgrows the decode process's heap is refused as too complex. */
 const MAX_REPORT_INFLATED_BYTES = 32 * MIB;
 const MAX_REPORT_RATE = 100_000;
 const MAX_REPORT_STORE_BYTES = 1024 * GIB;
@@ -37,17 +39,27 @@ const ORIGIN = /^[a-z][a-z0-9+.-]*:\/\/[^/\s?#]+$/;
 
 /** Report limits and their defaults: setting name, default, and the largest value accepted. */
 const REPORT_LIMIT_SETTINGS = {
-  /** Compressed: a report carries logs and a screenshot, its addendum the heavy attachments. */
-  maxReportBytes: ['API_REPORT_MAX_BYTES', 512 * KIB, MAX_REPORT_BODY_BYTES],
-  maxAddendumBytes: ['API_REPORT_ADDENDUM_MAX_BYTES', 8 * MIB, MAX_REPORT_BODY_BYTES],
-  /** Inflated: a report's free-form fields are small; the addendum carries the command log. */
-  maxReportInflatedBytes: ['API_REPORT_MAX_INFLATED_BYTES', 2 * MIB, MAX_REPORT_INFLATED_BYTES],
-  maxAddendumInflatedBytes: ['API_REPORT_ADDENDUM_MAX_INFLATED_BYTES', 16 * MIB, MAX_REPORT_INFLATED_BYTES],
+  maxReportBytes: ['API_REPORT_MAX_BYTES', REPORT_UPLOAD_LIMITS.report.bytes, MAX_REPORT_BODY_BYTES],
+  maxAddendumBytes: [
+    'API_REPORT_ADDENDUM_MAX_BYTES',
+    REPORT_UPLOAD_LIMITS.addendum.bytes,
+    MAX_REPORT_BODY_BYTES,
+  ],
+  maxReportInflatedBytes: [
+    'API_REPORT_MAX_INFLATED_BYTES',
+    REPORT_UPLOAD_LIMITS.report.inflatedBytes,
+    MAX_REPORT_INFLATED_BYTES,
+  ],
+  maxAddendumInflatedBytes: [
+    'API_REPORT_ADDENDUM_MAX_INFLATED_BYTES',
+    REPORT_UPLOAD_LIMITS.addendum.inflatedBytes,
+    MAX_REPORT_INFLATED_BYTES,
+  ],
   ipReportsPerHour: ['API_REPORT_IP_HOURLY', 6, MAX_REPORT_RATE],
   ipReportsPerDay: ['API_REPORT_IP_DAILY', 20, MAX_REPORT_RATE],
   ipAddendaPerHour: ['API_REPORT_IP_ADDENDA_HOURLY', 6, MAX_REPORT_RATE],
   uploadsPerHour: ['API_REPORT_GLOBAL_HOURLY', 200, MAX_REPORT_RATE],
-  /** Compressed bytes of every upload read in an hour. */
+  /** Bytes of every upload in an hour: its compressed body, or the files it decoded to when larger. */
   uploadBytesPerHour: ['API_REPORT_GLOBAL_HOURLY_BYTES', 256 * MIB, MAX_REPORT_STORE_BYTES],
   fingerprintPerDay: ['API_REPORT_FINGERPRINT_DAILY', 10, MAX_REPORT_RATE],
   maxStoredBytes: ['API_REPORT_MAX_STORED_BYTES', 2 * GIB, MAX_REPORT_STORE_BYTES],

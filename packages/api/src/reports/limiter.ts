@@ -8,6 +8,12 @@ const DAY_MS = 24 * HOUR_MS;
 const KEY_SECRET_BYTES = 32;
 /** An IPv6 client usually holds a whole /64, so its first four groups are one sender. */
 const IPV6_SENDER_GROUPS = 4;
+/** One site or household usually holds a /56: its /64s share a coarser limit as well. */
+const IPV6_NETWORK_BITS = 56;
+const BITS_PER_GROUP = 16;
+const HEX = 16;
+/** A /56's limits, as a multiple of one sender's. */
+const NETWORK_LIMIT_FACTOR = 3;
 const IPV6_GROUPS = 8;
 const IPV4_MAPPED = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i;
 
@@ -25,6 +31,12 @@ interface SenderLog {
   readonly addenda: number[];
 }
 
+/** The limiter's keys for one client: its own, and its IPv6 /56 shared with its neighbours. */
+export interface ReportSender {
+  readonly key: string;
+  readonly network: string | null;
+}
+
 /** A refusal and how many whole seconds until a slot frees. */
 export interface Limited {
   readonly retryAfterSeconds: number;
@@ -34,7 +46,7 @@ export interface Limited {
  * Sliding-window upload limits in memory. Senders are keyed by an HMAC of their address under a
  * secret made at start, so the address itself is never kept and the keys mean nothing after a
  * restart. Every time is the clock when it is recorded, so each list stays in order. Only admitted
- * uploads create entries, so the global hourly count bounds the map.
+ * uploads create entries, so the map holds at most a few entries per client address or /56 an hour.
  */
 export class ReportLimiter {
   private readonly secret = randomBytes(KEY_SECRET_BYTES);
@@ -46,51 +58,82 @@ export class ReportLimiter {
 
   constructor(private readonly limits: RateLimits) {}
 
-  /** The limiter's key for a client address; IPv6 senders share one per /64. */
-  senderKey(address: string): string {
-    return createHmac('sha256', this.secret).update(senderOf(address)).digest('base64url');
+  /** The limiter's keys for a client address; IPv6 senders share one per /64 and one per /56. */
+  senderKey(address: string): ReportSender {
+    const network = networkOf(address);
+    return {
+      key: this.keyOf(senderOf(address)),
+      network: network === null ? null : this.keyOf(`net:${network}`),
+    };
   }
 
   /** Before reading a body: refuses while a global hourly budget or the sender's limit for `part` is
-   *  spent, else takes a slot of both at once, so concurrent uploads cannot pass them. The bytes count
+   *  spent, else takes a slot of each at once, so concurrent uploads cannot pass them. The bytes count
    *  once read, so uploads in flight may overshoot the byte budget. */
-  admit(key: string, part: ReportPart, now: number): Limited | null {
+  admit(sender: ReportSender, part: ReportPart, now: number): Limited | null {
     this.sweep(now);
     prune(this.uploads, now - HOUR_MS);
-    const known = this.senders.get(key);
-    const wait =
-      waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ??
-      this.bytesWait(now) ??
-      (known === undefined ? null : this.partWait(known, part, now));
+    const tiers = this.tiersOf(sender);
+    let wait = waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ?? this.bytesWait(now);
+    for (const [key, factor] of tiers) {
+      const known = this.senders.get(key);
+      wait ??= known === undefined ? null : this.partWait(known, part, factor, now);
+    }
     if (wait !== null) return wait;
     this.uploads.push(now);
-    const sender = known ?? this.senderLog(key);
-    (part === 'report' ? sender.reports : sender.addenda).push(now);
+    for (const [key] of tiers) this.logOf(key, part).push(now);
     return null;
   }
 
-  /** Counts an upload's compressed bytes, read whole or cut at its limit, against the hourly budget. */
+  /** Gives back the global upload slot `admit` took at `admittedAt`, for an upload refused or lost
+   *  before anything was stored; the sender's slots stay spent. */
+  refund(admittedAt: number): void {
+    const index = this.uploads.lastIndexOf(admittedAt);
+    if (index !== -1) this.uploads.splice(index, 1);
+  }
+
+  /** Counts bytes against the hourly budget: an upload's compressed body, read whole or cut at its
+   *  limit, and what its files take beyond that. */
   countBytes(bytes: number, now: number): void {
     this.received.push({ time: now, bytes });
   }
 
   /** An upload the server could not read or validate also spends the sender's slot for the other
    *  part, so a sender of garbage runs out soonest. */
-  penalize(key: string, part: ReportPart, now: number): void {
-    const sender = this.senderLog(key);
-    (part === 'report' ? sender.addenda : sender.reports).push(now);
+  penalize(sender: ReportSender, part: ReportPart, now: number): void {
+    const other = part === 'report' ? 'addendum' : 'report';
+    for (const [key] of this.tiersOf(sender)) this.logOf(key, other).push(now);
   }
 
-  private partWait(sender: SenderLog, part: ReportPart, now: number): Limited | null {
+  private keyOf(sender: string): string {
+    return createHmac('sha256', this.secret).update(sender).digest('base64url');
+  }
+
+  /** Each key of the sender and the multiple of the per-sender limits it may use. */
+  private tiersOf(sender: ReportSender): readonly (readonly [key: string, factor: number])[] {
+    return sender.network === null
+      ? [[sender.key, 1]]
+      : [
+          [sender.key, 1],
+          [sender.network, NETWORK_LIMIT_FACTOR],
+        ];
+  }
+
+  private partWait(sender: SenderLog, part: ReportPart, factor: number, now: number): Limited | null {
     if (part === 'addendum') {
       prune(sender.addenda, now - HOUR_MS);
-      return waitFor(sender.addenda, this.limits.ipAddendaPerHour, HOUR_MS, now);
+      return waitFor(sender.addenda, this.limits.ipAddendaPerHour * factor, HOUR_MS, now);
     }
     prune(sender.reports, now - DAY_MS);
     return (
-      waitFor(sender.reports, this.limits.ipReportsPerDay, DAY_MS, now) ??
-      waitFor(sender.reports, this.limits.ipReportsPerHour, HOUR_MS, now)
+      waitFor(sender.reports, this.limits.ipReportsPerDay * factor, DAY_MS, now) ??
+      waitFor(sender.reports, this.limits.ipReportsPerHour * factor, HOUR_MS, now)
     );
+  }
+
+  private logOf(key: string, part: ReportPart): number[] {
+    const sender = this.senderLog(key);
+    return part === 'report' ? sender.reports : sender.addenda;
   }
 
   /** The wait until the bytes read in the last hour fall below the budget, or null now. */
@@ -143,18 +186,36 @@ function waitUntil(freesAt: number, now: number): Limited {
   return { retryAfterSeconds: Math.max(1, Math.ceil((freesAt - now) / MS_PER_SECOND)) };
 }
 
-function senderOf(address: string): string {
-  const mapped = IPV4_MAPPED.exec(address)?.[1];
-  if (mapped !== undefined) return mapped;
-  if (!isIPv6(address)) return address;
+/** The eight groups of an IPv6 address as numbers, or null for any other address. */
+function ipv6Groups(address: string): number[] | null {
+  if (IPV4_MAPPED.test(address) || !isIPv6(address)) return null;
   const [head = '', tail = ''] = address.toLowerCase().split('%', 1)[0]?.split('::') ?? [];
   const front = head === '' ? [] : head.split(':');
   const back = tail === '' ? [] : tail.split(':');
   const groups = address.includes('::')
     ? [...front, ...Array<string>(Math.max(0, IPV6_GROUPS - front.length - back.length)).fill('0'), ...back]
     : front;
+  return groups.map((group) => Number.parseInt(group, HEX) || 0);
+}
+
+function senderOf(address: string): string {
+  const mapped = IPV4_MAPPED.exec(address)?.[1];
+  if (mapped !== undefined) return mapped;
+  const groups = ipv6Groups(address);
+  if (groups === null) return address;
   return groups
     .slice(0, IPV6_SENDER_GROUPS)
-    .map((group) => group.replace(/^0+(?=.)/, ''))
+    .map((group) => group.toString(HEX))
     .join(':');
+}
+
+/** The address's IPv6 /56 as text, or null for IPv4. */
+function networkOf(address: string): string | null {
+  const groups = ipv6Groups(address);
+  if (groups === null) return null;
+  const whole = Math.floor(IPV6_NETWORK_BITS / BITS_PER_GROUP);
+  const partBits = IPV6_NETWORK_BITS % BITS_PER_GROUP;
+  const prefix = groups.slice(0, whole);
+  prefix.push((groups[whole] ?? 0) >> (BITS_PER_GROUP - partBits));
+  return `${prefix.map((group) => group.toString(HEX)).join(':')}/${IPV6_NETWORK_BITS}`;
 }

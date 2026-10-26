@@ -32,11 +32,11 @@ Report limits ([bug reports](#bug-reports)), each a positive integer:
 | `API_REPORT_ADDENDUM_MAX_BYTES` | 8388608 (8 MiB compressed addendum) |
 | `API_REPORT_MAX_INFLATED_BYTES` | 2097152 (2 MiB inflated report) |
 | `API_REPORT_ADDENDUM_MAX_INFLATED_BYTES` | 16777216 (16 MiB inflated addendum) |
-| `API_REPORT_IP_HOURLY`, `API_REPORT_IP_DAILY` | 6, 20 reports per client |
-| `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client |
-| `API_REPORT_GLOBAL_HOURLY` | 200 uploads from all clients |
-| `API_REPORT_GLOBAL_HOURLY_BYTES` | 268435456 (256 MiB compressed from all clients) |
-| `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint, one per client |
+| `API_REPORT_IP_HOURLY`, `API_REPORT_IP_DAILY` | 6, 20 reports per client; three times that per IPv6 /56 |
+| `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client; three times that per IPv6 /56 |
+| `API_REPORT_GLOBAL_HOURLY` | 200 uploads kept from all clients |
+| `API_REPORT_GLOBAL_HOURLY_BYTES` | 268435456 (256 MiB from all clients: each upload's compressed body, or the files it decoded to when larger) |
+| `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint, one per client; reports with a comment or contact are not capped |
 | `API_REPORT_MAX_STORED_BYTES` | 2147483648 (2 GiB stored) |
 | `API_REPORT_MAX_STORED` | 20000 stored reports |
 
@@ -141,32 +141,41 @@ type browsers send without a preflight. `POST /v1/reports` takes `part: 'report'
 /v1/reports/<id>` takes `part: 'addendum'` with the same 32-hex `id`: the player's comment, contact
 and heavier attachments. It answers 404 before reading the body unless `id` names a stored report.
 Each report takes one addendum; a later one is answered 204 as a retry and stores nothing. The
-random `id` is the addendum's only key.
+random `id` is the addendum's only key. `packages/data` owns the wire contract both sides build on:
+the field bounds (`REPORT_LIMITS`), the default upload caps (`REPORT_UPLOAD_LIMITS`), the JSON shape
+the server parses (`REPORT_JSON_SHAPE`) and the statuses below (`REPORT_STATUS`).
 
 | Status | Meaning |
 | --- | --- |
-| 204 | Stored; also a retried report or addendum already stored, and a report only counted past its fingerprint cap or as its client's second of that fingerprint that day |
-| 400 | Not JSON, nested deeper than 16 brackets or holding more than one value per 8 bytes of the inflated limit, refused by the schema, the wrong part for the path, an attachment whose bytes are not its type, or too costly to decode |
+| 204 | Stored; also a retried report or addendum already stored |
+| 202 | A report only counted, body `{ "outcome": "counted" }`: past its fingerprint's daily cap, or its client's second of that fingerprint that day. It takes no addendum; send the player's additions as a new report. A report with a comment or contact is never only counted |
+| 400 | Not JSON, nested deeper than 16 brackets, an object of more than 1024 members, more values (containers and separators) than the inflated limit divided by 12, refused by the schema, the wrong part for the path, an attachment whose bytes are not its type, or too costly to decode |
 | 403 | An `Origin` header that is not allowed |
 | 404 | The addendum's report is not stored |
 | 413 | Compressed body or inflated JSON over its limit, by `Content-Length` or while reading |
 | 415 | Not `text/plain`, a `Content-Encoding`, or a body that is not gzip |
 | 429, 503 | Rate limited or busy, with `Retry-After` |
-| 507 | Storage full; the server never deletes reports to make room |
+| 507 | Storage full, answered before the body is read; the server never deletes reports to make room |
 
 Error bodies are fixed `{ "error": "..." }` texts that never echo the input. Requests without
 `Origin` (tools, Node) are allowed. An allowed origin gets `Access-Control-Allow-Origin: <origin>`
-and `Vary: Origin`. A body refused before it was read whole, or past its limit, is read and dropped
+and `Vary: Origin`, and may read `Retry-After` (`Access-Control-Expose-Headers`). A body refused before it was read whole, or past its limit, is read and dropped
 for up to 2 seconds so the client gets the answer; then the connection closes.
 
-Limits are in the table above. Per-client limits use sliding windows and are checked for the path's
-part before the body is read; a body the server cannot read or validate also spends the client's
-slot for the other part. A write that would pass the byte cap, or a disk out of space, answers 507
-as well. Uploads in flight are capped. One upload at a time is inflated, validated and turned into
-its files in a worker with a 256 MB heap and a 10-second deadline; a body that exhausts either is a
-400. Clients are keyed by a keyed hash of their address (an
-IPv6 address by its /64) held only in memory. Client addresses are never logged or stored.
+Limits are in the table above. A wrong type answers 415 before any limit is spent. Per-client limits
+use sliding windows and are checked for the path's part before the body is read; a body the server
+cannot read or validate also spends the client's slot for the other part. The global hourly upload
+count only keeps uploads that stored or counted something: a refused or aborted one gives its slot
+back. The report count cap stops new reports only; an addendum to a stored report is stopped by the
+byte cap alone. A write that would pass the byte cap, or a disk out of space, answers 507 as well.
+Uploads in flight are capped. One upload at a time is inflated, validated and turned into its files
+in a child process with a 256 MB heap and a 10-second deadline. The shape bounds above keep the
+costliest JSON within the default limits to about 170 MB of that heap; a body that still exhausts
+the heap or the deadline ends only the child, is a 400, and the next upload starts a new one. Clients
+are keyed by a keyed hash of their address (an IPv6 address by its /64, and its /56 for the coarser
+limit) held only in memory. Client addresses are never logged or stored.
 Each client counts once toward a fingerprint's daily cap, so one client cannot use it up for everyone.
+A report with a comment or contact is always stored and does not count toward the cap.
 Fingerprint counts are in memory, so a restart starts the day's counts over.
 
 ### Stored reports
@@ -189,8 +198,8 @@ levels one member per line and deeper values on one line, so a file stays within
 the JSON sent however deep its free-form fields are.
 
 Attachments sent with the report or its addendum land in the same directory. An addendum never
-replaces a file the report already has. Each report is written in `.tmp/` and renamed into place;
-an addendum's files are linked in with `addendum.json` last. Delete report directories by hand at
+replaces a file the report already has. Each report is written in `.tmp/`, made again when deleted,
+and renamed into place; an addendum's files are linked in with `addendum.json` last. Delete report directories by hand at
 any time: every 5 minutes, and at start, the server recounts reports and bytes and rebuilds its id
 index from the directory names. The contact field is the only personal data, and it is optional.
 

@@ -1,5 +1,6 @@
 import type { World } from '../../../ecs/world.js';
 import { type HalfCellNode, hexDistanceBetween } from '../../../nav/halfcell.js';
+import { NO_COMPONENT } from '../../../nav/terrain/index.js';
 import { goodTypeByContentId } from '../../ai-shared/content-lookup.js';
 import { anchorNodeOf, firstRingNode } from '../../ai-shared/node-geometry.js';
 import { ownedBuildings, ownedSettlers } from '../../ai-shared/seat-roster.js';
@@ -207,6 +208,8 @@ export function nextSignpostTarget(
   let veto: ReturnType<typeof routeRegions> | null = null;
   const refNode =
     door !== null ? terrain.nodeAtClamped(door.x, door.y) : terrain.nodeAtClamped(anchor.hx, anchor.hy);
+  // A spot on other land than the base, such as another island, is one the scout cannot walk to.
+  const landmass = terrain.componentOf(refNode);
   const maxRing = latticeRingBound(anchor, [...buildings, ...corridors.flat()]);
   for (let ring = 0; ring <= maxRing; ring++) {
     for (const { q, r } of latticeRing(ring)) {
@@ -238,6 +241,7 @@ export function nextSignpostTarget(
         (x, y) =>
           p.canPlace(x, y) &&
           !(door !== null && x === door.x && y === door.y) &&
+          (landmass === NO_COMPONENT || terrain.componentOf(terrain.nodeAt(x, y)) === landmass) &&
           (v === null || !v.unroutable(refNode, terrain.nodeAt(x, y))),
       );
       if (spot !== null) return spot;

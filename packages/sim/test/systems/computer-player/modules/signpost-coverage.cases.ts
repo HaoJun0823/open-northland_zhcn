@@ -13,7 +13,7 @@ import { interactionNode } from '../../../../src/systems/footprint/interaction.j
 import { routeRegions, signpostNetwork } from '../../../../src/systems/index.js';
 import { EAT_ATOMIC_ID } from '../../../../src/systems/settlers/atomics/start.js';
 import { aiContent } from '../../../fixtures/ai-content.js';
-import { grassNodeMap } from '../../../fixtures/terrain.js';
+import { grassNodeMap, waterColumnMap } from '../../../fixtures/terrain.js';
 import {
   aiSim,
   COLLECTOR,
@@ -39,6 +39,19 @@ import {
 /** The scout's first duty: the outward signpost lattice and the navigation area it grows. */
 
 const guideBuild = scoutModule(DEFAULT_BUILD_ORDER);
+
+/** The lattice's first ring, in axial steps. */
+const FIRST_RING = [
+  [1, 0],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [0, -1],
+  [1, -1],
+] as const;
+
+/** A water cell column east of the 256-node map's centre, between the HQ and its second ring. */
+const WATER_CELL_COLUMN = 76;
 
 describe('signpost-coverage module (guideBuild)', () => {
   it('starts the lattice beside the HQ, then walks the six-post ring outward', () => {
@@ -148,14 +161,7 @@ describe('signpost-coverage module (guideBuild)', () => {
     sim.step();
     // The centre and all six first-ring targets stand satisfied - the always-wanted lattice is done.
     plantPost(sim, positionOfNode(CENTER.x, CENTER.y));
-    for (const [q, r] of [
-      [1, 0],
-      [0, 1],
-      [-1, 1],
-      [-1, 0],
-      [0, -1],
-      [1, -1],
-    ] as const) {
+    for (const [q, r] of FIRST_RING) {
       const o = signpostLatticeOffset(q, r);
       plantPost(sim, positionOfNode(CENTER.x + o.dx, CENTER.y + o.dy));
     }
@@ -180,6 +186,35 @@ describe('signpost-coverage module (guideBuild)', () => {
     ).toBe(true);
   });
 
+  it('never aims at a spot across water from the base, where the scout cannot walk', () => {
+    const CENTER = { x: 128, y: 128 };
+    const sim = new Simulation({
+      seed: 1,
+      content: aiContent(),
+      map: waterColumnMap(128, 128, WATER_CELL_COLUMN),
+    });
+    placeHq(sim, CENTER.x, CENTER.y);
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: SCOUT, x: 100, y: 100, tribe: VIKING, owner: SEAT });
+    sim.step();
+    plantPost(sim, positionOfNode(CENTER.x, CENTER.y));
+    for (const [q, r] of FIRST_RING) {
+      const o = signpostLatticeOffset(q, r);
+      plantPost(sim, positionOfNode(CENTER.x + o.dx, CENTER.y + o.dy));
+    }
+    // A house the map handed the seat on the far bank wants a post beside it, but no walk reaches it.
+    const reach = signpostLatticeOffset(2, 0);
+    sim.enqueueSetup({
+      kind: 'placeBuilding',
+      buildingType: HOME_TYPE,
+      x: CENTER.x + reach.dx - 2,
+      y: CENTER.y + reach.dy,
+      tribe: VIKING,
+      owner: SEAT,
+    });
+    sim.step();
+    expect([...guideBuild.run(sim.world, ctxOf(sim), SEAT)]).toEqual([]);
+  });
+
   it('reaches out along a corridor to a far work flag, ring by ring, so the gatherer walks inside his network', () => {
     const CENTER = { x: 128, y: 128 };
     const sim = new Simulation({ seed: 1, content: aiContent(), map: grassNodeMap(256, 256) });
@@ -187,14 +222,7 @@ describe('signpost-coverage module (guideBuild)', () => {
     sim.enqueueSetup({ kind: 'spawnSettler', jobType: SCOUT, x: 100, y: 100, tribe: VIKING, owner: SEAT });
     sim.step();
     plantPost(sim, positionOfNode(CENTER.x, CENTER.y));
-    for (const [q, r] of [
-      [1, 0],
-      [0, 1],
-      [-1, 1],
-      [-1, 0],
-      [0, -1],
-      [1, -1],
-    ] as const) {
+    for (const [q, r] of FIRST_RING) {
       const o = signpostLatticeOffset(q, r);
       plantPost(sim, positionOfNode(CENTER.x + o.dx, CENTER.y + o.dy));
     }
@@ -248,14 +276,7 @@ describe('signpost-coverage module (guideBuild)', () => {
     });
     sim.step();
     plantPost(sim, positionOfNode(CENTER.x, CENTER.y));
-    for (const [q, r] of [
-      [1, 0],
-      [0, 1],
-      [-1, 1],
-      [-1, 0],
-      [0, -1],
-      [1, -1],
-    ] as const) {
+    for (const [q, r] of FIRST_RING) {
       const o = signpostLatticeOffset(q, r);
       plantPost(sim, positionOfNode(CENTER.x + o.dx, CENTER.y + o.dy));
     }

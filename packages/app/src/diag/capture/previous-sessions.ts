@@ -127,9 +127,13 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
       continue;
     }
     const quietFreeze = freeze !== null && !worthReport(freeze);
-    // A short boot freeze says nothing of how the page ended: it ends as it would without the record.
+    // A quiet freeze the page beat past says nothing of how it ended: judged as without the record.
+    // One it never came back from ended a page frozen in a boot or on a software renderer: quiet.
+    const thawed = freeze !== null && marker.beatAt > freeze.seenAt;
     const verdict =
-      judged.kind === 'freeze' && quietFreeze ? judgeMarker(marker, { ...facts, freezeId: null }) : judged;
+      judged.kind === 'freeze' && quietFreeze && thawed
+        ? judgeMarker(marker, { ...facts, freezeId: null })
+        : judged;
     if (verdict.kind === 'desktop') {
       const matched = pending.filter((fault) => verdict.faultIds.includes(fault.id));
       const hangs = quietFreeze ? matched.filter((fault) => fault.trigger === 'renderer-unresponsive') : [];
@@ -147,7 +151,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
           },
         },
       });
-    } else if (verdict.kind === 'freeze' && freeze !== null) reportFreeze(freeze, marker);
+    } else if (verdict.kind === 'freeze' && freeze !== null && !quietFreeze) reportFreeze(freeze, marker);
     else if (verdict.kind === 'unclean-exit') reportUncleanExit(marker);
     if (freeze !== null) finished.push(freeze.id);
     removeMarker(marker.id);

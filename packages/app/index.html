@@ -52,18 +52,21 @@
             return true;
           }
         };
-        const stackUrls = (error) =>
-          typeof error?.stack === 'string' ? (error.stack.match(STACK_URL) ?? []) : [];
-        const elsewhere = (error) => {
-          const urls = stackUrls(error);
-          return urls.length > 0 && !urls.some(own);
+        const topFrameUrl = (error) => {
+          const stack = error?.stack;
+          if (typeof stack !== 'string') return null;
+          const name = typeof error.name === 'string' ? error.name : '';
+          const message = typeof error.message === 'string' ? error.message : '';
+          const head = message === '' ? name : `${name}: ${message}`;
+          const frames = head !== '' && stack.startsWith(head) ? stack.slice(head.length) : stack;
+          return frames.match(STACK_URL)?.[0] ?? null;
         };
-        const ignored = (event) =>
-          String(event.message).includes('ResizeObserver loop') ||
-          (event.error == null && event.message === 'Script error.') ||
-          (stackUrls(event.error).length > 0
-            ? elsewhere(event.error)
-            : event.filename !== '' && !own(event.filename));
+        const ignored = (event) => {
+          if (String(event.message).includes('ResizeObserver loop')) return true;
+          if (event.error == null && event.message === 'Script error.') return true;
+          const top = topFrameUrl(event.error);
+          return top !== null ? !own(top) : event.filename !== '' && !own(event.filename);
+        };
         const onError = (event) => {
           const target = event.target;
           if (target?.tagName === 'SCRIPT') {

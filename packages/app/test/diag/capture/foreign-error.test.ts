@@ -6,10 +6,11 @@ const ORIGIN = 'https://game.example';
 const thrown = (stack: string): Error => Object.assign(new Error('x'), { stack });
 
 describe('ignoredWindowError', () => {
-  it('leaves an error thrown by the page to the report, even past a foreign frame', () => {
+  it('leaves an error thrown by the page to the report, even called from a foreign frame', () => {
     const ours = thrown(
-      `Error: x\n    at a (chrome-extension://id/hook.js:1:2)\n    at b (${ORIGIN}/assets/main.js:3:4)`,
+      `Error: see https://ext.example/doc\n    at b (${ORIGIN}/assets/main.js:3:4)\n    at a (chrome-extension://id/hook.js:1:2)`,
     );
+    Object.assign(ours, { message: 'see https://ext.example/doc' });
     expect(
       ignoredWindowError(
         { message: 'Uncaught Error: x', filename: `${ORIGIN}/assets/main.js`, error: ours },
@@ -19,6 +20,18 @@ describe('ignoredWindowError', () => {
     expect(
       ignoredWindowError({ message: 'Uncaught Error: x', filename: '', error: thrown('Error: x') }, ORIGIN),
     ).toBeNull();
+  });
+
+  it('drops an error thrown in a foreign wrapper the game called', () => {
+    const wrapped = thrown(
+      `Error: x\n    at hook (chrome-extension://id/hook.js:1:2)\n    at b (${ORIGIN}/assets/main.js:3:4)`,
+    );
+    expect(
+      ignoredWindowError(
+        { message: 'Uncaught Error: x', filename: 'chrome-extension://id/hook.js', error: wrapped },
+        ORIGIN,
+      ),
+    ).toBe('foreign');
   });
 
   it("keeps the page's error that a foreign wrapper caught and rethrew under its own filename", () => {

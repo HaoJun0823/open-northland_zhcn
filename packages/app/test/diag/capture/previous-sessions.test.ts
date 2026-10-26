@@ -1,12 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CaptureContext } from '../../../src/diag/capture/context.js';
-import { reportPreviousSessions } from '../../../src/diag/capture/previous-sessions.js';
-import { writeMarker } from '../../../src/diag/capture/session-marker.js';
 import { MARKER_STALE_MS } from '../../../src/diag/capture/unclean-exit.js';
 import type { FreezeRecord } from '../../../src/diag/capture/watchdog/freeze-records.js';
 import { BOOT_FREEZE_REPORT_MS, FREEZE_REPORT_MS } from '../../../src/diag/capture/watchdog/freeze-watch.js';
-import { type Problem, setProblemSink } from '../../../src/diag/report/problem.js';
+import type { Problem } from '../../../src/diag/report/problem.js';
 import type { DesktopFault, DesktopFaults } from '../../../src/view/platform/desktop-faults.js';
 
 const store = vi.hoisted(() => ({
@@ -25,6 +23,13 @@ vi.mock('../../../src/diag/capture/watchdog/freeze-records.js', () => ({
     return Promise.resolve();
   },
 }));
+
+// Test files share one module registry, so the fakes above only reach the subject when it is imported
+// into a registry cleared of the real modules; its marker store and problem sink come from that graph.
+vi.resetModules();
+const { reportPreviousSessions } = await import('../../../src/diag/capture/previous-sessions.js');
+const { writeMarker } = await import('../../../src/diag/capture/session-marker.js');
+const { setProblemSink } = await import('../../../src/diag/report/problem.js');
 
 const NOW = 10_000_000;
 const LONG_AGO = NOW - 100 * MARKER_STALE_MS;
@@ -109,18 +114,22 @@ describe('reportPreviousSessions', () => {
     expect(store.deleted.sort()).toEqual([baked.id, stuck.id]);
   });
 
-  it('reports a game that ended unclean after a short boot freeze, and a boot that ended so not', async () => {
+  it('reports a game that ended unclean after a short boot freeze, not one that ended in it', async () => {
     const played = bootFreeze('5'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
     const booted = bootFreeze('6'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
-    store.records = [played, booted];
+    const frozen = bootFreeze('4'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
+    store.records = [played, booted, frozen];
     const marker = { startedAt: LONG_AGO - 1000, beatAt: LONG_AGO + 30_000, visible: true };
-    writeMarker({ id: played.id, ...marker, context: { ...BOOTING, inGame: true, booting: false } });
+    const inGame = { ...BOOTING, inGame: true };
+    writeMarker({ id: played.id, ...marker, context: { ...inGame, booting: false } });
     writeMarker({ id: booted.id, ...marker, context: BOOTING });
+    // Its last beat came before the freeze: the page was closed frozen, as a slow load is.
+    writeMarker({ id: frozen.id, ...marker, beatAt: frozen.frozenAt, context: inGame });
     await reportPreviousSessions(OWN, null);
     expect(problems.map((problem) => [problem.trigger, problem.earlier?.id])).toEqual([
       ['unclean-exit', played.id],
     ]);
-    expect(store.deleted.sort()).toEqual([played.id, booted.id]);
+    expect(store.deleted.sort()).toEqual([frozen.id, played.id, booted.id].sort());
   });
 
   it("forgets the shell's hang of a short boot freeze, and leaves this page's own hang to it", async () => {

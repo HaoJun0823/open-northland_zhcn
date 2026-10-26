@@ -33,18 +33,24 @@ function fromOrigin(url: string, pageOrigin: string): boolean {
   }
 }
 
-/** The script URLs an error's stack names; empty for a value without a stack or a stack without
- *  URLs. */
-function stackUrls(error: unknown): readonly string[] {
-  if (typeof error !== 'object' || error === null || !('stack' in error)) return [];
+/** The script URL of the stack's top frame, read past the `Name: message` line V8 starts it with, so
+ *  a URL in the message is no frame; null for a value without a stack or a stack without URLs. */
+function topFrameUrl(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('stack' in error)) return null;
   const { stack } = error;
-  return typeof stack === 'string' ? (stack.match(STACK_URL) ?? []) : [];
+  if (typeof stack !== 'string') return null;
+  const name = 'name' in error && typeof error.name === 'string' ? error.name : '';
+  const message = 'message' in error && typeof error.message === 'string' ? error.message : '';
+  const head = message === '' ? name : `${name}: ${message}`;
+  const frames = head !== '' && stack.startsWith(head) ? stack.slice(head.length) : stack;
+  return frames.match(STACK_URL)?.[0] ?? null;
 }
 
-/** The error's stack names scripts, none of them the page's. */
+/** The error was thrown in another origin's script: its stack's top frame is not the page's. Frames
+ *  below may be the page's, as when the game calls a function an extension wrapped. */
 export function thrownElsewhere(error: unknown, pageOrigin: string): boolean {
-  const urls = stackUrls(error);
-  return urls.length > 0 && urls.every((url) => !fromOrigin(url, pageOrigin));
+  const url = topFrameUrl(error);
+  return url !== null && !fromOrigin(url, pageOrigin);
 }
 
 /** Why a window error event is no game crash, or null when it may be one. A stack outranks the
@@ -53,6 +59,6 @@ export function thrownElsewhere(error: unknown, pageOrigin: string): boolean {
 export function ignoredWindowError(event: WindowErrorFacts, pageOrigin: string): IgnoredError | null {
   if (event.message.includes(RESIZE_OBSERVER_NOTICE)) return 'resize-observer';
   if (event.error == null && event.message === MUTED_ERROR_MESSAGE) return 'foreign';
-  if (stackUrls(event.error).length > 0) return thrownElsewhere(event.error, pageOrigin) ? 'foreign' : null;
+  if (topFrameUrl(event.error) !== null) return thrownElsewhere(event.error, pageOrigin) ? 'foreign' : null;
   return event.filename !== '' && !fromOrigin(event.filename, pageOrigin) ? 'foreign' : null;
 }

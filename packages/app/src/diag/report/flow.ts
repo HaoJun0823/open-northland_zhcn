@@ -140,7 +140,11 @@ interface DialogState {
 }
 
 /** Start `send`, and run `then` once its report is answered or queued, or the send ended without. */
-function afterReportAnswered(kase: ReportCase, send: () => Promise<void>, then: () => Promise<void>): void {
+export function afterReportAnswered(
+  kase: Pick<ReportCase, 'onChange' | 'reportAnswered' | 'needsWords'>,
+  send: () => Promise<void>,
+  then: () => Promise<void>,
+): void {
   let started = false;
   const start = (): void => {
     if (started) return;
@@ -148,10 +152,15 @@ function afterReportAnswered(kase: ReportCase, send: () => Promise<void>, then: 
     stopWatching();
     void then();
   };
+  // A report the server only counted is answered again by the new report this Send files for it.
+  const awaitsPost = !kase.reportAnswered() || kase.needsWords();
+  let posted = false;
   const stopWatching = kase.onChange(() => {
-    if (kase.reportAnswered()) start();
+    if (!kase.reportAnswered()) posted = true;
+    else if (!awaitsPost || posted) start();
   });
   void send().finally(start);
+  if (!awaitsPost) start();
 }
 
 function showDialog(kase: ReportCase, problem: Problem | null, state: DialogState): void {

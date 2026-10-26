@@ -98,6 +98,37 @@ describe('report courier', () => {
     expect(posted.map((entry) => entry.id)).toEqual([id(1)]);
   });
 
+  it('keeps a returned link for the flush it asked for while another one ran', async () => {
+    const store = memoryOutbox();
+    const posted: string[] = [];
+    let answer: (result: SendResult) => void = () => undefined;
+    const courier = new Courier({
+      store,
+      locks: null,
+      post: (entry) => {
+        posted.push(entry.id);
+        return entry.id === id(1)
+          ? new Promise((resolve) => (answer = resolve))
+          : Promise.resolve({ kind: 'sent' });
+      },
+      now: () => NOW,
+      settled: () => undefined,
+    });
+    couriers.push(courier);
+    await store.put(outboxEntry(id(1), 'report', body(), NOW - 2));
+    await store.put({
+      ...outboxEntry(id(2), 'report', body(), NOW - 1),
+      attempts: 1,
+      notBefore: NOW + 30_000,
+    });
+    const running = courier.flush();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await courier.flush({ linkBack: true });
+    answer({ kind: 'sent' });
+    await running;
+    expect(posted).toEqual([id(1), id(2)]);
+  });
+
   it('leaves an upload to the page posting it, and sends it once that page let go unanswered', async () => {
     let letGo: () => void = () => undefined;
     const released = new Promise<void>((resolve) => (letGo = resolve));

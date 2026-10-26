@@ -61,8 +61,8 @@ export class Courier {
   /** Keys another page is posting, flushed again once it lets go: it got an answer, or it died. */
   private readonly postedElsewhere = new Set<string>();
   private flushing = false;
-  /** A flush was asked for while one ran: the outbox changed under it. */
-  private flushAgain = false;
+  /** A flush was asked for while one ran: the outbox changed under it, or the link came back. */
+  private flushAgain: { readonly linkBack: boolean } | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly deps: CourierDeps) {}
@@ -100,7 +100,7 @@ export class Courier {
   async flush(options: { readonly linkBack?: boolean } = {}): Promise<void> {
     if (this.deps.now() < this.blockedUntil) return;
     if (this.flushing) {
-      this.flushAgain = true;
+      this.flushAgain = { linkBack: this.flushAgain?.linkBack === true || options.linkBack === true };
       return;
     }
     this.flushing = true;
@@ -121,9 +121,10 @@ export class Courier {
     } finally {
       this.flushing = false;
     }
-    if (this.flushAgain) {
-      this.flushAgain = false;
-      await this.flush();
+    const again = this.flushAgain;
+    if (again !== null) {
+      this.flushAgain = null;
+      await this.flush(again);
     }
   }
 

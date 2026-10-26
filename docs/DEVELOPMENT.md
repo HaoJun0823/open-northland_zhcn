@@ -46,6 +46,8 @@ Root `scripts/` holds the Node tools behind the npm commands:
   `test:boot` and `test:shaders`.
 - `net-lab/`: the multiplayer browser lab and the chaos proxy.
 - `dev/`: `ports.sh`, `reset.sh` and the diagnostic bundle tool.
+- `report/`: `symbolicate.mjs`, which maps a bug report's stacks through a build's hidden source
+  maps ([Source maps](BUILDING.md#source-maps)).
 - `test/`: the scripts' own `node --test` suites, mirroring these folders.
 
 The files left at the root keep their paths for outside callers: the asset check and its policy

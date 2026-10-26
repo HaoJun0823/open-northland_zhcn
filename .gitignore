@@ -83,3 +83,6 @@ npm-debug.log*
 
 # Per-map mission playtest probes agents write for one session (docs/TESTING.md "Mission playtests").
 /packages/app/test/real-content/playtest/local/
+
+# Hidden source maps of the last app build (packages/app/build/source-maps.ts); never shipped.
+/packages/app/dist-sourcemaps/

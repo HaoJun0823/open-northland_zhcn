@@ -5,6 +5,7 @@ import { defaultClientConditions, defineConfig, type Plugin, runnerImport } from
 import { clientBuildIdentity, refreshClientBuild } from './build/client-version.js';
 import { contentPrefix, contentTreeHash } from './build/content-hash.js';
 import { emitVersionFile, gameVersion, restoreIdentity } from './build/game-version.js';
+import { chainPackageSourceMaps, keepSourceMapsAside } from './build/source-maps.js';
 import { devCheckout } from './vite/dev-checkout.js';
 import { gpuBenchmarks } from './vite/gpu-benchmarks.js';
 import { serveContent } from './vite/serve-content.js';
@@ -12,6 +13,11 @@ import { serveContent } from './vite/serve-content.js';
 const here = dirname(fileURLToPath(import.meta.url));
 // The pipeline's output tree lives at the repo root (gitignored), outside the app's Vite root.
 const contentRoot = resolve(here, '../..', process.env.ON_CONTENT_DIR ?? 'content');
+// Beside `dist/`, never in it: crash stacks are symbolicated locally, the maps are never served.
+const sourceMapsDir = resolve(here, 'dist-sourcemaps');
+const packagesDir = resolve(here, '..');
+// Positions only: the release tag and its lockfile hold the sources, and the kept maps stay small.
+const hiddenMapOutput = { sourcemapExcludeSources: true } as const;
 
 /** A checkout that adds `vite/custom/plugins.ts` contributes its own plugins. */
 async function checkoutPlugins(command: 'serve' | 'build'): Promise<Plugin[]> {
@@ -47,10 +53,23 @@ export default defineConfig(async ({ command }) => {
       gpuBenchmarks(),
       refreshClientBuild(resolve(here, '../..')),
       emitVersionFile({ version, restore, content }),
+      chainPackageSourceMaps(packagesDir),
+      keepSourceMapsAside(sourceMapsDir, { version, client: clientBuild, content }),
       ...(await checkoutPlugins(command)),
     ],
+    // Worker bundles take only these options, not the page's.
+    worker: {
+      plugins: () => [chainPackageSourceMaps(packagesDir)],
+      rolldownOptions: { output: hiddenMapOutput },
+    },
     server: { open: false },
     // `manifest` feeds scripts/bundle-report.mjs, which prints what each URL mode costs after the build.
-    build: { target: 'es2022', outDir: 'dist', manifest: true },
+    build: {
+      target: 'es2022',
+      outDir: 'dist',
+      manifest: true,
+      sourcemap: 'hidden',
+      rolldownOptions: { output: hiddenMapOutput },
+    },
   };
 });

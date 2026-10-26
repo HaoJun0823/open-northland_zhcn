@@ -26,6 +26,27 @@ tree fails the build. Hashing the 1.4 GB, 3835-file tree adds 1 to 7 s to `vite 
 the disk cache. The dev server hashes nothing and serves bare paths. It and
 `vite preview` also answer `/c/<any hash>/`, as do the desktop shell and `test:boot`.
 
+## Source maps
+
+A production build writes `hidden` source maps: the shipped JavaScript carries no `sourceMappingURL`
+comment, and the build moves every `.map` out of `packages/app/dist/` into the ignored
+`packages/app/dist-sourcemaps/`, so neither the web image nor an installer contains one. The maps
+chain through the packages' `tsc` maps to the TypeScript sources and hold positions only, no source
+text: read the positions at the build's commit. `build.json` beside them names the build as a bug
+report does (`version`, `client`, `content`). A release keeps its maps privately.
+
+To read a bug report's stacks:
+
+```bash
+node scripts/report/symbolicate.mjs <report dir or report.json> packages/app/dist-sourcemaps
+node scripts/report/symbolicate.mjs report.json <maps dir> --json   # the whole report, rewritten
+```
+
+It rewrites every frame location a map covers, in the error's stack and source and in the log
+entries, to a repository position such as `packages/sim/src/ecs/world.ts:335:23`, and warns when
+the report's `build.version` or `build.client` differs from `build.json`. Chunk names carry their
+content hash, so a chunk the two builds share still maps and any other frame stays as sent.
+
 ## Release checks
 
 Run on the release commit before tagging. See [TESTING.md](TESTING.md) for prerequisites.

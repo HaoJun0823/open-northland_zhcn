@@ -133,8 +133,8 @@ export const ReportAttachments = z.strictObject({
   /** The logged commands, oldest first, from `commandsFromTick`. */
   commands: z.array(z.json()).max(REPORT_LIMITS.commands).optional(),
   commandsFromTick: count.optional(),
-  /** The newest autosave's document, as the save codec reads it. */
-  save: z.strictObject({ name: text(), document: z.json() }).optional(),
+  /** A save file as the save codec writes it (gzip), so the server stores it without parsing it. */
+  save: z.strictObject({ name: text(), data: z.base64() }).optional(),
   screenshot: z
     .strictObject({
       type: z.enum(REPORT_SCREENSHOT_TYPES),

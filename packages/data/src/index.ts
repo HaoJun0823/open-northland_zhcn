@@ -20,6 +20,7 @@ export * from './schema/catalog/browse.js';
 export * from './schema/catalog/conversion.js';
 export * from './schema/catalog/entry.js';
 export * from './schema/catalog/id.js';
+export * from './schema/report/report.js';
 export * from './schema/index.js';
 export * from './technology.js';
 

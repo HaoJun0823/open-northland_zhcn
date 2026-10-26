@@ -1,4 +1,5 @@
 import type { DesktopMaps } from './desktop-bridge.js';
+import type { DesktopFaults } from './desktop-faults.js';
 import type { DesktopFullscreen } from './fullscreen.js';
 import type { DesktopOriginalGame } from './original-game-check.js';
 
@@ -10,6 +11,8 @@ declare global {
       readonly originalGame: DesktopOriginalGame;
       /** Absent in a shell build without the installed-map store. */
       readonly maps?: DesktopMaps;
+      /** Absent in a shell build without fault recording. */
+      readonly faults?: DesktopFaults;
     };
   }
 }

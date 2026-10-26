@@ -1,10 +1,12 @@
 import type { ReportError, ReportTrigger } from '@open-northland/data';
 
 /**
- * A stable name for "the same bug": the error's kind and the top frames of the game's own code, with
- * everything a rebuild or another install changes taken out (the origin, the chunk hashes, query
- * strings, line and column). The server caps stored reports per fingerprint and day, and the game
- * sends one automatic report per fingerprint and session.
+ * A name for "the same bug": the error's kind and the top frames of the game's own code, with the
+ * origin, chunk hashes, query strings, line and column taken out. It holds across installs, origins
+ * and pages of one build in one browser engine. A rebuild may rename minified functions, and each
+ * engine writes its own frame format, so one bug can have a fingerprint per build and engine. The
+ * server caps stored reports per fingerprint and day, and the game sends one automatic report per
+ * fingerprint and session.
  */
 
 /** Frames that name where the error happened; deeper ones mostly name the event loop. */

@@ -9,13 +9,14 @@ export const deBugReport = {
     'renderer-unresponsive': 'Das Spiel reagiert nicht mehr',
     desync: 'Das Spiel ist nicht mehr synchron',
     'context-lost': 'Die Grafik funktioniert nicht mehr',
+    'gpu-gone': 'Die Grafik wurde neu gestartet',
   },
   explanations: {
     manual:
       'Beschreibe, was schiefgelaufen ist. Jeder Bericht wird gelesen und hilft, das Spiel zu verbessern.',
     error:
       'Ein Teil des Spiels ist fehlgeschlagen. Es läuft vielleicht weiter, kann sich ab jetzt aber seltsam verhalten.',
-    'sim-stall': 'Die Welt bewegt sich nicht mehr. Speichern und erneutes Laden kann helfen.',
+    'sim-stall': 'Die Welt bewegt sich nicht mehr. Einen Spielstand oder die Seite neu zu laden kann helfen.',
     'main-freeze': 'Die Seite hat eine Weile nicht reagiert.',
     'unclean-exit':
       'Dein letztes Spiel wurde nicht richtig beendet, vermutlich wegen eines Absturzes oder Einfrierens.',
@@ -25,6 +26,8 @@ export const deBugReport = {
       'Dein Spiel stimmt nicht mehr mit denen der anderen Spieler überein, daher kann die Partie nicht zuverlässig weiterlaufen.',
     'context-lost':
       'Der Browser hat dem Spiel die Grafik entzogen und nicht zurückgegeben. Meist hilft es, die Seite neu zu laden.',
+    'gpu-gone':
+      'In deiner letzten Sitzung ist der Grafikteil des Spiels ausgefallen und wurde neu gestartet. Das Spiel läuft wieder; der Bericht hilft, die Ursache zu finden.',
   },
   fatalTitle: 'Das Spiel kann nicht weiterlaufen',
   fatalExplanation:
@@ -34,6 +37,8 @@ export const deBugReport = {
     preparing: 'Bericht wird vorbereitet…',
     sending: 'Bericht wird gesendet…',
     sent: 'Bericht gesendet, Nr. {number}.',
+    counted:
+      'Dieses Problem ist bereits bekannt: Der Server hat es gezählt, aber keine weitere Kopie behalten. Wenn du mehr dazu sagen möchtest, schreibe einen Kommentar und sende ihn als neuen Bericht.',
     queued: 'Der Bericht konnte nicht gesendet werden. Das Spiel versucht es später erneut.',
     full: 'Der Berichtsserver ist gerade voll. Bitte lade den Bericht herunter und schicke ihn auf anderem Weg.',
     rejected:
@@ -63,6 +68,19 @@ export const deBugReport = {
   description: 'Was ist passiert?',
   descriptionHint: 'Hilfreich ist: was du getan hast, was du erwartet hast und was stattdessen passiert ist.',
   descriptionRequired: 'Bitte beschreibe zuerst das Problem.',
+  countedNeedsWords:
+    'Schreibe zuerst einen Kommentar oder gib einen Kontakt an; er wird als neuer Bericht gesendet.',
+  alsoSendHeld: {
+    one: 'Auch den Bericht zu {count} weiteren Problem senden',
+    few: 'Auch die Berichte zu {count} weiteren Problemen senden',
+    many: 'Auch die Berichte zu {count} weiteren Problemen senden',
+  },
+  earlierError: {
+    title: 'Beim letzten Mal ist ein Fehler aufgetreten',
+    explanation:
+      'In deiner letzten Sitzung ist ein Teil des Spiels fehlgeschlagen. Das Spiel wurde seitdem neu gestartet und sollte normal laufen.',
+  },
+  earlierNote: 'Das ist in deiner letzten Sitzung passiert.',
   contact: 'Kontakt (optional)',
   contactPlaceholder: 'E-Mail oder Discord-Name',
   contactHint: 'Nur wenn du eine Antwort möchtest. Das sind die einzigen persönlichen Daten im Bericht.',

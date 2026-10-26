@@ -4,7 +4,7 @@ import { problemKeys } from '../../../src/diag/report/fingerprint.js';
 const error = (stack: string) => ({ thread: 'main' as const, name: 'TypeError', message: 'x is 42', stack });
 
 describe('report fingerprint', () => {
-  it('names one bug the same across builds, installs and positions, and two bugs apart', () => {
+  it('names one bug the same across chunk hashes, installs and positions, and two bugs apart', () => {
     const chrome = error(
       'TypeError: x\n    at draw (https://game.opennorthland.org/assets/index-B2xa_9Qe.js:10:200)\n    at loop (https://game.opennorthland.org/assets/index-B2xa_9Qe.js:3:1)',
     );

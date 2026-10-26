@@ -4,9 +4,12 @@ import { retryAfterMs, sendResultOf } from '../../../src/diag/report/send.js';
 describe('report send results', () => {
   it('retries only what a later try can fix', () => {
     expect(
-      [204, 400, 403, 404, 413, 415, 429, 500, 503, 507].map((status) => sendResultOf(status, null).kind),
+      [204, 202, 400, 403, 404, 413, 415, 429, 500, 503, 507].map(
+        (status) => sendResultOf(status, null).kind,
+      ),
     ).toEqual([
       'sent',
+      'counted',
       'rejected',
       'rejected',
       'unknown',

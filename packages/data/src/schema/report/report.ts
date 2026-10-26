@@ -103,6 +103,8 @@ export const REPORT_TRIGGERS = [
   'desync',
   /** The browser took the WebGL context away and did not give it back. */
   'context-lost',
+  /** The desktop shell saw its GPU process die; Chromium starts a new one by itself. */
+  'gpu-gone',
 ] as const;
 export type ReportTrigger = (typeof REPORT_TRIGGERS)[number];
 

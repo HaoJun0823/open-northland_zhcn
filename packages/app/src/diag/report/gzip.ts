@@ -19,8 +19,13 @@ export function gzipJson(value: unknown): Promise<GzipBytes> {
   return gzipText(JSON.stringify(value));
 }
 
-/** The gzipped size of `value` as JSON; 0 when this browser cannot compress. */
-export async function gzipSize(value: unknown): Promise<number> {
+/** The gzipped size of `text`; 0 when this browser cannot compress. */
+export async function gzipTextSize(text: string): Promise<number> {
   if (!canGzip()) return 0;
-  return (await gzipJson(value)).byteLength;
+  return (await gzipText(text)).byteLength;
+}
+
+/** The gzipped size of `value` as JSON; 0 when this browser cannot compress. */
+export function gzipSize(value: unknown): Promise<number> {
+  return gzipTextSize(JSON.stringify(value));
 }

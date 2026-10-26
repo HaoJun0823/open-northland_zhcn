@@ -111,10 +111,12 @@ export function mountNetHud(deps: NetHudDeps): NetHud {
           return;
         case 'desync':
           feed.notice(desyncNotice(message.reference, message.tick));
+          // The log goes out with bug reports, so it names the other player by seat.
           diag.warn('net', 'out of sync with the room', {
             tick: message.tick,
             domains: message.domains,
-            reference: message.reference,
+            referenceSeat:
+              client.room?.members.find((member) => member.nick === message.reference)?.seat ?? null,
           });
           return;
         default:

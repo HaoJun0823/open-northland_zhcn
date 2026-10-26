@@ -9,11 +9,12 @@ export const enBugReport = {
     'renderer-unresponsive': 'The game stopped responding',
     desync: 'The game fell out of sync',
     'context-lost': 'The graphics stopped working',
+    'gpu-gone': 'The graphics restarted',
   },
   explanations: {
     manual: 'Describe what went wrong. Every report is read, and it helps to fix the game.',
     error: 'Something in the game failed. It may keep running, but it could behave oddly from here on.',
-    'sim-stall': 'The world stopped moving. Saving and loading the game may help.',
+    'sim-stall': 'The world stopped moving. Loading a save or reloading the page may help.',
     'main-freeze': 'The page stopped responding for a while.',
     'unclean-exit': 'Your last game ended without closing properly, probably because of a crash or a freeze.',
     'renderer-gone': 'The game page crashed and was started again.',
@@ -21,6 +22,8 @@ export const enBugReport = {
     desync: "Your game no longer matches the other players' games, so the match cannot continue reliably.",
     'context-lost':
       'The browser took away the graphics and did not give them back. Reloading the page usually helps.',
+    'gpu-gone':
+      'In your previous session the graphics part of the game stopped and was started again. The game has recovered; the report helps find out why it happened.',
   },
   fatalTitle: 'The game cannot continue',
   fatalExplanation:
@@ -30,6 +33,8 @@ export const enBugReport = {
     preparing: 'Preparing the report…',
     sending: 'Sending the report…',
     sent: 'Report sent, no. {number}.',
+    counted:
+      'This problem is already known: the server counted it but did not keep another copy. To tell us more, write a comment and send it as a new report.',
     queued: 'Could not send the report. The game will try again later.',
     full: 'The report server is full right now. Please download the report and send it another way.',
     rejected: 'The server did not accept the report. Please download it and send it another way.',
@@ -48,15 +53,27 @@ export const enBugReport = {
   },
   thanks: 'Thank you! Your report no. {number} has arrived.',
   more: {
-    one: '{count} more problem occurred since.',
-    few: '{count} more problems occurred since.',
-    many: '{count} more problems occurred since.',
+    one: '{count} more problem has occurred since.',
+    few: '{count} more problems have occurred since.',
+    many: '{count} more problems have occurred since.',
   },
   comment: 'Comment (optional)',
   commentPlaceholder: 'What were you doing when it happened?',
   description: 'What happened?',
   descriptionHint: 'It helps to know what you did, what you expected and what happened instead.',
   descriptionRequired: 'Please describe the problem first.',
+  countedNeedsWords: 'Write a comment or a contact first; it is sent as a new report.',
+  alsoSendHeld: {
+    one: 'Also send the report of {count} more problem',
+    few: 'Also send the reports of {count} more problems',
+    many: 'Also send the reports of {count} more problems',
+  },
+  earlierError: {
+    title: 'The game hit an error last time',
+    explanation:
+      'In your previous session something in the game failed. The game has started again since and should run normally.',
+  },
+  earlierNote: 'This happened in your previous session.',
   contact: 'Contact (optional)',
   contactPlaceholder: 'E-mail or Discord name',
   contactHint: 'Only if you would like an answer. This is the only personal data in the report.',

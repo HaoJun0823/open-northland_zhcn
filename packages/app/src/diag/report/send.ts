@@ -1,5 +1,5 @@
 /** One upload to the report API and what its answer means for the game. */
-import type { ReportPart } from '@open-northland/data';
+import { REPORT_STATUS, REPORT_UPLOAD_LIMITS, type ReportPart } from '@open-northland/data';
 import { apiBaseUrl } from '../../content/map-source/api.js';
 
 const MS_PER_SECOND = 1000;
@@ -8,27 +8,26 @@ const REQUEST_BASE_TIMEOUT_MS = 90_000;
 /** The slowest upload rate the timeout still waits for, bytes per second: a slow, lossy link to a
  *  distant server, so a large addendum is not cut off and sent again from its start. */
 const SLOWEST_UPLOAD_BYTES_PER_S = 4 * 1024;
-const MAX_REQUEST_TIMEOUT_MS = 30 * 60_000;
 
-/** How long a request carrying `bytes` may take. */
+/** How long a request carrying `bytes` may take, up to what the largest addendum needs (35 minutes). */
 export function requestTimeoutMs(bytes: number): number {
-  return Math.min(
-    MAX_REQUEST_TIMEOUT_MS,
-    REQUEST_BASE_TIMEOUT_MS + (bytes / SLOWEST_UPLOAD_BYTES_PER_S) * MS_PER_SECOND,
-  );
+  const sent = Math.min(bytes, REPORT_UPLOAD_LIMITS.addendum.bytes);
+  return REQUEST_BASE_TIMEOUT_MS + (sent / SLOWEST_UPLOAD_BYTES_PER_S) * MS_PER_SECOND;
 }
 /** A 429 without a usable Retry-After waits this long. */
 const DEFAULT_RETRY_AFTER_MS = 60_000;
 const MAX_RETRY_AFTER_MS = 60 * 60_000;
 
-const HTTP_NOT_FOUND = 404;
-const HTTP_TOO_MANY = 429;
-const HTTP_STORAGE_FULL = 507;
+const HTTP_SUCCESS = 200;
+const HTTP_REDIRECT = 300;
 const HTTP_SERVER_ERROR = 500;
 const HTTP_CLIENT_ERROR = 400;
 
 export type SendResult =
+  /** Stored. */
   | { readonly kind: 'sent' }
+  /** A report the server only counted: it knows the bug already, and the report takes no addendum. */
+  | { readonly kind: 'counted' }
   /** Worth another try later: the link, a busy server or its rate limit. */
   | { readonly kind: 'retry'; readonly afterMs: number | null }
   /** The server keeps no more reports for now; retrying would only add load. */
@@ -52,11 +51,12 @@ export function sendResultOf(
   retryAfter: string | null,
   now: number = Date.now(),
 ): SendResult {
-  if (status >= 200 && status < 300) return { kind: 'sent' };
-  if (status === HTTP_TOO_MANY)
+  if (status === REPORT_STATUS.counted) return { kind: 'counted' };
+  if (status >= HTTP_SUCCESS && status < HTTP_REDIRECT) return { kind: 'sent' };
+  if (status === REPORT_STATUS.rateLimited)
     return { kind: 'retry', afterMs: retryAfterMs(retryAfter, now) ?? DEFAULT_RETRY_AFTER_MS };
-  if (status === HTTP_STORAGE_FULL) return { kind: 'full' };
-  if (status === HTTP_NOT_FOUND) return { kind: 'unknown' };
+  if (status === REPORT_STATUS.full) return { kind: 'full' };
+  if (status === REPORT_STATUS.missing) return { kind: 'unknown' };
   if (status >= HTTP_SERVER_ERROR) return { kind: 'retry', afterMs: retryAfterMs(retryAfter, now) };
   if (status >= HTTP_CLIENT_ERROR) return { kind: 'rejected', status };
   return { kind: 'retry', afterMs: null };

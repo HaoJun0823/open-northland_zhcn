@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { redactHomePaths, redactRouteParams, scrubText } from '../../../src/diag/report/redact.js';
+import {
+  NO_SECRETS,
+  redactHomePaths,
+  redactRouteParams,
+  reportSecrets,
+  scrubText,
+} from '../../../src/diag/report/redact.js';
 
 describe('report redaction', () => {
   it('takes the account name out of home paths on every desktop system', () => {
@@ -24,13 +30,28 @@ describe('report redaction', () => {
       authToken: '[redacted]',
       room2: 'new',
     });
-    expect(scrubText('href=/?room=Ab12+cd&nick=Ania joined Ab12 cd', route.secrets)).toBe(
-      'href=/?room=[redacted]&nick=[redacted] joined [redacted]',
-    );
+    expect(
+      scrubText('href=/?room=Ab12+cd&nick=Ania joined Ab12 cd', reportSecrets(route.secrets, route.names)),
+    ).toBe('href=/?room=[redacted]&nick=[redacted] joined [redacted]');
     expect(redactRouteParams(new URLSearchParams('room=new')).params).toEqual({ room: 'new' });
     // A page the document showed before, logged before the player left it for the menu.
-    expect(scrubText('boot https://u:pw@game.example/?relay=wss://r/x&room=Zz99&nick=Ola&map=a', [])).toBe(
-      'boot https://game.example/?relay=wss://r/x&room=[redacted]&nick=[redacted]&map=a',
+    expect(
+      scrubText('boot https://u:pw@game.example/?relay=wss://r/x&room=Zz99&nick=Ola&map=a', NO_SECRETS),
+    ).toBe('boot https://game.example/?relay=wss://r/x&room=[redacted]&nick=[redacted]&map=a');
+  });
+
+  it('takes out every nick as a whole word, however short, and leaves longer words that contain it', () => {
+    const secrets = reportSecrets([], ['Ola', 'Bo']);
+    expect(scrubText('Ola joined; Olaf left; a violation by Bo, then Bob.', secrets)).toBe(
+      '[redacted] joined; Olaf left; a violation by [redacted], then Bob.',
     );
+  });
+
+  it('keeps a server address that carries no credential, and quotes of it, as they are', () => {
+    const route = redactRouteParams(
+      new URLSearchParams('api=http://127.0.0.1:8796&relay=wss://r.example/ws'),
+    );
+    expect(route.params).toEqual({ api: 'http://127.0.0.1:8796', relay: 'wss://r.example/ws' });
+    expect(route.secrets).toEqual([]);
   });
 });

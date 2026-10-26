@@ -2,7 +2,7 @@
 export interface DesktopFault {
   /** 32 lowercase hex characters; becomes the report's id. */
   readonly id: string;
-  readonly trigger: 'renderer-gone' | 'renderer-unresponsive' | 'error';
+  readonly trigger: 'renderer-gone' | 'renderer-unresponsive' | 'gpu-gone' | 'error';
   /** ISO time the shell saw it. */
   readonly at: string;
   /** Electron's `render-process-gone` reason, `unresponsive`, or the main-process error's name. */

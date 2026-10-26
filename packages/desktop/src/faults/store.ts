@@ -14,7 +14,7 @@ export interface ShellFault {
   readonly stack: string | null;
   readonly url: string | null;
 }
-export type FaultTrigger = 'renderer-gone' | 'renderer-unresponsive' | 'error';
+export type FaultTrigger = 'renderer-gone' | 'renderer-unresponsive' | 'gpu-gone' | 'error';
 export type NewFault = Omit<ShellFault, 'id' | 'at'>;
 export type FaultUpdate = Partial<Pick<ShellFault, 'durationMs' | 'stack'>>;
 
@@ -37,6 +37,7 @@ const STAGED_SUFFIX = '.tmp';
 const TRIGGERS = {
   'renderer-gone': true,
   'renderer-unresponsive': true,
+  'gpu-gone': true,
   error: true,
 } satisfies Record<FaultTrigger, true>;
 

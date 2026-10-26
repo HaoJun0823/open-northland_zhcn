@@ -9,7 +9,14 @@ import { bcp47Tag, formatMessage, type Messages, messages, pluralForm } from '..
 import { isBrave } from '../../view/platform/browser-support.js';
 import { servedByBrowser } from '../../view/platform/host.js';
 import { diag } from '../log.js';
-import { type AttachmentKind, type PlayerInput, type ReportCase, shownNumber, uploadList } from './case.js';
+import {
+  type AttachmentKind,
+  hasWords,
+  type PlayerInput,
+  type ReportCase,
+  shownNumber,
+  uploadList,
+} from './case.js';
 import './dialog.css';
 import { reportUrl } from './send.js';
 
@@ -32,7 +39,13 @@ const MANUAL_PLACE = 'position:relative;width:min(600px,calc(100vw - 32px))';
 const SHADE_STYLE = `position:fixed;inset:0;z-index:${DIALOG_Z_INDEX};display:grid;place-items:center;background:rgba(8,17,14,0.7)`;
 
 /** The dialog's outermost element, which a modal opened later must leave usable. */
-export const REPORT_DIALOG_SELECTOR = '.on-report, .on-report-shade';
+const REPORT_DIALOG_SELECTOR = '.on-report, .on-report-shade';
+
+/** Whether `element` is a report dialog, which a modal that makes the rest of the page inert skips:
+ *  the dialog may be the only way to say why the game broke. */
+export function isReportDialog(element: Element): boolean {
+  return element.matches(REPORT_DIALOG_SELECTOR);
+}
 
 const KIB = 1024;
 const MIB = KIB * KIB;
@@ -43,10 +56,14 @@ const PREVIEW_MAX_CHARS = 300_000;
 const PREVIEW_DEBOUNCE_MS = 300;
 const ATTACHMENT_ORDER: readonly AttachmentKind[] = ['commands', 'settings', 'screenshot', 'save'];
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary, a[href]';
+/** Problems whose explanation already says they happened before this start. */
+const SAID_EARLIER: ReadonlySet<ReportTrigger> = new Set(['unclean-exit', 'renderer-gone', 'gpu-gone']);
 
 export interface ReportDialogOptions {
   readonly kase: ReportCase;
   readonly trigger: ReportTrigger;
+  /** The problem happened in an earlier session, which a previous page or the desktop shell saw. */
+  readonly earlier: boolean;
   /** "Send error reports automatically" when the dialog opened. */
   readonly automatic: boolean;
   /** The session's automatic reports were used up, so this one waits for the player. */
@@ -56,7 +73,8 @@ export interface ReportDialogOptions {
   readonly onReload: () => void;
   /** Whether a part starts ticked, asked when the dialog first offers it. */
   readonly defaults: (kind: AttachmentKind) => boolean;
-  readonly onSend: (input: PlayerInput) => void;
+  /** `alsoHeld`: send the reports of the further problems along, after this one. */
+  readonly onSend: (input: PlayerInput, alsoHeld: boolean) => void;
   readonly onDownload: (input: PlayerInput) => void;
   readonly onClose: () => void;
 }
@@ -64,6 +82,8 @@ export interface ReportDialogOptions {
 export interface ReportDialog {
   /** Further problems came while the dialog was open. */
   setMore(count: number): void;
+  /** Their reports, waiting for this dialog's Send while automatic sending is off. */
+  setHeld(held: readonly ReportCase[]): void;
   focus(): void;
   /** The game stopped for good: the dialog says so and offers a reload. */
   stopped(): void;
@@ -140,14 +160,27 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   root.tabIndex = -1;
 
   const head = element('header', 'on-report__head');
-  const title = element('h2', 'on-report__title', copy.titles[opts.trigger]);
+  const earlierError = opts.earlier && opts.trigger === 'error';
+  const title = element(
+    'h2',
+    'on-report__title',
+    earlierError ? copy.earlierError.title : copy.titles[opts.trigger],
+  );
   title.id = `${uid}-title`;
   const dismiss = element('button', 'on-report__dismiss', '×');
   dismiss.type = 'button';
   dismiss.setAttribute('aria-label', copy.close);
   head.append(title, dismiss);
 
-  const intro = element('p', 'on-report__intro', copy.explanations[opts.trigger]);
+  const intro = element(
+    'p',
+    'on-report__intro',
+    earlierError
+      ? copy.earlierError.explanation
+      : opts.earlier && !SAID_EARLIER.has(opts.trigger)
+        ? `${copy.earlierNote} ${copy.explanations[opts.trigger]}`
+        : copy.explanations[opts.trigger],
+  );
   intro.id = `${uid}-intro`;
   // Brave Shields have broken the game where every other browser ran it.
   if (!manual && isBrave()) intro.append(` ${messages().hud.crashBraveHint}`);
@@ -197,6 +230,18 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     files.append(row);
     boxes.set(kind, { row, box, size, note });
   }
+
+  const heldRow = element('label', 'on-report__file');
+  const heldBox = element('input', 'on-report__check');
+  heldBox.type = 'checkbox';
+  heldBox.checked = true;
+  const heldName = element('span', 'on-report__file-name');
+  heldRow.append(heldBox, heldName);
+  heldRow.hidden = true;
+  files.append(heldRow);
+  let held: readonly ReportCase[] = [];
+  /** The held reports Send took along, for the preview after it. */
+  let heldSent: readonly ReportCase[] = [];
 
   const preview = element('details', 'on-report__preview');
   const summary = element('summary', 'on-report__summary', copy.preview);
@@ -321,6 +366,8 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     const blocked = ['preparing', 'full', 'rejected', 'expired', 'unsupported'].includes(kase.delivery);
     send.textContent = kase.firstPartOut() && !manual ? copy.sendAdditions : copy.send;
     send.disabled = blocked || kase.submitted || kase.busy;
+    // A hidden button drops the focus to the page, whose keys go to the game.
+    if (finished && document.activeElement === send) close.focus();
     send.hidden = finished;
     download.disabled = kase.delivery === 'preparing';
     text.readOnly = kase.submitted;
@@ -334,14 +381,21 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     if (previewTimer !== null) clearTimeout(previewTimer);
     // After Send the preview shows what went out.
     if (kase.submitted) {
-      pre.textContent = previewText(kase.handedOver, api);
+      pre.textContent = previewText(
+        [...kase.handedOver, ...heldSent.flatMap((other) => other.handedOver)],
+        api,
+      );
       return;
     }
     previewTimer = setTimeout(() => {
       previewTimer = null;
       void kase.compose(input()).then(
         (uploads) => {
-          pre.textContent = previewText(uploadList(uploads), api);
+          const others = heldBox.checked && !heldRow.hidden ? held : [];
+          const light = others
+            .map((other) => other.lightUpload())
+            .filter((upload): upload is NonNullable<typeof upload> => upload !== null);
+          pre.textContent = previewText([...uploadList(uploads), ...light], api);
         },
         (error: unknown) => diag.warn('report', 'preview failed', error),
       );
@@ -376,12 +430,18 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   close.addEventListener('click', finish);
   download.addEventListener('click', () => opts.onDownload(input()));
   send.addEventListener('click', () => {
-    if (manual && text.value.trim() === '') {
+    const current = input();
+    const wordless = manual ? text.value.trim() === '' : kase.needsWords() && !hasWords(current);
+    if (wordless) {
+      textError.textContent = manual ? copy.descriptionRequired : copy.countedNeedsWords;
       textError.hidden = false;
       text.focus();
       return;
     }
-    opts.onSend(input());
+    const alsoHeld = heldBox.checked && !heldRow.hidden;
+    heldSent = alsoHeld ? [...held] : [];
+    heldRow.hidden = true;
+    opts.onSend(current, alsoHeld);
   });
 
   root.addEventListener('keydown', (event) => {
@@ -421,6 +481,15 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     setMore(count) {
       more.hidden = count === 0;
       more.textContent = formatMessage(pluralForm(count, copy.more, bcp47Tag()), { count });
+    },
+    setHeld(next) {
+      held = [...next];
+      // Once Send went, later problems wait for no Send.
+      heldRow.hidden = held.length === 0 || kase.submitted;
+      heldName.textContent = formatMessage(pluralForm(held.length, copy.alsoSendHeld, bcp47Tag()), {
+        count: held.length,
+      });
+      if (preview.open) schedulePreview();
     },
     focus() {
       (manual ? text : root).focus();

@@ -1,15 +1,17 @@
 /**
- * One report from its first draft to its addendum. The first part (`POST /v1/reports`, 512 KiB)
- * carries the light report and, when the player sends it, their words and settings; the heavy
- * attachments follow as the report's one addendum (`POST /v1/reports/<id>`, 8 MiB). The server keeps
- * the first copy of an id, so once a first part went out or waits in the outbox, only those bytes are
- * ever sent again under its id, and whatever the player adds rides in the addendum.
+ * One report from its first draft to its addendum. The first part (`POST /v1/reports`) carries the
+ * light report and, when the player sends it, their words and settings; the heavy attachments follow
+ * as the report's one addendum (`POST /v1/reports/<id>`). The server keeps the first copy of an id,
+ * so once a first part went out or waits in the outbox, only those bytes are ever sent again under
+ * its id, and whatever the player adds rides in the addendum. A report the server only counted takes
+ * no addendum: what the player adds then goes out as a new report.
  */
 import {
   type FullReport,
   REPORT_ID_SHOWN_CHARS,
   REPORT_KIND,
   REPORT_LIMITS,
+  REPORT_UPLOAD_LIMITS,
   REPORT_VERSION,
   type ReportAddendum,
   type ReportAttachments,
@@ -19,16 +21,13 @@ import {
 import { randomReportId } from '../capture/report-id.js';
 import { diag } from '../log.js';
 import type { AttachmentOffers } from './attachments.js';
-import {
-  ADDENDUM_UPLOAD_CAP_BYTES,
-  LIGHT_REPORT_BUDGET_BYTES,
-  REPORT_EXTRAS_BYTES,
-  REPORT_UPLOAD_CAP_BYTES,
-} from './budget.js';
-import { type CommandSlice, commandsAttachment, fitCommands, type ReportDraft } from './build.js';
-import { canGzip, type GzipBytes, gzipJson, gzipSize } from './gzip.js';
+import { LIGHT_REPORT_BUDGET_BYTES, REPORT_EXTRAS_BYTES } from './budget.js';
+import { type CommandSlice, commandsAttachment, type ReportDraft } from './build.js';
+import { fitCommands, fittedReport } from './fit.js';
+import { canGzip, type GzipBytes, gzipSize, gzipText } from './gzip.js';
 import { type OutboxEntry, outboxEntry } from './outbox.js';
 import type { SendResult } from './send.js';
+import { jsonShape, shapeFits } from './shape.js';
 
 /** Where the report itself stands. */
 export type Delivery =
@@ -37,6 +36,8 @@ export type Delivery =
   | 'unsent'
   | 'sending'
   | 'sent'
+  /** The server knew the bug already and only counted the report. */
+  | 'counted'
   /** Kept in the outbox for a later try. */
   | 'queued'
   | 'full'
@@ -57,10 +58,10 @@ export interface PlayerInput {
 }
 
 export interface CaseDeps {
-  readonly post: (body: GzipBytes, part: ReportPart, id: string) => Promise<SendResult>;
+  /** Post an upload now; the outbox holds it until an answer other than a retry. */
+  readonly deliver: (entry: OutboxEntry) => Promise<SendResult>;
+  /** Keep an upload for the outbox, which sends it after its report. */
   readonly queue: (entry: OutboxEntry) => Promise<void>;
-  /** Ask the outbox owner to try its queue again after `afterMs`, or after its own backoff. */
-  readonly scheduleRetry: (afterMs: number | null) => void;
   readonly now: () => number;
 }
 
@@ -85,6 +86,28 @@ function trimmed(text: string, max: number): string | undefined {
   return value === '' ? undefined : value;
 }
 
+/** The player's comment and contact as an upload carries them. */
+function wordsOf(input: PlayerInput): Pick<ReportUpload, 'comment' | 'contact'> {
+  const comment = trimmed(input.comment, REPORT_LIMITS.comment);
+  const contact = trimmed(input.contact, REPORT_LIMITS.contact);
+  return {
+    ...(comment !== undefined ? { comment } : {}),
+    ...(contact !== undefined ? { contact } : {}),
+  };
+}
+
+export function hasWords(input: PlayerInput): boolean {
+  return Object.keys(wordsOf(input)).length > 0;
+}
+
+/** The addendum's body, or null when the API would refuse its size or shape. */
+async function addendumBody(addendum: ReportAddendum): Promise<GzipBytes | null> {
+  const text = JSON.stringify(addendum);
+  if (!shapeFits(jsonShape(text), 'addendum')) return null;
+  const body = await gzipText(text);
+  return body.byteLength <= REPORT_UPLOAD_LIMITS.addendum.bytes ? body : null;
+}
+
 export function shownNumber(id: string): string {
   return id.slice(0, REPORT_ID_SHOWN_CHARS);
 }
@@ -97,8 +120,12 @@ export class ReportCase {
   commands: CommandsOffer | null = null;
   /** What the delivered first part carried, so an addendum does not send it again. */
   private carried: { commands: boolean; settings: boolean } = { commands: false, settings: false };
-  /** The player pressed Send; a report takes one. */
+  /** The player pressed Send; a report takes one, and one more after the server only counted it. */
   submitted = false;
+  /** What the player's Send carried, for additions the outbox could not deliver to this id. */
+  private sent: PlayerInput | null = null;
+  /** The new report a counted one's additions go out as, made once so the preview shows its id. */
+  private refiledDraft: ReportDraft | null = null;
   private running = 0;
   /** The uploads posted or queued, in that order, for the preview after Send and the download. */
   readonly handedOver: ReportUpload[] = [];
@@ -156,10 +183,8 @@ export class ReportCase {
 
   /** The commands the first part carries for `input`: paired with the autosave when the whole log
    *  does not fit, so a replay can start from the save. */
-  private async commandsFor(input: PlayerInput): Promise<CommandSlice | null> {
-    const draft = this.draft;
-    if (draft === null || draft.commands === null || !input.include.commands || this.commands === null)
-      return null;
+  private async commandsFor(draft: ReportDraft, input: PlayerInput): Promise<CommandSlice | null> {
+    if (draft.commands === null || !input.include.commands || this.commands === null) return null;
     const save = this.offers?.save;
     if (
       this.commands.slice.whole ||
@@ -184,16 +209,16 @@ export class ReportCase {
     return this.delivery === 'sending' || this.delivery === 'sent' || this.delivery === 'queued';
   }
 
+  /** The server only counted the report, so Send needs the player's words to file a new one. */
+  needsWords(): boolean {
+    return this.delivery === 'counted';
+  }
+
   /** What Send would post now: a first part while none went out, then the addendum. */
   async compose(input: PlayerInput): Promise<Uploads> {
     const draft = this.draft;
     if (draft === null) return {};
-    const comment = trimmed(input.comment, REPORT_LIMITS.comment);
-    const contact = trimmed(input.contact, REPORT_LIMITS.contact);
-    const words = {
-      ...(comment !== undefined ? { comment } : {}),
-      ...(contact !== undefined ? { contact } : {}),
-    };
+    const words = wordsOf(input);
     const settings =
       input.include.settings && this.offers !== null ? { settings: this.offers.settings.value } : {};
     const heavy: ReportAttachments = {
@@ -202,8 +227,13 @@ export class ReportCase {
         : {}),
       ...(input.include.save && this.offers?.save ? { save: this.offers.save.value } : {}),
     };
-    const envelope = { kind: REPORT_KIND, version: REPORT_VERSION, id: draft.report.id } as const;
+    if (this.delivery === 'counted') {
+      // The server keeps nothing more of a bug it only counted unless the player has something to say.
+      if (Object.keys(words).length === 0) return {};
+      return this.composeReport(this.refiled(), input, words, settings, heavy);
+    }
     if (this.firstPartOut()) {
+      const envelope = { kind: REPORT_KIND, version: REPORT_VERSION, id: draft.report.id } as const;
       const attachments: ReportAttachments = { ...(this.carried.settings ? {} : settings), ...heavy };
       const any = Object.keys(words).length > 0 || Object.keys(attachments).length > 0;
       if (!any) return {};
@@ -216,7 +246,17 @@ export class ReportCase {
         },
       };
     }
-    const commands = await this.commandsFor(input);
+    return this.composeReport(draft, input, words, settings, heavy);
+  }
+
+  private async composeReport(
+    draft: ReportDraft,
+    input: PlayerInput,
+    words: Pick<ReportUpload, 'comment' | 'contact'>,
+    settings: ReportAttachments,
+    heavy: ReportAttachments,
+  ): Promise<Uploads> {
+    const commands = await this.commandsFor(draft, input);
     const light: ReportAttachments = {
       ...(commands !== null ? commandsAttachment(commands) : {}),
       ...settings,
@@ -226,6 +266,7 @@ export class ReportCase {
       ...words,
       ...(Object.keys(light).length > 0 ? { attachments: light } : {}),
     };
+    const envelope = { kind: REPORT_KIND, version: REPORT_VERSION, id: report.id } as const;
     return {
       report,
       ...(Object.keys(heavy).length > 0
@@ -245,23 +286,31 @@ export class ReportCase {
   }
 
   fitsAddendum(include: PlayerInput['include']): boolean {
-    return this.addendumBytes(include) + REPORT_EXTRAS_BYTES <= ADDENDUM_UPLOAD_CAP_BYTES;
+    return this.addendumBytes(include) + REPORT_EXTRAS_BYTES <= REPORT_UPLOAD_LIMITS.addendum.bytes;
   }
 
   /** Send the light report without asking; the caller has checked the session's limits. */
   sendAutomatically(): Promise<void> {
     const upload = this.lightUpload();
     if (upload === null || this.delivery !== 'unsent') return Promise.resolve();
-    this.carried = { commands: upload.attachments?.commands !== undefined, settings: false };
     return this.run(() => this.deliverReport(upload));
   }
 
-  /** The player's Send, once per report: the first part if none went out, then their additions. */
+  /** The player's Send: the first part if none went out, then their additions. */
   sendFromPlayer(input: PlayerInput): Promise<void> {
     if (this.submitted) return Promise.resolve();
     this.submitted = true;
+    this.sent = input;
     this.changed();
-    return this.run(() => this.sendUploads(input, true));
+    return this.run(async () => {
+      await this.sendUploads(input, true);
+      this.reopenIfCounted();
+    });
+  }
+
+  /** A report only counted keeps nothing of this Send; the player may still write and send again. */
+  private reopenIfCounted(): void {
+    if (this.delivery === 'counted') this.submitted = false;
   }
 
   /** A send is running or waiting for one; the dialog holds Send meanwhile. */
@@ -270,28 +319,35 @@ export class ReportCase {
   }
 
   private async sendUploads(input: PlayerInput, mayRefile: boolean): Promise<void> {
-    // Composed inside the run, so a Send pressed while the automatic report was on its way sees
-    // whether it went out.
+    // Decided inside the run, so a Send pressed while the automatic report was on its way sees how
+    // it was answered.
+    if (this.delivery === 'counted') {
+      if (hasWords(input)) await this.refile(input);
+      return;
+    }
     const uploads = await this.compose(input);
     const { addendum } = uploads;
     if (uploads.report !== undefined) {
-      this.carried = {
-        commands: uploads.report.attachments?.commands !== undefined,
-        settings: uploads.report.attachments?.settings !== undefined,
-      };
       const stored = await this.deliverReport(uploads.report);
       if (stored && addendum === undefined) {
         this.additions = 'sent';
         this.changed();
       }
     }
+    // A counted report had no words (one with words is never only counted), so its attachments
+    // are dropped with it.
     if (addendum === undefined) return;
     if (this.delivery === 'queued') {
       // The first part waits in the outbox, which sends an addendum only after it.
-      await this.queueUpload(addendum);
-      this.additions = 'queued';
+      const body = await addendumBody(addendum);
+      if (body === null) {
+        this.additions = 'failed';
+      } else {
+        this.handedOver.push(addendum);
+        await this.deps.queue(outboxEntry(addendum.id, 'addendum', body, this.deps.now()));
+        this.additions = 'queued';
+      }
       this.changed();
-      this.deps.scheduleRetry(0);
     } else if (this.delivery === 'sent') await this.deliverAddendum(addendum, input, mayRefile);
   }
 
@@ -312,12 +368,6 @@ export class ReportCase {
     return next;
   }
 
-  private async queueUpload(upload: ReportUpload): Promise<void> {
-    this.handedOver.push(upload);
-    const body = await gzipJson(upload);
-    await this.deps.queue(outboxEntry(upload.id, upload.part, body, this.deps.now()));
-  }
-
   /** True once the server holds the report. */
   private async deliverReport(report: FullReport): Promise<boolean> {
     if (!canGzip()) {
@@ -327,20 +377,22 @@ export class ReportCase {
     }
     this.delivery = 'sending';
     this.changed();
-    const body = await gzipJson(report);
-    if (body.byteLength > REPORT_UPLOAD_CAP_BYTES) {
-      diag.error('report', 'the report is over the upload cap', { bytes: body.byteLength });
+    const fitted = await fittedReport(report);
+    if (fitted === null) {
+      diag.error('report', 'the report does not fit the upload limits');
       this.delivery = 'rejected';
       this.changed();
       return false;
     }
-    this.handedOver.push(report);
-    const result = await this.deps.post(body, 'report', report.id);
+    const attachments = fitted.report.attachments;
+    this.carried = {
+      commands: attachments?.commands !== undefined,
+      settings: attachments?.settings !== undefined,
+    };
+    this.handedOver.push(fitted.report);
+    const result = await this.deps.deliver(outboxEntry(report.id, 'report', fitted.body, this.deps.now()));
     this.delivery = this.deliveryOf(result);
-    if (result.kind === 'retry') {
-      await this.deps.queue(outboxEntry(report.id, 'report', body, this.deps.now()));
-      this.deps.scheduleRetry(result.afterMs);
-    } else if (result.kind !== 'sent') {
+    if (result.kind !== 'sent' && result.kind !== 'retry' && result.kind !== 'counted') {
       diag.warn('report', `the report was not accepted: ${result.kind}`);
     }
     this.changed();
@@ -351,6 +403,8 @@ export class ReportCase {
     switch (result.kind) {
       case 'sent':
         return 'sent';
+      case 'counted':
+        return 'counted';
       case 'retry':
         return 'queued';
       case 'full':
@@ -368,61 +422,89 @@ export class ReportCase {
   ): Promise<void> {
     this.additions = 'sending';
     this.changed();
-    const body = await gzipJson(addendum);
-    if (body.byteLength > ADDENDUM_UPLOAD_CAP_BYTES) {
+    const body = await addendumBody(addendum);
+    if (body === null) {
       this.additions = 'failed';
       this.changed();
       return;
     }
     this.handedOver.push(addendum);
-    const result = await this.deps.post(body, 'addendum', addendum.id);
+    const result = await this.deps.deliver(outboxEntry(addendum.id, 'addendum', body, this.deps.now()));
     if (result.kind === 'unknown' && mayRefile) {
       await this.refile(input);
       return;
     }
     this.additions = result.kind === 'sent' ? 'sent' : result.kind === 'retry' ? 'queued' : 'failed';
-    if (result.kind === 'retry') {
-      await this.deps.queue(outboxEntry(addendum.id, 'addendum', body, this.deps.now()));
-      this.deps.scheduleRetry(result.afterMs);
-    }
     this.changed();
   }
 
-  /**
-   * The server does not hold the report the addendum belongs to (it never stored it, or lost it), so
-   * the player's words and attachments go out as a new report that names the old one.
-   */
-  private async refile(input: PlayerInput): Promise<void> {
+  /** The draft of a new report that names this one, without its fingerprint. */
+  private refiled(): ReportDraft {
     const draft = this.draft;
-    if (draft === null) return;
+    if (draft === null) throw new Error('a report is refiled only once it has a draft');
+    if (this.refiledDraft !== null) return this.refiledDraft;
     const previous = draft.report.id;
     const { fingerprint: _fingerprint, ...rest } = draft.report;
     const perf =
       typeof rest.perf === 'object' && rest.perf !== null && !Array.isArray(rest.perf) ? rest.perf : {};
-    this.draft = {
+    this.refiledDraft = {
       ...draft,
       report: { ...rest, id: randomReportId(), trigger: 'manual', perf: { ...perf, refiledFrom: previous } },
     };
+    return this.refiledDraft;
+  }
+
+  /**
+   * The server holds no report the player's additions can join (it never stored one, lost it, or
+   * only counted it), so their words and attachments go out as a new report that names the old one.
+   */
+  private async refile(input: PlayerInput): Promise<void> {
+    if (this.draft === null) return;
+    const previous = this.draft.report.id;
+    this.draft = this.refiled();
+    this.refiledDraft = null;
     this.delivery = 'unsent';
     this.additions = 'none';
     this.carried = { commands: false, settings: false };
-    diag.warn('report', 'the server did not know the report; sending the additions as a new one', {
+    diag.warn('report', 'the server holds no report for the additions; sending them as a new one', {
       previous,
     });
     await this.sendUploads(input, false);
   }
 
-  /** The outbox delivered one of this case's uploads, or gave up on it when `dropped`. */
+  /**
+   * The outbox delivered one of this case's uploads, or gave up on it when `dropped`. An addendum
+   * queued behind a report it dropped unstored was dropped with it.
+   */
   settled(part: ReportPart, result: SendResult, dropped: boolean): void {
     if (part === 'report' && this.delivery === 'queued') {
       if (result.kind === 'retry' && !dropped) return;
       this.delivery = result.kind === 'retry' ? 'expired' : this.deliveryOf(result);
-      // Additions queued behind a report that never arrived cannot follow it.
-      if (this.delivery !== 'sent' && this.additions === 'queued') this.additions = 'failed';
+      const refiling = this.delivery !== 'sent' && this.additions === 'queued' && this.additionsLost(result);
+      if (!refiling) this.reopenIfCounted();
     } else if (part === 'addendum' && this.additions === 'queued') {
       if (result.kind === 'retry' && !dropped) return;
-      this.additions = result.kind === 'sent' ? 'sent' : 'failed';
+      if (result.kind === 'unknown') this.additionsLost(result);
+      else this.additions = result.kind === 'sent' ? 'sent' : 'failed';
     } else return;
     this.changed();
+  }
+
+  /**
+   * Queued additions found no stored report: they go out as a new report, as a direct addendum's
+   * 404 does, except for attachments alone behind a counted report, which the server would only
+   * store again for a bug it already has.
+   */
+  /** Whether a refile started. */
+  private additionsLost(result: SendResult): boolean {
+    const input = this.sent;
+    const refile =
+      result.kind === 'unknown' || (result.kind === 'counted' && input !== null && hasWords(input));
+    if (refile && input !== null) {
+      void this.run(() => this.refile(input));
+      return true;
+    }
+    this.additions = result.kind === 'counted' ? 'none' : 'failed';
+    return false;
   }
 }

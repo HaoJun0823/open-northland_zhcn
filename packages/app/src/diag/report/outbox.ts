@@ -1,9 +1,11 @@
 /**
- * Uploads that could not go out yet, kept in IndexedDB so a report written on a dropped link still
- * arrives: tried again at the next start, when the browser comes back online and after a backoff.
+ * Uploads that have not arrived yet, kept in IndexedDB so a report written on a dropped link, or
+ * still on its way when the page closed, arrives later: tried again at the next start, when the
+ * browser comes back online and after a backoff.
  */
 import type { ReportPart } from '@open-northland/data';
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
+import { diag } from '../log.js';
 import type { SendResult } from './send.js';
 
 export interface OutboxEntry {
@@ -54,7 +56,10 @@ export function retryDelayMs(attempts: number, serverAfterMs: number | null): nu
 
 export type AttemptOutcome =
   | { readonly kind: 'keep'; readonly entry: OutboxEntry }
-  | { readonly kind: 'drop'; readonly reason: 'sent' | 'full' | 'rejected' | 'unknown' | 'expired' };
+  | {
+      readonly kind: 'drop';
+      readonly reason: 'sent' | 'counted' | 'full' | 'rejected' | 'unknown' | 'expired';
+    };
 
 export function afterAttempt(entry: OutboxEntry, result: SendResult, now: number): AttemptOutcome {
   if (result.kind !== 'retry') return { kind: 'drop', reason: result.kind };
@@ -137,13 +142,13 @@ async function inOutbox<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore
   }
 }
 
-/** The outbox in this browser's IndexedDB; a browser without it keeps nothing past the page. */
 export interface OutboxStore {
   list(): Promise<OutboxEntry[]>;
   put(entry: OutboxEntry): Promise<void>;
   remove(keys: readonly string[]): Promise<void>;
 }
 
+/** The outbox in this browser's IndexedDB. */
 export function browserOutbox(): OutboxStore {
   return {
     async list() {
@@ -164,5 +169,45 @@ export function browserOutbox(): OutboxStore {
         for (const key of keys) store.delete(key);
       });
     },
+  };
+}
+
+/** An outbox that lasts as long as the page. */
+export function memoryOutbox(): OutboxStore {
+  let entries: OutboxEntry[] = [];
+  return {
+    list: () => Promise.resolve([...entries]),
+    put(incoming) {
+      entries = admit(entries, incoming).kept;
+      return Promise.resolve();
+    },
+    remove(keys) {
+      entries = entries.filter((entry) => !keys.includes(entry.key));
+      return Promise.resolve();
+    },
+  };
+}
+
+/**
+ * `primary` until it fails once (storage blocked, over its quota), then `fallback` for the rest of
+ * the page, so retries still happen while the page lives. What the primary kept is tried at the next
+ * start.
+ */
+export function outboxWithFallback(primary: OutboxStore, fallback: OutboxStore): OutboxStore {
+  let store = primary;
+  const run = async <T>(action: (target: OutboxStore) => Promise<T>): Promise<T> => {
+    if (store === fallback) return action(fallback);
+    try {
+      return await action(primary);
+    } catch (error) {
+      diag.warn('report', 'the outbox cannot use storage; it keeps uploads for this page only', error);
+      store = fallback;
+      return action(fallback);
+    }
+  };
+  return {
+    list: () => run((target) => target.list()),
+    put: (entry) => run((target) => target.put(entry)),
+    remove: (keys) => run((target) => target.remove(keys)),
   };
 }

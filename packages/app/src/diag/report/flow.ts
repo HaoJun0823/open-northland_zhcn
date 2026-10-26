@@ -2,8 +2,8 @@
  * The bug report flow: takes every `Problem`, sends its light report when the player allows it and
  * the session's limits do, keeps one dialog on screen, and retries what the outbox holds.
  */
-import type { ReportPart } from '@open-northland/data';
-import { apiBaseUrl } from '../../content/map-source/api.js';
+import type { ReportError } from '@open-northland/data';
+import { apiBase, apiBaseUrl } from '../../content/map-source/api.js';
 import { reloadDocument } from '../../view/platform/navigation-guard.js';
 import { readStoredSettings } from '../../view/settings/store.js';
 import { serializeDiagnosticsBundle } from '../bundle.js';
@@ -25,114 +25,81 @@ import {
   shownNumber,
   uploadList,
 } from './case.js';
+import { Courier } from './courier.js';
 import { openReportDialog, type ReportDialog } from './dialog.js';
 import { problemKeys } from './fingerprint.js';
 import { ProblemGate } from './gate.js';
 import { gzipSize } from './gzip.js';
-import { afterAttempt, browserOutbox, dueEntries, nextDue, type OutboxStore } from './outbox.js';
+import { browserOutbox, memoryOutbox, outboxWithFallback } from './outbox.js';
 import { type Problem, setProblemSink } from './problem.js';
-import { postReport, type SendResult } from './send.js';
+import { postReport } from './send.js';
 
 /** The outbox waits for the page to settle after a start before it tries again. */
 const STARTUP_FLUSH_DELAY_MS = 5000;
-/** A queued upload with no Retry-After is tried again after this. */
-const DEFAULT_RETRY_MS = 30_000;
-/** Uploads one flush sends at most; the rest wait for the next. */
-const FLUSH_BATCH = 20;
+const API_PARAM = 'api';
 
 interface OpenDialog {
   readonly dialog: ReportDialog;
   readonly kase: ReportCase;
   /** Problems that came while it was open. */
   more: number;
-  /** Sends of their reports, run on the player's Send when the game did not send them by itself. */
-  readonly held: (() => void)[];
+  /** Reports of those, built and waiting for the player's Send while automatic sending is off. */
+  readonly held: ReportCase[];
 }
 
-let outbox: OutboxStore | null = null;
 let open: OpenDialog | null = null;
 const problemGate = new ProblemGate();
 /** The cases with an upload in the outbox, by report id, so a later try can update their dialog. */
 const cases = new Map<string, ReportCase>();
-/** The server's Retry-After holds every upload, not only the one it answered. */
-let blockedUntil = 0;
-let flushTimer: ReturnType<typeof setTimeout> | null = null;
-let flushing = false;
+/** The case each error was reported in, by its name and message, which every thread reports alike. */
+const casesByError = new Map<string, ReportCase>();
 
-function outboxStore(): OutboxStore {
-  outbox ??= browserOutbox();
-  return outbox;
+const courier = new Courier({
+  store: outboxWithFallback(browserOutbox(), memoryOutbox()),
+  post: (entry) => postReport(entry.body, entry.part, entry.id),
+  now: () => Date.now(),
+  settled: (entry, result, dropped) => {
+    cases.get(entry.id)?.settled(entry.part, result, dropped);
+    if (dropped && (entry.part === 'addendum' || result.kind !== 'sent')) cases.delete(entry.id);
+  },
+});
+
+/** Send what the outbox holds and is due. */
+export function flushOutbox(): Promise<void> {
+  return courier.flush();
 }
 
-function noteResult(result: SendResult): SendResult {
-  if (result.kind === 'retry' && result.afterMs !== null)
-    blockedUntil = Math.max(blockedUntil, Date.now() + result.afterMs);
-  return result;
+/**
+ * Browser harnesses drive the game under automation without naming a report server; whatever
+ * breaks there must not reach the live one by itself. Naming one with `?api=` sends as usual.
+ */
+export function automationWithoutApi(
+  search: string = window.location.search,
+  webdriver: boolean = navigator.webdriver,
+): boolean {
+  return webdriver && apiBase(new URLSearchParams(search).get(API_PARAM)) === null;
 }
 
-async function post(body: Uint8Array<ArrayBuffer>, part: ReportPart, id: string): Promise<SendResult> {
-  const wait = blockedUntil - Date.now();
-  if (wait > 0) return { kind: 'retry', afterMs: wait };
-  return noteResult(await postReport(body, part, id));
-}
-
-function scheduleFlush(afterMs: number | null): void {
-  if (flushTimer !== null) clearTimeout(flushTimer);
-  flushTimer = setTimeout(
-    () => {
-      flushTimer = null;
-      void flushOutbox();
-    },
-    Math.max(afterMs ?? DEFAULT_RETRY_MS, blockedUntil - Date.now(), 0),
-  );
+function automaticSending(): boolean {
+  return readStoredSettings().autoErrorReports && !automationWithoutApi();
 }
 
 function depsFor(kase: ReportCase): CaseDeps {
+  // Keyed by the entry, whose id is the report's current one after a refile.
   return {
-    post,
-    queue: (entry) => {
-      // Keyed by the entry, whose id is the report's current one after a refile.
+    deliver: (entry) => {
       cases.set(entry.id, kase);
-      return outboxStore()
-        .put(entry)
-        .catch((error: unknown) => diag.warn('report', 'outbox write failed', error));
+      return courier.deliver(entry);
     },
-    scheduleRetry: scheduleFlush,
+    queue: (entry) => {
+      cases.set(entry.id, kase);
+      return courier.queue(entry);
+    },
     now: () => Date.now(),
   };
 }
 
-/** Send what the outbox holds and is due, oldest first, until the link fails again. */
-export async function flushOutbox(): Promise<void> {
-  if (flushing || Date.now() < blockedUntil) return;
-  flushing = true;
-  try {
-    const store = outboxStore();
-    for (let sent = 0; sent < FLUSH_BATCH; sent++) {
-      const [entry] = dueEntries(await store.list(), Date.now());
-      if (entry === undefined) break;
-      const result = await post(entry.body, entry.part, entry.id);
-      const outcome = afterAttempt(entry, result, Date.now());
-      if (outcome.kind === 'keep') await store.put(outcome.entry);
-      else {
-        await store.remove([entry.key]);
-        if (outcome.reason !== 'sent')
-          diag.warn('report', `dropped a queued ${entry.part}: ${outcome.reason}`, { id: entry.id });
-      }
-      cases.get(entry.id)?.settled(entry.part, result, outcome.kind === 'drop');
-      if (outcome.kind === 'drop' && !(await store.list()).some((left) => left.id === entry.id)) {
-        cases.delete(entry.id);
-      }
-      if (result.kind === 'retry') break;
-    }
-    const due = nextDue(await store.list());
-    if (due !== null) scheduleFlush(due - Date.now());
-  } catch (error) {
-    diag.warn('report', 'outbox flush failed', error);
-  } finally {
-    flushing = false;
-  }
-}
+const errorKey = (error: ReportError): string => `${error.name}\n${error.message}`;
 
 async function prepareCase(
   kase: ReportCase,
@@ -185,17 +152,21 @@ function showDialog(kase: ReportCase, problem: Problem | null, state: DialogStat
     if (kind === 'save') return kase.draft?.report.game?.restoredAtTick !== undefined;
     return true;
   };
-  const held: (() => void)[] = [];
+  const held: ReportCase[] = [];
   const dialog = openReportDialog(
     {
       kase,
       trigger: problem?.trigger ?? 'manual',
+      earlier: problem?.earlier !== undefined,
       ...state,
       defaults,
       onReload: reloadDocument,
-      onSend: (input) => {
-        void kase.sendFromPlayer(input);
-        for (const sendHeld of held.splice(0)) sendHeld();
+      onSend: (input, alsoHeld) => {
+        const others = alsoHeld ? held.splice(0) : [];
+        // The player's own report goes first: the held ones must not spend the server's limits on it.
+        void kase.sendFromPlayer(input).then(async () => {
+          for (const other of others) await other.sendAutomatically();
+        });
       },
       onDownload: (input) => void downloadReport(kase, input),
       onClose: () => {
@@ -209,7 +180,7 @@ function showDialog(kase: ReportCase, problem: Problem | null, state: DialogStat
 
 function onProblem(problem: Problem): void {
   const { key } = problemKeys(problem.trigger, problem.error);
-  const automatic = readStoredSettings().autoErrorReports;
+  const automatic = automaticSending();
   const gate = problemGate.decide(problem, key, automatic, open !== null);
   diag.info('report', `problem: ${problem.trigger}`, { key, ...gate });
   if (open !== null) {
@@ -219,7 +190,19 @@ function onProblem(problem: Problem): void {
   }
   // A repeat nobody sends, holds or shows costs no world hash and no gzip.
   if (gate.show !== 'dialog' && !gate.send && !gate.hold) return;
+  // An error reported already shows in the case it was reported in, so Send adds to that report.
+  const reportedIn =
+    problem.reported === true && problem.error !== undefined
+      ? casesByError.get(errorKey(problem.error))
+      : undefined;
+  if (reportedIn !== undefined) {
+    if (gate.show === 'dialog')
+      showDialog(reportedIn, problem, { automatic, limited: false, fatal: problem.fatal === true });
+    return;
+  }
   const kase = new ReportCase(depsFor, false);
+  if (problem.error !== undefined && problem.reported !== true)
+    casesByError.set(errorKey(problem.error), kase);
   // The screen and the saves of this page say nothing about a problem an earlier page saw.
   const offers = gate.show === 'dialog' && problem.earlier === undefined ? problemOffers : settingsOnly;
   const prepared = prepareCase(kase, problem, offers);
@@ -228,16 +211,22 @@ function onProblem(problem: Problem): void {
     (error: unknown) => diag.error('report', 'building a report failed', error),
   );
   if (gate.hold && open !== null) {
-    // A report still being built goes out once it is ready.
-    open.held.push(() => {
-      prepared.then(
-        () => kase.sendAutomatically(),
-        () => undefined,
-      );
-    });
+    const holder = open;
+    prepared.then(
+      () => {
+        if (open !== holder) return;
+        holder.held.push(kase);
+        holder.dialog.setHeld(holder.held);
+      },
+      () => undefined,
+    );
   }
   if (gate.show === 'dialog') {
-    showDialog(kase, problem, { automatic, limited: automatic && !gate.send, fatal: problem.fatal === true });
+    showDialog(kase, problem, {
+      automatic,
+      limited: automatic && !gate.send && problem.reported !== true,
+      fatal: problem.fatal === true,
+    });
   }
 }
 
@@ -261,9 +250,7 @@ export function installBugReports(): void {
   if (installed) return;
   installed = true;
   setProblemSink(onProblem);
-  window.addEventListener('online', () => {
-    blockedUntil = 0;
-    void flushOutbox();
-  });
-  scheduleFlush(STARTUP_FLUSH_DELAY_MS);
+  // A server's Retry-After still holds once the link is back.
+  window.addEventListener('online', () => void courier.flush());
+  courier.schedule(STARTUP_FLUSH_DELAY_MS);
 }

@@ -429,7 +429,7 @@ export const chsSurfaces = {
       authorRole: '设计与编程',
       contactTitle: '联系方式',
       reportLink: '报告错误',
-      issuesLink: 'GitHub 问题',
+      issuesLink: 'GitHub 议题',
       sourceLink: '源代码',
       thanksTitle: '致谢',
       thanks: {

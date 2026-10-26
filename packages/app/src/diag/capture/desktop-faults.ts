@@ -39,6 +39,7 @@ function faultError(fault: DesktopFault): ReportError | undefined {
             stack: fault.stack,
           });
     case 'renderer-gone':
+    case 'gpu-gone':
       return undefined;
   }
 }

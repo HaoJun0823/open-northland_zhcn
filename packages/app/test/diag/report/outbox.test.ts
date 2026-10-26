@@ -3,12 +3,15 @@ import {
   admit,
   afterAttempt,
   dueEntries,
+  memoryOutbox,
   OUTBOX_LARGE_BYTES,
   OUTBOX_LARGE_MAX_ATTEMPTS,
   OUTBOX_MAX_ATTEMPTS,
   OUTBOX_MAX_ENTRIES,
   type OutboxEntry,
+  type OutboxStore,
   outboxEntry,
+  outboxWithFallback,
 } from '../../../src/diag/report/outbox.js';
 
 const body = (bytes = 10) => new Uint8Array(new ArrayBuffer(bytes));
@@ -49,5 +52,14 @@ describe('report outbox', () => {
     expect(dueEntries([addendum, report], NOW)).toEqual([report]);
     expect(dueEntries([addendum], NOW)).toEqual([addendum]);
     expect(dueEntries([{ ...report, notBefore: NOW + 1 }], NOW)).toEqual([]);
+  });
+
+  it('keeps uploads for the page when the browser refuses its storage', async () => {
+    const refused = (): Promise<never> => Promise.reject(new Error('blocked'));
+    const blocked: OutboxStore = { list: refused, put: refused, remove: refused };
+    const outbox = outboxWithFallback(blocked, memoryOutbox());
+    const entry = outboxEntry('d'.repeat(32), 'report', body(), NOW);
+    await outbox.put(entry);
+    expect(await outbox.list()).toEqual([entry]);
   });
 });

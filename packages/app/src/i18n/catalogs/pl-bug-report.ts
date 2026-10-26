@@ -9,11 +9,12 @@ export const plBugReport = {
     'renderer-unresponsive': 'Gra przestała odpowiadać',
     desync: 'Gra straciła synchronizację',
     'context-lost': 'Grafika przestała działać',
+    'gpu-gone': 'Grafika została uruchomiona ponownie',
   },
   explanations: {
     manual: 'Opisz, co poszło nie tak. Czytamy każde zgłoszenie i każde pomaga naprawić grę.',
     error: 'Coś w grze zawiodło. Gra może działać dalej, ale od teraz może zachowywać się dziwnie.',
-    'sim-stall': 'Świat przestał się poruszać. Może pomóc zapisanie i ponowne wczytanie gry.',
+    'sim-stall': 'Świat przestał się poruszać. Może pomóc wczytanie zapisu lub odświeżenie strony.',
     'main-freeze': 'Strona przez jakiś czas nie odpowiadała.',
     'unclean-exit':
       'Ostatnia gra nie zakończyła się poprawnie, prawdopodobnie z powodu awarii lub zawieszenia.',
@@ -22,6 +23,8 @@ export const plBugReport = {
     desync:
       'Twoja gra nie zgadza się już z grami pozostałych graczy, więc rozgrywka nie może dalej toczyć się bez błędów.',
     'context-lost': 'Przeglądarka odebrała grze grafikę i jej nie oddała. Zwykle pomaga odświeżenie strony.',
+    'gpu-gone':
+      'W poprzedniej sesji część gry odpowiedzialna za grafikę przestała działać i została uruchomiona ponownie. Gra już działa; zgłoszenie pomoże ustalić przyczynę.',
   },
   fatalTitle: 'Gra nie może działać dalej',
   fatalExplanation:
@@ -31,6 +34,8 @@ export const plBugReport = {
     preparing: 'Przygotowuję zgłoszenie…',
     sending: 'Wysyłam zgłoszenie…',
     sent: 'Zgłoszenie wysłane, nr {number}.',
+    counted:
+      'Ten problem jest już znany: serwer go policzył, ale nie zachował kolejnej kopii. Jeśli chcesz coś dodać, napisz komentarz i wyślij go jako nowe zgłoszenie.',
     queued: 'Nie udało się wysłać zgłoszenia. Gra spróbuje ponownie później.',
     full: 'Serwer zgłoszeń jest teraz pełny. Pobierz zgłoszenie i prześlij je w inny sposób.',
     rejected: 'Serwer nie przyjął zgłoszenia. Pobierz je i prześlij w inny sposób.',
@@ -59,6 +64,18 @@ export const plBugReport = {
   descriptionHint:
     'Opisz po kolei, co prowadzi do błędu, jaki był oczekiwany efekt i co stało się zamiast tego.',
   descriptionRequired: 'Najpierw opisz problem.',
+  countedNeedsWords: 'Najpierw napisz komentarz lub podaj kontakt; zostanie wysłany jako nowe zgłoszenie.',
+  alsoSendHeld: {
+    one: 'Wyślij też zgłoszenie {count} kolejnego problemu',
+    few: 'Wyślij też zgłoszenia {count} kolejnych problemów',
+    many: 'Wyślij też zgłoszenia {count} kolejnych problemów',
+  },
+  earlierError: {
+    title: 'W poprzedniej sesji wystąpił błąd',
+    explanation:
+      'W poprzedniej sesji coś w grze zawiodło. Gra została od tego czasu uruchomiona ponownie i powinna działać normalnie.',
+  },
+  earlierNote: 'To wydarzyło się w poprzedniej sesji.',
   contact: 'Kontakt (opcjonalnie)',
   contactPlaceholder: 'E-mail lub nazwa na Discordzie',
   contactHint: 'Tylko jeśli chcesz dostać odpowiedź. To jedyne dane osobowe w zgłoszeniu.',

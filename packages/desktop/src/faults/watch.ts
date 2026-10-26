@@ -47,8 +47,8 @@ export function recordProcessFaults(store: FaultStore): void {
     if (details.type !== 'GPU' || details.reason === 'clean-exit') return;
     safely(() =>
       store.record({
-        trigger: 'error',
-        reason: `gpu-${details.reason}`,
+        trigger: 'gpu-gone',
+        reason: details.reason,
         exitCode: details.exitCode,
         durationMs: null,
         stack: null,

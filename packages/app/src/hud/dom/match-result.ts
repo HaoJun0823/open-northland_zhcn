@@ -1,4 +1,5 @@
 import type { MatchOutcome, MatchRank, SimEvent } from '@open-northland/sim';
+import { isReportDialog } from '../../diag/report/dialog.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
@@ -234,7 +235,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     frame.body.append(row);
     const inert = new Map<HTMLElement, boolean>();
     for (const child of document.body.children) {
-      if (child instanceof HTMLElement) {
+      if (child instanceof HTMLElement && !isReportDialog(child)) {
         inert.set(child, child.inert);
         child.inert = true;
       }

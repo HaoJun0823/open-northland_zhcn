@@ -1,3 +1,4 @@
+import { isReportDialog } from '../../../diag/report/dialog.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { KICK_COUNTDOWN_MS, type NetLinkLoss } from '../../network/model.js';
 import { createHudPlane, type HudPlane } from '../root.js';
@@ -105,7 +106,7 @@ export function createLinkLostScreen(deps: LinkLostScreenDeps): LinkLostScreen {
       dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
     previousFocus = document.activeElement;
     for (const child of document.body.children) {
-      if (child instanceof HTMLElement && child !== backdrop) {
+      if (child instanceof HTMLElement && child !== backdrop && !isReportDialog(child)) {
         inert.set(child, child.inert);
         child.inert = true;
       }

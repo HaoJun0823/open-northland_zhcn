@@ -2,8 +2,9 @@ import { REPORT_LIMITS, type ReportLog } from '@open-northland/data';
 import { jsonSafeData } from '../bundle.js';
 import type { DiagEntry, DiagLevel } from '../log.js';
 import { LOG_DATA_MAX_CHARS } from './budget.js';
-import { gzipSize } from './gzip.js';
-import { scrubJson, scrubText } from './redact.js';
+import { gzipTextSize } from './gzip.js';
+import { type ReportSecrets, scrubJson, scrubText } from './redact.js';
+import { boundedJson, jsonShape, shapeWeight } from './shape.js';
 
 /** The oldest entries a cut keeps: the boot header and what the page did first. */
 const HEAD_SHARE = 0.2;
@@ -11,7 +12,6 @@ const HEAD_SHARE = 0.2;
 const FIT_MARGIN = 0.9;
 /** A budget is approached by rescaling; each pass gzips the candidate once. */
 const FIT_PASSES = 4;
-const CHANNEL_CHARS = 64;
 const LEVELS: readonly DiagLevel[] = ['debug', 'info', 'warn', 'error'];
 const ELLIPSIS = '…';
 
@@ -21,12 +21,12 @@ function clipped(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - ELLIPSIS.length)}${ELLIPSIS}`;
 }
 
-/** One entry as the report schema takes it: bounded strings, JSON data, no home paths or secrets. */
-export function reportEntry(entry: DiagEntry, secrets: readonly string[]): ReportEntry {
+/** One entry as the report schema takes it: bounded strings and nesting, no home paths or secrets. */
+export function reportEntry(entry: DiagEntry, secrets: ReportSecrets): ReportEntry {
   const level = LEVELS.includes(entry.level) ? entry.level : 'info';
   const out: { -readonly [K in keyof ReportEntry]: ReportEntry[K] } = {
     timeMs: Number.isFinite(entry.timeMs) ? entry.timeMs : 0,
-    channel: clipped(String(entry.channel), CHANNEL_CHARS),
+    channel: clipped(String(entry.channel), REPORT_LIMITS.label),
     level,
     message: clipped(scrubText(String(entry.message), secrets), REPORT_LIMITS.message),
   };
@@ -35,7 +35,9 @@ export function reportEntry(entry: DiagEntry, secrets: readonly string[]): Repor
     if (data !== undefined) {
       const text = JSON.stringify(data);
       out.data =
-        text.length <= LOG_DATA_MAX_CHARS ? (data as ReportEntry['data']) : clipped(text, LOG_DATA_MAX_CHARS);
+        text.length <= LOG_DATA_MAX_CHARS
+          ? (boundedJson(data) as ReportEntry['data'])
+          : clipped(text, LOG_DATA_MAX_CHARS);
     }
   }
   return out;
@@ -52,26 +54,37 @@ export function headAndTail<T>(entries: readonly T[], count: number): { kept: T[
   };
 }
 
+/** What a cut log may take of its report: gzipped bytes on the wire, and inflated bytes as the
+ *  server weighs them (`shapeWeight`). */
+export interface LogBudget {
+  readonly maxEntries: number;
+  readonly gzipBytes: number;
+  readonly inflatedBytes: number;
+}
+
 /**
- * The ring cut to at most `maxEntries` and, gzipped, about `budgetBytes`: whole entries from both
- * ends, `dropped` counting the ones between.
+ * The ring cut to its budget: whole entries from both ends, `dropped` counting the ones between.
+ * An error storm compresses well, so its inflated size is what binds.
  */
 export async function cutLog(
   entries: readonly DiagEntry[],
-  maxEntries: number,
-  budgetBytes: number,
-  secrets: readonly string[],
+  budget: LogBudget,
+  secrets: ReportSecrets,
   /** Entries the log lost before these, as an earlier page's cut log counts them. */
   alreadyDropped = 0,
 ): Promise<ReportLog> {
-  const limit = Math.min(maxEntries, REPORT_LIMITS.logEntries);
+  const limit = Math.min(budget.maxEntries, REPORT_LIMITS.logEntries);
   const cleaned = entries.map((entry) => reportEntry(entry, secrets));
   let count = Math.min(cleaned.length, limit);
   for (let pass = 0; pass < FIT_PASSES; pass++) {
     const { kept, dropped } = headAndTail(cleaned, count);
-    const size = await gzipSize(kept);
-    if (size <= budgetBytes || count <= 1) return { entries: kept, dropped: alreadyDropped + dropped };
-    count = Math.max(1, Math.floor((count * budgetBytes * FIT_MARGIN) / size));
+    const text = JSON.stringify(kept);
+    const weight = shapeWeight(jsonShape(text));
+    const gzip = await gzipTextSize(text);
+    if ((gzip <= budget.gzipBytes && weight <= budget.inflatedBytes) || count <= 1)
+      return { entries: kept, dropped: alreadyDropped + dropped };
+    const share = Math.min(gzip === 0 ? 1 : budget.gzipBytes / gzip, budget.inflatedBytes / weight);
+    count = Math.max(1, Math.floor(count * share * FIT_MARGIN));
   }
   const { kept, dropped } = headAndTail(cleaned, count);
   return { entries: kept, dropped: alreadyDropped + dropped };

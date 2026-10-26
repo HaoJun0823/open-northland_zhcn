@@ -87,7 +87,11 @@ export const ReportEnvironment = z.strictObject({
   deviceMemoryGb: z.number().nonnegative().nullable(),
   screen: z.strictObject({ width: count, height: count, devicePixelRatio: z.number().positive() }),
   viewport: z.strictObject({ width: count, height: count }),
-  gpu: z.strictObject({ vendor: text().nullable(), renderer: text().nullable(), webgl: z.number().int().nullable() }),
+  gpu: z.strictObject({
+    vendor: text().nullable(),
+    renderer: text().nullable(),
+    webgl: z.number().int().nullable(),
+  }),
   heapMb: z.number().nonnegative().nullable(),
   /** Milliseconds since the page started. */
   uptimeMs: z.number().nonnegative(),

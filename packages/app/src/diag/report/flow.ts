@@ -2,7 +2,7 @@
  * The bug report flow: takes every `Problem`, sends its light report when the player allows it and
  * the session's limits do, keeps one dialog on screen, and retries what the outbox holds.
  */
-import type { ReportPart, ReportUpload } from '@open-northland/data';
+import type { ReportPart } from '@open-northland/data';
 import { apiBaseUrl } from '../../content/map-source/api.js';
 import { readStoredSettings } from '../../view/settings/store.js';
 import { serializeDiagnosticsBundle } from '../bundle.js';

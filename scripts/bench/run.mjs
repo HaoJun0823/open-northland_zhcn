@@ -5,7 +5,7 @@ import { basename, dirname, resolve, sep } from 'node:path';
 import { repoRoot } from '../content/dir.mjs';
 
 /** Where `packages/app/tsconfig.bench.json` compiles the benchmark programs to. */
-const BENCH_PROGRAM_DIR = 'packages/app/dist/bench';
+const BENCH_PROGRAM_DIR = 'packages/app/dist-tsc/bench';
 // `spawnSync` resolves no PATHEXT and Node refuses to spawn Windows' `npx.cmd` directly, so `npx` is
 // only reachable there through a shell. Every argument below is an internal literal.
 const NEEDS_SHELL = process.platform === 'win32';

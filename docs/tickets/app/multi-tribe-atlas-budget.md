@@ -8,7 +8,7 @@ of civilizations a map fields. `loadBuildingSheet` and `loadLookLayers` restrict
 measures or caps it.
 
 Measured against the decoded content, summing `width * height * 4` over the pages the two loaders
-actually fetch (the reducers themselves, run out of `packages/app/dist`):
+actually fetch (the reducers themselves, run out of `packages/app/dist-tsc`):
 
 | world | building pages | character pages | RGBA8 total |
 | --- | --- | --- | --- |

@@ -9,6 +9,7 @@ content
 packages/desktop/release
 **/dist
 **/dist-types
+**/dist-tsc
 **/*.tsbuildinfo
 **/.DS_Store
 **/*.log

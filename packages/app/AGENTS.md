@@ -186,8 +186,9 @@ source of truth.
 ## Performance and verification
 
 - `bench/` holds the benchmark programs. `tsconfig.bench.json` compiles them, and the two real-map
-  test helpers they share, into `dist/` beside the package's own output; that output is rooted at the
-  package rather than at `src/`, so a compiled helper's `../../src/...` import still resolves. The
+  test helpers they share, into `dist-tsc/` beside the package's own tsc output. That output is
+  rooted at the package rather than at `src/`, so a compiled helper's `../../src/...` import still
+  resolves, and stays out of `dist/`, which Vite owns and which ships. The
   net lab (`bench/net-lab*`) uses the network tests' headless clients outside that root, so its runner
   bundles it from source instead.
 - Snapshot at the normal runtime seam; do not clone or scan the full world again in individual HUD

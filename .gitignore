@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 dist-types/
+# packages/app's tsc output, kept apart from the Vite build in dist/ that ships
+dist-tsc/
 *.tsbuildinfo
 # electron-builder output
 packages/desktop/release/

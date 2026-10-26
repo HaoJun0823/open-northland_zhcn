@@ -31,7 +31,8 @@ files; no separate compiler is needed. Changes to the client identity inputs (ap
 lockstep, net-client, net-protocol, or the lockfile) restart Vite and reload connected pages, ending
 any active game so new code cannot retain an old multiplayer identity.
 
-Production builds and plain Node tools use `dist/`. Run `npx tsc --build` before running a Node tool
+Production builds and plain Node tools use `dist/`; `packages/app` compiles to `dist-tsc/` instead,
+because its `dist/` is the Vite build that ships. Run `npx tsc --build` before running a Node tool
 against changed package sources; `npm run build` performs the full typecheck and production build.
 
 ## Repository scripts

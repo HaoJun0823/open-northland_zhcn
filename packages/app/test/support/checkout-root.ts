@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * The checkout this module belongs to. Its callers run both from source under vitest and from the
- * compiled copy under `packages/app/dist`, which sits one directory deeper, so the root is searched
+ * compiled copy under `packages/app/dist-tsc`, which sits one directory deeper, so the root is searched
  * for rather than counted off this file's own path.
  */
 

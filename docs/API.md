@@ -93,7 +93,7 @@ All resource routes accept `GET` and `HEAD`; the report routes accept only `POST
 
 | Path | Response |
 | --- | --- |
-| `/healthz` | Build, last sync time, staleness, entry count, conversion counts and whether the report store is `full`; 503 until a catalogue is loaded |
+| `/healthz` | Build, last sync time, staleness, entry count, conversion counts, whether the report store is `full` and whether the report decoder is failing (`decoderFailing`); 503 until a catalogue is loaded |
 | `/v1/catalog` | Compact `CatalogBrowse` list, sorted by id |
 | `/v1/maps/<id>` | Full `CatalogEntry`, including map indexes and lobby rosters |
 | `/v1/maps/<id>/thumbnail` | Screenshot or 404 |
@@ -156,6 +156,7 @@ the server parses (`REPORT_JSON_SHAPE`) and the statuses below (`REPORT_STATUS`)
 | 413 | Compressed body or inflated JSON over its limit, by `Content-Length` or while reading |
 | 415 | Not `text/plain`, a `Content-Encoding`, or a body that is not gzip |
 | 429, 503 | Rate limited or busy, with `Retry-After` |
+| 500 | A fault of the server, such as a decoder process that cannot start; the upload's global slot is given back |
 | 507 | Storage full, answered before the body is read; the server never deletes reports to make room |
 
 Error bodies are fixed `{ "error": "..." }` texts that never echo the input. Requests without
@@ -166,16 +167,17 @@ for up to 2 seconds so the client gets the answer; then the connection closes.
 Limits are in the table above. A wrong type answers 415 before any limit is spent. Per-client limits
 use sliding windows and are checked for the path's part, with the client's byte share, before the
 body is read; a body the server cannot read or validate also spends the client's slot for the other
-part. The global hourly upload
-count only keeps uploads that stored or counted something: a refused or aborted one gives its slot
-back. The report count cap stops new reports only; an addendum to a stored report is stopped by the
-byte cap alone. A write that would pass the byte cap, or a disk out of space, answers 507 as well.
-Uploads in flight are capped. One upload at a time is inflated, validated and turned into its files
-in a child process with a 256 MB heap and a 10-second deadline. The shape bounds above keep the
-costliest JSON within the default limits to about 170 MB of that heap; a body that still exhausts
-the heap or the deadline ends only the child, is a 400, and the next upload starts a new one. Clients
-are keyed by a keyed hash of their address (an IPv6 address by its /64, and its /56 for the coarser
-limit) held only in memory. Client addresses are never logged or stored.
+part. The global hourly upload count only keeps uploads that stored or counted something: a refused,
+aborted or failed one gives its slot back. The report count cap stops new reports only; an addendum
+to a stored report is stopped by the byte cap alone. A write that would pass the byte cap, or a disk
+out of space, answers 507 as well. Uploads in flight are capped. One upload at a time is inflated,
+validated and turned into its files in a child process with a 256 MB heap and a 10-second deadline.
+The shape bounds above keep the costliest JSON within the default limits to about 170 MB of that
+heap; a body that still exhausts the heap or the deadline ends only the child, is a 400, and the
+next upload starts a new one. A child that dies while idle is started again for the next upload; one
+that cannot start fails that upload at once with a 500 and sets `decoderFailing` until a decode
+succeeds. Clients are keyed by a keyed hash of their address (an IPv6 address by its /64, and its
+/56 for the coarser limit) held only in memory. Client addresses are never logged or stored.
 Each client counts once toward a fingerprint's daily cap, so one client cannot use it up for everyone.
 A report with a comment or contact is always stored and does not count toward the cap.
 Fingerprint counts are in memory, so a restart starts the day's counts over.

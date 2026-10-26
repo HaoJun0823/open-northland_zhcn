@@ -1,136 +1,109 @@
 import { describe, expect, it } from 'vitest';
-import { fogWashGeometry, fogWashIndices } from '../../../src/data/fog/index.js';
+import {
+  fogWashIndices,
+  fogWashLattice,
+  fogWashPositions,
+  fogWashVertexAlphas,
+} from '../../../src/data/fog/index.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../../../src/data/projection/index.js';
-import { elevationLiftPerUnit, makeElevationField, projectNode } from '../../../src/data/terrain/index.js';
+import { makeElevationField, projectNode } from '../../../src/data/terrain/index.js';
 
-const LIFT = elevationLiftPerUnit();
 const BAND = { minCol: 1, maxCol: 2, minRow: 1, maxRow: 2 };
+const GRID = 4;
 const TEX = 64;
-/** The band's 2x2 texels plus the outer ring: 4 vertices a row. */
-const COLS = 4;
+/** Cells 0..3 across, rows 1..3 down. */
+const { cols: COLS } = fogWashLattice(BAND);
 
-function vertex(geometry: ReturnType<typeof fogWashGeometry>, i: number, j: number) {
+function vertex(positions: Float32Array, i: number, j: number) {
   const v = (j * COLS + i) * 2;
-  return {
-    x: geometry.positions[v],
-    y: geometry.positions[v + 1],
-    u: geometry.uvs[v],
-    v: geometry.uvs[v + 1],
-  };
+  return { x: positions[v], y: positions[v + 1] };
 }
 
-describe('fogWashGeometry', () => {
-  it('centres each texel on its flat cell and repeats the edge texel half a cell beyond the band', () => {
-    const flat = fogWashGeometry(BAND, TEX, TEX, undefined);
-    expect(vertex(flat, 1, 1)).toEqual({ x: 2 * TILE_HALF_W, y: TILE_HALF_H, u: 0.5 / TEX, v: 0.5 / TEX });
-    expect(vertex(flat, 2, 2)).toEqual({
-      x: 4 * TILE_HALF_W,
-      y: 2 * TILE_HALF_H,
-      u: 1.5 / TEX,
-      v: 1.5 / TEX,
-    });
-    expect(vertex(flat, 0, 0)).toEqual({ x: TILE_HALF_W, y: TILE_HALF_H / 2, u: 0.5 / TEX, v: 0.5 / TEX });
-    expect(vertex(flat, 3, 3)).toEqual({
-      x: 5 * TILE_HALF_W,
-      y: 2.5 * TILE_HALF_H,
-      u: 1.5 / TEX,
-      v: 1.5 / TEX,
-    });
+/** RGBA texels of a `TEX`-wide texture with the band's texels at the given alphas, row-major. */
+function texels(alphas: readonly number[][]): Uint8Array {
+  const bytes = new Uint8Array(TEX * TEX * 4);
+  for (const [y, row] of alphas.entries())
+    for (const [x, alpha] of row.entries()) bytes[(y * TEX + x) * 4 + 3] = alpha;
+  return bytes;
+}
+
+describe('fogWashPositions', () => {
+  it('puts each vertex on its cell centre, odd rows half a cell right', () => {
+    const flat = fogWashPositions(BAND, GRID, GRID, undefined);
+    // Vertex (1, 0) is cell (1, 1), an odd row; vertex (1, 1) is cell (1, 2).
+    expect(vertex(flat, 1, 0)).toEqual({ x: 3 * TILE_HALF_W, y: TILE_HALF_H });
+    expect(vertex(flat, 1, 1)).toEqual({ x: 2 * TILE_HALF_W, y: 2 * TILE_HALF_H });
+    expect(vertex(flat, 0, 2)).toEqual({ x: TILE_HALF_W, y: 3 * TILE_HALF_H });
   });
 
-  it('lifts each vertex with the ground mesh under it, so a hill keeps its own cells lit', () => {
-    // Row 2 is even: cell (2, 2) is a ground mesh vertex. Row 1 is odd: x = 2·HALF_W·2 lies halfway
-    // along the ground edge between cells (1, 1) and (2, 1).
-    const elevation = makeElevationField([0, 0, 0, 0, 0, 10, 30, 0, 0, 20, 40, 0, 0, 0, 0, 0], 4, 4);
-    const lifted = fogWashGeometry(BAND, TEX, TEX, elevation);
-    expect(vertex(lifted, 2, 2).y).toBeCloseTo(projectNode(elevation, 4, 4).y, 6);
-    expect(vertex(lifted, 2, 2).y).toBeCloseTo(2 * TILE_HALF_H - 40 * LIFT, 6);
-    expect(vertex(lifted, 2, 1).y).toBeCloseTo(TILE_HALF_H - 20 * LIFT, 6);
-    expect(vertex(lifted, 2, 2).x).toBe(4 * TILE_HALF_W);
+  it('lifts each vertex with the ground mesh under it', () => {
+    const elevation = makeElevationField([0, 0, 0, 0, 0, 10, 30, 0, 0, 20, 40, 0, 0, 0, 0, 0], GRID, GRID);
+    const lifted = fogWashPositions(BAND, GRID, GRID, elevation);
+    // Cell (2, 2) is node (4, 4); cell (1, 1) is node (3, 2).
+    expect(vertex(lifted, 2, 1).y).toBeCloseTo(projectNode(elevation, 4, 4).y, 6);
+    expect(vertex(lifted, 1, 0).y).toBeCloseTo(projectNode(elevation, 3, 2).y, 6);
   });
 
-  it('holds a column at the row above where a slope rises faster than a row step, never folding', () => {
-    // Cell (2, 2) rises 80 units (95 px) over cell (2, 1): flat it would draw above its northern row.
-    const cliff = makeElevationField([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0], 4, 4);
-    const geometry = fogWashGeometry(BAND, TEX, TEX, cliff);
-    for (let i = 0; i < COLS; i++) {
-      for (let j = 1; j < COLS; j++) {
-        expect(vertex(geometry, i, j).y ?? 0).toBeGreaterThanOrEqual(vertex(geometry, i, j - 1).y ?? 0);
+  it('never lifts a vertex above either of its neighbours in the row above', () => {
+    // Uneven inner cells (the border ring lifts nothing), so a wrongly staggered pair would differ.
+    const cliffs = makeElevationField([0, 0, 0, 0, 0, 5, 60, 0, 0, 90, 10, 0, 0, 0, 0, 0], GRID, GRID);
+    const positions = fogWashPositions(BAND, GRID, GRID, cliffs);
+    const rows = BAND.maxRow - BAND.minRow + 2;
+    for (let j = 1; j < rows; j++) {
+      // An even row's node sits between the cells (c-1, c) above; an odd row's between (c, c+1).
+      const shift = (BAND.minRow + j) % 2 === 0 ? -1 : 0;
+      for (let i = 0; i < COLS; i++) {
+        for (const above of [i + shift, i + shift + 1]) {
+          if (above < 0 || above >= COLS) continue;
+          expect(vertex(positions, i, j).y ?? 0).toBeGreaterThanOrEqual(
+            vertex(positions, above, j - 1).y ?? 0,
+          );
+        }
       }
     }
+    // Cell (1, 2) rises 90 units over (0, 1) and (1, 1): held level with the lower of them, (0, 1).
+    expect(vertex(positions, 1, 1).y).toBe(TILE_HALF_H);
+  });
+});
+
+describe('fogWashVertexAlphas', () => {
+  it('reads each vertex its cell texel, repeating the band edge outside it', () => {
+    const alphas = fogWashVertexAlphas(
+      BAND,
+      texels([
+        [10, 20],
+        [30, 40],
+      ]),
+      TEX,
+    );
+    expect(Array.from(alphas)).toEqual([10, 10, 20, 20, 30, 30, 40, 40, 30, 30, 40, 40]);
   });
 });
 
 describe('fogWashIndices', () => {
-  /** RGBA texels of a `TEX`-wide texture with the band's texels at the given alphas, row-major. */
-  function texels(alphas: readonly number[][]): Uint8Array {
-    const bytes = new Uint8Array(TEX * TEX * 4);
-    for (const [y, row] of alphas.entries())
-      for (const [x, alpha] of row.entries()) bytes[(y * TEX + x) * 4 + 3] = alpha;
-    return bytes;
-  }
-  /** The grid quads the indices draw, as `i,j` of their first vertex. */
-  function quads(indices: Uint32Array): string[] {
-    const out: string[] = [];
-    for (let k = 0; k < indices.length; k += 6) {
-      const a = indices[k] ?? 0;
-      out.push(`${a % COLS},${Math.floor(a / COLS)}`);
+  const FOGGED = new Uint8Array(COLS * 3).fill(90);
+
+  it('draws two ground triangles a band cell over a fogged band', () => {
+    expect(fogWashIndices(BAND, FOGGED).length).toBe(2 * 2 * 2 * 3);
+  });
+
+  it('builds the ground mesh triangles, the next row offset by the stagger', () => {
+    // Cell (1, 1) on an odd row: A = own, SE-below (2, 2), SW-below (1, 2); B = own, E (2, 1), (2, 2).
+    const indices = fogWashIndices(BAND, FOGGED);
+    expect(Array.from(indices.subarray(0, 6))).toEqual([1, COLS + 2, COLS + 1, 1, 2, COLS + 2]);
+    // Cell (1, 2) on an even row: below are (0, 3) and (1, 3).
+    const evenRow = 2 * 2 * 3;
+    expect(Array.from(indices.subarray(evenRow, evenRow + 3))).toEqual([COLS + 1, 2 * COLS + 1, 2 * COLS]);
+  });
+
+  it('leaves out the triangles whose three vertices are clear, so a lone cell washes a hexagon', () => {
+    const lone = new Uint8Array(COLS * 3);
+    lone[COLS + 2] = 90; // cell (2, 2)
+    const drawn = fogWashIndices(BAND, lone);
+    for (let k = 0; k < drawn.length; k += 3) {
+      expect([drawn[k], drawn[k + 1], drawn[k + 2]]).toContain(COLS + 2);
     }
-    return out;
-  }
-
-  it('draws every quad over a fogged band', () => {
-    expect(
-      fogWashIndices(
-        2,
-        2,
-        texels([
-          [90, 90],
-          [90, 90],
-        ]),
-        TEX,
-      ).length,
-    ).toBe(3 * 3 * 6);
-  });
-
-  it('leaves out the quads whose four corner texels are clear, including the outer ring', () => {
-    // Only texel (1, 1) washes: the quads touching its vertex (2, 2) draw, the rest sample clear texels.
-    expect(
-      quads(
-        fogWashIndices(
-          2,
-          2,
-          texels([
-            [0, 0],
-            [0, 90],
-          ]),
-          TEX,
-        ),
-      ),
-    ).toEqual(['1,1', '2,1', '1,2', '2,2']);
-    expect(
-      fogWashIndices(
-        2,
-        2,
-        texels([
-          [0, 0],
-          [0, 0],
-        ]),
-        TEX,
-      ).length,
-    ).toBe(0);
-  });
-
-  it('keeps the two triangles of a drawn quad', () => {
-    const indices = fogWashIndices(
-      2,
-      2,
-      texels([
-        [90, 0],
-        [0, 0],
-      ]),
-      TEX,
-    );
-    expect(Array.from(indices.subarray(0, 6))).toEqual([0, 1, COLS, 1, COLS + 1, COLS]);
+    expect(drawn.length / 3).toBe(6);
+    expect(fogWashIndices(BAND, new Uint8Array(COLS * 3)).length).toBe(0);
   });
 });

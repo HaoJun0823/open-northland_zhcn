@@ -4,8 +4,9 @@ import {
   ALPHA_BYTE,
   FOG_EXPLORED_ALPHA,
   FOG_UNEXPLORED_ALPHA,
-  fogWashGeometry,
   fogWashIndices,
+  fogWashPositions,
+  fogWashVertexAlphas,
   TEXEL_BYTES,
 } from '../../data/fog/index.js';
 import { TILE_HALF_H, TILE_HALF_W, type Viewport, visibleTileRange } from '../../data/projection/index.js';
@@ -19,10 +20,13 @@ import { destroyMeshChildren } from '../mesh-teardown.js';
  * rebuilt (`FogView.generation`), the viewer changed seat (`FogView.player`), the fog mode changed
  * (`FogView.mode` remaps what `stateAt` reports), or the terrain under it changed.
  *
- * One texel per cell, drawn by a vertex grid lifted with the terrain (`fogWashGeometry`) and sampled
- * with linear filtering: the GPU's bilinear interpolation spreads each state transition across a whole
- * cell (~68 px), which is what melts the mask into a soft, grid-free gradient. The alphas are tuned by
- * eye. Only the quads with a fogged corner draw, so watched ground costs no fill.
+ * Drawn over the ground mesh's own lifted triangles with one alpha per cell-centre vertex, interpolated
+ * across each triangle. Original behavior: unexplored map points draw at zero brightness and the ground
+ * triangles shade between their corners, so the fog's edge runs along the triangle lattice in hexagons.
+ * The explored-grey alpha has no original counterpart and blends the same way; both alphas are tuned by
+ * eye. The per-cell alpha texture stays for the shaders that sample the fog ({@link FogWashMask}); the
+ * mesh reads its alpha off {@link alphaRamp} instead, so Pixi's stock mesh shader interpolates it. Only
+ * triangles with a fogged corner draw, so watched ground costs no fill.
  */
 
 /** Cells beyond the visible band the wash also covers, so its edge never shows during a pan. */
@@ -30,6 +34,30 @@ const FOG_BAND_MARGIN = 3;
 
 /** Texture allocation step (texels) - grow-only, so a steady pan never re-allocates GPU memory. */
 const TEXTURE_QUANT = 64;
+
+/** Entries of the alpha ramp, one per alpha byte value. */
+const RAMP_TEXELS = 256;
+
+/**
+ * A black texture whose texel `a` has alpha `a`. Linear filtering of a linear ramp is linear, so a vertex
+ * UV at texel centre `(a + 0.5) / RAMP_TEXELS` interpolates the alpha exactly as a per-vertex colour would.
+ */
+function alphaRamp(): Texture {
+  const ramp = new Uint8Array(RAMP_TEXELS * TEXEL_BYTES);
+  for (let a = 0; a < RAMP_TEXELS; a++) ramp[a * TEXEL_BYTES + ALPHA_BYTE] = a;
+  return new Texture({
+    source: new BufferImageSource({ resource: ramp, width: RAMP_TEXELS, height: 1, scaleMode: 'linear' }),
+  });
+}
+
+function rampUvs(alphas: Uint8Array): Float32Array {
+  const uvs = new Float32Array(alphas.length * 2);
+  for (let v = 0; v < alphas.length; v++) {
+    uvs[v * 2] = ((alphas[v] ?? 0) + 0.5) / RAMP_TEXELS;
+    uvs[v * 2 + 1] = 0.5;
+  }
+  return uvs;
+}
 
 /** Where the wash's texture lies in the world, for a shader that samples it: one texel per cell. */
 export interface FogWashMask {
@@ -51,13 +79,14 @@ export class FogLayer {
   readonly container = new Container();
   private readonly mesh = new Mesh({ geometry: new MeshGeometry({}) });
   private texture: Texture | null = null;
+  private readonly ramp = alphaRamp();
   private buffer: Uint8Array = new Uint8Array(0);
   /** Allocated texture dims in texels; grow-only. */
   private texW = 0;
   private texH = 0;
   /** Signature of the frame last rasterized - an unchanged signature skips the rebuild. */
   private key = '';
-  /** Signature of the vertex grid, which moves with the band and the terrain but not the mask. */
+  /** Signature of the vertex lattice, which moves with the band and the terrain but not the mask. */
   private geometryKey = '';
   /** The terrain the wash was last lifted over, and a count of the fields seen, for the signature. */
   private elevation: ElevationField | undefined;
@@ -74,6 +103,7 @@ export class FogLayer {
 
   constructor() {
     this.mesh.visible = false;
+    this.mesh.texture = this.ramp;
     this.container.addChild(this.mesh);
   }
 
@@ -109,7 +139,7 @@ export class FogLayer {
     const texture = this.texture;
     if (texture === null) return; // ensureTexture always sets it
 
-    // The texture may be quantized larger than the band; the mesh samples only the band's texels.
+    // The texture may be quantized larger than the band; only the band's texels are written and read.
     const buf = this.buffer;
     for (let j = 0; j < bandH; j++) {
       const rowBase = j * this.texW;
@@ -124,20 +154,23 @@ export class FogLayer {
       }
     }
     texture.source.update();
-    const geometryKey = `${bandKey}:${this.texW}x${this.texH}:${this.elevationVersion}`;
-    const indices = fogWashIndices(bandW, bandH, buf, this.texW);
+    const geometryKey = `${bandKey}:${this.elevationVersion}`;
+    const alphas = fogWashVertexAlphas(band, buf, this.texW);
+    const uvs = rampUvs(alphas);
+    const indices = fogWashIndices(band, alphas);
     if (geometryKey !== this.geometryKey) {
       const previous = this.mesh.geometry;
       this.mesh.geometry = new MeshGeometry({
-        ...fogWashGeometry(band, this.texW, this.texH, elevation),
+        positions: fogWashPositions(band, view.cellsWide, view.cellsHigh, elevation),
+        uvs,
         indices,
       });
       previous.destroy();
       this.geometryKey = geometryKey;
     } else {
+      this.mesh.geometry.uvs = uvs;
       this.mesh.geometry.indices = indices;
     }
-    this.mesh.texture = texture;
     // The flat box a sampling shader maps the band to: texel (i, j) centres on cell (minCol+i, minRow+j)
     // at (2c·HALF_W, r·HALF_H), so the box starts half a texel before the first centre.
     const mask = this.washMask;
@@ -179,10 +212,13 @@ export class FogLayer {
 
   destroy(): void {
     this.washMask.source = null;
-    // Unloaded, not destroyed: Pixi's shared mesh shader keeps the last drawn texture bound until its
-    // renderer goes, and destroying a bound source is a Pixi warning. Unloading frees the GPU copy.
+    // Unloaded, not destroyed: Pixi's shared mesh shader keeps the last drawn texture (the ramp), and a
+    // fog-sampling shader the mask, bound until its renderer goes, and destroying a bound source is a
+    // Pixi warning. Unloading frees the GPU copy.
     this.texture?.source.unload();
     this.texture?.destroy(false);
+    this.ramp.source.unload();
+    this.ramp.destroy(false);
     destroyMeshChildren(this.container);
     this.container.destroy({ children: true });
   }

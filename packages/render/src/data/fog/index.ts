@@ -10,8 +10,10 @@ export {
 } from './mask.js';
 export {
   ALPHA_BYTE,
-  type FogWashGeometry,
-  fogWashGeometry,
+  type FogWashLattice,
   fogWashIndices,
+  fogWashLattice,
+  fogWashPositions,
+  fogWashVertexAlphas,
   TEXEL_BYTES,
 } from './wash-mesh.js';

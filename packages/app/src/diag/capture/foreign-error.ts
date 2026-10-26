@@ -33,19 +33,26 @@ function fromOrigin(url: string, pageOrigin: string): boolean {
   }
 }
 
+/** The script URLs an error's stack names; empty for a value without a stack or a stack without
+ *  URLs. */
+function stackUrls(error: unknown): readonly string[] {
+  if (typeof error !== 'object' || error === null || !('stack' in error)) return [];
+  const { stack } = error;
+  return typeof stack === 'string' ? (stack.match(STACK_URL) ?? []) : [];
+}
+
 /** The error's stack names scripts, none of them the page's. */
 export function thrownElsewhere(error: unknown, pageOrigin: string): boolean {
-  if (typeof error !== 'object' || error === null || !('stack' in error)) return false;
-  const { stack } = error;
-  if (typeof stack !== 'string') return false;
-  const urls = stack.match(STACK_URL) ?? [];
+  const urls = stackUrls(error);
   return urls.length > 0 && urls.every((url) => !fromOrigin(url, pageOrigin));
 }
 
-/** Why a window error event is no game crash, or null when it may be one. */
+/** Why a window error event is no game crash, or null when it may be one. A stack outranks the
+ *  event's filename: a foreign script that wraps the game's callbacks and rethrows names itself as
+ *  the filename of the game's own error. */
 export function ignoredWindowError(event: WindowErrorFacts, pageOrigin: string): IgnoredError | null {
   if (event.message.includes(RESIZE_OBSERVER_NOTICE)) return 'resize-observer';
   if (event.error == null && event.message === MUTED_ERROR_MESSAGE) return 'foreign';
-  if (event.filename !== '' && !fromOrigin(event.filename, pageOrigin)) return 'foreign';
-  return thrownElsewhere(event.error, pageOrigin) ? 'foreign' : null;
+  if (stackUrls(event.error).length > 0) return thrownElsewhere(event.error, pageOrigin) ? 'foreign' : null;
+  return event.filename !== '' && !fromOrigin(event.filename, pageOrigin) ? 'foreign' : null;
 }

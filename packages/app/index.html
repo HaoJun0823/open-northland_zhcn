@@ -52,15 +52,18 @@
             return true;
           }
         };
+        const stackUrls = (error) =>
+          typeof error?.stack === 'string' ? (error.stack.match(STACK_URL) ?? []) : [];
         const elsewhere = (error) => {
-          const urls = typeof error?.stack === 'string' ? (error.stack.match(STACK_URL) ?? []) : [];
+          const urls = stackUrls(error);
           return urls.length > 0 && !urls.some(own);
         };
         const ignored = (event) =>
           String(event.message).includes('ResizeObserver loop') ||
           (event.error == null && event.message === 'Script error.') ||
-          (event.filename !== '' && !own(event.filename)) ||
-          elsewhere(event.error);
+          (stackUrls(event.error).length > 0
+            ? elsewhere(event.error)
+            : event.filename !== '' && !own(event.filename));
         const onError = (event) => {
           const target = event.target;
           if (target?.tagName === 'SCRIPT') {

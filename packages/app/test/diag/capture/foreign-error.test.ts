@@ -21,6 +21,18 @@ describe('ignoredWindowError', () => {
     ).toBeNull();
   });
 
+  it("keeps the page's error that a foreign wrapper caught and rethrew under its own filename", () => {
+    const rethrown = thrown(
+      `TypeError: x\n    at gameTick (${ORIGIN}/game.js:1:27)\n    at https://ext.example/wrap.js:1:86`,
+    );
+    expect(
+      ignoredWindowError(
+        { message: 'Uncaught TypeError: x', filename: 'https://ext.example/wrap.js', error: rethrown },
+        ORIGIN,
+      ),
+    ).toBeNull();
+  });
+
   it('drops errors from other origins: muted, from a foreign file, or with only foreign frames', () => {
     const verdicts = [
       ignoredWindowError({ message: 'Script error.', filename: '', error: null }, ORIGIN),

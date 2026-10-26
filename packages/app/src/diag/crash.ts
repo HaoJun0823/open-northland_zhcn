@@ -7,7 +7,10 @@ import { messages } from '../i18n/index.js';
 import { isBrave } from '../view/platform/browser-support.js';
 import { servedByBrowser } from '../view/platform/host.js';
 import { downloadDiagnosticsBundle } from './bundle.js';
+import { type IgnoredError, ignoredWindowError, thrownElsewhere } from './capture/foreign-error.js';
 import { reportError } from './capture/report-error.js';
+import { errorText } from './error-text.js';
+import { diag } from './log.js';
 
 /** Above every game overlay; the system menu and tooltips sit at 2000. */
 const CRASH_BANNER_Z_INDEX = '2200';
@@ -101,6 +104,20 @@ export function dismissCrashBanner(cause: string): void {
   banner = null;
 }
 
+/** An ignored error is logged once per message, for this many messages: a script that fails every
+ *  frame must not push the game's own entries out of the log. */
+const IGNORED_MESSAGES_LOGGED = 20;
+const ignoredLogged = new Set<string>();
+
+/** Kept in the log as context for a later report, never reported itself. */
+function noteIgnored(why: IgnoredError, message: string, source?: string): void {
+  if (ignoredLogged.has(message) || ignoredLogged.size >= IGNORED_MESSAGES_LOGGED) return;
+  ignoredLogged.add(message);
+  const data = source === undefined ? undefined : { source };
+  if (why === 'resize-observer') diag.debug('crash', `ignored: ${message}`, data);
+  else diag.info('crash', `ignored an error from another origin: ${message}`, data);
+}
+
 let installed = false;
 
 export function installCrashCapture(): void {
@@ -108,11 +125,24 @@ export function installCrashCapture(): void {
   installed = true;
   window.addEventListener('error', (event) => {
     const source = `${event.filename}:${event.lineno}:${event.colno}`;
-    // A cross-origin script's error event carries no error object, only its message.
-    const error: unknown = event.error ?? { name: 'Error', message: String(event.message) };
+    const message = String(event.message);
+    const ignored = ignoredWindowError(
+      { message, filename: event.filename, error: event.error },
+      window.location.origin,
+    );
+    if (ignored !== null) {
+      noteIgnored(ignored, message, source);
+      return;
+    }
+    // An error event may carry no error object, only its message.
+    const error: unknown = event.error ?? { name: 'Error', message };
     reportError('main', error, { source });
   });
   window.addEventListener('unhandledrejection', (event) => {
+    if (thrownElsewhere(event.reason, window.location.origin)) {
+      noteIgnored('foreign', errorText(event.reason));
+      return;
+    }
     reportError('main', event.reason, { facts: { unhandledRejection: true } });
   });
 }

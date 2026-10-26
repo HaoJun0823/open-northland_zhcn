@@ -42,18 +42,38 @@
             localStorage.setItem(KEY, JSON.stringify(stored.concat(faults).slice(-MAX_STORED_FAULTS)));
           } catch {}
         };
+        // No game fault, as `diag/capture/foreign-error.ts` rules: a ResizeObserver notice, or an
+        // error thrown by another origin's script (an extension, an injected script).
+        const STACK_URL = /\b[a-z][a-z\d+.-]*:\/\/[^\s)]+/gi;
+        const own = (url) => {
+          try {
+            return new URL(url).origin === location.origin;
+          } catch {
+            return true;
+          }
+        };
+        const elsewhere = (error) => {
+          const urls = typeof error?.stack === 'string' ? (error.stack.match(STACK_URL) ?? []) : [];
+          return urls.length > 0 && !urls.some(own);
+        };
+        const ignored = (event) =>
+          String(event.message).includes('ResizeObserver loop') ||
+          (event.error == null && event.message === 'Script error.') ||
+          (event.filename !== '' && !own(event.filename)) ||
+          elsewhere(event.error);
         const onError = (event) => {
           const target = event.target;
           if (target?.tagName === 'SCRIPT') {
-            keep('LoadError', 'a script failed to load', undefined, target.src);
+            if (own(target.src)) keep('LoadError', 'a script failed to load', undefined, target.src);
             return;
           }
-          if (target !== window) return;
+          if (target !== window || ignored(event)) return;
           const error = event.error;
           keep(error?.name ?? 'Error', event.message, error?.stack, `${event.filename}:${event.lineno}:${event.colno}`);
         };
         const onRejection = (event) => {
           const reason = event.reason;
+          if (elsewhere(reason)) return;
           const isError = reason instanceof Error;
           keep(isError ? reason.name : 'Error', isError ? reason.message : String(reason), isError ? reason.stack : undefined);
         };

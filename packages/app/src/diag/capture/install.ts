@@ -49,8 +49,9 @@ let watchdog: ReturnType<typeof openWatchdog> = null;
 
 /**
  * A prompt the browser or the desktop shell shows over the page, such as the leave prompt, blocks the
- * main thread while the player reads it: the watchdog stops counting, as for a hidden page, until the
- * page's next beat. Leaving from the prompt then leaves no freeze record behind.
+ * main thread while the player reads it, and so does the report's own screenshot render on a slow
+ * GPU: the watchdog stops counting, as for a hidden page, until the page's next beat. Leaving from
+ * the prompt then leaves no freeze record behind.
  */
 export function pauseFreezeWatch(): void {
   watchdog?.beat(false, captureContext());

@@ -3,6 +3,7 @@ import { REPORT_SCREENSHOT_TYPES, type ReportAttachments } from '@open-northland
 import { autosaveSlots } from '../../view/runtime/save-load/autosave-slots.js';
 import { browserSaveStore } from '../../view/runtime/save-load/store-browser.js';
 import { readStoredSettings } from '../../view/settings/store.js';
+import { pauseFreezeWatch } from '../capture/install.js';
 import { diag } from '../log.js';
 import {
   SCREENSHOT_BUDGET_BYTES,
@@ -81,9 +82,11 @@ export async function captureScreenshot(): Promise<Offer<Screenshot> | null> {
   if (view === null) return null;
   try {
     let quality = SCREENSHOT_QUALITY;
+    pauseFreezeWatch();
     let blob = await view.screenshot(SCREENSHOT_MAX_WIDTH, quality);
     while (blob !== null && blob.size > SCREENSHOT_BUDGET_BYTES && quality > SCREENSHOT_MIN_QUALITY) {
       quality = Math.max(SCREENSHOT_MIN_QUALITY, quality - SCREENSHOT_QUALITY_STEP);
+      pauseFreezeWatch();
       blob = await view.screenshot(SCREENSHOT_MAX_WIDTH, quality);
     }
     if (blob === null || blob.size > SCREENSHOT_BUDGET_BYTES) return null;

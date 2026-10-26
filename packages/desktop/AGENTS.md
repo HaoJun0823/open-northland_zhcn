@@ -44,7 +44,7 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   profile's `maps/` for installed maps and `faults/` for recorded faults. Do not duplicate that choice elsewhere.
 - Keep `main.ts` and `window/create.ts` free of logic worth a unit test; routing, containment and
   path rules live in `protocol/routing.ts`, `protocol/static-files.ts`, `protocol/file-response.ts`,
-  `maps/installed.ts`, `maps/store.ts`, `faults/store.ts`, `faults/redact.ts`,
+  `maps/installed.ts`, `maps/store.ts`, `faults/store.ts`, `faults/redact.ts`, `faults/hung-stack.ts`,
   `faults/reload-guard.ts`, `paths.ts`, `window/state.ts` and `window/control.ts`, which import
   nothing from `electron`.
 

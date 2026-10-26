@@ -1,19 +1,11 @@
 import { release } from 'node:os';
-import {
-  app,
-  type BrowserWindow,
-  dialog,
-  type IpcMainInvokeEvent,
-  ipcMain,
-  type WebContents,
-} from 'electron';
+import { app, type BrowserWindow, dialog, type IpcMainInvokeEvent, ipcMain } from 'electron';
 import { CLEAR_FAULTS_CHANNEL, FAULT_VERSIONS_CHANNEL, PENDING_FAULTS_CHANNEL } from './channels.js';
 import { crashPromptFor } from './crash-prompt.js';
+import { hungStack } from './hung-stack.js';
 import { createCrashReloadGuard } from './reload-guard.js';
 import type { FaultStore, FaultUpdate, NewFault, ShellFault } from './store.js';
 
-/** A hung page that never yields its stack is recorded without one. */
-const HUNG_STACK_TIMEOUT_MS = 5_000;
 /** Button order of the repeated-crash dialog. */
 const RESTART_BUTTON = 0;
 const QUIT_BUTTON = 1;
@@ -78,23 +70,6 @@ function shellVersions(): Readonly<Record<string, string>> {
     osRelease: release(),
     osVersion: process.getSystemVersion(),
   };
-}
-
-/** The hung page's JavaScript stack: the page opts in through its `Document-Policy` header. */
-async function hungStack(contents: WebContents): Promise<string | undefined> {
-  let stopTimer = (): void => {};
-  const timeout = new Promise<undefined>((resolve) => {
-    const timer = setTimeout(() => resolve(undefined), HUNG_STACK_TIMEOUT_MS);
-    stopTimer = () => clearTimeout(timer);
-  });
-  try {
-    const stack = await Promise.race([contents.mainFrame.collectJavaScriptCallStack(), timeout]);
-    return typeof stack === 'string' && stack !== '' ? stack : undefined;
-  } catch {
-    return undefined;
-  } finally {
-    stopTimer();
-  }
 }
 
 export interface WindowFaultSetup {

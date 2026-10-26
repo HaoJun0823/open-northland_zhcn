@@ -9,13 +9,19 @@
       (() => {
         const KEY = 'open-northland.boot-faults';
         const MAX_FAULTS = 5;
+        // Pages that never came up keep adding to the list: it keeps the newest, a few pages' worth.
+        const MAX_STORED_FAULTS = 10;
+        // The report schema's limits on an error's message and stack.
+        const MESSAGE_CHARS = 2000;
+        const STACK_CHARS = 16000;
         // A report id: 128 random bits as lowercase hex.
         const ID_BYTES = 16;
         const HEX = 16;
         const HEX_DIGITS = 2;
         let stored = [];
         try {
-          stored = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+          const read = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+          if (Array.isArray(read)) stored = read.slice(-MAX_STORED_FAULTS);
         } catch {}
         const faults = [];
         const id = () =>
@@ -24,9 +30,16 @@
           ).join('');
         const keep = (name, message, stack, source) => {
           if (faults.length >= MAX_FAULTS) return;
-          faults.push({ id: id(), at: new Date().toISOString(), name: String(name), message: String(message), stack, source });
+          faults.push({
+            id: id(),
+            at: new Date().toISOString(),
+            name: String(name),
+            message: String(message).slice(0, MESSAGE_CHARS),
+            stack: typeof stack === 'string' ? stack.slice(0, STACK_CHARS) : undefined,
+            source,
+          });
           try {
-            localStorage.setItem(KEY, JSON.stringify(stored.concat(faults)));
+            localStorage.setItem(KEY, JSON.stringify(stored.concat(faults).slice(-MAX_STORED_FAULTS)));
           } catch {}
         };
         const onError = (event) => {

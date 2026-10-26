@@ -10,6 +10,8 @@ export type ProblemRoute = NonNullable<Problem['earlier']>['route'];
 
 /** What the page itself knew of the moment the shell recorded. */
 export interface FaultExtras {
+  /** The fault ended a previous page, or happened before this page started. */
+  readonly previousSession: boolean;
   readonly log?: ReportLog;
   readonly route?: ProblemRoute;
   readonly facts?: Readonly<Record<string, unknown>>;
@@ -54,7 +56,7 @@ function routeOfUrl(url: string | null): ProblemRoute {
   }
 }
 
-export function desktopFaultProblem(fault: DesktopFault, extras: FaultExtras = {}): Problem {
+export function desktopFaultProblem(fault: DesktopFault, extras: FaultExtras): Problem {
   const error = faultError(fault);
   const route = extras.route ?? routeOfUrl(fault.url);
   return {
@@ -64,6 +66,7 @@ export function desktopFaultProblem(fault: DesktopFault, extras: FaultExtras = {
     earlier: {
       id: fault.id,
       at: fault.at,
+      previousSession: extras.previousSession,
       ...(extras.log === undefined ? {} : { log: extras.log }),
       ...(route === undefined ? {} : { route }),
     },
@@ -78,7 +81,7 @@ export function desktopFaultProblem(fault: DesktopFault, extras: FaultExtras = {
 export async function reportDesktopFaults(
   faults: DesktopFaults,
   group: readonly DesktopFault[],
-  extras: FaultExtras = {},
+  extras: FaultExtras,
 ): Promise<void> {
   const lead = group.find((fault) => fault.stack !== null) ?? group[0];
   if (lead === undefined) return;

@@ -38,7 +38,7 @@ describe('problem gate', () => {
     const gate = new ProblemGate();
     const earlier = {
       trigger: 'unclean-exit',
-      earlier: { id: 'f'.repeat(32), at: '2026-10-26T10:00:00Z' },
+      earlier: { id: 'f'.repeat(32), at: '2026-10-26T10:00:00Z', previousSession: true },
     } as const;
     expect(gate.decide(earlier, 'x', true, false).show).toBe('dialog');
     expect(gate.decide(earlier, 'y', true, false)).toEqual({ show: 'none', send: false, hold: false });

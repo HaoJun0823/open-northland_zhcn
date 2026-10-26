@@ -57,13 +57,13 @@ const PREVIEW_DEBOUNCE_MS = 300;
 const ATTACHMENT_ORDER: readonly AttachmentKind[] = ['commands', 'settings', 'screenshot', 'save'];
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary, a[href]';
 /** Problems whose explanation already says they happened before this start. */
-const SAID_EARLIER: ReadonlySet<ReportTrigger> = new Set(['unclean-exit', 'renderer-gone', 'gpu-gone']);
+const SAID_EARLIER: ReadonlySet<ReportTrigger> = new Set(['unclean-exit', 'renderer-gone']);
 
 export interface ReportDialogOptions {
   readonly kase: ReportCase;
   readonly trigger: ReportTrigger;
-  /** The problem happened in an earlier session, which a previous page or the desktop shell saw. */
-  readonly earlier: boolean;
+  /** The problem happened before this page started, which a previous page or the desktop shell saw. */
+  readonly previousSession: boolean;
   /** "Send error reports automatically" when the dialog opened. */
   readonly automatic: boolean;
   /** The session's automatic reports were used up, so this one waits for the player. */
@@ -160,7 +160,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
   root.tabIndex = -1;
 
   const head = element('header', 'on-report__head');
-  const earlierError = opts.earlier && opts.trigger === 'error';
+  const earlierError = opts.previousSession && opts.trigger === 'error';
   const title = element(
     'h2',
     'on-report__title',
@@ -177,7 +177,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     'on-report__intro',
     earlierError
       ? copy.earlierError.explanation
-      : opts.earlier && !SAID_EARLIER.has(opts.trigger)
+      : opts.previousSession && !SAID_EARLIER.has(opts.trigger)
         ? `${copy.earlierNote} ${copy.explanations[opts.trigger]}`
         : copy.explanations[opts.trigger],
   );

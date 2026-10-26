@@ -24,7 +24,7 @@ export const plBugReport = {
       'Twoja gra nie zgadza się już z grami pozostałych graczy, więc rozgrywka nie może dalej toczyć się bez błędów.',
     'context-lost': 'Przeglądarka odebrała grze grafikę i jej nie oddała. Zwykle pomaga odświeżenie strony.',
     'gpu-gone':
-      'W poprzedniej sesji część gry odpowiedzialna za grafikę przestała działać i została uruchomiona ponownie. Gra już działa; zgłoszenie pomoże ustalić przyczynę.',
+      'Część gry odpowiedzialna za grafikę przestała działać i została uruchomiona ponownie. Gra już działa; zgłoszenie pomoże ustalić przyczynę.',
   },
   fatalTitle: 'Gra nie może działać dalej',
   fatalExplanation:

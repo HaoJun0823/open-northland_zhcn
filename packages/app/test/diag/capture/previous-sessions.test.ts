@@ -34,17 +34,31 @@ function bootFreeze(id: string, lastedMs: number): FreezeRecord {
   return { id, tabId: id, frozenAt: LONG_AGO, seenAt: LONG_AGO + lastedMs, context: BOOTING };
 }
 
-function hang(id: string, atMs: number): DesktopFault {
+function shellFault(id: string, trigger: DesktopFault['trigger'], atMs: number): DesktopFault {
   return {
     id,
-    trigger: 'renderer-unresponsive',
+    trigger,
     at: new Date(atMs).toISOString(),
-    reason: 'unresponsive',
+    reason: trigger,
     exitCode: null,
     durationMs: null,
     stack: null,
     url: null,
   };
+}
+
+const hang = (id: string, atMs: number): DesktopFault => shellFault(id, 'renderer-unresponsive', atMs);
+
+function shellWith(pending: readonly DesktopFault[], cleared: string[] = []): void {
+  const faults: DesktopFaults = {
+    pending: () => Promise.resolve(pending),
+    clear: (ids) => {
+      cleared.push(...ids);
+      return Promise.resolve();
+    },
+    versions: () => Promise.resolve({}),
+  };
+  Object.defineProperty(window, 'desktop', { value: { faults }, configurable: true });
 }
 
 let problems: Problem[];
@@ -88,17 +102,20 @@ describe('reportPreviousSessions', () => {
     const theirs = hang('d'.repeat(32), LONG_AGO + 1000);
     const ours = hang('e'.repeat(32), OWN.startedAt + 1);
     const cleared: string[] = [];
-    const faults: DesktopFaults = {
-      pending: () => Promise.resolve([theirs, ours]),
-      clear: (ids) => {
-        cleared.push(...ids);
-        return Promise.resolve();
-      },
-      versions: () => Promise.resolve({}),
-    };
-    Object.defineProperty(window, 'desktop', { value: { faults }, configurable: true });
+    shellWith([theirs, ours], cleared);
     await reportPreviousSessions(OWN, null);
     expect(problems).toEqual([]);
     expect(cleared).toEqual([theirs.id]);
+  });
+
+  it("tells the shell's faults of a previous session from those of this page", async () => {
+    const before = shellFault('f'.repeat(32), 'error', OWN.startedAt - 1);
+    const since = shellFault('1'.repeat(32), 'gpu-gone', OWN.startedAt + 1);
+    shellWith([before, since]);
+    await reportPreviousSessions(OWN, null);
+    expect(problems.map((problem) => [problem.trigger, problem.earlier?.previousSession])).toEqual([
+      ['error', true],
+      ['gpu-gone', false],
+    ]);
   });
 });

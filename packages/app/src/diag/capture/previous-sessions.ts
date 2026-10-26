@@ -65,6 +65,7 @@ function reportFreeze(record: FreezeRecord, marker: SessionMarker | null): void 
     earlier: {
       id: record.id,
       at: new Date(record.frozenAt).toISOString(),
+      previousSession: true,
       ...(log === null ? {} : { log }),
       route: contextRoute(record.context),
     },
@@ -79,6 +80,7 @@ function reportUncleanExit(marker: SessionMarker): void {
     earlier: {
       id: marker.id,
       at: new Date(marker.beatAt).toISOString(),
+      previousSession: true,
       ...(log === null ? {} : { log }),
       route: contextRoute(marker.context),
     },
@@ -133,6 +135,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
       groups.push({
         ids: matched.filter((fault) => !hangs.includes(fault)).map((fault) => fault.id),
         extras: {
+          previousSession: true,
           ...(log === null ? {} : { log }),
           route: contextRoute(marker.context),
           facts: {
@@ -165,5 +168,9 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
     for (const fault of group) grouped.add(fault.id);
     await reportDesktopFaults(faults, group, extras);
   }
-  for (const fault of pending) if (!grouped.has(fault.id)) await reportDesktopFaults(faults, [fault]);
+  // The later sweep also finds what the shell recorded of this page, such as a GPU restart.
+  for (const fault of pending) {
+    if (grouped.has(fault.id)) continue;
+    await reportDesktopFaults(faults, [fault], { previousSession: Date.parse(fault.at) < own.startedAt });
+  }
 }

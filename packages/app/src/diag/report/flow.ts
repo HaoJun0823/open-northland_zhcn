@@ -157,7 +157,7 @@ function showDialog(kase: ReportCase, problem: Problem | null, state: DialogStat
     {
       kase,
       trigger: problem?.trigger ?? 'manual',
-      earlier: problem?.earlier !== undefined,
+      previousSession: problem?.earlier?.previousSession === true,
       ...state,
       defaults,
       onReload: reloadDocument,

@@ -11,11 +11,14 @@ export interface Problem {
   readonly reported?: boolean;
   /** Facts the report's `perf` carries, such as a freeze's length. */
   readonly facts?: Readonly<Record<string, unknown>>;
-  /** A problem a previous page recorded: the report keeps its id and time, and its log stands in for
-   *  the current page's, which never saw it. */
+  /** A problem recorded apart from the current page's capture, by a previous page or the desktop
+   *  shell: the report keeps its id and time, and its log stands in for the current page's. */
   readonly earlier?: {
     readonly id: string;
     readonly at: string;
+    /** It happened before this page started, so the dialog says so. The shell's record of this page's
+     *  own hang or GPU restart is no previous session's. */
+    readonly previousSession: boolean;
     readonly log?: ReportLog;
     readonly route?: { readonly entry: string; readonly params: Readonly<Record<string, string>> };
   };

@@ -27,7 +27,7 @@ export const deBugReport = {
     'context-lost':
       'Der Browser hat dem Spiel die Grafik entzogen und nicht zurückgegeben. Meist hilft es, die Seite neu zu laden.',
     'gpu-gone':
-      'In deiner letzten Sitzung ist der Grafikteil des Spiels ausgefallen und wurde neu gestartet. Das Spiel läuft wieder; der Bericht hilft, die Ursache zu finden.',
+      'Der Grafikteil des Spiels ist ausgefallen und wurde neu gestartet. Das Spiel läuft wieder; der Bericht hilft, die Ursache zu finden.',
   },
   fatalTitle: 'Das Spiel kann nicht weiterlaufen',
   fatalExplanation:

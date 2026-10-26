@@ -59,7 +59,7 @@ export function takeBootFaults(): void {
     reportProblem({
       trigger: 'error',
       error: reportErrorOf('main', fault, fault.source),
-      earlier: { id: fault.id, at: fault.at },
+      earlier: { id: fault.id, at: fault.at, previousSession: true },
     });
   }
   for (const fault of parseFaults(recorder.faults)) {

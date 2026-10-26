@@ -21,7 +21,7 @@ function options(kase: ReportCase, onSend: ReportDialogOptions['onSend']): Repor
   return {
     kase,
     trigger: kase.manual ? 'manual' : 'error',
-    earlier: false,
+    previousSession: false,
     automatic: true,
     limited: false,
     fatal: false,

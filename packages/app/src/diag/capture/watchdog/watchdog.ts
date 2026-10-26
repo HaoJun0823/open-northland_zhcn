@@ -69,6 +69,7 @@ function thawed(thaw: Thaw): void {
       // The shell's record reads as an earlier page's, whose log the report takes: this page's is it.
       const log = reportLogOf(diag, REPORT_LIMITS.logEntries);
       return reportDesktopFaults(faults, hangs, {
+        previousSession: false,
         facts,
         ...(log === null ? {} : { log }),
         ...(context === null ? {} : { route: contextRoute(context) }),

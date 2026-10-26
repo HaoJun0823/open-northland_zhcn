@@ -23,7 +23,7 @@ export const enBugReport = {
     'context-lost':
       'The browser took away the graphics and did not give them back. Reloading the page usually helps.',
     'gpu-gone':
-      'In your previous session the graphics part of the game stopped and was started again. The game has recovered; the report helps find out why it happened.',
+      'The graphics part of the game stopped and was started again. The game has recovered; the report helps find out why it happened.',
   },
   fatalTitle: 'The game cannot continue',
   fatalExplanation:

@@ -364,14 +364,19 @@ a map seeds the flag through `scripts/browser/original-game-gate.mjs` or its own
 
 `npm run test:desktop` builds the app and shell, then launches Electron on `app://` with an isolated
 temporary profile. It needs converted content including `magiczny_las` (`ON_CONTENT_DIR` selects the
-content tree), opens real windows, and runs locally rather than in CI. It checks:
+content tree), opens real windows, and runs locally rather than in CI. Every launch goes through
+`packages/desktop/test-e2e/launch.ts`, which points the catalogue and bug report server at a closed
+local port. It checks:
 
 - menu map previews and both sprite URL spellings;
 - save, relaunch and load with the same tick and state hash;
 - that development starts windowed on both a fresh profile and a profile remembering fullscreen;
 - a second launch, which finds no original game and opens on the gate screen: a store link goes to
   the system browser, and picks answered through a stubbed folder dialog show the failure line, then
-  open the menu and record the install.
+  open the menu and record the install;
+- that a renderer crash leaves a `renderer-gone` fault, reloads the start page and that page clears
+  the fault, and that `app://` pages carry the `Document-Policy` header that lets the shell read a
+  hung page's call stack. `ON_BENCH_WINDOW_POSITION=x,y` opens this window at that screen position.
 
 `ON_DESKTOP_RESTORE_WINDOW=1 npm run test:desktop` also checks fullscreen on first launch, the
 settings switch and Alt+Enter, Escape preserving fullscreen, and restoring the window mode across

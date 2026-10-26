@@ -30,7 +30,8 @@ Report limits ([bug reports](#bug-reports)), each a positive integer:
 | --- | --- |
 | `API_REPORT_MAX_BYTES` | 524288 (512 KiB compressed report) |
 | `API_REPORT_ADDENDUM_MAX_BYTES` | 8388608 (8 MiB compressed addendum) |
-| `API_REPORT_MAX_INFLATED_BYTES` | 16777216 (16 MiB inflated, either part) |
+| `API_REPORT_MAX_INFLATED_BYTES` | 2097152 (2 MiB inflated report) |
+| `API_REPORT_ADDENDUM_MAX_INFLATED_BYTES` | 16777216 (16 MiB inflated addendum) |
 | `API_REPORT_IP_HOURLY`, `API_REPORT_IP_DAILY` | 6, 20 reports per client |
 | `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client |
 | `API_REPORT_GLOBAL_HOURLY` | 200 uploads from all clients |
@@ -91,7 +92,7 @@ All resource routes accept `GET` and `HEAD`; the report routes accept only `POST
 
 | Path | Response |
 | --- | --- |
-| `/healthz` | Build, last sync time, staleness, entry count, conversion counts and the report store (`count`, `bytes`, `full`); 503 until a catalogue is loaded |
+| `/healthz` | Build, last sync time, staleness, entry count, conversion counts and whether the report store is `full`; 503 until a catalogue is loaded |
 | `/v1/catalog` | Compact `CatalogBrowse` list, sorted by id |
 | `/v1/maps/<id>` | Full `CatalogEntry`, including map indexes and lobby rosters |
 | `/v1/maps/<id>/thumbnail` | Screenshot or 404 |
@@ -138,15 +139,16 @@ Incompatible manifests trigger reconversion.
 The game posts `ReportUpload` (`packages/data`) as gzipped JSON with `Content-Type: text/plain`, a
 type browsers send without a preflight. `POST /v1/reports` takes `part: 'report'`. `POST
 /v1/reports/<id>` takes `part: 'addendum'` with the same 32-hex `id`: the player's comment, contact
-and heavier attachments. It answers 404 before reading the body unless `id` names a stored report
-without an addendum, so each report takes one addendum. The random `id` is the addendum's only key.
+and heavier attachments. It answers 404 before reading the body unless `id` names a stored report.
+Each report takes one addendum; a later one is answered 204 as a retry and stores nothing. The
+random `id` is the addendum's only key.
 
 | Status | Meaning |
 | --- | --- |
-| 204 | Stored; also a retried report already stored, and a report only counted past its fingerprint cap or as its client's second of that fingerprint that day |
-| 400 | Not JSON, refused by the schema, the wrong part for the path, or an attachment whose bytes are not its type |
+| 204 | Stored; also a retried report or addendum already stored, and a report only counted past its fingerprint cap or as its client's second of that fingerprint that day |
+| 400 | Not JSON, nested deeper than 16 brackets or holding more than one value per 8 bytes of the inflated limit, refused by the schema, the wrong part for the path, an attachment whose bytes are not its type, or too costly to decode |
 | 403 | An `Origin` header that is not allowed |
-| 404 | The addendum's report is not stored, or already has an addendum |
+| 404 | The addendum's report is not stored |
 | 413 | Compressed body or inflated JSON over its limit, by `Content-Length` or while reading |
 | 415 | Not `text/plain`, a `Content-Encoding`, or a body that is not gzip |
 | 429, 503 | Rate limited or busy, with `Retry-After` |
@@ -159,8 +161,10 @@ for up to 2 seconds so the client gets the answer; then the connection closes.
 
 Limits are in the table above. Per-client limits use sliding windows and are checked for the path's
 part before the body is read; a body the server cannot read or validate also spends the client's
-slot for the other part. A disk out of space answers 507 as well. Uploads in flight are capped, and one
-upload at a time is inflated and validated. Clients are keyed by a keyed hash of their address (an
+slot for the other part. A write that would pass the byte cap, or a disk out of space, answers 507
+as well. Uploads in flight are capped. One upload at a time is inflated, validated and turned into
+its files in a worker with a 256 MB heap and a 10-second deadline; a body that exhausts either is a
+400. Clients are keyed by a keyed hash of their address (an
 IPv6 address by its /64) held only in memory. Client addresses are never logged or stored.
 Each client counts once toward a fingerprint's daily cap, so one client cannot use it up for everyone.
 Fingerprint counts are in memory, so a restart starts the day's counts over.
@@ -172,13 +176,17 @@ Paths are relative to `ON_API_REPORTS_DIR`; the server names every file. The def
 
 | Path | Content |
 | --- | --- |
-| `<YYYY-MM-DD>/<HHMMSS>Z-<trigger>-<id>/report.json` | The report without attachments, pretty JSON; date and time in UTC |
+| `<YYYY-MM-DD>/<HHMMSS>Z-<trigger>-<id>/report.json` | The report without attachments; date and time in UTC |
 | `.../commands.json` | `{ commandsFromTick, commands }` |
 | `.../save.json.gz` | The save file as sent, after a gzip signature check |
 | `.../screenshot.webp`, `.jpg` or `.png` | The decoded screenshot, after a signature check |
 | `.../settings.json` | The player's settings |
 | `.../addendum.json` | The addendum's `comment`, `contact` and `receivedAt` |
 | `<YYYY-MM-DD>/suppressed.json` | Reports only counted, by fingerprint |
+
+The JSON files a person reads (`report.json`, `settings.json`, `addendum.json`) have their top three
+levels one member per line and deeper values on one line, so a file stays within a small factor of
+the JSON sent however deep its free-form fields are.
 
 Attachments sent with the report or its addendum land in the same directory. An addendum never
 replaces a file the report already has. Each report is written in `.tmp/` and renamed into place;

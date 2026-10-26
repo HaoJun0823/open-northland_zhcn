@@ -30,7 +30,8 @@ describe('apiConfigFromEnvironment', () => {
         limits: {
           maxReportBytes: MIB / 2,
           maxAddendumBytes: 8 * MIB,
-          maxInflatedBytes: 16 * MIB,
+          maxReportInflatedBytes: 2 * MIB,
+          maxAddendumInflatedBytes: 16 * MIB,
           ipReportsPerHour: 6,
           ipReportsPerDay: 20,
           ipAddendaPerHour: 6,

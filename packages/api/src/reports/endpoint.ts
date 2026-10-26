@@ -1,17 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
-import { REPORT_ID_SHOWN_CHARS, type ReportUpload } from '@open-northland/data';
+import { REPORT_ID_SHOWN_CHARS } from '@open-northland/data';
 import type { Log } from '../catalog/thumbnails.js';
 import type { ReportsConfig } from '../config.js';
 import { sendError } from '../http/response.js';
-import {
-  AbortedError,
-  IntakeError,
-  type IntakeFailure,
-  inflateLimited,
-  parseUpload,
-  readLimited,
-} from './intake.js';
+import type { DecodedUpload } from './decode.js';
+import { type ReportDecoder, WorkerReportDecoder } from './decoder.js';
+import { AbortedError, IntakeError, type IntakeFailure, isGzip, readLimited } from './intake.js';
 import { type Limited, ReportLimiter } from './limiter.js';
 import { ReportStore, type ReportStoreHealth, type StoreOutcome } from './store.js';
 
@@ -52,17 +47,20 @@ const FAILURES: Record<IntakeFailure, readonly [status: number, error: string]> 
   'not-gzip': [UNSUPPORTED_TYPE, 'body must be gzip'],
   corrupt: [BAD_REQUEST, 'invalid report'],
   invalid: [BAD_REQUEST, 'invalid report'],
+  'too-complex': [BAD_REQUEST, 'invalid report'],
 };
 
 export interface ReportEndpointOptions {
   readonly config: Pick<ReportsConfig, 'origins' | 'trustForwardedFor'> & {
     readonly limits: Pick<
       ReportsConfig['limits'],
-      'maxReportBytes' | 'maxAddendumBytes' | 'maxInflatedBytes'
+      'maxReportBytes' | 'maxAddendumBytes' | 'maxReportInflatedBytes' | 'maxAddendumInflatedBytes'
     >;
   };
   readonly store: ReportStore;
   readonly limiter: ReportLimiter;
+  /** Defaults to a worker per upload; see `WorkerReportDecoder`. */
+  readonly decoder?: ReportDecoder;
   readonly log?: Log;
   /** Epoch milliseconds, for the limiter's windows. */
   readonly now?: () => number;
@@ -79,11 +77,11 @@ export class ReportEndpoint {
   private readonly now: () => number;
   private inFlight = 0;
   private rescans: NodeJS.Timeout | null = null;
-  /** Inflating and validating take the most memory, so one upload does it at a time. */
-  private decoding: Promise<unknown> = Promise.resolve();
+  private readonly decoder: ReportDecoder;
 
   constructor(private readonly options: ReportEndpointOptions) {
     this.origins = new Set(options.config.origins);
+    this.decoder = options.decoder ?? new WorkerReportDecoder();
     this.log = options.log ?? (() => undefined);
     this.now = options.now ?? Date.now;
   }
@@ -162,7 +160,7 @@ export class ReportEndpoint {
       return;
     }
     const { limiter, store } = this.options;
-    if (target.part === 'addendum' && !(await store.awaitsAddendum(target.id))) {
+    if (target.part === 'addendum' && !(await store.holdsReport(target.id))) {
       this.missing(request, response, cors, true);
       return;
     }
@@ -188,14 +186,16 @@ export class ReportEndpoint {
   private async receive(request: IncomingMessage, response: ServerResponse, intake: Intake): Promise<void> {
     const { target, key, maxBytes, cors } = intake;
     const { limiter, store } = this.options;
-    let upload: ReportUpload;
+    const { maxReportInflatedBytes, maxAddendumInflatedBytes } = this.options.config.limits;
+    const maxInflated = target.part === 'report' ? maxReportInflatedBytes : maxAddendumInflatedBytes;
+    let upload: DecodedUpload;
     try {
       const body = await readLimited(request, maxBytes);
       limiter.countBytes(body.length, this.now());
-      upload = await this.decode(body, this.options.config.limits.maxInflatedBytes);
-      if (upload.part !== target.part || (target.part === 'addendum' && upload.id !== target.id)) {
-        throw new IntakeError('invalid');
-      }
+      // Checked here too, so the commonest garbage costs no worker.
+      if (!isGzip(body)) throw new IntakeError('not-gzip');
+      upload = await this.decoder.decode(body, target.part, maxInflated);
+      if (target.part === 'addendum' && upload.id !== target.id) throw new IntakeError('invalid');
     } catch (error) {
       if (!(error instanceof IntakeError)) {
         if (!(error instanceof AbortedError) && !request.destroyed) throw error;
@@ -233,12 +233,6 @@ export class ReportEndpoint {
     }
     this.log('report stored', { ...fields, outcome });
     response.writeHead(NO_CONTENT, { ...cors, 'cache-control': 'no-store' }).end();
-  }
-
-  private decode(body: Buffer, maxInflated: number): Promise<ReportUpload> {
-    const run = this.decoding.then(async () => parseUpload(await inflateLimited(body, maxInflated)));
-    this.decoding = run.catch(() => undefined);
-    return run;
   }
 
   /** The CORS headers for the request's origin, none without one, null for a refused origin. */

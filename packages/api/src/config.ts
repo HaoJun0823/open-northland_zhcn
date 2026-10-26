@@ -28,7 +28,8 @@ const MIB = KIB * KIB;
 const GIB = KIB * MIB;
 /** Bounds of the report limits a deployment may set: wide enough to tune, never unbounded. */
 const MAX_REPORT_BODY_BYTES = 64 * MIB;
-const MAX_REPORT_INFLATED_BYTES = 256 * MIB;
+/** Within what the decode worker's heap can parse and validate. */
+const MAX_REPORT_INFLATED_BYTES = 32 * MIB;
 const MAX_REPORT_RATE = 100_000;
 const MAX_REPORT_STORE_BYTES = 1024 * GIB;
 const MAX_REPORT_STORE_COUNT = 10_000_000;
@@ -39,7 +40,9 @@ const REPORT_LIMIT_SETTINGS = {
   /** Compressed: a report carries logs and a screenshot, its addendum the heavy attachments. */
   maxReportBytes: ['API_REPORT_MAX_BYTES', 512 * KIB, MAX_REPORT_BODY_BYTES],
   maxAddendumBytes: ['API_REPORT_ADDENDUM_MAX_BYTES', 8 * MIB, MAX_REPORT_BODY_BYTES],
-  maxInflatedBytes: ['API_REPORT_MAX_INFLATED_BYTES', 16 * MIB, MAX_REPORT_INFLATED_BYTES],
+  /** Inflated: a report's free-form fields are small; the addendum carries the command log. */
+  maxReportInflatedBytes: ['API_REPORT_MAX_INFLATED_BYTES', 2 * MIB, MAX_REPORT_INFLATED_BYTES],
+  maxAddendumInflatedBytes: ['API_REPORT_ADDENDUM_MAX_INFLATED_BYTES', 16 * MIB, MAX_REPORT_INFLATED_BYTES],
   ipReportsPerHour: ['API_REPORT_IP_HOURLY', 6, MAX_REPORT_RATE],
   ipReportsPerDay: ['API_REPORT_IP_DAILY', 20, MAX_REPORT_RATE],
   ipAddendaPerHour: ['API_REPORT_IP_ADDENDA_HOURLY', 6, MAX_REPORT_RATE],
@@ -162,7 +165,8 @@ function reportsConfig(env: Environment, cwd: string): ReportsConfig {
     limits: {
       maxReportBytes: limit('maxReportBytes'),
       maxAddendumBytes: limit('maxAddendumBytes'),
-      maxInflatedBytes: limit('maxInflatedBytes'),
+      maxReportInflatedBytes: limit('maxReportInflatedBytes'),
+      maxAddendumInflatedBytes: limit('maxAddendumInflatedBytes'),
       ipReportsPerHour: limit('ipReportsPerHour'),
       ipReportsPerDay: limit('ipReportsPerDay'),
       ipAddendaPerHour: limit('ipAddendaPerHour'),

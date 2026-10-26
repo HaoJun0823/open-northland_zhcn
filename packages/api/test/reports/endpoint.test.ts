@@ -4,6 +4,7 @@ import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { WorkerReportDecoder } from '../../src/reports/decoder.js';
 import { ReportEndpoint } from '../../src/reports/endpoint.js';
 import { ReportLimiter } from '../../src/reports/limiter.js';
 import { ReportStore } from '../../src/reports/store.js';
@@ -13,11 +14,16 @@ import { addendum, REPORT_ID, report, wire } from '../support/report-fixture.js'
 
 const KIB = 1024;
 const MIB = KIB * KIB;
+/** The compiled worker: vitest runs the sources, a worker needs JavaScript. */
+const DECODE_WORKER = new URL('../../dist/reports/decode-worker.js', import.meta.url);
+/** Nesting far past the decode bound. */
+const DEEP = 1000;
 const GAME = 'https://game.opennorthland.org';
 const LIMITS = {
   maxReportBytes: 64 * KIB,
   maxAddendumBytes: 128 * KIB,
-  maxInflatedBytes: 256 * KIB,
+  maxReportInflatedBytes: 256 * KIB,
+  maxAddendumInflatedBytes: 512 * KIB,
   ipReportsPerHour: 100,
   ipReportsPerDay: 100,
   ipAddendaPerHour: 100,
@@ -41,7 +47,13 @@ describe('POST /v1/reports', () => {
     const config = { origins: [GAME], trustForwardedFor, limits: { ...LIMITS, ...limits } };
     const store = new ReportStore(join(dir, 'reports'), config.limits);
     await store.init();
-    const reports = new ReportEndpoint({ config, store, limiter: new ReportLimiter(config.limits) });
+    const limiter = new ReportLimiter(config.limits);
+    const reports = new ReportEndpoint({
+      config,
+      store,
+      limiter,
+      decoder: new WorkerReportDecoder(DECODE_WORKER),
+    });
     const server: ApiServer = await startApiServer({
       port: 0,
       host: '127.0.0.1',
@@ -67,7 +79,7 @@ describe('POST /v1/reports', () => {
     expect(sent.headers.get('access-control-allow-origin')).toBe(GAME);
     expect(sent.headers.get('vary')).toBe('Origin');
     expect((await post(wire(report()), { origin: 'http://127.0.0.1:5173' })).status).toBe(204);
-    expect(server.health().reports).toMatchObject({ count: 1, full: false });
+    expect(server.health().reports).toEqual({ full: false });
     expect((await fetch(url)).status).toBe(405);
   });
 
@@ -81,8 +93,10 @@ describe('POST /v1/reports', () => {
     const invalid = await post(wire({ ...report(), trigger: '<script>' }));
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toEqual({ error: 'invalid report' });
-    const bomb = await post(wire({ ...report(), comment: 'x'.repeat(LIMITS.maxInflatedBytes) }));
+    const bomb = await post(wire({ ...report(), comment: 'x'.repeat(LIMITS.maxReportInflatedBytes) }));
     expect(bomb.status).toBe(413);
+    const deep: unknown = JSON.parse(`${'['.repeat(DEEP)}${']'.repeat(DEEP)}`);
+    expect((await post(wire({ ...report(), perf: deep }))).status).toBe(400);
 
     // Refused from the header alone: the server answers before any of the body arrives.
     const declared = await new Promise<number | undefined>((resolve, reject) => {
@@ -125,7 +139,8 @@ describe('POST /v1/reports', () => {
     const settings = { pad: randomBytes(80 * KIB).toString('base64') };
     expect((await post(wire(report({ attachments: { settings } })))).status).toBe(413);
     expect((await toReport(wire(addendum({ comment: 'ok', attachments: { settings } })))).status).toBe(204);
-    expect((await toReport(wire(addendum()))).status).toBe(404);
+    // A retry whose answer was lost is answered as stored; the first addendum stays.
+    expect((await toReport(wire(addendum()))).status).toBe(204);
     expect((await fetch(`${url}/${REPORT_ID.toUpperCase()}`, { method: 'POST' })).status).toBe(405);
   });
 

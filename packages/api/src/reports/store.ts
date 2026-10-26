@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { link, mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ReportAddendum, ReportAttachments, ReportUpload } from '@open-northland/data';
 import { isMissing, writeAtomic } from '../store.js';
+import type { DecodedUpload } from './decode.js';
+import { readableJson, type StoredFile } from './files.js';
 
 const TMP_DIR = '.tmp';
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
@@ -11,9 +12,7 @@ const ENTRY_DIR = /^\d{6}Z-[a-z-]+-([0-9a-f]{32})$/;
 const REPORT_FILE = 'report.json';
 const ADDENDUM_FILE = 'addendum.json';
 const SUPPRESSED_FILE = 'suppressed.json';
-const SCREENSHOT_EXTENSIONS = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 const ISO_DATE_LENGTH = 10;
-const PRETTY_INDENT = 2;
 /** Error codes of a volume out of space or quota: the store is full whatever its counters say. */
 const DISK_FULL: ReadonlySet<string> = new Set(['ENOSPC', 'EDQUOT']);
 
@@ -28,14 +27,10 @@ export interface ReportStoreLimits {
  *  an addendum's report is not stored (any more). */
 export type StoreOutcome = 'stored' | 'duplicate' | 'suppressed' | 'full' | 'missing';
 
+/** Public through the health endpoint, so it tells only whether reports are refused. */
 export interface ReportStoreHealth {
-  /** Stored reports. */
-  readonly count: number;
-  readonly bytes: number;
   readonly full: boolean;
 }
-
-type StoredFile = readonly [name: string, bytes: Buffer];
 
 /**
  * Report files on disk as `<date>/<HHMMSS>Z-<trigger>-<id>/`. An entry is written in a temporary
@@ -65,7 +60,8 @@ export class ReportStore {
   }
 
   health(): ReportStoreHealth {
-    return { count: this.count, bytes: this.bytes, full: this.full() };
+    // Full when not even one more byte fits.
+    return { full: this.full(1) };
   }
 
   /** Recounts entries and bytes and rebuilds the id index from what is on disk now. */
@@ -94,20 +90,15 @@ export class ReportStore {
     });
   }
 
-  /** Whether `id` names a stored report that has no addendum yet. */
-  async awaitsAddendum(id: string): Promise<boolean> {
+  /** Whether `id` names a stored report, which may take its one addendum or a retry of it. */
+  async holdsReport(id: string): Promise<boolean> {
     const path = this.index.get(id);
-    if (path === undefined) return false;
-    const [report, addendum] = await Promise.all([
-      exists(join(this.dir, path, REPORT_FILE)),
-      exists(join(this.dir, path, ADDENDUM_FILE)),
-    ]);
-    return report && !addendum;
+    return path !== undefined && (await exists(join(this.dir, path, REPORT_FILE)));
   }
 
   /** `sender` is the limiter's key for the client: each sender counts once toward a fingerprint's
    *  daily cap, so one client cannot use it up for everyone. */
-  save(upload: ReportUpload, sender: string): Promise<StoreOutcome> {
+  save(upload: DecodedUpload, sender: string): Promise<StoreOutcome> {
     return this.serial(() =>
       upload.part === 'report' ? this.saveReport(upload, sender) : this.saveAddendum(upload),
     );
@@ -119,7 +110,7 @@ export class ReportStore {
   }
 
   private async saveReport(
-    report: Extract<ReportUpload, { part: 'report' }>,
+    report: Extract<DecodedUpload, { part: 'report' }>,
     sender: string,
   ): Promise<StoreOutcome> {
     const known = this.index.get(report.id);
@@ -135,11 +126,9 @@ export class ReportStore {
       await this.countSuppressed(fingerprint, at);
       return 'suppressed';
     }
-    if (this.full()) return 'full';
-    const { attachments, ...rest } = report;
-    const files: StoredFile[] = [[REPORT_FILE, pretty(rest)], ...attachmentFiles(attachments)];
+    if (this.full(bytesOf(report.files))) return 'full';
     try {
-      this.index.set(report.id, await this.writeEntry(at, report.trigger, report.id, files));
+      this.index.set(report.id, await this.writeEntry(at, report.trigger, report.id, report.files));
     } catch (error) {
       if (DISK_FULL.has(errorCode(error) ?? '')) return 'full';
       throw error;
@@ -149,20 +138,21 @@ export class ReportStore {
   }
 
   /** Adds the addendum to its report's entry; the report may have been deleted since it was asked. */
-  private async saveAddendum(addendum: ReportAddendum): Promise<StoreOutcome> {
+  private async saveAddendum(addendum: Extract<DecodedUpload, { part: 'addendum' }>): Promise<StoreOutcome> {
     const path = this.index.get(addendum.id);
     if (path === undefined || !(await exists(join(this.dir, path, REPORT_FILE)))) return 'missing';
     if (await exists(join(this.dir, path, ADDENDUM_FILE))) return 'duplicate';
-    if (this.full()) return 'full';
-    const note = pretty({
+    const note = readableJson({
       comment: addendum.comment,
       contact: addendum.contact,
       receivedAt: this.now().toISOString(),
     });
     // The note goes last: once it is there, the addendum is complete. A retry after a failure
     // links only the files still missing.
+    const files: StoredFile[] = [...addendum.files, [ADDENDUM_FILE, note]];
+    if (this.full(bytesOf(files))) return 'full';
     try {
-      await this.addToEntry(path, [...attachmentFiles(addendum.attachments), [ADDENDUM_FILE, note]]);
+      await this.addToEntry(path, files);
     } catch (error) {
       if (DISK_FULL.has(errorCode(error) ?? '')) return 'full';
       if (isMissing(error)) return 'missing';
@@ -190,7 +180,7 @@ export class ReportStore {
       await rm(temporary, { recursive: true, force: true });
     }
     this.count += 1;
-    this.bytes += files.reduce((sum, [, bytes]) => sum + bytes.length, 0);
+    this.bytes += bytesOf(files);
     return path;
   }
 
@@ -244,14 +234,15 @@ export class ReportStore {
       if (!isMissing(error) && !(error instanceof SyntaxError)) throw error;
     }
     counts[fingerprint] = (counts[fingerprint] ?? 0) + 1;
-    const bytes = pretty(counts);
+    const bytes = readableJson(counts);
     await mkdir(join(this.dir, day), { recursive: true });
     await writeAtomic(path, bytes);
     this.bytes += bytes.length - before;
   }
 
-  private full(): boolean {
-    return this.count >= this.limits.maxStoredReports || this.bytes >= this.limits.maxStoredBytes;
+  /** Whether the report count is at its cap or writing `incoming` more bytes would pass the byte cap. */
+  private full(incoming: number): boolean {
+    return this.count >= this.limits.maxStoredReports || this.bytes + incoming > this.limits.maxStoredBytes;
   }
 
   private serial<T>(task: () => Promise<T>): Promise<T> {
@@ -261,31 +252,12 @@ export class ReportStore {
   }
 }
 
-/** Attachments as their own files: the commands compact, the save and screenshot as sent. */
-function attachmentFiles(attachments: ReportAttachments | undefined): StoredFile[] {
-  if (attachments === undefined) return [];
-  const files: StoredFile[] = [];
-  const { commands, commandsFromTick, save, screenshot, settings } = attachments;
-  if (commands !== undefined) {
-    files.push(['commands.json', Buffer.from(JSON.stringify({ commandsFromTick, commands }))]);
-  }
-  if (save !== undefined) files.push(['save.json.gz', Buffer.from(save.data, 'base64')]);
-  if (screenshot !== undefined) {
-    files.push([
-      `screenshot.${SCREENSHOT_EXTENSIONS[screenshot.type]}`,
-      Buffer.from(screenshot.data, 'base64'),
-    ]);
-  }
-  if (settings !== undefined) files.push(['settings.json', pretty(settings)]);
-  return files;
+function bytesOf(files: readonly StoredFile[]): number {
+  return files.reduce((sum, [, bytes]) => sum + bytes.length, 0);
 }
 
 function errorCode(error: unknown): string | null {
   return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null;
-}
-
-function pretty(value: unknown): Buffer {
-  return Buffer.from(`${JSON.stringify(value, null, PRETTY_INDENT)}\n`);
 }
 
 function timeOfDay(at: Date): string {

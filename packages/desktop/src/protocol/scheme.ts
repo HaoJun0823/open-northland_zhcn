@@ -57,6 +57,10 @@ const CORS_HEADER = { 'access-control-allow-origin': 'app://game' } as const;
 
 const DIRECTORY_INDEX = 'index.html';
 
+/** Lets the shell read a hung page's JavaScript stack (`collectJavaScriptCallStack`). */
+const DOCUMENT_HEADERS = { 'document-policy': 'include-js-call-stacks-in-crash-reports' } as const;
+const DOCUMENT_EXTENSION = '.html';
+
 /** Install the read-only app and generated-content handler once in `app.whenReady`. */
 export function handleAppProtocol(roots: ShellRoots): void {
   protocol.handle(APP_SCHEME, async (request) => {
@@ -65,7 +69,12 @@ export function handleAppProtocol(roots: ShellRoots): void {
     const pathname = routePath === '/' ? `/${DIRECTORY_INDEX}` : routePath;
     const file = await servedFile(roots, pathname);
     if (file === undefined) return notFound();
-    const contentType = CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
-    return fileResponse(file, request, { 'content-type': contentType, ...CORS_HEADER });
+    const extension = extname(file).toLowerCase();
+    const contentType = CONTENT_TYPES[extension] ?? 'application/octet-stream';
+    return fileResponse(file, request, {
+      'content-type': contentType,
+      ...CORS_HEADER,
+      ...(extension === DOCUMENT_EXTENSION ? DOCUMENT_HEADERS : {}),
+    });
   });
 }

@@ -10,9 +10,10 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   closed with (`src/window/state.ts`). Development always starts in a normal window, preserving bounds;
   `ON_DESKTOP_RESTORE_WINDOW=1` opts into the packaged startup behavior for explicit window-mode checks.
   Its preload exposes only `window.desktop.fullscreen` (read, set,
-  subscribe), `window.desktop.originalGame` (status, pick a folder) and `window.desktop.maps`
+  subscribe), `window.desktop.originalGame` (status, pick a folder), `window.desktop.maps`
   (pick/drop/cancel a local file or folder, list records, read a map snapshot, file or retained source,
-  commit maps and source together), which the app feature-detects. Keep that bridge narrow, validate
+  commit maps and source together) and `window.desktop.faults` (pending faults, clear by id, build
+  versions), which the app feature-detects. Keep that bridge narrow, validate
   every IPC argument and sender, and keep sandbox and context isolation on.
   Saves live in the page's IndexedDB like in a browser. A page or mail link the game opens goes to
   the system browser or mail client, never a second window.
@@ -25,8 +26,12 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   immutable generations. Native picks enforce shared import limits before reading and refuse symlinks.
   The app owns the record schema; the shell validates IPC shapes, paths, revisions and per-request sizes.
   There is no aggregate desktop storage budget.
-- The shell writes only window state, `original-game.json`, and installed-map storage in its
-  profile. Saves remain in the page's IndexedDB.
+- The shell writes only window state, `original-game.json`, installed-map storage and recorded
+  faults in its profile. Saves remain in the page's IndexedDB.
+- `src/faults/` records renderer crashes and hangs, GPU process deaths and main-process errors as one
+  JSON file each in the profile's `faults/`, the newest 20 kept, home directory redacted, until the
+  page clears them. A crashed page reloads the start page; a second crash within a minute
+  asks the player to restart or quit instead. Main-process errors keep Electron's own handling.
 - A packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an installed original game
   through `src/original-game/`. Before the window opens, a profile without `original-game.json`
   runs detection (or checks only the folder `ON_ORIGINAL_GAME_DIR` names) and records a hit. The
@@ -36,11 +41,12 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 - `src/paths.ts` owns where the trees are: the packaged app's `resources/app` and
   `resources/content` (the `extraResources` of `electron-builder.yml`), else the checkout's
   `packages/app/dist` and `content/` with `ON_CONTENT_DIR` honoured like Vite does, and the
-  profile's `maps/` for installed maps. Do not duplicate that choice elsewhere.
+  profile's `maps/` for installed maps and `faults/` for recorded faults. Do not duplicate that choice elsewhere.
 - Keep `main.ts` and `window/create.ts` free of logic worth a unit test; routing, containment and
   path rules live in `protocol/routing.ts`, `protocol/static-files.ts`, `protocol/file-response.ts`,
-  `maps/installed.ts`, `maps/store.ts`, `paths.ts`, `window/state.ts` and `window/control.ts`, which
-  import nothing from `electron`.
+  `maps/installed.ts`, `maps/store.ts`, `faults/store.ts`, `faults/redact.ts`,
+  `faults/reload-guard.ts`, `paths.ts`, `window/state.ts` and `window/control.ts`, which import
+  nothing from `electron`.
 
 ## Layout
 
@@ -50,6 +56,7 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 - `src/protocol/`: the `app://` scheme, its routing and static-file responses.
 - `src/window/`: the game window, its saved state, fullscreen control and leave prompt.
 - `src/original-game/`: original-game detection, its record and IPC channels.
+- `src/faults/`: fault recording, its store and IPC channels.
 
 Unit tests mirror `src/` under `test/`; `test-e2e/` drives the built shell.
 

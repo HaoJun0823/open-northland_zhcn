@@ -1,6 +1,9 @@
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { app, type BrowserWindow, Menu } from 'electron';
 import { applicationMenuTemplate } from './application-menu.js';
+import { createFaultStore } from './faults/store.js';
+import { recordProcessFaults } from './faults/watch.js';
 import { describeGpuInfo } from './gpu-info.js';
 import { installCandidates } from './original-game/candidates.js';
 import {
@@ -16,7 +19,7 @@ import {
   readOriginalGameState,
   writeOriginalGameState,
 } from './original-game/state.js';
-import { CONTENT_DIR_ENV, installedMapsRoot, resolveShellRoots } from './paths.js';
+import { CONTENT_DIR_ENV, faultsRoot, installedMapsRoot, resolveShellRoots } from './paths.js';
 import { API_URL_ENV, initialGameUrl } from './protocol/routing.js';
 import { GAME_URL, handleAppProtocol, registerAppScheme } from './protocol/scheme.js';
 import { createWindow } from './window/create.js';
@@ -39,6 +42,8 @@ app.commandLine.appendSwitch('force_high_performance_gpu');
 // One window per profile: a second instance would share the IndexedDB the saves live in.
 if (app.requestSingleInstanceLock()) {
   registerAppScheme();
+  const faults = createFaultStore(faultsRoot(app.getPath('userData')), homedir());
+  recordProcessFaults(faults);
 
   let mainWindow: BrowserWindow | undefined;
   app.on('second-instance', () => {
@@ -68,6 +73,7 @@ if (app.requestSingleInstanceLock()) {
       mapsRoot,
       startUrl: initialGameUrl(GAME_URL, process.env[API_URL_ENV]),
       originalGame,
+      faults,
     });
     app.getGPUInfo('basic').then(
       (info) => console.info(describeGpuInfo(info)),

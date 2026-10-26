@@ -6,6 +6,8 @@ const CONTENT_RESOURCE_DIR = 'content';
 
 /** The folder under Electron's `userData` that holds the maps a player installed from the catalogue. */
 const INSTALLED_MAPS_DIR = 'maps';
+/** The folder under Electron's `userData` that holds the faults the shell recorded for the page. */
+const FAULTS_DIR = 'faults';
 
 /** The env override Vite honours too: an absolute path or one relative to the repo root. */
 export const CONTENT_DIR_ENV = 'ON_CONTENT_DIR';
@@ -43,4 +45,9 @@ export function resolveShellRoots(inputs: ShellRootInputs): ShellRoots {
  *  and served under `/maps/` after the app and content roots. */
 export function installedMapsRoot(userDataPath: string): string {
   return join(userDataPath, INSTALLED_MAPS_DIR);
+}
+
+/** Where recorded shell faults wait for the page: `<userData>/faults/<id>.json`. */
+export function faultsRoot(userDataPath: string): string {
+  return join(userDataPath, FAULTS_DIR);
 }

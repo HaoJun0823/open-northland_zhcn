@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { CLEAR_FAULTS_CHANNEL, FAULT_VERSIONS_CHANNEL, PENDING_FAULTS_CHANNEL } from './faults/channels.js';
+import type { ShellFault } from './faults/store.js';
 import {
   CANCEL_LOCAL_MAP_PICK_CHANNEL,
   COMMIT_MAPS_CHANNEL,
@@ -53,5 +55,12 @@ contextBridge.exposeInMainWorld('desktop', {
     readMap: (mapId: unknown) => ipcRenderer.invoke(READ_MAP_CHANNEL, mapId),
     commit: (drop: unknown, put: unknown, sources: unknown) =>
       ipcRenderer.invoke(COMMIT_MAPS_CHANNEL, drop, put, sources),
+  },
+  faults: {
+    pending: (): Promise<ShellFault[]> => ipcRenderer.invoke(PENDING_FAULTS_CHANNEL),
+    clear: async (ids: unknown): Promise<void> => {
+      await ipcRenderer.invoke(CLEAR_FAULTS_CHANNEL, ids);
+    },
+    versions: (): Promise<Record<string, string>> => ipcRenderer.invoke(FAULT_VERSIONS_CHANNEL),
   },
 });

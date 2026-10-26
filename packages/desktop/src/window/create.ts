@@ -9,6 +9,8 @@ import {
   screen,
   shell,
 } from 'electron';
+import type { FaultStore } from '../faults/store.js';
+import { watchWindowFaults } from '../faults/watch.js';
 import {
   CANCEL_LOCAL_MAP_PICK_CHANNEL,
   COMMIT_MAPS_CHANNEL,
@@ -56,9 +58,16 @@ export interface WindowSetup {
   /** The first page, the game URL with any override the environment set. */
   readonly startUrl: string;
   readonly originalGame: OriginalGameRecord;
+  readonly faults: FaultStore;
 }
 
-export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: WindowSetup): BrowserWindow {
+export function createWindow({
+  statePath,
+  mapsRoot,
+  startUrl,
+  originalGame,
+  faults,
+}: WindowSetup): BrowserWindow {
   const state = startupWindowState(
     readWindowState(statePath),
     app.isPackaged || process.env.ON_DESKTOP_RESTORE_WINDOW === '1',
@@ -177,6 +186,7 @@ export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: Wi
     if (!fromGame(event)) throw new Error('Refused');
     return maps.commit(drop, put, sources);
   });
+  watchWindowFaults(win, { store: faults, startUrl, fromGame });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));
   win.webContents.on('before-input-event', (event, input) => {

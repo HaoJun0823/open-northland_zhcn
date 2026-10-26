@@ -10,7 +10,8 @@ export interface LeavePrompt {
 }
 
 const LOCALE_CODES = ['pol', 'eng', 'ger', 'rus', 'chs', 'cht'] as const;
-type LocaleCode = (typeof LOCALE_CODES)[number];
+/** The app's locale codes, which the shell's own native dialogs speak too. */
+export type LocaleCode = (typeof LOCALE_CODES)[number];
 
 /** The locale of each primary language subtag but Chinese, whose two locales split by script. */
 const LOCALE_OF_LANGUAGE: ReadonlyMap<string, LocaleCode> = new Map([
@@ -78,13 +79,16 @@ function localeOf(value: string | null | undefined): LocaleCode | undefined {
 }
 
 /** The page's `?lang=` wins, as it does in the app; the system language stands in when it has none. */
-export function leavePromptFor(pageUrl: string, systemLocale: string): LeavePrompt {
+export function shellLocaleFor(pageUrl: string, systemLocale: string): LocaleCode {
   let lang: string | null = null;
   try {
     lang = new URL(pageUrl).searchParams.get('lang');
   } catch {
     // A page that has not loaded yet has no address worth reading.
   }
-  const locale = localeOf(lang) ?? localeOf(systemLocale) ?? FALLBACK;
-  return PROMPTS[locale];
+  return localeOf(lang) ?? localeOf(systemLocale) ?? FALLBACK;
+}
+
+export function leavePromptFor(pageUrl: string, systemLocale: string): LeavePrompt {
+  return PROMPTS[shellLocaleFor(pageUrl, systemLocale)];
 }

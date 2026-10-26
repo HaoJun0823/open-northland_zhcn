@@ -1,7 +1,8 @@
 /**
  * Uploads that have not arrived yet, kept in IndexedDB so a report written on a dropped link, or
  * still on its way when the page closed, arrives later: tried again at the next start, when the
- * browser comes back online and after a backoff.
+ * browser comes back online and after a backoff. A lost link's backoff only spaces the tries while
+ * the page waits; the server's Retry-After holds through all of them.
  */
 import type { ReportPart } from '@open-northland/data';
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
@@ -18,6 +19,8 @@ export interface OutboxEntry {
   readonly attempts: number;
   /** No try before this epoch millisecond: a backoff or the server's Retry-After. */
   readonly notBefore: number;
+  /** `notBefore` is the server's Retry-After, which no returning link or new start shortens. */
+  readonly heldByServer: boolean;
 }
 
 const MIB = 1024 * 1024;
@@ -45,7 +48,16 @@ export function outboxEntry(
   body: Uint8Array<ArrayBuffer>,
   now: number,
 ): OutboxEntry {
-  return { key: outboxKey(id, part), id, part, body, createdAt: now, attempts: 0, notBefore: now };
+  return {
+    key: outboxKey(id, part),
+    id,
+    part,
+    body,
+    createdAt: now,
+    attempts: 0,
+    notBefore: now,
+    heldByServer: false,
+  };
 }
 
 /** Doubling from half a minute to half an hour, and never sooner than the server asked. */
@@ -71,7 +83,12 @@ export function afterAttempt(entry: OutboxEntry, result: SendResult, now: number
   }
   return {
     kind: 'keep',
-    entry: { ...entry, attempts, notBefore: now + retryDelayMs(attempts, result.afterMs) },
+    entry: {
+      ...entry,
+      attempts,
+      notBefore: now + retryDelayMs(attempts, result.afterMs),
+      heldByServer: result.afterMs !== null,
+    },
   };
 }
 
@@ -97,11 +114,13 @@ export function admit(
   return { kept: [...others, incoming], evicted };
 }
 
-/** The entries due at `now`, oldest first; an addendum waits while its report is still queued. */
-export function dueEntries(entries: readonly OutboxEntry[], now: number): OutboxEntry[] {
+/** The entries due at `now`, oldest first; an addendum waits while its report is still queued. Once
+ *  the link may be back (`linkBack`), only the server's Retry-After still holds an entry. */
+export function dueEntries(entries: readonly OutboxEntry[], now: number, linkBack = false): OutboxEntry[] {
   const queuedReports = new Set(entries.filter((entry) => entry.part === 'report').map((entry) => entry.id));
+  const due = (entry: OutboxEntry): boolean => entry.notBefore <= now || (linkBack && !entry.heldByServer);
   return entries
-    .filter((entry) => entry.notBefore <= now && (entry.part === 'report' || !queuedReports.has(entry.id)))
+    .filter((entry) => due(entry) && (entry.part === 'report' || !queuedReports.has(entry.id)))
     .sort((a, b) => a.createdAt - b.createdAt);
 }
 
@@ -126,7 +145,8 @@ function isEntry(value: unknown): value is OutboxEntry {
     entry.body instanceof Uint8Array &&
     typeof entry.createdAt === 'number' &&
     typeof entry.attempts === 'number' &&
-    typeof entry.notBefore === 'number'
+    typeof entry.notBefore === 'number' &&
+    typeof entry.heldByServer === 'boolean'
   );
 }
 

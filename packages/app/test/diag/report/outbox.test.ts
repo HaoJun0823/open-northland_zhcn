@@ -22,7 +22,10 @@ describe('report outbox', () => {
     const entry = outboxEntry('a'.repeat(32), 'report', body(), NOW);
     const kept = afterAttempt(entry, { kind: 'retry', afterMs: 600_000 }, NOW);
     expect(kept.kind).toBe('keep');
-    if (kept.kind === 'keep') expect(kept.entry.notBefore).toBe(NOW + 600_000);
+    if (kept.kind === 'keep')
+      expect(kept.entry).toMatchObject({ notBefore: NOW + 600_000, heldByServer: true });
+    const lost = afterAttempt(entry, { kind: 'retry', afterMs: null }, NOW);
+    if (lost.kind === 'keep') expect(lost.entry.heldByServer).toBe(false);
     expect(
       afterAttempt({ ...entry, attempts: OUTBOX_MAX_ATTEMPTS - 1 }, { kind: 'retry', afterMs: null }, NOW)
         .kind,

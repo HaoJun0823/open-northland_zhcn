@@ -25,7 +25,7 @@ import {
   shownNumber,
   uploadList,
 } from './case.js';
-import { Courier } from './courier.js';
+import { browserUploadLocks, Courier } from './courier.js';
 import { openReportDialog, type ReportDialog } from './dialog.js';
 import { problemKeys } from './fingerprint.js';
 import { ProblemGate } from './gate.js';
@@ -56,6 +56,7 @@ const casesByError = new Map<string, ReportCase>();
 
 const courier = new Courier({
   store: outboxWithFallback(browserOutbox(), memoryOutbox()),
+  locks: browserUploadLocks(),
   post: (entry) => postReport(entry.body, entry.part, entry.id),
   now: () => Date.now(),
   settled: (entry, result, dropped) => {
@@ -63,11 +64,6 @@ const courier = new Courier({
     if (dropped && (entry.part === 'addendum' || result.kind !== 'sent')) cases.delete(entry.id);
   },
 });
-
-/** Send what the outbox holds and is due. */
-export function flushOutbox(): Promise<void> {
-  return courier.flush();
-}
 
 /**
  * Browser harnesses drive the game under automation without naming a report server; whatever
@@ -250,7 +246,7 @@ export function installBugReports(): void {
   if (installed) return;
   installed = true;
   setProblemSink(onProblem);
-  // A server's Retry-After still holds once the link is back.
-  window.addEventListener('online', () => void courier.flush());
-  courier.schedule(STARTUP_FLUSH_DELAY_MS);
+  // The link may work again: a lost link's backoff no longer holds, a server's Retry-After does.
+  window.addEventListener('online', () => void courier.flush({ linkBack: true }));
+  setTimeout(() => void courier.flush({ linkBack: true }), STARTUP_FLUSH_DELAY_MS);
 }

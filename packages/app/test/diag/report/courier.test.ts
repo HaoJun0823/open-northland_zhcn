@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { Courier } from '../../../src/diag/report/courier.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Courier, type UploadLocks } from '../../../src/diag/report/courier.js';
 import { memoryOutbox, type OutboxEntry, outboxEntry } from '../../../src/diag/report/outbox.js';
 import type { SendResult } from '../../../src/diag/report/send.js';
 
@@ -13,12 +13,13 @@ afterEach(() => {
 });
 
 /** A courier over a fresh outbox whose posts answer from `answers` in turn, `sent` once they run out. */
-function courierWith(answers: SendResult[]) {
+function courierWith(answers: SendResult[], locks: UploadLocks | null = null) {
   const store = memoryOutbox();
   const posted: OutboxEntry[] = [];
   const settled: { key: string; kind: SendResult['kind']; dropped: boolean }[] = [];
   const courier = new Courier({
     store,
+    locks,
     post: async (entry) => {
       posted.push(entry);
       return answers.shift() ?? { kind: 'sent' };
@@ -36,6 +37,7 @@ describe('report courier', () => {
     let answer: (result: SendResult) => void = () => undefined;
     const courier = new Courier({
       store,
+      locks: null,
       post: () => new Promise((resolve) => (answer = resolve)),
       now: () => NOW,
       settled: () => undefined,
@@ -76,6 +78,45 @@ describe('report courier', () => {
       { key: `${id(1)}:report`, kind: 'counted', dropped: true },
       { key: `${id(2)}:report`, kind: 'sent', dropped: true },
     ]);
+    expect(await store.list()).toEqual([]);
+  });
+
+  it("sends what a lost link held back once the link may be back, but never before the server's Retry-After", async () => {
+    const { courier, store, posted } = courierWith([]);
+    const lost = { ...outboxEntry(id(1), 'report', body(), NOW - 2), attempts: 1, notBefore: NOW + 30_000 };
+    const limited = {
+      ...outboxEntry(id(2), 'report', body(), NOW - 1),
+      attempts: 1,
+      notBefore: NOW + 60_000,
+    };
+    await store.put(lost);
+    await store.put({ ...limited, heldByServer: true });
+    await courier.flush();
+    expect(posted).toEqual([]);
+
+    await courier.flush({ linkBack: true });
+    expect(posted.map((entry) => entry.id)).toEqual([id(1)]);
+  });
+
+  it('leaves an upload to the page posting it, and sends it once that page let go unanswered', async () => {
+    let letGo: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => (letGo = resolve));
+    let elsewhere = true;
+    const locks: UploadLocks = {
+      hold: (_key, post) => post(),
+      tryHold: async (key, post) => (elsewhere && key === `${id(1)}:report` ? null : post()),
+      released: () => released,
+    };
+    const { courier, store, posted } = courierWith([], locks);
+    await courier.queue(outboxEntry(id(1), 'report', body(), NOW - 2));
+    await courier.queue(outboxEntry(id(2), 'report', body(), NOW - 1));
+    await courier.flush();
+    expect(posted.map((entry) => entry.id)).toEqual([id(2)]);
+
+    // The other page died mid-post: its lock is gone, its upload still waits.
+    elsewhere = false;
+    letGo();
+    await vi.waitFor(() => expect(posted.map((entry) => entry.id)).toEqual([id(2), id(1)]));
     expect(await store.list()).toEqual([]);
   });
 });

@@ -1,10 +1,5 @@
-/* The server hall: games, players and the server chat, in the network screen's panels (network.css). */
-.network-hall__column {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--u) * 20);
-  min-width: 0;
-}
+/* The server hall: games, players and the server chat, in the network screen's panels (network.css).
+   The four panels share a two-by-two grid, so each row's pair stretches to one height. */
 .network-hall__games:focus {
   outline: none;
 }
@@ -14,26 +9,22 @@
   gap: calc(var(--u) * 14);
   min-width: 0;
 }
-.network-hall__subhead {
+/* Scoped under .network-menu to outrank its heading reset. */
+.network-menu .network-hall__subhead {
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 10);
-  margin-top: calc(var(--u) * 22);
+  margin-top: calc(var(--u) * 28);
   color: var(--muted);
   font: 600 calc(var(--u) * 13) / 1.2 var(--font-body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.network-hall__card > .network-hall__subhead:first-of-type {
+.network-menu .network-hall__card > .network-hall__subhead:first-of-type {
   margin-top: calc(var(--u) * 4);
 }
-.network-hall__games > header + .network-hall__subhead {
+.network-menu .network-hall__games > header + .network-hall__subhead {
   margin-top: calc(var(--u) * 16);
-}
-.network-menu .network-hall__subhead {
-  font-family: var(--font-body);
-  font-size: calc(var(--u) * 13);
-  color: var(--muted);
 }
 .network-hall__count {
   min-width: calc(var(--u) * 22);
@@ -46,7 +37,7 @@
   text-align: center;
 }
 .network-hall__games .network-menu__rooms {
-  margin-top: calc(var(--u) * 10);
+  margin-top: calc(var(--u) * 14);
 }
 .network-hall__room-main {
   display: flex;
@@ -179,6 +170,7 @@
   gap: calc(var(--u) * 4);
 }
 .network-hall__chat-log {
+  flex: 1 0 auto;
   height: calc(var(--u) * 320);
   overflow-y: auto;
   overflow-wrap: anywhere;
@@ -210,11 +202,13 @@
   font-variant-numeric: tabular-nums;
 }
 .network-hall__chat-empty {
+  flex: 1 0 auto;
   padding: calc(var(--u) * 32) calc(var(--u) * 16);
   color: var(--muted);
   text-align: center;
 }
 .network-hall__chat-empty:not([hidden]) + .network-hall__chat-log {
+  flex: none;
   height: auto;
   min-height: 0;
 }

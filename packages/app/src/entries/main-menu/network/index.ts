@@ -169,11 +169,7 @@ export function networkScreen(
       browser.hidden = on;
     },
   });
-  const games = node('div', 'network-hall__column');
-  games.append(hall.rooms, hall.chat);
-  const side = node('div', 'network-hall__column');
-  side.append(create.card, hall.players);
-  columns.append(games, side);
+  columns.append(hall.rooms, create.card, hall.chat, hall.players);
   browser.append(form, account, columns);
   element.append(head, status, browser, create.mapList, roomHost);
 

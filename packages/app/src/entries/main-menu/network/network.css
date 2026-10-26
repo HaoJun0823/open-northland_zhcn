@@ -271,7 +271,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: calc(var(--u) * 20);
-  align-items: start;
 }
 .network-menu__room-list > p {
   margin-top: calc(var(--u) * 12);

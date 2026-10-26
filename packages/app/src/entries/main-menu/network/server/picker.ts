@@ -5,8 +5,8 @@ import { fastestRegion, RELAY_REGIONS, type RelayRegion, type RelayRegionId } fr
 
 /** Upper bounds of the green and amber reading. Approximation: chosen for the display, not measured
  *  against how a relayed game plays. */
-const GOOD_PING_MS = 90;
-const FAIR_PING_MS = 180;
+const GOOD_PING_MS = 200;
+const FAIR_PING_MS = 350;
 const REMEASURE_MS = 15_000;
 
 type PingQuality = 'good' | 'fair' | 'poor' | 'unknown';

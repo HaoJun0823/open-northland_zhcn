@@ -33,7 +33,7 @@ export function readLimited(stream: Readable, maxBytes: number): Promise<Buffer>
     const chunks: Buffer[] = [];
     let length = 0;
     const settle = (error: Error | null): void => {
-      stream.off('data', onData).off('end', onEnd).off('error', onError).off('close', onClose);
+      stream.off('data', onData).off('end', onEnd).off('error', onAbort).off('close', onAbort);
       if (error === null) resolve(Buffer.concat(chunks, length));
       else reject(error);
     };
@@ -47,9 +47,9 @@ export function readLimited(stream: Readable, maxBytes: number): Promise<Buffer>
       settle(new IntakeError('too-large'));
     };
     const onEnd = (): void => settle(null);
-    const onError = (error: Error): void => settle(error);
-    const onClose = (): void => settle(new AbortedError('client closed the request'));
-    stream.on('data', onData).on('end', onEnd).on('error', onError).on('close', onClose);
+    // A request body errs only when its connection breaks.
+    const onAbort = (): void => settle(new AbortedError('client closed the request'));
+    stream.on('data', onData).on('end', onEnd).on('error', onAbort).on('close', onAbort);
   });
 }
 

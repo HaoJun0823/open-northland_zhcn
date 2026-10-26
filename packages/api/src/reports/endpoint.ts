@@ -194,12 +194,13 @@ export class ReportEndpoint {
     }
     // The slot holds until the upload is stored, so decoded uploads cannot queue up behind the store.
     this.inFlight += 1;
+    let kept = false;
     try {
-      const kept = await this.receive(request, response, { target, sender, maxBytes, cors });
-      // The global count bounds what is kept; an upload refused or lost on the way gives its slot back.
-      if (!kept) limiter.refund(admittedAt);
+      kept = await this.receive(request, response, { target, sender, maxBytes, cors });
     } finally {
       this.inFlight -= 1;
+      // The global count bounds what is kept; an upload refused, lost or failed gives its slot back.
+      if (!kept) limiter.refund(admittedAt);
     }
   }
 
@@ -225,7 +226,7 @@ export class ReportEndpoint {
       if (target.part === 'addendum' && upload.id !== target.id) throw new IntakeError('invalid');
     } catch (error) {
       if (!(error instanceof IntakeError)) {
-        if (!(error instanceof AbortedError) && !request.destroyed) throw error;
+        if (!(error instanceof AbortedError)) throw error;
         // The client went away mid-body: nobody is left to answer.
         this.log('report rejected', { reason: 'aborted' });
         response.destroy();

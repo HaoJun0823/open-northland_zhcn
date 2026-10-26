@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REPORT_COUNTED_BODY, REPORT_JSON_SHAPE } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ProcessReportDecoder } from '../../src/reports/decoder.js';
+import { ProcessReportDecoder, type ReportDecoder } from '../../src/reports/decoder.js';
 import { ReportEndpoint } from '../../src/reports/endpoint.js';
 import { ReportLimiter } from '../../src/reports/limiter.js';
 import { ReportStore } from '../../src/reports/store.js';
@@ -42,19 +42,18 @@ describe('POST /v1/reports', () => {
     for (const step of cleanup.splice(0).reverse()) await step();
   });
 
-  const start = async (limits: Partial<typeof LIMITS> = {}, trustForwardedFor = false) => {
+  const start = async (
+    limits: Partial<typeof LIMITS> = {},
+    trustForwardedFor = false,
+    decoder: ReportDecoder = new ProcessReportDecoder({ script: DECODE_PROCESS }),
+  ) => {
     const dir = await mkdtemp(join(tmpdir(), 'on-api-report-endpoint-'));
     cleanup.push(() => rm(dir, { recursive: true, force: true }));
     const config = { origins: [GAME], trustForwardedFor, limits: { ...LIMITS, ...limits } };
     const store = new ReportStore(join(dir, 'reports'), config.limits);
     await store.init();
     const limiter = new ReportLimiter(config.limits);
-    const reports = new ReportEndpoint({
-      config,
-      store,
-      limiter,
-      decoder: new ProcessReportDecoder({ script: DECODE_PROCESS }),
-    });
+    const reports = new ReportEndpoint({ config, store, limiter, decoder });
     cleanup.push(() => reports.close());
     const server: ApiServer = await startApiServer({
       port: 0,
@@ -176,6 +175,22 @@ describe('POST /v1/reports', () => {
     expect((await post(wire({ ...report(), trigger: '?' }), from('203.0.113.2'))).status).toBe(400);
     expect((await post(wire(report()), from('203.0.113.3'))).status).toBe(204);
     expect((await post(wire(report({ id: idOf(1) })), from('203.0.113.4'))).status).toBe(429);
+  });
+
+  it('gives the global slot back after a decoder fault and shows the fault in health', async () => {
+    const working = new ProcessReportDecoder({ script: DECODE_PROCESS });
+    let faults = 1;
+    const decoder: ReportDecoder = {
+      decode: (...job) => (faults-- > 0 ? Promise.reject(new Error('decoder down')) : working.decode(...job)),
+      failing: () => faults >= 0,
+      close: () => working.close(),
+    };
+    const { post, server } = await start({ uploadsPerHour: 1 }, true, decoder);
+    const from = (ip: string) => ({ 'x-forwarded-for': ip });
+    expect((await post(wire(report()), from('203.0.113.1'))).status).toBe(500);
+    expect(server.health().reports).toEqual({ full: false, decoderFailing: true });
+    expect((await post(wire(report()), from('203.0.113.2'))).status).toBe(204);
+    expect((await post(wire(report({ id: idOf(1) })), from('203.0.113.3'))).status).toBe(429);
   });
 
   it('refuses an addendum of a key-heavy object and keeps answering', async () => {

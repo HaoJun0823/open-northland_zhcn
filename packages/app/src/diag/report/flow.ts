@@ -147,14 +147,15 @@ async function problemOffers(): Promise<AttachmentOffers> {
   return { ...base, screenshot, save };
 }
 
-/** The download: this page's diagnostics with the uploads Send would post. */
+/** The download: this page's diagnostics with the uploads the server took and those Send would post. */
 async function downloadReport(kase: ReportCase, input: PlayerInput): Promise<void> {
   const draft = kase.draft;
   if (draft === null) return;
   const uploads = await kase.compose(input);
-  const report = [uploads.report, uploads.addendum].filter(
+  const pending = [uploads.report, uploads.addendum].filter(
     (upload): upload is ReportUpload => upload !== undefined,
   );
+  const report = [...kase.delivered, ...pending];
   const bundle = { ...draft.bundle, report };
   downloadJsonFile(
     `opennorthland-report-${shownNumber(draft.report.id)}.json`,

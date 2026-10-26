@@ -139,6 +139,8 @@ Use `src/diag/` instead of ad hoc logging:
 - `debug=perf` emits browser performance measures;
 - `debug=trace` records an exportable trace;
 - `debug=profile` accumulates per-system sim cost in constant memory.
+- `reportProblem` (`diag/report/problem.ts`) hands a failure to the bug report flow, which sends its
+  light report and shows the one problem dialog; a passing condition keeps the crash banner instead.
 
 `?debug=` is a comma-separated set. The sim exposes one instrument slot, so every consumer of it is
 fanned out from `installSessionInstruments`, the one caller of the host's `installInstruments`.

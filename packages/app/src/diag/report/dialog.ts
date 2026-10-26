@@ -223,9 +223,12 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     files,
     preview,
   );
-  root.append(head, intro, status, more, form, privacy, actions);
-  if (!manual && servedByBrowser())
+  root.append(head, intro);
+  // The desktop shell ships its own browser, so only the web app has one to suggest.
+  if (!manual && servedByBrowser()) {
     root.append(element('p', 'on-report__hint', messages().deviceNotice.recommendedBrowser));
+  }
+  root.append(status, more, form, privacy, actions);
 
   const shade = manual ? element('div', 'on-report-shade') : null;
   if (shade !== null) {

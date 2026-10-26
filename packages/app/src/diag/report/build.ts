@@ -24,7 +24,6 @@ import {
 import { randomReportId } from '../capture/report-id.js';
 import { currentDiagGameSession } from '../session.js';
 import {
-  EARLIER_LOG_BUDGET_BYTES,
   LIGHT_REPORT_BUDGET_BYTES,
   LOG_BUDGET_BYTES,
   LOG_MAX_ENTRIES,
@@ -138,12 +137,7 @@ export async function buildReportDraft(problem: Problem | null): Promise<ReportD
   const log =
     earlier?.log !== undefined
       ? recutLog(earlier.log, LOG_MAX_ENTRIES, secrets)
-      : await cutLog(
-          bundle.log,
-          LOG_MAX_ENTRIES,
-          earlier === undefined ? LOG_BUDGET_BYTES : EARLIER_LOG_BUDGET_BYTES,
-          secrets,
-        );
+      : await cutLog(bundle.log, LOG_MAX_ENTRIES, LOG_BUDGET_BYTES, secrets);
   // A problem an earlier page saw belongs to that page's world, not to whatever runs now.
   const game = earlier === undefined ? bundle.game : null;
   const error = problem?.error === undefined ? undefined : reportError(problem.error, secrets);

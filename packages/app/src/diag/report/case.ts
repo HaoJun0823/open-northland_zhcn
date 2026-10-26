@@ -89,6 +89,8 @@ export class ReportCase {
   commands: CommandsOffer | null = null;
   /** What the delivered first part carried, so an addendum does not send it again. */
   private carried: { commands: boolean; settings: boolean } = { commands: false, settings: false };
+  /** The uploads the server took, for the download. */
+  readonly delivered: ReportUpload[] = [];
   private readonly listeners = new Set<() => void>();
   private inFlight: Promise<void> | null = null;
 
@@ -303,6 +305,7 @@ export class ReportCase {
       return false;
     }
     const result = await this.deps.post(body, 'report', report.id);
+    if (result.kind === 'sent') this.delivered.push(report);
     this.delivery = this.deliveryOf(result);
     if (result.kind === 'retry') {
       await this.deps.queue(outboxEntry(report.id, 'report', body, this.deps.now()));
@@ -342,6 +345,7 @@ export class ReportCase {
       return;
     }
     const result = await this.deps.post(body, 'addendum', addendum.id);
+    if (result.kind === 'sent') this.delivered.push(addendum);
     if (result.kind === 'unknown' && mayRefile) {
       await this.refile(input);
       return;

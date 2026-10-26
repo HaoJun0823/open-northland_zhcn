@@ -24,9 +24,6 @@ export const LOG_BUDGET_BYTES = 24 * KIB;
 export const WORKER_LOG_MAX_ENTRIES = 500;
 export const WORKER_LOG_BUDGET_BYTES = 12 * KIB;
 
-/** A previous page's log stands in for this page's, so it takes the same share. */
-export const EARLIER_LOG_BUDGET_BYTES = LOG_BUDGET_BYTES;
-
 export const SCREENSHOT_MAX_WIDTH = 960;
 export const SCREENSHOT_QUALITY = 0.6;
 /** A denser picture is encoded again at lower quality until it fits. */

@@ -216,7 +216,7 @@ export class ReportEndpoint {
       });
       return;
     }
-    const outcome: StoreOutcome = await store.save(upload);
+    const outcome: StoreOutcome = await store.save(upload, key);
     const fields = {
       part: upload.part,
       id: upload.id.slice(0, REPORT_ID_SHOWN_CHARS),

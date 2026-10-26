@@ -11,6 +11,7 @@ const ENTRY = `${DAY}/090807Z-error-${REPORT_ID}`;
 const LIMITS = { maxStoredBytes: 1 << 30, maxStoredReports: 100, fingerprintPerDay: 10 };
 const OTHER_ID = 'b2'.repeat(16);
 const FINGERPRINT = '0123456789abcdef';
+const SENDER = 'sender-a';
 
 describe('ReportStore', () => {
   let dir: string;
@@ -40,7 +41,7 @@ describe('ReportStore', () => {
         settings: { volume: 3 },
       },
     });
-    expect(await store.save(upload)).toBe('stored');
+    expect(await store.save(upload, SENDER)).toBe('stored');
     expect((await readdir(join(dir, ENTRY))).sort()).toEqual([
       'commands.json',
       'report.json',
@@ -59,7 +60,7 @@ describe('ReportStore', () => {
 
   it('adds one addendum to its report, keeps the files there, and takes retries as duplicates', async () => {
     const shot = { type: 'image/png', width: 1, height: 1, data: PNG_SIGNATURE.toString('base64') } as const;
-    await (await open()).save(report({ attachments: { screenshot: shot } }));
+    await (await open()).save(report({ attachments: { screenshot: shot } }), SENDER);
     // A restart finds the report from its directory name alone.
     const store = await open();
     expect(await store.awaitsAddendum(REPORT_ID)).toBe(true);
@@ -70,7 +71,7 @@ describe('ReportStore', () => {
       contact: 'player@example.com',
       attachments: { screenshot: { ...shot, data: other }, settings: { volume: 3 } },
     });
-    expect(await store.save(extra)).toBe('stored');
+    expect(await store.save(extra, SENDER)).toBe('stored');
     expect(await json(`${ENTRY}/addendum.json`)).toEqual({
       comment: 'the bridge vanished',
       contact: 'player@example.com',
@@ -80,36 +81,38 @@ describe('ReportStore', () => {
     expect(await json(`${ENTRY}/settings.json`)).toEqual({ volume: 3 });
 
     expect(await store.awaitsAddendum(REPORT_ID)).toBe(false);
-    expect(await store.save(extra)).toBe('duplicate');
-    expect(await store.save(report())).toBe('duplicate');
-    expect(await store.save(addendum({ id: OTHER_ID }))).toBe('missing');
+    expect(await store.save(extra, SENDER)).toBe('duplicate');
+    expect(await store.save(report(), SENDER)).toBe('duplicate');
+    expect(await store.save(addendum({ id: OTHER_ID }), SENDER)).toBe('missing');
     expect(await readdir(join(dir, DAY))).toEqual([`090807Z-error-${REPORT_ID}`]);
     expect(store.health().count).toBe(1);
   });
 
-  it('only counts reports past their fingerprint daily cap', async () => {
-    const store = await open({ ...LIMITS, fingerprintPerDay: 1 });
-    expect(await store.save(report({ fingerprint: FINGERPRINT }))).toBe('stored');
-    expect(await store.save(report({ id: OTHER_ID, fingerprint: FINGERPRINT }))).toBe('suppressed');
-    expect(await store.save(report({ id: 'c3'.repeat(16), fingerprint: FINGERPRINT }))).toBe('suppressed');
+  it('stores one report per sender toward a fingerprint daily cap and only counts the rest', async () => {
+    const store = await open({ ...LIMITS, fingerprintPerDay: 2 });
+    const failing = (id: string) => report({ id, fingerprint: FINGERPRINT });
+    expect(await store.save(failing(REPORT_ID), SENDER)).toBe('stored');
+    expect(await store.save(failing(OTHER_ID), SENDER)).toBe('suppressed');
+    expect(await store.save(failing('c3'.repeat(16)), 'sender-b')).toBe('stored');
+    expect(await store.save(failing('d4'.repeat(16)), 'sender-c')).toBe('suppressed');
     expect(await json(`${DAY}/suppressed.json`)).toEqual({ [FINGERPRINT]: 2 });
-    expect(await readdir(join(dir, DAY))).toHaveLength(2);
+    expect(await readdir(join(dir, DAY))).toHaveLength(3);
   });
 
   it('refuses new entries when full and takes them again once a rescan sees deleted files', async () => {
     const store = await open({ ...LIMITS, maxStoredReports: 1 });
-    await store.save(report());
-    expect(await store.save(report({ id: OTHER_ID }))).toBe('full');
-    expect(await store.save(addendum())).toBe('full');
+    await store.save(report(), SENDER);
+    expect(await store.save(report({ id: OTHER_ID }), SENDER)).toBe('full');
+    expect(await store.save(addendum(), SENDER)).toBe('full');
     expect(store.health().full).toBe(true);
     await rm(join(dir, DAY), { recursive: true });
-    expect(await store.save(report({ id: OTHER_ID }))).toBe('full');
+    expect(await store.save(report({ id: OTHER_ID }), SENDER)).toBe('full');
     await store.rescan();
     expect(store.health()).toEqual({ count: 0, bytes: 0, full: false });
-    expect(await store.save(report())).toBe('stored');
+    expect(await store.save(report(), SENDER)).toBe('stored');
 
     const bytesCapped = await open({ ...LIMITS, maxStoredBytes: 1 });
     expect(bytesCapped.health().full).toBe(true);
-    expect(await bytesCapped.save(report({ id: OTHER_ID }))).toBe('full');
+    expect(await bytesCapped.save(report({ id: OTHER_ID }), SENDER)).toBe('full');
   });
 });

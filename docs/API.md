@@ -35,7 +35,7 @@ Report limits ([bug reports](#bug-reports)), each a positive integer:
 | `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client |
 | `API_REPORT_GLOBAL_HOURLY` | 200 uploads from all clients |
 | `API_REPORT_GLOBAL_HOURLY_BYTES` | 268435456 (256 MiB compressed from all clients) |
-| `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint |
+| `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint, one per client |
 | `API_REPORT_MAX_STORED_BYTES` | 2147483648 (2 GiB stored) |
 | `API_REPORT_MAX_STORED` | 20000 stored reports |
 
@@ -143,7 +143,7 @@ without an addendum, so each report takes one addendum. The random `id` is the a
 
 | Status | Meaning |
 | --- | --- |
-| 204 | Stored; also a retried report already stored, and a report only counted past its fingerprint cap |
+| 204 | Stored; also a retried report already stored, and a report only counted past its fingerprint cap or as its client's second of that fingerprint that day |
 | 400 | Not JSON, refused by the schema, the wrong part for the path, or an attachment whose bytes are not its type |
 | 403 | An `Origin` header that is not allowed |
 | 404 | The addendum's report is not stored, or already has an addendum |
@@ -162,6 +162,7 @@ part before the body is read; a body the server cannot read or validate also spe
 slot for the other part. A disk out of space answers 507 as well. Uploads in flight are capped, and one
 upload at a time is inflated and validated. Clients are keyed by a keyed hash of their address (an
 IPv6 address by its /64) held only in memory. Client addresses are never logged or stored.
+Each client counts once toward a fingerprint's daily cap, so one client cannot use it up for everyone.
 Fingerprint counts are in memory, so a restart starts the day's counts over.
 
 ### Stored reports

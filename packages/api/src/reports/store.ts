@@ -23,7 +23,8 @@ export interface ReportStoreLimits {
   readonly fingerprintPerDay: number;
 }
 
-/** `suppressed`: the fingerprint passed its daily cap, so the report was only counted. `missing`:
+/** `suppressed`: the fingerprint passed its daily cap, or its sender already has one stored today,
+ *  so the report was only counted. `missing`:
  *  an addendum's report is not stored (any more). */
 export type StoreOutcome = 'stored' | 'duplicate' | 'suppressed' | 'full' | 'missing';
 
@@ -46,8 +47,9 @@ export class ReportStore {
   private index = new Map<string, string>();
   private count = 0;
   private bytes = 0;
-  /** Reports stored today per fingerprint; kept in memory, so a restart starts the day over. */
-  private fingerprints = { day: '', counts: new Map<string, number>() };
+  /** The senders of each fingerprint's reports stored today, at most the daily cap per fingerprint;
+   *  kept in memory, so a restart starts the day over. */
+  private fingerprints = { day: '', senders: new Map<string, Set<string>>() };
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -103,9 +105,11 @@ export class ReportStore {
     return report && !addendum;
   }
 
-  save(upload: ReportUpload): Promise<StoreOutcome> {
+  /** `sender` is the limiter's key for the client: each sender counts once toward a fingerprint's
+   *  daily cap, so one client cannot use it up for everyone. */
+  save(upload: ReportUpload, sender: string): Promise<StoreOutcome> {
     return this.serial(() =>
-      upload.part === 'report' ? this.saveReport(upload) : this.saveAddendum(upload),
+      upload.part === 'report' ? this.saveReport(upload, sender) : this.saveAddendum(upload),
     );
   }
 
@@ -114,12 +118,20 @@ export class ReportStore {
     await this.serial(async () => undefined);
   }
 
-  private async saveReport(report: Extract<ReportUpload, { part: 'report' }>): Promise<StoreOutcome> {
+  private async saveReport(
+    report: Extract<ReportUpload, { part: 'report' }>,
+    sender: string,
+  ): Promise<StoreOutcome> {
     const known = this.index.get(report.id);
     if (known !== undefined && (await exists(join(this.dir, known, REPORT_FILE)))) return 'duplicate';
     const at = this.now();
     const fingerprint = report.fingerprint;
-    if (fingerprint !== undefined && this.storedToday(fingerprint, at) >= this.limits.fingerprintPerDay) {
+    const senders = fingerprint === undefined ? null : this.sendersToday(fingerprint, at);
+    if (
+      fingerprint !== undefined &&
+      senders !== null &&
+      (senders.has(sender) || senders.size >= this.limits.fingerprintPerDay)
+    ) {
       await this.countSuppressed(fingerprint, at);
       return 'suppressed';
     }
@@ -132,9 +144,7 @@ export class ReportStore {
       if (DISK_FULL.has(errorCode(error) ?? '')) return 'full';
       throw error;
     }
-    if (fingerprint !== undefined) {
-      this.fingerprints.counts.set(fingerprint, this.storedToday(fingerprint, at) + 1);
-    }
+    senders?.add(sender);
     return 'stored';
   }
 
@@ -204,10 +214,15 @@ export class ReportStore {
     }
   }
 
-  private storedToday(fingerprint: string, at: Date): number {
+  private sendersToday(fingerprint: string, at: Date): Set<string> {
     const day = at.toISOString().slice(0, ISO_DATE_LENGTH);
-    if (this.fingerprints.day !== day) this.fingerprints = { day, counts: new Map() };
-    return this.fingerprints.counts.get(fingerprint) ?? 0;
+    if (this.fingerprints.day !== day) this.fingerprints = { day, senders: new Map() };
+    let senders = this.fingerprints.senders.get(fingerprint);
+    if (senders === undefined) {
+      senders = new Set();
+      this.fingerprints.senders.set(fingerprint, senders);
+    }
+    return senders;
   }
 
   /** Adds one to the fingerprint's count in `<date>/suppressed.json`, keeping counts already there. */

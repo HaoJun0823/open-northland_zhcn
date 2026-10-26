@@ -47,6 +47,9 @@ const limits = new AutomaticLimits();
 /** A problem whose fingerprint already had a dialog this session raises none again. */
 const shownFingerprints = new Set<string>();
 const cases = new Map<string, ReportCase>();
+/** An earlier page's problem can reach this page twice (a frozen tab seen by a new one, then its own
+ *  recovery), and its id stays the same. */
+const earlierIds = new Set<string>();
 /** The server's Retry-After holds every upload, not only the one it answered. */
 let blockedUntil = 0;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -191,6 +194,11 @@ function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolea
 }
 
 function onProblem(problem: Problem): void {
+  const earlierId = problem.earlier?.id;
+  if (earlierId !== undefined) {
+    if (earlierIds.has(earlierId)) return;
+    earlierIds.add(earlierId);
+  }
   const fingerprint = reportFingerprint(problem.trigger, problem.error);
   const automatic = readStoredSettings().autoErrorReports;
   const allowed = automatic && limits.take(fingerprint);

@@ -30,6 +30,8 @@ export function workerReports(thread: WorkerThread): WorkerReports {
     lasting: (silentMs) => {
       if (reported || silentMs < SIM_STALL_REPORT_MS) return;
       reported = true;
+      // The report's dialog says the world stopped from here on; the banner would say it twice.
+      dismissCrashBanner(STALL_BANNER);
       reportProblem({ trigger: 'sim-stall', facts: { silentMs: Math.round(silentMs), thread } });
     },
     // The world runs again, so the stall's banner goes; a banner another crash took over stays.

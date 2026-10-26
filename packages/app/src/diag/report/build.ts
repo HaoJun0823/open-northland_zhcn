@@ -21,6 +21,7 @@ import {
   type DiagnosticsGameReport,
   jsonSafeData,
 } from '../bundle.js';
+import { randomReportId } from '../capture/report-id.js';
 import { currentDiagGameSession } from '../session.js';
 import {
   EARLIER_LOG_BUDGET_BYTES,
@@ -38,8 +39,6 @@ import type { Problem } from './problem.js';
 import { redactRouteParams, scrubJson, scrubText } from './redact.js';
 import { reportGameView } from './view.js';
 
-const ID_BYTES = 16;
-const HEX = 16;
 const TEXT_CHARS = 512;
 const HASH_CHARS = 128;
 /** A command budget is approached by rescaling, one gzip per pass. */
@@ -63,11 +62,6 @@ export interface ReportDraft {
   readonly commands: CommandSlice | null;
   /** The query values the report removed, to keep them out of anything else it carries. */
   readonly secrets: readonly string[];
-}
-
-export function newReportId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(ID_BYTES));
-  return [...bytes].map((byte) => byte.toString(HEX).padStart(2, '0')).join('');
 }
 
 const clip = (text: string, max: number): string => text.slice(0, max);
@@ -154,7 +148,7 @@ export async function buildReportDraft(problem: Problem | null): Promise<ReportD
   const game = earlier === undefined ? bundle.game : null;
   const error = problem?.error === undefined ? undefined : reportError(problem.error, secrets);
   const perf = perfFacts(problem, secrets);
-  const id = earlier !== undefined && REPORT_ID.test(earlier.id) ? earlier.id : newReportId();
+  const id = earlier !== undefined && REPORT_ID.test(earlier.id) ? earlier.id : randomReportId();
   const report: FullReport = {
     kind: REPORT_KIND,
     version: REPORT_VERSION,

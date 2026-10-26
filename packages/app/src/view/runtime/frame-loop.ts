@@ -10,14 +10,12 @@ import {
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import type { createSoundDriver } from '../../content/audio/sound-driver.js';
 import { alreadyReported, reportError } from '../../diag/capture/report-error.js';
-import { errorText } from '../../diag/error-text.js';
 import {
   diag,
   type FrameSample,
   type FrameStats,
   framePhaseEmitter,
   recordTickDiagnostics,
-  showCrashBanner,
 } from '../../diag/index.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
@@ -153,7 +151,6 @@ type FrameStage =
 function frameFailed(error: unknown, stage: FrameStage): void {
   if (alreadyReported(error)) diag.error('crash', `the frame loop stopped in ${stage}`);
   else reportError('main', error, { facts: { frameStage: stage } });
-  showCrashBanner(errorText(error));
 }
 
 /** The entity ids of the settlers and animals in a culled draw list - both draw as the `settler` kind. */

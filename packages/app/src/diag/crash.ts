@@ -1,14 +1,14 @@
 /**
  * Global crash capture: uncaught errors and rejections reach the log ring and the bug report flow,
- * whose dialog tells the player. The banner stays for a passing condition such as a sim stall; plain
- * DOM, so it depends on nothing that may itself be the wedged part.
+ * whose dialog tells the player. The banner is for a passing condition, such as a short sim stall,
+ * that is no bug report yet; plain DOM, so it depends on nothing that may itself be the wedged part.
  */
 import { messages } from '../i18n/index.js';
 import { isBrave } from '../view/platform/browser-support.js';
 import { servedByBrowser } from '../view/platform/host.js';
 import { downloadDiagnosticsBundle } from './bundle.js';
+import { reportError } from './capture/report-error.js';
 import { diag } from './log.js';
-import { reportProblem } from './report/problem.js';
 
 /** Above every game overlay; the system menu and tooltips sit at 2000. */
 const CRASH_BANNER_Z_INDEX = '2200';
@@ -43,12 +43,11 @@ const BANNER_BUTTON_STYLE = [
   'cursor:var(--cursor-pointer, pointer)',
 ].join(';');
 
-let banner: { readonly root: HTMLElement; readonly message: HTMLElement; cause: string | null } | null = null;
+let banner: { readonly root: HTMLElement; readonly message: HTMLElement; cause: string } | null = null;
 
-/** Created lazily so the banner copy reads the locale active at crash time. `cause` names a banner a
- *  later {@link dismissCrashBanner} may take down; a crash without one replaces it for good, and no
- *  caused banner replaces a crash's. */
-export function showCrashBanner(text: string, cause: string | null = null): void {
+/** Created lazily so the banner copy reads the locale active when it shows. `cause` names the banner a
+ *  later {@link dismissCrashBanner} takes down. */
+export function showCrashBanner(text: string, cause: string): void {
   if (banner === null) {
     const copy = messages().hud;
     const root = document.createElement('div');
@@ -91,7 +90,7 @@ export function showCrashBanner(text: string, cause: string | null = null): void
     }
     document.body.append(root);
     banner = { root, message, cause };
-  } else if (banner.cause === null && cause !== null) return;
+  }
   banner.message.textContent = text;
   banner.cause = cause;
 }
@@ -105,40 +104,16 @@ export function dismissCrashBanner(cause: string): void {
 
 let installed = false;
 
-function errorName(value: unknown): string {
-  return value instanceof Error ? value.name : typeof value;
-}
-
 export function installCrashCapture(): void {
   if (installed) return;
   installed = true;
   window.addEventListener('error', (event) => {
     const source = `${event.filename}:${event.lineno}:${event.colno}`;
-    const stack = event.error instanceof Error ? event.error.stack : undefined;
-    diag.error('crash', event.message, { source, ...(stack !== undefined ? { stack } : {}) });
-    reportProblem({
-      trigger: 'error',
-      error: {
-        thread: 'main',
-        name: event.error instanceof Error ? event.error.name : 'Error',
-        message: String(event.message),
-        ...(stack !== undefined ? { stack } : {}),
-        source,
-      },
-    });
+    // A cross-origin script's error event carries no error object, only its message.
+    const error: unknown = event.error ?? { name: 'Error', message: String(event.message) };
+    reportError('main', error, { source });
   });
   window.addEventListener('unhandledrejection', (event) => {
-    const reason: unknown = event.reason;
-    const text = reason instanceof Error ? reason.message : String(reason);
-    diag.error('crash', `unhandled rejection: ${text}`, reason instanceof Error ? reason : { reason: text });
-    reportProblem({
-      trigger: 'error',
-      error: {
-        thread: 'main',
-        name: errorName(reason),
-        message: `unhandled rejection: ${text}`,
-        ...(reason instanceof Error && reason.stack !== undefined ? { stack: reason.stack } : {}),
-      },
-    });
+    reportError('main', event.reason, { facts: { unhandledRejection: true } });
   });
 }

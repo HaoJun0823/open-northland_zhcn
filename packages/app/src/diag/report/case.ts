@@ -14,6 +14,7 @@ import {
   type ReportPart,
   type ReportUpload,
 } from '@open-northland/data';
+import { randomReportId } from '../capture/report-id.js';
 import { diag } from '../log.js';
 import type { AttachmentOffers } from './attachments.js';
 import {
@@ -22,13 +23,7 @@ import {
   REPORT_EXTRAS_BYTES,
   REPORT_UPLOAD_CAP_BYTES,
 } from './budget.js';
-import {
-  type CommandSlice,
-  commandsAttachment,
-  fitCommands,
-  newReportId,
-  type ReportDraft,
-} from './build.js';
+import { type CommandSlice, commandsAttachment, fitCommands, type ReportDraft } from './build.js';
 import { canGzip, type GzipBytes, gzipJson, gzipSize } from './gzip.js';
 import { type OutboxEntry, outboxEntry, outboxKey } from './outbox.js';
 import type { SendResult } from './send.js';
@@ -372,7 +367,7 @@ export class ReportCase {
       typeof rest.perf === 'object' && rest.perf !== null && !Array.isArray(rest.perf) ? rest.perf : {};
     this.draft = {
       ...draft,
-      report: { ...rest, id: newReportId(), trigger: 'manual', perf: { ...perf, refiledFrom: previous } },
+      report: { ...rest, id: randomReportId(), trigger: 'manual', perf: { ...perf, refiledFrom: previous } },
     };
     this.delivery = 'unsent';
     this.additions = 'none';

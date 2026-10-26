@@ -43,7 +43,7 @@ export const deBugReport = {
       'Der Bericht konnte nicht gesendet werden. Bitte lade ihn herunter und schicke ihn auf anderem Weg.',
     unsent: 'Es wurde noch nichts gesendet.',
     limited:
-      'Diese Sitzung hat ihre automatischen Berichte bereits gesendet. Diesen kannst du selbst senden.',
+      'Dieser Bericht wurde nicht automatisch gesendet, weil das Spiel in dieser Sitzung schon genug davon gesendet hat. Du kannst ihn selbst senden.',
   },
   additionsHint: 'Du kannst einen Kommentar und weitere Dateien hinzufügen.',
   additions: {

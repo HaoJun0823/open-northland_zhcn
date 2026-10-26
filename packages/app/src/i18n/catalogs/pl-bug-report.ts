@@ -37,7 +37,8 @@ export const plBugReport = {
     unsupported: 'Ta przeglądarka nie potrafi wysyłać zgłoszeń. Pobierz zgłoszenie.',
     expired: 'Nie udało się wysłać zgłoszenia. Pobierz je i prześlij w inny sposób.',
     unsent: 'Nic jeszcze nie zostało wysłane.',
-    limited: 'Ta sesja wysłała już swoje automatyczne zgłoszenia. To zgłoszenie możesz wysłać samodzielnie.',
+    limited:
+      'To zgłoszenie nie zostało wysłane automatycznie, bo gra wysłała już ich dość w tej sesji. Możesz wysłać je samodzielnie.',
   },
   additionsHint: 'Możesz dodać do niego komentarz i więcej plików.',
   additions: {

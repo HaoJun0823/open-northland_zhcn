@@ -34,7 +34,7 @@ export const chsBugReport = {
     unsupported: '此浏览器无法发送报告。请改为下载报告。',
     expired: '报告无法发送。请下载报告并通过其他方式发送。',
     unsent: '尚未发送任何内容。',
-    limited: '本次会话已发送过自动报告。你仍可以手动发送这份报告。',
+    limited: '这份报告没有自动发送，因为本次会话已经自动发送了足够多的报告。你可以手动发送。',
   },
   additionsHint: '你可以为报告添加备注和更多文件。',
   additions: {

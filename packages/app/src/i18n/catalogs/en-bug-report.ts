@@ -36,7 +36,8 @@ export const enBugReport = {
     unsupported: 'This browser cannot send reports. Please download the report instead.',
     expired: 'The report could not be sent. Please download it and send it another way.',
     unsent: 'Nothing has been sent yet.',
-    limited: 'This session has already sent its automatic reports. You can still send this one yourself.',
+    limited:
+      'This report was not sent automatically: the game has already sent enough of them in this session. You can send it yourself.',
   },
   additionsHint: 'You can add a comment and more files to it.',
   additions: {

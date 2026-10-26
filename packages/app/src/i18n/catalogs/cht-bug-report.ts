@@ -34,7 +34,7 @@ export const chtBugReport = {
     unsupported: '此瀏覽器無法傳送回報。請改為下載回報。',
     expired: '回報無法傳送。請下載回報並透過其他方式傳送。',
     unsent: '尚未傳送任何內容。',
-    limited: '本次工作階段已傳送過自動回報。你仍可以手動傳送這份回報。',
+    limited: '這份回報沒有自動傳送，因為本次工作階段已經自動傳送了足夠多的回報。你可以手動傳送。',
   },
   additionsHint: '你可以為回報加入備註和更多檔案。',
   additions: {

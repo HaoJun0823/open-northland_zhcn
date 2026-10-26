@@ -98,7 +98,9 @@ export type WorkerCall =
   | { readonly method: 'captureSaveFile'; readonly options: ExportSaveOptions }
   | { readonly method: 'profileRows' }
   /** The worker's own diag ring, as it stands. */
-  | { readonly method: 'diagLog' };
+  | { readonly method: 'diagLog' }
+  /** Throw an uncaught error on the worker, for the `crash-worker` drill. */
+  | { readonly method: 'crashDrill' };
 
 export type ToWorker<B> =
   | { readonly kind: 'boot'; readonly boot: B; readonly options: WorkerSessionOptions }

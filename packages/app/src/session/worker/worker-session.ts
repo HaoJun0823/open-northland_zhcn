@@ -55,6 +55,8 @@ export interface WorkerSession<E> {
   captureSaveFile(options: ExportSaveOptions): Promise<SaveFile>;
   /** The worker's own diag ring as it stands; never settles once the session is disposed. */
   workerLog(): Promise<readonly DiagEntry[]>;
+  /** Make the worker throw an uncaught error, as the `crash-worker` drill asks. */
+  crashDrill(): void;
   /** Stop the worker; answers still pending never land, save captures fail. Idempotent. */
   dispose(): void;
 }
@@ -316,6 +318,7 @@ class WorkerClient<E> {
       captureSaveFile: (options) =>
         this.call({ method: 'captureSaveFile', options }, true).then(({ value }) => value as SaveFile),
       workerLog: () => this.call({ method: 'diagLog' }).then(({ value }) => value as readonly DiagEntry[]),
+      crashDrill: () => void this.call({ method: 'crashDrill' }).catch(() => undefined),
       dispose: () => this.dispose(),
     };
   }

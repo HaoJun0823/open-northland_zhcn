@@ -1,4 +1,5 @@
 import { isSpectator, localPlayerOf } from '@open-northland/lockstep';
+import { scheduleFaultDrills } from '../diag/capture/drills.js';
 import { hasDebugFlag } from '../diag/debug-flags.js';
 import { diag, HASH_TRACE_DEBUG_FLAG } from '../diag/index.js';
 import { drawSessionSeed, mapIdParam, mapSession, seedParam } from '../game/match/session-url.js';
@@ -102,5 +103,8 @@ export async function renderMap(canvas: HTMLCanvasElement, params: URLSearchPara
   };
   // The view may have ended while the intro or the boot's finish was awaited.
   if (view.lifetime.aborted) end();
-  else view.lifetime.addEventListener('abort', end, { once: true });
+  else {
+    view.lifetime.addEventListener('abort', end, { once: true });
+    scheduleFaultDrills(params, worker.crashDrill, view.lifetime);
+  }
 }

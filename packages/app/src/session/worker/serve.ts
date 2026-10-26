@@ -665,6 +665,11 @@ export class ServedSession<E> {
         return this.profile?.rows() ?? [];
       case 'diagLog':
         return diag.entries();
+      case 'crashDrill':
+        setTimeout(() => {
+          throw new Error('crash drill: the simulation worker failed on purpose');
+        });
+        return null;
     }
   }
 

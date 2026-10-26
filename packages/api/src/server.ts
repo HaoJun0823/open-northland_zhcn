@@ -7,8 +7,7 @@ import { ArchiveVerificationBusyError } from './conversion/archive-verifier.js';
 import { serveContent, serveKeptFile } from './http/files.js';
 import { pathOf, send, sendError, V1_HEADERS } from './http/response.js';
 import type { ContentSource, KeptFileSource } from './http/sources.js';
-import { type ReportEndpoint, reportTargetOf } from './reports/endpoint.js';
-import type { ReportStoreHealth } from './reports/store.js';
+import { type ReportEndpoint, type ReportsHealth, reportTargetOf } from './reports/endpoint.js';
 import type { DataStore } from './store.js';
 
 export const HEALTH_PATH = '/healthz';
@@ -43,8 +42,8 @@ export interface ApiHealth {
   readonly converted: number;
   readonly pending: number;
   readonly failed: number;
-  /** The bug report store; null when the server takes no reports. */
-  readonly reports: ReportStoreHealth | null;
+  /** Bug report intake; null when the server takes no reports. */
+  readonly reports: ReportsHealth | null;
 }
 
 export interface ApiServerOptions {

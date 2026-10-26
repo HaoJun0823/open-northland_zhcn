@@ -82,7 +82,7 @@ describe('POST /v1/reports', () => {
     expect(sent.headers.get('vary')).toBe('Origin');
     expect(sent.headers.get('access-control-expose-headers')).toBe('Retry-After');
     expect((await post(wire(report()), { origin: 'http://127.0.0.1:5173' })).status).toBe(204);
-    expect(server.health().reports).toEqual({ full: false });
+    expect(server.health().reports).toEqual({ full: false, decoderFailing: false });
     expect((await fetch(url)).status).toBe(405);
   });
 

@@ -11,6 +11,12 @@ import { AbortedError, IntakeError, type IntakeFailure, isGzip, readLimited } fr
 import { type Limited, ReportLimiter, type ReportSender } from './limiter.js';
 import { ReportStore, type ReportStoreHealth, type StoreOutcome } from './store.js';
 
+/** What `/healthz` shows of report intake. */
+export interface ReportsHealth extends ReportStoreHealth {
+  /** The last decode failed in the decoder itself, so uploads answer 500 until one succeeds. */
+  readonly decoderFailing: boolean;
+}
+
 const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
 const FORBIDDEN = 403;
@@ -111,8 +117,8 @@ export class ReportEndpoint {
     await this.options.store.close();
   }
 
-  health(): ReportStoreHealth {
-    return this.options.store.health();
+  health(): ReportsHealth {
+    return { ...this.options.store.health(), decoderFailing: this.decoder.failing?.() ?? false };
   }
 
   preflight(request: IncomingMessage, response: ServerResponse): void {

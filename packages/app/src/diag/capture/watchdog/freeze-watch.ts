@@ -18,9 +18,10 @@ export const BOOT_FREEZE_REPORT_MS = 60_000;
  *  counts as the boot's. */
 export const BOOT_GRACE_MS = 3000;
 
-/** A freeze of `lastedMs` is worth a report; one that began `booting` only when it lasted long. */
-export function freezeWorthReport(lastedMs: number, booting: boolean): boolean {
-  return lastedMs >= (booting ? BOOT_FREEZE_REPORT_MS : FREEZE_REPORT_MS);
+/** A freeze of `lastedMs` is worth a report; a `slow` one, of a boot or of a page drawn in software,
+ *  only when it lasted as long as a stuck boot. */
+export function freezeWorthReport(lastedMs: number, slow: boolean): boolean {
+  return lastedMs >= (slow ? BOOT_FREEZE_REPORT_MS : FREEZE_REPORT_MS);
 }
 
 export interface FreezeReports {

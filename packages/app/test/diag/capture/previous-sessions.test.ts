@@ -5,11 +5,19 @@ import { reportPreviousSessions } from '../../../src/diag/capture/previous-sessi
 import { writeMarker } from '../../../src/diag/capture/session-marker.js';
 import { MARKER_STALE_MS } from '../../../src/diag/capture/unclean-exit.js';
 import type { FreezeRecord } from '../../../src/diag/capture/watchdog/freeze-records.js';
-import { BOOT_FREEZE_REPORT_MS } from '../../../src/diag/capture/watchdog/freeze-watch.js';
+import { BOOT_FREEZE_REPORT_MS, FREEZE_REPORT_MS } from '../../../src/diag/capture/watchdog/freeze-watch.js';
 import { type Problem, setProblemSink } from '../../../src/diag/report/problem.js';
 import type { DesktopFault, DesktopFaults } from '../../../src/view/platform/desktop-faults.js';
 
-const store = vi.hoisted(() => ({ records: [] as unknown[], deleted: [] as string[] }));
+const store = vi.hoisted(() => ({
+  records: [] as unknown[],
+  deleted: [] as string[],
+  renderer: null as string | null,
+}));
+vi.mock('../../../src/view/graphics/hardware.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/view/graphics/hardware.js')>()),
+  detectedWebglRenderer: () => store.renderer,
+}));
 vi.mock('../../../src/diag/capture/watchdog/freeze-records.js', () => ({
   readFreezeRecords: () => Promise.resolve(store.records),
   deleteFreezeRecords: (ids: readonly string[]) => {
@@ -69,6 +77,7 @@ beforeEach(() => {
   setProblemSink((problem) => problems.push(problem));
   store.records = [];
   store.deleted = [];
+  store.renderer = null;
   localStorage.clear();
 });
 
@@ -87,6 +96,17 @@ describe('reportPreviousSessions', () => {
       [stuck.id, BOOT_FREEZE_REPORT_MS + 5000],
     ]);
     expect(store.deleted.sort()).toEqual([short.id, stuck.id]);
+  });
+
+  it('forgets a game freeze on a software renderer unless it lasted as long as a stuck boot', async () => {
+    store.renderer = 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)';
+    const playing = { ...BOOTING, inGame: true, booting: false };
+    const baked = { ...bootFreeze('7'.repeat(32), 2 * FREEZE_REPORT_MS), context: playing };
+    const stuck = { ...bootFreeze('8'.repeat(32), BOOT_FREEZE_REPORT_MS + 5000), context: playing };
+    store.records = [baked, stuck];
+    await reportPreviousSessions(OWN, null);
+    expect(problems.map((problem) => problem.earlier?.id)).toEqual([stuck.id]);
+    expect(store.deleted.sort()).toEqual([baked.id, stuck.id]);
   });
 
   it('reports a game that ended unclean after a short boot freeze, and a boot that ended so not', async () => {

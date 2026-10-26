@@ -1,5 +1,6 @@
 import { routeFor } from '../../routes.js';
 import { bootCardShown } from '../../view/boot/progress.js';
+import { detectedWebglRenderer, isSoftwareRenderer } from '../../view/graphics/hardware.js';
 import { currentDiagGameSession } from '../session.js';
 import { BOOT_GRACE_MS } from './watchdog/freeze-watch.js';
 
@@ -53,4 +54,10 @@ export function contextRoute(context: CaptureContext): {
   readonly params: Readonly<Record<string, string>>;
 } {
   return { entry: context.entry, params: Object.fromEntries(new URLSearchParams(context.search)) };
+}
+
+/** The page draws on the CPU, where the game's own steps (baking icon pages, uploading atlases) block
+ *  it for seconds that a GPU takes milliseconds for. */
+export function drawnInSoftware(): boolean {
+  return isSoftwareRenderer(detectedWebglRenderer());
 }

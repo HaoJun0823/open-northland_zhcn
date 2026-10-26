@@ -3,7 +3,7 @@ import type { DesktopFault } from '../../view/platform/desktop-faults.js';
 import { errorText } from '../error-text.js';
 import { diag } from '../log.js';
 import { reportProblem } from '../report/problem.js';
-import { type CaptureContext, contextRoute } from './context.js';
+import { type CaptureContext, contextRoute, drawnInSoftware } from './context.js';
 import {
   clearDesktopFaults,
   type FaultExtras,
@@ -52,9 +52,10 @@ function lastedMs(record: FreezeRecord): number {
   return record.seenAt - record.frozenAt;
 }
 
-/** A boot the player gave up on before it got anywhere near stuck is forgotten unreported. */
+/** A boot the player gave up on before it got anywhere near stuck is forgotten unreported, and so is a
+ *  short freeze on this machine's software renderer. */
 function worthReport(record: FreezeRecord): boolean {
-  return freezeWorthReport(lastedMs(record), record.context.booting);
+  return freezeWorthReport(lastedMs(record), record.context.booting || drawnInSoftware());
 }
 
 function reportFreeze(record: FreezeRecord, marker: SessionMarker | null): void {

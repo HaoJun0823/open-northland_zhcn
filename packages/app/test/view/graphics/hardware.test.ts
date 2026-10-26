@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { detectedWebglRenderer, probeWebglRenderer } from '../../../src/view/graphics/hardware.js';
+import {
+  detectedWebglRenderer,
+  isSoftwareRenderer,
+  probeWebglRenderer,
+} from '../../../src/view/graphics/hardware.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -34,6 +38,13 @@ describe('graphics hardware probe', () => {
     expect(probeWebglRenderer()).toBe('llvmpipe');
     expect(probe.gl.getParameter).toHaveBeenCalledWith(probe.gl.RENDERER);
     expect(probe.loseContext).toHaveBeenCalledTimes(1);
+    const renderers = [
+      'llvmpipe (LLVM 15.0.7, 256 bits)',
+      'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)',
+      'ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0, D3D11)',
+      'ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)',
+    ];
+    expect(renderers.map(isSoftwareRenderer)).toEqual([true, true, true, false]);
   });
 
   it('releases the context even if reading it throws', () => {

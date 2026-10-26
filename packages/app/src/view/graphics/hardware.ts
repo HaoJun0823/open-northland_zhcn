@@ -39,6 +39,14 @@ export function probeWebglInfo(): WebglInfo | null {
   }
 }
 
+/** Renderers that draw on the CPU: SwiftShader, Mesa's llvmpipe and softpipe, and Windows' fallback
+ *  adapter. */
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|microsoft basic render driver/i;
+
+export function isSoftwareRenderer(renderer: string | null): boolean {
+  return renderer !== null && SOFTWARE_RENDERER.test(renderer);
+}
+
 export function probeWebglRenderer(): string | null {
   return probeWebglInfo()?.renderer ?? null;
 }

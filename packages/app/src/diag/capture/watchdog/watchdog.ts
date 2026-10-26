@@ -2,7 +2,7 @@ import { REPORT_LIMITS } from '@open-northland/data';
 import { errorText } from '../../error-text.js';
 import { diag } from '../../log.js';
 import { reportProblem } from '../../report/problem.js';
-import { type CaptureContext, captureContext, contextRoute } from '../context.js';
+import { type CaptureContext, captureContext, contextRoute, drawnInSoftware } from '../context.js';
 import { clearDesktopFaults, pendingDesktopFaults, reportDesktopFaults } from '../desktop-faults.js';
 import { reportLogOf } from '../session-marker.js';
 import { freezeWorthReport } from './freeze-watch.js';
@@ -42,10 +42,10 @@ function thawed(thaw: Thaw): void {
     freezeMs: Math.round(freezeMs),
     ...(context === null ? {} : { entry: context.entry, worldId: context.worldId, tick: context.tick }),
   };
-  // A short freeze of a boot is only logged; one the player ended by closing the tab leaves its record
-  // to the next start.
-  const booting = context?.booting === true || captureContext().booting;
-  const report = freezeWorthReport(freezeMs, booting);
+  // A short freeze of a boot or of a page drawn in software is only logged; one the player ended by
+  // closing the tab leaves its record to the next start.
+  const slow = context?.booting === true || captureContext().booting || drawnInSoftware();
+  const report = freezeWorthReport(freezeMs, slow);
   const faults = window.desktop?.faults;
   if (faults === undefined) {
     if (report) reportProblem({ trigger: 'main-freeze', facts });

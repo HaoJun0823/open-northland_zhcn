@@ -206,7 +206,7 @@ export class NetworkConnection {
     switch (message.kind) {
       case 'fault': {
         const error = errorFromWire(message.fault.error);
-        this.reports.faulted(error, message.fault.source);
+        this.reports.faulted(error, message.fault.source, message.fault.fatal);
         if (message.fault.fatal) this.workerFailed(error);
         return;
       }

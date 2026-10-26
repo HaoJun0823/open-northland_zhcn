@@ -61,6 +61,8 @@ export async function cutLog(
   maxEntries: number,
   budgetBytes: number,
   secrets: readonly string[],
+  /** Entries the log lost before these, as an earlier page's cut log counts them. */
+  alreadyDropped = 0,
 ): Promise<ReportLog> {
   const limit = Math.min(maxEntries, REPORT_LIMITS.logEntries);
   const cleaned = entries.map((entry) => reportEntry(entry, secrets));
@@ -68,18 +70,9 @@ export async function cutLog(
   for (let pass = 0; pass < FIT_PASSES; pass++) {
     const { kept, dropped } = headAndTail(cleaned, count);
     const size = await gzipSize(kept);
-    if (size <= budgetBytes || count <= 1) return { entries: kept, dropped };
+    if (size <= budgetBytes || count <= 1) return { entries: kept, dropped: alreadyDropped + dropped };
     count = Math.max(1, Math.floor((count * budgetBytes * FIT_MARGIN) / size));
   }
   const { kept, dropped } = headAndTail(cleaned, count);
-  return { entries: kept, dropped };
-}
-
-/** A log another page already cut, held to this report's limits again. */
-export function recutLog(log: ReportLog, maxEntries: number, secrets: readonly string[]): ReportLog {
-  const { kept, dropped } = headAndTail(log.entries, Math.min(maxEntries, REPORT_LIMITS.logEntries));
-  return {
-    entries: kept.map((entry) => reportEntry(entry, secrets)),
-    dropped: log.dropped + dropped,
-  };
+  return { entries: kept, dropped: alreadyDropped + dropped };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reportFingerprint } from '../../../src/diag/report/fingerprint.js';
+import { problemKeys } from '../../../src/diag/report/fingerprint.js';
 
 const error = (stack: string) => ({ thread: 'main' as const, name: 'TypeError', message: 'x is 42', stack });
 
@@ -15,18 +15,22 @@ describe('report fingerprint', () => {
       'TypeError: x\n    at paint (https://game.opennorthland.org/assets/index-B2xa_9Qe.js:10:200)',
     );
 
-    expect(reportFingerprint('error', chrome)).toBe(reportFingerprint('error', rebuilt));
-    expect(reportFingerprint('error', chrome)).not.toBe(reportFingerprint('error', elsewhere));
-    expect(reportFingerprint('error', chrome)).toMatch(/^[0-9a-f]{16}$/);
+    const { fingerprint } = problemKeys('error', chrome);
+    expect(fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(problemKeys('error', rebuilt).fingerprint).toBe(fingerprint);
+    expect(problemKeys('error', elsewhere).fingerprint).not.toBe(fingerprint);
   });
 
-  it('tells stackless errors apart by their message, numbers aside', () => {
+  it('sends no fingerprint without frames, and still tells such problems apart in the session', () => {
     const plain = (message: string) => ({ thread: 'sim-worker' as const, name: 'Error', message });
-    expect(reportFingerprint('error', plain('tick 120 failed'))).toBe(
-      reportFingerprint('error', plain('tick 9 failed')),
+    expect(problemKeys('main-freeze', undefined).fingerprint).toBeUndefined();
+    expect(problemKeys('error', plain('tick 120 failed')).fingerprint).toBeUndefined();
+    expect(problemKeys('error', plain('tick 120 failed')).key).toBe(
+      problemKeys('error', plain('tick 9 failed')).key,
     );
-    expect(reportFingerprint('error', plain('tick 120 failed'))).not.toBe(
-      reportFingerprint('error', plain('save failed')),
+    expect(problemKeys('error', plain('tick 120 failed')).key).not.toBe(
+      problemKeys('error', plain('save failed')).key,
     );
+    expect(problemKeys('desync', undefined).key).not.toBe(problemKeys('unclean-exit', undefined).key);
   });
 });

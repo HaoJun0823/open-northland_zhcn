@@ -44,6 +44,8 @@ export interface ErrorReportExtras {
   /** `file:line:column` of an uncaught error event. */
   readonly source?: string;
   readonly facts?: Readonly<Record<string, unknown>>;
+  /** The game cannot go on after it. */
+  readonly fatal?: boolean;
 }
 
 /** Log an uncaught error from `thread` and hand it to the report flow, once per error object. */
@@ -61,6 +63,7 @@ export function reportError(thread: ReportThread, error: unknown, extras: ErrorR
     trigger: 'error',
     error: described,
     ...(extras.facts === undefined ? {} : { facts: extras.facts }),
+    ...(extras.fatal === true ? { fatal: true } : {}),
   });
 }
 

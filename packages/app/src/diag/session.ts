@@ -20,6 +20,9 @@ export interface DiagNetReport {
   readonly dispute: DisputeRecord | null;
   readonly delayTicks: number | null;
   readonly roundTripMs: number | null;
+  /** Each room member's seat by nick (null for an observer), so a bug report can name players by seat:
+   *  the download keeps the nicks, a sent report does not. */
+  readonly seats: Readonly<Record<string, number | null>>;
 }
 
 export interface DiagGameSession {

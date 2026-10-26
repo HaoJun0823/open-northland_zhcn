@@ -21,6 +21,9 @@ export const chsBugReport = {
     desync: '你的游戏与其他玩家的游戏不再一致，因此对局无法可靠地继续。',
     'context-lost': '浏览器收回了游戏的图形功能且没有恢复。通常刷新页面即可解决。',
   },
+  fatalTitle: '游戏无法继续',
+  fatalExplanation: '一个错误使游戏停止了。请发送或下载报告，然后刷新页面。之后可以读取最近的存档。',
+  reload: '刷新',
   status: {
     preparing: '正在准备报告…',
     sending: '正在发送报告…',

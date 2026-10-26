@@ -18,7 +18,6 @@ const LINE_COLUMN = /(?::\d+)+(?=\)?\s*$)/;
 const FOREIGN_FRAME = /(?:chrome|moz|safari)-extension:|webkit-masked-url:|\bnative code\b/;
 /** A frame line of Chrome (`at f (url:1:2)`) or of Firefox and Safari (`f@url:1:2`). */
 const FRAME_LINE = /^\s*at\s|^\s*[^\s@]*@\S/;
-/** Numbers in a message vary between occurrences of one bug (ids, ticks, sizes). */
 const NUMBER = /\d+/g;
 const MESSAGE_CHARS = 200;
 
@@ -54,10 +53,24 @@ export function fnv1a64(text: string): string {
   return hash.toString(16).padStart(HEX_DIGITS, '0');
 }
 
-export function reportFingerprint(trigger: ReportTrigger, error: ReportError | undefined): string {
-  if (error === undefined) return fnv1a64(trigger);
-  const frames = topFrames(error.stack);
-  // Without a frame of ours the message is all that tells two errors apart.
-  const detail = frames.length > 0 ? frames : [error.message.replace(NUMBER, '#').slice(0, MESSAGE_CHARS)];
-  return fnv1a64([trigger, error.thread, error.name, ...detail].join('\n'));
+export interface ProblemKeys {
+  /** What the report sends: only a problem with frames of the game's own code has one, so the
+   *  server's daily cap per fingerprint never lumps every player's freezes or crashes together. */
+  readonly fingerprint?: string;
+  /** What this session's limits count by: the fingerprint, else the trigger and the error's message. */
+  readonly key: string;
+}
+
+export function problemKeys(trigger: ReportTrigger, error: ReportError | undefined): ProblemKeys {
+  const frames = topFrames(error?.stack);
+  if (error !== undefined && frames.length > 0) {
+    const fingerprint = fnv1a64([trigger, error.thread, error.name, ...frames].join('\n'));
+    return { fingerprint, key: fingerprint };
+  }
+  // Numbers in a message vary between occurrences of one bug (ids, ticks, sizes).
+  const detail =
+    error === undefined
+      ? []
+      : [error.thread, error.name, error.message.replace(NUMBER, '#').slice(0, MESSAGE_CHARS)];
+  return { key: fnv1a64([trigger, ...detail].join('\n')) };
 }

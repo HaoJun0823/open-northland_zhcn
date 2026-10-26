@@ -4,6 +4,8 @@ import type { ReportError, ReportLog, ReportTrigger } from '@open-northland/data
 export interface Problem {
   readonly trigger: ReportTrigger;
   readonly error?: ReportError;
+  /** The game stopped for good with it: the dialog always shows, whatever the session's limits. */
+  readonly fatal?: boolean;
   /** Facts the report's `perf` carries, such as a freeze's length. */
   readonly facts?: Readonly<Record<string, unknown>>;
   /** A problem a previous page recorded: the report keeps its id and time, and its log stands in for

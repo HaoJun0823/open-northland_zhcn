@@ -22,7 +22,7 @@ import {
   jsonSafeData,
 } from '../bundle.js';
 import { randomReportId } from '../capture/report-id.js';
-import { currentDiagGameSession } from '../session.js';
+import { currentDiagGameSession, type DiagNetReport } from '../session.js';
 import {
   LIGHT_REPORT_BUDGET_BYTES,
   LOG_BUDGET_BYTES,
@@ -31,9 +31,9 @@ import {
   WORKER_LOG_MAX_ENTRIES,
 } from './budget.js';
 import { buildFacts, environmentFacts, routeFacts } from './facts.js';
-import { reportFingerprint } from './fingerprint.js';
+import { problemKeys } from './fingerprint.js';
 import { gzipSize } from './gzip.js';
-import { cutLog, recutLog } from './log-cut.js';
+import { cutLog } from './log-cut.js';
 import type { Problem } from './problem.js';
 import { redactRouteParams, scrubJson, scrubText } from './redact.js';
 import { reportGameView } from './view.js';
@@ -79,8 +79,44 @@ function reportError(error: ReportError, secrets: readonly string[]): ReportErro
   };
 }
 
+/** A verdict's digest inputs (a whole tick's fold) ride along only this small; the download keeps them. */
+const NET_INPUTS_MAX_CHARS = 48 * 1024;
+/** How a report names a member who is in no seat. */
+const NO_SEAT = 'observer';
+const UNKNOWN_SEAT = 'unknown';
+
+/** A relayed session's diagnostics as a sent report holds them: players by seat rather than by nick,
+ *  and the verdict's digest inputs only while they stay small. */
+export function reportNet(net: DiagNetReport): unknown {
+  const seatOf = (nick: string): number | string => {
+    const seat = net.seats[nick];
+    return seat === undefined ? UNKNOWN_SEAT : (seat ?? NO_SEAT);
+  };
+  const { seats: _seats, desync, dispute, ...rest } = net;
+  const inputsChars = dispute?.inputs == null ? 0 : JSON.stringify(dispute.inputs).length;
+  return {
+    ...rest,
+    desync:
+      desync === null
+        ? null
+        : { tick: desync.tick, domains: desync.domains, referenceSeat: seatOf(desync.reference) },
+    dispute:
+      dispute === null
+        ? null
+        : {
+            role: dispute.role,
+            tick: dispute.tick,
+            domains: dispute.domains,
+            counterpartSeats: dispute.counterparts.map(seatOf),
+            ...(inputsChars <= NET_INPUTS_MAX_CHARS
+              ? { inputs: dispute.inputs }
+              : { inputsLeftOutChars: inputsChars }),
+          },
+  };
+}
+
 function reportGame(game: DiagnosticsGameReport, secrets: readonly string[]): ReportGame {
-  const net = game.net === undefined ? undefined : scrubJson(jsonSafeData(game.net), secrets);
+  const net = game.net === undefined ? undefined : scrubJson(jsonSafeData(reportNet(game.net)), secrets);
   return {
     entry: game.entry,
     worldId: game.worldId === null ? null : clip(game.worldId, TEXT_CHARS),
@@ -136,14 +172,16 @@ export async function buildReportDraft(problem: Problem | null): Promise<ReportD
     buildFacts(),
     earlier === undefined ? workerLog(secrets) : Promise.resolve(undefined),
   ]);
+  // An earlier page's log stands in for this page's and takes the same budget.
   const log =
     earlier?.log !== undefined
-      ? recutLog(earlier.log, LOG_MAX_ENTRIES, secrets)
+      ? await cutLog(earlier.log.entries, LOG_MAX_ENTRIES, LOG_BUDGET_BYTES, secrets, earlier.log.dropped)
       : await cutLog(bundle.log, LOG_MAX_ENTRIES, LOG_BUDGET_BYTES, secrets);
   // A problem an earlier page saw belongs to that page's world, not to whatever runs now.
   const game = earlier === undefined ? bundle.game : null;
   const error = problem?.error === undefined ? undefined : reportError(problem.error, secrets);
   const perf = perfFacts(problem, secrets);
+  const fingerprint = problem === null ? undefined : problemKeys(problem.trigger, error).fingerprint;
   const id = earlier !== undefined && REPORT_ID.test(earlier.id) ? earlier.id : randomReportId();
   const report: FullReport = {
     kind: REPORT_KIND,
@@ -152,7 +190,7 @@ export async function buildReportDraft(problem: Problem | null): Promise<ReportD
     part: 'report',
     trigger: problem?.trigger ?? 'manual',
     createdAt: (earlier !== undefined ? validTime(earlier.at) : null) ?? new Date().toISOString(),
-    ...(problem !== null ? { fingerprint: reportFingerprint(problem.trigger, error) } : {}),
+    ...(fingerprint !== undefined ? { fingerprint } : {}),
     ...(error !== undefined ? { error } : {}),
     build,
     env: environmentFacts(),

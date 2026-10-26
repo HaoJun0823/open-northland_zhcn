@@ -203,7 +203,9 @@ export function renderNetworkGame(
       // Every client of the room reports its desync; the world's seed and tick line their reports up,
       // and the seat tells them apart. The room id stays out: it is the key that joins the room.
       const seat = client.session?.localSeat ?? null;
-      reportProblem({ trigger: 'desync', facts: { tick, domains, reference, seat } });
+      // The reference is a player's nick; a report names players by seat.
+      const referenceSeat = client.room?.members.find((member) => member.nick === reference)?.seat ?? null;
+      reportProblem({ trigger: 'desync', facts: { tick, domains, referenceSeat, seat } });
       // The frozen game says why, before the snapshot arrives and the loading card replaces it.
       showPlaque(desyncNotice(event.message.reference, event.message.tick).text);
     }
@@ -294,6 +296,7 @@ export function renderNetworkGame(
           dispute: dispute ?? null,
           delayTicks: client.delayTicks,
           roundTripMs: client.roundTripMs,
+          seats: Object.fromEntries((client.room?.members ?? []).map((member) => [member.nick, member.seat])),
         };
       },
     });

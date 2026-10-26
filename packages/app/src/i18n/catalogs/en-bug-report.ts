@@ -22,6 +22,10 @@ export const enBugReport = {
     'context-lost':
       'The browser took away the graphics and did not give them back. Reloading the page usually helps.',
   },
+  fatalTitle: 'The game cannot continue',
+  fatalExplanation:
+    'An error stopped the game. Send or download the report, then reload the page. Afterwards you can load your last save.',
+  reload: 'Reload',
   status: {
     preparing: 'Preparing the report…',
     sending: 'Sending the report…',

@@ -23,6 +23,10 @@ export const plBugReport = {
       'Twoja gra nie zgadza się już z grami pozostałych graczy, więc rozgrywka nie może dalej toczyć się bez błędów.',
     'context-lost': 'Przeglądarka odebrała grze grafikę i jej nie oddała. Zwykle pomaga odświeżenie strony.',
   },
+  fatalTitle: 'Gra nie może działać dalej',
+  fatalExplanation:
+    'Błąd zatrzymał grę. Wyślij lub pobierz zgłoszenie, a potem odśwież stronę. Później możesz wczytać ostatni zapis.',
+  reload: 'Odśwież',
   status: {
     preparing: 'Przygotowuję zgłoszenie…',
     sending: 'Wysyłam zgłoszenie…',

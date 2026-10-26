@@ -9,7 +9,7 @@ import {
 } from '@open-northland/render';
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import type { createSoundDriver } from '../../content/audio/sound-driver.js';
-import { alreadyReported, reportError } from '../../diag/capture/report-error.js';
+import { alreadyReported, reportError, reportErrorOf } from '../../diag/capture/report-error.js';
 import {
   diag,
   type FrameSample,
@@ -17,6 +17,7 @@ import {
   framePhaseEmitter,
   recordTickDiagnostics,
 } from '../../diag/index.js';
+import { reportProblem } from '../../diag/report/problem.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
@@ -149,8 +150,18 @@ type FrameStage =
  *  draw a broken world or report the same error sixty times a second. A worker's error that failed
  *  the driver was reported as that worker's. */
 function frameFailed(error: unknown, stage: FrameStage): void {
-  if (alreadyReported(error)) diag.error('crash', `the frame loop stopped in ${stage}`);
-  else reportError('main', error, { facts: { frameStage: stage } });
+  if (!alreadyReported(error)) {
+    reportError('main', error, { facts: { frameStage: stage }, fatal: true });
+    return;
+  }
+  // Reported already, perhaps as a worker's error the game outlived: the stop itself must still show.
+  diag.error('crash', `the frame loop stopped in ${stage}`);
+  reportProblem({
+    trigger: 'error',
+    error: reportErrorOf('main', error),
+    facts: { frameStage: stage },
+    fatal: true,
+  });
 }
 
 /** The entity ids of the settlers and animals in a culled draw list - both draw as the `settler` kind. */

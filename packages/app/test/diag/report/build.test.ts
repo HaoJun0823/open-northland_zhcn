@@ -3,7 +3,7 @@ import { ReportUpload } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
 import { diag, setDiagGameSession } from '../../../src/diag/index.js';
 import { LIGHT_REPORT_BUDGET_BYTES } from '../../../src/diag/report/budget.js';
-import { buildReportDraft, fitCommands } from '../../../src/diag/report/build.js';
+import { buildReportDraft, fitCommands, reportNet } from '../../../src/diag/report/build.js';
 import { gzipSize } from '../../../src/diag/report/gzip.js';
 import { createSceneSim, SCENES } from '../../../src/scenes/index.js';
 import { inlineSessionHost } from '../../../src/session/index.js';
@@ -83,5 +83,29 @@ describe('bug report draft', () => {
     );
     const size = await gzipSize({ ...report, attachments: { commands: fitted.commands } });
     expect(size).toBeLessThanOrEqual(LIGHT_REPORT_BUDGET_BYTES);
+  });
+
+  it("names other players by seat and leaves a large verdict's digest inputs to the download", () => {
+    const big = { allocations: 'x'.repeat(100_000) };
+    const net = reportNet({
+      desync: { tick: 7, domains: [], reference: 'Ania' },
+      digests: [],
+      dispute: {
+        role: 'diverged',
+        tick: 7,
+        domains: [],
+        counterparts: ['Ania', 'Gone'],
+        inputs: big as never,
+      },
+      delayTicks: 2,
+      roundTripMs: 80,
+      seats: { Ania: 1, Me: 0 },
+    });
+    expect(JSON.stringify(net)).not.toContain('Ania');
+    expect(net).toMatchObject({
+      desync: { referenceSeat: 1 },
+      dispute: { counterpartSeats: [1, 'unknown'] },
+    });
+    expect(net).not.toHaveProperty('dispute.inputs');
   });
 });

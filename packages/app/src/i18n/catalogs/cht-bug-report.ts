@@ -21,6 +21,9 @@ export const chtBugReport = {
     desync: '你的遊戲與其他玩家的遊戲不再一致，因此對局無法可靠地繼續。',
     'context-lost': '瀏覽器收回了遊戲的圖形功能且沒有恢復。通常重新整理頁面即可解決。',
   },
+  fatalTitle: '遊戲無法繼續',
+  fatalExplanation: '一個錯誤使遊戲停止了。請傳送或下載回報，然後重新整理頁面。之後可以載入最近的存檔。',
+  reload: '重新整理',
   status: {
     preparing: '正在準備回報…',
     sending: '正在傳送回報…',

@@ -26,6 +26,10 @@ export const deBugReport = {
     'context-lost':
       'Der Browser hat dem Spiel die Grafik entzogen und nicht zurückgegeben. Meist hilft es, die Seite neu zu laden.',
   },
+  fatalTitle: 'Das Spiel kann nicht weiterlaufen',
+  fatalExplanation:
+    'Ein Fehler hat das Spiel angehalten. Sende den Bericht oder lade ihn herunter und lade dann die Seite neu. Danach kannst du deinen letzten Spielstand laden.',
+  reload: 'Neu laden',
   status: {
     preparing: 'Bericht wird vorbereitet…',
     sending: 'Bericht wird gesendet…',

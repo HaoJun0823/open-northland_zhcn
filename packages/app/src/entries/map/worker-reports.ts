@@ -39,6 +39,7 @@ export function workerReports(thread: WorkerThread): WorkerReports {
       diag.info('sim', `the ${thread} answered again after ${Math.round(silentMs)} ms`);
       dismissCrashBanner(STALL_BANNER);
     },
-    faulted: (error, source) => reportError(thread, error, source === undefined ? {} : { source }),
+    faulted: (error, source, fatal) =>
+      reportError(thread, error, { ...(source === undefined ? {} : { source }), fatal }),
   };
 }

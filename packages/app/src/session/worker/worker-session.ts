@@ -73,9 +73,9 @@ export interface WorkerBootCost {
 
 /** What a session tells the app of its worker: a silence, and an error the worker raised. */
 export interface WorkerReports extends StallReports {
-  /** The worker posted an uncaught error or rejection, or a tick threw there. A fatal fault's error is
-   *  the one the session then fails with. */
-  faulted(error: Error, source?: string): void;
+  /** The worker posted an uncaught error or rejection, or a tick threw there. A `fatal` fault's error
+   *  is the one the session then fails with. */
+  faulted(error: Error, source: string | undefined, fatal: boolean): void;
 }
 
 export interface WorkerSessionTimings {
@@ -162,7 +162,7 @@ export function sessionOverPort<E>(
     receive: (message, receiveMs) => {
       if (message.kind === 'fault') {
         const error = errorFromWire(message.fault.error);
-        reports.faulted(error, message.fault.source);
+        reports.faulted(error, message.fault.source, message.fault.fatal);
         if (!message.fault.fatal) return;
         if (client !== null) client.fail(error);
         else refuse(error);
@@ -292,7 +292,7 @@ class WorkerClient<E> {
       case 'tickError': {
         diag.error('session', `worker tick ${message.tick} threw; the view keeps an earlier whole tick`);
         const error = errorFromWire(message.error);
-        this.reports.faulted(error);
+        this.reports.faulted(error, undefined, true);
         this.fail(error);
         return;
       }

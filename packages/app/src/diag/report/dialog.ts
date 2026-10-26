@@ -51,6 +51,9 @@ export interface ReportDialogOptions {
   readonly automatic: boolean;
   /** The session's automatic reports were used up, so this one waits for the player. */
   readonly limited: boolean;
+  /** The game stopped for good; `ReportDialog.stopped` says so later. */
+  readonly fatal: boolean;
+  readonly onReload: () => void;
   /** Whether a part starts ticked, asked when the dialog first offers it. */
   readonly defaults: (kind: AttachmentKind) => boolean;
   readonly onSend: (input: PlayerInput) => void;
@@ -62,6 +65,8 @@ export interface ReportDialog {
   /** Further problems came while the dialog was open. */
   setMore(count: number): void;
   focus(): void;
+  /** The game stopped for good: the dialog says so and offers a reload. */
+  stopped(): void;
   close(): void;
 }
 
@@ -205,10 +210,13 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     node.type = 'button';
     return node;
   };
+  const reload = button(copy.reload, '');
+  reload.hidden = true;
+  reload.addEventListener('click', () => opts.onReload());
   const download = button(copy.download, '');
   const close = button(copy.close, '');
   const send = button(copy.send, 'on-report__button--primary');
-  actions.append(download, close, send);
+  actions.append(reload, download, close, send);
 
   const form = element('div', 'on-report__form');
   form.append(
@@ -399,6 +407,12 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     }
   });
 
+  function stopped(): void {
+    title.textContent = copy.fatalTitle;
+    intro.textContent = copy.fatalExplanation;
+    reload.hidden = false;
+  }
+  if (opts.fatal) stopped();
   paint();
   // A player who asked for the form starts typing; a problem never takes the keys from the game.
   if (manual) text.focus();
@@ -411,6 +425,7 @@ export function openReportDialog(opts: ReportDialogOptions, api: string): Report
     focus() {
       (manual ? text : root).focus();
     },
+    stopped,
     close: finish,
   };
 }

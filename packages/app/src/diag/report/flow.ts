@@ -4,6 +4,7 @@
  */
 import type { ReportPart } from '@open-northland/data';
 import { apiBaseUrl } from '../../content/map-source/api.js';
+import { reloadDocument } from '../../view/platform/navigation-guard.js';
 import { readStoredSettings } from '../../view/settings/store.js';
 import { serializeDiagnosticsBundle } from '../bundle.js';
 import { downloadJsonFile } from '../download.js';
@@ -25,9 +26,9 @@ import {
   uploadList,
 } from './case.js';
 import { openReportDialog, type ReportDialog } from './dialog.js';
-import { reportFingerprint } from './fingerprint.js';
+import { problemKeys } from './fingerprint.js';
+import { ProblemGate } from './gate.js';
 import { gzipSize } from './gzip.js';
-import { AutomaticLimits } from './limits.js';
 import { afterAttempt, browserOutbox, dueEntries, nextDue, type OutboxStore } from './outbox.js';
 import { type Problem, setProblemSink } from './problem.js';
 import { postReport, type SendResult } from './send.js';
@@ -50,16 +51,9 @@ interface OpenDialog {
 
 let outbox: OutboxStore | null = null;
 let open: OpenDialog | null = null;
-const limits = new AutomaticLimits();
-/** The same caps for reports an open dialog's Send takes along while automatic sending is off. */
-const heldLimits = new AutomaticLimits();
-/** A problem whose fingerprint already had a dialog this session raises none again. */
-const shownFingerprints = new Set<string>();
+const problemGate = new ProblemGate();
 /** The cases with an upload in the outbox, by report id, so a later try can update their dialog. */
 const cases = new Map<string, ReportCase>();
-/** An earlier page's problem can reach this page twice (a frozen tab seen by a new one, then its own
- *  recovery), and its id stays the same. */
-const earlierIds = new Set<string>();
 /** The server's Retry-After holds every upload, not only the one it answered. */
 let blockedUntil = 0;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -174,7 +168,15 @@ async function downloadReport(kase: ReportCase, input: PlayerInput): Promise<voi
   );
 }
 
-function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolean, limited: boolean): void {
+interface DialogState {
+  /** "Send error reports automatically" when the problem came. */
+  readonly automatic: boolean;
+  /** Automatic sending is on, but the session's limits held this report back. */
+  readonly limited: boolean;
+  readonly fatal: boolean;
+}
+
+function showDialog(kase: ReportCase, problem: Problem | null, state: DialogState): void {
   // Read once the draft is in, when the dialog first offers the part.
   const defaults = (kind: AttachmentKind): boolean => {
     // The player who opens the form in a game shows what they see; a problem asks first.
@@ -188,9 +190,9 @@ function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolea
     {
       kase,
       trigger: problem?.trigger ?? 'manual',
-      automatic,
-      limited,
+      ...state,
       defaults,
+      onReload: reloadDocument,
       onSend: (input) => {
         void kase.sendFromPlayer(input);
         for (const sendHeld of held.splice(0)) sendHeld();
@@ -206,33 +208,26 @@ function showDialog(kase: ReportCase, problem: Problem | null, automatic: boolea
 }
 
 function onProblem(problem: Problem): void {
-  const earlierId = problem.earlier?.id;
-  if (earlierId !== undefined) {
-    if (earlierIds.has(earlierId)) return;
-    earlierIds.add(earlierId);
-  }
-  const fingerprint = reportFingerprint(problem.trigger, problem.error);
+  const { key } = problemKeys(problem.trigger, problem.error);
   const automatic = readStoredSettings().autoErrorReports;
-  const opening = open === null && !shownFingerprints.has(fingerprint);
-  const allowed = automatic && limits.take(fingerprint);
-  // With automatic sending off, the open dialog's Send takes along what came after, as sparingly.
-  const held = !automatic && open !== null && heldLimits.take(fingerprint);
-  diag.info('report', `problem: ${problem.trigger}`, { fingerprint, sent: allowed, held });
+  const gate = problemGate.decide(problem, key, automatic, open !== null);
+  diag.info('report', `problem: ${problem.trigger}`, { key, ...gate });
   if (open !== null) {
     open.more++;
     open.dialog.setMore(open.more);
+    if (gate.show === 'stopped') open.dialog.stopped();
   }
   // A repeat nobody sends, holds or shows costs no world hash and no gzip.
-  if (!opening && !allowed && !held) return;
+  if (gate.show !== 'dialog' && !gate.send && !gate.hold) return;
   const kase = new ReportCase(depsFor, false);
   // The screen and the saves of this page say nothing about a problem an earlier page saw.
-  const offers = opening && problem.earlier === undefined ? problemOffers : settingsOnly;
+  const offers = gate.show === 'dialog' && problem.earlier === undefined ? problemOffers : settingsOnly;
   const prepared = prepareCase(kase, problem, offers);
   prepared.then(
-    () => (allowed ? kase.sendAutomatically() : undefined),
+    () => (gate.send ? kase.sendAutomatically() : undefined),
     (error: unknown) => diag.error('report', 'building a report failed', error),
   );
-  if (held && open !== null) {
+  if (gate.hold && open !== null) {
     // A report still being built goes out once it is ready.
     open.held.push(() => {
       prepared.then(
@@ -241,9 +236,9 @@ function onProblem(problem: Problem): void {
       );
     });
   }
-  if (!opening) return;
-  shownFingerprints.add(fingerprint);
-  showDialog(kase, problem, automatic, automatic && !allowed);
+  if (gate.show === 'dialog') {
+    showDialog(kase, problem, { automatic, limited: automatic && !gate.send, fatal: problem.fatal === true });
+  }
 }
 
 /** The player's own report, from the credits screen or the game menu. */
@@ -256,7 +251,7 @@ export function openBugReportForm(): void {
   void prepareCase(kase, null, gatherOffers).catch((error: unknown) =>
     diag.error('report', 'building a report failed', error),
   );
-  showDialog(kase, null, false, false);
+  showDialog(kase, null, { automatic: false, limited: false, fatal: false });
 }
 
 let installed = false;

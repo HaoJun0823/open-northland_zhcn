@@ -2,6 +2,7 @@
  * The diagnostics bundle a tester attaches to a bug report: replaying `commandLog` over the world
  * named by `entry` and `worldId` reproduces the session up to `tick`.
  */
+import type { ReportUpload } from '@open-northland/data';
 import type { LoggedCommand } from '@open-northland/sim';
 import { WORKER_STALL_TIMEOUT_MS } from '../session/worker/stall-watch.js';
 import { downloadJsonFile } from './download.js';
@@ -10,7 +11,7 @@ import { currentDiagGameSession, type DiagGameSession, type DiagNetReport } from
 import { recordedTraceEvents, type TraceEvent } from './trace.js';
 
 export const DIAGNOSTICS_BUNDLE_KIND = 'opennorthland-diagnostics';
-export const DIAGNOSTICS_BUNDLE_VERSION = 3;
+export const DIAGNOSTICS_BUNDLE_VERSION = 4;
 
 /** The running game's repro payload, absent when no game session is registered. */
 export interface DiagnosticsGameReport {
@@ -39,6 +40,8 @@ export interface DiagnosticsBundle {
   readonly game: DiagnosticsGameReport | null;
   /** The Trace Event recording, attached when a `?debug=trace` run generates the bundle. */
   readonly trace?: readonly TraceEvent[];
+  /** A bug report's uploads as its dialog would send them, when the player downloads one. */
+  readonly report?: readonly ReportUpload[];
 }
 
 export async function buildDiagnosticsBundle(
@@ -114,7 +117,7 @@ async function gameReport(session: DiagGameSession): Promise<DiagnosticsGameRepo
  * Make one free-form log `data` value JSON-proof. Lossy, so it applies only to log data: cutting a
  * shared sub-object of the game report or the trace as `"[circular]"` would corrupt the repro.
  */
-function jsonSafeData(data: unknown): unknown {
+export function jsonSafeData(data: unknown): unknown {
   const seen = new WeakSet<object>();
   try {
     const text = JSON.stringify(data, (_key, value: unknown) => {

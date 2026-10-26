@@ -321,6 +321,9 @@ export const plSurfaces = {
       debugTools: 'Narzędzia debugowania',
       debugToolsTip:
         'Dodaje na górnym pasku przycisk narzędzi: tworzenie jednostek, zwierząt i towarów, akcje na wskazanym celu oraz zasady świata. Działa tylko w grze jednoosobowej.',
+      autoReports: 'Automatycznie wysyłaj zgłoszenia błędów',
+      autoReportsTip:
+        'Gdy gra ulegnie awarii lub się zawiesi, od razu wysyła krótkie zgłoszenie techniczne, do którego możesz potem dodać komentarz. Nie zawiera ono danych osobowych.',
       bindings: {
         panLeft: 'Przesuwanie mapy w lewo',
         panRight: 'Przesuwanie mapy w prawo',
@@ -434,6 +437,7 @@ export const plSurfaces = {
       authorRole: 'projekt i kod',
       contactTitle: 'Kontakt',
       reportLink: 'Zgłoś błąd',
+      issuesLink: 'Zgłoszenia na GitHubie',
       sourceLink: 'Kod źródłowy',
       thanksTitle: 'Podziękowania',
       thanks: {

@@ -1,6 +1,7 @@
 import culturesNationLogo from '../../assets/community/culturesnation.webp';
 import discordMark from '../../assets/community/discord.svg';
 import { GAME_VERSION } from '../../build-version.js';
+import { openBugReportForm } from '../../diag/report/flow.js';
 import { messages } from '../../i18n/index.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/boot/brand-art.js';
 import { node } from './dom.js';
@@ -76,8 +77,12 @@ function authorPanel(): HTMLElement {
   const contact = node('div', 'main-menu__about-contact');
   const mail = externalLink(CONTACT_EMAIL, `mailto:${CONTACT_EMAIL}`, 'main-menu__about-mail');
   const actions = node('div', 'main-menu__about-actions');
+  const report = node('button', 'main-menu__ghost is-accent', copy.reportLink);
+  report.type = 'button';
+  report.addEventListener('click', openBugReportForm);
   actions.append(
-    externalLink(copy.reportLink, ISSUES_URL, 'main-menu__ghost is-accent'),
+    report,
+    externalLink(copy.issuesLink, ISSUES_URL, 'main-menu__ghost'),
     externalLink(copy.sourceLink, REPO_URL, 'main-menu__ghost'),
   );
   contact.append(node('h3', 'main-menu__about-subtitle', copy.contactTitle), mail, actions);

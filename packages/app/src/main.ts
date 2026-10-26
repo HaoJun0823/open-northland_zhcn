@@ -1,5 +1,6 @@
 import { installFailureCapture } from './diag/capture/install.js';
 import { installCrashCapture, logBootHeader } from './diag/index.js';
+import { installBugReports } from './diag/report/flow.js';
 import { runEntry } from './launch.js';
 import { installUpdateWatcher } from './update/watcher.js';
 import { initializeGraphicsSettings } from './view/graphics/startup.js';
@@ -14,6 +15,7 @@ import { installNavigationGuard } from './view/platform/navigation-guard.js';
 // Capture first, so an error from here on, the boot header's included, is reported.
 installCrashCapture();
 installFailureCapture();
+installBugReports();
 logBootHeader();
 installUpdateWatcher();
 installNavigationGuard();

@@ -361,6 +361,9 @@ export const deSurfaces = {
       debugTools: 'Debug-Werkzeuge',
       debugToolsTip:
         'Fügt der oberen Leiste eine Werkzeugschaltfläche hinzu: Einheiten, Tiere und Waren erschaffen, auf ein angeklicktes Ziel einwirken und die Regeln der Welt ändern. Nur im Einzelspiel.',
+      autoReports: 'Fehlerberichte automatisch senden',
+      autoReportsTip:
+        'Stürzt das Spiel ab oder friert es ein, sendet es sofort einen kurzen technischen Bericht, den du danach um einen Kommentar ergänzen kannst. Persönliche Daten sind nicht enthalten.',
       bindings: {
         panLeft: 'Karte nach links bewegen',
         panRight: 'Karte nach rechts bewegen',
@@ -475,6 +478,7 @@ export const deSurfaces = {
       authorRole: 'Gestaltung und Programmierung',
       contactTitle: 'Kontakt',
       reportLink: 'Fehler melden',
+      issuesLink: 'GitHub-Issues',
       sourceLink: 'Quellcode',
       thanksTitle: 'Danke',
       thanks: {

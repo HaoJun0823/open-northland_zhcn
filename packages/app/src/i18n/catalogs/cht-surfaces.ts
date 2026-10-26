@@ -314,6 +314,9 @@ export const chtSurfaces = {
       debugTools: '除錯工具',
       debugToolsTip:
         '在頂端列加入工具按鈕：產生單位、動物與貨物，對點選的目標執行動作，並變更世界規則。僅限單人遊戲。',
+      autoReports: '自動傳送錯誤回報',
+      autoReportsTip:
+        '遊戲當機或卡住時，會立即傳送一份簡短的技術回報，之後你可以補充備註。回報不包含任何個人資料。',
       bindings: {
         panLeft: '地圖向左平移',
         panRight: '地圖向右平移',
@@ -426,6 +429,7 @@ export const chtSurfaces = {
       authorRole: '設計與程式',
       contactTitle: '聯絡方式',
       reportLink: '回報錯誤',
+      issuesLink: 'GitHub 議題',
       sourceLink: '原始碼',
       thanksTitle: '致謝',
       thanks: {

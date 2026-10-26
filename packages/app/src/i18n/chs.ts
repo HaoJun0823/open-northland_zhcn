@@ -1,3 +1,4 @@
+import { chsBugReport } from './catalogs/chs-bug-report.js';
 import { chsCampaign } from './catalogs/chs-campaign.js';
 import { chsContent } from './catalogs/chs-content.js';
 import { chsGame } from './catalogs/chs-game.js';
@@ -9,6 +10,7 @@ import { chsSurfaces } from './catalogs/chs-surfaces.js';
 import type { Messages } from './en.js';
 
 export const chs = {
+  bugReport: chsBugReport,
   campaign: chsCampaign,
   network: chsNetwork,
   mapCatalogue: chsMapCatalogue,

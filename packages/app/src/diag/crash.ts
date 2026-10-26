@@ -1,12 +1,14 @@
 /**
- * Global crash capture: uncaught errors and rejections reach the log ring and raise a banner. Plain
- * DOM, so the banner depends on nothing that may itself be the wedged part.
+ * Global crash capture: uncaught errors and rejections reach the log ring and the bug report flow,
+ * whose dialog tells the player. The banner stays for a passing condition such as a sim stall; plain
+ * DOM, so it depends on nothing that may itself be the wedged part.
  */
 import { messages } from '../i18n/index.js';
 import { isBrave } from '../view/platform/browser-support.js';
 import { servedByBrowser } from '../view/platform/host.js';
 import { downloadDiagnosticsBundle } from './bundle.js';
 import { diag } from './log.js';
+import { reportProblem } from './report/problem.js';
 
 /** Above every game overlay; the system menu and tooltips sit at 2000. */
 const CRASH_BANNER_Z_INDEX = '2200';
@@ -103,22 +105,40 @@ export function dismissCrashBanner(cause: string): void {
 
 let installed = false;
 
+function errorName(value: unknown): string {
+  return value instanceof Error ? value.name : typeof value;
+}
+
 export function installCrashCapture(): void {
   if (installed) return;
   installed = true;
   window.addEventListener('error', (event) => {
-    diag.error('crash', event.message, {
-      source: `${event.filename}:${event.lineno}:${event.colno}`,
-      ...(event.error instanceof Error && event.error.stack !== undefined
-        ? { stack: event.error.stack }
-        : {}),
+    const source = `${event.filename}:${event.lineno}:${event.colno}`;
+    const stack = event.error instanceof Error ? event.error.stack : undefined;
+    diag.error('crash', event.message, { source, ...(stack !== undefined ? { stack } : {}) });
+    reportProblem({
+      trigger: 'error',
+      error: {
+        thread: 'main',
+        name: event.error instanceof Error ? event.error.name : 'Error',
+        message: String(event.message),
+        ...(stack !== undefined ? { stack } : {}),
+        source,
+      },
     });
-    showCrashBanner(event.message);
   });
   window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason;
+    const reason: unknown = event.reason;
     const text = reason instanceof Error ? reason.message : String(reason);
     diag.error('crash', `unhandled rejection: ${text}`, reason instanceof Error ? reason : { reason: text });
-    showCrashBanner(text);
+    reportProblem({
+      trigger: 'error',
+      error: {
+        thread: 'main',
+        name: errorName(reason),
+        message: `unhandled rejection: ${text}`,
+        ...(reason instanceof Error && reason.stack !== undefined ? { stack: reason.stack } : {}),
+      },
+    });
   });
 }

@@ -1,3 +1,4 @@
+import { enBugReport } from './catalogs/en-bug-report.js';
 import { enCampaign } from './catalogs/en-campaign.js';
 import { enContent } from './catalogs/en-content.js';
 import { enGame } from './catalogs/en-game.js';
@@ -8,6 +9,7 @@ import { enNetworkRoom } from './catalogs/en-network-room.js';
 import { enSurfaces } from './catalogs/en-surfaces.js';
 
 export const en = {
+  bugReport: enBugReport,
   campaign: enCampaign,
   network: enNetwork,
   mapCatalogue: enMapCatalogue,

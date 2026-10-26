@@ -1,3 +1,4 @@
+import { plBugReport } from './catalogs/pl-bug-report.js';
 import { plCampaign } from './catalogs/pl-campaign.js';
 import { plContent } from './catalogs/pl-content.js';
 import { plGame } from './catalogs/pl-game.js';
@@ -11,6 +12,7 @@ import type { Messages } from './en.js';
 export type { Messages } from './en.js';
 
 export const pl = {
+  bugReport: plBugReport,
   campaign: plCampaign,
   network: plNetwork,
   mapCatalogue: plMapCatalogue,

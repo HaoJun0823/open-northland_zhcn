@@ -1,3 +1,4 @@
+import { ruBugReport } from './catalogs/ru-bug-report.js';
 import { ruCampaign } from './catalogs/ru-campaign.js';
 import { ruContent } from './catalogs/ru-content.js';
 import { ruGame } from './catalogs/ru-game.js';
@@ -9,6 +10,7 @@ import { ruSurfaces } from './catalogs/ru-surfaces.js';
 import type { Messages } from './en.js';
 
 export const ru = {
+  bugReport: ruBugReport,
   campaign: ruCampaign,
   network: ruNetwork,
   mapCatalogue: ruMapCatalogue,

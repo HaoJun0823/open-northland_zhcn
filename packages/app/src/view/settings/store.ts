@@ -140,6 +140,8 @@ export interface MenuSettings {
   /** A relay address the player typed in; null while they play on one of the official regions. */
   readonly netCustomRelayUrl: string | null;
   readonly debugToolsEnabled: boolean;
+  /** A crash or freeze sends its light bug report at once; off, the problem dialog asks first. */
+  readonly autoErrorReports: boolean;
   /** A folder the player picked passed the original-game check; on the desktop the shell's record decides. */
   readonly originalGameVerified: boolean;
   /** The recognized release, such as `Cultures: Northland (PL)`; null when its library size is unlisted. */
@@ -207,6 +209,7 @@ export function defaultSettings(): MenuSettings {
     netNick: null,
     netCustomRelayUrl: null,
     debugToolsEnabled: import.meta.env?.DEV === true,
+    autoErrorReports: true,
     originalGameVerified: false,
     originalGameLabel: null,
     originalGameFolder: null,
@@ -382,6 +385,8 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     netCustomRelayUrl: optionalText(record.netCustomRelayUrl),
     debugToolsEnabled:
       typeof record.debugToolsEnabled === 'boolean' ? record.debugToolsEnabled : defaults.debugToolsEnabled,
+    autoErrorReports:
+      typeof record.autoErrorReports === 'boolean' ? record.autoErrorReports : defaults.autoErrorReports,
     originalGameVerified: record.originalGameVerified === true,
     originalGameLabel: optionalText(record.originalGameLabel),
     originalGameFolder: optionalText(record.originalGameFolder),

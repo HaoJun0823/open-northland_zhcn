@@ -324,6 +324,9 @@ export const enSurfaces = {
       debugTools: 'Debug tools',
       debugToolsTip:
         "Adds a tools button to the top bar: spawn units, animals and goods, act on a clicked target and change the world's rules. Single-player games only.",
+      autoReports: 'Send error reports automatically',
+      autoReportsTip:
+        'When the game crashes or freezes, it sends a short technical report straight away, and you can add a comment afterwards. Nothing personal is included.',
       bindings: {
         panLeft: 'Pan map left',
         panRight: 'Pan map right',
@@ -437,6 +440,7 @@ export const enSurfaces = {
       authorRole: 'design and code',
       contactTitle: 'Contact',
       reportLink: 'Report a bug',
+      issuesLink: 'GitHub issues',
       sourceLink: 'Source code',
       thanksTitle: 'Thanks',
       thanks: {

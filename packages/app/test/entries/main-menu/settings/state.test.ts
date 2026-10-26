@@ -88,6 +88,7 @@ describe('parseStoredSettings', () => {
       netNick: 'Ania',
       netCustomRelayUrl: 'ws://localhost:8768',
       debugToolsEnabled: true,
+      autoErrorReports: false,
       originalGameVerified: true,
       originalGameLabel: 'Cultures: Northland (PL)',
       originalGameFolder: 'Cultures Northland',

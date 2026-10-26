@@ -333,6 +333,11 @@ export function createSettingsPage(opts: {
       });
       debugTools.setAttribute('aria-label', text.debugTools);
       debugTools.dataset.settingsFocus = 'debug-tools';
+      const autoReports = togglePill(settings.autoErrorReports, (enabled) => {
+        void opts.settings.update({ autoErrorReports: enabled });
+      });
+      autoReports.setAttribute('aria-label', text.autoReports);
+      autoReports.dataset.settingsFocus = 'auto-reports';
       return [
         settingRow(
           text.language,
@@ -369,6 +374,7 @@ export function createSettingsPage(opts: {
         ),
         settingRow(text.invertDragScroll, invertDragScroll, { tip: text.invertDragScrollTip }),
         settingRow(text.debugTools, debugTools, { tip: text.debugToolsTip }),
+        settingRow(text.autoReports, autoReports, { tip: text.autoReportsTip }),
         settingRow(
           text.originalGame,
           readOnlyValue(

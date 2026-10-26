@@ -1,0 +1,237 @@
+@import "../../hud/dom/theme.css";
+
+/* The bug report dialog in the HUD's palette (theme.css). Every rule here is a refinement: the
+   module's inline styles keep the dialog placed and readable when this sheet is missing. */
+
+.on-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 7px solid var(--wood);
+  border-image: linear-gradient(160deg, #6f5539, #3a2c1e 28%, #5a4631 52%, #2e2418 78%, #6f5539) 7;
+  background: linear-gradient(125deg, color-mix(in srgb, var(--fill) 92%, transparent), var(--deep) 80%);
+  background-color: var(--deep);
+  color: var(--text);
+  box-shadow:
+    0 14px 30px #000a,
+    0 0 0 1px #0d100d,
+    inset 0 0 0 1px var(--bronze),
+    inset 0 0 0 3px var(--deep);
+  color-scheme: dark;
+  outline: none;
+}
+.on-report * {
+  box-sizing: border-box;
+}
+
+.on-report__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.on-report__title {
+  flex: 1;
+  margin: 0;
+  font: 600 19px / 1.25 var(--font-title, serif);
+  color: var(--bronze-hi);
+}
+.on-report__dismiss {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, var(--wood-hi), var(--wood-lo) 75%);
+  color: var(--bronze-hi);
+  font: 700 17px / 1 var(--font-body, sans-serif);
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.on-report__intro,
+.on-report__status,
+.on-report__more,
+.on-report__hint,
+.on-report__error,
+.on-report__privacy {
+  margin: 0;
+}
+.on-report__intro {
+  color: var(--text);
+}
+.on-report__status {
+  padding: 8px 10px;
+  /* The report number reads as typed: lining figures, so 0 never passes for o. */
+  font-variant-numeric: lining-nums;
+  border-left: 3px solid var(--bronze);
+  background: #0f1512aa;
+  color: var(--text-hi);
+  font-weight: 600;
+}
+.on-report__status[data-state="sent"] {
+  border-left-color: var(--ok);
+}
+.on-report__status:is(
+  [data-state="queued"],
+  [data-state="full"],
+  [data-state="rejected"],
+  [data-state="unsupported"]
+) {
+  border-left-color: var(--danger);
+}
+.on-report__more,
+.on-report__hint {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.on-report__error {
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
+.on-report__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.on-report__label {
+  margin-top: 4px;
+  font: 700 12px / 1.2 var(--font-caps, sans-serif);
+  letter-spacing: 0.06em;
+  color: var(--parchment);
+}
+.on-report__text,
+.on-report__input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 2px;
+  background: #0d1411;
+  color: var(--text-hi);
+  font: 14px / 1.4 var(--font-body, sans-serif);
+}
+.on-report__text {
+  resize: vertical;
+  min-height: 64px;
+}
+.on-report__text:focus-visible,
+.on-report__input:focus-visible,
+.on-report__button:focus-visible,
+.on-report__dismiss:focus-visible,
+.on-report__summary:focus-visible,
+.on-report__check:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.on-report__files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #c9a26240;
+}
+.on-report__legend {
+  padding: 0 4px;
+  font: 700 12px / 1 var(--font-caps, sans-serif);
+  letter-spacing: 0.06em;
+  color: var(--parchment);
+}
+.on-report__file {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: var(--cursor-pointer, pointer);
+}
+.on-report__file[hidden] {
+  display: none;
+}
+.on-report__check {
+  flex: none;
+  accent-color: var(--bronze);
+}
+.on-report__file-name {
+  flex: 1;
+}
+.on-report__size {
+  color: var(--parchment-lo);
+  font-variant-numeric: tabular-nums;
+}
+.on-report__note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.on-report__note:empty {
+  display: none;
+}
+.on-report__check:disabled + .on-report__file-name {
+  color: var(--muted);
+}
+
+.on-report__preview {
+  margin-top: 4px;
+}
+.on-report__summary {
+  color: var(--bronze-hi);
+  cursor: var(--cursor-pointer, pointer);
+}
+.on-report__json {
+  max-height: 240px;
+  margin: 6px 0 0;
+  padding: 8px;
+  overflow: auto;
+  background: #0b100e;
+  border: 1px solid #c9a26233;
+  color: var(--parchment-hi);
+  font:
+    11.5px / 1.4 ui-monospace,
+    monospace;
+  white-space: pre;
+}
+
+.on-report__privacy {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.on-report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.on-report__button {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid var(--wood-lo);
+  background: linear-gradient(var(--wood-hi), var(--wood-lo));
+  color: #f0e4c8;
+  font: 600 13.5px / 1 var(--font-body, sans-serif);
+  box-shadow:
+    inset 0 1px #fff3,
+    inset 0 0 0 1px #c9a26233,
+    0 1px 2px #000a;
+  cursor: var(--cursor-pointer, pointer);
+}
+.on-report__button:hover:not(:disabled) {
+  background: linear-gradient(#8a6d4a, var(--wood));
+  color: #fff6de;
+}
+.on-report__button--primary {
+  background: linear-gradient(#ccb079, #a88850);
+  color: var(--ink);
+  font-weight: 700;
+  text-shadow: 0 1px #fff3;
+}
+.on-report__button--primary:hover:not(:disabled) {
+  background: linear-gradient(var(--bronze-hi), var(--bronze));
+  color: var(--ink);
+}
+.on-report__button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.on-report__button[hidden] {
+  display: none;
+}

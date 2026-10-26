@@ -1,3 +1,4 @@
+import { chtBugReport } from './catalogs/cht-bug-report.js';
 import { chtCampaign } from './catalogs/cht-campaign.js';
 import { chtContent } from './catalogs/cht-content.js';
 import { chtGame } from './catalogs/cht-game.js';
@@ -9,6 +10,7 @@ import { chtSurfaces } from './catalogs/cht-surfaces.js';
 import type { Messages } from './en.js';
 
 export const cht = {
+  bugReport: chtBugReport,
   campaign: chtCampaign,
   network: chtNetwork,
   mapCatalogue: chtMapCatalogue,

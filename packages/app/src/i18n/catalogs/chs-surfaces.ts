@@ -314,6 +314,9 @@ export const chsSurfaces = {
       debugTools: '调试工具',
       debugToolsTip:
         '在顶栏添加工具按钮：生成单位、动物和物资，对点击的目标执行操作，以及更改世界规则。仅限单人游戏。',
+      autoReports: '自动发送错误报告',
+      autoReportsTip:
+        '游戏崩溃或卡死时，会立即发送一份简短的技术报告，之后你可以补充备注。报告不包含任何个人信息。',
       bindings: {
         panLeft: '向左平移地图',
         panRight: '向右平移地图',
@@ -426,6 +429,7 @@ export const chsSurfaces = {
       authorRole: '设计与编程',
       contactTitle: '联系方式',
       reportLink: '报告错误',
+      issuesLink: 'GitHub 问题',
       sourceLink: '源代码',
       thanksTitle: '致谢',
       thanks: {

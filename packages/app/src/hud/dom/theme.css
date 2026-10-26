@@ -1,6 +1,6 @@
-/* Shared palette for the game HUD, the multiplayer, catalogue and campaign screens; type tokens live in
-   fonts.css. */
-:where(.on-hud, .network-menu, .catalogue-screen, .campaign-screen) {
+/* Shared palette for the game HUD, the multiplayer, catalogue and campaign screens and the bug report
+   dialog; type tokens live in fonts.css. */
+:where(.on-hud, .network-menu, .catalogue-screen, .campaign-screen, .on-report) {
   --deep: #182521;
   --fill: #273832;
   --text: #f0e6cf;

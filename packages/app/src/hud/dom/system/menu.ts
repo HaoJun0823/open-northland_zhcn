@@ -1,4 +1,5 @@
 import { downloadDiagnosticsBundle, downloadTraceFile, isTraceRecording } from '../../../diag/index.js';
+import { openBugReportForm } from '../../../diag/report/flow.js';
 import { messages } from '../../../i18n/index.js';
 import { dismissOnBackdropClick } from '../../../view/backdrop-dismiss.js';
 import type { GameSettingsRuntime } from '../../../view/runtime/game-settings.js';
@@ -170,6 +171,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   summary.textContent = text.support;
   support.append(
     summary,
+    button(messages().bugReport.titles.manual, GLYPH.pen, openBugReportForm),
     button(copy.downloadDiagnostics, GLYPH.scroll, () => void downloadDiagnosticsBundle()),
   );
   if (isTraceRecording()) support.append(button(copy.downloadTrace, GLYPH.scroll, downloadTraceFile));

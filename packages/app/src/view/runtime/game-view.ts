@@ -49,6 +49,7 @@ import {
   logGpuContextLoss,
   setDiagGameSession,
 } from '../../diag/index.js';
+import { setReportGameView } from '../../diag/report/view.js';
 import { settlerName } from '../../game/character-names/index.js';
 import { type MissionBriefSource, missionReader } from '../../game/map/mission-brief.js';
 import { mapStartFocus } from '../../game/map/start.js';
@@ -173,7 +174,7 @@ import {
   savedView,
 } from './save-load/index.js';
 import { otherWorldLoader } from './save-load/other-world.js';
-import { worldThumbnail } from './save-load/thumbnail.js';
+import { worldScreenshot, worldThumbnail } from './save-load/thumbnail.js';
 import { noteRestartOnLeave } from './settings-restart.js';
 import { createSubMissions, type PrepareSubMission } from './sub-missions.js';
 import { createWorldEventHandler } from './world-events.js';
@@ -443,6 +444,14 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // Input owners share this stable object, updated in place by the in-game settings page.
     const keyBindings = { ...storedSettings.keyBindings };
     const frameStats = new FrameStats();
+    cleanup.push(
+      setReportGameView({
+        screenshot: (maxWidth, quality) => worldScreenshot(renderer, app.screen.width, maxWidth, quality),
+        frames: () => frameStats.report(),
+        worldToken: saveLoad.worldToken,
+        seed: saveLoad.worldSeed,
+      }),
+    );
 
     // A checkout without a decoded sound bank degrades to silence.
     const soundDriver = await mountGamePresentation(

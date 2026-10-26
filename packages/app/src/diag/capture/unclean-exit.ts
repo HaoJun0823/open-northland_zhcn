@@ -1,0 +1,58 @@
+import type { SessionMarker } from './session-marker.js';
+
+/** How often a page rewrites its marker. */
+export const MARKER_BEAT_MS = 5000;
+
+/** A marker rewritten this recently may be another tab's, still running: three beats. A live page that
+ *  went hidden wrote that down, and a hidden page's verdict does not depend on its age. */
+export const MARKER_STALE_MS = 3 * MARKER_BEAT_MS;
+
+/** What this page knows of the page it replaced in the same tab. */
+export interface PreviousPage {
+  readonly id: string;
+  /** The browser discarded it to save memory (`document.wasDiscarded`); no crash. */
+  readonly discarded: boolean;
+}
+
+export interface MarkerFacts {
+  readonly nowMs: number;
+  /** The page this one reloaded, or null after a navigation from elsewhere. */
+  readonly previous: PreviousPage | null;
+  /** Epoch milliseconds of each fault the desktop shell recorded. */
+  readonly desktopFaults: readonly { readonly id: string; readonly atMs: number }[];
+  /** The id of the freeze record the marker's page left, if it left one. */
+  readonly freezeId: string | null;
+}
+
+export type MarkerVerdict =
+  /** Another tab, still beating: left alone. */
+  | { readonly kind: 'live' }
+  /** Ended in a way that is no bug, or reports nothing worth it: removed. */
+  | { readonly kind: 'quiet' }
+  /** The shell saw that page hang or its renderer go: one report of its faults carries the marker's
+   *  log, oldest first. */
+  | { readonly kind: 'desktop'; readonly faultIds: readonly string[] }
+  /** The page froze and never came back. */
+  | { readonly kind: 'freeze'; readonly freezeId: string }
+  | { readonly kind: 'unclean-exit' };
+
+/**
+ * What a marker left by another page means. The shell's own record of a crash wins over the page's
+ * guess, and the watchdog's freeze record over a plain end. A page last seen hidden or in the menu
+ * is not reported: a hidden page may be ended by the browser or the system without `pagehide`, and a
+ * menu holds nothing a report could replay, while a game's sudden end is most likely a crash.
+ */
+export function judgeMarker(marker: SessionMarker, facts: MarkerFacts): MarkerVerdict {
+  const reloaded = facts.previous?.id === marker.id;
+  if (reloaded && facts.previous?.discarded === true) return { kind: 'quiet' };
+  // Before the age: the shell reloads a crashed page at once, so its marker is still fresh.
+  const lastAliveMs = marker.beatAt + MARKER_STALE_MS;
+  const faultIds = facts.desktopFaults
+    .filter(({ atMs }) => atMs >= marker.startedAt && atMs <= lastAliveMs)
+    .map((fault) => fault.id);
+  if (faultIds.length > 0) return { kind: 'desktop', faultIds };
+  if (!reloaded && facts.nowMs - marker.beatAt <= MARKER_STALE_MS) return { kind: 'live' };
+  if (facts.freezeId !== null) return { kind: 'freeze', freezeId: facts.freezeId };
+  if (!marker.visible || !marker.context.inGame) return { kind: 'quiet' };
+  return { kind: 'unclean-exit' };
+}

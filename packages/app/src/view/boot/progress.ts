@@ -145,6 +145,11 @@ export function mountBootNotice(
   return () => root.remove();
 }
 
+/** Whether a boot's progress card is up: the page is loading a world, not running one. */
+export function bootCardShown(): boolean {
+  return overlay !== null;
+}
+
 /** Remove the card if one is up. Idempotent. */
 export function dismissBootProgress(): void {
   if (overlay !== null) {

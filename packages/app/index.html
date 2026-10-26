@@ -2,6 +2,63 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Errors before the app's own capture installs, a module that failed to load or to evaluate
+      // included: kept here for `diag/capture/boot-faults.ts`, and in localStorage for the next start
+      // when the app never comes up. A classic script, so it runs before the module graph.
+      (() => {
+        const KEY = 'open-northland.boot-faults';
+        const MAX_FAULTS = 5;
+        // A report id: 128 random bits as lowercase hex.
+        const ID_BYTES = 16;
+        const HEX = 16;
+        const HEX_DIGITS = 2;
+        let stored = [];
+        try {
+          stored = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+        } catch {}
+        const faults = [];
+        const id = () =>
+          Array.from(crypto.getRandomValues(new Uint8Array(ID_BYTES)), (byte) =>
+            byte.toString(HEX).padStart(HEX_DIGITS, '0'),
+          ).join('');
+        const keep = (name, message, stack, source) => {
+          if (faults.length >= MAX_FAULTS) return;
+          faults.push({ id: id(), at: new Date().toISOString(), name: String(name), message: String(message), stack, source });
+          try {
+            localStorage.setItem(KEY, JSON.stringify(stored.concat(faults)));
+          } catch {}
+        };
+        const onError = (event) => {
+          const target = event.target;
+          if (target?.tagName === 'SCRIPT') {
+            keep('LoadError', 'a script failed to load', undefined, target.src);
+            return;
+          }
+          if (target !== window) return;
+          const error = event.error;
+          keep(error?.name ?? 'Error', event.message, error?.stack, `${event.filename}:${event.lineno}:${event.colno}`);
+        };
+        const onRejection = (event) => {
+          const reason = event.reason;
+          const isError = reason instanceof Error;
+          keep(isError ? reason.name : 'Error', isError ? reason.message : String(reason), isError ? reason.stack : undefined);
+        };
+        addEventListener('error', onError, true);
+        addEventListener('unhandledrejection', onRejection);
+        window.__onBootFaults = {
+          stored,
+          faults,
+          stop: () => {
+            removeEventListener('error', onError, true);
+            removeEventListener('unhandledrejection', onRejection);
+            try {
+              localStorage.removeItem(KEY);
+            } catch {}
+          },
+        };
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="An open-source engine for Cultures - 8th Wonder of the World." />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />

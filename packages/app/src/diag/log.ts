@@ -56,6 +56,7 @@ export class DiagLog {
   private readonly channelConsoleLevels = new Map<string, DiagLevel | 'silent'>();
   /** Entries oldest first; length <= ringCapacity. */
   private readonly ring: DiagEntry[] = [];
+  private total = 0;
 
   constructor(opts: DiagLogOptions = {}) {
     this.ringCapacity = opts.ringCapacity ?? DEFAULT_RING_CAPACITY;
@@ -76,6 +77,7 @@ export class DiagLog {
       ...(data !== undefined ? { data: toJsonSafe(data) } : {}),
     };
     this.ring.push(entry);
+    this.total++;
     while (this.ring.length > this.ringCapacity) this.ring.shift();
     const threshold = this.channelConsoleLevels.get(channel) ?? this.consoleLevel;
     if (threshold !== 'silent' && LEVEL_RANK[level] >= LEVEL_RANK[threshold]) {
@@ -108,6 +110,16 @@ export class DiagLog {
   /** All retained entries, oldest first; a copy, so the ring stays private. */
   entries(): readonly DiagEntry[] {
     return [...this.ring];
+  }
+
+  /** The newest `count` entries, oldest first. */
+  tail(count: number): readonly DiagEntry[] {
+    return count <= 0 ? [] : this.ring.slice(-count);
+  }
+
+  /** Every entry ever logged, the dropped ones included; it moves whenever the ring does. */
+  get written(): number {
+    return this.total;
   }
 }
 

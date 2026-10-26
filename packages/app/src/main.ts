@@ -1,3 +1,4 @@
+import { installFailureCapture } from './diag/capture/install.js';
 import { installCrashCapture, logBootHeader } from './diag/index.js';
 import { runEntry } from './launch.js';
 import { installUpdateWatcher } from './update/watcher.js';
@@ -10,8 +11,10 @@ import { installNavigationGuard } from './view/platform/navigation-guard.js';
  * touch-only device has passed its notice. All sim and render wiring lives in the entries; this file
  * only opens the first one.
  */
-logBootHeader();
+// Capture first, so an error from here on, the boot header's included, is reported.
 installCrashCapture();
+installFailureCapture();
+logBootHeader();
 installUpdateWatcher();
 installNavigationGuard();
 // The right button is a game button everywhere, DOM overlays included: a right press that opens the

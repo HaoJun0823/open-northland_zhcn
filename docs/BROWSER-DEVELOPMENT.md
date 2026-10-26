@@ -91,7 +91,7 @@ Combine flags, for example `?debug=profile,trace`.
 | `missions` | Mission execution inspector |
 | `playtest` | Local editable-session preparation, event journal and named checkpoints |
 | `notices` | One notification of each type per second on the player's entities; use `?scene=sandbox&debug=notices` |
-| `crash`, `crash-worker`, `freeze` | Five seconds into a `?map=` game: an uncaught main-thread error, an uncaught simulation worker error (the game stops), or a 12 s main-thread freeze; each raises the bug report dialog and, with automatic reports on, sends a real report to the API |
+| `crash`, `crash-worker`, `freeze` | Development server only. Five seconds into a `?map=` game: an uncaught main-thread error, an uncaught simulation worker error (the game stops), or a 12 s main-thread freeze; each raises the bug report dialog and, with automatic reports on, sends a real report to the API |
 
 For a relay desync, export both clients' diagnostic bundles, build the workspace, then run:
 

@@ -666,6 +666,7 @@ export class ServedSession<E> {
       case 'diagLog':
         return diag.entries();
       case 'crashDrill':
+        if (!import.meta.env.DEV) return null;
         setTimeout(() => {
           throw new Error('crash drill: the simulation worker failed on purpose');
         });

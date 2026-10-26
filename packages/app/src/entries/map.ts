@@ -105,6 +105,7 @@ export async function renderMap(canvas: HTMLCanvasElement, params: URLSearchPara
   if (view.lifetime.aborted) end();
   else {
     view.lifetime.addEventListener('abort', end, { once: true });
-    scheduleFaultDrills(params, worker.crashDrill, view.lifetime);
+    // A release build drops the drills with this branch.
+    if (import.meta.env.DEV) scheduleFaultDrills(params, worker.crashDrill, view.lifetime);
   }
 }

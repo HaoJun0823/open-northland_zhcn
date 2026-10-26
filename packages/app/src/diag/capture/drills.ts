@@ -2,7 +2,7 @@ import { debugFlags } from '../debug-flags.js';
 import { FREEZE_REPORT_MS } from './watchdog/freeze-watch.js';
 
 /** `?debug=` flags that break a running game on purpose, so the bug report flow can be tried end to
- *  end, the live server included. */
+ *  end. Development servers only: a release build ignores them. */
 export const CRASH_DRILL_FLAG = 'crash';
 export const WORKER_CRASH_DRILL_FLAG = 'crash-worker';
 export const FREEZE_DRILL_FLAG = 'freeze';

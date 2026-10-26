@@ -89,6 +89,20 @@ describe('reportPreviousSessions', () => {
     expect(store.deleted.sort()).toEqual([short.id, stuck.id]);
   });
 
+  it('reports a game that ended unclean after a short boot freeze, and a boot that ended so not', async () => {
+    const played = bootFreeze('5'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
+    const booted = bootFreeze('6'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
+    store.records = [played, booted];
+    const marker = { startedAt: LONG_AGO - 1000, beatAt: LONG_AGO + 30_000, visible: true };
+    writeMarker({ id: played.id, ...marker, context: { ...BOOTING, inGame: true, booting: false } });
+    writeMarker({ id: booted.id, ...marker, context: BOOTING });
+    await reportPreviousSessions(OWN, null);
+    expect(problems.map((problem) => [problem.trigger, problem.earlier?.id])).toEqual([
+      ['unclean-exit', played.id],
+    ]);
+    expect(store.deleted.sort()).toEqual([played.id, booted.id]);
+  });
+
   it("forgets the shell's hang of a short boot freeze, and leaves this page's own hang to it", async () => {
     const freeze = bootFreeze('c'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
     store.records = [freeze];

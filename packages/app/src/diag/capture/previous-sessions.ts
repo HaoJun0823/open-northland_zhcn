@@ -119,14 +119,16 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
   for (const record of records) if (nowMs - record.seenAt <= MARKER_STALE_MS) liveTabs.add(record.tabId);
   for (const marker of markers) {
     const freeze = records.find((record) => record.tabId === marker.id) ?? null;
-    const verdict = liveTabs.has(marker.id)
-      ? ({ kind: 'live' } as const)
-      : judgeMarker(marker, { nowMs, previous, desktopFaults, freezeId: freeze?.id ?? null });
-    if (verdict.kind === 'live') {
+    const facts = { nowMs, previous, desktopFaults, freezeId: freeze?.id ?? null };
+    const judged = liveTabs.has(marker.id) ? ({ kind: 'live' } as const) : judgeMarker(marker, facts);
+    if (judged.kind === 'live') {
       liveTabs.add(marker.id);
       continue;
     }
     const quietFreeze = freeze !== null && !worthReport(freeze);
+    // A short boot freeze says nothing of how the page ended: it ends as it would without the record.
+    const verdict =
+      judged.kind === 'freeze' && quietFreeze ? judgeMarker(marker, { ...facts, freezeId: null }) : judged;
     if (verdict.kind === 'desktop') {
       const matched = pending.filter((fault) => verdict.faultIds.includes(fault.id));
       const hangs = quietFreeze ? matched.filter((fault) => fault.trigger === 'renderer-unresponsive') : [];
@@ -144,7 +146,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
           },
         },
       });
-    } else if (verdict.kind === 'freeze' && freeze !== null && !quietFreeze) reportFreeze(freeze, marker);
+    } else if (verdict.kind === 'freeze' && freeze !== null) reportFreeze(freeze, marker);
     else if (verdict.kind === 'unclean-exit') reportUncleanExit(marker);
     if (freeze !== null) finished.push(freeze.id);
     removeMarker(marker.id);

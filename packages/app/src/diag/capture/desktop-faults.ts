@@ -89,6 +89,15 @@ export async function reportDesktopFaults(
       ...(alsoRecorded.length === 0 ? {} : { facts: { ...extras.facts, alsoRecorded } }),
     }),
   );
+  await clearDesktopFaults(faults, group);
+}
+
+/** Let the shell forget `group` unreported. */
+export async function clearDesktopFaults(
+  faults: DesktopFaults,
+  group: readonly DesktopFault[],
+): Promise<void> {
+  if (group.length === 0) return;
   const ids = group.map((fault) => fault.id);
   try {
     await faults.clear(ids);

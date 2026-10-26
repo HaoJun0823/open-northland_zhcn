@@ -8,6 +8,21 @@ export const WATCHDOG_BEAT_MS = 1000;
  *  enough that a player waiting on a frozen game has not given up and closed the tab yet. */
 export const FREEZE_REPORT_MS = 8000;
 
+/** A boot's long steps (decoding a map, building atlases, compiling shaders) block a slow machine's
+ *  page for 8 to 20 s while its card says it is loading. A boot silent three times that long is stuck,
+ *  not slow. */
+export const BOOT_FREEZE_REPORT_MS = 60_000;
+
+/** The first frames after a boot's card comes down still upload its textures and compile its
+ *  shaders, which blocks a slow machine as the boot itself does: a freeze that began this soon after
+ *  counts as the boot's. */
+export const BOOT_GRACE_MS = 3000;
+
+/** A freeze of `lastedMs` is worth a report; one that began `booting` only when it lasted long. */
+export function freezeWorthReport(lastedMs: number, booting: boolean): boolean {
+  return lastedMs >= (booting ? BOOT_FREEZE_REPORT_MS : FREEZE_REPORT_MS);
+}
+
 export interface FreezeReports {
   /** The page went silent while visible, `silentMs` ago, last beating with `context`. */
   frozen(silentMs: number, context: CaptureContext | null): void;

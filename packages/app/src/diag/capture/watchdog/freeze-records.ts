@@ -10,10 +10,9 @@ export interface FreezeRecord {
   readonly tabId: string;
   /** Epoch milliseconds of the page's last heartbeat. */
   readonly frozenAt: number;
-  /** How long the page had been silent when the record was made. */
-  readonly silentMs: number;
   /** Epoch milliseconds the watchdog last rewrote the record: it does while the freeze lasts, so a
-   *  record seen recently belongs to a tab still frozen, not to one that was closed. */
+   *  record seen recently belongs to a tab still frozen, not to one that was closed, and the freeze
+   *  lasted at least `seenAt - frozenAt`. */
   readonly seenAt: number;
   readonly context: CaptureContext;
 }

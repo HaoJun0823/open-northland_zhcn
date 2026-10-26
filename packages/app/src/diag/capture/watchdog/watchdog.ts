@@ -2,9 +2,10 @@ import { REPORT_LIMITS } from '@open-northland/data';
 import { errorText } from '../../error-text.js';
 import { diag } from '../../log.js';
 import { reportProblem } from '../../report/problem.js';
-import { type CaptureContext, contextRoute } from '../context.js';
-import { pendingDesktopFaults, reportDesktopFaults } from '../desktop-faults.js';
+import { type CaptureContext, captureContext, contextRoute } from '../context.js';
+import { clearDesktopFaults, pendingDesktopFaults, reportDesktopFaults } from '../desktop-faults.js';
 import { reportLogOf } from '../session-marker.js';
+import { freezeWorthReport } from './freeze-watch.js';
 import type { Thaw, ToWatchdog } from './protocol.js';
 
 /** How long after a thaw the desktop shell has to note its own view of the hang: it records the
@@ -41,13 +42,13 @@ function thawed(thaw: Thaw): void {
     freezeMs: Math.round(freezeMs),
     ...(context === null ? {} : { entry: context.entry, worldId: context.worldId, tick: context.tick }),
   };
-  // A boot's long steps (decoding a map, building atlases, compiling shaders) block the page on a slow
-  // machine, and its card says it is loading: logged above, no bug. A boot that never ends leaves its
-  // freeze record behind, which the next start reports.
-  if (context?.booting === true) return;
+  // A short freeze of a boot is only logged; one the player ended by closing the tab leaves its record
+  // to the next start.
+  const booting = context?.booting === true || captureContext().booting;
+  const report = freezeWorthReport(freezeMs, booting);
   const faults = window.desktop?.faults;
   if (faults === undefined) {
-    reportProblem({ trigger: 'main-freeze', facts });
+    if (report) reportProblem({ trigger: 'main-freeze', facts });
     return;
   }
   // The shell records a hang only once it lasted about twice the watchdog's threshold: when it did,
@@ -59,6 +60,8 @@ function thawed(thaw: Thaw): void {
         const atMs = Date.parse(fault.at);
         return fault.trigger === 'renderer-unresponsive' && atMs >= thaw.frozenAt && atMs <= nowMs;
       });
+      // A freeze this page leaves unreported takes the shell's record of it along.
+      if (!report) return clearDesktopFaults(faults, hangs);
       if (hangs.length === 0) {
         reportProblem({ trigger: 'main-freeze', facts });
         return;

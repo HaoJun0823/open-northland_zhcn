@@ -30,14 +30,7 @@ const watch = new FreezeWatch(
       if (tabId === null || context === null) return;
       const id = randomReportId();
       const nowMs = Date.now();
-      const stored: FreezeRecord = {
-        id,
-        tabId,
-        frozenAt: nowMs - silentMs,
-        silentMs,
-        seenAt: nowMs,
-        context,
-      };
+      const stored: FreezeRecord = { id, tabId, frozenAt: nowMs - silentMs, seenAt: nowMs, context };
       // A failed write loses only the report of a page that never comes back.
       record = { stored, written: putFreezeRecord(stored).catch(() => undefined) };
     },

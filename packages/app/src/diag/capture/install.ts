@@ -114,7 +114,7 @@ export function installFailureCapture(): void {
     beat();
   });
   const sweep = (from: PreviousPage | null): void =>
-    void reportPreviousSessions(id, from).catch((error: unknown) =>
+    void reportPreviousSessions({ id, startedAt }, from).catch((error: unknown) =>
       diag.warn('crash', `earlier sessions could not be reported: ${errorText(error)}`),
     );
   sweep(previous);

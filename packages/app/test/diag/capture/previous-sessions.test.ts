@@ -1,0 +1,104 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CaptureContext } from '../../../src/diag/capture/context.js';
+import { reportPreviousSessions } from '../../../src/diag/capture/previous-sessions.js';
+import { writeMarker } from '../../../src/diag/capture/session-marker.js';
+import { MARKER_STALE_MS } from '../../../src/diag/capture/unclean-exit.js';
+import type { FreezeRecord } from '../../../src/diag/capture/watchdog/freeze-records.js';
+import { BOOT_FREEZE_REPORT_MS } from '../../../src/diag/capture/watchdog/freeze-watch.js';
+import { type Problem, setProblemSink } from '../../../src/diag/report/problem.js';
+import type { DesktopFault, DesktopFaults } from '../../../src/view/platform/desktop-faults.js';
+
+const store = vi.hoisted(() => ({ records: [] as unknown[], deleted: [] as string[] }));
+vi.mock('../../../src/diag/capture/watchdog/freeze-records.js', () => ({
+  readFreezeRecords: () => Promise.resolve(store.records),
+  deleteFreezeRecords: (ids: readonly string[]) => {
+    store.deleted.push(...ids);
+    return Promise.resolve();
+  },
+}));
+
+const NOW = 10_000_000;
+const LONG_AGO = NOW - 100 * MARKER_STALE_MS;
+const OWN = { id: '0'.repeat(32), startedAt: NOW - 1000 };
+const BOOTING: CaptureContext = {
+  entry: 'map',
+  search: '?map=x',
+  worldId: null,
+  tick: null,
+  inGame: false,
+  booting: true,
+};
+
+function bootFreeze(id: string, lastedMs: number): FreezeRecord {
+  return { id, tabId: id, frozenAt: LONG_AGO, seenAt: LONG_AGO + lastedMs, context: BOOTING };
+}
+
+function hang(id: string, atMs: number): DesktopFault {
+  return {
+    id,
+    trigger: 'renderer-unresponsive',
+    at: new Date(atMs).toISOString(),
+    reason: 'unresponsive',
+    exitCode: null,
+    durationMs: null,
+    stack: null,
+    url: null,
+  };
+}
+
+let problems: Problem[];
+
+beforeEach(() => {
+  vi.spyOn(Date, 'now').mockReturnValue(NOW);
+  problems = [];
+  setProblemSink((problem) => problems.push(problem));
+  store.records = [];
+  store.deleted = [];
+  localStorage.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  Reflect.deleteProperty(window, 'desktop');
+});
+
+describe('reportPreviousSessions', () => {
+  it('reports a boot closed while frozen only once it froze for long, for as long as it froze', async () => {
+    const short = bootFreeze('a'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
+    const stuck = bootFreeze('b'.repeat(32), BOOT_FREEZE_REPORT_MS + 5000);
+    store.records = [short, stuck];
+    await reportPreviousSessions(OWN, null);
+    expect(problems.map((problem) => [problem.earlier?.id, problem.facts?.freezeMs])).toEqual([
+      [stuck.id, BOOT_FREEZE_REPORT_MS + 5000],
+    ]);
+    expect(store.deleted.sort()).toEqual([short.id, stuck.id]);
+  });
+
+  it("forgets the shell's hang of a short boot freeze, and leaves this page's own hang to it", async () => {
+    const freeze = bootFreeze('c'.repeat(32), BOOT_FREEZE_REPORT_MS / 4);
+    store.records = [freeze];
+    writeMarker({
+      id: freeze.id,
+      startedAt: LONG_AGO - 1000,
+      beatAt: LONG_AGO,
+      visible: true,
+      context: BOOTING,
+    });
+    const theirs = hang('d'.repeat(32), LONG_AGO + 1000);
+    const ours = hang('e'.repeat(32), OWN.startedAt + 1);
+    const cleared: string[] = [];
+    const faults: DesktopFaults = {
+      pending: () => Promise.resolve([theirs, ours]),
+      clear: (ids) => {
+        cleared.push(...ids);
+        return Promise.resolve();
+      },
+      versions: () => Promise.resolve({}),
+    };
+    Object.defineProperty(window, 'desktop', { value: { faults }, configurable: true });
+    await reportPreviousSessions(OWN, null);
+    expect(problems).toEqual([]);
+    expect(cleared).toEqual([theirs.id]);
+  });
+});

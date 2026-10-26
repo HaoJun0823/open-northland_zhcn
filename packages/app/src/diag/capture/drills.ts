@@ -1,5 +1,5 @@
 import { debugFlags } from '../debug-flags.js';
-import { FREEZE_REPORT_MS } from './watchdog/freeze-watch.js';
+import { BOOT_GRACE_MS, FREEZE_REPORT_MS, WATCHDOG_BEAT_MS } from './watchdog/freeze-watch.js';
 
 /** `?debug=` flags that break a running game on purpose, so the bug report flow can be tried end to
  *  end. Development servers only: a release build ignores them. */
@@ -7,8 +7,8 @@ export const CRASH_DRILL_FLAG = 'crash';
 export const WORKER_CRASH_DRILL_FLAG = 'crash-worker';
 export const FREEZE_DRILL_FLAG = 'freeze';
 
-/** Long enough for the game to draw its first frames. */
-const DRILL_DELAY_MS = 5000;
+/** Past the boot's grace, which the page samples once a beat, so the drill's freeze is no boot's. */
+const DRILL_DELAY_MS = BOOT_GRACE_MS + 2 * WATCHDOG_BEAT_MS;
 /** Past the watchdog's threshold, so the freeze is reported and not only logged. */
 const FREEZE_DRILL_MS = FREEZE_REPORT_MS + 4000;
 

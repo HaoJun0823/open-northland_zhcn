@@ -4,7 +4,12 @@ import { errorText } from '../error-text.js';
 import { diag } from '../log.js';
 import { reportProblem } from '../report/problem.js';
 import { type CaptureContext, contextRoute } from './context.js';
-import { type FaultExtras, pendingDesktopFaults, reportDesktopFaults } from './desktop-faults.js';
+import {
+  clearDesktopFaults,
+  type FaultExtras,
+  pendingDesktopFaults,
+  reportDesktopFaults,
+} from './desktop-faults.js';
 import {
   parseContext,
   readLogTail,
@@ -14,6 +19,7 @@ import {
 } from './session-marker.js';
 import { judgeMarker, MARKER_STALE_MS, type PreviousPage } from './unclean-exit.js';
 import { deleteFreezeRecords, type FreezeRecord, readFreezeRecords } from './watchdog/freeze-records.js';
+import { freezeWorthReport } from './watchdog/freeze-watch.js';
 
 function contextFacts(context: CaptureContext): Record<string, unknown> {
   return { entry: context.entry, worldId: context.worldId, tick: context.tick };
@@ -21,11 +27,11 @@ function contextFacts(context: CaptureContext): Record<string, unknown> {
 
 function parseFreezeRecord(value: unknown): FreezeRecord | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { id, tabId, frozenAt, silentMs, seenAt, context } = value as Record<string, unknown>;
+  const { id, tabId, frozenAt, seenAt, context } = value as Record<string, unknown>;
   if (typeof id !== 'string' || !REPORT_ID.test(id) || typeof tabId !== 'string') return null;
-  if (typeof frozenAt !== 'number' || typeof silentMs !== 'number' || typeof seenAt !== 'number') return null;
+  if (typeof frozenAt !== 'number' || typeof seenAt !== 'number') return null;
   const parsed = parseContext(context);
-  return parsed === null ? null : { id, tabId, frozenAt, silentMs, seenAt, context: parsed };
+  return parsed === null ? null : { id, tabId, frozenAt, seenAt, context: parsed };
 }
 
 async function freezeRecords(): Promise<FreezeRecord[]> {
@@ -41,12 +47,21 @@ async function freezeRecords(): Promise<FreezeRecord[]> {
   }
 }
 
+/** Frozen for at least this long: the watchdog rewrote the record until the page was gone. */
+function lastedMs(record: FreezeRecord): number {
+  return record.seenAt - record.frozenAt;
+}
+
+/** A boot the player gave up on before it got anywhere near stuck is forgotten unreported. */
+function worthReport(record: FreezeRecord): boolean {
+  return freezeWorthReport(lastedMs(record), record.context.booting);
+}
+
 function reportFreeze(record: FreezeRecord, marker: SessionMarker | null): void {
   const log = marker === null ? null : readLogTail(marker.id);
   reportProblem({
     trigger: 'main-freeze',
-    // Frozen for at least this long; the page never beat again, so the whole length is unknown.
-    facts: { freezeMs: record.silentMs, ended: 'closed', ...contextFacts(record.context) },
+    facts: { freezeMs: lastedMs(record), ended: 'closed', ...contextFacts(record.context) },
     earlier: {
       id: record.id,
       at: new Date(record.frozenAt).toISOString(),
@@ -70,22 +85,33 @@ function reportUncleanExit(marker: SessionMarker): void {
   });
 }
 
+/** The page running this sweep. */
+export interface OwnPage {
+  readonly id: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+}
+
 /**
  * Report what earlier pages left: the shell's faults, freezes that never ended and pages that ended
- * without closing, each once, then forget them. Markers of tabs still running stay; `ownId` is this
- * page's.
+ * without closing, each once, then forget them. Markers of tabs still running stay, and so does the
+ * shell's record of this page's own hang, which this page reports when it thaws.
  */
-export async function reportPreviousSessions(ownId: string, previous: PreviousPage | null): Promise<void> {
+export async function reportPreviousSessions(own: OwnPage, previous: PreviousPage | null): Promise<void> {
   const faults = window.desktop?.faults;
-  const pending: readonly DesktopFault[] = faults === undefined ? [] : await pendingDesktopFaults(faults);
+  const pending = (faults === undefined ? [] : await pendingDesktopFaults(faults)).filter(
+    (fault) => fault.trigger !== 'renderer-unresponsive' || Date.parse(fault.at) < own.startedAt,
+  );
   const records = await freezeRecords();
-  const markers = readMarkers(ownId);
+  const markers = readMarkers(own.id);
   const nowMs = Date.now();
   const desktopFaults = pending.map((fault) => ({ id: fault.id, atMs: Date.parse(fault.at) }));
   /** Each marker the shell's faults matched: those faults, reported as one with the marker's log. */
   const groups: { readonly ids: readonly string[]; readonly extras: FaultExtras }[] = [];
+  /** The shell's hangs of freezes not worth a report, forgotten with them. */
+  const dismissed: DesktopFault[] = [];
   const liveTabs = new Set<string>();
-  const reported: string[] = [];
+  const finished: string[] = [];
   // A tab whose watchdog still rewrites its freeze record is frozen right now, not gone: it reports
   // the freeze itself when it thaws.
   for (const record of records) if (nowMs - record.seenAt <= MARKER_STALE_MS) liveTabs.add(record.tabId);
@@ -98,37 +124,42 @@ export async function reportPreviousSessions(ownId: string, previous: PreviousPa
       liveTabs.add(marker.id);
       continue;
     }
+    const quietFreeze = freeze !== null && !worthReport(freeze);
     if (verdict.kind === 'desktop') {
+      const matched = pending.filter((fault) => verdict.faultIds.includes(fault.id));
+      const hangs = quietFreeze ? matched.filter((fault) => fault.trigger === 'renderer-unresponsive') : [];
+      dismissed.push(...hangs);
       const log = readLogTail(marker.id);
       groups.push({
-        ids: verdict.faultIds,
+        ids: matched.filter((fault) => !hangs.includes(fault)).map((fault) => fault.id),
         extras: {
           ...(log === null ? {} : { log }),
           route: contextRoute(marker.context),
           facts: {
             ...contextFacts(marker.context),
-            ...(freeze === null ? {} : { freezeMs: freeze.silentMs }),
+            ...(freeze === null ? {} : { freezeMs: lastedMs(freeze) }),
           },
         },
       });
-    } else if (verdict.kind === 'freeze' && freeze !== null) reportFreeze(freeze, marker);
+    } else if (verdict.kind === 'freeze' && freeze !== null && !quietFreeze) reportFreeze(freeze, marker);
     else if (verdict.kind === 'unclean-exit') reportUncleanExit(marker);
-    if (freeze !== null) reported.push(freeze.id);
+    if (freeze !== null) finished.push(freeze.id);
     removeMarker(marker.id);
   }
   // A record whose page left no marker still names a freeze nobody saw end.
   for (const record of records) {
-    if (record.tabId === ownId || liveTabs.has(record.tabId) || reported.includes(record.id)) continue;
-    reportFreeze(record, null);
-    reported.push(record.id);
+    if (record.tabId === own.id || liveTabs.has(record.tabId) || finished.includes(record.id)) continue;
+    if (worthReport(record)) reportFreeze(record, null);
+    finished.push(record.id);
   }
-  if (reported.length > 0) {
-    await deleteFreezeRecords(reported).catch((error: unknown) =>
-      diag.warn('freeze', `reported freeze records stayed: ${errorText(error)}`),
+  if (finished.length > 0) {
+    await deleteFreezeRecords(finished).catch((error: unknown) =>
+      diag.warn('freeze', `finished freeze records stayed: ${errorText(error)}`),
     );
   }
   if (faults === undefined) return;
-  const grouped = new Set<string>();
+  await clearDesktopFaults(faults, dismissed);
+  const grouped = new Set<string>(dismissed.map((fault) => fault.id));
   for (const { ids, extras } of groups) {
     const group = pending.filter((fault) => ids.includes(fault.id) && !grouped.has(fault.id));
     for (const fault of group) grouped.add(fault.id);

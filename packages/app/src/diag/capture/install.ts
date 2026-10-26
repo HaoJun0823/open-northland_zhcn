@@ -4,7 +4,7 @@ import { takeBootFaults } from './boot-faults.js';
 import { captureContext } from './context.js';
 import { reportPreviousSessions } from './previous-sessions.js';
 import { randomReportId } from './report-id.js';
-import { removeMarker, writeLogTail, writeMarker } from './session-marker.js';
+import { markerKept, removeMarker, writeLogTail, writeMarker } from './session-marker.js';
 import { MARKER_BEAT_MS, MARKER_STALE_MS, type PreviousPage } from './unclean-exit.js';
 import { WATCHDOG_BEAT_MS } from './watchdog/freeze-watch.js';
 import { openWatchdog } from './watchdog/watchdog.js';
@@ -91,8 +91,10 @@ export function installFailureCapture(): void {
     watchdog?.beat(visible, context);
     if (closed || (beats++ % BEATS_PER_MARKER !== 0 && visible === markedVisible)) return;
     markedVisible = visible;
+    // Another tab's sweep removes a hidden tab's marker with its tail: both come back together.
+    const restored = !markerKept(id);
     writeMarker({ id, startedAt, beatAt: Date.now(), visible, context });
-    if (diag.written !== tailWritten) {
+    if (restored || diag.written !== tailWritten) {
       tailWritten = diag.written;
       writeLogTail(id, diag);
     }

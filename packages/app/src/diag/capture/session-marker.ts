@@ -41,6 +41,15 @@ export function writeMarker(marker: SessionMarker): void {
   attempt(() => localStorage.setItem(MARKER_PREFIX + marker.id, JSON.stringify(marker)));
 }
 
+/** The page's marker is in storage; false where storage cannot be read. */
+export function markerKept(id: string): boolean {
+  try {
+    return localStorage.getItem(MARKER_PREFIX + id) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function removeMarker(id: string): void {
   attempt(() => {
     localStorage.removeItem(MARKER_PREFIX + id);

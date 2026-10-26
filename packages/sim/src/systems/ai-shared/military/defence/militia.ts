@@ -1,6 +1,7 @@
 import {
   AttackOrder,
   Building,
+  diplomacyStance,
   Garrison,
   Health,
   hasMissionBehaviour,
@@ -145,7 +146,7 @@ export function musterMilitia(
   }
 }
 
-/** Keep scout chaser `e` on `quarry` while the scout stands alive inside his leash, or stand him down
+/** Keep scout chaser `e` on `quarry` while the scout stands alive and hostile inside his leash, or stand him down
  *  once the hold has run out since; answers whether he is still armed. */
 function keepChasing(
   world: World,
@@ -158,6 +159,7 @@ function keepChasing(
   const near =
     world.isAlive(quarry) &&
     (world.tryGet(quarry, Health)?.hitpoints ?? 0) > 0 &&
+    stillEnemy(world, e, quarry) &&
     world.has(quarry, Position) &&
     !strayedPastLeash(world, terrain, member.leash, quarry);
   if (near) {
@@ -168,6 +170,12 @@ function keepChasing(
     return true;
   }
   return ctx.tick < member.releaseTick || !standDown(world, ctx, e, member);
+}
+
+/** Whether `quarry` still belongs to an enemy of `e`'s seat; a truce or a handover ends the chase. */
+function stillEnemy(world: World, e: Entity, quarry: Entity): boolean {
+  const side = world.tryGet(quarry, Owner)?.player;
+  return side !== undefined && diplomacyStance(world, side, world.get(e, Owner).player) === 'enemy';
 }
 
 /** Push `e`'s release `hold` ticks past this decision. */

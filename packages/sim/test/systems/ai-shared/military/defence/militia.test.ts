@@ -11,6 +11,7 @@ import {
   SeatOffenders,
   Settler,
   Sheltering,
+  setDiplomacyStance,
 } from '../../../../../src/components/index.js';
 import type { Entity } from '../../../../../src/ecs/world.js';
 import {
@@ -369,6 +370,43 @@ describe('computer defence - scout chasers', () => {
 
     expect(militia(sim)).toEqual([]);
     for (const e of chasers) expect(sim.world.get(e, Settler).jobType).toBe(trades.get(e));
+  });
+
+  it('stands its chasers down after the hold once the scout is no longer an enemy, though he stays', () => {
+    const { sim, hq } = town();
+    control(sim, 'computer');
+    const people = crowd(sim, CROWD);
+    const trades = new Map(people.map((e) => [e, sim.world.get(e, Settler).jobType]));
+    scoutAt(sim, hq, RAIDER_OFFSET);
+    decide(sim);
+    const chasers = militia(sim);
+    expect(chasers).toHaveLength(SCOUT_CHASERS_PER_SCOUT);
+
+    setDiplomacyStance(sim.world, SEAT, FOE, 'neutral');
+    setDiplomacyStance(sim.world, FOE, SEAT, 'neutral');
+    const release = DEFENCE_TICK + decisionsOver(SCOUT_CHASE_HOLD_TICKS) * COMPUTER_DECISION_INTERVAL_TICKS;
+    decide(sim, release);
+
+    expect(militia(sim)).toEqual([]);
+    for (const e of chasers) expect(sim.world.get(e, Settler).jobType).toBe(trades.get(e));
+  });
+
+  it('keeps its scout chasers on their quarry through a save', () => {
+    const { sim, hq } = town();
+    control(sim, 'computer');
+    crowd(sim, CROWD);
+    const scout = scoutAt(sim, hq, RAIDER_OFFSET);
+    decide(sim);
+
+    const restored = restoreSimulation(parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(sim)))), {
+      content: sim.content,
+      map: grassNodeMap(MAP.width, MAP.height),
+    });
+
+    expect(restored.hashState()).toBe(sim.hashState());
+    const chasers = militia(restored);
+    expect(chasers).toHaveLength(SCOUT_CHASERS_PER_SCOUT);
+    for (const e of chasers) expect(restored.world.get(e, Militia).quarry).toBe(scout);
   });
 
   it('keeps the same chasers while a scout paces the rim, and arms nobody new when he comes back to it', () => {

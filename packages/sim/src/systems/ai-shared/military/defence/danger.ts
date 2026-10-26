@@ -19,10 +19,11 @@ import { combatGridOf, playerBit } from '../../../conflict/combat-grid.js';
 import { towerPostFor } from '../../../conflict/tower-post.js';
 import type { SystemContext } from '../../../context.js';
 import { isAdultSettler } from '../../../family/eligibility.js';
+import { ownedFightersOf } from '../../../movement/collision/owned-fighters.js';
 import { isAnimalTribe, isFighterJob, isScoutJob, shelterCapacityOf } from '../../../readviews/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { assignedWorkers } from '../../../stores/assigned-workers.js';
-import { isBuilt, ownedSettlers } from '../../seat-roster.js';
+import { isBuilt } from '../../seat-roster.js';
 import { fighterWeaponClass } from '../census.js';
 import { garrisonSlots } from './posts.js';
 import {
@@ -129,14 +130,14 @@ export function unitDanger(world: World, ctx: SystemContext, e: Entity): number 
 /**
  * What the seat's fighters add to every zone's defence: each the danger he would pose himself, by the
  * weights its enemies are weighed by. Every live fighter of the seat counts, whether idle, already in the
- * fight or still waiting for a weapon, but the men marching away (`away`) and those holding a tower post,
+ * fight or still waiting for a weapon, but the men away (`away`: marching off or on a map-AI task) and those holding a tower post,
  * whose tower counts for them where it stands.
  */
 function fighterDefence(world: World, ctx: SystemContext, player: number, away: ReadonlySet<Entity>): number {
   let defence = 0;
-  for (const e of ownedSettlers(world, player)) {
+  for (const e of ownedFightersOf(world, ctx.content, player)) {
     const jobType = world.get(e, Settler).jobType;
-    if (jobType === null || !isFighterJob(ctx.content, jobType) || away.has(e)) continue;
+    if (jobType === null || away.has(e)) continue;
     if (towerPostFor(world, ctx, e, jobType) !== null) continue;
     defence += unitDanger(world, ctx, e);
   }

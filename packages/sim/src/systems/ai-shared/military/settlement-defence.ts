@@ -146,7 +146,7 @@ function deriveSettlementDefence(
         owned,
         raiders,
         liveOffenders(world, player, ctx.tick),
-        marching,
+        new Set([...marching, ...claimed]),
       )
     : NO_THREAT;
   // A raid sends the whole free band, intruders among the raiders' targets.

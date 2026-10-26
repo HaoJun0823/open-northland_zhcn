@@ -27,17 +27,18 @@ ARG API_BUILD=
 ENV NODE_ENV=production \
     PORT=8790 \
     ON_API_DATA_DIR=/data \
+    ON_API_REPORTS_DIR=/reports \
     API_BUILD=$API_BUILD
 
 ARG SOURCE_URL=https://github.com/s-nems/open-northland
 LABEL org.opencontainers.image.source=$SOURCE_URL \
-      org.opencontainers.image.description="OpenNorthland API: the map catalogue and its converted maps" \
+      org.opencontainers.image.description="OpenNorthland API: the map catalogue, its converted maps and bug report intake" \
       org.opencontainers.image.licenses=AGPL-3.0-or-later
 
 WORKDIR /app
 COPY --from=build /app /app
-RUN mkdir -p /data && chown node:node /data
-VOLUME /data
+RUN mkdir -p /data /reports && chown node:node /data /reports
+VOLUME /data /reports
 
 USER node
 EXPOSE 8790

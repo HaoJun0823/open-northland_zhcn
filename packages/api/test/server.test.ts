@@ -78,6 +78,7 @@ describe('api server', () => {
       converted: 0,
       pending: 0,
       failed: 0,
+      reports: null,
     });
     expect((await fetch(`${base}/v1/catalog`)).status).toBe(503);
     await sync();
@@ -92,6 +93,7 @@ describe('api server', () => {
       converted: 0,
       pending: 0,
       failed: 0,
+      reports: null,
     });
   });
 

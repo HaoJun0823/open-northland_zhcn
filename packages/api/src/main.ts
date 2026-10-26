@@ -8,6 +8,7 @@ import { ConversionService } from './conversion/service.js';
 import { ConversionStore } from './conversion/store.js';
 import { WorkerArchiveConverter } from './conversion/worker-converter.js';
 import { errorMessage, logLine } from './log.js';
+import { ReportEndpoint } from './reports/endpoint.js';
 import { type ApiServer, startApiServer } from './server.js';
 import { DataStore } from './store.js';
 
@@ -28,7 +29,15 @@ try {
     log: logLine,
   });
   await conversions.init();
-  server = await startApiServer({ ...config, store, content: conversions, files: conversions, log: logLine });
+  const reports = await ReportEndpoint.open(config.reports, logLine);
+  server = await startApiServer({
+    ...config,
+    store,
+    content: conversions,
+    files: conversions,
+    reports,
+    log: logLine,
+  });
   // The last good catalogue serves at once and converts from the kept archives; the first sync
   // replaces it when it completes. Its download URLs come from the raw pages it was made from.
   const stored = await store.readCatalog();
@@ -55,12 +64,15 @@ try {
     upstream: config.upstream,
     syncIntervalMs: config.syncIntervalMs,
     convertConcurrency: config.convertConcurrency,
+    reportsDir: config.reports.dir,
+    trustForwardedFor: config.reports.trustForwardedFor,
     irVersion: IR_VERSION,
     overlaidMaps: mapOverlays.size,
   });
   const running = server;
   stopAll = async () => {
     await Promise.all([running.close(), sync.stop(), conversions.stop()]);
+    await reports.close();
   };
 } catch (error) {
   logLine('start failed', { error: errorMessage(error) });

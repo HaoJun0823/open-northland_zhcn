@@ -59,6 +59,8 @@ map.dat
 
 # The API server's default data dir: the synced catalogue, raw upstream pages and thumbnails.
 /.api-data/
+# The API server's default bug report dir: players' reports, never committed.
+/.api-reports/
 /.api-upstream-cache/
 
 # Benchmark reports. Absolute timings only mean something against another run on the same machine,

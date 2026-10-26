@@ -7,6 +7,8 @@ import { ArchiveVerificationBusyError } from './conversion/archive-verifier.js';
 import { serveContent, serveKeptFile } from './http/files.js';
 import { pathOf, send, sendError, V1_HEADERS } from './http/response.js';
 import type { ContentSource, KeptFileSource } from './http/sources.js';
+import { type ReportEndpoint, reportTargetOf } from './reports/endpoint.js';
+import type { ReportStoreHealth } from './reports/store.js';
 import type { DataStore } from './store.js';
 
 export const HEALTH_PATH = '/healthz';
@@ -38,6 +40,8 @@ export interface ApiHealth {
   readonly converted: number;
   readonly pending: number;
   readonly failed: number;
+  /** The bug report store; null when the server takes no reports. */
+  readonly reports: ReportStoreHealth | null;
 }
 
 export interface ApiServerOptions {
@@ -50,6 +54,8 @@ export interface ApiServerOptions {
   readonly content?: ContentSource;
   /** Serves `/v1/maps/<id>/file`; without it every file request is a 404. */
   readonly files?: KeptFileSource;
+  /** Takes `POST /v1/reports[/<id>]`; without it those paths answer like any other `/v1` route. */
+  readonly reports?: ReportEndpoint;
   readonly log?: Log;
   readonly now?: () => Date;
 }
@@ -81,6 +87,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     converted: snapshot?.conversions.converted ?? 0,
     pending: snapshot?.conversions.pending ?? 0,
     failed: snapshot?.conversions.failed ?? 0,
+    reports: options.reports?.health() ?? null,
   });
 
   const serveThumbnail = async (
@@ -150,6 +157,13 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
   const serve = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const path = pathOf(request);
     const v1 = path.startsWith('/v1/');
+    const reportTarget = options.reports === undefined ? null : reportTargetOf(path);
+    if (reportTarget !== null && options.reports !== undefined) {
+      if (request.method === 'POST') await options.reports.handle(request, response, reportTarget);
+      else if (request.method === 'OPTIONS') options.reports.preflight(request, response);
+      else sendError(request, response, METHOD_NOT_ALLOWED, 'method not allowed', { allow: 'POST, OPTIONS' });
+      return;
+    }
     if (request.method === 'OPTIONS' && v1) {
       // A browser preflights a request whose `If-None-Match` it set itself.
       response

@@ -36,6 +36,7 @@ Report limits ([bug reports](#bug-reports)), each a positive integer:
 | `API_REPORT_IP_ADDENDA_HOURLY` | 6 addenda per client; three times that per IPv6 /56 |
 | `API_REPORT_GLOBAL_HOURLY` | 200 uploads kept from all clients |
 | `API_REPORT_GLOBAL_HOURLY_BYTES` | 268435456 (256 MiB from all clients: each upload's compressed body, or the files it decoded to when larger) |
+| `API_REPORT_IP_HOURLY_BYTES` | 16777216 (16 MiB of those bytes per client; three times that per IPv6 /56) |
 | `API_REPORT_FINGERPRINT_DAILY` | 10 stored reports per error fingerprint, one per client; reports with a comment or contact are not capped |
 | `API_REPORT_MAX_STORED_BYTES` | 2147483648 (2 GiB stored) |
 | `API_REPORT_MAX_STORED` | 20000 stored reports |
@@ -163,8 +164,9 @@ and `Vary: Origin`, and may read `Retry-After` (`Access-Control-Expose-Headers`)
 for up to 2 seconds so the client gets the answer; then the connection closes.
 
 Limits are in the table above. A wrong type answers 415 before any limit is spent. Per-client limits
-use sliding windows and are checked for the path's part before the body is read; a body the server
-cannot read or validate also spends the client's slot for the other part. The global hourly upload
+use sliding windows and are checked for the path's part, with the client's byte share, before the
+body is read; a body the server cannot read or validate also spends the client's slot for the other
+part. The global hourly upload
 count only keeps uploads that stored or counted something: a refused or aborted one gives its slot
 back. The report count cap stops new reports only; an addendum to a stored report is stopped by the
 byte cap alone. A write that would pass the byte cap, or a disk out of space, answers 507 as well.

@@ -23,12 +23,20 @@ export interface RateLimits {
   readonly ipAddendaPerHour: number;
   readonly uploadsPerHour: number;
   readonly uploadBytesPerHour: number;
+  readonly ipUploadBytesPerHour: number;
 }
 
-/** Upload times of one sender, oldest first, as long as they fall in that part's longest window. */
+/** Bytes counted at one time. */
+interface Received {
+  readonly time: number;
+  readonly bytes: number;
+}
+
+/** Upload times and bytes of one sender, oldest first, as long as they fall in their longest window. */
 interface SenderLog {
   readonly reports: number[];
   readonly addenda: number[];
+  readonly received: Received[];
 }
 
 /** The limiter's keys for one client: its own, and its IPv6 /56 shared with its neighbours. */
@@ -52,8 +60,8 @@ export class ReportLimiter {
   private readonly secret = randomBytes(KEY_SECRET_BYTES);
   private readonly senders = new Map<string, SenderLog>();
   private readonly uploads: number[] = [];
-  /** Compressed bytes read per upload, oldest first. */
-  private readonly received: { readonly time: number; readonly bytes: number }[] = [];
+  /** Bytes counted from all senders, oldest first. */
+  private readonly received: Received[] = [];
   private lastSweep = 0;
 
   constructor(private readonly limits: RateLimits) {}
@@ -67,17 +75,24 @@ export class ReportLimiter {
     };
   }
 
-  /** Before reading a body: refuses while a global hourly budget or the sender's limit for `part` is
-   *  spent, else takes a slot of each at once, so concurrent uploads cannot pass them. The bytes count
-   *  once read, so uploads in flight may overshoot the byte budget. */
+  /** Before reading a body: refuses while a global hourly budget or the sender's limit for `part` or
+   *  its share of the byte budget is spent, else takes a slot of each count at once, so concurrent
+   *  uploads cannot pass them. The bytes count once read, so uploads in flight may overshoot a byte
+   *  budget. */
   admit(sender: ReportSender, part: ReportPart, now: number): Limited | null {
     this.sweep(now);
     prune(this.uploads, now - HOUR_MS);
     const tiers = this.tiersOf(sender);
-    let wait = waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ?? this.bytesWait(now);
+    let wait =
+      waitFor(this.uploads, this.limits.uploadsPerHour, HOUR_MS, now) ??
+      bytesWait(this.received, this.limits.uploadBytesPerHour, now);
     for (const [key, factor] of tiers) {
       const known = this.senders.get(key);
-      wait ??= known === undefined ? null : this.partWait(known, part, factor, now);
+      wait ??=
+        known === undefined
+          ? null
+          : (this.partWait(known, part, factor, now) ??
+            bytesWait(known.received, this.limits.ipUploadBytesPerHour * factor, now));
     }
     if (wait !== null) return wait;
     this.uploads.push(now);
@@ -92,10 +107,11 @@ export class ReportLimiter {
     if (index !== -1) this.uploads.splice(index, 1);
   }
 
-  /** Counts bytes against the hourly budget: an upload's compressed body, read whole or cut at its
-   *  limit, and what its files take beyond that. */
-  countBytes(bytes: number, now: number): void {
+  /** Counts bytes against the hourly budget and the sender's share of it: an upload's compressed
+   *  body, read whole or cut at its limit, and what its files take beyond that. */
+  countBytes(sender: ReportSender, bytes: number, now: number): void {
     this.received.push({ time: now, bytes });
+    for (const [key] of this.tiersOf(sender)) this.senderLog(key).received.push({ time: now, bytes });
   }
 
   /** An upload the server could not read or validate also spends the sender's slot for the other
@@ -136,22 +152,10 @@ export class ReportLimiter {
     return part === 'report' ? sender.reports : sender.addenda;
   }
 
-  /** The wait until the bytes read in the last hour fall below the budget, or null now. */
-  private bytesWait(now: number): Limited | null {
-    while ((this.received[0]?.time ?? now) <= now - HOUR_MS) this.received.shift();
-    let total = this.received.reduce((sum, { bytes }) => sum + bytes, 0);
-    for (const { time, bytes } of this.received) {
-      if (total < this.limits.uploadBytesPerHour) break;
-      total -= bytes;
-      if (total < this.limits.uploadBytesPerHour) return waitUntil(time + HOUR_MS, now);
-    }
-    return null;
-  }
-
   private senderLog(key: string): SenderLog {
     let sender = this.senders.get(key);
     if (sender === undefined) {
-      sender = { reports: [], addenda: [] };
+      sender = { reports: [], addenda: [], received: [] };
       this.senders.set(key, sender);
     }
     return sender;
@@ -164,7 +168,10 @@ export class ReportLimiter {
     for (const [key, sender] of this.senders) {
       prune(sender.reports, now - DAY_MS);
       prune(sender.addenda, now - HOUR_MS);
-      if (sender.reports.length === 0 && sender.addenda.length === 0) this.senders.delete(key);
+      pruneBytes(sender.received, now);
+      if (sender.reports.length + sender.addenda.length + sender.received.length === 0) {
+        this.senders.delete(key);
+      }
     }
   }
 }
@@ -173,6 +180,22 @@ function prune(times: number[], since: number): void {
   let stale = 0;
   while (stale < times.length && (times[stale] ?? 0) <= since) stale++;
   times.splice(0, stale);
+}
+
+function pruneBytes(received: Received[], now: number): void {
+  while ((received[0]?.time ?? now) <= now - HOUR_MS) received.shift();
+}
+
+/** The wait until the bytes counted in the last hour fall below `limit`, or null now. */
+function bytesWait(received: Received[], limit: number, now: number): Limited | null {
+  pruneBytes(received, now);
+  let total = received.reduce((sum, { bytes }) => sum + bytes, 0);
+  for (const { time, bytes } of received) {
+    if (total < limit) break;
+    total -= bytes;
+    if (total < limit) return waitUntil(time + HOUR_MS, now);
+  }
+  return null;
 }
 
 /** The wait until `times` holds fewer than `limit` entries newer than `window`, or null now. */

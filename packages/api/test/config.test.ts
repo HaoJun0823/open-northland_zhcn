@@ -37,6 +37,7 @@ describe('apiConfigFromEnvironment', () => {
           ipAddendaPerHour: 6,
           uploadsPerHour: 200,
           uploadBytesPerHour: 256 * MIB,
+          ipUploadBytesPerHour: 16 * MIB,
           fingerprintPerDay: 10,
           maxStoredBytes: 2048 * MIB,
           maxStoredReports: 20_000,

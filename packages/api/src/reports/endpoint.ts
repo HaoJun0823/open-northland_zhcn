@@ -217,12 +217,12 @@ export class ReportEndpoint {
     let upload: DecodedUpload;
     try {
       const body = await readLimited(request, maxBytes);
-      limiter.countBytes(body.length, this.now());
+      limiter.countBytes(sender, body.length, this.now());
       // Checked here too, so the commonest garbage costs no decode.
       if (!isGzip(body)) throw new IntakeError('not-gzip');
       upload = await this.decoder.decode(body, target.part, maxInflated);
       // The budget bounds disk growth too: a small body may decode to much larger files.
-      limiter.countBytes(Math.max(0, bytesOf(upload) - body.length), this.now());
+      limiter.countBytes(sender, Math.max(0, bytesOf(upload) - body.length), this.now());
       if (target.part === 'addendum' && upload.id !== target.id) throw new IntakeError('invalid');
     } catch (error) {
       if (!(error instanceof IntakeError)) {
@@ -233,7 +233,7 @@ export class ReportEndpoint {
         return false;
       }
       limiter.penalize(sender, target.part, this.now());
-      if (error.reason === 'too-large') limiter.countBytes(maxBytes, this.now());
+      if (error.reason === 'too-large') limiter.countBytes(sender, maxBytes, this.now());
       const [status, message] = FAILURES[error.reason];
       this.refuse(request, response, {
         status,

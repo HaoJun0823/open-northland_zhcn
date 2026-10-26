@@ -30,6 +30,7 @@ const LIMITS = {
   ipAddendaPerHour: 100,
   uploadsPerHour: 100,
   uploadBytesPerHour: 1 << 30,
+  ipUploadBytesPerHour: 1 << 30,
   fingerprintPerDay: 100,
   maxStoredBytes: 1 << 30,
   maxStoredReports: 100,

@@ -9,6 +9,7 @@ const LIMITS = {
   ipAddendaPerHour: 1,
   uploadsPerHour: 100,
   uploadBytesPerHour: 1000,
+  ipUploadBytesPerHour: 1000,
 };
 
 /** The refusal's wait in seconds, or null when the upload is admitted. */
@@ -39,13 +40,28 @@ describe('ReportLimiter', () => {
   it('caps the compressed bytes read per hour', () => {
     const limiter = new ReportLimiter(LIMITS);
     const key = limiter.senderKey('198.51.100.1');
-    limiter.countBytes(600, 0);
-    limiter.countBytes(300, 10 * MINUTE);
+    const other = limiter.senderKey('198.51.100.2');
+    limiter.countBytes(key, 600, 0);
+    limiter.countBytes(other, 300, 10 * MINUTE);
     expect(send(limiter, key, 'report', 20 * MINUTE)).toBeNull();
-    limiter.countBytes(200, 20 * MINUTE);
+    limiter.countBytes(key, 200, 20 * MINUTE);
     // 1100 bytes: the first upload's 600 must leave the window first.
     expect(send(limiter, key, 'report', 30 * MINUTE)).toBe(30 * 60);
     expect(send(limiter, key, 'report', HOUR)).toBeNull();
+  });
+
+  it("caps each sender's share of the bytes, an IPv6 /56 at a multiple of it", () => {
+    const limiter = new ReportLimiter({ ...LIMITS, ipUploadBytesPerHour: 100 });
+    const heavy = limiter.senderKey('198.51.100.1');
+    limiter.countBytes(heavy, 100, 0);
+    expect(send(limiter, heavy, 'report', MINUTE)).toBe(59 * 60);
+    expect(send(limiter, limiter.senderKey('198.51.100.2'), 'report', MINUTE)).toBeNull();
+    expect(send(limiter, heavy, 'report', HOUR)).toBeNull();
+
+    const subnet = (n: number) => limiter.senderKey(`2001:db8:0:${n}::1`);
+    for (const n of [1, 2, 3]) limiter.countBytes(subnet(n), 100, 0);
+    expect(send(limiter, subnet(4), 'report', MINUTE)).toBe(59 * 60);
+    expect(send(limiter, limiter.senderKey('2001:db8:0:100::1'), 'report', MINUTE)).toBeNull();
   });
 
   it('caps all uploads per hour, where a refused sender takes no slot and garbage spends both parts', () => {

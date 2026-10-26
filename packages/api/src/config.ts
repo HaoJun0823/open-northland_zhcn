@@ -61,6 +61,8 @@ const REPORT_LIMIT_SETTINGS = {
   uploadsPerHour: ['API_REPORT_GLOBAL_HOURLY', 200, MAX_REPORT_RATE],
   /** Bytes of every upload in an hour: its compressed body, or the files it decoded to when larger. */
   uploadBytesPerHour: ['API_REPORT_GLOBAL_HOURLY_BYTES', 256 * MIB, MAX_REPORT_STORE_BYTES],
+  /** One client's share of those bytes, so a few clients cannot spend the hour's budget for everyone. */
+  ipUploadBytesPerHour: ['API_REPORT_IP_HOURLY_BYTES', 16 * MIB, MAX_REPORT_STORE_BYTES],
   fingerprintPerDay: ['API_REPORT_FINGERPRINT_DAILY', 10, MAX_REPORT_RATE],
   maxStoredBytes: ['API_REPORT_MAX_STORED_BYTES', 2 * GIB, MAX_REPORT_STORE_BYTES],
   maxStoredReports: ['API_REPORT_MAX_STORED', 20_000, MAX_REPORT_STORE_COUNT],
@@ -184,6 +186,7 @@ function reportsConfig(env: Environment, cwd: string): ReportsConfig {
       ipAddendaPerHour: limit('ipAddendaPerHour'),
       uploadsPerHour: limit('uploadsPerHour'),
       uploadBytesPerHour: limit('uploadBytesPerHour'),
+      ipUploadBytesPerHour: limit('ipUploadBytesPerHour'),
       fingerprintPerDay: limit('fingerprintPerDay'),
       maxStoredBytes: limit('maxStoredBytes'),
       maxStoredReports: limit('maxStoredReports'),

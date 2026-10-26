@@ -3,7 +3,7 @@ import type { DisputeRecord } from '@open-northland/net-client';
 import { HashTrace, type SyncDomain } from '@open-northland/sim';
 import type { SessionHost } from '../session/index.js';
 import { hasDebugFlag } from './debug-flags.js';
-import { diag } from './log.js';
+import { type DiagEntry, diag } from './log.js';
 
 /** What a relayed session adds to a bundle: where the relay said this client parted from the room,
  *  the digests it acknowledged around there, and the last verdict it took part in on either side. */
@@ -35,6 +35,8 @@ export interface DiagGameSession {
   readonly hashTrace: HashTrace | null;
   /** The relayed session's report at bundle time; absent in a local session. */
   readonly net?: () => Promise<DiagNetReport>;
+  /** The simulation worker's own log ring; absent when the world runs on this thread. */
+  readonly workerLog?: () => Promise<readonly DiagEntry[]>;
 }
 
 /**

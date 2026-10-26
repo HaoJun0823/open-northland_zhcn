@@ -45,6 +45,16 @@ function previousPage(): PreviousPage | null {
 }
 
 let installed = false;
+let watchdog: ReturnType<typeof openWatchdog> = null;
+
+/**
+ * A prompt the browser or the desktop shell shows over the page, such as the leave prompt, blocks the
+ * main thread while the player reads it: the watchdog stops counting, as for a hidden page, until the
+ * page's next beat. Leaving from the prompt then leaves no freeze record behind.
+ */
+export function pauseFreezeWatch(): void {
+  watchdog?.beat(false, captureContext());
+}
 
 /**
  * Capture what the window's error listeners cannot see: faults before boot, freezes of the main
@@ -60,7 +70,7 @@ export function installFailureCapture(): void {
   const previous = previousPage();
   storeTabSession(id);
   const startedAt = Date.now();
-  const watchdog = typeof Worker === 'undefined' ? null : openWatchdog(id);
+  watchdog = typeof Worker === 'undefined' ? null : openWatchdog(id);
   let beats = 0;
   let lastBeatMs = performance.now();
   let lastVisible = document.visibilityState === 'visible';

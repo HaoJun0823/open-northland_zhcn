@@ -12,7 +12,7 @@ import {
   removeMarker,
   type SessionMarker,
 } from './session-marker.js';
-import { judgeMarker, type PreviousPage } from './unclean-exit.js';
+import { judgeMarker, MARKER_STALE_MS, type PreviousPage } from './unclean-exit.js';
 import { deleteFreezeRecords, type FreezeRecord, readFreezeRecords } from './watchdog/freeze-records.js';
 
 function contextFacts(context: CaptureContext): Record<string, unknown> {
@@ -21,11 +21,11 @@ function contextFacts(context: CaptureContext): Record<string, unknown> {
 
 function parseFreezeRecord(value: unknown): FreezeRecord | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { id, tabId, frozenAt, silentMs, context } = value as Record<string, unknown>;
+  const { id, tabId, frozenAt, silentMs, seenAt, context } = value as Record<string, unknown>;
   if (typeof id !== 'string' || !REPORT_ID.test(id) || typeof tabId !== 'string') return null;
-  if (typeof frozenAt !== 'number' || typeof silentMs !== 'number') return null;
+  if (typeof frozenAt !== 'number' || typeof silentMs !== 'number' || typeof seenAt !== 'number') return null;
   const parsed = parseContext(context);
-  return parsed === null ? null : { id, tabId, frozenAt, silentMs, context: parsed };
+  return parsed === null ? null : { id, tabId, frozenAt, silentMs, seenAt, context: parsed };
 }
 
 async function freezeRecords(): Promise<FreezeRecord[]> {
@@ -86,9 +86,14 @@ export async function reportPreviousSessions(ownId: string, previous: PreviousPa
   const groups: { readonly ids: readonly string[]; readonly extras: FaultExtras }[] = [];
   const liveTabs = new Set<string>();
   const reported: string[] = [];
+  // A tab whose watchdog still rewrites its freeze record is frozen right now, not gone: it reports
+  // the freeze itself when it thaws.
+  for (const record of records) if (nowMs - record.seenAt <= MARKER_STALE_MS) liveTabs.add(record.tabId);
   for (const marker of markers) {
     const freeze = records.find((record) => record.tabId === marker.id) ?? null;
-    const verdict = judgeMarker(marker, { nowMs, previous, desktopFaults, freezeId: freeze?.id ?? null });
+    const verdict = liveTabs.has(marker.id)
+      ? ({ kind: 'live' } as const)
+      : judgeMarker(marker, { nowMs, previous, desktopFaults, freezeId: freeze?.id ?? null });
     if (verdict.kind === 'live') {
       liveTabs.add(marker.id);
       continue;

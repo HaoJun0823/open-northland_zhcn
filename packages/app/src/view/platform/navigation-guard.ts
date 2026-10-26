@@ -1,3 +1,4 @@
+import { pauseFreezeWatch } from '../../diag/capture/install.js';
 import type { RouteId } from '../../routes.js';
 
 /**
@@ -128,6 +129,8 @@ function onWheel(e: WheelEvent): void {
 
 function onBeforeUnload(e: BeforeUnloadEvent): void {
   if (!held || automated()) return;
+  // The prompt this asks for holds the main thread while it is open; that is no freeze.
+  pauseFreezeWatch();
   e.preventDefault();
   // The legacy spelling; the browser shows its own wording either way.
   e.returnValue = '';

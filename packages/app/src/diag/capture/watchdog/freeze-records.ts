@@ -12,6 +12,9 @@ export interface FreezeRecord {
   readonly frozenAt: number;
   /** How long the page had been silent when the record was made. */
   readonly silentMs: number;
+  /** Epoch milliseconds the watchdog last rewrote the record: it does while the freeze lasts, so a
+   *  record seen recently belongs to a tab still frozen, not to one that was closed. */
+  readonly seenAt: number;
   readonly context: CaptureContext;
 }
 

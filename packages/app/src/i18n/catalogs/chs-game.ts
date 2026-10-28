@@ -1268,6 +1268,20 @@ export const chsGame = {
         short: '不够分给所有人：其余的人等待补货。',
         covered: '足够分给所有人。',
       },
+      weapons: {
+        label: '武器',
+        tip: '新兵按编号领取武器：库存中的第一件。跳过划掉的。',
+      },
+      armor: {
+        label: '护甲',
+        tip: '新兵按编号领取护甲：库存中的第一件。没有则不穿护甲。',
+      },
+      gearChip: {
+        chip: '{name}（第 {rank} 选择）',
+        chipOff: '{name}（不发给此兵种）',
+        chipTip: '点击关闭。按住并移动可调整顺序。',
+        chipOffTip: '点击重新开启。',
+      },
       audience: {
         label: '领取者',
         civilians: '平民',
@@ -1285,9 +1299,18 @@ export const chsGame = {
           label: '徒手士兵',
           tip: '在兵营训练，不发放武器。由剑、矛、弓计数器或你自己武装他们。',
         },
-        trainSword: { label: '剑兵', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的剑和护甲。' },
-        trainSpear: { label: '矛兵', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的矛和护甲。' },
-        trainBow: { label: '弓箭手', tip: '先武装没有武器的士兵，再训练新兵。领取库存中最好的弓和护甲。' },
+        trainSword: {
+          label: '剑兵',
+          tip: '先武装没有武器的士兵，再训练新兵。武器和护甲按下方顺序。',
+        },
+        trainSpear: {
+          label: '矛兵',
+          tip: '先武装没有武器的士兵，再训练新兵。武器和护甲按下方顺序。',
+        },
+        trainBow: {
+          label: '弓箭手',
+          tip: '先武装没有武器的士兵，再训练新兵。武器和护甲按下方顺序。',
+        },
       },
       switches: {
         giveBoots: { label: '鞋子', tip: '每个没有鞋的成年男人都会去仓库领一双。' },
@@ -1332,18 +1355,6 @@ export const chsGame = {
         giveSpeedAmulet: {
           label: '疾风护符',
           tip: '每个没有的男人都会去仓库领一个。佩戴者行走更快。',
-        },
-        allowShortSwords: {
-          label: '也可用短剑',
-          tip: '开启：库存中没有长剑时，新兵领取短剑。关闭：新兵等待长剑。',
-        },
-        allowWoodenSpears: {
-          label: '也可用木矛',
-          tip: '开启：库存中没有铁矛时，新兵领取木矛。关闭：新兵等待铁矛。',
-        },
-        allowShortBows: {
-          label: '也可用短弓',
-          tip: '开启：库存中没有长弓时，新兵领取短弓。关闭：新兵等待长弓。',
         },
         postGraduates: {
           label: '学校毕业生自动分配到工坊',

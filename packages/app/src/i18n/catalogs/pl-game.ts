@@ -1270,6 +1270,20 @@ export const plGame = {
         short: 'Nie starczy dla wszystkich: reszta poczeka na dostawę.',
         covered: 'Starczy dla wszystkich.',
       },
+      weapons: {
+        label: 'Broń',
+        tip: 'Rekrut bierze broń według numerów: pierwszą, która jest w magazynie. Przekreśloną pomija.',
+      },
+      armor: {
+        label: 'Zbroja',
+        tip: 'Rekrut bierze zbroję według numerów: pierwszą, która jest w magazynie. Gdy żadnej nie ma, idzie bez zbroi.',
+      },
+      gearChip: {
+        chip: '{name} (wybór {rank})',
+        chipOff: '{name} (nie dla tej klasy)',
+        chipTip: 'Kliknij, by wyłączyć. Przytrzymaj i przesuń, by zmienić kolejność.',
+        chipOffTip: 'Kliknij, by włączyć z powrotem.',
+      },
       audience: {
         label: 'kto dostaje',
         civilians: 'Osadnicy',
@@ -1291,15 +1305,15 @@ export const plGame = {
         },
         trainSword: {
           label: 'Miecznicy',
-          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepszy dostępny miecz i zbroja.',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Broń i zbroja według kolejności niżej.',
         },
         trainSpear: {
           label: 'Włócznicy',
-          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepsza dostępna włócznia i zbroja.',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Broń i zbroja według kolejności niżej.',
         },
         trainBow: {
           label: 'Łucznicy',
-          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Najlepszy dostępny łuk i zbroja.',
+          tip: 'Najpierw uzbraja żołnierzy bez broni, potem szkoli nowych. Broń i zbroja według kolejności niżej.',
         },
       },
       switches: {
@@ -1351,18 +1365,6 @@ export const plGame = {
         giveSpeedAmulet: {
           label: 'Amulet wiatru',
           tip: 'Każdy bez niego pójdzie po niego do magazynu. Noszący chodzi szybciej.',
-        },
-        allowShortSwords: {
-          label: 'Także krótki miecz',
-          tip: 'Włączone: rekrut weźmie krótki miecz, gdy w magazynie nie ma długiego. Wyłączone: poczeka na długi.',
-        },
-        allowWoodenSpears: {
-          label: 'Także drewniana włócznia',
-          tip: 'Włączone: rekrut weźmie drewnianą włócznię, gdy w magazynie nie ma żelaznej. Wyłączone: poczeka na żelazną.',
-        },
-        allowShortBows: {
-          label: 'Także krótki łuk',
-          tip: 'Włączone: rekrut weźmie krótki łuk, gdy w magazynie nie ma długiego. Wyłączone: poczeka na długi.',
         },
         postGraduates: {
           label: 'Absolwenci szkół automatycznie przydzielani do warsztatów',

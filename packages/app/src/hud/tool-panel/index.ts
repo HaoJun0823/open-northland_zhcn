@@ -621,6 +621,8 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           plane,
           art: paintedIcon('assistant', TITLE_ART_PX),
           goodTypeOf: (goodId) => goodTypeById.get(goodId),
+          goodIdOf: (goodType) => goodIdByType.get(goodType),
+          goodLabel: (goodType) => opts.goodLabel(goodType) ?? `#${goodType}`,
           cue: ctx.cue,
         });
         window.onDismiss(() => focusOwner?.('assistant'));

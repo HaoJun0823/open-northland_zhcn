@@ -103,6 +103,7 @@ import { setUpdateContinuation } from '../../update/watcher.js';
 import type { AmbientWeather } from '../ambient-weather.js';
 import { seatBookingsOf } from '../assistant/bookings.js';
 import { assistantCountersSeam } from '../assistant/counters.js';
+import { assistantArmorSeam, assistantWeaponSeam } from '../assistant/gear-lines.js';
 import { assistantGrantsSeam } from '../assistant/grants.js';
 import { assistantShortagesOf } from '../assistant/shortages.js';
 import type { CameraController } from '../camera/index.js';
@@ -629,6 +630,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       assistant: {
         counters: assistantCountersSeam(host, viewer.seat, issueCommand, !readOnly()),
         switches: assistantGrantsSeam(host, host.content, viewer.seat, issueCommand, !readOnly()),
+        weapons: assistantWeaponSeam(host, viewer.seat, issueCommand, !readOnly()),
+        armor: assistantArmorSeam(host, viewer.seat, issueCommand, !readOnly()),
         bookings: () => assistantBookingsFor(host.snapshot()),
         shortages: () => assistantShortagesOf(host.snapshot(), host.content, viewer.seat()),
         access: () => (viewer.seat() === null ? 'noSeat' : readOnly() ? 'watching' : 'control'),

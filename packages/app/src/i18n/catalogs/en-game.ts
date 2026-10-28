@@ -1293,6 +1293,20 @@ export const enGame = {
         short: 'Not enough for everyone: the rest wait for more.',
         covered: 'Enough for everyone.',
       },
+      weapons: {
+        label: 'Weapon',
+        tip: 'A recruit takes the weapons by number: the first one in stock. He skips a crossed-out one.',
+      },
+      armor: {
+        label: 'Armour',
+        tip: 'A recruit takes the armour by number: the first one in stock. With none in stock he goes without.',
+      },
+      gearChip: {
+        chip: '{name} (choice {rank})',
+        chipOff: '{name} (not for this class)',
+        chipTip: 'Click to turn it off. Hold and move to change the order.',
+        chipOffTip: 'Click to turn it back on.',
+      },
       audience: {
         label: 'who receives it',
         civilians: 'Civilians',
@@ -1314,15 +1328,15 @@ export const enGame = {
         },
         trainSword: {
           label: 'Sword fighters',
-          tip: 'Arms soldiers without weapons first, then trains new ones. The best sword and armour in stock.',
+          tip: 'Arms soldiers without weapons first, then trains new ones. Weapon and armour in the order below.',
         },
         trainSpear: {
           label: 'Spearmen',
-          tip: 'Arms soldiers without weapons first, then trains new ones. The best spear and armour in stock.',
+          tip: 'Arms soldiers without weapons first, then trains new ones. Weapon and armour in the order below.',
         },
         trainBow: {
           label: 'Archers',
-          tip: 'Arms soldiers without weapons first, then trains new ones. The best bow and armour in stock.',
+          tip: 'Arms soldiers without weapons first, then trains new ones. Weapon and armour in the order below.',
         },
       },
       switches: {
@@ -1368,18 +1382,6 @@ export const enGame = {
         giveSpeedAmulet: {
           label: 'Wind Amulet',
           tip: 'Every man without one fetches one from the store. Its bearer walks faster.',
-        },
-        allowShortSwords: {
-          label: 'Shortswords too',
-          tip: 'On: a recruit takes a shortsword when no longsword is in stock. Off: he waits for a long one.',
-        },
-        allowWoodenSpears: {
-          label: 'Wooden spears too',
-          tip: 'On: a recruit takes a wooden spear when no iron spear is in stock. Off: he waits for an iron one.',
-        },
-        allowShortBows: {
-          label: 'Short bows too',
-          tip: 'On: a recruit takes a short bow when no longbow is in stock. Off: he waits for a long one.',
         },
         postGraduates: {
           label: 'School graduates assigned to workshops automatically',

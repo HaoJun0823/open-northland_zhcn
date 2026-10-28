@@ -30,8 +30,6 @@ export {
 } from './buildings.js';
 export {
   ARMOR_MAIN_TYPE,
-  armorByClass,
-  armorClassOf,
   armorMaterialOf,
   isAreaWeapon,
   isRangedWeapon,
@@ -40,10 +38,12 @@ export {
 } from './classes/index.js';
 export {
   ARMOR_MATERIAL,
+  armorGoodsByProtection,
   armorMaterialForClass,
   armorMaterialForGood,
   WEAPON_MAIN_TYPE,
   weaponDamageVsMaterial,
+  weaponGoodsByStrength,
   weaponKey,
 } from './combat.js';
 export { houseBow, shelterCapacityOf, sheltersOnAlarm } from './defence.js';

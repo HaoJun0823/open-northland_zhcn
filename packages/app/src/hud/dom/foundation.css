@@ -6879,17 +6879,6 @@ body.on-drag-scroll.on-drag-scroll-free * {
   cursor: var(--cursor-not-allowed, not-allowed);
 }
 /* A switch that depends on the row above it. */
-.on-hud .on-switch--small {
-  width: 30px;
-  height: 17px;
-}
-.on-hud .on-switch--small::after {
-  width: 11px;
-  height: 11px;
-}
-.on-hud .on-switch--small[aria-checked="true"]::after {
-  left: 15px;
-}
 
 /* ---------- assistant window: drain-down orders beside standing orders, status marks per row ---------- */
 .on-hud .on-window--assistant .on-window__body {
@@ -7087,7 +7076,7 @@ body.on-drag-scroll.on-drag-scroll-free * {
 .on-hud .on-asst-mark.is-idle {
   color: #c1baa8cc;
 }
-/* The weaker-weapon switch under a class row: indented to the label, smaller. */
+/* A line under a class row: indented to the label, smaller. */
 .on-hud .on-asst-sub {
   grid-column: 2 / -1;
   display: flex;
@@ -7103,6 +7092,110 @@ body.on-drag-scroll.on-drag-scroll-free * {
 }
 .on-hud .on-asst-sub__text {
   flex: 1;
+}
+/* A class's weapon or armor line: the goods in the order its recruits shop them, each with its rank
+   in gold at its head; a chip held down lifts and follows the pointer over the others, a mark showing
+   where it lands, and a click crosses it out where it stands, without a rank. */
+.on-hud .on-asst-gear {
+  position: relative;
+}
+.on-hud .on-asst-gear[hidden] {
+  display: none;
+}
+.on-hud .on-asst-gear__drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--bronze-hi);
+  box-shadow: 0 0 4px var(--bronze);
+  pointer-events: none;
+}
+.on-hud .on-asst-gear__drop[hidden] {
+  display: none;
+}
+/* The weapon and armor lines start their first choice in one column, whatever the caption's length. */
+.on-hud .on-asst-gear > .on-asst-sub__text {
+  flex: 0 0 auto;
+  min-width: 58px;
+}
+.on-hud .on-asst-gear__list {
+  display: flex;
+  align-items: center;
+  gap: 14px; /* room for the stock tag's overhang */
+  margin-right: 6px;
+}
+.on-hud .on-asst-gear__chip {
+  position: relative;
+  padding: 1px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.on-hud .on-asst-gear__chip:hover {
+  border-color: #c9a26244;
+  background: #ffffff08;
+}
+.on-hud .on-asst-gear__chip:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 1px;
+}
+.on-hud .on-asst-gear__chip[aria-disabled="true"] {
+  cursor: default;
+}
+.on-hud .on-asst-gear__rank {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  color: var(--bronze-hi);
+  font: 700 10px / 1 var(--font-body);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 1px #000;
+  pointer-events: none;
+}
+.on-hud .on-asst-gear__chip.is-off .on-good__frame {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.on-hud .on-asst-gear__chip.is-off .on-asst-art::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    #c1baa8aa calc(50% - 1px),
+    #c1baa8aa calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+  pointer-events: none;
+}
+.on-hud .on-asst-gear__chip.is-off .on-asst-art__count,
+.on-hud .on-asst-gear__chip .on-asst-art__count.is-empty {
+  opacity: 0.6;
+}
+/* The carried chip follows the pointer, raised above the others, which stand still until it lands. */
+.on-hud .on-asst-gear__list.is-sorting .on-asst-gear__chip {
+  cursor: grabbing;
+}
+.on-hud .on-asst-gear__list.is-sorting .on-asst-gear__chip.is-lifted {
+  z-index: 1;
+  border-color: #c9a262aa;
+  background: #1d160fe6;
+  box-shadow: 0 4px 10px #000a;
+}
+.on-hud .on-asst-gear__chip.is-lifted .on-asst-art {
+  transform: scale(1.2) translateY(-2px);
+  transition: transform 100ms ease-out;
 }
 
 /* ---------- diplomacy: nation roster, directed attitudes and exchange ledger ---------- */

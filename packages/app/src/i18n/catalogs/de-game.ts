@@ -1409,6 +1409,20 @@ export const deGame = {
         short: 'Reicht nicht für alle: der Rest wartet auf Nachschub.',
         covered: 'Reicht für alle.',
       },
+      weapons: {
+        label: 'Waffe',
+        tip: 'Ein Rekrut nimmt die Waffen nach Nummer: die erste vorrätige. Eine durchgestrichene überspringt er.',
+      },
+      armor: {
+        label: 'Rüstung',
+        tip: 'Ein Rekrut nimmt die Rüstung nach Nummer: die erste vorrätige. Ist keine vorrätig, geht er ohne.',
+      },
+      gearChip: {
+        chip: '{name} (Wahl {rank})',
+        chipOff: '{name} (nicht für diese Klasse)',
+        chipTip: 'Klicken zum Abschalten. Gedrückt halten und schieben, um die Reihenfolge zu ändern.',
+        chipOffTip: 'Klicken zum Wiedereinschalten.',
+      },
       audience: {
         label: 'wer es bekommt',
         civilians: 'Zivilisten',
@@ -1433,15 +1447,15 @@ export const deGame = {
         },
         trainSword: {
           label: 'Schwertkämpfer',
-          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Das beste verfügbare Schwert und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Waffe und Rüstung in der Reihenfolge darunter.',
         },
         trainSpear: {
           label: 'Speerträger',
-          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Der beste verfügbare Speer und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Waffe und Rüstung in der Reihenfolge darunter.',
         },
         trainBow: {
           label: 'Bogenschützen',
-          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Der beste verfügbare Bogen und die beste verfügbare Rüstung.',
+          tip: 'Bewaffnet zuerst Soldaten ohne Waffe und bildet dann neue aus. Waffe und Rüstung in der Reihenfolge darunter.',
         },
       },
       switches: {
@@ -1496,18 +1510,6 @@ export const deGame = {
         giveSpeedAmulet: {
           label: 'Windamulett',
           tip: 'Jeder Mann ohne eines holt sich eines aus dem Lager. Sein Träger geht schneller.',
-        },
-        allowShortSwords: {
-          label: 'Auch Kurzschwerter',
-          tip: 'An: Ein Rekrut nimmt ein Kurzschwert, wenn kein Langschwert vorrätig ist. Aus: Er wartet auf ein Langschwert.',
-        },
-        allowWoodenSpears: {
-          label: 'Auch Holzspeere',
-          tip: 'An: Ein Rekrut nimmt einen Holzspeer, wenn kein Eisenspeer vorrätig ist. Aus: Er wartet auf einen Eisenspeer.',
-        },
-        allowShortBows: {
-          label: 'Auch Kurzbögen',
-          tip: 'An: Ein Rekrut nimmt einen Kurzbogen, wenn kein Langbogen vorrätig ist. Aus: Er wartet auf einen Langbogen.',
         },
         postGraduates: {
           label: 'Schulabgänger automatisch Werkstätten zuweisen',

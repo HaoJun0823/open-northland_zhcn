@@ -1268,6 +1268,20 @@ export const chtGame = {
         short: '數量不夠所有人分：其餘的人要等補貨。',
         covered: '數量足夠所有人。',
       },
+      weapons: {
+        label: '武器',
+        tip: '新兵依編號領取武器：庫存中的第一件。跳過劃掉的。',
+      },
+      armor: {
+        label: '護甲',
+        tip: '新兵依編號領取護甲：庫存中的第一件。沒有則不穿護甲。',
+      },
+      gearChip: {
+        chip: '{name}（第 {rank} 選擇）',
+        chipOff: '{name}（不配發給此兵種）',
+        chipTip: '點擊關閉。按住並移動可調整順序。',
+        chipOffTip: '點擊重新開啟。',
+      },
       audience: {
         label: '發放對象',
         civilians: '平民',
@@ -1285,9 +1299,18 @@ export const chtGame = {
           label: '徒手士兵',
           tip: '在兵營受訓，但不發放武器。由劍、矛、弓計數器或你自己武裝他們。',
         },
-        trainSword: { label: '劍兵', tip: '先武裝沒有武器的士兵，再訓練新兵。配發庫存中最好的劍與護甲。' },
-        trainSpear: { label: '矛兵', tip: '先武裝沒有武器的士兵，再訓練新兵。配發庫存中最好的矛與護甲。' },
-        trainBow: { label: '弓手', tip: '先武裝沒有武器的士兵，再訓練新兵。配發庫存中最好的弓與護甲。' },
+        trainSword: {
+          label: '劍兵',
+          tip: '先武裝沒有武器的士兵，再訓練新兵。武器與護甲依下方順序。',
+        },
+        trainSpear: {
+          label: '矛兵',
+          tip: '先武裝沒有武器的士兵，再訓練新兵。武器與護甲依下方順序。',
+        },
+        trainBow: {
+          label: '弓手',
+          tip: '先武裝沒有武器的士兵，再訓練新兵。武器與護甲依下方順序。',
+        },
       },
       switches: {
         giveBoots: { label: '鞋子', tip: '每位沒有鞋子的成年男性都會去倉庫領一雙。' },
@@ -1332,18 +1355,6 @@ export const chtGame = {
         giveSpeedAmulet: {
           label: '疾風護符',
           tip: '每位沒有的男性都會去倉庫領一個。它讓配戴者走得更快。',
-        },
-        allowShortSwords: {
-          label: '短劍也可以',
-          tip: '開啟：庫存中沒有長劍時，新兵會拿短劍。關閉：他會等長劍。',
-        },
-        allowWoodenSpears: {
-          label: '木矛也可以',
-          tip: '開啟：庫存中沒有鐵矛時，新兵會拿木矛。關閉：他會等鐵矛。',
-        },
-        allowShortBows: {
-          label: '短弓也可以',
-          tip: '開啟：庫存中沒有長弓時，新兵會拿短弓。關閉：他會等長弓。',
         },
         postGraduates: {
           label: '學校畢業生自動分派到工坊',

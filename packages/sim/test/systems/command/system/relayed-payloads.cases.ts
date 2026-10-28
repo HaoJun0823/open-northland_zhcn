@@ -317,6 +317,8 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
     setAssistantPostGraduates: [{ player: SEAT, enabled: true }],
     setAssistantMoveFlags: [{ player: SEAT, enabled: true }],
     setAssistantWeaponVeto: [{ player: SEAT, goodType: SWORD, vetoed: true }],
+    setAssistantWeaponOrder: [{ player: SEAT, intent: 'trainSword', order: [SWORD] }],
+    setAssistantArmorOrder: [{ player: SEAT, intent: 'trainBow', order: [SHOES, WOOD], off: [WOOD] }],
     setProductionGoods: [{ entity: t.worker, goods: [WOOD] }],
     setProductionCount: [{ entity: t.worker, goodType: WOOD, count: 3 }],
     setDefenceMode: [{ building: t.hq, enabled: true }],

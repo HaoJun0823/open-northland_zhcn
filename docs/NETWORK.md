@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 45` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 46` in
 `packages/net-protocol`. A change one side of the current version could not honour (a message shape, or
 the value set of a validated field such as the fog mode ids) bumps the version; the relay refuses a
 `hello` that names another.
@@ -135,7 +135,8 @@ a view: a link measurement is stored and shown with the next view, and progress 
   setting; in a running game it releases control, marks the seat idle in the view and leaves the world
   unchanged. A running observer cannot reclaim a seat, and a reconnect keeps the observer role.
 - `setSeat { player, mode?, color?, tribe?, difficulty? }` is the creator's; a seated member may send
-  `tribe` alone for its own seat. `mode` applies only to a vacant seat that offers it. `tribe` needs an
+  `color` and `tribe` for its own seat. A `color` another seat wears is refused `colorTaken` (the
+  wearer's seat in `wearer`); a map's duplicate colours stand until changed. `mode` applies only to a vacant seat that offers it. `tribe` needs an
   `authoredTribe` (else `seatTribeUnavailable`) and reaches the start descriptor only when it differs from
   the authored one; a seat without it plays the roster tribe. `difficulty` needs a seat that has one (else
   `seatDifficultyUnavailable`) and reaches the start descriptor only while the computer plays it; a

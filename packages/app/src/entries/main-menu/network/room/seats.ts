@@ -12,7 +12,7 @@ import { button, selectControl } from './controls.js';
 import {
   canClaimSeat,
   canSetSeatDifficulty,
-  canSetSeatTribe,
+  canSetSeatLook,
   roomPermissions,
   savedSeatHint,
   seatCivilization,
@@ -174,7 +174,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
       palette,
       update(room: RoomView, seat: RoomSeatView, connected: boolean): void {
         const permissions = roomPermissions(room, client.nick, connected);
-        const frozen = !permissions.canSetupSeats;
+        const lookLocked = !canSetSeatLook(room, seat, client.nick, connected);
         const member = room.members.find((member) => member.nick === seat.nick);
         const status =
           member?.connected === false
@@ -228,10 +228,10 @@ export function roomSeats(deps: NetworkRoomDeps) {
         take.textContent = permissions.self?.seat == null ? copy.takeSeat : copy.changeSeat;
         mode.root.hidden = seat.nick !== null;
         human.hidden = seat.nick === null;
-        chip.update({ value: seat.color, disabled: frozen, expanded: paletteSeat === player });
-        paintPalette(room, seat, frozen);
+        chip.update({ value: seat.color, disabled: lookLocked, expanded: paletteSeat === player });
+        paintPalette(room, seat, lookLocked);
         mode.update(seat.mode, !permissions.creator || seat.nick !== null);
-        tribe?.update(seat, !canSetSeatTribe(room, seat, client.nick, connected));
+        tribe?.update(seat, lookLocked);
         // Only a seat the computer plays takes a level.
         difficulty.root.classList.toggle(
           'is-unused',

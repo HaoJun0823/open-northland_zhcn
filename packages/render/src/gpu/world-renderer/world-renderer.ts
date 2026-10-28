@@ -23,7 +23,12 @@ import {
   RoadShardTracker,
   type SceneTerrain,
 } from '../../data/scene/index.js';
-import { type BrightnessField, type ElevationField, makeElevationField } from '../../data/terrain/index.js';
+import {
+  type BrightnessField,
+  type ElevationField,
+  makeElevationField,
+  WaterClock,
+} from '../../data/terrain/index.js';
 import {
   CALM_WIND_SWAY,
   sameWindSway,
@@ -103,6 +108,7 @@ export class WorldRenderer {
   private readonly spriteLayer = new DepthSortedLayer();
   private readonly textureCache = new TextureCache();
   private readonly terrain = new TerrainLayer();
+  private readonly waterClock = new WaterClock();
   private readonly weatherSky: WeatherSky;
   private readonly sceneLight = new SceneLight();
   private climate = new WeatherClimate();
@@ -523,9 +529,9 @@ export class WorldRenderer {
     );
     this.syncRoads(snapshot);
     this.terrain.cull(vp);
-    this.terrain.animate(tick + alpha);
     // Game seconds, so a pause freezes the weather with the world.
     const gameSeconds = (tick + alpha) / TICKS_PER_SECOND;
+    this.terrain.animate(this.waterClock.advance(gameSeconds, frame.selectionTime));
     const screenW = this.app.screen.width;
     const screenH = this.app.screen.height;
     const weatherView = { camera, screenW, screenH, viewport: cameraViewport(camera, screenW, screenH) };

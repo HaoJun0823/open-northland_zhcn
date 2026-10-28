@@ -30,7 +30,7 @@ import {
 } from './geometry.js';
 import { padLaneRows } from './lane-texture.js';
 import { RoadLayer } from './road-layer.js';
-import { makeWaveUniforms, WAVE_TIME_PERIOD_TICKS, type WaveUniforms } from './shading.js';
+import { makeWaveUniforms, WAVE_LOOP_SECONDS, type WaveUniforms } from './shading.js';
 import type { TerrainTextureSet } from './textures.js';
 import { TerrainVertexColors } from './vertex-colors.js';
 
@@ -310,13 +310,13 @@ export class TerrainLayer {
   }
 
   /**
-   * Advance the water-surface animation to `timeTicks`, the interpolated sim clock `tick + alpha`.
-   * Every shaded mesh binds the same uniform group, so the per-frame cost is one write regardless of
-   * chunk count; a map with no water-patterned cell is a no-op.
+   * Advance the water-surface animation to `waterSeconds`, the water clock's time. Every shaded mesh
+   * binds the same uniform group, so the per-frame cost is one write regardless of chunk count; a map
+   * with no water-patterned cell is a no-op.
    */
-  animate(timeTicks: number): void {
+  animate(waterSeconds: number): void {
     if (!this.hasWater || this.waveGroup === undefined) return;
-    this.waveGroup.uniforms.uWave[0] = timeTicks % WAVE_TIME_PERIOD_TICKS;
+    this.waveGroup.uniforms.uWave[0] = waterSeconds % WAVE_LOOP_SECONDS;
     this.waveGroup.update();
   }
 

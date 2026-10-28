@@ -162,17 +162,8 @@ it('a school lesson qualifies only its chosen target and survives a saved in-pro
   });
   expect(sim.world.get(pupil, TrainingOrder).drillTicksLeft).toBe(1);
   const other = settlerAt(sim, { jobType: WOODCUTTER, tribe: TRIBE });
-  sim.world.add(other, Owner, { player: 0 });
-  learn(sim.world, ctxOf(sim), {
-    kind: 'learn',
-    entity: other,
-    house: school,
-    target: 'job',
-    typeId: CARPENTER,
-  });
-  expect(sim.world.has(other, TrainingOrder)).toBe(false);
+  sim.world.add(other, Owner, { player: 1 });
   sim.world.remove(pupil, TrainingOrder);
-  sim.world.mut(other, Owner).player = 1;
   learn(sim.world, ctxOf(sim), {
     kind: 'learn',
     entity: other,
@@ -395,6 +386,26 @@ it('takes a pupil at a school foundation and teaches the lesson once the school 
   for (let i = 0; i < FOUNDATION_WAIT_TICKS; i++) sim.step();
   expect(sim.world.get(pupil, Settler).jobType).toBe(CARPENTER);
   expect(sim.world.has(pupil, TrainingOrder)).toBe(false);
+});
+
+it('queues a pupil past the school seats and teaches it once the seat frees', () => {
+  const { sim, pupil, school } = carpentrySchool(WOODCUTTER);
+  const second = settlerAt(sim, { jobType: WOODCUTTER, tribe: TRIBE });
+  sim.world.add(second, Owner, { player: 0 });
+  for (const e of [pupil, second])
+    sim.world.add(e, Position, { x: fx.fromInt(PUPIL_START.x), y: fx.fromInt(PUPIL_START.y) });
+  learnCarpentry(sim, pupil, school);
+  learnCarpentry(sim, second, school);
+
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(pupil, TrainingOrder); i++) {
+    sim.step();
+    expect(sim.world.get(second, TrainingOrder).seated).toBe(false);
+  }
+  expect(sim.world.get(pupil, Settler).jobType).toBe(CARPENTER);
+  expect(sim.world.get(second, Settler).jobType).toBe(WOODCUTTER);
+
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(second, TrainingOrder); i++) sim.step();
+  expect(sim.world.get(second, Settler).jobType).toBe(CARPENTER);
 });
 
 it('keeps a walk Shift-queued behind the lesson through the trade it teaches', () => {

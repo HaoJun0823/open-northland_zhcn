@@ -488,6 +488,11 @@ export const enContent = {
       summary:
         'A civilian is sent to a barracks foundation and an extractor to a school foundation before the builders finish them. Both wait beside the door, walk in once their house stands, and come out a soldier and a carpenter. Select the spare civilian and right-click a foundation to send it yourself.',
     },
+    'school-queue': {
+      title: 'Queue at a full school',
+      summary:
+        'Seven extractors are sent to learn carpentry at once. The school seats five: they go in, the other two wait in the yard and start as soon as the first ones finish.',
+    },
     'school-graduates': {
       title: 'Graduates go to work',
       summary:

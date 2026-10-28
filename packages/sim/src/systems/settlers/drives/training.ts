@@ -22,6 +22,7 @@ import type { SystemContext } from '../../context.js';
 import { heldGatherGood, holdToGatherGood, jobGathersGood } from '../../economy/gather-goods.js';
 import { isSchoolOrFoundation, schoolMethodJob } from '../../orders/education.js';
 import { keepingOrderQueue } from '../../orders/guards.js';
+import { takeTrainingSeat } from '../../orders/training-seats.js';
 import { reidleAsJob } from '../../orders/work/index.js';
 import { typeAllowed } from '../../progression/unlocks.js';
 import { atomicDuration } from '../../readviews/animations.js';
@@ -146,8 +147,8 @@ export function planTraining(
   if (!teaches(world, ctx, order.house) || !sameSide(world, e, order.house)) return abandonDrill(world, e);
   const door = interactionCell(world, ctx, terrain, order.house, here);
   if (!drillDoorOpen(world, ctx, e, door, limit)) return abandonDrill(world, e);
-  if (world.has(order.house, UnderConstruction))
-    return waitBesideFoundation(world, ctx, terrain, e, here, door, spacing, idle);
+  if (!takeTrainingSeat(world, ctx, e) || world.has(order.house, UnderConstruction))
+    return waitInYard(world, ctx, terrain, e, here, door, spacing, idle);
   enterBuilding(world, e, order.house, here, door, () =>
     startAtomic(
       world,
@@ -162,11 +163,11 @@ export function planTraining(
 }
 
 /**
- * Wait beside an unbuilt house's door, re-checked on the idle beat. The walk goes to a yard cell, not the
- * door, so a failed walk to any yard cell is what tells an unreachable house: the errand is then dropped
- * as it would be at a standing house's door.
+ * Wait beside the house's door for it to stand or for a free seat, re-checked on the idle beat. The walk
+ * goes to a yard cell, not the door, so a failed walk to any yard cell is what tells an unreachable house:
+ * the errand is then dropped as it would be at a standing house's door.
  */
-function waitBesideFoundation(
+function waitInYard(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,

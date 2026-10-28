@@ -173,6 +173,7 @@ export type SettlerState =
   | 'walking'
   | 'awaitingWorkplace'
   | 'awaitingTraining'
+  | 'awaitingSeat'
   | 'standingTo'
   | 'lost'
   | 'idle';
@@ -257,6 +258,8 @@ function liveSettlerState(
   if (awaitsItsWorkplace(snapshot, components)) return 'awaitingWorkplace';
   // Sent ahead to a barracks or school foundation, it waits beside the door until the house stands.
   if (awaitsItsTrainingHouse(snapshot, components)) return 'awaitingTraining';
+  // Sent to a full school or barracks, it waits in the yard for a seat to free.
+  if ((components.TrainingOrder as { seated?: unknown } | undefined)?.seated === false) return 'awaitingSeat';
   // A unit holding its ground under the battle alert takes no work and no rest, which without its own
   // caption reads as a soldier that has simply stopped caring about its empty bars.
   if (ctx.standsTo?.(entityId) === true) return 'standingTo';

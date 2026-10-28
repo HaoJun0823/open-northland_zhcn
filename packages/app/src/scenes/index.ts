@@ -105,6 +105,7 @@ import { movementContinuityScene } from './settlers/movement-continuity.js';
 import { personalNamesScene } from './settlers/personal-names.js';
 import { schoolScene } from './settlers/school.js';
 import { schoolGraduatesScene } from './settlers/school-graduates.js';
+import { schoolQueueScene } from './settlers/school-queue.js';
 import { scoutClaimScene } from './settlers/scout-claim.js';
 import { scoutExploreScene } from './settlers/scout-explore.js';
 import { templeAuraScene } from './settlers/temple-aura.js';
@@ -244,6 +245,7 @@ export const SCENES: readonly SceneDefinition[] = [
   schoolScene,
   learningFoundationsScene,
   schoolGraduatesScene,
+  schoolQueueScene,
   gathererFlagFollowScene,
   porterFlagScene,
   fieldPostFlagsScene,

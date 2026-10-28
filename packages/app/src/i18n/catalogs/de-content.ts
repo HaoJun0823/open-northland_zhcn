@@ -490,6 +490,11 @@ export const deContent = {
       summary:
         'Ein Zivilist wird zum Fundament einer Kaserne und ein Abbauer zum Fundament einer Schule geschickt, bevor die Bauarbeiter fertig sind. Beide warten neben der Tür, gehen hinein, sobald ihr Gebäude steht, und kommen als Soldat und Schreiner heraus. Wähle den übrigen Zivilisten aus und klicke mit der rechten Maustaste auf ein Fundament, um ihn selbst dorthin zu schicken.',
     },
+    'school-queue': {
+      title: 'Warteschlange vor der vollen Schule',
+      summary:
+        'Sieben Sammler sollen gleichzeitig das Zimmerhandwerk lernen. Die Schule hat fünf Plätze: fünf gehen hinein, die anderen zwei warten im Hof und beginnen, sobald die ersten fertig sind.',
+    },
     'school-graduates': {
       title: 'Absolventen gehen an die Arbeit',
       summary:

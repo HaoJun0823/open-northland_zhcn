@@ -7,6 +7,7 @@ import {
   DEBUG_MIN_ZOOM,
   DEFAULT_CAMERA_TUNING,
   edgePanVelocity,
+  HUD_EDGE_SCROLL_REACH,
   integerZoomLevels,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -62,8 +63,8 @@ export interface CameraController {
   /** Suspend camera gestures and discard held, dragged, edge-pan, and glide state. */
   setSuspended(suspended: boolean): void;
   /**
-   * Claim a client point for the HUD so wheel zoom and middle dragging yield to its controls.
-   * `null` clears the guard.
+   * Claim a client point for the HUD so wheel zoom and middle dragging yield to its controls and
+   * edge scrolling narrows to {@link HUD_EDGE_SCROLL_REACH}. `null` clears the guard.
    */
   setPointerGuard(guard: ((clientX: number, clientY: number) => boolean) | null): void;
   /** Hold edge scrolling while a HUD gesture steers the camera itself; `null` clears. */
@@ -318,8 +319,9 @@ export function createCameraController(
       if (panning('panUp')) desiredY += keyboardSpeed;
       if (panning('panDown')) desiredY -= keyboardSpeed;
       // Edge scroll is suppressed while the window is unfocused and while a drag steers the camera (a
-      // middle-drag or an edge hold), never by HUD surfaces over the margin. A left-drag marquee is
-      // deliberately not suppressed, so dragging a selection box into the margin pans under it.
+      // middle-drag or an edge hold). HUD surfaces over the margin only narrow it, so chrome along an
+      // edge never blocks scrolling. A left-drag marquee is deliberately not suppressed, so dragging a
+      // selection box into the margin pans under it.
       if (
         activeInputSettings.edgeScrollEnabled &&
         pointerSample &&
@@ -331,7 +333,18 @@ export function createCameraController(
         const x = pointerSample.x - rect.left;
         const y = pointerSample.y - rect.top;
         if (x >= 0 && y >= 0 && x <= rect.width && y <= rect.height) {
-          const edge = edgePanVelocity(x, y, rect.width, rect.height, tuning.edgeScrollSpeed);
+          let edge = edgePanVelocity(x, y, rect.width, rect.height, tuning.edgeScrollSpeed);
+          // The guard hit-tests the page, so it runs only for a pointer already inside the margin.
+          if ((edge.vx !== 0 || edge.vy !== 0) && pointerGuard?.(pointerSample.x, pointerSample.y) === true) {
+            edge = edgePanVelocity(
+              x,
+              y,
+              rect.width,
+              rect.height,
+              tuning.edgeScrollSpeed,
+              HUD_EDGE_SCROLL_REACH,
+            );
+          }
           desiredX += edge.vx * sx * activeInputSettings.edgeScrollSpeed; // CSS px/s to screen px/s
           desiredY += edge.vy * sy * activeInputSettings.edgeScrollSpeed;
         }

@@ -16,6 +16,11 @@ export const MAX_ZOOM = 8;
 export const DEBUG_MIN_ZOOM = 0.1;
 /** CSS px from a canvas edge within which the pointer edge-scrolls. */
 export const EDGE_SCROLL_MARGIN = 24;
+/**
+ * Approximation: CSS px from the edge within which the pointer still edge-scrolls over HUD chrome, so
+ * hovering a top-bar item stays put while a cursor pushed against the screen edge keeps scrolling.
+ */
+export const HUD_EDGE_SCROLL_REACH = 4;
 
 /** The interactive camera's speed knobs, read each frame by the controller. */
 export interface CameraTuning {
@@ -37,7 +42,8 @@ export const DEFAULT_CAMERA_TUNING: CameraTuning = {
 
 /**
  * The edge-scroll pan velocity in screen px/s for a pointer at canvas CSS position `(x, y)`. Ramps
- * linearly from 0 at the margin's inner boundary to `speed` at the edge, and is zero deeper inside.
+ * linearly from 0 at the margin's inner boundary to `speed` at the edge, and is zero deeper inside or
+ * deeper than `reach`, which cuts the band short without changing its speed near the edge.
  * Scroll convention: a pointer at the left edge reveals the world leftward, giving a positive `vx`.
  */
 export function edgePanVelocity(
@@ -46,9 +52,12 @@ export function edgePanVelocity(
   width: number,
   height: number,
   speed: number,
+  reach: number = EDGE_SCROLL_MARGIN,
 ): { vx: number; vy: number } {
   const depth = (into: number): number =>
-    into >= EDGE_SCROLL_MARGIN ? 0 : (EDGE_SCROLL_MARGIN - Math.max(0, into)) / EDGE_SCROLL_MARGIN;
+    into >= Math.min(reach, EDGE_SCROLL_MARGIN)
+      ? 0
+      : (EDGE_SCROLL_MARGIN - Math.max(0, into)) / EDGE_SCROLL_MARGIN;
   return {
     vx: (depth(x) - depth(width - x)) * speed,
     vy: (depth(y) - depth(height - y)) * speed,

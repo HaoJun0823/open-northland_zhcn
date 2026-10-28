@@ -11,6 +11,7 @@ export {
   DEFAULT_CAMERA_TUNING,
   EDGE_SCROLL_MARGIN,
   edgePanVelocity,
+  HUD_EDGE_SCROLL_REACH,
   integerZoomLevels,
   MAX_ZOOM,
   MIN_ZOOM,

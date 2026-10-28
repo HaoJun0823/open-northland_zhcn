@@ -10,6 +10,7 @@ import {
   createCameraController,
   DEBUG_MIN_ZOOM,
   EDGE_SCROLL_MARGIN,
+  HUD_EDGE_SCROLL_REACH,
   MIN_ZOOM,
 } from '../../../src/view/camera/index.js';
 
@@ -235,10 +236,16 @@ describe('createCameraController edge-scroll arming', () => {
     ctl.dispose();
   });
 
-  it('arms on a mousemove over HUD chrome stacked above the canvas edge', () => {
+  it('narrows the band over HUD chrome without slowing the pan at the screen edge', () => {
     const { ctl, move } = install();
+    const edgeX = HUD_EDGE_SCROLL_REACH / 2;
+    move(edgeX, CENTRE_Y);
+    const overMap = panStep(ctl);
+    ctl.setPointerGuard(() => true);
     move(LEFT_BAND_X, CENTRE_Y, { hudBeam: true });
-    expect(panStep(ctl)).toBeGreaterThan(0);
+    expect(panStep(ctl)).toBe(0);
+    move(edgeX, CENTRE_Y, { hudBeam: true });
+    expect(panStep(ctl)).toBeCloseTo(overMap);
     ctl.dispose();
   });
 

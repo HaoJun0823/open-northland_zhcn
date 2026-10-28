@@ -43,8 +43,9 @@ function nodeKey(hx: number, hy: number): string {
  * sprites on them leave the layer when the building is placed or upgraded or the road or wall ordered,
  * and at bind for every building, road, road site and wall already there (original behavior: a house's
  * placement removes the landscape objects in its walk-block area). Ground cleared later under the
- * viewer's fog keeps its scenery until the viewer sees it, and so does all of it with `deferAtBind`, for a
- * layer restored as the viewer last saw it. `nodeWidth` is the map's width in half-cell nodes, the stride of the road network's node ids.
+ * viewer's fog keeps its scenery until the viewer sees it. `deferAtBind` holds back the clearing at bind
+ * too, for a layer restored as the viewer last saw it. `nodeWidth` is the map's width in half-cell nodes,
+ * the stride of the road network's node ids.
  */
 export function bindFootprintClearing<Sprite>(
   surface: Pick<StaticDrawSurface<Sprite>, 'removeMapObject'>,

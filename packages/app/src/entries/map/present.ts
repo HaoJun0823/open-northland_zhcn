@@ -127,17 +127,6 @@ export async function presentMapWorld(
       ? savedMemory
       : null;
   if (restoredMemory !== null) renderer.restoreFogMemory(restoredMemory);
-  // A memory older than the world it restores into may hold quads for nodes worked since, whose events
-  // have passed: each held quad then retires once seen, and the live node draws from there.
-  const layerMemory = restoredMemory?.layer ?? undefined;
-  const restoredLayer =
-    layerMemory === undefined || restoredMemory?.tick === host.tick
-      ? layerMemory
-      : {
-          ...layerMemory,
-          waiting: [...layerMemory.waiting, ...layerMemory.held.map(([, placement]) => placement)],
-        };
-
   const staticLayer =
     staticObjects !== undefined && loaded?.objects !== undefined && simHeld !== null
       ? bindStaticLayer(
@@ -149,11 +138,11 @@ export async function presentMapWorld(
                 placementByEntity: hosted.placements.harvestablePlacements,
                 pooledPlacements: hosted.placements.pooledPlacements,
               }
-            : { kind: 'restored', placements: simHeld, memory: restoredLayer },
+            : { kind: 'restored', placements: simHeld, memory: restoredMemory?.layer ?? undefined },
           host.content,
           () => host.snapshot(),
           2 * terrainGrid.width,
-          { seesNode: (hx, hy) => renderer.fogSeesNode(hx, hy), revision: () => renderer.fogSightRevision },
+          renderer.fogSight,
         )
       : null;
 
@@ -265,7 +254,7 @@ export async function presentMapWorld(
       staticLayer?.onEvents(events);
       landscapes?.onEvents(events);
     },
-    ...(staticLayer !== null ? { onFrame: () => staticLayer.onFrame() } : {}),
+    ...(staticLayer !== null ? { onFogSight: () => staticLayer.onSight() } : {}),
     ...(staticLayer !== null ? { staticHarvestableSprite: staticLayer.harvestableSpriteOf } : {}),
     ...(loaded?.objects !== undefined && ir !== null && simHeld !== null
       ? { soundScenery: soundScenery(loaded.objects, ir, simHeld) }
@@ -277,7 +266,6 @@ export async function presentMapWorld(
       const { statics, roads } = renderer.savedFogMemory();
       return encodeFogMemory({
         mapId,
-        tick: host.tick,
         seat: localPlayer ?? null,
         statics,
         roads,

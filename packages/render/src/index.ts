@@ -9,6 +9,8 @@ export {
   type GhostSource,
   type RememberedMarkers,
   type SeenRoadNetwork,
+  type Sight,
+  UnseenChanges,
 } from './data/fog/index.js';
 export {
   buildHud,

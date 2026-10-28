@@ -1,4 +1,5 @@
-import type { Entity, SimEvent, WorldSnapshot } from '@open-northland/sim';
+import type { Sight } from '@open-northland/render';
+import { type Entity, entityById, type SimEvent, type WorldSnapshot } from '@open-northland/sim';
 import { forEachPlacement } from '../../content/map/placements.js';
 import { bindFootprintClearing, type FootprintBuildingType } from './footprint-clearing.js';
 import {
@@ -7,7 +8,7 @@ import {
   retireStaticHarvestables,
   type StaticDrawSurface,
 } from './harvestable-handover.js';
-import { SightDeferral, type SightGate } from './sight-deferral.js';
+import { SightDeferral } from './sight-deferral.js';
 
 /** A decoded map's placed landscape objects as the static layer drew them. */
 export interface StaticLayerObjects<Sprite> {
@@ -15,15 +16,28 @@ export interface StaticLayerObjects<Sprite> {
   readonly byPlacement: ReadonlyMap<number, Sprite>;
 }
 
+/** What working a harvestable moves: a node's `Resource.remaining`, a bush's `BerryBush.stage`. */
+export type HarvestState = number | string | null;
+
 /**
  * What the viewer last saw of the static layer, for a save to carry: the placements whose quad left the
- * layer, the harvestables still drawn as quads by entity, and the placements whose change waits for the
- * viewer's sight.
+ * layer, and the harvestables still drawn as quads with their {@link HarvestState} then. A held node whose
+ * entity is gone or whose state moved by the time the world restores was worked while the quad held, and
+ * retires once seen.
  */
 export interface StaticLayerMemory {
   readonly removed: readonly number[];
-  readonly held: readonly (readonly [entity: number, placement: number])[];
-  readonly waiting: readonly number[];
+  readonly held: readonly (readonly [entity: number, placement: number, state: HarvestState])[];
+}
+
+/** The harvest state of `entity` in `snapshot`; undefined once it is gone. */
+function harvestStateOf(snapshot: WorldSnapshot, entity: number): HarvestState | undefined {
+  const node = entityById(snapshot, entity);
+  if (node === undefined) return undefined;
+  const remaining = (node.components.Resource as { remaining?: unknown } | undefined)?.remaining;
+  if (typeof remaining === 'number') return remaining;
+  const stage = (node.components.BerryBush as { stage?: unknown } | undefined)?.stage;
+  return typeof stage === 'string' ? stage : null;
 }
 
 /**
@@ -50,8 +64,8 @@ export interface StaticLayerBinding<Sprite> {
   readonly onEvents: (events: readonly SimEvent[]) => void;
   /** The static quad still drawing a harvestable entity; see {@link HarvestableHandover.spriteOf}. */
   readonly harvestableSpriteOf: (entity: number) => Sprite | undefined;
-  /** Per-frame hook: applies the changes made in the fog that the viewer now sees. */
-  readonly onFrame: () => void;
+  /** Call each time the viewer's sight is set: applies the changes made in the fog it now sees. */
+  readonly onSight: () => void;
   readonly memory: () => StaticLayerMemory;
 }
 
@@ -66,7 +80,7 @@ export function bindStaticLayer<Sprite>(
   content: { readonly buildings: readonly FootprintBuildingType[] },
   snapshot: () => WorldSnapshot,
   nodeWidth: number,
-  sight: SightGate,
+  sight: Sight,
 ): StaticLayerBinding<Sprite> {
   const deferral = new SightDeferral(sight);
   const nodes = new Map<number, { readonly hx: number; readonly hy: number }>();
@@ -114,10 +128,9 @@ export function bindStaticLayer<Sprite>(
       harvestables.placements.filter((placement) => !held.has(placement) && !removed.has(placement)),
       objects.byPlacement,
     );
-    const heldEntity = new Map(memory.held.map(([entity, placement]) => [placement, entity]));
-    for (const placement of memory.waiting) {
-      const entity = heldEntity.get(placement);
-      if (entity !== undefined) handover?.retireWhenSeen(entity);
+    const restored = snapshot();
+    for (const [entity, , state] of memory.held) {
+      if (harvestStateOf(restored, entity) !== state) handover?.retireWhenSeen(entity);
     }
   } else {
     retireStaticHarvestables(tracked, harvestables.placements, objects.byPlacement);
@@ -144,11 +157,17 @@ export function bindStaticLayer<Sprite>(
       clearing(events);
     },
     harvestableSpriteOf: (entity) => handover?.spriteOf(entity),
-    onFrame: () => deferral.flush(),
-    memory: () => ({
-      removed: [...removed],
-      held: handover?.held() ?? [],
-      waiting: [...deferral.waiting()],
-    }),
+    onSight: () => deferral.flush(),
+    memory: () => {
+      const now = snapshot();
+      return {
+        removed: [...removed],
+        held: (handover?.held() ?? []).map(([entity, placement]) => [
+          entity,
+          placement,
+          harvestStateOf(now, entity) ?? null,
+        ]),
+      };
+    },
   };
 }

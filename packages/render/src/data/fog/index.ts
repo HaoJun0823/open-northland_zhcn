@@ -15,6 +15,7 @@ export {
   fogTileVisible,
 } from './mask.js';
 export { type SeenRoadNetwork, SeenRoads } from './seen-roads.js';
+export { type Sight, UnseenChanges } from './sight.js';
 export {
   ALPHA_BYTE,
   type FogWashLattice,

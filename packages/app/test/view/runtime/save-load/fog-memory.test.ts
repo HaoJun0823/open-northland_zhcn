@@ -7,7 +7,6 @@ import {
 
 const MEMORY: FogMemory = {
   mapId: 'magiczny_las',
-  tick: 726,
   seat: 0,
   statics: {
     player: 0,
@@ -26,13 +25,20 @@ const MEMORY: FogMemory = {
     ],
   },
   roads: [33, 34],
-  layer: { removed: [1, 2], held: [[40, 3]], waiting: [3] },
+  layer: {
+    removed: [1, 2],
+    held: [
+      [40, 3, 12],
+      [41, 5, 'ripe'],
+      [42, 6, null],
+    ],
+  },
 };
 
 describe('fog memory in a save', () => {
   it('reads back what it wrote', () => {
     expect(decodeFogMemory(encodeFogMemory(MEMORY))).toEqual(MEMORY);
-    const blank = { mapId: null, tick: 0, seat: null, statics: null, roads: [], layer: null };
+    const blank = { mapId: null, seat: null, statics: null, roads: [], layer: null };
     expect(decodeFogMemory(encodeFogMemory(blank))).toEqual(blank);
   });
 
@@ -50,6 +56,6 @@ describe('fog memory in a save', () => {
     expect(decodeFogMemory(ghost({ kind: 'settler' }))).toBeNull();
     expect(decodeFogMemory(ghost({ typeId: 'house' }))).toBeNull();
     expect(decodeFogMemory(ghost({ unknownField: 1 }))).toBeNull();
-    expect(decodeFogMemory(JSON.stringify({ ...raw, layer: { ...raw.layer, held: [[40]] } }))).toBeNull();
+    expect(decodeFogMemory(JSON.stringify({ ...raw, layer: { ...raw.layer, held: [[40, 3]] } }))).toBeNull();
   });
 });

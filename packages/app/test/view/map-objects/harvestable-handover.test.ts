@@ -2,6 +2,7 @@ import type { Entity, SimEvent } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { bindHarvestableHandover } from '../../../src/view/map-objects/harvestable-handover.js';
 import { SightDeferral } from '../../../src/view/map-objects/sight-deferral.js';
+import { testSight } from '../../support/sight.js';
 
 /** The static→dynamic draw split for a decoded map's harvestables. The handover treats a sprite as an
  *  opaque handle, so these fixtures name themselves instead of standing up Pixi textures. */
@@ -26,12 +27,8 @@ function surfaceSpy() {
 
 /** A viewer whose sight the test moves: `seen` holds the watched placements' nodes as `hx,hy`. */
 function sightOf(seen: Set<string> | 'all' = 'all') {
-  let revision = 0;
-  const sight = new SightDeferral({
-    seesNode: (hx, hy) => seen === 'all' || seen.has(`${hx},${hy}`),
-    revision: () => revision,
-  });
-  return { sight, moved: () => revision++ };
+  const view = testSight((hx, hy) => seen === 'all' || seen.has(`${hx},${hy}`));
+  return { sight: new SightDeferral(view), moved: () => view.look() };
 }
 
 /** Placement 0 stands on node (1, 2), placement 1 on (3, 4). */

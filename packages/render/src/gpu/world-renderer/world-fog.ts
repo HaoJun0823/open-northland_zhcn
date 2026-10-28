@@ -1,4 +1,4 @@
-import { FOG_STATE, type FogView, systems, type WorldSnapshot } from '@open-northland/sim';
+import { FOG_STATE, type FogView, scanChangedBytes, systems, type WorldSnapshot } from '@open-northland/sim';
 import type { Container } from 'pixi.js';
 import {
   type FogGhostMemory,
@@ -7,6 +7,7 @@ import {
   fogTileVisible,
   type GhostSource,
   type RememberedMarkers,
+  type Sight,
 } from '../../data/fog/index.js';
 import type { Viewport } from '../../data/projection/index.js';
 import type { ElevationField } from '../../data/terrain/index.js';
@@ -20,7 +21,27 @@ import type { PoolFrame } from '../sprite-pool/index.js';
 
 export type FogPoolFrame = Pick<PoolFrame, 'staticRefs' | 'fogVisible' | 'fogEpoch' | 'ghosts'>;
 
-export class WorldFog {
+/** The cell index of a node while no view gives the grid. */
+const NO_CELL = -1;
+
+/** The cells a step from view `was` to `view` turned visible, read off the two views' mask bytes; null
+ *  when the step cannot be diffed (fog turned on or off, another seat, mode or grid, a view over live
+ *  state), so every cell may have. */
+function openedCells(was: FogView | null, view: FogView | null): readonly number[] | null {
+  if (was === null || view === null || was.cells === undefined || view.cells === undefined) return null;
+  if (was.player !== view.player || was.mode !== view.mode || was.cellsWide !== view.cellsWide) return null;
+  if (was.cells.length !== view.cells.length) return null;
+  const opened: number[] = [];
+  const wide = view.cellsWide;
+  scanChangedBytes(was.cells, view.cells, (cell) => {
+    const cx = cell % wide;
+    if (view.stateAt(cx, (cell - cx) / wide) === FOG_STATE.VISIBLE) opened.push(cell);
+    return true;
+  });
+  return opened;
+}
+
+export class WorldFog implements Sight {
   private readonly wash = new FogLayer();
   private view: FogView | null = null;
   private readonly ghosts = new FogGhostStore();
@@ -35,6 +56,7 @@ export class WorldFog {
   private sight = 0;
   /** Whether a frame has said what the viewer sees: until then nothing reads as seen. */
   private sightKnown = false;
+  private opened: readonly number[] | null = null;
   /** Bound once: the pool's cull predicate reads the live view, so a frame allocates no closure. */
   private readonly visibleAt = (tileX: number, tileY: number): boolean =>
     this.view === null || fogTileVisible(this.view, tileX, tileY);
@@ -67,7 +89,10 @@ export class WorldFog {
       view === null || was === null
         ? view !== was
         : view.generation !== was.generation || view.player !== was.player || view.mode !== was.mode;
-    if (changed || !this.sightKnown) this.sight++;
+    if (changed || !this.sightKnown) {
+      this.sight++;
+      this.opened = this.sightKnown ? openedCells(was, view) : null;
+    }
     this.sightKnown = true;
     this.view = view;
   }
@@ -81,9 +106,19 @@ export class WorldFog {
     return this.view.stateAt(cx, cy) === FOG_STATE.VISIBLE;
   }
 
+  cellOfNode(hx: number, hy: number): number {
+    if (this.view === null) return NO_CELL;
+    const { cx, cy } = systems.cellOfNode(hx, hy);
+    return cy * this.view.cellsWide + cx;
+  }
+
   /** Bumps whenever {@link seesNode} may answer differently, the moment a view is set. */
-  get sightRevision(): number {
+  get revision(): number {
     return this.sight;
+  }
+
+  get newlyVisible(): readonly number[] | null {
+    return this.opened;
   }
 
   knowStartBuildings(): void {
@@ -99,7 +134,7 @@ export class WorldFog {
   }
 
   /** The remembered statics the world draws on explored ground, as of the last {@link update}. */
-  get memory(): RememberedMarkers {
+  get markers(): RememberedMarkers {
     return this.ghosts;
   }
 

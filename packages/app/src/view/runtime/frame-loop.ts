@@ -347,6 +347,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     const fogView = loop.fogView();
     fogGates.setFrame(fogView); // before anything below consults the predicates
     renderer.updateFog(fogView);
+    deps.onFogSight?.();
     // Presentation only: a fight in the fog must neither splatter blood nor ring audible clangs. Event
     // `at` coords are half-cell nodes. The entry's `onEvents` above keeps the unfiltered list, since a
     // fogged tree felled by an enemy must still hand over its static sprite.

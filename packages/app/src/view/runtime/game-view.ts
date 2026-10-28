@@ -270,6 +270,8 @@ export interface GameViewDeps {
   readonly mapText?: (stringId: number) => string | undefined;
   /** Extra per-frame hook after the standard updates. */
   readonly onFrame?: (snapshot: WorldSnapshot) => void;
+  /** Called each frame right after the renderer takes the viewer's fog, before anything draws. */
+  readonly onFogSight?: () => void;
   /** Once, when the frame after this view's first drawn one begins: the display shows the world. */
   readonly onFirstFrameShown?: () => void;
   /** Sim events from the frame's step(s), delivered before the renderer draws. Skipped on frames that did not step. */

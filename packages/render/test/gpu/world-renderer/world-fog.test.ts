@@ -1,4 +1,4 @@
-import { FOG_MODE, FOG_STATE } from '@open-northland/sim';
+import { FOG_MODE, FOG_STATE, fogViewOfMask } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { ONE } from '../../../src/data/projection/index.js';
 import { type FogPoolFrame, WorldFog } from '../../../src/gpu/world-renderer/world-fog.js';
@@ -72,14 +72,37 @@ describe('WorldFog', () => {
 
   it('sees nothing before the first view, then everything with fog off, moving its sight revision', () => {
     const fog = new WorldFog();
-    const before = fog.sightRevision;
+    const before = fog.revision;
     expect(fog.seesNode(0, 0)).toBe(false);
     fog.setView(null);
     expect(fog.seesNode(0, 0)).toBe(true);
-    expect(fog.sightRevision).not.toBe(before);
-    const known = fog.sightRevision;
+    expect(fog.revision).not.toBe(before);
+    const known = fog.revision;
     fog.setView(null);
-    expect(fog.sightRevision).toBe(known);
+    expect(fog.revision).toBe(known);
+  });
+
+  it('names the cells a mask step turned visible, and none it cannot diff', () => {
+    const CELLS_WIDE = 4;
+    const maskView = (visible: readonly number[], generation: number) => {
+      const mask = new Uint8Array(CELLS_WIDE * CELLS_WIDE).fill(FOG_STATE.EXPLORED);
+      for (const cell of visible) mask[cell] = FOG_STATE.VISIBLE;
+      return fogViewOfMask({
+        player: 0,
+        mode: FOG_MODE.CLASSIC_FOG_OF_WAR,
+        cellsWide: CELLS_WIDE,
+        cellsHigh: CELLS_WIDE,
+        generation,
+        mask,
+      });
+    };
+    const fog = new WorldFog();
+    fog.setView(maskView([1], 1));
+    expect(fog.newlyVisible).toBeNull(); // the first view says nothing about what was seen before
+    fog.setView(maskView([2, 5], 2));
+    expect(fog.newlyVisible).toEqual([2, 5]);
+    fog.setView(null);
+    expect(fog.newlyVisible).toBeNull();
   });
 
   it('holds the fog epoch on a steady mask and bumps it on a generation or mode change', () => {

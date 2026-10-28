@@ -39,8 +39,8 @@ export interface RoadLayerGeometry {
 
 /**
  * The roads the viewer has seen as a retained raster in the dot raster's px. A road shows wherever the
- * ground does, explored or visible, so only the road network, the viewer seat, the fog mode and the stamp size
- * redraw the whole raster. Explored ground only grows under one mode, so a fog change re-reads just the
+ * ground does, explored or visible, so only the road network, the viewer seat, the fog mode and the stamp
+ * size redraw the whole raster. Explored ground only grows under one mode, so a fog change re-reads just the
  * nodes still hidden. Answers whether `raster` changed.
  */
 export function createRoadRaster(

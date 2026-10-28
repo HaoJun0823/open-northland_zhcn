@@ -5,7 +5,16 @@ import {
   type RememberedMarkers,
   type SeenRoadNetwork,
   SeenRoads,
+  type Sight,
 } from '../../data/fog/index.js';
+
+/** The viewer's fog memory as plain data: the remembered statics of the seat last viewed (null before
+ *  any fog view) and the road nodes it believes laid. */
+export interface ViewerFogMemory {
+  readonly statics: FogGhostMemory | null;
+  readonly roads: readonly number[];
+}
+
 import type { LightGrade } from '../../data/lighting/types.js';
 import { cameraViewport, snapCameraToDevicePixels } from '../../data/projection/index.js';
 import {
@@ -133,7 +142,6 @@ export class WorldRenderer {
   /** The live road network's changes, and what the viewer has seen of it, which the ground draws. */
   private readonly roadShards = new RoadShardTracker();
   private seenRoads = new SeenRoads(0);
-  private roadSight = -1;
   private readonly playerColourOf: ((player: number) => number) | undefined;
   private enhancements: WorldEnhancements = BASELINE_ENHANCEMENTS;
   private selectionStyle: SelectionStyle = DEFAULT_SELECTION_STYLE;
@@ -333,13 +341,7 @@ export class WorldRenderer {
   /** Hand the terrain the roads the viewer saw change since the last frame: one compare per frame, a
    *  diff per changed shard, and a recheck of the unseen changes when the sight moves. */
   private syncRoads(snapshot: WorldSnapshot): void {
-    const sight = this.fog.sightRevision;
-    const changes = this.seenRoads.update(
-      this.roadShards.update(snapshot),
-      (hx, hy) => this.fog.seesNode(hx, hy),
-      sight !== this.roadSight,
-    );
-    this.roadSight = sight;
+    const changes = this.seenRoads.update(this.roadShards.update(snapshot), this.fog);
     if (changes !== null) this.terrain.updateRoads(changes);
   }
 
@@ -439,27 +441,17 @@ export class WorldRenderer {
     this.fog.setStaticallyDrawnRefs(refs);
   }
 
-  /** Whether the viewer watches the cell of half-cell node (hx, hy) under the last {@link updateFog}. */
-  fogSeesNode(hx: number, hy: number): boolean {
-    return this.fog.seesNode(hx, hy);
+  /** The viewer's sight under the last {@link updateFog}. */
+  get fogSight(): Sight {
+    return this.fog;
   }
 
-  /** Bumps whenever {@link fogSeesNode} may answer differently. */
-  get fogSightRevision(): number {
-    return this.fog.sightRevision;
-  }
-
-  /** The viewer's fog memory as plain data: the remembered statics of the seat last viewed (null before
-   *  any fog view) and the road nodes it believes laid. */
-  savedFogMemory(): { readonly statics: FogGhostMemory | null; readonly roads: readonly number[] } {
+  savedFogMemory(): ViewerFogMemory {
     return { statics: this.fog.savedMemory(), roads: [...this.seenRoads.nodes] };
   }
 
   /** Start from a saved fog memory; call after {@link setTerrain} and before the game's first frame. */
-  restoreFogMemory(memory: {
-    readonly statics: FogGhostMemory | null;
-    readonly roads: readonly number[];
-  }): void {
+  restoreFogMemory(memory: ViewerFogMemory): void {
     if (memory.statics !== null) this.fog.restoreMemory(memory.statics);
     this.seenRoads.restore(memory.roads);
   }
@@ -472,7 +464,7 @@ export class WorldRenderer {
   /** The remembered buildings and vehicles drawn on explored ground, for the minimap to show what the
    *  world shows. */
   get fogMemory(): RememberedMarkers {
-    return this.fog.memory;
+    return this.fog.markers;
   }
 
   /** Entities the sprite pool does not draw: those waiting for a presentation over them to end (a felled

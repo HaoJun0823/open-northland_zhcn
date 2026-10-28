@@ -5,6 +5,7 @@ import {
   type FootprintBuildingType,
 } from '../../../src/view/map-objects/footprint-clearing.js';
 import { SightDeferral } from '../../../src/view/map-objects/sight-deferral.js';
+import { testSight } from '../../support/sight.js';
 import { type Ent, snapshotOf } from '../../support/snapshot.js';
 
 /** The static-layer half of a building's landscape clearing: which placed sprites leave the layer when
@@ -83,8 +84,8 @@ function buildingAt(id: number, typeId: number, hx: number, hy: number, tribe = 
 function bind(entities: readonly Ent[], seesNode: (hx: number, hy: number) => boolean = () => true) {
   const removed: string[] = [];
   let snapshot = snapshotOf(entities);
-  let revision = 0;
-  const sight = new SightDeferral({ seesNode, revision: () => revision });
+  const view = testSight(seesNode);
+  const sight = new SightDeferral(view);
   const onEvents = bindFootprintClearing(
     { removeMapObject: (sprite: string) => removed.push(sprite) },
     PLACEMENTS,
@@ -95,7 +96,7 @@ function bind(entities: readonly Ent[], seesNode: (hx: number, hy: number) => bo
     sight,
   );
   const look = (): void => {
-    revision++;
+    view.look();
     sight.flush();
   };
   return { removed, onEvents, look, setSnapshot: (next: WorldSnapshot) => (snapshot = next) };

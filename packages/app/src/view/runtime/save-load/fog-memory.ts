@@ -1,8 +1,10 @@
 import type { FogGhost, FogGhostMemory } from '@open-northland/render';
-import type { StaticLayerMemory } from '../../map-objects/static-layer.js';
+import type { HarvestState, StaticLayerMemory } from '../../map-objects/static-layer.js';
 
 /** The layout {@link encodeFogMemory} writes; a reader accepts exactly this one. */
 const FOG_MEMORY_VERSION = 1;
+/** `[entity, placement, state]`, one held harvestable quad of {@link StaticLayerMemory.held}. */
+const HELD_QUAD_FIELDS = 3;
 
 /**
  * What the viewer remembers of the fog, carried in a save's `presentation` text: the remembered
@@ -10,10 +12,8 @@ const FOG_MEMORY_VERSION = 1;
  * into the same seat only; anything else starts from a blank memory.
  */
 export interface FogMemory {
-  /** The world the memory was taken in, and its tick: a relay keeps the memory of an older tick than
-   *  the snapshot it restores. */
+  /** The world the memory was taken in. */
   readonly mapId: string | null;
-  readonly tick: number;
   readonly seat: number | null;
   readonly statics: FogGhostMemory | null;
   readonly roads: readonly number[];
@@ -35,15 +35,14 @@ export function decodeFogMemory(text: string | null): FogMemory | null {
     return null;
   }
   if (!isRecord(raw) || raw.version !== FOG_MEMORY_VERSION) return null;
-  const { mapId, tick, seat, statics, roads, layer } = raw;
+  const { mapId, seat, statics, roads, layer } = raw;
   if (mapId !== null && typeof mapId !== 'string') return null;
-  if (!isCount(tick)) return null;
   if (seat !== null && !isCount(seat)) return null;
   if (!isCounts(roads)) return null;
   const ghosts = statics === null ? null : staticsOf(statics);
   const layerMemory = layer === null ? null : layerOf(layer);
   if (ghosts === undefined || layerMemory === undefined) return null;
-  return { mapId, tick, seat, statics: ghosts, roads, layer: layerMemory };
+  return { mapId, seat, statics: ghosts, roads, layer: layerMemory };
 }
 
 function staticsOf(value: unknown): FogGhostMemory | undefined {
@@ -56,10 +55,10 @@ function staticsOf(value: unknown): FogGhostMemory | undefined {
 
 function layerOf(value: unknown): StaticLayerMemory | undefined {
   if (!isRecord(value)) return undefined;
-  const { removed, held, waiting } = value;
-  if (!isCounts(removed) || !isCounts(waiting) || !Array.isArray(held)) return undefined;
-  if (!held.every((pair) => isCounts(pair) && pair.length === 2)) return undefined;
-  return { removed, held: held as [number, number][], waiting };
+  const { removed, held } = value;
+  if (!isCounts(removed) || !Array.isArray(held)) return undefined;
+  if (!held.every(isHeldQuad)) return undefined;
+  return { removed, held };
 }
 
 const GHOST_KINDS: readonly string[] = [
@@ -106,6 +105,16 @@ function isFogGhost(value: unknown): value is FogGhost {
     const check = Object.hasOwn(GHOST_FIELDS, key) ? GHOST_FIELDS[key as keyof FogGhost] : undefined;
     return check?.(field) === true;
   });
+}
+
+function isHeldQuad(value: unknown): value is [number, number, HarvestState] {
+  if (!Array.isArray(value) || value.length !== HELD_QUAD_FIELDS) return false;
+  const [entity, placement, state] = value as unknown[];
+  return (
+    isCount(entity) &&
+    isCount(placement) &&
+    (state === null || typeof state === 'string' || isFiniteNumber(state))
+  );
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

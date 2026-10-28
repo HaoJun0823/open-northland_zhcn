@@ -28,7 +28,12 @@ export function keptView(relayUrl: string, roomId: string): KeptView {
       if (text === null) window.sessionStorage.removeItem(memoryKey);
       else window.sessionStorage.setItem(memoryKey, text);
     } catch {
-      // Unavailable or full storage leaves the memory to this document.
+      // Unavailable or full storage leaves the memory to this document; an older copy must not outlive it.
+      try {
+        window.sessionStorage.removeItem(memoryKey);
+      } catch {
+        // Unavailable storage holds no older copy either.
+      }
     }
   };
   return {

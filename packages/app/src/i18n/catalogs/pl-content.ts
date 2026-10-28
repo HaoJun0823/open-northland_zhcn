@@ -376,6 +376,11 @@ export const plContent = {
       summary:
         'Kupiec z wózkiem ręcznym kursuje między dwoma własnymi magazynami o różnych zapasach, bez zaznaczonych towarów, więc nic się nie rusza. Zaznacz kupca i w sekcji Handel wybierz dla towaru kierunek (→ A, ⇄, → B), pułap i zapas, który zostaje.',
     },
+    'trade-bread': {
+      title: 'Chleb na szlaku handlowym',
+      summary:
+        'Kupiec z wózkiem ręcznym wozi chleb z piekarni do domu. Dom nie przechowuje chleba, tylko żywność, więc wózek wiezie bochenki jako żywność. Zaznacz kupca i otwórz okno handlu: strzałka chleba z piekarni do domu jest dostępna.',
+    },
     tribute: {
       title: 'Trybuty',
       summary:

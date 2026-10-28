@@ -380,6 +380,11 @@ export const deContent = {
       summary:
         'Ein Händler mit Handkarren pendelt zwischen zwei deiner Lagerhäuser mit unterschiedlichen Beständen. Da keine Ware ausgewählt ist, wird nichts befördert. Wähle den Händler aus und lege im Bereich „Handel“ für eine Ware die Richtung (→ A, ⇄, → B), die Obergrenze und die zurückbleibende Reserve fest.',
     },
+    'trade-bread': {
+      title: 'Brot auf einer Handelsroute',
+      summary:
+        'Ein Händler mit Handkarren bringt Brot von einer Bäckerei zu einem Wohnhaus. Das Wohnhaus lagert kein Brot, nur Nahrung, also befördert der Karren die Laibe als Nahrung. Wähle den Händler aus und öffne das Handelsfenster: Der Pfeil für Brot von der Bäckerei zum Wohnhaus ist frei.',
+    },
     tribute: {
       title: 'Tribute',
       summary:

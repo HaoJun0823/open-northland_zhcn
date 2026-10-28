@@ -378,6 +378,11 @@ export const enContent = {
       summary:
         "A merchant with a handcart plies between two of your warehouses with different stocks and no good marked, so nothing moves. Select the merchant and, in its Trade section, choose a good's direction (→ A, ⇄, → B), its ceiling and the reserve left behind.",
     },
+    'trade-bread': {
+      title: 'Bread on a trade route',
+      summary:
+        "A merchant with a handcart carries bread from a bakery to a home. The home keeps no bread, only food, so the cart carries the loaves as food. Select the merchant and open the trade window: the bakery's bread arrow into the home is open.",
+    },
     tribute: {
       title: 'Tributes',
       summary:

@@ -120,7 +120,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
   for (const record of records) if (nowMs - record.seenAt <= MARKER_STALE_MS) liveTabs.add(record.tabId);
   for (const marker of markers) {
     const freeze = records.find((record) => record.tabId === marker.id) ?? null;
-    const facts = { nowMs, previous, desktopFaults, freezeId: freeze?.id ?? null };
+    const facts = { nowMs, previous, desktopFaults, freeze };
     const judged = liveTabs.has(marker.id) ? ({ kind: 'live' } as const) : judgeMarker(marker, facts);
     if (judged.kind === 'live') {
       liveTabs.add(marker.id);
@@ -132,7 +132,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
     const thawed = freeze !== null && marker.beatAt > freeze.seenAt;
     const verdict =
       judged.kind === 'freeze' && quietFreeze && thawed
-        ? judgeMarker(marker, { ...facts, freezeId: null })
+        ? judgeMarker(marker, { ...facts, freeze: null })
         : judged;
     if (verdict.kind === 'desktop') {
       const matched = pending.filter((fault) => verdict.faultIds.includes(fault.id));

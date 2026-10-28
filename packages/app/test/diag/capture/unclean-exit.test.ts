@@ -24,7 +24,7 @@ const facts = (over: Partial<MarkerFacts> = {}): MarkerFacts => ({
   nowMs: LONG_AFTER,
   previous: null,
   desktopFaults: [],
-  freezeId: null,
+  freeze: null,
   ...over,
 });
 
@@ -54,19 +54,29 @@ describe('judgeMarker', () => {
   it("prefers the desktop shell's faults of that page's lifetime, then the watchdog's freeze record", () => {
     const during = { id: 'd'.repeat(32), atMs: BEAT_AT + 500 };
     const before = { id: 'e'.repeat(32), atMs: STARTED_AT - 1 };
-    const freezeId = 'f'.repeat(32);
+    const freeze = { id: 'f'.repeat(32), seenAt: BEAT_AT };
     // Fresh as the shell's reload after a crash leaves it, and frozen before that.
     expect(
-      judgeMarker(marker, facts({ nowMs: JUST_AFTER, desktopFaults: [during, before], freezeId })),
+      judgeMarker(marker, facts({ nowMs: JUST_AFTER, desktopFaults: [during, before], freeze })),
     ).toEqual({
       kind: 'desktop',
       faultIds: [during.id],
     });
     expect(
-      judgeMarker({ ...marker, context: { ...marker.context, inGame: false } }, facts({ freezeId })),
+      judgeMarker({ ...marker, context: { ...marker.context, inGame: false } }, facts({ freeze })),
     ).toEqual({
       kind: 'freeze',
-      freezeId,
+      freezeId: freeze.id,
+    });
+  });
+
+  it("counts a hang the shell saw while the watchdog still saw the page frozen as that page's", () => {
+    const hang = { id: 'd'.repeat(32), atMs: BEAT_AT + 2 * MARKER_STALE_MS };
+    const freeze = { id: 'f'.repeat(32), seenAt: hang.atMs + 10_000 };
+    expect(judgeMarker(marker, facts({ desktopFaults: [hang] }))).toEqual({ kind: 'unclean-exit' });
+    expect(judgeMarker(marker, facts({ desktopFaults: [hang], freeze }))).toEqual({
+      kind: 'desktop',
+      faultIds: [hang.id],
     });
   });
 });

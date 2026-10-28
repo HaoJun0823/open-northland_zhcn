@@ -20,8 +20,8 @@ export interface MarkerFacts {
   readonly previous: PreviousPage | null;
   /** Epoch milliseconds of each fault the desktop shell recorded. */
   readonly desktopFaults: readonly { readonly id: string; readonly atMs: number }[];
-  /** The id of the freeze record the marker's page left, if it left one. */
-  readonly freezeId: string | null;
+  /** The freeze record the marker's page left, if it left one; `seenAt` is when it was last seen frozen. */
+  readonly freeze: { readonly id: string; readonly seenAt: number } | null;
 }
 
 export type MarkerVerdict =
@@ -45,14 +45,16 @@ export type MarkerVerdict =
 export function judgeMarker(marker: SessionMarker, facts: MarkerFacts): MarkerVerdict {
   const reloaded = facts.previous?.id === marker.id;
   if (reloaded && facts.previous?.discarded === true) return { kind: 'quiet' };
-  // Before the age: the shell reloads a crashed page at once, so its marker is still fresh.
-  const lastAliveMs = marker.beatAt + MARKER_STALE_MS;
+  // Before the age: the shell reloads a crashed page at once, so its marker is still fresh. A frozen
+  // page stops beating, and the shell calls it hung only after Chromium's hang timeout of about 15 s:
+  // its record of the hang counts up to the last moment the watchdog saw the page frozen.
+  const lastAliveMs = Math.max(marker.beatAt, facts.freeze?.seenAt ?? marker.beatAt) + MARKER_STALE_MS;
   const faultIds = facts.desktopFaults
     .filter(({ atMs }) => atMs >= marker.startedAt && atMs <= lastAliveMs)
     .map((fault) => fault.id);
   if (faultIds.length > 0) return { kind: 'desktop', faultIds };
   if (!reloaded && facts.nowMs - marker.beatAt <= MARKER_STALE_MS) return { kind: 'live' };
-  if (facts.freezeId !== null) return { kind: 'freeze', freezeId: facts.freezeId };
+  if (facts.freeze !== null) return { kind: 'freeze', freezeId: facts.freeze.id };
   if (!marker.visible || !marker.context.inGame) return { kind: 'quiet' };
   return { kind: 'unclean-exit' };
 }

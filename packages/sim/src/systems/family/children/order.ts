@@ -6,6 +6,7 @@ import {
   Engagement,
   FamilyDuty,
   Fleeing,
+  isAboardVehicle,
   MakingLove,
   Marriage,
   ownerOf,
@@ -269,9 +270,10 @@ function claimDuty(world: World, e: Entity, pass: ChildOrderPass): void {
 }
 
 /** Whether the pass may issue actions on `e` right now: the planner's idle test, plus the marks of the
- *  drives that outrank family duty. */
+ *  drives that outrank family duty. A rider seated aboard is off the map until its vehicle sets it down. */
 function isDrivable(world: World, e: Entity): boolean {
   return (
+    !isAboardVehicle(world, e) &&
     !atomicHoldsSettler(world, e) &&
     !isTravelling(world, e) &&
     !world.has(e, PlayerOrder) &&

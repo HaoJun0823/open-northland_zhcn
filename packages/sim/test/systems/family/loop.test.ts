@@ -19,6 +19,7 @@ import {
   Position,
   Residence,
   Resting,
+  Rider,
   Settler,
   Stockpile,
   setSettlerJob,
@@ -472,6 +473,29 @@ describe('e2e: marriage → household → child (full step schedule)', () => {
       'husband walks home',
     );
     expect(walked).toBe(true);
+  });
+
+  it('waits for a husband aboard a vehicle, then calls him home once he steps off', () => {
+    const { sim, woman, man, home } = familySim(3);
+    sim.world.add(woman(), Marriage, { spouse: man(), child: null });
+    sim.world.add(man(), Marriage, { spouse: woman(), child: null });
+    sim.enqueueSetup({ kind: 'assignHouse', entity: woman(), house: home() });
+    sim.enqueueSetup({ kind: 'makeChild', entity: woman(), child: 'female' });
+    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
+    sim.step();
+    sim.world.mut(home(), Stockpile).amounts.set(FOOD, CHILD_FOOD_UNITS);
+    runUntil(sim, () => sim.world.tryGet(woman(), Resting)?.at === home(), 600, 'wife waits inside');
+    // Aboard: seated off the map, as boarding leaves a rider. The family pass runs before the vehicle
+    // systems, which set down a rider of this stand-in seat.
+    const shore = sim.world.get(man(), Position);
+    sim.world.remove(man(), Position);
+    sim.world.add(man(), Rider, { vehicle: home(), boarding: false, leaving: null });
+    sim.step();
+    expect(sim.world.has(woman(), ChildOrder)).toBe(true);
+
+    sim.world.remove(man(), Rider);
+    if (!sim.world.has(man(), Position)) sim.world.add(man(), Position, shore);
+    runUntil(sim, () => sim.world.tryGet(man(), Resting)?.at === home(), 600, 'husband walks home');
   });
 
   it('a hungry wife short of the child cost eats her home meal indoors, not popped out to haul', () => {

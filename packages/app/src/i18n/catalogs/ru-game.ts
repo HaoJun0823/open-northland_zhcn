@@ -1648,7 +1648,6 @@ export const ruGame = {
     child_male: 'Мальчик',
     woman: 'Женщина',
     civilist: 'Гражданин',
-    jester: 'Шут',
   },
   heroNames: {
     hero_unarmed: 'Безоружный герой',

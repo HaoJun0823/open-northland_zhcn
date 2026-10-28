@@ -1481,8 +1481,7 @@ export const chsGame = {
     allowRegeneration: '允许休整',
     prohibitRegeneration: '禁止休整',
   },
-  // Roles outside the profession picker, keyed by content job slug: the life stages (`jobtypes.ini` 1..6)
-  // and the jester (28), which maps can place but no player can train.
+  // Roles outside the profession picker, keyed by content job slug: the life stages (`jobtypes.ini` 1..6).
   roleNames: {
     baby_female: '婴儿（女孩）',
     baby_male: '婴儿（男孩）',
@@ -1490,7 +1489,6 @@ export const chsGame = {
     child_male: '男孩',
     woman: '妇女',
     civilist: '平民',
-    jester: '艺人',
   },
   heroNames: {
     hero_unarmed: '徒手英雄',

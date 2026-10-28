@@ -1652,7 +1652,6 @@ export const deGame = {
     child_male: 'Junge',
     woman: 'Frau',
     civilist: 'Zivilist',
-    jester: 'Gaukler',
   },
   heroNames: {
     hero_unarmed: 'Unbewaffneter Held',

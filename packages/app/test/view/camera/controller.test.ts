@@ -407,6 +407,13 @@ describe('createCameraController pan bindings', () => {
     ctl.dispose();
   });
 
+  it('leaves an arrow a focused control already took', () => {
+    const { ctl, press } = install();
+    press('ArrowLeft', { defaultPrevented: true });
+    expect(panStep(ctl)).toBe(0);
+    ctl.dispose();
+  });
+
   it('never pans on an unbound action', () => {
     const { ctl, press } = install({ ...DEFAULT_KEY_BINDINGS, panLeft: null });
     press('ArrowLeft');

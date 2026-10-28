@@ -228,7 +228,8 @@ export function createCameraController(
     zoomAnchorY = y;
   };
   const onKeyDown = (e: KeyboardEvent): void => {
-    if (suspended || isFieldKey(e)) return;
+    // A focused control that took the key (a tab strip's arrows) keeps it from the camera.
+    if (suspended || e.defaultPrevented || isFieldKey(e)) return;
     const action = panActionFor(e);
     if (action !== undefined) held.add(action);
     else if (numpadPans(e)) heldNumpad.add(e.code);

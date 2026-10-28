@@ -36,7 +36,13 @@ import {
 import { AmbientMixer } from './ambient-mixer.js';
 import { BusDuck, type DuckHold } from './bus-duck.js';
 import { MusicPlayer } from './music-player.js';
-import { NARRATION_IDLE, Narration, type NarrationCue, type NarrationState } from './narration.js';
+import {
+  NARRATION_IDLE,
+  Narration,
+  type NarrationCue,
+  type NarrationRate,
+  type NarrationState,
+} from './narration.js';
 import { CLICK_FREE_RAMP_S, rampParam } from './ramps.js';
 import {
   DEFAULT_SOUND_QUALITY,
@@ -231,6 +237,8 @@ export class WebAudioEngine {
   /** A narration asked for before a gesture started the context; it starts once audio is live, held
    *  paused if the player paused it meanwhile. */
   private pendingNarration: { wav: Uint8Array; fromS: number; paused: boolean } | null = null;
+  /** The narration tempo, kept here so a setter before the context exists still lands. */
+  private narrationRate: NarrationRate = 1;
   /** The graphics "Weather" switch, kept here so a setter before the context exists still lands. */
   private weatherEnabled = true;
   /** Current slider positions - kept here so a setter before the context exists still lands. */
@@ -498,6 +506,11 @@ export class WebAudioEngine {
     else this.narration?.seek(atS);
   }
 
+  setNarrationRate(rate: NarrationRate): void {
+    this.narrationRate = rate;
+    this.narration?.setRate(rate);
+  }
+
   /** Where the narration line stands; a waiting one has no decoded length yet. */
   narrationState(): NarrationState {
     const pending = this.pendingNarration;
@@ -630,6 +643,7 @@ export class WebAudioEngine {
     buses.music.connect(musicDuck.node).connect(voiceDuck.node).connect(master);
     this.voiceDuck = voiceDuck;
     this.narration = new Narration(ctx, buses.ui, voiceDuck);
+    this.narration.setRate(this.narrationRate);
     for (const key of this.musicSilences.keys()) this.musicSilences.set(key, this.holdSilence());
     this.master = master;
     this.buses = buses;

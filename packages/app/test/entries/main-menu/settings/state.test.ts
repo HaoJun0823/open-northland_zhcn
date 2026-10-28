@@ -78,6 +78,7 @@ describe('parseStoredSettings', () => {
       monoSound: true,
       jinglesEnabled: false,
       unitResponses: 'off',
+      narrationRate: 1.5,
       soundQuality: 'lossless',
       language: 'eng',
       keyboardScrollSpeed: 1.25,

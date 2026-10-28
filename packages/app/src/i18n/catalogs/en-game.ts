@@ -1104,6 +1104,7 @@ export const enGame = {
       voicePause: 'Pause',
       voiceSeek: 'Seek narration',
       voiceUnavailable: 'Narration unavailable',
+      voiceRate: 'Narration speed: {rate}',
     },
     residentsWindow: {
       title: 'Subjects',

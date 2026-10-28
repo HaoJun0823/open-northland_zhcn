@@ -5381,9 +5381,9 @@ body.on-drag-scroll.on-drag-scroll-free * {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  max-width: 240px;
+  max-width: 280px;
   color: var(--ink-muted);
 }
 .on-hud .on-voice__toggle {
@@ -5483,6 +5483,35 @@ body.on-drag-scroll.on-drag-scroll-free * {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* The tempo reads as a quiet figure after the time and inks red once it is off the recorded one. */
+.on-hud .on-voice__rate {
+  flex-shrink: 0;
+  width: 5ch;
+  margin-left: -4px;
+  padding: 1px 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s;
+}
+.on-hud .on-voice__rate:not([data-rate="1"]) {
+  color: var(--book-red);
+}
+.on-hud .on-voice__rate:hover {
+  border-color: #8d754966;
+  background: #8d754922;
+}
+.on-hud .on-voice__rate:focus-visible {
+  outline: 1px solid #8d7549;
+  outline-offset: 2px;
 }
 .on-hud .on-book__kicker {
   display: flex;

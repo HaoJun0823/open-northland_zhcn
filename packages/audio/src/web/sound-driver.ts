@@ -40,6 +40,7 @@ import type { WeatherSoundInput } from '../data/weather/mix.js';
 import {
   type AudioEngineOptions,
   type NarrationCue,
+  type NarrationRate,
   type NarrationState,
   type SoundPreloadReport,
   WebAudioEngine,
@@ -320,6 +321,11 @@ export class SoundDriver {
 
   narrationState(): NarrationState {
     return this.engine.narrationState();
+  }
+
+  /** Speak the narration at `rate`, the line still speaking included. */
+  setNarrationRate(rate: NarrationRate): void {
+    this.engine.setNarrationRate(rate);
   }
 
   /** Fade out the briefing narration still speaking. */

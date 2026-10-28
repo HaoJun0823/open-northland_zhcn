@@ -1082,6 +1082,7 @@ export const chtGame = {
       voicePause: '暫停',
       voiceSeek: '調整旁白位置',
       voiceUnavailable: '無法使用旁白',
+      voiceRate: '旁白語速：{rate}',
     },
     residentsWindow: {
       title: '臣民',

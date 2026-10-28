@@ -1188,6 +1188,7 @@ export const ruGame = {
       voicePause: 'Пауза',
       voiceSeek: 'Перемотать озвучку',
       voiceUnavailable: 'Озвучка недоступна',
+      voiceRate: 'Скорость озвучки: {rate}',
     },
     residentsWindow: {
       title: 'Жители',

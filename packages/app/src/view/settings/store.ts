@@ -2,7 +2,9 @@ import {
   clampVolume,
   DEFAULT_UNIT_RESPONSES,
   DEFAULT_VOLUMES,
+  isNarrationRate,
   type MixerVolumes,
+  type NarrationRate,
   parseUnitResponses,
   type UnitResponses,
 } from '@open-northland/audio';
@@ -123,6 +125,8 @@ export interface MenuSettings {
   readonly jinglesEnabled: boolean;
   /** Which of an order and a selection a settler's voice answers. */
   readonly unitResponses: UnitResponses;
+  /** The tempo a briefing's narrator reads at, set from the briefing's player. */
+  readonly narrationRate: NarrationRate;
   /** Which sound banks a starting game loads: FLAC or the smaller Opus encoding. */
   readonly soundQuality: SoundQuality;
   readonly language: Locale;
@@ -203,6 +207,7 @@ export function defaultSettings(): MenuSettings {
     monoSound: false,
     jinglesEnabled: true,
     unitResponses: DEFAULT_UNIT_RESPONSES,
+    narrationRate: 1,
     soundQuality: defaultSoundQuality(),
     language: defaultLocale(),
     keyboardScrollSpeed: DEFAULT_SCROLL_SPEED,
@@ -377,6 +382,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     jinglesEnabled:
       typeof record.jinglesEnabled === 'boolean' ? record.jinglesEnabled : defaults.jinglesEnabled,
     unitResponses: parseUnitResponses(record.unitResponses),
+    narrationRate: isNarrationRate(record.narrationRate) ? record.narrationRate : defaults.narrationRate,
     soundQuality: SOUND_QUALITIES.find((quality) => quality === record.soundQuality) ?? defaults.soundQuality,
     language: isLocale(record.language) ? record.language : defaults.language,
     keyboardScrollSpeed: clampScrollSpeed(record.keyboardScrollSpeed),

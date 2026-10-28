@@ -1082,6 +1082,7 @@ export const chsGame = {
       voicePause: '暂停',
       voiceSeek: '调整旁白进度',
       voiceUnavailable: '旁白不可用',
+      voiceRate: '旁白语速：{rate}',
     },
     residentsWindow: {
       title: '臣民',

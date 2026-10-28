@@ -736,7 +736,14 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ...(deps.missionPictureUrl === undefined ? {} : { missionPictureUrl: deps.missionPictureUrl }),
       ...(soundDriver === null || deps.missionVoices === undefined
         ? {}
-        : { missionVoice: briefingVoicePlayer(deps.missionVoices, soundDriver) }),
+        : {
+            missionVoice: briefingVoicePlayer(
+              deps.missionVoices,
+              soundDriver,
+              storedSettings.narrationRate,
+              (narrationRate) => patchStoredSettings({ narrationRate }),
+            ),
+          }),
       missionBriefingHistory: answers.missionBriefingHistory,
       askMissionBriefing: answers.askMissionBriefing,
       missionHuman: answers.missionHuman,

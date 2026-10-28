@@ -423,7 +423,7 @@ export const deContent = {
     'vehicle-dock-fleet': {
       title: 'Eine Flotte vor zerklüfteter Küste',
       summary:
-        'Fünf bemannte Schiffe liegen vor einer Küste mit Bucht und Kap. Wähle eines oder mehrere und klicke rechts am Ufer oder nutze den Anlegeknopf: ein abgerundeter Schein zeigt das Ufer, an dem sie anlegen können, Kugeln unter dem Zeiger zeigen, wo jedes Schiff anlegt, und die Flotte verteilt sich mit freiem Wasser zwischen den Rümpfen am Ufer.',
+        'Fünf bemannte Schiffe liegen vor einer Küste mit Bucht und Kap. Wähle eines oder mehrere und klicke rechts am Ufer, drücke Z oder nutze den Anlegeknopf im Schiffs- oder Gruppenfenster: ein abgerundeter Schein zeigt das Ufer, an dem sie anlegen können, Poller mit ihren Leinen unter dem Zeiger zeigen, wo jedes Schiff anlegt, und die Flotte verteilt sich mit freiem Wasser zwischen den Rümpfen am Ufer. Mit Strg/Cmd (Klick nach Z oder Rechtsklick am Ufer) gehen die Besatzungen nach dem Anlegen an Land, und der Knopf „Alle aussteigen lassen“ einer Gruppe nur aus Schiffen setzt die Besatzungen der angelegten Schiffe an Land.',
     },
     'ship-wakes': {
       title: 'Kielwasser',

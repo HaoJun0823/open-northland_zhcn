@@ -350,6 +350,7 @@ export const enSurfaces = {
         professionPicker: 'Settler profession list',
         equipmentPicker: 'Settler equipment window',
         attackMove: 'Attack-move',
+        dockShips: 'Dock the selected ships',
         hudToggle: 'Hide/show interface',
         speedCycle: 'Game speed ×1 / ×2 / ×3',
         loadGame: 'Load game',
@@ -534,6 +535,8 @@ export const enSurfaces = {
         '{shift} + click lines an order up behind the current one: walks, attacks, building sites, drills, signposts, chests, put-ons, needs, scouting, claiming animals, boarding, and vehicle drives, strikes and loads.',
       buildMany: 'Hold {shift} while placing a building to place several of it, one per click.',
       attackMove: '{key} is attack-move: units walk to the target and attack everything on the way.',
+      dockShips:
+        '{key} docks the selected ships along the shore you click, each at a berth of its own. With Ctrl/Cmd (a click after {key}, or a right-click by the shore) the crews step ashore once moored.',
       postGraduates:
         'In the assistant window ({key}), "{graduatesOption}" sends freshly trained settlers from the schools to the workshops.',
       moveFlags:

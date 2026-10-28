@@ -1,4 +1,4 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, type Texture } from 'pixi.js';
 import { depthKey, halfCellToScreen, TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { type PalisadeLayout, planShiftX } from '../../data/scene/palisades/connections.js';
@@ -7,11 +7,12 @@ import { mintRangeRing } from '../selection/range-ring.js';
 import { resolveLayers } from '../sprite-pool/index.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import type { TextureCache } from '../textures/texture-cache.js';
-import { mintBerthOrbs } from './berth-orbs.js';
+import { addBerthMarks } from './berth-marks.js';
 import { mintLayerSprite } from './layer-sprite.js';
 import type { PlacementOverlayCell } from './overlay.js';
 import { drawPlotCross, mintPlanRoad, type PlanRoadTextures, plotRim } from './plan-road.js';
 import {
+  ANCHOR_RING,
   mintPlanStake,
   type PlanStakeTextures,
   STAKE_TIE_HEIGHT,
@@ -62,8 +63,8 @@ export type PlacementGhost =
     }
   /** A gatherer's work flag about to be planted: the owner's delivery-flag sprite. */
   | { readonly kind: 'flag'; readonly col: number; readonly row: number; readonly player: number }
-  /** The berths a dock click would moor its ships at: an orb over each shore point, a ring where its
-   *  hull lies. */
+  /** The berths a dock click would moor its ships at: a mooring post on each shore point, a line to the
+   *  ripples where its hull lies. */
   | { readonly kind: 'berths'; readonly berths: readonly BerthMark[] };
 
 /** One ship's berth: the shore point (`col`, `row`) its door opens on and the water node its hull lies
@@ -90,7 +91,8 @@ interface PlanPoint {
   readonly state: PlanNode['state'];
 }
 
-/** The ghosts drawn as one sprite; a line is stakes and string, and berths are orbs, built apart. */
+/** The ghosts drawn as one sprite; a line is stakes and string, and berths are posts and lines, built
+ *  apart. */
 type SpriteGhost = Exclude<PlacementGhost, { readonly kind: 'line' | 'berths' }>;
 
 function ghostKey(ghost: SpriteGhost): string {
@@ -144,7 +146,6 @@ const GATE_GHOST_ALPHA = 0.85;
 /** Placeholder tint when no atlas frame resolves (bare checkout / synthetic sheet without the type). */
 const PLACEHOLDER_COLOR = 0xc8a04a;
 /** The ring on the ground under a started line's first node. */
-const ANCHOR_RING = 0xf2c14e;
 const ANCHOR_RING_RADIUS = { x: 9, y: 4.5 } as const;
 /** A planned road plot's outline, which sets the plan apart from the sites already ordered. Tuned by eye. */
 const ROAD_PLAN_RIM = 0xfff4d0;
@@ -203,6 +204,7 @@ export class PlacementGhostLayer {
     private readonly textures: TextureCache,
     private readonly stakes?: PlanStakeTextures,
     private readonly roads?: PlanRoadTextures,
+    private readonly berthPost?: Texture,
   ) {
     this.container.visible = false;
     this.container.alpha = GHOST_ALPHA;
@@ -258,8 +260,10 @@ export class PlacementGhostLayer {
           const p = halfCellToScreen(node.col, node.row);
           return { x: p.x, y: p.y - terrainLiftAtNode(elevation, node.col, node.row) };
         };
-        this.container.addChild(
-          mintBerthOrbs(ghost.berths.map((berth) => ({ door: lifted(berth), hull: lifted(berth.hull) }))),
+        addBerthMarks(
+          this.container,
+          this.berthPost,
+          ghost.berths.map((berth) => ({ door: lifted(berth), hull: lifted(berth.hull) })),
         );
       }
       this.container.position.set(0, 0);

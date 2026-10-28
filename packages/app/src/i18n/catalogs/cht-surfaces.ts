@@ -339,6 +339,7 @@ export const chtSurfaces = {
         professionPicker: '居民職業清單',
         equipmentPicker: '居民裝備視窗',
         attackMove: '攻擊移動',
+        dockShips: '停靠所選船隻',
         hudToggle: '隱藏／顯示介面',
         speedCycle: '遊戲速度 ×1 / ×2 / ×3',
         loadGame: '載入遊戲',
@@ -521,6 +522,8 @@ export const chtSurfaces = {
         '{shift} + 點擊可將命令排在目前命令之後：行走、攻擊、建造工地、訓練、路標、箱子、穿戴、需求、探索、收服動物、登乘，以及載具的行駛、攻擊和裝載。',
       buildMany: '放置建築時按住 {shift}，即可每點擊一次就放置一座，連續放置多座。',
       attackMove: '{key} 是攻擊移動：單位會走向目標，並攻擊沿途遇到的一切。',
+      dockShips:
+        '{key} 讓所選船隻停靠在點擊的海岸，每艘各佔一個泊位。按住 Ctrl/Cmd（按 {key} 後點擊，或在岸邊右鍵點擊），船員會在停靠後上岸。',
       postGraduates: '在助手視窗（{key}）中，「{graduatesOption}」會把學校剛結業的居民派往工坊。',
       moveFlags:
         '在助手視窗（{key}）中，「{flagsOption}」會在資源快用完時，把採集者的旗幟移到更靠近資源的地方。',

@@ -735,6 +735,8 @@ export const plGame = {
         attackPosition: 'Ostrzelaj miejsce',
       },
       armedTooltip: '{order} · wskaż cel · Esc anuluje',
+      dockTooltip: '{order} ({key}) · wskaż brzeg · Ctrl/Cmd + klik: zacumuj i wysadź załogę',
+      dockArmedTooltip: '{order} · wskaż brzeg · Ctrl/Cmd + klik: zacumuj i wysadź załogę · Esc anuluje',
       refusals: {
         carried: 'Wehikuł stoi na statku',
         hauled: 'Wóz jest w rękach tragarza',
@@ -842,6 +844,9 @@ export const plGame = {
       itemSipsTooltip: '{good} · {count} · łyków: {sips}',
       military: 'Wojsko',
       siegeStance: 'Katapulty',
+      fleet: 'Statki',
+      unloadFleetTooltip: 'Załogi zacumowanych statków ({count} z {total}) wychodzą na brzeg',
+      unloadFleetNone: 'Żaden zacumowany statek nie ma załogi',
       orderReach: '{order} · dotyczy {reach} z {count}',
       orderReachNone: '{order} · nikt w zakresie nie może tego zrobić',
       stanceCounts: 'Teraz: {counts}',

@@ -520,10 +520,10 @@ function rerouteAtBlock(
   return docking && movingVehicleCovers(world, ctx, terrain, e, goal) ? 'waits' : 'none';
 }
 
-/** Whether a vehicle other than `vehicle` that is under way covers `node` with its disc. One bound for a
- *  goal `vehicle` itself covers is waiting on it in turn, so it does not count: the two would wait for
- *  each other for good. A walk over the driving vehicles, run only when a docking ship's route is
- *  blocked. */
+/** Whether a vehicle other than `vehicle` that is under way covers `node` with its disc and does not
+ *  wait, however indirectly, on `vehicle` itself: a docking ship held over the next one's dock node may
+ *  wait in turn, and a ring of such ships would wait for each other for good. A walk over the driving
+ *  vehicles along the chain, each visited once, run only when a docking ship's route is blocked. */
 function movingVehicleCovers(
   world: World,
   ctx: ContentContext,
@@ -531,12 +531,26 @@ function movingVehicleCovers(
   vehicle: Entity,
   node: NodeId,
 ): boolean {
-  const own = vehicleFootprintNodes(world, ctx.content, terrain, vehicle);
-  for (const other of world.query(Vehicle, VehicleDrive)) {
-    if (other === vehicle || !vehicleFootprintNodes(world, ctx.content, terrain, other).includes(node))
-      continue;
-    const { goal } = world.get(other, VehicleDrive);
-    if (!own.includes(terrain.nodeAtClamped(goal.hx, goal.hy))) return true;
+  const footprint = (e: Entity): readonly NodeId[] => vehicleFootprintNodes(world, ctx.content, terrain, e);
+  const movers = [...world.query(Vehicle, VehicleDrive)];
+  const seen = new Set<Entity>([vehicle]);
+  /** Whether `waiter` might wait on a chain of movers that leads back into `seen`. */
+  const waitsOnSeen = (waiter: Entity): boolean => {
+    if (world.get(waiter, Vehicle).task !== 'docks') return false;
+    const { goal } = world.get(waiter, VehicleDrive);
+    const goalNode = terrain.nodeAtClamped(goal.hx, goal.hy);
+    for (const other of movers) {
+      if (other === waiter || !footprint(other).includes(goalNode)) continue;
+      if (seen.has(other)) return true;
+      seen.add(other);
+      if (waitsOnSeen(other)) return true;
+    }
+    return false;
+  };
+  for (const other of movers) {
+    if (other === vehicle || !footprint(other).includes(node)) continue;
+    seen.add(other);
+    if (!waitsOnSeen(other)) return true;
   }
   return false;
 }

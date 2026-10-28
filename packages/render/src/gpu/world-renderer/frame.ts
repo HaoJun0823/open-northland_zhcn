@@ -1,5 +1,5 @@
 import type { WorldSnapshot } from '@open-northland/sim';
-import type { TextureSource } from 'pixi.js';
+import type { Texture, TextureSource } from 'pixi.js';
 import type { Camera } from '../../data/projection/index.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import type {
@@ -81,6 +81,8 @@ export interface WorldRendererOptions {
   readonly planStakes?: PlanStakeTextures | undefined;
   /** The road tool's plot art; absent draws a flat stand-in. */
   readonly planRoads?: PlanRoadTextures | undefined;
+  /** The dock cursor's mooring post art; absent draws a flat stand-in. */
+  readonly berthPost?: Texture | undefined;
 }
 
 /** `scale` defaults to the native landscape-object scale of 1. */

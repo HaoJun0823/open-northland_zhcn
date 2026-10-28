@@ -33,7 +33,7 @@ import {
 } from '../../../../src/hud/dom/vehicle-panel/crew.js';
 import { cargoFill, cargoFlow, cargoLineTooltip } from '../../../../src/hud/dom/vehicle-panel/hold.js';
 import { orderTexts } from '../../../../src/hud/dom/vehicle-panel/portrait.js';
-import { messages } from '../../../../src/i18n/index.js';
+import { formatMessage, messages } from '../../../../src/i18n/index.js';
 import { createSceneSim } from '../../../../src/scenes/index.js';
 import { vehiclesScene } from '../../../../src/scenes/vehicles/vehicles.js';
 import {
@@ -264,16 +264,23 @@ describe('vehicle panel orders', () => {
 
   it("says why an order is refused, the pick's prompt while armed, and the name otherwise", () => {
     const copy = messages().hud.vehiclePanel;
-    expect(orderTexts({ order: 'goTo', control: 'no' }, 'cart', false)).toEqual({
+    expect(orderTexts({ order: 'goTo', control: 'no' }, 'cart', false, 'Z')).toEqual({
       label: copy.orders.goTo,
       tooltip: 'no',
     });
-    expect(orderTexts({ order: 'goTo', control: true }, 'ship', false)).toEqual({
+    expect(orderTexts({ order: 'goTo', control: true }, 'ship', false, 'Z')).toEqual({
       label: copy.orders.sail,
       tooltip: copy.orders.sail,
     });
-    expect(orderTexts({ order: 'stop', control: true }, 'cart', true).tooltip).toContain(copy.orders.stop);
-    expect(orderTexts({ order: 'stop', control: true }, 'cart', false).tooltip).toBe(copy.orders.stop);
+    expect(orderTexts({ order: 'stop', control: true }, 'cart', true, 'Z').tooltip).toContain(
+      copy.orders.stop,
+    );
+    expect(orderTexts({ order: 'stop', control: true }, 'cart', false, 'Z').tooltip).toBe(copy.orders.stop);
+    // The dock order names its key and the Ctrl/Cmd click that also lands the crew.
+    expect(orderTexts({ order: 'dock', control: true }, 'ship', false, 'Z').tooltip).toBe(
+      formatMessage(copy.dockTooltip, { order: copy.orders.dock, key: 'Z' }),
+    );
+    expect(copy.dockTooltip).toContain('Ctrl/Cmd');
   });
 
   it("turns the panel's presses into the vehicle's commands and refuses another seat's", () => {

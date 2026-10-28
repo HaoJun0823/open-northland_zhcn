@@ -387,6 +387,7 @@ export const deSurfaces = {
         professionPicker: 'Berufsliste des Siedlers',
         equipmentPicker: 'Ausrüstungsfenster der Siedler',
         attackMove: 'Angriffsbewegung',
+        dockShips: 'Ausgewählte Schiffe anlegen',
         hudToggle: 'Oberfläche aus-/einblenden',
         speedCycle: 'Spieltempo ×1 / ×2 / ×3',
         loadGame: 'Spiel laden',
@@ -573,6 +574,8 @@ export const deSurfaces = {
         'Halte beim Platzieren eines Gebäudes {shift} gedrückt, um mehrere davon zu setzen, eines pro Klick.',
       attackMove:
         '{key} befiehlt eine Angriffsbewegung: Einheiten gehen zum Ziel und greifen Gegner auf dem Weg an.',
+      dockShips:
+        '{key} legt die ausgewählten Schiffe an der angeklickten Küste an, jedes an einem eigenen Liegeplatz. Mit Strg/Cmd (Klick nach {key} oder Rechtsklick am Ufer) gehen die Besatzungen nach dem Anlegen an Land.',
       postGraduates:
         'Im Assistentenfenster ({key}) schickt „{graduatesOption}“ frisch ausgebildete Siedler von der Schule in die Werkstätten.',
       moveFlags:

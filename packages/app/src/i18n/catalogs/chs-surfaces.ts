@@ -339,6 +339,7 @@ export const chsSurfaces = {
         professionPicker: '居民职业列表',
         equipmentPicker: '居民装备窗口',
         attackMove: '攻击移动',
+        dockShips: '停靠所选船只',
         hudToggle: '隐藏/显示界面',
         speedCycle: '游戏速度 ×1 / ×2 / ×3',
         loadGame: '载入游戏',
@@ -521,6 +522,8 @@ export const chsSurfaces = {
         '{shift} + 点击可将命令排在当前命令之后：行走、攻击、建造工地、训练、路标、箱子、穿戴、需求、探索、收服动物、登乘，以及载具的行驶、攻击和装载。',
       buildMany: '放置建筑时按住 {shift}，每点击一次放置一座，可以连续放置多座。',
       attackMove: '{key} 为攻击移动：单位走向目标，并攻击沿途遇到的一切。',
+      dockShips:
+        '{key} 让所选船只停靠在点击的海岸，每艘各占一个泊位。按住 Ctrl/Cmd（按 {key} 后点击，或在岸边右键单击），船员会在停靠后上岸。',
       postGraduates: '在助手窗口（{key}）中，“{graduatesOption}”会把学校里刚完成学习的居民派往工坊。',
       moveFlags: '在助手窗口（{key}）中，“{flagsOption}”会在资源耗尽时把采集者的旗帜移到更靠近资源的地方。',
       lobbyNation: '在大厅中，点击玩家旁的大本营图标即可更改该玩家的民族。',

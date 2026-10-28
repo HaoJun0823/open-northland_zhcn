@@ -103,6 +103,8 @@ export interface PlacementGates extends PlacementClickGates {
 
 /** The span's centre sits at this index of the probe's five nodes. */
 const GATE_SPAN_CENTER = 2;
+/** How often a selected fleet's berth preview asks its ships' mooring rules again while vehicles move. */
+const MOORING_PREVIEW_REFRESH_MS = 500;
 
 type IndexedGateSites = GateSites & { readonly isCenter: (col: number, row: number) => boolean };
 
@@ -200,9 +202,18 @@ export function createPlacementGates(
   };
   const askMooring = (vehicle: number) => (): Promise<MooringProbe | null> =>
     host.mooringProbe(vehicle as Entity).then((answer) => (answer === null ? null : mooringProbeOf(answer)));
-  // The sim answers from its memo, keyed on the sea's labels, and the blocker version moves with them.
+  // The sim answers from its memo, keyed on the sea's labels, and the blocker version moves with them. It
+  // moves whenever any vehicle steps, so the preview of a selected fleet asks again at most every
+  // MOORING_PREVIEW_REFRESH_MS; the click asks fresh (`askMooring`).
+  let mooringVersion = { at: Number.NEGATIVE_INFINITY, version: '' };
+  const previewVersion = (): string => {
+    const now = performance.now();
+    if (now - mooringVersion.at >= MOORING_PREVIEW_REFRESH_MS)
+      mooringVersion = { at: now, version: blockerVersion() };
+    return mooringVersion.version;
+  };
   const mooring = (vehicle: number): MooringProbe | null | undefined =>
-    moorings.read(`${vehicle}`, askMooring(vehicle), blockerVersion());
+    moorings.read(`${vehicle}`, askMooring(vehicle), previewVersion());
   // The fog rule matches the dock overlay's, so a dimmed shore in the fog takes no dock click either.
   const seenMooring = (probe: MooringProbe | null): MooringRule | null =>
     probe === null

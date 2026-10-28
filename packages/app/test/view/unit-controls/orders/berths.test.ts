@@ -97,7 +97,14 @@ it('moors the scene fleet in the bay on its berths with no two hulls touching', 
       playerCommand(HUMAN_PLAYER, { kind: 'dockVehicle', vehicle: ship, x: col, y: row, dock: at }),
     );
   }
-  sim.run(DOCK_TICKS);
+  // No ship of the fleet is turned away on the way to its berth.
+  const refused: string[] = [];
+  for (let tick = 0; tick < DOCK_TICKS; tick++) {
+    sim.step();
+    for (const ev of sim.events.current())
+      if (ev.kind === 'vehicleMoveRefused') refused.push(`${ev.entity}:${ev.reason}`);
+  }
+  expect(refused).toEqual([]);
   const moored = sim.vehiclesOf(HUMAN_PLAYER);
   for (const { vehicle, dock } of berths) {
     const view = moored.find((v) => v.entity === vehicle);

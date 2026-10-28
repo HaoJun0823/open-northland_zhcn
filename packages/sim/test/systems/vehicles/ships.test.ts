@@ -326,6 +326,43 @@ describe('dockVehicle', () => {
     expect(distanceTo(anchorOf(s, ship), point)).toBe(DOOR_DISTANCE);
   });
 
+  it('a queued unload waits for the dock ahead and lands the crew on the far shore once moored', () => {
+    const s = sim();
+    const { ship, riders } = crewedShip(s, 20, MID_ROW);
+    const point = { hx: EAST_SHORE_X + 1, hy: MID_ROW };
+    dock(s, ship, point.hx, point.hy);
+    const mooring = { x: point.hx, y: point.hy };
+    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship, queued: true, mooring }));
+    s.step();
+    expect(s.world.get(ship, VehicleOrderQueue).orders).toHaveLength(1); // still sailing
+    sailOut(s, ship);
+    s.step();
+    expect(vehiclePassengers(s.world.get(ship, Vehicle))).toEqual([]);
+    for (const rider of riders) {
+      expect(s.world.has(rider, Rider)).toBe(false);
+      expect(nodeOfPosition(s.world.get(rider, Position).x, s.world.get(rider, Position).y)).toEqual(point);
+    }
+  });
+
+  it('keeps the crew aboard when the unload names another shore than the one the ship lies at', () => {
+    const s = sim();
+    const { ship, riders } = crewedShip(s, 20, MID_ROW);
+    const point = { hx: EAST_SHORE_X + 1, hy: MID_ROW };
+    dock(s, ship, point.hx, point.hy);
+    s.step();
+    sailOut(s, ship);
+    // A dock refused elsewhere leaves the ship at this shore: the unload naming the far one must not
+    // land the crew here.
+    const elsewhere = { x: WEST_SHORE_X, y: MID_ROW };
+    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship, mooring: elsewhere }));
+    s.step();
+    expect(riders.every((rider) => s.world.has(rider, Rider))).toBe(true);
+    const here = { x: point.hx, y: point.hy };
+    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship, mooring: here }));
+    s.step();
+    expect(riders.some((rider) => s.world.has(rider, Rider))).toBe(false);
+  });
+
   it('sails on and moors on the shore when its last rider is removed at sea', () => {
     const s = sim();
     const { ship, riders } = crewedShip(s, 20, MID_ROW);

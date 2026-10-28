@@ -31,6 +31,7 @@ function harness(): {
     armed: () => armed.at(-1) ?? null,
     signpostActive: () => false,
     dockVehicle: () => null,
+    dockShips: () => [],
     flagActive: () => false,
     handleMouseDown: () => null,
     handleOverviewPress: () => null,

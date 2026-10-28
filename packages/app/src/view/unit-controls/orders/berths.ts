@@ -130,7 +130,7 @@ function shortestSails(ships: readonly BerthShip[], berths: readonly Berth[]): B
 }
 
 /** The column each row of the square `cost` matrix takes for the least total cost (Hungarian method,
- *  O(n³)); a fleet is at most an order's member cap. */
+ *  O(n³)); n is a group's berths, bounded by the shore within the fleet's spread of the clicked one. */
 function leastCostMatching(cost: readonly (readonly number[])[]): number[] {
   const n = cost.length;
   const u = new Array<number>(n + 1).fill(0);

@@ -156,6 +156,7 @@ export class WorldRenderer {
     for (const art of [opts?.planStakes, opts?.planRoads]) {
       if (art !== undefined) for (const texture of Object.values(art)) this.textureCache.adopt(texture);
     }
+    if (opts?.berthPost !== undefined) this.textureCache.adopt(opts.berthPost);
     this.mapObjects = new MapObjectLayer(this.spriteLayer, this.textureCache);
     this.weatherGround = new WeatherGround([this.terrain, this.mapObjects]);
     this.groundWaves = new GroundWaveLayer(app.renderer, this.terrain.container);
@@ -185,6 +186,7 @@ export class WorldRenderer {
       this.textureCache,
       opts?.planStakes,
       opts?.planRoads,
+      opts?.berthPost,
     );
     this.spriteLayer.addChild(this.placementGhost.container);
     mountPainterOrder(this.worldLayer, {

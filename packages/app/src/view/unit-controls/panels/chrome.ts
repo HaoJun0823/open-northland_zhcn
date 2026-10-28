@@ -26,7 +26,7 @@ import { LiveFigures } from '../../../hud/figures/live-figures.js';
 import { clientToCanvas } from '../../../hud/geometry.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../../../hud/hover-card/building.js';
 import type { BuildingHoverModel } from '../../../hud/hover-card/model.js';
-import { keyDisplayLabel } from '../../../hud/keybindings.js';
+import { type KeybindingAction, keyDisplayLabel } from '../../../hud/keybindings.js';
 import { createReplaceableMount } from '../../../hud/replaceable-mount.js';
 import { messages } from '../../../i18n/index.js';
 import { screenScale } from '../../camera/index.js';
@@ -141,7 +141,7 @@ export async function createUnitChrome(
     const at = projectNode(opts.elevation, hx, hy);
     opts.centerOn(at.x, at.y);
   };
-  const keyLabel = (action: 'actionRing'): string => {
+  const keyLabel = (action: KeybindingAction): string => {
     const binding = opts.bindings[action];
     return binding === null ? messages().mainMenu.settings.bindingUnassigned : keyDisplayLabel(binding);
   };
@@ -248,6 +248,7 @@ export async function createUnitChrome(
     openOrders: (press) => mounts.current().actions.open({ x: press.x, y: press.y }),
     closeOrders: () => mounts.current().actions.close(),
     ringCommand: callbacks.ringCommand,
+    arm: callbacks.armPick,
     cue: callbacks.cue,
   });
   const groupPanel = createGroupPanel({
@@ -257,6 +258,14 @@ export async function createUnitChrome(
     tooltip: panelChip,
     keyLabel,
     reach: groupActions.reach,
+    dockArmed: (ids) => {
+      const mode = callbacks.armedPick();
+      return (
+        mode?.kind === 'vehicle-dock' &&
+        mode.vehicles.length > 0 &&
+        mode.vehicles.every((id) => ids.includes(id))
+      );
+    },
   });
   const buildingPanel = createBuildingPanel({
     plane: opts.domHud.plane,

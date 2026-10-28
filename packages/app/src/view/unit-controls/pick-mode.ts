@@ -51,6 +51,8 @@ export type PickMode =
   | { readonly kind: StrikePickKind; readonly units: readonly number[] }
   | { readonly kind: 'vehicle'; readonly settler: number }
   | { readonly kind: VehicleSpotPickKind; readonly vehicle: number }
+  /** The dock order for one ship or a fleet: each moors at its own berth along the shore picked. */
+  | { readonly kind: 'vehicle-dock'; readonly vehicles: readonly number[] }
   | { readonly kind: VehicleTargetPickKind; readonly vehicle: number };
 
 /** The orders one scout resolves by clicking a spot on the map. */
@@ -66,8 +68,8 @@ type SpotPickKind = 'destination' | 'work-area';
 /** The selection-wide orders that resolve against the unit or building drawn under the cursor. */
 type StrikePickKind = 'attack-settler' | 'attack-building' | 'attack-animal' | 'attack-vehicle';
 
-/** The vehicle window's orders that resolve against a spot: a drive, a mooring point, a bombardment. */
-export type VehicleSpotPickKind = 'vehicle-destination' | 'vehicle-dock' | 'vehicle-attack-position';
+/** The vehicle window's orders that resolve against a spot: a drive or a bombardment. */
+type VehicleSpotPickKind = 'vehicle-destination' | 'vehicle-attack-position';
 
 /** The vehicle panel's orders that resolve against what is drawn under the cursor: an enemy of one
  *  kind, one of the player's own ships to ride in, an own settler to seat, or an own land vehicle to
@@ -84,7 +86,7 @@ export type VehicleTargetPickKind =
  *  can resolve it. */
 type SpotMode = Extract<
   PickMode,
-  { readonly kind: SpotPickKind | 'attack-move' | ScoutPickKind | VehicleSpotPickKind }
+  { readonly kind: SpotPickKind | 'attack-move' | ScoutPickKind | VehicleSpotPickKind | 'vehicle-dock' }
 >;
 
 interface BuildingPick {
@@ -169,7 +171,7 @@ const buildingPickOf = (mode: PickMode): BuildingPickKind | null => {
 };
 
 const SPOT_MODES: ReadonlySet<PickMode['kind']> = new Set<
-  SpotPickKind | 'attack-move' | ScoutPickKind | VehicleSpotPickKind
+  SpotPickKind | 'attack-move' | ScoutPickKind | VehicleSpotPickKind | 'vehicle-dock'
 >([
   'destination',
   'work-area',
@@ -281,8 +283,11 @@ export interface PickModeController {
   /** The armed mode, for a control that lights while its pick waits; null when none is. */
   armed(): PickMode | null;
   signpostActive(): boolean;
-  /** The ship whose dock pick is armed, or null: the frame loop washes the map with its mooring spots. */
+  /** The first ship of the armed dock pick, or null: the frame loop washes the map with its mooring
+   *  spots. */
   dockVehicle(): number | null;
+  /** The ships of the armed dock pick, empty while none is armed: the cursor previews their berths. */
+  dockShips(): readonly number[];
   /** A pick that plants a work flag is armed (a flag trade's workplace pick or the work-area pick), so
    *  the flag ghost follows the cursor. */
   flagActive(): boolean;
@@ -293,7 +298,7 @@ export interface PickModeController {
    *  mode resolves; one that needs a picked unit or building stays armed, so scrolling the overview to
    *  find that target does not call it off. `shift` is a Shift press. Non-null when the armed mode took
    *  the press. */
-  handleOverviewPress(button: number, target: Tile, shift?: boolean): PickPress | null;
+  handleOverviewPress(button: number, target: Tile, shift?: boolean, primary?: boolean): PickPress | null;
   /** Shift was let go (or the window lost focus): a mode a Shift press kept armed ends with it. */
   endShiftChain(): void;
   /** The lit and dimmed pick targets of the armed mode: a building pick's candidate buildings, the
@@ -420,11 +425,12 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return true;
   };
 
-  /** `queued` applies to the {@link QUEUEABLE_MODES}. */
+  /** `queued` applies to the {@link QUEUEABLE_MODES}; `lands` has a dock land the crew once moored. */
   const resolveSpot = (
     mode: Exclude<SpotMode, { readonly kind: 'signpost' }>,
     named: Tile,
     queued: boolean,
+    lands = false,
   ): boolean => {
     const { width, height } = nodeBounds(deps.mapSize);
     const target = clampTile(named, width, height);
@@ -447,7 +453,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       case 'vehicle-destination':
         return deps.vehicleOrders().issueMoveTo(mode.vehicle, target, queued);
       case 'vehicle-dock':
-        return deps.vehicleOrders().issueDock(mode.vehicle, target, queued);
+        return deps.vehicleOrders().issueDock(mode.vehicles, target, queued, lands);
       case 'vehicle-attack-position':
         return deps.vehicleOrders().issueAttackPosition(mode.vehicle, target, queued);
       default: {
@@ -585,7 +591,12 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       return chained(mode, true, queued);
     }
     if (isSpotMode(mode))
-      return resolveSpotPress(mode, deps.nodeAt(event.clientX, event.clientY), event.shiftKey);
+      return resolveSpotPress(
+        mode,
+        deps.nodeAt(event.clientX, event.clientY),
+        event.shiftKey,
+        event.ctrlKey || event.metaKey,
+      );
     return chained(mode, resolvePicked(mode, event, queued), queued);
   };
 
@@ -608,13 +619,19 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     return pressOutcome(ordered);
   };
 
-  const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean): PickPress => {
+  /** `primary` is a Ctrl (Cmd on a Mac) press, which has a dock land the crew once the ships moor. */
+  const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean, primary = false): PickPress => {
     const queued = shift && QUEUEABLE_MODES.has(mode.kind);
     if (mode.kind === 'signpost') return resolveSignpostPress(mode, target, queued);
-    return chained(mode, resolveSpot(mode, target, queued), queued);
+    return chained(mode, resolveSpot(mode, target, queued, primary), queued);
   };
 
-  const handleOverviewPress = (button: number, target: Tile, shift = false): PickPress | null => {
+  const handleOverviewPress = (
+    button: number,
+    target: Tile,
+    shift = false,
+    primary = false,
+  ): PickPress | null => {
     const mode = pickMode;
     if (mode === null || button === MIDDLE_BUTTON) return null;
     if (button !== 0) {
@@ -623,7 +640,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     }
     if (!isSpotMode(mode)) return null;
     if (mode.kind !== 'signpost') cancel();
-    return resolveSpotPress(mode, target, shift);
+    return resolveSpotPress(mode, target, shift, primary);
   };
 
   /** Read every frame, so the O(entities) pass is memoized on everything it reads: the snapshot instance
@@ -650,7 +667,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     isArmed: () => pickMode !== null,
     armed: () => pickMode,
     signpostActive: () => pickMode?.kind === 'signpost',
-    dockVehicle: () => (pickMode?.kind === 'vehicle-dock' ? pickMode.vehicle : null),
+    dockVehicle: () => (pickMode?.kind === 'vehicle-dock' ? (pickMode.vehicles[0] ?? null) : null),
+    dockShips: () => (pickMode?.kind === 'vehicle-dock' ? pickMode.vehicles : []),
     flagActive: () => pickMode?.kind === 'workplace-or-flag' || pickMode?.kind === 'work-area',
     handleMouseDown,
     handleOverviewPress,

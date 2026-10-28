@@ -347,6 +347,7 @@ export const plSurfaces = {
         professionPicker: 'Lista zawodów osadnika',
         equipmentPicker: 'Okno ekwipunku osadników',
         attackMove: 'Atak w marszu',
+        dockShips: 'Zacumuj zaznaczone statki',
         hudToggle: 'Ukryj/pokaż interfejs',
         speedCycle: 'Prędkość gry ×1 / ×2 / ×3',
         loadGame: 'Wczytaj grę',
@@ -530,6 +531,8 @@ export const plSurfaces = {
         '{shift} + klik ustawia polecenie w kolejce za bieżącym: ruch, atak, budowę, musztrę, drogowskazy, skrzynie, zakładanie przedmiotów, potrzeby, zwiad, zajmowanie zwierząt, wsiadanie oraz jazdę, atak i załadunek pojazdów.',
       buildMany: 'Przytrzymaj {shift} przy stawianiu budynku, a postawisz kilka takich, po jednym na klik.',
       attackMove: '{key} to atak w ruchu: jednostki idą do celu i atakują wszystko po drodze.',
+      dockShips:
+        '{key} cumuje zaznaczone statki przy wskazanym brzegu, każdy w swoim miejscu. Z Ctrl/Cmd (klik po {key} albo prawy klik przy brzegu) załogi wysiadają po zacumowaniu.',
       postGraduates:
         'W oknie asystenta ({key}) opcja „{graduatesOption}” sama wysyła świeżo wyszkolonych osadników ze szkół do warsztatów.',
       moveFlags:

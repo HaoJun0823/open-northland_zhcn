@@ -800,6 +800,10 @@ export const deGame = {
         attackPosition: 'Position beschießen',
       },
       armedTooltip: '{order} · Ziel auswählen · Esc zum Abbrechen',
+      dockTooltip:
+        '{order} ({key}) · Küste auswählen · Strg/Cmd + Klick: anlegen und Besatzung an Land setzen',
+      dockArmedTooltip:
+        '{order} · Küste auswählen · Strg/Cmd + Klick: anlegen und Besatzung an Land setzen · Esc zum Abbrechen',
       refusals: {
         carried: 'Das Fahrzeug befindet sich auf einem Schiff',
         hauled: 'Ein Träger zieht den Karren',
@@ -928,6 +932,9 @@ export const deGame = {
       itemSipsTooltip: '{good} · {count} · Schlucke: {sips}',
       military: 'Militär',
       siegeStance: 'Katapulte',
+      fleet: 'Schiffe',
+      unloadFleetTooltip: 'Die Besatzungen der angelegten Schiffe ({count} von {total}) gehen an Land',
+      unloadFleetNone: 'Kein angelegtes Schiff hat eine Besatzung an Bord',
       orderReach: '{order} · gilt für {reach} von {count}',
       orderReachNone: '{order} · niemand in dieser Auswahl kann das ausführen',
       stanceCounts: 'Jetzt: {counts}',

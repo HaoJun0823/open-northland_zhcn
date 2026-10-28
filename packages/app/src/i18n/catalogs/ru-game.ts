@@ -798,6 +798,9 @@ export const ruGame = {
         attackPosition: 'Обстрелять точку',
       },
       armedTooltip: '{order} · выбрать цель · Esc: отмена',
+      dockTooltip: '{order} ({key}) · выбрать берег · Ctrl/Cmd + щелчок: причалить и высадить команду',
+      dockArmedTooltip:
+        '{order} · выбрать берег · Ctrl/Cmd + щелчок: причалить и высадить команду · Esc: отмена',
       refusals: {
         carried: 'Машина находится на борту корабля',
         hauled: 'Тележку тянет носильщик',
@@ -925,6 +928,9 @@ export const ruGame = {
       itemSipsTooltip: '{good} · {count} · глотков: {sips}',
       military: 'Войска',
       siegeStance: 'Катапульты',
+      fleet: 'Корабли',
+      unloadFleetTooltip: 'Команды причаливших кораблей ({count} из {total}) сходят на берег',
+      unloadFleetNone: 'Ни на одном причалившем корабле нет команды',
       orderReach: '{order} · доступно для {reach} из {count}',
       orderReachNone: '{order} · никто из выбранных не может это выполнить',
       stanceCounts: 'Сейчас: {counts}',

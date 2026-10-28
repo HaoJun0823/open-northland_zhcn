@@ -104,6 +104,7 @@ export const QUEUEABLE_VEHICLE_ORDER_KINDS = [
   'dockVehicle',
   'attackWithVehicle',
   'loadIntoVehicle',
+  'unloadPeople',
 ] as const;
 
 export type QueueableVehicleOrderCommand = Extract<
@@ -114,7 +115,7 @@ export type QueueableVehicleOrderCommand = Extract<
 export type QueuedVehicleOrder = QueueableVehicleOrderCommand & { readonly aiOrder?: AiOrderOrigin };
 
 /**
- * The drives a vehicle carries out one after another once its current order is done, oldest first;
+ * The orders a vehicle carries out one after another once its current order is done, oldest first;
  * `vehicleOrderQueueSystem` starts the next, at most `ORDER_QUEUE_LIMIT` waiting. Any other order to the
  * vehicle drops them, and so does a hand-over (`owner` as a settler's `OrderQueue` keeps it). Named
  * addition, the vehicle twin of a settler's `OrderQueue`.

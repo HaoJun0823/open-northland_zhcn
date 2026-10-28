@@ -389,6 +389,11 @@ export type UnitOrderCommand =
        *  ship). Ignored for an unmoored ship, even beside land. */
       readonly kind: 'unloadPeople';
       readonly vehicle: Entity;
+      /** Wait behind the vehicle's current order, so a ship docking lands its crew once it moors. */
+      readonly queued?: boolean;
+      /** Land the crew only from a ship moored at this shore point: a dock refused or replaced on the
+       *  way leaves the crew aboard instead of landing it at another shore. */
+      readonly mooring?: { readonly x: number; readonly y: number };
     }
   | {
       /**

@@ -313,6 +313,22 @@ describe('vehicle right-click defaults', () => {
     expect(hexDistanceBetween(a?.x ?? 0, a?.y ?? 0, b?.x ?? 0, b?.y ?? 0)).toBeGreaterThan(2 * 2 + 4);
   });
 
+  it('lands each crew behind its dock on a Ctrl or Cmd right-click of a fleet', async () => {
+    const spot = worldToTile(CLICK.x, CLICK.y);
+    for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+      const fleet = harness([SHIP, SHIP_AT_SEA], { canMoorAt: (_vehicle, _x, y) => y === spot.row });
+      expect(fleet.controller.issueRightClick({ ...rightClick, ...modifier } as MouseEvent)).toBe(true);
+      await landed();
+      const unloads = fleet.issued.filter((command) => command.kind === 'unloadPeople');
+      expect(unloads.map((command) => command.vehicle).sort()).toEqual([SHIP, SHIP_AT_SEA]);
+      for (const unload of unloads) {
+        const dock = fleet.issued.find((c) => c.kind === 'dockVehicle' && c.vehicle === unload.vehicle);
+        if (dock?.kind !== 'dockVehicle') throw new Error('no dock before the unload');
+        expect(unload).toMatchObject({ queued: true, mooring: { x: dock.x, y: dock.y } });
+      }
+    }
+  });
+
   it('queues a Shift attack, load or drive behind the current order, alone or in a group', () => {
     const queuedClick = { ...rightClick, shiftKey: true } as MouseEvent;
     const spot = worldToTile(CLICK.x, CLICK.y);
@@ -600,7 +616,7 @@ describe('vehicle picks', () => {
     const { issued, pickMode } = harness([SHIP], ALL_UNDER);
     const shiftClick = { ...leftClick, shiftKey: true } as MouseEvent;
     const picks = [
-      { kind: 'vehicle-dock', vehicle: SHIP },
+      { kind: 'vehicle-dock', vehicles: [SHIP] },
       { kind: 'vehicle-attack-building', vehicle: CATAPULT },
       { kind: 'vehicle-attack-position', vehicle: CATAPULT },
       { kind: 'vehicle-carrier', vehicle: HANDCART },
@@ -685,10 +701,27 @@ describe('vehicle picks', () => {
     expect(new Set(goals).size).toBe(2);
   });
 
+  it('lands the crew behind the dock on a Ctrl or Cmd press of the dock pick', () => {
+    for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+      const { issued, pickMode } = harness([SHIP], ALL_UNDER);
+      pickMode.arm({ kind: 'vehicle-dock', vehicles: [SHIP] });
+      expect(pickMode.handleMouseDown({ ...leftClick, ...modifier } as MouseEvent)).toBe('ordered');
+      expect(issued).toEqual([
+        { kind: 'dockVehicle', vehicle: SHIP, x: 3, y: 3 },
+        { kind: 'unloadPeople', vehicle: SHIP, queued: true, mooring: { x: 3, y: 3 } },
+      ]);
+    }
+    // The same press on the map overview.
+    const overview = harness([SHIP], ALL_UNDER);
+    overview.pickMode.arm({ kind: 'vehicle-dock', vehicles: [SHIP] });
+    expect(overview.pickMode.handleOverviewPress(0, { col: 3, row: 3 }, false, true)).toBe('ordered');
+    expect(overview.issued.map((command) => command.kind)).toEqual(['dockVehicle', 'unloadPeople']);
+  });
+
   it('names the ship of an armed dock pick, and drops a dock click on a spot the mooring rule rejects', async () => {
     const { issued, pickMode, marked } = harness([SHIP], { canMoorAt: () => false });
     expect(pickMode.dockVehicle()).toBeNull();
-    pickMode.arm({ kind: 'vehicle-dock', vehicle: SHIP });
+    pickMode.arm({ kind: 'vehicle-dock', vehicles: [SHIP] });
     expect(pickMode.dockVehicle()).toBe(SHIP);
     pickMode.handleMouseDown(leftClick);
     expect(pickMode.dockVehicle()).toBeNull();

@@ -408,7 +408,11 @@ door ring, with the same event (`moorByShore`, `movement.ts`), and with the comm
 at sea. Unload people uses the ordinary boarding landing (`landingOf`, `crew.ts`). Deviation
 (owner's choice): a ship must be moored before its crew can unload, even beside land, so they can
 board it again. The crew panel disables unloading while unmoored; rejected unload orders preserve
-an ongoing dock drive. A dock
+an ongoing dock drive. An unload may queue behind the current order like a drive, so a dock followed by
+a queued unload lands the crew once the ship moors; the dock pick's Ctrl/Cmd click and a Ctrl/Cmd right-click of selected ships send that pair
+(addition: the original lands a crew only by its own order). Such an unload names the dock's shore point
+(`mooring`) and lands nobody from a ship moored anywhere else, so a dock refused or replaced on the way
+leaves the crew aboard. A dock
 walk that loses its route drops the mooring point behind the `vehicleNoPath` note. A sunk ship's
 crew aboard is reaped like any death, so the owner's casualty tallies count it. Deviation (owner's
 choice): a rider still walking to a ship lost at sea, and a cart still driving to it, stand on land

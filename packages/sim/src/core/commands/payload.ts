@@ -463,7 +463,10 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   clearVehicleWanted: { required: { vehicle: 'integer' } },
   trainSoldier: { required: { entity: 'integer', house: 'integer' }, optional: QUEUED },
   unassignHouse: { required: { entity: 'integer' } },
-  unloadPeople: { required: { vehicle: 'integer' } },
+  unloadPeople: {
+    required: { vehicle: 'integer' },
+    optional: { ...QUEUED, mooring: { fields: { required: NODE } } },
+  },
   unassignWorker: { required: { entity: 'integer' } },
   unequipGood: {
     required: { entity: 'integer', group: { oneOf: EQUIP_CATEGORIES }, slot: 'integer' },

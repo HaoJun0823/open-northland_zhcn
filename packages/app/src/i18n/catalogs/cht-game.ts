@@ -732,6 +732,8 @@ export const chtGame = {
         attackPosition: '攻擊位置',
       },
       armedTooltip: '{order} · 選擇目標 · Esc 取消',
+      dockTooltip: '{order}（{key}）· 選擇海岸 · Ctrl/Cmd + 點擊：停靠並讓船員上岸',
+      dockArmedTooltip: '{order} · 選擇海岸 · Ctrl/Cmd + 點擊：停靠並讓船員上岸 · Esc 取消',
       refusals: {
         carried: '載具停在船上',
         hauled: '這輛車由搬運工拉著',
@@ -837,6 +839,9 @@ export const chtGame = {
       itemSipsTooltip: '{good} · {count} · 剩餘口數：{sips}',
       military: '軍事',
       siegeStance: '投石機',
+      fleet: '船隻',
+      unloadFleetTooltip: '已停靠船隻（{count}/{total}）的船員上岸',
+      unloadFleetNone: '沒有已停靠且載有船員的船隻',
       orderReach: '{order} · 適用 {count} 人中的 {reach} 人',
       orderReachNone: '{order} · 範圍內沒有人能執行',
       stanceCounts: '目前：{counts}',

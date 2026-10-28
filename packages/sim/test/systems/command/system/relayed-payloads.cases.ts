@@ -338,7 +338,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
       { entity: t.worker, house: t.hq, queued: true },
     ],
     unassignHouse: [{ entity: t.worker }],
-    unloadPeople: [{ vehicle: t.ship }],
+    unloadPeople: [{ vehicle: t.ship }, { vehicle: t.ship, queued: true, mooring: node }],
     unassignWorker: [{ entity: t.worker }],
     unequipGood: [{ entity: t.worker, group: 'boots', slot: 0 }],
     upgradeBuilding: [{ building: t.hq }],

@@ -68,7 +68,7 @@ export interface PlacementCursorInput {
 /**
  * The ghost stays hidden over ground that rejects it, matching the original's vanishing house cursor.
  * A held building takes precedence over a wall or road tool, those over a pending signpost, those over an armed
- * dock pick, whose wash of mooring spots floats the berth orbs, and all of them over a pending work flag,
+ * dock pick, whose wash of mooring spots stands the berth posts, and all of them over a pending work flag,
  * which has no wash: the sim snaps the flag to the nearest workable node on the click. With none of them,
  * selected ships still show where a right-click would moor them.
  */

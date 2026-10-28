@@ -263,6 +263,26 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     pickMode.arm({ kind: 'attack-move', units, vehicles });
   };
 
+  /** The selection holds own ships and no settler but a ship's own commander: a right-click with the
+   *  work-flag chord docks them. */
+  const shipsOnly = (): boolean =>
+    vehicleOrders.rightClickShips().length > 0 &&
+    (vehicleOrders.selectedVehicle() !== null || unitTargets.ownedSettlersIn(selection.ids()).length === 0);
+
+  /** Arm the dock pick for the ships the selection docks: the one selected ship, or a group's; a group
+   *  past the order cap is told so. */
+  const armDock = (): boolean => {
+    if (vehicleOrders.selectedOwnVehicles().length > MAX_UNIT_ORDER_MEMBERS) {
+      refuseOrderLimit();
+      return true;
+    }
+    const ships = vehicleOrders.rightClickShips();
+    if (ships.length === 0) return false;
+    chrome.actions().close();
+    pickMode.arm({ kind: 'vehicle-dock', vehicles: ships });
+    return true;
+  };
+
   const keyboardOrders = createKeyboardOrders({
     bindings: opts.bindings,
     snapshot: opts.snapshot,
@@ -379,7 +399,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       if (pickCue !== null) cue(pickCue);
       return;
     }
-    if (matchesMouseBinding(e, opts.bindings.workFlagOrder)) {
+    // A selection of ships alone takes a Ctrl/Cmd right-click as its dock-and-land, not a work flag.
+    if (matchesMouseBinding(e, opts.bindings.workFlagOrder) && !(e.button === 2 && shipsOnly())) {
       if (orders.issueSetWorkFlagAt(e)) cue('confirm');
       return;
     }
@@ -546,6 +567,10 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     } else if (isOrderHotkey(e, opts.bindings, 'attackMove')) {
       e.preventDefault();
       armAttackMove();
+    } else if (isOrderHotkey(e, opts.bindings, 'dockShips')) {
+      e.preventDefault();
+      // A selection without a ship is told so; an empty one stays silent like the other order keys.
+      if (!armDock() && selection.ids().size > 0) cue('fail');
     } else if (isActionHotkey(e, opts.bindings, 'upgradeBuilding')) {
       e.preventDefault();
       // The owned-order gate cues a sent or refused press; a selection without an upgrade tile is
@@ -613,8 +638,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       selection.ids().size > 0,
     dockPickVehicle: pickMode.dockVehicle,
     berthPreview: (tile) => {
-      const docking = pickMode.dockVehicle();
-      if (docking !== null) return vehicleOrders.previewBerths([docking], tile, DOCK_PICK_SNAP_NODES);
+      const docking = pickMode.dockShips();
+      if (docking.length > 0) return vehicleOrders.previewBerths(docking, tile, DOCK_PICK_SNAP_NODES);
       if (pickMode.isArmed()) return [];
       return vehicleOrders.previewBerths(vehicleOrders.rightClickShips(), tile, RIGHT_CLICK_SNAP_NODES);
     },

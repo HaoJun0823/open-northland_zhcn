@@ -751,6 +751,8 @@ export const enGame = {
         attackPosition: 'Attack position',
       },
       armedTooltip: '{order} · pick the target · Esc cancels',
+      dockTooltip: '{order} ({key}) · pick the shore · Ctrl/Cmd + click: dock and land the crew',
+      dockArmedTooltip: '{order} · pick the shore · Ctrl/Cmd + click: dock and land the crew · Esc cancels',
       refusals: {
         carried: 'The vehicle stands on a ship',
         hauled: 'A carrier pulls this cart',
@@ -858,6 +860,9 @@ export const enGame = {
       itemSipsTooltip: '{good} · {count} · sips: {sips}',
       military: 'Military',
       siegeStance: 'Catapults',
+      fleet: 'Ships',
+      unloadFleetTooltip: 'The crews of the moored ships ({count} of {total}) step ashore',
+      unloadFleetNone: 'No moored ship has a crew aboard',
       orderReach: '{order} · reaches {reach} of {count}',
       orderReachNone: '{order} · nobody in scope can do this',
       stanceCounts: 'Now: {counts}',

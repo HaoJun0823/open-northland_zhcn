@@ -870,6 +870,11 @@ export const plContent = {
       summary:
         'Frankijska i saraceńska wieża obronna, każda dwa razy: lewą obsadza łucznik, prawa stoi pusta. Puste wieże zachowują własną ozdobę szczytu, frankijski proporzec i saraceński półksiężyc; na obsadzonych zastępuje ją flaga załogi, zamiast powiewać nad nią.',
     },
+    'defence-wall': {
+      title: 'Mury obronne przed wieżą',
+      summary:
+        'Gracz stawia dwa mury obronne między swoją obsadzoną wieżą a wrogiem, z przejściem pośrodku. Mury stoją bliżej wroga niż wieża, ale wrogi oddział w postawie Atak nie zatrzymuje się przy nich: mur, tak jak palisada, nie jest celem wybieranym na widok. Oddział przechodzi przez lukę i tłucze wieżę, która do niego strzela, a oba mury zostają nietknięte.',
+    },
     'tower-garrison': {
       title: 'Załoga wieży',
       summary:

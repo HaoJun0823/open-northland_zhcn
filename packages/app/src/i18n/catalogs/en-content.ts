@@ -873,6 +873,11 @@ export const enContent = {
       summary:
         'A frankish and a saracen defence tower, each twice: the left one manned by an archer, the right one bare. The bare towers keep their own roof finial, the frank pennant and the saracen crescent; on the manned ones the garrison flag takes its place instead of flying over it.',
     },
+    'defence-wall': {
+      title: 'Defence walls before a tower',
+      summary:
+        'The player stands two defence walls between a manned tower and the enemy, with a gap in the middle. The walls are nearer the enemy than the tower, but the enemy party in the Attack stance does not stop at them: a defence wall, like a palisade, is never a target picked on sight. The party walks through the gap and batters the tower that shoots at it, and both walls stay untouched.',
+    },
     'tower-garrison': {
       title: 'Tower garrison',
       summary:

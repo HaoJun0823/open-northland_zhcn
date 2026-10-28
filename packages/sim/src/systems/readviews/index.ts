@@ -25,6 +25,7 @@ export {
   isFinishedPrayerSite,
   isLowPriorityBuildingTarget,
   isSchoolType,
+  isWallBuilding,
   prayerSiteOf,
 } from './buildings.js';
 export {

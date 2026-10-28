@@ -17,6 +17,7 @@ import { barracksExitScene } from './army/barracks-exit.js';
 import { battleScene } from './army/battle.js';
 import { battleWearyScene } from './army/battle-weary.js';
 import { collisionScene } from './army/collision.js';
+import { defenceWallScene } from './army/defence-wall.js';
 import { hitAlarmScene } from './army/hit-alarm.js';
 import { meleeFrontScene } from './army/melee-front.js';
 import { openGateAttackScene } from './army/open-gate-attack.js';
@@ -150,6 +151,7 @@ export const SCENES: readonly SceneDefinition[] = [
   personalNamesScene,
   battleWearyScene,
   siegeScene,
+  defenceWallScene,
   buildingDemolitionScene,
   buildingDamageScene,
   buildingDamageVariantsScene,

@@ -94,7 +94,14 @@ function defenceContent(houseBowRange = HOUSE_BOW_RANGE): ContentSet {
       { typeId: SCOUT, id: 'scout' },
     ],
     buildings: [
-      { typeId: TOWER, id: 'tower_00', kind: 'tower', hitpoints: 100_000, shelterCapacity: TOWER_CAPACITY },
+      {
+        typeId: TOWER,
+        id: 'tower_00',
+        kind: 'tower',
+        hitpoints: 100_000,
+        shelterCapacity: TOWER_CAPACITY,
+        workers: [{ jobType: SOLDIER, count: 1 }],
+      },
       { typeId: HUT, id: 'hut', kind: 'home', hitpoints: 1000 },
       {
         typeId: HALL,
@@ -116,6 +123,7 @@ function defenceContent(houseBowRange = HOUSE_BOW_RANGE): ContentSet {
         kind: 'tower',
         hitpoints: 100_000,
         shelterCapacity: TOWER_CAPACITY,
+        workers: [{ jobType: SOLDIER, count: 1 }],
         footprint: { blocked: keepWalls() },
       },
     ],

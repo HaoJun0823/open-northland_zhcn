@@ -152,7 +152,12 @@ export {
   atomicDurationForName,
   atomicEventChannelDelta,
 } from './readviews/animations.js';
-export { HEADQUARTERS_BUILDING_ID, isBarracksType, isSchoolType } from './readviews/buildings.js';
+export {
+  combatClassOfType,
+  HEADQUARTERS_BUILDING_ID,
+  isBarracksType,
+  isSchoolType,
+} from './readviews/buildings.js';
 // The weapon and armour classes the data's `mainType` carries, which the HUD groups soldiers by.
 export { ARMOR_MAIN_TYPE } from './readviews/classes/armor.js';
 export { WEAPON_MAIN_TYPE } from './readviews/combat.js';

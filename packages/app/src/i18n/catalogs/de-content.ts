@@ -880,6 +880,11 @@ export const deContent = {
       summary:
         'Ein fränkischer und ein sarazenischer Wehrturm, jeder zweimal: den linken besetzt ein Bogenschütze, der rechte steht leer. Die leeren Türme behalten ihren eigenen Dachschmuck, den fränkischen Wimpel und den sarazenischen Halbmond; auf den besetzten tritt die Besatzungsflagge an seine Stelle, statt über ihm zu wehen.',
     },
+    'defence-wall': {
+      title: 'Verteidigungsmauern vor einem Turm',
+      summary:
+        'Der Spieler stellt zwei Verteidigungsmauern zwischen seinen besetzten Turm und den Feind, mit einer Lücke in der Mitte. Die Mauern stehen näher am Feind als der Turm, doch die feindliche Gruppe in der Haltung Angriff bleibt nicht an ihnen hängen: Eine Verteidigungsmauer wird wie eine Palisade nie auf Sicht als Ziel gewählt. Die Gruppe geht durch die Lücke und greift den Turm an, der auf sie schießt, und beide Mauern bleiben unberührt.',
+    },
     'tower-garrison': {
       title: 'Turmbesatzung',
       summary:

@@ -531,7 +531,8 @@ export class WorldRenderer {
     this.terrain.cull(vp);
     // Game seconds, so a pause freezes the weather with the world.
     const gameSeconds = (tick + alpha) / TICKS_PER_SECOND;
-    this.terrain.animate(this.waterClock.advance(gameSeconds, frame.selectionTime));
+    const waterSeconds = this.waterClock.advance(gameSeconds, frame.selectionTime);
+    this.terrain.animate(waterSeconds);
     const screenW = this.app.screen.width;
     const screenH = this.app.screen.height;
     const weatherView = { camera, screenW, screenH, viewport: cameraViewport(camera, screenW, screenH) };
@@ -616,7 +617,8 @@ export class WorldRenderer {
       camera,
       this.app.screen.width,
       this.app.screen.height,
-      tick,
+      // The shore waves keep the water's pace: one frame per sim tick at the base rate, whatever the speed.
+      Math.floor(waterSeconds * TICKS_PER_SECOND),
       this.enhancements.environmentMotion,
       this.upscale?.drawResolution() ?? this.app.renderer.resolution,
     );

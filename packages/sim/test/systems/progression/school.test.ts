@@ -388,24 +388,26 @@ it('takes a pupil at a school foundation and teaches the lesson once the school 
   expect(sim.world.has(pupil, TrainingOrder)).toBe(false);
 });
 
-it('queues a pupil past the school seats and teaches it once the seat frees', () => {
-  const { sim, pupil, school } = carpentrySchool(WOODCUTTER);
-  const second = settlerAt(sim, { jobType: WOODCUTTER, tribe: TRIBE });
-  sim.world.add(second, Owner, { player: 0 });
-  for (const e of [pupil, second])
+it('queues a pupil past the school seats by the order it was sent, and teaches it once the seat frees', () => {
+  const { sim, pupil: later, school } = carpentrySchool(WOODCUTTER);
+  // The higher id is sent first, so the seat goes by the enrolment tick, not by id.
+  const first = settlerAt(sim, { jobType: WOODCUTTER, tribe: TRIBE });
+  sim.world.add(first, Owner, { player: 0 });
+  for (const e of [later, first])
     sim.world.add(e, Position, { x: fx.fromInt(PUPIL_START.x), y: fx.fromInt(PUPIL_START.y) });
-  learnCarpentry(sim, pupil, school);
-  learnCarpentry(sim, second, school);
+  learnCarpentry(sim, first, school);
+  sim.step();
+  learnCarpentry(sim, later, school);
 
-  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(pupil, TrainingOrder); i++) {
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(first, TrainingOrder); i++) {
     sim.step();
-    expect(sim.world.get(second, TrainingOrder).seated).toBe(false);
+    expect(sim.world.get(later, TrainingOrder).seated).toBe(false);
   }
-  expect(sim.world.get(pupil, Settler).jobType).toBe(CARPENTER);
-  expect(sim.world.get(second, Settler).jobType).toBe(WOODCUTTER);
+  expect(sim.world.get(first, Settler).jobType).toBe(CARPENTER);
+  expect(sim.world.get(later, Settler).jobType).toBe(WOODCUTTER);
 
-  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(second, TrainingOrder); i++) sim.step();
-  expect(sim.world.get(second, Settler).jobType).toBe(CARPENTER);
+  for (let i = 0; i < FOUNDATION_WAIT_TICKS && sim.world.has(later, TrainingOrder); i++) sim.step();
+  expect(sim.world.get(later, Settler).jobType).toBe(CARPENTER);
 });
 
 it('keeps a walk Shift-queued behind the lesson through the trade it teaches', () => {

@@ -223,7 +223,7 @@ wanted-follows-actual rule and message 0x3a read the same widened test (`isCargo
 inside a cart that stands still or a moored ship steps out onto the door while the hold has a trip for
 it (`cargoHandDisembarkSystem`). A commander of another trade than the carrier's, with no carrier
 seated, lowers a request no source can fill to what is booked instead of waiting by the door. No hand
-takes food out of a home, the trader's rule (owner's choice). The alias goes through the shared
+takes food out of a home, the trader's rule that every fetch keeps (owner's choice). The alias goes through the shared
 dish-to-edible seam, which also maps meat and sausage (approximation: the original's table lists
 neither). Further approximations: the nearest source wins where the original draws at random, ties by
 hold line, every source on the door's continent as the original's flood implies; the guide network is

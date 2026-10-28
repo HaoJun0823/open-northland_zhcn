@@ -15,7 +15,12 @@ import {
   rampAliasMap,
 } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
-import { hueRotateRamp, PLAYER_COLORS, type PlayerColorDef } from '@open-northland/formats/player-palette';
+import {
+  PLAYER_COLORS,
+  type PlayerColorDef,
+  type PlayerTone,
+  toneRamp,
+} from '@open-northland/formats/player-palette';
 import { cutRamp, extractRandomPalettes } from '@open-northland/formats/random-palette';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { readShippedSourceFile } from '../source-files.js';
@@ -96,27 +101,27 @@ export function goodPaletteRecipes(
   return out;
 }
 
-/** A synthetic colour's copy of a template recipe, every ramp swapped for its hue-rotated twin. */
-function synthesizeRecipe(template: RandomPaletteRecipe, name: string, hue: number): RandomPaletteRecipe {
+/** A synthetic colour's copy of a template recipe, every ramp swapped for its toned twin. */
+function synthesizeRecipe(template: RandomPaletteRecipe, name: string, color: string): RandomPaletteRecipe {
   return {
     name,
     patches: template.patches.map((patch) =>
       patch.source.kind === 'ramp'
-        ? { ...patch, source: { kind: 'ramp', ramp: syntheticRampName(patch.source.ramp, hue) } }
+        ? { ...patch, source: { kind: 'ramp', ramp: syntheticRampName(patch.source.ramp, color) } }
         : patch,
     ),
   };
 }
 
-const syntheticRampName = (ramp: string, hue: number): string => `${ramp} hue ${hue}`;
+const syntheticRampName = (ramp: string, color: string): string => `${ramp} as ${color}`;
 
 /**
  * Composes the `humanPalettes` lane: every recipe, the job change, player colour, armor tier, cart and
  * good recipes, the ramps the recipes name resolved to their 16 colours, and the base palettes the looks
  * name. Throws on a player, armor or cart recipe, a ramp or a base palette that does not resolve.
  *
- * Player colours 10..15 have no original. Approximation: their recipes copy colour 0's with every ramp
- * hue-rotated to the colour's {@link PLAYER_COLORS} hue.
+ * Player colours from 10 on have no original. Approximation: their recipes copy colour 0's with every
+ * ramp toned to the colour's {@link PLAYER_COLORS} tone.
  */
 export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<HumanPalettes> {
   const recipeByName = new Map(sources.recipes.map((r) => [r.name, r]));
@@ -150,7 +155,12 @@ export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<
     oxcart: reach(CART_RECIPES.oxcart, 'ox cart'),
   };
 
-  const synthetic: { recipe: RandomPaletteRecipe; template: RandomPaletteRecipe; hue: number }[] = [];
+  const synthetic: {
+    recipe: RandomPaletteRecipe;
+    template: RandomPaletteRecipe;
+    color: string;
+    tone: PlayerTone;
+  }[] = [];
   const playerRecipes = (color: PlayerColorDef): PlayerPaletteRecipes => {
     if (color.source.kind === 'pcx') {
       return {
@@ -159,14 +169,19 @@ export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<
         female: reach(femaleRecipeName(color.id), `player colour ${color.id}`),
       };
     }
-    const { hue } = color.source;
+    const tone = color.source;
     const pad = String(color.id).padStart(2, '0');
     const pair = [
       [recipeOf(maleRecipeName(SYNTHETIC_TEMPLATE_COLOR), 'synthetic player'), `synthetic_player_${pad}`],
       [recipeOf(femaleRecipeName(SYNTHETIC_TEMPLATE_COLOR), 'synthetic player'), `synthetic_woman_${pad}`],
     ] as const;
     for (const [template, name] of pair) {
-      synthetic.push({ recipe: synthesizeRecipe(template, name, hue), template, hue });
+      synthetic.push({
+        recipe: synthesizeRecipe(template, name, color.name),
+        template,
+        color: color.name,
+        tone,
+      });
     }
     return { player: color.id, male: pair[0][1], female: pair[1][1] };
   };
@@ -182,11 +197,11 @@ export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<
       ramps.set(patch.source.ramp, toHex(await resolver.ramp(patch.source.ramp, recipe.name)));
     }
   }
-  for (const { template, hue } of synthetic) {
+  for (const { template, color, tone } of synthetic) {
     for (const patch of template.patches) {
       if (patch.source.kind !== 'ramp') continue;
       const ramp = await resolver.ramp(patch.source.ramp, template.name);
-      ramps.set(syntheticRampName(patch.source.ramp, hue), toHex(hueRotateRamp(ramp, hue)));
+      ramps.set(syntheticRampName(patch.source.ramp, color), toHex(toneRamp(ramp, tone)));
     }
   }
 

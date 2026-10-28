@@ -294,7 +294,7 @@ export {
   readable2dContext,
 } from './gpu/textures/drawable-resource.js';
 export type { AnchorRect, ErasedRegion } from './gpu/textures/erased-frame-cache.js';
-export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/textures/human-palette-lut.js';
+export { type HumanArmorPalettes, HumanPaletteLut, TEAM_HUMANS } from './gpu/textures/human-palette-lut.js';
 export {
   colourRecolouredFrame,
   type DrawableFrame,

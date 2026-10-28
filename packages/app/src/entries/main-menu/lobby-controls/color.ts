@@ -1,5 +1,4 @@
-import { MAP_PLAYER_COLOR_COUNT } from '@open-northland/data';
-import { playerSwatchHex } from '../../../catalog/roster.js';
+import { PLAYER_COLOR_COUNT, playerSwatchHex } from '../../../catalog/roster.js';
 
 interface ColorState {
   readonly value: number;
@@ -18,7 +17,7 @@ interface ChipState {
   /** Appended to the title while the colour cannot be changed. */
   readonly lockedNote?: string;
 }
-const COLORS = Array.from({ length: MAP_PLAYER_COLOR_COUNT }, (_, color) => color);
+const COLORS = Array.from({ length: PLAYER_COLOR_COUNT }, (_, color) => color);
 
 /** The seat's colour as a numbered block; clicking it opens or closes the seat's palette. */
 export function colorChip(options: Pick<ColorOptions, 'label' | 'name'>, player: number, toggle: () => void) {

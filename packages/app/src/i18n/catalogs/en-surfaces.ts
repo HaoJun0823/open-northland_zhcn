@@ -362,6 +362,7 @@ export const enSurfaces = {
         upgradeBuilding: 'Upgrade the selected building',
         defenceOn: 'Defence mode on in every building',
         defenceOff: 'Defence mode off in every building',
+        buildingAlarm: 'Start or stop defence mode in the selected building',
         nextCivilian: 'Next civilian',
         nextScout: 'Next scout',
         nextSingleWoman: 'Next unmarried homeless woman',

@@ -63,6 +63,7 @@ export const KEYBINDING_ACTIONS = [
   'upgradeBuilding',
   'defenceOn',
   'defenceOff',
+  'buildingAlarm',
   'nextCivilian',
   'nextScout',
   'nextSingleWoman',
@@ -100,8 +101,8 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   // original's help), F2 the subjects (the original's F7), F7 the knowledge (the original's technology
   // tree on F8), F8 the HUD, N the network panel of a relayed game (a letter: Mac keyboards give F9 to
   // media keys), Q for the original's A (Assign Work Place), so A stays attack-move, R the shown
-  // building's Upgrade, I the selection's equipment window (the common inventory key), Z the selected
-  // ships' dock order.
+  // building's Upgrade, Alt+V the shown building's alarm beside the original's V, I the selection's
+  // equipment window (the common inventory key), Z the selected ships' dock order.
   pauseToggle: 'KeyP',
   speedCycle: 'KeyL',
   gameMenu: 'Escape',
@@ -134,6 +135,7 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   upgradeBuilding: 'KeyR',
   defenceOn: 'KeyV',
   defenceOff: 'Shift+KeyV',
+  buildingAlarm: 'Alt+KeyV',
   nextCivilian: 'Period',
   nextScout: 'Comma',
   nextSingleWoman: 'Slash',

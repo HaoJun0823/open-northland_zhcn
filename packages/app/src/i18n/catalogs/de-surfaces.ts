@@ -399,6 +399,7 @@ export const deSurfaces = {
         upgradeBuilding: 'Ausgewähltes Gebäude ausbauen',
         defenceOn: 'Verteidigungsmodus in allen Gebäuden einschalten',
         defenceOff: 'Verteidigungsmodus in allen Gebäuden ausschalten',
+        buildingAlarm: 'Verteidigungsmodus im gewählten Gebäude starten oder beenden',
         nextCivilian: 'Nächsten Zivilisten auswählen',
         nextScout: 'Nächsten Kundschafter auswählen',
         nextSingleWoman: 'Nächste unverheiratete Frau ohne Wohnhaus auswählen',

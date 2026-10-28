@@ -351,6 +351,7 @@ export const chtSurfaces = {
         upgradeBuilding: '升級選取的建築',
         defenceOn: '所有建築開啟防禦模式',
         defenceOff: '所有建築關閉防禦模式',
+        buildingAlarm: '在選取的建築啟動或解除防禦模式',
         nextCivilian: '下一名平民',
         nextScout: '下一名偵察兵',
         nextSingleWoman: '下一名未婚且無住所的婦女',

@@ -6521,7 +6521,7 @@ body.on-drag-scroll.on-drag-scroll-free * {
   box-shadow: inset 0 0 0 1px #2a1d0e;
 }
 
-/* ---------- building panel: order tiles, alarm bell, staff wells, household wares, stock ---------- */
+/* ---------- building panel: order tiles, alarm bar, staff wells, household wares, stock ---------- */
 /* Up to four labelled tiles in two rows fill the column beside the portrait, each in a fixed place. */
 .on-hud .on-orders--tiles {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6625,8 +6625,58 @@ body.on-drag-scroll.on-drag-scroll-free * {
   filter: saturate(0.4);
   cursor: var(--cursor-default, default);
 }
-/* A glyph button in the status strip: a building's alarm bell, dim while the alarm is down and gold while
-   it is up, or the jump to a lost settler's refused goal before the carried good. */
+/* A shelter's alarm row under the portrait, in the order tiles' look: the house's toggle across the
+   row and the every-shelter one at its end. The colour tells the state, the label the action: the
+   house's tile is plain wood at peace and a muted red with a pulsing trumpet while its alarm is up. */
+.on-hud .on-alarm-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  margin-top: 6px;
+}
+.on-hud .on-alarm-bar[hidden] {
+  display: none;
+}
+.on-hud .on-alarm {
+  justify-content: center;
+  gap: 6px;
+}
+.on-hud .on-alarm .on-glyph {
+  width: 18px;
+  height: 18px;
+  color: #e9a27c;
+}
+.on-hud .on-alarm--everywhere {
+  gap: 4px;
+  padding: 0 8px;
+}
+.on-hud .on-alarm--everywhere .on-glyph {
+  width: 14px;
+  height: 14px;
+}
+.on-hud .on-alarm--on {
+  border-color: #9a3f2c;
+  background: radial-gradient(circle at 45% 35%, #6e3527, #47201a 60%, #26110d 95%);
+  box-shadow:
+    inset 0 1px #fff1,
+    0 0 6px #c2533b55;
+  color: #f6dccb;
+}
+.on-hud .on-alarm--on .on-glyph {
+  color: #f08a6a;
+  animation: on-alarm-sound 1.6s ease-in-out infinite;
+}
+@keyframes on-alarm-sound {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .on-hud .on-alarm--on .on-glyph {
+    animation: none;
+  }
+}
+/* A glyph button in the status strip: the jump to a lost settler's refused goal before the carried good. */
 .on-hud .on-status-strip__button {
   flex-shrink: 0;
   display: grid;
@@ -6651,10 +6701,6 @@ body.on-drag-scroll.on-drag-scroll-free * {
 .on-hud .on-status-strip__button:focus-visible {
   color: #fff6de;
   box-shadow: inset 0 0 0 1px var(--bronze-lo);
-}
-.on-hud .on-status-strip__button--on {
-  color: var(--active);
-  filter: drop-shadow(0 0 3px #e3b86888);
 }
 /* A product's ingredients beside its name: the good and "have/need", amber while the shelf lacks it.
    The name takes its whole width first; the ingredients get what is left. One that does not fit wraps

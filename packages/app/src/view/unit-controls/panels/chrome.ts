@@ -99,6 +99,8 @@ export interface UnitChromeHandle {
   browse(step: 1 | -1): boolean;
   /** The upgrade key: raise the shown building's tier; false when no building is shown or it refuses. */
   upgradeBuilding(): boolean;
+  /** The alarm key on the shown building; false when no building with an alarm is shown. */
+  buildingAlarm(): boolean;
   /** Escape: close the trade window or the vehicle hold's picker; false when neither was open. */
   closeWindow(): boolean;
   windowOpen(): boolean;
@@ -274,6 +276,7 @@ export async function createUnitChrome(
     actions: settlerActions,
     building: buildingPanelActions({
       snapshot: opts.snapshot,
+      content: opts.content,
       viewer: opts.viewer,
       enqueue: opts.enqueue,
       cue: callbacks.cue,
@@ -284,6 +287,7 @@ export async function createUnitChrome(
       residentsFor: (jobType) => opts.domHud.centralWindows?.residentsFor(jobType),
       knowledge: (typeId) => opts.domHud.centralWindows?.knowledge(typeId),
     },
+    keyLabel,
     buildingPeers: (building) => buildingPeers(opts.snapshot(), building),
   });
   const palisadePanel = createPalisadePanel({
@@ -497,6 +501,7 @@ export async function createUnitChrome(
       tradeWindow.claims(x, y),
     browse: (step) => settlerPanel.browse(step) || vehiclePanel.browse(step) || buildingPanel.browse(step),
     upgradeBuilding: () => buildingPanel.upgrade(),
+    buildingAlarm: () => buildingPanel.alarm(),
     closeWindow: () => {
       if (tradeWindow.isOpen()) {
         tradeWindow.dismiss();

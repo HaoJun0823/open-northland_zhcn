@@ -359,6 +359,7 @@ export const plSurfaces = {
         upgradeBuilding: 'Rozbuduj zaznaczony budynek',
         defenceOn: 'Włącz tryb obrony we wszystkich budynkach',
         defenceOff: 'Wyłącz tryb obrony we wszystkich budynkach',
+        buildingAlarm: 'Bij na alarm lub odwołaj alarm w zaznaczonym budynku',
         nextCivilian: 'Następny cywil',
         nextScout: 'Następny zwiadowca',
         nextSingleWoman: 'Następna niezamężna kobieta bez domu',

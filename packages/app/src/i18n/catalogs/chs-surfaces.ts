@@ -351,6 +351,7 @@ export const chsSurfaces = {
         upgradeBuilding: '升级选中的建筑',
         defenceOn: '所有建筑开启防御模式',
         defenceOff: '所有建筑关闭防御模式',
+        buildingAlarm: '在选中的建筑开启或关闭防御模式',
         nextCivilian: '下一个平民',
         nextScout: '下一个侦察兵',
         nextSingleWoman: '下一个无住所的未婚妇女',

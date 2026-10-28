@@ -1033,6 +1033,7 @@ export const deGame = {
         cancelUpgradeShort: 'Abbrechen',
         alarmOn: 'Verteidigungsmodus starten',
         alarmOff: 'Verteidigungsmodus stoppen',
+        alarmEverywhere: 'Ganzes Dorf',
         workers: 'Arbeiter',
         knowledge: 'Wissen',
         demolish: 'Abreißen',
@@ -1048,6 +1049,8 @@ export const deGame = {
       alarmOnTooltip: 'Verteidigungsmodus starten: Zivilisten in der Nähe suchen hier Schutz',
       alarmOffTooltip:
         'Verteidigungsmodus stoppen: Die hier untergebrachten Zivilisten kehren zur Arbeit zurück',
+      alarmOnEverywhereTooltip: 'Verteidigungsmodus in allen Verteidigungsgebäuden starten · {key}',
+      alarmOffEverywhereTooltip: 'Verteidigungsmodus in allen Verteidigungsgebäuden beenden · {key}',
       demolishTitle: 'Gebäude abreißen',
       demolishQuestion: '„{name}“ abreißen?',
       demolishKeep: 'Behalten',

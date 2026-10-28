@@ -6,6 +6,7 @@ import {
   type CameraTuning,
   DEBUG_MIN_ZOOM,
   DEFAULT_CAMERA_TUNING,
+  edgeExitPoint,
   edgePanVelocity,
   HUD_EDGE_SCROLL_REACH,
   integerZoomLevels,
@@ -137,8 +138,8 @@ export function createCameraController(
     return zoomCameraAt(next, level / scale, canvas.width / res / 2, canvas.height / res / 2, minZoom);
   };
   // The edge-scroll probe: the last `mousemove` sample in client px, whatever element it hit, so HUD
-  // chrome along a screen edge still scrolls. Null once the cursor leaves the window or before any
-  // move, so a parked cursor waits.
+  // chrome along a screen edge still scrolls. Pinned to the edge the cursor left the window through,
+  // and null after a blur or before any move, so a parked cursor waits.
   let pointerSample: { readonly x: number; readonly y: number } | null = null;
   let suspended = false;
   const endMiddleDrag = (): void => {
@@ -172,10 +173,14 @@ export function createCameraController(
   const onMouseUp = (e: MouseEvent): void => {
     if (e.button === 1) endMiddleDrag();
   };
-  // Leaving the browser window disarms, because the cursor lands no further `mousemove` there. A null
-  // `relatedTarget` marks that crossing; moves between page elements carry one.
+  // The page cannot hold the cursor inside the window, so one that overshoots onto another display
+  // keeps scrolling as if pressed against the edge it left through, until it returns or focus moves.
+  // A null `relatedTarget` marks that crossing; moves between page elements carry one.
   const onMouseOut = (e: MouseEvent): void => {
-    if (e.relatedTarget === null) pointerSample = null;
+    if (e.relatedTarget !== null || pointerSample === null) return;
+    const rect = canvas.getBoundingClientRect();
+    const exit = edgeExitPoint(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+    pointerSample = { x: exit.x + rect.left, y: exit.y + rect.top };
   };
   const onWheel = (e: WheelEvent): void => {
     if (suspended) return;

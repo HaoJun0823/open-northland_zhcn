@@ -65,6 +65,22 @@ export function edgePanVelocity(
 }
 
 /**
+ * Where a pointer that left the window through `(x, y)` keeps edge-scrolling: pinned to every edge it
+ * was within the margin of, or to the nearest edge after a flick that left from deeper inside. Canvas
+ * CSS px in and out, so {@link edgePanVelocity} reads it like a cursor pressed against that edge.
+ */
+export function edgeExitPoint(x: number, y: number, width: number, height: number): { x: number; y: number } {
+  const distances = [x, width - x, y, height - y];
+  const nearest = Math.min(...distances);
+  const pinned = (distance: number): boolean => distance < EDGE_SCROLL_MARGIN || distance === nearest;
+  const [left, right, top, bottom] = distances.map(pinned);
+  return {
+    x: left ? 0 : right ? width : Math.min(width, Math.max(0, x)),
+    y: top ? 0 : bottom ? height : Math.min(height, Math.max(0, y)),
+  };
+}
+
+/**
  * One step of the wheel-zoom glide: move the scale toward `target` at a constant `ratePerS` in log-zoom
  * space, so doubling takes the same time from 1 to 2 as from 4 to 8. Anchored at the cursor, and lands
  * exactly on the target once within one step of it.

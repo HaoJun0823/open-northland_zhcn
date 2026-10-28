@@ -267,15 +267,35 @@ describe('createCameraController edge-scroll arming', () => {
     ctl.dispose();
   });
 
-  it('disarms when the cursor leaves the browser window, not when it crosses onto HUD chrome', () => {
+  it('keeps scrolling at full speed toward the edge the cursor left the window through', () => {
+    const { ctl, win, move } = install();
+    move(0, CENTRE_Y);
+    const atEdge = panStep(ctl);
+    // A flick leaves from deeper than the band; the scroll still pins to the nearest edge.
+    move(EDGE_SCROLL_MARGIN * 2, CENTRE_Y);
+    win.emit('mouseout', { relatedTarget: null, clientX: EDGE_SCROLL_MARGIN * 2, clientY: CENTRE_Y });
+    expect(panStep(ctl)).toBeCloseTo(atEdge);
+    expect(panStep(ctl)).toBeCloseTo(atEdge);
+    move(CANVAS_W / 2, CENTRE_Y);
+    expect(panStep(ctl)).toBe(0);
+    ctl.dispose();
+  });
+
+  it('stops the out-of-window scroll on blur', () => {
     const { ctl, win, move } = install();
     move(LEFT_BAND_X, CENTRE_Y);
-    win.emit('mouseout', { relatedTarget: { hudBeam: true } });
+    win.emit('mouseout', { relatedTarget: null, clientX: -1, clientY: CENTRE_Y });
     expect(panStep(ctl)).toBeGreaterThan(0);
-    win.emit('mouseout', { relatedTarget: null });
+    win.emit('blur');
     expect(panStep(ctl)).toBe(0);
-    move(LEFT_BAND_X, CENTRE_Y);
-    expect(panStep(ctl)).toBeGreaterThan(0);
+    ctl.dispose();
+  });
+
+  it('keeps the probe where it was when the cursor crosses onto HUD chrome', () => {
+    const { ctl, win, move } = install();
+    move(CANVAS_W / 2, CENTRE_Y);
+    win.emit('mouseout', { relatedTarget: { hudBeam: true }, clientX: CANVAS_W / 2, clientY: CENTRE_Y });
+    expect(panStep(ctl)).toBe(0);
     ctl.dispose();
   });
 

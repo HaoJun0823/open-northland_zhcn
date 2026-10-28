@@ -10,6 +10,7 @@ export {
   DEBUG_MIN_ZOOM,
   DEFAULT_CAMERA_TUNING,
   EDGE_SCROLL_MARGIN,
+  edgeExitPoint,
   edgePanVelocity,
   HUD_EDGE_SCROLL_REACH,
   integerZoomLevels,

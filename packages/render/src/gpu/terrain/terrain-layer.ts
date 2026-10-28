@@ -30,9 +30,10 @@ import {
 } from './geometry.js';
 import { padLaneRows } from './lane-texture.js';
 import { RoadLayer } from './road-layer.js';
-import { makeWaveUniforms, WAVE_LOOP_SECONDS, type WaveUniforms } from './shading.js';
+import { makeWaveUniforms, type WaveUniforms } from './shading.js';
 import type { TerrainTextureSet } from './textures.js';
 import { TerrainVertexColors } from './vertex-colors.js';
+import { WAVE_LOOP_SECONDS } from './water-shading.js';
 
 /**
  * The retained terrain layer: the static ground, meshed once per map into world-space AABB blocks and

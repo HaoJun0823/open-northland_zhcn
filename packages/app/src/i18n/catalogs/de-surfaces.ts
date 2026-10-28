@@ -285,7 +285,7 @@ export const deSurfaces = {
         'Verstärkt und glättet die Schatten von Gebäuden, Bäumen und Dekorationen. Siedler und Tiere werfen Schatten ihrer eigenen Umrisse, ausgerichtet nach derselben Lichtquelle wie die Gebäude. Aus verwendet die Originalschatten.',
       enhancedWater: 'Verbessertes Wasser',
       enhancedWaterTip:
-        'Sich kreuzende Wellen, dunklere flache und noch dunklere tiefe Stellen, kühlere Blautöne und wandernde Lichtreflexe auf tiefem Wasser. Aus verwendet das Originalwasser.',
+        'Sich kreuzende Wellen mit ruhigen und rauen Stellen, wandernder Schimmer, dunklere flache und noch dunklere tiefe Stellen, kühlere Blautöne und funkelnde Sonnenreflexe auf dem Wasser. Aus verwendet das Originalwasser.',
       buildingDamage: 'Gebäudeschäden',
       buildingDamageTip:
         'Beschädigte Dächer, freiliegende Balken, Rauch, Feuer und Trümmer. Ausschalten reduziert die Grafiklast auf einfachen Rauch.',

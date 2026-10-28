@@ -17,6 +17,12 @@ import {
   type GroundCoverUniforms,
 } from '../weather/ground-cover-shading.js';
 import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page-samplers.js';
+import {
+  WATER_FRAGMENT_GLSL,
+  WATER_SHIMMER_GAIN,
+  WATER_SPARKLE_GAIN,
+  WATER_VERTEX_GLSL,
+} from './water-shading.js';
 
 /**
  * The custom mesh shaders for the brightness-shaded ground and decor, which Pixi's built-in mesh shader
@@ -108,66 +114,8 @@ const TERRAIN_SAMPLE = `
   }
 `;
 
-// Water-surface animation, an artistic approximation tuned by eye.
-// Time is the water clock's seconds (data/terrain/water-clock.ts): real time while the game runs, so the
-// sea keeps one pace at every game speed. Each wave turns a whole number of cycles per loop, so the
-// clock wraps modulo the loop without a seam and the f32 `uWave.x` never loses `sin` precision.
-/** Seconds after which every water wave is back where it started. */
-export const WAVE_LOOP_SECONDS = 120;
-
-/** A plane wave over world px: travel direction (normalised when emitted), wavelength, and whole
- *  cycles per {@link WAVE_LOOP_SECONDS}, the inverse of its period. */
-interface WaterWave {
-  readonly dirX: number;
-  readonly dirY: number;
-  readonly wavelengthPx: number;
-  readonly cyclesPerLoop: number;
-}
-
-/** The swell: three waves crossing at unrelated angles, lengths and periods (about 3.2, 4.6 and 2.6 s),
- *  so their sum never settles into one band marching across the sea. Each weight is the wave's share
- *  of the displacement; they sum to one so the peak stays {@link WAVE_AMPLITUDE_PX}. */
-const SWELLS: readonly { readonly wave: WaterWave; readonly weight: number }[] = [
-  { wave: { dirX: 1, dirY: 0.9, wavelengthPx: 230, cyclesPerLoop: 37 }, weight: 0.5 },
-  { wave: { dirX: 1, dirY: -1.4, wavelengthPx: 310, cyclesPerLoop: 26 }, weight: 0.32 },
-  { wave: { dirX: -0.35, dirY: 1, wavelengthPx: 170, cyclesPerLoop: 47 }, weight: 0.18 },
-];
-/** Peak vertical bob (world px) at full wave amplitude. */
-const WAVE_AMPLITUDE_PX = 1.6;
-
-/** The sea state: two broad slow waves whose product drifts calm and rough patches across the water. */
-const SEA_STATE: readonly [WaterWave, WaterWave] = [
-  { dirX: 1, dirY: 0.4, wavelengthPx: 1100, cyclesPerLoop: 4 },
-  { dirX: -0.5, dirY: 1, wavelengthPx: 1500, cyclesPerLoop: 3 },
-];
-/** The calmest patch keeps this share of the full swell and shimmer. */
-const SEA_STATE_CALM = 0.2;
-
-/** The shimmer's fine glints, shorter and quicker than the swell (about 2.3 and 2.9 s). The baseline
- *  water draws the first alone, the enhanced water both and their product. */
-const SHIMMERS: readonly [WaterWave, WaterWave] = [
-  { dirX: 1, dirY: 0.7, wavelengthPx: 95, cyclesPerLoop: 53 },
-  { dirX: 0.6, dirY: -1, wavelengthPx: 125, cyclesPerLoop: 41 },
-];
-/** Peak brightness modulation of the water shimmer (fraction of the lane multiplier). */
-const WAVE_SHIMMER = 0.08;
-/** The crossed shimmer's mix: both glints and their product, summing to one so the peak holds. */
-const CROSSED_SHIMMER_WEIGHTS = { first: 0.55, second: 0.3, product: 0.15 } as const;
-
-/** GLSL for a wave's angular speed, radians per second. */
-const waveRate = (wave: WaterWave): string =>
-  ((2 * Math.PI * wave.cyclesPerLoop) / WAVE_LOOP_SECONDS).toFixed(8);
-
-/** GLSL for a wave's phase at world position `pos`, without the time term. A varying may carry it:
- *  the phase is linear in position, so interpolation keeps it exact. */
-function waveSpatialPhase(wave: WaterWave, pos: string): string {
-  const perPx = (2 * Math.PI) / wave.wavelengthPx / Math.hypot(wave.dirX, wave.dirY);
-  return `dot(${pos}, vec2(${(wave.dirX * perPx).toFixed(8)}, ${(wave.dirY * perPx).toFixed(8)}))`;
-}
-
-/** GLSL for a wave's phase at world position `pos` and loop time `time` (seconds). */
-const wavePhase = (wave: WaterWave, pos: string, time: string): string =>
-  `(${waveSpatialPhase(wave, pos)} + ${time} * ${waveRate(wave)})`;
+/** Floor on the world px a screen px spans, keeping the sparkle's px-per-world finite. */
+const MIN_WORLD_PER_PX = 0.0001;
 
 // Water depth shading. The maps split water into the painter's shallow and deep pattern families, each
 // with its own texture (data/terrain/water.ts); the amounts deepening both, the deep family more,
@@ -177,18 +125,10 @@ const wavePhase = (wave: WaterWave, pos: string, time: string): string =>
 const WATER_SHALLOW_DARKEN = 0.12;
 /** Brightness loss on deep water. */
 const WATER_DEEP_DARKEN = 0.18;
-/** Peak brightness gain of the glint band crossing deep water. Deep only by intent: the band reads as
- *  sun off open water, so a map painted wholly in the shallow family shows none. */
-const WATER_GLINT = 0.25;
-/** Glint passes per {@link WAVE_LOOP_SECONDS}: one every 17 s. */
-const WATER_GLINT_CYCLES_PER_LOOP = 7;
-const WATER_GLINT_RADIANS_PER_SECOND = (2 * Math.PI * WATER_GLINT_CYCLES_PER_LOOP) / WAVE_LOOP_SECONDS;
-/** Glint phase per world px along `slant * x + y`: one band every 640 px down the screen. */
-const WATER_GLINT_PHASE_PER_PX = (2 * Math.PI) / 640;
-/** The band's travel slants off the swell's diagonal so the two never align. */
-const WATER_GLINT_SLANT = 0.6;
-/** Exponent narrowing the sine into a band about a seventh of the wavelength wide. */
-const WATER_GLINT_SHARPNESS = 6;
+/** The shallows' share of the deep water's sparkle. */
+const WATER_SHALLOW_SPARKLE = 0.8;
+/** A sparkle's colour at full strength: a pale sky blue, not white. */
+const WATER_SPARKLE_COLOUR = [0.86, 0.95, 1.0] as const;
 /** RGB multiplier on shallow water: a mild pull from green toward blue. */
 const WATER_SHALLOW_TINT = [0.86, 1.0, 1.126] as const;
 /** RGB multiplier on deep water: a stronger pull toward blue than the shallows take. */
@@ -232,34 +172,28 @@ const FIELD_VERTEX = `#version 300 es
   out vec2 vBrightnessUV;
   out vec3 vVertexColor;
   out float vWave;
-  out vec2 vShimmerPhase;
+  out vec2 vWorld;
   out vec2 vWater;
-  out float vGlintPhase;
   uniform vec2 uWave; // x = water clock (seconds, wrapped), y = master amplitude scale (0 = still)
+  uniform float uEnhancedWater;
+  ${WATER_VERTEX_GLSL}
   ${COVER_VERTEX_DECLARATIONS}
   ${matrixBlock}
   void main(void) {
     vSampleBounds = aSampleBounds;
     vPage = aPage;
     ${COVER_VERTEX_BODY}
+    float wave;
     vec2 pos = aPosition;
-    // The sea state scales the vertex's wave amplitude (0 on land and along the coast,
-    // data/terrain/water.ts), from the calm share at the product's trough to full at its crest.
-    float roughness = 0.5 + 0.5 * sin(${wavePhase(SEA_STATE[0], 'aPosition', 'uWave.x')})
-      * sin(${wavePhase(SEA_STATE[1], 'aPosition', 'uWave.x')});
-    float wave = aWave * mix(${SEA_STATE_CALM.toFixed(4)}, 1.0, roughness);
-    float swell = ${SWELLS.map(({ wave, weight }) => `${weight.toFixed(4)} * sin(${wavePhase(wave, 'aPosition', 'uWave.x')})`).join(' + ')};
-    pos.y -= wave * uWave.y * ${WAVE_AMPLITUDE_PX.toFixed(4)} * swell;
+    pos.y -= waterLift(aPosition, aWave, wave);
     mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
     gl_Position = vec4((mvp * vec3(pos, 1.0)).xy, 0.0, 1.0);
     vUV = aUV;
     vBrightnessUV = aBrightnessUV;
     vVertexColor = aVertexColor;
     vWave = wave;
-    vShimmerPhase = vec2(${waveSpatialPhase(SHIMMERS[0], 'aPosition')},
-      ${waveSpatialPhase(SHIMMERS[1], 'aPosition')});
+    vWorld = aPosition;
     vWater = aWater;
-    vGlintPhase = (aPosition.x * ${WATER_GLINT_SLANT.toFixed(4)} + aPosition.y) * ${WATER_GLINT_PHASE_PER_PX.toFixed(8)};
   }
 `;
 
@@ -269,13 +203,13 @@ const FIELD_FRAGMENT = `#version 300 es
   // The page this triangle samples, picked once per fragment below: every function reading uTexture
   // takes it as a parameter of that name.
   precision highp float;
+  precision highp int;
   in vec2 vUV;
   in vec2 vBrightnessUV;
   in vec3 vVertexColor;
   in float vWave;
-  in vec2 vShimmerPhase;
+  in vec2 vWorld;
   in vec2 vWater;
-  in float vGlintPhase;
 
 ${pageSamplerDeclarations()}
   flat in float vPage;
@@ -286,6 +220,7 @@ ${pageSamplerDeclarations()}
 
   out vec4 finalColor;
 
+  ${WATER_FRAGMENT_GLSL}
   ${withPageParameter(TERRAIN_SAMPLE)}
   ${withPageParameter(COVER_FRAGMENT_DECLARATIONS)}
 
@@ -297,37 +232,31 @@ ${pageSamplerDeclarations()}
   }
 
   // cover is the weather cover already kept off the water; zero while the cover is off.
-  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near) {
+  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near, float pxPerWorld) {
     float lane = texture(uBrightnessTex, vBrightnessUV).r * ${(255 / BRIGHTNESS_NEUTRAL).toFixed(8)};
-    // Water shimmer: fine travelling glints brighten and darken the shaded surface (0 on land).
-    float shimmer = sin(vShimmerPhase.x + uWave.x * ${waveRate(SHIMMERS[0])});
+    // Water shimmer: travelling light and shade on the surface; vWave is 0 on land, which skips it.
+    if (vWave > 0.0) lane *= 1.0 + vWave * uWave.y * ${WATER_SHIMMER_GAIN.toFixed(4)} * waterShimmer(vWorld);
     // Every enhanced-water term sits under its uniform, so the baseline pays for none of it. No
-    // derivative is taken inside either gate.
-    if (uEnhancedWater > 0.5) {
-      float crossGlint = sin(vShimmerPhase.y + uWave.x * ${waveRate(SHIMMERS[1])});
-      // Softer intersecting glints avoid a uniform whole-surface pulse.
-      shimmer = ${CROSSED_SHIMMER_WEIGHTS.first.toFixed(4)} * shimmer
-        + ${CROSSED_SHIMMER_WEIGHTS.second.toFixed(4)} * crossGlint
-        + ${CROSSED_SHIMMER_WEIGHTS.product.toFixed(4)} * shimmer * crossGlint;
-    }
-    lane *= 1.0 + vWave * uWave.y * ${WAVE_SHIMMER.toFixed(4)} * shimmer;
-    // Water depth: shallows read darker, deep water darker still, and a narrow glint band drifts
-    // across the deep water. vWater = (water fraction, deep fraction), zero on land paint and at land
-    // nodes, so it fades out across the coast triangle. A fragment with no water takes neither the
-    // depth shading nor the colour grade, both of which are identities there.
+    // derivative is taken inside a gate. Water depth: shallows read darker, deep water darker still, and
+    // sparkles flash on rough water, fewer on the shallows. vWater = (water fraction, deep fraction), zero on land paint
+    // and at land nodes, so it fades out across the coast triangle. A fragment with no water takes
+    // neither the depth shading nor the colour grade, both of which are identities there.
     if (uEnhancedWater > 0.5 && vWater.x > 0.0) {
       float shallow = vWater.x - vWater.y;
       float deep = vWater.y;
-      float glint = pow(max(sin(uWave.x * ${WATER_GLINT_RADIANS_PER_SECOND.toFixed(8)} + vGlintPhase), 0.0),
-        ${WATER_GLINT_SHARPNESS.toFixed(1)});
-      lane *= 1.0 + (-${WATER_SHALLOW_DARKEN.toFixed(4)} * shallow
-        - ${WATER_DEEP_DARKEN.toFixed(4)} * deep + ${WATER_GLINT.toFixed(4)} * uWave.y * deep * glint);
+      lane *= 1.0 - ${WATER_SHALLOW_DARKEN.toFixed(4)} * shallow - ${WATER_DEEP_DARKEN.toFixed(4)} * deep;
       // Water colour: saturate the surface and tint each depth family; the painted green moves blue.
       float luma = dot(texel.rgb, ${glslVec3(LUMA_WEIGHTS)});
       float saturation = mix(1.0, ${WATER_SATURATION.toFixed(4)}, vWater.x);
       vec3 tint = mix(vec3(1.0), ${glslVec3(WATER_SHALLOW_TINT)}, shallow)
         * mix(vec3(1.0), ${glslVec3(WATER_DEEP_TINT)}, deep);
       texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
+      // A sparkle blends toward the sky's colour rather than brightening, which on dark water barely shows.
+      if (vWave > 0.0) {
+        float sparkle = waterSparkle(vWorld, pxPerWorld) * uWave.y * mix(0.5, 1.0, clamp(vWave, 0.0, 1.0))
+          * (${WATER_SHALLOW_SPARKLE.toFixed(4)} * shallow + deep);
+        texel.rgb = mix(texel.rgb, ${glslVec3(WATER_SPARKLE_COLOUR)} * texel.a, sparkle * ${WATER_SPARKLE_GAIN.toFixed(4)});
+      }
     }
     // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
     if (uCover > 0.5 && cover.r + cover.g + cover.b > 0.0)
@@ -345,10 +274,11 @@ ${pageSamplerDeclarations()}
     }
     vec2 uvDx = dFdx(vUV);
     vec2 uvDy = dFdy(vUV);
+    float pxPerWorld = 1.0 / max(length(fwidth(vWorld)), ${MIN_WORLD_PER_PX.toFixed(4)});
     vec4 texel;
     vec3 near;
 ${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, uvDx, uvDy, near);')}
-    finalColor = shadeGround(texel, cover, near);
+    finalColor = shadeGround(texel, cover, near, pxPerWorld);
   }
 `;
 

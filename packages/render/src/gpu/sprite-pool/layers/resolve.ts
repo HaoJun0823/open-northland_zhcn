@@ -62,7 +62,17 @@ export function resolveLayers(
   vegetationClock: number = tick,
   wind?: WindSway,
 ): readonly ResolvedLayer[] | null {
-  return resolveLayersInto(new LayerBuffer(), sheet, item, tick, gaitClock, vegetationClock, undefined, wind);
+  return resolveLayersInto(
+    new LayerBuffer(),
+    sheet,
+    item,
+    tick,
+    gaitClock,
+    vegetationClock,
+    undefined,
+    wind,
+    tick,
+  );
 }
 
 /**
@@ -78,9 +88,11 @@ export function resolveLayersInto(
   vegetationClock: number,
   idleElapsed?: number,
   wind?: WindSway,
+  // A ship's swell and sail clock, in ticks; the water clock on the map.
+  seaClock: number = tick,
 ): readonly ResolvedLayer[] | null {
   out.reset();
-  return pushLayers(out, sheet, item, tick, gaitClock, vegetationClock, idleElapsed, wind)
+  return pushLayers(out, sheet, item, tick, gaitClock, vegetationClock, idleElapsed, wind, seaClock)
     ? out.finish()
     : null;
 }
@@ -95,6 +107,7 @@ function pushLayers(
   vegetationClock: number,
   idleElapsed: number | undefined,
   wind: WindSway | undefined,
+  seaClock: number,
 ): boolean {
   if (sheet === undefined) return false;
 
@@ -188,7 +201,7 @@ function pushLayers(
       return pushLayeredWithShadow(out, sheet, 'craftfx', draw);
     }
     case 'vehicle':
-      return pushVehicleLayers(out, sheet, item, tick, gaitClock, wind);
+      return pushVehicleLayers(out, sheet, item, tick, gaitClock, seaClock, wind);
     default: {
       const _exhaustive: never = item.kind;
       void _exhaustive;

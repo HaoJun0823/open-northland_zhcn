@@ -120,6 +120,9 @@ export interface PoolFrame {
   readonly viewport: Viewport;
   /** The sim tick the snapshot belongs to - the animation clock for looping gaits. */
   readonly tick: number;
+  /** The water clock in base-rate sim ticks (12 Hz), which a ship's swell and sail keep at every game
+   *  speed; absent follows the sim tick. */
+  readonly seaClock?: number;
   /** The camera transform; the screen-space paletted vehicle meshes self-place from it. */
   readonly camera: Camera;
   /** Canvas size in pixels. */

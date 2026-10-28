@@ -562,6 +562,7 @@ export class WorldRenderer {
       ...(targetFlashes !== undefined && targetFlashes.size > 0 ? { flashes: targetFlashes } : {}),
       viewport: vp,
       tick,
+      seaClock: waterSeconds * TICKS_PER_SECOND,
       camera,
       screenW: this.app.screen.width,
       screenH: this.app.screen.height,

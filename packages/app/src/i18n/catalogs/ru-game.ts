@@ -242,7 +242,7 @@ export const ruGame = {
       tradeLockedTitle: 'Торговля недоступна',
       tradeYours: 'Ваш настрой: {stance}',
       tradeTheirs: 'Их настрой: {stance}',
-      tradeNeedsBoth: 'Торговцы торгуют, только пока обе стороны дружелюбны.',
+      tradeNeedsBoth: 'Отправить торговца к их торговому дому можно, только пока обе стороны дружелюбны.',
       tradeTheirsHint: 'Их настрой может изменить уплаченная дань или событие миссии.',
       tradeBefriend: 'Сделать дружественным',
       traded: 'Товаров обменено: {count}',

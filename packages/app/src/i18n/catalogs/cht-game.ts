@@ -215,7 +215,7 @@ export const chtGame = {
       tradeLockedTitle: '無法交易',
       tradeYours: '你的立場：{stance}',
       tradeTheirs: '對方立場：{stance}',
-      tradeNeedsBoth: '只有雙方都採取友好態度時，商人才會交易。',
+      tradeNeedsBoth: '只有雙方都採取友好態度時，才能派商人前往他們的交易所。',
       tradeTheirsHint: '繳納貢品或任務事件可能改變對方的態度。',
       tradeBefriend: '設為友好',
       traded: '已交易的貨物：{count}',

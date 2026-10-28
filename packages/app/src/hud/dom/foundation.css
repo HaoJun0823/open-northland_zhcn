@@ -7524,7 +7524,7 @@ body.on-drag-scroll.on-drag-scroll-free * {
   place-items: center;
   color: var(--ink-muted);
 }
-/* Offers the player's own stance shuts: the lock note says why, the parchment stays legible but reads inert. */
+/* Offers a stance on either side shuts: the lock note says which, the parchment stays legible but reads inert. */
 .on-hud .on-dip-trade-lock {
   display: flex;
   align-items: center;
@@ -7534,9 +7534,6 @@ body.on-drag-scroll.on-drag-scroll-free * {
   border: 1px solid #c9a26266;
   border-left: 3px solid var(--warning);
   background: #2a231866;
-}
-.on-hud .on-dip-trade-lock[hidden] {
-  display: none;
 }
 .on-hud .on-dip-trade-lock__glyph {
   display: grid;

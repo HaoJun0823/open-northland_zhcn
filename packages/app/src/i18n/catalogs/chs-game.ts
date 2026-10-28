@@ -215,7 +215,7 @@ export const chsGame = {
       tradeLockedTitle: '无法交易',
       tradeYours: '你的立场：{stance}',
       tradeTheirs: '对方立场：{stance}',
-      tradeNeedsBoth: '只有双方都持友好立场时，商人才会交易。',
+      tradeNeedsBoth: '只有双方都持友好立场时，才能派商人前往他们的交易所。',
       tradeTheirsHint: '缴纳贡品或任务事件可能改变对方的立场。',
       tradeBefriend: '设为友好',
       traded: '已交易物资：{count}',

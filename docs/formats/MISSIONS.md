@@ -827,8 +827,9 @@ A reading of the original's trade agreements and trader work, which the goal `Nu
   foreign trip it unloads everything but the give good, then loads give goods while the cart keeps
   room for the take goods every aboard batch brings back and the house has spare above its minimum;
   at the foreign house it hands one batch over unit by unit, then loads the take goods, then repeats
-  while another batch is aboard. The agreement holds only while the trader's player is `friend`
-  toward the house's owner. Between two own houses the marks decide: a good marked at one house only
+  while another batch is aboard. A foreign house joins the route only while both players hold
+  `friend` toward each other (original behavior); after that the agreement holds while the trader's
+  player is `friend` toward the house's owner. Between two own houses the marks decide: a good marked at one house only
   is carried to it while the other house has stock above its minimum, a good both houses mark is
   balanced toward the house that is shorter of it, and cargo neither house marks is unloaded at the
   first house that stores it. With no mark on either house the original balances every good; this
@@ -884,8 +885,8 @@ A reading of the original's trade agreements and trader work, which the goal `Nu
   saved with the game; the diplomacy window prints it (`miscwindow` 360) at its foot for a player
   both sides hold as `friend`, the one case the original's window draws the line in (byte-level). Above
   that line the window lists what the selected player's houses trade, each agreement once
-  (`Simulation.tradeOffersOf`), with a reminder that a trader deals only with a friendly tribe while
-  the viewer's stance toward the player is not `friend`; authored, since the original names a
+  (`Simulation.tradeOffersOf`), greyed out under a lock note while either side's stance is not
+  `friend`, with the viewer's own declaration offered in place; authored, since the original names a
   tribe's agreements only in a trader's own window.
 
 ## On-screen info lines

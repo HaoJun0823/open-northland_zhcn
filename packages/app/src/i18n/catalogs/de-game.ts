@@ -242,7 +242,8 @@ export const deGame = {
       tradeLockedTitle: 'Handel nicht möglich',
       tradeYours: 'Dein Verhältnis: {stance}',
       tradeTheirs: 'Ihr Verhältnis: {stance}',
-      tradeNeedsBoth: 'Händler handeln nur, solange beide Seiten freundlich sind.',
+      tradeNeedsBoth:
+        'Ein Händler kann nur zu ihrem Handelshaus geschickt werden, solange beide Seiten freundlich sind.',
       tradeTheirsHint: 'Ein gezahlter Tribut oder ein Ereignis der Mission kann ihr Verhältnis ändern.',
       tradeBefriend: 'Freundlich stellen',
       traded: 'Gehandelte Waren: {count}',

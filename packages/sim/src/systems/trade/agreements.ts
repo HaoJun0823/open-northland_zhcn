@@ -63,8 +63,8 @@ export function mutualFriends(world: World, trader: Entity, house: Entity): bool
  * The agreement the trader's route trades on, or undefined when its choice does not hold: no foreign
  * stop, an index off the table, an agreement of another house, or a partner the trader's player is
  * not on friendly terms with (original behavior: each trip needs only the trader's player to hold
- * `friend` toward the house owner). A route whose stops a map script's owner change left both foreign has no house of the
- * trader's own to trade from, and holds none.
+ * `friend` toward the house owner). A route whose stops a map script's owner change left both foreign
+ * has no house of the trader's own to trade from, and holds none.
  */
 export function activeAgreement(
   world: World,

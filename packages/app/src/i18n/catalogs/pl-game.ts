@@ -215,7 +215,7 @@ export const plGame = {
       tradeLockedTitle: 'Handel niedostępny',
       tradeYours: 'Twój stosunek: {stance}',
       tradeTheirs: 'Ich stosunek: {stance}',
-      tradeNeedsBoth: 'Kupcy handlują tylko wtedy, gdy obie strony mają stosunek przyjazny.',
+      tradeNeedsBoth: 'Kupca można wysłać do ich domu handlowego tylko przy przyjaznym stosunku obu stron.',
       tradeTheirsHint: 'Ich stosunek może zmienić np. zapłacony trybut albo wydarzenie w misji.',
       tradeBefriend: 'Ustaw przyjazny',
       traded: 'Wymienione towary: {count}',

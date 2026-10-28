@@ -218,7 +218,7 @@ export const enGame = {
       tradeLockedTitle: 'Trade unavailable',
       tradeYours: 'Your attitude: {stance}',
       tradeTheirs: 'Their attitude: {stance}',
-      tradeNeedsBoth: 'Traders only trade while both sides are friendly.',
+      tradeNeedsBoth: 'A trader can be sent to their trading house only while both sides are friendly.',
       tradeTheirsHint: 'A paid tribute or a mission event may change their attitude.',
       tradeBefriend: 'Set friendly',
       traded: 'Goods traded: {count}',

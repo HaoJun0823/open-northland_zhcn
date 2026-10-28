@@ -130,6 +130,7 @@ describe('the Pojazd row', () => {
       handleOverviewPress: () => null,
       endShiftChain: () => {},
       highlight: () => null,
+      aimedAt: () => null,
     };
     const content = createSceneSim(sandboxScene).content;
     const { actions } = harness(fixedViewerSeat(SEAT), (id, targets) =>

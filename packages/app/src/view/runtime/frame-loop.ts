@@ -423,10 +423,12 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     renderer.setPortraitInsets(controls.portraits());
     renderer.updateConstructionPlots(visiblePlots(fogView));
     geometryDebug.update(snap);
-    // The gate tool tints the walls it can cut into, the wall brush the wall it would tear down; otherwise
-    // an assignment tints its candidates.
-    renderer.setBuildingHighlight(
-      toolPanel.controller.gateSites()?.highlight ?? wallDemolish ?? controls.assignHighlight(),
+    // The gate tool marks the walls it can cut into, the wall brush the wall it would tear down; otherwise
+    // an armed pick marks its targets, and the one it aims at stands for the hovered target.
+    const pickMarks = controls.targetMarks();
+    renderer.setTargetMarks(toolPanel.controller.gateSites()?.highlight ?? wallDemolish ?? pickMarks);
+    const aimed = controls.aimTarget(
+      pointer !== null && !controls.claimsPointer(pointer.clientX, pointer.clientY) ? pointer : null,
     );
     stage = 'render';
     const constructionSigns = constructionSignsFor(snap);
@@ -465,9 +467,10 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
         camera: drawnCamera,
         tick: snap.tick,
         selection: controls.selectedIds(),
-        // The pick the worldHover.update below made against the freshly drawn list: the hovered-target
-        // outline trails the cursor's read by one frame, like the card does its rest.
-        hovered: worldHover.hovered() ?? undefined,
+        // An armed pick's aim at this frame's pointer, else the pick the worldHover.update below made
+        // against the freshly drawn list: that hovered-target outline trails the cursor's read by one
+        // frame, like the card does its rest.
+        hovered: (pickMarks !== null ? aimed : worldHover.hovered()) ?? undefined,
         selectionTime: nowMs / 1000,
         alpha: renderAlpha,
         doorBadges,

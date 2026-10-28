@@ -738,11 +738,11 @@ describe('vehicle picks', () => {
     expect(pickMode.highlight()).toBeNull();
     pickMode.arm({ kind: 'vehicle', settler: OWN_SETTLER });
     expect(pickMode.highlight()).toEqual([
-      { id: CATAPULT, ok: false },
-      { id: HANDCART, ok: false },
-      { id: SHIP, ok: true },
-      { id: SHIP_AT_SEA, ok: false },
-      { id: CARRIED_CART, ok: false },
+      { id: CATAPULT, tone: 'refused' },
+      { id: HANDCART, tone: 'refused' },
+      { id: SHIP, tone: 'candidate' },
+      { id: SHIP_AT_SEA, tone: 'refused' },
+      { id: CARRIED_CART, tone: 'refused' },
     ]);
     pickMode.handleMouseDown(leftClick);
     await landed();

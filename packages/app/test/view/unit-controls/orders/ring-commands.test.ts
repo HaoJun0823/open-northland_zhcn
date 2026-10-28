@@ -37,6 +37,7 @@ function harness(): {
     handleOverviewPress: () => null,
     endShiftChain: () => {},
     highlight: () => null,
+    aimedAt: () => null,
   };
   return {
     issued,

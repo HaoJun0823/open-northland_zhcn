@@ -53,7 +53,7 @@ import { type ConstructionPlotFrame, ConstructionPlotLayer } from '../placement/
 import { type PlacementGhost, PlacementGhostLayer } from '../placement/ghost.js';
 import { type PlacementOverlayFrame, PlacementOverlayLayer } from '../placement/overlay.js';
 import { PLOT_BOUNDS } from '../placement/plan-road.js';
-import { DEFAULT_SELECTION_STYLE, type SelectionStyle } from '../selection/style.js';
+import { DEFAULT_SELECTION_STYLE, type SelectionStyle, type TargetTone } from '../selection/style.js';
 import { worldShaderSettings } from '../shaders/warmup.js';
 import { type EntityBounds, SpritePool } from '../sprite-pool/index.js';
 import { StillSpriteMesh } from '../still-mesh/still-mesh.js';
@@ -69,9 +69,7 @@ import { type PortraitInsetFrame, PortraitInsetLayer } from '../world-views/port
 import { DepthSortedLayer } from './depth-sorted-layer.js';
 import {
   BASELINE_ENHANCEMENTS,
-  type BuildingHighlightItem,
   type CombatBonesGfx,
-  EMPTY_HIGHLIGHT,
   NO_BADGES,
   NO_BUBBLES,
   NO_GROUP_NUMBERS,
@@ -83,6 +81,7 @@ import {
   NO_SIGNS,
   NO_STARS,
   SPRITE_CULL_MARGIN,
+  type TargetMark,
   type WorldEnhancements,
   type WorldFrame,
   type WorldRendererOptions,
@@ -123,9 +122,9 @@ export class WorldRenderer {
   private readonly constructionPlots = new ConstructionPlotLayer();
   private readonly placementGhost: PlacementGhostLayer;
   private readonly marks: WorldMarks;
-  private highlight: ReadonlyMap<number, boolean> = EMPTY_HIGHLIGHT;
+  private targetMarks: ReadonlyMap<number, TargetTone> | undefined;
   private readonly flagErasures = new FlagErasures();
-  private highlightItems: readonly BuildingHighlightItem[] | null = null;
+  private markItems: readonly TargetMark[] | null = null;
   private readonly hud = new HudLayer();
   private readonly chrome: WorldChrome;
   /** The current map's height field; flat until `setTerrain` loads a map carrying an elevation lane. */
@@ -569,7 +568,7 @@ export class WorldRenderer {
       shadowStyle: this.enhancements.softShadows ? DEFAULT_SHADOW_STYLE : undefined,
       ...fogFrame,
       ...(this.withheldRefs !== undefined ? { withheldRefs: this.withheldRefs } : {}),
-      ...(this.highlight.size > 0 ? { highlight: this.highlight } : {}),
+      ...(this.targetMarks !== undefined ? { marks: this.targetMarks } : {}),
       ...(erased.size > 0 ? { erased } : {}),
       ...(portrait.ref !== null ? { portraitRef: portrait.ref } : {}),
       ...(portrait.house !== null ? { portraitHouse: portrait.house } : {}),
@@ -730,12 +729,12 @@ export class WorldRenderer {
     this.marks.setGeometryDebug(items, this.elevation);
   }
 
-  /** The tint rides the building sprite from the next update on. */
-  setBuildingHighlight(items: readonly BuildingHighlightItem[] | null): void {
+  /** An armed pick's verdicts, drawn from the next update on; null while no pick is armed. */
+  setTargetMarks(items: readonly TargetMark[] | null): void {
     // Callers hand over a memoized list, so an unchanged one rebuilds nothing.
-    if (items === this.highlightItems) return;
-    this.highlightItems = items;
-    this.highlight = items === null ? EMPTY_HIGHLIGHT : new Map(items.map((i) => [i.id, i.ok]));
+    if (items === this.markItems) return;
+    this.markItems = items;
+    this.targetMarks = items === null ? undefined : new Map(items.map((i) => [i.id, i.tone]));
   }
 
   /** Every sub-layer is destroyed explicitly so its retained pool or Map is cleared, not just its

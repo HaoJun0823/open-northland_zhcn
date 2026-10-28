@@ -269,6 +269,7 @@ export {
   type SelectionStyle,
   type TargetFlash,
   type TargetFlashTone,
+  type TargetTone,
 } from './gpu/selection/style.js';
 export {
   forgetShaderLinks,
@@ -329,8 +330,8 @@ export {
 export { TextureCache } from './gpu/textures/texture-cache.js';
 export { GLOW_PALETTE_INDEX } from './gpu/world-batch/batcher.js';
 export {
-  type BuildingHighlightItem,
   SPRITE_CULL_MARGIN,
+  type TargetMark,
   type WorldEnhancements,
   type WorldFrame,
   WorldRenderer,

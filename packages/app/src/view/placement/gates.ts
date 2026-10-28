@@ -353,6 +353,6 @@ function gateSitesOf(
       return hit === undefined ? null : { col: hit.col, row: hit.row };
     },
     isCenter: (col, row) => centers.has(`${col},${row}`),
-    highlight: [...walls].map((id) => ({ id, ok: true })),
+    highlight: [...walls].map((id) => ({ id, tone: 'candidate' })),
   };
 }

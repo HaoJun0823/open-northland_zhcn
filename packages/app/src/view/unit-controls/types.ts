@@ -1,7 +1,6 @@
 import type { UiCue, VoiceCall } from '@open-northland/audio';
 import type { ContentSet, EquipCategory } from '@open-northland/data';
 import type {
-  BuildingHighlightItem,
   Camera,
   DoorBadge,
   DrawItem,
@@ -12,6 +11,7 @@ import type {
   RangeRing,
   SpriteSheet,
   TargetFlash,
+  TargetMark,
 } from '@open-northland/render';
 import type {
   Entity,
@@ -213,9 +213,13 @@ export interface UnitControls {
   readonly targetFlashes: () => ReadonlyMap<number, TargetFlash>;
   /** The refused goals of the selected lost settlers; the same list while they stand still. */
   readonly lostGoals: () => readonly LostGoalMarker[];
-  /** The green/red assignment wash for the render building-highlight layer, or null when no assign mode
-   *  is armed. */
-  readonly assignHighlight: () => readonly BuildingHighlightItem[] | null;
+  /** The armed pick's verdicts on its targets, or null when no pick that judges targets is armed. */
+  readonly targetMarks: () => readonly TargetMark[] | null;
+  /** Aims the armed pick at the client point (null off the world view): the candidate a press there
+   *  would order, or null. The pointer refuses over a refused target. */
+  readonly aimTarget: (
+    pointer: { readonly clientX: number; readonly clientY: number } | null,
+  ) => number | null;
   /** The viewer's own wall or gate drawn on top under each client point, or null there. */
   readonly ownWallsAt: (points: readonly { readonly x: number; readonly y: number }[]) => (number | null)[];
   readonly signpostPlacementActive: () => boolean;

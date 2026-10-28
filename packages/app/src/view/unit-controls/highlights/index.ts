@@ -10,4 +10,5 @@ export {
   houseAssignableAt,
 } from './house-highlight.js';
 export { drillPick, type OwnBuildingPick, schoolPick, sitePick } from './own-building-picks.js';
+export { markOf } from './target-mark.js';
 export { type TradeHouseRule, tradeHousePick } from './trade-house-pick.js';

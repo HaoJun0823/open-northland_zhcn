@@ -569,11 +569,11 @@ only, since the sim drops an unarmed one's attack order silently; a ship's right
 the mooring probe accepts docks there, elsewhere it is a goto the sim refuses, the mooring order
 being explicit; a group's right-click (an addition) sends its armed vehicles at the enemy under the
 cursor and drives the rest to spaced slots there, never boarding or docking; the ring's "Assign
-Vehicle" is offered to every grown settler, its pick lights the settler's own vehicles green where
-`canAttachToVehicle` (job list, free seat, a door on the settler's continent) takes it and red
-otherwise, and a red vehicle drops the click; the selected settlers' right-click on an own vehicle
-attaches each one that rule admits (approximation, owner's choice: the original assigns through the
-pick only); a commander selected while aboard (through its well) stands for its vehicle, so a
+Vehicle" is offered to every grown settler, its pick outlines the settler's own vehicles
+`canAttachToVehicle` (job list, free seat, a door on the settler's continent) takes, leaves the
+others plain with a refusing pointer over them, and a refused vehicle drops the click; the selected
+settlers' right-click on an own vehicle attaches each one that rule admits (approximation, owner's
+choice: the original assigns through the pick only); a commander selected while aboard (through its well) stands for its vehicle, so a
 right-click on the ground drives the vehicle whether the commander is aboard or beside it, and the
 ring's "Remove Vehicle" (`misclogic` 32) is the detach order for any rider. Message id 0x35 is the
 goto refusal above.

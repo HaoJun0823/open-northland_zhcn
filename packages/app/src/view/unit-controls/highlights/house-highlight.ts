@@ -1,4 +1,4 @@
-import type { BuildingHighlightItem } from '@open-northland/render';
+import type { TargetMark } from '@open-northland/render';
 import { entitiesWith, entityById, type WorldSnapshot } from '@open-northland/sim';
 import {
   buildingTypeOf,
@@ -10,6 +10,7 @@ import {
   type SnapshotEntity,
   settlersIn,
 } from '../../../game/snapshot/index.js';
+import { markOf } from './target-mark.js';
 
 /** `homeSize` (the original `logichomesize`, 1..5 by level) counts FAMILIES, not settlers. */
 export interface HouseInfo {
@@ -70,21 +71,21 @@ function houseVerdict(
 }
 
 /**
- * The highlight verdicts for a selected group over every own home: green when it has a free family slot
- * for a member the order would move. Known gap: signpost confinement is not mirrored, so an out-of-area
- * home can still wash green.
+ * The marks for a selected group over every own home: lit when it has a free family slot for a member
+ * the order would move. Known gap: signpost confinement is not mirrored, so an out-of-area
+ * home can still light up.
  */
 export function computeHouseHighlight(
   snapshot: WorldSnapshot,
   settlerIds: readonly number[],
   housesByType: ReadonlyMap<number, HouseInfo>,
-): BuildingHighlightItem[] {
+): TargetMark[] {
   const movers = moversOf(snapshot, settlerIds);
   if (movers === null) return [];
-  const items: BuildingHighlightItem[] = [];
+  const items: TargetMark[] = [];
   for (const e of entitiesWith(snapshot, 'Building')) {
     const { candidate, ok } = houseVerdict(snapshot, e, movers, housesByType);
-    if (candidate) items.push({ id: e.id, ok });
+    if (candidate) items.push(markOf(e.id, ok));
   }
   return items;
 }

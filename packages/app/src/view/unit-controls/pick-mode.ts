@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { type BuildingType, type ContentSet, lastByTypeId } from '@open-northland/data';
-import type { BuildingHighlightItem, TargetFlashTone } from '@open-northland/render';
+import type { TargetFlashTone, TargetMark } from '@open-northland/render';
 import {
   type Entity,
   entitiesWith,
@@ -19,6 +19,7 @@ import {
   computeHouseHighlight,
   drillPick,
   houseAssignableAt,
+  markOf,
   schoolPick,
   sitePick,
   type TradeHouseRule,
@@ -95,7 +96,7 @@ interface BuildingPick {
     settlers: readonly number[],
     byType: ReadonlyMap<number, BuildingType>,
     canTrade: TradeHouseRule,
-  ) => BuildingHighlightItem[];
+  ) => TargetMark[];
   /** The orders a click on `building` issues, empty when it orders nothing; null for
    *  the trade-house pick, whose click asks the sim first. */
   readonly orders:
@@ -303,24 +304,26 @@ export interface PickModeController {
   handleOverviewPress(button: number, target: Tile, shift?: boolean, primary?: boolean): PickPress | null;
   /** Shift was let go (or the window lost focus): a mode a Shift press kept armed ends with it. */
   endShiftChain(): void;
-  /** The lit and dimmed pick targets of the armed mode: a building pick's candidate buildings, the
-   *  "Assign Vehicle" pick's own vehicles. Null when the armed mode lights nothing. */
-  highlight(): readonly BuildingHighlightItem[] | null;
+  /** The armed mode's verdicts on its targets: a building pick's candidate buildings, the "Assign
+   *  Vehicle" pick's own vehicles. Null when the armed mode judges no targets. */
+  highlight(): readonly TargetMark[] | null;
+  /** The judged target a press at the client point would name, with its verdict; null off every one. */
+  aimedAt(clientX: number, clientY: number): TargetMark | null;
 }
 
-/** The settler's owner's vehicles, green where the sim's attach rule takes the settler, red otherwise. */
+/** The settler's owner's vehicles, lit where the sim's attach rule takes the settler, refused otherwise. */
 function computeVehicleHighlight(
   snapshot: WorldSnapshot,
   settler: number,
   canAttach: (settler: number, vehicle: number) => boolean,
-): BuildingHighlightItem[] {
+): TargetMark[] {
   const self = entityById(snapshot, settler);
   const owner = self === undefined ? undefined : ownerPlayerOf(self);
   if (owner === undefined) return [];
-  const items: BuildingHighlightItem[] = [];
+  const items: TargetMark[] = [];
   for (const e of entitiesWith(snapshot, 'Vehicle')) {
     if (ownerPlayerOf(e) !== owner) continue;
-    items.push({ id: e.id, ok: canAttach(settler, e.id) });
+    items.push(markOf(e.id, canAttach(settler, e.id)));
   }
   return items;
 }
@@ -345,8 +348,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
   };
   const cancel = (): void => setMode(null);
 
-  const buildingUnder = (event: MouseEvent, kind: BuildingPickKind): number | null => {
-    const w = deps.toWorld(event.clientX, event.clientY);
+  const buildingAt = (clientX: number, clientY: number, kind: BuildingPickKind): number | null => {
+    const w = deps.toWorld(clientX, clientY);
     const candidates =
       kind === 'trade-house'
         ? deps.targets.buildings()
@@ -359,6 +362,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
           : deps.targets.owned('building');
     return pickTopAt(candidates, w.x, w.y);
   };
+  const buildingUnder = (event: MouseEvent, kind: BuildingPickKind): number | null =>
+    buildingAt(event.clientX, event.clientY, kind);
 
   /** The settlers among `settlers` that may take a course at the school `building`. */
   const learnersAt = (building: number, settlers: readonly number[]): readonly number[] =>
@@ -664,6 +669,16 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     () => pickVersion + (deps.answersVersion?.() ?? 0),
   );
 
+  /** The last aim, kept while the point, the snapshot and the verdicts hold still. */
+  const aim: {
+    marks: readonly TargetMark[] | null;
+    byId: ReadonlyMap<number, TargetMark>;
+    snapshot: WorldSnapshot | null;
+    x: number;
+    y: number;
+    mark: TargetMark | null;
+  } = { marks: null, byId: new Map(), snapshot: null, x: Number.NaN, y: Number.NaN, mark: null };
+
   return {
     arm: setMode,
     cancel,
@@ -680,5 +695,26 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       else if (shiftChain) cancel();
     },
     highlight: () => highlightFor(deps.snapshot()),
+    aimedAt: (clientX, clientY) => {
+      const snapshot = deps.snapshot();
+      const marks = highlightFor(snapshot);
+      const mode = pickMode;
+      if (marks === null || marks.length === 0 || mode === null) return null;
+      const kind = mode.kind === 'vehicle' ? 'vehicle' : buildingPickOf(mode);
+      if (kind === null) return null;
+      const w = deps.toWorld(clientX, clientY);
+      if (aim.marks === marks && aim.snapshot === snapshot && aim.x === w.x && aim.y === w.y) return aim.mark;
+      const target =
+        kind === 'vehicle'
+          ? pickTopAt(deps.targets.owned('vehicle'), w.x, w.y)
+          : buildingAt(clientX, clientY, kind);
+      if (aim.marks !== marks) aim.byId = new Map(marks.map((mark) => [mark.id, mark]));
+      aim.marks = marks;
+      aim.snapshot = snapshot;
+      aim.x = w.x;
+      aim.y = w.y;
+      aim.mark = target === null ? null : (aim.byId.get(target) ?? null);
+      return aim.mark;
+    },
   };
 }

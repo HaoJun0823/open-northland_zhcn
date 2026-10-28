@@ -1,12 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook } from '@open-northland/data';
-import type {
-  BuildingHighlightItem,
-  HudModel,
-  MapViewFrame,
-  MapViewTarget,
-  SpriteSheet,
-} from '@open-northland/render';
+import type { HudModel, MapViewFrame, MapViewTarget, SpriteSheet, TargetMark } from '@open-northland/render';
 import type {
   Command,
   Entity,
@@ -305,8 +299,8 @@ export interface ToolPanelController {
   palisadeMode(): PalisadePlacementMode | null;
   /** The road tool is held. */
   roadActive(): boolean;
-  /** The wall brush's red tint on the wall under `pointer`; null while the brush is not held. */
-  wallDemolishHighlight(pointer: ClientPoint | null): readonly BuildingHighlightItem[] | null;
+  /** The wall brush's doomed mark on the wall under `pointer`; null while the brush is not held. */
+  wallDemolishHighlight(pointer: ClientPoint | null): readonly TargetMark[] | null;
   roadPreview(tile: LineNode | null): RoadPreview | null;
   /** Hold a placement that stands `structure` finished for `owner` through the admin channel; false when
    *  the map offers no such tool or world edits are off. */

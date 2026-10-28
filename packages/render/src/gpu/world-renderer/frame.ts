@@ -17,13 +17,13 @@ import type { GpuSpan } from '../pixi-app/gpu-frame-timer.js';
 import type { PlanRoadTextures } from '../placement/plan-road.js';
 import type { PlanStakeTextures } from '../placement/plan-stake.js';
 import type { RangeRing } from '../selection/range-ring.js';
-import type { TargetFlash } from '../selection/style.js';
+import type { TargetFlash, TargetTone } from '../selection/style.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 
-/** One candidate building's workplace-assignment verdict: `ok` = the selected settler can take a slot there. */
-export interface BuildingHighlightItem {
+/** An armed pick's verdict on one entity; the tone decides how it is drawn. */
+export interface TargetMark {
   readonly id: number;
-  readonly ok: boolean;
+  readonly tone: TargetTone;
 }
 
 /** The player's graphics enhancements. Every one off draws the baseline renderer, save for the two
@@ -92,8 +92,7 @@ export interface CombatBonesGfx {
   readonly scale?: number | undefined;
 }
 
-/** Shared empty defaults, so a cleared list or highlight allocates nothing. */
-export const EMPTY_HIGHLIGHT: ReadonlyMap<number, boolean> = new Map();
+/** Shared empty defaults, so a cleared list or mark set allocates nothing. */
 export const NO_REFS: ReadonlySet<number> = new Set();
 export const NO_BADGES: readonly DoorBadge[] = [];
 export const NO_SIGNS: readonly ConstructionSign[] = [];

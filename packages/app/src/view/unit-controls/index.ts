@@ -639,7 +639,13 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     orderMarkers: orderMarkers.live,
     targetFlashes: targetFlashes.live,
     lostGoals: () => lostGoals(opts.snapshot(), selection.ids(), pickableSeat(opts.viewer)),
-    assignHighlight: pickMode.highlight,
+    targetMarks: pickMode.highlight,
+    aimTarget: (pointer) => {
+      const mark = pointer === null ? null : pickMode.aimedAt(pointer.clientX, pointer.clientY);
+      const refused = mark?.tone === 'refused';
+      setCanvasCursor(canvas, 'pick', refused ? 'not-allowed' : pickCursor(pickMode.armed()));
+      return mark === null || refused ? null : mark.id;
+    },
     ownWallsAt: (points) => {
       const walls = unitTargets.owned('palisade');
       return points.map(({ x, y }) => {

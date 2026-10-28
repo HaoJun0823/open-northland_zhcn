@@ -135,7 +135,7 @@ export function transferLine(trade: TradePanelModel, transfer: TradeTransferMode
   const option = (direction: TradeDirection): SegmentedOption => {
     const enabled = good === null || flowAllowed(good, direction);
     const stops = oneWayStops(direction);
-    const lacking = good?.storedA === false ? TRADE_SLOT_A : TRADE_SLOT_B;
+    const lacking = stops?.into ?? (good?.storedA === false ? TRADE_SLOT_A : TRADE_SLOT_B);
     const tooltip = !enabled
       ? formatMessage(copy.cannotStore, { house: stopLabel(trade, lacking) })
       : stops === null

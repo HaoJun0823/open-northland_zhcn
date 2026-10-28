@@ -243,7 +243,8 @@ interface CargoSource {
  * The nearest store holding any of `goods`: a loose pile within the search radius of the door, else a
  * house within it, both ranked from the door, else any store within the hand's signpost area ranked
  * from where it stands; a dish answers for its edible. Food in a home is never a source, nor a unit
- * another settler already walks to lift. Ties fall to the edible, then the lower good id.
+ * another settler already walks to lift. Ties fall to the lower hold line, its edible before the dishes
+ * that become it.
  */
 function nearestCargoSource(
   plan: PlannerContext,

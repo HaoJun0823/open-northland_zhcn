@@ -20,6 +20,8 @@ import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page
 import {
   SWASH_FOAM_COLOUR,
   SWASH_FOAM_STRENGTH,
+  SWASH_SHORE_MAX,
+  SWASH_SHORE_MIN,
   SWASH_WET_TINT,
   WATER_FRAGMENT_GLSL,
   WATER_SHIMMER_GAIN,
@@ -233,7 +235,7 @@ ${pageSamplerDeclarations()}
     if (vWave > 0.0) lane *= 1.0 + vWave * uWave.y * ${WATER_SHIMMER_GAIN.toFixed(4)} * waterShimmer(vWorld);
     // Every enhanced-water term sits under its uniform, so the baseline pays for none of it. No
     // derivative is taken inside a gate. Water depth: shallows read darker, deep water darker still.
-    // vWater = (water fraction, deep fraction), zero on land paint and at land nodes, so it fades out
+    // vWater.xy = (water fraction, deep fraction), zero on land paint and at land nodes, so it fades out
     // across the coast triangle. A fragment with no water takes neither the depth shading nor the colour
     // grade, both of which are identities there.
     if (uEnhancedWater > 0.5 && vWater.x > 0.0) {
@@ -248,8 +250,8 @@ ${pageSamplerDeclarations()}
       texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
     }
     // The swash on the beach: vWater.z is the shore value, 0 inland and 1 on open water, so only the
-    // coast band between pays for it.
-    if (uEnhancedWater > 0.5 && vWater.z > 0.0 && vWater.z < 1.0) {
+    // coast band where it can show pays for it.
+    if (uEnhancedWater > 0.5 && vWater.z > ${SWASH_SHORE_MIN.toFixed(4)} && vWater.z < ${SWASH_SHORE_MAX.toFixed(4)}) {
       vec2 swash = waterSwashCover(vWorld, vWater.z, 1.0 - clamp(vWater.x, 0.0, 1.0)) * uWave.y;
       texel.rgb *= mix(vec3(1.0), ${glslVec3(SWASH_WET_TINT)}, swash.x);
       texel.rgb = mix(texel.rgb, ${glslVec3(SWASH_FOAM_COLOUR)} * texel.a, swash.y * ${SWASH_FOAM_STRENGTH.toFixed(4)});

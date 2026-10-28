@@ -91,9 +91,16 @@ const SWASH = {
   /** Noise breaking the mesh's straight shore contours, in shore value, and its cell size. */
   jitter: 0.1,
   jitterCellPx: 30,
-  /** Cell size of the noise that breaks the foam line into patches. */
+  /** Cell size of the noise that breaks the foam line into patches, and the noise band over which a
+   *  patch fades from bare to full foam. */
   foamCellPx: 14,
+  foamPatchLow: 0.35,
+  foamPatchHigh: 0.65,
 } as const;
+/** The shore values between which the swash can show: below, even the highest run-up with its jitter
+ *  and foam stops short; at 1 lies open water. The ground shader skips the swash outside them. */
+export const SWASH_SHORE_MIN = SWASH.up - SWASH.jitter / 2 - SWASH.foamWidth;
+export const SWASH_SHORE_MAX = 0.99;
 /** Lattice period of the static swash noises, in cells: large enough that no repeat shows. */
 const STATIC_NOISE_PERIOD = 256;
 /** Multiplier on wet sand: darker and a little cooler. */
@@ -170,13 +177,14 @@ export const WATER_FRAGMENT_GLSL = `
   }
 
   // The swash at p: the shore value the sea reaches now, lower further up the beach; wetLine is the
-  // furthest it reached over the last wetLag radians, which the wet sand keeps.
+  // furthest it reached over the last wetLag radians, which the wet sand keeps: the run-up's peak when
+  // that falls inside the window, else the nearer of its two ends.
   float waterSwash(vec2 p, out float wetLine) {
     float surge = waterNoise(p * ${f(1 / SWASH.surgeCellPx)}, ${f(STATIC_NOISE_PERIOD)}) * ${f(SWASH.surgeSpread)};
     float phase = uWave.x * ${f((TAU * SWASH.cyclesPerLoop) / WAVE_LOOP_SECONDS)} + surge;
     float now = mix(${f(SWASH.up)}, ${f(SWASH.back)}, 0.5 + 0.5 * cos(phase));
     float before = mix(${f(SWASH.up)}, ${f(SWASH.back)}, 0.5 + 0.5 * cos(phase - ${f(SWASH.wetLag)}));
-    wetLine = min(now, before);
+    wetLine = mod(phase - ${f(Math.PI)}, ${f(TAU)}) < ${f(SWASH.wetLag)} ? ${f(SWASH.up)} : min(now, before);
     return now;
   }
 
@@ -187,7 +195,7 @@ export const WATER_FRAGMENT_GLSL = `
     float wetLine;
     float line = waterSwash(p, wetLine);
     float wet = smoothstep(wetLine - ${f(SWASH.wetSoftness)}, wetLine + ${f(SWASH.wetSoftness)}, shore) * land;
-    float patches = smoothstep(0.35, 0.65, waterNoise(p * ${f(1 / SWASH.foamCellPx)}, ${f(STATIC_NOISE_PERIOD)}));
+    float patches = smoothstep(${f(SWASH.foamPatchLow)}, ${f(SWASH.foamPatchHigh)}, waterNoise(p * ${f(1 / SWASH.foamCellPx)}, ${f(STATIC_NOISE_PERIOD)}));
     float foam = (1.0 - smoothstep(0.0, ${f(SWASH.foamWidth)}, abs(shore - line))) * patches;
     return vec2(wet, foam);
   }

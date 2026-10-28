@@ -14,7 +14,6 @@ function meshOf(layer: TerrainLayer): Mesh {
   return mesh;
 }
 
-
 /** The (water fraction, deep fraction) pair of each vertex, without its trailing shore value. */
 function waterShading(water: ArrayLike<number>): number[] {
   const pairs: number[] = [];

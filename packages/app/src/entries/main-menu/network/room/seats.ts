@@ -72,6 +72,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
     const colorOptions = {
       label: copy.color,
       name: colorName,
+      taken: (seat: number) => formatMessage(messages().mainMenu.lobby.teamColourTaken, { seat: seat + 1 }),
       change: (color: number) => {
         showPalette(null);
         client.setSeat(player, { color });
@@ -97,8 +98,8 @@ export function roomSeats(deps: NetworkRoomDeps) {
           {
             value: seat.color,
             disabled: frozen,
-            unavailable: (color) =>
-              room.seats.some((other) => other.player !== player && other.color === color),
+            wearer: (color) =>
+              room.seats.find((other) => other.player !== player && other.color === color)?.player,
           },
           player,
         ),

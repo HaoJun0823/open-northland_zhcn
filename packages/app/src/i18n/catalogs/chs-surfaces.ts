@@ -113,6 +113,7 @@ export const chsSurfaces = {
       overseerTaken: '你正在监督',
       teamColour: '队伍颜色',
       teamColourLocked: '此地图的颜色是固定的',
+      teamColourTaken: '已被玩家 {seat} 使用',
       tribe: '民族',
       difficultyHeader: '等级',
       difficultyTitle:

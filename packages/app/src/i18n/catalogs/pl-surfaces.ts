@@ -113,6 +113,7 @@ export const plSurfaces = {
       overseerTaken: 'Nadzorujesz',
       teamColour: 'Kolor drużyny',
       teamColourLocked: 'ta mapa ma stałe kolory',
+      teamColourTaken: 'ma go gracz {seat}',
       tribe: 'Plemię',
       difficultyHeader: 'Poziom',
       difficultyTitle:

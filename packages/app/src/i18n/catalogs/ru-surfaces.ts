@@ -135,6 +135,7 @@ export const ruSurfaces = {
       overseerTaken: 'Вы управляете игрой',
       teamColour: 'Цвет команды',
       teamColourLocked: 'цвета заданы картой',
+      teamColourTaken: 'занят игроком {seat}',
       tribe: 'Племя',
       difficultyHeader: 'Сложность',
       difficultyTitle:

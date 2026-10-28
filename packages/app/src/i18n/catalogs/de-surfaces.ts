@@ -136,6 +136,7 @@ export const deSurfaces = {
       overseerTaken: 'Du leitest das Spiel',
       teamColour: 'Teamfarbe',
       teamColourLocked: 'die Farben sind auf dieser Karte festgelegt',
+      teamColourTaken: 'belegt von Spieler {seat}',
       tribe: 'Stamm',
       difficultyHeader: 'Schwierigkeit',
       difficultyTitle:

@@ -114,6 +114,7 @@ export const enSurfaces = {
       overseerTaken: 'You oversee',
       teamColour: 'Team colour',
       teamColourLocked: 'this map fixes its colours',
+      teamColourTaken: 'taken by player {seat}',
       tribe: 'Tribe',
       difficultyHeader: 'Level',
       difficultyTitle:

@@ -113,6 +113,7 @@ export const chtSurfaces = {
       overseerTaken: '你正在監督',
       teamColour: '隊伍顏色',
       teamColourLocked: '這張地圖的顏色是固定的',
+      teamColourTaken: '已被玩家 {seat} 使用',
       tribe: '民族',
       difficultyHeader: '等級',
       difficultyTitle:

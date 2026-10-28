@@ -227,6 +227,7 @@ export const chtGame = {
     tradeOffers: '交易提議',
     systemMenuDetails: {
       leaveGame: '離開遊戲',
+      restartMission: '重新開始任務',
       resume: '返回遊戲',
       paused: '遊戲已暫停',
       multiplayer: '多人遊戲持續進行中',

@@ -254,6 +254,7 @@ export const deGame = {
     tradeOffers: 'Handelsangebote',
     systemMenuDetails: {
       leaveGame: 'Spiel verlassen',
+      restartMission: 'Mission neu starten',
       resume: 'Zurück zum Spiel',
       paused: 'Spiel pausiert',
       multiplayer: 'Mehrspielerspiel läuft weiter',

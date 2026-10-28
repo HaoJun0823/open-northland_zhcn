@@ -426,6 +426,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           }
           leaveWorld(`?${search}`);
         };
+  // A sub-mission starts from its parent's save, which a fresh boot of its entry would leave behind.
+  const replay =
+    sharedClock || deps.parentSave !== undefined ? undefined : (): void => leaveWorld(replaySearch(params));
 
   try {
     const storedSettings = readStoredSettings();
@@ -840,10 +843,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         resume: () => pauseHolds.release(PAUSE_HOLDER_VERDICT),
         onQuit: quitToMenu,
         ...(sharedClock ? {} : { onLoad: (back) => systemMenu?.openPage('load', back) }),
-        // A sub-mission starts from its parent's save, which a fresh boot of its entry would leave behind.
-        ...(sharedClock || deps.parentSave !== undefined
-          ? {}
-          : { onPlayAgain: () => leaveWorld(replaySearch(params)) }),
+        ...(replay !== undefined ? { onPlayAgain: replay } : {}),
         onContinue: () => {
           if (sharedClock) {
             watching = true;
@@ -1299,6 +1299,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
 
     systemMenu = createSystemMenu({
       onQuit: quitToMenu,
+      ...(replay !== undefined ? { onRestart: replay } : {}),
       saveLoad: {
         ...saveLoad,
         forcePause: () => pauseHolds.hold(PAUSE_HOLDER_MENU),

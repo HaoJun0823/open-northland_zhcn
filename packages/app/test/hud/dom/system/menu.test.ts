@@ -40,6 +40,7 @@ function mount(
     canLoad?: boolean;
     paused?: boolean;
     onNetwork?: () => void;
+    onRestart?: () => void;
     previewBus?: (bus: SoundBus) => void;
     onSettingsLeft?: (opened: MenuSettings, closed: MenuSettings) => void;
   } = {},
@@ -197,6 +198,26 @@ describe('system menu navigation', () => {
     button(messages().hud.quitConfirmYes, question).click();
     await Promise.resolve();
     expect(onQuit).toHaveBeenCalledOnce();
+  });
+
+  it('restarts the map only after its confirmation, and offers no restart without a replay', async () => {
+    const onRestart = vi.fn();
+    const { menu } = mount({ onRestart });
+    menu.toggle();
+    const restart = messages().hud.systemMenuDetails.restartMission;
+    button(restart).click();
+    button(messages().hud.systemMenuDetails.cancel).click();
+    await Promise.resolve();
+    expect(onRestart).not.toHaveBeenCalled();
+    button(restart).click();
+    const question = document.querySelector('[role="alertdialog"]');
+    if (question === null) throw new Error('Missing confirmation');
+    button(restart, question).click();
+    await Promise.resolve();
+    expect(onRestart).toHaveBeenCalledOnce();
+    menu.dispose();
+    mount().menu.toggle();
+    expect(document.querySelector('.on-system-menu')?.textContent).not.toContain(restart);
   });
 
   it('refuses loading in multiplayer and releases the menu before opening Network', () => {

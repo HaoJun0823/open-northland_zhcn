@@ -227,6 +227,7 @@ export const chsGame = {
     tradeOffers: '交易报价',
     systemMenuDetails: {
       leaveGame: '离开游戏',
+      restartMission: '重新开始任务',
       resume: '返回游戏',
       paused: '游戏已暂停',
       multiplayer: '多人游戏仍在进行',

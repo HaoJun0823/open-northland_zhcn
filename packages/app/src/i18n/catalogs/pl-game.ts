@@ -227,6 +227,7 @@ export const plGame = {
     tradeOffers: 'Oferty handlowe',
     systemMenuDetails: {
       leaveGame: 'Opuść grę',
+      restartMission: 'Restart misji',
       resume: 'Powrót do gry',
       paused: 'Gra wstrzymana',
       multiplayer: 'Rozgrywka sieciowa trwa dalej',

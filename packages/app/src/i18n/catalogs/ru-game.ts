@@ -254,6 +254,7 @@ export const ruGame = {
     tradeOffers: 'Торговые предложения',
     systemMenuDetails: {
       leaveGame: 'Покинуть игру',
+      restartMission: 'Перезапустить миссию',
       resume: 'Вернуться в игру',
       paused: 'Игра приостановлена',
       multiplayer: 'Сетевая игра продолжается',

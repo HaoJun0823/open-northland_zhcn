@@ -230,6 +230,7 @@ export const enGame = {
     tradeOffers: 'Trade offers',
     systemMenuDetails: {
       leaveGame: 'Leave game',
+      restartMission: 'Restart mission',
       resume: 'Return to game',
       paused: 'Game paused',
       multiplayer: 'Multiplayer game continues',

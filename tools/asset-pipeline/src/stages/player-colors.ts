@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import type { LandscapeGfx, LandscapeType } from '@open-northland/data';
 import { packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/formats/ini';
@@ -28,6 +29,24 @@ export function isCharacterBmd(bmd: string): boolean {
  *  full palette. */
 const GUIDEPOST_BMD = 'data/engine2d/bin/bobs/ls_guidepost.bmd';
 
+/**
+ * The bobs the original draws through their owner's full `playerNN.pcx` palette: the guidepost, and every
+ * landscape record whose logic row is `playeridallowed` (the walls and gates). Original behavior: an owned
+ * landscape object takes its owner's palette in place of its own `GfxPalette`, so a wall's lashings
+ * (indices 16-31, the player ramp) show the owner's colour.
+ */
+export function ownerPaletteBmds(ir: {
+  readonly landscape: readonly Pick<LandscapeType, 'typeId' | 'playerIdAllowed'>[];
+  readonly landscapeGfx: readonly Pick<LandscapeGfx, 'logicType' | 'bmd'>[];
+}): string[] {
+  const owned = new Set(ir.landscape.filter((row) => row.playerIdAllowed).map((row) => row.typeId));
+  const bmds = new Set([GUIDEPOST_BMD]);
+  for (const record of ir.landscapeGfx) {
+    if (owned.has(record.logicType) && record.bmd !== undefined) bmds.add(normalizeAssetPath(record.bmd));
+  }
+  return [...bmds];
+}
+
 /** The building signs and flags; `landscapes.cif` binds its player records to `human_Player01..10` only. */
 const SIGN_BMD = 'data/engine2d/bin/bobs/ls_temp.bmd';
 
@@ -44,30 +63,41 @@ async function readCreaturePalette(tree: SourceAssetIndex, file: string): Promis
 }
 
 /**
- * Writes one guidepost atlas per player (`ls_guidepost.player_NN`): the shared indexed
- * sheet coloured through that player's full source palette, which differs from a composed human palette at every index the
- * guidepost draws.
+ * Writes one atlas per player (`<bmd-basename>.player_NN`) for each of `bmds`: the shared indexed sheet
+ * coloured through that player's full source palette. Returns how many atlases it wrote. A missing or
+ * unreadable `.bmd` is skipped with a warning.
  */
-export async function convertGuidepostPlayerAtlases(
+export async function convertPlayerPaletteAtlases(
+  bmds: readonly string[],
   atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
 ): Promise<number> {
-  const source = tree.get(normalizeAssetPath(GUIDEPOST_BMD));
-  if (source === undefined) {
-    throw new Error('guidepost atlases: ls_guidepost.bmd not found in any source layer');
-  }
-  const indexed = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
   const reference = await readCreaturePalette(tree, SYNTHETIC_REFERENCE_PCX);
-  for (const color of PLAYER_COLORS) {
-    // The `player_NN` suffix is a string contract with the app's `guidepostPlayerAtlas`; a drift there
-    // falls back silently to bridge01.
-    const suffix = `player_${String(color.id).padStart(2, '0')}`;
-    await writeSourceBobAtlas(atlases, source.rel, suffix, {
-      indexed,
-      palette: await playerSourcePalette(tree, reference, color),
-    });
+  const palettes = await Promise.all(
+    PLAYER_COLORS.map((color) => playerSourcePalette(tree, reference, color)),
+  );
+  let emitted = 0;
+  for (const bmdRef of bmds) {
+    const source = tree.get(normalizeAssetPath(bmdRef));
+    if (source === undefined) {
+      console.warn(`[pipeline] skipped player atlases of ${bmdRef}: not found in any source layer`);
+      continue;
+    }
+    try {
+      const indexed = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
+      for (const [at, color] of PLAYER_COLORS.entries()) {
+        const palette = palettes[at];
+        if (palette === undefined) continue;
+        // The `player_NN` suffix is a string contract with the app's `playerPaletteAtlasStem`.
+        const suffix = `player_${String(color.id).padStart(2, '0')}`;
+        await writeSourceBobAtlas(atlases, source.rel, suffix, { indexed, palette });
+        emitted++;
+      }
+    } catch (err) {
+      console.warn(`[pipeline] skipped player atlases of ${bmdRef}: ${errorMessage(err)}`);
+    }
   }
-  return PLAYER_COLORS.length;
+  return emitted;
 }
 
 /**

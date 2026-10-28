@@ -238,8 +238,9 @@ function pushPalisadeLayers(out: LayerBuffer, sheet: SpriteSheet, item: DrawItem
   if (binding === undefined) return false;
   PALISADE_SHADOWS.reset();
   PALISADE_BODIES.reset();
-  if (!appendPalisadePost(sheet, binding, item, null)) return false;
-  for (const post of item.palisadePosts ?? NO_POSTS) appendPalisadePost(sheet, binding, post, post);
+  if (!appendPalisadePost(sheet, binding, item, null, item.player)) return false;
+  for (const post of item.palisadePosts ?? NO_POSTS)
+    appendPalisadePost(sheet, binding, post, post, item.player);
   for (const layer of PALISADE_SHADOWS.finish()) out.push(layer);
   // An edge's posts ride one endpoint's draw, and toward a neighbour further up the screen they stand
   // behind that endpoint: paint the bodies from the back row forward. The sort is stable, so the layers
@@ -257,9 +258,11 @@ function appendPalisadePost(
   binding: NonNullable<SpriteSheet['bindings']['palisade']>,
   draw: Pick<DrawItem, 'gfxIndex' | 'builtPct'> & { readonly variantStep?: number },
   post: PalisadePostDraw | null,
+  player: number | undefined,
 ): boolean {
   PALISADE_POST.reset();
-  if (!pushGroundedBody(PALISADE_POST, sheet, 'palisade', resolvePalisadeDraw(binding, draw))) return false;
+  if (!pushGroundedBody(PALISADE_POST, sheet, 'palisade', resolvePalisadeDraw(binding, draw, player)))
+    return false;
   for (const layer of PALISADE_POST.finish()) {
     const placed = post === null ? layer : shiftedLayer(layer, post);
     (layer.shadow === true ? PALISADE_SHADOWS : PALISADE_BODIES).push(placed);

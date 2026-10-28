@@ -215,7 +215,10 @@ export const enGame = {
       noOffers: 'No trade offers',
       give: 'You give',
       take: 'You receive',
-      tradeBlocked: 'Trade requires your friendly attitude.',
+      tradeLockedTitle: 'Trade unavailable',
+      tradeLocked:
+        'Your attitude: {stance}. Traders only exchange goods with a tribe you are friendly towards.',
+      tradeBefriend: 'Set friendly',
       traded: 'Goods traded: {count}',
       failed: 'The order could not be carried out. Try again.',
     },

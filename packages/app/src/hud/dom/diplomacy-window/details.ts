@@ -1,3 +1,4 @@
+import type { DiplomacyState } from '@open-northland/sim';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { GLYPH } from '../icons.js';
@@ -19,14 +20,34 @@ function goodCell(good: DiplomacyGood, paint: GoodIconPainter): HTMLElement {
   return root;
 }
 
-export function createOffers(paint: GoodIconPainter) {
+/** Why the player cannot trade on these offers: their own stance toward the house owner is not
+ *  `friend`. `canBefriend` offers the declaration in place when the stance is the player's to change. */
+export interface OfferLock {
+  readonly stance: DiplomacyState;
+  readonly canBefriend: boolean;
+  readonly befriending: boolean;
+}
+
+export function createOffers(paint: GoodIconPainter, onBefriend: () => void) {
   const copy = messages().hud.diplomacyWindow;
   const root = element('section', 'on-dip-offers');
   const heading = createSection();
   heading.update(copy.offers);
   const empty = element('p', 'on-dip-note');
   write(empty, copy.noOffers);
-  const availability = element('p', 'on-dip-note');
+  const lock = element('div', 'on-dip-trade-lock');
+  setAttribute(lock, 'role', 'note');
+  const lockText = element('div', 'on-dip-trade-lock__text');
+  const lockTitle = element('strong', '');
+  write(lockTitle, copy.tradeLockedTitle);
+  const lockReason = element('span', '');
+  lockText.append(lockTitle, lockReason);
+  const befriend = button('on-button on-button--accent');
+  write(befriend, copy.tradeBefriend);
+  befriend.addEventListener('click', () => {
+    if (!befriend.disabled) onBefriend();
+  });
+  lock.append(element('span', 'on-dip-trade-lock__glyph', GLYPH.lock), lockText, befriend);
   const list = element('div', 'on-parchment on-dip-offer-list');
   const header = element('div', 'on-dip-offer-head');
   for (const title of [copy.give, '', copy.take]) {
@@ -36,11 +57,11 @@ export function createOffers(paint: GoodIconPainter) {
   }
   const body = element('ul', '');
   list.append(header, body);
-  root.append(heading.element, availability, list, empty);
+  root.append(heading.element, lock, list, empty);
   let shown = '';
   return {
     element: root,
-    update(offers: readonly DiplomacyOffer[], friendly: boolean): void {
+    update(offers: readonly DiplomacyOffer[], locked: OfferLock | null): void {
       const key = JSON.stringify(offers);
       if (shown !== key) {
         shown = key;
@@ -59,10 +80,16 @@ export function createOffers(paint: GoodIconPainter) {
           }),
         );
       }
+      const blocked = offers.length > 0 && locked !== null;
       setHidden(list, offers.length === 0);
       setHidden(empty, offers.length > 0);
-      setHidden(availability, offers.length === 0 || friendly);
-      write(availability, copy.tradeBlocked);
+      setHidden(lock, !blocked);
+      setClass(list, 'on-dip-offer-list--locked', blocked);
+      setAttribute(list, 'aria-disabled', String(blocked));
+      if (!blocked) return;
+      write(lockReason, formatMessage(copy.tradeLocked, { stance: copy.stances[locked.stance] }));
+      setHidden(befriend, !locked.canBefriend);
+      befriend.disabled = locked.befriending;
     },
   };
 }

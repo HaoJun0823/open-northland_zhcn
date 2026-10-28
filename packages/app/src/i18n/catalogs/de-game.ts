@@ -239,7 +239,10 @@ export const deGame = {
       noOffers: 'Keine Handelsangebote',
       give: 'Du gibst',
       take: 'Du erhältst',
-      tradeBlocked: 'Handel setzt voraus, dass dein Verhältnis freundlich ist.',
+      tradeLockedTitle: 'Handel nicht möglich',
+      tradeLocked:
+        'Dein Verhältnis: {stance}. Händler tauschen nur mit einem Stamm, dem gegenüber du freundlich bist.',
+      tradeBefriend: 'Freundlich stellen',
       traded: 'Gehandelte Waren: {count}',
       failed: 'Der Auftrag konnte nicht ausgeführt werden. Versuche es erneut.',
     },

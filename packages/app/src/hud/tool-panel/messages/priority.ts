@@ -35,7 +35,6 @@ const NOTABLE: readonly UserMessageTypeName[] = [
   'workplaceNotFound',
   'vehicleSiteNotFound',
   'vehicleSiteOccupied',
-  'noVehicleForWork',
   'wantsToPray',
   'grewUp',
   'cannotEnterVehicle',

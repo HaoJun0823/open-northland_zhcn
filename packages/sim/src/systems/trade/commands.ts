@@ -5,7 +5,6 @@ import {
   clearTradeImports,
   isForeignHouse,
   removeTradeStop,
-  Settler,
   setTradeAgreement,
   setTradeAgreementLimits,
   setTradeImport,
@@ -19,14 +18,9 @@ import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext, SystemContext } from '../context.js';
-import { isTraderJob } from '../readviews/jobs.js';
+import { isTrader } from '../readviews/jobs.js';
 import { agreementsAt, mutualFriends } from './agreements.js';
 import { isSettlementAnchor } from './settlement.js';
-
-function isTrader(world: World, ctx: ContentContext, e: Entity): boolean {
-  const settler = world.tryGet(e, Settler);
-  return settler !== undefined && isTraderJob(ctx.content, settler.jobType);
-}
 
 /**
  * Whether `attachTradeHouse` puts `house` on the trader's route: a standing house not on it yet that
@@ -42,7 +36,7 @@ export function canAttachTradeHouse(
   trader: Entity,
   house: Entity,
 ): boolean {
-  if (!isTrader(world, ctx, trader) || !world.isAlive(house)) return false;
+  if (!isTrader(world, ctx.content, trader) || !world.isAlive(house)) return false;
   const building = world.tryGet(house, Building);
   if (building === undefined || building.built !== ONE) return false;
   if (tradeRouteOf(world, trader)?.stops.some((stop) => stop.house === house) === true) return false;
@@ -54,7 +48,7 @@ export function canAttachTradeHouse(
 
 /** Apply one trader order. A stale house, a non-trader, or a choice the route cannot hold is skipped. */
 export function applyTradeCommand(world: World, ctx: SystemContext, command: TradeCommand): void {
-  if (!isTrader(world, ctx, command.entity)) return;
+  if (!isTrader(world, ctx.content, command.entity)) return;
   switch (command.kind) {
     case 'attachTradeHouse':
       if (canAttachTradeHouse(world, ctx, command.entity, command.house)) {

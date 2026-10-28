@@ -23,7 +23,7 @@ import type { SceneDefinition } from '../types.js';
 
 /**
  * The land trader and a map's trade agreement: a friendly tribe's warehouse offers iron for coins, the
- * player's trader takes command of a handcart and plies it between the home warehouse and that house,
+ * player's trader takes up a handcart and pulls it between the home warehouse and that house,
  * and the goods it brings back count toward the script's `NumberOfGoodsTraded` goal. The browser view
  * pairs this with the Trade section of the selected trader, which names the cart and its load, and with
  * the diplomacy window, where a stance other than friendly on either side greys the offers out.
@@ -38,7 +38,7 @@ const TRADER_NATION = 1;
 const HOME_AT = { x: 5, y: 5 } as const;
 const POST_AT = { x: 17, y: 5 } as const;
 const TRADER_AT = { x: 6, y: 8 } as const;
-/** The handcart the trader commands, a cell beside the trader. */
+/** The handcart the trader pulls, a cell beside the trader. */
 const CART_AT = { x: 7, y: 8 } as const;
 
 /** The mission object id the agreement names, the `sethouse` column a map would author. */
@@ -129,7 +129,7 @@ export const tradeScene: SceneDefinition = {
   initialZoom: 0.8,
   checks: [
     {
-      label: 'the trader commands the handcart and trades on the agreement the friendly warehouse offers',
+      label: 'the trader pulls the handcart and trades on the agreement the friendly warehouse offers',
       predicate: (sim) => {
         const trader = sceneTrader(sim);
         const view = trader === undefined ? undefined : sim.traderView(trader);

@@ -700,7 +700,7 @@ export const chtGame = {
       centre: '將視角置中於載具',
       health: '耐久度 {hitpoints} / {max}',
       carrierTooltip: '選取船隻',
-      haulerTooltip: '選取搬運工',
+      haulerTooltip: '選取拉車的人',
       status: {
         aboard: '在船上',
         pulledBy: '由{porter}拉車',
@@ -741,7 +741,7 @@ export const chtGame = {
       dockArmedTooltip: '{order} · 選擇海岸 · Ctrl/Cmd + 點擊：停靠並讓船員上岸 · Esc 取消',
       refusals: {
         carried: '載具停在船上',
-        hauled: '這輛車由搬運工拉著',
+        hauled: '這輛車被人當作工具拉著',
         noCommander: {
           cart: '這輛車沒有指揮官',
           ship: '這艘船沒有指揮官',
@@ -1222,11 +1222,6 @@ export const chtGame = {
           few: '{count} 人沒有工作',
           many: '{count} 人沒有工作',
         },
-        noVehicleForWork: {
-          one: '{count} 人沒有車',
-          few: '{count} 人沒有車',
-          many: '{count} 人沒有車',
-        },
         cannotFindGood: {
           one: '{count} 人缺少資源',
           few: '{count} 人缺少資源',
@@ -1685,7 +1680,6 @@ export const chtGame = {
       nothingToDo: '無事可做',
       constructionStarved: '工地缺少{good}',
       storageFull: '倉庫已滿：{good}',
-      noVehicleForWork: '沒有車',
       experienceUnlocks: '新技能',
       experienceBuilding: '新建築',
       experienceBuildings: '新建築',
@@ -1740,10 +1734,6 @@ export const chtGame = {
       constructionStarved:
         '{building}：因缺少{good}而停工。工地路標範圍內沒有任何倉庫存有此物。請生產或運來一些，或用路標連接存有此物的倉庫。',
       storageFull: '倉庫已滿：{good}。{building}的產品無處可放，無法工作。請再建一座倉庫，或用掉庫存。',
-      noVehicleForWork: {
-        he: '{name}有貿易路線卻沒有車。讓他上車即可開始這條路線。',
-        she: '{name}有貿易路線卻沒有車。讓她上車即可開始這條路線。',
-      },
       experienceUnlocks: { he: '{name}獲得了經驗。', she: '{name}獲得了經驗。' },
       canProduceNewGood: {
         he: '{name}在學校學會了製作新貨物：{good}。',

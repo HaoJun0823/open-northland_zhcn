@@ -766,7 +766,7 @@ export const ruGame = {
       centre: 'Навести камеру на машину',
       health: 'Прочность {hitpoints} / {max}',
       carrierTooltip: 'Выбрать корабль',
-      haulerTooltip: 'Выбрать носильщика',
+      haulerTooltip: 'Выбрать, кто её тянет',
       status: {
         aboard: 'На борту корабля',
         pulledBy: 'Тянет {porter}',
@@ -808,7 +808,7 @@ export const ruGame = {
         '{order} · выбрать берег · Ctrl/Cmd + щелчок: причалить и высадить команду · Esc: отмена',
       refusals: {
         carried: 'Машина находится на борту корабля',
-        hauled: 'Тележку тянет носильщик',
+        hauled: 'Эту тележку тянут как инструмент',
         noCommander: {
           cart: 'У повозки нет начальника',
           ship: 'У корабля нет начальника',
@@ -1350,11 +1350,6 @@ export const ruGame = {
           few: '{count} без работы',
           many: '{count} без работы',
         },
-        noVehicleForWork: {
-          one: '{count} без повозки',
-          few: '{count} без повозки',
-          many: '{count} без повозки',
-        },
         cannotFindGood: {
           one: '{count} без ресурсов',
           few: '{count} без ресурсов',
@@ -1836,7 +1831,6 @@ export const ruGame = {
       nothingToDo: 'Нечего делать',
       constructionStarved: 'Стройке нужно: {good}',
       storageFull: 'Склады полны: {good}',
-      noVehicleForWork: 'Нет повозки',
       experienceUnlocks: 'Новые навыки',
       experienceBuilding: 'Новое здание',
       experienceBuildings: 'Новые здания',
@@ -1896,10 +1890,6 @@ export const ruGame = {
         '{building}: стройка стоит, не хватает: {good}. Ни на одном складе в пределах знаков стройки его нет. Произведите, привезите его или соедините знаками склад, где он есть.',
       storageFull:
         'Склады заполнены: {good}. {building}: товар некуда сдать, работа стоит. Постройте ещё один склад или израсходуйте запасы.',
-      noVehicleForWork: {
-        he: '{name} получил торговый маршрут, но у него нет повозки. Назначьте его в повозку, чтобы начать перевозки.',
-        she: '{name} получила торговый маршрут, но у неё нет повозки. Назначьте её в повозку, чтобы начать перевозки.',
-      },
       experienceUnlocks: {
         he: '{name} набрался опыта.',
         she: '{name} набралась опыта.',

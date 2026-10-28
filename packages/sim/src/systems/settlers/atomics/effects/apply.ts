@@ -21,7 +21,7 @@ import {
 } from '../../../progression/index.js';
 import { isStrokeCountedAtomic } from '../../../readviews/index.js';
 import { erectSignpost } from '../../../signposts/index.js';
-import { loadCart, unloadCart } from '../../../trade/index.js';
+import { loadTraderHold, unloadTraderHold } from '../../../trade/index.js';
 import { loadHaulingCart, unloadHaulingCart } from '../../../vehicles/hauling-cart.js';
 import { serveDrillRepetition } from '../../drives/training.js';
 import {
@@ -83,11 +83,11 @@ export function applyEffect(
     case 'pileup':
       if (pileupIntoStore(world, ctx, settler, effect.store) > 0) grantCarryExperience(world, ctx, settler);
       return;
-    case 'cartLoad':
-      loadCart(world, ctx, settler, effect.from, effect.goodType);
+    case 'tradeLoad':
+      loadTraderHold(world, ctx, settler, effect.from, effect.goodType);
       return;
-    case 'cartUnload':
-      unloadCart(world, ctx, settler, effect.store, effect.goodType);
+    case 'tradeUnload':
+      unloadTraderHold(world, ctx, settler, effect.store, effect.goodType);
       return;
     case 'haulLoad':
       loadHaulingCart(world, ctx, settler, effect.from, effect.goodType);

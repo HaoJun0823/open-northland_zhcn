@@ -77,7 +77,7 @@ export const Vehicle = defineComponent<{
   harnessed: boolean;
   /** The ship carrying this vehicle, or null while it stands on the map. */
   carrier: Entity | null;
-  /** The posted carrier this cart is the hauling cart of ({@link HaulingCart}), set from the order so
+  /** The posted carrier or trader this cart is the hauling cart of ({@link HaulingCart}), set from the order so
    *  nobody else takes or boards it meanwhile; null for a cart nobody pulls. */
   hauler: Entity | null;
   passengers: (VehicleSeat | null)[];
@@ -163,12 +163,13 @@ export type HaulingLift =
   | { readonly kind: 'unload'; readonly store: Entity };
 
 /**
- * A posted carrier's hauling cart (named addition, owner's choice; the original's carrier only ever serves a
- * cart's hold from outside): the cart it pulls on its hauls for its workplace, its lifts filling the
- * cart's hold instead of its hands. `taken`, the cart leaves the map (no `Position`) and travels with the
- * carrier, its load riding as the carrier's `Carrying`; `parked`, the carrier has set it down for a `lift`
- * beside a heap or a shelf or for a break and comes back for it; neither from the order until the first
- * take, the carrier walking to the cart where the order found it.
+ * A posted carrier's or a trader's hauling cart (named addition, owner's choice; the original's carrier
+ * only ever serves a cart's hold from outside, and its trader commands the cart): the cart it pulls on its
+ * hauls or its route, its lifts filling the cart's hold instead of its hands. `taken`, the cart leaves the
+ * map (no `Position`) and travels with the puller, a carrier's load riding as its `Carrying` and a
+ * trader's staying in the hold; `parked`, the puller has set it down for a `lift` beside a heap or a
+ * shelf, a trader's stop or a break and comes back for it; neither from the order until the first take,
+ * the puller walking to the cart where the order found it.
  */
 export const HaulingCart = defineComponent<{
   vehicle: Entity;

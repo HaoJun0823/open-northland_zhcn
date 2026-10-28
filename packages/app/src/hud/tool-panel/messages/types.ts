@@ -27,7 +27,6 @@ export const USER_MESSAGE_TYPE = {
   vehicleSiteOccupied: 0x0a,
   nothingToDo: 0x0b,
   storageFull: 0x0d,
-  noVehicleForWork: 0x0f,
   experienceUnlocks: 0x12,
   canProduceNewGood: 0x13,
   canDoNewJob: 0x14,

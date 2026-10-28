@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   addPerson,
   Building,
+  HaulingCart,
   MissionObjectId,
   Owner,
   Position,
-  Rider,
   Stockpile,
   setStockAmount,
   TRADE_LIMIT_NONE,
@@ -86,7 +86,7 @@ function houseAt(
   return e;
 }
 
-/** A trader at `x` ordered onto a handcart standing beside it. */
+/** A trader at `x` handed a handcart standing beside it. */
 function traderAt(sim: Simulation, x: number): Entity {
   const trader = sim.world.create();
   sim.world.add(trader, Position, { x: fx.fromInt(x), y: fx.fromInt(1) });
@@ -294,7 +294,7 @@ describe('a settlement stop between own houses', () => {
     }
   });
 
-  it('keeps its cart and loads elsewhere when it finds no place to stand at a settlement house', () => {
+  it('keeps its cart and loads elsewhere when it cannot reach a settlement house', () => {
     const sim = newSim(waterColumnMap(MAP_W, MAP_H, WATER_X));
     const anchor = houseAt(sim, ANCHOR_X);
     const member = houseAt(sim, MEMBER_X, [[WOOD, 3]]);
@@ -310,7 +310,7 @@ describe('a settlement stop between own houses', () => {
     expect(stockOf(sim, member, WOOD)).toBe(0);
     expect(stockOf(sim, other, WOOD)).toBe(3);
     expect(stockOf(sim, island, WOOD)).toBe(3);
-    expect(sim.world.has(trader, Rider)).toBe(true);
+    expect(sim.world.has(trader, HaulingCart)).toBe(true);
   });
 
   it('is set on an own storehouse alone, on one stop at a time, and shown on the trader view', () => {

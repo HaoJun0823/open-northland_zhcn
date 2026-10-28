@@ -49,7 +49,6 @@ const HANDCART = 1;
 const HANDCART_SLOTS = 15;
 const CARRIER = 24;
 const SCOUT = 27;
-const TRADER = 25;
 const SOLDIER = 31;
 const HEADQUARTERS = 1;
 const WOOD = 1;
@@ -211,20 +210,20 @@ describe('the wanted-amount orders', () => {
 });
 
 describe('the commander as cargo hand', () => {
-  it('steps a trader out of its parked cart to fetch what the player asks for from a house nearby', () => {
+  it('steps the commander out of its parked cart to fetch what the player asks for from a house nearby', () => {
     const s = sim();
     const cart = spawnCart(s);
     const hq = placeHq(s, SOURCE_AT);
-    const trader = spawnSettler(s, 22, 20, TRADER);
-    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: trader, vehicle: cart }));
+    const commander = spawnSettler(s, 22, 20, SCOUT);
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: commander, vehicle: cart }));
     s.step();
-    boardRider(s.world, trader, cart);
+    boardRider(s.world, commander, cart);
     want(s, cart, WOOD, 2);
     expect(crewRefusals(s)).toEqual([]);
     s.run(TRIP_TICKS * 2);
     expect(line(s, cart, WOOD)).toEqual({ current: 2, wanted: 2, reserved: 2 });
     expect(s.world.get(hq, Stockpile).amounts.get(WOOD)).toBe(10 - 2);
-    expect(s.world.has(trader, Carrying)).toBe(false);
+    expect(s.world.has(commander, Carrying)).toBe(false);
   });
 
   it('delivers an unloaded unit to a store nearby even from a DEFEND stance', () => {
@@ -262,20 +261,20 @@ describe('the commander as cargo hand', () => {
     expect(s.world.has(scout, Position)).toBe(false);
   });
 
-  it('fetches what a trader can find and drops the rest of the request', () => {
+  it('fetches what the commander can find and drops the rest of the request', () => {
     const s = sim();
     const cart = spawnCart(s);
     dropPile(s, WOOD, SOURCE_AT, 2);
-    const trader = spawnSettler(s, 22, 20, TRADER);
-    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: trader, vehicle: cart }));
+    const commander = spawnSettler(s, 22, 20, SCOUT);
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: commander, vehicle: cart }));
     s.step();
-    boardRider(s.world, trader, cart);
+    boardRider(s.world, commander, cart);
     want(s, cart, WOOD, 5);
 
     s.run(4 * TRIP_TICKS);
 
     expect(line(s, cart, WOOD)).toEqual({ current: 2, wanted: 2, reserved: 2 });
-    expect(s.world.has(trader, Carrying)).toBe(false);
+    expect(s.world.has(commander, Carrying)).toBe(false);
   });
 
   it('anchors a fighter commander where it steps out, so the trip does not end in a walk to where it boarded', () => {
@@ -321,10 +320,10 @@ describe('the commander as cargo hand', () => {
     s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
     const cart = spawnCart(s);
     const home = placeHq(s, SOURCE_AT, [{ good: FOOD_SIMPLE, amount: HOME_FOOD }]);
-    const trader = spawnSettler(s, 22, 20, TRADER);
-    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: trader, vehicle: cart }));
+    const commander = spawnSettler(s, 22, 20, SCOUT);
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: commander, vehicle: cart }));
     s.step();
-    boardRider(s.world, trader, cart);
+    boardRider(s.world, commander, cart);
     want(s, cart, FOOD_SIMPLE, 2);
 
     s.run(2 * TRIP_TICKS);

@@ -700,7 +700,7 @@ export const chsGame = {
       centre: '将视角对准这辆载具',
       health: '耐久 {hitpoints} / {max}',
       carrierTooltip: '选中所在的船',
-      haulerTooltip: '选中搬运工',
+      haulerTooltip: '选中拉车的人',
       status: {
         aboard: '在船上',
         pulledBy: '由{porter}拉车',
@@ -741,7 +741,7 @@ export const chsGame = {
       dockArmedTooltip: '{order} · 选择海岸 · Ctrl/Cmd + 点击：停靠并让船员上岸 · Esc 取消',
       refusals: {
         carried: '这辆载具在船上',
-        hauled: '这辆车由搬运工拉着',
+        hauled: '这辆车被人当作工具拉着',
         noCommander: {
           cart: '这辆车没有指挥官',
           ship: '这艘船没有指挥官',
@@ -1222,11 +1222,6 @@ export const chsGame = {
           few: '{count} 人没有工作',
           many: '{count} 人没有工作',
         },
-        noVehicleForWork: {
-          one: '{count} 人没有车',
-          few: '{count} 人没有车',
-          many: '{count} 人没有车',
-        },
         cannotFindGood: {
           one: '{count} 人缺少资源',
           few: '{count} 人缺少资源',
@@ -1685,7 +1680,6 @@ export const chsGame = {
       nothingToDo: '无事可做',
       constructionStarved: '工地缺{good}',
       storageFull: '仓库已满：{good}',
-      noVehicleForWork: '没有车',
       experienceUnlocks: '新技能',
       experienceBuilding: '新建筑',
       experienceBuildings: '新建筑',
@@ -1740,10 +1734,6 @@ export const chsGame = {
       constructionStarved:
         '{building}：因缺少{good}，建造已停止。工地路标范围内没有存有它的仓库。请生产或运来一些，或用路标连接存有它的仓库。',
       storageFull: '仓库已满：{good}。{building}的产品无处可放，无法工作。请再建一座仓库，或用掉库存。',
-      noVehicleForWork: {
-        he: '{name}有贸易路线，但没有车。让他坐上车，就能启程。',
-        she: '{name}有贸易路线，但没有车。让她坐上车，就能启程。',
-      },
       experienceUnlocks: { he: '{name}获得了经验。', she: '{name}获得了经验。' },
       canProduceNewGood: {
         he: '{name}在学校学会了制作一种新物资：{good}。',

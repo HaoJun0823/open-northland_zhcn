@@ -35,6 +35,7 @@ const {
   Building,
   Damaged,
   Female,
+  HaulingCart,
   Health,
   MissionObjectId,
   Owner,
@@ -660,6 +661,19 @@ describe('right-clicking a standing house with a trader', () => {
     const home = buildingAt(sim, BUILDING_HOME_00, ONE);
     const trader = settlerAt(sim, JOB_TRADER);
     const cart = riddenVehicle(sim, VEHICLE_HANDCART, trader);
+
+    expect(await rightClick(sim, [cart], home, sim.content, true, 'riders')).toEqual([
+      { kind: 'attachTradeHouse', entity: trader, house: home },
+    ]);
+  });
+
+  it('puts the house on the route of the trader pulling a selected cart', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const home = buildingAt(sim, BUILDING_HOME_00, ONE);
+    const trader = settlerAt(sim, JOB_TRADER);
+    const cart = spawnVehicleDirect(sim, VEHICLE_HANDCART, VEHICLE_AT.x, VEHICLE_AT.y);
+    sim.world.mut(cart, Vehicle).hauler = trader;
+    sim.world.add(trader, HaulingCart, { vehicle: cart, taken: false, parked: true, lift: null });
 
     expect(await rightClick(sim, [cart], home, sim.content, true, 'riders')).toEqual([
       { kind: 'attachTradeHouse', entity: trader, house: home },

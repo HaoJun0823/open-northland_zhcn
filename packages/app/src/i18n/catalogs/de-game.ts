@@ -769,7 +769,7 @@ export const deGame = {
       centre: 'Ansicht auf das Fahrzeug zentrieren',
       health: 'Haltbarkeit {hitpoints} / {max}',
       carrierTooltip: 'Schiff auswählen',
-      haulerTooltip: 'Träger auswählen',
+      haulerTooltip: 'Auswählen, wer ihn zieht',
       status: {
         aboard: 'An Bord eines Schiffs',
         pulledBy: 'Gezogen von {porter}',
@@ -812,7 +812,7 @@ export const deGame = {
         '{order} · Küste auswählen · Strg/Cmd + Klick: anlegen und Besatzung an Land setzen · Esc zum Abbrechen',
       refusals: {
         carried: 'Das Fahrzeug befindet sich auf einem Schiff',
-        hauled: 'Ein Träger zieht den Karren',
+        hauled: 'Jemand zieht diesen Karren als Werkzeug',
         noCommander: {
           cart: 'Der Karren hat keinen Kommandanten',
           ship: 'Das Schiff hat keinen Kommandanten',
@@ -1356,11 +1356,6 @@ export const deGame = {
           few: '{count} ohne Arbeit',
           many: '{count} ohne Arbeit',
         },
-        noVehicleForWork: {
-          one: '{count} ohne Karren',
-          few: '{count} ohne Karren',
-          many: '{count} ohne Karren',
-        },
         cannotFindGood: {
           one: '{count} ohne Rohstoffe',
           few: '{count} ohne Rohstoffe',
@@ -1844,7 +1839,6 @@ export const deGame = {
       nothingToDo: 'Nichts zu tun',
       constructionStarved: 'Baustelle: {good} fehlt',
       storageFull: 'Lager voll: {good}',
-      noVehicleForWork: 'Kein Karren',
       experienceUnlocks: 'Neue Fähigkeiten',
       experienceBuilding: 'Neues Gebäude',
       experienceBuildings: 'Neue Gebäude',
@@ -1904,10 +1898,6 @@ export const deGame = {
         '{building}: der Bau steht, es fehlt: {good}. Kein Lager in Wegweiserreichweite der Baustelle hat es. Stelle es her, beschaffe es oder verbinde ein Lager, das es hat, mit Wegweisern.',
       storageFull:
         'Deine Lager sind voll: {good}. {building} kann seine Waren nirgends abgeben und nicht arbeiten. Baue ein weiteres Lager oder verbrauche die Vorräte.',
-      noVehicleForWork: {
-        he: '{name} hat eine Handelsroute, aber keinen Karren. Weise ihm einen Karren zu, um die Route zu beginnen.',
-        she: '{name} hat eine Handelsroute, aber keinen Karren. Weise ihr einen Karren zu, um die Route zu beginnen.',
-      },
       experienceUnlocks: {
         he: '{name} hat Erfahrung gesammelt.',
         she: '{name} hat Erfahrung gesammelt.',

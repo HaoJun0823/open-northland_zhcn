@@ -383,6 +383,11 @@ export const enContent = {
       summary:
         "A merchant with a handcart carries bread from a bakery to a home. The home keeps no bread, only food, so the cart carries the loaves as food. Select the merchant and open the trade window: the bakery's bread arrow into the home is open.",
     },
+    'trade-on-foot': {
+      title: 'Merchant on foot and with a cart',
+      summary:
+        'Two merchants carry wood between your own warehouses: the upper one on foot, one unit in hand a trip, the lower one with a handcart it pulls as a tool and sets down by each warehouse door while it loads and unloads.',
+    },
     tribute: {
       title: 'Tributes',
       summary:

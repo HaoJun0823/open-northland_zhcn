@@ -858,22 +858,19 @@ A reading of the original's trade agreements and trader work, which the goal `Nu
 - This build registers the rows through the `addTradeAgreement` setup command
   (`components/trade.ts`), resolves the house by its mission object id at use, refuses a house of a
   human seat (a match participant without the `AiControl` marker) when a match is set up, and runs
-  the trader through the planner's trade rung (`systems/trade/`), which sits above the rider rung:
-  the trader moves its cart to within `TRADE_CART_HOUSE_DISTANCE` of each stop (`snapVehicleTarget`
-  over `TRADE_CART_SEARCH_RADIUS`, no house door), rides inside while it drives, steps out when it
-  stops (`traderDisembarkSystem`) and works the stop on foot; a trader on foot with no cart idles,
-  which the HUD reads as `noVehicleForWork`. Approximations: the load and unload clips at the house
-  move the unit straight between the shelf and the hold, where the original carries each unit to the
-  cart's door; the trader's hold write keeps the wanted amount on the actual one whatever crew is
-  attached (`tradeVehicleStock`, see VEHICLES.md "Cargo"); a stop with no standable node within the
-  working distance lets the cart go without the original's detach note, while a stop the cart has no
-  route to parks the trader by its cart for the failed-goal memo's span before it tries again; the
-  cart's move has no walk range, like every vehicle goto (VEHICLES.md "Movement"); a house's minimum
+  the trader through the planner's trade rung (`systems/trade/`). Owner's choices: the trader works
+  the route on foot, a unit in its hands a trip, or with a hauling cart (VEHICLES.md "Hauling cart"),
+  where the original's trader idles without a commanded cart; a hold too small for a whole exchange
+  carries it over several trips, where the original waits for room; a stop the trader cannot reach is
+  waited out for its failed-goal memo's span. Approximations: the load and unload clips at the
+  house move the unit straight between the shelf and the hold, where the original carries each unit
+  to the cart's door; the trader's hold write keeps the wanted amount on the actual one whatever crew
+  is attached (`tradeVehicleStock`, see VEHICLES.md "Cargo"); a house's minimum
   stock is its recipe inputs; the request counters that rank the import-mark candidates are not kept,
   so the lowest good id goes first; nothing is handed over while the house holds fewer take goods than
   a batch pays out, where the original delivers regardless, and at a house that a computer seat
   refills, the trader waits there with the rest of its load for the refill, so one trip sells all of it (owner's choice); at a house with no room for the
-  give good a trader with only give goods aboard waits there too, where driving home would bring the
+  give good a trader with only give goods aboard waits there too, where going home would bring the
   same load back (unread in the original); a shelf that runs out mid-batch starts the batch over on the next
   visit, where the original's trader is still owed the rest; a chosen agreement that stops holding is kept and waited on, where the original's
   merchant drops its choice; for a seat that runs the strategic economy, the handler's refill

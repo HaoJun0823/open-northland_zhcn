@@ -1,14 +1,17 @@
 import {
   type Entity,
   type PlayerCommand,
+  playerCommand,
   type Simulation,
   systems,
   type VehicleView,
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
+import { JOB_TRADER } from '../../../../src/catalog/jobs.js';
 import { HUMAN_PLAYER } from '../../../../src/game/rules.js';
 import {
+  spawnSettlerDirect,
   VEHICLE_CATAPULT,
   VEHICLE_HANDCART,
   VEHICLE_OXCART,
@@ -51,7 +54,7 @@ const tradeCtxOf = (sim: Simulation): UnitPanelModelContext => ({
   traderView: (entity) => sim.traderView(entity as Entity),
 });
 
-/** The vehicles scene one tick in: the trader attached to the handcart, the ox cart loaded with wood and
+/** The vehicles scene one tick in: the carrier attached to the handcart, the ox cart loaded with wood and
  *  no driver, the catapult mid-attack and the ships moored. */
 function vehiclesWorld(): { sim: Simulation; snapshot: WorldSnapshot; ctx: UnitPanelModelContext } {
   const sim = createSceneSim(vehiclesScene);
@@ -92,7 +95,7 @@ const orders = (model: VehiclePanelModel): string[] => [
 ];
 
 describe('vehicle panel model', () => {
-  it("shows a trader's cart with the trader as its driver, the route's Handel and a read-only hold", () => {
+  it('shows a crewed cart with its commander as the driver and its drive orders', () => {
     const world = vehiclesWorld();
     const cart = ownVehicle(world.sim, VEHICLE_HANDCART);
     const model = modelOf(world, cart.entity);
@@ -102,9 +105,24 @@ describe('vehicle panel model', () => {
     expect(model.crew.seats).toEqual([]);
     expect(orders(model)).toEqual(['goTo', 'stop', 'boardShip']);
     expect(model.orders.every((row) => row.control === true)).toBe(true);
-    expect(model.trade?.entityId).toBe(cart.commander);
-    expect(model.hold?.routed).toBe(true);
+    expect(model.trade).toBeNull();
     expect(model.health).toEqual({ hitpoints: cart.hitpoints, max: cart.maxHitpoints });
+  });
+
+  it("shows the cart a trader pulls with the trader's Handel and a read-only hold", () => {
+    const sim = createSceneSim(vehiclesScene);
+    const cart = ownVehicle(sim, VEHICLE_OXCART);
+    const trader = spawnSettlerDirect(sim, JOB_TRADER, 6, 12, HUMAN_PLAYER);
+    sim.enqueue(
+      playerCommand(HUMAN_PLAYER, { kind: 'attachToVehicle', entity: trader, vehicle: cart.entity }),
+    );
+    sim.step();
+    const model = modelOf({ snapshot: sim.snapshot(), ctx: tradeCtxOf(sim) }, cart.entity);
+    expect(model.hauler?.entity).toBe(trader);
+    expect(model.trade?.entityId).toBe(trader);
+    expect(model.hold?.routed).toBe(true);
+    const refusal = messages().hud.vehiclePanel.refusals.hauled;
+    expect(model.orders.every((row) => row.control === refusal)).toBe(true);
   });
 
   it('lists what a driverless cart holds and refuses its drive, while the hold takes requests', () => {

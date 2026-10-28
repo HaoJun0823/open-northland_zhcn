@@ -719,7 +719,7 @@ export const enGame = {
       centre: 'Centre the view on the vehicle',
       health: 'Durability {hitpoints} / {max}',
       carrierTooltip: 'Select the ship',
-      haulerTooltip: 'Select the carrier',
+      haulerTooltip: 'Select who pulls it',
       status: {
         aboard: 'On a ship',
         pulledBy: 'Pulled by {porter}',
@@ -760,7 +760,7 @@ export const enGame = {
       dockArmedTooltip: '{order} · pick the shore · Ctrl/Cmd + click: dock and land the crew · Esc cancels',
       refusals: {
         carried: 'The vehicle stands on a ship',
-        hauled: 'A carrier pulls this cart',
+        hauled: 'Someone pulls this cart as a tool',
         noCommander: {
           cart: 'The cart has no commander',
           ship: 'The ship has no commander',
@@ -1244,11 +1244,6 @@ export const enGame = {
           few: '{count} without work',
           many: '{count} without work',
         },
-        noVehicleForWork: {
-          one: '{count} without a cart',
-          few: '{count} without a cart',
-          many: '{count} without a cart',
-        },
         cannotFindGood: {
           one: '{count} out of resources',
           few: '{count} out of resources',
@@ -1713,7 +1708,6 @@ export const enGame = {
       nothingToDo: 'Nothing to do',
       constructionStarved: 'Site needs {good}',
       storageFull: 'Stores full: {good}',
-      noVehicleForWork: 'No cart',
       experienceUnlocks: 'New skills',
       experienceBuilding: 'New building',
       experienceBuildings: 'New buildings',
@@ -1771,10 +1765,6 @@ export const enGame = {
         "{building}: construction has stopped for lack of {good}. No store within the site's signpost reach holds it. Make or bring some in, or link a store that holds it with signposts.",
       storageFull:
         'Your stores are full of {good}. {building} has nowhere to take its goods and cannot work. Build another store, or use up the stock.',
-      noVehicleForWork: {
-        he: '{name} has a trade route but no cart. Put him in a cart to start the route.',
-        she: '{name} has a trade route but no cart. Put her in a cart to start the route.',
-      },
       experienceUnlocks: { he: '{name} has gained experience.', she: '{name} has gained experience.' },
       canProduceNewGood: {
         he: '{name} learned at school to make a new good: {good}.',

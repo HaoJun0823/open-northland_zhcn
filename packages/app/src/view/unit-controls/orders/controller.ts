@@ -106,8 +106,8 @@ export interface UnitOrderController {
    *  stop) walks to the spot instead. */
   issueRightClick(event: MouseEvent, onBuilding?: number | null): boolean;
   /** The trade-route toggle for the selected traders off the map (riding inside a cart, or inside a
-   *  house), which the settlers' click skips, and for the crew of a selected cart, whose window shows its
-   *  trader's route. True when any of them took the click; `onNoneTook` runs once the sim refused every
+   *  house), which the settlers' click skips, and for the crew or the puller of a selected cart, whose
+   *  window shows its trader's route. True when any of them took the click; `onNoneTook` runs once the sim refused every
    *  one asked about, so the cart can take the click instead. A trade stop is a standing setting, so a
    *  Shift click leaves a cart's trader to the cart, which drives there queued; a trader inside a house
    *  has nowhere to walk and still toggles the stop. */
@@ -567,8 +567,9 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     return routed;
   };
 
-  /** A house click for the selected settlers off the map and the riders of a selected cart. A ship's
-   *  passengers are left out: the ship takes the click itself, as its window has no Trade tab. */
+  /** A house click for the selected settlers off the map and the riders or the puller of a selected
+   *  cart. A ship's passengers are left out: the ship takes the click itself, as its window has no Trade
+   *  tab. */
   const issueRiderTradeHouse = (
     event: MouseEvent,
     onBuilding: number | null | undefined,
@@ -586,10 +587,12 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         continue;
       }
       if (queued) continue;
-      const v = e.components.Vehicle as { vehicleType?: unknown; passengers?: unknown };
+      const v = e.components.Vehicle as { vehicleType?: unknown; passengers?: unknown; hauler?: unknown };
       const type = vehiclesByType.get(num(v.vehicleType) ?? -1);
       if (type === undefined || systems.isShipVehicle(type)) continue;
       for (const seat of vehicleSeatsOf(v.passengers)) traders.push({ ref: seat.entity });
+      const hauler = num(v.hauler);
+      if (hauler !== undefined) traders.push({ ref: hauler });
     }
     const uniqueTraders = [...new Map(traders.map((unit) => [unit.ref, unit])).values()];
     if (uniqueTraders.length === 0) return false;

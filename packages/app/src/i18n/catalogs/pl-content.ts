@@ -381,6 +381,11 @@ export const plContent = {
       summary:
         'Kupiec z wózkiem ręcznym wozi chleb z piekarni do domu. Dom nie przechowuje chleba, tylko żywność, więc wózek wiezie bochenki jako żywność. Zaznacz kupca i otwórz okno handlu: strzałka chleba z piekarni do domu jest dostępna.',
     },
+    'trade-on-foot': {
+      title: 'Kupiec pieszo i z wózkiem',
+      summary:
+        'Dwóch kupców przenosi drewno między własnymi magazynami: górny pieszo, po jednej sztuce w rękach na kurs, dolny z wózkiem ręcznym, który ciągnie jak narzędzie i stawia przy drzwiach magazynu na czas załadunku i rozładunku.',
+    },
     tribute: {
       title: 'Trybuty',
       summary:

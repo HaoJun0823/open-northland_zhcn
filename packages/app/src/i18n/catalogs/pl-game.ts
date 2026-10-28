@@ -707,7 +707,7 @@ export const plGame = {
       centre: 'Centruj widok na wehikule',
       health: 'Wytrzymałość {hitpoints} / {max}',
       carrierTooltip: 'Zaznacz statek',
-      haulerTooltip: 'Zaznacz tragarza',
+      haulerTooltip: 'Zaznacz, kto go ciągnie',
       status: {
         aboard: 'Na statku',
         pulledBy: 'Ciągnie go {porter}',
@@ -744,7 +744,7 @@ export const plGame = {
       dockArmedTooltip: '{order} · wskaż brzeg · Ctrl/Cmd + klik: zacumuj i wysadź załogę · Esc anuluje',
       refusals: {
         carried: 'Wehikuł stoi na statku',
-        hauled: 'Wóz jest w rękach tragarza',
+        hauled: 'Ktoś ciągnie ten wóz jako narzędzie',
         noCommander: {
           cart: 'Wóz nie ma dowódcy',
           ship: 'Statek nie ma dowódcy',
@@ -1224,7 +1224,6 @@ export const plGame = {
         starving: { one: '{count} głoduje', few: '{count} głodują', many: '{count} głoduje' },
         hungry: { one: '{count} chce jeść', few: '{count} chcą jeść', many: '{count} chce jeść' },
         workplaceNotFound: { one: '{count} bez pracy', few: '{count} bez pracy', many: '{count} bez pracy' },
-        noVehicleForWork: { one: '{count} bez wozu', few: '{count} bez wozu', many: '{count} bez wozu' },
         cannotFindGood: {
           one: '{count} bez zasobów',
           few: '{count} bez zasobów',
@@ -1686,7 +1685,6 @@ export const plGame = {
       nothingToDo: 'Nic do roboty',
       constructionStarved: 'Budowa czeka: {good}',
       storageFull: 'Pełne magazyny: {good}',
-      noVehicleForWork: 'Brak wozu',
       experienceUnlocks: 'Nowa wiedza',
       experienceBuilding: 'Nowy budynek',
       experienceBuildings: 'Nowe budynki',
@@ -1743,10 +1741,6 @@ export const plGame = {
         '{building}: budowa stoi, brakuje: {good}. Nie ma go w żadnym magazynie w zasięgu drogowskazów budowy. Wytwórz go, sprowadź albo połącz drogowskazami magazyn, który go ma.',
       storageFull:
         'Magazyny są pełne: {good}. {building} nie ma gdzie oddać wyrobów i nie może pracować. Zbuduj nowy magazyn albo zużyj zapasy.',
-      noVehicleForWork: {
-        he: '{name} ma trasę handlową, ale nie ma wozu. Wsadź go do wozu, a ruszy w drogę.',
-        she: '{name} ma trasę handlową, ale nie ma wozu. Wsadź ją do wozu, a ruszy w drogę.',
-      },
       experienceUnlocks: {
         he: '{name} zdobył doświadczenie.',
         she: '{name} zdobyła doświadczenie.',

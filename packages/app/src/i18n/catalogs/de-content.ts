@@ -385,6 +385,11 @@ export const deContent = {
       summary:
         'Ein Händler mit Handkarren bringt Brot von einer Bäckerei zu einem Wohnhaus. Das Wohnhaus lagert kein Brot, nur Nahrung, also befördert der Karren die Laibe als Nahrung. Wähle den Händler aus und öffne das Handelsfenster: Der Pfeil für Brot von der Bäckerei zum Wohnhaus ist frei.',
     },
+    'trade-on-foot': {
+      title: 'Händler zu Fuß und mit Karren',
+      summary:
+        'Zwei Händler tragen Holz zwischen deinen eigenen Lagerhäusern: der obere zu Fuß, eine Einheit pro Gang in der Hand, der untere mit einem Handkarren, den er als Werkzeug zieht und zum Be- und Entladen vor jeder Lagertür abstellt.',
+    },
     tribute: {
       title: 'Tribute',
       summary:

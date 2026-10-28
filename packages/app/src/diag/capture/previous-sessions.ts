@@ -1,5 +1,5 @@
 import { REPORT_ID } from '@open-northland/data';
-import type { DesktopFault } from '../../view/platform/desktop-faults.js';
+import type { DesktopFault, DesktopFaults, PreviousShellRun } from '../../view/platform/desktop-faults.js';
 import { errorText } from '../error-text.js';
 import { diag } from '../log.js';
 import { reportProblem } from '../report/problem.js';
@@ -73,11 +73,15 @@ function reportFreeze(record: FreezeRecord, marker: SessionMarker | null): void 
   });
 }
 
-function reportUncleanExit(marker: SessionMarker): void {
+function reportUncleanExit(marker: SessionMarker, shellRun: PreviousShellRun | null): void {
   const log = readLogTail(marker.id);
   reportProblem({
     trigger: 'unclean-exit',
-    facts: { sessionMs: marker.beatAt - marker.startedAt, ...contextFacts(marker.context) },
+    facts: {
+      sessionMs: marker.beatAt - marker.startedAt,
+      ...contextFacts(marker.context),
+      ...(shellRun === null ? {} : { shellEnd: shellRun.end, shellEndedAt: shellRun.endedAt }),
+    },
     earlier: {
       id: marker.id,
       at: new Date(marker.beatAt).toISOString(),
@@ -86,6 +90,21 @@ function reportUncleanExit(marker: SessionMarker): void {
       route: contextRoute(marker.context),
     },
   });
+}
+
+async function previousShellRun(faults: DesktopFaults): Promise<PreviousShellRun | null> {
+  try {
+    return await faults.previousRun();
+  } catch (error) {
+    diag.warn('crash', `the desktop shell's previous run could not be read: ${errorText(error)}`);
+    return null;
+  }
+}
+
+/** The shell run that served the marker's page, when it ended without quitting. */
+function shellRunOf(marker: SessionMarker, run: PreviousShellRun | null): PreviousShellRun | null {
+  if (run === null) return null;
+  return Date.parse(run.from) <= marker.startedAt && marker.startedAt < Date.parse(run.until) ? run : null;
 }
 
 /** The page running this sweep. */
@@ -105,6 +124,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
   const pending = (faults === undefined ? [] : await pendingDesktopFaults(faults)).filter(
     (fault) => fault.trigger !== 'renderer-unresponsive' || Date.parse(fault.at) < own.startedAt,
   );
+  const shellRun = faults === undefined ? null : await previousShellRun(faults);
   const records = await freezeRecords();
   const markers = readMarkers(own.id);
   const nowMs = Date.now();
@@ -120,7 +140,8 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
   for (const record of records) if (nowMs - record.seenAt <= MARKER_STALE_MS) liveTabs.add(record.tabId);
   for (const marker of markers) {
     const freeze = records.find((record) => record.tabId === marker.id) ?? null;
-    const facts = { nowMs, previous, desktopFaults, freeze };
+    const markerRun = shellRunOf(marker, shellRun);
+    const facts = { nowMs, previous, desktopFaults, freeze, shellRun: markerRun };
     const judged = liveTabs.has(marker.id) ? ({ kind: 'live' } as const) : judgeMarker(marker, facts);
     if (judged.kind === 'live') {
       liveTabs.add(marker.id);
@@ -152,7 +173,7 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
         },
       });
     } else if (verdict.kind === 'freeze' && freeze !== null && !quietFreeze) reportFreeze(freeze, marker);
-    else if (verdict.kind === 'unclean-exit') reportUncleanExit(marker);
+    else if (verdict.kind === 'unclean-exit') reportUncleanExit(marker, markerRun);
     if (freeze !== null) finished.push(freeze.id);
     removeMarker(marker.id);
   }

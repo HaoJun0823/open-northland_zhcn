@@ -5,7 +5,11 @@ import { MARKER_STALE_MS } from '../../../src/diag/capture/unclean-exit.js';
 import type { FreezeRecord } from '../../../src/diag/capture/watchdog/freeze-records.js';
 import { BOOT_FREEZE_REPORT_MS, FREEZE_REPORT_MS } from '../../../src/diag/capture/watchdog/freeze-watch.js';
 import type { Problem } from '../../../src/diag/report/problem.js';
-import type { DesktopFault, DesktopFaults } from '../../../src/view/platform/desktop-faults.js';
+import type {
+  DesktopFault,
+  DesktopFaults,
+  PreviousShellRun,
+} from '../../../src/view/platform/desktop-faults.js';
 
 const store = vi.hoisted(() => ({
   records: [] as unknown[],
@@ -62,7 +66,11 @@ function shellFault(id: string, trigger: DesktopFault['trigger'], atMs: number):
 
 const hang = (id: string, atMs: number): DesktopFault => shellFault(id, 'renderer-unresponsive', atMs);
 
-function shellWith(pending: readonly DesktopFault[], cleared: string[] = []): void {
+function shellWith(
+  pending: readonly DesktopFault[],
+  cleared: string[] = [],
+  previousRun: PreviousShellRun | null = null,
+): void {
   const faults: DesktopFaults = {
     pending: () => Promise.resolve(pending),
     clear: (ids) => {
@@ -70,6 +78,7 @@ function shellWith(pending: readonly DesktopFault[], cleared: string[] = []): vo
       return Promise.resolve();
     },
     versions: () => Promise.resolve({}),
+    previousRun: () => Promise.resolve(previousRun),
   };
   Object.defineProperty(window, 'desktop', { value: { faults }, configurable: true });
 }
@@ -185,5 +194,31 @@ describe('reportPreviousSessions', () => {
     expect(
       problems.map((problem) => [problem.trigger, problem.facts?.freezeMs, problem.earlier?.route?.entry]),
     ).toEqual([['gpu-gone', freeze.seenAt - freeze.frozenAt, 'map']]);
+  });
+
+  it('tells how the shell run that served a page ended, and keeps quiet about a shutdown', async () => {
+    const playing = { ...BOOTING, inGame: true, booting: false };
+    const served = { id: '2'.repeat(32), startedAt: LONG_AGO, beatAt: LONG_AGO + 30_000, visible: true };
+    const older = { ...served, id: '3'.repeat(32), startedAt: LONG_AGO - 2 * MARKER_STALE_MS };
+    const run = (end: PreviousShellRun['end']): PreviousShellRun => ({
+      from: new Date(LONG_AGO - MARKER_STALE_MS).toISOString(),
+      until: new Date(OWN.startedAt - 1).toISOString(),
+      end,
+      endedAt: end === 'unknown' ? null : new Date(served.beatAt + 1000).toISOString(),
+    });
+    for (const marker of [served, older]) writeMarker({ ...marker, context: playing });
+    shellWith([], [], run('crash'));
+    await reportPreviousSessions(OWN, null);
+    const ends = problems.map((problem) => [problem.earlier?.id, problem.facts?.shellEnd]);
+    expect(ends.sort()).toEqual([
+      [served.id, 'crash'],
+      [older.id, undefined],
+    ]);
+
+    problems = [];
+    writeMarker({ ...served, context: playing });
+    shellWith([], [], run('shutdown'));
+    await reportPreviousSessions(OWN, null);
+    expect(problems).toEqual([]);
   });
 });

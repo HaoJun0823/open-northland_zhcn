@@ -6,6 +6,7 @@ import {
   type MarkerFacts,
   type MarkerVerdict,
 } from '../../../src/diag/capture/unclean-exit.js';
+import type { PreviousShellRun } from '../../../src/view/platform/desktop-faults.js';
 
 const STARTED_AT = 1_000_000;
 const BEAT_AT = 2_000_000;
@@ -25,23 +26,40 @@ const facts = (over: Partial<MarkerFacts> = {}): MarkerFacts => ({
   previous: null,
   desktopFaults: [],
   freeze: null,
+  shellRun: null,
   ...over,
 });
 
 const kind = (verdict: MarkerVerdict): string => verdict.kind;
+
+const shellRun = (end: PreviousShellRun['end'], endedAtMs: number): PreviousShellRun => ({
+  from: new Date(STARTED_AT - 1).toISOString(),
+  until: new Date(LONG_AFTER).toISOString(),
+  end,
+  endedAt: new Date(endedAtMs).toISOString(),
+});
 
 describe('judgeMarker', () => {
   it('reports a game page last seen visible that left its marker behind', () => {
     expect(judgeMarker(marker, facts())).toEqual({ kind: 'unclean-exit' });
   });
 
-  it('keeps quiet about a page last seen hidden, in the menu, or discarded by the browser', () => {
+  it('keeps quiet about a page last seen hidden, in the menu, discarded, or shut down with its shell', () => {
     const verdicts = [
       judgeMarker({ ...marker, visible: false }, facts()),
       judgeMarker({ ...marker, context: { ...marker.context, inGame: false, entry: 'menu' } }, facts()),
       judgeMarker(marker, facts({ previous: { id: marker.id, discarded: true } })),
+      judgeMarker(marker, facts({ shellRun: shellRun('shutdown', BEAT_AT + 1000) })),
     ].map(kind);
-    expect(verdicts).toEqual(['quiet', 'quiet', 'quiet']);
+    expect(verdicts).toEqual(['quiet', 'quiet', 'quiet', 'quiet']);
+    expect(kind(judgeMarker(marker, facts({ shellRun: shellRun('crash', BEAT_AT + 1000) })))).toBe(
+      'unclean-exit',
+    );
+  });
+
+  it('reports a page that beat on past a shutdown notice: that shutdown was cancelled', () => {
+    const cancelled = shellRun('shutdown', BEAT_AT - 2 * MARKER_STALE_MS);
+    expect(kind(judgeMarker(marker, facts({ shellRun: cancelled })))).toBe('unclean-exit');
   });
 
   it('leaves a recently beating marker to its tab, unless this page reloaded that one', () => {

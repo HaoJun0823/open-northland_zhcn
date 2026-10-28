@@ -1,7 +1,8 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { app, type BrowserWindow, Menu } from 'electron';
+import { app, type BrowserWindow, crashReporter, Menu } from 'electron';
 import { applicationMenuTemplate } from './application-menu.js';
+import { SHELL_RUN_FILE, startShellRun } from './faults/shell-run.js';
 import { createFaultStore } from './faults/store.js';
 import { recordProcessFaults } from './faults/watch.js';
 import { describeGpuInfo } from './gpu-info.js';
@@ -42,8 +43,11 @@ app.commandLine.appendSwitch('force_high_performance_gpu');
 // One window per profile: a second instance would share the IndexedDB the saves live in.
 if (app.requestSingleInstanceLock()) {
   registerAppScheme();
+  // Local dumps only: one left behind tells the next start the shell crashed. Nothing is uploaded.
+  crashReporter.start({ uploadToServer: false });
+  const run = startShellRun(join(app.getPath('userData'), SHELL_RUN_FILE), app.getPath('crashDumps'));
   const faults = createFaultStore(faultsRoot(app.getPath('userData')), homedir());
-  recordProcessFaults(faults);
+  recordProcessFaults(faults, run);
 
   let mainWindow: BrowserWindow | undefined;
   app.on('second-instance', () => {
@@ -74,6 +78,7 @@ if (app.requestSingleInstanceLock()) {
       startUrl: initialGameUrl(GAME_URL, process.env[API_URL_ENV]),
       originalGame,
       faults,
+      run,
     });
     app.getGPUInfo('basic').then(
       (info) => console.info(describeGpuInfo(info)),

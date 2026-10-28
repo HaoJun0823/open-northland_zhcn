@@ -1,3 +1,4 @@
+import type { PreviousShellRun } from '../../view/platform/desktop-faults.js';
 import type { SessionMarker } from './session-marker.js';
 
 /** How often a page rewrites its marker. */
@@ -22,6 +23,8 @@ export interface MarkerFacts {
   readonly desktopFaults: readonly { readonly id: string; readonly atMs: number }[];
   /** The freeze record the marker's page left, if it left one; `seenAt` is when it was last seen frozen. */
   readonly freeze: { readonly id: string; readonly seenAt: number } | null;
+  /** The desktop shell run that served the page, when it ended without quitting. */
+  readonly shellRun: PreviousShellRun | null;
 }
 
 export type MarkerVerdict =
@@ -36,11 +39,19 @@ export type MarkerVerdict =
   | { readonly kind: 'freeze'; readonly freezeId: string }
   | { readonly kind: 'unclean-exit' };
 
+/** The system ended the session as the page stopped beating; a shutdown another app cancelled left
+ *  the page running past it. */
+function shutDownWith(marker: SessionMarker, run: PreviousShellRun | null): boolean {
+  if (run?.end !== 'shutdown' || run.endedAt === null) return false;
+  return marker.beatAt <= Date.parse(run.endedAt) + MARKER_STALE_MS;
+}
+
 /**
  * What a marker left by another page means. The shell's own record of a crash wins over the page's
  * guess, and the watchdog's freeze record over a plain end. A page last seen hidden or in the menu
  * is not reported: a hidden page may be ended by the browser or the system without `pagehide`, and a
- * menu holds nothing a report could replay, while a game's sudden end is most likely a crash.
+ * menu holds nothing a report could replay, while a game's sudden end is most likely a crash. Nor is
+ * a page whose shell the system shut down.
  */
 export function judgeMarker(marker: SessionMarker, facts: MarkerFacts): MarkerVerdict {
   const reloaded = facts.previous?.id === marker.id;
@@ -55,6 +66,7 @@ export function judgeMarker(marker: SessionMarker, facts: MarkerFacts): MarkerVe
   if (faultIds.length > 0) return { kind: 'desktop', faultIds };
   if (!reloaded && facts.nowMs - marker.beatAt <= MARKER_STALE_MS) return { kind: 'live' };
   if (facts.freeze !== null) return { kind: 'freeze', freezeId: facts.freeze.id };
-  if (!marker.visible || !marker.context.inGame) return { kind: 'quiet' };
+  if (!marker.visible || !marker.context.inGame || shutDownWith(marker, facts.shellRun))
+    return { kind: 'quiet' };
   return { kind: 'unclean-exit' };
 }

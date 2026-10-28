@@ -16,6 +16,17 @@ export interface DesktopFault {
   readonly url: string | null;
 }
 
+/** How the shell's previous run ended without quitting: the system ended the session, a native
+ *  crash left a dump, or neither (killed, or the power went). */
+export interface PreviousShellRun {
+  /** ISO times bounding the pages that run served. */
+  readonly from: string;
+  readonly until: string;
+  readonly end: 'shutdown' | 'crash' | 'unknown';
+  /** When the session ended or the dump was written; null for `unknown`. */
+  readonly endedAt: string | null;
+}
+
 /** The shell keeps faults across a restart until the page reports or dismisses them. */
 export interface DesktopFaults {
   /** Faults recorded and not yet cleared, oldest first. */
@@ -23,4 +34,6 @@ export interface DesktopFaults {
   clear(ids: readonly string[]): Promise<void>;
   /** App, Electron, Chrome and OS versions, for a report's build facts. */
   versions(): Promise<Readonly<Record<string, string>>>;
+  /** The previous run, when it ended without quitting. */
+  previousRun(): Promise<PreviousShellRun | null>;
 }

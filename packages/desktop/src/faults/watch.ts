@@ -1,9 +1,15 @@
 import { release } from 'node:os';
-import { app, type BrowserWindow, dialog, type IpcMainInvokeEvent, ipcMain } from 'electron';
-import { CLEAR_FAULTS_CHANNEL, FAULT_VERSIONS_CHANNEL, PENDING_FAULTS_CHANNEL } from './channels.js';
+import { app, type BrowserWindow, dialog, type IpcMainInvokeEvent, ipcMain, powerMonitor } from 'electron';
+import {
+  CLEAR_FAULTS_CHANNEL,
+  FAULT_VERSIONS_CHANNEL,
+  PENDING_FAULTS_CHANNEL,
+  PREVIOUS_RUN_CHANNEL,
+} from './channels.js';
 import { crashPromptFor } from './crash-prompt.js';
 import { hungStack } from './hung-stack.js';
 import { createCrashReloadGuard } from './reload-guard.js';
+import type { ShellRun } from './shell-run.js';
 import type { FaultStore, FaultUpdate, NewFault, ShellFault } from './store.js';
 
 /** Button order of the repeated-crash dialog. */
@@ -33,18 +39,24 @@ function errorFault(error: unknown): NewFault {
 }
 
 /**
- * Main-process errors and GPU process deaths. The exception monitor leaves Electron's own handler,
- * which shows its error dialog, in charge. Electron only warns about an unhandled rejection, and a
- * listener silences that warning, so this one prints it instead.
+ * Main-process errors and GPU process deaths, and how the run ends. The exception monitor leaves
+ * Electron's own handler, which shows its error dialog, in charge. Electron only warns about an
+ * unhandled rejection, and a listener silences that warning, so this one prints it instead.
  */
-export function recordProcessFaults(store: FaultStore): void {
+export function recordProcessFaults(store: FaultStore, run: ShellRun): void {
+  app.on('will-quit', () => run.quit());
+  app.on('render-process-gone', (_event, _contents, details) => {
+    if (details.reason !== 'clean-exit') run.childGone();
+  });
   process.on('uncaughtExceptionMonitor', (error) => safely(() => store.record(errorFault(error))));
   process.on('unhandledRejection', (reason) => {
     console.error('Unhandled rejection in the main process:', reason);
     safely(() => store.record(errorFault(reason)));
   });
   app.on('child-process-gone', (_event, details) => {
-    if (details.type !== 'GPU' || details.reason === 'clean-exit') return;
+    if (details.reason === 'clean-exit') return;
+    run.childGone();
+    if (details.type !== 'GPU') return;
     safely(() =>
       store.record({
         trigger: 'gpu-gone',
@@ -77,10 +89,14 @@ export interface WindowFaultSetup {
   /** Where a crashed page reloads to: the shell's first page, so the player lands in the menu. */
   readonly startUrl: string;
   readonly fromGame: (event: IpcMainInvokeEvent) => boolean;
+  readonly run: ShellRun;
 }
 
 /** The game window's renderer crashes and hangs, and the `window.desktop.faults` channels. */
-export function watchWindowFaults(win: BrowserWindow, { store, startUrl, fromGame }: WindowFaultSetup): void {
+export function watchWindowFaults(
+  win: BrowserWindow,
+  { store, startUrl, fromGame, run }: WindowFaultSetup,
+): void {
   const contents = win.webContents;
   const guard = createCrashReloadGuard();
   let hang: { readonly id: string; readonly sinceMs: number } | undefined;
@@ -147,6 +163,10 @@ export function watchWindowFaults(win: BrowserWindow, { store, startUrl, fromGam
     hang = undefined;
   });
 
+  // Windows ends a session through the window, macOS and Linux through the power monitor.
+  win.on('session-end', () => run.shuttingDown());
+  powerMonitor.on('shutdown', () => run.shuttingDown());
+
   ipcMain.handle(PENDING_FAULTS_CHANNEL, (event) => {
     if (!fromGame(event)) throw new Error('Refused');
     return store.pending();
@@ -158,5 +178,9 @@ export function watchWindowFaults(win: BrowserWindow, { store, startUrl, fromGam
   ipcMain.handle(FAULT_VERSIONS_CHANNEL, (event) => {
     if (!fromGame(event)) throw new Error('Refused');
     return shellVersions();
+  });
+  ipcMain.handle(PREVIOUS_RUN_CHANNEL, (event) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return run.previous;
   });
 }

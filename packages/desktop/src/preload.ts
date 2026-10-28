@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import { CLEAR_FAULTS_CHANNEL, FAULT_VERSIONS_CHANNEL, PENDING_FAULTS_CHANNEL } from './faults/channels.js';
+import {
+  CLEAR_FAULTS_CHANNEL,
+  FAULT_VERSIONS_CHANNEL,
+  PENDING_FAULTS_CHANNEL,
+  PREVIOUS_RUN_CHANNEL,
+} from './faults/channels.js';
+import type { PreviousShellRun } from './faults/shell-run.js';
 import type { ShellFault } from './faults/store.js';
 import {
   CANCEL_LOCAL_MAP_PICK_CHANNEL,
@@ -62,5 +68,6 @@ contextBridge.exposeInMainWorld('desktop', {
       await ipcRenderer.invoke(CLEAR_FAULTS_CHANNEL, ids);
     },
     versions: (): Promise<Record<string, string>> => ipcRenderer.invoke(FAULT_VERSIONS_CHANNEL),
+    previousRun: (): Promise<PreviousShellRun | null> => ipcRenderer.invoke(PREVIOUS_RUN_CHANNEL),
   },
 });

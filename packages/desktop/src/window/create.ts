@@ -9,6 +9,7 @@ import {
   screen,
   shell,
 } from 'electron';
+import type { ShellRun } from '../faults/shell-run.js';
 import type { FaultStore } from '../faults/store.js';
 import { watchWindowFaults } from '../faults/watch.js';
 import {
@@ -59,6 +60,7 @@ export interface WindowSetup {
   readonly startUrl: string;
   readonly originalGame: OriginalGameRecord;
   readonly faults: FaultStore;
+  readonly run: ShellRun;
 }
 
 export function createWindow({
@@ -67,6 +69,7 @@ export function createWindow({
   startUrl,
   originalGame,
   faults,
+  run,
 }: WindowSetup): BrowserWindow {
   const state = startupWindowState(
     readWindowState(statePath),
@@ -186,7 +189,7 @@ export function createWindow({
     if (!fromGame(event)) throw new Error('Refused');
     return maps.commit(drop, put, sources);
   });
-  watchWindowFaults(win, { store: faults, startUrl, fromGame });
+  watchWindowFaults(win, { store: faults, startUrl, fromGame, run });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));
   win.webContents.on('before-input-event', (event, input) => {

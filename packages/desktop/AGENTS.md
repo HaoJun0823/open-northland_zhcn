@@ -13,8 +13,8 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   subscribe), `window.desktop.originalGame` (status, pick a folder), `window.desktop.maps`
   (pick/drop/cancel a local file or folder, list records, read a map snapshot, file or retained source,
   commit maps and source together) and `window.desktop.faults` (pending faults, clear by id, build
-  versions), which the app feature-detects. Keep that bridge narrow, validate
-  every IPC argument and sender, and keep sandbox and context isolation on.
+  versions, how the previous run ended), which the app feature-detects. Keep that bridge narrow,
+  validate every IPC argument and sender, and keep sandbox and context isolation on.
   Saves live in the page's IndexedDB like in a browser. A page or mail link the game opens goes to
   the system browser or mail client, never a second window.
 - Serve the app and generated content through `app://` as read-only static files. Installed maps
@@ -26,12 +26,18 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   immutable generations. Native picks enforce shared import limits before reading and refuse symlinks.
   The app owns the record schema; the shell validates IPC shapes, paths, revisions and per-request sizes.
   There is no aggregate desktop storage budget.
-- The shell writes only window state, `original-game.json`, installed-map storage and recorded
-  faults in its profile. Saves remain in the page's IndexedDB.
+- The shell writes only window state, `original-game.json`, installed-map storage, recorded
+  faults and its run file in its profile; Electron's crash reporter keeps local minidumps. Saves
+  remain in the page's IndexedDB.
 - `src/faults/` records renderer crashes and hangs, GPU process deaths and main-process errors as one
   JSON file each in the profile's `faults/`, the newest 20 kept, home directory redacted, until the
   page clears them. A crashed page reloads the start page; a second crash within a minute
   asks the player to restart or quit instead. Main-process errors keep Electron's own handling.
+- `src/faults/shell-run.ts` keeps `shell-run.json` while the shell runs and removes it on quit. One
+  left at the next start tells the page how that run ended: a minidump newer than the run's start
+  and its last child-process death plus a grace (a native crash), a system shutdown (no report for a
+  page that stopped with it), or neither. Dumps are never
+  uploaded; the start deletes them once judged.
 - A packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an installed original game
   through `src/original-game/`. Before the window opens, a profile without `original-game.json`
   runs detection (or checks only the folder `ON_ORIGINAL_GAME_DIR` names) and records a hit. The
@@ -45,8 +51,8 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 - Keep `main.ts` and `window/create.ts` free of logic worth a unit test; routing, containment and
   path rules live in `protocol/routing.ts`, `protocol/static-files.ts`, `protocol/file-response.ts`,
   `maps/installed.ts`, `maps/store.ts`, `faults/store.ts`, `faults/redact.ts`, `faults/hung-stack.ts`,
-  `faults/reload-guard.ts`, `paths.ts`, `window/state.ts` and `window/control.ts`, which import
-  nothing from `electron`.
+  `faults/reload-guard.ts`, `faults/shell-run.ts`, `paths.ts`, `window/state.ts` and
+  `window/control.ts`, which import nothing from `electron`.
 
 ## Layout
 

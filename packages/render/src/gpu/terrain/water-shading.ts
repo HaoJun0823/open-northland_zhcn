@@ -17,18 +17,18 @@ interface WaterWave {
   readonly cyclesPerLoop: number;
 }
 
-/** The baseline water's one swell, about 3.3 s; the enhanced water's swell leads with it too. */
-const MAIN_SWELL: WaterWave = { dirX: 1, dirY: 0.9, wavelengthPx: 230, cyclesPerLoop: 181 };
+/** The baseline water's one swell, about 2.4 s; the enhanced water's swell leads with it too. */
+const MAIN_SWELL: WaterWave = { dirX: 1, dirY: 0.9, wavelengthPx: 230, cyclesPerLoop: 251 };
 /** The enhanced swell: the main one and two crossing it at unrelated angles, lengths and periods (about
- *  4.7 and 2.7 s, prime cycle counts), so their sum never settles into one band marching across the sea.
+ *  3.4 and 2 s, prime cycle counts), so their sum never settles into one band marching across the sea.
  *  Each weight is the wave's share of the displacement; they sum to one so the peak holds. */
 const SWELLS: readonly { readonly wave: WaterWave; readonly weight: number }[] = [
   { wave: MAIN_SWELL, weight: 0.5 },
-  { wave: { dirX: 1, dirY: -1.4, wavelengthPx: 310, cyclesPerLoop: 127 }, weight: 0.32 },
-  { wave: { dirX: -0.35, dirY: 1, wavelengthPx: 170, cyclesPerLoop: 223 }, weight: 0.18 },
+  { wave: { dirX: 1, dirY: -1.4, wavelengthPx: 310, cyclesPerLoop: 179 }, weight: 0.32 },
+  { wave: { dirX: -0.35, dirY: 1, wavelengthPx: 170, cyclesPerLoop: 293 }, weight: 0.18 },
 ];
 /** Peak vertical bob (world px) at full wave amplitude. */
-const WAVE_AMPLITUDE_PX = 1.6;
+const WAVE_AMPLITUDE_PX = 2;
 
 /** The enhanced sea state: two broad slow waves (about 35 and 46 s) whose product drifts calm and rough
  *  patches across the water. */
@@ -37,7 +37,7 @@ const SEA_STATE: readonly [WaterWave, WaterWave] = [
   { dirX: -0.5, dirY: 1, wavelengthPx: 1500, cyclesPerLoop: 13 },
 ];
 /** The calmest patch keeps this share of the full swell and shimmer. */
-const SEA_STATE_CALM = 0.2;
+const SEA_STATE_CALM = 0.35;
 
 /** Peak brightness modulation of the water shimmer (fraction of the lane multiplier). */
 export const WATER_SHIMMER_GAIN = 0.08;
@@ -66,6 +66,41 @@ const WARP_STRENGTH = 0.6;
 const SHIMMER_DETAIL_SHARE = 0.35;
 /** Contrast lifting the averaged noise, which crowds 0.5, to a full -1..1 swing. */
 const SHIMMER_CONTRAST = 5;
+
+/**
+ * The swash on the enhanced water: along every shore the sea runs up the beach and draws back, a foam
+ * line riding its edge and the sand it covered staying dark and wet a moment after. Positions on the
+ * beach are shore values (data/terrain/water.ts), falling inland; the painted water edge often lies
+ * seaward of the 0.5 mid-value, since a sand transition overlays the outermost water cells.
+ */
+const SWASH = {
+  /** Run-ups per loop: one every 8 s. */
+  cyclesPerLoop: 75,
+  /** The shore value the sea draws back to and the one it runs up to. */
+  back: 0.8,
+  up: 0.5,
+  /** Neighbouring stretches of beach surge at their own moments: a static noise of this cell size
+   *  spreads the run-up's phase over this many radians. */
+  surgeCellPx: 380,
+  surgeSpread: 3 * Math.PI,
+  /** How long, in radians of the run-up, the sand stays wet behind the retreating water. */
+  wetLag: 1.4,
+  /** Shore-value width of the wet edge's fade and of the foam line. */
+  wetSoftness: 0.04,
+  foamWidth: 0.07,
+  /** Noise breaking the mesh's straight shore contours, in shore value, and its cell size. */
+  jitter: 0.1,
+  jitterCellPx: 30,
+  /** Cell size of the noise that breaks the foam line into patches. */
+  foamCellPx: 14,
+} as const;
+/** Lattice period of the static swash noises, in cells: large enough that no repeat shows. */
+const STATIC_NOISE_PERIOD = 256;
+/** Multiplier on wet sand: darker and a little cooler. */
+export const SWASH_WET_TINT = [0.72, 0.78, 0.86] as const;
+/** The foam's colour and how far it covers the ground at the line's centre. */
+export const SWASH_FOAM_COLOUR = [0.9, 0.95, 0.94] as const;
+export const SWASH_FOAM_STRENGTH = 0.35;
 
 /** GLSL float literal. */
 const f = (value: number): string => value.toFixed(8);
@@ -132,5 +167,28 @@ export const WATER_FRAGMENT_GLSL = `
       return clamp((n - 0.5) * ${f(SHIMMER_CONTRAST)}, -1.0, 1.0);
     }
     return sin(${wavePhase(BASELINE_SHIMMER, 'p', 'uWave.x')});
+  }
+
+  // The swash at p: the shore value the sea reaches now, lower further up the beach; wetLine is the
+  // furthest it reached over the last wetLag radians, which the wet sand keeps.
+  float waterSwash(vec2 p, out float wetLine) {
+    float surge = waterNoise(p * ${f(1 / SWASH.surgeCellPx)}, ${f(STATIC_NOISE_PERIOD)}) * ${f(SWASH.surgeSpread)};
+    float phase = uWave.x * ${f((TAU * SWASH.cyclesPerLoop) / WAVE_LOOP_SECONDS)} + surge;
+    float now = mix(${f(SWASH.up)}, ${f(SWASH.back)}, 0.5 + 0.5 * cos(phase));
+    float before = mix(${f(SWASH.up)}, ${f(SWASH.back)}, 0.5 + 0.5 * cos(phase - ${f(SWASH.wetLag)}));
+    wetLine = min(now, before);
+    return now;
+  }
+
+  // The swash's wetness (x) and foam cover (y) at p, whose interpolated shore value is shore and whose
+  // paint is land to this degree.
+  vec2 waterSwashCover(vec2 p, float shore, float land) {
+    shore += ${f(SWASH.jitter)} * (waterNoise(p * ${f(1 / SWASH.jitterCellPx)}, ${f(STATIC_NOISE_PERIOD)}) - 0.5);
+    float wetLine;
+    float line = waterSwash(p, wetLine);
+    float wet = smoothstep(wetLine - ${f(SWASH.wetSoftness)}, wetLine + ${f(SWASH.wetSoftness)}, shore) * land;
+    float patches = smoothstep(0.35, 0.65, waterNoise(p * ${f(1 / SWASH.foamCellPx)}, ${f(STATIC_NOISE_PERIOD)}));
+    float foam = (1.0 - smoothstep(0.0, ${f(SWASH.foamWidth)}, abs(shore - line))) * patches;
+    return vec2(wet, foam);
   }
 `;

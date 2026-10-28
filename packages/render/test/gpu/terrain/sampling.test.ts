@@ -14,6 +14,14 @@ function meshOf(layer: TerrainLayer): Mesh {
   return mesh;
 }
 
+
+/** The (water fraction, deep fraction) pair of each vertex, without its trailing shore value. */
+function waterShading(water: ArrayLike<number>): number[] {
+  const pairs: number[] = [];
+  for (let i = 0; i < water.length; i += 3) pairs.push(water[i] ?? 0, water[i + 1] ?? 0);
+  return pairs;
+}
+
 describe('terrain shader gating', () => {
   it('branches on the water enhancement instead of multiplying by it, and samples before it filters', () => {
     const source = new BufferImageSource({ resource: new Uint8Array(64 * 64 * 4), width: 64, height: 64 });
@@ -134,7 +142,7 @@ describe('terrain footprint sampling', () => {
     });
   }
 
-  it('pushes the water shading pair in lockstep with the wave amplitude on a ground-lane map', () => {
+  it('pushes the water shading in lockstep with the wave amplitude on a ground-lane map', () => {
     const source = new BufferImageSource({ resource: new Uint8Array(64 * 64 * 4), width: 64, height: 64 });
     const tile = { pageKey: 'ground', coordsA: [0, 0, 63, 63, 0, 63], coordsB: [0, 0, 63, 0, 63, 63] };
     const textures = {
@@ -158,9 +166,10 @@ describe('terrain footprint sampling', () => {
     const waves = geometry.getBuffer('aWave').data;
     const water = geometry.getBuffer('aWater').data;
     expect(waves).toHaveLength(12);
-    expect(water).toHaveLength(24);
-    expect(Array.from(water.slice(0, 12))).toEqual(new Array(12).fill(0));
-    expect(Array.from(water.slice(12, 14))).toEqual([1, 1]);
+    expect(water).toHaveLength(36);
+    const shading = waterShading(water);
+    expect(shading.slice(0, 12)).toEqual(new Array(12).fill(0));
+    expect(shading.slice(12, 14)).toEqual([1, 1]);
     layer.destroy();
     source.destroy();
   });
@@ -196,7 +205,7 @@ describe('terrain footprint sampling', () => {
     layer.set(terrain, textures);
     // The base and the overlay share one mesh: the overlay's two triangles follow the base's.
     const water = meshOf(layer).geometry.getBuffer('aWater').data;
-    expect(Array.from(water).slice(-12)).toEqual([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
+    expect(waterShading(water).slice(-12)).toEqual([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
     layer.destroy();
     source.destroy();
   });

@@ -248,7 +248,7 @@ export const enSurfaces = {
         'Deepens and softens the shadows of buildings, trees and decorations. Settlers and animals cast a shadow of their own outline, leaning with the light the buildings use. Off keeps the original shadows.',
       enhancedWater: 'Enhanced water',
       enhancedWaterTip:
-        'Crossing swells with calm and rough patches, a shifting shimmer, darker shallows and darker still deep water, and a cooler and bluer colour. Off keeps the original water.',
+        'Crossing swells with calm and rough patches, a shifting shimmer, surf washing up the beach and drawing back, darker shallows and darker still deep water, and a cooler and bluer colour. Off keeps the original water.',
       buildingDamage: 'Building damage',
       buildingDamageTip:
         'Broken roofs, exposed beams, smoke, fire and flying fragments. Disable for simpler smoke with less graphics work.',

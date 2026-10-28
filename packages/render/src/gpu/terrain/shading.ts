@@ -18,6 +18,9 @@ import {
 } from '../weather/ground-cover-shading.js';
 import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page-samplers.js';
 import {
+  SWASH_FOAM_COLOUR,
+  SWASH_FOAM_STRENGTH,
+  SWASH_WET_TINT,
   WATER_FRAGMENT_GLSL,
   WATER_SHIMMER_GAIN,
   WATER_VERTEX_GLSL,
@@ -158,14 +161,14 @@ const FIELD_VERTEX = `#version 300 es
   in vec2 aBrightnessUV;
   in vec3 aVertexColor;
   in float aWave;
-  in vec2 aWater;
+  in vec3 aWater;
 
   out vec2 vUV;
   out vec2 vBrightnessUV;
   out vec3 vVertexColor;
   out float vWave;
   out vec2 vWorld;
-  out vec2 vWater;
+  out vec3 vWater;
   uniform vec2 uWave; // x = water clock (seconds, wrapped), y = master amplitude scale (0 = still)
   uniform float uEnhancedWater;
   ${WATER_VERTEX_GLSL}
@@ -201,7 +204,7 @@ const FIELD_FRAGMENT = `#version 300 es
   in vec3 vVertexColor;
   in float vWave;
   in vec2 vWorld;
-  in vec2 vWater;
+  in vec3 vWater;
 
 ${pageSamplerDeclarations()}
   flat in float vPage;
@@ -243,6 +246,13 @@ ${pageSamplerDeclarations()}
       vec3 tint = mix(vec3(1.0), ${glslVec3(WATER_SHALLOW_TINT)}, shallow)
         * mix(vec3(1.0), ${glslVec3(WATER_DEEP_TINT)}, deep);
       texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
+    }
+    // The swash on the beach: vWater.z is the shore value, 0 inland and 1 on open water, so only the
+    // coast band between pays for it.
+    if (uEnhancedWater > 0.5 && vWater.z > 0.0 && vWater.z < 1.0) {
+      vec2 swash = waterSwashCover(vWorld, vWater.z, 1.0 - clamp(vWater.x, 0.0, 1.0)) * uWave.y;
+      texel.rgb *= mix(vec3(1.0), ${glslVec3(SWASH_WET_TINT)}, swash.x);
+      texel.rgb = mix(texel.rgb, ${glslVec3(SWASH_FOAM_COLOUR)} * texel.a, swash.y * ${SWASH_FOAM_STRENGTH.toFixed(4)});
     }
     // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
     if (uCover > 0.5 && cover.r + cover.g + cover.b > 0.0)

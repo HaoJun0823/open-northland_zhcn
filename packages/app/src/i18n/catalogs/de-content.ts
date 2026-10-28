@@ -880,6 +880,11 @@ export const deContent = {
       summary:
         'Der KI-Belagerungsmarsch trifft auf einen widerstandsfähigen blauen Trupp, der den Weg versperrt. Während die Angriffswelle näher rückt, beschießen die Katapulte den Trupp. Sobald er nah genug ist, stürmt die gesamte Welle auf ihn los, bevor sie zum Wachturm weitermarschiert.',
     },
+    'home-roofs': {
+      title: 'Dächer der Wohnhäuser',
+      summary:
+        'Jede Stufe des Wikingerwohnhauses zweimal. Auf Stufe 4 und 5 gibt es die Ziegeldächer in zwei Farben, braun und blaugrau, wie bei den Werkstätten; die Stufen 1 bis 3 sehen immer gleich aus.',
+    },
     'tower-finials': {
       title: 'Turmspitzen',
       summary:

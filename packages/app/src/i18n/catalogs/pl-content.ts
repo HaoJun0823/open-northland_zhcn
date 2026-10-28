@@ -870,6 +870,11 @@ export const plContent = {
       summary:
         'Marsz oblężniczy AI z wytrzymałym niebieskim oddziałem na drodze fali. Katapulty ostrzeliwują go, gdy fala się zbliża, a gdy oddział jest dość blisko, cała fala szarżuje, zanim ruszy dalej na wieżę.',
     },
+    'home-roofs': {
+      title: 'Dachy domów',
+      summary:
+        'Każdy poziom domu wikingów dwa razy. Na poziomach 4 i 5 dachówki mają dwa kolory, brązowy i niebieskoszary, jak w warsztatach; poziomy 1-3 wyglądają zawsze tak samo.',
+    },
     'tower-finials': {
       title: 'Szczyty wież',
       summary:

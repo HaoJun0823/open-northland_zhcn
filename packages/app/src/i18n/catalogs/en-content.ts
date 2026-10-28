@@ -873,6 +873,11 @@ export const enContent = {
       summary:
         'The AI siege march with a tough blue band standing across the route. The catapults shell it as the wave closes in, and once the band is near enough the whole wave charges it before marching on to the defence tower.',
     },
+    'home-roofs': {
+      title: 'Home roofs',
+      summary:
+        "Every viking home level twice. Levels 4 and 5 have tiled roofs in two colours, brown and blue-grey, like the workshops'; levels 1 to 3 keep one look.",
+    },
     'tower-finials': {
       title: 'Tower finials',
       summary:

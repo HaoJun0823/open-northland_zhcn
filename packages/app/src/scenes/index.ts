@@ -43,6 +43,7 @@ import { buildingDemolitionScene } from './construction/building-demolition.js';
 import { constructionScene } from './construction/construction.js';
 import { farmConstructionScene } from './construction/farm-construction.js';
 import { frankConstructionScene } from './construction/frank-construction.js';
+import { homeRoofsScene } from './construction/home-roofs.js';
 import { nationFootprintsScene } from './construction/nation-footprints.js';
 import { palisadeScene } from './construction/palisade.js';
 import { repairScene } from './construction/repair.js';
@@ -229,6 +230,7 @@ export const SCENES: readonly SceneDefinition[] = [
   armorScene,
   towerGarrisonScene,
   towerFinialsScene,
+  homeRoofsScene,
   aiDefenceScene,
   aiSiegeMarchScene,
   aiSiegeChargeScene,

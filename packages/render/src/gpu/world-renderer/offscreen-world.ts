@@ -3,10 +3,12 @@ import {
   type Container,
   Geometry,
   Mesh,
+  RendererType,
   RenderTexture,
   Shader,
   Texture,
   UniformGroup,
+  type WebGLRenderer,
 } from 'pixi.js';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art/magnify.js';
 import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
@@ -95,10 +97,13 @@ export class OffscreenWorld {
   private frameHeight = 0;
   private detached = false;
 
-  /** `resolution` is the world's texels per CSS pixel on a denser canvas; Infinity never upscales. */
+  /** `resolution` is the world's texels per CSS pixel on a denser canvas; Infinity never upscales.
+   *  `world` is the child of `scene` the lit mask covers; the children over it draw without touching
+   *  the mask. */
   constructor(
     private readonly app: Application,
     private readonly scene: Container,
+    private readonly world: Container,
     filter: 'sharp' | 'xbr',
     private readonly resolution: number,
   ) {
@@ -136,7 +141,8 @@ export class OffscreenWorld {
       const { width, height } = this.app.screen;
       const resolution = this.drawResolution();
       const frame = this.frameSized(width, height, resolution);
-      renderer.render({ container: this.scene, target: frame, clear: true });
+      if (night === null) renderer.render({ container: this.scene, target: frame, clear: true });
+      else this.renderLit(frame);
       const u = this.uniforms.uniforms;
       u.uScreen[0] = width;
       u.uScreen[1] = height;
@@ -152,6 +158,34 @@ export class OffscreenWorld {
       this.uniforms.update();
     }
     this.app.render();
+  }
+
+  /**
+   * Draw the world, then what `scene` draws over it with alpha writes off: the weather and the screen
+   * chrome draw opaque or blended quads that would raise the lit mask back to 1 everywhere. Undocumented
+   * Pixi behaviour, verified on pixi.js 8.22, re-verify on a bump: Pixi sets the colour mask only through
+   * its cached `ColorMaskSystem`, which no draw over the world here changes.
+   */
+  private renderLit(frame: RenderTexture): void {
+    const renderer = this.app.renderer;
+    const over = this.scene.children.filter((child) => child !== this.world && child.visible);
+    for (const child of over) child.visible = false;
+    try {
+      renderer.render({ container: this.scene, target: frame, clear: true });
+    } finally {
+      for (const child of over) child.visible = true;
+    }
+    if (over.length === 0 || renderer.type !== RendererType.WEBGL) return;
+    const gl = (renderer as WebGLRenderer).gl;
+    const shown = this.world.visible;
+    this.world.visible = false;
+    gl.colorMask(true, true, true, false);
+    try {
+      renderer.render({ container: this.scene, target: frame, clear: false });
+    } finally {
+      gl.colorMask(true, true, true, true);
+      this.world.visible = shown;
+    }
   }
 
   destroy(): void {

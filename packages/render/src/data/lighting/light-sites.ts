@@ -52,7 +52,7 @@ export const LIGHT_LOOKS: Readonly<Record<LightKind, LightLook>> = {
     colour: 0xff9a48,
     flicker: 0.25,
     flareRadius: 60,
-    flareStrength: 0.6,
+    flareStrength: 0.4,
     staggered: false,
   },
 };
@@ -62,8 +62,8 @@ export const LIGHT_LOOKS: Readonly<Record<LightKind, LightLook>> = {
  * part of its daylight colours, a house its lower walls more, fading toward the roof. Shares of the lit
  * mask, scaled like a pool by the night and, for a house, by {@link lightShare}.
  */
-export const BEARER_GLOW = 0.55;
-export const HOUSE_GLOW = 0.7;
+export const BEARER_GLOW = 0.65;
+export const HOUSE_GLOW = 0.9;
 /** Approximation tuned by eye: a house's light comes on once the night passes a level drawn per house
  *  below this, and takes {@link LIGHT_UP_RAMP} of the night's level to reach full. */
 const LIGHT_UP_SPREAD = 0.5;

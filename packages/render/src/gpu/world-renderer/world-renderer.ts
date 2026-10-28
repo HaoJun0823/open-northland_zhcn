@@ -244,6 +244,7 @@ export class WorldRenderer {
     this.offscreen = new OffscreenWorld(
       app,
       this.scene,
+      this.worldLayer,
       upscale?.filter ?? 'sharp',
       upscale?.resolution ?? Number.POSITIVE_INFINITY,
     );

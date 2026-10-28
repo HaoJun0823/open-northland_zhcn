@@ -9,6 +9,8 @@ function stubApp(resolution: number) {
   const stage = new Container();
   const scene = new Container();
   scene.label = 'world-scene';
+  const world = new Container();
+  scene.addChild(world, new Container());
   stage.addChild(scene);
   const hud = new Container();
   stage.addChild(hud);
@@ -21,7 +23,7 @@ function stubApp(resolution: number) {
     renderTarget: { getRenderTarget: () => ({ isRoot: false }) },
   };
   const app = { stage, screen: { width: 800, height: 600 }, renderer, render: vi.fn() };
-  return { app: app as unknown as Application & typeof app, stage, scene, hud, renderer, targets };
+  return { app: app as unknown as Application & typeof app, stage, scene, world, hud, renderer, targets };
 }
 
 const presentOf = (stage: Container) => stage.getChildByLabel('offscreen-world');
@@ -34,8 +36,8 @@ describe('OffscreenWorld', () => {
   useHeadlessShaderContext();
 
   it('draws the scene into one kept frame while the canvas is denser, the stage over its quad', () => {
-    const { app, stage, scene, hud, targets } = stubApp(2);
-    const upscale = new OffscreenWorld(app, scene, 'sharp', 1);
+    const { app, stage, scene, world, hud, targets } = stubApp(2);
+    const upscale = new OffscreenWorld(app, scene, world, 'sharp', 1);
     upscale.render();
     upscale.render();
     expect(stage.children).toEqual([presentOf(stage), hud]);
@@ -49,10 +51,10 @@ describe('OffscreenWorld', () => {
   });
 
   it('keeps the frame under a render scale whose texels do not divide the screen', () => {
-    const { app, scene, targets } = stubApp(2);
+    const { app, scene, world, targets } = stubApp(2);
     app.screen.width = 801;
     app.screen.height = 601;
-    const upscale = new OffscreenWorld(app, scene, 'xbr', 1.3);
+    const upscale = new OffscreenWorld(app, scene, world, 'xbr', 1.3);
     upscale.render();
     upscale.render();
     expect(targets[1]).toBe(targets[0]);
@@ -60,8 +62,8 @@ describe('OffscreenWorld', () => {
   });
 
   it('makes a new frame after a resize and keeps it after', () => {
-    const { app, scene, targets } = stubApp(2);
-    const upscale = new OffscreenWorld(app, scene, 'sharp', 1);
+    const { app, scene, world, targets } = stubApp(2);
+    const upscale = new OffscreenWorld(app, scene, world, 'sharp', 1);
     upscale.render();
     app.screen.width = 1024;
     upscale.render();
@@ -73,8 +75,8 @@ describe('OffscreenWorld', () => {
   });
 
   it('puts the scene back above the quad when the canvas is no denser, and leaves again', () => {
-    const { app, stage, scene, hud, renderer, targets } = stubApp(2);
-    const upscale = new OffscreenWorld(app, scene, 'sharp', 1);
+    const { app, stage, scene, world, hud, renderer, targets } = stubApp(2);
+    const upscale = new OffscreenWorld(app, scene, world, 'sharp', 1);
     upscale.render();
     renderer.resolution = 1;
     upscale.render();
@@ -94,8 +96,8 @@ describe('OffscreenWorld at night', () => {
   useHeadlessShaderContext();
 
   it('draws a canvas no denser than the world into its frame while a night composite lights it', () => {
-    const { app, stage, scene, hud, targets } = stubApp(1);
-    const frame = new OffscreenWorld(app, scene, 'sharp', Number.POSITIVE_INFINITY);
+    const { app, stage, scene, world, hud, targets } = stubApp(1);
+    const frame = new OffscreenWorld(app, scene, world, 'sharp', Number.POSITIVE_INFINITY);
     frame.render();
     expect(targets).toHaveLength(0);
     frame.render({ light: Texture.WHITE, lit: [1, 1, 1] });

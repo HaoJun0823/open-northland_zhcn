@@ -238,9 +238,9 @@ ${pageSamplerDeclarations()}
     if (vWave > 0.0) lane *= 1.0 + vWave * uWave.y * ${WATER_SHIMMER_GAIN.toFixed(4)} * waterShimmer(vWorld);
     // Every enhanced-water term sits under its uniform, so the baseline pays for none of it. No
     // derivative is taken inside a gate. Water depth: shallows read darker, deep water darker still, and
-    // sparkles flash on rough water, fewer on the shallows. vWater = (water fraction, deep fraction), zero on land paint
-    // and at land nodes, so it fades out across the coast triangle. A fragment with no water takes
-    // neither the depth shading nor the colour grade, both of which are identities there.
+    // sparkles flash on rough water, dimmer on the shallows. vWater = (water fraction, deep fraction),
+    // zero on land paint and at land nodes, so it fades out across the coast triangle. A fragment with no
+    // water takes neither the depth shading nor the colour grade, both of which are identities there.
     if (uEnhancedWater > 0.5 && vWater.x > 0.0) {
       float shallow = vWater.x - vWater.y;
       float deep = vWater.y;

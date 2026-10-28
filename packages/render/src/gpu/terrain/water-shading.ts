@@ -56,9 +56,9 @@ interface NoiseLayer {
   readonly driftX: number;
   readonly driftY: number;
 }
-/** The shimmer's body: 110 px blobs drifting down-right at about 4 px/s. */
+/** The shimmer's body: 110 px blobs drifting up-left at about 4 px/s. */
 const SHIMMER_NOISE: NoiseLayer = { cellPx: 110, periodCells: 16, driftX: 1, driftY: 1 };
-/** The warp bending the shimmer: broader blobs drifting left at about 3.5 px/s, against the body, so
+/** The warp bending the shimmer: broader blobs drifting right at about 3.5 px/s, across the body, so
  *  the pattern churns instead of sliding as one sheet. */
 const WARP_NOISE: NoiseLayer = { cellPx: 260, periodCells: 8, driftX: -1, driftY: 0 };
 /** How far the warp pushes the shimmer's lattice coordinates, in its cells. */

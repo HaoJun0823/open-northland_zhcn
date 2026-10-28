@@ -30,6 +30,10 @@ describe('terrain shader gating', () => {
     // into an expression: a `mix(..., uEnhancedWater)` evaluates the enhanced terms on every fragment,
     // on land and with the setting off.
     expect(fragment).toContain('if (uEnhancedWater > 0.5)');
+    // The crossing swells and the sea state belong to the enhancement too: off, the vertex runs one swell.
+    const vertex = meshOf(layer).shader?.glProgram?.vertex ?? '';
+    expect(vertex).toContain('if (uEnhancedWater > 0.5)');
+    expect(vertex).not.toMatch(/[,*+-]\s*uEnhancedWater/);
     expect(fragment).not.toMatch(/[,*+-]\s*uEnhancedWater/);
     expect(fragment).not.toMatch(/uEnhancedWater\s*[*+]/);
     // The sampling gate has to return before the filter's page size, or the baseline pays for it anyway.

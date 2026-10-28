@@ -246,7 +246,7 @@ export const plSurfaces = {
         'Pogłębia i zmiękcza cienie budynków, drzew i dekoracji. Osadnicy i zwierzęta rzucają cień własnej sylwetki, pochylony zgodnie ze światłem budynków. Po wyłączeniu zostają cienie oryginału.',
       enhancedWater: 'Ulepszona woda',
       enhancedWaterTip:
-        'Krzyżujące się fale ze spokojniejszymi i wzburzonymi płatami, zmienne odblaski, ciemniejsze płycizny i jeszcze ciemniejsza głębia, chłodniejszy, bardziej niebieski kolor oraz iskry słońca na wodzie. Po wyłączeniu zostaje woda oryginału.',
+        'Krzyżujące się fale ze spokojnymi i wzburzonymi obszarami, zmienne odblaski, ciemniejsze płycizny i jeszcze ciemniejsza głębia, chłodniejszy, bardziej niebieski kolor oraz iskry słońca na wodzie. Po wyłączeniu zostaje woda oryginału.',
       buildingDamage: 'Zniszczenia budynków',
       buildingDamageTip:
         'Wyrwy w dachach, odsłonięte belki, dym, ogień i odpadające fragmenty. Wyłącz, aby używać prostszego dymu i odciążyć grafikę.',

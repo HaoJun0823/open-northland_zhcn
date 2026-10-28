@@ -24,7 +24,8 @@ import { createPendingGroundOrders } from '../../../../src/view/unit-controls/or
 import { issueRingCommand } from '../../../../src/view/unit-controls/orders/ring-commands.js';
 import { createVehicleOrderController } from '../../../../src/view/unit-controls/orders/vehicle.js';
 import { createPickModeController } from '../../../../src/view/unit-controls/pick-mode.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { selectedVehicle } from '../../../../src/view/unit-controls/right-click/vehicles.js';
+import { withPointHits } from '../../../support/point-hits.js';
 import { type Ent, snapshotOf } from '../../../support/snapshot.js';
 
 /**
@@ -135,6 +136,9 @@ const WORLD: WorldSnapshot = snapshotOf([
   },
 ]);
 
+/** The world as the right click's vehicle reads see it. */
+const VIEW = { snapshot: WORLD, content: sandboxContent(), viewer: fixedViewerSeat(HUMAN_PLAYER) };
+
 const under = (ref: number, kind: NonNullable<Pickable['kind']>): Pickable => ({ ref, ...CLICK, kind });
 
 interface Arms {
@@ -149,24 +153,25 @@ interface Arms {
   readonly settlersUnder?: readonly Pickable[];
 }
 
-const targetsOf = (arms: Arms): UnitTargets => ({
-  owned: (kind) =>
-    kind === 'vehicle'
-      ? [...(arms.vehicles ?? [])]
-      : kind === 'settler'
-        ? [...(arms.settlersUnder ?? [])]
-        : [],
-  buildings: () => [],
-  enemies: () => [...(arms.enemies ?? [])],
-  flags: () => [],
-  signposts: () => [],
-  chests: () => [],
-  goods: () => [],
-  resources: () => [],
-  wildlife: () => [],
-  claimableLivestock: () => [],
-  ownedSettlersIn: () => (arms.settlers ?? []).map((ref) => ({ ref, x: 0, y: 0 })),
-});
+const targetsOf = (arms: Arms) =>
+  withPointHits({
+    owned: (kind) =>
+      kind === 'vehicle'
+        ? [...(arms.vehicles ?? [])]
+        : kind === 'settler'
+          ? [...(arms.settlersUnder ?? [])]
+          : [],
+    buildings: () => [],
+    enemies: () => [...(arms.enemies ?? [])],
+    flags: () => [],
+    signposts: () => [],
+    chests: () => [],
+    goods: () => [],
+    resources: () => [],
+    wildlife: () => [],
+    claimableLivestock: () => [],
+    ownedSettlersIn: () => (arms.settlers ?? []).map((ref) => ({ ref, x: 0, y: 0 })),
+  });
 
 /** A synchronous rule as the host answers it: a Promise, landing a microtask later. */
 function answering<A extends unknown[]>(
@@ -476,7 +481,7 @@ describe('vehicle right-click defaults', () => {
   it('leaves a moored captain’s click to the settler orders while direct ship selection still sails', () => {
     expect(harness([SHIP_COMMANDER], {}).controller.issueRightClick(rightClick)).toBe(false);
     expect(harness([SHIP], {}).controller.issueRightClick(rightClick)).toBe(true);
-    expect(harness([SEA_COMMANDER], {}).controller.selectedVehicle()).toBe(SHIP_AT_SEA);
+    expect(selectedVehicle(VIEW, new Set([SEA_COMMANDER]))).toBe(SHIP_AT_SEA);
     const carried = harness([CARRIED_CART], {});
     expect(carried.controller.issueRightClick(rightClick)).toBe(true);
     expect(carried.issued[0]).toMatchObject({ kind: 'moveVehicle', vehicle: CARRIED_CART });
@@ -488,7 +493,7 @@ describe('vehicle right-click defaults', () => {
     const spot = worldToTile(CLICK.x, CLICK.y);
     expect(issued).toEqual([{ kind: 'moveVehicle', vehicle: HANDCART, x: spot.col, y: spot.row }]);
     // The commander and its own vehicle selected together are one vehicle, not two.
-    expect(harness([CART_COMMANDER, HANDCART], ALL_UNDER).controller.selectedVehicle()).toBe(HANDCART);
+    expect(selectedVehicle(VIEW, new Set([CART_COMMANDER, HANDCART]))).toBe(HANDCART);
     expect(harness([CART_PASSENGER], ALL_UNDER).controller.issueRightClick(rightClick)).toBe(false);
     // A cart riding a ship has nothing to drive; its commander's click orders nothing, as the sim's rule.
     expect(harness([CARRIED_COMMANDER], ALL_UNDER).controller.issueRightClick(rightClick)).toBe(false);

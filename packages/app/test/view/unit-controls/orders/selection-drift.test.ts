@@ -11,6 +11,7 @@ import {
 } from '../../../../src/view/unit-controls/orders/controller.js';
 import { createUnitSelection, type UnitSelection } from '../../../../src/view/unit-controls/selection.js';
 import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 import { type Ent, snapshotOf } from '../../../support/snapshot.js';
 
 /**
@@ -97,7 +98,7 @@ function harness(
   const orders = createUnitOrderController({
     answered: createAnsweredOrders(),
     selected: selection.ids,
-    targets: { ...targets, ...overrides },
+    targets: withPointHits({ ...targets, ...overrides }),
     snapshot: () => world,
     content: CONTENT,
     mapSize: MAP_SIZE,

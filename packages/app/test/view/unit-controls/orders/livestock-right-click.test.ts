@@ -8,7 +8,7 @@ import { sandboxContent } from '../../../../src/game/sandbox/index.js';
 import type { Pickable } from '../../../../src/view/picking.js';
 import { createAnsweredOrders } from '../../../../src/view/unit-controls/orders/answered.js';
 import { createUnitOrderController } from '../../../../src/view/unit-controls/orders/controller.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 
 /**
  * Right-clicking a claimable animal sends the selected scouts after it, and any wild animal the scouts
@@ -53,7 +53,7 @@ function rightClick(
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
   const animal: Pickable = { ref: ANIMAL, x: 0, y: 0, kind: 'settler' };
-  const targets: UnitTargets = {
+  const targets = withPointHits({
     owned: () => [],
     buildings: () => [],
     enemies: () => [],
@@ -65,7 +65,7 @@ function rightClick(
     wildlife: () => [animal],
     claimableLivestock: () => (claimable ? [animal] : []),
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
-  };
+  });
   createUnitOrderController({
     answered: createAnsweredOrders(),
     selected: () => new Set<number>(settlers),

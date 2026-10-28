@@ -19,7 +19,7 @@ import {
   createUnitOrderController,
   type UnitOrderDeps,
 } from '../../../../src/view/unit-controls/orders/controller.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 
 /**
  * Right-clicking a good lying on the ground with settlers selected sends each one that may wear it to
@@ -70,7 +70,7 @@ async function rightClick(
     : undefined;
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
-  const targets: UnitTargets = {
+  const targets = withPointHits({
     owned: () => [],
     buildings: () => [],
     enemies: () => [],
@@ -82,7 +82,7 @@ async function rightClick(
     wildlife: () => [],
     claimableLivestock: () => [],
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
-  };
+  });
   createUnitOrderController({
     answered: createAnsweredOrders(),
     requestEquipPicks: pickList,
@@ -211,7 +211,7 @@ describe('right-clicking a good on the ground', () => {
           answer = () => resolve(sim.equipPickList(entity as Entity, group));
         }),
       selected: () => new Set<number>([drinker]),
-      targets: {
+      targets: withPointHits({
         owned: () => [],
         buildings: () => [],
         enemies: () => [],
@@ -223,7 +223,7 @@ describe('right-clicking a good on the ground', () => {
         wildlife: () => [],
         claimableLivestock: () => [],
         ownedSettlersIn: () => [{ ref: drinker, x: 0, y: 0 }],
-      },
+      }),
       snapshot: (): WorldSnapshot => snapshot,
       content: sim.content,
       mapSize: { width: 16, height: 16 },

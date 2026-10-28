@@ -11,7 +11,7 @@ import { createOverviewOrders } from '../../../../src/view/unit-controls/orders/
 import { issueRingCommand } from '../../../../src/view/unit-controls/orders/ring-commands.js';
 import { createVehicleOrderController } from '../../../../src/view/unit-controls/orders/vehicle.js';
 import { createPickModeController } from '../../../../src/view/unit-controls/pick-mode.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 import { snapshotOf } from '../../../support/snapshot.js';
 
 const COUNT = 1000;
@@ -66,7 +66,7 @@ function harness(
   const marked: unknown[] = [];
   const cues: string[] = [];
   const content = sandboxContent();
-  const targets: UnitTargets = {
+  const targets = withPointHits({
     owned: (kind) => (house && kind === 'building' ? [{ ref: HOUSE, ...POINT, kind: 'building' }] : []),
     buildings: () => (house ? [{ ref: HOUSE, ...POINT, kind: 'building' }] : []),
     flags: () => [],
@@ -78,7 +78,7 @@ function harness(
     claimableLivestock: () => [],
     enemies: () => (enemy ? [{ ref: ENEMY, ...POINT, kind: 'settler' }] : []),
     ownedSettlersIn: (ids) => units.filter((unit) => ids.has(unit.ref)),
-  };
+  });
   const shared = {
     answered: createAnsweredOrders(),
     snapshot: () => snapshot,

@@ -21,7 +21,7 @@ import type { Pickable } from '../../../../src/view/picking.js';
 import { drillPick, sitePick } from '../../../../src/view/unit-controls/highlights/own-building-picks.js';
 import { createAnsweredOrders } from '../../../../src/view/unit-controls/orders/answered.js';
 import { createUnitOrderController } from '../../../../src/view/unit-controls/orders/controller.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 
 /**
  * The right-click ladder over an own building. A construction site is hired into by the rules of the
@@ -126,7 +126,7 @@ async function pressRightClick(
   const flashed: [number, TargetFlashTone][] = [];
   const snapshot = sim.snapshot();
   const pickable: Pickable = { ref: building, x: 0, y: 0 };
-  const targets: UnitTargets = {
+  const targets = withPointHits({
     owned: (kind) => (kind === 'building' && owned ? [pickable] : []),
     buildings: () => [pickable],
     enemies: () => [],
@@ -138,7 +138,7 @@ async function pressRightClick(
     wildlife: () => [],
     claimableLivestock: () => [],
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
-  };
+  });
   const controller = createUnitOrderController({
     answered: createAnsweredOrders(),
     selected: () => new Set<number>(settlers),
@@ -269,7 +269,7 @@ describe('right-clicking a construction site', () => {
       createUnitOrderController({
         answered: createAnsweredOrders(),
         selected: () => new Set<number>([builder, idle]),
-        targets: {
+        targets: withPointHits({
           owned: (kind) => (kind === 'roadsite' ? [{ ref: road, x: 0, y: 0 }] : []),
           buildings: () => [],
           enemies: () => [],
@@ -281,7 +281,7 @@ describe('right-clicking a construction site', () => {
           wildlife: () => [],
           claimableLivestock: () => [],
           ownedSettlersIn: () => [builder, idle].map((ref) => ({ ref, x: 0, y: 0 })),
-        },
+        }),
         snapshot: (): WorldSnapshot => snapshot,
         content: sim.content,
         mapSize: { width: 16, height: 16 },

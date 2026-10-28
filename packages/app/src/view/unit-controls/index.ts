@@ -39,6 +39,8 @@ import { createUnitChrome } from './panels/chrome.js';
 import { type EquipPickController, mountEquipPicker } from './panels/equip-picker.js';
 import { pickCursor } from './pick-cursor.js';
 import { createPickModeController, pickPressCue } from './pick-mode.js';
+import { type RightClickContext, rightClickHitAt, rightClickMods } from './right-click/context.js';
+import { resolveRightClick } from './right-click/press.js';
 import { createUnitSelection } from './selection.js';
 import { createSelectionCursor } from './selection-cursor.js';
 import { createSelectionVoice } from './selection-voice.js';
@@ -277,12 +279,6 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     pickMode.arm({ kind: 'attack-move', units, vehicles });
   };
 
-  /** The selection holds own ships and no settler but a ship's own commander: a right-click with the
-   *  work-flag chord docks them. */
-  const shipsOnly = (): boolean =>
-    vehicleOrders.rightClickShips().length > 0 &&
-    (vehicleOrders.selectedVehicle() !== null || unitTargets.ownedSettlersIn(selection.ids()).length === 0);
-
   /** Arm the dock pick for the ships the selection docks: the one selected ship, or a group's; a group
    *  past the order cap is told so. */
   const armDock = (): boolean => {
@@ -414,44 +410,68 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       if (pickCue !== null) cue(pickCue);
       return;
     }
-    // A selection of ships alone takes a Ctrl/Cmd right-click as its dock-and-land, not a work flag.
-    if (matchesMouseBinding(e, opts.bindings.workFlagOrder) && !(e.button === 2 && shipsOnly())) {
+    const workFlag = matchesMouseBinding(e, opts.bindings.workFlagOrder);
+    if (e.button === 2) {
+      rightPress(e, workFlag);
+      return;
+    }
+    if (workFlag) {
       if (orders.issueSetWorkFlagAt(e)) cue('confirm');
       return;
     }
-    if (e.button === 2) {
-      const w = toWorld(e.clientX, e.clientY);
-      const marker = clickHits.doorMarkerAt(w.x, w.y);
-      if (marker?.kind === 'settler') {
-        // The marker stands for the person inside, so it takes the right click the figure would.
-        applySelection([marker.ref], false);
+    if (e.button !== 0) return; // middle belongs to the camera controller's pan
+    marquee.begin(e.clientX, e.clientY);
+  };
+
+  const rightClickContext = (): RightClickContext => ({
+    snapshot: opts.snapshot(),
+    content: opts.content,
+    viewer: opts.viewer,
+    asks: {
+      tradeHouse: opts.askAttachTradeHouse !== undefined,
+      equip: opts.requestEquipPicks !== undefined,
+      mooring: opts.askMooring !== undefined,
+      attach: opts.askAttachToVehicle !== undefined,
+      formation: opts.requestFormationSlots !== undefined,
+    },
+  });
+
+  const rightPress = (e: MouseEvent, workFlag: boolean): void => {
+    const w = toWorld(e.clientX, e.clientY);
+    const plan = resolveRightClick(rightClickContext(), {
+      hit: rightClickHitAt(unitTargets, w, opts.elevation),
+      doorMarker: clickHits.doorMarkerAt(w.x, w.y),
+      selected: selection.ids(),
+      settlers: unitTargets.ownedSettlersIn(selection.ids()),
+      mods: rightClickMods(e),
+      workFlag,
+    });
+    switch (plan.kind) {
+      case 'workFlag':
+        if (orders.issueSetWorkFlagAt(e)) cue('confirm');
+        return;
+      case 'doorSettler':
+        applySelection([plan.settler], false);
         chrome.actions().open({ x: e.clientX, y: e.clientY });
         cue('confirm');
-      } else {
-        // Refuse a whole mixed gesture before either its settlers or vehicles submit anything.
-        if (
-          pickTopAt(unitTargets.owned('settler'), w.x, w.y) === null &&
-          [...selection.ids()].filter(isUnit).length > MAX_UNIT_ORDER_MEMBERS
-        ) {
-          refuseOrderLimit();
-          return;
-        }
+        return;
+      case 'orderLimit':
+        refuseOrderLimit();
+        return;
+      case 'attach':
+      case 'orders': {
         // Settlers the vehicle under the cursor refuses take the usual right-click once it answered.
-        const onBuilding = marker?.kind === 'building' ? marker.ref : null;
         const press: RightClickPress = {
           clientX: e.clientX,
           clientY: e.clientY,
           world: w,
           selected: new Set(selection.ids()),
         };
-        const fallback = replayed(press, () => rightClickOrders(e, onBuilding, press));
-        if (vehicleOrders.issueAttachSelected(e, fallback)) cue('confirm');
-        else if (rightClickOrders(e, onBuilding, press)) cue('confirm');
+        const fallback = replayed(press, () => rightClickOrders(e, plan.onBuilding, press));
+        if (plan.kind === 'attach' && vehicleOrders.issueAttachSelected(e, fallback)) cue('confirm');
+        else if (rightClickOrders(e, plan.onBuilding, press)) cue('confirm');
       }
-      return;
     }
-    if (e.button !== 0) return; // middle belongs to the camera controller's pan
-    marquee.begin(e.clientX, e.clientY);
   };
 
   /** Settlers and vehicles selected together both take the click. One that picks an own settler replaces

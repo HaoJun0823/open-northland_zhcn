@@ -7,7 +7,7 @@ import { sandboxContent } from '../../../../src/game/sandbox/index.js';
 import type { Pickable } from '../../../../src/view/picking.js';
 import { createAnsweredOrders } from '../../../../src/view/unit-controls/orders/answered.js';
 import { createUnitOrderController } from '../../../../src/view/unit-controls/orders/controller.js';
-import type { UnitTargets } from '../../../../src/view/unit-controls/unit-targets.js';
+import { withPointHits } from '../../../support/point-hits.js';
 
 /**
  * Right-clicking a chest with settlers selected sends each one that may open it - the original's default
@@ -45,7 +45,7 @@ function rightClick(
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
   const pickable: Pickable = { ref: chest, x: 0, y: 0, kind: 'chest' };
-  const targets: UnitTargets = {
+  const targets = withPointHits({
     owned: () => [],
     buildings: () => [],
     enemies: () => [],
@@ -57,7 +57,7 @@ function rightClick(
     wildlife: () => [],
     claimableLivestock: () => [],
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
-  };
+  });
   createUnitOrderController({
     answered: createAnsweredOrders(),
     selected: () => new Set<number>(settlers),

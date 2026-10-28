@@ -126,13 +126,11 @@ export {
   experienceRepeats,
   rawXpForRepeats,
   requirementRepeats,
-  scoutVisionBonusNodes,
   weaponClassHits,
   withFightExperience,
 } from './progression/bonus.js';
 export {
   FIGHT_EXPERIENCE_TYPE,
-  SCOUT_EXPERIENCE_TYPE,
   SOLDIER_GENERAL_EXPERIENCE_TYPE,
   startingExperience,
   TRAINING_EXPERIENCE_TYPE,
@@ -231,4 +229,3 @@ export {
   vehicleStockGood,
 } from './vehicles/index.js';
 export { cellOfNode } from './vision/gates.js';
-export { SCOUT_VISION_NODES } from './vision/system.js';

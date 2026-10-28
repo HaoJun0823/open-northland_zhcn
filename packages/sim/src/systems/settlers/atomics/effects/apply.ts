@@ -17,7 +17,6 @@ import { wearWornTool } from '../../../equipment/index.js';
 import {
   grantCarryExperience,
   grantProfessionExperience,
-  grantScoutExperience,
   grantWorkExperience,
 } from '../../../progression/index.js';
 import { isStrokeCountedAtomic } from '../../../readviews/index.js';
@@ -120,8 +119,7 @@ export function applyEffect(
       const terrain = ctx.terrain;
       const player = ownerOf(world, settler);
       if (terrain === undefined || player === undefined) return;
-      const post = erectSignpost(world, ctx, terrain, terrain.nodeAt(effect.x, effect.y), player);
-      if (post !== null) grantScoutExperience(world, ctx.content, settler);
+      erectSignpost(world, ctx, terrain, terrain.nodeAt(effect.x, effect.y), player);
       return;
     }
     case 'openChest':

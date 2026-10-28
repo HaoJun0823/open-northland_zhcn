@@ -1402,7 +1402,7 @@ export const enGame = {
             few: '{count} in the barracks',
             many: '{count} in the barracks',
           },
-          tip: 'Recruits sent to the barracks: on their way or already training.',
+          tip: 'Recruits sent to the barracks: on their way, queued or already training.',
         },
         fetchingWeapon: {
           counted: {

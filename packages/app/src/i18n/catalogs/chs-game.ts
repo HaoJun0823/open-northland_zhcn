@@ -1366,7 +1366,7 @@ export const chsGame = {
             few: '{count} 人在兵营',
             many: '{count} 人在兵营',
           },
-          tip: '已派往兵营的新兵：在路上或正在训练。',
+          tip: '已派往兵营的新兵：在路上、排队中或正在训练。',
         },
         fetchingWeapon: {
           counted: {

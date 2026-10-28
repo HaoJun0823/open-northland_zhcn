@@ -1381,7 +1381,7 @@ export const plGame = {
         },
         drilling: {
           counted: { one: '{count} w koszarach', few: '{count} w koszarach', many: '{count} w koszarach' },
-          tip: 'Rekruci wysłani do koszar: w drodze albo już na szkoleniu.',
+          tip: 'Rekruci wysłani do koszar: w drodze, w kolejce albo już na szkoleniu.',
         },
         fetchingWeapon: {
           counted: {

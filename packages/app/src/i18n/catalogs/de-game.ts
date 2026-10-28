@@ -1532,7 +1532,7 @@ export const deGame = {
             few: '{count} in der Kaserne',
             many: '{count} in der Kaserne',
           },
-          tip: 'Zur Kaserne geschickte Rekruten: unterwegs oder bereits in Ausbildung.',
+          tip: 'Zur Kaserne geschickte Rekruten: unterwegs, in der Warteschlange oder bereits in Ausbildung.',
         },
         fetchingWeapon: {
           counted: {

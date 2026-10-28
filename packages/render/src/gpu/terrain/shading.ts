@@ -20,7 +20,6 @@ import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page
 import {
   WATER_FRAGMENT_GLSL,
   WATER_SHIMMER_GAIN,
-  WATER_SPARKLE_GAIN,
   WATER_VERTEX_GLSL,
 } from './water-shading.js';
 
@@ -114,9 +113,6 @@ const TERRAIN_SAMPLE = `
   }
 `;
 
-/** Floor on the world px a screen px spans, keeping the sparkle's px-per-world finite. */
-const MIN_WORLD_PER_PX = 0.0001;
-
 // Water depth shading. The maps split water into the painter's shallow and deep pattern families, each
 // with its own texture (data/terrain/water.ts); the amounts deepening both, the deep family more,
 // are an approximation tuned by eye and multiply the lane brightness only. The tints and the
@@ -125,10 +121,6 @@ const MIN_WORLD_PER_PX = 0.0001;
 const WATER_SHALLOW_DARKEN = 0.12;
 /** Brightness loss on deep water. */
 const WATER_DEEP_DARKEN = 0.18;
-/** The shallows' share of the deep water's sparkle. */
-const WATER_SHALLOW_SPARKLE = 0.8;
-/** A sparkle's colour at full strength: a pale sky blue, not white. */
-const WATER_SPARKLE_COLOUR = [0.86, 0.95, 1.0] as const;
 /** RGB multiplier on shallow water: a mild pull from green toward blue. */
 const WATER_SHALLOW_TINT = [0.86, 1.0, 1.126] as const;
 /** RGB multiplier on deep water: a stronger pull toward blue than the shallows take. */
@@ -232,15 +224,15 @@ ${pageSamplerDeclarations()}
   }
 
   // cover is the weather cover already kept off the water; zero while the cover is off.
-  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near, float pxPerWorld) {
+  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near) {
     float lane = texture(uBrightnessTex, vBrightnessUV).r * ${(255 / BRIGHTNESS_NEUTRAL).toFixed(8)};
     // Water shimmer: travelling light and shade on the surface; vWave is 0 on land, which skips it.
     if (vWave > 0.0) lane *= 1.0 + vWave * uWave.y * ${WATER_SHIMMER_GAIN.toFixed(4)} * waterShimmer(vWorld);
     // Every enhanced-water term sits under its uniform, so the baseline pays for none of it. No
-    // derivative is taken inside a gate. Water depth: shallows read darker, deep water darker still, and
-    // sparkles flash on rough water, dimmer on the shallows. vWater = (water fraction, deep fraction),
-    // zero on land paint and at land nodes, so it fades out across the coast triangle. A fragment with no
-    // water takes neither the depth shading nor the colour grade, both of which are identities there.
+    // derivative is taken inside a gate. Water depth: shallows read darker, deep water darker still.
+    // vWater = (water fraction, deep fraction), zero on land paint and at land nodes, so it fades out
+    // across the coast triangle. A fragment with no water takes neither the depth shading nor the colour
+    // grade, both of which are identities there.
     if (uEnhancedWater > 0.5 && vWater.x > 0.0) {
       float shallow = vWater.x - vWater.y;
       float deep = vWater.y;
@@ -251,12 +243,6 @@ ${pageSamplerDeclarations()}
       vec3 tint = mix(vec3(1.0), ${glslVec3(WATER_SHALLOW_TINT)}, shallow)
         * mix(vec3(1.0), ${glslVec3(WATER_DEEP_TINT)}, deep);
       texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
-      // A sparkle blends toward the sky's colour rather than brightening, which on dark water barely shows.
-      if (vWave > 0.0) {
-        float sparkle = waterSparkle(vWorld, pxPerWorld) * uWave.y * mix(0.5, 1.0, clamp(vWave, 0.0, 1.0))
-          * (${WATER_SHALLOW_SPARKLE.toFixed(4)} * shallow + deep);
-        texel.rgb = mix(texel.rgb, ${glslVec3(WATER_SPARKLE_COLOUR)} * texel.a, sparkle * ${WATER_SPARKLE_GAIN.toFixed(4)});
-      }
     }
     // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
     if (uCover > 0.5 && cover.r + cover.g + cover.b > 0.0)
@@ -274,11 +260,10 @@ ${pageSamplerDeclarations()}
     }
     vec2 uvDx = dFdx(vUV);
     vec2 uvDy = dFdy(vUV);
-    float pxPerWorld = 1.0 / max(length(fwidth(vWorld)), ${MIN_WORLD_PER_PX.toFixed(4)});
     vec4 texel;
     vec3 near;
 ${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, uvDx, uvDy, near);')}
-    finalColor = shadeGround(texel, cover, near, pxPerWorld);
+    finalColor = shadeGround(texel, cover, near);
   }
 `;
 

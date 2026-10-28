@@ -27,9 +27,8 @@ const SWELLS: readonly { readonly wave: WaterWave; readonly weight: number }[] =
   { wave: { dirX: 1, dirY: -1.4, wavelengthPx: 310, cyclesPerLoop: 127 }, weight: 0.32 },
   { wave: { dirX: -0.35, dirY: 1, wavelengthPx: 170, cyclesPerLoop: 223 }, weight: 0.18 },
 ];
-/** Peak vertical bob (world px) at full wave amplitude. Kept small: a taller bob shears the painted
- *  texels across a 34 x 19 px triangle and reads as a rubber sheet. */
-const WAVE_AMPLITUDE_PX = 1.2;
+/** Peak vertical bob (world px) at full wave amplitude. */
+const WAVE_AMPLITUDE_PX = 1.6;
 
 /** The enhanced sea state: two broad slow waves (about 35 and 46 s) whose product drifts calm and rough
  *  patches across the water. */
@@ -37,7 +36,7 @@ const SEA_STATE: readonly [WaterWave, WaterWave] = [
   { dirX: 1, dirY: 0.4, wavelengthPx: 1100, cyclesPerLoop: 17 },
   { dirX: -0.5, dirY: 1, wavelengthPx: 1500, cyclesPerLoop: 13 },
 ];
-/** The calmest patch keeps this share of the full swell, shimmer and sparkle. */
+/** The calmest patch keeps this share of the full swell and shimmer. */
 const SEA_STATE_CALM = 0.2;
 
 /** Peak brightness modulation of the water shimmer (fraction of the lane multiplier). */
@@ -66,29 +65,7 @@ const WARP_STRENGTH = 0.6;
 /** The detail octave's share of the shimmer noise; it samples the body at twice the frequency. */
 const SHIMMER_DETAIL_SHARE = 0.35;
 /** Contrast lifting the averaged noise, which crowds 0.5, to a full -1..1 swing. */
-const SHIMMER_CONTRAST = 3;
-
-/**
- * Sparkles: a grid of cells, each lighting a short-lived point at a hashed spot and moment, rather than a
- * band sweeping the sea on a fixed period. The ground shader weights them by depth and sea state.
- */
-const SPARKLE = {
-  /** Cell edge in world px; one candidate point per cell. */
-  cellPx: 9,
-  /** Share of cells that sparkle at all. */
-  density: 0.25,
-  /** Shortest and longest cycles per loop a cell flashes at: periods of about 1.5 to 4 s. */
-  minCycles: 150,
-  maxCycles: 400,
-  /** Share of a cell's period the flash lasts. */
-  life: 0.15,
-  /** Point radius in world px, widened to one screen px when zoomed out so it never flickers sub-pixel. */
-  radiusPx: 1.4,
-} as const;
-/** How far a sparkle at its peak blends the water toward the sparkle colour. */
-export const WATER_SPARKLE_GAIN = 1;
-/** Hash salts so one cell's spot, moment, rate and presence are uncorrelated. */
-const SPARKLE_SALTS = { spotX: 11, spotY: 23, phase: 37, rate: 53, presence: 71 } as const;
+const SHIMMER_CONTRAST = 5;
 
 /** GLSL float literal. */
 const f = (value: number): string => value.toFixed(8);
@@ -126,8 +103,8 @@ export const WATER_VERTEX_GLSL = `
 /** Needs `uWave`, `uEnhancedWater` and `precision highp int` for the hash. */
 export const WATER_FRAGMENT_GLSL = `
   // An integer hash to [0, 1].
-  float waterHash(ivec2 cell, int salt) {
-    uint h = uint(cell.x) * 0x8da6b343u ^ uint(cell.y) * 0xd8163841u ^ uint(salt) * 0xcb1ab31fu;
+  float waterHash(ivec2 cell) {
+    uint h = uint(cell.x) * 0x8da6b343u ^ uint(cell.y) * 0xd8163841u;
     h = (h ^ (h >> 15u)) * 0x2c1b3c6du;
     h ^= h >> 12u;
     return float(h & 0xffffu) / 65535.0;
@@ -140,8 +117,8 @@ export const WATER_FRAGMENT_GLSL = `
     t = t * t * (3.0 - 2.0 * t);
     ivec2 a = ivec2(mod(i, period));
     ivec2 b = ivec2(mod(i + 1.0, period));
-    return mix(mix(waterHash(a, 0), waterHash(ivec2(b.x, a.y), 0), t.x),
-      mix(waterHash(ivec2(a.x, b.y), 0), waterHash(b, 0), t.x), t.y);
+    return mix(mix(waterHash(a), waterHash(ivec2(b.x, a.y)), t.x),
+      mix(waterHash(ivec2(a.x, b.y)), waterHash(b), t.x), t.y);
   }
 
   // The shimmer, -1..1: one travelling glint on the baseline water, domain-warped drifting noise on the
@@ -155,19 +132,5 @@ export const WATER_FRAGMENT_GLSL = `
       return clamp((n - 0.5) * ${f(SHIMMER_CONTRAST)}, -1.0, 1.0);
     }
     return sin(${wavePhase(BASELINE_SHIMMER, 'p', 'uWave.x')});
-  }
-
-  // A sparkle's brightness at p, 0..1. pxPerWorld is screen px per world px.
-  float waterSparkle(vec2 p, float pxPerWorld) {
-    vec2 grid = p / ${f(SPARKLE.cellPx)};
-    ivec2 cell = ivec2(floor(grid));
-    if (waterHash(cell, ${SPARKLE_SALTS.presence}) > ${f(SPARKLE.density)}) return 0.0;
-    float cycles = floor(mix(${f(SPARKLE.minCycles)}, ${f(SPARKLE.maxCycles)}, waterHash(cell, ${SPARKLE_SALTS.rate})));
-    float age = fract(uWave.x * cycles / ${f(WAVE_LOOP_SECONDS)} + waterHash(cell, ${SPARKLE_SALTS.phase}));
-    if (age > ${f(SPARKLE.life)}) return 0.0;
-    vec2 spot = floor(grid) + 0.2 + 0.6 * vec2(waterHash(cell, ${SPARKLE_SALTS.spotX}), waterHash(cell, ${SPARKLE_SALTS.spotY}));
-    float radius = max(${f(SPARKLE.radiusPx)}, 1.0 / pxPerWorld);
-    float reach = 1.0 - length((grid - spot) * ${f(SPARKLE.cellPx)}) / radius;
-    return smoothstep(0.0, 0.5, reach) * sin(age / ${f(SPARKLE.life)} * ${f(Math.PI)});
   }
 `;

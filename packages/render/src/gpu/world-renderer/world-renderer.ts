@@ -1,6 +1,6 @@
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import { type Application, Container, type ICanvas } from 'pixi.js';
-import type { GhostSource } from '../../data/fog/index.js';
+import { type GhostSource, type SeenRoadNetwork, SeenRoads } from '../../data/fog/index.js';
 import type { LightGrade } from '../../data/lighting/types.js';
 import { cameraViewport, snapCameraToDevicePixels } from '../../data/projection/index.js';
 import {
@@ -125,8 +125,10 @@ export class WorldRenderer {
   private readonly upscale: WorldUpscale | null;
 
   private readonly viewSmoothing: boolean;
-  /** What the ground last drew of the road network. */
+  /** The live road network's changes, and what the viewer has seen of it, which the ground draws. */
   private readonly roadShards = new RoadShardTracker();
+  private seenRoads = new SeenRoads(0);
+  private roadSight = -1;
   private readonly playerColourOf: ((player: number) => number) | undefined;
   private enhancements: WorldEnhancements = BASELINE_ENHANCEMENTS;
   private selectionStyle: SelectionStyle = DEFAULT_SELECTION_STYLE;
@@ -281,6 +283,8 @@ export class WorldRenderer {
 
   /** Call once per map, and again after a terrain edit. */
   setTerrain(terrain: SceneTerrain, textures?: TerrainTextureSet): void {
+    // A terrain edit keeps the memory; only another map's lattice starts it over.
+    if (this.seenRoads.nodeWidth !== 2 * terrain.width) this.seenRoads = new SeenRoads(2 * terrain.width);
     this.elevation = makeElevationField(terrain.elevation, terrain.width, terrain.height);
     this.terrain.set(terrain, textures, this.elevation);
     this.weatherGround.setTerrain({
@@ -321,10 +325,22 @@ export class WorldRenderer {
     return this.weather;
   }
 
-  /** Hand the terrain the roads laid since the last frame: one compare per frame, a diff per changed shard. */
+  /** Hand the terrain the roads the viewer saw change since the last frame: one compare per frame, a
+   *  diff per changed shard, and a recheck of the unseen changes when the sight moves. */
   private syncRoads(snapshot: WorldSnapshot): void {
-    const changes = this.roadShards.update(snapshot);
+    const sight = this.fog.sightRevision;
+    const changes = this.seenRoads.update(
+      this.roadShards.update(snapshot),
+      (hx, hy) => this.fog.seesNode(hx, hy),
+      sight !== this.roadSight,
+    );
+    this.roadSight = sight;
     if (changes !== null) this.terrain.updateRoads(changes);
+  }
+
+  /** The road network as the viewer last saw it, which the minimap draws. */
+  get seenRoadNetwork(): SeenRoadNetwork {
+    return this.seenRoads;
   }
 
   /** The script's local ground tints: RGB multipliers per half-cell node id, 3 per node. */

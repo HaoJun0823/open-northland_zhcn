@@ -972,6 +972,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       isFighterJob: (jobType) => systems.isFighterJob(host.content, jobType),
       isHeroJob: (jobType) => systems.isHeroJob(host.content, jobType),
       fogMemory: deps.renderer.fogMemory,
+      roads: deps.renderer.seenRoadNetwork,
       viewer: () => viewer.seat(),
       stanceToward: (owner) => host.diplomacyStance(viewerPlayer(), owner),
       uiscale,

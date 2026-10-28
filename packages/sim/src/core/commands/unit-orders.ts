@@ -339,6 +339,9 @@ export type UnitOrderCommand =
       readonly vehicle: Entity;
       readonly x: number;
       readonly y: number;
+      /** The ring node to lie at, tried before the others: a fleet told to dock along one shore names
+       *  a node per ship so the hulls lie apart. Absent, the ring order alone decides. */
+      readonly dock?: { readonly x: number; readonly y: number };
       /** As `moveVehicle`'s; the shore point is judged when the order starts. */
       readonly queued?: boolean;
     }

@@ -416,6 +416,11 @@ export const plContent = {
       summary:
         'Obsadzony statek na północnym krańcu długiego kanału dostaje rozkaz przybicia do brzegu na jego południowym końcu, dwa razy dalej niż dawny zasięg wehikułów. Opływa wyspę, która zagradza prostą drogę, przepływa cały kanał i cumuje przy wskazanym brzegu.',
     },
+    'vehicle-dock-fleet': {
+      title: 'Flota przy postrzępionym brzegu',
+      summary:
+        'Pięć obsadzonych statków stoi na morzu przy brzegu z zatoką i przylądkiem. Zaznacz jeden albo kilka i kliknij prawym przy brzegu albo użyj przycisku cumowania: zaokrąglona poświata pokazuje brzeg, przy którym można zacumować, kule pod kursorem pokazują, gdzie przybije każdy statek, a flota rozkłada się wzdłuż brzegu z wolną wodą między kadłubami.',
+    },
     'ship-wakes': {
       title: 'Piana wokół statków',
       summary:

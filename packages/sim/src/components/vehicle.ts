@@ -85,6 +85,8 @@ export const Vehicle = defineComponent<{
   /** The point an order holds while the vehicle boards its crew, a goto under `waitsForHuman` or a
    *  dock under `docks`; the drive starts once everyone is inside. */
   heldGoal: HalfCellNode | null;
+  /** The dock node a held dock order names for the ship to lie at, or null for its ring's first. */
+  heldDock: HalfCellNode | null;
   stance: VehicleStance;
   /** The position a holding or defending siege vehicle scans around: where it stood when its stance was
    *  set or its last goto ended. A chase, ordered or scanned, leaves it behind (original behavior).

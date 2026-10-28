@@ -397,7 +397,10 @@ distance, not the door ring alone (approximation). `dockVehicle` (`systems/vehic
 point under the `docks` task while the crew boards, the twin of the goto's `waitsForHuman` hold; a
 ring node is open when the ship's walk-block admits it, which adds other vehicles' cells to the size
 class test, and lies in a part of the sea the ship can sail into, however far (the deviation of
-"Movement"); a ship already on a ring node moors in place and drops any drive under way (approximation: the original ends the order with nothing set); no ring node raises `vehicleNoPath` whether or not the commander is inside; the
+"Movement"); an order may name one ring node (`dock`), tried before the ring order, which the
+interface does for every ship of a fleet docked in one click so the hulls lie apart, and a docking
+ship whose route is cut while a vehicle under way crosses its dock node waits for it instead of
+giving up (deviations for fleets; the original docks one ship per order); a ship already on a ring node moors in place and drops any drive under way (approximation: the original ends the order with nothing set); no ring node raises `vehicleNoPath` whether or not the commander is inside; the
 ship moors on the arrival tick with a `vehicleDocked` event (approximation: the tribe binds atomic 84
 to a 12-tick dock clip, which is not played); a goto clears the pending mooring point; any drive that
 was no dock and ends with the commander not inside moors the ship on the first open land node of its

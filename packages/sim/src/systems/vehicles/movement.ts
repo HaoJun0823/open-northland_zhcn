@@ -385,10 +385,11 @@ export function startVehicleDrive(
  *  boarding is consumed by the drive that replaces it. */
 function castOff(world: World, vehicle: Entity): void {
   const state = world.get(vehicle, Vehicle);
-  if (!state.moored && state.heldGoal === null) return;
+  if (!state.moored && state.heldGoal === null && state.heldDock === null) return;
   const live = world.mut(vehicle, Vehicle);
   live.moored = false;
   live.heldGoal = null;
+  live.heldDock = null;
 }
 
 /** Hand `vehicle` `route` to `goal`: a drive starts, or one under way finishes its leg, a ship keeping
@@ -496,7 +497,9 @@ function otherVehicleCovers(
  * vehicle closed, on the way to a goal no other vehicle took, is entered as it stands, as the original's
  * vehicles pass each other (`enter`, with no search). Otherwise the drive re-routes to its goal, moved
  * beside it when another vehicle now stands there ({@link freeGoal}): `rerouted` starts the fresh route
- * on the next tick, `none` gives up.
+ * on the next tick, `none` gives up. A docking ship keeps its dock node, so while a vehicle under way
+ * crosses that node it `waits` where it is instead of giving up on a goal the crossing frees again
+ * (this build's choice: a fleet's ships cross each other's dock nodes on the way to their own).
  */
 function rerouteAtBlock(
   world: World,
@@ -507,12 +510,35 @@ function rerouteAtBlock(
   aimed: HalfCellNode,
   from: NodeId,
   next: NodeId,
-): 'enter' | 'rerouted' | 'none' {
+): 'enter' | 'rerouted' | 'waits' | 'none' {
   const aimedNode = terrain.nodeAtClamped(aimed.hx, aimed.hy);
   const goal = freeGoal(world, ctx, terrain, e, aimedNode);
   const ground = vehicleGroundBlocks(world, ctx, terrain, e, type);
   if (goal === aimedNode && !stepClosed(terrain, ground, vehicleTraversal(type), from, next)) return 'enter';
-  return startVehicleDrive(world, ctx, terrain, e, goal) ? 'rerouted' : 'none';
+  if (startVehicleDrive(world, ctx, terrain, e, goal)) return 'rerouted';
+  const docking = world.get(e, Vehicle).task === 'docks';
+  return docking && movingVehicleCovers(world, ctx, terrain, e, goal) ? 'waits' : 'none';
+}
+
+/** Whether a vehicle other than `vehicle` that is under way covers `node` with its disc. One bound for a
+ *  goal `vehicle` itself covers is waiting on it in turn, so it does not count: the two would wait for
+ *  each other for good. A walk over the driving vehicles, run only when a docking ship's route is
+ *  blocked. */
+function movingVehicleCovers(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  node: NodeId,
+): boolean {
+  const own = vehicleFootprintNodes(world, ctx.content, terrain, vehicle);
+  for (const other of world.query(Vehicle, VehicleDrive)) {
+    if (other === vehicle || !vehicleFootprintNodes(world, ctx.content, terrain, other).includes(node))
+      continue;
+    const { goal } = world.get(other, VehicleDrive);
+    if (!own.includes(terrain.nodeAtClamped(goal.hx, goal.hy))) return true;
+  }
+  return false;
 }
 
 /**
@@ -834,6 +860,7 @@ export function sendVehicleTo(
     }
     const live = world.mut(vehicle, Vehicle);
     live.heldGoal = nodeOf(terrain, goal);
+    live.heldDock = null;
     live.task = 'waitsForHuman';
     // Held for the boarding to drive on, so a route that may cross a whole sea is found once; a drive
     // still under way keeps its own.
@@ -889,7 +916,12 @@ export function endMarch(world: World, e: Entity): void {
 /** Drop a goto or dock point held for the crew, and the route a held goto was judged by; a drive under
  *  way keeps its own. */
 export function dropHeldGoal(world: World, e: Entity): void {
-  if (world.get(e, Vehicle).heldGoal !== null) world.mut(e, Vehicle).heldGoal = null;
+  const held = world.get(e, Vehicle);
+  if (held.heldGoal !== null || held.heldDock !== null) {
+    const live = world.mut(e, Vehicle);
+    live.heldGoal = null;
+    live.heldDock = null;
+  }
   if (!world.has(e, VehicleDrive)) world.remove(e, VehicleRoute);
 }
 

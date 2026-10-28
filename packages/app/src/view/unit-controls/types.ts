@@ -39,7 +39,9 @@ import type { FigureFrames } from '../../hud/figures/figure-frames.js';
 import type { KeyBindings } from '../../hud/keybindings.js';
 import type { ResidentRow } from '../../hud/tool-panel/residents/rows.js';
 import type { PresentationPack } from '../../presentation/pack.js';
+import type { Tile } from '../picking.js';
 import type { ControlGroupMembers } from './control-groups.js';
+import type { Berth, MooringRule } from './orders/berths.js';
 import type { OverviewPress } from './orders/overview.js';
 
 /** The sim's technology read (`SessionHost.unlockStatus`) as its last answer; undefined until one
@@ -134,7 +136,9 @@ export interface UnitControlsOptions {
   readonly canAttachToVehicle?: (settler: number, vehicle: number) => boolean;
   /** The attach and mooring rules asked as a click lands; absent, the sim alone refuses. */
   readonly askAttachToVehicle?: (settler: number, vehicle: number) => Promise<boolean>;
-  readonly askMoorAt?: (vehicle: number, x: number, y: number) => Promise<boolean>;
+  readonly askMooring?: (vehicle: number) => Promise<MooringRule | null>;
+  /** The mooring rule's last answer, which the berth preview under the cursor reads. */
+  readonly mooring?: (vehicle: number) => MooringRule | null | undefined;
   readonly boundsOf?: (ref: number) => EntityBounds | undefined;
   readonly pixelHitOf?: (ref: number, wx: number, wy: number) => boolean | undefined;
   /** Whether the point is on a claimed wall or road site's work flag; absent, that flag is the site's. */
@@ -213,6 +217,9 @@ export interface UnitControls {
   readonly claimsEscape: () => boolean;
   /** The ship whose dock pick is armed, whose mooring spots the frame loop washes onto the map. */
   readonly dockPickVehicle: () => number | null;
+  /** Where a dock click at `tile` would moor the ships it orders: the armed dock pick's ship, or the
+   *  selected ships a right-click docks. Empty where it docks nothing. */
+  readonly berthPreview: (tile: Tile) => readonly Berth[];
   readonly tick: (snapshot: WorldSnapshot) => void;
   /** Once a frame, after `tick`: the details panel's wells show their people live; `alpha` is the
    *  frame's inter-tick fraction. */

@@ -313,7 +313,10 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   marry: { required: { entity: 'integer' } },
   moveUnit: { required: { entity: 'integer', ...NODE }, optional: QUEUED },
   moveVehicle: { required: { vehicle: 'integer', ...NODE }, optional: { attackMove: 'boolean', ...QUEUED } },
-  dockVehicle: { required: { vehicle: 'integer', ...NODE }, optional: QUEUED },
+  dockVehicle: {
+    required: { vehicle: 'integer', ...NODE },
+    optional: { ...QUEUED, dock: { fields: { required: NODE } } },
+  },
   renameSettler: { required: { entity: 'integer', name: { string: SETTLER_NAME_MAX_CHARS } } },
   openChest: { required: { entity: 'integer', chest: 'integer' }, optional: QUEUED },
   claimAnimal: { required: { entity: 'integer', animal: 'integer' }, optional: QUEUED },

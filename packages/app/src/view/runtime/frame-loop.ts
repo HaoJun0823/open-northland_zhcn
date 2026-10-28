@@ -372,6 +372,13 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       roadActive: toolPanel.controller.roadActive(),
       signpostActive: controls.signpostPlacementActive(),
       dockVehicle: controls.dockPickVehicle(),
+      // A pointer over the HUD aims no dock click.
+      berthsAt: (tile) =>
+        pointer !== null && controls.claimsPointer(pointer.clientX, pointer.clientY)
+          ? []
+          : controls
+              .berthPreview(tile)
+              .map((berth) => ({ col: berth.col, row: berth.row, hull: berth.dock })),
       flagActive: controls.workFlagPlacementActive(),
       buildingOverlay,
       signpostOverlay,

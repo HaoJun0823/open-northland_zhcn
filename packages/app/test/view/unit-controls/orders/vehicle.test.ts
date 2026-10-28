@@ -3,6 +3,7 @@ import {
   type Command,
   type Entity,
   fx,
+  hexDistanceBetween,
   MAX_UNIT_ORDER_MEMBERS,
   type PlayerCommand,
   type WorldSnapshot,
@@ -18,6 +19,7 @@ import {
 import { fixedViewerSeat } from '../../../../src/game/viewer-seat.js';
 import { type Pickable, type Tile, worldToTile } from '../../../../src/view/picking.js';
 import { createAnsweredOrders } from '../../../../src/view/unit-controls/orders/answered.js';
+import type { MooringRule } from '../../../../src/view/unit-controls/orders/berths.js';
 import { createPendingGroundOrders } from '../../../../src/view/unit-controls/orders/pending-ground.js';
 import { issueRingCommand } from '../../../../src/view/unit-controls/orders/ring-commands.js';
 import { createVehicleOrderController } from '../../../../src/view/unit-controls/orders/vehicle.js';
@@ -68,12 +70,13 @@ const vehicle = (
   moored = false,
   passengers: ReadonlyArray<{ entity: number; inside: boolean } | null> = [],
   carrier: number | null = null,
+  standsAt = at(2, 2),
 ): Ent => ({
   id,
   components: {
     Vehicle: { vehicleType, tribe: 1, moored, passengers, vehicles: [], carrier },
     Owner: { player },
-    ...(carrier === null ? { Position: at(2, 2) } : {}), // a carried vehicle stands nowhere on the map
+    ...(carrier === null ? { Position: standsAt } : {}), // a carried vehicle stands nowhere on the map
   },
 });
 
@@ -106,7 +109,16 @@ const WORLD: WorldSnapshot = snapshotOf([
   aboard(CARRIED_COMMANDER, CARRIED_CART),
   vehicle(SHIP, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, true, [{ entity: SHIP_COMMANDER, inside: true }]),
   aboard(SHIP_COMMANDER, SHIP),
-  vehicle(SHIP_AT_SEA, VEHICLE_SHIP_SMALL, HUMAN_PLAYER, false, [{ entity: SEA_COMMANDER, inside: true }]),
+  // Out at sea, clear of the water the moored ship docks in.
+  vehicle(
+    SHIP_AT_SEA,
+    VEHICLE_SHIP_SMALL,
+    HUMAN_PLAYER,
+    false,
+    [{ entity: SEA_COMMANDER, inside: true }],
+    null,
+    at(12, 12),
+  ),
   aboard(SEA_COMMANDER, SHIP_AT_SEA),
   vehicle(ENEMY_CART, VEHICLE_HANDCART, ENEMY_PLAYER),
   {
@@ -163,6 +175,21 @@ function answering<A extends unknown[]>(
   return rule === undefined ? undefined : (...args) => Promise.resolve(rule(...args));
 }
 
+/** A mooring rule as the host answers it: shore where `canMoorAt` says, open water everywhere else. */
+function mooringOf(
+  canMoorAt: Arms['canMoorAt'],
+): ((vehicle: number) => Promise<MooringRule | null>) | undefined {
+  return canMoorAt === undefined ? undefined : (vehicle) => Promise.resolve(shoreRule(vehicle, canMoorAt));
+}
+
+function shoreRule(vehicle: number, canMoorAt: NonNullable<Arms['canMoorAt']>): MooringRule {
+  return {
+    key: 'shore',
+    moors: (x, y) => canMoorAt(vehicle, x, y),
+    docks: (x, y) => !canMoorAt(vehicle, x, y),
+  };
+}
+
 /** Let the answers a click waits on land. */
 const landed = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -181,7 +208,7 @@ function harness(selected: readonly number[], arms: Arms) {
     viewer: fixedViewerSeat(HUMAN_PLAYER),
     toWorld: (x, y) => ({ x, y }),
     enqueue: (command) => issued.push(command),
-    askMoorAt: answering(arms.canMoorAt),
+    askMooring: mooringOf(arms.canMoorAt),
     askAttachToVehicle: answering(arms.canAttachToVehicle),
     markOrder: (node, kind) => marked.push([node, kind]),
     flashTarget: (entity, tone) => flashed.push([entity, tone]),
@@ -258,7 +285,9 @@ describe('vehicle right-click defaults', () => {
     // The order waits on the mooring rule's answer, asked as the click lands.
     expect(shore.issued).toEqual([]);
     await landed();
-    expect(shore.issued).toEqual([{ kind: 'dockVehicle', vehicle: SHIP, x: spot.col, y: spot.row }]);
+    expect(shore.issued).toEqual([
+      { kind: 'dockVehicle', vehicle: SHIP, x: spot.col, y: spot.row, dock: expect.any(Object) },
+    ]);
     const sea = harness([SHIP], { canMoorAt: () => false });
     expect(sea.controller.issueRightClick(rightClick)).toBe(true);
     await landed();
@@ -267,6 +296,21 @@ describe('vehicle right-click defaults', () => {
     const cart = harness([HANDCART], { canMoorAt: () => true });
     expect(cart.controller.issueRightClick(rightClick)).toBe(true);
     expect(cart.issued).toEqual([{ kind: 'moveVehicle', vehicle: HANDCART, x: spot.col, y: spot.row }]);
+  });
+
+  it('docks a group of ships along the shore under the click, each at its own berth apart', async () => {
+    const spot = worldToTile(CLICK.x, CLICK.y);
+    const fleet = harness([SHIP, SHIP_AT_SEA], { canMoorAt: (_vehicle, _x, y) => y === spot.row });
+    expect(fleet.controller.issueRightClick(rightClick)).toBe(true);
+    await landed();
+    const docks = fleet.issued.flatMap((command) =>
+      command.kind === 'dockVehicle' && command.dock !== undefined ? [command] : [],
+    );
+    expect(docks.map((command) => command.vehicle).sort()).toEqual([SHIP, SHIP_AT_SEA]);
+    expect(fleet.issued).toHaveLength(docks.length);
+    const [a, b] = docks.map((command) => command.dock ?? { x: Number.NaN, y: Number.NaN });
+    // Two footprint discs of logicsize 2 and the berth gap between them.
+    expect(hexDistanceBetween(a?.x ?? 0, a?.y ?? 0, b?.x ?? 0, b?.y ?? 0)).toBeGreaterThan(2 * 2 + 4);
   });
 
   it('queues a Shift attack, load or drive behind the current order, alone or in a group', () => {
@@ -297,7 +341,7 @@ describe('vehicle right-click defaults', () => {
 
   /** A ship controller whose first mooring answer is held back until `release`, the rest answering at once. */
   function heldShip() {
-    const late: ((moors: boolean) => void)[] = [];
+    const late: ((rule: MooringRule) => void)[] = [];
     let asked = 0;
     const issued: Command[] = [];
     const pending = createPendingGroundOrders();
@@ -312,10 +356,18 @@ describe('vehicle right-click defaults', () => {
       toWorld: (x, y) => ({ x, y }),
       enqueue: (command) => pending.submit(command, (sent) => issued.push(sent)),
       pendingGroundOrders: pending,
-      askMoorAt: () =>
-        asked++ === 0 ? new Promise<boolean>((resolve) => late.push(resolve)) : Promise.resolve(false),
+      askMooring: (vehicle) =>
+        asked++ === 0
+          ? new Promise<MooringRule>((resolve) => late.push(resolve))
+          : Promise.resolve(shoreRule(vehicle, () => false)),
     });
-    return { controller, issued, release: (moors: boolean) => late[0]?.(moors) };
+    const spot = worldToTile(CLICK.x, CLICK.y);
+    return {
+      controller,
+      issued,
+      release: (moors: boolean) =>
+        late[0]?.(shoreRule(SHIP, (_vehicle, x, y) => moors && x === spot.col && y === spot.row)),
+    };
   }
 
   it('keeps a Shift chain of ship orders in click order whichever answer lands first', async () => {
@@ -331,7 +383,14 @@ describe('vehicle right-click defaults', () => {
     release(true);
     await landed();
     expect(issued).toEqual([
-      { kind: 'dockVehicle', vehicle: SHIP, x: spot.col, y: spot.row, queued: true },
+      {
+        kind: 'dockVehicle',
+        vehicle: SHIP,
+        x: spot.col,
+        y: spot.row,
+        dock: expect.any(Object),
+        queued: true,
+      },
       { kind: 'moveVehicle', vehicle: SHIP, x: spot.col, y: spot.row, queued: true },
       { kind: 'moveVehicle', vehicle: SHIP, x: 3, y: 3, queued: true },
     ]);
@@ -383,7 +442,14 @@ describe('vehicle right-click defaults', () => {
     expect(ship.controller.issueDriveTo(shore, true)).toBe(true);
     await landed();
     expect(ship.issued).toEqual([
-      { kind: 'dockVehicle', vehicle: SHIP, x: shore.col, y: shore.row, queued: true },
+      {
+        kind: 'dockVehicle',
+        vehicle: SHIP,
+        x: shore.col,
+        y: shore.row,
+        dock: expect.any(Object),
+        queued: true,
+      },
     ]);
     const group = harness([CATAPULT, HANDCART], {});
     expect(group.controller.issueDriveTo(shore)).toBe(true);

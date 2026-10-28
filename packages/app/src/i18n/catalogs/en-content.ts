@@ -418,6 +418,11 @@ export const enContent = {
       summary:
         'A crewed ship at the north end of a long channel is ordered to dock at the shore at its south end, twice as far as the old vehicle range. It rounds an island that blocks the straight way, sails the whole channel and moors at the chosen shore.',
     },
+    'vehicle-dock-fleet': {
+      title: 'A fleet off a ragged coast',
+      summary:
+        'Five crewed ships lie at sea off a coast with a bay and a cape. Select one or several and right-click by the shore or use the dock button: a rounded glow shows the shore they can moor at, orbs under the cursor show where each ship will land, and the fleet spreads along the shore with open water between the hulls.',
+    },
     'ship-wakes': {
       title: 'Ship wakes',
       summary:

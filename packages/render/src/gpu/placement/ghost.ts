@@ -7,7 +7,9 @@ import { mintRangeRing } from '../selection/range-ring.js';
 import { resolveLayers } from '../sprite-pool/index.js';
 import type { SpriteSheet } from '../textures/sprite-sheet.js';
 import type { TextureCache } from '../textures/texture-cache.js';
+import { mintBerthOrbs } from './berth-orbs.js';
 import { mintLayerSprite } from './layer-sprite.js';
+import type { PlacementOverlayCell } from './overlay.js';
 import { drawPlotCross, mintPlanRoad, type PlanRoadTextures, plotRim } from './plan-road.js';
 import {
   mintPlanStake,
@@ -59,7 +61,18 @@ export type PlacementGhost =
       readonly marker?: LineMarker;
     }
   /** A gatherer's work flag about to be planted: the owner's delivery-flag sprite. */
-  | { readonly kind: 'flag'; readonly col: number; readonly row: number; readonly player: number };
+  | { readonly kind: 'flag'; readonly col: number; readonly row: number; readonly player: number }
+  /** The berths a dock click would moor its ships at: an orb over each shore point, a ring where its
+   *  hull lies. */
+  | { readonly kind: 'berths'; readonly berths: readonly BerthMark[] };
+
+/** One ship's berth: the shore point (`col`, `row`) its door opens on and the water node its hull lies
+ *  on, both half-cell nodes. */
+export interface BerthMark {
+  readonly col: number;
+  readonly row: number;
+  readonly hull: PlacementOverlayCell;
+}
 
 export type LineMarker = 'stake' | 'road' | 'roadCancel';
 
@@ -77,8 +90,8 @@ interface PlanPoint {
   readonly state: PlanNode['state'];
 }
 
-/** The ghosts drawn as one sprite; a line is stakes and string, built apart. */
-type SpriteGhost = Exclude<PlacementGhost, { readonly kind: 'line' }>;
+/** The ghosts drawn as one sprite; a line is stakes and string, and berths are orbs, built apart. */
+type SpriteGhost = Exclude<PlacementGhost, { readonly kind: 'line' | 'berths' }>;
 
 function ghostKey(ghost: SpriteGhost): string {
   switch (ghost.kind) {
@@ -147,6 +160,11 @@ const BAND_SHADOW_ALPHA = 0.2;
 
 /** {@link PlacementGhostLayer}'s built key while it shows a line, whose plan it tracks by value. */
 const LINE_KEY = 'line';
+
+/** The built key of a berth set, by value: the app hands a new list every frame. */
+function berthsKey(berths: readonly BerthMark[]): string {
+  return `berths:${berths.map((b) => `${b.col},${b.row}>${b.hull.col},${b.hull.row}`).join(';')}`;
+}
 
 function samePlanNodes(a: readonly PlanNode[], b: readonly PlanNode[]): boolean {
   if (a.length !== b.length) return false;
@@ -229,6 +247,26 @@ export class PlacementGhostLayer {
       this.container.zIndex = Number.MAX_SAFE_INTEGER;
       this.container.alpha = 1;
       this.container.visible = ghost.nodes.length > 0;
+      return;
+    }
+    if (ghost.kind === 'berths') {
+      const key = berthsKey(ghost.berths);
+      if (this.builtForKey !== key) {
+        this.builtForKey = key;
+        for (const child of this.container.removeChildren()) child.destroy();
+        const lifted = (node: PlacementOverlayCell) => {
+          const p = halfCellToScreen(node.col, node.row);
+          return { x: p.x, y: p.y - terrainLiftAtNode(elevation, node.col, node.row) };
+        };
+        this.container.addChild(
+          mintBerthOrbs(ghost.berths.map((berth) => ({ door: lifted(berth), hull: lifted(berth.hull) }))),
+        );
+      }
+      this.container.position.set(0, 0);
+      // A cursor mark like a line plan: it reads over the ships and settlers near its points.
+      this.container.zIndex = Number.MAX_SAFE_INTEGER;
+      this.container.alpha = 1;
+      this.container.visible = ghost.berths.length > 0;
       return;
     }
     this.container.alpha = ghost.kind === 'gate' ? GATE_GHOST_ALPHA : GHOST_ALPHA;
@@ -367,7 +405,7 @@ export class PlacementGhostLayer {
     }
   }
 
-  private rebuild(ghost: Exclude<PlacementGhost, { kind: 'line' }>): void {
+  private rebuild(ghost: SpriteGhost): void {
     for (const child of this.container.removeChildren()) child.destroy();
     const item = ghostItem(ghost);
     const layers = resolveLayers(this.sheet, item, 0);

@@ -420,6 +420,11 @@ export const deContent = {
       summary:
         'Ein bemanntes Schiff am Nordende eines langen Kanals erhält den Befehl, am Ufer des Südendes anzulegen – doppelt so weit wie die frühere Fahrzeugreichweite. Es umfährt eine Insel, die den direkten Weg versperrt, durchquert den gesamten Kanal und legt am gewählten Ufer an.',
     },
+    'vehicle-dock-fleet': {
+      title: 'Eine Flotte vor zerklüfteter Küste',
+      summary:
+        'Fünf bemannte Schiffe liegen vor einer Küste mit Bucht und Kap. Wähle eines oder mehrere und klicke rechts am Ufer oder nutze den Anlegeknopf: ein abgerundeter Schein zeigt das Ufer, an dem sie anlegen können, Kugeln unter dem Zeiger zeigen, wo jedes Schiff anlegt, und die Flotte verteilt sich mit freiem Wasser zwischen den Rümpfen am Ufer.',
+    },
     'ship-wakes': {
       title: 'Kielwasser',
       summary:

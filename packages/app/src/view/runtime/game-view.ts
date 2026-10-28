@@ -1035,8 +1035,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       askAttachTradeHouse: answers.askAttachTradeHouse,
       canAttachToVehicle: answers.canAttachToVehicle,
       askAttachToVehicle: answers.askAttachToVehicle,
-      // The fog gate matches the overlay's, so a dimmed shore in the fog takes no dock click either.
-      askMoorAt: placementGates.askMoorAt,
+      askMooring: placementGates.askMooring,
+      mooring: placementGates.mooring,
       askPlaceSignpostAt: placementGates.askPlaceSignpostAt,
       boundsOf: (ref) => {
         const sprite = deps.staticHarvestableSprite?.(ref);

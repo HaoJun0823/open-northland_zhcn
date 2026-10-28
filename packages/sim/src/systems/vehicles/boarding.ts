@@ -322,6 +322,7 @@ function resumeHeldGoal(world: World, ctx: SystemContext, terrain: TerrainGraph,
   const live = world.mut(vehicle, Vehicle);
   const goal = live.heldGoal;
   live.heldGoal = null;
+  live.heldDock = null;
   live.task = 'none';
   if (goal === null) return;
   if (vehicleCommander(live) === null) {
@@ -350,7 +351,15 @@ function resumeHeldDock(world: World, ctx: SystemContext, terrain: TerrainGraph,
     refuseMove(world, ctx, vehicle, 'noCommander');
     return;
   }
-  startDock(world, ctx, terrain, vehicle, { hx: point.hx, hy: point.hy });
+  const dock = state.heldDock;
+  startDock(
+    world,
+    ctx,
+    terrain,
+    vehicle,
+    { hx: point.hx, hy: point.hy },
+    dock === null ? null : { hx: dock.hx, hy: dock.hy },
+  );
 }
 
 /** The tasks the boarding pass drives. */

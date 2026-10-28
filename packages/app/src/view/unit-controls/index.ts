@@ -23,6 +23,7 @@ import { jobMateArea, jobMatesIn } from './job-mates.js';
 import { createLostGoals } from './lost-goals.js';
 import { createSelectionMarquee } from './marquee.js';
 import { createAnsweredOrders } from './orders/answered.js';
+import { DOCK_PICK_SNAP_NODES, RIGHT_CLICK_SNAP_NODES } from './orders/berths.js';
 import { createUnitOrderController } from './orders/controller.js';
 import { createOrderFeedback } from './orders/feedback.js';
 import { createKeyboardOrders } from './orders/keyboard.js';
@@ -350,7 +351,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     toWorld: orderToWorld,
     enqueue: opts.enqueue,
     askAttachToVehicle: opts.askAttachToVehicle,
-    askMoorAt: opts.askMoorAt,
+    askMooring: opts.askMooring,
+    mooring: opts.mooring,
     answered,
     pendingGroundOrders,
     markOrder: orderMarkers.place,
@@ -610,6 +612,12 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       pickMode.isArmed() ||
       selection.ids().size > 0,
     dockPickVehicle: pickMode.dockVehicle,
+    berthPreview: (tile) => {
+      const docking = pickMode.dockVehicle();
+      if (docking !== null) return vehicleOrders.previewBerths([docking], tile, DOCK_PICK_SNAP_NODES);
+      if (pickMode.isArmed()) return [];
+      return vehicleOrders.previewBerths(vehicleOrders.rightClickShips(), tile, RIGHT_CLICK_SNAP_NODES);
+    },
     // Includes the details panel, so a consumer gating on this treats a point over the panel as HUD
     // rather than world.
     claimsPointer: (x, y) =>

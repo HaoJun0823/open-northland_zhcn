@@ -971,7 +971,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       toScreenPx: clientToScreen,
     });
 
-    // The minimap and the DOM regions, open windows among them, keep the wheel from zooming under them.
+    // The minimap and the DOM regions, open windows among them, keep the wheel from zooming under them
+    // and narrow the edge-scroll band over them.
     const mountedMinimap = minimap;
     cleanup.push(() => mountedMinimap.dispose());
     const hudClaims = (clientX: number, clientY: number): boolean =>

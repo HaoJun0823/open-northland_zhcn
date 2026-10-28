@@ -83,6 +83,18 @@ export interface CameraInputSettings {
   readonly integerScaling: boolean;
 }
 
+/** CSS px a display-covering window may fall short of the screen by, for page-zoom rounding. */
+const DISPLAY_FIT_SLACK = 1;
+
+/** True when the window fills its display, as in browser or desktop fullscreen, so no other window
+ *  borders it on this display. */
+function windowCoversDisplay(): boolean {
+  return (
+    window.innerWidth >= window.screen.width - DISPLAY_FIT_SLACK &&
+    window.innerHeight >= window.screen.height - DISPLAY_FIT_SLACK
+  );
+}
+
 /** `resolution` reads the owning renderer's live device px per screen px, needed to map mouse deltas on
  *  a HiDPI canvas; a captured value would go stale when a DPR change re-sizes the renderer. */
 export function createCameraController(
@@ -138,8 +150,8 @@ export function createCameraController(
     return zoomCameraAt(next, level / scale, canvas.width / res / 2, canvas.height / res / 2, minZoom);
   };
   // The edge-scroll probe: the last `mousemove` sample in client px, whatever element it hit, so HUD
-  // chrome along a screen edge still scrolls. Pinned to the edge the cursor left the window through,
-  // and null after a blur or before any move, so a parked cursor waits.
+  // chrome along a screen edge still scrolls. Pinned to the edge a cursor left a display-covering window
+  // through, and null after a blur, after leaving a smaller window or before any move.
   let pointerSample: { readonly x: number; readonly y: number } | null = null;
   let suspended = false;
   const endMiddleDrag = (): void => {
@@ -155,11 +167,27 @@ export function createCameraController(
     dragCapture.begin(e.clientX, e.clientY);
     e.preventDefault(); // suppress the middle-click autoscroll widget
   };
+  // The page cannot hold the cursor inside the window. One that leaves a window covering its display
+  // went to another display, so it keeps scrolling as if pressed against the edge it crossed until it
+  // returns or focus moves; leaving a smaller window lands on another application and disarms.
+  const pinToExitEdge = (clientX: number, clientY: number): void => {
+    if (!windowCoversDisplay()) {
+      pointerSample = null;
+      return;
+    }
+    const { rect } = screenScale(canvas, resolution());
+    const exit = edgeExitPoint(clientX - rect.left, clientY - rect.top, rect.width, rect.height);
+    pointerSample = { x: exit.x + rect.left, y: exit.y + rect.top };
+  };
   const onMouseMove = (e: MouseEvent): void => {
     if (suspended) return;
     // Every move re-arms the probe, because `mouseenter` fires only on a boundary crossing and a refocus
-    // gets none.
-    pointerSample = { x: e.clientX, y: e.clientY };
+    // gets none. A held button keeps moves coming from beyond the window, which pin like an exit.
+    if (e.clientX < 0 || e.clientY < 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+      pinToExitEdge(e.clientX, e.clientY);
+    } else {
+      pointerSample = { x: e.clientX, y: e.clientY };
+    }
     if (!dragging) return;
     const { sx, sy } = screenScale(canvas, resolution());
     const direction = activeInputSettings.invertDragScroll ? -1 : 1;
@@ -173,14 +201,10 @@ export function createCameraController(
   const onMouseUp = (e: MouseEvent): void => {
     if (e.button === 1) endMiddleDrag();
   };
-  // The page cannot hold the cursor inside the window, so one that overshoots onto another display
-  // keeps scrolling as if pressed against the edge it left through, until it returns or focus moves.
-  // A null `relatedTarget` marks that crossing; moves between page elements carry one.
+  // A null `relatedTarget` marks leaving the window; moves between page elements carry one.
   const onMouseOut = (e: MouseEvent): void => {
     if (e.relatedTarget !== null || pointerSample === null) return;
-    const rect = canvas.getBoundingClientRect();
-    const exit = edgeExitPoint(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
-    pointerSample = { x: exit.x + rect.left, y: exit.y + rect.top };
+    pinToExitEdge(e.clientX, e.clientY);
   };
   const onWheel = (e: WheelEvent): void => {
     if (suspended) return;

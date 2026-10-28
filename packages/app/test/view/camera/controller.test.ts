@@ -81,7 +81,12 @@ const install = (
   userAgent = CHROME_USER_AGENT,
   resolution: () => number = () => 1,
 ) => {
-  const win = eventTarget();
+  // A window smaller than its display unless a test fills the screen, as fullscreen does.
+  const win = Object.assign(eventTarget(), {
+    innerWidth: CANVAS_W,
+    innerHeight: CANVAS_H,
+    screen: { width: CANVAS_W * 2, height: CANVAS_H * 2 },
+  });
   const canvasEvents = eventTarget();
   const bodyClasses = classList();
   const docEvents = eventTarget();
@@ -126,6 +131,9 @@ const install = (
   return {
     ctl,
     win,
+    fillScreen: (): void => {
+      win.screen = { width: CANVAS_W, height: CANVAS_H };
+    },
     canvasEvents,
     lock,
     locked: (): boolean => lock.element === canvas,
@@ -242,9 +250,9 @@ describe('createCameraController edge-scroll arming', () => {
     move(edgeX, CENTRE_Y);
     const overMap = panStep(ctl);
     ctl.setPointerGuard(() => true);
-    move(LEFT_BAND_X, CENTRE_Y, { hudBeam: true });
+    move(LEFT_BAND_X, CENTRE_Y);
     expect(panStep(ctl)).toBe(0);
-    move(edgeX, CENTRE_Y, { hudBeam: true });
+    move(edgeX, CENTRE_Y);
     expect(panStep(ctl)).toBeCloseTo(overMap);
     ctl.dispose();
   });
@@ -267,8 +275,22 @@ describe('createCameraController edge-scroll arming', () => {
     ctl.dispose();
   });
 
-  it('keeps scrolling at full speed toward the edge the cursor left the window through', () => {
-    const { ctl, win, move } = install();
+  it('hit-tests the HUD only for a pointer inside the edge band', () => {
+    const { ctl, move } = install();
+    const guard = vi.fn(() => true);
+    ctl.setPointerGuard(guard);
+    move(CANVAS_W / 2, CENTRE_Y);
+    panStep(ctl);
+    expect(guard).not.toHaveBeenCalled();
+    move(LEFT_BAND_X, CENTRE_Y);
+    panStep(ctl);
+    expect(guard).toHaveBeenCalled();
+    ctl.dispose();
+  });
+
+  it('keeps scrolling at full speed toward the edge the cursor left a fullscreen window through', () => {
+    const { ctl, win, move, fillScreen } = install();
+    fillScreen();
     move(0, CENTRE_Y);
     const atEdge = panStep(ctl);
     // A flick leaves from deeper than the band; the scroll still pins to the nearest edge.
@@ -281,9 +303,26 @@ describe('createCameraController edge-scroll arming', () => {
     ctl.dispose();
   });
 
-  it('stops the out-of-window scroll on blur', () => {
+  it('disarms when the cursor leaves a window smaller than its display', () => {
     const { ctl, win, move } = install();
     move(LEFT_BAND_X, CENTRE_Y);
+    win.emit('mouseout', { relatedTarget: null, clientX: -1, clientY: CENTRE_Y });
+    expect(panStep(ctl)).toBe(0);
+    ctl.dispose();
+  });
+
+  it('pins a held-button move from beyond a fullscreen window to the edge it crossed', () => {
+    const { ctl, move, fillScreen } = install();
+    fillScreen();
+    move(-EDGE_SCROLL_MARGIN * 4, CENTRE_Y);
+    expect(panStep(ctl)).toBeGreaterThan(0);
+    ctl.dispose();
+  });
+
+  it('stops the out-of-window scroll on blur', () => {
+    const { ctl, win, move, fillScreen } = install();
+    fillScreen();
+    move(CANVAS_W / 2, CENTRE_Y);
     win.emit('mouseout', { relatedTarget: null, clientX: -1, clientY: CENTRE_Y });
     expect(panStep(ctl)).toBeGreaterThan(0);
     win.emit('blur');

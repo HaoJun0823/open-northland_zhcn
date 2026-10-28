@@ -56,8 +56,10 @@ const SAMPLER_DECLARATION =
 const catalogue = shaderCatalog();
 let context: WebGL2RenderingContext | null = null;
 /** A second context for `relink`, so a relink measures the browser's program cache, not the first
- *  context's own objects. */
+ *  context's own objects. It asks for what the game's renderer asks for (`gpu/pixi-app/pixi-app.ts`),
+ *  since a dual-GPU machine may put another preference on another adapter. */
 let relinkContext: WebGL2RenderingContext | null = null;
+const RENDERER_CONTEXT: WebGLContextAttributes = { antialias: false, powerPreference: 'high-performance' };
 
 function gl(): WebGL2RenderingContext {
   if (context === null) throw new Error('describe() creates the WebGL 2 context first');
@@ -291,9 +293,10 @@ function compile(index: number, translate: boolean): CompiledProgram | SkippedPr
 }
 
 /** Links entry `index` again in a second context, without a draw: fast where the browser's program
- *  cache holds the first link, which is what the game's shader warm-up relies on. */
+ *  cache still holds the first link once the whole catalogue has compiled, which is what the game's
+ *  shader warm-up relies on. */
 function relink(index: number): CompiledProgram | SkippedProgram {
-  relinkContext ??= document.createElement('canvas').getContext('webgl2');
+  relinkContext ??= document.createElement('canvas').getContext('webgl2', RENDERER_CONTEXT);
   if (relinkContext === null) throw new Error('no second WebGL 2 context for the relink');
   return compileIn(relinkContext, index, false);
 }

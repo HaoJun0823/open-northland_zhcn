@@ -225,6 +225,24 @@ function openBrowser() {
   });
 }
 
+async function relinkAll(page, programNames, programs, failures) {
+  for (const program of programs) {
+    if (program.status !== 'compiled' || program.contextLost) continue;
+    const index = programNames.indexOf(program.name);
+    try {
+      const again = await withTimeout(
+        page.evaluate((at) => globalThis.shaderProbe.relink(at), index),
+        hungCompileMs,
+        () => `${program.name} was still relinking after ${hungCompileMs} ms`,
+      );
+      program.relinkMs = again.ms;
+    } catch (error) {
+      failures.push(error.message);
+      return;
+    }
+  }
+}
+
 async function probe(probeSource, failures) {
   const browser = await openBrowser();
   try {
@@ -264,14 +282,6 @@ async function probe(probeSource, failures) {
             `${name} was still compiling or drawing after ${hungCompileMs} ms; ` +
             `${programNames.length - index - 1} programs after it untried`,
         );
-        if (relink && result.status === 'compiled' && !result.contextLost) {
-          const again = await withTimeout(
-            page.evaluate((at) => globalThis.shaderProbe.relink(at), index),
-            hungCompileMs,
-            () => `${name} was still relinking after ${hungCompileMs} ms`,
-          );
-          result.relinkMs = again.ms;
-        }
         if (translatedDir !== undefined) await writeTranslated(result);
         report.programs.push(result);
         report.totalMs += programMs(result);
@@ -281,6 +291,9 @@ async function probe(probeSource, failures) {
         break;
       }
     }
+    // After every first link, as the warm-up links its whole set before the renderer links any: a
+    // cache that has evicted early entries by then shows as a relink as slow as the first.
+    if (relink) await relinkAll(page, programNames, report.programs, failures);
     return report;
   } catch (error) {
     failures.push(error.message);

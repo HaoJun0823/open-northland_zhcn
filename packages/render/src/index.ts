@@ -264,6 +264,7 @@ export {
   type TargetFlashTone,
 } from './gpu/selection/style.js';
 export {
+  forgetShaderLinks,
   type ShaderWarmup,
   startBackgroundShaderWarmup,
   startShaderWarmup,

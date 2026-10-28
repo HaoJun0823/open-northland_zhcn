@@ -123,6 +123,12 @@ let batchTextureLimit: number | null = null;
 
 const SETTLED: ShaderWarmup = { done: Promise.resolve([]) };
 
+/** Forgets every link requested so far, so the next warm-up links its programs again: a GPU process
+ *  that restarted holds none of them, and a restored renderer would link them all in its first frame. */
+export function forgetShaderLinks(): void {
+  requested.clear();
+}
+
 /** Warm-up for a loading screen: without parallel links each one blocks this thread in turn. */
 export function startShaderWarmup(settings: WarmupSettings): ShaderWarmup {
   return openWarmup(settings, false) ?? SETTLED;

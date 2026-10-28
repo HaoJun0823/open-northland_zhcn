@@ -121,6 +121,8 @@ export interface FrameLoopDeps {
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
   readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame' | 'steerCamera'> | null;
   readonly perfReadout: PerfReadout;
+  /** True while the world waits for its programs after a WebGL context restore; it keeps its last frame. */
+  readonly worldHeld: () => boolean;
   /** True while a relay holds the clock for a member, which washes the world as a pause does; omitted
    *  outside a relayed game. */
   readonly clockHeld?: () => boolean;
@@ -449,31 +451,32 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     const lifeHearts = lifeHeartsFor(snap, markViewport);
     const experienceStars = experienceStarsFor(snap, markViewport);
     const world0 = performance.now();
-    renderer.update({
-      snapshot: snap,
-      camera: drawnCamera,
-      tick: snap.tick,
-      selection: controls.selectedIds(),
-      // The pick the worldHover.update below made against the freshly drawn list: the hovered-target
-      // outline trails the cursor's read by one frame, like the card does its rest.
-      hovered: worldHover.hovered() ?? undefined,
-      selectionTime: nowMs / 1000,
-      alpha: renderAlpha,
-      doorBadges,
-      constructionSigns,
-      settlerBubbles,
-      lifeHearts,
-      experienceStars,
-      flagged: controls.flaggedFlagIds(),
-      focused: controls.focusedIds(),
-      groupNumbers: controls.groupNumbers(),
-      rangeRings: controls.rangeRings(),
-      orderMarkers: controls.orderMarkers(),
-      targetFlashes: controls.targetFlashes(),
-      lostGoals,
-      lostGoalPulse: lostGoalPulse(nowMs),
-      gpuTimer: perfReadout.gpuTimer(),
-    });
+    if (!loop.worldHeld())
+      renderer.update({
+        snapshot: snap,
+        camera: drawnCamera,
+        tick: snap.tick,
+        selection: controls.selectedIds(),
+        // The pick the worldHover.update below made against the freshly drawn list: the hovered-target
+        // outline trails the cursor's read by one frame, like the card does its rest.
+        hovered: worldHover.hovered() ?? undefined,
+        selectionTime: nowMs / 1000,
+        alpha: renderAlpha,
+        doorBadges,
+        constructionSigns,
+        settlerBubbles,
+        lifeHearts,
+        experienceStars,
+        flagged: controls.flaggedFlagIds(),
+        focused: controls.focusedIds(),
+        groupNumbers: controls.groupNumbers(),
+        rangeRings: controls.rangeRings(),
+        orderMarkers: controls.orderMarkers(),
+        targetFlashes: controls.targetFlashes(),
+        lostGoals,
+        lostGoalPulse: lostGoalPulse(nowMs),
+        gpuTimer: perfReadout.gpuTimer(),
+      });
     const worldMs = performance.now() - world0;
     stage = 'overlays';
     loop.mapOverlay?.update(snap, drawnCamera, app.screen, loop.viewer.seat(), fogView);

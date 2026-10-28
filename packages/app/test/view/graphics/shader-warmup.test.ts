@@ -14,6 +14,7 @@ const warmups = vi.hoisted(() => ({
   started: [] as FakeWarmup[],
   parallel: true,
   failing: false,
+  forgotten: 0,
 }));
 const stored = vi.hoisted(() => ({ settings: null as MenuSettings | null }));
 
@@ -38,6 +39,9 @@ vi.mock('@open-northland/render', async (original) => {
     ...(await original<typeof import('@open-northland/render')>()),
     startShaderWarmup: () => fresh(false),
     startBackgroundShaderWarmup: () => (warmups.parallel ? fresh(true) : null),
+    forgetShaderLinks: () => {
+      warmups.forgotten++;
+    },
   };
 });
 
@@ -45,16 +49,17 @@ vi.mock('@open-northland/render', async (original) => {
 let applyWhenWarmed: WarmupModule['applyWhenWarmed'];
 let graphicsShaderWarmup: WarmupModule['graphicsShaderWarmup'];
 let warmGraphicsInBackground: WarmupModule['warmGraphicsInBackground'];
+let rewarmAfterContextRestore: WarmupModule['rewarmAfterContextRestore'];
 
 beforeEach(async () => {
   warmups.started.length = 0;
   warmups.parallel = true;
   warmups.failing = false;
+  warmups.forgotten = 0;
   stored.settings = null;
   vi.resetModules();
-  ({ applyWhenWarmed, graphicsShaderWarmup, warmGraphicsInBackground } = await import(
-    '../../../src/view/graphics/shader-warmup.js'
-  ));
+  ({ applyWhenWarmed, graphicsShaderWarmup, rewarmAfterContextRestore, warmGraphicsInBackground } =
+    await import('../../../src/view/graphics/shader-warmup.js'));
 });
 
 /** Changes a stored setting that picks programs, so the next warm-up asks for another program set. */
@@ -174,4 +179,16 @@ it('applies a live change even when its warm-up fails to start', async () => {
   applyWhenWarmed(apply)('on');
   await turns();
   expect(apply.mock.calls).toEqual([['on']]);
+});
+
+it('warms again after a context restore, though a warm-up of the same settings already settled', async () => {
+  toggleWeather();
+  const boot = graphicsShaderWarmup();
+  warmups.started[0]?.settle('linked');
+  await boot.done;
+  const restored = rewarmAfterContextRestore();
+  expect(restored).not.toBe(boot);
+  expect(warmups.forgotten).toBe(1);
+  expect(warmups.started).toHaveLength(2);
+  expect(graphicsShaderWarmup()).toBe(restored);
 });

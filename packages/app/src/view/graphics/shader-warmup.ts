@@ -1,4 +1,5 @@
 import {
+  forgetShaderLinks,
   resolveBackingDensity,
   type ShaderWarmup,
   startBackgroundShaderWarmup,
@@ -81,6 +82,14 @@ function logWarmup(programs: readonly WarmedProgram[], ms: number): void {
  */
 export function graphicsShaderWarmup(): ShaderWarmup {
   return sharedWarmup(startShaderWarmup);
+}
+
+/** The warm-up again, every program linked anew, for a game canvas whose WebGL context came back: a
+ *  restarted GPU process kept none of the programs the earlier warm-ups linked. */
+export function rewarmAfterContextRestore(): ShaderWarmup {
+  forgetShaderLinks();
+  current = null;
+  return graphicsShaderWarmup();
 }
 
 /** Starts the warm-up while the menu stays interactive; where links would block the menu's thread it

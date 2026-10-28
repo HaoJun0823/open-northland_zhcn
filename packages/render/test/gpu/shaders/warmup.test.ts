@@ -525,6 +525,15 @@ describe('starting a warm-up', () => {
     expect(seen.contexts).toBe(2);
   });
 
+  it('links every program again once the links are forgotten, as after a GPU process restart', async () => {
+    const seen = stubContexts(() => ({}));
+    const first = await warmup.startShaderWarmup(settings).done;
+    warmup.forgetShaderLinks();
+    await warmup.startShaderWarmup(settings).done;
+    expect(seen.contexts).toBe(2);
+    expect(seen.programs).toBe(2 * first.length);
+  });
+
   it('does not link again a program the driver rejected', async () => {
     const seen = stubContexts(() => ({ links: false }));
     const rejected = await warmup.startShaderWarmup(settings).done;

@@ -1,6 +1,7 @@
 import {
   type Camera,
   cameraViewport,
+  type GhostSource,
   type MinimapFeature,
   type SceneTerrain,
   terrainWorldBounds,
@@ -63,6 +64,8 @@ export interface MinimapOptions {
   readonly onFiltersChange?: ((filters: MinimapFilters) => void) | undefined;
   readonly isFighterJob: (jobType: number) => boolean;
   readonly isHeroJob: (jobType: number) => boolean;
+  /** The world view's remembered buildings and vehicles on explored ground. */
+  readonly fogMemory?: GhostSource | undefined;
   /** The seat the view shows, null on a whole-map view. */
   readonly viewer: () => number | null;
   /** The viewer seat's stance toward `owner`. */
@@ -313,6 +316,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
         plotted.fill(0);
         plot.start({
           fog,
+          memory: opts.fogMemory,
           bounds,
           scale: rasterScale,
           filters,

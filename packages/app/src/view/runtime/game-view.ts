@@ -971,6 +971,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       onFiltersChange: (minimapFilters) => patchStoredSettings({ minimapFilters }),
       isFighterJob: (jobType) => systems.isFighterJob(host.content, jobType),
       isHeroJob: (jobType) => systems.isHeroJob(host.content, jobType),
+      fogMemory: deps.renderer.fogMemory,
       viewer: () => viewer.seat(),
       stanceToward: (owner) => host.diplomacyStance(viewerPlayer(), owner),
       uiscale,

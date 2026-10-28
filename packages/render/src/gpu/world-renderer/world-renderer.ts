@@ -1,5 +1,6 @@
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import { type Application, Container, type ICanvas } from 'pixi.js';
+import type { GhostSource } from '../../data/fog/index.js';
 import type { LightGrade } from '../../data/lighting/types.js';
 import { cameraViewport, snapCameraToDevicePixels } from '../../data/projection/index.js';
 import {
@@ -421,6 +422,16 @@ export class WorldRenderer {
 
   setStaticallyDrawnRefs(refs: ReadonlySet<number>): void {
     this.fog.setStaticallyDrawnRefs(refs);
+  }
+
+  /** Show a multiplayer map's start buildings on known terrain; call before the game's first frame. */
+  knowStartFogBuildings(): void {
+    this.fog.knowStartBuildings();
+  }
+
+  /** The remembered statics drawn on explored ground, for the minimap to show what the world shows. */
+  get fogMemory(): GhostSource {
+    return this.fog.memory;
   }
 
   /** Entities the sprite pool does not draw: those waiting for a presentation over them to end (a felled

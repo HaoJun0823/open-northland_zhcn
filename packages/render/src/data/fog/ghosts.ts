@@ -40,6 +40,8 @@ export type FogGhost = Readonly<StaticDrawFields> & {
   readonly tileY: number;
   /** Screen px a staggered palisade draws beside its node. */
   readonly shiftX?: number;
+  /** The `Owner.player` at the sighting, which the minimap colours the memory by. */
+  readonly owner?: number;
 };
 
 /** The remembered statics a scene build draws: the fog ghost store, or a fixed list in a test. */
@@ -84,6 +86,8 @@ function capture(
     if (shiftX !== 0) ghost.shiftX = shiftX;
   } else assignStaticFields(ghost, kind, components);
   if (kind === 'stockpile' && ghost.goodType === undefined) return null;
+  const owner = (components.Owner as { player?: unknown } | undefined)?.player;
+  if (typeof owner === 'number') ghost.owner = owner;
   return ghost;
 }
 
@@ -94,6 +98,15 @@ function isSeededKind(kind: FogGhostKind): boolean {
 
 /** Every component {@link classify} reads as a seeded kind. */
 const SEEDED_COMPONENTS = ['Resource', 'Stump', 'Chest', 'OpenedChest', 'Stockpile'] as const;
+
+/** The start buildings a known-terrain view of a multiplayer map shows: the quarters every seat starts
+ *  in, as the map lays them out. */
+function isStartKind(kind: FogGhostKind): boolean {
+  return kind === 'building' || kind === 'palisade';
+}
+
+/** Every component {@link classify} reads as a start kind. */
+const START_COMPONENTS = ['Building', 'Palisade'] as const;
 
 /** Tile columns a fog cell reaches past its own index on either side: the row stagger shifts the cell
  *  grid by up to half a tile against the tile columns (see {@link fogCellOfTile}). */
@@ -129,7 +142,8 @@ interface MutableTileBox {
  * stays bare until re-seen (approximation of the original's per-player memory). A mode change is an
  * ordinary diff. The start of a known-terrain stretch seeds every natural resource, stump, chest and
  * goods heap wherever it stands, as that view shows the map's placed objects; buildings, walls and
- * vehicles stay intel the player has to see for himself.
+ * vehicles stay intel the player has to see for himself, save a multiplayer map's start buildings
+ * ({@link knowStartBuildings}).
  */
 export class FogGhostStore implements GhostSource {
   private readonly records = new Map<number, GhostRecord>();
@@ -151,6 +165,9 @@ export class FogGhostStore implements GhostSource {
    *  ground is captured when sight is lost instead. Deliberately outlives `clear` - an adoption can
    *  precede the mode change that needs it. */
   private readonly pendingAdopt = new Set<number>();
+  /** Whether the first view still has to remember the start buildings (see {@link knowStartBuildings}).
+   *  Outlives `clear`, which runs every frame before the fog's first view. */
+  private startBuildingsPending = false;
   private contentVersion = 0;
   /** Reused buffers, emptied after each use so they hold nothing past it. */
   private readonly leavingCells = new Set<number>();
@@ -163,6 +180,13 @@ export class FogGhostStore implements GhostSource {
 
   adopt(ref: number): void {
     this.pendingAdopt.add(ref);
+  }
+
+  /** Remember the buildings and walls standing at the next update, if that view knows the terrain:
+   *  call at a multiplayer map's start, while every one is still a start building. Spent by the next
+   *  update under any mode, so a later switch to known terrain shows no buildings raised since. */
+  knowStartBuildings(): void {
+    this.startBuildingsPending = true;
   }
 
   /** Forget the memory and the view it was diffed against, so the next update starts a fresh view. */
@@ -201,10 +225,15 @@ export class FogGhostStore implements GhostSource {
     else if (remapped) this.diffCells(snapshot, view, staticRefs, elevation);
     this.lastCells = view.cells;
 
-    if (fogSettings(view.mode)?.terrainKnown !== true) this.reconSeeded = false;
+    const terrainKnown = fogSettings(view.mode)?.terrainKnown === true;
+    if (!terrainKnown) this.reconSeeded = false;
     else if (!this.reconSeeded) {
-      this.seed(snapshot, staticRefs, elevation);
+      this.seed(snapshot, SEEDED_COMPONENTS, isSeededKind, staticRefs, elevation);
       this.reconSeeded = true;
+    }
+    if (this.startBuildingsPending) {
+      this.startBuildingsPending = false;
+      if (terrainKnown) this.seed(snapshot, START_COMPONENTS, isStartKind, staticRefs, elevation);
     }
     for (const ref of this.pendingAdopt) {
       if (staticRefs?.has(ref)) continue;
@@ -338,17 +367,19 @@ export class FogGhostStore implements GhostSource {
     candidates.length = 0;
   }
 
-  /** One walk over the seeded kinds' component lists, not over every entity. */
+  /** One walk over the named component lists, not over every entity. */
   private seed(
     snapshot: WorldSnapshot,
+    names: readonly string[],
+    admits: (kind: FogGhostKind) => boolean,
     staticRefs: ReadonlySet<number> | undefined,
     elevation: ElevationField | undefined,
   ): void {
-    for (const name of SEEDED_COMPONENTS) {
+    for (const name of names) {
       for (const entity of entitiesWith(snapshot, name)) {
         if (staticRefs?.has(entity.id)) continue;
         const kind = classify(entity.components);
-        if (isGhostKind(kind) && isSeededKind(kind)) this.remember(snapshot, elevation, entity, kind);
+        if (isGhostKind(kind) && admits(kind)) this.remember(snapshot, elevation, entity, kind);
       }
     }
   }

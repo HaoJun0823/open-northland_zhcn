@@ -1,6 +1,6 @@
 import type { FogView, WorldSnapshot } from '@open-northland/sim';
 import type { Container } from 'pixi.js';
-import { FogGhostStore, fogTileExplored, fogTileVisible } from '../../data/fog/index.js';
+import { FogGhostStore, fogTileExplored, fogTileVisible, type GhostSource } from '../../data/fog/index.js';
 import type { Viewport } from '../../data/projection/index.js';
 import type { ElevationField } from '../../data/terrain/index.js';
 import { FogLayer, type FogWashMask } from '../overlays/index.js';
@@ -57,6 +57,15 @@ export class WorldFog {
 
   adoptGhost(ref: number): void {
     this.ghosts.adopt(ref);
+  }
+
+  knowStartBuildings(): void {
+    this.ghosts.knowStartBuildings();
+  }
+
+  /** The remembered statics the world draws on explored ground, as of the last {@link update}. */
+  get memory(): GhostSource {
+    return this.ghosts;
   }
 
   /** Live view: the caller keeps shrinking this same set as nodes are first worked and never

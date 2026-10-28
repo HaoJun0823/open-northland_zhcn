@@ -1,4 +1,4 @@
-import { terrainWorldBounds, tileToScreen } from '@open-northland/render';
+import { type FogGhost, type GhostSource, terrainWorldBounds, tileToScreen } from '@open-northland/render';
 import { type DiplomacyState, FOG_MODE, FOG_STATE, type FogView, fx } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
@@ -256,6 +256,33 @@ describe('forEachMinimapDot', () => {
     ]);
     expect(dotsOf(world, { fog, filters: only('buildings') })).toHaveLength(1);
     expect(dotsOf(world)).toHaveLength(4); // no fog view: everything shows
+  });
+
+  it("plots the world view's remembered buildings and vehicles on explored ground, owner and layer filtered", () => {
+    const remembered: FogGhost[] = [
+      { ref: 5, kind: 'building', tileX: 6, tileY: 4, owner: FOE },
+      { ref: 6, kind: 'vehicle', tileX: 5, tileY: 6, owner: FOE },
+      { ref: 7, kind: 'palisade', tileX: 7, tileY: 2, owner: FOE },
+      { ref: 8, kind: 'resource', tileX: 6, tileY: 2 },
+    ];
+    const memory: GhostSource = {
+      version: 1,
+      within: (_box, out) => {
+        out.push(...remembered);
+        return out;
+      },
+      has: (ref) => remembered.some((ghost) => ghost.ref === ref),
+    };
+    const fog = fogWhere((cellX) => (cellX < 4 ? FOG_STATE.VISIBLE : FOG_STATE.EXPLORED));
+    expect(dotsOf([], { fog, memory })).toEqual([
+      { ...pxAt(6, 4), mark: 'building', colour: colour(FOE) },
+      { ...pxAt(5, 6), mark: 'vehicle', colour: colour(FOE) },
+    ]);
+    expect(dotsOf([], { fog, memory, filters: only('vehicles') }).map((dot) => dot.mark)).toEqual([
+      'vehicle',
+    ]);
+    expect(dotsOf([], { fog, memory, filters: only('buildings', 'friendly') })).toEqual([]);
+    expect(dotsOf([], { fog: null, memory })).toEqual([]); // fog off: no memory, the live world shows
   });
 
   it('remaps the swatch through playerColourOf and wraps the raw player index modulo the table', () => {

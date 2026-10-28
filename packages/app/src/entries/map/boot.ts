@@ -1,4 +1,4 @@
-import { type MapScript, mapLobbySlots } from '@open-northland/data';
+import { isMultiplayerMapType, type MapScript, mapLobbySlots } from '@open-northland/data';
 import { type GameSession, seatColourOf } from '@open-northland/lockstep';
 import {
   createWindowPixiApp,
@@ -364,6 +364,9 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
       }
     }
     renderer.setWeatherSeed(hosted.seed);
+    // Known terrain on a multiplayer map shows its start buildings; a restored or joined world is past
+    // its start, where they could be ones raised since.
+    if (isMultiplayerMapType(meta?.mapTypes ?? []) && stagedSave === null) renderer.knowStartFogBuildings();
     setDiagGameSession({
       entry: 'map',
       worldId: mapId,

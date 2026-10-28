@@ -134,6 +134,34 @@ describe('FogGhostStore', () => {
     expect(drawn(store).map((g) => g.ref)).toEqual([2, 3, 4, 5]);
   });
 
+  it("knows a multiplayer start's buildings and walls on known terrain, once, at the first view", () => {
+    const wall = entity(6, 13, 4, { Palisade: {}, Owner: { player: 2 } });
+    const foeHouse = entity(1, 5, 4, {
+      Building: { buildingType: 7, tribe: 1, built: ONE, level: 0 },
+      Owner: { player: 2 },
+    });
+    const store = new FogGhostStore();
+    store.knowStartBuildings();
+    // Before the fog's first view the store is cleared each frame; the start knowledge waits.
+    store.clear();
+    store.update(snapshotOf([foeHouse, TREE, wall]), viewOf(new Map(), 1, FOG_MODE.RECON));
+    expect(drawn(store).map((g) => g.ref)).toEqual([1, 2, 6]);
+    expect(drawn(store).find((g) => g.ref === 1)).toMatchObject({ kind: 'building', owner: 2 });
+    // Spent: a building raised later stays intel to see, even across a new known-terrain stretch.
+    const late = entity(7, 15, 4, { Building: { buildingType: 7, tribe: 1, built: ONE, level: 0 } });
+    store.update(snapshotOf([foeHouse, TREE, wall, late]), viewOf(new Map(), 2, FOG_MODE.CLASSIC));
+    store.update(snapshotOf([foeHouse, TREE, wall, late]), viewOf(new Map(), 3, FOG_MODE.RECON));
+    expect(drawn(store).map((g) => g.ref)).toEqual([1, 2, 6]);
+  });
+
+  it('spends the start knowledge on a black map without remembering a building', () => {
+    const store = new FogGhostStore();
+    store.knowStartBuildings();
+    store.update(snapshotOf([HOUSE]), viewOf(new Map(), 1, FOG_MODE.CLASSIC));
+    store.update(snapshotOf([HOUSE]), viewOf(new Map(), 2, FOG_MODE.RECON));
+    expect(drawn(store)).toEqual([]);
+  });
+
   it('seeds nothing on watched ground: the live entity draws there', () => {
     const store = new FogGhostStore();
     store.update(snapshotOf([TREE]), viewOf(new Map([[TREE_CELL, FOG_STATE.VISIBLE]]), 1, FOG_MODE.RECON));

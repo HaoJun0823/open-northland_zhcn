@@ -62,17 +62,27 @@ function canPlaceAnchor(
     const slot = cy * w + cx;
     if ((exclusion[slot] ?? 0) > 0 || (palisadeBody[slot] ?? 0) > 0) return false;
   }
-  // 3. `logicbuildonbiopattern` checks the walk-block body against the source's vegetation ground flags.
-  // The original tests every surrounding triangle; the collision join conservatively collapses each
-  // cell's two triangles into `plantable`, so wells and hives accept grass and reject sand/plaster.
-  if (buildOnBioPattern) {
-    for (const c of footprint.blocked) {
-      const cx = x + footprintCellDx(y, c);
-      const cy = y + c.dy;
-      if (!terrain.inBounds(cx, cy) || !terrain.isPlantable(terrain.nodeAt(cx, cy))) return false;
-    }
+  // 3. `logicbuildonbiopattern`: wells and hives need grass (`plantable`) under their walk-block body.
+  // Project rule: one body node on grass is enough, so a well or hive fits on the edge of a small patch.
+  // The original tests every triangle around the body against its vegetation ground flags. An approximated
+  // footprint has no walk-block body and so no ground to test.
+  return (
+    !buildOnBioPattern || footprint.blocked.length === 0 || bodyTouchesGrass(terrain, footprint.blocked, x, y)
+  );
+}
+
+function bodyTouchesGrass(
+  terrain: TerrainGraph,
+  body: readonly FootprintCell[],
+  x: number,
+  y: number,
+): boolean {
+  for (const c of body) {
+    const cx = x + footprintCellDx(y, c);
+    const cy = y + c.dy;
+    if (terrain.inBounds(cx, cy) && terrain.isPlantable(terrain.nodeAt(cx, cy))) return true;
   }
-  return true;
+  return false;
 }
 
 /** A wall needs only its own cells: walkable ground clear of every body, whether a building, resource,

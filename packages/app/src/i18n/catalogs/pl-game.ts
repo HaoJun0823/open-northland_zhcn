@@ -158,9 +158,11 @@ export const plGame = {
     palisadePanel: {
       finished: 'Ukończona',
       mode: 'Tryb bramy',
-      open: 'Otwarte',
-      closed: 'Zamknięte',
+      open: 'Otwórz',
+      close: 'Zamknij',
       automatic: 'Automatyczny',
+      automaticTip: 'Brama stoi otwarta i sama się zamyka, gdy zbliża się wróg.',
+      manualLocked: 'Wyłącz tryb automatyczny, aby sterować bramą ręcznie.',
       passageOpen: 'Przejście otwarte',
       passageClosed: 'Przejście zamknięte',
       waiting: 'Czeka, aż przejście będzie wolne.',

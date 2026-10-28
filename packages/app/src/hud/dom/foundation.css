@@ -7936,12 +7936,28 @@ body.on-drag-scroll.on-drag-scroll-free * {
 .on-hud .on-palisade-panel__art[data-open="true"] {
   color: var(--ok);
 }
-.on-hud .on-palisade-panel .on-segmented {
+/* The automatic switch rides the mode rule; the manual toggle stands alone in the middle below it. */
+.on-hud .on-palisade-panel__controls {
   display: flex;
-  width: 100%;
+  justify-content: center;
 }
-.on-hud .on-palisade-panel .on-segmented > button {
-  flex: 1;
+.on-hud .on-palisade-panel__toggle {
+  min-width: 96px;
+  min-height: 0;
+  padding: 4px 16px;
+  font-size: 12px;
+}
+.on-hud .on-palisade-panel__toggle[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: var(--cursor-not-allowed, not-allowed);
+}
+.on-hud .on-palisade-panel__auto {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e6d9bd;
 }
 .on-hud .on-palisade-panel__hint {
   margin: 8px 0 0;

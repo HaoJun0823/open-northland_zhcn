@@ -181,9 +181,11 @@ export const deGame = {
     palisadePanel: {
       finished: 'Fertig',
       mode: 'Tormodus',
-      open: 'Offen',
-      closed: 'Geschlossen',
+      open: 'Öffnen',
+      close: 'Schließen',
       automatic: 'Automatisch',
+      automaticTip: 'Das Tor steht offen und schließt sich selbst, wenn sich ein Feind nähert.',
+      manualLocked: 'Schalte den Automatikmodus aus, um das Tor von Hand zu bedienen.',
       passageOpen: 'Durchgang offen',
       passageClosed: 'Durchgang geschlossen',
       waiting: 'Warten, bis der Durchgang frei ist.',

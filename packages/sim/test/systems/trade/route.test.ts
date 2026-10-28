@@ -64,6 +64,11 @@ const PLANK = 2;
 /** The fixture's edible, and the dish that becomes it once carried (`bread` -> `food_simple`). */
 const FOOD = 3;
 const BREAD = 7;
+/** The fixture's bakery, the one house that keeps bread. */
+const KITCHEN = 21;
+const LOAVES = 5;
+/** Below the loaves, so the ceiling, not the stock, ends the run. */
+const FOOD_CEILING = 3;
 const HEADQUARTERS = 1;
 /** The headquarters' next level, in {@link upgradableHeadquartersContent}. */
 const HEADQUARTERS_L1 = 90;
@@ -355,6 +360,25 @@ describe('a trader between its own houses', () => {
     sim.run(TRADE_START_TICKS);
 
     expect(sim.world.get(trader, TradeRoute).stops.map((stop) => stop.house)).toEqual([near]);
+  });
+
+  it('carts bread marked into a house that keeps only food, as food and up to the ceiling', () => {
+    const sim = newSim();
+    const kitchen = houseAt(sim, NEAR_X, HUMAN);
+    sim.world.mut(kitchen, Building).buildingType = KITCHEN;
+    setStockAmount(sim.world, kitchen, BREAD, LOAVES);
+    const far = houseAt(sim, FAR_X, HUMAN);
+    const trader = traderAt(sim, NEAR_X);
+    attach(sim, trader, kitchen);
+    attach(sim, trader, far);
+    mark(sim, trader, far, BREAD);
+    limit(sim, trader, far, BREAD, FOOD_CEILING, TRADE_LIMIT_NONE);
+
+    sim.run(RUN_TICKS);
+
+    expect(stockOf(sim, far, FOOD)).toBe(FOOD_CEILING);
+    expect(stockOf(sim, kitchen, BREAD)).toBe(LOAVES - FOOD_CEILING);
+    expect(cartOf(sim, trader, FOOD)).toBe(0);
   });
 
   it('unloads cargo no house marks at the first house that stores it', () => {

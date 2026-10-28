@@ -1,4 +1,4 @@
-import { BUILDING_KIND, type VehicleType } from '@open-northland/data';
+import { BUILDING_KIND, type ContentSet, type VehicleType } from '@open-northland/data';
 import {
   Building,
   CargoRun,
@@ -13,7 +13,7 @@ import { contentIndex } from '../../../../core/content-index.js';
 import type { DeepReadonly, Entity } from '../../../../ecs/world.js';
 import type { NodeId } from '../../../../nav/terrain/index.js';
 import { atomicDuration } from '../../../readviews/animations.js';
-import { isFoodKeptAtHome } from '../../../readviews/food.js';
+import { edibleClassOf, isFoodKeptAtHome } from '../../../readviews/food.js';
 import { manhattan } from '../../../spatial/metric.js';
 import { isLoosePile } from '../../../stores/index.js';
 import { abandonCargoRun } from '../../../vehicles/cargo.js';
@@ -242,8 +242,8 @@ interface CargoSource {
 /**
  * The nearest store holding any of `goods`: a loose pile within the search radius of the door, else a
  * house within it, both ranked from the door, else any store within the hand's signpost area ranked
- * from where it stands. Food in a home is never a source, nor a unit another settler already walks to
- * lift. Ties fall to the lower good id.
+ * from where it stands; a dish answers for its edible. Food in a home is never a source, nor a unit
+ * another settler already walks to lift. Ties fall to the edible, then the lower good id.
  */
 function nearestCargoSource(
   plan: PlannerContext,
@@ -268,7 +268,7 @@ function nearestCargoSource(
   for (const phase of phases) {
     const goodsGate = targets.bands.goodsGate(phase.origin, plan.owner, gate);
     let best: (CargoSource & { readonly distance: number }) | null = null;
-    for (const goodType of goods) {
+    for (const goodType of goods.flatMap((good) => sourceFormsOf(ctx.content, good))) {
       const accept = (e2: Entity): boolean =>
         phase.accept(e2) &&
         !isFoodKeptAtHome(world, ctx, e2, goodType) &&
@@ -283,6 +283,13 @@ function nearestCargoSource(
     if (best !== null) return { entity: best.entity, goodType: best.goodType };
   }
   return null;
+}
+
+/** The goods a source may hold for a hold line of `good`: an edible line takes the dishes that become
+ *  it too, as the hold books bread under `food_simple`. */
+function sourceFormsOf(content: ContentSet, good: number): readonly number[] {
+  const forms = edibleClassOf(content, good);
+  return forms.length > 0 ? forms : [good];
 }
 
 /** Lower each of `goods`' wanted amount to what its line has booked. */

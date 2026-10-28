@@ -229,8 +229,8 @@ neither). Further approximations: the nearest source wins where the original dra
 good id, every source on the door's continent as the original's flood implies; the guide network is
 the carrier's signpost confinement; a lifted-out unit goes into the nearest own warehouse or
 headquarters with room within radius 40 of the door, never onto a workplace's shelf, and onto the
-ground where the hand stands otherwise (owner's choice); a house source must hold the hold's canonical good, never a dish it
-would alias to it; a cargo hand whose walk to a source or store fails takes the planner's stranded
+ground where the hand stands otherwise (owner's choice); a source of an edible line may hold a dish that
+becomes it, so a bakery's bread fills `food_simple` (owner's choice); a cargo hand whose walk to a source or store fails takes the planner's stranded
 recovery and keeps its seat, where only a failed walk to the door drops it. The trader's own write is
 `tradeVehicleStock`: booked and stowed in one step, and the wanted amount set to the actual one
 whatever crew is seated (approximation: the original's rule holds only without a carrier; here the

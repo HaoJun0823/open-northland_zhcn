@@ -67,6 +67,8 @@ const SOURCE_AT_HX = 24;
 const SOURCE_AT = { hx: SOURCE_AT_HX, hy: 20 };
 /** A workplace whose recipe consumes wood, so its shelf would take a unit a general delivery brings. */
 const SAWMILL = 2;
+/** The fixture's bakery, the one house that keeps bread. */
+const KITCHEN = 21;
 /** A headquarters farther from the cart's door than the sawmill, still within the cargo search radius. */
 const STORE_BEYOND_SAWMILL_AT = { hx: SOURCE_AT_HX + 12, hy: 20 };
 /** Food a home holds, which a cargo hand leaves there. */
@@ -401,6 +403,17 @@ describe('the carrier rung', () => {
     want(s, cart, BREAD, 2);
     s.run(TRIP_TICKS * 2);
     expect(line(s, cart, FOOD_SIMPLE)).toEqual({ current: 2, wanted: 2, reserved: 2 });
+  });
+
+  it("fills the edible line with a bakery's bread when nothing nearer holds food", () => {
+    const s = sim();
+    const cart = spawnCart(s);
+    attachCarrier(s, cart);
+    const kitchen = placeHq(s, SOURCE_AT, [{ good: BREAD, amount: 4 }], KITCHEN);
+    want(s, cart, FOOD_SIMPLE, 2);
+    s.run(TRIP_TICKS * 2);
+    expect(line(s, cart, FOOD_SIMPLE)).toEqual({ current: 2, wanted: 2, reserved: 2 });
+    expect(s.world.get(kitchen, Stockpile).amounts.get(BREAD)).toBe(2);
   });
 
   it('flushes a hold booked past its wanted amount into the nearest store, a unit a trip', () => {

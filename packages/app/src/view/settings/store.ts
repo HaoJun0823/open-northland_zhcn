@@ -139,6 +139,9 @@ export interface MenuSettings {
   readonly keyBindings: KeyBindings;
   /** The display name shown to other players over a relay; null until one was chosen. */
   readonly netNick: string | null;
+  /** The flag shown beside the nick over a relay: a flag code, or `none` for a choice of none; null
+   *  until one was chosen. */
+  readonly netFlag: string | null;
   /** A relay address the player typed in; null while they play on one of the official regions. */
   readonly netCustomRelayUrl: string | null;
   readonly debugToolsEnabled: boolean;
@@ -210,6 +213,7 @@ export function defaultSettings(): MenuSettings {
     integerScaling: false,
     keyBindings: DEFAULT_KEY_BINDINGS,
     netNick: null,
+    netFlag: null,
     netCustomRelayUrl: null,
     debugToolsEnabled: import.meta.env?.DEV === true,
     autoErrorReports: true,
@@ -386,6 +390,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
       typeof record.integerScaling === 'boolean' ? record.integerScaling : defaults.integerScaling,
     keyBindings: parseKeyBindings(record.changedKeyBindings),
     netNick: optionalText(record.netNick),
+    netFlag: optionalText(record.netFlag),
     netCustomRelayUrl: optionalText(record.netCustomRelayUrl),
     debugToolsEnabled:
       typeof record.debugToolsEnabled === 'boolean' ? record.debugToolsEnabled : defaults.debugToolsEnabled,

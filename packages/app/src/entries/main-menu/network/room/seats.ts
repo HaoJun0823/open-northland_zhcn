@@ -1,4 +1,4 @@
-import type { RoomSeatView, RoomView, VacantSeatMode } from '@open-northland/net-protocol';
+import type { PlayerFlag, RoomSeatView, RoomView, VacantSeatMode } from '@open-northland/net-protocol';
 import { components } from '@open-northland/sim';
 import { localizedMapText } from '../../../../game/map/strings.js';
 import { currentLocale, formatMessage, messages, tribeName } from '../../../../i18n/index.js';
@@ -7,6 +7,7 @@ import { node } from '../../dom.js';
 import { colorChip, colorPalette } from '../../lobby-controls/color.js';
 import { seatModeControl } from '../../lobby-controls/seat-mode.js';
 import { tribePicker } from '../../lobby-controls/tribe.js';
+import { flagBadge } from '../flags/catalog.js';
 import { button, selectControl } from './controls.js';
 import {
   canClaimSeat,
@@ -148,7 +149,10 @@ export function roomSeats(deps: NetworkRoomDeps) {
     const faction = node('span', 'network-room__faction');
     const detail = node('span', 'network-room__muted');
     const readiness = node('span', 'network-room__readiness');
-    nameLine.append(name, yours, host, detail);
+    // Holds the occupant's flag; replaced only when the flag changes, as the room view repeats.
+    const flagSlot = node('span', 'network-room__seat-flag');
+    let shownFlag: PlayerFlag | undefined;
+    nameLine.append(flagSlot, name, yours, host, detail);
     const identityText = node('div', 'network-room__seat-description');
     identityText.append(nameLine, faction);
     identity.append(identityText, take, move.root);
@@ -186,6 +190,12 @@ export function roomSeats(deps: NetworkRoomDeps) {
           if (saved.recommended) details.push(copy.previousSeat);
         }
         const mine = seat.nick === client.nick;
+        const flag = seat.nick === null ? undefined : member?.flag;
+        if (flag !== shownFlag) {
+          shownFlag = flag;
+          const badge = flagBadge(flag);
+          flagSlot.replaceChildren(...(badge === null ? [] : [badge]));
+        }
         name.textContent =
           seat.nick ??
           (seat.mode === 'map-ai'

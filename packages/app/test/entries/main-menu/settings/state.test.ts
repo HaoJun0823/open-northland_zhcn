@@ -87,6 +87,7 @@ describe('parseStoredSettings', () => {
       invertDragScroll: true,
       integerScaling: true,
       netNick: 'Ania',
+      netFlag: 'PL',
       netCustomRelayUrl: 'ws://localhost:8768',
       debugToolsEnabled: true,
       autoErrorReports: false,

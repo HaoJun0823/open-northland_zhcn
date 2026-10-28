@@ -608,11 +608,14 @@ function riddenVehicle(sim: Simulation, vehicleType: number, rider: Entity): Ent
   return vehicle;
 }
 
-/** A standing house of {@link NEIGHBOUR} stamped as the map's trading post. */
+/** A standing house of {@link NEIGHBOUR} stamped as the map's trading post, its owner a friend both ways. */
 function tradingPost(sim: Simulation): Entity {
   const post = buildingAt(sim, BUILDING_HOME_00, ONE);
   sim.world.mut(post, Owner).player = NEIGHBOUR;
   sim.world.add(post, MissionObjectId, { id: TRADING_POST_ID });
+  sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN_PLAYER, to: NEIGHBOUR, state: 'friend' });
+  sim.enqueueSetup({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN_PLAYER, state: 'friend' });
+  sim.step();
   return post;
 }
 

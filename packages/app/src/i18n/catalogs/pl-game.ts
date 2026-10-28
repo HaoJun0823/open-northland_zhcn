@@ -213,8 +213,10 @@ export const plGame = {
       give: 'Oferujesz',
       take: 'Otrzymujesz',
       tradeLockedTitle: 'Handel niedostępny',
-      tradeLocked:
-        'Twój stosunek: {stance}. Kupcy wymieniają towary tylko z plemieniem, wobec którego masz stosunek przyjazny.',
+      tradeYours: 'Twój stosunek: {stance}',
+      tradeTheirs: 'Ich stosunek: {stance}',
+      tradeNeedsBoth: 'Kupcy handlują tylko wtedy, gdy obie strony mają stosunek przyjazny.',
+      tradeTheirsHint: 'Ich stosunek może zmienić np. zapłacony trybut albo wydarzenie w misji.',
       tradeBefriend: 'Ustaw przyjazny',
       traded: 'Wymienione towary: {count}',
       failed: 'Nie udało się wykonać polecenia. Spróbuj ponownie.',

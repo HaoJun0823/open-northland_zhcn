@@ -20,6 +20,7 @@ import {
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import {
+  adminCommand,
   exportSaveGame,
   fx,
   ONE,
@@ -204,6 +205,12 @@ function upgradableHeadquartersContent(): ContentSet {
       },
     ],
   });
+}
+
+/** Friendship both ways between the trader's player and `other`, which a foreign stop needs to join. */
+function befriend(sim: Simulation, other: number): void {
+  sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: other, state: 'friend' });
+  sim.enqueueSetup({ kind: 'setDiplomacy', from: other, to: HUMAN, state: 'friend' });
 }
 
 function attach(sim: Simulation, trader: Entity, house: Entity): void {
@@ -527,6 +534,8 @@ describe('a trader between its own houses', () => {
     const other = houseAt(sim, MIDDLE_X, OUTSIDER, [], TRADING_POST_ID);
     const trader = traderOnFoot(sim, NEAR_X);
     offerWoodForPlanks(sim);
+    befriend(sim, NEIGHBOUR);
+    befriend(sim, OUTSIDER);
     attach(sim, trader, post);
     attach(sim, trader, own);
     sim.step();
@@ -546,6 +555,8 @@ describe('a trader between its own houses', () => {
     const other = houseAt(sim, MIDDLE_X, OUTSIDER, [], TRADING_POST_ID);
     const trader = traderOnFoot(sim, NEAR_X);
     offerWoodForPlanks(sim);
+    befriend(sim, NEIGHBOUR);
+    befriend(sim, OUTSIDER);
     attach(sim, trader, own);
     attach(sim, trader, post);
     sim.step();
@@ -572,6 +583,25 @@ describe('a trader between its own houses', () => {
 
     expect(sim.canAttachTradeHouse(trader, stranger)).toBe(false);
     expect(sim.world.get(trader, TradeRoute).stops.map((stop) => stop.house)).toEqual([own]);
+  });
+
+  it('takes a foreign house only while both players hold friend toward each other', () => {
+    const sim = newSim();
+    const own = houseAt(sim, NEAR_X, HUMAN);
+    const post = houseAt(sim, FAR_X, NEIGHBOUR, [], TRADING_POST_ID);
+    const trader = traderOnFoot(sim, NEAR_X);
+    offerWoodForPlanks(sim);
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN, state: 'enemy' });
+    attach(sim, trader, own);
+    attach(sim, trader, post);
+    sim.step();
+
+    expect(sim.canAttachTradeHouse(trader, post)).toBe(false);
+    expect(sim.world.get(trader, TradeRoute).stops.map((stop) => stop.house)).toEqual([own]);
+    sim.enqueue(adminCommand({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN, state: 'friend' }));
+    sim.step();
+    expect(sim.canAttachTradeHouse(trader, post)).toBe(true);
   });
 
   it('takes no own house that keeps no stock or is not finished', () => {
@@ -602,6 +632,7 @@ describe('a trader between its own houses', () => {
     const post = houseAt(sim, FAR_X, NEIGHBOUR, [], TRADING_POST_ID);
     const trader = traderOnFoot(sim, NEAR_X);
     offerWoodForPlanks(sim);
+    befriend(sim, NEIGHBOUR);
     attach(sim, trader, own);
     attach(sim, trader, post);
     sim.step();
@@ -755,7 +786,7 @@ describe('a trader between its own houses', () => {
 });
 
 describe('a trader at a foreign house', () => {
-  function tradingWorld(stance: 'friend' | 'neutral'): {
+  function tradingWorld(): {
     sim: Simulation;
     home: Entity;
     post: Entity;
@@ -765,7 +796,7 @@ describe('a trader at a foreign house', () => {
     const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 6]]);
     const post = houseAt(sim, FAR_X, NEIGHBOUR, [[PLANK, 8]], TRADING_POST_ID);
     const trader = traderAt(sim, NEAR_X);
-    sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: stance });
+    befriend(sim, NEIGHBOUR);
     offerWoodForPlanks(sim);
     attach(sim, trader, home);
     attach(sim, trader, post);
@@ -774,7 +805,7 @@ describe('a trader at a foreign house', () => {
   }
 
   it('hands the give goods over, brings the take goods home and tallies them for the ledger', () => {
-    const { sim, home, post, trader } = tradingWorld('friend');
+    const { sim, home, post, trader } = tradingWorld();
 
     sim.run(RUN_TICKS);
 
@@ -790,7 +821,7 @@ describe('a trader at a foreign house', () => {
   });
 
   it('keeps its agreement when a fallen own stop is replaced before the trader plans again', () => {
-    const { sim, home, post, trader } = tradingWorld('friend');
+    const { sim, home, post, trader } = tradingWorld();
     sim.run(TRADE_START_TICKS);
 
     sim.world.destroy(home);
@@ -810,7 +841,7 @@ describe('a trader at a foreign house', () => {
     const home = houseAt(sim, NEAR_X, HUMAN, [[FOOD, 4]]);
     const post = houseAt(sim, FAR_X, NEIGHBOUR, [[PLANK, 8]], TRADING_POST_ID);
     const trader = traderAt(sim, NEAR_X);
-    sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    befriend(sim, NEIGHBOUR);
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
       missionId: TRADING_POST_ID,
@@ -831,8 +862,10 @@ describe('a trader at a foreign house', () => {
     expect(goodsTradedWith(sim.world, HUMAN, NEIGHBOUR)).toBe(2 * stockOf(sim, post, FOOD));
   });
 
-  it('trades nothing while the partner is no friend', () => {
-    const { sim, home, post } = tradingWorld('neutral');
+  it("trades nothing once the trader's player is no friend of the partner", () => {
+    const { sim, home, post } = tradingWorld();
+    sim.step();
+    sim.enqueue(adminCommand({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'neutral' }));
 
     sim.run(RUN_TICKS);
 
@@ -842,7 +875,7 @@ describe('a trader at a foreign house', () => {
   });
 
   it('carries its route, cart and tally through a save and back', () => {
-    const { sim } = tradingWorld('friend');
+    const { sim } = tradingWorld();
     sim.run(RUN_TICKS / 3);
 
     const saved = serializeSaveGame(exportSaveGame(sim));
@@ -879,7 +912,7 @@ describe('a route whose owners a map script changes', () => {
     const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 6]]);
     const post = houseAt(sim, FAR_X, NEIGHBOUR, [[PLANK, 8]], TRADING_POST_ID);
     const trader = traderAt(sim, NEAR_X);
-    sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    befriend(sim, NEIGHBOUR);
     offerWoodForPlanks(sim);
     attach(sim, trader, home);
     attach(sim, trader, post);
@@ -1032,7 +1065,7 @@ describe("a computer seat's trade house", () => {
     const { sim, post } = partnerWorld({ mapAiEnabled: true });
     const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, PLENTY_OF_WOOD]]);
     const trader = traderAt(sim, NEAR_X);
-    sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    befriend(sim, NEIGHBOUR);
     attach(sim, trader, home);
     attach(sim, trader, post);
     sim.enqueue(playerCommand(HUMAN, { kind: 'setTradeAgreement', entity: trader, agreement: 0 }));
@@ -1054,7 +1087,7 @@ describe("a computer seat's trade house", () => {
       const { sim, post } = partnerWorld({ mapAiEnabled });
       const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 6]]);
       const trader = traderAt(sim, NEAR_X);
-      sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+      befriend(sim, NEIGHBOUR);
       attach(sim, trader, home);
       attach(sim, trader, post);
       sim.enqueue(playerCommand(HUMAN, { kind: 'setTradeAgreement', entity: trader, agreement: 0 }));

@@ -20,10 +20,11 @@ function goodCell(good: DiplomacyGood, paint: GoodIconPainter): HTMLElement {
   return root;
 }
 
-/** Why the player cannot trade on these offers: their own stance toward the house owner is not
- *  `friend`. `canBefriend` offers the declaration in place when the stance is the player's to change. */
+/** Why the player cannot trade on these offers: a foreign house trades only while both players hold
+ *  `friend` toward each other. `canBefriend` offers the player's own declaration in place. */
 export interface OfferLock {
-  readonly stance: DiplomacyState;
+  readonly yours: DiplomacyState;
+  readonly theirs: DiplomacyState;
   readonly canBefriend: boolean;
   readonly befriending: boolean;
 }
@@ -40,8 +41,12 @@ export function createOffers(paint: GoodIconPainter, onBefriend: () => void) {
   const lockText = element('div', 'on-dip-trade-lock__text');
   const lockTitle = element('strong', '');
   write(lockTitle, copy.tradeLockedTitle);
-  const lockReason = element('span', '');
-  lockText.append(lockTitle, lockReason);
+  const lockStances = element('span', '');
+  const lockRule = element('span', '');
+  write(lockRule, copy.tradeNeedsBoth);
+  const lockHint = element('span', 'on-dip-trade-lock__hint');
+  write(lockHint, copy.tradeTheirsHint);
+  lockText.append(lockTitle, lockStances, lockRule, lockHint);
   const befriend = button('on-button on-button--accent');
   write(befriend, copy.tradeBefriend);
   befriend.addEventListener('click', () => {
@@ -87,8 +92,17 @@ export function createOffers(paint: GoodIconPainter, onBefriend: () => void) {
       setClass(list, 'on-dip-offer-list--locked', blocked);
       setAttribute(list, 'aria-disabled', String(blocked));
       if (!blocked) return;
-      write(lockReason, formatMessage(copy.tradeLocked, { stance: copy.stances[locked.stance] }));
-      setHidden(befriend, !locked.canBefriend);
+      const stances = [
+        locked.yours === 'friend'
+          ? ''
+          : formatMessage(copy.tradeYours, { stance: copy.stances[locked.yours] }),
+        locked.theirs === 'friend'
+          ? ''
+          : formatMessage(copy.tradeTheirs, { stance: copy.stances[locked.theirs] }),
+      ];
+      write(lockStances, stances.filter((line) => line !== '').join(' · '));
+      setHidden(lockHint, locked.theirs === 'friend');
+      setHidden(befriend, locked.yours === 'friend' || !locked.canBefriend);
       befriend.disabled = locked.befriending;
     },
   };

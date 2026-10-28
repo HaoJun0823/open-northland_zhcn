@@ -345,6 +345,7 @@ describe('a settlement stop before a foreign trip', () => {
     const post = houseAt(sim, OTHER_X, [[PLANK, 40]], { owner: NEIGHBOUR, missionId: TRADING_POST_ID });
     const trader = traderAt(sim, ANCHOR_X);
     sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN, state: 'friend' });
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
       missionId: TRADING_POST_ID,

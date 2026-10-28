@@ -20,7 +20,7 @@ import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext, SystemContext } from '../context.js';
 import { isTraderJob } from '../readviews/jobs.js';
-import { agreementsAt } from './agreements.js';
+import { agreementsAt, mutualFriends } from './agreements.js';
 import { isSettlementAnchor } from './settlement.js';
 
 function isTrader(world: World, ctx: ContentContext, e: Entity): boolean {
@@ -33,6 +33,8 @@ function isTrader(world: World, ctx: ContentContext, e: Entity): boolean {
  * keeps a stock when it is the trader's own, or that offers an agreement when it is another player's.
  * Trade inside the settlement moves any good; with another tribe only the house's agreements trade, so
  * a house offering none is no stop (owner's choice, so the house pick lights only the houses that trade).
+ * Original behavior: a foreign house joins a route only while both players hold `friend` toward each
+ * other; the trips after that check only the trader's side (`activeAgreement`).
  */
 export function canAttachTradeHouse(
   world: World,
@@ -44,7 +46,9 @@ export function canAttachTradeHouse(
   const building = world.tryGet(house, Building);
   if (building === undefined || building.built !== ONE) return false;
   if (tradeRouteOf(world, trader)?.stops.some((stop) => stop.house === house) === true) return false;
-  if (isForeignHouse(world, trader, house)) return agreementsAt(world, house).length > 0;
+  if (isForeignHouse(world, trader, house)) {
+    return agreementsAt(world, house).length > 0 && mutualFriends(world, trader, house);
+  }
   return (contentIndex(ctx.content).storedGoodsByBuilding.get(building.buildingType)?.size ?? 0) > 0;
 }
 

@@ -216,8 +216,10 @@ export const enGame = {
       give: 'You give',
       take: 'You receive',
       tradeLockedTitle: 'Trade unavailable',
-      tradeLocked:
-        'Your attitude: {stance}. Traders only exchange goods with a tribe you are friendly towards.',
+      tradeYours: 'Your attitude: {stance}',
+      tradeTheirs: 'Their attitude: {stance}',
+      tradeNeedsBoth: 'Traders only trade while both sides are friendly.',
+      tradeTheirsHint: 'A paid tribute or a mission event may change their attitude.',
       tradeBefriend: 'Set friendly',
       traded: 'Goods traded: {count}',
       failed: 'The order could not be carried out. Try again.',

@@ -256,10 +256,11 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
     tributeList.update(row.tributes, (slot) => orders.paying(slot), row.blocked === 'observer');
     offers.update(
       row.tradeOffers,
-      row.yourStance === 'friend'
+      row.yourStance === 'friend' && row.towardYou === 'friend'
         ? null
         : {
-            stance: row.yourStance,
+            yours: row.yourStance,
+            theirs: row.towardYou,
             canBefriend: row.canDeclare,
             befriending: orders.declaring(row.player) || orders.stance(row) === 'friend',
           },

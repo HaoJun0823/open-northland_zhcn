@@ -7556,6 +7556,9 @@ body.on-drag-scroll.on-drag-scroll-free * {
 .on-hud .on-dip-trade-lock__text > strong {
   color: var(--warning);
 }
+.on-hud .on-dip-trade-lock__hint {
+  color: var(--muted);
+}
 .on-hud .on-dip-trade-lock > .on-button {
   flex: none;
 }

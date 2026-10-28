@@ -240,8 +240,10 @@ export const deGame = {
       give: 'Du gibst',
       take: 'Du erhältst',
       tradeLockedTitle: 'Handel nicht möglich',
-      tradeLocked:
-        'Dein Verhältnis: {stance}. Händler tauschen nur mit einem Stamm, dem gegenüber du freundlich bist.',
+      tradeYours: 'Dein Verhältnis: {stance}',
+      tradeTheirs: 'Ihr Verhältnis: {stance}',
+      tradeNeedsBoth: 'Händler handeln nur, solange beide Seiten freundlich sind.',
+      tradeTheirsHint: 'Ein gezahlter Tribut oder ein Ereignis der Mission kann ihr Verhältnis ändern.',
       tradeBefriend: 'Freundlich stellen',
       traded: 'Gehandelte Waren: {count}',
       failed: 'Der Auftrag konnte nicht ausgeführt werden. Versuche es erneut.',

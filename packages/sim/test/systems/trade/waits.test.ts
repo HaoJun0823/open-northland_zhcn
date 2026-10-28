@@ -177,6 +177,7 @@ describe('a trader at a foreign house its cart cannot take from', () => {
     const post = houseAt(sim, FAR_X, [[PLANK, 8]], NEIGHBOUR, TRADING_POST_ID);
     const { trader, cart } = traderWithCart(sim, NEAR_X);
     sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN, state: 'friend' });
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
       missionId: TRADING_POST_ID,
@@ -204,6 +205,7 @@ describe('a trader at a foreign house with no room for the give good', () => {
     const post = houseAt(sim, FAR_X, [[PLANK, 8]], NEIGHBOUR, TRADING_POST_ID);
     const { trader, cart } = traderWithCart(sim, NEAR_X);
     sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: NEIGHBOUR, to: HUMAN, state: 'friend' });
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
       missionId: TRADING_POST_ID,

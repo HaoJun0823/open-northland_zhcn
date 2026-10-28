@@ -2,6 +2,7 @@ import type { SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { Container, type Sprite } from 'pixi.js';
 import { BloodCoats } from '../../data/effects/blood-coats.js';
 import type { GhostSource } from '../../data/fog/index.js';
+import type { LightSiteList } from '../../data/lighting/light-sites.js';
 import {
   type Camera,
   cameraScreenX,
@@ -306,6 +307,21 @@ export class SpritePool {
     const pe = this.pool.get(ref);
     return pe?.attached === true ? pe : undefined;
   };
+
+  /** Append a light per owned settler and finished building drawn on the map this frame, at its
+   *  presented feet; wildlife, sites, fog ghosts and settlers inside a house stay dark. */
+  collectLights(out: LightSiteList): void {
+    for (const pe of this.attached) {
+      const item = pe.bound.item;
+      if (item === undefined || item.ghost === true || item.portraitOnly === true) continue;
+      const { x, y } = pe.container.position;
+      if (item.kind === 'settler') {
+        if (item.player !== undefined && item.inHouse !== true) out.push('settler', item.ref, x, y);
+      } else if (item.kind === 'building' && item.builtPct === undefined) {
+        out.push('building', item.ref, x, y);
+      }
+    }
+  }
 
   private drawDamage(frame: PoolFrame): void {
     this.buildingDamage.draw(

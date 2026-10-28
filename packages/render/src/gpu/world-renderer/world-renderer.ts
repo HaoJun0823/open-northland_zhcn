@@ -7,6 +7,7 @@ import {
   SeenRoads,
   type Sight,
 } from '../../data/fog/index.js';
+import { LightSiteList } from '../../data/lighting/light-sites.js';
 
 /** The viewer's fog memory as plain data: the remembered statics of the seat last viewed (null before
  *  any fog view) and the road nodes it believes laid. */
@@ -112,6 +113,8 @@ export class WorldRenderer {
   private paused = false;
   private readonly weatherSky: WeatherSky;
   private readonly sceneLight = new SceneLight();
+  /** This frame's night lights, refilled only while the scene light burns them. */
+  private readonly lights = new LightSiteList();
   private climate = new WeatherClimate();
   private weatherField: WeatherField | null = null;
   private weatherEnabled = true;
@@ -550,7 +553,6 @@ export class WorldRenderer {
     // The fog first: the sky reads the band it just drew.
     const fogFrame = this.fog.update(snapshot, vp, this.elevation);
     this.weatherSky.update(this.weather, weatherView, gameSeconds);
-    this.sceneLight.update({ screenW, screenH, gameSeconds });
     this.mapObjects.update(vp, tick, this.fog.cellStateAt, fogFrame.fogEpoch, tick + alpha, this.wind);
     const portrait = this.portrait.subjects();
     const erased = this.flagErasures.update(doorBadges);
@@ -583,6 +585,19 @@ export class WorldRenderer {
       ...(portrait.ref !== null ? { portraitRef: portrait.ref } : {}),
       ...(portrait.house !== null ? { portraitHouse: portrait.house } : {}),
       ...(portrait.others.length > 0 ? { insetRefs: portrait.others } : {}),
+    });
+    this.lights.clear();
+    if (this.sceneLight.wantsLights()) {
+      this.pool.collectLights(this.lights);
+      this.mapObjects.collectLights(vp, this.lights, this.fog.exploredGate);
+    }
+    this.sceneLight.update({
+      screenW,
+      screenH,
+      gameSeconds,
+      camera,
+      lights: this.lights.sites,
+      renderer: this.app.renderer,
     });
     this.marks.draw({
       snapshot,

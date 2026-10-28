@@ -60,8 +60,19 @@ settler in daylight. We read the author's intent instead:
   They draw as one additive quad at `OVERBRIGHT_SHARE` (a quarter) of their excess: a warm lift that
   keeps the shadows. Tuned by eye against the alternatives: the script's literal 1.34 red as a true
   multiply on the ground, or a half share of the lift, both read as the yellow wash players reported.
+- A darkening grade draws with most of its darkness taken out (`shownGrade`,
+  `packages/render/src/data/lighting/grade.ts`): a sunset keeps its hue at about 0.94 luma instead of
+  0.84, and a night keeps more of its darkness (0.56 shows at about 0.63) and leans blue. Tuned by
+  eye after players found the literal sunset too dark and the night flat.
+- As the grade darkens past dusk, the multiply reads a light map instead of a flat colour: cleared to
+  the grade, with a soft pool around every settler with an owner and every finished building on
+  screen, merged so a crowd stays one warm light, and a brighter flickering pool with a visible flame
+  at each map object drawn with the `fire` palette (`light-sites.ts`). The settlement keeps its
+  daylight colours while the wild lies dark.
 - Every other index stays on the terrain as its palette colour divided by the scene's multiply, so
-  the product on screen is exactly what the script asked for.
+  the product on screen is what the script asked for. Under a darkening grade a brightening local
+  tint (the glow under a fire) keeps a fifth of its excess instead (`LOCAL_GLOW_SHARE`): the fire's
+  own light brightens that ground again, and the divided glow blew out under it.
 - A step fades exponentially over about 4 game seconds (`LIGHT_FADE_SECONDS`); a load or seek snaps.
   The terrain's local tints take their new divisor at once, so a glow runs a few seconds ahead of the
   scene it is divided by. An approximation: fading the ground too would be a per-frame pass over the

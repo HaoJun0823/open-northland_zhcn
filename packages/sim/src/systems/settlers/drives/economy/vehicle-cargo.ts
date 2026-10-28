@@ -266,10 +266,11 @@ function nearestCargoSource(
     { origin: door, accept: (e2) => world.has(e2, Building) && reachable(e2) && nearDoor(e2) },
     { origin: here, accept: reachable },
   ];
+  const forms = goods.flatMap((good) => sourceFormsOf(ctx.content, good));
   for (const phase of phases) {
     const goodsGate = targets.bands.goodsGate(phase.origin, plan.owner, gate);
     let best: (CargoSource & { readonly distance: number }) | null = null;
-    for (const goodType of goods.flatMap((good) => sourceFormsOf(ctx.content, good))) {
+    for (const goodType of forms) {
       const accept = (e2: Entity): boolean =>
         phase.accept(e2) &&
         !isFoodKeptAtHome(world, ctx, e2, goodType) &&

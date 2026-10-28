@@ -405,7 +405,7 @@ describe('the carrier rung', () => {
     expect(line(s, cart, FOOD_SIMPLE)).toEqual({ current: 2, wanted: 2, reserved: 2 });
   });
 
-  it("fills the edible line with a bakery's bread when nothing nearer holds food", () => {
+  it("fills the edible line with a bakery's bread", () => {
     const s = sim();
     const cart = spawnCart(s);
     attachCarrier(s, cart);

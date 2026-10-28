@@ -148,19 +148,21 @@ export class SceneLight {
     }
     this.container.visible = true;
     const { screenW, screenH } = frame;
-    const lit = level > 0 ? this.placeLights(frame, level) : 0;
+    // Always placed, so a step out of the night hides the last night's flames too.
+    const lit = this.placeLights(frame, level);
     // A brightening grade multiplies by white: only its additive quad draws.
     this.shade.visible = lit > 0 || r < 1 || g < 1 || b < 1;
     if (this.shade.visible) {
       if (lit > 0 && frame.renderer !== undefined) {
-        this.shade.texture = this.mapSized(frame.renderer, screenW, screenH);
+        const map = this.mapSized(frame.renderer, screenW, screenH);
+        this.shade.texture = map;
         this.shade.tint = 0xffffff;
         this.clearColor[0] = Math.min(1, r);
         this.clearColor[1] = Math.min(1, g);
         this.clearColor[2] = Math.min(1, b);
         frame.renderer.render({
           container: this.mapRoot,
-          target: this.shade.texture as RenderTexture,
+          target: map,
           clear: true,
           clearColor: this.clearColor,
         });
@@ -197,7 +199,7 @@ export class SceneLight {
     this.merged.begin();
     this.added.begin();
     this.flares.begin();
-    if (camera !== undefined && lights !== undefined && renderer !== undefined) {
+    if (level > 0 && camera !== undefined && lights !== undefined && renderer !== undefined) {
       this.glow ??= bakeGlow();
       const glow = this.glow;
       const zoom = camera.scale ?? 1;

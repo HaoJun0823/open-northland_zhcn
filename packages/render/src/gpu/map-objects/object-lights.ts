@@ -6,28 +6,39 @@ import type { MapObjectSprite } from './map-object-sprite.js';
 const LIGHT_REACH_PX = LIGHT_LOOKS.fire.radius;
 /** A fire's flicker seed packs its rounded x into the low bits and y above them. */
 const SEED_Y_SHIFT = 16;
+/** A block key is `by * BLOCK_ROW_STRIDE + bx`; no map is this many blocks wide. */
+const BLOCK_ROW_STRIDE = 1 << 16;
+
+/** A burning object with what a frame reads of it, worked out once when it is added. */
+interface Burning {
+  readonly obj: MapObjectSprite;
+  readonly col: number;
+  readonly row: number;
+  readonly seed: number;
+}
 
 /** The map's burning objects in square blocks of world px, so a frame reads only the blocks on screen. */
 export class ObjectLightIndex {
-  private readonly blocks = new Map<string, Set<MapObjectSprite>>();
+  private readonly blocks = new Map<number, Map<MapObjectSprite, Burning>>();
 
   constructor(private readonly blockPx: number) {}
 
   add(obj: MapObjectSprite): void {
     if (obj.light === undefined) return;
-    const key = this.keyOf(Math.floor(obj.x / this.blockPx), Math.floor(obj.y / this.blockPx));
+    const key = this.keyAt(obj.x, obj.y);
     let block = this.blocks.get(key);
     if (block === undefined) {
-      block = new Set();
+      block = new Map();
       this.blocks.set(key, block);
     }
-    block.add(obj);
+    const { col, row } = screenToCell(obj.x, obj.y);
+    const seed = Math.round(obj.x) ^ (Math.round(obj.y) << SEED_Y_SHIFT);
+    block.set(obj, { obj, col, row, seed });
   }
 
   remove(obj: MapObjectSprite): void {
     if (obj.light === undefined) return;
-    const key = this.keyOf(Math.floor(obj.x / this.blockPx), Math.floor(obj.y / this.blockPx));
-    this.blocks.get(key)?.delete(obj);
+    this.blocks.get(this.keyAt(obj.x, obj.y))?.delete(obj);
   }
 
   clear(): void {
@@ -44,22 +55,17 @@ export class ObjectLightIndex {
     const maxBY = Math.floor((vp.maxY + LIGHT_REACH_PX) / this.blockPx);
     for (let by = minBY; by <= maxBY; by++) {
       for (let bx = minBX; bx <= maxBX; bx++) {
-        const block = this.blocks.get(this.keyOf(bx, by));
+        const block = this.blocks.get(by * BLOCK_ROW_STRIDE + bx);
         if (block === undefined) continue;
-        for (const obj of block) {
-          if (obj.light === undefined) continue;
-          if (explored !== undefined) {
-            const cell = screenToCell(obj.x, obj.y);
-            if (!explored(cell.col, cell.row)) continue;
-          }
-          const seed = Math.round(obj.x) ^ (Math.round(obj.y) << SEED_Y_SHIFT);
+        for (const { obj, col, row, seed } of block.values()) {
+          if (obj.light === undefined || (explored !== undefined && !explored(col, row))) continue;
           out.push(obj.light, seed, obj.x, obj.y - (obj.lift ?? 0));
         }
       }
     }
   }
 
-  private keyOf(bx: number, by: number): string {
-    return `${bx},${by}`;
+  private keyAt(x: number, y: number): number {
+    return Math.floor(y / this.blockPx) * BLOCK_ROW_STRIDE + Math.floor(x / this.blockPx);
   }
 }

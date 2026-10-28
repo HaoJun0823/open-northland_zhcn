@@ -111,13 +111,25 @@ describe('SceneLight at night', () => {
     light.destroy();
   });
 
-  it('falls back to the flat multiply with no light on screen, and burns none at sunset', () => {
+  it('falls back to the flat multiply with no light on screen', () => {
     const { light, render } = nightWith(new LightSiteList());
     const [shade] = quads(light);
     expect(render).not.toHaveBeenCalled();
     expect(shade.texture).toBe(Texture.WHITE);
+    light.destroy();
+  });
+
+  it('burns none at sunset, and a snap out of the night puts the flames out', () => {
+    const lights = new LightSiteList();
+    lights.push('fire', 2, 40, 60);
+    const { light } = nightWith(lights);
+    const [shade, , flares] = quads(light);
     light.setTarget([1, 0.9, 0.8], true);
     expect(light.wantsLights()).toBe(false);
+    light.update({ ...frameAt(1), camera, lights: lights.sites });
+    expect(light.container.visible).toBe(true);
+    expect(shade.texture).toBe(Texture.WHITE);
+    expect(flares.children.some((flare) => flare.visible)).toBe(false);
     light.destroy();
   });
 });

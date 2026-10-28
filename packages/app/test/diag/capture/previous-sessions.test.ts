@@ -161,4 +161,29 @@ describe('reportPreviousSessions', () => {
       ['gpu-gone', false],
     ]);
   });
+
+  it("keeps a fault of a page just closed frozen for the later sweep, which reports it with that page's log", async () => {
+    const tab = '2'.repeat(32);
+    const frozenAt = OWN.startedAt - 2 * FREEZE_REPORT_MS;
+    const playing = { ...BOOTING, inGame: true, booting: false };
+    const freeze: FreezeRecord = {
+      id: '3'.repeat(32),
+      tabId: tab,
+      frozenAt,
+      seenAt: OWN.startedAt - 1000,
+      context: playing,
+    };
+    store.records = [freeze];
+    writeMarker({ id: tab, startedAt: LONG_AGO, beatAt: frozenAt, visible: true, context: playing });
+    const gpu = shellFault('9'.repeat(32), 'gpu-gone', frozenAt - 200);
+    shellWith([gpu]);
+    await reportPreviousSessions(OWN, null);
+    expect(problems).toEqual([]);
+
+    vi.spyOn(Date, 'now').mockReturnValue(NOW + MARKER_STALE_MS + 5000);
+    await reportPreviousSessions(OWN, null);
+    expect(
+      problems.map((problem) => [problem.trigger, problem.facts?.freezeMs, problem.earlier?.route?.entry]),
+    ).toEqual([['gpu-gone', freeze.seenAt - freeze.frozenAt, 'map']]);
+  });
 });

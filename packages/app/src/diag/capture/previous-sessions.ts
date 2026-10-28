@@ -175,9 +175,14 @@ export async function reportPreviousSessions(own: OwnPage, previous: PreviousPag
     for (const fault of group) grouped.add(fault.id);
     await reportDesktopFaults(faults, group, extras);
   }
+  // A page closed while frozen still looks alive for a few seconds: a fault it saw waits for the later
+  // sweep, which reports it with that page's log.
+  const liveSince = markers.filter((marker) => liveTabs.has(marker.id)).map((marker) => marker.startedAt);
   // The later sweep also finds what the shell recorded of this page, such as a GPU restart.
   for (const fault of pending) {
     if (grouped.has(fault.id)) continue;
-    await reportDesktopFaults(faults, [fault], { previousSession: Date.parse(fault.at) < own.startedAt });
+    const atMs = Date.parse(fault.at);
+    if (atMs < own.startedAt && liveSince.some((startedAt) => atMs >= startedAt)) continue;
+    await reportDesktopFaults(faults, [fault], { previousSession: atMs < own.startedAt });
   }
 }

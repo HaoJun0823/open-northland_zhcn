@@ -1,18 +1,30 @@
-import { BufferImageSource, Container, type Renderer, RenderTexture, Sprite, Texture } from 'pixi.js';
+import {
+  type BLEND_MODES,
+  BufferImageSource,
+  Container,
+  type Renderer,
+  RenderTexture,
+  Sprite,
+  Texture,
+} from 'pixi.js';
 import { fadeGrade } from '../../data/lighting/fade.js';
 import { nightLevel, shownGrade } from '../../data/lighting/grade.js';
-import { LIGHT_LOOKS, type LightSite, lightFlicker } from '../../data/lighting/light-sites.js';
+import { LIGHT_LOOKS, type LightSite, lightShare } from '../../data/lighting/light-sites.js';
 import { type LightGrade, NEUTRAL_GRADE } from '../../data/lighting/types.js';
 import type { Camera } from '../../data/projection/iso.js';
+import type { NightComposite } from '../world-renderer/offscreen-world.js';
+import { ensureNightBlends, NIGHT_GLOW_BLEND } from './night-blend.js';
 
 /**
  * The scene grade: a map script's whole-map vertex tint drawn over everything the stage drew below
  * it, not only the ground the script could reach, in the look `data/lighting/grade.ts` shows it. By
  * day a multiply quad carries the channels up to 1; the channels above 1 add one quad at
  * `OVERBRIGHT_SHARE` of their excess, about a multiply at mid-tones, which cannot wash out. At night
- * the multiply reads a light map instead: cleared to the grade, with a warm pool added around each
- * light, so the settlement keeps its daylight colours while the wild lies dark, and each fire adds a
- * visible flame above the darkness. Screen sprites on the stage, never a `Filter` on the world layer
+ * the offscreen world composites instead (`world-renderer/offscreen-world.ts`): the unlit world
+ * multiplies by a light map cleared to the grade, with a warm pool round each house and fire, and what
+ * a light-bearer stamped lit (`sprite-pool/night-glow.ts`) by {@link NIGHT_LIT_COLOUR}, so the settlers
+ * and the lower walls of the houses keep part of their daylight colours with no light on the ground
+ * round a walker, and each fire shows a flame. Screen sprites, never a `Filter` on the world layer
  * (see `world-renderer/post-fx.ts`).
  */
 
@@ -34,6 +46,8 @@ const GLOW_STOPS: readonly (readonly [number, number])[] = [
   [1, 0],
 ];
 const CHANNEL_MAX = 255;
+/** What a fully lit texel multiplies by at night: a warm lamplight, tuned by eye. */
+const NIGHT_LIT_COLOUR: readonly [number, number, number] = [1, 0.94, 0.84];
 const RED_SHIFT = 16;
 const GREEN_SHIFT = 8;
 
@@ -96,7 +110,7 @@ export class SceneLight {
   private readonly mapRoot = new Container();
   private readonly merged = new GlowSprites(this.mapRoot, 'max');
   private readonly added = new GlowSprites(this.mapRoot, 'add');
-  private readonly flares = new GlowSprites(this.container, 'add');
+  private readonly flares = new GlowSprites(this.container, NIGHT_GLOW_BLEND);
   private map: RenderTexture | null = null;
   /** Baked when the first night asks for it. */
   private glow: Texture | null = null;
@@ -106,6 +120,8 @@ export class SceneLight {
   private readonly shown: [number, number, number] = [1, 1, 1];
   private readonly clearColor: [number, number, number, number] = [1, 1, 1, 1];
   private lastSeconds: number | null = null;
+  /** This frame's night composite, while the night lights the world. */
+  private night: NightComposite | null = null;
 
   constructor() {
     this.container.label = 'scene-light';
@@ -125,9 +141,23 @@ export class SceneLight {
     }
   }
 
-  /** Whether this frame's grade burns the night lights, so the world collects them. */
-  wantsLights(): boolean {
-    return nightLevel(this.grade) > 0 || nightLevel(this.target) > 0;
+  /** How strongly the night lights burn under the grade the last frame drew, 0 by day. */
+  nightLevel(): number {
+    return nightLevel(this.grade);
+  }
+
+  /** What the offscreen world composites this frame, null while no night lights it. */
+  composite(): NightComposite | null {
+    return this.night;
+  }
+
+  /** A save's picture renders the scene itself, without the composite: the night's light map then shades
+   *  it as the day's grade does, until `false` puts the composite back. */
+  shadeForPicture(on: boolean): void {
+    if (this.night === null) return;
+    this.shade.visible = on;
+    // A picture keeps the frame's alpha, which the flames' night blend would hole.
+    this.flares.setBlend(on ? 'add' : NIGHT_GLOW_BLEND);
   }
 
   /** The grade drawn this frame, after the fade. */
@@ -144,33 +174,34 @@ export class SceneLight {
     const level = nightLevel(this.grade);
     if (r === 1 && g === 1 && b === 1) {
       this.container.visible = false;
+      this.night = null;
       return;
     }
     this.container.visible = true;
-    const { screenW, screenH } = frame;
+    const { screenW, screenH, renderer } = frame;
     // Always placed, so a step out of the night hides the last night's flames too.
-    const lit = this.placeLights(frame, level);
-    // A brightening grade multiplies by white: only its additive quad draws.
-    this.shade.visible = lit > 0 || r < 1 || g < 1 || b < 1;
-    if (this.shade.visible) {
-      if (lit > 0 && frame.renderer !== undefined) {
-        const map = this.mapSized(frame.renderer, screenW, screenH);
-        this.shade.texture = map;
-        this.shade.tint = 0xffffff;
-        this.clearColor[0] = Math.min(1, r);
-        this.clearColor[1] = Math.min(1, g);
-        this.clearColor[2] = Math.min(1, b);
-        frame.renderer.render({
-          container: this.mapRoot,
-          target: map,
-          clear: true,
-          clearColor: this.clearColor,
-        });
-      } else {
+    this.placeLights(frame, level);
+    this.night = null;
+    if (level > 0 && renderer !== undefined && frame.camera !== undefined) {
+      ensureNightBlends(renderer);
+      const map = this.mapSized(renderer, screenW, screenH);
+      this.clearColor[0] = Math.min(1, r);
+      this.clearColor[1] = Math.min(1, g);
+      this.clearColor[2] = Math.min(1, b);
+      renderer.render({ container: this.mapRoot, target: map, clear: true, clearColor: this.clearColor });
+      this.night = { light: map, lit: NIGHT_LIT_COLOUR };
+      this.shade.texture = map;
+      this.shade.tint = 0xffffff;
+      this.shade.setSize(screenW, screenH);
+      this.shade.visible = false;
+    } else {
+      // A brightening grade multiplies by white: only its additive quad draws.
+      this.shade.visible = r < 1 || g < 1 || b < 1;
+      if (this.shade.visible) {
         this.shade.texture = Texture.WHITE;
         this.shade.tint = packColour(r, g, b);
+        this.shade.setSize(screenW, screenH);
       }
-      this.shade.setSize(screenW, screenH);
     }
     const over = packColour(
       (r - 1) * OVERBRIGHT_SHARE,
@@ -193,8 +224,8 @@ export class SceneLight {
     this.glow = null;
   }
 
-  /** Place a pool in the light map per light, and a flame for a fire; returns how many pools it placed. */
-  private placeLights(frame: SceneLightFrame, level: number): number {
+  /** Place a pool in the light map per light, and a flame for a fire. */
+  private placeLights(frame: SceneLightFrame, level: number): void {
     const { camera, lights, renderer } = frame;
     this.merged.begin();
     this.added.begin();
@@ -206,7 +237,8 @@ export class SceneLight {
       const perRadius = (2 * zoom) / GLOW_TEXTURE_SIZE;
       for (const light of lights) {
         const look = LIGHT_LOOKS[light.kind];
-        const strength = level * lightFlicker(look, light.seed, frame.gameSeconds);
+        const strength = lightShare(light.kind, light.seed, level, frame.gameSeconds);
+        if (strength <= 0) continue;
         const x = camera.offsetX + light.x * zoom;
         const y = camera.offsetY + light.y * zoom;
         const pool = (look.merges ? this.merged : this.added).next(glow);
@@ -226,7 +258,6 @@ export class SceneLight {
     this.merged.end();
     this.added.end();
     this.flares.end();
-    return this.merged.count + this.added.count;
   }
 
   /** The light map for this screen, re-made only when the screen or its resolution changes. */
@@ -260,7 +291,7 @@ class GlowSprites {
 
   constructor(
     parent: Container,
-    private readonly blend: 'add' | 'max',
+    private blend: BLEND_MODES,
   ) {
     parent.addChild(this.container);
   }
@@ -281,6 +312,11 @@ class GlowSprites {
     sprite.visible = true;
     this.count++;
     return sprite;
+  }
+
+  setBlend(blend: BLEND_MODES): void {
+    this.blend = blend;
+    for (const sprite of this.sprites) sprite.blendMode = blend;
   }
 
   end(): void {

@@ -1,12 +1,13 @@
 import { frac } from '../effects/random.js';
+import { smoothstep } from '../math.js';
 
-/** What casts a pool of light at night: a settler, a finished building, or an open fire. */
-export type LightKind = 'settler' | 'building' | 'fire';
+/** What casts a pool of light on the ground at night: a finished building or an open fire. */
+export type LightKind = 'building' | 'fire';
 
 /** One light this frame, at a lifted world point (px before the camera). */
 export interface LightSite {
   readonly kind: LightKind;
-  /** Seeds a fire's flicker: an entity id, or the object's position. */
+  /** Seeds a light's flicker and when it comes on: an entity id, or the object's position. */
   readonly seed: number;
   readonly x: number;
   readonly y: number;
@@ -16,7 +17,7 @@ export interface LightLook {
   /** Pool radius, world px at zoom 1. */
   readonly radius: number;
   /** A merging pool lights to its colour at {@link strength} and overlaps take the brighter, so a
-   *  crowd stays one warm light; otherwise the pool adds {@link strength} of its colour over the
+   *  street stays one warm light; otherwise the pool adds {@link strength} of its colour over the
    *  others, up to the light map's daylight clamp. */
   readonly merges: boolean;
   /** At the pool's centre at a full night. */
@@ -27,28 +28,22 @@ export interface LightLook {
   /** The visible flame over the pool, drawn above the darkness: its radius and strength, 0 for none. */
   readonly flareRadius: number;
   readonly flareStrength: number;
+  /** Whether each light comes on at its own point of the dusk rather than with the night. */
+  readonly staggered: boolean;
 }
 
-/** Tuned by eye. A settler carries a small warm pool, a house a wider one, a fire a bright flickering
- *  one with a visible flame; a town's pools overlap into a lit settlement. */
+/** Tuned by eye. A house spills a low warm light round its foot, as from its door and windows; a fire a
+ *  bright flickering one with a visible flame. */
 export const LIGHT_LOOKS: Readonly<Record<LightKind, LightLook>> = {
-  settler: {
-    merges: true,
-    radius: 100,
-    strength: 0.92,
-    colour: 0xfff0d8,
-    flicker: 0,
-    flareRadius: 0,
-    flareStrength: 0,
-  },
   building: {
     merges: true,
-    radius: 170,
-    strength: 0.95,
-    colour: 0xffeccc,
-    flicker: 0,
+    radius: 120,
+    strength: 0.6,
+    colour: 0xffd9a0,
+    flicker: 0.12,
     flareRadius: 0,
     flareStrength: 0,
+    staggered: true,
   },
   fire: {
     merges: false,
@@ -58,8 +53,21 @@ export const LIGHT_LOOKS: Readonly<Record<LightKind, LightLook>> = {
     flicker: 0.25,
     flareRadius: 60,
     flareStrength: 0.6,
+    staggered: false,
   },
 };
+
+/**
+ * How much of the night a light-bearer's own figure keeps lit, tuned by eye: a settler or vehicle shows
+ * part of its daylight colours, a house its lower walls more, fading toward the roof. Shares of the lit
+ * mask, scaled like a pool by the night and, for a house, by {@link lightShare}.
+ */
+export const BEARER_GLOW = 0.55;
+export const HOUSE_GLOW = 0.7;
+/** Approximation tuned by eye: a house's light comes on once the night passes a level drawn per house
+ *  below this, and takes {@link LIGHT_UP_RAMP} of the night's level to reach full. */
+const LIGHT_UP_SPREAD = 0.5;
+const LIGHT_UP_RAMP = 0.3;
 
 /** Flicker rates in cycles per game second, one drawn per light within `[min, min + spread]`, plus a
  *  faster wave at {@link JITTER_RATE} times that, mixed in at {@link JITTER_SHARE}. */
@@ -69,6 +77,7 @@ const JITTER_RATE = 2.7;
 const JITTER_SHARE = 0.35;
 const PHASE_DRAW = 0;
 const RATE_DRAW = 1;
+const LIGHT_UP_DRAW = 2;
 const TAU = 2 * Math.PI;
 
 /** A light's share of its strength at `gameSeconds`: 1 for a steady one, so a pause holds it and every
@@ -80,6 +89,16 @@ export function lightFlicker(look: LightLook, seed: number, gameSeconds: number)
   const wave =
     (1 - JITTER_SHARE) * Math.sin(TAU * t) + JITTER_SHARE * Math.sin(TAU * (t * JITTER_RATE + phase));
   return 1 - look.flicker * (0.5 + 0.5 * wave);
+}
+
+/** A light's share of its strength under a night `level` (0 day, 1 full night): staggered lights come
+ *  on one by one through the dusk, every light flickers by its look. */
+export function lightShare(kind: LightKind, seed: number, level: number, gameSeconds: number): number {
+  if (level <= 0) return 0;
+  const look = LIGHT_LOOKS[kind];
+  const from = look.staggered ? LIGHT_UP_SPREAD * frac(seed, LIGHT_UP_DRAW) : 0;
+  const on = look.staggered ? smoothstep(from, from + LIGHT_UP_RAMP, level) : level;
+  return on === 0 ? 0 : on * lightFlicker(look, seed, gameSeconds);
 }
 
 /** A frame's lights over grow-only records, so refilling it allocates per new light, not per frame. */

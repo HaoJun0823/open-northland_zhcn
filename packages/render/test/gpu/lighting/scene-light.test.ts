@@ -90,17 +90,17 @@ describe('SceneLight at night', () => {
     return { light, render };
   };
 
-  it('multiplies by a light map cleared to the shown night, a pool per light and a flame per fire', () => {
+  it('hands the composite a light map cleared to the shown night, a pool per light and a flame per fire', () => {
     const lights = new LightSiteList();
-    lights.push('settler', 1, 10, 20);
+    lights.push('building', 1, 10, 20);
     lights.push('fire', 2, 40, 60);
     const { light, render } = nightWith(lights);
-    expect(light.wantsLights()).toBe(true);
+    expect(light.nightLevel()).toBe(1);
     const [shade, , flares] = quads(light);
-    expect(shade.texture).not.toBe(Texture.WHITE);
-    expect(shade.tint).toBe(0xffffff);
+    expect(shade.visible).toBe(false);
     expect(render).toHaveBeenCalledOnce();
-    const pass = render.mock.calls[0]?.[0] as { container: Container; clearColor: number[] };
+    const pass = render.mock.calls[0]?.[0] as { container: Container; clearColor: number[]; target: unknown };
+    expect(light.composite()?.light).toBe(pass.target);
     expect(pass.clearColor.slice(0, 3)).toEqual(SHOWN_NIGHT);
     const pools = pass.container.children.flatMap((group) => group.children.filter((pool) => pool.visible));
     expect(pools.map((pool) => [pool.x, pool.y])).toEqual([
@@ -108,14 +108,20 @@ describe('SceneLight at night', () => {
       [180, 170],
     ]);
     expect(flares.children.filter((flare) => flare.visible)).toHaveLength(1);
+    light.shadeForPicture(true);
+    expect(shade.visible).toBe(true);
+    expect(shade.texture).toBe(pass.target);
+    // A picture keeps the frame's alpha: its flames add, as they never hole it.
+    expect(flares.children.every((flare) => flare.blendMode === 'add')).toBe(true);
+    light.shadeForPicture(false);
+    expect(shade.visible).toBe(false);
     light.destroy();
   });
 
-  it('falls back to the flat multiply with no light on screen', () => {
+  it('composites a night with no light on screen too, so the settlers still show lit', () => {
     const { light, render } = nightWith(new LightSiteList());
-    const [shade] = quads(light);
-    expect(render).not.toHaveBeenCalled();
-    expect(shade.texture).toBe(Texture.WHITE);
+    expect(render).toHaveBeenCalledOnce();
+    expect(light.composite()).not.toBeNull();
     light.destroy();
   });
 
@@ -125,9 +131,11 @@ describe('SceneLight at night', () => {
     const { light } = nightWith(lights);
     const [shade, , flares] = quads(light);
     light.setTarget([1, 0.9, 0.8], true);
-    expect(light.wantsLights()).toBe(false);
+    expect(light.nightLevel()).toBe(0);
     light.update({ ...frameAt(1), camera, lights: lights.sites });
     expect(light.container.visible).toBe(true);
+    expect(light.composite()).toBeNull();
+    expect(shade.visible).toBe(true);
     expect(shade.texture).toBe(Texture.WHITE);
     expect(flares.children.some((flare) => flare.visible)).toBe(false);
     light.destroy();

@@ -41,6 +41,16 @@ export const GLOW_PALETTE_INDEX = 170;
  *  {@link OUTLINE_DIRECTIONS} offset. */
 export const SELECTION_STAMP = -1;
 export const SELECTION_OUTLINE = -2;
+/** Draws the body's coverage as {@link SELECTION_STAMP} does, fading from full at the frame's foot to
+ *  {@link NIGHT_FALL_TOP} over its upper part: a building's night light, lit low and dark at the roof.
+ *  Approximation: the fade runs over each layer's own frame, so a house drawn as several layers fades
+ *  once per layer. */
+export const SELECTION_NIGHT_FALL = -3;
+/** Approximation tuned by eye: the share of a building's light left at its frame's top, and the frame
+ *  heights (0 top, 1 foot) the fade runs between. */
+const NIGHT_FALL_TOP = 0.1;
+const NIGHT_FALL_FROM = 0.2;
+const NIGHT_FALL_TO = 0.85;
 /** A non-negative `aSelection` packs a lift: the tone code times this band plus the lift's amount, 0..1. */
 export const SELECTION_TONE_BAND = 2;
 const DIAGONAL = Math.SQRT1_2;
@@ -293,6 +303,10 @@ const float SINGLE_TAP_FOOTPRINT = 0.000001;
 const float MINIFY_TAP_OFFSET = 0.25;
 const float MINIFY_TAP_WEIGHT = 0.25;
 const float SELECTION_OUTLINE = ${SELECTION_OUTLINE}.0;
+const float SELECTION_NIGHT_FALL = ${SELECTION_NIGHT_FALL}.0;
+const float NIGHT_FALL_TOP = ${glslFloat(NIGHT_FALL_TOP)};
+const float NIGHT_FALL_FROM = ${glslFloat(NIGHT_FALL_FROM)};
+const float NIGHT_FALL_TO = ${glslFloat(NIGHT_FALL_TO)};
 const float SELECTION_TONE_BAND = ${SELECTION_TONE_BAND}.0;
 ${LIFT_COLOURS_GLSL}
 // An outline quad reads the body's coverage where each offset copy would draw this fragment;
@@ -408,7 +422,7 @@ void main(void) {
     // a texel inside the frame, as the body's gather does, so no neighbour bleeds in.
     vec2 stampLow = WORLD_MAGNIFY > 0.5 ? vFrame.xy + 0.5 / texSize : vFrame.xy;
     vec2 stampHigh = WORLD_MAGNIFY > 0.5 ? vFrame.zw - 0.5 / texSize : vFrame.zw;
-    if (vSelection < SELECTION_OUTLINE + 0.5) {
+    if (vSelection > SELECTION_OUTLINE - 0.5 && vSelection < SELECTION_OUTLINE + 0.5) {
       // The union of the offset copies blended over one another: a copy covers this fragment only
       // where its quad, the body's frame moved by its offset, does.
       vec2 tapUV[OUTLINE_TAPS];
@@ -432,6 +446,10 @@ ${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < OUTLINE_TA
     vec2 stampUV = WORLD_MAGNIFY > 0.5 ? clamp(vUV, stampLow, stampHigh) : vUV;
     vec4 stamp = sampleTexture(stampUV, uvDx, uvDy);
     float coverage = indexed ? stamp.g : stamp.a;
+    if (vSelection < SELECTION_NIGHT_FALL + 0.5) {
+      float height = (vUV.y - vFrame.y) / max(vFrame.w - vFrame.y, 0.000001);
+      coverage *= mix(NIGHT_FALL_TOP, 1.0, smoothstep(NIGHT_FALL_FROM, NIGHT_FALL_TO, height));
+    }
     finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
     return;
   }

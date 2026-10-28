@@ -92,15 +92,15 @@ import {
   type WorldFrame,
   type WorldRendererOptions,
 } from './frame.js';
+import { OffscreenWorld } from './offscreen-world.js';
 import { mountPainterOrder } from './painter-order.js';
 import { WorldChrome } from './world-chrome.js';
 import { WorldFog } from './world-fog.js';
 import { WorldMarks } from './world-marks.js';
-import { WorldUpscale } from './world-upscale.js';
 
 export class WorldRenderer {
   private readonly app: Application;
-  /** The world layer, the weather sky, the scene light and the screen chrome: what a world upscale draws
+  /** The world layer, the weather sky, the scene light and the screen chrome: what the offscreen world draws
    *  at its own resolution and a save picture shows. */
   private readonly scene = new Container();
   private readonly worldLayer = new Container();
@@ -144,8 +144,9 @@ export class WorldRenderer {
   private readonly insetBands: Container[] = [];
   private readonly mapViews: MapViewLayer;
   private readonly prescaler: PagePrescaler;
-  /** The world drawn at fewer texels than a dense canvas and upscaled, when the window asked for it. */
-  private readonly upscale: WorldUpscale | null;
+  /** The world drawn into a texture: at fewer texels than a dense canvas when the window asked for it,
+   *  and through the night composite. */
+  private readonly offscreen: OffscreenWorld;
 
   private readonly viewSmoothing: boolean;
   /** The live road network's changes, and what the viewer has seen of it, which the ground draws. */
@@ -240,8 +241,12 @@ export class WorldRenderer {
     app.stage.addChild(this.hud.container);
     this.scene.label = 'world-scene';
     const upscale = worldUpscaleOf(app);
-    this.upscale =
-      upscale === null ? null : new WorldUpscale(app, this.scene, upscale.filter, upscale.resolution);
+    this.offscreen = new OffscreenWorld(
+      app,
+      this.scene,
+      upscale?.filter ?? 'sharp',
+      upscale?.resolution ?? Number.POSITIVE_INFINITY,
+    );
     // Always routed, never only assigned: the magnification mode and shadow style are page globals a
     // previous renderer may have left set, so the baseline has to claim them back.
     this.setGraphicsEnhancements(opts?.enhancements ?? BASELINE_ENHANCEMENTS);
@@ -254,6 +259,8 @@ export class WorldRenderer {
   worldPicture(resolution: number): ICanvas {
     const covering = this.chrome.quads().filter((quad) => quad.visible);
     for (const child of covering) child.visible = false;
+    this.sceneLight.shadeForPicture(true);
+    this.pool.showNightGlow(false);
     try {
       return this.app.renderer.extract.canvas({
         target: this.scene,
@@ -264,6 +271,8 @@ export class WorldRenderer {
       });
     } finally {
       for (const child of covering) child.visible = true;
+      this.sceneLight.shadeForPicture(false);
+      this.pool.showNightGlow(true);
     }
   }
 
@@ -513,9 +522,7 @@ export class WorldRenderer {
     // Filtered sprites can move continuously; pixel snapping would reintroduce one-pixel pan/feet
     // jumps. Keep the old alignment only for the baseline nearest-sampled presentation.
     const snapResolution =
-      this.viewSmoothing && !this.enhancements.enhancedSampling
-        ? (this.upscale?.drawResolution() ?? this.app.renderer.resolution)
-        : undefined;
+      this.viewSmoothing && !this.enhancements.enhancedSampling ? this.offscreen.drawResolution() : undefined;
     const camera =
       snapResolution === undefined ? frame.camera : snapCameraToDevicePixels(frame.camera, snapResolution);
     this.chrome.applyWorldSampling(
@@ -587,10 +594,10 @@ export class WorldRenderer {
       ...(portrait.others.length > 0 ? { insetRefs: portrait.others } : {}),
     });
     this.lights.clear();
-    if (this.sceneLight.wantsLights()) {
-      this.pool.collectLights(this.lights);
-      this.mapObjects.collectLights(vp, this.lights, this.fog.exploredGate);
-    }
+    // The level the last frame drew: the grade fades within the light's own update below.
+    const nightLevel = this.sceneLight.nightLevel();
+    this.pool.lightNight(nightLevel, gameSeconds, this.lights);
+    if (nightLevel > 0) this.mapObjects.collectLights(vp, this.lights, this.fog.exploredGate);
     this.sceneLight.update({
       screenW,
       screenH,
@@ -638,10 +645,9 @@ export class WorldRenderer {
       // The shore waves keep the water's pace: one frame per sim tick at the base rate, whatever the speed.
       Math.floor(waterSeconds * TICKS_PER_SECOND),
       this.enhancements.environmentMotion,
-      this.upscale?.drawResolution() ?? this.app.renderer.resolution,
+      this.offscreen.drawResolution(),
     );
-    if (this.upscale === null) this.app.render();
-    else this.upscale.render();
+    this.offscreen.render(this.sceneLight.composite());
     this.groundWaves.suspend(true);
     this.portrait.draw(camera, {
       toInset: (cam, iw, ih) => {
@@ -780,7 +786,7 @@ export class WorldRenderer {
     this.placementGhost.destroy();
     this.hud.destroy();
     this.chrome.destroy();
-    this.upscale?.destroy();
+    this.offscreen.destroy();
     this.scene.destroy({ children: true });
     this.prescaler.destroy();
     this.textureCache.clear();

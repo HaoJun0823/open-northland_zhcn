@@ -64,11 +64,16 @@ settler in daylight. We read the author's intent instead:
   `packages/render/src/data/lighting/grade.ts`): a sunset keeps its hue at about 0.94 luma instead of
   0.84, and a night keeps more of its darkness (0.56 shows at about 0.63) and leans blue. Tuned by
   eye after players found the literal sunset too dark and the night flat.
-- As the grade darkens past dusk, the multiply reads a light map instead of a flat colour: cleared to
-  the grade, with a soft pool around every settler with an owner and every finished building on
-  screen, merged so a crowd stays one warm light, and a brighter flickering pool with a visible flame
-  at each map object drawn with the `fire` palette (`light-sites.ts`). The settlement keeps its
-  daylight colours while the wild lies dark.
+- As the grade darkens past dusk, the world draws into a texture and composites
+  (`world-renderer/offscreen-world.ts`): the unlit world multiplies by a light map cleared to the
+  grade, with a low warm pool at the foot of each finished house and a brighter flickering pool with a
+  visible flame at each map object drawn with the `fire` palette (`light-sites.ts`). Settlers and
+  vehicles with an owner, and the houses, stamp their own figures into a lit mask over their bodies
+  (`sprite-pool/night-glow.ts`): a figure keeps part of its daylight colours with no light on the
+  ground around it, and a house's walls glow from its foot, fading toward the roof. What the painter
+  draws in front covers a stamp again. Houses light up one by one through the dusk and flicker
+  slightly. The house palettes draw windows and doors with the same wood and plaster ramps as the
+  beams and walls, so the glow follows the whole figure rather than its openings.
 - Every other index stays on the terrain as its palette colour divided by the scene's multiply, so
   the product on screen is what the script asked for. Under a darkening grade a brightening local
   tint (the glow under a fire) keeps a fifth of its excess instead (`LOCAL_GLOW_SHARE`): the fire's

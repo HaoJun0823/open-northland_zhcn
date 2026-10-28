@@ -219,6 +219,8 @@ export interface GameViewDeps {
   readonly parentSave?: SaveGame;
   /** The loaded save's `view` header, whose control groups return when the same seat loads it. */
   readonly restoredView?: unknown;
+  /** The presentation memory a save keeps (the viewer's fog memory); the entry restores it. */
+  readonly presentation?: () => string | null;
   readonly prepareSubMission?: PrepareSubMission;
   readonly validateSavedMap?: (save: SaveGame) => Promise<void>;
   readonly cameraCtl: CameraController;
@@ -303,6 +305,8 @@ export interface GameViewHandle {
   soundStats(): SoundStatsView | null;
   /** The view a save would record (the control groups), for a rebuilt world of the same game to restore. */
   viewState(): SavedView | null;
+  /** The presentation memory a save would record, for the same. */
+  presentation(): string | null;
 }
 
 const PAUSE_HOLDER_MENU = 'menu';
@@ -362,9 +366,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     const snapshot = host.snapshot();
     return savedView(seat, controlGroupMembers(), (id) => isControlGroupMember(snapshot, id, seat));
   };
+  const presentationMemory = (): string | null => deps.presentation?.() ?? null;
   const saveLoad = createSaveLoadSession({
     ...deps.networkSave,
     viewState,
+    presentation: presentationMemory,
     captureSave: (options) => driver.captureSave(options),
     ...(deps.captureSaveFile !== undefined ? { captureSaveFile: deps.captureSaveFile } : {}),
     host,
@@ -865,6 +871,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       hudScale: hudDom.currentScale,
       captureSave: (options) => driver.captureSave(options),
       viewState,
+      presentation: presentationMemory,
       params,
       worldToken: deps.worldToken ?? null,
       ...(deps.parentSave !== undefined ? { parent: deps.parentSave } : {}),
@@ -1442,6 +1449,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       issue: issueCommand,
       soundStats: () => soundDriver?.stats ?? null,
       viewState,
+      presentation: presentationMemory,
     };
   } catch (error) {
     try {

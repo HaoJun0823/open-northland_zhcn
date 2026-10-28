@@ -161,6 +161,29 @@ describe('FogGhostStore', () => {
     expect(drawn(store)).toEqual([]);
   });
 
+  it("restores a saved memory into its own seat's first view, and nothing into another seat's", () => {
+    const store = new FogGhostStore();
+    store.update(snapshotOf([HOUSE]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 1));
+    store.update(snapshotOf([HOUSE]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 2));
+    const saved = store.memory();
+    if (saved === null) throw new Error('expected a memory after a view');
+    expect(saved.ghosts.map((g) => g.ref)).toEqual([HOUSE.id]);
+
+    // The house burnt down out of sight before the save: the loaded memory still shows it.
+    const restored = new FogGhostStore();
+    restored.restore(saved);
+    restored.update(snapshotOf([]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 1));
+    expect(drawn(restored).map((g) => g.ref)).toEqual([HOUSE.id]);
+
+    const otherSeat = new FogGhostStore();
+    otherSeat.restore(saved);
+    otherSeat.update(snapshotOf([]), {
+      ...viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 1),
+      player: 1,
+    });
+    expect(drawn(otherSeat)).toEqual([]);
+  });
+
   it('seeds nothing on watched ground: the live entity draws there', () => {
     const store = new FogGhostStore();
     store.update(snapshotOf([TREE]), viewOf(new Map([[TREE_CELL, FOG_STATE.VISIBLE]]), 1, FOG_MODE.RECON));

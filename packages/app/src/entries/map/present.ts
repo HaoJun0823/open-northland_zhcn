@@ -33,6 +33,7 @@ import { bindStaticLayer } from '../../view/map-objects/static-layer.js';
 import type { NetReadout } from '../../view/net/readout.js';
 import { formatSearch } from '../../view/params.js';
 import { type GameViewDeps, type GameViewHandle, startGameView } from '../../view/runtime/game-view.js';
+import { decodeFogMemory, encodeFogMemory } from '../../view/runtime/save-load/fog-memory.js';
 import { terrainColourOption } from '../../view/runtime/world-bootstrap.js';
 import { bindScriptLandscapes } from '../../view/script/landscapes.js';
 import { readStoredSettings } from '../../view/settings/store.js';
@@ -119,6 +120,12 @@ export async function presentMapWorld(
           ]
         : harvestablePlacementOrdinals(host.content, loaded.objects, ir);
 
+  // The fog memory a save keeps is its saving seat's; any other seat starts from a blank one.
+  const savedMemory = decodeFogMemory(stagedSave?.presentation ?? null);
+  const restoredMemory =
+    savedMemory !== null && savedMemory.seat === (localPlayer ?? null) ? savedMemory : null;
+  if (restoredMemory !== null) renderer.restoreFogMemory(restoredMemory);
+
   const staticLayer =
     staticObjects !== undefined && loaded?.objects !== undefined && simHeld !== null
       ? bindStaticLayer(
@@ -130,7 +137,7 @@ export async function presentMapWorld(
                 placementByEntity: hosted.placements.harvestablePlacements,
                 pooledPlacements: hosted.placements.pooledPlacements,
               }
-            : { kind: 'restored', placements: simHeld },
+            : { kind: 'restored', placements: simHeld, memory: restoredMemory?.layer ?? undefined },
           host.content,
           () => host.snapshot(),
           2 * terrainGrid.width,
@@ -254,6 +261,15 @@ export async function presentMapWorld(
     mapText: mapStringLookup(world.strings, currentLocale()),
     ...(stagedSave?.parent !== undefined ? { parentSave: stagedSave.parent } : {}),
     ...(stagedSave !== null ? { restoredView: stagedSave.header.view } : {}),
+    presentation: () => {
+      const { statics, roads } = renderer.savedFogMemory();
+      return encodeFogMemory({
+        seat: localPlayer ?? null,
+        statics,
+        roads,
+        layer: staticLayer?.memory() ?? null,
+      });
+    },
     ...(runtime.sharedClock
       ? {}
       : {

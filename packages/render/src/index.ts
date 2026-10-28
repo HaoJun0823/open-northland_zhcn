@@ -3,6 +3,7 @@ export {
   FOG_EXPLORED_ALPHA,
   FOG_UNEXPLORED_ALPHA,
   type FogGhost,
+  type FogGhostMemory,
   fogTileExplored,
   fogTileVisible,
   type GhostSource,

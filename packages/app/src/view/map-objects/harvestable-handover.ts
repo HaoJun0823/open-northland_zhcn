@@ -35,6 +35,10 @@ export interface HarvestableHandover<Sprite> {
   /** The static quad still drawing `entity`, or `undefined` once the pool draws it. A click on the node
    *  hit-tests against this quad, since the pool knows nothing of it. */
   readonly spriteOf: (entity: number) => Sprite | undefined;
+  /** Hand `entity` over once the viewer sees its node, as a worked node is. */
+  readonly retireWhenSeen: (entity: number) => void;
+  /** Each entity still statically drawn, with its placement. */
+  readonly held: () => [entity: number, placement: number][];
 }
 
 interface HeldQuad<Sprite> {
@@ -72,18 +76,22 @@ export function bindHarvestableHandover<Sprite>(
     refs.delete(entity);
     surface.removeMapObject(quad.sprite);
   };
-  const onEvents = (events: readonly SimEvent[]): void => {
-    for (const event of events) {
-      for (const entity of retirements(event)) {
-        const quad = held.get(entity);
-        const node = quad === undefined ? undefined : nodeOfPlacement(quad.placement);
-        if (quad === undefined) continue;
-        if (node === undefined) retire(entity);
-        else sight.defer(quad.placement, node.hx, node.hy, () => retire(entity));
-      }
-    }
+  const retireWhenSeen = (entity: number): void => {
+    const quad = held.get(entity);
+    if (quad === undefined) return;
+    const node = nodeOfPlacement(quad.placement);
+    if (node === undefined) retire(entity);
+    else sight.defer(quad.placement, node.hx, node.hy, () => retire(entity));
   };
-  return { onEvents, spriteOf: (entity) => held.get(entity)?.sprite };
+  const onEvents = (events: readonly SimEvent[]): void => {
+    for (const event of events) for (const entity of retirements(event)) retireWhenSeen(entity);
+  };
+  return {
+    onEvents,
+    spriteOf: (entity) => held.get(entity)?.sprite,
+    retireWhenSeen,
+    held: () => [...held].map(([entity, quad]) => [entity, quad.placement]),
+  };
 }
 
 /**

@@ -43,6 +43,14 @@ export type FogGhost = Readonly<StaticDrawFields> & {
   readonly owner?: number;
 };
 
+/** One seat's memory as plain data, for a save to carry across a restore. */
+export interface FogGhostMemory {
+  readonly player: number;
+  readonly ghosts: readonly FogGhost[];
+  /** Whether the memory already holds the known-terrain seed of natural objects. */
+  readonly reconSeeded: boolean;
+}
+
 /** The remembered statics a scene build draws: the fog ghost store, or a fixed list in a test. */
 export interface GhostSource {
   /** Bumps whenever {@link within} or {@link has} may answer differently. */
@@ -162,6 +170,8 @@ export class FogGhostStore implements GhostSource {
   /** Whether the first view still has to remember the start buildings (see {@link knowStartBuildings}).
    *  Outlives `clear`, which runs every frame before the fog's first view. */
   private startBuildingsPending = false;
+  /** A saved memory waiting for its seat's first view. */
+  private pendingRestore: FogGhostMemory | null = null;
   private contentVersion = 0;
   /** Reused buffers, emptied after each use so they hold nothing past it. */
   private readonly leavingCells = new Set<number>();
@@ -177,6 +187,22 @@ export class FogGhostStore implements GhostSource {
    *  update under any mode, so a later switch to known terrain shows no buildings raised since. */
   knowStartBuildings(): void {
     this.startBuildingsPending = true;
+  }
+
+  /** Start the next view of `memory.player` from a saved memory instead of a blank one. Outlives
+   *  `clear`, as {@link knowStartBuildings} does; another seat's first view drops it. */
+  restore(memory: FogGhostMemory): void {
+    this.pendingRestore = memory;
+  }
+
+  /** The memory of the seat last viewed, as plain data; null before any view. */
+  memory(): FogGhostMemory | null {
+    if (this.lastPlayer === null) return null;
+    return {
+      player: this.lastPlayer,
+      ghosts: [...this.records.values()].map((record) => record.ghost),
+      reconSeeded: this.reconSeeded,
+    };
   }
 
   /** Forget the memory and the view it was diffed against, so the next update starts a fresh view. */
@@ -211,8 +237,15 @@ export class FogGhostStore implements GhostSource {
       view.cellsHigh !== this.cellsHigh;
     const remapped = view.generation !== this.lastGeneration || view.mode !== this.lastMode;
     if (!fresh && !remapped) return;
-    if (fresh) this.startView(view);
-    else if (remapped) this.diffCells(snapshot, view, staticRefs, elevation);
+    if (fresh) {
+      this.startView(view);
+      const restored = this.pendingRestore;
+      this.pendingRestore = null;
+      if (restored !== null && restored.player === view.player) {
+        for (const ghost of restored.ghosts) this.keep(ghost);
+        this.reconSeeded = restored.reconSeeded;
+      }
+    } else if (remapped) this.diffCells(snapshot, view, staticRefs, elevation);
     this.lastCells = view.cells;
 
     const terrainKnown = fogSettings(view.mode)?.terrainKnown === true;
@@ -374,7 +407,10 @@ export class FogGhostStore implements GhostSource {
     kind: FogGhostKind,
   ): void {
     const ghost = capture(snapshot, elevation, entity.id, kind, entity.components);
-    if (ghost === null) return;
+    if (ghost !== null) this.keep(ghost);
+  }
+
+  private keep(ghost: FogGhost): void {
     this.forget(ghost.ref);
     const cell = this.cellOf(ghost.tileX, ghost.tileY);
     // On watched ground the live entity draws instead; a record there would double-draw the ref.

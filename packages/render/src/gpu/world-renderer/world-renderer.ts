@@ -1,6 +1,11 @@
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import { type Application, Container, type ICanvas } from 'pixi.js';
-import { type GhostSource, type SeenRoadNetwork, SeenRoads } from '../../data/fog/index.js';
+import {
+  type FogGhostMemory,
+  type GhostSource,
+  type SeenRoadNetwork,
+  SeenRoads,
+} from '../../data/fog/index.js';
 import type { LightGrade } from '../../data/lighting/types.js';
 import { cameraViewport, snapCameraToDevicePixels } from '../../data/projection/index.js';
 import {
@@ -442,6 +447,21 @@ export class WorldRenderer {
   /** Bumps whenever {@link fogSeesNode} may answer differently. */
   get fogSightRevision(): number {
     return this.fog.sightRevision;
+  }
+
+  /** The viewer's fog memory as plain data: the remembered statics of the seat last viewed (null before
+   *  any fog view) and the road nodes it believes laid. */
+  savedFogMemory(): { readonly statics: FogGhostMemory | null; readonly roads: readonly number[] } {
+    return { statics: this.fog.savedMemory(), roads: [...this.seenRoads.nodes] };
+  }
+
+  /** Start from a saved fog memory; call after {@link setTerrain} and before the game's first frame. */
+  restoreFogMemory(memory: {
+    readonly statics: FogGhostMemory | null;
+    readonly roads: readonly number[];
+  }): void {
+    if (memory.statics !== null) this.fog.restoreMemory(memory.statics);
+    this.seenRoads.restore(memory.roads);
   }
 
   /** Show a multiplayer map's start buildings on known terrain; call before the game's first frame. */

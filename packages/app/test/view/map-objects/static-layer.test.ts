@@ -32,10 +32,10 @@ const BUSH = 30 as Entity;
 /** The map's width in half-cell nodes. */
 const NODE_WIDTH = 64;
 
-function bind(harvestables: HarvestableSpawn) {
+function bind(harvestables: HarvestableSpawn, seesNode: (hx: number, hy: number) => boolean = () => true) {
   const removed: string[] = [];
   let refs: ReadonlySet<number> = new Set();
-  const { onEvents, harvestableSpriteOf } = bindStaticLayer(
+  const { onEvents, harvestableSpriteOf, memory } = bindStaticLayer(
     {
       setStaticallyDrawnRefs: (next: ReadonlySet<number>) => {
         refs = next;
@@ -47,9 +47,9 @@ function bind(harvestables: HarvestableSpawn) {
     { buildings: TYPES },
     () => snapshotOf([building(1, HOUSE, 4, 4)]),
     NODE_WIDTH,
-    { seesNode: () => true, revision: () => 0 },
+    { seesNode, revision: () => 0 },
   );
-  return { removed, refs: () => refs, onEvents, harvestableSpriteOf };
+  return { removed, refs: () => refs, onEvents, harvestableSpriteOf, memory };
 }
 
 const razed: SimEvent = { kind: 'berryBushRazed', bush: BUSH, at: { hx: 9, hy: 8 } };
@@ -82,5 +82,18 @@ describe('bindStaticLayer', () => {
     expect([...refs()]).toEqual([]);
     onEvents([razed]);
     expect(removed).toHaveLength(2);
+  });
+
+  it('keeps what a save remembers: removed quads gone, held quads bound, waiting changes held back', () => {
+    const fresh = bind({ kind: 'fresh', placementByEntity: [[BUSH, 1]], pooledPlacements: [] }, () => false);
+    fresh.onEvents([razed]);
+    const saved = fresh.memory();
+    expect(saved).toEqual({ removed: [0], held: [[BUSH, 1]], waiting: [1] });
+
+    const restored = bind({ kind: 'restored', placements: [1], memory: saved }, () => false);
+    expect(restored.removed).toEqual(['grass']);
+    expect([...restored.refs()]).toEqual([BUSH]);
+    expect(restored.harvestableSpriteOf(BUSH)).toBe('bush');
+    expect(restored.memory()).toEqual(saved);
   });
 });

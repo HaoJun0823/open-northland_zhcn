@@ -43,7 +43,8 @@ function nodeKey(hx: number, hy: number): string {
  * sprites on them leave the layer when the building is placed or upgraded or the road or wall ordered,
  * and at bind for every building, road, road site and wall already there (original behavior: a house's
  * placement removes the landscape objects in its walk-block area). Ground cleared later under the
- * viewer's fog keeps its scenery until the viewer sees it. `nodeWidth` is the map's width in half-cell nodes, the stride of the road network's node ids.
+ * viewer's fog keeps its scenery until the viewer sees it, and so does all of it with `deferAtBind`, for a
+ * layer restored as the viewer last saw it. `nodeWidth` is the map's width in half-cell nodes, the stride of the road network's node ids.
  */
 export function bindFootprintClearing<Sprite>(
   surface: Pick<StaticDrawSurface<Sprite>, 'removeMapObject'>,
@@ -53,6 +54,7 @@ export function bindFootprintClearing<Sprite>(
   snapshot: () => WorldSnapshot,
   nodeWidth: number,
   sight: SightDeferral,
+  deferAtBind = false,
 ): (events: readonly SimEvent[]) => void {
   // First-wins, the index the sim resolves a type's footprint through.
   const buildingsByType = firstByTypeId(content.buildings);
@@ -67,7 +69,7 @@ export function bindFootprintClearing<Sprite>(
   });
 
   // The map's own buildings, roads and walls clear at once; later ones wait for the viewer's sight.
-  let deferred = false;
+  let deferred = deferAtBind;
   const clearAt = (hx: number, hy: number): void => {
     const key = nodeKey(hx, hy);
     const at = standing.get(key);

@@ -1,6 +1,12 @@
 import { FOG_STATE, type FogView, systems, type WorldSnapshot } from '@open-northland/sim';
 import type { Container } from 'pixi.js';
-import { FogGhostStore, fogTileExplored, fogTileVisible, type GhostSource } from '../../data/fog/index.js';
+import {
+  type FogGhostMemory,
+  FogGhostStore,
+  fogTileExplored,
+  fogTileVisible,
+  type GhostSource,
+} from '../../data/fog/index.js';
 import type { Viewport } from '../../data/projection/index.js';
 import type { ElevationField } from '../../data/terrain/index.js';
 import { FogLayer, type FogWashMask } from '../overlays/index.js';
@@ -76,6 +82,14 @@ export class WorldFog {
 
   knowStartBuildings(): void {
     this.ghosts.knowStartBuildings();
+  }
+
+  restoreMemory(memory: FogGhostMemory): void {
+    this.ghosts.restore(memory);
+  }
+
+  savedMemory(): FogGhostMemory | null {
+    return this.ghosts.memory();
   }
 
   /** The remembered statics the world draws on explored ground, as of the last {@link update}. */

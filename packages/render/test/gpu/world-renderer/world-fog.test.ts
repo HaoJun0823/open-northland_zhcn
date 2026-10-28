@@ -70,6 +70,18 @@ describe('WorldFog', () => {
     expect(ghostsOf(fog.update(WORLD, VIEWPORT))).toEqual([]);
   });
 
+  it('sees nothing before the first view, then everything with fog off, moving its sight revision', () => {
+    const fog = new WorldFog();
+    const before = fog.sightRevision;
+    expect(fog.seesNode(0, 0)).toBe(false);
+    fog.setView(null);
+    expect(fog.seesNode(0, 0)).toBe(true);
+    expect(fog.sightRevision).not.toBe(before);
+    const known = fog.sightRevision;
+    fog.setView(null);
+    expect(fog.sightRevision).toBe(known);
+  });
+
   it('holds the fog epoch on a steady mask and bumps it on a generation or mode change', () => {
     const fog = new WorldFog();
     expect(fog.update(WORLD, VIEWPORT).fogEpoch).toBeUndefined(); // fog off: no cull, no key

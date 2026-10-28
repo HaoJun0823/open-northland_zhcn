@@ -1,8 +1,8 @@
 import {
   type Camera,
   cameraViewport,
-  type GhostSource,
   type MinimapFeature,
+  type RememberedMarkers,
   type SceneTerrain,
   type SeenRoadNetwork,
   terrainWorldBounds,
@@ -66,7 +66,7 @@ export interface MinimapOptions {
   readonly isFighterJob: (jobType: number) => boolean;
   readonly isHeroJob: (jobType: number) => boolean;
   /** The world view's remembered buildings and vehicles on explored ground. */
-  readonly fogMemory?: GhostSource | undefined;
+  readonly fogMemory?: RememberedMarkers | undefined;
   /** The road network as the world view draws it. */
   readonly roads: SeenRoadNetwork;
   /** The seat the view shows, null on a whole-map view. */

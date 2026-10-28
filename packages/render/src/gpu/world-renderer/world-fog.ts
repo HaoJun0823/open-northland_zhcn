@@ -6,6 +6,7 @@ import {
   fogTileExplored,
   fogTileVisible,
   type GhostSource,
+  type RememberedMarkers,
 } from '../../data/fog/index.js';
 import type { Viewport } from '../../data/projection/index.js';
 import type { ElevationField } from '../../data/terrain/index.js';
@@ -32,6 +33,8 @@ export class WorldFog {
   private lastPlayer: number | null = null;
   private lastMode: FogView['mode'] | null = null;
   private sight = 0;
+  /** Whether a frame has said what the viewer sees: until then nothing reads as seen. */
+  private sightKnown = false;
   /** Bound once: the pool's cull predicate reads the live view, so a frame allocates no closure. */
   private readonly visibleAt = (tileX: number, tileY: number): boolean =>
     this.view === null || fogTileVisible(this.view, tileX, tileY);
@@ -64,12 +67,15 @@ export class WorldFog {
       view === null || was === null
         ? view !== was
         : view.generation !== was.generation || view.player !== was.player || view.mode !== was.mode;
-    if (changed) this.sight++;
+    if (changed || !this.sightKnown) this.sight++;
+    this.sightKnown = true;
     this.view = view;
   }
 
-  /** Whether the viewer watches the cell of half-cell node (hx, hy); fog off watches everything. */
+  /** Whether the viewer watches the cell of half-cell node (hx, hy); fog off watches everything, and
+   *  nothing is watched before the first view is set, so a change made then waits for it. */
   seesNode(hx: number, hy: number): boolean {
+    if (!this.sightKnown) return false;
     if (this.view === null) return true;
     const { cx, cy } = systems.cellOfNode(hx, hy);
     return this.view.stateAt(cx, cy) === FOG_STATE.VISIBLE;
@@ -93,7 +99,7 @@ export class WorldFog {
   }
 
   /** The remembered statics the world draws on explored ground, as of the last {@link update}. */
-  get memory(): GhostSource {
+  get memory(): RememberedMarkers {
     return this.ghosts;
   }
 

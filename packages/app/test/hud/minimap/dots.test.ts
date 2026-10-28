@@ -1,4 +1,9 @@
-import { type FogGhost, type GhostSource, terrainWorldBounds, tileToScreen } from '@open-northland/render';
+import {
+  type FogGhost,
+  type RememberedMarkers,
+  terrainWorldBounds,
+  tileToScreen,
+} from '@open-northland/render';
 import { type DiplomacyState, FOG_MODE, FOG_STATE, type FogView, fx } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
@@ -265,13 +270,11 @@ describe('forEachMinimapDot', () => {
       { ref: 7, kind: 'palisade', tileX: 7, tileY: 2, owner: FOE },
       { ref: 8, kind: 'resource', tileX: 6, tileY: 2 },
     ];
-    const memory: GhostSource = {
-      version: 1,
-      within: (_box, out) => {
+    const memory: RememberedMarkers = {
+      markers: (out) => {
         out.push(...remembered);
         return out;
       },
-      has: (ref) => remembered.some((ghost) => ghost.ref === ref),
     };
     const fog = fogWhere((cellX) => (cellX < 4 ? FOG_STATE.VISIBLE : FOG_STATE.EXPLORED));
     expect(dotsOf([], { fog, memory })).toEqual([

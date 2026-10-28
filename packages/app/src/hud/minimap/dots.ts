@@ -1,8 +1,8 @@
 import {
   type FogGhost,
   fogTileVisible,
-  type GhostSource,
   ONE,
+  type RememberedMarkers,
   tileToScreenX,
   tileToScreenY,
   type WorldBounds,
@@ -38,7 +38,7 @@ export const ROAD_SITE_DOT_COLOUR = 0x9a8a6a;
 export interface MinimapDotContext {
   readonly fog: FogView | null;
   /** The world view's remembered statics on explored ground, which the minimap shows as the map does. */
-  readonly memory?: GhostSource | undefined;
+  readonly memory?: RememberedMarkers | undefined;
   readonly bounds: WorldBounds;
   /** Raster px per projected world px. */
   readonly scale: number;
@@ -246,7 +246,7 @@ export class MinimapDotPlot {
     this.colours.clear();
     this.roles.clear();
     this.remembered.length = 0;
-    if (ctx.fog !== null) ctx.memory?.within(undefined, this.remembered);
+    if (ctx.fog !== null) ctx.memory?.markers(this.remembered);
     for (const group of [
       this.plain,
       this.soldiers,

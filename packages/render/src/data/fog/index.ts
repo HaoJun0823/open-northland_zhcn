@@ -1,4 +1,10 @@
-export { type FogGhost, type FogGhostMemory, FogGhostStore, type GhostSource } from './ghosts.js';
+export {
+  type FogGhost,
+  type FogGhostMemory,
+  FogGhostStore,
+  type GhostSource,
+  type RememberedMarkers,
+} from './ghosts.js';
 export {
   FOG_EXPLORED_ALPHA,
   FOG_GHOST_TINT,

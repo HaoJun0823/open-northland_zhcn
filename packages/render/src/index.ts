@@ -7,6 +7,7 @@ export {
   fogTileExplored,
   fogTileVisible,
   type GhostSource,
+  type RememberedMarkers,
   type SeenRoadNetwork,
 } from './data/fog/index.js';
 export {

@@ -2,7 +2,7 @@ import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } fro
 import { type Application, Container, type ICanvas } from 'pixi.js';
 import {
   type FogGhostMemory,
-  type GhostSource,
+  type RememberedMarkers,
   type SeenRoadNetwork,
   SeenRoads,
 } from '../../data/fog/index.js';
@@ -469,8 +469,9 @@ export class WorldRenderer {
     this.fog.knowStartBuildings();
   }
 
-  /** The remembered statics drawn on explored ground, for the minimap to show what the world shows. */
-  get fogMemory(): GhostSource {
+  /** The remembered buildings and vehicles drawn on explored ground, for the minimap to show what the
+   *  world shows. */
+  get fogMemory(): RememberedMarkers {
     return this.fog.memory;
   }
 

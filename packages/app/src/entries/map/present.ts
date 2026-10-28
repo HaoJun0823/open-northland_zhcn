@@ -120,11 +120,23 @@ export async function presentMapWorld(
           ]
         : harvestablePlacementOrdinals(host.content, loaded.objects, ir);
 
-  // The fog memory a save keeps is its saving seat's; any other seat starts from a blank one.
+  // The fog memory a save keeps is its saving seat's in its own world; anything else starts blank.
   const savedMemory = decodeFogMemory(stagedSave?.presentation ?? null);
   const restoredMemory =
-    savedMemory !== null && savedMemory.seat === (localPlayer ?? null) ? savedMemory : null;
+    savedMemory !== null && savedMemory.seat === (localPlayer ?? null) && savedMemory.mapId === mapId
+      ? savedMemory
+      : null;
   if (restoredMemory !== null) renderer.restoreFogMemory(restoredMemory);
+  // A memory older than the world it restores into may hold quads for nodes worked since, whose events
+  // have passed: each held quad then retires once seen, and the live node draws from there.
+  const layerMemory = restoredMemory?.layer ?? undefined;
+  const restoredLayer =
+    layerMemory === undefined || restoredMemory?.tick === host.tick
+      ? layerMemory
+      : {
+          ...layerMemory,
+          waiting: [...layerMemory.waiting, ...layerMemory.held.map(([, placement]) => placement)],
+        };
 
   const staticLayer =
     staticObjects !== undefined && loaded?.objects !== undefined && simHeld !== null
@@ -137,7 +149,7 @@ export async function presentMapWorld(
                 placementByEntity: hosted.placements.harvestablePlacements,
                 pooledPlacements: hosted.placements.pooledPlacements,
               }
-            : { kind: 'restored', placements: simHeld, memory: restoredMemory?.layer ?? undefined },
+            : { kind: 'restored', placements: simHeld, memory: restoredLayer },
           host.content,
           () => host.snapshot(),
           2 * terrainGrid.width,
@@ -264,6 +276,8 @@ export async function presentMapWorld(
     presentation: () => {
       const { statics, roads } = renderer.savedFogMemory();
       return encodeFogMemory({
+        mapId,
+        tick: host.tick,
         seat: localPlayer ?? null,
         statics,
         roads,

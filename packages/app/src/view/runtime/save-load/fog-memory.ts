@@ -10,6 +10,10 @@ const FOG_MEMORY_VERSION = 1;
  * into the same seat only; anything else starts from a blank memory.
  */
 export interface FogMemory {
+  /** The world the memory was taken in, and its tick: a relay keeps the memory of an older tick than
+   *  the snapshot it restores. */
+  readonly mapId: string | null;
+  readonly tick: number;
   readonly seat: number | null;
   readonly statics: FogGhostMemory | null;
   readonly roads: readonly number[];
@@ -31,13 +35,15 @@ export function decodeFogMemory(text: string | null): FogMemory | null {
     return null;
   }
   if (!isRecord(raw) || raw.version !== FOG_MEMORY_VERSION) return null;
-  const { seat, statics, roads, layer } = raw;
+  const { mapId, tick, seat, statics, roads, layer } = raw;
+  if (mapId !== null && typeof mapId !== 'string') return null;
+  if (!isCount(tick)) return null;
   if (seat !== null && !isCount(seat)) return null;
   if (!isCounts(roads)) return null;
   const ghosts = statics === null ? null : staticsOf(statics);
   const layerMemory = layer === null ? null : layerOf(layer);
   if (ghosts === undefined || layerMemory === undefined) return null;
-  return { seat, statics: ghosts, roads, layer: layerMemory };
+  return { mapId, tick, seat, statics: ghosts, roads, layer: layerMemory };
 }
 
 function staticsOf(value: unknown): FogGhostMemory | undefined {
@@ -98,7 +104,7 @@ function isFogGhost(value: unknown): value is FogGhost {
   if (!isRecord(value) || !['ref', 'kind', 'tileX', 'tileY'].every((key) => key in value)) return false;
   return Object.entries(value).every(([key, field]) => {
     const check = Object.hasOwn(GHOST_FIELDS, key) ? GHOST_FIELDS[key as keyof FogGhost] : undefined;
-    return check !== undefined && check(field);
+    return check?.(field) === true;
   });
 }
 

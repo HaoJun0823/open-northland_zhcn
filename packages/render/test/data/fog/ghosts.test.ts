@@ -146,6 +146,8 @@ describe('FogGhostStore', () => {
     store.update(snapshotOf([foeHouse, TREE, wall]), viewOf(new Map(), 1, FOG_MODE.RECON));
     expect(drawn(store).map((g) => g.ref)).toEqual([1, 2, 6]);
     expect(drawn(store).find((g) => g.ref === 1)).toMatchObject({ kind: 'building', owner: 2 });
+    // The minimap marks the remembered building alone, never the wall or the nature beside it.
+    expect(store.markers([]).map((g) => g.ref)).toEqual([1]);
     // Spent: a building raised later stays intel to see, even across a new known-terrain stretch.
     const late = entity(7, 15, 4, { Building: { buildingType: 7, tribe: 1, built: ONE, level: 0 } });
     store.update(snapshotOf([foeHouse, TREE, wall, late]), viewOf(new Map(), 2, FOG_MODE.CLASSIC));

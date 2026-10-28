@@ -6,6 +6,8 @@ import {
 } from '../../../../src/view/runtime/save-load/fog-memory.js';
 
 const MEMORY: FogMemory = {
+  mapId: 'magiczny_las',
+  tick: 726,
   seat: 0,
   statics: {
     player: 0,
@@ -30,12 +32,8 @@ const MEMORY: FogMemory = {
 describe('fog memory in a save', () => {
   it('reads back what it wrote', () => {
     expect(decodeFogMemory(encodeFogMemory(MEMORY))).toEqual(MEMORY);
-    expect(decodeFogMemory(encodeFogMemory({ seat: null, statics: null, roads: [], layer: null }))).toEqual({
-      seat: null,
-      statics: null,
-      roads: [],
-      layer: null,
-    });
+    const blank = { mapId: null, tick: 0, seat: null, statics: null, roads: [], layer: null };
+    expect(decodeFogMemory(encodeFogMemory(blank))).toEqual(blank);
   });
 
   it('drops a memory of another layout or a malformed one instead of failing the load', () => {

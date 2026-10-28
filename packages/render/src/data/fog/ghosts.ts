@@ -51,6 +51,12 @@ export interface FogGhostMemory {
   readonly reconSeeded: boolean;
 }
 
+/** The remembered buildings and vehicles, the statics the minimap marks. */
+export interface RememberedMarkers {
+  /** The drawable remembered buildings and vehicles, appended to `out` in arbitrary order. */
+  markers(out: FogGhost[]): FogGhost[];
+}
+
 /** The remembered statics a scene build draws: the fog ghost store, or a fixed list in a test. */
 export interface GhostSource {
   /** Bumps whenever {@link within} or {@link has} may answer differently. */
@@ -152,8 +158,10 @@ interface MutableTileBox {
  * vehicles stay intel the player has to see for himself, save a multiplayer map's start buildings
  * ({@link knowStartBuildings}).
  */
-export class FogGhostStore implements GhostSource {
+export class FogGhostStore implements GhostSource, RememberedMarkers {
   private readonly records = new Map<number, GhostRecord>();
+  /** The refs of {@link records} the minimap marks, so a replot never walks the remembered nature. */
+  private readonly markerRefs = new Set<number>();
   private buckets = new TileBuckets<GhostRecord>();
   private readonly refsByCell = new Map<number, Set<number>>();
   /** The last view's `FOG_STATE` per cell, row-major. */
@@ -214,6 +222,7 @@ export class FogGhostStore implements GhostSource {
     this.reconSeeded = false;
     if (this.records.size === 0) return;
     this.records.clear();
+    this.markerRefs.clear();
     this.refsByCell.clear();
     this.buckets = new TileBuckets();
     this.contentVersion++;
@@ -271,6 +280,14 @@ export class FogGhostStore implements GhostSource {
     const candidates = this.buckets.within(box, this.recordScratch);
     for (const record of candidates) if (this.drawable(record)) out.push(record.ghost);
     candidates.length = 0;
+    return out;
+  }
+
+  markers(out: FogGhost[]): FogGhost[] {
+    for (const ref of this.markerRefs) {
+      const record = this.records.get(ref);
+      if (record !== undefined && this.drawable(record)) out.push(record.ghost);
+    }
     return out;
   }
 
@@ -417,6 +434,7 @@ export class FogGhostStore implements GhostSource {
     if (cell === OFF_MASK || this.states[cell] === FOG_STATE.VISIBLE) return;
     const record: GhostRecord = { ghost, cell };
     this.records.set(ghost.ref, record);
+    if (ghost.kind === 'building' || ghost.kind === 'vehicle') this.markerRefs.add(ghost.ref);
     this.buckets.set(ghost.ref, record, ghost.tileX, ghost.tileY);
     let refs = this.refsByCell.get(cell);
     if (refs === undefined) {
@@ -431,6 +449,7 @@ export class FogGhostStore implements GhostSource {
     const record = this.records.get(ref);
     if (record === undefined) return;
     this.records.delete(ref);
+    this.markerRefs.delete(ref);
     this.buckets.delete(ref);
     const refs = this.refsByCell.get(record.cell);
     refs?.delete(ref);
@@ -444,6 +463,7 @@ export class FogGhostStore implements GhostSource {
     this.refsByCell.delete(cell);
     for (const ref of refs) {
       this.records.delete(ref);
+      this.markerRefs.delete(ref);
       this.buckets.delete(ref);
     }
     this.contentVersion++;

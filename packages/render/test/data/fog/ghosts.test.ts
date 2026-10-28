@@ -74,13 +74,12 @@ describe('FogGhostStore', () => {
     const site = (built: number) =>
       entity(1, 5, 4, { Building: { buildingType: 7, tribe: 1, built, level: 0 }, UnderConstruction: {} });
     const store = new FogGhostStore();
-    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 1));
-    store.adopt(1);
-    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 1));
+    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 1));
+    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 2));
     expect(drawn(store)[0]?.builtPct).toBe(0);
-    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 2));
-    store.update(snapshotOf([site(ONE / 2)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 3));
-    store.update(snapshotOf([site(ONE / 2)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 4));
+    store.update(snapshotOf([site(0)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 3));
+    store.update(snapshotOf([site(ONE / 2)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.VISIBLE]]), 4));
+    store.update(snapshotOf([site(ONE / 2)]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 5));
     expect(drawn(store)[0]?.builtPct).toBe(50);
   });
 
@@ -268,16 +267,6 @@ describe('FogGhostStore', () => {
     const chest = entity(5, 15, 4, { OpenedChest: { gfxIndex: 846 } });
     const scene = collectSpriteScene(snapshotOf([chest]));
     expect(scene.items[0]).toMatchObject({ ref: 5, kind: 'chest', gfxIndex: 846 });
-  });
-
-  it('adopt() captures a ref sight-unseen on the next update (the map handover seam)', () => {
-    const store = new FogGhostStore();
-    store.update(snapshotOf([TREE]), viewOf(new Map([[TREE_CELL, FOG_STATE.EXPLORED]]), 1));
-    store.update(snapshotOf([TREE]), viewOf(new Map([[TREE_CELL, FOG_STATE.EXPLORED]]), 2));
-    expect(drawn(store)).toEqual([]); // never seen by the pool path, so nothing was remembered
-    store.adopt(TREE.id);
-    store.update(snapshotOf([TREE]), viewOf(new Map([[TREE_CELL, FOG_STATE.EXPLORED]]), 2));
-    expect(drawn(store).map((g) => g.ref)).toEqual([2]);
   });
 
   it('forgets one seat’s memory when the view changes seat', () => {

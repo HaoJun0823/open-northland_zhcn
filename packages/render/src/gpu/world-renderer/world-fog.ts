@@ -1,4 +1,4 @@
-import type { FogView, WorldSnapshot } from '@open-northland/sim';
+import { FOG_STATE, type FogView, systems, type WorldSnapshot } from '@open-northland/sim';
 import type { Container } from 'pixi.js';
 import { FogGhostStore, fogTileExplored, fogTileVisible, type GhostSource } from '../../data/fog/index.js';
 import type { Viewport } from '../../data/projection/index.js';
@@ -25,6 +25,7 @@ export class WorldFog {
   private lastGeneration = -1;
   private lastPlayer: number | null = null;
   private lastMode: FogView['mode'] | null = null;
+  private sight = 0;
   /** Bound once: the pool's cull predicate reads the live view, so a frame allocates no closure. */
   private readonly visibleAt = (tileX: number, tileY: number): boolean =>
     this.view === null || fogTileVisible(this.view, tileX, tileY);
@@ -52,11 +53,25 @@ export class WorldFog {
   }
 
   setView(view: FogView | null): void {
+    const was = this.view;
+    const changed =
+      view === null || was === null
+        ? view !== was
+        : view.generation !== was.generation || view.player !== was.player || view.mode !== was.mode;
+    if (changed) this.sight++;
     this.view = view;
   }
 
-  adoptGhost(ref: number): void {
-    this.ghosts.adopt(ref);
+  /** Whether the viewer watches the cell of half-cell node (hx, hy); fog off watches everything. */
+  seesNode(hx: number, hy: number): boolean {
+    if (this.view === null) return true;
+    const { cx, cy } = systems.cellOfNode(hx, hy);
+    return this.view.stateAt(cx, cy) === FOG_STATE.VISIBLE;
+  }
+
+  /** Bumps whenever {@link seesNode} may answer differently, the moment a view is set. */
+  get sightRevision(): number {
+    return this.sight;
   }
 
   knowStartBuildings(): void {

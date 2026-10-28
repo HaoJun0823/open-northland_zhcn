@@ -414,14 +414,18 @@ export class WorldRenderer {
     this.mapObjects.remove(obj);
   }
 
-  /** The other half of the `removeMapObject` handover: keep drawing `ref` as a remembered static once it
-   *  leaves the retained layer. */
-  adoptFogGhost(ref: number): void {
-    this.fog.adoptGhost(ref);
-  }
-
   setStaticallyDrawnRefs(refs: ReadonlySet<number>): void {
     this.fog.setStaticallyDrawnRefs(refs);
+  }
+
+  /** Whether the viewer watches the cell of half-cell node (hx, hy) under the last {@link updateFog}. */
+  fogSeesNode(hx: number, hy: number): boolean {
+    return this.fog.seesNode(hx, hy);
+  }
+
+  /** Bumps whenever {@link fogSeesNode} may answer differently. */
+  get fogSightRevision(): number {
+    return this.fog.sightRevision;
   }
 
   /** Show a multiplayer map's start buildings on known terrain; call before the game's first frame. */

@@ -70,17 +70,6 @@ describe('WorldFog', () => {
     expect(ghostsOf(fog.update(WORLD, VIEWPORT))).toEqual([]);
   });
 
-  it('remembers an adopted ref that was never seen, the static-layer handover', () => {
-    const fog = new WorldFog();
-    fog.setStaticallyDrawnRefs(new Set([TREE.id]));
-    fog.setView(explored(TREE_CELL, 1));
-    // Still drawn by the retained static layer: it is its own ghost, so the store skips it.
-    expect(ghostsOf(fog.update(WORLD, VIEWPORT))).toEqual([]);
-    fog.setStaticallyDrawnRefs(new Set());
-    fog.adoptGhost(TREE.id);
-    expect(ghostsOf(fog.update(WORLD, VIEWPORT))).toMatchObject([{ ref: TREE.id, kind: 'resource' }]);
-  });
-
   it('holds the fog epoch on a steady mask and bumps it on a generation or mode change', () => {
     const fog = new WorldFog();
     expect(fog.update(WORLD, VIEWPORT).fogEpoch).toBeUndefined(); // fog off: no cull, no key

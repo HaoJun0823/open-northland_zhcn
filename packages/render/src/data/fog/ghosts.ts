@@ -1,7 +1,6 @@
 import {
   type EntitySnapshot,
   entitiesWith,
-  entityById,
   FOG_STATE,
   type FogView,
   fogSettings,
@@ -160,11 +159,6 @@ export class FogGhostStore implements GhostSource {
   private lastMode: FogView['mode'] | null = null;
   /** Whether the current known-terrain stretch already seeded natural resources. */
   private reconSeeded = false;
-  /** Refs to capture on the next update sight-unseen: a virgin map node first worked under fog leaves
-   *  the static layer, and its last-seen look must not vanish from explored ground. One on watched
-   *  ground is captured when sight is lost instead. Deliberately outlives `clear` - an adoption can
-   *  precede the mode change that needs it. */
-  private readonly pendingAdopt = new Set<number>();
   /** Whether the first view still has to remember the start buildings (see {@link knowStartBuildings}).
    *  Outlives `clear`, which runs every frame before the fog's first view. */
   private startBuildingsPending = false;
@@ -176,10 +170,6 @@ export class FogGhostStore implements GhostSource {
 
   get version(): number {
     return this.contentVersion;
-  }
-
-  adopt(ref: number): void {
-    this.pendingAdopt.add(ref);
   }
 
   /** Remember the buildings and walls standing at the next update, if that view knows the terrain:
@@ -204,8 +194,8 @@ export class FogGhostStore implements GhostSource {
   }
 
   /**
-   * Advance the memory to `view`; a frame with no mask rebuild, seat switch, mode change or pending
-   * adoption is a field compare. Refs in `staticRefs` never ghost - the retained map-object layer
+   * Advance the memory to `view`; a frame with no mask rebuild, seat switch or mode change is a field
+   * compare. Refs in `staticRefs` never ghost - the retained map-object layer
    * already draws their last-seen state. `elevation` is the scene's, so a remembered wall's posts follow
    * the slope its live draw did.
    */
@@ -220,7 +210,7 @@ export class FogGhostStore implements GhostSource {
       view.cellsWide !== this.cellsWide ||
       view.cellsHigh !== this.cellsHigh;
     const remapped = view.generation !== this.lastGeneration || view.mode !== this.lastMode;
-    if (!fresh && !remapped && this.pendingAdopt.size === 0) return;
+    if (!fresh && !remapped) return;
     if (fresh) this.startView(view);
     else if (remapped) this.diffCells(snapshot, view, staticRefs, elevation);
     this.lastCells = view.cells;
@@ -235,13 +225,6 @@ export class FogGhostStore implements GhostSource {
       this.startBuildingsPending = false;
       if (terrainKnown) this.seed(snapshot, START_COMPONENTS, isStartKind, staticRefs, elevation);
     }
-    for (const ref of this.pendingAdopt) {
-      if (staticRefs?.has(ref)) continue;
-      const entity = entityById(snapshot, ref);
-      const kind = entity === undefined ? null : classify(entity.components);
-      if (entity !== undefined && isGhostKind(kind)) this.remember(snapshot, elevation, entity, kind);
-    }
-    this.pendingAdopt.clear();
     this.lastGeneration = view.generation;
     this.lastPlayer = view.player;
     this.lastMode = view.mode;

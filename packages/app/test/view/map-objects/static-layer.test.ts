@@ -34,7 +34,6 @@ const NODE_WIDTH = 64;
 
 function bind(harvestables: HarvestableSpawn) {
   const removed: string[] = [];
-  const ghosts: number[] = [];
   let refs: ReadonlySet<number> = new Set();
   const { onEvents, harvestableSpriteOf } = bindStaticLayer(
     {
@@ -42,15 +41,15 @@ function bind(harvestables: HarvestableSpawn) {
         refs = next;
       },
       removeMapObject: (sprite: string) => removed.push(sprite),
-      adoptFogGhost: (entity: number) => ghosts.push(entity),
     },
     { placements: PLACEMENTS, byPlacement: SPRITES },
     harvestables,
     { buildings: TYPES },
     () => snapshotOf([building(1, HOUSE, 4, 4)]),
     NODE_WIDTH,
+    { seesNode: () => true, revision: () => 0 },
   );
-  return { removed, ghosts, refs: () => refs, onEvents, harvestableSpriteOf };
+  return { removed, refs: () => refs, onEvents, harvestableSpriteOf };
 }
 
 const razed: SimEvent = { kind: 'berryBushRazed', bush: BUSH, at: { hx: 9, hy: 8 } };

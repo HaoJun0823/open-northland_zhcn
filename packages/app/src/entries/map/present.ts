@@ -134,6 +134,7 @@ export async function presentMapWorld(
           host.content,
           () => host.snapshot(),
           2 * terrainGrid.width,
+          { seesNode: (hx, hy) => renderer.fogSeesNode(hx, hy), revision: () => renderer.fogSightRevision },
         )
       : null;
 
@@ -245,6 +246,7 @@ export async function presentMapWorld(
       staticLayer?.onEvents(events);
       landscapes?.onEvents(events);
     },
+    ...(staticLayer !== null ? { onFrame: () => staticLayer.onFrame() } : {}),
     ...(staticLayer !== null ? { staticHarvestableSprite: staticLayer.harvestableSpriteOf } : {}),
     ...(loaded?.objects !== undefined && ir !== null && simHeld !== null
       ? { soundScenery: soundScenery(loaded.objects, ir, simHeld) }

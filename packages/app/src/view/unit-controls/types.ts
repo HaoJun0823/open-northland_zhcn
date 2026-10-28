@@ -43,6 +43,7 @@ import type { Tile } from '../picking.js';
 import type { ControlGroupMembers } from './control-groups.js';
 import type { Berth, MooringRule } from './orders/berths.js';
 import type { OverviewPress } from './orders/overview.js';
+import type { TradeStances } from './orders/trade-refusal.js';
 
 /** The sim's technology read (`SessionHost.unlockStatus`) as its last answer; undefined until one
  *  landed. */
@@ -129,6 +130,9 @@ export interface UnitControlsOptions {
   /** The same rule asked as a click lands, which gates the pick's click and a trader's right-click on a
    *  house; absent, neither puts a house on a route. */
   readonly askAttachTradeHouse?: (trader: number, house: number) => Promise<boolean>;
+  /** The viewer's stance toward `owner` and `owner`'s back, which explain a refused foreign trade stop;
+   *  absent, the refusal is silent. */
+  readonly tradeStances?: (owner: number) => TradeStances;
   /** Fresh signpost placement verdict for a click; absent refuses the placement. */
   readonly askPlaceSignpostAt?: (col: number, row: number) => Promise<boolean>;
   /** The sim's vehicle attach rule (`SessionHost.vehiclesAttachableBy`) as its last answer, which lights

@@ -86,6 +86,8 @@ export interface UnitOrderDeps {
   /** The sim's trade-stop rule, asked as the click lands; absent, a trader's right-click puts no house on
    *  its route. */
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
+  /** Says why the sim kept `house` off a route; absent, the refusal is silent. */
+  readonly onTradeRefused?: ((house: number) => void) | undefined;
   /** Acknowledges a walk or march on the ground where it was aimed; absent, nothing is drawn. */
   readonly markOrder?: ((node: Tile, kind: OrderMarkerKind) => void) | undefined;
   /** Flashes an order's target once; absent, nothing is drawn. */
@@ -557,7 +559,10 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         attached.push({ kind: 'attachTradeHouse', entity: unit.ref as Entity, house: house as Entity });
       }
       enqueueUnitSelection(attached, deps.enqueue, onOrderLimit);
-      if (refused.length > 0) onRefused(refused);
+      if (refused.length > 0) {
+        deps.onTradeRefused?.(house);
+        onRefused(refused);
+      }
     });
     return routed;
   };

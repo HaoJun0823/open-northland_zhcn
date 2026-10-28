@@ -1047,6 +1047,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       tradeOffersAt: answers.tradeOffersAt,
       canAttachTradeHouse: answers.canAttachTradeHouse,
       askAttachTradeHouse: answers.askAttachTradeHouse,
+      tradeStances: (owner) => ({
+        yours: host.diplomacyStance(viewerPlayer(), owner),
+        theirs: host.diplomacyStance(owner, viewerPlayer()),
+      }),
       canAttachToVehicle: answers.canAttachToVehicle,
       askAttachToVehicle: answers.askAttachToVehicle,
       askMooring: placementGates.askMooring,

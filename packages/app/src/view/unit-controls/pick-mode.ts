@@ -240,6 +240,8 @@ export interface PickModeDeps {
   /** The sim's trade-stop rule as its last answer, which the trade-house pick lights by; absent, the
    *  pick lights nothing. */
   readonly canAttachTradeHouse?: TradeHouseRule | undefined;
+  /** Says why the sim kept a house off a route; absent, the refusal is silent. */
+  readonly onTradeRefused?: ((house: number) => void) | undefined;
   /** The same rule asked as the pick's click lands, which it orders by; absent, it orders nothing. */
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
   readonly askPlaceSignpostAt?: ((col: number, row: number) => Promise<boolean>) | undefined;
@@ -421,6 +423,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
           : [],
       );
       enqueueUnitSelection(commands, deps.enqueue, deps.onOrderLimit);
+      if (commands.length < traders.length) deps.onTradeRefused?.(house);
     });
     return true;
   };

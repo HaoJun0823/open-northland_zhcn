@@ -5,6 +5,7 @@ import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { isActionHotkey, isFieldKey, isOrderHotkey } from '../../hud/hotkeys.js';
 import { matchesMouseBinding } from '../../hud/keybindings.js';
+import { formatMessage, messages } from '../../i18n/index.js';
 import { clientToScreen } from '../camera/index.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { nodeBounds, pickInRect, pickTopAt, screenToWorld, type Tile, worldToTile } from '../picking.js';
@@ -27,12 +28,13 @@ import { DOCK_PICK_SNAP_NODES, RIGHT_CLICK_SNAP_NODES } from './orders/berths.js
 import { createUnitOrderController } from './orders/controller.js';
 import { createOrderFeedback } from './orders/feedback.js';
 import { createKeyboardOrders } from './orders/keyboard.js';
-import { createOrderLimitNotice } from './orders/limit-notice.js';
 import { createOrderMarkers } from './orders/markers.js';
+import { createOrderNotice } from './orders/notice.js';
 import { createOverviewOrders } from './orders/overview.js';
 import { createPendingGroundOrders } from './orders/pending-ground.js';
 import { issueRingCommand } from './orders/ring-commands.js';
 import { createTargetFlashes } from './orders/target-flashes.js';
+import { tradeRefusalText } from './orders/trade-refusal.js';
 import { createVehicleOrderController } from './orders/vehicle.js';
 import { createUnitChrome } from './panels/chrome.js';
 import { type EquipPickController, mountEquipPicker } from './panels/equip-picker.js';
@@ -82,11 +84,23 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     return entity !== undefined && (isSettler(entity) || isVehicle(entity));
   };
   const selection = createUnitSelection(isUnit);
-  const orderLimitNotice = createOrderLimitNotice(opts.domHud.plane);
+  const orderNotice = createOrderNotice(opts.domHud.plane);
+  const showOrderLimit = (): void =>
+    orderNotice.show(formatMessage(messages().hud.armyOrderLimit, { limit: MAX_UNIT_ORDER_MEMBERS }));
   const refuseOrderLimit = (): void => {
-    orderLimitNotice.show();
+    showOrderLimit();
     cue('fail');
   };
+  const stancesToward = opts.tradeStances;
+  const refuseTradeHouse =
+    stancesToward === undefined
+      ? undefined
+      : (house: number): void => {
+          const text = tradeRefusalText(opts.snapshot(), house, opts.viewer.seat(), stancesToward);
+          if (text === null) return;
+          orderNotice.show(text);
+          cue('fail');
+        };
   const answered = createAnsweredOrders();
   const controlGroups = createControlGroups(opts.controlGroups);
   const goodIcons = createGoodIconPainter(opts.domHud.pack, opts.content);
@@ -138,7 +152,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       orderRecipients(opts.content, opts.snapshot(), targets, id),
       {
         enqueue: opts.enqueue,
-        onOrderLimit: orderLimitNotice.show,
+        onOrderLimit: showOrderLimit,
         pickMode,
         openEquipment: (settlers) => equipPicker?.openAll(settlers),
         toggleWorkArea: workArea.toggle,
@@ -232,6 +246,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     canAttachToVehicle: opts.canAttachToVehicle,
     canAttachTradeHouse: opts.canAttachTradeHouse,
     askAttachTradeHouse: opts.askAttachTradeHouse,
+    onTradeRefused: refuseTradeHouse,
     askPlaceSignpostAt: opts.askPlaceSignpostAt,
     cue,
     answered,
@@ -328,7 +343,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
   };
 
   const orders = createUnitOrderController({
-    onOrderLimit: orderLimitNotice.show,
+    onOrderLimit: showOrderLimit,
     uiscale: opts.uiscale ?? 1,
     technologyStatus: opts.technologyStatus,
     technologyVersion: opts.technologyVersion,
@@ -355,6 +370,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
         ? undefined
         : (movers) => opts.voices?.refuse({ members: movers, fallback: 'fail' }),
     askAttachTradeHouse: opts.askAttachTradeHouse,
+    onTradeRefused: refuseTradeHouse,
     markOrder: orderMarkers.place,
     flashTarget: targetFlashes.flash,
   });
@@ -665,7 +681,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
     dispose: () => {
       selectionCursor.dispose();
-      orderLimitNotice.dispose();
+      orderNotice.dispose();
       pickMode.cancel(); // an armed mode owns the canvas cursor, which teardown must not leave set
       canvas.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);

@@ -216,6 +216,9 @@ export const plSurfaces = {
       hoverOutline: 'Obrys pod kursorem',
       hoverOutlineTip:
         'Kontur wokół postaci lub budynku, nad którym zatrzymuje się kursor, jak w oryginale. Zmienia się w grze od razu.',
+      cursorHints: 'Podpowiedzi przy kursorze',
+      cursorHintsTip:
+        'Napis przy kursorze: co zrobi kliknięcie i nazwa rzeczy pod kursorem, np. zwierzęcia, sterty towarów lub skrzyni.',
       groupNumbers: 'Numery grup',
       groupNumbersTip:
         'Malutki numer grupy przy każdej jednostce przypisanej do grupy. Jednostka w kilku grupach pokazuje do trzech, np. 1,2,3.',

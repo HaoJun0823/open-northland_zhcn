@@ -255,6 +255,9 @@ export const deSurfaces = {
       hoverOutline: 'Umriss beim Überfahren',
       hoverOutlineTip:
         'Die Kontur, die eine Einheit oder ein Gebäude zeichnet, während der Mauszeiger darüber steht, wie im Original. Änderungen werden im Spiel sofort sichtbar.',
+      cursorHints: 'Hinweise am Mauszeiger',
+      cursorHintsTip:
+        'Ein Text am Mauszeiger nennt, was ein Klick bewirkt, und das Ding darunter, etwa ein Tier, einen Warenhaufen oder eine Truhe.',
       groupNumbers: 'Gruppennummern',
       groupNumbersTip:
         'Eine winzige Gruppennummer an jeder Einheit in einer Gruppe. Eine Einheit in mehreren Gruppen zeigt bis zu drei, etwa 1,2,3.',

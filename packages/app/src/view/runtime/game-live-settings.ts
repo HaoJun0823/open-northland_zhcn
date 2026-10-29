@@ -107,6 +107,7 @@ export function createLiveGameSettings(deps: LiveGameSettingsDeps): LiveGameSett
     setDebugToolsEnabled: deps.setDebugToolsEnabled,
     setSelectionStyle: deps.setSelectionStyle,
     setHoverOutline: deps.setHoverOutline,
+    setCursorHints: deps.controls.setCursorHints,
     setGroupNumbersShown: deps.setGroupNumbersShown,
     setGraphicsEnhancements: deps.setGraphicsEnhancements,
     setMinimapFrame: deps.minimap.setFrame,

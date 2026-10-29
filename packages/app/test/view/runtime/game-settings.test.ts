@@ -103,6 +103,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
   const setMinimapFrame = vi.fn();
   const setSelectionStyle = vi.fn();
   const setHoverOutline = vi.fn();
+  const setCursorHints = vi.fn();
   const setGroupNumbersShown = vi.fn();
   const setWeatherEnabled = vi.fn();
   const setBloodEnabled = vi.fn();
@@ -132,6 +133,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setGraphicsEnhancements,
     setSelectionStyle,
     setHoverOutline,
+    setCursorHints,
     setGroupNumbersShown,
     setMinimapFrame,
     setWeatherEnabled,

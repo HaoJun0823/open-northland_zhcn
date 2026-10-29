@@ -218,6 +218,9 @@ export const enSurfaces = {
       hoverOutline: 'Hover outline',
       hoverOutlineTip:
         'The contour a unit or building draws while the cursor rests over it, as the original shows one. Changes in game immediately.',
+      cursorHints: 'Cursor hints',
+      cursorHintsTip:
+        'A label by the cursor naming what a click would do and the thing under it, such as an animal, a goods heap or a chest.',
       groupNumbers: 'Group numbers',
       groupNumbersTip:
         'A tiny group number by each unit bound to a group. A unit in several groups shows up to three, such as 1,2,3.',

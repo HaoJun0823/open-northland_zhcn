@@ -1063,6 +1063,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         toolPanel.controller.placementBuilding() !== null ||
         toolPanel.controller.palisadeGfxIndex() !== null ||
         toolPanel.controller.roadActive(),
+      cursorHints: storedSettings.cursorHints,
       askAttachToVehicle: answers.askAttachToVehicle,
       askMooring: placementGates.askMooring,
       mooring: placementGates.mooring,

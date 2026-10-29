@@ -460,6 +460,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       chrome.claimsPointer(x, y) ||
       chrome.actions().claimsPointer(x, y),
     lineAt: hintLineAt,
+    enabled: opts.cursorHints ?? true,
   });
 
   const onMouseDown = (e: MouseEvent): void => {
@@ -788,6 +789,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
     presentFigures: chrome.presentFigures,
     setHudHidden: chrome.setHudHidden,
+    setCursorHints: actionHint.setEnabled,
     setUiScale: async (scale) => {
       await Promise.all([chrome.setUiScale(scale), orders.setUiScale(scale)]);
     },

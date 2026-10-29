@@ -11,6 +11,8 @@ export interface ActionHintOptions {
   /** Over the HUD, in a drag or a placement, the label yields. */
   readonly blocked: (clientX: number, clientY: number) => boolean;
   readonly lineAt: (clientX: number, clientY: number, mods: ModifierState) => HintLine | null;
+  /** The player's setting; off, the label stays hidden and reads nothing. */
+  readonly enabled: boolean;
 }
 
 /**
@@ -19,9 +21,11 @@ export interface ActionHintOptions {
  */
 export function createActionHint(opts: ActionHintOptions): {
   update(snapshot: WorldSnapshot): void;
+  setEnabled(enabled: boolean): void;
   dispose(): void;
 } {
   const scope = new AbortController();
+  let enabled = opts.enabled;
   let inside = false;
   let clientX = 0;
   let clientY = 0;
@@ -48,7 +52,7 @@ export function createActionHint(opts: ActionHintOptions): {
     opts.label.show(clientX, clientY, null);
   };
   const update = (snapshot: WorldSnapshot): void => {
-    if (!inside || opts.blocked(clientX, clientY)) {
+    if (!enabled || !inside || opts.blocked(clientX, clientY)) {
       hide();
       return;
     }
@@ -108,6 +112,10 @@ export function createActionHint(opts: ActionHintOptions): {
   window.addEventListener('blur', released, { signal: scope.signal });
   return {
     update,
+    setEnabled: (next) => {
+      enabled = next;
+      if (!next) hide();
+    },
     dispose: () => {
       scope.abort();
       opts.label.dispose();

@@ -213,6 +213,8 @@ export const chsSurfaces = {
       },
       hoverOutline: '悬停轮廓',
       hoverOutlineTip: '鼠标悬停在单位或建筑上时显示的轮廓，与原版一致。在游戏中立即生效。',
+      cursorHints: '光标提示',
+      cursorHintsTip: '光标旁的文字，说明点击会做什么以及光标下的事物，例如动物、货堆或箱子。',
       groupNumbers: '编队编号',
       groupNumbersTip:
         '每个已编入编队的单位旁会显示一个小小的编队编号。属于多个编队的单位最多显示三个，例如 1,2,3。',

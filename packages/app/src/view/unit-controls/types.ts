@@ -83,6 +83,8 @@ export interface UnitControlsOptions {
   readonly vehicleAttachAnswer?: (settler: number, vehicle: number) => boolean | undefined;
   /** Whether the label beside the cursor yields to a placement mode or a hidden HUD. */
   readonly hintSuppressed?: () => boolean;
+  /** The player's cursor-hints setting the label starts with; absent, it shows. */
+  readonly cursorHints?: boolean;
   readonly app: Application;
   readonly canvas: HTMLCanvasElement;
   readonly uiscale?: number;
@@ -251,6 +253,8 @@ export interface UnitControls {
   /** Hide the details panel with the rest of the HUD and close the ring; a ring opened while hidden
    *  shows. The selection itself stays. */
   readonly setHudHidden: (hidden: boolean) => void;
+  /** Shows or hides the label beside the cursor; it starts as `cursorHints` says. */
+  readonly setCursorHints: (shown: boolean) => void;
   readonly setUiScale: (uiscale: number) => Promise<void>;
   readonly dispose: () => void;
 }

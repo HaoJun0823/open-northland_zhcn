@@ -212,6 +212,8 @@ export const chtSurfaces = {
       },
       hoverOutline: '懸停外框',
       hoverOutlineTip: '游標停留在單位或建築上時顯示的外框，如同原版。在遊戲中立即變更。',
+      cursorHints: '游標提示',
+      cursorHintsTip: '游標旁的文字，說明點擊會做什麼以及游標下的事物，例如動物、貨堆或箱子。',
       groupNumbers: '編組編號',
       groupNumbersTip:
         '在每個已編組的單位旁顯示小小的編組編號。同時屬於多個編組的單位最多顯示三個，例如 1,2,3。',

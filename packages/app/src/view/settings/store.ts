@@ -112,6 +112,8 @@ export interface MenuSettings {
   readonly selectionStyle: SelectionStyle;
   /** The outline a hovered unit or building draws, as the original shows one; off draws none. */
   readonly hoverOutline: boolean;
+  /** The label beside the cursor naming what a click would do and the thing it rests on. */
+  readonly cursorHints: boolean;
   /** A small label of its control groups' numbers by each unit bound to one. */
   readonly groupNumbers: boolean;
   readonly minimapFrame: MinimapFrame;
@@ -205,6 +207,7 @@ export function defaultSettings(): MenuSettings {
     cursorSize: DEFAULT_CURSOR_SIZE,
     selectionStyle: DEFAULT_SELECTION_STYLE,
     hoverOutline: true,
+    cursorHints: true,
     groupNumbers: false,
     minimapFrame: DEFAULT_MINIMAP_FRAME,
     minimapFilters: DEFAULT_MINIMAP_FILTERS,
@@ -380,6 +383,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     cursorSize: parseCursorSize(record.cursorSize),
     selectionStyle: parseSelectionStyle(record.selectionStyle),
     hoverOutline: typeof record.hoverOutline === 'boolean' ? record.hoverOutline : defaults.hoverOutline,
+    cursorHints: typeof record.cursorHints === 'boolean' ? record.cursorHints : defaults.cursorHints,
     groupNumbers: typeof record.groupNumbers === 'boolean' ? record.groupNumbers : defaults.groupNumbers,
     minimapFrame: parseMinimapFrame(record.minimapFrame),
     minimapFilters: parseMinimapFilters(record.minimapFilters),

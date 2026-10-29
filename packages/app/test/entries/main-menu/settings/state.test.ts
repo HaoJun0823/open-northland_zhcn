@@ -55,6 +55,7 @@ describe('parseStoredSettings', () => {
       cursorSize: 24,
       selectionStyle: 'outline',
       hoverOutline: false,
+      cursorHints: false,
       groupNumbers: true,
       minimapFrame: 'urnes',
       minimapFilters: {

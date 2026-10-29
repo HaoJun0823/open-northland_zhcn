@@ -196,7 +196,9 @@ export function isBindableBinding(binding: string): boolean {
   return normalized.every((modifier, index) => parts[index] === modifier);
 }
 
-type ModifierState = Pick<KeyboardEvent | MouseEvent, 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'>;
+export type ModifierState = Pick<KeyboardEvent | MouseEvent, 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'>;
+/** A mouse press as a binding reads it: its button and the modifiers held. */
+export type MousePress = ModifierState & Pick<MouseEvent, 'button'>;
 
 /** The fields a key binding reads off a press. */
 export type KeyPress = ModifierState & Pick<KeyboardEvent, 'code'>;
@@ -215,7 +217,7 @@ export function bindingFromKeyboardEvent(event: KeyPress): string | null {
   return isBindableCode(event.code) ? eventBinding(event.code, event) : null;
 }
 
-export function bindingFromMouseEvent(event: MouseEvent): string | null {
+export function bindingFromMouseEvent(event: MousePress): string | null {
   const code = `Mouse${event.button}`;
   return BINDABLE_POINTER_CODE.test(code) ? eventBinding(code, event) : null;
 }
@@ -236,7 +238,7 @@ export function matchesKeyboardBindingUnderShift(event: KeyPress, binding: strin
   return matchesKeyboardBinding({ code, ctrlKey, shiftKey: false, altKey, metaKey }, binding);
 }
 
-export function matchesMouseBinding(event: MouseEvent, binding: string | null): boolean {
+export function matchesMouseBinding(event: MousePress, binding: string | null): boolean {
   const actual = bindingFromMouseEvent(event);
   return binding !== null && actual !== null && matchesEventBinding(actual, binding);
 }

@@ -2,14 +2,19 @@ import { entityById, MAX_UNIT_ORDER_MEMBERS, systems, type WorldSnapshot } from 
 import { holdsHaulFlagPost, isSettler, isVehicle, settlerJobType } from '../../game/snapshot/index.js';
 import { pickableSeat } from '../../game/viewer-seat.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
+import { jobDisplayName } from '../../hud/details-panel/model/context.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { isActionHotkey, isFieldKey, isOrderHotkey } from '../../hud/hotkeys.js';
-import { matchesMouseBinding } from '../../hud/keybindings.js';
+import { type ModifierState, matchesMouseBinding } from '../../hud/keybindings.js';
 import { clientToScreen } from '../camera/index.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { nodeBounds, pickInRect, pickTopAt, screenToWorld, type Tile, worldToTile } from '../picking.js';
 import { entityAnchor } from '../projections/entity-anchor.js';
 import { memoBySnapshot, rangeRingsOf } from '../projections/index.js';
+import { createActionHint } from './action-hint/controller.js';
+import { createHintLabel, hintLine } from './action-hint/label.js';
+import { natureName, natureTargetOf } from './action-hint/nature-name.js';
+import { type HintContext, planHint } from './action-hint/plan-hint.js';
 import { orderRecipients } from './action-ring/index.js';
 import { createClickHits } from './click-hits.js';
 import {
@@ -58,6 +63,8 @@ export type { UnitControls, UnitControlsOptions } from './types.js';
 
 /** The browser's click count (`MouseEvent.detail`) on the second press of a double-click. */
 const DOUBLE_CLICK = 2;
+/** `MouseEvent.button` of the right button. */
+const RIGHT_BUTTON = 2;
 
 /** A right-click press as it landed. A fallback that runs once the sim's answer arrives resolves the
  *  press again at its world point for its selection, however far the camera or the selection moved
@@ -398,6 +405,59 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     cue,
   });
 
+  const hintContext = (): HintContext => ({
+    ...rightClickContext(),
+    answers: {
+      tradeHouseAttach: (trader, house) => opts.tradeHouseAttachAnswer?.(trader, house),
+      vehicleAttach: (settler, vehicle) => opts.vehicleAttachAnswer?.(settler, vehicle),
+      jobChoice: (entity, jobType) => opts.jobChoiceAnswer?.(entity, jobType),
+      docks: (ships, tile) =>
+        ships.length > 0 && vehicleOrders.previewBerths(ships, tile, RIGHT_CLICK_SNAP_NODES).length > 0,
+    },
+  });
+
+  /** The label names what a right press at the point would do, resolved as the press resolves it. */
+  const hintLineAt = (clientX: number, clientY: number, mods: ModifierState) => {
+    const world = toWorld(clientX, clientY);
+    const selected = selection.ids();
+    const hit = rightClickHitAt(unitTargets, world, opts.elevation);
+    const hint =
+      selected.size === 0
+        ? null
+        : planHint(hintContext(), {
+            hit,
+            doorMarker: clickHits.doorMarkerAt(world.x, world.y),
+            selected,
+            settlers: unitTargets.ownedSettlersIn(selected),
+            mods: rightClickMods(mods),
+            workFlag: matchesMouseBinding({ ...mods, button: RIGHT_BUTTON }, opts.bindings.workFlagOrder),
+          });
+    const target = natureTargetOf(hit, hint);
+    const nameContext = { snapshot: opts.snapshot(), content: opts.content, uiString: opts.domHud.uiString };
+    const name = target === null ? null : natureName(nameContext, target, hit);
+    return hintLine(name, hint, (jobType) => jobDisplayName(opts.content, jobType));
+  };
+
+  const actionHint = createActionHint({
+    canvas,
+    label: createHintLabel(opts.domHud.plane, opts.domHud.scale),
+    camera: opts.camera,
+    versions: [
+      selection.version,
+      opts.viewer.version,
+      opts.jobChoicesVersion,
+      ...(opts.attachPicksVersion !== undefined ? [opts.attachPicksVersion] : []),
+    ],
+    blocked: (x, y) =>
+      opts.hintSuppressed?.() === true ||
+      pickMode.isArmed() ||
+      marquee.active() ||
+      opts.claimPointer?.(x, y) === true ||
+      chrome.claimsPointer(x, y) ||
+      chrome.actions().claimsPointer(x, y),
+    lineAt: hintLineAt,
+  });
+
   const onMouseDown = (e: MouseEvent): void => {
     pointer = { x: e.clientX, y: e.clientY };
     // The HUD claims its own clicks before any world picking. The ring's buttons take their own presses;
@@ -411,7 +471,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       return;
     }
     const workFlag = matchesMouseBinding(e, opts.bindings.workFlagOrder);
-    if (e.button === 2) {
+    if (e.button === RIGHT_BUTTON) {
       rightPress(e, workFlag);
       return;
     }
@@ -710,7 +770,10 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       opts.claimPointer?.(x, y) === true ||
       chrome.claimsPointer(x, y) ||
       chrome.actions().claimsPointer(x, y),
-    refreshCursor: selectionCursor.update,
+    refreshCursor: (snapshot) => {
+      selectionCursor.update(snapshot);
+      actionHint.update(snapshot);
+    },
     tick: (snapshot) => {
       dropGoneMembers(snapshot);
       orders.refresh();
@@ -726,6 +789,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
     dispose: () => {
       selectionCursor.dispose();
+      actionHint.dispose();
       orderLimitNotice.dispose();
       pickMode.cancel(); // an armed mode owns the canvas cursor, which teardown must not leave set
       canvas.removeEventListener('mousedown', onMouseDown);

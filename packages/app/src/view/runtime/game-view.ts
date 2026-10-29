@@ -150,7 +150,7 @@ import { createTooltip } from '../tooltip.js';
 import { type ControlGroupMembers, isControlGroupMember } from '../unit-controls/control-groups.js';
 import { createUnitControls, type UnitControls } from '../unit-controls/index.js';
 import { createWeatherFeed } from '../weather-feed.js';
-import { chestTooltipLines, createWorldHover } from '../world-hover.js';
+import { createWorldHover } from '../world-hover.js';
 import { installDebugHandle } from './debug-handle.js';
 import { mountDebugOverlays } from './debug-mounts.js';
 import { createEntryExit } from './entry-exit.js';
@@ -1014,6 +1014,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       panelAnswersVersion: answers.versions.unitPanel,
       attachPicksVersion: answers.versions.attachPicks,
       canChooseJob: answers.canChooseJob,
+      jobChoiceAnswer: answers.jobChoiceAnswer,
       askCanChooseJob: answers.askCanChooseJob,
       jobChoicesVersion: answers.versions.jobChoices,
       app,
@@ -1055,6 +1056,13 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       offersTrade: (house) => host.tradeOffersAt(house as Entity).then((offers) => offers.length > 0),
       noteTradeRefused: (owner, at) => toolPanel.controller.noteTradeRefused(owner, at),
       canAttachToVehicle: answers.canAttachToVehicle,
+      tradeHouseAttachAnswer: answers.tradeHouseAttachAnswer,
+      vehicleAttachAnswer: answers.vehicleAttachAnswer,
+      hintSuppressed: () =>
+        hudHidden ||
+        toolPanel.controller.placementBuilding() !== null ||
+        toolPanel.controller.palisadeGfxIndex() !== null ||
+        toolPanel.controller.roadActive(),
       askAttachToVehicle: answers.askAttachToVehicle,
       askMooring: placementGates.askMooring,
       mooring: placementGates.mooring,
@@ -1236,13 +1244,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     });
     cleanup.push(() => hoverCard.dispose());
 
-    // Owns its own tooltip element, distinct from the details panel's stock-row tooltip above.
     const worldHover = createWorldHover({
       renderer,
       camera: () => cameraCtl.camera(),
       clientToScreen,
-      goodLabel,
-      ...chestTooltipLines(host.content, toolPanel.controller.uiString, viewerPlayer, controls.selectedIds),
       card: hoverCard,
       buildingModel: (snapshot, entityId) => buildingHoverModel(snapshot, entityId, hoverContext),
       settlerModel: (snapshot, entityId) => settlerHoverModel(snapshot, entityId, settlerHoverContext),

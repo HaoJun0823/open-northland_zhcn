@@ -76,6 +76,13 @@ export interface UnitControlsOptions {
   readonly askCanChooseJob: (entity: number, jobType: number) => Promise<boolean>;
   /** Bumped when a `canChooseJob` answer changes, which redraws an open profession list. */
   readonly jobChoicesVersion: () => number;
+  /** The job-choice and attach rules' last answers, undefined while unanswered; the label beside the
+   *  cursor reads them, and names the action optimistically without them. */
+  readonly jobChoiceAnswer?: (entity: number, jobType: number) => boolean | undefined;
+  readonly tradeHouseAttachAnswer?: (trader: number, house: number) => boolean | undefined;
+  readonly vehicleAttachAnswer?: (settler: number, vehicle: number) => boolean | undefined;
+  /** Whether the label beside the cursor yields to a placement mode or a hidden HUD. */
+  readonly hintSuppressed?: () => boolean;
   readonly app: Application;
   readonly canvas: HTMLCanvasElement;
   readonly uiscale?: number;

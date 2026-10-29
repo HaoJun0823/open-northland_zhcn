@@ -34,8 +34,8 @@ export interface AssignBuildingInfo {
   readonly workers?: WorkerSlots | undefined;
 }
 
-/** The settlers bound to `building` counted by jobType - the capacity check reads it. */
-function staffingOf(snapshot: WorldSnapshot, building: number): Map<number, number> {
+/** The settlers bound to `building` counted by jobType, as the sim's `jobUnderstaffed` counts a slot. */
+export function staffingOf(snapshot: WorldSnapshot, building: number): Map<number, number> {
   const byJob = new Map<number, number>();
   for (const e of staffOf(snapshot, building)) {
     const jobType = settlerJobType(e);

@@ -66,8 +66,13 @@ function houseVerdict(
   }
   const key = ownerKeyOf(house);
   const moving = (movers.byKey.get(key) ?? 0) - (movers.livingAt.get(house.id)?.get(key) ?? 0);
-  const free = (homeFamiliesOf(snapshot, house.id)?.length ?? 0) < (info.homeSize ?? 0);
-  return { candidate: true, ok: moving > 0 && free };
+  return { candidate: true, ok: moving > 0 && homeHasFamilyRoom(snapshot, house.id, info) };
+}
+
+/** Whether a family from outside `house` fits beside the households living there: the sim's
+ *  `moveFamilyInto` caps families, not people. */
+export function homeHasFamilyRoom(snapshot: WorldSnapshot, house: number, info: HouseInfo): boolean {
+  return (homeFamiliesOf(snapshot, house)?.length ?? 0) < (info.homeSize ?? 0);
 }
 
 /**

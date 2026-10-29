@@ -2277,6 +2277,30 @@ body.on-drag-scroll.on-drag-scroll-free * {
 /* The breakdown sheet's own parchment at half the summary bar's type: small enough that even a
    warehouse's whole store leaves the map around it in view. The column lays the lines out with a gap
    rather than margins, so a settler's two lines leave no space where a store's rows would stand. */
+/* The label under the cursor naming what a right click there does: small type with no frame, a soft
+   dark shadow and the faintest backdrop, so it reads over any ground. A refusal reads muted. */
+.on-hud .on-action-hint {
+  position: absolute;
+  z-index: 301;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #0002;
+  color: var(--text);
+  font: 12px / 1.3 var(--font-body);
+  white-space: nowrap;
+  text-shadow:
+    0 0 3px #000d,
+    0 1px 2px #000;
+  pointer-events: none;
+}
+.on-hud .on-action-hint[hidden] {
+  display: none;
+}
+.on-hud .on-action-hint--refusal {
+  color: var(--muted);
+  opacity: 0.8;
+  filter: saturate(0.3);
+}
 .on-hud .on-hovercard {
   z-index: 300;
   display: flex;

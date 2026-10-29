@@ -195,9 +195,6 @@ const STRIKE_KINDS: Readonly<Record<Exclude<StrikePickKind, 'attack-animal'>, re
   'attack-vehicle': ['vehicle'],
 };
 
-/** The enemies an attack-move pressed on one strikes instead of marching past. */
-const ATTACK_MOVE_STRIKE_KINDS: readonly UnitTargetKind[] = ['settler', 'building', 'palisade', 'vehicle'];
-
 /** The enemy each vehicle strike pick takes. */
 const VEHICLE_STRIKE_KIND: Readonly<
   Record<Extract<VehicleTargetPickKind, `vehicle-attack-${string}`>, UnitTargetKind>
@@ -637,14 +634,13 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     // this mode was armed for.
     if (mode.kind !== 'signpost' || event.button !== 0) cancel();
     if (event.button !== 0) return 'calledOff'; // any other button just calls the mode off
-    // An attack-move pressed on an enemy or a wild animal strikes it, the march engaging enemies only, never
-    // game; the selected vehicles still march to the spot.
+    // The march engages enemies only, never game, so an attack-move pressed on a wild animal strikes it;
+    // the selected vehicles still march to the spot.
     const queued = queuedPress(mode, event);
     if (
       mode.kind === 'attack-move' &&
       mode.units.length > 0 &&
-      (deps.orders().issueAttackTarget(event, ATTACK_MOVE_STRIKE_KINDS, mode.units, queued) ||
-        deps.orders().issueAttackAnimal(event, mode.units, queued))
+      deps.orders().issueAttackAnimal(event, mode.units, queued)
     ) {
       if (mode.vehicles.length > 0)
         resolveSpot({ ...mode, units: [] }, deps.nodeAt(event.clientX, event.clientY), queued);
@@ -800,13 +796,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       case 'work-area':
         return { kind: 'workArea' };
       case 'attack-move': {
-        if (mode.units.length > 0) {
-          const struck =
-            strikeAim(enemyAt(deps.targets, world, ATTACK_MOVE_STRIKE_KINDS, true)) ??
-            strikeAim(preyAt(deps.targets, world), true);
-          if (struck !== null) return struck;
-        }
-        return { kind: 'attackMove' };
+        const prey = mode.units.length > 0 ? strikeAim(preyAt(deps.targets, world), true) : null;
+        return prey ?? { kind: 'attackMove' };
       }
       case 'signpost': {
         const node = clampedNode(clientX, clientY);

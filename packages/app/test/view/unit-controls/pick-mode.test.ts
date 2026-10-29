@@ -92,12 +92,12 @@ describe('an armed pick aims as its press orders', () => {
     expect(h.issued).toMatchObject([{ kind: 'attackMoveUnit', entity: SOLDIER }]);
   });
 
-  it('strikes the enemy an attack-move is pressed on, as its aim names it', () => {
+  it('marches an attack-move pressed on an enemy, as its aim names it', () => {
     const h = harness({ enemies: [drawnHere(FOE, 'settler')] });
     h.pickMode.arm({ kind: 'attack-move', units: [SOLDIER], vehicles: [] });
-    expect(h.aim()).toEqual({ kind: 'strike', target: FOE, creature: false });
+    expect(h.aim()).toEqual({ kind: 'attackMove' });
     expect(h.press()).toBe('ordered');
-    expect(h.issued).toEqual([{ kind: 'attackUnit', entity: SOLDIER, target: FOE }]);
+    expect(h.issued).toMatchObject([{ kind: 'attackMoveUnit', entity: SOLDIER }]);
   });
 
   it('names a wild animal under an attack-move as the creature it strikes', () => {

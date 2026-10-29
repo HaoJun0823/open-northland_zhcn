@@ -13,7 +13,6 @@ import { LIGHT_LOOKS, type LightSite, lightShare } from '../../data/lighting/lig
 import { type LightGrade, NEUTRAL_GRADE } from '../../data/lighting/types.js';
 import type { Camera } from '../../data/projection/iso.js';
 import type { NightComposite } from '../world-renderer/offscreen-world.js';
-import { ensureNightBlend, NIGHT_GLOW_BLEND } from './night-blend.js';
 
 /**
  * The scene grade: a map script's whole-map vertex tint drawn over everything the stage drew below
@@ -112,7 +111,7 @@ export class SceneLight {
   private readonly mapRoot = new Container();
   private readonly merged = new GlowSprites(this.mapRoot, 'max');
   private readonly added = new GlowSprites(this.mapRoot, 'add');
-  private readonly flares = new GlowSprites(this.container, NIGHT_GLOW_BLEND);
+  private readonly flares = new GlowSprites(this.container, 'add');
   private map: RenderTexture | null = null;
   /** Baked when the first night asks for it. */
   private glow: Texture | null = null;
@@ -124,6 +123,11 @@ export class SceneLight {
   private lastSeconds: number | null = null;
   /** This frame's night composite, while the night lights the world. */
   private night: NightComposite | null = null;
+  /** {@link night}'s record, refilled each night frame. */
+  private readonly composed: { light: Texture; readonly lit: readonly [number, number, number] } = {
+    light: Texture.WHITE,
+    lit: NIGHT_LIT_COLOUR,
+  };
 
   constructor() {
     this.container.label = 'scene-light';
@@ -158,8 +162,6 @@ export class SceneLight {
   shadeForPicture(on: boolean): void {
     if (this.night === null) return;
     this.shade.visible = on;
-    // A picture keeps the frame's alpha, which the flames' night blend would hole.
-    this.flares.setBlend(on ? 'add' : NIGHT_GLOW_BLEND);
   }
 
   /** The grade drawn this frame, after the fade. */
@@ -185,13 +187,13 @@ export class SceneLight {
     this.placeLights(frame, level);
     this.night = null;
     if (level > 0 && renderer !== undefined && frame.camera !== undefined) {
-      ensureNightBlend(renderer);
       const map = this.mapSized(renderer, screenW, screenH);
       this.clearColor[0] = Math.min(1, r);
       this.clearColor[1] = Math.min(1, g);
       this.clearColor[2] = Math.min(1, b);
       renderer.render({ container: this.mapRoot, target: map, clear: true, clearColor: this.clearColor });
-      this.night = { light: map, lit: NIGHT_LIT_COLOUR };
+      this.composed.light = map;
+      this.night = this.composed;
       this.shade.texture = map;
       this.shade.tint = 0xffffff;
       this.shade.setSize(screenW, screenH);
@@ -293,7 +295,7 @@ class GlowSprites {
 
   constructor(
     parent: Container,
-    private blend: BLEND_MODES,
+    private readonly blend: BLEND_MODES,
   ) {
     parent.addChild(this.container);
   }
@@ -314,11 +316,6 @@ class GlowSprites {
     sprite.visible = true;
     this.count++;
     return sprite;
-  }
-
-  setBlend(blend: BLEND_MODES): void {
-    this.blend = blend;
-    for (const sprite of this.sprites) sprite.blendMode = blend;
   }
 
   end(): void {

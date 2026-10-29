@@ -28,13 +28,18 @@ export class NightBearers {
     paint(pe, packed);
   }
 
-  /** Return every bearer this frame did not mark to unlit. */
+  /** Return every bearer this frame did not mark to unlit; one the pool destroyed is only forgotten. */
   end(): void {
     for (const pe of this.lit) {
       if (this.touched.has(pe)) continue;
-      paint(pe, 0);
+      if (!pe.container.destroyed) paint(pe, 0);
       this.lit.delete(pe);
     }
+  }
+
+  clear(): void {
+    this.lit.clear();
+    this.touched.clear();
   }
 }
 

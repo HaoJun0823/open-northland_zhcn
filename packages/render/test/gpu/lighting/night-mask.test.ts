@@ -14,6 +14,7 @@ function fakeRenderer() {
     COLOR_ATTACHMENT0,
     NONE,
     drawBuffers: (buffers: GLenum[]) => calls.push([...buffers]),
+    clear: (_mask: GLbitfield) => {},
     useProgram: (_program: WebGLProgram | null) => {},
     getFragDataLocation: (program: WebGLProgram) => (program === WRITER ? NIGHT_LIT_LOCATION : -1),
   };
@@ -50,8 +51,34 @@ describe('renderMasked', () => {
       // Pixi binding the masked target: every buffer on, then the clear.
       gl.drawBuffers(on);
       expect(calls.at(-1)).toEqual(on);
+      gl.clear(0);
       renderGroup.execute(worldGroup);
     });
     expect(log).toEqual([`ground ${off}`, `bearer ${on}`, `plain ${off}`, `over ${off}`]);
+  });
+
+  it('turns the mask off again when the target rebinds mid-pass with the program unchanged', () => {
+    const { renderer, gl, calls, draws, renderGroup } = fakeRenderer();
+    const world = new Container({ isRenderGroup: true });
+    const worldGroup = world.renderGroup as RenderGroup;
+    const lit = new Container({ isRenderGroup: true });
+    world.addChild(lit);
+    let afterRebind: GLenum[] | undefined;
+    draws.set(worldGroup, () => {
+      gl.useProgram(WRITER);
+      gl.drawBuffers(on);
+      afterRebind = calls.at(-1);
+    });
+    renderMasked(renderer, lit, () => {
+      gl.drawBuffers(on);
+      gl.clear(0);
+      renderGroup.execute(worldGroup);
+    });
+    expect(afterRebind).toEqual(off);
+  });
+
+  it('refuses a lit layer that is no render group', () => {
+    const { renderer } = fakeRenderer();
+    expect(() => renderMasked(renderer, new Container(), () => {})).toThrow();
   });
 });

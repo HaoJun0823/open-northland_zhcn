@@ -1,4 +1,11 @@
-import { type Application, Container, type RenderTexture, Texture } from 'pixi.js';
+import {
+  type Application,
+  Container,
+  RendererType,
+  RenderTarget,
+  type RenderTexture,
+  Texture,
+} from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import { OffscreenWorld } from '../../../src/gpu/world-renderer/offscreen-world.js';
 import { useHeadlessShaderContext } from '../../support/shader-context.js';
@@ -113,10 +120,49 @@ describe('OffscreenWorld at night', () => {
     expect(targets).toHaveLength(0);
     frame.render({ light: Texture.WHITE, lit: [1, 1, 1] });
     expect(stage.children).toEqual([presentOf(stage), hud]);
-    expect(targets).toHaveLength(1);
+    // The world, then the scene's child over it.
+    expect(targets).toHaveLength(2);
     expect(texelsPerPixel(frame)).toBe(1);
     frame.render();
     expect(stage.children).toEqual([presentOf(stage), scene, hud]);
+    frame.destroy();
+  });
+
+  it('draws a WebGL night into its frame and a lit mask beside it, remade with the frame', () => {
+    const { app, stage, scene, world, lit, hud, renderer, targets } = stubApp(1);
+    lit.isRenderGroup = true;
+    Object.assign(renderer, {
+      type: RendererType.WEBGL,
+      gl: {
+        COLOR_ATTACHMENT0: 0x8ce0,
+        NONE: 0,
+        drawBuffers: () => {},
+        useProgram: () => {},
+        clear: () => {},
+        getFragDataLocation: () => -1,
+      },
+      renderPipes: { renderGroup: { execute: () => {} } },
+    });
+    const night = { light: Texture.WHITE, lit: [1, 1, 1] as const };
+    const frame = new OffscreenWorld(app, scene, world, lit, 'sharp', Number.POSITIVE_INFINITY);
+    frame.render(night);
+    // The masked world, then the scene's children over it into the frame alone.
+    const [masked, over] = targets as unknown[];
+    expect(masked).toBeInstanceOf(RenderTarget);
+    const mask = (masked as RenderTarget).colorTextures[1];
+    expect(mask?.format).toBe('r8unorm');
+    expect((masked as RenderTarget).colorTexture).toBe((over as RenderTexture).source);
+    expect(scene.children.every((child) => child.visible)).toBe(true);
+    frame.render(night);
+    expect(targets[2]).toBe(masked);
+    app.screen.width = 1024;
+    frame.render(night);
+    expect(targets[4]).not.toBe(masked);
+    expect(mask?.destroyed).toBe(true);
+    const remade = (targets[4] as unknown as RenderTarget).colorTextures[1];
+    frame.render();
+    expect(stage.children).toEqual([presentOf(stage), scene, hud]);
+    expect(remade?.destroyed).toBe(true);
     frame.destroy();
   });
 });

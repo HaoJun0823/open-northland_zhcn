@@ -20,6 +20,9 @@ interface MaskState {
   /** Whether the bound target's second draw buffer is on, as the last `drawBuffers` call left it: Pixi
    *  turns every attachment on as it binds a target with several. */
   on: boolean;
+  /** Whether the masked pass has cleared its target: a bind before that is the pass's own, whose clear
+   *  must reach the mask; one after it is a rebind mid-pass, answered at once. */
+  cleared: boolean;
   program: WebGLProgram | null;
   readonly writes: WeakMap<WebGLProgram, boolean>;
 }
@@ -31,13 +34,23 @@ const states = new WeakMap<Renderer, MaskState>();
  * program bind whether the program writes the mask. Undocumented Pixi behaviour, verified on pixi.js
  * 8.22, re-verify on a bump: a child render group draws through `renderPipes.renderGroup.execute`
  * within its parent's instructions; programs bind through `gl.useProgram` only when the program changes;
- * and a target with several attachments binds through `gl.drawBuffers` with every buffer on, then clears.
+ * and a target with several attachments binds through `gl.drawBuffers` with every buffer on, then clears
+ * through `gl.clear` when the render asks it to.
  */
 function install(renderer: WebGLRenderer): MaskState {
   const held = states.get(renderer);
   if (held !== undefined) return held;
   const gl = renderer.gl;
-  const state: MaskState = { lit: null, inside: 0, on: true, program: null, writes: new WeakMap() };
+  const state: MaskState = {
+    lit: null,
+    inside: 0,
+    on: true,
+    cleared: false,
+    program: null,
+    writes: new WeakMap(),
+  };
+  const maskOn = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT0 + NIGHT_LIT_LOCATION];
+  const maskOff = [gl.COLOR_ATTACHMENT0, gl.NONE];
   states.set(renderer, state);
   const sync = (): void => {
     const program = state.program;
@@ -48,21 +61,29 @@ function install(renderer: WebGLRenderer): MaskState {
       if (known === undefined) state.writes.set(program, writes);
     }
     if (writes === state.on) return;
-    drawBuffers([gl.COLOR_ATTACHMENT0, writes ? gl.COLOR_ATTACHMENT0 + NIGHT_LIT_LOCATION : gl.NONE]);
+    drawBuffers(writes ? maskOn : maskOff);
   };
   const setDrawBuffers = gl.drawBuffers.bind(gl);
   const drawBuffers = (buffers: GLenum[]): void => {
     setDrawBuffers(buffers);
     state.on = buffers.length > NIGHT_LIT_LOCATION && buffers[NIGHT_LIT_LOCATION] !== gl.NONE;
   };
-  // Only noted: Pixi clears a target right after binding it, which must reach the mask too, and the
-  // next program bind or group turns the buffer off again.
-  gl.drawBuffers = (buffers: Iterable<GLenum>): void => drawBuffers([...buffers]);
+  gl.drawBuffers = (buffers: GLenum[]): void => {
+    drawBuffers(buffers);
+    if (state.lit !== null && state.cleared) sync();
+  };
+  const clear = gl.clear.bind(gl);
+  gl.clear = (mask: GLbitfield): void => {
+    clear(mask);
+    if (state.lit === null) return;
+    state.cleared = true;
+    sync();
+  };
   const useProgram = gl.useProgram.bind(gl);
   gl.useProgram = (program: WebGLProgram | null): void => {
     state.program = program;
     useProgram(program);
-    if (state.lit !== null) sync();
+    if (state.lit !== null && state.cleared) sync();
   };
   const pipe = renderer.renderPipes.renderGroup;
   const execute = pipe.execute.bind(pipe);
@@ -87,17 +108,14 @@ function install(renderer: WebGLRenderer): MaskState {
 }
 
 /** Draw `render` with `lit`'s layer writing the mask of the target it binds, which must carry the mask
- *  at {@link NIGHT_LIT_LOCATION}. `lit` must be a render group drawn inside a child render group of the
- *  rendered root, so its pass starts with the mask's buffer off. */
+ *  at {@link NIGHT_LIT_LOCATION} and be cleared by the render. `lit` must be a render group. */
 export function renderMasked(renderer: WebGLRenderer, lit: Container, render: () => void): void {
   const group = lit.renderGroup;
+  if (group === null) throw new Error('The night mask needs its lit layer to be a render group');
   const state = install(renderer);
-  if (group === null) {
-    render();
-    return;
-  }
   state.lit = group;
   state.inside = 0;
+  state.cleared = false;
   try {
     render();
   } finally {

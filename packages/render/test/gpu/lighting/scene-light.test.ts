@@ -111,8 +111,6 @@ describe('SceneLight at night', () => {
     light.shadeForPicture(true);
     expect(shade.visible).toBe(true);
     expect(shade.texture).toBe(pass.target);
-    // A picture keeps the frame's alpha: its flames add, as they never hole it.
-    expect(flares.children.every((flare) => flare.blendMode === 'add')).toBe(true);
     light.shadeForPicture(false);
     expect(shade.visible).toBe(false);
     light.destroy();

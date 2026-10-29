@@ -34,7 +34,8 @@ in vec2 vUV;
 out vec4 finalColor;
 uniform sampler2D uFrame;
 uniform sampler2D uLight;
-// The night's lit mask in red, texel for texel with the frame (see lighting/night-mask.ts).
+// The night's lit mask in red, texel for texel with the frame (see lighting/night-mask.ts), filtered
+// linearly so a magnified edge blends about as the frame's does.
 uniform sampler2D uMask;
 // x: 0 sharp, 1 xBR; y: world texels per device pixel.
 uniform vec2 uUpscale;
@@ -50,9 +51,7 @@ void main(void) {
     finalColor = world;
     return;
   }
-  // A flame lowers the frame's alpha where it shows undarkened.
-  ivec2 texel = clamp(ivec2(p), ivec2(0), textureSize(uMask, 0) - 1);
-  float lit = max(texelFetch(uMask, texel, 0).r, 1.0 - world.a);
+  float lit = texture(uMask, vec2(vUV.x, 1.0 - vUV.y)).r;
   vec3 light = mix(texture(uLight, vUV).rgb, uLit.rgb, lit);
   finalColor = vec4(world.rgb * light, 1.0);
 }`;
@@ -181,13 +180,8 @@ export class OffscreenWorld {
     this.app.render();
   }
 
-  /**
-   * Draw the world with its lit mask, then what `scene` draws over it with alpha writes off: the weather
-   * and the screen chrome draw opaque or blended quads that would raise the frame's alpha, which a
-   * flame lowers, back to 1 everywhere. Undocumented Pixi behaviour, verified on pixi.js 8.22, re-verify
-   * on a bump: Pixi sets the colour mask only through its cached `ColorMaskSystem`, which no draw over
-   * the world here changes.
-   */
+  /** Draw the world with its lit mask, then what `scene` draws over it (the weather, the scene light's
+   *  flames, the screen chrome) into the frame alone. */
   private renderLit(frame: RenderTexture): void {
     const renderer = this.app.renderer;
     const over = this.over;
@@ -206,15 +200,12 @@ export class OffscreenWorld {
     } finally {
       for (const child of over) child.visible = true;
     }
-    if (over.length === 0 || renderer.type !== RendererType.WEBGL) return;
-    const gl = (renderer as WebGLRenderer).gl;
+    if (over.length === 0) return;
     const shown = this.world.visible;
     this.world.visible = false;
-    gl.colorMask(true, true, true, false);
     try {
       renderer.render({ container: this.scene, target: frame, clear: false });
     } finally {
-      gl.colorMask(true, true, true, true);
       this.world.visible = shown;
     }
   }
@@ -231,7 +222,7 @@ export class OffscreenWorld {
       format: 'r8unorm',
       antialias: false,
     });
-    mask.source.scaleMode = 'nearest';
+    mask.source.scaleMode = 'linear';
     const masked = new RenderTarget({ colorTextures: [frame.source, mask.source], isRoot: true });
     this.mask = mask;
     this.masked = masked;

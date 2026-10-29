@@ -1105,6 +1105,7 @@ export class SpritePool {
     }
     this.pool.clear();
     this.attached.clear();
+    this.nightBearers.clear();
     this.lastItems = [];
     this.drawn = [];
     this.lastPooled.length = 0;

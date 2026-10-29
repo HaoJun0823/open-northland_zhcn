@@ -11,12 +11,13 @@ import {
 import { pickableSeat } from '../../../game/viewer-seat.js';
 import type { Tile } from '../../picking.js';
 import type { FormationUnit } from '../orders/formation.js';
-import type {
-  PendingAnswer,
-  RightClickAsks,
-  RightClickContext,
-  RightClickHit,
-  RightClickMods,
+import {
+  contentLookups,
+  type PendingAnswer,
+  type RightClickAsks,
+  type RightClickContext,
+  type RightClickHit,
+  type RightClickMods,
 } from './context.js';
 
 type VehicleContext = Pick<RightClickContext, 'snapshot' | 'content' | 'viewer'>;
@@ -32,7 +33,7 @@ export function vehicleTypeOf(
   e: SnapshotEntity,
 ): ContentSet['vehicles'][number] | undefined {
   const typeId = num((e.components.Vehicle as { vehicleType?: unknown } | undefined)?.vehicleType);
-  return typeId === undefined ? undefined : content.vehicles.find((v) => v.typeId === typeId);
+  return typeId === undefined ? undefined : contentLookups(content).vehicles.get(typeId);
 }
 
 export function isShip(content: ContentSet, e: SnapshotEntity): boolean {

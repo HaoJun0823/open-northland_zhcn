@@ -323,6 +323,10 @@ export const deSurfaces = {
       unitResponsesTip:
         'Ob die Siedler auf Befehle und auf die Auswahl laut antworten. Ohne Antwort bestätigt allein der Klick einen Befehl.',
       unitResponseModes: { all: 'Immer', selection: 'Nur bei Auswahl', off: 'Nie' },
+      musicSource: 'Musik',
+      musicSourceTip:
+        'Kartenmusik spielt das Stück der Karte und wechselt im Kampf die Stimmung. Volksmusik spielt die Stücke deines Volkes im Wechsel.',
+      musicSources: { map: 'Karte', nation: 'Volk' },
       soundQuality: 'Klangqualität',
       soundQualityTip:
         'Verlustfrei behält die Originalaufnahmen. Leicht komprimiert sie auf ein Vielfaches weniger, was das Laden im Browser verkürzt. Der Unterschied ist kaum hörbar.',

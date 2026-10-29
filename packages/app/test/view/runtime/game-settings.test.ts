@@ -47,6 +47,7 @@ const LIVE_SETTINGS: readonly LiveSetting[] = [
   { patch: { monoSound: true }, seam: 'setMonoSound', applied: true },
   { patch: { jinglesEnabled: false }, seam: 'setJinglesEnabled', applied: false },
   { patch: { unitResponses: 'selection' }, seam: 'setUnitResponses', applied: 'selection' },
+  { patch: { musicSource: 'nation' }, seam: 'setMusicSource', applied: 'nation' },
   { patch: { minimapFrame: 'urnes' }, seam: 'setMinimapFrame', applied: 'urnes' },
   ...(['outline', 'pulse', 'ring-white', 'ring-green'] as const).map(
     (selectionStyle): LiveSetting => ({
@@ -93,6 +94,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
   const setMonoSound = vi.fn();
   const setJinglesEnabled = vi.fn();
   const setUnitResponses = vi.fn();
+  const setMusicSource = vi.fn();
   const setLanguage = vi.fn();
   const setKeyBindings = vi.fn();
   const setCameraInputSettings = vi.fn();
@@ -122,6 +124,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setMonoSound,
     setJinglesEnabled,
     setUnitResponses,
+    setMusicSource,
     setLanguage,
     setKeyBindings,
     setCameraInputSettings,
@@ -148,6 +151,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setMonoSound,
     setJinglesEnabled,
     setUnitResponses,
+    setMusicSource,
     setLanguage,
     setKeyBindings,
     setCameraInputSettings,

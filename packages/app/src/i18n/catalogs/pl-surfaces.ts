@@ -283,6 +283,10 @@ export const plSurfaces = {
       unitResponsesTip:
         'Czy osadnicy odpowiadają głosem na rozkazy i na zaznaczenie. Bez odpowiedzi rozkaz potwierdza samo kliknięcie.',
       unitResponseModes: { all: 'Zawsze', selection: 'Tylko przy zaznaczeniu', off: 'Nigdy' },
+      musicSource: 'Muzyka',
+      musicSourceTip:
+        'Muzyka mapy gra utwór tej mapy i zmienia nastrój przy walce. Muzyka nacji gra na zmianę utwory twojego ludu.',
+      musicSources: { map: 'Mapa', nation: 'Nacja' },
       soundQuality: 'Jakość dźwięków',
       soundQualityTip:
         'Bezstratne to oryginalne nagrania. Lekkie są skompresowane i ważą kilka razy mniej, co skraca wczytywanie w przeglądarce. Różnicę trudno usłyszeć.',

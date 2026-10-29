@@ -11,7 +11,7 @@ import {
   type VolumeChannel,
   volumeGain,
 } from '../../data/mixer.js';
-import type { MusicSequence, MusicTransition } from '../../data/music/index.js';
+import { CALM_RETURN_MAX_WAIT_S, type MusicSequence, type MusicTransition } from '../../data/music/index.js';
 import {
   muffleCutoffHz,
   PERSPECTIVE_CURVES,
@@ -403,6 +403,9 @@ export class WebAudioEngine {
         break;
       case 'atPassEnd':
         this.music?.endAtPassEnd();
+        break;
+      case 'afterFight':
+        this.music?.endAtPassEnd(CALM_RETURN_MAX_WAIT_S);
         break;
       case 'none':
         break;

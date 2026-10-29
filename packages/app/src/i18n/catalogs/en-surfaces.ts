@@ -285,6 +285,10 @@ export const enSurfaces = {
       unitResponsesTip:
         'Whether settlers answer your orders and your selections out loud. Without an answer, the click alone confirms an order.',
       unitResponseModes: { all: 'Always', selection: 'First selection only', off: 'Never' },
+      musicSource: 'Music',
+      musicSourceTip:
+        "Map music plays the map's own score and follows the battle and your standing. Nation music shuffles your people's tracks.",
+      musicSources: { map: 'Map', nation: 'Nation' },
       soundQuality: 'Sound quality',
       soundQualityTip:
         'Lossless keeps the original recordings. Light compresses them to a few times less, which shortens loading in the browser. The difference is hard to hear.',

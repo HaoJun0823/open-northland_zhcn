@@ -291,7 +291,8 @@ export interface GameViewDeps {
   /** Open the mission book as the session starts, the original's mission briefing; the entry decides
    *  (a fresh world, and no `?intro=off`). */
   readonly introAtStart?: boolean;
-  /** The map's `[misc_music]` code; omitted or null, the world plays no music. */
+  /** The map's `[misc_music]` code, null for a map that names none (it plays the nation's music);
+   *  omitted, the world plays no music. */
   readonly musicType?: number | null;
 }
 
@@ -473,7 +474,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       params,
       renderer,
       host.content.jobs,
-      deps.musicType ?? null,
+      deps.musicType,
       lifetime.signal,
     );
     cleanup.push(() => soundDriver?.close());

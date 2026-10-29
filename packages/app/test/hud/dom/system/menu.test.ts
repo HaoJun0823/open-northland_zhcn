@@ -72,6 +72,7 @@ function mount(
     current: () => current,
     pinnedUiScale: null,
     bootOwnedChangesDeferred: true,
+    inGame: true,
     effectiveUiScaleFor: (factor) => factor,
     update: async (patch) => {
       current = { ...current, ...patch };
@@ -276,6 +277,8 @@ describe('system menu navigation', () => {
     for (const channel of VOLUME_CHANNELS) {
       expect(document.querySelector(`[data-settings-focus="${channel}-volume"]`)).not.toBeNull();
     }
+    document.querySelector<HTMLButtonElement>('[data-settings-focus="music-source:1"]')?.click();
+    expect(settings.current().musicSource).toBe('nation');
     const input = document.querySelector<HTMLInputElement>('[data-settings-focus="world-volume"]');
     if (input === null) throw new Error('Missing volume slider');
     input.value = '23';

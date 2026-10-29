@@ -53,6 +53,19 @@ export interface MapAiHouseRecord {
   hy: number;
 }
 
+/** One wall segment or gate the seat stood with on its first turn, raised again once it is gone. A gate
+ *  is remembered by its shut row. */
+export interface MapAiWallRecord {
+  gfxIndex: number;
+  tribe: number;
+  /** The anchor's half-cell node. */
+  hx: number;
+  hy: number;
+  /** The blocker and other walls' stamps on its body on the first turn: a deposit or a neighbouring
+   *  segment the map stood it over, which do not keep it from going up again. */
+  ground: number;
+}
+
 export interface MapAiDefaultPosition {
   hx: number;
   hy: number;
@@ -78,10 +91,14 @@ export interface MapAiStateData {
   groups: MapAiAttackGroupRecord[];
   /** The rebuild list, at most {@link MAP_AI_REBUILD_LIST_LIMIT} buildings in entity order. */
   houses: MapAiHouseRecord[];
+  /** The wall list, at most {@link MAP_AI_WALL_LIST_LIMIT} segments and gates, nearest the centre first. */
+  walls: MapAiWallRecord[];
 }
 
 /** How many of its first-turn buildings a seat remembers for rebuilding. Original behavior. */
 export const MAP_AI_REBUILD_LIST_LIMIT = 100;
+/** How many of its first-turn walls a seat remembers for rebuilding. Original behavior. */
+export const MAP_AI_WALL_LIST_LIMIT = 1000;
 
 export const MapAiState = defineComponent<MapAiStateData>('MapAiState', 'players');
 

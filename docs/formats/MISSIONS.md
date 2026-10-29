@@ -722,12 +722,12 @@ nearest free archer it can reach for the peace posts and only one within 20 poin
 and reads defence mode per tower as an enemy fighter inside its watch band, the extra men leaving once
 none stands within a further margin (`ai-shared/military/defence/posts.ts`).
 
-The scripted AI also keeps its town (this build: `systems/map-ai/town.ts`, `families.ts` and
-`rebuild.ts`; gates are handled by shared gate control, each pass only while the strategic module owning that concern is off; the
+The scripted AI also keeps its town (this build: `systems/map-ai/town.ts`, `families.ts`, `rebuild.ts`
+and `walls.ts`; gates are handled by shared gate control, each pass only while the strategic module owning that concern is off; the
 gates, which no module owns, always):
 
-- First turn: it remembers the seat's first 100 houses, and the first 50 gates of any player out from
-  the seat's centre, each as it stands, open or shut.
+- First turn: it remembers the seat's first 100 houses, its first 1000 wall points out from the seat's
+  centre, and the first 50 gates of any player out from the centre, each as it stands, open or shut.
 - Every turn: each remembered gate the seat holds is shut while an enemy stands within 40 points and
   opened once none does. It acts only when its remembered state flips: it opens any gate it remembers
   shut, one it found shut on its first turn included, and a gate shut behind its back stays shut until
@@ -736,6 +736,9 @@ gates, which no module owns, always):
   remembered house with no house of its upgrade line within 12 points, on a free spot within 12
   points, when no enemy stands within 40 points and one of the seat's civilians does. A tier without a
   construction cost is never raised.
+- Every sixth turn: a wall site on each remembered wall point standing empty, at most 10 a pass, when
+  no enemy stands within 40 points and one of the seat's people does; builders drawn from within 400
+  points for them.
 - Every sixth turn: 5 written over every stock slot of its finished warehouses, a fuller shelf cut down
   too; one man, the nearest within 80 points and retrained, for the first trade a finished house other
   than a home or tower employs nobody in; builders turned from men within 400 points, a site's full
@@ -765,8 +768,12 @@ This build departs from it here:
   retried.
 - Gates are taken out from the centre in order of distance, ties by entity, not ring by ring, and
   remembered as entities, not points: a gate cut anew where a remembered one fell is not watched.
-- Not run here: the remembered walls raised again, builders for road plans, and the houses a mission
-  result hands the seat joining its list.
+- The seat's own gates join the wall list and are raised again as shut gate sites; the original only
+  mends a gate. A wall goes up again over the deposit or neighbouring segment the map stood it on, but
+  not over a building or wall raised there since. Walls, like gates, are taken out from the centre in
+  order of distance, and a wall site draws one builder.
+- Not run here: builders for road plans, and the houses a mission result hands the seat joining its
+  list.
 
 ## Tributes
 

@@ -1,6 +1,8 @@
 import { entityById, systems } from '@open-northland/sim';
 import {
   buildingTypeOf,
+  isAdult,
+  isFemale,
   residenceHomeOf,
   settlerJobType,
   workplaceOf,
@@ -306,7 +308,8 @@ function buildingDefOf(ctx: HintContext, building: number) {
  * The workers the sim tries at a workplace, as its group placement picks them: the unemployed while
  * any is, otherwise everyone not already working there. Each takes the first trade of its list with a
  * free slot, as far as the job-choice answers confirm it may take that trade; a worker it cannot
- * confirm leaves the new trade unnamed. Every tried worker whose trades are all full is refused.
+ * confirm leaves the new trade unnamed. Every tried worker whose trades are all full is refused, and
+ * so is a group of whom the sim takes nobody: women and children take no post.
  */
 function workersHint(ctx: HintContext, building: number, workers: readonly BuildingWorker[]): PlanHint {
   const def = buildingDefOf(ctx, building);
@@ -317,8 +320,12 @@ function workersHint(ctx: HintContext, building: number, workers: readonly Build
   };
   const candidates = workers.filter((worker) => placed(worker) !== building);
   const unplaced = candidates.filter((worker) => placed(worker) === undefined);
-  const tried = unplaced.length > 0 ? unplaced : candidates;
-  if (tried.length === 0) return action('work');
+  const tried = (unplaced.length > 0 ? unplaced : candidates).filter((worker) => {
+    const self = entityById(ctx.snapshot, worker.unit.ref);
+    return self !== undefined && isAdult(self) && !isFemale(self);
+  });
+  if (candidates.length === 0) return action('work');
+  if (tried.length === 0) return refusal('cannotWorkHere');
   const staffed = staffingOf(ctx.snapshot, building);
   const room = (jobType: number): number => {
     const slot = slots.find((s) => s.jobType === jobType);

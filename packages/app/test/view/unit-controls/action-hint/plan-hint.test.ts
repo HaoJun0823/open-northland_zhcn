@@ -162,7 +162,7 @@ describe('the right-click hint', () => {
     expect(hintOf([settler(1, SMITH_JOB), smithy], [1], ON_BUILDING)).toMatchObject(action('work', null));
   });
 
-  it('refuses a full post, a full home and a building nobody selected may take', () => {
+  it('refuses a full post, a full home and a post or building nobody selected may take', () => {
     const staff = [
       settler(STAFF, SMITH_JOB, { JobAssignment: { workplace: BUILDING } }),
       settler(STAFF + 1, CARRIER_JOB, { JobAssignment: { workplace: BUILDING } }),
@@ -172,10 +172,11 @@ describe('the right-click hint', () => {
     const family = settler(STAFF, JOB_IDLE, { Residence: { home: BUILDING } });
     expect(hintOf([settler(1, JOB_IDLE), family, house(HUT)], [1], ON_BUILDING)).toEqual(noPlace);
     expect(hintOf([settler(1, JOB_IDLE), house(HUT)], [1], ON_BUILDING)).toMatchObject(action('live'));
-    expect(hintOf([settler(1, JOB_IDLE), house(GATHERERS_ONLY)], [1], ON_BUILDING)).toEqual({
-      tone: 'refusal',
-      refusal: 'cannotWorkHere',
-    });
+    const cannot = { tone: 'refusal', refusal: 'cannotWorkHere' };
+    expect(hintOf([settler(1, JOB_IDLE), house(GATHERERS_ONLY)], [1], ON_BUILDING)).toEqual(cannot);
+    // A woman takes no post.
+    const woman = settler(1, JOB_IDLE, { Female: { female: true } });
+    expect(hintOf([woman, house(SMITHY)], [1], ON_BUILDING)).toEqual(cannot);
   });
 
   it('refuses a route stop every asked trader was refused, and a vehicle with no seat free', () => {

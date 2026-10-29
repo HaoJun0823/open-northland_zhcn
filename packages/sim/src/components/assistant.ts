@@ -303,14 +303,14 @@ export const AssistantPostsGraduates = defineComponent<{
 }>('AssistantPostsGraduates', 'players');
 
 /**
- * The per-player "gatherers move their flags" switch turned off, while the carrier exists. With the switch on,
- * the default, a flag gatherer's flag is kept within 3-5 tiles of a resource he can work, moving as his patch
- * runs out.
+ * The per-player "gatherers move their flags" switch, on while the carrier exists: a flag gatherer's flag is
+ * kept within 3-5 tiles of a resource he can work, moving as his patch runs out. Off by default for a
+ * player; a computer seat keeps it on.
  */
-export const AssistantKeepsFlags = defineComponent<{
+export const AssistantMovesFlags = defineComponent<{
   /** The player slot the switch belongs to (`[0, MAX_PLAYERS)`). */
   player: number;
-}>('AssistantKeepsFlags', 'players');
+}>('AssistantMovesFlags', 'players');
 
 /** An on/off assistant switch: the per-player carrier exists while the switch is on. */
 export type AssistantSwitch = Component<{ player: number }>;
@@ -331,7 +331,7 @@ export function assistantPostsGraduatesEntity(world: World, player: number): Ent
   return assistantSwitchEntity(world, AssistantPostsGraduates, player);
 }
 
-/** Whether `player`'s gatherers move their own flags: unless {@link AssistantKeepsFlags} switched it off. */
+/** Whether `player`'s gatherers move their own flags ({@link AssistantMovesFlags}). */
 export function assistantMovesFlags(world: World, player: number): boolean {
-  return assistantSwitchEntity(world, AssistantKeepsFlags, player) === null;
+  return assistantSwitchEntity(world, AssistantMovesFlags, player) !== null;
 }

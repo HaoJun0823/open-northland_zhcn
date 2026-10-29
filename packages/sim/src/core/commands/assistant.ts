@@ -117,9 +117,8 @@ type AssistantPostGraduatesCommand = {
 
 type AssistantMoveFlagsCommand = {
   /**
-   * Switch `player`'s "gatherers move their flags" on or off; on by default, off while the per-player
-   * `AssistantKeepsFlags` carrier exists. While on, a flag gatherer's flag is kept within 3-5 tiles of a
-   * resource he can work.
+   * Switch `player`'s "gatherers move their flags" on or off, held on the per-player `AssistantMovesFlags`
+   * carrier. While on, a flag gatherer's flag is kept within 3-5 tiles of a resource he can work.
    */
   readonly kind: 'setAssistantMoveFlags';
   /** The player slot (`[0, MAX_PLAYERS)`); an out-of-range slot skips the command. */

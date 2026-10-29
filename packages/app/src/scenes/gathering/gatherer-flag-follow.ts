@@ -83,6 +83,7 @@ export const gathererFlagFollowScene: SceneDefinition = {
     placeBuiltSandboxBuilding(sim, BUILDING_HEADQUARTERS, HQ_AT.x, HQ_AT.y, HUMAN_PLAYER);
     const flag: Entity = placeFlag(sim, FLAG_AT.x, FLAG_AT.y);
     spawnBoundGatherer(sim, WOOD.job, FLAG_AT.x, FLAG_AT.y + 1, flag);
+    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: HUMAN_PLAYER, enabled: true });
     // Stationary colour samples have no worker, so the moving-flag exercise leaves both rows intact.
     for (let player = 0; player < 10; player++) {
       const sample = placeFlag(sim, (player % 5) * 2, player < 5 ? 11 : 13);

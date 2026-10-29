@@ -75,7 +75,7 @@ function setup(
   sim.world.add(gatherer, Owner, { player: PLAYER });
   const flag = bindToFlag(sim, gatherer, FLAG_TILE, 0, DEFAULT_WORK_FLAG_RADIUS);
   const tree = placeFellableTree(sim, FAR_TREE_TILE, 0);
-  if (!moveFlags) sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: false });
+  if (moveFlags) sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: true });
   return { sim, gatherer, flag, tree };
 }
 
@@ -97,7 +97,7 @@ describe('assistant flag follow', () => {
     expect(sim.assistantMovesFlags(PLAYER)).toBe(false);
   });
 
-  it('moves a worked-out flag beside the nearest resource the gatherer can work, on by default', () => {
+  it('moves a worked-out flag beside the nearest resource the gatherer can work, once switched on', () => {
     const { sim, flag, tree } = setup(true);
     const before = nodeOf(sim, flag);
     expect(runTicks(sim, CHECK_ROUND_TICKS)).toEqual([]);
@@ -213,7 +213,6 @@ describe('assistant flag follow', () => {
     const neighbour = makeWoodcutter(sim, FLAG_TILE, 2);
     sim.world.add(neighbour, Owner, { player: OTHER_PLAYER });
     const neighbourFlag = bindToFlag(sim, neighbour, FLAG_TILE, 2, DEFAULT_WORK_FLAG_RADIUS);
-    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: OTHER_PLAYER, enabled: false });
     const before = [nodeOf(sim, flag), nodeOf(sim, neighbourFlag)];
     runTicks(sim, CHECK_ROUND_TICKS);
     expect(nodeOf(sim, flag)).not.toEqual(before[0]);
@@ -241,12 +240,12 @@ describe('assistant flag follow', () => {
     throw new Error('the flag never moved');
   });
 
-  it('switches back on', () => {
-    const { sim } = setup(false);
+  it('switches back off', () => {
+    const { sim } = setup(true);
     runTicks(sim, 1);
-    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: true });
+    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: false });
     runTicks(sim, 1);
-    expect(sim.assistantMovesFlags(PLAYER)).toBe(true);
+    expect(sim.assistantMovesFlags(PLAYER)).toBe(false);
   });
 });
 

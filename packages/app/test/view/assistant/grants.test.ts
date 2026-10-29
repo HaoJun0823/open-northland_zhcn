@@ -177,10 +177,12 @@ describe('assistantGrantsSeam', () => {
 });
 
 describe('grantAssistantDefaults', () => {
-  it('switches the four default grants ON for the seat at world start, no potion, amulet or veto', () => {
+  it('switches the four default grants and the flag follow ON for the seat at world start, no potion, amulet or veto', () => {
     const sent: Command[] = [];
     grantAssistantDefaults({ enqueueSetup: (c) => sent.push(c) }, CONTENT, [1]);
-    expect(sent.every((c) => c.kind === 'setAssistantGrant')).toBe(true);
+    expect(sent.filter((c) => c.kind !== 'setAssistantGrant')).toEqual([
+      { kind: 'setAssistantMoveFlags', player: 1, enabled: true },
+    ]);
     const grants = sent.filter((c) => c.kind === 'setAssistantGrant');
     expect(grants.map((c) => c.goodType).sort((a, b) => a - b)).toEqual([
       SHOES,

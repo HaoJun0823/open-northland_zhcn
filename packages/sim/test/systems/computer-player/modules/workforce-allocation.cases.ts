@@ -1900,7 +1900,10 @@ describe('workforce module (collectResources)', () => {
     plantPostAtHq(sim); // the centre target is satisfied; every ring target falls off this small map
     const commands = [...collectModule.run(sim.world, ctxOf(sim), SEAT)];
     const scout = [...sim.world.query(Settler)].find((e) => sim.world.get(e, Settler).jobType === SCOUT);
-    expect(commands).toEqual([{ kind: 'setJob', entity: scout, jobType: BUILDER }]);
+    expect(commands).toEqual([
+      { kind: 'setAssistantMoveFlags', player: SEAT, enabled: true },
+      { kind: 'setJob', entity: scout, jobType: BUILDER },
+    ]);
   });
 
   it('idles a seat without a built headquarters - no HQ, no AI', () => {

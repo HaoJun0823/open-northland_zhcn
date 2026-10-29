@@ -110,9 +110,9 @@ export function assistantGrantsSeam(
   };
 }
 
-/** The default give switches start enabled in a playable map only; scenes keep the sim default of nothing
- *  granted. Every weapon starts allowed and every good open to everyone: the sim defaults, no command
- *  needed. */
+/** The default give switches and the flag follow start enabled in a playable map only; scenes keep the sim
+ *  default of nothing granted and flags left where they stand. Every weapon starts allowed and every good
+ *  open to everyone: the sim defaults, no command needed. */
 export function grantAssistantDefaults(
   sim: WorldSetup,
   content: GrantContent,
@@ -125,5 +125,6 @@ export function grantAssistantDefaults(
         sim.enqueueSetup({ kind: 'setAssistantGrant', player, goodType, enabled: true });
       }
     }
+    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player, enabled: true });
   }
 }

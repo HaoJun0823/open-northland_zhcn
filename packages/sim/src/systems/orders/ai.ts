@@ -1,6 +1,7 @@
 import { WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
 import {
   AiControl,
+  AssistantMovesFlags,
   aiControlEntity,
   type ComputerModuleEnables,
   ComputerPeace,
@@ -25,6 +26,7 @@ import {
   liftAssistantSoldiersOnly,
   resetAssistantCounters,
   revokeAssistantGrants,
+  setAssistantSwitch,
 } from './assistant.js';
 
 /**
@@ -69,6 +71,7 @@ function applyAiControl(
     world.destroy(carrier);
     for (const { kinds } of COMPUTER_PUBLISHED_COUNTERS) resetAssistantCounters(world, command.player, kinds);
     withdrawMilitaryPublications(world, ctx, command.player);
+    setAssistantSwitch(world, AssistantMovesFlags, command.player, false);
     standDownAlarms(world, command.player);
     return;
   }
@@ -119,6 +122,8 @@ function applyAiControl(
     }
   }
   if (previous.military && !next.military) withdrawMilitaryPublications(world, ctx, command.player);
+  if (previous.collectResources && !next.collectResources)
+    setAssistantSwitch(world, AssistantMovesFlags, command.player, false);
   const seat = world.mut(carrier, AiControl);
   seat.modules = modules;
   seat.mapAiEnabled = mapAiEnabled;

@@ -118,8 +118,7 @@ function flagAt(sim: Simulation, settler: Entity | undefined, at: { x: number; y
  * An extractor, a hunter and a fisherman hold posts at the headquarters, which has a single tree beside it
  * and neither game nor water in reach. The player planted each a flag: the extractor's in a grove to the
  * south-east, the hunter's by a hare meadow far east, the fisherman's on the shore of a pond. All three work
- * at their flag and carry home wood, leather, meat and fish, while the tree by the headquarters stands. The
- * assistant's flag follow is off, so a worked-out flag stays where the player put it.
+ * at their flag and carry home wood, leather, meat and fish, while the tree by the headquarters stands.
  */
 export const fieldPostFlagsScene: SceneDefinition = {
   id: 'field-post-flags',
@@ -142,7 +141,6 @@ export const fieldPostFlagsScene: SceneDefinition = {
     flagAt(sim, worker(sim, JOB_HUNTER), HUNTER_FLAG_AT);
     flagAt(sim, worker(sim, JOB_FISHER), FISHER_FLAG_AT);
     flagAt(sim, worker(sim, JOB_COLLECTOR), EXTRACTOR_FLAG_AT);
-    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: HUMAN_PLAYER, enabled: false });
   },
   runTicks: RUN_TICKS,
   initialZoom: 0.8,

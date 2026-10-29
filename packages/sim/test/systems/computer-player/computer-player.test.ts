@@ -210,6 +210,31 @@ describe('setAiControl - the AI seat flag', () => {
     expect(sim.assistantSoldierOnlyGrants(AI_SEAT)).toEqual([SPEED_AMULET]);
   });
 
+  it('switches the flag follow off on disable, and when the workforce module turns off', () => {
+    const sim = fresh();
+    sim.enqueueSetup({ kind: 'setAiControl', player: AI_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: AI_SEAT, enabled: true });
+    sim.step();
+    expect(sim.assistantMovesFlags(AI_SEAT)).toBe(true);
+    sim.enqueueSetup({ kind: 'setAiControl', player: AI_SEAT, enabled: false });
+    sim.step();
+    expect(sim.assistantMovesFlags(AI_SEAT)).toBe(false);
+
+    sim.enqueueSetup({ kind: 'setAiControl', player: AI_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: AI_SEAT, enabled: true });
+    sim.step();
+    expect(sim.assistantMovesFlags(AI_SEAT)).toBe(true);
+    sim.enqueueSetup({
+      kind: 'setAiControl',
+      player: AI_SEAT,
+      enabled: true,
+      computerEnabled: true,
+      modules: { collectResources: false },
+    });
+    sim.step();
+    expect(sim.assistantMovesFlags(AI_SEAT)).toBe(false);
+  });
+
   it("leaves a never-AI seat's counters alone on a redundant disable", () => {
     const sim = fresh();
     sim.enqueueSetup({

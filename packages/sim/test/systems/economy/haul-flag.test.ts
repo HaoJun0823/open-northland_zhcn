@@ -346,6 +346,8 @@ describe("a posted gatherer's flag", () => {
       const collector = workerAt(s, 1, hq, COLLECTOR);
       const near = treeAt(s, 4, 2);
       const far = treeAt(s, 30, 1);
+      // The assistant would move the worked-out flag on; the patch rule shows with the follow off.
+      s.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: false });
       if (flagged) plantFlag(s, collector, 32);
       for (let t = 0; t < RUN_TICKS; t++) s.step();
       expect(s.world.get(collector, JobAssignment).workplace).toBe(hq);

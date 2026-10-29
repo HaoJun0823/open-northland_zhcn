@@ -7,7 +7,7 @@ import {
   type AssistantCounterKind,
   AssistantCounters,
   AssistantGrants,
-  AssistantMovesFlags,
+  AssistantKeepsFlags,
   AssistantPostsGraduates,
   AssistantSoldierOnlyGrants,
   type AssistantSwitch,
@@ -81,7 +81,7 @@ export function setAssistantMoveFlags(
   world: World,
   command: Extract<Command, { kind: 'setAssistantMoveFlags' }>,
 ): void {
-  setAssistantSwitch(world, AssistantMovesFlags, command.player, command.enabled);
+  setAssistantSwitch(world, AssistantKeepsFlags, command.player, !command.enabled);
 }
 
 /** Turn `player`'s `toggle` on or off: the carrier exists while it is on. */

@@ -1,6 +1,5 @@
 import { footprintCellDx } from '@open-northland/data';
 import {
-  AssistantMovesFlags,
   assistantMovesFlags,
   CurrentAtomic,
   HarvestFocus,
@@ -55,12 +54,12 @@ import { anyResourceNear } from '../spatial/resources.js';
 import { workplaceStocksGood, workplaceStoredGoods } from '../stores/index.js';
 
 /**
- * The assistant's flag follow: with its owner's {@link AssistantMovesFlags} switch on, a flag gatherer's
+ * The assistant's flag follow: with its owner's "gatherers move their flags" switch on, a flag gatherer's
  * flag, his own or the one his post took, is kept within {@link FOLLOW_FLAG_BAND} of a workable resource
  * of his goods. The moved flag stands on the side toward the owner's building nearest the old flag, so the
- * yard lies between the work and the settlement. A computer seat keeps the switch on and adds its own pull
- * back toward its workshops. Source basis: authored, the switch is this project's addition; the band is
- * the owner's ruling.
+ * yard lies between the work and the settlement. The switch is on by default; a computer seat keeps it on
+ * and adds its own pull back toward its workshops. Source basis: authored, the switch is this project's
+ * addition; the band is the owner's ruling.
  */
 
 /** How far from his resource the follow keeps a gatherer's flag: 3-5 tiles, 6-10 half-cell nodes (owner's
@@ -79,7 +78,6 @@ export const REPLANT_RETRY_EVERY_CHECKS = 5;
 export const flagFollowSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
   if (terrain === undefined) return; // mapless: no cells to plant a flag on
-  if (world.lowestEntityWith(AssistantMovesFlags) === null) return; // nobody has the switch on
   const holders = world.canonicalQuery(WorkFlag);
   // Posted carriers hold one too; the harvest gate in `followFlag` passes them over.
   const posted = world.canonicalQuery(HaulFlag);

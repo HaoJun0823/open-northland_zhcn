@@ -97,10 +97,15 @@ const SWASH = {
   foamPatchLow: 0.35,
   foamPatchHigh: 0.65,
 } as const;
+/** Margin below 1 that an interpolated open-water shore value may fall short by. */
+const SHORE_INTERPOLATION_SLACK = 0.01;
 /** The shore values between which the swash can show: below, even the highest run-up with its jitter
  *  and foam stops short; at 1 lies open water. The ground shader skips the swash outside them. */
 export const SWASH_SHORE_MIN = SWASH.up - SWASH.jitter / 2 - SWASH.foamWidth;
-export const SWASH_SHORE_MAX = 0.99;
+export const SWASH_SHORE_MAX = 1 - SHORE_INTERPOLATION_SLACK;
+/** Seaward of the furthest the sea draws back to, with its jitter and foam, the wet sand fades out by
+ *  SWASH_SHORE_MAX, so land paint beside open water shows no edge where the swash stops. */
+const SWASH_WET_FADE_START = SWASH.back + SWASH.jitter / 2 + SWASH.foamWidth;
 /** Lattice period of the static swash noises, in cells: large enough that no repeat shows. */
 const STATIC_NOISE_PERIOD = 256;
 /** Multiplier on wet sand: darker and a little cooler. */
@@ -191,6 +196,7 @@ export const WATER_FRAGMENT_GLSL = `
   // The swash's wetness (x) and foam cover (y) at p, whose interpolated shore value is shore and whose
   // paint is land to this degree.
   vec2 waterSwashCover(vec2 p, float shore, float land) {
+    land *= 1.0 - smoothstep(${f(SWASH_WET_FADE_START)}, ${f(SWASH_SHORE_MAX)}, shore);
     shore += ${f(SWASH.jitter)} * (waterNoise(p * ${f(1 / SWASH.jitterCellPx)}, ${f(STATIC_NOISE_PERIOD)}) - 0.5);
     float wetLine;
     float line = waterSwash(p, wetLine);

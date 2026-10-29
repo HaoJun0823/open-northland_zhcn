@@ -109,6 +109,7 @@ export class WorldRenderer {
   private readonly textureCache = new TextureCache();
   private readonly terrain = new TerrainLayer();
   private readonly waterClock = new WaterClock();
+  private paused = false;
   private readonly weatherSky: WeatherSky;
   private readonly sceneLight = new SceneLight();
   private climate = new WeatherClimate();
@@ -291,6 +292,7 @@ export class WorldRenderer {
   }
 
   setPaused(paused: boolean): void {
+    this.paused = paused;
     this.chrome.setPaused(paused);
   }
 
@@ -531,7 +533,7 @@ export class WorldRenderer {
     this.terrain.cull(vp);
     // Game seconds, so a pause freezes the weather with the world.
     const gameSeconds = (tick + alpha) / TICKS_PER_SECOND;
-    const waterSeconds = this.waterClock.advance(gameSeconds, frame.selectionTime);
+    const waterSeconds = this.waterClock.advance(gameSeconds, frame.selectionTime, this.paused);
     this.terrain.animate(waterSeconds);
     const screenW = this.app.screen.width;
     const screenH = this.app.screen.height;

@@ -24,9 +24,10 @@ import {
   workplaceOf,
 } from '../../../game/snapshot/index.js';
 import type { GoodIconPainter } from '../../../hud/dom/good-art.js';
-import { clampTile, nodeBounds, pickTopAt, type Tile } from '../../picking.js';
+import { clampTile, nodeBounds, type Tile } from '../../picking.js';
 import { selectionEquipCommands } from '../panels/equip-picker.js';
 import { openSchoolDialog, type SchoolDialog } from '../panels/school-dialog.js';
+import { enemyAt, preyAt } from '../pick-targets.js';
 import type { RiderPlan } from '../right-click/riders.js';
 import {
   type LadderContext,
@@ -583,27 +584,12 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     queued = false,
   ): boolean => {
     const world = deps.toWorld(event.clientX, event.clientY);
-    const accepts =
-      typeof kind === 'string'
-        ? (candidate: UnitTargetKind) => candidate === kind
-        : (candidate: UnitTargetKind) => kind.includes(candidate);
-    const enemy = pickTopAt(
-      deps.targets
-        .enemies({ neutralWalls: true })
-        .filter((p) =>
-          p.kind === 'settler' || p.kind === 'building' || p.kind === 'palisade' || p.kind === 'vehicle'
-            ? accepts(p.kind)
-            : false,
-        ),
-      world.x,
-      world.y,
-    );
+    const enemy = enemyAt(deps.targets, world, typeof kind === 'string' ? [kind] : kind, true);
     return enemy !== null && strike(commandedAmong(units), enemy, queued);
   };
 
   const issueAttackAnimal = (event: MouseEvent, units?: readonly number[], queued = false): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const prey = pickTopAt(deps.targets.wildlife(), world.x, world.y);
+    const prey = preyAt(deps.targets, deps.toWorld(event.clientX, event.clientY));
     return prey !== null && strike(commandedAmong(units), prey, queued);
   };
 

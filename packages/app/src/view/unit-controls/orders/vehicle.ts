@@ -16,7 +16,8 @@ import {
 } from '@open-northland/sim';
 import { isVehicle, positionOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../../game/viewer-seat.js';
-import { clampTile, nodeBounds, pickTopAt, type Tile } from '../../picking.js';
+import { clampTile, nodeBounds, type Tile } from '../../picking.js';
+import { enemyAt, ownSettlerAt, ownVehicleAt } from '../pick-targets.js';
 import {
   type AttachPlan,
   isMooredShip,
@@ -126,6 +127,8 @@ export interface VehicleOrderController {
   issueSeatRider(event: MouseEvent, vehicle: number, queued?: boolean): boolean;
   /** Drive the own land vehicle under the cursor onto `ship`'s deck. */
   issueDeckLoad(event: MouseEvent, ship: number, queued?: boolean): boolean;
+  /** Whether `vehicle` may be loaded into `carrier`: one of our moored ships other than itself. */
+  loadsInto(vehicle: number, carrier: number): boolean;
   /** Issues the selected settlers' resolved boarding (`resolveAttachSelected`), each one the attach rule
    *  admits taking a seat. `onNoneBoards` runs once the rule refused every one, so the click can take its
    *  usual order instead. A `queued` attach waits behind each settler's current order. */
@@ -379,17 +382,15 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     kind: UnitTargetKind,
     queued = false,
   ): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const enemy = pickTopAt(
-      deps.targets.enemies().filter((p) => p.kind === kind),
-      world.x,
-      world.y,
-    );
+    const enemy = enemyAt(deps.targets, deps.toWorld(event.clientX, event.clientY), [kind]);
     return enemy !== null && strike(vehicle, enemy, queued);
   };
 
+  const loadsInto = (vehicle: number, carrier: number): boolean =>
+    vehicle !== carrier && isMooredShip(context(), carrier);
+
   const loadInto = (vehicle: number, carrier: number, queued = false): boolean => {
-    if (vehicle === carrier || !isMooredShip(context(), carrier)) return false;
+    if (!loadsInto(vehicle, carrier)) return false;
     deps.enqueue({
       kind: 'loadIntoVehicle',
       vehicle: vehicle as Entity,
@@ -401,14 +402,12 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
   };
 
   const issueLoadInto = (event: MouseEvent, vehicle: number, queued = false): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const carrier = pickTopAt(deps.targets.owned('vehicle'), world.x, world.y);
+    const carrier = ownVehicleAt(deps.targets, deps.toWorld(event.clientX, event.clientY));
     return carrier !== null && loadInto(vehicle, carrier, queued);
   };
 
   const issueAttach = (event: MouseEvent, settler: number, queued = false): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const vehicle = pickTopAt(deps.targets.owned('vehicle'), world.x, world.y);
+    const vehicle = ownVehicleAt(deps.targets, deps.toWorld(event.clientX, event.clientY));
     if (vehicle === null) return false;
     return attachWhenAdmitted([settler], vehicle, () => undefined, queued);
   };
@@ -458,19 +457,13 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
   };
 
   const issueSeatRider = (event: MouseEvent, vehicle: number, queued = false): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const settler = pickTopAt(deps.targets.owned('settler'), world.x, world.y);
+    const settler = ownSettlerAt(deps.targets, deps.toWorld(event.clientX, event.clientY));
     if (settler === null) return false;
     return attachWhenAdmitted([settler], vehicle, () => undefined, queued);
   };
 
   const issueDeckLoad = (event: MouseEvent, ship: number, queued = false): boolean => {
-    const world = deps.toWorld(event.clientX, event.clientY);
-    const vehicle = pickTopAt(
-      deps.targets.owned('vehicle').filter((target) => target.ref !== ship),
-      world.x,
-      world.y,
-    );
+    const vehicle = ownVehicleAt(deps.targets, deps.toWorld(event.clientX, event.clientY), ship);
     return vehicle !== null && loadInto(vehicle, ship, queued);
   };
 
@@ -571,6 +564,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     issueAttach,
     issueSeatRider,
     issueDeckLoad,
+    loadsInto,
     issueAttachPlan,
   };
 }

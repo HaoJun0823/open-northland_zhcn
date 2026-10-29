@@ -2273,10 +2273,6 @@ body.on-drag-scroll.on-drag-scroll-free * {
   opacity: 0.45;
 }
 
-/* ---------- hover card: the sheet the cursor opens over a settler, a building or a vehicle ---------- */
-/* The breakdown sheet's own parchment at half the summary bar's type: small enough that even a
-   warehouse's whole store leaves the map around it in view. The column lays the lines out with a gap
-   rather than margins, so a settler's two lines leave no space where a store's rows would stand. */
 /* The label under the cursor naming what a right click there does: small type with no frame, a soft
    dark shadow and the faintest backdrop, so it reads over any ground. A refusal reads muted. */
 .on-hud .on-action-hint {
@@ -2301,6 +2297,11 @@ body.on-drag-scroll.on-drag-scroll-free * {
   opacity: 0.8;
   filter: saturate(0.3);
 }
+
+/* ---------- hover card: the sheet the cursor opens over a settler, a building or a vehicle ---------- */
+/* The breakdown sheet's own parchment at half the summary bar's type: small enough that even a
+   warehouse's whole store leaves the map around it in view. The column lays the lines out with a gap
+   rather than margins, so a settler's two lines leave no space where a store's rows would stand. */
 .on-hud .on-hovercard {
   z-index: 300;
   display: flex;

@@ -36,11 +36,11 @@ export function createActionHint(opts: ActionHintOptions): {
 
   const versionsMoved = (): boolean => {
     let moved = false;
-    opts.versions.forEach((read, i) => {
-      const version = read();
+    for (let i = 0; i < opts.versions.length; i++) {
+      const version = opts.versions[i]?.();
       if (versions[i] !== version) moved = true;
-      versions[i] = version;
-    });
+      versions[i] = version ?? -1;
+    }
     return moved;
   };
   const hide = (): void => {

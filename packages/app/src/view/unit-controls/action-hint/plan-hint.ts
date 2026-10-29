@@ -5,6 +5,7 @@ import {
   isFemale,
   residenceHomeOf,
   settlerJobType,
+  vehicleSeatsOf,
   workplaceOf,
 } from '../../../game/snapshot/index.js';
 import type { Tile } from '../../picking.js';
@@ -127,12 +128,11 @@ export function planHint(ctx: HintContext, input: RightClickInput): PlanHint | n
 /** A vehicle with every seat taken refuses each settler not already riding it. */
 function vehicleFull(ctx: HintContext, vehicle: number, settlers: readonly number[]): boolean {
   const state = entityById(ctx.snapshot, vehicle)?.components.Vehicle as { passengers?: unknown } | undefined;
-  const seats = state?.passengers;
-  if (!Array.isArray(seats) || seats.includes(null)) return false;
-  const aboard = new Set(
-    seats.map((seat) => (seat as { entity?: unknown } | null)?.entity).filter((id) => typeof id === 'number'),
-  );
-  return settlers.every((settler) => !aboard.has(settler));
+  const slots = state?.passengers;
+  if (!Array.isArray(slots)) return false;
+  const seated = vehicleSeatsOf(slots);
+  if (seated.length < slots.length) return false;
+  return settlers.every((settler) => !seated.some((seat) => seat.entity === settler));
 }
 
 function ordersHint(ctx: HintContext, plan: RightClickOrders): PlanHint | null {
@@ -189,16 +189,16 @@ function settlerParts(ctx: HintContext, group: SettlerGroup): Part[] {
   }
 }
 
-/** A route toggle refused for every trader asked, with nobody taking the house off, is refused. */
+/** A route toggle refused for every trader asked takes the house only off the others' routes, or is
+ *  refused when nobody had it. */
 function tradeHouseHint(
   ctx: HintContext,
   house: number,
   detach: readonly number[],
   ask: readonly number[],
 ): PlanHint {
-  if (detach.length > ask.length) return action('removeFromRoute');
-  const refused =
-    detach.length === 0 && ask.every((trader) => ctx.answers.tradeHouseAttach(trader, house) === false);
+  const refused = ask.every((trader) => ctx.answers.tradeHouseAttach(trader, house) === false);
+  if (detach.length > 0 && (refused || detach.length > ask.length)) return action('removeFromRoute');
   return refused ? refusal('cannotAddToRoute') : action('addToRoute');
 }
 

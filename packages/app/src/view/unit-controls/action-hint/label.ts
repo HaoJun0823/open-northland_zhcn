@@ -49,7 +49,8 @@ export function createHintLabel(plane: HTMLElement, scale: () => number): HintLa
   // is the design-px screen.
   let width = 0;
   let screenWidth = 0;
-  let placed = '';
+  let placedLeft = Number.NaN;
+  let placedTop = Number.NaN;
   return {
     show(clientX, clientY, line): void {
       if (line === null) {
@@ -67,9 +68,9 @@ export function createHintLabel(plane: HTMLElement, scale: () => number): HintLa
       const room = screenWidth - width - HINT_EDGE_MARGIN_PX;
       const left = Math.max(HINT_EDGE_MARGIN_PX, Math.min(clientX / s - HINT_LEFT_OF_CURSOR_PX, room));
       const top = clientY / s + HINT_BELOW_CURSOR_PX;
-      const at = `${left},${top}`;
-      if (at === placed) return;
-      placed = at;
+      if (left === placedLeft && top === placedTop) return;
+      placedLeft = left;
+      placedTop = top;
       element.style.left = `${left}px`;
       element.style.top = `${top}px`;
     },

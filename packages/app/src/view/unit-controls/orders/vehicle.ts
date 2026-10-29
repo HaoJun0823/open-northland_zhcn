@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { ElevationField, OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
+import type { OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
 import {
   type Entity,
   entityById,
@@ -17,20 +17,19 @@ import {
 import { isVehicle, positionOf, type SnapshotEntity } from '../../../game/snapshot/index.js';
 import type { ViewerSeat } from '../../../game/viewer-seat.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile } from '../../picking.js';
-import { type RightClickHit, rightClickHitAt, rightClickMods } from '../right-click/context.js';
 import {
+  type AttachPlan,
   isMooredShip,
-  resolveAttachSelected,
-  resolveVehicleRightClick,
   rightClickShips as rightClickShipsOf,
   selectedVehicle as selectedVehicleOf,
   selectedVehicles as selectedVehiclesOf,
   isShip as shipIn,
   isSiege as siegeIn,
   type VehicleGroup,
+  type VehiclePlan,
   vehicleTypeOf as vehicleTypeIn,
 } from '../right-click/vehicles.js';
-import type { PointHitTargets, UnitTargetKind, UnitTargets } from '../unit-targets.js';
+import type { UnitTargetKind, UnitTargets } from '../unit-targets.js';
 import type { AnsweredOrders } from './answered.js';
 import {
   type Berth,
@@ -53,11 +52,10 @@ const VEHICLE_FORMATION_SPACING_NODES = 4;
 export interface VehicleOrderDeps {
   readonly onOrderLimit?: (() => void) | undefined;
   readonly selected: () => ReadonlySet<number>;
-  readonly targets: UnitTargets & PointHitTargets;
+  readonly targets: UnitTargets;
   readonly snapshot: () => WorldSnapshot;
   readonly content: ContentSet;
   readonly mapSize: { readonly width: number; readonly height: number };
-  readonly elevation?: ElevationField | undefined;
   /** Whose vehicles the orders command: the viewer seat's, or any when the viewer watches the whole map. */
   readonly viewer: ViewerSeat;
   readonly toWorld: (clientX: number, clientY: number) => { x: number; y: number };
@@ -94,10 +92,9 @@ export interface VehicleOrderController {
   selectedSiegeVehicles(): number[];
   /** The owned vehicles selected themselves, the ones a right click drives. */
   selectedOwnVehicles(): number[];
-  /** The vehicles' right click as `resolveVehicleRightClick` resolves it. Shift queues the attack, the
-   *  load, the drive or the dock behind each vehicle's current order; Ctrl (Cmd on a Mac) has a dock land
-   *  each ship's crew once it moors. */
-  issueRightClick(event: MouseEvent): boolean;
+  /** Issues the vehicles' part of a resolved right click (`resolveVehicleRightClick`). A `queued` attack,
+   *  load, drive or dock waits behind each vehicle's current order. */
+  issueVehiclePlan(plan: VehiclePlan, queued: boolean): boolean;
   /** A `queued` order waits behind the vehicle's current one (`VehicleOrderQueue`). */
   issueMoveTo(vehicle: number, target: Tile, queued?: boolean): boolean;
   /** Drive the selection's vehicles to `target` as a right-click on open ground does: one vehicle drives
@@ -129,19 +126,14 @@ export interface VehicleOrderController {
   issueSeatRider(event: MouseEvent, vehicle: number, queued?: boolean): boolean;
   /** Drive the own land vehicle under the cursor onto `ship`'s deck. */
   issueDeckLoad(event: MouseEvent, ship: number, queued?: boolean): boolean;
-  /** The selected settlers' boarding as `resolveAttachSelected` resolves it, each one the attach rule
+  /** Issues the selected settlers' resolved boarding (`resolveAttachSelected`), each one the attach rule
    *  admits taking a seat. `onNoneBoards` runs once the rule refused every one, so the click can take its
-   *  usual order instead. Shift queues each attach behind the settler's current order. */
-  issueAttachSelected(event: MouseEvent, onNoneBoards: () => void): boolean;
+   *  usual order instead. A `queued` attach waits behind each settler's current order. */
+  issueAttachPlan(plan: AttachPlan, queued: boolean, onNoneBoards: () => void): boolean;
 }
 
 export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrderController {
-  const context = () => ({
-    snapshot: deps.snapshot(),
-    content: deps.content,
-    viewer: deps.viewer,
-    asks: { mooring: deps.askMooring !== undefined, attach: deps.askAttachToVehicle !== undefined },
-  });
+  const context = () => ({ snapshot: deps.snapshot(), content: deps.content, viewer: deps.viewer });
   const vehicleTypeOf = (e: SnapshotEntity) => vehicleTypeIn(deps.content, e);
   const isShip = (e: SnapshotEntity): boolean => shipIn(deps.content, e);
   const selectedVehicle = (): number | null => selectedVehicleOf(context(), deps.selected());
@@ -151,8 +143,6 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     selectedVehicles()
       .filter((e) => siegeIn(deps.content, e))
       .map((e) => e.id);
-  const hitOf = (event: MouseEvent): RightClickHit =>
-    rightClickHitAt(deps.targets, deps.toWorld(event.clientX, event.clientY), deps.elevation);
 
   const clampNode = (target: Tile): Tile => {
     const { width, height } = nodeBounds(deps.mapSize);
@@ -484,23 +474,16 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     return vehicle !== null && loadInto(vehicle, ship, queued);
   };
 
-  const issueAttachSelected = (event: MouseEvent, onNoneBoards: () => void): boolean => {
-    const plan = resolveAttachSelected(
-      context(),
-      deps.targets.ownedSettlersIn(deps.selected()),
-      hitOf(event),
-    );
-    return plan !== null && attachWhenAdmitted(plan.settlers, plan.vehicle, onNoneBoards, event.shiftKey);
-  };
+  const issueAttachPlan = (plan: AttachPlan, queued: boolean, onNoneBoards: () => void): boolean =>
+    attachWhenAdmitted(plan.settlers, plan.vehicle, onNoneBoards, queued);
 
-  const issueRightClick = (event: MouseEvent): boolean => {
-    const plan = resolveVehicleRightClick(context(), deps.selected(), hitOf(event), rightClickMods(event));
+  const issueVehiclePlan = (plan: VehiclePlan, queued: boolean): boolean => {
     if (plan.kind === 'none') return false;
     if (plan.kind === 'orderLimit') {
       deps.onOrderLimit?.();
       return false;
     }
-    for (const group of plan.groups) issueGroup(group, event.shiftKey);
+    for (const group of plan.groups) issueGroup(group, queued);
     return true;
   };
 
@@ -575,7 +558,7 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
   return {
     selectedSiegeVehicles,
     selectedOwnVehicles,
-    issueRightClick,
+    issueVehiclePlan,
     issueMoveTo,
     issueDriveTo,
     issueAttackMove,
@@ -588,6 +571,6 @@ export function createVehicleOrderController(deps: VehicleOrderDeps): VehicleOrd
     issueAttach,
     issueSeatRider,
     issueDeckLoad,
-    issueAttachSelected,
+    issueAttachPlan,
   };
 }

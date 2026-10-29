@@ -1,6 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import type { ContentSet, EquipCategory } from '@open-northland/data';
-import type { ElevationField, OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
+import type { OrderMarkerKind, TargetFlashTone } from '@open-northland/render';
 import {
   type Command,
   type Entity,
@@ -27,20 +27,19 @@ import type { GoodIconPainter } from '../../../hud/dom/good-art.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile } from '../../picking.js';
 import { selectionEquipCommands } from '../panels/equip-picker.js';
 import { openSchoolDialog, type SchoolDialog } from '../panels/school-dialog.js';
-import { type RightClickHit, rightClickHitAt } from '../right-click/context.js';
-import { resolveRiderTrade } from '../right-click/riders.js';
+import type { RiderPlan } from '../right-click/riders.js';
 import {
   type LadderContext,
   PARTITION_RUNGS,
   pastRouteRungs,
   type RightClickAim,
-  resolveSettlerRightClick,
   routeRungs,
   type SettlerGroup,
   type SettlerIntent,
+  type SettlerPlan,
 } from '../right-click/settler-ladder.js';
 import type { TechnologyStatusRead } from '../types.js';
-import type { PointHitTargets, UnitTargetKind, UnitTargets } from '../unit-targets.js';
+import type { UnitTargetKind, UnitTargets } from '../unit-targets.js';
 import type { AnsweredOrders } from './answered.js';
 import { createBuildingOrders } from './building.js';
 import { assignFormation, type FormationUnit, pairFormation } from './formation.js';
@@ -73,12 +72,11 @@ export interface UnitOrderDeps {
   /** Where the orders a host answer decides wait for it. */
   readonly answered: AnsweredOrders;
   readonly selected: () => ReadonlySet<number>;
-  readonly targets: UnitTargets & PointHitTargets;
+  readonly targets: UnitTargets;
   readonly snapshot: () => WorldSnapshot;
   readonly content: ContentSet;
   readonly onOrderLimit?: (() => void) | undefined;
   readonly mapSize: { readonly width: number; readonly height: number };
-  readonly elevation?: ElevationField;
   readonly toWorld: (clientX: number, clientY: number) => { x: number; y: number };
   readonly enqueue: (command: PlayerCommand) => void;
   readonly selectOwnSettler: (id: number) => void;
@@ -105,22 +103,18 @@ export interface UnitOrderDeps {
  * no target under the cursor, issues nothing, and the caller's click feedback follows that answer.
  */
 export interface UnitOrderController {
-  /** The settlers' right click as `resolveSettlerRightClick` resolves it. True when the press selected a
-   *  settler or gave the selected settlers an order. With Shift, each settler's order waits behind its
-   *  current one; one whose order is a standing setting (a post, a home, a lesson, a gathered good or a
-   *  trade stop) walks to the spot instead. */
-  issueRightClick(event: MouseEvent, onBuilding?: number | null): boolean;
-  /** The riders' trade-route toggle as `resolveRiderTrade` resolves it. True when any of them took the
+  /** Issues the settlers' part of a resolved right click (`resolveSettlerRightClick`) for the press
+   *  `event` it was resolved from. True when the press selected a settler or gave the selected settlers an order.
+   *  With Shift, each settler's order waits behind its current one; one whose order is a standing setting
+   *  (a post, a home, a lesson, a gathered good or a trade stop) walks to the spot instead. */
+  issueSettlerPlan(plan: SettlerPlan, event: MouseEvent): boolean;
+  /** Issues the riders' resolved trade-route toggle (`resolveRiderTrade`). True when any of them took the
    *  click; `onNoneTook` runs once the sim refused every one asked about, so the cart can take the click
    *  instead. */
-  issueRiderTradeHouse(
-    event: MouseEvent,
-    onBuilding: number | null | undefined,
-    onNoneTook: () => void,
-  ): boolean;
-  /** Move the selected gatherers' work flags to a world click; clicking a resource also narrows their
-   *  gathering filter to that resource's good. */
-  issueSetWorkFlagAt(event: MouseEvent): boolean;
+  issueRiderPlan(plan: RiderPlan, onNoneTook: () => void): boolean;
+  /** Move the selected gatherers' work flags to `target`; a resource's `goodType` there also narrows their
+   *  gathering filter to it. `units` narrows the order as in `issueSetWorkFlag`. */
+  issueWorkFlagAt(target: Tile, goodType: number | null, units?: readonly number[]): boolean;
   /** The ground orders name a half-cell node rather than a cursor, so the map overview can issue them
    *  for a spot the camera is nowhere near. Off-map nodes clamp into the map here. `units`, when given,
    *  narrows these orders to the selected settlers an armed order was issued for. A `queued` walk waits
@@ -333,17 +327,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     },
   });
 
-  const hitOf = (event: MouseEvent): RightClickHit =>
-    rightClickHitAt(deps.targets, deps.toWorld(event.clientX, event.clientY), deps.elevation);
-
-  const issueRightClick = (event: MouseEvent, onBuilding?: number | null): boolean => {
-    const plan = resolveSettlerRightClick(
-      ladderContext(),
-      deps.targets.ownedSettlersIn(deps.selected()),
-      hitOf(event),
-      event.shiftKey,
-      onBuilding ?? null,
-    );
+  const issueSettlerPlan = (plan: SettlerPlan, event: MouseEvent): boolean => {
     switch (plan.kind) {
       case 'none':
         return false;
@@ -502,18 +486,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     });
   };
 
-  const issueRiderTradeHouse = (
-    event: MouseEvent,
-    onBuilding: number | null | undefined,
-    onNoneTook: () => void,
-  ): boolean => {
-    const plan = resolveRiderTrade(
-      ladderContext(),
-      deps.selected(),
-      hitOf(event),
-      event.shiftKey,
-      onBuilding ?? null,
-    );
+  const issueRiderPlan = (plan: RiderPlan, onNoneTook: () => void): boolean => {
     if (plan.kind === 'none') return false;
     if (plan.kind === 'orderLimit') {
       onOrderLimit();
@@ -681,10 +654,8 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
   const issueSetWorkFlag = (target: Tile, units?: readonly number[], unassignFirst = false): boolean =>
     setWorkFlags(commandedAmong(units), target, undefined, unassignFirst);
 
-  const issueSetWorkFlagAt = (event: MouseEvent): boolean => {
-    const hit = hitOf(event);
-    return setWorkFlags(commandedAmong(), hit.tile, hit.resource?.goodType);
-  };
+  const issueWorkFlagAt = (target: Tile, goodType: number | null, units?: readonly number[]): boolean =>
+    setWorkFlags(commandedAmong(units), target, goodType ?? undefined);
 
   return {
     refresh: () => school?.refresh(),
@@ -697,9 +668,9 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       if (deps.pendingGroundOrders === undefined) pending.dispose();
       school?.dispose();
     },
-    issueRightClick,
-    issueRiderTradeHouse,
-    issueSetWorkFlagAt,
+    issueSettlerPlan,
+    issueRiderPlan,
+    issueWorkFlagAt,
     issueSetWorkFlag,
     issueMoveTo,
     issueAttackMove,

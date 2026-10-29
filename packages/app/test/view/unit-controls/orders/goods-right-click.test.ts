@@ -20,6 +20,7 @@ import {
   type UnitOrderDeps,
 } from '../../../../src/view/unit-controls/orders/controller.js';
 import { withPointHits } from '../../../support/point-hits.js';
+import { rightClickSettlers } from '../../../support/right-click.js';
 
 /**
  * Right-clicking a good lying on the ground with settlers selected sends each one that may wear it to
@@ -83,7 +84,7 @@ async function rightClick(
     claimableLivestock: () => [],
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
   });
-  createUnitOrderController({
+  const deps = {
     answered: createAnsweredOrders(),
     requestEquipPicks: pickList,
     selected: () => new Set<number>(settlers),
@@ -95,7 +96,12 @@ async function rightClick(
     enqueue: (command) => issued.push(command),
     selectOwnSettler: () => {},
     openActions: () => {},
-  }).issueRightClick({ clientX: 0, clientY: 0, shiftKey } as MouseEvent);
+  } satisfies UnitOrderDeps;
+  rightClickSettlers(createUnitOrderController(deps), deps, {
+    clientX: 0,
+    clientY: 0,
+    shiftKey,
+  } as MouseEvent);
   await new Promise((resolve) => setTimeout(resolve, 0));
   return issued;
 }
@@ -204,7 +210,7 @@ describe('right-clicking a good on the ground', () => {
     let answer: () => void = () => {};
     const issued: Command[] = [];
     const snapshot = sim.snapshot();
-    const controller = createUnitOrderController({
+    const deps = {
       answered: createAnsweredOrders(),
       requestEquipPicks: (entity, group) =>
         new Promise((resolve) => {
@@ -231,11 +237,12 @@ describe('right-clicking a good on the ground', () => {
       enqueue: (command) => issued.push(command),
       selectOwnSettler: () => {},
       openActions: () => {},
-    });
+    } satisfies UnitOrderDeps;
+    const controller = createUnitOrderController(deps);
     const shiftClick = { clientX: 0, clientY: 0, shiftKey: true } as MouseEvent;
-    controller.issueRightClick(shiftClick);
+    rightClickSettlers(controller, deps, shiftClick);
     underCursor = food;
-    controller.issueRightClick(shiftClick);
+    rightClickSettlers(controller, deps, shiftClick);
     expect(issued).toEqual([]);
     answer();
     await new Promise((resolve) => setTimeout(resolve, 0));

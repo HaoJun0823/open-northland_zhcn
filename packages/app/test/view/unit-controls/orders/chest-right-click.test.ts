@@ -6,8 +6,12 @@ import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../../../src/game/rules.js';
 import { sandboxContent } from '../../../../src/game/sandbox/index.js';
 import type { Pickable } from '../../../../src/view/picking.js';
 import { createAnsweredOrders } from '../../../../src/view/unit-controls/orders/answered.js';
-import { createUnitOrderController } from '../../../../src/view/unit-controls/orders/controller.js';
+import {
+  createUnitOrderController,
+  type UnitOrderDeps,
+} from '../../../../src/view/unit-controls/orders/controller.js';
 import { withPointHits } from '../../../support/point-hits.js';
+import { rightClickSettlers } from '../../../support/right-click.js';
 
 /**
  * Right-clicking a chest with settlers selected sends each one that may open it - the original's default
@@ -58,7 +62,7 @@ function rightClick(
     claimableLivestock: () => [],
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
   });
-  createUnitOrderController({
+  const deps = {
     answered: createAnsweredOrders(),
     selected: () => new Set<number>(settlers),
     targets,
@@ -70,7 +74,12 @@ function rightClick(
     selectOwnSettler: () => {},
     openActions: () => {},
     flashTarget: (entity, tone) => flashed.push([entity, tone]),
-  }).issueRightClick({ clientX: 0, clientY: 0, shiftKey } as MouseEvent);
+  } satisfies UnitOrderDeps;
+  rightClickSettlers(createUnitOrderController(deps), deps, {
+    clientX: 0,
+    clientY: 0,
+    shiftKey,
+  } as MouseEvent);
   return issued;
 }
 

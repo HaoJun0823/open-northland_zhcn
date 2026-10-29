@@ -39,8 +39,14 @@ import { createUnitChrome } from './panels/chrome.js';
 import { type EquipPickController, mountEquipPicker } from './panels/equip-picker.js';
 import { pickCursor } from './pick-cursor.js';
 import { createPickModeController, pickPressCue } from './pick-mode.js';
-import { type RightClickContext, rightClickHitAt, rightClickMods } from './right-click/context.js';
-import { resolveRightClick } from './right-click/press.js';
+import {
+  type RightClickContext,
+  type RightClickMods,
+  rightClickHitAt,
+  rightClickMods,
+} from './right-click/context.js';
+import { type RightClickOrders, resolveRightClick, resolveRightClickOrders } from './right-click/press.js';
+import { resolveVehicleRightClick, type VehiclePlan } from './right-click/vehicles.js';
 import { createUnitSelection } from './selection.js';
 import { createSelectionCursor } from './selection-cursor.js';
 import { createSelectionVoice } from './selection-voice.js';
@@ -53,14 +59,13 @@ export type { UnitControls, UnitControlsOptions } from './types.js';
 /** The browser's click count (`MouseEvent.detail`) on the second press of a double-click. */
 const DOUBLE_CLICK = 2;
 
-/** A right-click press as it landed. A fallback that runs once the sim's answer arrives replays it, so
- *  the order controllers resolve its client point to the press's world point and read the press's
- *  selection, however far the camera or the selection moved meanwhile. */
+/** A right-click press as it landed. A fallback that runs once the sim's answer arrives resolves the
+ *  press again at its world point for its selection, however far the camera or the selection moved
+ *  meanwhile. */
 interface RightClickPress {
-  readonly clientX: number;
-  readonly clientY: number;
   readonly world: { readonly x: number; readonly y: number };
   readonly selected: ReadonlySet<number>;
+  readonly mods: RightClickMods;
 }
 
 /**
@@ -199,14 +204,11 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     return screenToWorld(opts.camera(), c.x, c.y);
   };
 
+  /** While a fallback runs, the order controllers read its press's selection. */
   let replaying: RightClickPress | null = null;
-  const orderToWorld = (clientX: number, clientY: number): { x: number; y: number } =>
-    replaying !== null && replaying.clientX === clientX && replaying.clientY === clientY
-      ? replaying.world
-      : toWorld(clientX, clientY);
   const orderSelection = (): ReadonlySet<number> => replaying?.selected ?? selection.ids();
   const replayed =
-    (press: RightClickPress, run: () => void): (() => void) =>
+    (press: RightClickPress, run: () => unknown): (() => void) =>
     () => {
       const outer = replaying;
       replaying = press;
@@ -353,8 +355,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     snapshot: opts.snapshot,
     content: opts.content,
     mapSize: opts.mapSize,
-    ...(opts.elevation !== undefined ? { elevation: opts.elevation } : {}),
-    toWorld: orderToWorld,
+    toWorld,
     enqueue: opts.enqueue,
     selectOwnSettler: (id) => applySelection([id], false),
     openActions: (atClient) => chrome.actions().open(atClient),
@@ -377,9 +378,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     snapshot: opts.snapshot,
     content: opts.content,
     mapSize: opts.mapSize,
-    ...(opts.elevation !== undefined ? { elevation: opts.elevation } : {}),
     viewer: opts.viewer,
-    toWorld: orderToWorld,
+    toWorld,
     enqueue: opts.enqueue,
     askAttachToVehicle: opts.askAttachToVehicle,
     askMooring: opts.askMooring,
@@ -416,7 +416,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       return;
     }
     if (workFlag) {
-      if (orders.issueSetWorkFlagAt(e)) cue('confirm');
+      const hit = rightClickHitAt(unitTargets, toWorld(e.clientX, e.clientY), opts.elevation);
+      if (orders.issueWorkFlagAt(hit.tile, hit.resource?.goodType ?? null)) cue('confirm');
       return;
     }
     if (e.button !== 0) return; // middle belongs to the camera controller's pan
@@ -436,19 +437,28 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
   });
 
+  /** What the frame now drawn shows at the press's world point, for its selection: read as the press
+   *  lands, and again as a fallback runs. */
+  const inputAt = (press: RightClickPress) => ({
+    hit: rightClickHitAt(unitTargets, press.world, opts.elevation),
+    selected: press.selected,
+    settlers: unitTargets.ownedSettlersIn(press.selected),
+    mods: press.mods,
+  });
+
+  /** The click executes the plan it resolved, so a hover reading the same plan names what it does. */
   const rightPress = (e: MouseEvent, workFlag: boolean): void => {
-    const w = toWorld(e.clientX, e.clientY);
+    const world = toWorld(e.clientX, e.clientY);
+    const press: RightClickPress = { world, selected: new Set(selection.ids()), mods: rightClickMods(e) };
+    const input = inputAt(press);
     const plan = resolveRightClick(rightClickContext(), {
-      hit: rightClickHitAt(unitTargets, w, opts.elevation),
-      doorMarker: clickHits.doorMarkerAt(w.x, w.y),
-      selected: selection.ids(),
-      settlers: unitTargets.ownedSettlersIn(selection.ids()),
-      mods: rightClickMods(e),
+      ...input,
+      doorMarker: clickHits.doorMarkerAt(world.x, world.y),
       workFlag,
     });
     switch (plan.kind) {
       case 'workFlag':
-        if (orders.issueSetWorkFlagAt(e)) cue('confirm');
+        if (orders.issueWorkFlagAt(plan.tile, plan.goodType, plan.units)) cue('confirm');
         return;
       case 'doorSettler':
         applySelection([plan.settler], false);
@@ -458,33 +468,40 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       case 'orderLimit':
         refuseOrderLimit();
         return;
-      case 'attach':
-      case 'orders': {
+      case 'attach': {
         // Settlers the vehicle under the cursor refuses take the usual right-click once it answered.
-        const press: RightClickPress = {
-          clientX: e.clientX,
-          clientY: e.clientY,
-          world: w,
-          selected: new Set(selection.ids()),
-        };
-        const fallback = replayed(press, () => rightClickOrders(e, plan.onBuilding, press));
-        if (plan.kind === 'attach' && vehicleOrders.issueAttachSelected(e, fallback)) cue('confirm');
-        else if (rightClickOrders(e, plan.onBuilding, press)) cue('confirm');
+        const refused = replayed(press, () =>
+          issueOrders(
+            resolveRightClickOrders(rightClickContext(), inputAt(press), plan.onBuilding),
+            e,
+            press,
+          ),
+        );
+        const took =
+          vehicleOrders.issueAttachPlan(plan.attach, press.mods.queued, refused) ||
+          issueOrders(resolveRightClickOrders(rightClickContext(), input, plan.onBuilding), e, press);
+        if (took) cue('confirm');
+        return;
       }
+      case 'orders':
+        if (issueOrders(plan, e, press)) cue('confirm');
     }
   };
 
-  /** Settlers and vehicles selected together both take the click. One that picks an own settler replaces
-   *  the selection first, which leaves no vehicle selected to drive. */
-  const rightClickOrders = (e: MouseEvent, onBuilding: number | null, press: RightClickPress): boolean => {
-    const settlersTook = orders.issueRightClick(e, onBuilding);
+  const vehiclesAt = (press: RightClickPress): VehiclePlan => {
+    const { hit, selected, mods } = inputAt(press);
+    return resolveVehicleRightClick(rightClickContext(), selected, hit, mods);
+  };
+
+  /** Settlers and vehicles selected together both take the click. */
+  const issueOrders = (plan: RightClickOrders, e: MouseEvent, press: RightClickPress): boolean => {
+    const settlersTook = orders.issueSettlerPlan(plan.settlers, e);
     // A trader riding its cart takes a house onto its route instead of driving the cart there.
     const vehiclesTook =
-      orders.issueRiderTradeHouse(
-        e,
-        onBuilding,
-        replayed(press, () => vehicleOrders.issueRightClick(e)),
-      ) || vehicleOrders.issueRightClick(e);
+      orders.issueRiderPlan(
+        plan.riders,
+        replayed(press, () => vehicleOrders.issueVehiclePlan(vehiclesAt(press), press.mods.queued)),
+      ) || vehicleOrders.issueVehiclePlan(plan.vehicles, press.mods.queued);
     return settlersTook || vehiclesTook;
   };
 

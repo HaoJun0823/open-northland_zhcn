@@ -83,15 +83,17 @@ export function resolveRightClick(ctx: RightClickContext, input: RightClickInput
   const onBuilding = marker?.kind === 'building' ? marker.ref : null;
   const attach = resolveAttachSelected(ctx, settlers, hit);
   if (attach !== null) return { kind: 'attach', attach, onBuilding };
-  return resolveOrders(ctx, input, onBuilding);
+  return resolveRightClickOrders(ctx, input, onBuilding);
 }
 
+export type RightClickOrders = Extract<RightClickPlan, { kind: 'orders' }>;
+
 /** The press past the vehicle boarding: what a refused boarding falls back to. */
-function resolveOrders(
+export function resolveRightClickOrders(
   ctx: RightClickContext,
   input: Pick<RightClickInput, 'hit' | 'selected' | 'settlers' | 'mods'>,
   onBuilding: number | null,
-): Extract<RightClickPlan, { kind: 'orders' }> {
+): RightClickOrders {
   const { hit, selected, settlers, mods } = input;
   const settlerPlan = resolveSettlerRightClick(ctx, settlers, hit, mods.queued, onBuilding);
   // Picking an own settler replaces the selection first, which leaves nobody else to take the click.

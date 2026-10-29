@@ -19,18 +19,22 @@ export interface TradeRefusal {
 }
 
 /**
- * Whether the stances are why a trader's route refused `house`: another tribe's house with either side
- * short of `friend`, so no house of that tribe trades. Null for any other refusal, which stays silent.
+ * Whether the stances alone are why a trader's route refused `house`: another tribe's house that
+ * `offersTrade` (standing, with agreements) while either side is short of `friend`. Null for any other
+ * refusal, such as a house that would trade with nobody, which stays silent.
  */
 export function tradeRefusal(
   snapshot: WorldSnapshot,
   house: number,
   viewer: number | null,
+  offersTrade: boolean,
   stancesToward: (owner: number) => TradeStances,
 ): TradeRefusal | null {
   const entity = entityById(snapshot, house);
   const owner = entity === undefined ? undefined : ownerPlayerOf(entity);
-  if (entity === undefined || owner === undefined || viewer === null || owner === viewer) return null;
+  if (!offersTrade || entity === undefined || owner === undefined || viewer === null || owner === viewer) {
+    return null;
+  }
   const { yours, theirs } = stancesToward(owner);
   if (yours === 'friend' && theirs === 'friend') return null;
   const pos = positionOf(entity);

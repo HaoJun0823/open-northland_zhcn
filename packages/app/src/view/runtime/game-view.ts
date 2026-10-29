@@ -1051,6 +1051,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         yours: host.diplomacyStance(viewerPlayer(), owner),
         theirs: host.diplomacyStance(owner, viewerPlayer()),
       }),
+      offersTrade: (house) => host.tradeOffersAt(house as Entity).then((offers) => offers.length > 0),
       noteTradeRefused: (owner, at) => toolPanel.controller.noteTradeRefused(owner, at),
       canAttachToVehicle: answers.canAttachToVehicle,
       askAttachToVehicle: answers.askAttachToVehicle,

@@ -88,16 +88,19 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     orderLimitNotice.show();
     cue('fail');
   };
+  const answered = createAnsweredOrders();
   const stancesToward = opts.tradeStances;
+  const offersTrade = opts.offersTrade;
   const noteTradeRefused = opts.noteTradeRefused;
   const refuseTradeHouse =
-    stancesToward === undefined || noteTradeRefused === undefined
+    stancesToward === undefined || offersTrade === undefined || noteTradeRefused === undefined
       ? undefined
       : (house: number): void => {
-          const refusal = tradeRefusal(opts.snapshot(), house, opts.viewer.seat(), stancesToward);
-          if (refusal !== null) noteTradeRefused(refusal.owner, refusal.at);
+          answered.after(offersTrade(house), (offers) => {
+            const refusal = tradeRefusal(opts.snapshot(), house, opts.viewer.seat(), offers, stancesToward);
+            if (refusal !== null) noteTradeRefused(refusal.owner, refusal.at);
+          });
         };
-  const answered = createAnsweredOrders();
   const controlGroups = createControlGroups(opts.controlGroups);
   const goodIcons = createGoodIconPainter(opts.domHud.pack, opts.content);
   // Without the sim's pick-list seam the panel's equip and swap buttons stay inert.

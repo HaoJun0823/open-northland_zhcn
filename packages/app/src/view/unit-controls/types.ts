@@ -133,6 +133,8 @@ export interface UnitControlsOptions {
   /** The viewer's stance toward `owner` and `owner`'s back, which explain a refused foreign trade stop;
    *  absent, the refusal is silent. */
   readonly tradeStances?: (owner: number) => TradeStances;
+  /** Whether `house` stands and offers agreements, asked as a refusal lands; absent, it is silent. */
+  readonly offersTrade?: (house: number) => Promise<boolean>;
   /** Raises the note that a route refused a house of `owner` over the stances; absent, it is silent. */
   readonly noteTradeRefused?: (owner: number, at: HalfCellNode | null) => void;
   /** Fresh signpost placement verdict for a click; absent refuses the placement. */

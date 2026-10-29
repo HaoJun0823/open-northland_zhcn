@@ -148,6 +148,11 @@ export interface GoodHit {
   readonly goodType: number;
 }
 
+/** A goods heap under the point, with the units it holds. */
+export interface PileHit extends GoodHit {
+  readonly amount: number;
+}
+
 /**
  * Everything a right click tells apart under one world point, each the frontmost of its set as
  * `pickTopAt` over the matching {@link UnitTargets} list picks it (a resource the nearest, as
@@ -168,8 +173,10 @@ export interface PointHits {
   readonly enemySettler: number | null;
   readonly wildlife: number | null;
   readonly claimableLivestock: number | null;
+  /** Any animal, wild, decorative or someone's livestock: what the hover names. */
+  readonly creature: number | null;
   readonly chest: number | null;
-  readonly pile: GoodHit | null;
+  readonly pile: PileHit | null;
   readonly resource: GoodHit | null;
 }
 
@@ -383,8 +390,9 @@ export function createUnitTargets(
     let enemySettler: Front = null;
     let wildlife: Front = null;
     let claimableLivestock: Front = null;
+    let creature: Front = null;
     let chest: Front = null;
-    let pile: (Front & { readonly goodType: number }) | null = null;
+    let pile: (Front & { readonly goodType: number; readonly amount: number }) | null = null;
     let resource: Nearest = null;
     drawnResources.clear();
     for (const item of deps.drawnItems()) {
@@ -401,7 +409,7 @@ export function createUnitTargets(
             containsTargetPoint('pile', item.x, item.y, deps.boundsOf?.(item.ref), wx, wy) &&
             (pile === null || drawnInFront(item, pile))
           )
-            pile = { ref: item.ref, y: item.y, goodType };
+            pile = { ref: item.ref, y: item.y, goodType, amount: item.fill ?? 0 };
         } else if (item.kind === 'resource') {
           drawnResources.add(item.ref);
           if (item.goodType !== undefined && resourceHits(item.ref, item.x, item.y, wx, wy))
@@ -425,6 +433,7 @@ export function createUnitTargets(
         if (kind === 'settler') enemySettler = inFront(enemySettler, item);
       }
       if (kind !== 'settler' || entity === undefined) continue;
+      if (isWildlife(entity)) creature = inFront(creature, item);
       if (isWildlife(entity) && owner === undefined) {
         const tribe = settlerTribeOf(entity);
         if (tribe === undefined || !deps.animalCannotBeAttacked(tribe)) wildlife = inFront(wildlife, item);
@@ -460,8 +469,9 @@ export function createUnitTargets(
       enemySettler: enemySettler?.ref ?? null,
       wildlife: wildlife?.ref ?? null,
       claimableLivestock: claimableLivestock?.ref ?? null,
+      creature: creature?.ref ?? null,
       chest: chest?.ref ?? null,
-      pile: pile === null ? null : { ref: pile.ref, goodType: pile.goodType },
+      pile: pile === null ? null : { ref: pile.ref, goodType: pile.goodType, amount: pile.amount },
       resource: resource === null ? null : { ref: resource.ref, goodType: resource.goodType },
     };
   };

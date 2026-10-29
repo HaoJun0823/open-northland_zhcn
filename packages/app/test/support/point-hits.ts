@@ -1,7 +1,10 @@
+import type { DrawItem } from '@open-northland/render';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { type Pickable, pickNearestAt, pickTopAt } from '../../src/view/picking.js';
+import { isWildlife } from '../../src/game/snapshot/index.js';
+import { isHitTarget, type Pickable, pickNearestAt, pickTopAt } from '../../src/view/picking.js';
 import type {
   GoodHit,
+  PileHit,
   PointHits,
   PointHitTargets,
   UnitTargets,
@@ -12,13 +15,37 @@ function goodAt(targets: readonly Pickable[], ref: number | null): GoodHit | nul
   return ref === null || goodType === undefined ? null : { ref, goodType };
 }
 
+/** The frame's animals, which no order list holds, and a heap's amount, which no pickable carries. */
+function creatureAt(
+  drawn: readonly DrawItem[],
+  snapshot: WorldSnapshot,
+  wx: number,
+  wy: number,
+): number | null {
+  const animals: Pickable[] = [];
+  for (const item of drawn) {
+    const entity = item.kind === 'settler' && isHitTarget(item) ? entityById(snapshot, item.ref) : undefined;
+    if (entity !== undefined && isWildlife(entity))
+      animals.push({ ref: item.ref, x: item.x, y: item.y, kind: 'settler' });
+  }
+  return pickTopAt(animals, wx, wy);
+}
+
+function pileAt(goods: readonly Pickable[], ref: number | null, drawn: readonly DrawItem[]): PileHit | null {
+  const good = goodAt(goods, ref);
+  if (good === null) return null;
+  return { ...good, amount: drawn.find((item) => item.ref === good.ref)?.fill ?? 0 };
+}
+
 /** The point hits as picking over `targets`' own lists reads them, which the one-pass reading of the
- *  frame must agree with. An own wall counts as a site while `snapshot` has it under construction. */
+ *  frame must agree with. An own wall counts as a site while `snapshot` has it under construction; the
+ *  animals and the heap amounts come from `drawn`, without which there are none. */
 export function pointHitsOfLists(
   targets: UnitTargets,
   wx: number,
   wy: number,
   snapshot?: WorldSnapshot,
+  drawn: readonly DrawItem[] = [],
 ): PointHits {
   const enemies = targets.enemies();
   const goods = targets.goods();
@@ -43,8 +70,9 @@ export function pointHitsOfLists(
     ),
     wildlife: pickTopAt(targets.wildlife(), wx, wy),
     claimableLivestock: pickTopAt(targets.claimableLivestock(), wx, wy),
+    creature: snapshot === undefined ? null : creatureAt(drawn, snapshot, wx, wy),
     chest: pickTopAt(targets.chests(), wx, wy),
-    pile: goodAt(goods, pickTopAt(goods, wx, wy)),
+    pile: pileAt(goods, pickTopAt(goods, wx, wy), drawn),
     resource: goodAt(resources, pickNearestAt(resources, wx, wy)),
   };
 }

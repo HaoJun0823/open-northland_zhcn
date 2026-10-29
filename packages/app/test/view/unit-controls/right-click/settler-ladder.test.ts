@@ -58,6 +58,7 @@ const NOTHING: RightClickHit = {
   enemySettler: null,
   wildlife: null,
   claimableLivestock: null,
+  creature: null,
   chest: null,
   pile: null,
   resource: null,
@@ -125,7 +126,7 @@ describe('the settlers right-click ladder', () => {
     if (boots === undefined) throw new Error('sandbox content has no boots');
     const equip = resolve(
       [SOLDIER],
-      { pile: { ref: PILE, goodType: boots.typeId } },
+      { pile: { ref: PILE, goodType: boots.typeId, amount: 1 } },
       { asks: { equip: true } },
     );
     expect(equip).toMatchObject({
@@ -133,7 +134,7 @@ describe('the settlers right-click ladder', () => {
       groups: [{ intent: { kind: 'equip', candidates: [SOLDIER] }, pending: 'equip' }],
     });
     // Without the pick list, the heap is ground.
-    expect(groupsOf(resolve([SOLDIER], { pile: { ref: PILE, goodType: boots.typeId } }))).toEqual([
+    expect(groupsOf(resolve([SOLDIER], { pile: { ref: PILE, goodType: boots.typeId, amount: 1 } }))).toEqual([
       ['walk', [SOLDIER]],
     ]);
 

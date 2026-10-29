@@ -283,7 +283,7 @@ describe('unit-controls targets over the renderer frame', () => {
     // The anchors and the sprite bodies above them, where neighbours overlap.
     const points = drawn.flatMap((item) => [0, 10, 40].map((lift) => ({ x: item.x, y: item.y - lift })));
     for (const { x, y } of points)
-      expect(targets.pointHits(x, y)).toEqual(pointHitsOfLists(targets, x, y, snapshot));
+      expect(targets.pointHits(x, y)).toEqual(pointHitsOfLists(targets, x, y, snapshot, drawn));
     expect(targets.pointHits(retainedAt.x, retainedAt.y)).toMatchObject({
       chest: 90_031,
       pile: { ref: 90_032, goodType: 7 },

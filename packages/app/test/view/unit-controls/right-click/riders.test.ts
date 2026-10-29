@@ -76,6 +76,7 @@ const OVER_HOUSE: RightClickHit = {
   enemySettler: null,
   wildlife: null,
   claimableLivestock: null,
+  creature: null,
   chest: null,
   pile: null,
   resource: null,

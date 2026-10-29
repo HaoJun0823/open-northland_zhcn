@@ -22,10 +22,9 @@ import {
   TRAINING_EXPERIENCE_TYPE,
 } from '../../../src/systems/progression/index.js';
 import { planTraining } from '../../../src/systems/settlers/drives/training.js';
-import { IdleStands } from '../../../src/systems/settlers/planner/idle-replan.js';
-import { PlannerSpacing } from '../../../src/systems/settlers/planner/spacing.js';
 import { testContent } from '../../fixtures/content.js';
 import { ctxOf } from '../../fixtures/context.js';
+import { plannerContextAt } from '../../fixtures/planner.js';
 import { settlerAt } from '../../fixtures/settler.js';
 import { grassCellMap } from '../../fixtures/terrain.js';
 
@@ -45,17 +44,8 @@ const FOUNDATION_WAIT_TICKS = 200;
 function planLessonStep(sim: Simulation, pupil: Entity): void {
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('missing terrain');
-  planTraining(
-    sim.world,
-    ctxOf(sim),
-    terrain,
-    pupil,
-    sim.world.get(pupil, Settler),
-    terrain.nodeAt(2, 2),
-    null,
-    PlannerSpacing.forTick(sim.world, ctxOf(sim), terrain),
-    new IdleStands(),
-  );
+  const { pass, plan } = plannerContextAt(sim, pupil, terrain.nodeAt(2, 2));
+  planTraining(plan, sim.world.get(pupil, Settler), pass.spacing, pass.idle, undefined);
 }
 
 it('refuses a school course until the profession is discovered', () => {

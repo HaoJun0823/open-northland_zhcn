@@ -280,7 +280,7 @@ function planBreak(
   }
   // BARRACKS DRILL: a player errand outranking the settler's trade for as long as it lasts, and above the
   // equip errand below because the drill ends in a profession change.
-  if (planTraining(world, ctx, terrain, e, settler, here, limit, pass.spacing, pass.idle)) return true;
+  if (planTraining(plan, settler, pass.spacing, pass.idle, load)) return true;
   // EQUIP ERRAND: the player's or the assistant's, outranking the DEFEND hold below, socialising and every
   // economy rung, but under the needs drives and the ownership gate. A DEFEND guard walks the errand and
   // re-holds its unchanged anchor afterwards, since the combat walk-back pass defers to a live errand. A

@@ -8,7 +8,7 @@ export interface ActionHintOptions {
   readonly camera: () => { readonly offsetX: number; readonly offsetY: number; readonly scale?: number };
   /** Each bumps when what the label reads changes under one snapshot. */
   readonly versions: readonly (() => number)[];
-  /** Over the HUD, in a pick, a drag or a placement, the label yields. */
+  /** Over the HUD, in a drag or a placement, the label yields. */
   readonly blocked: (clientX: number, clientY: number) => boolean;
   readonly lineAt: (clientX: number, clientY: number, mods: ModifierState) => HintLine | null;
 }

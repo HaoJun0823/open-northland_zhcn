@@ -14,6 +14,7 @@ import { memoBySnapshot, rangeRingsOf } from '../projections/index.js';
 import { createActionHint } from './action-hint/controller.js';
 import { createHintLabel, hintLine } from './action-hint/label.js';
 import { natureName, natureTargetOf } from './action-hint/nature-name.js';
+import { pickHint } from './action-hint/pick-hint.js';
 import { type HintContext, planHint } from './action-hint/plan-hint.js';
 import { orderRecipients } from './action-ring/index.js';
 import { createClickHits } from './click-hits.js';
@@ -258,6 +259,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     askAttachTradeHouse: opts.askAttachTradeHouse,
     onTradeRefused: refuseTradeHouse,
     askPlaceSignpostAt: opts.askPlaceSignpostAt,
+    canPlaceSignpostAt: opts.canPlaceSignpostAt,
     cue,
     answered,
     ...(opts.attachPicksVersion !== undefined ? { answersVersion: opts.attachPicksVersion } : {}),
@@ -416,13 +418,15 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
   });
 
-  /** The label names what a right press at the point would do, resolved as the press resolves it. */
+  /** The label names what the armed pick's press, else a right press, would do at the point, resolved
+   *  as that press resolves it. */
   const hintLineAt = (clientX: number, clientY: number, mods: ModifierState) => {
     const world = toWorld(clientX, clientY);
     const selected = selection.ids();
     const hit = rightClickHitAt(unitTargets, world, opts.elevation);
-    const hint =
-      selected.size === 0
+    const hint = pickMode.isArmed()
+      ? pickHint(opts.snapshot(), pickMode.aimAt(clientX, clientY, mods.ctrlKey || mods.metaKey))
+      : selected.size === 0
         ? null
         : planHint(hintContext(), {
             hit,
@@ -444,13 +448,13 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     camera: opts.camera,
     versions: [
       selection.version,
+      pickMode.version,
       opts.viewer.version,
       opts.jobChoicesVersion,
       ...(opts.attachPicksVersion !== undefined ? [opts.attachPicksVersion] : []),
     ],
     blocked: (x, y) =>
       opts.hintSuppressed?.() === true ||
-      pickMode.isArmed() ||
       marquee.active() ||
       opts.claimPointer?.(x, y) === true ||
       chrome.claimsPointer(x, y) ||

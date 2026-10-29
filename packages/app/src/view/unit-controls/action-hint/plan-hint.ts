@@ -30,6 +30,7 @@ export type HintAction =
   | 'moor'
   | 'moorAndLand'
   | 'attack'
+  | 'attackMove'
   | 'hunt'
   | 'claim'
   | 'openChest'
@@ -46,10 +47,25 @@ export type HintAction =
   | 'repair'
   | 'board'
   | 'loadAboard'
-  | 'workArea';
+  | 'workArea'
+  | 'placeSignpost'
+  | 'bombard';
 
-/** Why a right click would do nothing or be refused, each exactly as the sim enforces it. */
-export type HintRefusal = 'tooManyUnits' | 'noFreePlaces' | 'noRoom' | 'cannotAddToRoute' | 'cannotWorkHere';
+/** Why a right click or an armed pick's press would do nothing or be refused, each exactly as the sim or
+ *  the pick enforces it. */
+export type HintRefusal =
+  | 'tooManyUnits'
+  | 'noFreePlaces'
+  | 'noRoom'
+  | 'cannotAddToRoute'
+  | 'cannotWorkHere'
+  | 'cannotLiveHere'
+  | 'cannotBuildHere'
+  | 'cannotTrainHere'
+  | 'cannotBoard'
+  | 'cannotLoadAboard'
+  | 'cannotMoorHere'
+  | 'cannotPlaceSignpost';
 
 /** The thing an order aims at, whose name the label puts before the verb. */
 export type HintTarget =

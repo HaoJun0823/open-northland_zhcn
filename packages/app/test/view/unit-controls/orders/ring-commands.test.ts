@@ -38,6 +38,8 @@ function harness(): {
     endShiftChain: () => {},
     highlight: () => null,
     aimedAt: () => null,
+    aimAt: () => null,
+    version: () => 0,
   };
   return {
     issued,

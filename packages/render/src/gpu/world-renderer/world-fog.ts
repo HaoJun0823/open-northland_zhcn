@@ -5,7 +5,6 @@ import {
   FogGhostStore,
   fogTileExplored,
   fogTileVisible,
-  type GhostSource,
   type RememberedMarkers,
   type Sight,
 } from '../../data/fog/index.js';

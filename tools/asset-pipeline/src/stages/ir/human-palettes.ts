@@ -46,6 +46,13 @@ const GOOD_RECIPE_ALIASES: Readonly<Record<string, string>> = {
   good_tools_iron: 'tool_iron',
   good_tools_wooden: 'tool_wooden',
 };
+/**
+ * Good recipes drawn in another ramp. Project choice: `good_gold` paints the gold load in `colors yellow`,
+ * whose dark shades, the ones the load is mostly drawn in, read as a brown roof tile.
+ */
+const GOOD_RECIPE_RAMPS: Readonly<Record<string, string>> = {
+  good_gold: 'player 02a',
+};
 
 /** The shipped colour whose recipes the synthetic player colours mirror. */
 const SYNTHETIC_TEMPLATE_COLOR = 0;
@@ -113,6 +120,16 @@ function synthesizeRecipe(template: RandomPaletteRecipe, name: string, color: st
   };
 }
 
+/** A copy of `recipe` with every ramp line painting `ramp`. */
+function recolourRecipe(recipe: RandomPaletteRecipe, name: string, ramp: string): RandomPaletteRecipe {
+  return {
+    name,
+    patches: recipe.patches.map((patch) =>
+      patch.source.kind === 'ramp' ? { ...patch, source: { kind: 'ramp', ramp } } : patch,
+    ),
+  };
+}
+
 const syntheticRampName = (ramp: string, color: string): string => `${ramp} as ${color}`;
 
 /**
@@ -143,10 +160,14 @@ export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<
       ? { tribe, job }
       : { tribe, job, recipe: reach(last, 'job change') };
   });
-  const goodRecipes = goodPaletteRecipes(sources.recipes, sources.goods).map((g) => ({
-    ...g,
-    recipe: reach(g.recipe, 'good'),
-  }));
+  const recoloured = new Map<string, RandomPaletteRecipe>();
+  const goodRecipes = goodPaletteRecipes(sources.recipes, sources.goods).map((g) => {
+    const ramp = GOOD_RECIPE_RAMPS[g.recipe];
+    if (ramp === undefined) return { ...g, recipe: reach(g.recipe, 'good') };
+    const name = `${g.recipe} in ${ramp}`;
+    if (!recoloured.has(name)) recoloured.set(name, recolourRecipe(recipeOf(g.recipe, 'good'), name, ramp));
+    return { ...g, recipe: name };
+  });
   const armorRecipes = Array.from({ length: ARMOR_TIERS }, (_, tier) =>
     reach(armorRecipeName(tier), 'armor tier'),
   );
@@ -188,7 +209,7 @@ export async function buildHumanPalettes(sources: HumanPaletteSources): Promise<
   const players = PLAYER_COLORS.map(playerRecipes);
 
   // Every recipe is kept: a map's `[misc_humangraphics]` row may name any of them.
-  const recipes = sources.recipes;
+  const recipes = [...sources.recipes, ...recoloured.values()];
   const resolver = paletteResolver(sources);
   const ramps = new Map<string, string>();
   for (const recipe of recipes) {

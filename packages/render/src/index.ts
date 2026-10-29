@@ -65,6 +65,7 @@ export {
   type HumanPaletteColours,
   type HumanPaletteIdentity,
   headPaletteBand,
+  type LoadLayout,
   type WeaponLayout,
 } from './data/palettes/human-palettes.js';
 export {

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import type { LandscapeGfx, LandscapeType } from '@open-northland/data';
+import type { BobSequenceSet, LandscapeGfx, LandscapeType } from '@open-northland/data';
 import { packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
-import { decodeBmd } from '@open-northland/formats/bmd/index';
+import { type Bmd, decodeBmd } from '@open-northland/formats/bmd/index';
 import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
 import {
@@ -10,6 +10,7 @@ import {
   synthesizePlayerSource,
 } from '@open-northland/formats/player-palette';
 import { errorMessage } from '../errors.js';
+import { carriedLoadBandEdit } from './bmd/load-band.js';
 import { type BobAtlasCatalog, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
 import type { SourceAssetIndex } from './source-files.js';
 
@@ -138,12 +139,14 @@ async function playerSourcePalette(
 /**
  * Emits an indexed atlas (`<bmd-basename>.indexed`) for every human character `.bmd`
  * in `bindings`, deduped because many bindings share one body. A missing or malformed `.bmd` is skipped
- * with a warning.
+ * with a warning. `sequenceSets` (the IR's `bobSequences`) pair a woman's carry walks for
+ * {@link carriedLoadBandEdit}.
  */
 export async function convertIndexedCharacterAtlases(
   bindings: readonly BmdPaletteBinding[],
   atlases: BobAtlasCatalog,
   tree: SourceAssetIndex,
+  sequenceSets: readonly BobSequenceSet[],
 ): Promise<string[]> {
   const characterBmds = new Set<string>();
   for (const b of bindings) {
@@ -156,8 +159,17 @@ export async function convertIndexedCharacterAtlases(
       console.warn(`[pipeline] skipped indexed ${bmdRef}: not found in any source layer`);
       continue;
     }
+    let bmd: Bmd;
     try {
-      const atlas = packIndexedBobAtlas(decodeBmd(await readFile(source.path)));
+      bmd = decodeBmd(await readFile(source.path));
+    } catch (err) {
+      console.warn(`[pipeline] skipped indexed ${bmdRef}: ${errorMessage(err)}`);
+      continue;
+    }
+    // Outside the per-file guard: a sheet that no longer pairs its carry walks fails the run.
+    const editFrame = carriedLoadBandEdit(bmdRef, bmd, sequenceSets);
+    try {
+      const atlas = packIndexedBobAtlas(bmd, editFrame === undefined ? {} : { editFrame });
       const { image } = await writeSourceBobAtlas(atlases, source.rel, INDEXED_ATLAS_SUFFIX, atlas);
       done.push(image);
     } catch (err) {

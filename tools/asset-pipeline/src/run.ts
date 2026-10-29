@@ -88,7 +88,13 @@ export async function runPipeline(args: Args): Promise<void> {
   await rm(join(args.out, BOBS_DIR), { recursive: true, force: true });
   const bobAtlases = new BobAtlasCatalog(args.out);
   // The IR rows name the stems the app's DOM shows, which keep RGB sheets.
-  const atlases = await convertBmdTree(graphics, bobAtlases, assets, domPictureStems(ir, graphics.bindings));
+  const atlases = await convertBmdTree(
+    graphics,
+    bobAtlases,
+    assets,
+    domPictureStems(ir, graphics.bindings),
+    ir.bobSequences,
+  );
   const { bindings, palettes } = graphics;
   const distinct = new Set(atlases.map((a) => a.image)).size;
   const distinctBmd = new Set(atlases.map((a) => a.bmd)).size;
@@ -103,7 +109,7 @@ export async function runPipeline(args: Args): Promise<void> {
     `[pipeline] shadow bmd -> atlas: ${shadowAtlases.length} shadow atlas file(s) into ${args.out}`,
   );
 
-  const indexed = await convertIndexedCharacterAtlases(bindings, bobAtlases, assets);
+  const indexed = await convertIndexedCharacterAtlases(bindings, bobAtlases, assets, ir.bobSequences);
   const ownerAtlases = await convertPlayerPaletteAtlases(ownerPaletteBmds(ir), bobAtlases, assets).catch(
     (err: unknown) => {
       console.warn(`[pipeline] player palette atlases skipped: ${errorMessage(err)}`);

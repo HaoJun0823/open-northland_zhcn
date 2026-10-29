@@ -46,6 +46,7 @@ function paletteIni(): string {
     );
     lines.push(`[GfxPalette16]\neditname "Player ${pad(c)}"\ngfxcolorrange "Human_Player${pad(c + 1)}" 1`);
   }
+  lines.push('[GfxPalette16]\neditname "Player 02a"\ngfxcolorrange "Human_Player03" 2');
   lines.push('[GfxPalette256]\neditname "human_colors"\ngfxfile "data\\colors.pcx"');
   lines.push('[GfxPalette16]\neditname "colors grey"\ngfxcolorrange "human_colors" 14');
   lines.push('[GfxPalette256]\neditname "test_human_00"\ngfxfile "data\\base.pcx"');
@@ -135,6 +136,20 @@ describe('buildHumanPalettes', () => {
     expect(lane.armorRecipes).toEqual([0, 1, 2, 3, 4].map((t) => `human_armor_00${t}`));
     expect(lane.cartRecipes).toEqual({ handcart: 'good_handcart', oxcart: 'good_oxcart' });
     expect(lane.jobChanges[0]).toEqual({ tribe: 1, job: 25, recipe: 'vik_man_changejob' });
+  });
+
+  it('points the gold good at a copy of its recipe painting the gold ramp', async () => {
+    const goldRecipe = { name: 'good_gold', patches: [ramp(14, 'colors grey'), ramp(15, 'colors grey')] };
+    const lane = await buildHumanPalettes(
+      sources({ recipes: [...recipes(), goldRecipe], goods: [{ typeId: 7, id: 'gold' }] }),
+    );
+    expect(lane.goodRecipes).toEqual([{ good: 7, recipe: 'good_gold in player 02a' }]);
+    expect(lane.recipes.find((r) => r.name === 'good_gold in player 02a')?.patches).toEqual([
+      ramp(14, 'player 02a'),
+      ramp(15, 'player 02a'),
+    ]);
+    expect(lane.recipes).toContainEqual(goldRecipe);
+    expect(lane.ramps['player 02a']).toHaveLength(96);
   });
 
   it('keeps a job change record whose last name is absent or unknown, without a recipe', async () => {

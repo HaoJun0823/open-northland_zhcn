@@ -133,6 +133,8 @@ export interface UnitControlsOptions {
   /** The viewer's stance toward `owner` and `owner`'s back, which explain a refused foreign trade stop;
    *  absent, the refusal is silent. */
   readonly tradeStances?: (owner: number) => TradeStances;
+  /** Raises the note that a route refused a house of `owner` over the stances; absent, it is silent. */
+  readonly noteTradeRefused?: (owner: number, at: HalfCellNode | null) => void;
   /** Fresh signpost placement verdict for a click; absent refuses the placement. */
   readonly askPlaceSignpostAt?: (col: number, row: number) => Promise<boolean>;
   /** The sim's vehicle attach rule (`SessionHost.vehiclesAttachableBy`) as its last answer, which lights

@@ -1,31 +1,38 @@
-import { type DiplomacyState, entityById, type WorldSnapshot } from '@open-northland/sim';
-import { ownerPlayerOf } from '../../../game/snapshot/index.js';
-import { formatMessage, messages } from '../../../i18n/index.js';
+import {
+  type DiplomacyState,
+  entityById,
+  type HalfCellNode,
+  nodeOfPosition,
+  type WorldSnapshot,
+} from '@open-northland/sim';
+import { ownerPlayerOf, positionOf } from '../../../game/snapshot/index.js';
 
 export interface TradeStances {
   readonly yours: DiplomacyState;
   readonly theirs: DiplomacyState;
 }
 
+/** The tribe whose house a route refused over the stances, and where that house stands. */
+export interface TradeRefusal {
+  readonly owner: number;
+  readonly at: HalfCellNode | null;
+}
+
 /**
- * Why a trader's route refused `house`, when the stances are the reason: another tribe's house with
- * either side short of `friend`, so no house of that tribe trades. Null for any other refusal, which
- * keeps its own silent handling.
+ * Whether the stances are why a trader's route refused `house`: another tribe's house with either side
+ * short of `friend`, so no house of that tribe trades. Null for any other refusal, which stays silent.
  */
-export function tradeRefusalText(
+export function tradeRefusal(
   snapshot: WorldSnapshot,
   house: number,
   viewer: number | null,
   stancesToward: (owner: number) => TradeStances,
-): string | null {
+): TradeRefusal | null {
   const entity = entityById(snapshot, house);
   const owner = entity === undefined ? undefined : ownerPlayerOf(entity);
-  if (owner === undefined || viewer === null || owner === viewer) return null;
+  if (entity === undefined || owner === undefined || viewer === null || owner === viewer) return null;
   const { yours, theirs } = stancesToward(owner);
-  const copy = messages().hud.diplomacyWindow;
-  const reasons = [
-    yours === 'friend' ? '' : formatMessage(copy.tradeYours, { stance: copy.stances[yours] }),
-    theirs === 'friend' ? '' : formatMessage(copy.tradeTheirs, { stance: copy.stances[theirs] }),
-  ].filter((reason) => reason !== '');
-  return reasons.length === 0 ? null : `${copy.tradeLockedTitle}. ${reasons.join(' · ')}`;
+  if (yours === 'friend' && theirs === 'friend') return null;
+  const pos = positionOf(entity);
+  return { owner, at: pos === undefined ? null : nodeOfPosition(pos.x, pos.y) };
 }

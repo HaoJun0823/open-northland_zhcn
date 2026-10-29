@@ -5,7 +5,6 @@ import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { isActionHotkey, isFieldKey, isOrderHotkey } from '../../hud/hotkeys.js';
 import { matchesMouseBinding } from '../../hud/keybindings.js';
-import { formatMessage, messages } from '../../i18n/index.js';
 import { clientToScreen } from '../camera/index.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { nodeBounds, pickInRect, pickTopAt, screenToWorld, type Tile, worldToTile } from '../picking.js';
@@ -28,13 +27,13 @@ import { DOCK_PICK_SNAP_NODES, RIGHT_CLICK_SNAP_NODES } from './orders/berths.js
 import { createUnitOrderController } from './orders/controller.js';
 import { createOrderFeedback } from './orders/feedback.js';
 import { createKeyboardOrders } from './orders/keyboard.js';
+import { createOrderLimitNotice } from './orders/limit-notice.js';
 import { createOrderMarkers } from './orders/markers.js';
-import { createOrderNotice } from './orders/notice.js';
 import { createOverviewOrders } from './orders/overview.js';
 import { createPendingGroundOrders } from './orders/pending-ground.js';
 import { issueRingCommand } from './orders/ring-commands.js';
 import { createTargetFlashes } from './orders/target-flashes.js';
-import { tradeRefusalText } from './orders/trade-refusal.js';
+import { tradeRefusal } from './orders/trade-refusal.js';
 import { createVehicleOrderController } from './orders/vehicle.js';
 import { createUnitChrome } from './panels/chrome.js';
 import { type EquipPickController, mountEquipPicker } from './panels/equip-picker.js';
@@ -84,22 +83,19 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     return entity !== undefined && (isSettler(entity) || isVehicle(entity));
   };
   const selection = createUnitSelection(isUnit);
-  const orderNotice = createOrderNotice(opts.domHud.plane);
-  const showOrderLimit = (): void =>
-    orderNotice.show(formatMessage(messages().hud.armyOrderLimit, { limit: MAX_UNIT_ORDER_MEMBERS }));
+  const orderLimitNotice = createOrderLimitNotice(opts.domHud.plane);
   const refuseOrderLimit = (): void => {
-    showOrderLimit();
+    orderLimitNotice.show();
     cue('fail');
   };
   const stancesToward = opts.tradeStances;
+  const noteTradeRefused = opts.noteTradeRefused;
   const refuseTradeHouse =
-    stancesToward === undefined
+    stancesToward === undefined || noteTradeRefused === undefined
       ? undefined
       : (house: number): void => {
-          const text = tradeRefusalText(opts.snapshot(), house, opts.viewer.seat(), stancesToward);
-          if (text === null) return;
-          orderNotice.show(text);
-          cue('fail');
+          const refusal = tradeRefusal(opts.snapshot(), house, opts.viewer.seat(), stancesToward);
+          if (refusal !== null) noteTradeRefused(refusal.owner, refusal.at);
         };
   const answered = createAnsweredOrders();
   const controlGroups = createControlGroups(opts.controlGroups);
@@ -152,7 +148,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       orderRecipients(opts.content, opts.snapshot(), targets, id),
       {
         enqueue: opts.enqueue,
-        onOrderLimit: showOrderLimit,
+        onOrderLimit: orderLimitNotice.show,
         pickMode,
         openEquipment: (settlers) => equipPicker?.openAll(settlers),
         toggleWorkArea: workArea.toggle,
@@ -343,7 +339,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
   };
 
   const orders = createUnitOrderController({
-    onOrderLimit: showOrderLimit,
+    onOrderLimit: orderLimitNotice.show,
     uiscale: opts.uiscale ?? 1,
     technologyStatus: opts.technologyStatus,
     technologyVersion: opts.technologyVersion,
@@ -681,7 +677,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     },
     dispose: () => {
       selectionCursor.dispose();
-      orderNotice.dispose();
+      orderLimitNotice.dispose();
       pickMode.cancel(); // an armed mode owns the canvas cursor, which teardown must not leave set
       canvas.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);

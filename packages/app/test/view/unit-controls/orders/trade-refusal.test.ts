@@ -2,11 +2,7 @@ import { components, type Entity, ONE, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../../../src/game/rules.js';
 import { BUILDING_HOME_00, sandboxContent } from '../../../../src/game/sandbox/index.js';
-import { messages } from '../../../../src/i18n/index.js';
-import {
-  type TradeStances,
-  tradeRefusalText,
-} from '../../../../src/view/unit-controls/orders/trade-refusal.js';
+import { type TradeStances, tradeRefusal } from '../../../../src/view/unit-controls/orders/trade-refusal.js';
 
 const NEIGHBOUR = HUMAN_PLAYER + 1;
 
@@ -29,17 +25,14 @@ const stances = (yours: TradeStances['yours'], theirs: TradeStances['theirs']) =
 });
 
 describe('a refused trade stop', () => {
-  const copy = messages().hud.diplomacyWindow;
-
-  it('names the stance that keeps another tribe’s trading house off the route', () => {
+  it('names the tribe whose house the stances keep off the route', () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const post = houseOf(sim, NEIGHBOUR);
 
-    const text = tradeRefusalText(sim.snapshot(), post, HUMAN_PLAYER, stances('friend', 'enemy'));
+    const refusal = tradeRefusal(sim.snapshot(), post, HUMAN_PLAYER, stances('friend', 'enemy'));
 
-    expect(text).toContain(copy.tradeLockedTitle);
-    expect(text).toContain(copy.stances.enemy);
-    expect(text).not.toContain(copy.stances.friend);
+    expect(refusal?.owner).toBe(NEIGHBOUR);
+    expect(refusal?.at).not.toBeNull();
   });
 
   it('stays silent for an own house and for mutual friends', () => {
@@ -48,7 +41,7 @@ describe('a refused trade stop', () => {
     const post = houseOf(sim, NEIGHBOUR);
     const snapshot = sim.snapshot();
 
-    expect(tradeRefusalText(snapshot, own, HUMAN_PLAYER, stances('enemy', 'enemy'))).toBeNull();
-    expect(tradeRefusalText(snapshot, post, HUMAN_PLAYER, stances('friend', 'friend'))).toBeNull();
+    expect(tradeRefusal(snapshot, own, HUMAN_PLAYER, stances('enemy', 'enemy'))).toBeNull();
+    expect(tradeRefusal(snapshot, post, HUMAN_PLAYER, stances('friend', 'friend'))).toBeNull();
   });
 });

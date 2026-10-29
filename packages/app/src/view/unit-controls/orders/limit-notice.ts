@@ -1,10 +1,8 @@
+import { MAX_UNIT_ORDER_MEMBERS } from '@open-northland/sim';
 import { WINDOW_REGION_TOP } from '../../../hud/regions.js';
+import { formatMessage, messages } from '../../../i18n/index.js';
 
-/** How long a refused order's strip stays up. */
-const NOTICE_MS = 6000;
-
-/** The strip under the window region that says why an order was refused. */
-export function createOrderNotice(plane: HTMLElement): { show(text: string): void; dispose(): void } {
+export function createOrderLimitNotice(plane: HTMLElement): { show(): void; dispose(): void } {
   const element = document.createElement('div');
   element.className = 'on-strip';
   element.setAttribute('role', 'status');
@@ -18,14 +16,14 @@ export function createOrderNotice(plane: HTMLElement): { show(text: string): voi
   plane.append(element);
   let timer: ReturnType<typeof setTimeout> | undefined;
   return {
-    show: (message) => {
+    show: () => {
       clearTimeout(timer);
-      text.textContent = message;
+      text.textContent = formatMessage(messages().hud.armyOrderLimit, { limit: MAX_UNIT_ORDER_MEMBERS });
       element.hidden = false;
       timer = setTimeout(() => {
         element.hidden = true;
         timer = undefined;
-      }, NOTICE_MS);
+      }, 6000);
     },
     dispose: () => {
       clearTimeout(timer);

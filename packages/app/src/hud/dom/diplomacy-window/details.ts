@@ -41,12 +41,11 @@ export function createOffers(paint: GoodIconPainter, onBefriend: () => void) {
   const lockText = element('div', 'on-dip-trade-lock__text');
   const lockTitle = element('strong', '');
   write(lockTitle, copy.tradeLockedTitle);
-  const lockStances = element('span', '');
   const lockRule = element('span', '');
   write(lockRule, copy.tradeNeedsBoth);
   const lockHint = element('span', 'on-dip-trade-lock__hint');
   write(lockHint, copy.tradeTheirsHint);
-  lockText.append(lockTitle, lockStances, lockRule, lockHint);
+  lockText.append(lockTitle, lockRule, lockHint);
   const befriend = button('on-button on-button--accent');
   write(befriend, copy.tradeBefriend);
   befriend.addEventListener('click', () => {
@@ -92,15 +91,6 @@ export function createOffers(paint: GoodIconPainter, onBefriend: () => void) {
       setClass(list, 'on-dip-offer-list--locked', blocked);
       setAttribute(list, 'aria-disabled', String(blocked));
       if (!blocked) return;
-      const stances = [
-        locked.yours === 'friend'
-          ? ''
-          : formatMessage(copy.tradeYours, { stance: copy.stances[locked.yours] }),
-        locked.theirs === 'friend'
-          ? ''
-          : formatMessage(copy.tradeTheirs, { stance: copy.stances[locked.theirs] }),
-      ];
-      write(lockStances, stances.filter((line) => line !== '').join(' · '));
       setHidden(lockHint, locked.theirs === 'friend');
       setHidden(befriend, locked.yours === 'friend' || !locked.canBefriend);
       befriend.disabled = locked.befriending;

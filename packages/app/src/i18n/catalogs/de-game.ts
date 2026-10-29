@@ -240,8 +240,6 @@ export const deGame = {
       give: 'Du gibst',
       take: 'Du erhältst',
       tradeLockedTitle: 'Handel nicht möglich',
-      tradeYours: 'Dein Verhältnis: {stance}',
-      tradeTheirs: 'Ihr Verhältnis: {stance}',
       tradeNeedsBoth:
         'Ein Händler kann nur zu ihrem Handelshaus geschickt werden, solange beide Seiten freundlich sind.',
       tradeTheirsHint: 'Ein gezahlter Tribut oder ein Ereignis der Mission kann ihr Verhältnis ändern.',
@@ -1868,6 +1866,7 @@ export const deGame = {
       peopleAttacked: 'Unter Angriff',
       houseFinished: 'Fertig gebaut',
       explorationFinished: 'Land erkundet',
+      tradeRefused: 'Kein Handel',
       settingsNeedRestart: 'Neustart nötig',
       houseUpgraded: 'Ausgebaut',
       vehicleNoPath: 'Kein Weg',
@@ -1960,6 +1959,8 @@ export const deGame = {
         'Deine Leute werden außerhalb der Siedlung angegriffen. Feind: {enemy}. Getroffen: {hits}. Schicke Soldaten oder bringe die Angegriffenen in Sicherheit.',
       houseFinished: 'Bau abgeschlossen: {building}.',
       explorationFinished: '{name} hat alles erreichbare Land erkundet und wartet auf Befehle.',
+      tradeRefused:
+        '{player}: Dein Händler handelt hier nicht. Handel setzt voraus, dass beide Seiten freundlich sind; siehe Diplomatie.',
       settingsNeedRestart: 'Eine geänderte Einstellung wirkt erst nach einem Neustart der Karte: {settings}.',
       houseUpgraded: 'Ausbau abgeschlossen: {building}.',
       vehicleNoPath: '{vehicle}: Kein Weg zum Ziel gefunden. Wähle ein anderes Ziel.',

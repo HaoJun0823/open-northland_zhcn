@@ -341,6 +341,9 @@ export interface ToolPanelController {
   /** Tell the player, in the notification column, that the settings named by `labels` take effect when
    *  the map starts again; no labels withdraws that note. */
   noteSettingsRestart(labels: readonly string[]): void;
+  /** Tell the player, in the notification column, that a trader's route refused a house of `player` at
+   *  `at` because the two tribes are not friends both ways. */
+  noteTradeRefused(player: number, at: HalfCellNode | null): void;
   /** Show the session's clock as it stands, without pushing to the loop: a change made elsewhere. */
   syncSpeed(control: GameSpeedControl): void;
   /** How the speed segments read beside the control; while `held`, the pause and speed presses are
@@ -952,6 +955,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       presentMessages: (snapshot, events, departed, alpha) =>
         messageCenter.present(snapshot, events, departed, alpha),
       noteSettingsRestart: (labels) => messageCenter.noteSettingsRestart(labels),
+      noteTradeRefused: (player, at) => messageCenter.noteTradeRefused(player, at),
       presentFigures: (snapshot, alpha): void => {
         const residents = windows.byId.residents;
         residentFigures.paint(snapshot, residents.figureSlots(), snapshot.tick, alpha);

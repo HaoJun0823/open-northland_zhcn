@@ -444,7 +444,7 @@ export const deGame = {
       openChest: 'Kiste öffnen',
       eat: 'Essen',
       putOn: 'Anlegen',
-      gather: 'Hier sammeln',
+      gather: 'Sammeln',
       addToRoute: 'Zur Route',
       removeFromRoute: 'Von der Route',
       learn: 'Lernen',

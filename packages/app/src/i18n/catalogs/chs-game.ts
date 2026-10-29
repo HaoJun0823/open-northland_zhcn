@@ -405,7 +405,7 @@ export const chsGame = {
       openChest: '打开箱子',
       eat: '进食',
       putOn: '穿戴',
-      gather: '在此采集',
+      gather: '采集',
       addToRoute: '加入路线',
       removeFromRoute: '移出路线',
       learn: '学习',

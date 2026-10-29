@@ -405,7 +405,7 @@ export const chtGame = {
       openChest: '打開箱子',
       eat: '進食',
       putOn: '穿戴',
-      gather: '在此採集',
+      gather: '採集',
       addToRoute: '加入路線',
       removeFromRoute: '移出路線',
       learn: '學習',

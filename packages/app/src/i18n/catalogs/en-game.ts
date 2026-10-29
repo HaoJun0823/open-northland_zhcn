@@ -412,7 +412,7 @@ export const enGame = {
       openChest: 'Open chest',
       eat: 'Eat',
       putOn: 'Put on',
-      gather: 'Gather here',
+      gather: 'Gather',
       addToRoute: 'Add to route',
       removeFromRoute: 'Remove from route',
       learn: 'Learn',

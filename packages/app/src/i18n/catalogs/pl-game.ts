@@ -408,7 +408,7 @@ export const plGame = {
       openChest: 'Otwórz skrzynię',
       eat: 'Zjedz',
       putOn: 'Załóż',
-      gather: 'Zbieraj tutaj',
+      gather: 'Zbieraj',
       addToRoute: 'Dodaj do trasy',
       removeFromRoute: 'Usuń z trasy',
       learn: 'Ucz się',

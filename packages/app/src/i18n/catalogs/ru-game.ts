@@ -442,7 +442,7 @@ export const ruGame = {
       openChest: 'Открыть сундук',
       eat: 'Поесть',
       putOn: 'Надеть',
-      gather: 'Собирать здесь',
+      gather: 'Собирать',
       addToRoute: 'Добавить в маршрут',
       removeFromRoute: 'Убрать из маршрута',
       learn: 'Учиться',

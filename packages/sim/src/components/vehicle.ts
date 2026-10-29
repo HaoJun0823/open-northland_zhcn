@@ -148,7 +148,7 @@ export const Rider = defineComponent<{ vehicle: Entity; boarding: boolean; leavi
 );
 
 /**
- * A lift a carrier makes with its hauling cart standing beside it, one clip a unit the way a trader loads
+ * A lift a carrier makes with its hauling cart standing beside it, one lift a unit the way a trader loads
  * its cart: units off `from`'s shelf or heap into the hold, or out of the hold onto `store`'s shelf.
  */
 export type HaulingLift =

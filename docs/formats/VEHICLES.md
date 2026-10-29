@@ -259,12 +259,14 @@ The cart is a work tool, not a harness:
   slot's whole shortfall up to that and no more (`HaulingLift.units`). In hand, the load rides as the
   carrier's `Carrying`, one good at a time.
 - **Lifts as the trader's.** At a heap, a shelf or a store's door the carrier stands the cart down on
-  the nearest open land beside it (`beginCartLift`, `HaulingCart.lift`) and moves the units one clip
-  each, the pick-up or pile-up clip of its trade (`haulLoad` and `haulUnload` atomics, through the
+  the nearest open land beside it (`beginCartLift`, `HaulingCart.lift`) and moves the units one lift
+  each, the pick-up or pile-up clip of its trade stretched by cart kind (`cartLiftTicks`: 60% of the
+  clip for a handcart, 130% for an ox cart, a named addition so the handcart wins the short haul and
+  the ox cart the long one; `haulLoad` and `haulUnload` atomics, through the
   same pick-up and pile-up rules as on foot: claims, the dish alias, storage minimums, the crockery
   bonus), then walks back to the cart's door and takes it up, the hold's load into its hands. The cart
-  draws as itself meanwhile and the carrier as a man lifting; thirty units take thirty clips, the
-  trader's pace. A break during a lift ends it (the cart is parked where it stands). At a well or a
+  draws as itself meanwhile and the carrier as a man lifting; thirty units take thirty lifts, the
+  trader's pace, whose cart lifts the same way. A break during a lift ends it (the cart is parked where it stands). At a well or a
   hive, whose shelf holds a unit or two and refills one a game second, a load waits out each refill
   beside the cart until its units are lifted (`startRefillWait`; named addition).
 - **Drag.** Each step of a carrier pulling a laden cart takes the cart's speed loss longer (the
@@ -309,8 +311,8 @@ way signposts extend a settler's. Humans inside the footprint are shoved away on
 Per node the move period is `max(3, (g*2 + 4) << catapult)` ticks with `g` the 4-bit ground speed
 class stored beside the size class in the node record, which is the map's `lmpr` roughness, re-read at
 every node reached, plus a laden cart's drag (Open Northland addition, owner's feature, `drag.ts`):
-a handcart loses up to half its speed and a cart an animal draws (the harnessed form of a type
-with `draggingAnimalTribe`) up to a quarter, in proportion to how full the hold is (whole percent,
+a handcart loses up to 60% of its speed and a cart an animal draws (the harnessed form of a type
+with `draggingAnimalTribe`) up to 15%, in proportion to how full the hold is (whole percent,
 the period lengthened by `loss / (100 - loss)` and rounded to whole ticks), whoever moves it,
 a commander or the carrier or trader pulling it; an empty cart, a ship and the catapult lose nothing; each tick adds `(period + 9999) / period`
 to a per-node counter that completes at 10000, and the map position moves at 5000. The catapult is

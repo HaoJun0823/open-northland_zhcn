@@ -37,7 +37,7 @@ import { interactionCell } from '../settlers/targets/index.js';
 import { LendableTally, storageLendable } from '../settlers/targets/stores/storage-reserve.js';
 import { isUnreachableGoal, unreachableGoals } from '../settlers/unreachable-goals.js';
 import { mayFetchGoodFrom } from '../stores/index.js';
-import { parkHaulingCart } from '../vehicles/hauling-cart.js';
+import { haulingCartLiftTicks, parkHaulingCart } from '../vehicles/hauling-cart.js';
 import { activeAgreement } from './agreements.js';
 import { sameFoodClass } from './goods.js';
 import { cartStands, type TraderHold, traderHoldOf } from './hold.js';
@@ -153,7 +153,7 @@ function workStop(plan: PlannerContext, hold: TraderHold, stopHouse: Entity, wor
         e,
         atomicId,
         { kind: 'tradeLoad', from: house, goodType: work.good },
-        atomicDuration(ctx.content, plan, atomicId),
+        haulingCartLiftTicks(world, ctx.content, e, atomicDuration(ctx.content, plan, atomicId)),
         house,
       );
       return;
@@ -163,7 +163,7 @@ function workStop(plan: PlannerContext, hold: TraderHold, stopHouse: Entity, wor
       e,
       PILEUP_ATOMIC_ID,
       { kind: 'tradeUnload', store: work.into, goodType: work.good },
-      atomicDuration(ctx.content, plan, PILEUP_ATOMIC_ID),
+      haulingCartLiftTicks(world, ctx.content, e, atomicDuration(ctx.content, plan, PILEUP_ATOMIC_ID)),
       work.into,
     );
   });

@@ -26,7 +26,7 @@ import { isCarrierJobRow, isTrader } from '../readviews/jobs.js';
 import { addCarry, shrinkCarry } from '../settlers/atomics/effects/goods/carry.js';
 import { pickupFromStore, pileupIntoStore } from '../settlers/atomics/effects/goods/transfer.js';
 import { attachToVehicle, doorReachable, passengerJobAllowed, placeOnNode } from './crew.js';
-import { cartSpeedLossPercent, isCartType } from './drag.js';
+import { cartLiftTicks, cartSpeedLossPercent, isCartType } from './drag.js';
 import { endDrive, isOpenLand } from './movement.js';
 import { tradeVehicleStock, vehicleLineCap } from './stock.js';
 
@@ -175,9 +175,9 @@ export function haulingCartHolds(world: World, content: ContentSet, settler: Ent
 /**
  * Stand the cart beside the carrier for a lift: the carrier at a heap, a shelf or a store's door sets the
  * cart down on the nearest open land, its load stowed in the hold, and works units between the two one
- * clip each (`haulLoad` / `haulUnload` atomics, the planner's hauling-cart rung) until the lift is done,
- * then takes the cart up again. Original behavior of the trader loading its cart, borrowed for the
- * carrier (named addition).
+ * lift each (`haulLoad` / `haulUnload` atomics timed by {@link haulingCartLiftTicks}, the planner's
+ * hauling-cart rung) until the lift is done, then takes the cart up again. Original behavior of the
+ * trader loading its cart, borrowed for the carrier (named addition).
  */
 export function beginCartLift(world: World, ctx: MapContext, settler: Entity, lift: HaulingLift): void {
   const held = world.tryGet(settler, HaulingCart);
@@ -401,6 +401,18 @@ export function haulingCartRoom(world: World, content: ContentSet, settler: Enti
  */
 export function carryCapacityOf(world: World, content: ContentSet, settler: Entity): number {
   return pullsHaulingCart(world, settler) ? haulingCartRoom(world, content, settler) : CARRY_CAPACITY;
+}
+
+/** The ticks `settler` takes to lift one unit into or out of its hauling cart ({@link cartLiftTicks}),
+ *  the lifting clip lasting `clipTicks`; the clip unchanged without a cart. */
+export function haulingCartLiftTicks(
+  world: World,
+  content: ContentSet,
+  settler: Entity,
+  clipTicks: number,
+): number {
+  const type = haulingCartType(world, content, settler);
+  return type === undefined || !isCartType(type) ? clipTicks : cartLiftTicks(content, type, clipTicks);
 }
 
 /**

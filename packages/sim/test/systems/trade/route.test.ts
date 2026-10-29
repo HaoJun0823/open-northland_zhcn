@@ -690,6 +690,30 @@ describe('a trader between its own houses', () => {
     expect(sim.traderView(trader)?.cart).toBeNull();
   });
 
+  it('lifts a unit into its handcart faster than into its hands', () => {
+    const liftTicks = (place: (sim: Simulation, x: number) => Entity): Set<number> => {
+      const sim = newSim();
+      const near = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 10]]);
+      const far = houseAt(sim, FAR_X, HUMAN, []);
+      const trader = place(sim, NEAR_X);
+      woodRoute(sim, trader, near, far);
+      const seen = new Set<number>();
+      for (let tick = 0; tick < RUN_TICKS; tick++) {
+        sim.step();
+        const atomic = sim.world.tryGet(trader, CurrentAtomic);
+        const kind = atomic?.effect.kind;
+        if (atomic !== undefined && (kind === 'tradeLoad' || kind === 'tradeUnload'))
+          seen.add(atomic.duration);
+      }
+      return seen;
+    };
+    const byHand = [...liftTicks(traderOnFoot)];
+    const byCart = [...liftTicks(traderAt)];
+    expect(byHand.length).toBeGreaterThan(0);
+    expect(byCart.length).toBeGreaterThan(0);
+    expect(Math.max(...byCart)).toBeLessThan(Math.min(...byHand));
+  });
+
   it('pulls its cart between the stops and stands it within five steps of the house it works', () => {
     const sim = newSim();
     const near = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 10]]);

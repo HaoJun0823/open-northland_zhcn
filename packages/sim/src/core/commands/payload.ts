@@ -347,6 +347,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
       landscapeId: 'integer',
       force: 'boolean',
       overUpgradeGround: 'boolean',
+      waivedGround: { arrayOf: { fields: { required: { ...NODE, obstacle: 'count', walls: 'count' } } } },
     },
   },
   convertPalisadeGate: { required: { palisade: 'integer', gfxIndex: 'integer' } },

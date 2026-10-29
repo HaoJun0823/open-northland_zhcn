@@ -1,6 +1,7 @@
 import { footprintCellDx } from '@open-northland/data';
 import {
   MAP_AI_WALL_LIST_LIMIT,
+  type MapAiWallGround,
   type MapAiWallRecord,
   ownerOf,
   Palisade,
@@ -16,12 +17,10 @@ import { ownedSettlers } from '../ai-shared/seat-roster.js';
 import type { SystemContext } from '../context.js';
 import { lineGroundOpen } from '../footprint/line-ground.js';
 import { placementBlockerGrid } from '../footprint/placement/blocker-grid.js';
-import { palisadeType } from '../palisades/index.js';
+import { palisadePlacementProbe, palisadeType, placementWalkOf } from '../palisades/index.js';
 import { entityNode } from '../spatial/nodes.js';
+import { REBUILD_NEAR_POINTS } from './rebuild.js';
 
-/** How close an enemy fighter keeps a wall from going up, and how close one of the seat's people must
- *  stand to it, in map points. Original behavior. */
-export const WALL_REBUILD_NEAR_POINTS = 40;
 /** Wall sites the handler raises a pass at most. Original behavior. */
 export const WALL_REBUILD_PASS_LIMIT = 10;
 
@@ -44,10 +43,8 @@ export function wallList(
     const at = world.get(e, Position);
     const { hx, hy } = nodeOfPosition(at.x, at.y);
     const gfxIndex = wall.gate?.open === true ? wall.gate.counterpartGfxIndex : wall.gfxIndex;
-    const standing = groundLoad(world, ctx, terrain, gfxIndex, hx, hy);
-    if (standing === null) continue;
-    // The wall's own body stamp leaves with it; what else stood there may stand there again.
-    const ground = standing - (palisadeType(terrain, gfxIndex)?.walk.length ?? 0);
+    const ground = groundUnder(world, ctx, terrain, gfxIndex, hx, hy);
+    if (ground === null) continue;
     const distance = centre === null ? 0 : hexDistanceBetween(hx, hy, centre.hx, centre.hy);
     found.push({ record: { gfxIndex, tribe: wall.tribe, hx, hy, ground }, distance, entity: e });
   }
@@ -56,12 +53,12 @@ export function wallList(
 }
 
 /**
- * A wall site for each remembered wall or gate whose anchor no wall covers and whose ground holds no more
- * than it held beside the wall on the first turn, at most {@link WALL_REBUILD_PASS_LIMIT} a pass, when no
- * enemy fighter and one of the seat's people stands within {@link WALL_REBUILD_NEAR_POINTS}. The site
- * goes where the map stood the wall, over the deposit or the neighbouring segment the map stood it on;
- * a building or wall raised there since keeps it out. Original behavior for the walls; a gate is raised
- * again as a shut gate site (project rule).
+ * A wall site for each remembered wall or gate whose anchor no wall covers and whose body holds, node by
+ * node, no more than it held beside the wall on the first turn, at most {@link WALL_REBUILD_PASS_LIMIT} a
+ * pass, when no enemy fighter and one of the seat's people stands within {@link REBUILD_NEAR_POINTS}. The
+ * site goes where the map stood the wall, over the deposit or the neighbouring segment the map stood it
+ * on, and the command waives only that ground, so a building or wall raised there since keeps it out.
+ * Original behavior for the walls; a gate is raised again as a shut gate site (project rule).
  */
 export function wallRebuildOrders(
   world: World,
@@ -85,10 +82,10 @@ export function wallRebuildOrders(
     if (!tribes.includes(wall.tribe)) continue;
     if (!terrain.inBounds(wall.hx, wall.hy) || (palisadeBody[wall.hy * terrain.width + wall.hx] ?? 0) > 0)
       continue;
-    const load = groundLoad(world, ctx, terrain, wall.gfxIndex, wall.hx, wall.hy);
-    if (load === null || load > wall.ground) continue;
-    if (nearestRaiderWithin(raiders, wall.hx, wall.hy, WALL_REBUILD_NEAR_POINTS, null) !== null) continue;
-    if (!people.some((at) => hexDistanceBetween(at.x, at.y, wall.hx, wall.hy) <= WALL_REBUILD_NEAR_POINTS))
+    const probe = palisadePlacementProbe(world, ctx.content, terrain, wall.gfxIndex, false, wall.ground);
+    if (probe === null || !probe.canPlace(wall.hx, wall.hy)) continue;
+    if (nearestRaiderWithin(raiders, wall.hx, wall.hy, REBUILD_NEAR_POINTS, null) !== null) continue;
+    if (!people.some((at) => hexDistanceBetween(at.x, at.y, wall.hx, wall.hy) <= REBUILD_NEAR_POINTS))
       continue;
     commands.push({
       kind: 'placePalisade',
@@ -98,28 +95,29 @@ export function wallRebuildOrders(
       tribe: wall.tribe,
       owner: seat,
       underConstruction: true,
-      force: true,
+      ...(wall.ground.length > 0 ? { waivedGround: wall.ground } : {}),
     });
     if (commands.length === WALL_REBUILD_PASS_LIMIT) break;
   }
   return commands;
 }
 
-/** The blocker and wall stamps on the body of `gfxIndex` anchored at (hx, hy), or null when the row is no
- *  wall or a body node is off the map, unwalkable or holds a solid resource. */
-function groundLoad(
+/** The body nodes of `gfxIndex` anchored at (hx, hy) holding blocker or other walls' stamps beside the wall
+ *  standing there, or null when the row is no wall or a body node is off the map, unwalkable or holds a
+ *  solid resource. */
+function groundUnder(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   gfxIndex: number,
   hx: number,
   hy: number,
-): number | null {
-  const body = palisadeType(terrain, gfxIndex)?.walk;
-  if (body === undefined) return null;
+): MapAiWallGround[] | null {
+  const type = palisadeType(terrain, gfxIndex);
+  if (type === undefined) return null;
   const { obstacle, palisadeBody } = placementBlockerGrid(world, ctx.content, terrain);
-  let load = 0;
-  for (const c of body) {
+  const ground: MapAiWallGround[] = [];
+  for (const c of placementWalkOf(terrain, type)) {
     const x = hx + footprintCellDx(hy, c);
     const y = hy + c.dy;
     if (!terrain.inBounds(x, y) || !terrain.isWalkable(terrain.nodeAt(x, y))) return null;
@@ -127,7 +125,9 @@ function groundLoad(
     // wall, even where it stamps no blocker.
     if (!lineGroundOpen(world, ctx.content, x, y)) return null;
     const slot = y * terrain.width + x;
-    load += (obstacle[slot] ?? 0) + (palisadeBody[slot] ?? 0);
+    // The wall's own body stamp leaves with it; what else stood there may stand there again.
+    const held = { x, y, obstacle: obstacle[slot] ?? 0, walls: Math.max(0, (palisadeBody[slot] ?? 0) - 1) };
+    if (held.obstacle > 0 || held.walls > 0) ground.push(held);
   }
-  return load;
+  return ground;
 }

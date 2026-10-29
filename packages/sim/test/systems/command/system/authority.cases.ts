@@ -417,6 +417,7 @@ describe('CommandSystem - command authority', () => {
         { ...place, valency: 40 },
         { ...place, landscapeId: 0 },
         { ...place, underConstruction: false },
+        { ...place, waivedGround: [{ x: 6, y: 6, obstacle: 1, walls: 1 }] },
       ];
       for (const command of cheats) {
         sim.enqueue(parseCommandEnvelope({ v: 2, origin: 'player', player: MINE, command }));

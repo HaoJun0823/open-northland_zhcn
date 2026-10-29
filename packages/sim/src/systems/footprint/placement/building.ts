@@ -88,13 +88,15 @@ function bodyTouchesGrass(
 /** A wall needs only its own cells: walkable ground clear of every body, whether a building, resource,
  * signpost or another wall. It keeps no margin, so a line runs between trees and stones and up to a
  * building's wall. With `overUpgradeGround` it may stand where a building only keeps room for its
- * upgrade, which razes it when it starts. Project rule. */
+ * upgrade, which razes it when it starts. Project rule. `allowance` names, per slot, the stamps a site
+ * may stand over. */
 export function canPlacePalisadeAnchor(
   grid: PlacementGrid,
   body: readonly FootprintCell[],
   x: number,
   y: number,
   overUpgradeGround = false,
+  allowance?: (slot: number) => { readonly obstacle: number; readonly walls: number } | undefined,
 ): boolean {
   const { terrain, obstacle, palisadeBody, upgradeReserve } = grid;
   for (const c of body) {
@@ -102,8 +104,9 @@ export function canPlacePalisadeAnchor(
     const cy = y + c.dy;
     if (!terrain.inBounds(cx, cy) || !terrain.isWalkable(terrain.nodeAt(cx, cy))) return false;
     const slot = cy * terrain.width + cx;
-    const waived = overUpgradeGround ? (upgradeReserve[slot] ?? 0) : 0;
-    if ((obstacle[slot] ?? 0) > waived || (palisadeBody[slot] ?? 0) > 0) return false;
+    const allowed = allowance?.(slot);
+    const waived = (overUpgradeGround ? (upgradeReserve[slot] ?? 0) : 0) + (allowed?.obstacle ?? 0);
+    if ((obstacle[slot] ?? 0) > waived || (palisadeBody[slot] ?? 0) > (allowed?.walls ?? 0)) return false;
   }
   return true;
 }

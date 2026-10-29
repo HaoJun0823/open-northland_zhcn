@@ -165,7 +165,7 @@ function isGateRow(terrain: TerrainGraph, gfxIndex: number): boolean {
 }
 
 /** Only trusted origins may place finished buildings or supply authored placement options. The map AI
- *  forces a wall site onto the ground the map stood the seat's wall on. */
+ *  waives the ground the map stood the seat's wall on. */
 function hasAuthoredOptions(
   command: PlaceBuildingCommand | Extract<PlayerCommand, { kind: 'placePalisade' }>,
   mapAi: boolean,
@@ -175,7 +175,8 @@ function hasAuthoredOptions(
       command.underConstruction === false ||
       command.valency !== undefined ||
       command.landscapeId !== undefined ||
-      (command.force !== undefined && !mapAi)
+      command.force !== undefined ||
+      (command.waivedGround !== undefined && !mapAi)
     );
   return (
     command.underConstruction === false ||

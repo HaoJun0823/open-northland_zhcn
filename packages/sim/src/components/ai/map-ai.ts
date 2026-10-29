@@ -61,9 +61,16 @@ export interface MapAiWallRecord {
   /** The anchor's half-cell node. */
   hx: number;
   hy: number;
-  /** The blocker and other walls' stamps on its body on the first turn: a deposit or a neighbouring
-   *  segment the map stood it over, which do not keep it from going up again. */
-  ground: number;
+  /** The body nodes the map stood it over a deposit or a neighbouring segment, with their blocker and
+   *  other walls' stamps on the first turn: what does not keep it from going up again. */
+  ground: MapAiWallGround[];
+}
+
+export interface MapAiWallGround {
+  x: number;
+  y: number;
+  obstacle: number;
+  walls: number;
 }
 
 export interface MapAiDefaultPosition {

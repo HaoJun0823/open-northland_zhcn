@@ -274,9 +274,10 @@ The cart is a work tool, not a harness:
   or the cart's set-down parts the carrier from it.
 - **One yard a trip.** A store's porter whose cart has room after a lift fills it from the nearest
   heap or finished output of the same good within `CART_TOP_UP_REACH` (12 nodes) of where it stands,
-  and only then goes home; nothing that close, or no store left that takes the good, means it delivers
-  what it has rather than crossing the village for a second heap (approximation: reach from the
-  porter, so a yard clears heap by heap).
+  and only then goes home; nothing that close, or its own store no longer taking the good, means it
+  delivers what it has rather than crossing the village for a second heap (approximation: reach from
+  the porter, so a yard clears heap by heap). Like any porter it lifts only goods its own store takes,
+  never a load for another store.
 - **Breaks park it.** Whatever takes the carrier off its trade (a meal, a bed, a prayer, a chat, the
   alarm, a flight from a threat, a marriage, an equipment errand) parks the cart on the nearest open
   land where the carrier stands, the load stowed in the hold (`parkHaulingCart`, `tradeVehicleStock`,

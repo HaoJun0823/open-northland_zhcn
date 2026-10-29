@@ -47,6 +47,13 @@ const GOOD_RECIPE_ALIASES: Readonly<Record<string, string>> = {
   good_tools_wooden: 'tool_wooden',
 };
 /**
+ * Goods no recipe is named after, painted with another good's. Project choice: coin, which the original
+ * draws as an unpainted brown stack, wears the gold recipe so the coins it is minted into read as gold.
+ */
+const BORROWED_GOOD_RECIPES: Readonly<Record<string, string>> = {
+  coin: 'good_gold',
+};
+/**
  * Good recipes drawn in another ramp. Project choice: `good_gold` paints the gold load in `colors yellow`,
  * whose dark shades, the ones the load is mostly drawn in, read as a brown roof tile.
  */
@@ -77,9 +84,9 @@ const squash = (name: string): string => name.replaceAll('_', '');
 
 /**
  * The good each `good_<X>` recipe colours a carrier of: the good whose id equals X ignoring case and
- * underscores, else every good whose id starts with `X_`, else the named alias. The cart recipes stay
- * out, since the driving figure applies them. A good matched by two recipes keeps the first in file
- * order.
+ * underscores, else every good whose id starts with `X_`, else the named alias; a good none of them
+ * matches may borrow another good's recipe. The cart recipes stay out, since the driving figure applies
+ * them. A good matched by two recipes keeps the first in file order.
  */
 export function goodPaletteRecipes(
   recipes: readonly RandomPaletteRecipe[],
@@ -104,6 +111,13 @@ export function goodPaletteRecipes(
       claimed.add(good.typeId);
       out.push({ good: good.typeId, recipe: name });
     }
+  }
+  const names = new Set(recipes.map((r) => r.name));
+  for (const good of goods) {
+    const recipe = BORROWED_GOOD_RECIPES[good.id];
+    if (recipe === undefined || claimed.has(good.typeId) || !names.has(recipe)) continue;
+    claimed.add(good.typeId);
+    out.push({ good: good.typeId, recipe });
   }
   return out;
 }

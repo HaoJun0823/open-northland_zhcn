@@ -138,12 +138,17 @@ describe('buildHumanPalettes', () => {
     expect(lane.jobChanges[0]).toEqual({ tribe: 1, job: 25, recipe: 'vik_man_changejob' });
   });
 
-  it('points the gold good at a copy of its recipe painting the gold ramp', async () => {
+  it('points gold and coin at a copy of the gold recipe painting the gold ramp', async () => {
     const goldRecipe = { name: 'good_gold', patches: [ramp(14, 'colors grey'), ramp(15, 'colors grey')] };
-    const lane = await buildHumanPalettes(
-      sources({ recipes: [...recipes(), goldRecipe], goods: [{ typeId: 7, id: 'gold' }] }),
-    );
-    expect(lane.goodRecipes).toEqual([{ good: 7, recipe: 'good_gold in player 02a' }]);
+    const goods = [
+      { typeId: 7, id: 'gold' },
+      { typeId: 8, id: 'coin' },
+    ];
+    const lane = await buildHumanPalettes(sources({ recipes: [...recipes(), goldRecipe], goods }));
+    expect(lane.goodRecipes).toEqual([
+      { good: 7, recipe: 'good_gold in player 02a' },
+      { good: 8, recipe: 'good_gold in player 02a' },
+    ]);
     expect(lane.recipes.find((r) => r.name === 'good_gold in player 02a')?.patches).toEqual([
       ramp(14, 'player 02a'),
       ramp(15, 'player 02a'),

@@ -60,7 +60,8 @@ export const LIGHT_LOOKS: Readonly<Record<LightKind, LightLook>> = {
 /**
  * How much of the night a light-bearer's own figure keeps lit, tuned by eye: a settler or vehicle shows
  * part of its daylight colours, a house its lower walls more, fading toward the roof. Shares of the lit
- * mask, scaled like a pool by the night and, for a house, by {@link lightShare}.
+ * mask, scaled by the night and, for a house, by {@link lightOn}: its walls hold steady while its pool
+ * flickers, so a flicker repacks no quads.
  */
 export const BEARER_GLOW = 0.65;
 export const HOUSE_GLOW = 0.9;
@@ -91,14 +92,20 @@ export function lightFlicker(look: LightLook, seed: number, gameSeconds: number)
   return 1 - look.flicker * (0.5 + 0.5 * wave);
 }
 
-/** A light's share of its strength under a night `level` (0 day, 1 full night): staggered lights come
- *  on one by one through the dusk, every light flickers by its look. */
-export function lightShare(kind: LightKind, seed: number, level: number, gameSeconds: number): number {
+/** How far a light is on under a night `level` (0 day, 1 full night): staggered lights come on one by
+ *  one through the dusk, the others with the night. */
+export function lightOn(kind: LightKind, seed: number, level: number): number {
   if (level <= 0) return 0;
   const look = LIGHT_LOOKS[kind];
-  const from = look.staggered ? LIGHT_UP_SPREAD * frac(seed, LIGHT_UP_DRAW) : 0;
-  const on = look.staggered ? smoothstep(from, from + LIGHT_UP_RAMP, level) : level;
-  return on === 0 ? 0 : on * lightFlicker(look, seed, gameSeconds);
+  if (!look.staggered) return level;
+  const from = LIGHT_UP_SPREAD * frac(seed, LIGHT_UP_DRAW);
+  return smoothstep(from, from + LIGHT_UP_RAMP, level);
+}
+
+/** A light's share of its strength under a night `level`: {@link lightOn}, flickering by its look. */
+export function lightShare(kind: LightKind, seed: number, level: number, gameSeconds: number): number {
+  const on = lightOn(kind, seed, level);
+  return on === 0 ? 0 : on * lightFlicker(LIGHT_LOOKS[kind], seed, gameSeconds);
 }
 
 /** A frame's lights over grow-only records, so refilling it allocates per new light, not per frame. */

@@ -68,12 +68,13 @@ settler in daylight. We read the author's intent instead:
   (`world-renderer/offscreen-world.ts`): the unlit world multiplies by a light map cleared to the
   grade, with a low warm pool at the foot of each finished house and a brighter flickering pool with a
   visible flame at each map object drawn with the `fire` palette (`light-sites.ts`). Settlers and
-  vehicles with an owner, and the houses, stamp their own figures into a lit mask over their bodies
-  (`sprite-pool/night-glow.ts`): a figure keeps part of its daylight colours with no light on the
-  ground around it, and a house's walls glow from its foot, fading toward the roof. What the painter
-  draws in front covers a stamp again. Houses light up one by one through the dusk and flicker
-  slightly. The house palettes draw windows and doors with the same wood and plaster ramps as the
-  beams and walls, so the glow follows the whole figure rather than its openings.
+  vehicles with an owner, and the houses, mark their own body layers lit: the world's programs write
+  a lit mask beside the colour in the same draw (`lighting/night-mask.ts`), so a figure keeps part of
+  its daylight colours with no light on the ground around it, a house's walls glow from its foot,
+  fading toward the roof, and what the painter draws in front covers a mark again. Houses light up one
+  by one through the dusk; their walls hold steady while their pools flicker slightly. The house
+  palettes draw windows and doors with the same wood and plaster ramps as the beams and walls, so the
+  glow follows the whole figure rather than its openings.
 - The graphics setting "Night lights" (`nightLights`) turns the composite off: the night then draws
   as the flat shown grade, with no pools, flames or lit figures.
 - Every other index stays on the terrain as its palette colour divided by the scene's multiply, so

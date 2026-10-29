@@ -245,6 +245,7 @@ export class WorldRenderer {
       app,
       this.scene,
       this.worldLayer,
+      this.spriteLayer,
       upscale?.filter ?? 'sharp',
       upscale?.resolution ?? Number.POSITIVE_INFINITY,
     );
@@ -261,7 +262,6 @@ export class WorldRenderer {
     const covering = this.chrome.quads().filter((quad) => quad.visible);
     for (const child of covering) child.visible = false;
     this.sceneLight.shadeForPicture(true);
-    this.pool.showNightGlow(false);
     try {
       return this.app.renderer.extract.canvas({
         target: this.scene,
@@ -273,7 +273,6 @@ export class WorldRenderer {
     } finally {
       for (const child of covering) child.visible = true;
       this.sceneLight.shadeForPicture(false);
-      this.pool.showNightGlow(true);
     }
   }
 
@@ -597,7 +596,7 @@ export class WorldRenderer {
     this.lights.clear();
     // The level the last frame drew: the grade fades within the light's own update below.
     const nightLevel = this.enhancements.nightLights ? this.sceneLight.nightLevel() : 0;
-    this.pool.lightNight(nightLevel, gameSeconds, this.lights);
+    this.pool.lightNight(nightLevel, this.lights);
     if (nightLevel > 0) this.mapObjects.collectLights(vp, this.lights, this.fog.exploredGate);
     this.sceneLight.update({
       screenW,

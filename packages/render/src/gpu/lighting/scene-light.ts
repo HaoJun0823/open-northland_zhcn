@@ -13,7 +13,7 @@ import { LIGHT_LOOKS, type LightSite, lightShare } from '../../data/lighting/lig
 import { type LightGrade, NEUTRAL_GRADE } from '../../data/lighting/types.js';
 import type { Camera } from '../../data/projection/iso.js';
 import type { NightComposite } from '../world-renderer/offscreen-world.js';
-import { ensureNightBlends, NIGHT_GLOW_BLEND } from './night-blend.js';
+import { ensureNightBlend, NIGHT_GLOW_BLEND } from './night-blend.js';
 
 /**
  * The scene grade: a map script's whole-map vertex tint drawn over everything the stage drew below
@@ -22,7 +22,7 @@ import { ensureNightBlends, NIGHT_GLOW_BLEND } from './night-blend.js';
  * `OVERBRIGHT_SHARE` of their excess, about a multiply at mid-tones, which cannot wash out. At night
  * the offscreen world composites instead (`world-renderer/offscreen-world.ts`): the unlit world
  * multiplies by a light map cleared to the grade, with a warm pool round each house and fire, and what
- * a light-bearer stamped lit (`sprite-pool/night-glow.ts`) by {@link NIGHT_LIT_COLOUR}, so the settlers
+ * a light-bearer marked lit (`lighting/night-mask.ts`) by {@link NIGHT_LIT_COLOUR}, so the settlers
  * and the lower walls of the houses keep part of their daylight colours with no light on the ground
  * round a walker, and each fire shows a flame. Screen sprites, never a `Filter` on the world layer
  * (see `world-renderer/post-fx.ts`).
@@ -185,7 +185,7 @@ export class SceneLight {
     this.placeLights(frame, level);
     this.night = null;
     if (level > 0 && renderer !== undefined && frame.camera !== undefined) {
-      ensureNightBlends(renderer);
+      ensureNightBlend(renderer);
       const map = this.mapSized(renderer, screenW, screenH);
       this.clearColor[0] = Math.min(1, r);
       this.clearColor[1] = Math.min(1, g);

@@ -4,12 +4,14 @@ import {
   Geometry,
   Mesh,
   RendererType,
+  RenderTarget,
   RenderTexture,
   Shader,
   Texture,
   UniformGroup,
   type WebGLRenderer,
 } from 'pixi.js';
+import { renderMasked } from '../lighting/night-mask.js';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art/magnify.js';
 import { type GlslProgramSource, glProgramFor } from '../shaders/program-source.js';
 
@@ -32,6 +34,8 @@ in vec2 vUV;
 out vec4 finalColor;
 uniform sampler2D uFrame;
 uniform sampler2D uLight;
+// The night's lit mask in red, texel for texel with the frame (see lighting/night-mask.ts).
+uniform sampler2D uMask;
 // x: 0 sharp, 1 xBR; y: world texels per device pixel.
 uniform vec2 uUpscale;
 // rgb: what a lit texel multiplies by; a: 1 while the night composite is on.
@@ -46,8 +50,10 @@ void main(void) {
     finalColor = world;
     return;
   }
-  // The frame's alpha is the night's lit mask: 1 unlit, down to 0 where a light-bearer showed.
-  vec3 light = mix(texture(uLight, vUV).rgb, uLit.rgb, 1.0 - world.a);
+  // A flame lowers the frame's alpha where it shows undarkened.
+  ivec2 texel = clamp(ivec2(p), ivec2(0), textureSize(uMask, 0) - 1);
+  float lit = max(texelFetch(uMask, texel, 0).r, 1.0 - world.a);
+  vec3 light = mix(texture(uLight, vUV).rgb, uLit.rgb, lit);
   finalColor = vec4(world.rgb * light, 1.0);
 }`;
 
@@ -56,6 +62,9 @@ export const OFFSCREEN_WORLD_SOURCE: GlslProgramSource = {
   vertex: VERTEX,
   fragment: FRAGMENT,
 };
+
+/** The stage's black background, which the lit mask clears to as unlit. */
+const FRAME_CLEAR: [number, number, number, number] = [0, 0, 0, 1];
 
 type FrameUniforms = UniformGroup & {
   readonly uniforms: {
@@ -95,15 +104,21 @@ export class OffscreenWorld {
    *  scale such as 1.3 leaves unequal to the screen's. */
   private frameWidth = 0;
   private frameHeight = 0;
+  /** The night's lit mask beside {@link frame}, and the target drawing both; made by the first night. */
+  private mask: RenderTexture | null = null;
+  private masked: RenderTarget | null = null;
   private detached = false;
+  /** The scene's children over the world, gathered per night frame. */
+  private readonly over: Container[] = [];
 
   /** `resolution` is the world's texels per CSS pixel on a denser canvas; Infinity never upscales.
-   *  `world` is the child of `scene` the lit mask covers; the children over it draw without touching
-   *  the mask. */
+   *  `world` is the child of `scene` the night composite lights, and `lit` the render group within it
+   *  whose light-bearers write the lit mask; the children over `world` draw without touching it. */
   constructor(
     private readonly app: Application,
     private readonly scene: Container,
     private readonly world: Container,
+    private readonly lit: Container,
     filter: 'sharp' | 'xbr',
     private readonly resolution: number,
   ) {
@@ -114,7 +129,12 @@ export class OffscreenWorld {
     }) as FrameUniforms;
     this.shader = new Shader({
       glProgram: glProgramFor(OFFSCREEN_WORLD_SOURCE),
-      resources: { frame: this.uniforms, uFrame: Texture.EMPTY.source, uLight: Texture.WHITE.source },
+      resources: {
+        frame: this.uniforms,
+        uFrame: Texture.EMPTY.source,
+        uLight: Texture.WHITE.source,
+        uMask: Texture.EMPTY.source,
+      },
     });
     const geometry = new Geometry({
       attributes: { aPosition: { buffer: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), format: 'float32x2' } },
@@ -150,6 +170,7 @@ export class OffscreenWorld {
       if (night === null) {
         u.uLit[3] = 0;
         this.shader.resources.uLight = Texture.WHITE.source;
+        this.dropMask();
       } else {
         [u.uLit[0], u.uLit[1], u.uLit[2]] = night.lit;
         u.uLit[3] = 1;
@@ -161,17 +182,27 @@ export class OffscreenWorld {
   }
 
   /**
-   * Draw the world, then what `scene` draws over it with alpha writes off: the weather and the screen
-   * chrome draw opaque or blended quads that would raise the lit mask back to 1 everywhere. Undocumented
-   * Pixi behaviour, verified on pixi.js 8.22, re-verify on a bump: Pixi sets the colour mask only through
-   * its cached `ColorMaskSystem`, which no draw over the world here changes.
+   * Draw the world with its lit mask, then what `scene` draws over it with alpha writes off: the weather
+   * and the screen chrome draw opaque or blended quads that would raise the frame's alpha, which a
+   * flame lowers, back to 1 everywhere. Undocumented Pixi behaviour, verified on pixi.js 8.22, re-verify
+   * on a bump: Pixi sets the colour mask only through its cached `ColorMaskSystem`, which no draw over
+   * the world here changes.
    */
   private renderLit(frame: RenderTexture): void {
     const renderer = this.app.renderer;
-    const over = this.scene.children.filter((child) => child !== this.world && child.visible);
+    const over = this.over;
+    over.length = 0;
+    for (const child of this.scene.children) if (child !== this.world && child.visible) over.push(child);
     for (const child of over) child.visible = false;
     try {
-      renderer.render({ container: this.scene, target: frame, clear: true });
+      if (renderer.type === RendererType.WEBGL) {
+        const target = this.maskedTarget(frame);
+        renderMasked(renderer as WebGLRenderer, this.lit, () =>
+          renderer.render({ container: this.scene, target, clear: true, clearColor: FRAME_CLEAR }),
+        );
+      } else {
+        renderer.render({ container: this.scene, target: frame, clear: true });
+      }
     } finally {
       for (const child of over) child.visible = true;
     }
@@ -188,7 +219,38 @@ export class OffscreenWorld {
     }
   }
 
+  /** The target drawing `frame` with the lit mask beside it, re-made with the frame. */
+  private maskedTarget(frame: RenderTexture): RenderTarget {
+    const held = this.masked;
+    if (held !== null && held.colorTexture === frame.source) return held;
+    this.dropMask();
+    const mask = RenderTexture.create({
+      width: Math.max(1, this.frameWidth),
+      height: Math.max(1, this.frameHeight),
+      resolution: frame.source.resolution,
+      format: 'r8unorm',
+      antialias: false,
+    });
+    mask.source.scaleMode = 'nearest';
+    const masked = new RenderTarget({ colorTextures: [frame.source, mask.source], isRoot: true });
+    this.mask = mask;
+    this.masked = masked;
+    this.shader.resources.uMask = mask.source;
+    return masked;
+  }
+
+  /** Free the lit mask, rebinding the quad first: a source destroyed while still bound makes Pixi warn. */
+  private dropMask(): void {
+    if (this.mask === null) return;
+    this.shader.resources.uMask = Texture.EMPTY.source;
+    this.masked?.destroy();
+    this.masked = null;
+    this.mask.destroy(true);
+    this.mask = null;
+  }
+
   destroy(): void {
+    this.dropMask();
     const geometry = this.present.geometry;
     this.shader.destroy();
     this.present.destroy();
@@ -206,6 +268,7 @@ export class OffscreenWorld {
     }
     this.app.stage.addChildAt(this.scene, this.app.stage.getChildIndex(this.present) + 1);
     // A night's frame on a canvas that draws the world natively is not held through the day.
+    this.dropMask();
     this.shader.resources.uFrame = Texture.EMPTY.source;
     this.frame?.destroy(true);
     this.frame = null;
@@ -222,6 +285,7 @@ export class OffscreenWorld {
       return held;
     }
     // Rebind before destroying: a source destroyed while still bound makes Pixi warn.
+    this.dropMask();
     const frame = this.makeFrame(width, height, resolution);
     this.frame = frame;
     this.shader.resources.uFrame = frame.source;

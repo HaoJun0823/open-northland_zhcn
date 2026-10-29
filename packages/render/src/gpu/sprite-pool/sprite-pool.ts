@@ -2,7 +2,7 @@ import type { SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { Container, type Sprite } from 'pixi.js';
 import { BloodCoats } from '../../data/effects/blood-coats.js';
 import type { GhostSource } from '../../data/fog/index.js';
-import { BEARER_GLOW, HOUSE_GLOW, type LightSiteList, lightShare } from '../../data/lighting/light-sites.js';
+import { BEARER_GLOW, HOUSE_GLOW, type LightSiteList, lightOn } from '../../data/lighting/light-sites.js';
 import {
   type Camera,
   cameraScreenX,
@@ -52,7 +52,7 @@ import { cullBox, type KindReaches, kindReaches } from './cull-reach.js';
 import { GroundPileCover } from './ground-pile-cover.js';
 import { damageScaffoldLayers } from './layers/building.js';
 import { resolvesWithoutClock } from './layers/resolve.js';
-import { NightGlow } from './night-glow.js';
+import { NightBearers } from './night-bearers.js';
 import {
   anchorOf,
   boundsOf,
@@ -314,30 +314,25 @@ export class SpritePool {
    * settler outside a house or an owned vehicle lights its own figure, a finished house its walls and a
    * pool round its feet, appended to `out`. Wildlife, sites, fog ghosts and settlers inside stay dark.
    */
-  lightNight(level: number, gameSeconds: number, out: LightSiteList): void {
-    this.nightGlow.begin();
+  lightNight(level: number, out: LightSiteList): void {
+    this.nightBearers.begin();
     if (level > 0) {
       for (const pe of this.attached) {
         const item = pe.bound.item;
         if (item === undefined || item.ghost === true || item.portraitOnly === true) continue;
         if (item.kind === 'settler' || item.kind === 'vehicle') {
           if (item.player !== undefined && item.inHouse !== true)
-            this.nightGlow.stamp(pe, level * BEARER_GLOW, false);
+            this.nightBearers.mark(pe, level * BEARER_GLOW, false);
         } else if (item.kind === 'building' && item.builtPct === undefined) {
-          const share = lightShare('building', item.ref, level, gameSeconds);
-          if (share <= 0) continue;
-          this.nightGlow.stamp(pe, share * HOUSE_GLOW, true);
+          const on = lightOn('building', item.ref, level);
+          if (on <= 0) continue;
+          this.nightBearers.mark(pe, on * HOUSE_GLOW, true);
           const { x, y } = pe.container.position;
           out.push('building', item.ref, x, y);
         }
       }
     }
-    this.nightGlow.end();
-  }
-
-  /** Whether the night's stamps draw: a picture of the scene without the night composite hides them. */
-  showNightGlow(visible: boolean): void {
-    this.nightGlow.setVisible(visible);
+    this.nightBearers.end();
   }
 
   private drawDamage(frame: PoolFrame): void {
@@ -372,7 +367,7 @@ export class SpritePool {
   private readonly portrait: PortraitSubject;
   private readonly binder: LayerBinder;
   private readonly selectionEffects: SelectionEffects;
-  private readonly nightGlow: NightGlow;
+  private readonly nightBearers = new NightBearers();
   private readonly bloodCoats = new BloodCoats();
   private readonly epoch = new FrameEpoch();
   /** What each kind can draw around its anchor; a kind absent here is culled by the scene's box alone. */
@@ -408,7 +403,6 @@ export class SpritePool {
   ) {
     this.resourceBinding = sheet?.bindings.resource;
     this.selectionEffects = new SelectionEffects(textures);
-    this.nightGlow = new NightGlow(textures);
     this.portrait = new PortraitSubject(spriteLayer);
     this.binder = new LayerBinder(textures, sheet, stakes, roads);
     this.reaches = kindReaches(sheet);
@@ -983,7 +977,6 @@ export class SpritePool {
       zoom: inset.camera.scale ?? 1,
     });
     this.selectionEffects.setVisible(false);
-    this.nightGlow.setVisible(false);
     this.placePaletted(inset.camera, inset.width, inset.height);
     this.portrait.show(subjects);
     const soloKeep = this.portrait.beginSolo(subjects);
@@ -993,7 +986,6 @@ export class SpritePool {
       this.portrait.endSolo();
       this.portrait.hide(subjects);
       this.selectionEffects.setVisible(true);
-      this.nightGlow.setVisible(true);
       this.placePaletted(main.camera, main.width, main.height);
     }
   }
@@ -1056,7 +1048,6 @@ export class SpritePool {
         if (item.ref === view.solo) solo = pe.container;
       }
       this.selectionEffects.setVisible(false);
-      this.nightGlow.setVisible(false);
       this.placePaletted(view.camera, view.width, view.height);
       this.sheet?.palette?.flush();
       const soloLayer = solo?.parent ?? this.spriteLayer;
@@ -1066,7 +1057,6 @@ export class SpritePool {
       if (stash !== null) restoreStash(stash);
       for (const pe of borrowed) pe.container.removeFromParent();
       this.selectionEffects.setVisible(true);
-      this.nightGlow.setVisible(true);
       this.placePaletted(main.camera, main.width, main.height);
     }
   }

@@ -15,6 +15,7 @@ import {
 } from '@open-northland/sim';
 import { forEachPlacement } from '../../content/map/placements.js';
 import {
+  buildingRecordOf,
   buildingTribeOf,
   buildingTypeOf,
   isBuilding,
@@ -24,13 +25,19 @@ import {
 import type { StaticDrawSurface } from './harvestable-handover.js';
 import type { SightDeferral } from './sight-deferral.js';
 
-/** The slice of a building type the clearing reads: each tribe's walk-block cells. */
+/** The slice of a building type the clearing reads: each tribe's and each house record's walk-block
+ *  cells. */
 export interface FootprintBuildingType {
   readonly typeId: number;
   readonly footprint?: Pick<BuildingFootprint, 'blocked'> | undefined;
   readonly tribeVariants: readonly {
     readonly tribe: number;
     readonly footprint?: Pick<BuildingFootprint, 'blocked'> | undefined;
+  }[];
+  readonly recordFootprints?: readonly {
+    readonly tribe: number;
+    readonly editName: string;
+    readonly footprint: Pick<BuildingFootprint, 'blocked'>;
   }[];
 }
 
@@ -88,7 +95,10 @@ export function bindFootprintClearing<Sprite>(
     if (type === undefined || pos === undefined) return;
     const def = buildingsByType.get(type);
     const cells =
-      (def === undefined ? undefined : buildingFootprintFor(def, buildingTribeOf(building)))?.blocked ?? [];
+      (def === undefined
+        ? undefined
+        : buildingFootprintFor(def, buildingTribeOf(building), buildingRecordOf(building))
+      )?.blocked ?? [];
     const { hx, hy } = nodeOfPosition(pos.x, pos.y);
     for (const cell of cells) clearAt(hx + footprintCellDx(hy, cell), hy + cell.dy);
   };

@@ -162,6 +162,9 @@ interface AuthoredPlaceBuildingFields {
   /** A decoded map's `sethouse` level. It stands only on a type whose `[GfxHouse]` record draws it above
    *  the type's own rung (a wonder's stage); any other type keeps its rung. */
   readonly level?: number;
+  /** A decoded map's `sethouse` record name. It stands only where the record carries a footprint of its
+   *  own for the type and tribe; otherwise the type's default footprint applies. */
+  readonly record?: string;
 }
 
 /** A `placeBuilding` a seat issues: the authored-setup options are unrepresentable. */

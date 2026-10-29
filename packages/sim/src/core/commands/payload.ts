@@ -5,6 +5,7 @@ import {
   ASSISTANT_COUNTER_KINDS,
   ASSISTANT_GRANT_AUDIENCES,
 } from '../../components/assistant.js';
+import { HOUSE_RECORD_NAME_MAX_CHARS } from '../../components/economy/infrastructure.js';
 import { MISC_EQUIP_SLOTS } from '../../components/equipment.js';
 import { MAX_MATCH_GOALS, type MatchGoal } from '../../components/match.js';
 import {
@@ -335,6 +336,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
       fillStock: 'boolean',
       initialGoods: { arrayOf: { fields: { required: { good: 'integer', amount: 'integer' } } } },
       level: 'integer',
+      record: { string: HOUSE_RECORD_NAME_MAX_CHARS },
       paper: PAPER,
     },
   },

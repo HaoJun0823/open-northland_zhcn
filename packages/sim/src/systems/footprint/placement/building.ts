@@ -178,9 +178,10 @@ export function placementProbe(
   terrain: TerrainGraph,
   buildingType: number,
   tribe: number | undefined,
+  record?: string,
 ): PlacementProbe {
   const building = contentIndex(content).buildings.get(buildingType);
-  const footprint = building === undefined ? undefined : buildingFootprintFor(building, tribe);
+  const footprint = building === undefined ? undefined : buildingFootprintFor(building, tribe, record);
   const buildOnBioPattern = needsBioGround(world, building?.buildOnBioPattern);
   if (footprint === undefined) {
     return { canPlace: (x, y) => canPlaceWithoutFootprint(world, terrain, buildOnBioPattern, x, y) };

@@ -1436,7 +1436,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       lifeHeartsFor,
       experienceStarsFor,
       canPlaceAt,
-      defenceRangeAt: (typeId, tribe, col, row) => defenceRadiusAt(host.content, typeId, tribe, col, row),
+      defenceRangeAt: (typeId, tribe, col, row) =>
+        defenceRadiusAt(host.content, { buildingType: typeId, tribe }, col, row),
       blessingRangeFor: (typeId) => templeAuraRadius(host.content, typeId),
       canPlaceSignpostAt,
       soundDriver,

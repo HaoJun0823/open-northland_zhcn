@@ -372,6 +372,12 @@ export function buildingTribeOf(e: SnapshotEntity): number | undefined {
   return num(b?.tribe);
 }
 
+/** The map-placed house record a building stands on the footprint of, when it has one of its own. */
+export function buildingRecordOf(e: SnapshotEntity): string | undefined {
+  const record = (e.components.Building as { record?: unknown } | undefined)?.record;
+  return typeof record === 'string' ? record : undefined;
+}
+
 /** Fixed-point construction progress, where `ONE` is finished. */
 export function builtFractionOf(e: SnapshotEntity): number | undefined {
   const b = e.components.Building as { built?: unknown } | undefined;

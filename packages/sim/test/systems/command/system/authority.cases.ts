@@ -273,6 +273,7 @@ describe('CommandSystem - command authority', () => {
       authorizedCommand(sim.world, parseCommandEnvelope({ v: 2, origin: 'player', player: MINE, command }));
     expect(seat(placement)).toBeDefined();
     expect(seat({ ...placement, level: 2 })).toBeUndefined();
+    expect(seat({ ...placement, record: 'viking sawmill' })).toBeUndefined();
     expect(authorizedCommand(sim.world, setupCommand({ ...placement, level: 2 }))).toMatchObject({
       level: 2,
     });

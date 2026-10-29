@@ -289,8 +289,11 @@ export interface PickModeDeps {
   /** The same rule asked as the pick's click lands, which it orders by; absent, it orders nothing. */
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
   readonly askPlaceSignpostAt?: ((col: number, row: number) => Promise<boolean>) | undefined;
-  /** The signpost rule's last answer, which the cursor's ghost shows; absent, every spot fits. */
-  readonly canPlaceSignpostAt?: ((col: number, row: number) => boolean) | undefined;
+  /** The signpost, trade-stop and vehicle attach rules' last answers, undefined while unanswered, which
+   *  the label beside the cursor reads; it names the press optimistically without one. */
+  readonly signpostAnswerAt?: ((col: number, row: number) => boolean | undefined) | undefined;
+  readonly tradeHouseAttachAnswer?: ((trader: number, house: number) => boolean | undefined) | undefined;
+  readonly vehicleAttachAnswer?: ((settler: number, vehicle: number) => boolean | undefined) | undefined;
   /** Feedback for a signpost click whose verdict arrives after the synchronous pointer handler. */
   readonly cue?: ((cue: UiCue) => void) | undefined;
   /** Where the orders a host answer decides wait for it. */
@@ -775,11 +778,19 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     if (mode === null) return null;
     const world = deps.toWorld(clientX, clientY);
     switch (mode.kind) {
+      case 'trade-house': {
+        // The press asks every trader about any house, and takes it onto the route of each admitted.
+        const building = buildingAt(clientX, clientY, 'trade-house');
+        if (building === null) return null;
+        const fits =
+          deps.askAttachTradeHouse !== undefined &&
+          mode.units.some((trader) => deps.tradeHouseAttachAnswer?.(trader, building) !== false);
+        return { kind: 'building', pick: 'trade-house', building, fits, school: false };
+      }
       case 'workplace':
       case 'home':
       case 'building-site':
       case 'learning-place':
-      case 'trade-house':
       case 'workplace-or-flag': {
         const pick = buildingPickOf(mode) ?? 'workplace';
         const judged = judgedAim(clientX, clientY);
@@ -801,7 +812,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       }
       case 'signpost': {
         const node = clampedNode(clientX, clientY);
-        return { kind: 'signpost', fits: deps.canPlaceSignpostAt?.(node.col, node.row) ?? true };
+        return { kind: 'signpost', fits: deps.signpostAnswerAt?.(node.col, node.row) !== false };
       }
       case 'vehicle-destination': {
         const self = entityById(deps.snapshot(), mode.vehicle);
@@ -826,8 +837,10 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       case 'vehicle-attack-vehicle':
         return strikeAim(enemyAt(deps.targets, world, [VEHICLE_STRIKE_KIND[mode.kind]]));
       case 'vehicle': {
-        const judged = judgedAim(clientX, clientY);
-        return judged === null ? null : { kind: 'board', fits: judged.fits };
+        const vehicle = ownVehicleAt(deps.targets, world);
+        return vehicle === null
+          ? null
+          : { kind: 'board', fits: deps.vehicleAttachAnswer?.(mode.settler, vehicle) !== false };
       }
       case 'vehicle-rider':
         // The attach rule is asked as the press lands, so the seat is offered until it answers.

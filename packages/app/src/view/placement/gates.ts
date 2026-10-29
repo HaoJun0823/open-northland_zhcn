@@ -79,6 +79,8 @@ export interface PlacementGates extends PlacementClickGates {
     owner?: number,
   ) => boolean;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
+  /** `canPlaceSignpostAt`, undefined while the node's answer is on its way rather than refused. */
+  readonly signpostAnswerAt: (col: number, row: number) => boolean | undefined;
   /** With `overUpgradeGround`, ground a building keeps for its upgrade takes a wall too. */
   readonly canPlacePalisadeAt: (
     gfxIndex: number,
@@ -98,6 +100,8 @@ export interface PlacementGates extends PlacementClickGates {
   readonly probes: PlacementProbeViews;
   /** {@link PlacementClickGates.askMooring}'s last answer; undefined while it is being answered. */
   readonly mooring: (vehicle: number) => MooringRule | null | undefined;
+  /** Bumped when a grid or mooring answer lands or changes. */
+  readonly answersVersion: () => number;
   dispose(): void;
 }
 
@@ -256,6 +260,11 @@ export function createPlacementGates(
       return verdict === null || verdict === true;
     },
     canPlaceSignpostAt: (col, row) => fogGates.seesNode(col, row) && signpost().at(col, row) === true,
+    signpostAnswerAt: (col, row) => {
+      if (!fogGates.seesNode(col, row)) return false;
+      const verdict = signpost().at(col, row);
+      return verdict === undefined ? undefined : verdict === true;
+    },
     canPlacePalisadeAt: (gfxIndex, col, row, overUpgradeGround) =>
       fogGates.seesNode(col, row) && palisade(gfxIndex).at(col, row, overUpgradeGround) === true,
     palisadeBuiltAt: (owner, col, row) => {
@@ -309,6 +318,7 @@ export function createPlacementGates(
       const probe = mooring(vehicle);
       return probe === undefined ? undefined : seenMooring(probe);
     },
+    answersVersion: () => grids.version + moorings.version,
     probes: {
       building,
       signpost,

@@ -259,7 +259,9 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     askAttachTradeHouse: opts.askAttachTradeHouse,
     onTradeRefused: refuseTradeHouse,
     askPlaceSignpostAt: opts.askPlaceSignpostAt,
-    canPlaceSignpostAt: opts.canPlaceSignpostAt,
+    signpostAnswerAt: opts.signpostAnswerAt,
+    tradeHouseAttachAnswer: opts.tradeHouseAttachAnswer,
+    vehicleAttachAnswer: opts.vehicleAttachAnswer,
     cue,
     answered,
     ...(opts.attachPicksVersion !== undefined ? { answersVersion: opts.attachPicksVersion } : {}),
@@ -452,6 +454,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
       opts.viewer.version,
       opts.jobChoicesVersion,
       ...(opts.attachPicksVersion !== undefined ? [opts.attachPicksVersion] : []),
+      ...(opts.placementAnswersVersion !== undefined ? [opts.placementAnswersVersion] : []),
     ],
     blocked: (x, y) =>
       opts.hintSuppressed?.() === true ||

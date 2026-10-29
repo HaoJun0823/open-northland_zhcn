@@ -6,7 +6,7 @@ import type { Pickable } from '../../../src/view/picking.js';
 import { createAnsweredOrders } from '../../../src/view/unit-controls/orders/answered.js';
 import { createUnitOrderController } from '../../../src/view/unit-controls/orders/controller.js';
 import type { VehicleOrderController } from '../../../src/view/unit-controls/orders/vehicle.js';
-import { createPickModeController } from '../../../src/view/unit-controls/pick-mode.js';
+import { createPickModeController, type PickModeDeps } from '../../../src/view/unit-controls/pick-mode.js';
 import { createUnitSelection } from '../../../src/view/unit-controls/selection.js';
 import { NO_TARGETS } from '../../support/pick-mode.js';
 import { snapshotOf } from '../../support/snapshot.js';
@@ -19,6 +19,7 @@ const FOE = 30;
 const DEER = 40;
 const SHIP = 50;
 const CART = 51;
+const HOUSE = 60;
 /** The client point every press and aim names; a target drawn there is under the cursor. */
 const AT = 10;
 const SPOT = { col: 3, row: 5 };
@@ -38,9 +39,12 @@ const drawnHere = (ref: number, kind: NonNullable<Pickable['kind']>): Pickable =
 });
 
 function harness(
-  lanes: { enemies?: Pickable[]; wildlife?: Pickable[]; vehicles?: Pickable[] } = {},
+  lanes: { enemies?: Pickable[]; wildlife?: Pickable[]; vehicles?: Pickable[]; buildings?: Pickable[] } = {},
   vehicleOrders: Partial<VehicleOrderController> = {},
-  canPlaceSignpostAt?: (col: number, row: number) => boolean,
+  answers: Pick<
+    PickModeDeps,
+    'signpostAnswerAt' | 'tradeHouseAttachAnswer' | 'vehicleAttachAnswer' | 'askAttachTradeHouse'
+  > = {},
 ) {
   const issued: Command[] = [];
   const selection = createUnitSelection(() => true);
@@ -50,6 +54,7 @@ function harness(
     enemies: () => lanes.enemies ?? [],
     wildlife: () => lanes.wildlife ?? [],
     owned: () => lanes.vehicles ?? [],
+    buildings: () => lanes.buildings ?? [],
     ownedSettlersIn: () => [{ ref: SOLDIER, ...halfCellToScreen(4, 4) }],
   };
   const toWorld = (clientX: number, clientY: number) => ({ x: clientX, y: clientY });
@@ -77,7 +82,7 @@ function harness(
     orders: () => orders,
     vehicleOrders: () => vehicleOrders as VehicleOrderController,
     setArmedCursor: () => {},
-    canPlaceSignpostAt,
+    ...answers,
   });
   const press = () => pickMode.handleMouseDown({ clientX: AT, clientY: AT, button: 0 } as MouseEvent);
   return { pickMode, issued, press, aim: (primary = false) => pickMode.aimAt(AT, AT, primary) };
@@ -115,14 +120,57 @@ describe('an armed pick aims as its press orders', () => {
 
   it('refuses a signpost where the rule turns the spot down, and nothing while disarmed', () => {
     const asked: { col: number; row: number }[] = [];
-    const h = harness({}, {}, (col, row) => {
-      asked.push({ col, row });
-      return false;
-    });
+    const h = harness(
+      {},
+      {},
+      {
+        signpostAnswerAt: (col, row) => {
+          asked.push({ col, row });
+          return false;
+        },
+      },
+    );
     expect(h.aim()).toBeNull();
     h.pickMode.arm({ kind: 'signpost', scout: SOLDIER });
     expect(h.aim()).toEqual({ kind: 'signpost', fits: false });
     expect(asked).toEqual([SPOT]);
+  });
+
+  it('offers the press whose rule has not answered yet, since the press still asks it', () => {
+    const unanswered = () => undefined;
+    const h = harness(
+      { vehicles: [drawnHere(CART, 'vehicle')], buildings: [drawnHere(HOUSE, 'building')] },
+      {},
+      {
+        signpostAnswerAt: unanswered,
+        tradeHouseAttachAnswer: unanswered,
+        vehicleAttachAnswer: unanswered,
+        askAttachTradeHouse: async () => true,
+      },
+    );
+    h.pickMode.arm({ kind: 'signpost', scout: SOLDIER });
+    expect(h.aim()).toEqual({ kind: 'signpost', fits: true });
+    h.pickMode.arm({ kind: 'trade-house', units: [SOLDIER] });
+    expect(h.aim()).toMatchObject({ kind: 'building', building: HOUSE, fits: true });
+    h.pickMode.arm({ kind: 'vehicle', settler: SOLDIER });
+    expect(h.aim()).toEqual({ kind: 'board', fits: true });
+  });
+
+  it('refuses a trade stop and a seat once every answer turned them down', () => {
+    const refused = () => false;
+    const h = harness(
+      { vehicles: [drawnHere(CART, 'vehicle')], buildings: [drawnHere(HOUSE, 'building')] },
+      {},
+      {
+        tradeHouseAttachAnswer: refused,
+        vehicleAttachAnswer: refused,
+        askAttachTradeHouse: async () => false,
+      },
+    );
+    h.pickMode.arm({ kind: 'trade-house', units: [SOLDIER] });
+    expect(h.aim()).toMatchObject({ kind: 'building', building: HOUSE, fits: false });
+    h.pickMode.arm({ kind: 'vehicle', settler: SOLDIER });
+    expect(h.aim()).toEqual({ kind: 'board', fits: false });
   });
 
   it('refuses a deck load onto a ship the vehicle rule turns down', () => {

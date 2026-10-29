@@ -1068,7 +1068,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       askMooring: placementGates.askMooring,
       mooring: placementGates.mooring,
       askPlaceSignpostAt: placementGates.askPlaceSignpostAt,
-      canPlaceSignpostAt,
+      signpostAnswerAt: placementGates.signpostAnswerAt,
+      placementAnswersVersion: placementGates.answersVersion,
       boundsOf: (ref) => {
         const sprite = deps.staticHarvestableSprite?.(ref);
         return sprite === undefined ? renderer.entityBounds(ref) : mapObjectBounds(sprite, host.tick);

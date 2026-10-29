@@ -148,8 +148,10 @@ export interface UnitControlsOptions {
   readonly noteTradeRefused?: (owner: number, at: HalfCellNode | null) => void;
   /** Fresh signpost placement verdict for a click; absent refuses the placement. */
   readonly askPlaceSignpostAt?: (col: number, row: number) => Promise<boolean>;
-  /** The signpost rule's last answer, which the signpost pick's label reads. */
-  readonly canPlaceSignpostAt?: (col: number, row: number) => boolean;
+  /** The signpost rule's last answer, undefined while unanswered, which the signpost pick's label reads. */
+  readonly signpostAnswerAt?: (col: number, row: number) => boolean | undefined;
+  /** Bumped when a signpost or mooring answer lands or changes, which re-reads the label. */
+  readonly placementAnswersVersion?: () => number;
   /** The sim's vehicle attach rule (`SessionHost.vehiclesAttachableBy`) as its last answer, which lights
    *  the "Assign Vehicle" pick's targets; absent, the pick lights nothing. */
   readonly canAttachToVehicle?: (settler: number, vehicle: number) => boolean;

@@ -10,14 +10,10 @@ import {
 } from '../../../game/snapshot/index.js';
 import type { Tile } from '../../picking.js';
 import { homeHasFamilyRoom, staffingOf } from '../highlights/index.js';
+import { schoolStudents } from '../panels/school-dialog.js';
 import type { BuildingIntent, BuildingWorker } from '../right-click/building-rungs.js';
 import { contentLookups, type RightClickContext } from '../right-click/context.js';
-import {
-  type RightClickInput,
-  type RightClickOrders,
-  resolveRightClick,
-  resolveRightClickOrders,
-} from '../right-click/press.js';
+import { type RightClickInput, type RightClickOrders, resolveRightClick } from '../right-click/press.js';
 import type { RiderPlan } from '../right-click/riders.js';
 import type { SettlerGroup } from '../right-click/settler-ladder.js';
 import { isShip, type VehicleGroup, type VehiclePlan } from '../right-click/vehicles.js';
@@ -132,9 +128,7 @@ export function planHint(ctx: HintContext, input: RightClickInput): PlanHint | n
       const { vehicle, settlers } = plan.attach;
       if (vehicleFull(ctx, vehicle, settlers)) return refusal('noRoom');
       const refused = settlers.every((settler) => ctx.answers.vehicleAttach(settler, vehicle) === false);
-      return refused
-        ? ordersHint(ctx, resolveRightClickOrders(ctx, input, plan.onBuilding))
-        : action('board');
+      return refused ? refusal('cannotBoard') : action('board');
     }
     case 'orders':
       return ordersHint(ctx, plan);
@@ -158,8 +152,18 @@ function ordersHint(ctx: HintContext, plan: RightClickOrders): PlanHint | null {
   if (plan.settlers.kind === 'orders')
     for (const group of plan.settlers.groups) parts.push(...settlerParts(ctx, group));
   parts.push(...riderParts(ctx, plan.riders));
-  parts.push(...vehicleParts(ctx, plan.vehicles));
+  if (vehiclesDrive(ctx, plan.riders)) parts.push(...vehicleParts(ctx, plan.vehicles));
   return mainOf(parts);
+}
+
+/** A trade toggle of the selected carts' riders takes the click from the carts, which drive only once
+ *  nobody was detached and the sim refused every rider asked. */
+function vehiclesDrive(ctx: HintContext, riders: RiderPlan): boolean {
+  if (riders.kind !== 'tradeHouse') return true;
+  return (
+    riders.detach.length === 0 &&
+    riders.ask.every((trader) => ctx.answers.tradeHouseAttach(trader, riders.house) === false)
+  );
 }
 
 /** The largest order that goes ahead; with none going ahead, the largest refusal. */
@@ -275,10 +279,12 @@ function buildingParts(ctx: HintContext, intent: BuildingIntent, count: number):
     if (units > 0) parts.push({ count: units, hint });
   };
   switch (intent.kind) {
-    case 'school':
+    case 'school': {
       add(intent.crew.length, action(crewVerb(intent.building)));
-      add(intent.learners.length, action('learn'));
+      const learners = intent.learners.map((unit) => unit.ref);
+      add(schoolStudents(ctx.content, ctx.snapshot, learners).length, action('learn'));
       break;
+    }
     case 'building':
       add(intent.crew.length, action(crewVerb(intent.building)));
       add(intent.trainees.length, action('train'));

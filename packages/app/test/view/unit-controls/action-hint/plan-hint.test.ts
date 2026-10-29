@@ -1,4 +1,4 @@
-import { ONE } from '@open-northland/sim';
+import { ONE, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { JOB_IDLE } from '../../../../src/catalog/jobs.js';
 import { HUMAN_PLAYER } from '../../../../src/game/rules.js';
@@ -35,10 +35,16 @@ const GATHERERS_ONLY = buildingType('work_joinery_00');
 /** A home for one family. */
 const HUT = BUILDING_HOME_00;
 const TRADER_JOB = 25;
+const SCHOOL = ((): number => {
+  const school = CONTENT.buildings.find((row) => systems.isSchoolType(row));
+  if (school === undefined) throw new Error('the sandbox has no school');
+  return school.typeId;
+})();
 
 const BUILDING = 100;
 const CART = 200;
 const SHIP = 201;
+const SECOND_CART = 202;
 const STAFF = 300;
 const TILE = { col: 6, row: 8 };
 
@@ -190,12 +196,39 @@ describe('the right-click hint', () => {
     });
     const rider = settler(2, JOB_IDLE);
     const onCart = { ownVehicle: CART };
-    expect(hintOf([rider, vehicle(CART, VEHICLE_HANDCART, [null])], [2], onCart)).toMatchObject(
-      action('board'),
-    );
+    const openCart = vehicle(CART, VEHICLE_HANDCART, [null]);
+    expect(hintOf([rider, openCart], [2], onCart)).toMatchObject(action('board'));
+    expect(hintOf([rider, openCart], [2], onCart, { vehicleAttach: () => false })).toEqual({
+      tone: 'refusal',
+      refusal: 'cannotBoard',
+    });
     expect(hintOf([rider, vehicle(CART, VEHICLE_HANDCART, [{ entity: STAFF }])], [2], onCart)).toEqual({
       tone: 'refusal',
       refusal: 'noRoom',
+    });
+  });
+
+  it('leaves carts whose trader takes the house standing, and drives them once every rider was refused', () => {
+    const trader: Ent = {
+      id: 1,
+      components: { Settler: { jobType: TRADER_JOB }, Owner: { player: HUMAN_PLAYER } },
+    };
+    const foreign = { ...house(SMITHY), components: { ...house(SMITHY).components, Owner: { player: 9 } } };
+    const carts = [vehicle(CART, VEHICLE_HANDCART, [{ entity: 1 }]), vehicle(SECOND_CART, VEHICLE_HANDCART)];
+    const world = [trader, foreign, ...carts];
+    const onHouse = { building: BUILDING };
+    expect(hintOf(world, [CART, SECOND_CART], onHouse)).toMatchObject(action('addToRoute'));
+    expect(hintOf(world, [CART, SECOND_CART], onHouse, { tradeHouseAttach: () => false })).toMatchObject(
+      action('drive'),
+    );
+  });
+
+  it('offers a school only to those who may learn there', () => {
+    expect(hintOf([settler(1, JOB_IDLE), house(SCHOOL)], [1], ON_BUILDING)).toMatchObject(action('learn'));
+    const woman = settler(1, JOB_IDLE, { Female: { female: true } });
+    expect(hintOf([woman, house(SCHOOL)], [1], ON_BUILDING)).toEqual({
+      tone: 'refusal',
+      refusal: 'cannotWorkHere',
     });
   });
 

@@ -246,6 +246,9 @@ export const chsSurfaces = {
       buildingDamage: '建筑损毁',
       buildingDamageTip:
         '破损的屋顶、裸露的梁木、烟雾、火焰和飞溅的碎片。关闭后改用更简单的烟雾，减轻图形负担。',
+      nightLights: '夜间光照',
+      nightLightsTip:
+        '夜晚时，篝火、房屋和居民照亮地图：篝火周围有温暖的光晕，人物和房屋保留部分白天的颜色。关闭后夜晚均匀变暗，减轻图形负担。',
       environmentMotion: '环境动态',
       environmentMotionTip:
         '原版只用一帧静止画面绘制的树木会连同阴影随风摇曳，鱼会平滑地游动，本项目自带植被中的微风也更加平滑。居民和动物保留原版的步伐，原版动画不会增加额外的帧。在载入的存档中，树木保持静止。',

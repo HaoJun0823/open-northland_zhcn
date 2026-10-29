@@ -289,6 +289,9 @@ export const deSurfaces = {
       buildingDamage: 'Gebäudeschäden',
       buildingDamageTip:
         'Beschädigte Dächer, freiliegende Balken, Rauch, Feuer und Trümmer. Ausschalten reduziert die Grafiklast auf einfachen Rauch.',
+      nightLights: 'Nachtlicht',
+      nightLightsTip:
+        'Nachts erhellen Feuer, Häuser und Siedler die Karte: warmer Schein um jedes Feuer, Figuren und Häuser behalten einen Teil ihrer Tagesfarben. Ausschalten ergibt eine gleichmäßig abgedunkelte Nacht und reduziert die Grafiklast.',
       environmentMotion: 'Bewegte Umgebung',
       environmentMotionTip:
         'Bäume, die im Original nur ein Einzelbild haben, wiegen sich samt Schatten im Wind. Fische schwimmen flüssig, und die Bewegung der eigenen Pflanzengrafiken wird geglättet. Siedler und Tiere behalten ihre ursprünglichen Bewegungsschritte; Originalanimationen erhalten keine zusätzlichen Bilder. In geladenen Spielständen stehen Bäume still.',

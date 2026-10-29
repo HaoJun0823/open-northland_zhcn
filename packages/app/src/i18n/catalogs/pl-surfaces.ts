@@ -250,6 +250,9 @@ export const plSurfaces = {
       buildingDamage: 'Zniszczenia budynków',
       buildingDamageTip:
         'Wyrwy w dachach, odsłonięte belki, dym, ogień i odpadające fragmenty. Wyłącz, aby używać prostszego dymu i odciążyć grafikę.',
+      nightLights: 'Światło nocą',
+      nightLightsTip:
+        'Nocą ogniska, domy i osadnicy rozświetlają mapę: okolice ognisk dostają ciepłą poświatę, a postacie i domy zachowują część dziennych barw. Po wyłączeniu noc jest równomiernie przyciemniona, a grafika ma mniej pracy.',
       environmentMotion: 'Ruch otoczenia',
       environmentMotionTip:
         'Drzewa, które oryginał rysuje jedną nieruchomą klatką, kołyszą się na wietrze razem ze swoim cieniem, ryby pływają płynnie, a wiatr w roślinności projektu jest wygładzony. Osadnicy i zwierzęta zachowują krok oryginału, a oryginalne animacje nie dostają dodatkowych klatek. We wczytanym zapisie drzewa stoją nieruchomo.',

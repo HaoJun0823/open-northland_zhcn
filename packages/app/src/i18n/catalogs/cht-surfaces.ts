@@ -246,6 +246,9 @@ export const chtSurfaces = {
       buildingDamage: '建築損壞',
       buildingDamageTip:
         '破損的屋頂、外露的樑柱、煙霧、火焰與飛散的碎片。停用後會改用較簡單的煙霧，減輕圖形負擔。',
+      nightLights: '夜間光照',
+      nightLightsTip:
+        '夜晚時，篝火、房屋與居民照亮地圖：篝火周圍有溫暖的光暈，人物與房屋保留部分白天的色彩。停用後夜晚均勻變暗，減輕圖形負擔。',
       environmentMotion: '環境動態',
       environmentMotionTip:
         '原版只畫成單一靜止影格的樹木會連同陰影隨風搖曳，魚會流暢地游動，本專案植被中的微風也會更平順。居民與動物保留原版的步伐，原版動畫不會增加影格。在讀取的存檔中，樹木保持靜止。',

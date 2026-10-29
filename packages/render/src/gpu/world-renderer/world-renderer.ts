@@ -596,7 +596,7 @@ export class WorldRenderer {
     });
     this.lights.clear();
     // The level the last frame drew: the grade fades within the light's own update below.
-    const nightLevel = this.sceneLight.nightLevel();
+    const nightLevel = this.enhancements.nightLights ? this.sceneLight.nightLevel() : 0;
     this.pool.lightNight(nightLevel, gameSeconds, this.lights);
     if (nightLevel > 0) this.mapObjects.collectLights(vp, this.lights, this.fog.exploredGate);
     this.sceneLight.update({
@@ -606,6 +606,7 @@ export class WorldRenderer {
       camera,
       lights: this.lights.sites,
       renderer: this.app.renderer,
+      nightLights: this.enhancements.nightLights,
     });
     this.marks.draw({
       snapshot,

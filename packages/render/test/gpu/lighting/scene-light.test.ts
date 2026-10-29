@@ -125,6 +125,22 @@ describe('SceneLight at night', () => {
     light.destroy();
   });
 
+  it('draws a flat night without its lights when the settings turn them off', () => {
+    const lights = new LightSiteList();
+    lights.push('fire', 2, 40, 60);
+    const render = vi.fn();
+    const renderer = { resolution: 1, render } as unknown as Renderer;
+    const light = new SceneLight();
+    light.setTarget(NIGHT, true);
+    light.update({ ...frameAt(0), camera, lights: lights.sites, renderer, nightLights: false });
+    const [shade, , flares] = quads(light);
+    expect(render).not.toHaveBeenCalled();
+    expect(light.composite()).toBeNull();
+    expect(shade.tint).toBe(packed(SHOWN_NIGHT));
+    expect(flares.children.some((flare) => flare.visible)).toBe(false);
+    light.destroy();
+  });
+
   it('burns none at sunset, and a snap out of the night puts the flames out', () => {
     const lights = new LightSiteList();
     lights.push('fire', 2, 40, 60);

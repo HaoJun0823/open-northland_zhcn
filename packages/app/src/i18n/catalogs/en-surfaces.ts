@@ -252,6 +252,9 @@ export const enSurfaces = {
       buildingDamage: 'Building damage',
       buildingDamageTip:
         'Broken roofs, exposed beams, smoke, fire and flying fragments. Disable for simpler smoke with less graphics work.',
+      nightLights: 'Night lights',
+      nightLightsTip:
+        'At night fires, houses and settlers light the map: a warm glow round each fire, and figures and houses keep part of their daylight colours. Disable for an evenly darkened night with less graphics work.',
       environmentMotion: 'Environment motion',
       environmentMotionTip:
         "Trees the original draws as one still frame sway in the wind together with their shadow, fish swim smoothly, and the breeze in the project's own vegetation is smoothed. Settlers and animals keep the original stepping, and original animations gain no extra frames. Trees stand still in a restored save.",

@@ -74,6 +74,8 @@ settler in daylight. We read the author's intent instead:
   draws in front covers a stamp again. Houses light up one by one through the dusk and flicker
   slightly. The house palettes draw windows and doors with the same wood and plaster ramps as the
   beams and walls, so the glow follows the whole figure rather than its openings.
+- The graphics setting "Night lights" (`nightLights`) turns the composite off: the night then draws
+  as the flat shown grade, with no pools, flames or lit figures.
 - Every other index stays on the terrain as its palette colour divided by the scene's multiply, so
   the product on screen is what the script asked for. Under a darkening grade a brightening local
   tint (the glow under a fire) keeps a fifth of its excess instead (`LOCAL_GLOW_SHARE`): the fire's
